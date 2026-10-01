@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "language": "English",
+  "seed": 42,
+  "text": "A cache stores results we can reuse. When get user receives a user I D, it checks the cache first. A hit returns immediately. A miss calls the database.",
+  "smoke_text": "A cache stores results we can reuse.",
+  "pronunciations": {
+    "get_user": "get user",
+    "user_id": "user I D"
+  },
+  "voices": [
+    {
+      "id": "serena",
+      "kind": "preset",
+      "model": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+      "speaker": "Serena",
+      "instructions": "Explain code like a patient instructor. Use a calm, conversational tone, clear articulation, a measured pace, and short pauses between ideas."
+    },
+    {
+      "id": "female-instructor",
+      "kind": "designed",
+      "model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+      "instructions": "An adult female English-speaking instructor with a warm, clear voice, a comfortable middle pitch, and a neutral English accent. Speak conversationally at a measured pace. Articulate technical terms precisely, pause between ideas, and use subtle emphasis to distinguish causes, actions, and results."
+    }
+  ]
+}

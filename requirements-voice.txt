@@ -1,0 +1,2 @@
+# Install CPU-only torch and torchaudio from the PyTorch wheel index first.
+qwen-tts==0.1.1

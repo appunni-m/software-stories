@@ -1,0 +1,40 @@
+{
+  "product": "Software Stories",
+  "audience": "Mid-level developers learning an unfamiliar repository",
+  "principle": "Map responsibilities first; generate deeper explanations when explored",
+  "v1": [
+    "Capture immutable local source snapshots and search numbered excerpts",
+    "Generate architecture, feature, change, and follow-up explanations through configured Codex or Claude CLI",
+    "Validate source paths, line ranges, exact quotes, evidence kinds, and scene references",
+    "Compose flow, sequence, branch, state, memory, comparison, and code templates",
+    "Narrate with Serena and Qwen3-TTS 1.7B on the current machine",
+    "Reuse cached explanations and audio",
+    "Play, seek, inspect sources, explore boxes, and ask questions",
+    "Export the same scene timeline and audio as a local MP4",
+    "Explain the project itself as the first journey",
+    "Keep explored chapters beneath their parent with a visible path back",
+    "Browse source files and generate a file-specific narrated walkthrough",
+    "Preserve playback positions in a navigation stack; block duplicate exploration until completion or Back",
+    "Choose semantic visual forms with rationale, source-specific steps, and deterministic motion",
+    "Align visual cues to locally recognized narration words, with honest timing fallback",
+    "Use a fixed full-precision Serena reference with verified Vulkan GPU offloading; retain native CPU speech as a configurable alternative",
+    "Explain software purpose, responsibilities, code structure, and design consequences through source-backed situations",
+    "Use GPT-6 Luna with xhigh reasoning for Codex explanations and version the narrative and model cache identities",
+    "Prioritize clicked responsibilities, cited implementations, and static import context",
+    "Preview the visual language in an interactive component gallery"
+  ],
+  "follow_on": [
+    "Language-aware symbols and call relationships through tree-sitter and language servers",
+    "Optional self-hosted Sourcebot or Zoekt search adapter using free capabilities",
+    "Semantic citation and narrative verification beyond exact source matching",
+    "Incremental source indexing for repositories beyond current scan limits",
+    "Evaluate native voice naturalness with listening feedback and expand alignment to verified forced alignment"
+  ],
+  "constraints": {
+    "extra_paid_services": false,
+    "speech_location": "current machine",
+    "tts_model_size": "1.7B",
+    "renderer": "owned SVG components and timeline; sharp plus FFmpeg for export",
+    "agent_models": "existing configured CLI access, with hosted or locally configured providers"
+  }
+}
