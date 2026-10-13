@@ -94,6 +94,78 @@ export interface SnapshotProgress {
   summary: SnapshotSummary | null;
 }
 
+export type GitComparisonStatus = 'ready' | 'chooseAgain' | 'limited' | 'error';
+export type GitRefSide = 'base' | 'head';
+export type GitRefProblemKind = 'invalid' | 'missing' | 'ambiguous' | 'notCommit';
+export type GitChangeKind = 'added' | 'deleted' | 'modified' | 'renamed' | 'copied' | 'typeChanged' | 'other';
+export type GitEvidenceClassification = 'text' | 'binary' | 'oversized' | 'unsupported' | 'parserUncertain';
+
+export interface GitRefProblem {
+  side: GitRefSide;
+  requested: string;
+  kind: GitRefProblemKind;
+  message: string;
+}
+
+export interface ResolvedGitRef {
+  requested: string;
+  objectId: string;
+}
+
+export interface GitSourceAnchor {
+  revisionId: string;
+  path: string;
+  blobId: string;
+  startLine: number;
+  endLine: number;
+}
+
+export interface GitDiffHunk {
+  baseAnchor: GitSourceAnchor | null;
+  headAnchor: GitSourceAnchor | null;
+  baseChangedRanges: GitChangedRange[];
+  headChangedRanges: GitChangedRange[];
+  baseSymbols: GitSymbolEvidence[];
+  headSymbols: GitSymbolEvidence[];
+  patchExcerpt: string;
+}
+
+export interface GitChangedRange {
+  startLine: number;
+  endLine: number;
+}
+
+export interface GitSymbolEvidence {
+  kind: string;
+  name: string;
+  anchor: GitSourceAnchor;
+}
+
+export interface GitFileChange {
+  kind: GitChangeKind;
+  basePath: string | null;
+  headPath: string | null;
+  classification: GitEvidenceClassification;
+  baseBlobId: string | null;
+  headBlobId: string | null;
+  baseSizeBytes: number | null;
+  headSizeBytes: number | null;
+  hunks: GitDiffHunk[];
+  skippedReason: string | null;
+}
+
+export interface GitComparisonResult {
+  status: GitComparisonStatus;
+  comparisonId: string | null;
+  base: ResolvedGitRef | null;
+  head: ResolvedGitRef | null;
+  refProblem: GitRefProblem | null;
+  changes: GitFileChange[];
+  omittedChangeCount: number;
+  omittedReason: string | null;
+  message: string | null;
+}
+
 export interface SnapshotStart {
   snapshotId: string;
   parentSnapshotId: string | null;
@@ -710,6 +782,14 @@ export async function pickProjectFolder(): Promise<ProjectOpenResult> {
 
 export async function openRecentProject(projectId: string): Promise<ProjectOpenResult> {
   return invoke<ProjectOpenResult>('open_recent_project', { projectId });
+}
+
+export async function compareLocalGitRevisions(
+  projectId: string,
+  baseRef: string,
+  headRef: string,
+): Promise<GitComparisonResult> {
+  return invoke<GitComparisonResult>('compare_local_git_revisions', { projectId, baseRef, headRef });
 }
 
 export async function removeRecentProject(projectId: string): Promise<RecentProject[]> {

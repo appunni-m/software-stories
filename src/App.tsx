@@ -64,8 +64,10 @@ import {
   type SnapshotIndex,
   type IndexProgress,
   type RelationshipKind,
+  type GitComparisonResult,
 } from './lib/commands';
 import { WalkthroughScreen, type ReaderRouteContext } from './Walkthrough';
+import { GitChangesScreen } from './GitChanges';
 import {
   buildGeminiRequestReview,
   cancelGeminiRequest,
@@ -157,6 +159,7 @@ const workspaceIcons: Record<Workspace, typeof Network> = {
   walkthrough: Play,
   'guide-plan': ListChecks,
   'chapter-studio': BookOpen,
+  changes: GitBranch,
 };
 
 const projectResultTitles: Record<ProjectOpenStatus, string> = {
@@ -228,6 +231,11 @@ function App() {
   const [interruptedOperationsUnavailable, setInterruptedOperationsUnavailable] = useState(false);
   const [pendingChapterPreviews, setPendingChapterPreviews] = useState<PendingChapterPreviewSummary[]>([]);
   const [pendingChapterPreviewsUnavailable, setPendingChapterPreviewsUnavailable] = useState(false);
+  const [gitComparisonsByProject, setGitComparisonsByProject] = useState<Record<string, {
+    baseRef: string;
+    headRef: string;
+    result: GitComparisonResult;
+  }>>({});
   const [recoveredPreviewId, setRecoveredPreviewId] = useState<string | null>(null);
   const [recoveryBusyId, setRecoveryBusyId] = useState<string | null>(null);
   const [sourceDocument, setSourceDocument] = useState<SnapshotSource | null>(null);
@@ -1148,6 +1156,9 @@ function App() {
                 <button role="menuitem" data-focus-key="tools-button" onClick={() => chooseWorkspace('chapter-studio')}>
                   <BookOpen size={16} /> <span>Chapter Studio</span>
                 </button>
+                <button role="menuitem" data-focus-key="tools-button" onClick={() => chooseWorkspace('changes')}>
+                  <GitBranch size={16} /> <span>Compare local revisions</span>
+                </button>
               </div>
             )}
           </div>
@@ -1226,7 +1237,7 @@ function App() {
 
         <main className="workspace" id="main-content">
           <div className="workspace-toolbar">
-            <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{currentWorkspace === 'code-lens' ? 'Code Lens' : copy.title.split(' ')[0]}</strong></div>
+            <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{currentWorkspace === 'code-lens' ? 'Code Lens' : currentWorkspace === 'changes' ? 'Changes' : copy.title.split(' ')[0]}</strong></div>
             <div className="toolbar-right">
               <button className="history-button" disabled={!canNavigateBack(navigation)} onClick={navigationActions.back} aria-label="Go back" title="Back · ⌘[">
                 <ArrowLeft size={15} />
@@ -1423,13 +1434,37 @@ function App() {
               />
             ) : currentWorkspace === 'chapter-studio' && selectedSnapshot ? (
               <div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Opening the selected snapshot for Chapter Studio…</span></div>
+            ) : currentWorkspace === 'changes' ? (
+              <GitChangesScreen
+                projectId={currentProject?.projectId ?? null}
+                baseRef={navigation.current.baseRef ?? ''}
+                headRef={navigation.current.headRef ?? ''}
+                selectedChangePath={navigation.current.selectedChangePath}
+                comparison={currentProject ? gitComparisonsByProject[currentProject.projectId] ?? null : null}
+                onRefsChange={(baseRef, headRef) => setNavigation((state) => replaceCurrentRoute(state, {
+                  ...state.current,
+                  baseRef,
+                  headRef,
+                  selectedChangePath: undefined,
+                  focusTarget: undefined,
+                }))}
+                onSelectChange={(selectedChangePath) => setNavigation((state) => replaceCurrentRoute(state, {
+                  ...state.current,
+                  selectedChangePath,
+                }))}
+                onComparison={(projectId, baseRef, headRef, result) => setGitComparisonsByProject((state) => ({
+                  ...state,
+                  [projectId]: { baseRef, headRef, result },
+                }))}
+                onOpenRepository={() => { void openLocalRepository(); }}
+              />
             ) : (
               <WorkflowEmptyState kind="studio" onGoPlan={() => chooseWorkspace('guide-plan')} />
             )}
 
             <footer className="workspace-footer">
               <span>{runtime?.native ? 'Mac app' : 'Desktop preview'} <span className="footer-dot">·</span> {runtime?.version ?? 'Checking shell…'}</span>
-              <span>{selectedSnapshot ? `Immutable local snapshot ${selectedSnapshot.snapshotId.slice(-10)} · ${selectedSnapshot.status === 'partial' ? 'partial capture' : 'complete under policy'}` : currentCapture?.status === 'running' ? 'Capturing bounded repository bytes locally.' : currentProject ? 'No source bytes are read until you create a snapshot.' : 'No repository source is read until you choose a folder and create a snapshot.'}</span>
+              <span>{currentWorkspace === 'changes' ? 'Local Git comparison reads existing commit objects only. No checkout or remote request.' : selectedSnapshot ? `Immutable local snapshot ${selectedSnapshot.snapshotId.slice(-10)} · ${selectedSnapshot.status === 'partial' ? 'partial capture' : 'complete under policy'}` : currentCapture?.status === 'running' ? 'Capturing bounded repository bytes locally.' : currentProject ? 'No source bytes are read until you create a snapshot.' : 'No repository source is read until you choose a folder and create a snapshot.'}</span>
             </footer>
           </section>
         </main>

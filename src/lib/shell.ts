@@ -33,6 +33,11 @@ export const WORKSPACE_COPY: Record<Workspace, { eyebrow: string; title: string;
     title: 'Review every explanation before it becomes a guide.',
     subtitle: 'Inspect claims beside source, make edits, validate, and accept a new revision explicitly.',
   },
+  changes: {
+    eyebrow: 'PROJECT WORKFLOW · LOCAL GIT',
+    title: 'Inspect what changed between two revisions.',
+    subtitle: 'Compare local refs without checking them out, changing your working copy, or contacting a remote.',
+  },
 };
 
 export interface ShellStartupCommands {

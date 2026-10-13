@@ -68,7 +68,8 @@ The complete control-level destinations, keyboard/focus rules, side-effect bound
 | Chapter Studio | Draft / validation errors / valid / accepted / rejected / stale | Section editor, claims, source citations, spoken text, validation findings, revision status | Edit and validate locally. Accept only a valid draft. Reject preserves payload/history. Accepted content is read-only; Edit creates a new draft. |
 | Walkthrough | No accepted chapter / selected chapter / selected section / audio unavailable | Chapter rail, section question, explanation, linked visual, source evidence, transcript, playback state | Previous/Continue or direct section selection changes section deliberately. Hotspot opens exact target. Audio failure leaves transcript and navigation active. |
 | Request Review | No key / manifest preview / awaiting consent / sending / success / cancelled / provider error | Purpose, target, exact paths/excerpts or narration text, current model/disclosure, size estimate, fingerprint, privacy/cost notice | Review itself is local and sends nothing. Only the explicit final confirmation sends the reviewed fingerprint. Any changed input returns to a new manifest review. |
-| PR Guide (follow-up) | No refs / comparison ready / draft / invalid evidence | Selected local base/head IDs, changed files, diff evidence, separate PR draft | Choose a subset of changed files, review exact provider context, then accept/reject separately from repository chapters. |
+| Local Git comparison | No repository / refs incomplete / comparing / ready / bounded / invalid refs | Explicit local base/head refs, resolved commit IDs, classified paths, exact changed-line ranges, bounded hunks, parser-backed declarations, separate base/head anchors | Compare existing local commits only; no fetch, checkout, remote request, or repository write. Uncertain and omitted evidence stays visible; syntax is not runtime impact. |
+| PR Guide (follow-up) | No selected changes / review / draft / invalid evidence | Selected local base/head IDs, changed files, diff evidence, separate PR draft | Choose a subset of changed files, review exact provider context, then accept/reject separately from repository chapters. |
 
 ## Cross-screen transitions
 
@@ -210,7 +211,7 @@ Users can preview or edit the narration before speech generation. Audio is optio
 
 ### Follow-up milestone
 
-- PR Guide using local Git base/head refs, exact diff evidence, and separate reviewed drafts. No GitHub login or remote PR fetch is needed for the initial PR Guide.
+- A local read-only comparison viewer for Git base/head refs is available. Generating reviewed PR Guide drafts from a selected subset of its evidence remains follow-up work; no GitHub login or remote PR fetch is part of that workflow.
 
 ### Not in scope for first release
 

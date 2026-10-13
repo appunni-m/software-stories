@@ -1,4 +1,4 @@
-export const WORKSPACES = ['atlas', 'code-lens', 'walkthrough', 'guide-plan', 'chapter-studio'] as const;
+export const WORKSPACES = ['atlas', 'code-lens', 'walkthrough', 'guide-plan', 'chapter-studio', 'changes'] as const;
 
 export type Workspace = (typeof WORKSPACES)[number];
 
@@ -39,6 +39,10 @@ export interface WorkspaceRoute {
   treeSelection?: string;
   mapViewport?: { x: number; y: number; scale: number };
   focusTarget?: string;
+  /** Explicit local Git refs used by the read-only change comparison workflow. */
+  baseRef?: string;
+  headRef?: string;
+  selectedChangePath?: string;
 }
 
 export interface NavigationState {

@@ -12,6 +12,7 @@ This image is a design concept, not a screenshot of the running app. Product beh
 
 - A Tauri desktop shell with local repository selection, bounded snapshot capture, Atlas, Code Lens, and a Rust index for a defined Rust, TypeScript, TSX, and JavaScript subset.
 - Local file-by-file coverage, Chapter Studio editing and review, immutable JSON chapter revisions, and a manually paced Walkthrough with source-linked citations and typed visual hotspots.
+- A **Compare local revisions** project tool for bounded, read-only comparisons of commits already present in a local Git repository. It shows file classifications, exact changed-line ranges, diff hunks, parser-backed declarations where all available source revisions parse cleanly, and distinct base/head commit and blob identities. It never fetches, checks out, or writes Git state.
 - Walkthrough can export one self-contained HTML file from selected accepted revisions. It previews paths and excerpts, supports section navigation and supported typed diagrams, and can include narration audio already cached on this Mac; it does not include live Atlas/Code Lens destinations.
 - Direct Gemini API paths for file chapters and an optional repository overview. A reviewed request sends only the selected captured context after explicit confirmation; generated content is validated and remains unaccepted until the user saves and reviews it.
 - Optional Gemini text-to-speech for an edited section script. The speech request is reviewed separately and sends the selected script and voice settings, not source excerpts by default.
@@ -59,7 +60,7 @@ Local browsing, capture, indexing, and opening saved chapters do not need an API
 
 ## Project state and trust routes
 
-The full desired experience is still being built. Fine-grained selective regeneration, a user-facing revision compare/restore workflow, polished onboarding, release hardening, and PR explanations remain outstanding. The offline export path is present but has not passed the full offline-package acceptance workflow. Check the blueprint and Kata backlog for the target and outstanding gates.
+The full desired experience is still being built. Fine-grained selective regeneration, a user-facing guide revision compare/restore workflow, polished onboarding, release hardening, relationship impact in Git comparisons, and generated PR explanations remain outstanding. The local Git comparison is evidence browsing only; it does not create or accept a PR Guide. The offline export path is present but has not passed the full offline-package acceptance workflow. Check the blueprint and Kata backlog for the target and outstanding gates.
 
 Older prototypes and their plans are kept under [`deprecated/`](deprecated/). They are archival references; use the root README and `docs/` for the current project.
 

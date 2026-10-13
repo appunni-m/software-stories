@@ -38,6 +38,14 @@ This last command starts a browser-only UI preview at http://127.0.0.1:1420. It 
 6. After reviewing and accepting a chapter, open **Walkthrough**. Select a chapter and section, inspect its citations or visual hotspots, and use **Previous** or **Continue** when you are ready to move. Audio is optional; the transcript and manual controls remain available without it.
 7. To take a guide offline, choose **Offline export** in the Walkthrough footer. Select accepted revisions, review the source paths and excerpts included, optionally include narration audio already cached on this Mac, acknowledge the privacy review, and download the single HTML file. Export never generates or sends narration. The package includes written sections, navigation, and supported typed diagrams; live Atlas and Code Lens destinations remain unavailable offline.
 
+## Compare local revisions
+
+After opening a local Git repository, choose **Compare local revisions** from **Project tools**. A snapshot is not required for this operation. Enter a local branch, tag, unambiguous short ref, or full commit ID for each side, then choose **Compare revisions**. The comparison resolves both refs to immutable commit IDs and reads existing local Git objects only; it does not fetch, check out, or modify the working copy.
+
+Expand a changed file to inspect its bounded diff hunks and exact changed-line ranges. Each hunk identifies its base and head path, commit, and blob separately. When all available source revisions parse without errors, Code Atlas lists declarations whose syntax ranges overlap changed lines; it does not infer runtime impact or attach cross-file relationships. Binary, oversized, unsupported, parser-uncertain, and omitted evidence is labeled instead of being presented as complete text. The browser preview cannot run local Git commands; use the packaged Mac app for comparisons.
+
+This workflow provides change evidence, not an AI explanation or PR Guide. The separate reviewed PR Guide remains planned work.
+
 ## Optional Gemini generation
 
 Local capture, Atlas, Code Lens, existing saved chapters, and chapter editing do not require an API key. To send a generation request:
@@ -57,7 +65,7 @@ Code Atlas cannot determine the billing state, region, eligibility, or quota of 
 - Each selected file is generated and reviewed individually. There is no generate-all action.
 - Generated prose and source identity validation are different checks: a valid citation does not prove that the explanation is semantically correct.
 - Gemini is the only direct text-generation provider in the current source. Other direct APIs and agent backends are planned, not selectable.
-- Fine-grained section regeneration and a user-facing revision compare/restore workflow are still tracked product work. A first offline export path is available, but it has not passed the full offline-package acceptance workflow. Release signing and PR explanations also remain outstanding; read the [Kata backlog](KATA_BACKLOG.md) for task contracts.
+- Fine-grained section regeneration and a user-facing guide revision compare/restore workflow are still tracked product work. Local Git comparison is available as read-only evidence browsing with changed-line ranges and parser-backed declaration names, but it does not attach cross-file relationship impact or generate PR explanations. A first offline export path is available, but it has not passed the full offline-package acceptance workflow. Release signing and PR Guide generation also remain outstanding; read the [Kata backlog](KATA_BACKLOG.md) for task contracts.
 - This checkout has no root license file. Reuse and redistribution terms are unspecified.
 
 ## Where to go next

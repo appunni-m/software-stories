@@ -122,6 +122,25 @@ describe('workspace navigation', () => {
     assert.deepEqual(navigateForward(navigateBack(atlas)).current, atlas.current);
   });
 
+  it('restores the explicit local Git ref pair and selected change after visiting another workspace', () => {
+    const changes = navigateToRoute(initialNavigationState, {
+      workspace: 'changes',
+      projectId: 'project-local',
+      snapshotId: null,
+      baseRef: 'main',
+      headRef: 'feature/session-refresh',
+      selectedChangePath: 'src/session.ts',
+      focusTarget: 'git-change:src/session.ts',
+    });
+    const atlas = navigateToWorkspace(changes, 'atlas');
+
+    assert.equal(navigateBack(atlas).current.workspace, 'changes');
+    assert.equal(navigateBack(atlas).current.baseRef, 'main');
+    assert.equal(navigateBack(atlas).current.headRef, 'feature/session-refresh');
+    assert.equal(navigateBack(atlas).current.selectedChangePath, 'src/session.ts');
+    assert.deepEqual(navigateForward(navigateBack(atlas)).current, atlas.current);
+  });
+
   it('returns from Code Lens to the exact Atlas hotspot, map, tree, and search state', () => {
     const sourceSha256 = 'c'.repeat(64);
     const atlas = navigateToRoute(initialNavigationState, {

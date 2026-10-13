@@ -5,10 +5,10 @@ import ts from 'typescript';
 import { initialNavigationState, navigateBack, navigateForward, navigateToWorkspace } from '../src/lib/navigation.ts';
 import { loadShellStartupData, PRIMARY_WORKSPACES, WORKSPACE_COPY } from '../src/lib/shell.ts';
 
-const allWorkspaces = ['atlas', 'code-lens', 'walkthrough', 'guide-plan', 'chapter-studio'];
+const allWorkspaces = ['atlas', 'code-lens', 'walkthrough', 'guide-plan', 'chapter-studio', 'changes'];
 
 describe('desktop shell acceptance contract', () => {
-  it('starts at Atlas with no selected repository or snapshot and defines all five workflow surfaces', () => {
+  it('starts at Atlas with no selected repository or snapshot and defines the core and local-change surfaces', () => {
     assert.deepEqual(initialNavigationState.current, {
       workspace: 'atlas', projectId: null, snapshotId: null, focusTarget: 'atlas:open-repository',
     });
@@ -22,7 +22,7 @@ describe('desktop shell acceptance contract', () => {
     }
   });
 
-  it('reaches all five workspaces while preserving one project and snapshot selection', () => {
+  it('reaches every workspace while preserving one project and snapshot selection', () => {
     let state = {
       ...initialNavigationState,
       current: { ...initialNavigationState.current, projectId: 'project-1', snapshotId: 'snapshot-1' },
@@ -38,7 +38,7 @@ describe('desktop shell acceptance contract', () => {
     assert.equal(state.current.projectId, 'project-1');
     assert.equal(state.current.snapshotId, 'snapshot-1');
     while (state.forward.length > 0) state = navigateForward(state);
-    assert.equal(state.current.workspace, 'chapter-studio');
+    assert.equal(state.current.workspace, allWorkspaces.at(-1));
   });
 
   it('loads startup data through only the safe shell command boundary and tolerates independent failures', async () => {

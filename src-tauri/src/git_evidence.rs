@@ -22,6 +22,7 @@ const MAX_TOTAL_PATCH_BYTES: usize = 2 * 1024 * 1024;
 const MAX_HUNKS_PER_FILE: usize = 128;
 const MAX_HUNK_TEXT_BYTES: usize = 8 * 1024;
 const MAX_AST_NODES_PER_FILE: usize = 250_000;
+const MAX_SYMBOLS_PER_FILE: usize = 5_000;
 const MAX_PARSE_TIME: Duration = Duration::from_millis(1_500);
 const MAX_COMPARISON_TIME: Duration = Duration::from_secs(30);
 const MAX_GIT_STDERR_BYTES: usize = 16 * 1024;
@@ -123,9 +124,28 @@ pub struct GitFileChange {
 pub struct GitDiffHunk {
     pub base_anchor: Option<GitSourceAnchor>,
     pub head_anchor: Option<GitSourceAnchor>,
+    pub base_changed_ranges: Vec<GitChangedRange>,
+    pub head_changed_ranges: Vec<GitChangedRange>,
+    pub base_symbols: Vec<GitSymbolEvidence>,
+    pub head_symbols: Vec<GitSymbolEvidence>,
     /// Bounded unified context for this hunk. It is evidence text from Git,
     /// not a claim that the changed code has any particular runtime effect.
     pub patch_excerpt: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitChangedRange {
+    pub start_line: u64,
+    pub end_line: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitSymbolEvidence {
+    pub kind: String,
+    pub name: String,
+    pub anchor: GitSourceAnchor,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -160,6 +180,14 @@ struct RawGitChange {
 #[derive(Clone, Debug)]
 struct TextBlob {
     bytes: Vec<u8>,
+}
+
+#[derive(Clone, Debug)]
+struct ParsedGitSymbol {
+    kind: &'static str,
+    name: String,
+    start_line: u64,
+    end_line: u64,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -635,6 +663,7 @@ fn build_file_change(
         hunks: Vec::new(),
         skipped_reason: None,
     };
+    let mut parser_symbols: Option<(Vec<ParsedGitSymbol>, Vec<ParsedGitSymbol>)> = None;
 
     let unsupported_mode = [&raw.base_mode, &raw.head_mode]
         .into_iter()
@@ -705,15 +734,13 @@ fn build_file_change(
             change.skipped_reason = Some("No bundled Tree-sitter grammar supports this file extension; the textual hunk can still be inspected.".to_owned());
         }
         Some(language) => {
-            let base_ok = base_blob
-                .as_ref()
-                .is_none_or(|blob| parser_resolves(language, &blob.bytes));
-            let head_ok = head_blob
-                .as_ref()
-                .is_none_or(|blob| parser_resolves(language, &blob.bytes));
+            let (base_symbols, base_ok) = parsed_symbols_for_blob(base_blob.as_ref(), language);
+            let (head_symbols, head_ok) = parsed_symbols_for_blob(head_blob.as_ref(), language);
             if !base_ok || !head_ok {
                 change.classification = EvidenceClassification::ParserUncertain;
                 change.skipped_reason = Some("Tree-sitter reported syntax errors or reached its bounded parse limit on at least one revision; no parser-backed symbols or relationships are attached.".to_owned());
+            } else {
+                parser_symbols = Some((base_symbols, head_symbols));
             }
         }
     }
@@ -745,7 +772,7 @@ fn build_file_change(
         return Ok(change);
     }
     *total_patch_bytes += patch.len();
-    let (hunks, hunk_limit_hit) = parse_patch_hunks(
+    let (mut hunks, hunk_limit_hit) = parse_patch_hunks(
         &patch,
         base_revision_id,
         head_revision_id,
@@ -754,6 +781,20 @@ fn build_file_change(
         raw.base_blob_id.as_deref(),
         raw.head_blob_id.as_deref(),
     );
+    if let Some((base_symbols, head_symbols)) = parser_symbols {
+        for hunk in &mut hunks {
+            hunk.base_symbols = symbols_for_hunk(
+                &base_symbols,
+                hunk.base_anchor.as_ref(),
+                &hunk.base_changed_ranges,
+            );
+            hunk.head_symbols = symbols_for_hunk(
+                &head_symbols,
+                hunk.head_anchor.as_ref(),
+                &hunk.head_changed_ranges,
+            );
+        }
+    }
     change.hunks = hunks;
     if hunk_limit_hit {
         change.classification = EvidenceClassification::Oversized;
@@ -809,18 +850,28 @@ fn parse_patch_hunks(
     let mut hunks = Vec::new();
     let mut active_header: Option<(Option<LineRange>, Option<LineRange>)> = None;
     let mut active_excerpt = String::new();
+    let mut base_cursor = None;
+    let mut head_cursor = None;
+    let mut base_changed_ranges = Vec::new();
+    let mut head_changed_ranges = Vec::new();
     let mut hunk_limit_hit = false;
     let flush = |header: Option<(Option<LineRange>, Option<LineRange>)>,
                  excerpt: &mut String,
+                 base_ranges: &mut Vec<GitChangedRange>,
+                 head_ranges: &mut Vec<GitChangedRange>,
                  hunks: &mut Vec<GitDiffHunk>,
                  hit: &mut bool| {
         let Some((base_range, head_range)) = header else {
             excerpt.clear();
+            base_ranges.clear();
+            head_ranges.clear();
             return;
         };
         if hunks.len() >= MAX_HUNKS_PER_FILE {
             *hit = true;
             excerpt.clear();
+            base_ranges.clear();
+            head_ranges.clear();
             return;
         }
         let base_anchor = base_range.and_then(|range| {
@@ -844,6 +895,10 @@ fn parse_patch_hunks(
         hunks.push(GitDiffHunk {
             base_anchor,
             head_anchor,
+            base_changed_ranges: std::mem::take(base_ranges),
+            head_changed_ranges: std::mem::take(head_ranges),
+            base_symbols: Vec::new(),
+            head_symbols: Vec::new(),
             patch_excerpt: excerpt.trim_end().to_owned(),
         });
         excerpt.clear();
@@ -854,6 +909,8 @@ fn parse_patch_hunks(
             flush(
                 active_header.take(),
                 &mut active_excerpt,
+                &mut base_changed_ranges,
+                &mut head_changed_ranges,
                 &mut hunks,
                 &mut hunk_limit_hit,
             );
@@ -862,16 +919,27 @@ fn parse_patch_hunks(
                 break;
             }
             active_header = parse_hunk_header(line);
-            if active_header.is_some() {
+            if let Some((base_range, head_range)) = active_header {
+                base_cursor = base_range.map(|range| range.start);
+                head_cursor = head_range.map(|range| range.start);
                 push_bounded_line(&mut active_excerpt, line);
             }
         } else if active_header.is_some() {
+            track_hunk_line(
+                line,
+                &mut base_cursor,
+                &mut head_cursor,
+                &mut base_changed_ranges,
+                &mut head_changed_ranges,
+            );
             push_bounded_line(&mut active_excerpt, line);
         }
     }
     flush(
         active_header,
         &mut active_excerpt,
+        &mut base_changed_ranges,
+        &mut head_changed_ranges,
         &mut hunks,
         &mut hunk_limit_hit,
     );
@@ -882,6 +950,52 @@ fn parse_patch_hunks(
 struct LineRange {
     start: u64,
     end: u64,
+}
+
+fn track_hunk_line(
+    line: &str,
+    base_cursor: &mut Option<u64>,
+    head_cursor: &mut Option<u64>,
+    base_ranges: &mut Vec<GitChangedRange>,
+    head_ranges: &mut Vec<GitChangedRange>,
+) {
+    match line.as_bytes().first() {
+        Some(b' ') => {
+            advance_line(base_cursor);
+            advance_line(head_cursor);
+        }
+        Some(b'-') => {
+            push_changed_line(base_ranges, *base_cursor);
+            advance_line(base_cursor);
+        }
+        Some(b'+') => {
+            push_changed_line(head_ranges, *head_cursor);
+            advance_line(head_cursor);
+        }
+        _ => {}
+    }
+}
+
+fn advance_line(cursor: &mut Option<u64>) {
+    if let Some(line) = cursor.as_mut() {
+        *line = line.saturating_add(1);
+    }
+}
+
+fn push_changed_line(ranges: &mut Vec<GitChangedRange>, line: Option<u64>) {
+    let Some(line) = line else {
+        return;
+    };
+    if let Some(last) = ranges.last_mut() {
+        if line <= last.end_line.saturating_add(1) {
+            last.end_line = last.end_line.max(line);
+            return;
+        }
+    }
+    ranges.push(GitChangedRange {
+        start_line: line,
+        end_line: line,
+    });
 }
 
 fn parse_hunk_header(line: &str) -> Option<(Option<LineRange>, Option<LineRange>)> {
@@ -978,11 +1092,22 @@ fn is_text(bytes: &[u8]) -> bool {
     !bytes.contains(&0) && std::str::from_utf8(bytes).is_ok()
 }
 
-fn parser_resolves(language: ParseLanguage, source: &[u8]) -> bool {
-    let mut parser = Parser::new();
-    if parser.set_language(&language.grammar()).is_err() {
-        return false;
+fn parsed_symbols_for_blob(
+    blob: Option<&TextBlob>,
+    language: ParseLanguage,
+) -> (Vec<ParsedGitSymbol>, bool) {
+    let Some(blob) = blob else {
+        return (Vec::new(), true);
+    };
+    match parse_git_symbols(language, &blob.bytes) {
+        Some(symbols) => (symbols, true),
+        None => (Vec::new(), false),
     }
+}
+
+fn parse_git_symbols(language: ParseLanguage, source: &[u8]) -> Option<Vec<ParsedGitSymbol>> {
+    let mut parser = Parser::new();
+    parser.set_language(&language.grammar()).ok()?;
     let started = Instant::now();
     let mut exceeded_time = false;
     let mut progress = |_state: &tree_sitter::ParseState| {
@@ -995,18 +1120,42 @@ fn parser_resolves(language: ParseLanguage, source: &[u8]) -> bool {
     };
     let options = ParseOptions::new().progress_callback(&mut progress);
     let mut read_chunk = |offset: usize, _position: Point| source.get(offset..).unwrap_or(&[]);
-    let Some(tree) = parser.parse_with_options(&mut read_chunk, None, Some(options)) else {
-        return false;
-    };
+    let tree = parser.parse_with_options(&mut read_chunk, None, Some(options))?;
     if exceeded_time || started.elapsed() > MAX_PARSE_TIME {
-        return false;
+        return None;
     }
+    let source_text = std::str::from_utf8(source).ok()?;
     let mut stack = vec![tree.root_node()];
     let mut visited = 0_usize;
+    let mut symbols = Vec::new();
     while let Some(node) = stack.pop() {
         visited += 1;
         if visited > MAX_AST_NODES_PER_FILE || node.kind() == "ERROR" || node.is_missing() {
-            return false;
+            return None;
+        }
+        if let Some(kind) = git_symbol_kind(node.kind(), language) {
+            if let Some(name_node) = node.child_by_field_name("name") {
+                let name = source_text.get(name_node.start_byte()..name_node.end_byte())?;
+                if !name.is_empty() && name.len() <= 512 {
+                    let start = node.start_position();
+                    let end = node.end_position();
+                    let start_line = start.row as u64 + 1;
+                    let end_line = if end.row > start.row && end.column == 0 {
+                        end.row as u64
+                    } else {
+                        end.row as u64 + 1
+                    };
+                    symbols.push(ParsedGitSymbol {
+                        kind,
+                        name: name.to_owned(),
+                        start_line,
+                        end_line: end_line.max(start_line),
+                    });
+                    if symbols.len() > MAX_SYMBOLS_PER_FILE {
+                        return None;
+                    }
+                }
+            }
         }
         for index in 0..node.child_count() {
             if let Some(child) = node.child(index) {
@@ -1014,7 +1163,81 @@ fn parser_resolves(language: ParseLanguage, source: &[u8]) -> bool {
             }
         }
     }
-    true
+    symbols.sort_by(|left, right| {
+        left.start_line
+            .cmp(&right.start_line)
+            .then(left.end_line.cmp(&right.end_line))
+            .then(left.kind.cmp(right.kind))
+            .then(left.name.cmp(&right.name))
+    });
+    Some(symbols)
+}
+
+fn git_symbol_kind(kind: &str, language: ParseLanguage) -> Option<&'static str> {
+    match language {
+        ParseLanguage::Rust => match kind {
+            "function_item" | "function_signature" => Some("function"),
+            "struct_item" | "union_item" => Some("struct"),
+            "enum_item" => Some("enum"),
+            "trait_item" => Some("trait"),
+            "type_item" => Some("type alias"),
+            "mod_item" => Some("module"),
+            "const_item" | "static_item" => Some("constant"),
+            "macro_definition" => Some("macro"),
+            _ => None,
+        },
+        ParseLanguage::TypeScript | ParseLanguage::Tsx => match kind {
+            "function_declaration" | "function_signature" | "generator_function_declaration" => {
+                Some("function")
+            }
+            "method_definition" | "method_signature" | "abstract_method_signature" => {
+                Some("method")
+            }
+            "class_declaration" | "abstract_class_declaration" | "class" => Some("class"),
+            "interface_declaration" => Some("interface"),
+            "type_alias_declaration" => Some("type alias"),
+            "enum_declaration" => Some("enum"),
+            "internal_module" | "module" => Some("module"),
+            "variable_declarator" => Some("variable"),
+            _ => None,
+        },
+        ParseLanguage::JavaScript => match kind {
+            "function_declaration" | "generator_function_declaration" => Some("function"),
+            "method_definition" => Some("method"),
+            "class_declaration" | "class" => Some("class"),
+            "variable_declarator" => Some("variable"),
+            _ => None,
+        },
+    }
+}
+
+fn symbols_for_hunk(
+    symbols: &[ParsedGitSymbol],
+    hunk_anchor: Option<&GitSourceAnchor>,
+    changed_ranges: &[GitChangedRange],
+) -> Vec<GitSymbolEvidence> {
+    let Some(hunk_anchor) = hunk_anchor else {
+        return Vec::new();
+    };
+    symbols
+        .iter()
+        .filter(|symbol| {
+            changed_ranges.iter().any(|range| {
+                symbol.start_line <= range.end_line && symbol.end_line >= range.start_line
+            })
+        })
+        .map(|symbol| GitSymbolEvidence {
+            kind: symbol.kind.to_owned(),
+            name: symbol.name.clone(),
+            anchor: GitSourceAnchor {
+                revision_id: hunk_anchor.revision_id.clone(),
+                path: hunk_anchor.path.clone(),
+                blob_id: hunk_anchor.blob_id.clone(),
+                start_line: symbol.start_line,
+                end_line: symbol.end_line,
+            },
+        })
+        .collect()
 }
 
 fn parse_raw_diff(output: &[u8]) -> Result<Vec<RawGitChange>, String> {
@@ -1466,6 +1689,24 @@ mod tests {
         assert_eq!(head_anchor.path, "src/lib.rs");
         assert!(hunk.patch_excerpt.contains("before"));
         assert!(hunk.patch_excerpt.contains("after"));
+        assert_eq!(hunk.base_changed_ranges.len(), 1);
+        assert_eq!(hunk.base_changed_ranges[0].start_line, 2);
+        assert_eq!(hunk.base_changed_ranges[0].end_line, 2);
+        assert_eq!(hunk.head_changed_ranges.len(), 1);
+        assert_eq!(hunk.head_changed_ranges[0].start_line, 2);
+        assert_eq!(hunk.head_changed_ranges[0].end_line, 2);
+        assert_eq!(hunk.base_symbols.len(), 1);
+        assert_eq!(hunk.head_symbols.len(), 1);
+        assert_eq!(hunk.base_symbols[0].name, "first");
+        assert_eq!(hunk.head_symbols[0].name, "first");
+        assert_eq!(hunk.base_symbols[0].anchor.revision_id, base);
+        assert_eq!(hunk.head_symbols[0].anchor.revision_id, head);
+        assert!(
+            !hunk
+                .base_symbols
+                .iter()
+                .any(|symbol| symbol.name == "second")
+        );
         assert_eq!(refs_before, refs_after);
         assert_eq!(tree_before, tree_after);
         assert_eq!(index_before, index_after);
@@ -1547,9 +1788,21 @@ mod tests {
             file_change(&result, "docs.txt").classification,
             EvidenceClassification::Unsupported
         );
+        assert!(
+            file_change(&result, "docs.txt")
+                .hunks
+                .iter()
+                .all(|hunk| hunk.base_symbols.is_empty() && hunk.head_symbols.is_empty())
+        );
         assert_eq!(
             file_change(&result, "broken.rs").classification,
             EvidenceClassification::ParserUncertain
+        );
+        assert!(
+            file_change(&result, "broken.rs")
+                .hunks
+                .iter()
+                .all(|hunk| hunk.base_symbols.is_empty() && hunk.head_symbols.is_empty())
         );
         assert_eq!(file_change(&result, "new.rs").kind, GitChangeKind::Added);
         let added_hunk = file_change(&result, "new.rs")
@@ -1558,6 +1811,10 @@ mod tests {
             .expect("addition should retain its head-side hunk");
         assert!(added_hunk.base_anchor.is_none());
         assert!(added_hunk.head_anchor.is_some());
+        assert_eq!(added_hunk.head_changed_ranges[0].start_line, 1);
+        assert_eq!(added_hunk.head_changed_ranges[0].end_line, 1);
+        assert_eq!(added_hunk.head_symbols.len(), 1);
+        assert_eq!(added_hunk.head_symbols[0].name, "added");
     }
 
     #[test]

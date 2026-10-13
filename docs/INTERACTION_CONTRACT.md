@@ -237,9 +237,28 @@ The completed capture view includes one searchable inventory for the selected im
 
 **Focus/side effects:** opening settings reads provider disclosure metadata and Keychain status. In Request Review, loading the captured-file inventory reads local snapshot metadata only. Building a review reads selected immutable snapshot blobs but makes no network request. No request is sent by opening, filtering, changing context/model, scrolling, key setup, or reading disclosures. Consent is scoped to the exact fingerprint and disclosure version and one send. There is no retry, paid fallback, model discovery, or automatic model switching.
 
+### Local Git comparison
+
+**Purpose:** inspect a bounded difference between two locally available commits without changing the repository.
+
+**Entry:** choose **Compare local revisions** from Project Tools. A selected local repository is required; an immutable snapshot is not. In the browser preview, the surface explains that local Git comparison is available only in the packaged Mac app.
+
+**Controls and destinations:**
+
+- Enter a local branch, tag, unambiguous short ref, or full commit ID for **Base revision** and **Head revision**. **Swap** exchanges the two values without running Git.
+- **Compare revisions** invokes the bounded Rust command. It resolves both refs to immutable commit IDs and reads local objects. It does not fetch, checkout, update refs, write the index, or read repository files through the live working tree.
+- Invalid, missing, ambiguous, and non-commit refs show a choose-again message identifying the side that needs correction. Comparison errors leave the entered pair available for retry.
+- The result identifies the exact resolved commit pair and stable comparison ID. Changed files show change kind, classification, and whether bounded text hunks are available. Expand a file to inspect each diff excerpt with exact changed-line ranges and separate base/head paths, commit IDs, and blob IDs. When all available source blobs parse cleanly, parser-backed declaration names and full syntax ranges are shown only where the declaration overlaps changed lines.
+- Limited results and skipped reasons remain visible. Binary, oversized, unsupported, and parser-uncertain files are not displayed as complete source text. A pair with no changes says so explicitly.
+- Back/Forward restores the ref pair and expanded file selection. Editing either value hides the prior result until the new pair is compared.
+
+**States:** no repository; desktop preview unavailable; refs incomplete; comparing; choose-again; ready with changes; ready with no changes; bounded/partial; comparison error. No provider request is made and no source is sent.
+
+**Boundary:** this surface is evidence browsing only. Declaration overlap is static syntax evidence, not inferred runtime impact; cross-file relationships, AI explanations, guide acceptance, and remote pull-request access are not part of this workflow.
+
 ### Future PR Guide
 
-The PR Guide is a separate follow-up workflow. It starts with explicit local base/head refs and a changed-file list. Selecting a changed file opens Code Lens at base or head evidence; **Create PR draft** opens Request Review for the selected subset. Its Back path returns to the same ref pair and file selection. No remote PR, GitHub login, checkout, or write operation is part of this flow.
+The PR Guide is a separate follow-up workflow built on this local comparison. It will let the user select changed files and create a reviewed PR Guide draft. Base/head citations and any supported impact claims must stay tied to the correct immutable evidence. No remote PR, GitHub login, checkout, or repository write operation is part of this flow.
 
 ## Cross-screen state and return table
 
@@ -248,6 +267,7 @@ The PR Guide is a separate follow-up workflow. It starts with explicit local bas
 | Atlas selected file/symbol | Open in Code Lens | Same snapshot, exact anchor | Tree/map selection, viewport, query, filter chips, focused row. |
 | Atlas selected relationship | Open evidence | Source range proving that edge | Selected edge and evidence panel. |
 | Guide Plan file | Create chapter | Blank local draft | Selected row/status/filter/page; no request exists. |
+| Compare local revisions | Expand changed file | Base/head diff evidence | Ref pair and expanded file selection. |
 | Guide Plan file | Generate draft | Request Review | Request cancel returns to selected row and chapter status. |
 | Request Review | Send this request | Provider, then Chapter Studio draft | On success, draft is a new unaccepted revision; on failure, manifest can be reviewed again. |
 | Chapter Studio draft | Open citation | Code Lens | Draft values, active section, editor scroll, focused claim. |
