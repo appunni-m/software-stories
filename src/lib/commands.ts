@@ -514,9 +514,9 @@ export interface ProviderCredentialStatus {
 
 export type ProviderFailureKind =
   | 'keychainUnavailable' | 'keychainOperationFailed' | 'missingApiKey' | 'invalidApiKey'
-  | 'consentRequired' | 'reviewExpired' | 'reviewChanged' | 'reviewUnavailable' | 'invalidReview'
+  | 'consentRequired' | 'reviewExpired' | 'reviewChanged' | 'reviewUnavailable' | 'localStorageUnavailable' | 'invalidReview'
   | 'contextTooLarge' | 'secretLikeContext' | 'unavailableModel' | 'billingRequired' | 'quotaExceeded'
-  | 'networkUnavailable' | 'requestTimedOut' | 'requestCancelled' | 'providerRejectedRequest' | 'providerResponseTooLarge'
+  | 'regionUnavailable' | 'networkUnavailable' | 'requestTimedOut' | 'requestCancelled' | 'providerRejectedRequest' | 'providerResponseTooLarge'
   | 'malformedProviderResponse';
 
 export interface ProviderFailure {

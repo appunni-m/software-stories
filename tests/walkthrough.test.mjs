@@ -4,6 +4,7 @@ import {
   chooseSectionId,
   latestAcceptedRevisions,
   orderedSections,
+  parseRememberedProgress,
   parseRememberedSection,
   rememberedSectionRecord,
   resumeStorageKey,
@@ -45,9 +46,12 @@ describe('walkthrough chapter selection', () => {
 
 describe('walkthrough resume record', () => {
   it('scopes progress to a project, chapter, and exact accepted revision', () => {
-    const serialized = rememberedSectionRecord('project/one', 'chapter', 'revision-2', 'section-4');
+    const serialized = rememberedSectionRecord('project/one', 'chapter', 'revision-2', 'section-4', 18.75, 420);
     assert.match(resumeStorageKey('project/one', 'chapter', 'revision-2'), /project%2Fone/);
     assert.equal(parseRememberedSection(serialized, 'project/one', 'chapter', 'revision-2'), 'section-4');
+    assert.deepEqual(parseRememberedProgress(serialized, 'project/one', 'chapter', 'revision-2'), {
+      sectionId: 'section-4', playbackPosition: 18.75, transcriptPosition: 420,
+    });
     assert.equal(parseRememberedSection(serialized, 'project/one', 'chapter', 'revision-3'), null);
     assert.equal(parseRememberedSection(serialized, 'another-project', 'chapter', 'revision-2'), null);
   });
@@ -56,5 +60,9 @@ describe('walkthrough resume record', () => {
     assert.equal(parseRememberedSection(null, 'p', 'c', 'r'), null);
     assert.equal(parseRememberedSection('{oops', 'p', 'c', 'r'), null);
     assert.equal(parseRememberedSection('{"version":1,"projectId":"p","chapterId":"c","revisionId":"r"}', 'p', 'c', 'r'), null);
+    assert.equal(parseRememberedProgress('{"version":2,"projectId":"p","chapterId":"c","revisionId":"r","sectionId":"s","playbackPosition":-1,"transcriptPosition":0}', 'p', 'c', 'r'), null);
+    assert.deepEqual(parseRememberedProgress('{"version":1,"projectId":"p","chapterId":"c","revisionId":"r","sectionId":"s"}', 'p', 'c', 'r'), {
+      sectionId: 's', playbackPosition: 0, transcriptPosition: 0,
+    });
   });
 });

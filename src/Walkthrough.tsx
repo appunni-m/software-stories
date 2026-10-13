@@ -21,7 +21,7 @@ import {
   type ChapterHotspot,
   type HotspotDestination,
 } from './lib/commands';
-import { orderedSections, latestAcceptedRevisions, parseRememberedSection, rememberedSectionRecord, resumeStorageKey, chooseSectionId } from './lib/walkthrough';
+import { orderedSections, latestAcceptedRevisions, parseRememberedProgress, rememberedSectionRecord, resumeStorageKey, chooseSectionId } from './lib/walkthrough';
 import { inspectInteractiveVisual } from './lib/visuals';
 import type { WorkspaceRoute } from './lib/navigation';
 import { NarrationPlayer } from './NarrationPlayer';
@@ -47,9 +47,10 @@ interface WalkthroughProps {
   onOpenSource: (anchor: ChapterSourceAnchor, context: ReaderRouteContext) => void;
   onOpenAtlas: (destination: HotspotDestination, context: ReaderRouteContext) => void;
   onGoPlan: () => void;
+  onOpenProviderSettings: () => void;
 }
 
-export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onReplaceRoute, onNavigateRoute, onOpenSource, onOpenAtlas, onGoPlan }: WalkthroughProps) {
+export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onReplaceRoute, onNavigateRoute, onOpenSource, onOpenAtlas, onGoPlan, onOpenProviderSettings }: WalkthroughProps) {
   const [revisions, setRevisions] = useState<ChapterRevision[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -90,10 +91,10 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
     ?? (route.chapterId ? chapterList.find((revision) => revision.chapterId === route.chapterId) ?? null : null);
   const sections = selectedRevision ? orderedSections(selectedRevision) : [];
 
-  const rememberedSectionId = useMemo(() => {
+  const rememberedProgress = useMemo(() => {
     if (!selectedRevision) return null;
     try {
-      return parseRememberedSection(
+      return parseRememberedProgress(
         window.localStorage.getItem(resumeStorageKey(projectId, selectedRevision.chapterId, selectedRevision.revisionId)),
         projectId,
         selectedRevision.chapterId,
@@ -104,7 +105,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
     }
   }, [projectId, selectedRevision?.chapterId, selectedRevision?.revisionId]);
   const selectedSectionId = selectedRevision
-    ? chooseSectionId(sections, route.sectionId, rememberedSectionId)
+    ? chooseSectionId(sections, route.sectionId, rememberedProgress?.sectionId)
     : null;
   const selectedSectionIndex = selectedSectionId ? sections.findIndex((section) => section.sectionId === selectedSectionId) : -1;
   const selectedSection = selectedSectionIndex >= 0 ? sections[selectedSectionIndex] : null;
@@ -129,11 +130,15 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
       chapterId: selectedRevision.chapterId,
       chapterRevisionId: selectedRevision.revisionId,
       sectionId: selectedSectionId,
-      playbackPosition: finitePosition(route.playbackPosition),
-      transcriptPosition: finitePosition(route.transcriptPosition),
+      playbackPosition: route.sectionId == null && rememberedProgress?.sectionId === selectedSectionId
+        ? rememberedProgress.playbackPosition
+        : finitePosition(route.playbackPosition),
+      transcriptPosition: route.sectionId == null && rememberedProgress?.sectionId === selectedSectionId
+        ? rememberedProgress.transcriptPosition
+        : finitePosition(route.transcriptPosition),
       focusTarget: route.focusTarget ?? `reader-section-heading:${selectedSectionId}`,
     });
-  }, [projectId, route, selectedRevision?.chapterId, selectedRevision?.revisionId, selectedSectionId]);
+  }, [projectId, route, rememberedProgress, selectedRevision?.chapterId, selectedRevision?.revisionId, selectedSectionId]);
 
   useEffect(() => {
     if (!selectedSectionId || !selectedRevision) return;
@@ -143,11 +148,11 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
     (focusable ?? headingRef.current)?.focus({ preventScroll: focusTarget.startsWith('reader-citation:') || focusTarget.startsWith('reader-visual-citation:') || focusTarget.startsWith('reader-hotspot:') });
   }, [selectedRevision?.revisionId, selectedSectionId, route.focusTarget]);
 
-  const rememberSection = (revision: ChapterRevision, sectionId: string) => {
+  const rememberSection = (revision: ChapterRevision, sectionId: string, playbackPosition = 0, transcriptPosition = 0) => {
     try {
       window.localStorage.setItem(
         resumeStorageKey(projectId, revision.chapterId, revision.revisionId),
-        rememberedSectionRecord(projectId, revision.chapterId, revision.revisionId, sectionId),
+        rememberedSectionRecord(projectId, revision.chapterId, revision.revisionId, sectionId, playbackPosition, transcriptPosition),
       );
     } catch {
       // Reader navigation and route history still work when storage is unavailable.
@@ -167,6 +172,20 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
       transcriptPosition: finitePosition(transcriptPosition),
       focusTarget,
     };
+  };
+
+  const rememberPlaybackPosition = (playbackPosition: number) => {
+    if (selectedRevision && selectedSectionId) {
+      rememberSection(selectedRevision, selectedSectionId, playbackPosition, finitePosition(route.transcriptPosition));
+    }
+    onReplaceRoute({ ...route, playbackPosition });
+  };
+
+  const rememberTranscriptPosition = (transcriptPosition: number) => {
+    if (selectedRevision && selectedSectionId) {
+      rememberSection(selectedRevision, selectedSectionId, finitePosition(route.playbackPosition), transcriptPosition);
+    }
+    onReplaceRoute({ ...route, transcriptPosition });
   };
 
   const setSection = (revision: ChapterRevision, sectionId: string, pushHistory = false, originFocusTarget?: string) => {
@@ -193,18 +212,20 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
   };
 
   const selectChapter = (revision: ChapterRevision) => {
-    let storedSection: string | null = null;
+    let storedProgress: ReturnType<typeof parseRememberedProgress> = null;
     try {
-      storedSection = parseRememberedSection(
+      storedProgress = parseRememberedProgress(
         window.localStorage.getItem(resumeStorageKey(projectId, revision.chapterId, revision.revisionId)),
         projectId,
         revision.chapterId,
         revision.revisionId,
       );
     } catch { /* Progress is optional; start at the first section. */ }
-    const sectionId = chooseSectionId(orderedSections(revision), null, storedSection);
+    const sectionId = chooseSectionId(orderedSections(revision), null, storedProgress?.sectionId);
     if (!sectionId) return;
-    rememberSection(revision, sectionId);
+    const playbackPosition = storedProgress?.sectionId === sectionId ? storedProgress.playbackPosition : 0;
+    const transcriptPosition = storedProgress?.sectionId === sectionId ? storedProgress.transcriptPosition : 0;
+    rememberSection(revision, sectionId, playbackPosition, transcriptPosition);
     onNavigateRoute({
       ...route,
       workspace: 'walkthrough',
@@ -214,14 +235,16 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
       chapterId: revision.chapterId,
       chapterRevisionId: revision.revisionId,
       sectionId,
-      playbackPosition: 0,
-      transcriptPosition: 0,
+      playbackPosition,
+      transcriptPosition,
       focusTarget: `reader-section-heading:${sectionId}`,
     });
   };
 
   const finishChapter = () => {
-    if (selectedRevision && selectedSectionId) rememberSection(selectedRevision, selectedSectionId);
+    if (selectedRevision && selectedSectionId) {
+      rememberSection(selectedRevision, selectedSectionId, finitePosition(route.playbackPosition), finitePosition(route.transcriptPosition));
+    }
     onNavigateRoute({
       ...route,
       workspace: 'walkthrough',
@@ -379,8 +402,9 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
                 section={selectedSection}
                 restorePosition={finitePosition(route.playbackPosition)}
                 transcriptPosition={finitePosition(route.transcriptPosition)}
-                onPlaybackPositionChange={(playbackPosition) => onReplaceRoute({ ...route, playbackPosition })}
-                onTranscriptPositionChange={(transcriptPosition) => onReplaceRoute({ ...route, transcriptPosition })}
+                onPlaybackPositionChange={rememberPlaybackPosition}
+                onTranscriptPositionChange={rememberTranscriptPosition}
+                onOpenProviderSettings={onOpenProviderSettings}
               />
               {selectedSection.claims.some((claim) => claim.anchors.length > 0) && <div className="walkthrough-transcript-citations" aria-label="Source references for this section">
                   <span>SECTION SOURCES · NOT MAPPED TO INDIVIDUAL TRANSCRIPT LINES</span>

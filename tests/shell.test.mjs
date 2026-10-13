@@ -109,6 +109,17 @@ describe('desktop shell acceptance contract', () => {
     assert.match(restoredDialog, /saveGeneratedChapterDraft/);
   });
 
+  it('offers provider setup only from an explicit generation or narration flow', async () => {
+    const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
+    const menuStart = source.indexOf('<div className="tools-menu"');
+    const menuEnd = source.indexOf('<button className="menu-scrim"', menuStart);
+    assert.ok(menuStart >= 0 && menuEnd > menuStart, 'project tools menu is present');
+    assert.doesNotMatch(source.slice(menuStart, menuEnd), /AI and narration setup/);
+    const narration = await readFile(new URL('../src/NarrationPlayer.tsx', import.meta.url), 'utf8');
+    assert.match(narration, /Set up Gemini for narration/);
+    assert.match(source.slice(source.indexOf('function ProviderDialog')), /provider-key-card/);
+  });
+
   it('keeps App startup behind the shell bootstrap rather than invoking repo or provider commands directly', async () => {
     const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
     const file = ts.createSourceFile('App.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);

@@ -775,7 +775,7 @@ function App() {
   };
 
   const openProviderSettings = () => {
-    providerReturnFocusRef.current = document.querySelector<HTMLElement>('[data-focus-key="tools-button"]');
+    providerReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setToolsOpen(false);
     setProjectMenuOpen(false);
     setSnapshotMenuOpen(false);
@@ -1102,10 +1102,6 @@ function App() {
                 <button role="menuitem" data-focus-key="tools-button" onClick={() => chooseWorkspace('chapter-studio')}>
                   <BookOpen size={16} /> <span>Chapter Studio</span>
                 </button>
-                <div className="menu-rule" />
-                <button role="menuitem" data-focus-key="provider-settings" onClick={openProviderSettings}>
-                  <Sparkles size={16} /> <span>AI and narration setup</span>
-                </button>
               </div>
             )}
           </div>
@@ -1337,6 +1333,7 @@ function App() {
                   onOpenSource={openWalkthroughSource}
                   onOpenAtlas={openWalkthroughAtlas}
                   onGoPlan={() => chooseWorkspace('guide-plan')}
+                  onOpenProviderSettings={openProviderSettings}
                 />
               ) : <WalkthroughEmptyState onGoPlan={() => chooseWorkspace('guide-plan')} />
             ) : currentWorkspace === 'guide-plan' && currentProject && selectedSnapshot && snapshotManifest ? (
@@ -2110,12 +2107,14 @@ function providerFailureTitle(kind: ProviderFailure['kind']): string {
     reviewExpired: 'Request review expired',
     reviewChanged: 'Request context changed',
     reviewUnavailable: 'Request review unavailable',
+    localStorageUnavailable: 'Local storage unavailable',
     invalidReview: 'Request could not be validated',
     contextTooLarge: 'Selected context is too large',
     secretLikeContext: 'Secret-like path blocked',
     unavailableModel: 'Model unavailable',
     billingRequired: 'Google requires billing for this key',
     quotaExceeded: 'Google quota or rate limit reached',
+    regionUnavailable: 'Google Gemini is unavailable in this region',
     networkUnavailable: 'Gemini could not be reached',
     requestTimedOut: 'Gemini request timed out',
     requestCancelled: 'Request cancelled',

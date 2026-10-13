@@ -549,16 +549,16 @@ fn write_cached_audio(
     let path = cache_path(storage_dir, fingerprint);
     let parent = path.parent().ok_or_else(|| {
         failure(
-            ProviderFailureKind::ReviewUnavailable,
+            ProviderFailureKind::LocalStorageUnavailable,
             "The local audio cache folder could not be located.",
         )
     })?;
-    fs::create_dir_all(parent).map_err(|_| failure(ProviderFailureKind::ReviewUnavailable, "The local audio cache folder could not be created. The narration can still play for this session."))?;
+    fs::create_dir_all(parent).map_err(|_| failure(ProviderFailureKind::LocalStorageUnavailable, "The local audio cache folder could not be created. The narration can still play for this session."))?;
     let temporary = parent.join(format!(".{}.{}.tmp", fingerprint, Uuid::new_v4()));
-    fs::write(&temporary, bytes).map_err(|_| failure(ProviderFailureKind::ReviewUnavailable, "The local audio cache could not be written. The narration can still play for this session."))?;
+    fs::write(&temporary, bytes).map_err(|_| failure(ProviderFailureKind::LocalStorageUnavailable, "The local audio cache could not be written. The narration can still play for this session."))?;
     fs::rename(&temporary, &path).map_err(|_| {
         let _ = fs::remove_file(&temporary);
-        failure(ProviderFailureKind::ReviewUnavailable, "The local audio cache could not be finalized. The narration can still play for this session.")
+        failure(ProviderFailureKind::LocalStorageUnavailable, "The local audio cache could not be finalized. The narration can still play for this session.")
     })
 }
 
@@ -765,7 +765,7 @@ fn classify_error(status: u16, bytes: &[u8]) -> ProviderFailure {
         )
     } else if is_region_restriction_error(&provider_status, &message) {
         failure(
-            ProviderFailureKind::ProviderRejectedRequest,
+            ProviderFailureKind::RegionUnavailable,
             "Google rejected this narration because the service is unavailable in the current region. Check Google's supported-regions disclosure; no fallback was used. The transcript and previous audio remain available.",
         )
     } else if status == 401
@@ -875,7 +875,7 @@ mod tests {
             403,
             br#"{"error":{"status":"PERMISSION_DENIED","message":"Text-to-speech is not available in your region; do not echo this"}}"#,
         );
-        assert_eq!(region.kind, ProviderFailureKind::ProviderRejectedRequest);
+        assert_eq!(region.kind, ProviderFailureKind::RegionUnavailable);
         assert!(region.message.contains("supported-regions"));
         assert!(region.message.contains("previous audio remain available"));
         assert!(!region.message.contains("do not echo"));

@@ -37,6 +37,7 @@ interface NarrationPlayerProps {
   transcriptPosition: number;
   onPlaybackPositionChange: (position: number) => void;
   onTranscriptPositionChange: (position: number) => void;
+  onOpenProviderSettings: () => void;
 }
 
 interface NarrationPreferences {
@@ -59,7 +60,7 @@ interface LoadedTrack {
 
 const DEFAULT_STYLE = 'Clear, calm, conversational.';
 
-export function NarrationPlayer({ projectId, chapterId, revisionId, section, restorePosition, transcriptPosition, onPlaybackPositionChange, onTranscriptPositionChange }: NarrationPlayerProps) {
+export function NarrationPlayer({ projectId, chapterId, revisionId, section, restorePosition, transcriptPosition, onPlaybackPositionChange, onTranscriptPositionChange, onOpenProviderSettings }: NarrationPlayerProps) {
   const storageKey = `code-atlas:narration:${projectId}:${chapterId}:${revisionId}:${section.sectionId}`;
   const preferences = useMemo(() => readPreferences(storageKey, section.spokenText), [storageKey, section.spokenText]);
   const [draft, setDraft] = useState<NarrationPreferences>(preferences);
@@ -271,7 +272,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   const synthesize = async () => {
     if (!review) return;
     if (!credential?.apiKeyConfigured) {
-      setError('Save a Gemini API key in Tools → AI and narration setup before requesting audio.');
+      setError('Add a Gemini API key from this narration setup before requesting audio.');
       return;
     }
     setRequestBusy(true);
@@ -555,7 +556,10 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
           ) : (
             <>
               <label className="walkthrough-narration-consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /> I checked this key's project tier and billing status in Google AI Studio, reviewed Google's data-use and eligibility terms, meet those requirements, and authorize sending this exact text to Gemini.</label>
-              {!credential?.apiKeyConfigured && <p className="walkthrough-narration-key-status" role="status">{informationError ?? 'No Gemini API key is saved.'} Open <strong>Tools → AI and narration setup</strong> to add a key. Code Atlas cannot verify the key's project tier or quota.</p>}
+              <div className="walkthrough-narration-key-status" role="status">
+                <span>{informationError ?? (credential?.apiKeyConfigured ? 'Gemini key is stored in macOS Keychain.' : 'No Gemini API key is saved.')} Code Atlas cannot verify the key's project tier or quota.</span>
+                <button type="button" className="text-button" onClick={onOpenProviderSettings}>{credential?.apiKeyConfigured ? 'Manage Gemini key' : 'Set up Gemini for narration'}</button>
+              </div>
               <button type="button" className="primary-button" disabled={!consent || !credential?.apiKeyConfigured || requestBusy} onClick={() => { void synthesize(); }}>
                 <Play size={14} /> {requestBusy ? 'Requesting audio…' : 'Synthesize and play this section'}
               </button>

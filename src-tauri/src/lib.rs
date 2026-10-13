@@ -736,7 +736,7 @@ fn build_narration_request_review(
         Ok(path) => path,
         Err(_) => {
             return provider::ProviderCommandResult::error(
-                provider::ProviderFailureKind::ReviewUnavailable,
+                provider::ProviderFailureKind::LocalStorageUnavailable,
                 "Code Atlas local audio storage is unavailable. No narration request was sent.",
             );
         }
@@ -763,7 +763,7 @@ fn load_reviewed_narration_audio(
         Ok(path) => path,
         Err(_) => {
             return provider::ProviderCommandResult::error(
-                provider::ProviderFailureKind::ReviewUnavailable,
+                provider::ProviderFailureKind::LocalStorageUnavailable,
                 "Code Atlas local audio storage is unavailable. The transcript remains available.",
             );
         }
@@ -784,7 +784,7 @@ async fn synthesize_reviewed_narration_audio(
         Ok(path) => path,
         Err(_) => {
             return Ok(provider::ProviderCommandResult::error(
-                provider::ProviderFailureKind::ReviewUnavailable,
+                provider::ProviderFailureKind::LocalStorageUnavailable,
                 "Code Atlas local audio storage is unavailable. No narration request was sent.",
             ));
         }
@@ -842,7 +842,7 @@ fn build_gemini_request_review(
             Ok(path) => path,
             Err(_) => {
                 return provider::ProviderCommandResult::error(
-                    provider::ProviderFailureKind::InvalidReview,
+                    provider::ProviderFailureKind::LocalStorageUnavailable,
                     "Code Atlas local snapshot storage is unavailable. No request was sent.",
                 );
             }
@@ -915,7 +915,7 @@ async fn send_gemini_request(
             Ok(path) => path,
             Err(_) => {
                 return provider::ProviderCommandResult::error(
-                    provider::ProviderFailureKind::InvalidReview,
+                    provider::ProviderFailureKind::LocalStorageUnavailable,
                     "Code Atlas local snapshot storage is unavailable. No request was sent.",
                 );
             }
@@ -965,7 +965,7 @@ async fn send_gemini_request(
             Err(error) => {
                 cancellations.finish(&review_id);
                 return provider::ProviderCommandResult::error(
-                    provider::ProviderFailureKind::ReviewUnavailable,
+                    provider::ProviderFailureKind::LocalStorageUnavailable,
                     format!("Local recovery state could not be saved, so no provider request was sent: {error}"),
                 );
             }
@@ -984,7 +984,7 @@ async fn send_gemini_request(
                 provider::ProviderCommandResult::Ok { .. }
             );
             return provider::ProviderCommandResult::error(
-                provider::ProviderFailureKind::ReviewUnavailable,
+                provider::ProviderFailureKind::LocalStorageUnavailable,
                 if preview_was_saved {
                     format!("The request finished and its validated preview was saved locally, but the interruption notice could not be cleared: {error} Review the saved preview locally or clear the notice. A new provider request still requires fresh review and consent.")
                 } else {
@@ -1092,7 +1092,7 @@ fn prepare_chapter_draft_preview(
     if let Err(message) = pending_chapter_previews::save(storage_dir, &preview) {
         drafts.remove(&preview.generation_id);
         return Err(failure(
-            provider::ProviderFailureKind::ReviewUnavailable,
+            provider::ProviderFailureKind::LocalStorageUnavailable,
             format!(
                 "The generated chapter passed local validation, but its recovery copy could not be persisted: {message}"
             ),
@@ -1581,7 +1581,7 @@ mod chapter_pipeline_tests {
 
         assert_eq!(
             failure.kind,
-            provider::ProviderFailureKind::ReviewUnavailable
+            provider::ProviderFailureKind::LocalStorageUnavailable
         );
         assert!(
             failure

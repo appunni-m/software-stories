@@ -118,12 +118,14 @@ pub enum ProviderFailureKind {
     ReviewExpired,
     ReviewChanged,
     ReviewUnavailable,
+    LocalStorageUnavailable,
     InvalidReview,
     ContextTooLarge,
     SecretLikeContext,
     UnavailableModel,
     BillingRequired,
     QuotaExceeded,
+    RegionUnavailable,
     NetworkUnavailable,
     RequestTimedOut,
     RequestCancelled,
@@ -1510,7 +1512,7 @@ fn classify_provider_error(status: u16, bytes: &[u8]) -> ProviderFailure {
         )
     } else if is_region_restriction_error(&provider_status, &provider_message) {
         failure(
-            ProviderFailureKind::ProviderRejectedRequest,
+            ProviderFailureKind::RegionUnavailable,
             "Google rejected this request because the API is unavailable in the current region. Check Google's supported-regions disclosure. No fallback was used; local chapters and browsing remain available.",
         )
     } else if status == 401
@@ -1605,7 +1607,7 @@ pub fn credential_status() -> ProviderCommandResult<ProviderCredentialStatus> {
             Err(()) => ProviderCommandResult::ok(ProviderCredentialStatus {
                 keychain_available: false,
                 api_key_configured: false,
-                explanation: "Code Atlas could not read the Gemini key from macOS Keychain. Local browsing still works.".to_owned(),
+                explanation: "Code Atlas could not read the Gemini key from macOS Keychain. Unlock Keychain or approve Code Atlas access. Local browsing still works.".to_owned(),
             }),
         };
     }
@@ -1638,7 +1640,7 @@ pub fn store_api_key(api_key: String) -> ProviderCommandResult<ProviderCredentia
             }),
             Err(()) => ProviderCommandResult::error(
                 ProviderFailureKind::KeychainOperationFailed,
-                "Code Atlas could not save this key in macOS Keychain. It was not written to a file.",
+                "Code Atlas could not save this key in macOS Keychain. Unlock Keychain or approve its access request, then try again. The key was not written to a file.",
             ),
         }
     }
@@ -1697,7 +1699,7 @@ pub fn load_api_key() -> Result<Zeroizing<String>, ProviderFailure> {
                 } else {
                     failure(
                         ProviderFailureKind::KeychainOperationFailed,
-                        "Code Atlas could not read the Gemini key from macOS Keychain. No request was sent.",
+                        "Code Atlas could not read the Gemini key from macOS Keychain. Unlock Keychain or approve Code Atlas access, then review the request again. No request was sent.",
                     )
                 }
             })?;
@@ -2450,7 +2452,7 @@ mod tests {
             403,
             br#"{"error":{"status":"PERMISSION_DENIED","message":"This API is not available in your region; do not echo this"}}"#,
         );
-        assert_eq!(region.kind, ProviderFailureKind::ProviderRejectedRequest);
+        assert_eq!(region.kind, ProviderFailureKind::RegionUnavailable);
         assert!(region.message.contains("supported-regions"));
         assert!(!region.message.contains("do not echo"));
 
