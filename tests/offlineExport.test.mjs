@@ -175,6 +175,8 @@ describe('offline chapter export', () => {
     assert.match(result.html, /media-src data:/);
     assert.match(result.html, /<audio controls preload="none" aria-label="Narration for Handle a request" src="data:audio\/wav;base64,/);
     assert.match(result.html, /Selected cached narration is bundled in its matching sections/);
+    assert.match(result.html, /Narration transcript/);
+    assert.match(result.html, /The handler delegates to a worker\./);
     assert.doesNotMatch(result.html, /https?:\/\//);
   });
 
@@ -245,6 +247,46 @@ describe('offline chapter export', () => {
     assert.match(result.html, /Continue: Handle a request/);
     assert.match(result.html, /&lt;svg onload=steal\(\)&gt;/);
     assert.match(result.html, /Narration audio was not selected/);
+    assert.match(result.html, /Narration transcript/);
+  });
+
+  it('is a self-contained offline document with resolvable section, evidence, and hotspot navigation', async () => {
+    const first = section({ sectionId: 'section:first', order: 0 });
+    first.hotspots = [
+      { hotspotId: 'hotspot:next', label: 'Next section', destination: { kind: 'section', sectionId: 'section:second' } },
+      { hotspotId: 'hotspot:evidence', label: 'Bundled code', destination: { kind: 'codeLens', anchorId: 'anchor:entry' } },
+      { hotspotId: 'hotspot:file', label: 'Open file in Atlas', destination: { kind: 'atlasFile', path: 'src/main.ts' } },
+      { hotspotId: 'hotspot:relationship', label: 'Open relationship in Atlas', destination: { kind: 'relationship', relationshipId: 'relationship:worker' } },
+    ];
+    first.visual.nodes = [
+      { ...first.visual.nodes[0], hotspotId: 'hotspot:next' },
+      { ...first.visual.nodes[1], hotspotId: 'hotspot:evidence' },
+      { nodeId: 'node:atlas-file', label: 'External file target', detail: null, hotspotId: 'hotspot:file', evidenceAnchorIds: ['anchor:entry'] },
+      { nodeId: 'node:atlas-relationship', label: 'External relationship target', detail: null, hotspotId: 'hotspot:relationship', evidenceAnchorIds: ['anchor:entry'] },
+    ];
+    const second = section({ sectionId: 'section:second', order: 1 });
+    const firstChapter = chapter({ revisionId: 'revision:first', sections: [first, second] });
+    const secondChapter = chapter({ revisionId: 'revision:second', title: 'Worker details' });
+    const result = await buildOfflineGuideHtml([firstChapter, secondChapter], {
+      selectedRevisionIds: ['revision:first', 'revision:second'],
+      includeExcerpts: true,
+      exportedAtUnixMs: 10,
+    });
+
+    const ids = new Set([...result.html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]));
+    const fragmentLinks = [...result.html.matchAll(/\bhref="#([^"]+)"/g)].map((match) => match[1]);
+    assert.ok(fragmentLinks.length > 0);
+    for (const target of fragmentLinks) assert.ok(ids.has(target), `missing offline navigation target #${target}`);
+
+    const resourceLinks = [...result.html.matchAll(/\b(?:src|href)="([^"]+)"/g)].map((match) => match[1]);
+    assert.ok(resourceLinks.every((url) => url.startsWith('#') || url.startsWith('data:')));
+    assert.doesNotMatch(result.html, /<script\b|<link\b[^>]*href=/i);
+    assert.match(result.html, /This file works without Code Atlas or a network connection/);
+    assert.match(result.html, /Atlas destination unavailable offline/);
+    assert.match(result.html, /Atlas relationship unavailable offline/);
+    assert.match(result.html, /Narration transcript/);
+    assert.equal(result.manifest.chapters.length, 2);
+    assert.deepEqual(result.manifest.chapters.map((entry) => entry.revisionId), ['revision:first', 'revision:second']);
   });
 
   it('omits hidden references and redacts common secrets and local paths from copied prose and excerpts', async () => {
@@ -254,11 +296,13 @@ describe('offline chapter export', () => {
       sourceAnchor('anchor:hidden', 'src/.env', 'PRIVATE_KEY=not-for-export'),
     ] })] });
     sensitive.sections[0].prose = `The checkout is /Users/alice/private-project and reads .ssh/id_ed25519. ${exposedKey}`;
+    sensitive.sections[0].spokenText = `Tell the user about ${exposedKey} from /Users/alice/private-project.`;
     const preview = buildOfflineExportPreview([sensitive], ['revision:one'], true);
     assert.equal(preview.omittedHiddenReferences, 1);
     assert.deepEqual(preview.sourcePaths, ['src/main.ts']);
     assert.ok(preview.redactedCredentials > 0);
     assert.doesNotMatch(JSON.stringify(preview), /alice|private-project|\.ssh|id_ed25519|src\/\.env|ghp_0123456789/);
+    assert.match(preview.chapters[0].sections[0].spokenText, /\[redacted credential\]/);
     assert.match(JSON.stringify(preview), /redacted credential/);
 
     const result = await buildOfflineGuideHtml([sensitive], {

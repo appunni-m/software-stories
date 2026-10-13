@@ -39,6 +39,7 @@ export interface OfflineExportSectionPreview {
   sectionId: string;
   title: string;
   prose: string;
+  spokenText: string;
   references: OfflineExportReference[];
 }
 
@@ -113,6 +114,7 @@ interface SafeSection {
   section: ChapterSection;
   title: string;
   prose: string;
+  spokenText: string;
   claims: SafeClaim[];
   references: OfflineExportReference[];
   visual: EvidenceLinkedVisualSpec | null;
@@ -187,6 +189,7 @@ export function buildOfflineExportPreview(
         sectionId: section.section.sectionId,
         title: section.title,
         prose: section.prose,
+        spokenText: section.spokenText,
         references: section.references,
       })),
       sourcePaths: [...new Set(chapter.references.map((reference) => reference.path))].sort(),
@@ -379,6 +382,7 @@ function createSafeChapter(revision: ChapterRevision): SafeChapter {
         section,
         title: sanitizer.clean(section.title).text,
         prose: sanitizer.clean(section.prose).text,
+        spokenText: sanitizer.clean(section.spokenText).text,
         claims,
         references,
         visual,
@@ -642,7 +646,10 @@ function renderPackage(
       const narration = section.narrationAudio
         ? `<section class="narration-audio" aria-label="Cached narration"><h4>Cached narration</h4><audio controls preload="none" aria-label="Narration for ${escapeHtml(section.title)}" src="data:audio/wav;base64,${section.narrationAudio.audioBase64}">This browser cannot play the bundled narration audio.</audio></section>`
         : '';
-      return `<section class="section" id="${sectionId}"><p class="eyebrow">SECTION ${sectionIndex + 1} OF ${chapter.sections.length}</p><h3>${escapeHtml(section.title)}</h3><p class="prose">${escapeHtml(section.prose)}</p>${narration}${claims ? `<section class="evidence"><h4>What supports this explanation?</h4>${claims}</section>` : ''}${visual}${renderEvidenceAppendix(chapter, section, chapterIndex, evidenceIds, includeExcerpts)}<nav class="section-nav" aria-label="Section navigation">${previousLink}${nextLink}</nav></section>`;
+      const transcript = section.spokenText.trim()
+        ? `<details class="transcript"><summary>Narration transcript</summary><p class="prose">${escapeHtml(section.spokenText)}</p></details>`
+        : '<p class="muted">No narration transcript was saved for this section.</p>';
+      return `<section class="section" id="${sectionId}"><p class="eyebrow">SECTION ${sectionIndex + 1} OF ${chapter.sections.length}</p><h3>${escapeHtml(section.title)}</h3><p class="prose">${escapeHtml(section.prose)}</p>${transcript}${narration}${claims ? `<section class="evidence"><h4>What supports this explanation?</h4>${claims}</section>` : ''}${visual}${renderEvidenceAppendix(chapter, section, chapterIndex, evidenceIds, includeExcerpts)}<nav class="section-nav" aria-label="Section navigation">${previousLink}${nextLink}</nav></section>`;
     }).join('');
     const omitted = chapter.hiddenReferencesOmitted > 0
       ? `<p class="notice">${chapter.hiddenReferencesOmitted} source reference${chapter.hiddenReferencesOmitted === 1 ? '' : 's'} to hidden or sensitive paths were omitted. Some claims may have less bundled evidence.</p>`

@@ -60,7 +60,7 @@ Local browsing, capture, indexing, and opening saved chapters do not need an API
 
 ## Project state and trust routes
 
-The full desired experience is still being built. Fine-grained selective regeneration, a user-facing guide revision compare/restore workflow, polished onboarding, release hardening, relationship impact in Git comparisons, and the remaining PR Guide acceptance evidence are outstanding. The source now contains a reviewed local PR Guide workflow, but its Kata task has not been marked complete. The offline export path is present but has not passed the full offline-package acceptance workflow. Check the blueprint and Kata backlog for the target and outstanding gates.
+The full desired experience is still being built. Single-section stale-guide updates and the user-facing revision compare/restore workflow are implemented; one request cannot update several stale sections as a batch. Polished onboarding, release hardening, relationship impact in Git comparisons, and the remaining PR Guide and offline-export acceptance evidence are still outstanding. The source contains the reviewed local PR Guide and self-contained offline export workflows, but their Kata acceptance walkthroughs have not been completed. Check the blueprint and Kata backlog for the target and outstanding gates.
 
 The earlier prototype archive is kept locally under `deprecated/` in the original working copy and is intentionally excluded from this repository. It is not required to build or use the current app; use this README and `docs/` for the current project.
 

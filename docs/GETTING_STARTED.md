@@ -36,7 +36,7 @@ This command starts the same browser-only UI preview at http://127.0.0.1:4173. D
 4. Open **Guide Plan** from the project-tools menu. It keeps every recorded path visible and shows whether a file still needs a chapter, has a draft or accepted revision, is excluded, or is unavailable or unsupported.
 5. Open **Chapter Studio** from the same menu. Select a file with no chapter for the current snapshot and choose **Generate current snapshot** only if you want to try Gemini. The generated result starts as a preview or draft and is not automatically accepted.
 6. After reviewing and accepting a chapter, open **Walkthrough**. Select a chapter and section, inspect its citations or visual hotspots, and use **Previous** or **Continue** when you are ready to move. Audio is optional; the transcript and manual controls remain available without it.
-7. To take a guide offline, choose **Offline export** in the Walkthrough footer. Select accepted revisions, review the source paths and excerpts included, optionally include narration audio already cached on this Mac, acknowledge the privacy review, and download the single HTML file. Export never generates or sends narration. The package includes written sections, navigation, and supported typed diagrams; live Atlas and Code Lens destinations remain unavailable offline.
+7. To take a guide offline, choose **Offline export** in the Walkthrough footer. Select accepted revisions, review the narration transcript, source paths, and excerpts included, optionally include narration audio already cached on this Mac, acknowledge the privacy review, and download the single HTML file. Export never generates or sends narration. The package includes written sections, saved narration transcripts, navigation, and supported typed diagrams; live Atlas and Code Lens destinations remain unavailable offline.
 
 ## Compare local revisions
 
@@ -65,7 +65,7 @@ Code Atlas cannot determine the billing state, region, eligibility, or quota of 
 - Each selected file is generated and reviewed individually. There is no generate-all action.
 - Generated prose and source identity validation are different checks: a valid citation does not prove that the explanation is semantically correct.
 - Gemini is the only direct text-generation provider in the current source. Other direct APIs and agent backends are planned, not selectable.
-- Fine-grained section regeneration, a user-facing guide revision compare/restore workflow, cross-file relationship impact in Git comparisons, and release signing remain tracked work. The PR Guide implementation is present but its Kata acceptance evidence remains open. The offline export path has not passed the full offline-package acceptance workflow; read the [Kata backlog](KATA_BACKLOG.md) for task contracts.
+- Single-section stale-guide updates and user-facing revision compare/restore are implemented; updating several stale sections in one model request is not supported. Cross-file relationship impact in Git comparisons, polished onboarding, release signing, and the remaining PR Guide and offline-export acceptance evidence remain tracked; read the [Kata backlog](KATA_BACKLOG.md) for task contracts.
 - This checkout has no root license file. Reuse and redistribution terms are unspecified.
 
 ## Where to go next

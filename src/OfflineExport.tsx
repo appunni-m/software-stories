@@ -298,6 +298,10 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
                         {chapter.sections.map((section) => (
                           <div className="offline-export-preview-section" key={section.sectionId}>
                             <strong>{section.title}</strong>
+                            {section.spokenText.trim() && <details>
+                              <summary>Narration transcript preview{section.spokenText.includes('[redacted credential]') ? ' · credential redacted' : ''}</summary>
+                              <pre>{section.spokenText}</pre>
+                            </details>}
                             {section.references.map((reference) => (
                               <details key={reference.anchorId}>
                                 <summary><code>{reference.path}:{reference.startLine}-{reference.endLine}</code>{reference.redactedCredential && <span>credential redacted</span>}</summary>
