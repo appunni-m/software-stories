@@ -1,7 +1,7 @@
 # Large repository performance report
 
-Measured on 2026-10-13 against source revision
-925767b8f5d9ce71ae167285beb54d14b1811188. The benchmark is intentionally
+Measured on 2026-10-14 against source revision
+898a60780d1a695b5c06675d19bda8bcc386c34c. The benchmark is intentionally
 small enough to reproduce locally; it is not a general performance guarantee.
 
 ## Environment and fixture
@@ -20,9 +20,9 @@ small enough to reproduce locally; it is not a general performance guarantee.
 
 | Phase | Samples (ms) | Median |
 | --- | --- | ---: |
-| Snapshot capture | 6,076; 6,029; 5,874 | 6,029 ms |
-| Static indexing | 366; 360; 362 | 362 ms |
-| Index save | 159; 160; 157 | 159 ms |
+| Snapshot capture | 5,553; 5,703; 5,488 | 5,553 ms |
+| Static indexing | 352; 348; 349 | 349 ms |
+| Index save | 152; 151; 150 | 151 ms |
 
 All 2,000 files were captured and indexed; the index contained 2,000 symbols
 and 6,000 relationships. The capture phase includes Git metadata checks,
