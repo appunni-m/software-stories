@@ -276,6 +276,23 @@ The completed capture view includes one searchable inventory for the selected im
 
 **Boundary:** PR Guide revisions are stored separately from file-chapter revisions and Git history. A completed comparison identity is bound to immutable base/head commits. Changing either ref requires a new comparison; the old request fingerprint cannot be sent for it. Remote PR metadata, GitHub authentication, checkouts, comments, and Git writes are out of scope.
 
+### Transient PR change explanation
+
+**Purpose:** explain one selected diff hunk without creating a saved PR Guide revision.
+
+**Entry:** after a comparison is ready, select a direct API provider and model in the PR Guide panel, then choose **Explain hunk N** beside an eligible text hunk. The browser preview cannot run local Git or call provider APIs; use the native Tauri Mac app.
+
+**Controls and destinations:**
+
+- Building the review is local. It revalidates the comparison and selected hunk, and displays only that hunk, the exact prompt and encoded body, provider/model and terms disclosures, cost estimate, and fingerprint.
+- The three privacy/data-use, billing, and age/region/use acknowledgements start unchecked. **Send reviewed request** is enabled only for the current fingerprint after every acknowledgement. One request goes to the selected API; there is no provider or model fallback.
+- Returned claims must pass local schema and exact, unique, side-aware base/head hunk citation checks. Results remain in the comparison panel only; they do not create PR Guide history or alter file chapters, Git refs, or the working tree.
+- A citation focuses the corresponding hunk. **Close** returns to the comparison; changing the refs or hunk discards the old review. Cancellation and provider failures leave the local comparison usable.
+
+**States:** provider/model missing; building local review; awaiting consent; sending; transient validated result; invalid/changed hunk; cancelled; provider, quota, network, or malformed-response error.
+
+**Boundary:** only the selected hunk is sent after explicit review and consent. The provider may have received the request before cancellation. The result is not persisted as a PR Guide or chapter. No GitHub login, remote PR request, checkout, or Git write is performed.
+
 ## Cross-screen state and return table
 
 | Origin | Action | Destination | State restored on Back |
@@ -284,6 +301,7 @@ The completed capture view includes one searchable inventory for the selected im
 | Atlas selected relationship | Open evidence | Source range proving that edge | Selected edge and evidence panel. |
 | Guide Plan file | Create chapter | Blank local draft | Selected row/status/filter/page; no request exists. |
 | Compare local revisions | Expand changed file | Base/head diff evidence | Ref pair and expanded file selection. |
+| Local Git comparison hunk | Explain hunk N | Transient PR change explanation | Close returns to the comparison and selected hunk; no guide history is created. |
 | PR Guide claim | Open citation | Selected base/head diff hunk | Draft selections remain in memory; the exact hunk scrolls into view. |
 | Guide Plan file | Generate draft | Request Review | Request cancel returns to selected row and chapter status. |
 | Request Review | Send this request | Provider, then Chapter Studio draft | On success, draft is a new unaccepted revision; on failure, manifest can be reviewed again. |

@@ -50,6 +50,8 @@ Expand a changed file to inspect its bounded diff hunks and exact changed-line r
 
 When a complete comparison is ready, the **Build a PR Guide** panel lets you select up to twelve text-diff files. Choose **Review exact provider request** to select an API provider and model and see the selected diff, prompt, endpoint, pricing, and terms disclosures before any request. No request is sent until all consent controls are checked and you choose **Send reviewed request**. Each returned claim must cite an exact line from the correct base or head hunk. Citation buttons expand and scroll to the cited hunk. Keep or reject claims, then accept or reject the draft; decisions append to a separate local PR Guide history and do not change Git refs or file chapters. This flow runs in the native Mac app; the browser preview cannot read Git or call a model API.
 
+For an explanation of one change without creating a saved guide, select a direct API provider and model in the PR Guide panel, then choose **Explain hunk N** beside an eligible text hunk. The local review shows the exact hunk, prompt, encoded request, provider disclosures, and fingerprint. Sending requires the same three explicit acknowledgements and sends only that hunk. Returned claims are checked against exact base/head citations and remain transient; closing the panel returns to the comparison without adding PR Guide history or changing Git refs. This flow also requires the native Mac app.
+
 ## Optional direct API generation
 
 Local capture, Atlas, Code Lens, existing saved chapters, and chapter editing do not require an API key. To send a generation request:
@@ -68,7 +70,7 @@ Code Atlas cannot determine account billing, region, eligibility, quota, or rete
 - The indexer recognizes a defined Rust, TypeScript, TSX, and JavaScript subset. Other files remain visible in inventory, with parser or capture limitations shown.
 - Each selected file is generated and reviewed individually. There is no generate-all action.
 - Generated prose and source identity validation are different checks: a valid citation does not prove that the explanation is semantically correct.
-- Gemini, OpenAI, and Anthropic are selectable for file chapters, optional orientation, selective section updates, PR Guides, and transient Code Lens explanations grounded in a verified source range. The cross-provider fixture/acceptance gate remains open; PR change explanations and coding-agent backends are not implemented as direct API operations.
+- Gemini, OpenAI, and Anthropic are selectable for file chapters, optional orientation, selective section updates, PR Guides, transient one-hunk PR change explanations, and transient Code Lens explanations grounded in a verified source range. The full cross-provider fixture and acceptance gate remains open. Coding-agent backends are separate planned integrations and are not selectable.
 - Single-section stale-guide updates and user-facing revision compare/restore are implemented; updating several stale sections in one model request is not supported. Cross-file relationship impact in Git comparisons, polished onboarding, release signing, and the remaining PR Guide and offline-export acceptance evidence remain tracked; read the [Kata backlog](KATA_BACKLOG.md) for task contracts.
 - This checkout has no root license file. Reuse and redistribution terms are unspecified.
 

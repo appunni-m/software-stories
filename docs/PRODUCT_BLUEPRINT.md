@@ -70,6 +70,7 @@ The complete control-level destinations, keyboard/focus rules, side-effect bound
 | Request Review | No key / manifest preview / awaiting consent / sending / success / cancelled / provider error | Purpose, target, exact paths/excerpts or narration text, current model/disclosure, size estimate, fingerprint, privacy/cost notice | Review itself is local and sends nothing. Only the explicit final confirmation sends the reviewed fingerprint. Any changed input returns to a new manifest review. |
 | Local Git comparison | No repository / refs incomplete / comparing / ready / bounded / invalid refs | Explicit local base/head refs, resolved commit IDs, classified paths, exact changed-line ranges, bounded hunks, parser-backed declarations, separate base/head anchors | Compare existing local commits only; no fetch, checkout, remote request, or repository write. Uncertain and omitted evidence stays visible; syntax is not runtime impact. |
 | PR Guide | No eligible change / request review / draft / accepted or rejected / invalid evidence | Selected local base/head IDs, changed files, exact diff evidence, claim citations, separate PR Guide history | Select a subset of files, review exact provider context, then include/exclude claims and accept/reject separately from repository chapters. |
+| PR change explanation | Hunk selected / local review / awaiting consent / sending / transient result / invalid evidence | One selected local hunk, exact base/head context, provider/model disclosure, bounded claims and side-aware citations | Explain one eligible text hunk after review and consent. Results are temporary; closing returns to the comparison without writing PR Guide history or Git state. |
 
 ## Cross-screen transitions
 
@@ -81,6 +82,7 @@ The complete control-level destinations, keyboard/focus rules, side-effect bound
 | Chapter Studio | Accept valid draft | Accepted chapter in Walkthrough | Chapter remains visible in Guide Plan; prior revisions remain accessible. |
 | Walkthrough hotspot | Open code | Code Lens at the hotspot's exact evidence | Return restores section ID, time, transcript position, and focused hotspot. |
 | New source snapshot | Review changed evidence | Freshness list with source diff and affected sections/assets | User can inspect any source diff and leave without changing accepted guide history. |
+| Local Git comparison hunk | Explain hunk N | Transient PR change explanation review/result | Close returns to the same comparison and hunk; no PR Guide history or Git state changes. |
 | Stale section | Carry forward or regenerate one section | New section draft; regeneration first opens Request Review | Accept creates a new chapter manifest; cancel/reject keeps prior accepted content. |
 
 No transition silently switches repository snapshots. A snapshot change is an explicit user action and is shown in all three workspaces.
@@ -174,7 +176,7 @@ This model makes the editing unit a section with explicit evidence dependencies.
 
 ## AI backend choices, cost, and privacy
 
-Gemini, OpenAI, and Anthropic direct API routes are implemented for file chapters, optional orientation, selective section updates, PR Guides, and transient Code Lens explanations grounded in a verified source range; the operation-by-provider fixture and acceptance gate remains open. Optional Gemini TTS is a separate speech path. Coding-agent runtimes such as OpenAI Codex, Claude Agent (powered by Claude Code), Gemini CLI, and Google Antigravity remain separate planned integrations. Antigravity's SDK, ACP binary, and headless CLI are separate surfaces to evaluate, not one interchangeable integration. The app must not automate interactive terminal UIs or reuse a consumer Antigravity login. PR change explanations are not implemented as a direct API operation yet.
+Gemini, OpenAI, and Anthropic direct API routes are implemented for file chapters, optional orientation, selective section updates, PR Guides, transient single-hunk PR change explanations, and transient Code Lens explanations grounded in a verified source range. The PR change flow sends one reviewed hunk and returns temporary side-aware citations without creating PR Guide history. The operation-by-provider fixture and acceptance gate remains open. Optional Gemini TTS is a separate speech path. Coding-agent runtimes such as OpenAI Codex, Claude Agent (powered by Claude Code), Gemini CLI, and Google Antigravity remain separate planned integrations. Antigravity's SDK, ACP binary, and headless CLI are separate surfaces to evaluate, not one interchangeable integration. The app must not automate interactive terminal UIs or reuse a consumer Antigravity login.
 
 Each candidate remains unavailable until its exact version, authentication and terms, capability limits, request scope, cancellation behavior, and read-only boundary pass the relevant acceptance gate. Prefer an existing vendor-supported SDK/app-server or a protocol adapter where it fits; do not build a new agent loop or infer equivalent permissions across runtimes. The user chooses an API provider or an agent runtime for each supported operation. These execution modes have different capabilities, authentication, and usage behavior. The product does not host a model gateway or switch provider silently. See the [M7 capability matrix](research/ai-backend-capability-matrix.md) for dated candidate research and status.
 
@@ -211,7 +213,7 @@ Users can preview or edit the narration before speech generation. Audio is optio
 
 ### Local change explanation milestone
 
-- A local read-only comparison viewer for Git base/head refs and an initial reviewed PR Guide workflow from selected diff evidence exist in source. The PR Guide has its own claim review and immutable local history; its Kata acceptance evidence remains open. No GitHub login or remote PR fetch is part of the workflow.
+- A local read-only comparison viewer for Git base/head refs, a reviewed PR Guide workflow from selected diff evidence, and a transient explanation flow for one selected hunk exist in source. PR Guides have their own claim review and immutable local history; single-hunk explanations are temporary and do not create guide history. Their Kata acceptance evidence remains open. No GitHub login or remote PR fetch is part of these workflows.
 
 ### Not in scope for first release
 
