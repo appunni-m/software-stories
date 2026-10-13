@@ -1285,6 +1285,51 @@ mod tests {
     }
 
     #[test]
+    fn narration_review_accepts_the_utf8_byte_limit_and_splits_it_for_requests() {
+        let storage = TestStorage::new();
+        let reviews = PendingNarrationReviews::default();
+        let spoken_text = format!("{}x", "界".repeat((MAX_SPOKEN_TEXT_BYTES - 1) / 3));
+        assert_eq!(spoken_text.len(), MAX_SPOKEN_TEXT_BYTES);
+
+        let review = build_review(storage.path(), &reviews, &spoken_text, "Zephyr", "", vec![]);
+
+        assert_eq!(review.exact_text, spoken_text);
+        assert_eq!(review.request_segments.concat(), spoken_text);
+        assert!(review.request_segments.len() > 1);
+        assert!(
+            review
+                .request_segments
+                .iter()
+                .all(|segment| segment.len() <= MAX_TTS_REQUEST_TEXT_BYTES)
+        );
+    }
+
+    #[test]
+    fn narration_review_rejects_one_utf8_byte_over_the_section_limit() {
+        let storage = TestStorage::new();
+        let reviews = PendingNarrationReviews::default();
+        let spoken_text = format!("{}界", "x".repeat(MAX_SPOKEN_TEXT_BYTES - 2));
+        assert_eq!(spoken_text.len(), MAX_SPOKEN_TEXT_BYTES + 1);
+
+        let result = build_request_review(
+            storage.path(),
+            &reviews,
+            BuildNarrationReviewInput {
+                spoken_text,
+                voice: "Zephyr".to_owned(),
+                style: String::new(),
+                lexicon: vec![],
+            },
+        );
+
+        let ProviderCommandResult::Error { error } = result else {
+            panic!("a script over the UTF-8 byte limit must be rejected before review");
+        };
+        assert_eq!(error.kind, ProviderFailureKind::InvalidReview);
+        assert!(error.message.contains("16,000 UTF-8 bytes"));
+    }
+
+    #[test]
     fn combined_wav_keeps_segment_audio_in_order_with_a_short_pause() {
         let first = valid_test_wav(1);
         let second = valid_test_wav(2);
