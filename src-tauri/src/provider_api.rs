@@ -170,3 +170,102 @@ fn hex_digest(bytes: &[u8]) -> String {
         .map(|byte| format!("{byte:02x}"))
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::encode_request_preview;
+    use serde_json::{Value, json};
+
+    fn generation_config() -> Value {
+        json!({
+            "temperature": 0.2,
+            "maxOutputTokens": 1024,
+            "candidateCount": 1,
+            "responseMimeType": "application/json",
+            "responseSchema": {
+                "type": "OBJECT",
+                "properties": {
+                    "summary": { "type": "STRING" },
+                    "evidence": {
+                        "type": "ARRAY",
+                        "items": { "type": "STRING" }
+                    }
+                },
+                "required": ["summary", "evidence"],
+                "additionalProperties": false
+            }
+        })
+    }
+
+    #[test]
+    fn each_catalog_provider_encodes_to_its_explicit_route_without_exposing_credentials() {
+        let cases = [
+            (
+                "gemini",
+                "test-gemini-model",
+                "https://generativelanguage.googleapis.com/v1beta/models/test-gemini-model:generateContent",
+            ),
+            (
+                "openai",
+                "test-openai-model",
+                "https://api.openai.com/v1/responses",
+            ),
+            (
+                "anthropic",
+                "test-anthropic-model",
+                "https://api.anthropic.com/v1/messages",
+            ),
+        ];
+
+        for (provider_id, model_id, expected_endpoint) in cases {
+            let preview = encode_request_preview(
+                provider_id,
+                model_id,
+                "Explain only the supplied evidence.",
+                "Describe one selected source file.",
+                &generation_config(),
+            )
+            .unwrap_or_else(|error| panic!("{provider_id} did not encode: {error}"));
+
+            assert_eq!(
+                preview.endpoint_url, expected_endpoint,
+                "{provider_id} route"
+            );
+            if provider_id == "gemini" {
+                assert!(
+                    preview.endpoint_url.contains(model_id),
+                    "Gemini model is encoded in the endpoint"
+                );
+            } else {
+                assert_eq!(preview.body["model"], model_id, "{provider_id} model");
+            }
+            assert!(preview.body_bytes > 0, "{provider_id} body is present");
+            assert_eq!(
+                preview.body_bytes,
+                serde_json::to_vec(&preview.body).unwrap().len(),
+                "{provider_id} body size matches the reviewed JSON body"
+            );
+            assert!(!preview.endpoint_url.contains("key="));
+            assert!(
+                !preview
+                    .body
+                    .to_string()
+                    .contains("code-atlas-review-placeholder")
+            );
+        }
+    }
+
+    #[test]
+    fn an_unknown_provider_fails_closed_instead_of_selecting_a_default() {
+        let error = encode_request_preview(
+            "unknown-provider",
+            "model-name",
+            "system",
+            "prompt",
+            &generation_config(),
+        )
+        .unwrap_err();
+
+        assert_eq!(error, "provider is not in the direct API adapter catalog");
+    }
+}
