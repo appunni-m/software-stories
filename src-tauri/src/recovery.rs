@@ -405,4 +405,45 @@ mod tests {
         assert!(result.is_err());
         assert!(!started.load(std::sync::atomic::Ordering::SeqCst));
     }
+
+    #[tokio::test]
+    async fn provider_operation_is_durable_before_send_and_survives_reopen_until_cleared() {
+        let directory = TestDirectory::new();
+        let journal = InterruptionJournal::default();
+        let operation = new_provider_operation(
+            "project-a".to_owned(),
+            "snapshot-a".to_owned(),
+            Some("src/lib.rs".to_owned()),
+            "review-a".to_owned(),
+        );
+        let operation_id = operation.operation_id.clone();
+        let storage = directory.0.clone();
+        let operation_seen_before_send = operation.clone();
+
+        journal
+            .begin_async(&directory.0, operation.clone(), || async move {
+                let saved_before_send = InterruptionJournal::default().list(&storage).unwrap();
+                assert_eq!(saved_before_send, vec![operation_seen_before_send]);
+                "provider completed"
+            })
+            .await
+            .unwrap();
+
+        let serialized = fs::read_to_string(journal_path(&directory.0)).unwrap();
+        assert!(!serialized.contains("consent"));
+        assert!(!serialized.contains("apiKey"));
+        assert!(!serialized.contains("userPrompt"));
+        assert_eq!(
+            InterruptionJournal::default().list(&directory.0).unwrap(),
+            vec![operation]
+        );
+
+        journal.discard(&directory.0, &operation_id).unwrap();
+        assert!(
+            InterruptionJournal::default()
+                .list(&directory.0)
+                .unwrap()
+                .is_empty()
+        );
+    }
 }
