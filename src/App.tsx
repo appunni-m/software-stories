@@ -1457,6 +1457,7 @@ function App() {
                   [projectId]: { baseRef, headRef, result },
                 }))}
                 onOpenRepository={() => { void openLocalRepository(); }}
+                onOpenProviderSettings={() => setProviderDialog({ kind: 'settings' })}
               />
             ) : (
               <WorkflowEmptyState kind="studio" onGoPlan={() => chooseWorkspace('guide-plan')} />
@@ -1678,6 +1679,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
     try {
       const result = await storeGeminiApiKey(keyDraft);
       setCredential(result);
+      window.dispatchEvent(new Event('code-atlas:provider-credentials-changed'));
       if (result.status === 'ok' && result.data.apiKeyConfigured) {
         setKeyDraft('');
         setKeyMessage('Key saved to macOS Keychain. Code Atlas does not retain it in app settings.');
@@ -1697,6 +1699,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
     try {
       const result = await removeGeminiApiKey();
       setCredential(result);
+      window.dispatchEvent(new Event('code-atlas:provider-credentials-changed'));
       setKeyMessage(result.status === 'ok' ? result.data.explanation : result.error.message);
     } catch {
       setKeyMessage('Code Atlas could not remove the key from macOS Keychain.');

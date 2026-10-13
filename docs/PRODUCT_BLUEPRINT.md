@@ -69,7 +69,7 @@ The complete control-level destinations, keyboard/focus rules, side-effect bound
 | Walkthrough | No accepted chapter / selected chapter / selected section / audio unavailable | Chapter rail, section question, explanation, linked visual, source evidence, transcript, playback state | Previous/Continue or direct section selection changes section deliberately. Hotspot opens exact target. Audio failure leaves transcript and navigation active. |
 | Request Review | No key / manifest preview / awaiting consent / sending / success / cancelled / provider error | Purpose, target, exact paths/excerpts or narration text, current model/disclosure, size estimate, fingerprint, privacy/cost notice | Review itself is local and sends nothing. Only the explicit final confirmation sends the reviewed fingerprint. Any changed input returns to a new manifest review. |
 | Local Git comparison | No repository / refs incomplete / comparing / ready / bounded / invalid refs | Explicit local base/head refs, resolved commit IDs, classified paths, exact changed-line ranges, bounded hunks, parser-backed declarations, separate base/head anchors | Compare existing local commits only; no fetch, checkout, remote request, or repository write. Uncertain and omitted evidence stays visible; syntax is not runtime impact. |
-| PR Guide (follow-up) | No selected changes / review / draft / invalid evidence | Selected local base/head IDs, changed files, diff evidence, separate PR draft | Choose a subset of changed files, review exact provider context, then accept/reject separately from repository chapters. |
+| PR Guide | No eligible change / request review / draft / accepted or rejected / invalid evidence | Selected local base/head IDs, changed files, exact diff evidence, claim citations, separate PR Guide history | Select a subset of files, review exact provider context, then include/exclude claims and accept/reject separately from repository chapters. |
 
 ## Cross-screen transitions
 
@@ -209,9 +209,9 @@ Users can preview or edit the narration before speech generation. Audio is optio
 - Git-like section/chapter history, stale evidence detection, selective regeneration, and offline guide export.
 - Mac onboarding, recovery, accessibility, and signed/notarized packaging.
 
-### Follow-up milestone
+### Local change explanation milestone
 
-- A local read-only comparison viewer for Git base/head refs is available. Generating reviewed PR Guide drafts from a selected subset of its evidence remains follow-up work; no GitHub login or remote PR fetch is part of that workflow.
+- A local read-only comparison viewer for Git base/head refs and an initial reviewed PR Guide workflow from selected diff evidence exist in source. The PR Guide has its own claim review and immutable local history; its Kata acceptance evidence remains open. No GitHub login or remote PR fetch is part of the workflow.
 
 ### Not in scope for first release
 
@@ -238,7 +238,7 @@ The more detailed data and trust boundaries are in [Technical plan](TECHNICAL_PL
 | M3 — Interactive explainer | Manual section player, linked visuals, transcript, optional narration | The reader can pause at every section, inspect the cited source, return to the same state, and deliberately continue. |
 | M4 — Git-like guide updates | Fine-grained staleness, section regeneration, history, offline export | Changing one file leaves unrelated sections and assets unchanged; regenerated content is a reviewed new revision. |
 | M5 — Mac release | Onboarding, recovery, accessibility, packaging | A fresh user can open a repo offline, recover from failures, and use the signed app without a key. |
-| M6 — PR Guide follow-up | Local diff explanation | Every change claim links to a reviewed base/head diff or source anchor; repo guide history remains separate. |
+| M6 — PR Guide follow-up | Local diff explanation with a separate, reviewed guide history | Every claim cites the correct immutable base/head hunk; acceptance decisions do not change repository guide chapters or Git refs. |
 
 The build order and independent issue scopes are tracked in Kata. PR Guide is deliberately not a dependency of the first useful release.
 

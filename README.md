@@ -12,7 +12,7 @@ This image is a design concept, not a screenshot of the running app. Product beh
 
 - A Tauri desktop shell with local repository selection, bounded snapshot capture, Atlas, Code Lens, and a Rust index for a defined Rust, TypeScript, TSX, and JavaScript subset.
 - Local file-by-file coverage, Chapter Studio editing and review, immutable JSON chapter revisions, and a manually paced Walkthrough with source-linked citations and typed visual hotspots.
-- A **Compare local revisions** project tool for bounded, read-only comparisons of commits already present in a local Git repository. It shows file classifications, exact changed-line ranges, diff hunks, parser-backed declarations where all available source revisions parse cleanly, and distinct base/head commit and blob identities. It never fetches, checks out, or writes Git state.
+- A **Compare local revisions** project tool for bounded, read-only comparisons of commits already present in a local Git repository. It shows file classifications, exact changed-line ranges, diff hunks, parser-backed declarations where all available source revisions parse cleanly, and distinct base/head commit and blob identities. A separate PR Guide panel can send selected diff evidence to Gemini only after exact request review and consent; generated claims must cite the correct base/head hunk, and accepting or rejecting appends separate local PR Guide history. It never fetches, checks out, or writes Git state.
 - Walkthrough can export one self-contained HTML file from selected accepted revisions. It previews paths and excerpts, supports section navigation and supported typed diagrams, and can include narration audio already cached on this Mac; it does not include live Atlas/Code Lens destinations.
 - Direct Gemini API paths for file chapters and an optional repository overview. A reviewed request sends only the selected captured context after explicit confirmation; generated content is validated and remains unaccepted until the user saves and reviews it.
 - Optional Gemini text-to-speech for an edited section script. The speech request is reviewed separately and sends the selected script and voice settings, not source excerpts by default.
@@ -41,7 +41,7 @@ npm ci
 npm run dev
 ```
 
-`npm run dev` starts the Vite browser preview at `http://127.0.0.1:1420`. It is not equivalent to the native app: native repository picking, Keychain access, and provider operations require the Tauri shell.
+`npm run dev` starts the Vite browser preview at `http://127.0.0.1:4173`. The port is fixed; startup fails if it is already in use, so the preview does not silently move to another port. It is not equivalent to the native app: native repository picking, Keychain access, and provider operations require the Tauri shell.
 
 ```sh
 npm run tauri dev
@@ -56,11 +56,11 @@ npm run check
 
 ## Data and provider behavior
 
-Local browsing, capture, indexing, and opening saved chapters do not need an API key or provider call. Opening settings or preparing a request does not send one. A confirmed Gemini text request sends the selected captured source directly from the app to Google. A confirmed narration request sends the reviewed speech script and selected voice/style settings. Read the [provider disclosures](docs/PROVIDER_DISCLOSURES.md) before using either path.
+Local browsing, capture, indexing, and opening saved chapters do not need an API key or provider call. Opening settings or preparing a request does not send one. A confirmed Gemini text request sends the selected captured source or, for a PR Guide, the exact selected local diff directly from the app to Google. A confirmed narration request sends the reviewed speech script and selected voice/style settings. Read the [provider disclosures](docs/PROVIDER_DISCLOSURES.md) before using either path.
 
 ## Project state and trust routes
 
-The full desired experience is still being built. Fine-grained selective regeneration, a user-facing guide revision compare/restore workflow, polished onboarding, release hardening, relationship impact in Git comparisons, and generated PR explanations remain outstanding. The local Git comparison is evidence browsing only; it does not create or accept a PR Guide. The offline export path is present but has not passed the full offline-package acceptance workflow. Check the blueprint and Kata backlog for the target and outstanding gates.
+The full desired experience is still being built. Fine-grained selective regeneration, a user-facing guide revision compare/restore workflow, polished onboarding, release hardening, relationship impact in Git comparisons, and the remaining PR Guide acceptance evidence are outstanding. The source now contains a reviewed local PR Guide workflow, but its Kata task has not been marked complete. The offline export path is present but has not passed the full offline-package acceptance workflow. Check the blueprint and Kata backlog for the target and outstanding gates.
 
 Older prototypes and their plans are kept under [`deprecated/`](deprecated/). They are archival references; use the root README and `docs/` for the current project.
 

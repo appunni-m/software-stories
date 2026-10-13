@@ -166,6 +166,70 @@ export interface GitComparisonResult {
   message: string | null;
 }
 
+export interface SelectedGitChangeIdentity {
+  basePath: string | null;
+  headPath: string | null;
+}
+
+export interface PrGuideComparisonContext {
+  baseRef: string;
+  headRef: string;
+  comparisonId: string;
+  base: ResolvedGitRef;
+  head: ResolvedGitRef;
+  selectedChanges: GitFileChange[];
+}
+
+export type PrGuideLifecycle = 'draft' | 'accepted' | 'rejected';
+export type PrGuideClaimCategory = 'codeBehavior' | 'repositoryContext' | 'inference';
+export type PrGuideClaimAspect = 'codeChange' | 'tests' | 'dependency' | 'compatibility' | 'risk';
+export type GitEvidenceSide = 'base' | 'head';
+
+export interface PrGuideCitation {
+  changeIndex: number;
+  hunkIndex: number;
+  side: GitEvidenceSide;
+  anchor: GitSourceAnchor;
+  quote: string;
+}
+
+export interface PrGuideClaim {
+  claimId: string;
+  category: PrGuideClaimCategory;
+  aspect: PrGuideClaimAspect;
+  prose: string;
+  inferenceBasis: string | null;
+  citations: PrGuideCitation[];
+}
+
+export interface PrGuideSection {
+  sectionId: string;
+  title: string;
+  claims: PrGuideClaim[];
+}
+
+export interface PrGuideRevision {
+  schemaVersion: number;
+  revisionId: string;
+  basedOnRevisionId: string | null;
+  revisionNumber: number;
+  projectId: string;
+  comparison: PrGuideComparisonContext;
+  lifecycle: PrGuideLifecycle;
+  decisionNote: string | null;
+  createdAtUnixMs: number;
+  title: string;
+  sections: PrGuideSection[];
+}
+
+export interface PrGuidePreview {
+  revision: PrGuideRevision;
+  modelId: string;
+  modelVersion: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+}
+
 export interface SnapshotStart {
   snapshotId: string;
   parentSnapshotId: string | null;
@@ -566,6 +630,8 @@ export interface ProviderModel {
 export interface ProviderDisclosure {
   version: string;
   checkedDate: string;
+  endpointUrl: string;
+  requestPathTemplate: string;
   pricingUrl: string;
   termsUrl: string;
   regionsUrl: string;
@@ -702,6 +768,7 @@ export interface ProviderRequestReview {
   selectedSymbols: ProviderSymbolEvidence[];
   selectedRelationships: ProviderRelationshipEvidence[];
   indexEvidenceTruncated: boolean;
+  prGuideContext: PrGuideComparisonContext | null;
   systemInstruction: string;
   userPrompt: string;
   generationConfig: Record<string, unknown>;
@@ -790,6 +857,47 @@ export async function compareLocalGitRevisions(
   headRef: string,
 ): Promise<GitComparisonResult> {
   return invoke<GitComparisonResult>('compare_local_git_revisions', { projectId, baseRef, headRef });
+}
+
+export async function buildGeminiPrGuideRequestReview(input: {
+  projectId: string;
+  baseRef: string;
+  headRef: string;
+  comparisonId: string;
+  selectedChanges: SelectedGitChangeIdentity[];
+  modelId: string;
+}): Promise<ProviderCommandResult<ProviderRequestReview>> {
+  return invoke<ProviderCommandResult<ProviderRequestReview>>('build_gemini_pr_guide_request_review', { input });
+}
+
+export async function sendGeminiPrGuideRequest(input: {
+  reviewId: string;
+  fingerprint: string;
+  consent: ProviderConsent;
+}): Promise<ProviderCommandResult<PrGuidePreview>> {
+  return invoke<ProviderCommandResult<PrGuidePreview>>('send_gemini_pr_guide_request', input);
+}
+
+export async function listPrGuideRevisions(projectId: string, comparisonId: string): Promise<PrGuideRevision[]> {
+  return invoke<PrGuideRevision[]>('list_pr_guide_revisions', { projectId, comparisonId });
+}
+
+export async function acceptPrGuideDraft(input: {
+  projectId: string;
+  comparisonId: string;
+  revisionId: string;
+  includedClaimIds: string[];
+}): Promise<PrGuideRevision> {
+  return invoke<PrGuideRevision>('accept_pr_guide_draft', input);
+}
+
+export async function rejectPrGuideDraft(input: {
+  projectId: string;
+  comparisonId: string;
+  revisionId: string;
+  reason: string;
+}): Promise<PrGuideRevision> {
+  return invoke<PrGuideRevision>('reject_pr_guide_draft', input);
 }
 
 export async function removeRecentProject(projectId: string): Promise<RecentProject[]> {

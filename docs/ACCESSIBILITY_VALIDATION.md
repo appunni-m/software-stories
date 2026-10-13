@@ -15,6 +15,9 @@ contrast, zoom, or native-app usability pass.
   the narrow-window breakpoint.
 - Reduced-motion rules remain active for application animations, transitions,
   and smooth scrolling.
+- PR Guide citation buttons remain keyboard-operable, expand the cited file,
+  scroll the exact hunk into view, and highlight it. Citation scrolling uses
+  non-smooth behavior when reduced motion is requested.
 
 ## Evidence available in source
 
@@ -33,6 +36,10 @@ contrast, zoom, or native-app usability pass.
   the rendered UI.
 - Reduced-motion styles and focus/reflow fixes are in
   [App.css](../src/App.css).
+- PR Guide citations connect to selected hunks in
+  [GitChanges.tsx](../src/GitChanges.tsx) and
+  [PrGuideStudio.tsx](../src/PrGuideStudio.tsx). Source/build evidence is not a
+  rendered interaction or native-app accessibility pass.
 
 ## Rendered keyboard preview pass
 
@@ -54,7 +61,8 @@ The following are **not verified**:
 - Text zoom at 200%, narrow effective viewport reflow, and contrast legibility.
 - Reduced-motion behavior in the rendered app.
 - Keyboard focus through a populated repository-to-walkthrough journey,
-  including a focused chapter section heading and the provider/recovery dialogs.
+  including a focused chapter section heading, PR Guide citation-to-hunk links,
+  and the provider/recovery dialogs.
 
 Run and record those checks on the native app before treating the accessibility
 acceptance criteria as complete. The Rust and frontend tests and the preview

@@ -43,6 +43,18 @@ Before sending, inspect the request review and all provider notices. A request c
 
 Do not send confidential, personal, or secret source to a provider unless you have reviewed the applicable terms and have authorization to do so. See [Provider disclosures](PROVIDER_DISCLOSURES.md) for request contents, data use, billing, and first-party links.
 
+## PR Guide cannot build or a citation does not open its hunk
+
+PR Guide generation requires a complete local comparison with at least one
+selected, bounded text diff. The browser preview cannot read local Git or use
+Keychain; run the native Mac app. Rebuild **Review exact Gemini request** after
+changing the selected files or refs. If either local ref moved, compare again
+so the old request fingerprint and consent are discarded. A citation button
+should expand the cited file and scroll to its hunk; use the shown side, commit,
+path, blob, and line range to inspect the evidence if it is not visible. A
+claim can cite real code and still be semantically wrong, so exclude it or
+reject the draft when the explanation overstates what the diff proves.
+
 ## Narration is missing or synthesis is rejected
 
 Audio is optional. The transcript and section navigation remain usable without narration. A narration request has its own review and confirmation; it sends the edited spoken script and speech settings, not source excerpts by default. The current source limits a section script to 4,000 UTF-8 bytes. Shorten the spoken script and review the replacement request if it exceeds that limit.

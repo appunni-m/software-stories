@@ -17,6 +17,8 @@ mod git_evidence;
 mod index;
 mod narration;
 mod pending_chapter_previews;
+mod pr_guide;
+mod pr_guide_store;
 mod project;
 mod provider;
 mod recovery;
@@ -859,6 +861,34 @@ fn build_gemini_request_review(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+fn build_gemini_pr_guide_request_review(
+    sessions: State<'_, ProjectSessions>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    input: pr_guide::BuildReviewInput,
+) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
+    let project = match sessions.get(&input.project_id) {
+        Ok(project) => project,
+        Err(message) => {
+            return provider::ProviderCommandResult::error(
+                provider::ProviderFailureKind::InvalidReview,
+                message,
+            );
+        }
+    };
+    let pending = match provider::build_pr_guide_request_review(
+        Path::new(&project.repository_root),
+        &input,
+    ) {
+        Ok(pending) => pending,
+        Err(error) => return provider::ProviderCommandResult::failed(error),
+    };
+    match reviews.insert(pending) {
+        Ok(review) => provider::ProviderCommandResult::ok(review),
+        Err(error) => provider::ProviderCommandResult::failed(error),
+    }
+}
+
+#[tauri::command(rename_all = "camelCase")]
 fn discard_gemini_request_review(
     reviews: State<'_, provider::PendingProviderReviews>,
     review_id: String,
@@ -996,6 +1026,224 @@ async fn send_gemini_request(
     }
     .await;
     Ok(result)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn send_gemini_pr_guide_request(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    cancellations: State<'_, provider::ProviderRequestCancellations>,
+    interruptions: State<'_, recovery::InterruptionJournal>,
+    review_id: String,
+    fingerprint: String,
+    consent: provider::ProviderConsent,
+) -> Result<provider::ProviderCommandResult<pr_guide::PrGuidePreview>, String> {
+    let interruptions = (*interruptions).clone();
+    let result = async move {
+        if !consent.is_complete() {
+            return provider::ProviderCommandResult::error(
+                provider::ProviderFailureKind::ConsentRequired,
+                "Confirm the privacy/data-use, billing uncertainty, and adult/supported-region statements before sending.",
+            );
+        }
+        let pending = match reviews.get(&review_id) {
+            Ok(pending) => pending,
+            Err(error) => return provider::ProviderCommandResult::failed(error),
+        };
+        if pending.review.fingerprint != fingerprint {
+            reviews.remove(&review_id);
+            return provider::ProviderCommandResult::error(
+                provider::ProviderFailureKind::ReviewChanged,
+                "The reviewed request fingerprint changed. Build and review the exact Git evidence again.",
+            );
+        }
+        let project = match sessions.get(&pending.review.project_id) {
+            Ok(project) => project,
+            Err(message) => {
+                return provider::ProviderCommandResult::error(
+                    provider::ProviderFailureKind::InvalidReview,
+                    message,
+                );
+            }
+        };
+        let storage_dir = match app_data_directory(&app) {
+            Ok(path) => path,
+            Err(_) => {
+                return provider::ProviderCommandResult::error(
+                    provider::ProviderFailureKind::LocalStorageUnavailable,
+                    "Code Atlas local PR Guide storage is unavailable. No request was sent.",
+                );
+            }
+        };
+        if let Err(error) = provider::revalidate_pr_guide_request(
+            Path::new(&project.repository_root),
+            &pending.review,
+        ) {
+            reviews.remove(&review_id);
+            return provider::ProviderCommandResult::failed(error);
+        }
+        let api_key = match provider::load_api_key() {
+            Ok(api_key) => api_key,
+            Err(error) => return provider::ProviderCommandResult::failed(error),
+        };
+        let pending = match reviews.consume(&review_id, &fingerprint) {
+            Ok(pending) => pending,
+            Err(error) => return provider::ProviderCommandResult::failed(error),
+        };
+        let mut cancellation = match cancellations.begin(&review_id) {
+            Ok(cancellation) => cancellation,
+            Err(error) => return provider::ProviderCommandResult::failed(error),
+        };
+        let result = match interruptions
+            .begin_async(
+                &storage_dir,
+                recovery::new_provider_operation(
+                    pending.review.project_id.clone(),
+                    pending.review.snapshot_id.clone(),
+                    None,
+                    pending.review.review_id.clone(),
+                ),
+                || {
+                    provider::await_cancellable_request(
+                        &mut cancellation,
+                        provider::dispatch_reviewed_request(
+                            &pending,
+                            api_key,
+                            &consent,
+                            |model_id, api_key, body| async move {
+                                provider::send_to_gemini(&model_id, &api_key, body).await
+                            },
+                        ),
+                    )
+                },
+            )
+            .await
+        {
+            Ok(result) => result,
+            Err(error) => {
+                cancellations.finish(&review_id);
+                return provider::ProviderCommandResult::error(
+                    provider::ProviderFailureKind::LocalStorageUnavailable,
+                    format!("Local recovery state could not be saved, so no provider request was sent: {error}"),
+                );
+            }
+        };
+        cancellations.finish(&review_id);
+        let command_result = match result {
+            Ok(result) => match prepare_pr_guide_preview(&storage_dir, &pending.review, result) {
+                Ok(preview) => provider::ProviderCommandResult::ok(preview),
+                Err(error) => provider::ProviderCommandResult::failed(error),
+            },
+            Err(error) => provider::ProviderCommandResult::failed(error),
+        };
+        if let Err(error) = interruptions.discard(&storage_dir, &review_id) {
+            return provider::ProviderCommandResult::error(
+                provider::ProviderFailureKind::LocalStorageUnavailable,
+                format!("The provider request finished, but its local interruption notice could not be cleared: {error}. Check PR Guide history before sending another request."),
+            );
+        }
+        command_result
+    }
+    .await;
+    Ok(result)
+}
+
+fn prepare_pr_guide_preview(
+    storage_dir: &Path,
+    review: &provider::ProviderRequestReview,
+    result: provider::ProviderSendResult,
+) -> Result<pr_guide::PrGuidePreview, provider::ProviderFailure> {
+    let failure = |kind, message: String| provider::ProviderFailure { kind, message };
+    if result.review_id != review.review_id
+        || result.fingerprint != review.fingerprint
+        || result.model_id != review.model_id
+    {
+        return Err(failure(
+            provider::ProviderFailureKind::InvalidReview,
+            "The returned guide does not match the reviewed request identity. No PR Guide was saved.".to_owned(),
+        ));
+    }
+    let context = review.pr_guide_context.clone().ok_or_else(|| {
+        failure(
+            provider::ProviderFailureKind::InvalidReview,
+            "The reviewed request has no immutable Git comparison. No PR Guide was saved."
+                .to_owned(),
+        )
+    })?;
+    let revision =
+        pr_guide::canonicalize_response(&review.project_id, context, &result.response_text)
+            .map_err(|message| {
+                failure(
+                    provider::ProviderFailureKind::MalformedProviderResponse,
+                    message,
+                )
+            })?;
+    let revision = pr_guide_store::save_draft(storage_dir, revision).map_err(|message| {
+        failure(
+            provider::ProviderFailureKind::LocalStorageUnavailable,
+            format!("The PR Guide passed local evidence validation, but its separate history could not be saved: {message}"),
+        )
+    })?;
+    Ok(pr_guide::PrGuidePreview {
+        revision,
+        model_id: result.model_id,
+        model_version: result.model_version,
+        input_tokens: result.input_tokens,
+        output_tokens: result.output_tokens,
+    })
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn list_pr_guide_revisions(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    project_id: String,
+    comparison_id: String,
+) -> Result<Vec<pr_guide::PrGuideRevision>, String> {
+    let _project = sessions.get(&project_id)?;
+    let storage_dir = app_data_directory(&app)?;
+    pr_guide_store::list_for_comparison(&storage_dir, &project_id, &comparison_id)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn accept_pr_guide_draft(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    project_id: String,
+    comparison_id: String,
+    revision_id: String,
+    included_claim_ids: Vec<String>,
+) -> Result<pr_guide::PrGuideRevision, String> {
+    let _project = sessions.get(&project_id)?;
+    let storage_dir = app_data_directory(&app)?;
+    pr_guide_store::accept_draft(
+        &storage_dir,
+        &project_id,
+        &comparison_id,
+        &revision_id,
+        &included_claim_ids,
+    )
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn reject_pr_guide_draft(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    project_id: String,
+    comparison_id: String,
+    revision_id: String,
+    reason: String,
+) -> Result<pr_guide::PrGuideRevision, String> {
+    let _project = sessions.get(&project_id)?;
+    let storage_dir = app_data_directory(&app)?;
+    pr_guide_store::reject_draft(
+        &storage_dir,
+        &project_id,
+        &comparison_id,
+        &revision_id,
+        &reason,
+    )
 }
 
 fn prepare_chapter_draft_preview(
@@ -1154,6 +1402,9 @@ pub fn run() {
             remap_chapter_anchor,
             assess_chapter_freshness,
             compare_local_git_revisions,
+            list_pr_guide_revisions,
+            accept_pr_guide_draft,
+            reject_pr_guide_draft,
             get_provider_disclosure,
             get_narration_disclosure,
             build_narration_request_review,
@@ -1164,9 +1415,11 @@ pub fn run() {
             store_gemini_api_key,
             remove_gemini_api_key,
             build_gemini_request_review,
+            build_gemini_pr_guide_request_review,
             discard_gemini_request_review,
             cancel_gemini_request,
-            send_gemini_request
+            send_gemini_request,
+            send_gemini_pr_guide_request
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Code Atlas");

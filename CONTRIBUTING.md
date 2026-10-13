@@ -18,7 +18,7 @@ npm ci
 npm run dev
 ```
 
-The Vite preview is available at `http://127.0.0.1:1420`. It is a browser preview; native repository picking, Keychain access, and provider calls need the Tauri shell:
+The Vite preview is available at `http://127.0.0.1:4173` with strict port binding; if it is occupied, startup fails instead of opening another port. Reuse the existing preview process rather than starting a second one. It is a browser preview; native repository picking, Keychain access, and provider calls need the Tauri shell:
 
 ```sh
 npm run tauri dev

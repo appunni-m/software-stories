@@ -745,7 +745,7 @@ fn classify_content(bytes: &[u8]) -> CapturedContentKind {
     }
 }
 
-fn looks_secret_like(path: &str, bytes: &[u8]) -> bool {
+pub(crate) fn looks_secret_like(path: &str, bytes: &[u8]) -> bool {
     let path = path.to_ascii_lowercase();
     let file_name = path.rsplit('/').next().unwrap_or(&path);
     if file_name == ".env"

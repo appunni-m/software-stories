@@ -4,7 +4,7 @@
 //! resolution. It does not checkout either tree, touch the index, or update refs.
 
 use crate::project::git_command;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::{self, Read};
@@ -61,8 +61,8 @@ pub struct RefProblem {
     pub message: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ResolvedGitRef {
     pub requested: String,
     pub object_id: String,
@@ -82,8 +82,8 @@ pub struct GitComparisonResult {
     pub message: Option<String>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub enum GitChangeKind {
     Added,
     Deleted,
@@ -94,8 +94,8 @@ pub enum GitChangeKind {
     Other,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub enum EvidenceClassification {
     Text,
     Binary,
@@ -104,8 +104,8 @@ pub enum EvidenceClassification {
     ParserUncertain,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GitFileChange {
     pub kind: GitChangeKind,
     pub base_path: Option<String>,
@@ -119,8 +119,8 @@ pub struct GitFileChange {
     pub skipped_reason: Option<String>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GitDiffHunk {
     pub base_anchor: Option<GitSourceAnchor>,
     pub head_anchor: Option<GitSourceAnchor>,
@@ -133,23 +133,23 @@ pub struct GitDiffHunk {
     pub patch_excerpt: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GitChangedRange {
     pub start_line: u64,
     pub end_line: u64,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GitSymbolEvidence {
     pub kind: String,
     pub name: String,
     pub anchor: GitSourceAnchor,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GitSourceAnchor {
     pub revision_id: String,
     pub path: String,

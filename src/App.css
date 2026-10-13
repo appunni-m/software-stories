@@ -1433,6 +1433,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .git-change-detail { display: grid; gap: 9px; padding: 10px; border-top: 1px solid #27323a; }
 .git-change-detail .git-stale-result, .git-change-detail .git-no-changes { margin: 0; }
 .git-hunk { min-width: 0; overflow: hidden; border: 1px solid #27323a; border-radius: 5px; background: #080c10; }
+.git-hunk.is-focused { border-color: #d5a45d; box-shadow: 0 0 0 2px rgb(213 164 93 / 24%); scroll-margin-block: 22vh; }
 .git-hunk-anchors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 8px; border-bottom: 1px solid #27323a; background: #10161c; }
 .git-hunk-anchors > span { min-width: 0; display: grid; gap: 3px; color: #9daab3; font-size: 8px; }
 .git-hunk-anchors strong { color: #b8c5cd; font-size: 8px; }
@@ -1457,6 +1458,67 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .git-changes-empty p { max-width: 480px; margin: 0; color: #96a3ad; font-size: 10px; line-height: 1.6; }
 .git-changes-empty .primary-button { margin-top: 5px; }
 
+/* PR Guides keep generated explanations and human decisions outside file-chapter history. */
+.pr-guide-panel { min-width: 0; display: grid; gap: 12px; padding: 16px; border: 1px solid #354233; border-radius: 9px; background: linear-gradient(145deg, #111812, #10151b 60%); }
+.pr-guide-panel h2, .pr-guide-panel h3, .pr-guide-panel h4 { color: #e0e8e2; }
+.pr-guide-panel h3 { margin: 4px 0 0; font-size: 13px; }
+.pr-guide-panel h4 { margin: 0; font-size: 10px; }
+.pr-guide-muted { margin: 0; color: #9aa79e; font-size: 9px; line-height: 1.6; }
+.pr-guide-file-picker { display: grid; gap: 5px; min-width: 0; margin: 0; padding: 10px; border: 1px solid #2d3a31; border-radius: 7px; }
+.pr-guide-file-picker legend { padding: 0 5px; color: #c7d5c9; font-size: 9px; font-weight: 600; }
+.pr-guide-file-picker > label { min-width: 0; display: flex; align-items: center; gap: 9px; padding: 8px; border: 1px solid transparent; border-radius: 5px; color: #b8c4bb; background: #0e1411; cursor: pointer; }
+.pr-guide-file-picker > label.selected { border-color: #3d553c; background: #131d14; }
+.pr-guide-file-picker > label > span { min-width: 0; display: grid; gap: 3px; }
+.pr-guide-file-picker > label strong { color: #9caf8e; font: 7px var(--mono); text-transform: uppercase; }
+.pr-guide-file-picker > label code { overflow-wrap: anywhere; color: #d0dbd2; font: 9px var(--mono); }
+.pr-guide-file-picker > label small { margin-left: auto; color: #849188; font: 8px var(--mono); white-space: nowrap; }
+.pr-guide-file-picker input, .pr-guide-consent input, .pr-guide-claim-select input { accent-color: #9dbd7d; }
+.pr-guide-actions { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
+.pr-guide-actions > .primary-button, .pr-guide-actions > .secondary-button { margin: 0; }
+.pr-guide-model { display: grid; gap: 5px; min-width: min(250px, 100%); color: #b5c1b8; font-size: 8px; font-weight: 600; }
+.pr-guide-model select { height: 34px; padding: 0 9px; border: 1px solid #334037; border-radius: 6px; color: #d5dfd7; background: #0b100d; font-size: 9px; }
+.pr-guide-model select:focus-visible, .pr-guide-panel button:focus-visible, .pr-guide-consent input:focus-visible, .pr-guide-file-picker input:focus-visible, .pr-guide-claim-select input:focus-visible, .pr-guide-rejection-reason textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pr-guide-subheading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pr-guide-subheading > svg { color: #a7c98a; }
+.pr-guide-request-review, .pr-guide-draft-review, .pr-guide-history { display: grid; gap: 10px; min-width: 0; padding: 12px; border: 1px solid #2d3b31; border-radius: 7px; background: #0d1310; }
+.pr-guide-request-review { border-color: #566c41; background: #111810; }
+.pr-guide-disclosures { display: grid; gap: 7px; padding: 10px; border: 1px solid #4a4330; border-radius: 6px; background: #19170f; }
+.pr-guide-disclosures h4 { display: flex; align-items: center; gap: 6px; margin: 0; color: #ddcd9d; }
+.pr-guide-disclosures p { margin: 0; color: #c1b99f; font-size: 8px; line-height: 1.6; }
+.pr-guide-disclosures a { color: #a8c58c; }
+.pr-guide-consent { display: grid; gap: 6px; padding: 8px; border: 1px solid #313c34; border-radius: 6px; }
+.pr-guide-consent label { display: flex; align-items: flex-start; gap: 7px; color: #c3cec4; font-size: 8px; line-height: 1.5; cursor: pointer; }
+.pr-guide-notice { display: flex; align-items: flex-start; gap: 6px; margin: 0; padding: 9px; border: 1px solid #354d32; border-radius: 6px; color: #bbd2a9; background: #141c12; font-size: 9px; line-height: 1.5; }
+.pr-guide-notice svg { flex: 0 0 auto; }
+.pr-guide-draft-review { border-color: #52663f; background: #10170f; }
+.pr-guide-draft-review > .pr-guide-muted { padding-bottom: 5px; border-bottom: 1px solid #2a3829; }
+.pr-guide-section { display: grid; gap: 7px; }
+.pr-guide-section > h4 { padding: 8px; border-radius: 5px; color: #d5dfd2; background: #182019; }
+.pr-guide-claim { display: grid; gap: 6px; padding: 9px; border: 1px solid #2b3a2d; border-radius: 6px; background: #0b100c; }
+.pr-guide-claim.excluded { opacity: .66; }
+.pr-guide-claim-select { display: flex; align-items: center; gap: 6px; color: #b9c9b3; font-size: 8px; cursor: pointer; }
+.pr-guide-claim > p { margin: 0; color: #d2dbd2; font-size: 10px; line-height: 1.6; }
+.pr-guide-claim .pr-guide-inference-basis { padding: 7px; border-left: 2px solid #9c8149; color: #c9be9d; background: #19170f; font-size: 8px; }
+.pr-guide-citations { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.pr-guide-citation-link { width: 100%; display: grid; gap: 4px; padding: 7px; border: 1px solid #2b3942; border-radius: 5px; color: #b7c5cb; background: #0c1216; text-align: left; cursor: pointer; }
+.pr-guide-citation-link:hover { border-color: #596f4a; background: #121a13; }
+.pr-guide-citation-link span { color: #bdd39f; font: 8px var(--mono); overflow-wrap: anywhere; }
+.pr-guide-citation-link small { color: #84929a; font: 7px var(--mono); overflow-wrap: anywhere; }
+.pr-guide-citation-link code { color: #d0dbdf; font: 8px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.pr-guide-decision-actions { justify-content: space-between; padding-top: 8px; border-top: 1px solid #2b392b; }
+.pr-guide-decision-actions > span { color: #9fac9e; font: 8px var(--mono); }
+.pr-guide-rejection-reason { display: grid; gap: 5px; color: #aebbac; font-size: 8px; }
+.pr-guide-rejection-reason textarea { min-height: 54px; resize: vertical; padding: 8px; border: 1px solid #354238; border-radius: 5px; color: #d2ddd3; background: #0b100c; font: 9px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.pr-guide-history-list { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.pr-guide-history-list > li { min-width: 0; display: flex; align-items: center; gap: 8px; padding: 8px; border: 1px solid #27342b; border-radius: 5px; background: #0b100d; }
+.pr-guide-history-list > li > div { min-width: 0; display: grid; gap: 3px; }
+.pr-guide-history-list > li > div strong { overflow: hidden; color: #d0dad2; font-size: 9px; text-overflow: ellipsis; }
+.pr-guide-history-list > li > div small { color: #849087; font: 7px var(--mono); }
+.pr-guide-history-list > li > button { margin-left: auto; }
+.pr-guide-lifecycle { flex: 0 0 auto; padding: 3px 5px; border: 1px solid #45513a; border-radius: 4px; color: #bfd4aa; background: #151d12; font: 7px var(--mono); text-transform: uppercase; }
+.pr-guide-lifecycle.lifecycle-accepted { color: #9fc68c; border-color: #345439; background: #122016; }
+.pr-guide-lifecycle.lifecycle-rejected { color: #d79e96; border-color: #593a38; background: #211514; }
+
 @media (max-width: 900px) {
   .git-ref-form { grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr); }
   .git-compare-button { grid-column: 1 / -1; }
@@ -1471,6 +1533,11 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .git-change-toggle { grid-template-columns: auto minmax(0, 1fr); }
   .git-change-count { grid-column: 2; }
   .git-evidence-classification { grid-column: 1; grid-row: 2; }
+  .pr-guide-panel { padding: 11px; }
+  .pr-guide-file-picker > label { align-items: flex-start; }
+  .pr-guide-file-picker > label small { margin-left: auto; }
+  .pr-guide-decision-actions { align-items: stretch; }
+  .pr-guide-decision-actions > .primary-button { flex: 1 1 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .git-spin { animation: none; }

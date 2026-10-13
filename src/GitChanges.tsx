@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
 import { AlertTriangle, ArrowDownUp, GitBranch, GitCommitHorizontal, RefreshCw } from 'lucide-react';
 import {
   compareLocalGitRevisions,
@@ -7,6 +7,8 @@ import {
   type GitFileChange,
   type GitSourceAnchor,
 } from './lib/commands';
+
+const PrGuideStudio = lazy(() => import('./PrGuideStudio').then((module) => ({ default: module.PrGuideStudio })));
 
 interface GitChangesScreenProps {
   projectId: string | null;
@@ -18,6 +20,7 @@ interface GitChangesScreenProps {
   onSelectChange: (path: string | undefined) => void;
   onComparison: (projectId: string, baseRef: string, headRef: string, result: GitComparisonResult) => void;
   onOpenRepository: () => void;
+  onOpenProviderSettings: () => void;
 }
 
 export function GitChangesScreen({
@@ -30,6 +33,7 @@ export function GitChangesScreen({
   onSelectChange,
   onComparison,
   onOpenRepository,
+  onOpenProviderSettings,
 }: GitChangesScreenProps) {
   const [baseRef, setBaseRef] = useState(initialBaseRef);
   const [headRef, setHeadRef] = useState(initialHeadRef);
@@ -155,9 +159,14 @@ export function GitChangesScreen({
       </section>
 
       {matchingComparison && <ComparisonResults
+        key={`${projectId}:${matchingComparison.result.comparisonId ?? `${matchingComparison.baseRef}:${matchingComparison.headRef}`}`}
         comparison={matchingComparison.result}
+        projectId={projectId}
+        baseRef={matchingComparison.baseRef}
+        headRef={matchingComparison.headRef}
         selectedChangePath={selectedChangePath}
         onSelectChange={onSelectChange}
+        onOpenProviderSettings={onOpenProviderSettings}
       />}
     </div>
   );
@@ -165,13 +174,22 @@ export function GitChangesScreen({
 
 function ComparisonResults({
   comparison,
+  projectId,
+  baseRef,
+  headRef,
   selectedChangePath,
   onSelectChange,
+  onOpenProviderSettings,
 }: {
   comparison: GitComparisonResult;
+  projectId: string;
+  baseRef: string;
+  headRef: string;
   selectedChangePath?: string;
   onSelectChange: (path: string | undefined) => void;
+  onOpenProviderSettings: () => void;
 }) {
+  const [focusedCitation, setFocusedCitation] = useState<{ identity: string; hunkIndex: number } | null>(null);
   const isPartial = comparison.status === 'limited';
   const resultLabel = comparison.status === 'ready'
     ? `${comparison.changes.length} changed ${comparison.changes.length === 1 ? 'file' : 'files'}`
@@ -206,10 +224,29 @@ function ComparisonResults({
           {comparison.changes.map((change) => {
             const identity = changeIdentity(change);
             const expanded = selectedChangePath === identity;
-            return <ChangeDisclosure key={identity} change={change} expanded={expanded} onToggle={() => onSelectChange(expanded ? undefined : identity)} />;
+            return <ChangeDisclosure
+              key={identity}
+              change={change}
+              expanded={expanded}
+              focusedHunkIndex={focusedCitation?.identity === identity ? focusedCitation.hunkIndex : undefined}
+              onToggle={() => { setFocusedCitation(null); onSelectChange(expanded ? undefined : identity); }}
+            />;
           })}
         </div>
       )}
+      <Suspense fallback={<p className="pr-guide-muted" role="status">Loading PR Guide review controls…</p>}>
+        <PrGuideStudio
+          projectId={projectId}
+          baseRef={baseRef}
+          headRef={headRef}
+          comparison={comparison}
+          onFocusChange={(identity, hunkIndex) => {
+            if (identity && hunkIndex !== undefined) setFocusedCitation({ identity, hunkIndex });
+            onSelectChange(identity);
+          }}
+          onOpenProviderSettings={onOpenProviderSettings}
+        />
+      </Suspense>
     </section>
   );
 }
@@ -223,10 +260,20 @@ function CommitIdentity({ label, ref }: { label: string; ref: { requested: strin
   );
 }
 
-function ChangeDisclosure({ change, expanded, onToggle }: { change: GitFileChange; expanded: boolean; onToggle: () => void }) {
+function ChangeDisclosure({ change, expanded, focusedHunkIndex, onToggle }: { change: GitFileChange; expanded: boolean; focusedHunkIndex?: number; onToggle: () => void }) {
   const path = change.headPath ?? change.basePath ?? 'Unknown path';
+  const cardRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!expanded || focusedHunkIndex === undefined) return;
+    const hunk = cardRef.current?.querySelector<HTMLElement>(`[data-hunk-index="${focusedHunkIndex}"]`);
+    if (!hunk) return;
+    const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+    hunk.scrollIntoView({ behavior, block: 'center' });
+  }, [expanded, focusedHunkIndex]);
+
   return (
-    <article className={`git-change-card${expanded ? ' expanded' : ''}`}>
+    <article ref={cardRef} className={`git-change-card${expanded ? ' expanded' : ''}`}>
       <button className="git-change-toggle" aria-expanded={expanded} onClick={onToggle}>
         <span className="git-change-kind">{change.kind}</span>
         <span className="git-change-paths">
@@ -242,7 +289,7 @@ function ChangeDisclosure({ change, expanded, onToggle }: { change: GitFileChang
         <div className="git-change-detail">
           {change.skippedReason && <p className="git-stale-result" role="status">{change.skippedReason}</p>}
           {change.hunks.length === 0 ? <p className="git-no-changes">No bounded text hunk is available for this path.</p> : change.hunks.map((hunk, index) => (
-            <section className="git-hunk" key={`${path}:${index}`} aria-label={`Diff hunk ${index + 1}`}>
+            <section className={`git-hunk${focusedHunkIndex === index ? ' is-focused' : ''}`} key={`${path}:${index}`} data-hunk-index={index} aria-label={`Diff hunk ${index + 1}`}>
               <div className="git-hunk-anchors">
                 <AnchorIdentity side="Base" anchor={hunk.baseAnchor} />
                 <AnchorIdentity side="Head" anchor={hunk.headAnchor} />

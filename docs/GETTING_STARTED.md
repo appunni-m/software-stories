@@ -20,13 +20,13 @@ npm ci
 npm run tauri dev
 ~~~
 
-The first command installs the versions recorded in the npm lockfile. The second starts the Vite development server and the Tauri desktop shell.
+The first command installs the versions recorded in the npm lockfile. The second starts one Vite development server on `127.0.0.1:4173` and the Tauri desktop shell. The port is strict: if another process already owns it, startup reports the conflict instead of choosing a second port.
 
 ~~~sh
 npm run dev
 ~~~
 
-This last command starts a browser-only UI preview at http://127.0.0.1:1420. It is useful for checking layout, but it cannot use the native folder picker, macOS Keychain, local repository commands, or Gemini requests. Use the Tauri command for the native workflow.
+This command starts the same browser-only UI preview at http://127.0.0.1:4173. Do not run it alongside an already running preview; reuse or restart that one process. The browser preview is useful for layout, but cannot use the native folder picker, macOS Keychain, local repository commands, or Gemini requests. Use the Tauri command for the native workflow.
 
 ## Explore a repository locally
 
@@ -42,9 +42,9 @@ This last command starts a browser-only UI preview at http://127.0.0.1:1420. It 
 
 After opening a local Git repository, choose **Compare local revisions** from **Project tools**. A snapshot is not required for this operation. Enter a local branch, tag, unambiguous short ref, or full commit ID for each side, then choose **Compare revisions**. The comparison resolves both refs to immutable commit IDs and reads existing local Git objects only; it does not fetch, check out, or modify the working copy.
 
-Expand a changed file to inspect its bounded diff hunks and exact changed-line ranges. Each hunk identifies its base and head path, commit, and blob separately. When all available source revisions parse without errors, Code Atlas lists declarations whose syntax ranges overlap changed lines; it does not infer runtime impact or attach cross-file relationships. Binary, oversized, unsupported, parser-uncertain, and omitted evidence is labeled instead of being presented as complete text. The browser preview cannot run local Git commands; use the packaged Mac app for comparisons.
+Expand a changed file to inspect its bounded diff hunks and exact changed-line ranges. Each hunk identifies its base and head path, commit, and blob separately. When all available source revisions parse without errors, Code Atlas lists declarations whose syntax ranges overlap changed lines; it does not infer runtime impact or attach cross-file relationships. Binary, oversized, unsupported, parser-uncertain, and omitted evidence is labeled instead of being presented as complete text. The browser preview cannot run local Git commands; use the native Tauri Mac app for comparisons.
 
-This workflow provides change evidence, not an AI explanation or PR Guide. The separate reviewed PR Guide remains planned work.
+When a complete comparison is ready, the **Build a PR Guide** panel lets you select up to twelve text-diff files. Choose **Review exact Gemini request** to see the selected diff, prompt, model, endpoint, pricing and terms disclosures before any request. No request is sent until all consent controls are checked and you choose **Send reviewed request**. Each returned claim must cite an exact line from the correct base or head hunk. Citation buttons expand and scroll to the cited hunk. Keep or reject claims, then accept or reject the draft; decisions append to a separate local PR Guide history and do not change Git refs or file chapters. This flow runs in the native Mac app; the browser preview cannot read Git or call Gemini.
 
 ## Optional Gemini generation
 
@@ -65,7 +65,7 @@ Code Atlas cannot determine the billing state, region, eligibility, or quota of 
 - Each selected file is generated and reviewed individually. There is no generate-all action.
 - Generated prose and source identity validation are different checks: a valid citation does not prove that the explanation is semantically correct.
 - Gemini is the only direct text-generation provider in the current source. Other direct APIs and agent backends are planned, not selectable.
-- Fine-grained section regeneration and a user-facing guide revision compare/restore workflow are still tracked product work. Local Git comparison is available as read-only evidence browsing with changed-line ranges and parser-backed declaration names, but it does not attach cross-file relationship impact or generate PR explanations. A first offline export path is available, but it has not passed the full offline-package acceptance workflow. Release signing and PR Guide generation also remain outstanding; read the [Kata backlog](KATA_BACKLOG.md) for task contracts.
+- Fine-grained section regeneration, a user-facing guide revision compare/restore workflow, cross-file relationship impact in Git comparisons, and release signing remain tracked work. The PR Guide implementation is present but its Kata acceptance evidence remains open. The offline export path has not passed the full offline-package acceptance workflow; read the [Kata backlog](KATA_BACKLOG.md) for task contracts.
 - This checkout has no root license file. Reuse and redistribution terms are unspecified.
 
 ## Where to go next

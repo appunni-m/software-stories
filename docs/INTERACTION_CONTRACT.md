@@ -241,7 +241,7 @@ The completed capture view includes one searchable inventory for the selected im
 
 **Purpose:** inspect a bounded difference between two locally available commits without changing the repository.
 
-**Entry:** choose **Compare local revisions** from Project Tools. A selected local repository is required; an immutable snapshot is not. In the browser preview, the surface explains that local Git comparison is available only in the packaged Mac app.
+**Entry:** choose **Compare local revisions** from Project Tools. A selected local repository is required; an immutable snapshot is not. In the browser preview, the surface explains that local Git comparison is available only in the native Tauri Mac app.
 
 **Controls and destinations:**
 
@@ -254,11 +254,25 @@ The completed capture view includes one searchable inventory for the selected im
 
 **States:** no repository; desktop preview unavailable; refs incomplete; comparing; choose-again; ready with changes; ready with no changes; bounded/partial; comparison error. No provider request is made and no source is sent.
 
-**Boundary:** this surface is evidence browsing only. Declaration overlap is static syntax evidence, not inferred runtime impact; cross-file relationships, AI explanations, guide acceptance, and remote pull-request access are not part of this workflow.
+**Boundary:** comparing refs is a local evidence-browsing action and sends nothing. Declaration overlap is static syntax evidence, not inferred runtime impact. The separate PR Guide panel below may send only the user-selected diff after an exact request review and explicit consent. Neither workflow fetches a remote PR, comments, checks out refs, or writes Git state.
 
-### Future PR Guide
+### PR Guide
 
-The PR Guide is a separate follow-up workflow built on this local comparison. It will let the user select changed files and create a reviewed PR Guide draft. Base/head citations and any supported impact claims must stay tied to the correct immutable evidence. No remote PR, GitHub login, checkout, or repository write operation is part of this flow.
+**Purpose:** explain a selected local change set with claims that can be traced back to immutable base/head evidence.
+
+**Entry:** after a complete ready comparison, use **Build a PR Guide**. The browser preview shows the interface but cannot run local Git, access macOS Keychain, or call Gemini.
+
+**Controls and destinations:**
+
+- Select up to twelve changed text files. Binary, oversized, unsupported, incomplete, or skipped diffs cannot be sent. Changing the selection invalidates any existing request review and consent.
+- **Review exact Gemini request** rebuilds the local comparison and shows the exact selected diff, prompt, generation settings/schema, model, endpoint, token estimate, pricing/data-use disclosure, and consent fingerprint. This makes no network request.
+- The three privacy/data-use, billing, and age/region/use acknowledgements start unchecked. **Send reviewed request** is enabled only for the current fingerprint after all acknowledgements. The app sends one request to the selected Gemini model; it does not retry through another model or provider.
+- Each returned claim must contain an exact, unique diff-line citation with the correct base/head side and immutable commit/blob anchor. Static evidence does not prove runtime behavior. Inference claims require an explanation of their basis.
+- **Review draft** opens the saved, unaccepted guide. Exclude claims individually, then **Accept selected claims** or reject the draft with a reason. A citation button expands and scrolls to its exact diff hunk. A decision appends a PR Guide revision to this comparison's local history; it does not modify repository chapters, working-tree files, or Git refs.
+
+**States:** no eligible file selected; exact request review; awaiting fresh consent; sending; validated unaccepted draft; accepted/rejected history; changed refs or invalid evidence; provider, quota, network, cancellation, or malformed-response error. Failed requests do not alter accepted guide history.
+
+**Boundary:** PR Guide revisions are stored separately from file-chapter revisions and Git history. A completed comparison identity is bound to immutable base/head commits. Changing either ref requires a new comparison; the old request fingerprint cannot be sent for it. Remote PR metadata, GitHub authentication, checkouts, comments, and Git writes are out of scope.
 
 ## Cross-screen state and return table
 
@@ -268,6 +282,7 @@ The PR Guide is a separate follow-up workflow built on this local comparison. It
 | Atlas selected relationship | Open evidence | Source range proving that edge | Selected edge and evidence panel. |
 | Guide Plan file | Create chapter | Blank local draft | Selected row/status/filter/page; no request exists. |
 | Compare local revisions | Expand changed file | Base/head diff evidence | Ref pair and expanded file selection. |
+| PR Guide claim | Open citation | Selected base/head diff hunk | Draft selections remain in memory; the exact hunk scrolls into view. |
 | Guide Plan file | Generate draft | Request Review | Request cancel returns to selected row and chapter status. |
 | Request Review | Send this request | Provider, then Chapter Studio draft | On success, draft is a new unaccepted revision; on failure, manifest can be reviewed again. |
 | Chapter Studio draft | Open citation | Code Lens | Draft values, active section, editor scroll, focused claim. |

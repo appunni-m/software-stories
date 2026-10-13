@@ -2,6 +2,7 @@ use crate::chapters::MAX_GENERATED_RESPONSE_BYTES;
 use crate::index::{
     self, IndexFileStatus, RelationshipConfidence, SnapshotIndex, SnapshotIndexStatus, SourceAnchor,
 };
+use crate::pr_guide::{self, BuildReviewInput as BuildPrGuideReviewInput, ComparisonContext};
 use crate::snapshot::{self, CapturedContentKind};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -24,6 +25,7 @@ const FILE_PROMPT_VERSION: &str = PROMPT_VERSION;
 const OVERVIEW_PROMPT_VERSION: &str = "structured-repository-overview-v2";
 const FILE_CHAPTER_PURPOSE: &str = "fileChapter";
 const REPOSITORY_OVERVIEW_PURPOSE: &str = "repositoryOverview";
+const PR_GUIDE_PURPOSE: &str = "prGuide";
 const MAX_CONTEXT_BYTES: usize = 250_000;
 const MAX_REQUEST_BODY_BYTES: usize = 512_000;
 const MAX_SELECTED_FILES: usize = 12;
@@ -51,6 +53,8 @@ pub struct ProviderModel {
 pub struct ProviderDisclosure {
     pub version: String,
     pub checked_date: String,
+    pub endpoint_url: String,
+    pub request_path_template: String,
     pub pricing_url: String,
     pub terms_url: String,
     pub regions_url: String,
@@ -67,6 +71,8 @@ pub fn disclosure() -> ProviderDisclosure {
     ProviderDisclosure {
         version: DISCLOSURE_VERSION.to_owned(),
         checked_date: "2026-10-13".to_owned(),
+        endpoint_url: GEMINI_API_ROOT.to_owned(),
+        request_path_template: "/models/{model}:generateContent".to_owned(),
         pricing_url: "https://ai.google.dev/gemini-api/docs/pricing".to_owned(),
         terms_url: "https://ai.google.dev/gemini-api/terms".to_owned(),
         regions_url: "https://ai.google.dev/gemini-api/docs/available-regions".to_owned(),
@@ -242,6 +248,8 @@ pub struct ProviderRequestReview {
     pub selected_files: Vec<ProviderRequestFile>,
     pub selected_symbols: Vec<ProviderSymbolEvidence>,
     pub selected_relationships: Vec<ProviderRelationshipEvidence>,
+    #[serde(default)]
+    pub pr_guide_context: Option<ComparisonContext>,
     pub index_evidence_truncated: bool,
     pub system_instruction: String,
     pub user_prompt: String,
@@ -803,6 +811,190 @@ fn repository_overview_generation_config() -> Value {
     })
 }
 
+fn pr_guide_generation_config() -> Value {
+    json!({
+        "temperature": 0.2,
+        "candidateCount": 1,
+        "maxOutputTokens": 8192,
+        "responseMimeType": "application/json",
+        "responseSchema": pr_guide::response_schema()
+    })
+}
+
+/// Rebuilds a PR Guide request from the selected local refs and changed paths.
+/// The returned request remains pending until its exact review is confirmed.
+pub fn build_pr_guide_request_review(
+    repository: &Path,
+    input: &BuildPrGuideReviewInput,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    if !model_is_allowed(&input.model_id) {
+        return Err(failure(
+            ProviderFailureKind::UnavailableModel,
+            "Choose one of the versioned Gemini models listed by Code Atlas.",
+        ));
+    }
+    let context = pr_guide::build_context(repository, input).map_err(|message| {
+        let kind = if message.contains("secret-like") {
+            ProviderFailureKind::SecretLikeContext
+        } else {
+            ProviderFailureKind::InvalidReview
+        };
+        failure(kind, message)
+    })?;
+    let (system_instruction, user_prompt) = pr_guide::request_prompt(&context)
+        .map_err(|message| failure(ProviderFailureKind::InvalidReview, message))?;
+    let selected_files = context
+        .selected_changes
+        .iter()
+        .map(|change| {
+            let contents = change
+                .hunks
+                .iter()
+                .map(|hunk| hunk.patch_excerpt.as_str())
+                .collect::<Vec<_>>()
+                .join("\n--- next diff hunk ---\n");
+            let path = match (&change.base_path, &change.head_path) {
+                (Some(base), Some(head)) if base != head => format!("{base} → {head}"),
+                (Some(path), _) | (_, Some(path)) => path.clone(),
+                (None, None) => "unknown path".to_owned(),
+            };
+            ProviderRequestFile {
+                path,
+                sha256: Sha256::digest(contents.as_bytes())
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect(),
+                size_bytes: contents.len() as u64,
+                contents,
+            }
+        })
+        .collect::<Vec<_>>();
+    let source_bytes = selected_files.iter().fold(0_usize, |total, file| {
+        total.saturating_add(file.contents.len())
+    });
+    let generation_config = pr_guide_generation_config();
+    let body = json!({
+        "systemInstruction": { "parts": [{ "text": system_instruction }] },
+        "contents": [{ "role": "user", "parts": [{ "text": user_prompt }] }],
+        "generationConfig": generation_config
+    });
+    let body_bytes = serde_json::to_vec(&body).map_err(|_| {
+        failure(
+            ProviderFailureKind::InvalidReview,
+            "The exact PR Guide request could not be encoded for review.",
+        )
+    })?;
+    if body_bytes.len() > MAX_REQUEST_BODY_BYTES {
+        return Err(failure(
+            ProviderFailureKind::ContextTooLarge,
+            "The exact PR Guide request exceeds the 512 KB review limit. Select fewer changed files.",
+        ));
+    }
+    let model = disclosure()
+        .models
+        .into_iter()
+        .find(|model| model.model_id == input.model_id)
+        .ok_or_else(|| {
+            failure(
+                ProviderFailureKind::UnavailableModel,
+                "This model is not in the current Code Atlas allowlist.",
+            )
+        })?;
+    let fingerprint = request_fingerprint(
+        PR_GUIDE_PURPOSE,
+        &input.project_id,
+        &context.comparison_id,
+        None,
+        &model.model_id,
+        DISCLOSURE_VERSION,
+        &system_instruction,
+        &user_prompt,
+        &selected_files,
+        generation_config.clone(),
+    )?;
+    let now = unix_time_ms();
+    let review = ProviderRequestReview {
+        review_id: Uuid::new_v4().to_string(),
+        project_id: input.project_id.clone(),
+        snapshot_id: context.comparison_id.clone(),
+        purpose: PR_GUIDE_PURPOSE.to_owned(),
+        target_path: None,
+        model_id: model.model_id,
+        disclosure_version: DISCLOSURE_VERSION.to_owned(),
+        selected_files,
+        selected_symbols: Vec::new(),
+        selected_relationships: Vec::new(),
+        index_evidence_truncated: false,
+        pr_guide_context: Some(context),
+        system_instruction,
+        user_prompt,
+        generation_config,
+        source_bytes,
+        estimated_input_tokens: body_bytes.len().div_ceil(4),
+        request_body_bytes: body_bytes.len(),
+        fingerprint,
+        expires_at_unix_ms: now.saturating_add(REVIEW_LIFETIME_MS),
+    };
+    Ok(PendingProviderRequest { review, body })
+}
+
+/// Rebuilds the current Git evidence before a previously reviewed PR Guide is sent.
+pub fn revalidate_pr_guide_request(
+    repository: &Path,
+    review: &ProviderRequestReview,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    let context = review.pr_guide_context.as_ref().ok_or_else(|| {
+        failure(
+            ProviderFailureKind::ReviewChanged,
+            "The reviewed request is missing its immutable Git comparison. Build a new review.",
+        )
+    })?;
+    if review.purpose != PR_GUIDE_PURPOSE
+        || review.target_path.is_some()
+        || review.snapshot_id != context.comparison_id
+    {
+        return Err(failure(
+            ProviderFailureKind::ReviewChanged,
+            "The request identity no longer matches the reviewed PR Guide comparison.",
+        ));
+    }
+    let input = BuildPrGuideReviewInput {
+        project_id: review.project_id.clone(),
+        base_ref: context.base_ref.clone(),
+        head_ref: context.head_ref.clone(),
+        comparison_id: context.comparison_id.clone(),
+        selected_changes: context
+            .selected_changes
+            .iter()
+            .map(|change| pr_guide::SelectedChangeIdentity {
+                base_path: change.base_path.clone(),
+                head_path: change.head_path.clone(),
+            })
+            .collect(),
+        model_id: review.model_id.clone(),
+    };
+    let rebuilt = build_pr_guide_request_review(repository, &input).map_err(|error| {
+        if matches!(&error.kind, ProviderFailureKind::InvalidReview) {
+            failure(
+                ProviderFailureKind::ReviewChanged,
+                "The selected refs or changed paths no longer match this review. Build and review a fresh PR Guide request.",
+            )
+        } else {
+            error
+        }
+    })?;
+    if rebuilt.review.fingerprint != review.fingerprint
+        || rebuilt.review.disclosure_version != review.disclosure_version
+        || rebuilt.review.pr_guide_context != review.pr_guide_context
+    {
+        return Err(failure(
+            ProviderFailureKind::ReviewChanged,
+            "The selected refs or diff evidence changed after review. Build and review a fresh PR Guide request.",
+        ));
+    }
+    Ok(rebuilt)
+}
+
 pub fn build_request_review(
     storage_dir: &Path,
     input: &BuildProviderReviewInput,
@@ -1076,6 +1268,7 @@ SELECTED LOCAL INDEX EVIDENCE JSON:
         selected_symbols,
         selected_relationships,
         index_evidence_truncated,
+        pr_guide_context: None,
         system_instruction,
         user_prompt,
         generation_config,
@@ -1195,6 +1388,9 @@ where
         FILE_CHAPTER_PURPOSE if review.target_path.is_some() => file_chapter_generation_config(),
         REPOSITORY_OVERVIEW_PURPOSE if review.target_path.is_none() => {
             repository_overview_generation_config()
+        }
+        PR_GUIDE_PURPOSE if review.target_path.is_none() && review.pr_guide_context.is_some() => {
+            pr_guide_generation_config()
         }
         _ => {
             return Err(failure(
@@ -1831,6 +2027,7 @@ mod tests {
                 selected_symbols: Vec::new(),
                 selected_relationships: Vec::new(),
                 index_evidence_truncated: false,
+                pr_guide_context: None,
                 system_instruction: system_instruction.to_owned(),
                 user_prompt,
                 generation_config: config,
@@ -1850,6 +2047,133 @@ mod tests {
             billing_uncertainty_acknowledged: true,
             adult_supported_region_acknowledged: true,
         }
+    }
+
+    #[tokio::test]
+    async fn pr_guide_review_is_bound_to_selected_hunks_and_moving_a_ref_invalidates_it() {
+        let repository = FixtureDirectory::new();
+        run_git(&repository.0, &["init", "--quiet"]);
+        run_git(&repository.0, &["config", "user.name", "Code Atlas Test"]);
+        run_git(
+            &repository.0,
+            &["config", "user.email", "code-atlas-test@example.invalid"],
+        );
+        run_git(&repository.0, &["checkout", "-b", "base"]);
+        fs::create_dir_all(repository.0.join("src")).unwrap();
+        fs::write(
+            repository.0.join("src/lib.rs"),
+            "pub fn value() { println!(\"old\"); }\n",
+        )
+        .unwrap();
+        run_git(&repository.0, &["add", "src/lib.rs"]);
+        run_git(&repository.0, &["commit", "--quiet", "-m", "base"]);
+        run_git(&repository.0, &["checkout", "-b", "feature"]);
+        fs::write(
+            repository.0.join("src/lib.rs"),
+            "pub fn value() { println!(\"new\"); }\n",
+        )
+        .unwrap();
+        run_git(
+            &repository.0,
+            &["commit", "--quiet", "-am", "change output"],
+        );
+
+        let comparison =
+            crate::git_evidence::compare_local_revisions(&repository.0, "base", "feature");
+        let comparison_id = comparison.comparison_id.clone().unwrap();
+        let changed_file = comparison.changes.first().unwrap();
+        let input = BuildPrGuideReviewInput {
+            project_id: "project:pr-guide-test".to_owned(),
+            base_ref: "base".to_owned(),
+            head_ref: "feature".to_owned(),
+            comparison_id,
+            selected_changes: vec![pr_guide::SelectedChangeIdentity {
+                base_path: changed_file.base_path.clone(),
+                head_path: changed_file.head_path.clone(),
+            }],
+            model_id: "gemini-3.8-flash".to_owned(),
+        };
+        let pending = build_pr_guide_request_review(&repository.0, &input).unwrap();
+        assert_eq!(pending.review.purpose, PR_GUIDE_PURPOSE);
+        assert!(pending.review.pr_guide_context.is_some());
+        assert!(
+            pending.review.selected_files[0]
+                .contents
+                .contains("println!(\"new\")")
+        );
+        assert_eq!(
+            pending.review.generation_config["responseSchema"]["properties"]
+                .as_object()
+                .unwrap()
+                .len(),
+            2
+        );
+        let call_count = Arc::new(AtomicUsize::new(0));
+        let calls_before_consent = Arc::clone(&call_count);
+        let incomplete = ProviderConsent {
+            privacy_and_data_use_acknowledged: true,
+            billing_uncertainty_acknowledged: false,
+            adult_supported_region_acknowledged: true,
+        };
+        let error = dispatch_reviewed_request(
+            &pending,
+            Zeroizing::new("test-key".to_owned()),
+            &incomplete,
+            move |_, _, _| async move {
+                calls_before_consent.fetch_add(1, Ordering::SeqCst);
+                Ok(ProviderHttpResult {
+                    model_version: None,
+                    response_text: String::new(),
+                    input_tokens: None,
+                    output_tokens: None,
+                })
+            },
+        )
+        .await
+        .err()
+        .unwrap();
+        assert_eq!(error.kind, ProviderFailureKind::ConsentRequired);
+        assert_eq!(call_count.load(Ordering::SeqCst), 0);
+        let calls_after_consent = Arc::clone(&call_count);
+        let expected_prompt = pending.review.user_prompt.clone();
+        let sent = dispatch_reviewed_request(
+            &pending,
+            Zeroizing::new("test-key".to_owned()),
+            &all_consent(),
+            move |model_id, _, body| async move {
+                assert_eq!(model_id, "gemini-3.8-flash");
+                assert_eq!(body["contents"][0]["parts"][0]["text"], expected_prompt);
+                calls_after_consent.fetch_add(1, Ordering::SeqCst);
+                Ok(ProviderHttpResult {
+                    model_version: Some("gemini-3.8-flash-mock".to_owned()),
+                    response_text: "{}".to_owned(),
+                    input_tokens: Some(100),
+                    output_tokens: Some(40),
+                })
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(call_count.load(Ordering::SeqCst), 1);
+        assert_eq!(sent.fingerprint, pending.review.fingerprint);
+        assert_eq!(
+            revalidate_pr_guide_request(&repository.0, &pending.review)
+                .unwrap()
+                .review
+                .fingerprint,
+            pending.review.fingerprint
+        );
+
+        fs::write(
+            repository.0.join("src/lib.rs"),
+            "pub fn value() { println!(\"third\"); }\n",
+        )
+        .unwrap();
+        run_git(&repository.0, &["commit", "--quiet", "-am", "move head"]);
+        let error = revalidate_pr_guide_request(&repository.0, &pending.review)
+            .err()
+            .unwrap();
+        assert_eq!(error.kind, ProviderFailureKind::ReviewChanged);
     }
 
     #[test]
