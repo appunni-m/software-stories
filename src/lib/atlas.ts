@@ -16,6 +16,8 @@ export interface FlattenedInventoryRow {
   depth: number;
   hasChildren: boolean;
   expanded: boolean;
+  positionInSet: number;
+  setSize: number;
 }
 
 function compare(left: string, right: string): number {
@@ -83,14 +85,75 @@ export function flattenInventoryTree(
   collapsedPaths: ReadonlySet<string> = new Set(),
 ): FlattenedInventoryRow[] {
   const flattened: FlattenedInventoryRow[] = [];
-  const visit = (node: InventoryTreeNode, depth: number): void => {
+  const visit = (node: InventoryTreeNode, depth: number, positionInSet: number, setSize: number): void => {
     const hasChildren = node.children.length > 0;
     const expanded = hasChildren && !collapsedPaths.has(node.path);
-    for (const row of node.rows) flattened.push({ row, path: node.path, depth, hasChildren, expanded });
-    if (expanded) for (const child of node.children) visit(child, depth + 1);
+    for (const row of node.rows) flattened.push({ row, path: node.path, depth, hasChildren, expanded, positionInSet, setSize });
+    if (expanded) node.children.forEach((child, index) => visit(child, depth + 1, index + 1, node.children.length));
   };
-  visit(tree, 0);
+  visit(tree, 0, 1, 1);
   return flattened;
+}
+
+/** Filter inventory rows for the Atlas tree while retaining matching ancestors. */
+export function filterInventoryTreeRows(
+  rows: readonly InventoryRow[],
+  folderPath: string | null,
+  queryText: string,
+): InventoryRow[] {
+  const query = queryText.trim().toLowerCase();
+  const withinFolder = (path: string, folder: string | null): boolean =>
+    !folder || folder === '.' || path === folder || path.startsWith(`${folder}/`);
+  const matched = rows.filter((row) => withinFolder(row.path, folderPath)
+    && (!query || `${row.path} ${row.reason} ${row.details} ${row.language}`.toLowerCase().includes(query)));
+  const matchingRows = new Set(matched);
+  const retainedPaths = new Set(matched.map((row) => row.path));
+
+  for (const row of matched) {
+    const parts = row.path.split('/').filter(Boolean);
+    while (parts.length > 1) {
+      parts.pop();
+      const parent = parts.join('/');
+      if (withinFolder(parent, folderPath)) retainedPaths.add(parent);
+    }
+    if (!folderPath && row.path !== '.') retainedPaths.add('.');
+  }
+
+  return rows.filter((row) => retainedPaths.has(row.path)
+    && (matchingRows.has(row) || row.kind === 'directory'));
+}
+
+export interface VirtualRowWindow {
+  startIndex: number;
+  endIndex: number;
+  topSpacerHeight: number;
+  bottomSpacerHeight: number;
+}
+
+/** Return the overscanned row window and spacer sizes for a fixed-height virtual list. */
+export function virtualRowWindow(
+  itemCount: number,
+  scrollTop: number,
+  viewportHeight: number,
+  rowHeight: number,
+  overscan: number,
+): VirtualRowWindow {
+  const count = Number.isFinite(itemCount) ? Math.max(0, Math.floor(itemCount)) : 0;
+  const height = Number.isFinite(rowHeight) && rowHeight > 0 ? rowHeight : 1;
+  const scroll = Number.isFinite(scrollTop) ? Math.max(0, scrollTop) : 0;
+  const viewport = Number.isFinite(viewportHeight) ? Math.max(0, viewportHeight) : 0;
+  const extra = Number.isFinite(overscan) ? Math.max(0, Math.floor(overscan)) : 0;
+  const firstVisible = Math.min(count, Math.floor(scroll / height));
+  const afterLastVisible = Math.min(count, Math.ceil((scroll + viewport) / height));
+  const startIndex = Math.max(0, firstVisible - extra);
+  const endIndex = Math.min(count, afterLastVisible + extra);
+
+  return {
+    startIndex,
+    endIndex,
+    topSpacerHeight: startIndex * height,
+    bottomSpacerHeight: (count - endIndex) * height,
+  };
 }
 
 export interface ProvenGraphNode {

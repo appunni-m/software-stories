@@ -625,8 +625,9 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .atlas-filter-search input::placeholder { color: #718078; }
 .atlas-scope-chip { align-self: flex-start; margin: 0 8px 7px; padding: 5px 7px; border: 1px solid #3a4938; border-radius: 5px; background: #182018; color: #b5d0a0; font-size: 8px; cursor: pointer; }
 .atlas-scope-chip span { padding-left: 5px; color: #e0c788; }
-.atlas-tree-scroll { flex: 1; min-height: 245px; max-height: 510px; overflow: auto; padding: 3px 0; scrollbar-color: #38443b #111713; }
-.atlas-tree-row { min-height: 29px; display: flex; align-items: center; gap: 3px; padding-right: 6px; border-bottom: 1px solid #1d261f; }
+.atlas-tree-scroll { flex: 1; min-height: 245px; max-height: 510px; overflow: auto; padding: 0; scrollbar-color: #38443b #111713; }
+.atlas-tree-window-spacer { display: block; flex: 0 0 auto; pointer-events: none; }
+.atlas-tree-row { box-sizing: border-box; min-height: 29px; display: flex; flex: 0 0 auto; align-items: center; gap: 3px; padding-right: 6px; border-bottom: 1px solid #1d261f; }
 .atlas-tree-row:hover, .atlas-tree-row.selected { background: #19231a; }
 .atlas-tree-row.selected { box-shadow: inset 2px 0 var(--accent); }
 .atlas-tree-row.omitted .atlas-tree-entry { color: #a79575; }
@@ -639,6 +640,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .atlas-tree-entry code { min-width: 25px; overflow: hidden; color: inherit; font: 8px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 .atlas-tree-entry small { margin-left: auto; color: #708073; font: 7px var(--mono); }
 .atlas-tree-entry em { padding: 2px 3px; border: 1px solid #504832; border-radius: 3px; color: #cfb779; font: normal 6px var(--mono); white-space: nowrap; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); clip-path: inset(50%); white-space: nowrap; }
 .atlas-state-mark { width: 5px; height: 5px; flex: 0 0 5px; border-radius: 50%; background: #98d471; }
 .atlas-state-mark.skipped, .atlas-state-mark.excluded { background: #c99e58; }
 .atlas-tree-open { width: 19px; height: 21px; display: grid; flex: 0 0 19px; place-items: center; border: 0; border-radius: 4px; background: transparent; color: #83967f; cursor: pointer; }

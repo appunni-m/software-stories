@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
   buildOfflineExportPreview,
   buildOfflineGuideHtml,
+  buildOfflineNarrationCoverage,
   isOfflineExportableRevision,
   isSafeOfflineSourcePath,
   OFFLINE_PACKAGE_SCHEMA_VERSION,
@@ -141,11 +142,17 @@ describe('offline chapter export', () => {
     assert.match(result.html, /Typed diagram data · JSON/);
   });
 
-  it('embeds only selected cached WAV tracks and records their byte hashes in schema 2', async () => {
+  it('embeds selected cached WAV tracks with their exact sanitized reviewed transcript and hashes in schema 3', async () => {
     const wav = narrationWav();
+    const persistedScript = 'Outdated accepted script must not appear beside different audio.';
+    const exactReviewedText = 'Read the cached voice script. Token ghp_0123456789abcdefghijklmnopqrstuvwx at /Users/alice/private-project.';
+    const safeReviewedText = 'Read the cached voice script. Token [redacted credential] at [local path omitted]';
+    const accepted = chapter();
+    accepted.sections[0].spokenText = persistedScript;
     const audio = {
       chapterRevisionId: 'revision:one',
       sectionId: 'section:request',
+      exactText: exactReviewedText,
       audio: {
         fingerprint: 'b'.repeat(64),
         mimeType: 'audio/wav',
@@ -153,7 +160,9 @@ describe('offline chapter export', () => {
         cacheHit: true,
       },
     };
-    const result = await buildOfflineGuideHtml([chapter()], {
+    const preview = buildOfflineExportPreview([accepted], ['revision:one'], false, [audio]);
+    assert.equal(preview.chapters[0].sections[0].narrationTranscript, safeReviewedText);
+    const result = await buildOfflineGuideHtml([accepted], {
       selectedRevisionIds: ['revision:one'],
       includeExcerpts: false,
       includeNarrationAudio: true,
@@ -161,7 +170,8 @@ describe('offline chapter export', () => {
       exportedAtUnixMs: 10,
     });
     const bundled = result.manifest.assets.find((asset) => asset.kind === 'narrationAudio');
-    assert.equal(result.manifest.schemaVersion, 2);
+    const transcript = result.manifest.assets.find((asset) => asset.kind === 'narrationTranscript');
+    assert.equal(result.manifest.schemaVersion, 3);
     assert.equal(result.manifest.features.narrationAudio, 'included');
     assert.deepEqual(bundled, {
       assetId: 'narration:revision:one:section:request',
@@ -174,11 +184,24 @@ describe('offline chapter export', () => {
       sha256: createHash('sha256').update(wav).digest('hex'),
       byteLength: wav.length,
     });
+    assert.deepEqual(transcript, {
+      assetId: 'narration-transcript:revision:one:section:request',
+      kind: 'narrationTranscript',
+      mediaType: 'text/plain',
+      chapterRevisionId: 'revision:one',
+      snapshotId: 'snapshot:fixture',
+      sectionId: 'section:request',
+      cacheFingerprint: 'b'.repeat(64),
+      sha256: createHash('sha256').update(safeReviewedText).digest('hex'),
+      byteLength: Buffer.byteLength(safeReviewedText),
+    });
     assert.match(result.html, /media-src data:/);
     assert.match(result.html, /<audio controls preload="none" aria-label="Narration for Handle a request" src="data:audio\/wav;base64,/);
     assert.match(result.html, /Selected cached narration is bundled in its matching sections/);
     assert.match(result.html, /Narration transcript/);
-    assert.match(result.html, /The handler delegates to a worker\./);
+    assert.match(result.html, /Read the cached voice script\. Token \[redacted credential\] at \[local path omitted\]/);
+    assert.doesNotMatch(result.html, /Outdated accepted script must not appear beside different audio/);
+    assert.doesNotMatch(result.html, /ghp_0123456789abcdefghijklmnopqrstuvwx|alice|private-project/);
     assert.doesNotMatch(result.html, /https?:\/\//);
   });
 
@@ -194,10 +217,59 @@ describe('offline chapter export', () => {
     assert.doesNotMatch(result.html, /<audio /);
   });
 
+  it('marks each selected section as included, transcript-only, or unavailable in the audio preview', () => {
+    const included = section({ sectionId: 'section:included', order: 0 });
+    const notCached = section({ sectionId: 'section:not-cached', order: 1 });
+    const unreadable = section({ sectionId: 'section:unreadable', order: 2 });
+    const unverifiable = section({ sectionId: 'section:unverifiable', order: 3 });
+    const noTranscript = section({ sectionId: 'section:no-transcript', order: 4 });
+    noTranscript.spokenText = '';
+    const accepted = chapter({ sections: [included, notCached, unreadable, unverifiable, noTranscript] });
+    const cached = [included, noTranscript].map((item) => ({
+      chapterRevisionId: accepted.revisionId,
+      sectionId: item.sectionId,
+      exactText: 'The cached reviewed script.',
+      audio: { fingerprint: 'b'.repeat(64), mimeType: 'audio/wav', audioBase64: '', cacheHit: true },
+    }));
+    const omissions = [
+      { chapterRevisionId: accepted.revisionId, sectionId: notCached.sectionId, status: 'omitted', message: 'No matching cached audio; transcript-only.' },
+      { chapterRevisionId: accepted.revisionId, sectionId: unreadable.sectionId, status: 'unavailable', message: 'Audio cache could not be read; transcript-only.' },
+    ];
+    const coverage = buildOfflineNarrationCoverage(
+      [accepted], [accepted.revisionId], true, 'unavailable', cached, omissions,
+    );
+
+    assert.equal(coverage.size, accepted.sections.length);
+    assert.equal(coverage.get(`revision:one\u0000${included.sectionId}`).status, 'included');
+    assert.deepEqual(coverage.get(`revision:one\u0000${notCached.sectionId}`), {
+      status: 'transcript-only', message: 'No matching cached audio; transcript-only.',
+    });
+    assert.deepEqual(coverage.get(`revision:one\u0000${unreadable.sectionId}`), {
+      status: 'unavailable', message: 'Audio cache could not be read; transcript-only.',
+    });
+    assert.equal(coverage.get(`revision:one\u0000${unverifiable.sectionId}`).status, 'unavailable');
+    assert.equal(coverage.get(`revision:one\u0000${noTranscript.sectionId}`).status, 'included');
+
+    const browserOnly = buildOfflineNarrationCoverage([accepted], [accepted.revisionId], true, 'desktop-only', [], []);
+    assert.equal(browserOnly.get(`revision:one\u0000${notCached.sectionId}`).status, 'unavailable');
+    assert.equal(browserOnly.get(`revision:one\u0000${noTranscript.sectionId}`).status, 'unavailable');
+    const loading = buildOfflineNarrationCoverage([accepted], [accepted.revisionId], true, 'loading', [], []);
+    assert.equal(loading.get(`revision:one\u0000${notCached.sectionId}`).status, 'checking');
+    assert.equal(loading.get(`revision:one\u0000${noTranscript.sectionId}`).status, 'checking');
+    const unavailable = buildOfflineNarrationCoverage([accepted], [accepted.revisionId], true, 'unavailable', [], []);
+    assert.equal(unavailable.get(`revision:one\u0000${noTranscript.sectionId}`).status, 'unavailable');
+    const readyWithoutTrack = buildOfflineNarrationCoverage([accepted], [accepted.revisionId], true, 'ready', [], []);
+    assert.equal(readyWithoutTrack.get(`revision:one\u0000${notCached.sectionId}`).status, 'transcript-only');
+    assert.equal(readyWithoutTrack.get(`revision:one\u0000${noTranscript.sectionId}`).status, 'no-transcript');
+    const notSelected = buildOfflineNarrationCoverage([accepted], [accepted.revisionId], false, 'idle', [], []);
+    assert.equal(notSelected.get(`revision:one\u0000${notCached.sectionId}`).status, 'not-selected');
+  });
+
   it('rejects malformed or unsupported narration assets before producing a package', async () => {
     const invalid = {
       chapterRevisionId: 'revision:one',
       sectionId: 'section:request',
+      exactText: 'A cached narration transcript.',
       audio: {
         fingerprint: 'c'.repeat(64),
         mimeType: 'audio/wav',

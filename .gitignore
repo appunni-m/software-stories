@@ -6,5 +6,7 @@
 **/target/
 **/dist/
 **/.vite/
+# Also ignore a root node_modules symlink used by the local development server.
+node_modules
 /src-tauri/macos-release-metadata.json
 benchmarks/chapter-quality/review/reports/

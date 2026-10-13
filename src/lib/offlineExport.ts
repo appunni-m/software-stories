@@ -8,9 +8,10 @@ import type {
 } from './commands';
 import { inspectInteractiveVisual } from './visuals.ts';
 
-export const OFFLINE_PACKAGE_SCHEMA_VERSION = 2;
+export const OFFLINE_PACKAGE_SCHEMA_VERSION = 3;
 export const MAX_OFFLINE_HTML_BYTES = 25 * 1024 * 1024;
 const MAX_NARRATION_AUDIO_BYTES = 12 * 1024 * 1024;
+const MAX_NARRATION_TRANSCRIPT_BYTES = 16_000;
 
 export interface OfflineExportOptions {
   selectedRevisionIds: string[];
@@ -23,7 +24,75 @@ export interface OfflineExportOptions {
 export interface OfflineNarrationAudio {
   chapterRevisionId: string;
   sectionId: string;
+  exactText: string;
   audio: NarrationAudio;
+}
+
+export type OfflineNarrationCacheScanState = 'idle' | 'loading' | 'ready' | 'desktop-only' | 'unavailable';
+
+export interface OfflineNarrationOmission {
+  chapterRevisionId: string;
+  sectionId: string;
+  status: 'omitted' | 'unavailable';
+  message: string;
+}
+
+export interface OfflineNarrationCoverage {
+  status: 'included' | 'not-selected' | 'checking' | 'transcript-only' | 'unavailable' | 'no-transcript';
+  message: string;
+}
+
+export function offlineNarrationSectionKey(chapterRevisionId: string, sectionId: string): string {
+  return sectionKey(chapterRevisionId, sectionId);
+}
+
+export function buildOfflineNarrationCoverage(
+  revisions: readonly ChapterRevision[],
+  selectedRevisionIds: readonly string[],
+  includeNarrationAudio: boolean,
+  scanState: OfflineNarrationCacheScanState,
+  cachedNarration: readonly OfflineNarrationAudio[],
+  omissions: readonly OfflineNarrationOmission[],
+): Map<string, OfflineNarrationCoverage> {
+  const selectedIds = new Set(selectedRevisionIds);
+  const selected = revisions.filter((revision) => selectedIds.has(revision.revisionId) && isOfflineExportableRevision(revision));
+  const cachedKeys = new Set(cachedNarration.map((entry) => sectionKey(entry.chapterRevisionId, entry.sectionId)));
+  const omissionsByKey = new Map<string, OfflineNarrationOmission>();
+  for (const omission of omissions) {
+    omissionsByKey.set(sectionKey(omission.chapterRevisionId, omission.sectionId), omission);
+  }
+  const coverage = new Map<string, OfflineNarrationCoverage>();
+  for (const revision of selected) {
+    for (const section of revision.sections) {
+      const key = sectionKey(revision.revisionId, section.sectionId);
+      let entry: OfflineNarrationCoverage;
+      const hasChapterTranscript = Boolean(section.spokenText.trim());
+      if (!includeNarrationAudio) {
+        entry = hasChapterTranscript
+          ? { status: 'not-selected', message: 'Cached audio was not selected; this section will be transcript-only.' }
+          : { status: 'no-transcript', message: 'No chapter transcript is saved for this section; no audio will be included.' };
+      } else if (cachedKeys.has(key)) {
+        entry = { status: 'included', message: 'Cached audio and its matching reviewed transcript will be included.' };
+      } else if (scanState === 'loading' || scanState === 'idle') {
+        entry = { status: 'checking', message: 'Checking this section for locally cached audio.' };
+      } else if (scanState === 'desktop-only') {
+        entry = { status: 'unavailable', message: 'The local desktop audio cache cannot be read here; this section will be transcript-only.' };
+      } else {
+        const omission = omissionsByKey.get(key);
+        if (omission) {
+          entry = { status: omission.status === 'omitted' ? 'transcript-only' : 'unavailable', message: omission.message };
+        } else if (scanState === 'unavailable') {
+          entry = { status: 'unavailable', message: 'Cached audio could not be verified; this section will be transcript-only.' };
+        } else if (!hasChapterTranscript) {
+          entry = { status: 'no-transcript', message: 'No chapter transcript is saved for this section; no audio will be included.' };
+        } else {
+          entry = { status: 'transcript-only', message: 'No matching cached audio was found; this section will be transcript-only.' };
+        }
+      }
+      coverage.set(key, entry);
+    }
+  }
+  return coverage;
 }
 
 export interface OfflineExportReference {
@@ -40,6 +109,7 @@ export interface OfflineExportSectionPreview {
   title: string;
   prose: string;
   spokenText: string;
+  narrationTranscript: string | null;
   typedVisual: 'included' | 'unavailable' | 'none';
   references: OfflineExportReference[];
 }
@@ -76,7 +146,7 @@ export interface OfflinePackageManifest {
   }>;
   assets: Array<{
     assetId: string;
-    kind: 'citedExcerpt' | 'typedVisual' | 'narrationAudio';
+    kind: 'citedExcerpt' | 'typedVisual' | 'narrationTranscript' | 'narrationAudio';
     mediaType: 'text/plain' | 'application/json' | 'audio/wav';
     chapterRevisionId: string;
     snapshotId: string;
@@ -116,6 +186,7 @@ interface SafeSection {
   title: string;
   prose: string;
   spokenText: string;
+  narrationTranscript: string | null;
   claims: SafeClaim[];
   references: OfflineExportReference[];
   visual: EvidenceLinkedVisualSpec | null;
@@ -175,8 +246,16 @@ export function buildOfflineExportPreview(
   revisions: readonly ChapterRevision[],
   selectedRevisionIds: readonly string[],
   includeExcerpts = true,
+  narrationAudio: readonly OfflineNarrationAudio[] = [],
 ): OfflineExportPreview {
-  const chapters = selectExportableRevisions(revisions, selectedRevisionIds).map((revision) => createSafeChapter(revision));
+  const selected = selectExportableRevisions(revisions, selectedRevisionIds);
+  const selectedKeys = new Set(selected.flatMap((revision) => revision.sections.map((section) => sectionKey(revision.revisionId, section.sectionId))));
+  const narrationBySection = new Map<string, Pick<OfflineNarrationAudio, 'exactText'>>();
+  for (const narration of narrationAudio) {
+    const key = sectionKey(narration.chapterRevisionId, narration.sectionId);
+    if (selectedKeys.has(key)) narrationBySection.set(key, narration);
+  }
+  const chapters = selected.map((revision) => createSafeChapter(revision, narrationBySection));
   const sourcePaths = [...new Set(chapters.flatMap((chapter) => chapter.references.map((reference) => reference.path)))].sort();
   const references = chapters.flatMap((chapter) => chapter.references);
   return {
@@ -191,6 +270,7 @@ export function buildOfflineExportPreview(
         title: section.title,
         prose: section.prose,
         spokenText: section.spokenText,
+        narrationTranscript: section.narrationTranscript,
         typedVisual: section.visual
           ? 'included'
           : section.visualUnavailable ? 'unavailable' : 'none',
@@ -220,10 +300,10 @@ export async function buildOfflineGuideHtml(
   if (selected.length !== options.selectedRevisionIds.length) throw new Error('Only accepted, exportable chapter revisions can be included in an offline guide.');
   if (selected.length === 0) throw new Error('Select at least one accepted chapter with exportable source paths.');
 
-  const chapters = selected.map((revision) => createSafeChapter(revision));
   const narrationAudio = options.includeNarrationAudio
     ? validateNarrationAudio(selected, options.narrationAudio ?? [])
     : new Map<string, PreparedNarrationAudio>();
+  const chapters = selected.map((revision) => createSafeChapter(revision, narrationAudio));
   for (const chapter of chapters) {
     for (const section of chapter.sections) {
       section.narrationAudio = narrationAudio.get(sectionKey(chapter.revision.revisionId, section.section.sectionId))?.audio ?? null;
@@ -247,6 +327,19 @@ export async function buildOfflineGuideHtml(
       }
       const narration = narrationAudio.get(sectionKey(chapter.revision.revisionId, section.section.sectionId));
       if (narration) {
+        const transcript = section.narrationTranscript ?? '';
+        const transcriptBytes = new TextEncoder().encode(transcript);
+        assets.push({
+          assetId: `narration-transcript:${chapter.revision.revisionId}:${section.section.sectionId}`,
+          kind: 'narrationTranscript',
+          mediaType: 'text/plain',
+          chapterRevisionId: chapter.revision.revisionId,
+          snapshotId: chapter.revision.snapshotId,
+          sectionId: section.section.sectionId,
+          cacheFingerprint: narration.audio.fingerprint,
+          sha256: await sha256(transcriptBytes),
+          byteLength: transcriptBytes.byteLength,
+        });
         assets.push({
           assetId: `narration:${chapter.revision.revisionId}:${section.section.sectionId}`,
           kind: 'narrationAudio',
@@ -321,7 +414,10 @@ function targetPaths(revision: ChapterRevision): string[] {
   }
 }
 
-function createSafeChapter(revision: ChapterRevision): SafeChapter {
+function createSafeChapter(
+  revision: ChapterRevision,
+  narrationBySection: ReadonlyMap<string, Pick<OfflineNarrationAudio, 'exactText'>> = new Map(),
+): SafeChapter {
   const hiddenPaths = new Set<string>();
   for (const path of targetPaths(revision)) if (!isSafeOfflineSourcePath(path)) hiddenPaths.add(path);
   const anchors = uniqueAnchors(revision);
@@ -382,11 +478,13 @@ function createSafeChapter(revision: ChapterRevision): SafeChapter {
             ? { ...hotspot.destination, path: sanitizer.clean(hotspot.destination.path).text }
             : hotspot.destination,
       }));
+      const narration = narrationBySection.get(sectionKey(revision.revisionId, section.sectionId));
       return {
         section,
         title: sanitizer.clean(section.title).text,
         prose: sanitizer.clean(section.prose).text,
         spokenText: sanitizer.clean(section.spokenText).text,
+        narrationTranscript: narration ? sanitizer.clean(narration.exactText).text : null,
         claims,
         references,
         visual,
@@ -420,6 +518,12 @@ function validateNarrationAudio(
     const key = sectionKey(candidate.chapterRevisionId, candidate.sectionId);
     if (!selectedKeys.has(key)) continue;
     if (prepared.has(key)) throw new Error('Cached narration was supplied more than once for one chapter section.');
+    if (typeof candidate.exactText !== 'string' || !candidate.exactText.trim()) {
+      throw new Error('A cached narration asset is missing the exact reviewed transcript that produced it.');
+    }
+    if (new TextEncoder().encode(candidate.exactText).byteLength > MAX_NARRATION_TRANSCRIPT_BYTES) {
+      throw new Error('A cached narration transcript exceeds the 16 KB reviewed-script limit.');
+    }
     if (!/^[a-f0-9]{64}$/i.test(candidate.audio.fingerprint) || candidate.audio.mimeType !== 'audio/wav') {
       throw new Error('A selected narration asset has an unsupported format or cache identity.');
     }
@@ -650,8 +754,9 @@ function renderPackage(
       const narration = section.narrationAudio
         ? `<section class="narration-audio" aria-label="Cached narration"><h4>Cached narration</h4><audio controls preload="none" aria-label="Narration for ${escapeHtml(section.title)}" src="data:audio/wav;base64,${section.narrationAudio.audioBase64}">This browser cannot play the bundled narration audio.</audio></section>`
         : '';
-      const transcript = section.spokenText.trim()
-        ? `<details class="transcript"><summary>Narration transcript</summary><p class="prose">${escapeHtml(section.spokenText)}</p></details>`
+      const transcriptText = (section.narrationAudio ? section.narrationTranscript : section.spokenText) ?? '';
+      const transcript = transcriptText.trim()
+        ? `<details class="transcript"><summary>Narration transcript</summary><p class="prose">${escapeHtml(transcriptText)}</p></details>`
         : '<p class="muted">No narration transcript was saved for this section.</p>';
       return `<section class="section" id="${sectionId}"><p class="eyebrow">SECTION ${sectionIndex + 1} OF ${chapter.sections.length}</p><h3>${escapeHtml(section.title)}</h3><p class="prose">${escapeHtml(section.prose)}</p>${transcript}${narration}${claims ? `<section class="evidence"><h4>What supports this explanation?</h4>${claims}</section>` : ''}${visual}${renderEvidenceAppendix(chapter, section, chapterIndex, evidenceIds, includeExcerpts)}<nav class="section-nav" aria-label="Section navigation">${previousLink}${nextLink}</nav></section>`;
     }).join('');
@@ -684,8 +789,8 @@ function renderPackage(
 </style>
 </head>
 <body>
-<header class="page"><div class="wrap"><p class="eyebrow">Code Atlas · Offline guide</p><h1>Read the code story at your own pace.</h1><p>This file works without Code Atlas or a network connection. ${escapeHtml(excerptMessage)} ${escapeHtml(narrationMessage)}</p><p class="notice">Privacy review: this package includes selected chapter explanations and the source paths shown below${includeExcerpts ? ', plus the cited excerpts listed in the export preview' : ''}${manifest.features.narrationAudio === 'included' ? ', plus cached narration audio for the sections listed in the export preview' : ''}. Source excerpts can contain sensitive code. Provider configuration and the local repository checkout are not part of this package. Common credential patterns and hidden paths are filtered; review the exported text before sharing.</p></div></header>
-<main class="wrap"><div class="guide-layout"><nav class="contents" aria-label="Guide contents"><h2>Chapters and sections</h2><ol>${contents}</ol></nav><div class="guide">${renderedChapters}<details class="manifest"><summary>Package manifest · schema ${manifest.schemaVersion}</summary><p>Revision IDs, evidence snapshots, and hashes for included excerpts, typed diagram data, and narration audio.</p><pre>${manifestText}</pre></details></div></div><footer class="page-footer">Exported by Code Atlas. This static package does not execute chapter content or open local source files.</footer></main>
+<header class="page"><div class="wrap"><p class="eyebrow">Code Atlas · Offline guide</p><h1>Read the code story at your own pace.</h1><p>This file works without Code Atlas or a network connection. ${escapeHtml(excerptMessage)} ${escapeHtml(narrationMessage)}</p><p class="notice">Privacy review: this package includes selected chapter explanations and the source paths shown below${includeExcerpts ? ', plus the cited excerpts listed in the export preview' : ''}${manifest.features.narrationAudio === 'included' ? ', plus cached narration audio and its matching transcript for the sections listed in the export preview' : ''}. Source excerpts can contain sensitive code. Provider configuration and the local repository checkout are not part of this package. Common credential patterns and hidden paths are filtered from text only; those filters do not alter cached audio. Listen to the audio before sharing.</p></div></header>
+<main class="wrap"><div class="guide-layout"><nav class="contents" aria-label="Guide contents"><h2>Chapters and sections</h2><ol>${contents}</ol></nav><div class="guide">${renderedChapters}<details class="manifest"><summary>Package manifest · schema ${manifest.schemaVersion}</summary><p>Revision IDs, evidence snapshots, and hashes for included excerpts, typed diagram data, reviewed narration transcripts, and narration audio.</p><pre>${manifestText}</pre></details></div></div><footer class="page-footer">Exported by Code Atlas. This static package does not execute chapter content or open local source files.</footer></main>
 </body>
 </html>`;
 }

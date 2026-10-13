@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { buildInventory } from '../src/lib/inventory.ts';
-import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, buildInventoryTree, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, zoomAtlasViewport } from '../src/lib/atlas.ts';
+import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport } from '../src/lib/atlas.ts';
 
 const sha = (letter) => letter.repeat(64);
 const manifest = {
@@ -75,10 +75,38 @@ describe('Atlas data helpers', () => {
     assert.equal(flat.find((item) => item.row.path === 'src/odd.zzz').row.parserReadiness, 'unsupported');
     assert.equal(flat.find((item) => item.row.path === 'src/large.ts').row.disposition, 'skipped');
     assert.equal(flat.find((item) => item.row.path === 'vendor').row.disposition, 'excluded');
+    assert.deepEqual(
+      [flat.find((item) => item.row.path === 'src').positionInSet, flat.find((item) => item.row.path === 'src').setSize],
+      [2, 3],
+    );
     assert.deepEqual(flattenInventoryTree(tree, new Set(['src'])).map((item) => item.row.path), [
       '.', 'assets', 'assets/image.bin', 'src', 'vendor',
     ]);
     assert.deepEqual(flattenInventoryTree(tree).map((item) => item.row.path), flattenInventoryTree(buildInventoryTree(rows)).map((item) => item.row.path));
+  });
+
+  it('filters tree rows with ancestor retention and bounded virtual windows', () => {
+    const rows = buildInventory(manifest);
+    const matching = filterInventoryTreeRows(rows, null, 'helper');
+    assert.deepEqual(new Set(matching.map((row) => row.path)), new Set(['.', 'src', 'src/helper.ts']));
+    assert.deepEqual(filterInventoryTreeRows(rows, 'src', 'large').map((row) => row.path), ['src', 'src/large.ts']);
+
+    const window = virtualRowWindow(25_000, 14_500 * 29, 510, 29, 10);
+    assert.deepEqual(window, {
+      startIndex: 14_490,
+      endIndex: 14_528,
+      topSpacerHeight: 420_210,
+      bottomSpacerHeight: (25_000 - 14_528) * 29,
+    });
+    const offsetWindow = virtualRowWindow(25_000, 14_500 * 29 + 28, 510, 29, 10);
+    assert.equal(offsetWindow.endIndex - offsetWindow.startIndex, 39);
+    assert.ok(offsetWindow.endIndex - offsetWindow.startIndex <= Math.ceil(510 / 29) + 1 + 20);
+    assert.deepEqual(virtualRowWindow(0, 0, 510, 29, 10), {
+      startIndex: 0, endIndex: 0, topSpacerHeight: 0, bottomSpacerHeight: 0,
+    });
+    assert.deepEqual(virtualRowWindow(3, 10_000, 510, 29, 10), {
+      startIndex: 0, endIndex: 3, topSpacerHeight: 0, bottomSpacerHeight: 0,
+    });
   });
 
   it('projects only resolved edges whose selected endpoints and evidence match exact snapshot hashes', () => {

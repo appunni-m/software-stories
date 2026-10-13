@@ -34,6 +34,17 @@ The capture and index commands run on Tauri's blocking worker pool and expose
 progress and cancellation in the app. This timing does not measure rendered UI
 responsiveness, VoiceOver, or end-to-end time on other repositories.
 
+## Atlas inventory UI follow-up
+
+The Atlas inventory tree now filters with retained-path sets and renders a
+bounded virtual window with ten overscan rows on either side. The focused
+`tests/atlas.test.mjs` helper fixture contains 25,000 rows and checks that the
+computed window remains at most 39 rows for a 510 px viewport at the default
+29 px row height. This checks the window calculation and filtering behavior;
+it is not a browser render benchmark and does not establish end-to-end UI
+responsiveness, VoiceOver behavior, or accessibility at enlarged text sizes.
+Those still need a measured desktop fixture and manual acceptance.
+
 ## Reproduction
 
 Run from the repository root:

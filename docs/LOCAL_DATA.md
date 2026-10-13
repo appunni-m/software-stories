@@ -38,9 +38,13 @@ remove a key from the same settings screen.
 ## Exports and backups
 
 **Offline export** creates one HTML guide from the accepted revisions you
-select. It can include their saved narration transcripts and audio that is
-already cached on this Mac. It does not export repository snapshots, indexes,
-draft history, recovery records, or recent-project metadata.
+select. It can include cached narration audio and the exact reviewed speech
+script that produced each included track. Transcript and excerpt text pass
+through the export privacy filters, and the package manifest hashes included
+transcripts and audio separately. Those text filters do not alter cached audio;
+listen to included tracks before sharing. It does not export repository
+snapshots, indexes, draft history, recovery records, or recent-project
+metadata.
 
 There is no complete application backup, restore, or import workflow yet. Keep
 the original Git repository as the canonical source. Treat exported HTML as a

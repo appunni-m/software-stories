@@ -36,6 +36,13 @@ contrast, zoom, or native-app usability pass.
   the rendered UI.
 - Reduced-motion styles and focus/reflow fixes are in
   [App.css](../src/App.css).
+- The Atlas inventory tree filters with retained-path sets, renders a virtual
+  row window, and exposes tree hierarchy/position metadata plus full-list arrow
+  navigation in [App.tsx](../src/App.tsx). The 25,000-row helper fixture in
+  [atlas.test.mjs](../tests/atlas.test.mjs) checks that a 510 CSS-pixel viewport
+  calculates a maximum 39-row window at the default row height. This is a
+  bounded-window calculation, not a rendered responsiveness or screen-reader
+  acceptance test.
 - PR Guide citations connect to selected hunks in
   [GitChanges.tsx](../src/GitChanges.tsx) and
   [PrGuideStudio.tsx](../src/PrGuideStudio.tsx). Source/build evidence is not a

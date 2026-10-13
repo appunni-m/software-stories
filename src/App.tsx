@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import {
   ArrowLeft,
@@ -121,7 +121,7 @@ import {
   type InventoryRow,
   type ParserReadiness,
 } from './lib/inventory';
-import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, buildInventoryTree, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, zoomAtlasViewport, type AtlasViewport, type ProvenGraphEdge } from './lib/atlas';
+import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport, type AtlasViewport, type ProvenGraphEdge } from './lib/atlas';
 import { classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, sourceLineTextRanges, splitCapturedSourceLines, splitSourceTextAtRange } from './lib/codeLens';
 import { loadShellStartupData, PRIMARY_WORKSPACES, WORKSPACE_COPY } from './lib/shell';
 import { compareChapterRevisions, type RevisionChange } from './lib/revisionHistory';
@@ -2664,6 +2664,10 @@ interface AtlasWorkbenchViewState {
   viewport: AtlasViewport;
 }
 
+const ATLAS_TREE_ROW_HEIGHT = 29;
+const ATLAS_TREE_OVERSCAN = 10;
+const ATLAS_TREE_DEFAULT_VIEWPORT_HEIGHT = 510;
+
 function emptyAtlasWorkbenchState(): AtlasWorkbenchViewState {
   return { treeQuery: '', mapQuery: '', kind: 'all', language: 'all', collapsed: [], selectedPath: null, selectedFolder: null, selectedRelationship: null, selectedSymbol: null, treeTop: 0, canvasTop: 0, viewport: { x: 0, y: 0, scale: 1 } };
 }
@@ -2693,6 +2697,12 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
     const restored = loadAtlasWorkbenchState(storageKey);
     return routeViewport ? { ...restored, viewport: normalizeAtlasViewport(routeViewport) } : restored;
   });
+  const [treeViewport, setTreeViewport] = useState(() => ({
+    scrollTop: view.treeTop,
+    height: ATLAS_TREE_DEFAULT_VIEWPORT_HEIGHT,
+  }));
+  const [treeRowHeight, setTreeRowHeight] = useState(ATLAS_TREE_ROW_HEIGHT);
+  const [focusedTreeIndex, setFocusedTreeIndex] = useState<number | null>(null);
   const [index, setIndex] = useState<SnapshotIndex | null>(null);
   const [indexState, setIndexState] = useState<'loading' | 'pending' | 'ready' | 'error'>('loading');
   const [indexError, setIndexError] = useState<string | null>(null);
@@ -2700,6 +2710,8 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
   const [indexProgress, setIndexProgress] = useState<IndexProgress | null>(null);
   const [startingIndex, setStartingIndex] = useState(false);
   const treeRef = useRef<HTMLDivElement>(null);
+  const treeTopRef = useRef(view.treeTop);
+  const treePersistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const canvasContentRef = useRef<HTMLDivElement>(null);
   const panGestureRef = useRef<{ pointerId: number; startX: number; startY: number; startViewport: AtlasViewport; pendingViewport: AtlasViewport } | null>(null);
@@ -2709,6 +2721,22 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
   useEffect(() => {
     try { sessionStorage.setItem(storageKey, JSON.stringify(view)); } catch { /* Session view persistence is optional. */ }
   }, [storageKey, view]);
+  useEffect(() => {
+    const tree = treeRef.current;
+    if (!tree) return;
+    const refreshViewport = () => setTreeViewport((current) => {
+      const next = { scrollTop: tree.scrollTop, height: tree.clientHeight || ATLAS_TREE_DEFAULT_VIEWPORT_HEIGHT };
+      return current.scrollTop === next.scrollTop && current.height === next.height ? current : next;
+    });
+    tree.scrollTop = treeTopRef.current;
+    refreshViewport();
+    const observer = new ResizeObserver(refreshViewport);
+    observer.observe(tree);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => () => {
+    if (treePersistTimerRef.current) clearTimeout(treePersistTimerRef.current);
+  }, []);
   useEffect(() => {
     if (!routeSelection) return;
     setView((current) => ({
@@ -2781,24 +2809,35 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
     return [...stale];
   }, [index, manifest.files]);
   const stalePathSet = useMemo(() => new Set(stalePaths), [stalePaths]);
-  const withinFolder = (path: string, folder: string | null) => !folder || folder === '.' || path === folder || path.startsWith(`${folder}/`);
-  const matchingRows = useMemo(() => {
-    const q = view.treeQuery.trim().toLowerCase();
-    const matched = rows.filter((row) => withinFolder(row.path, view.selectedFolder)
-      && (!q || `${row.path} ${row.reason} ${row.details} ${row.language}`.toLowerCase().includes(q)));
-    const keep = new Set(matched.map((row) => row.path));
-    for (const row of matched) {
-      const parts = row.path.split('/').filter(Boolean);
-      while (parts.length > 1) {
-        parts.pop();
-        const parent = parts.join('/');
-        if (withinFolder(parent, view.selectedFolder)) keep.add(parent);
-      }
-      if (!view.selectedFolder && row.path !== '.') keep.add('.');
-    }
-    return rows.filter((row) => keep.has(row.path) && (matched.includes(row) || row.kind === 'directory'));
-  }, [rows, view.selectedFolder, view.treeQuery]);
+  const deferredTreeQuery = useDeferredValue(view.treeQuery);
+  const treeFilterPending = deferredTreeQuery !== view.treeQuery;
+  const matchingRows = useMemo(
+    () => filterInventoryTreeRows(rows, view.selectedFolder, deferredTreeQuery),
+    [rows, view.selectedFolder, deferredTreeQuery],
+  );
   const flattened = useMemo(() => flattenInventoryTree(buildInventoryTree(matchingRows), new Set(view.collapsed)), [matchingRows, view.collapsed]);
+  const treeWindow = virtualRowWindow(flattened.length, treeViewport.scrollTop, treeViewport.height, treeRowHeight, ATLAS_TREE_OVERSCAN);
+  const visibleTreeRows = flattened.slice(treeWindow.startIndex, treeWindow.endIndex);
+  useEffect(() => {
+    const row = treeRef.current?.querySelector<HTMLElement>('.atlas-tree-row');
+    if (!row) return;
+    const measureRowHeight = () => {
+      const measured = row.getBoundingClientRect().height;
+      if (measured > 0) setTreeRowHeight((current) => Math.abs(current - measured) < 0.5 ? current : measured);
+    };
+    measureRowHeight();
+    const observer = new ResizeObserver(measureRowHeight);
+    observer.observe(row);
+    return () => observer.disconnect();
+  }, [treeWindow.startIndex, treeWindow.endIndex]);
+  useEffect(() => {
+    if (focusedTreeIndex === null) return;
+    if (focusedTreeIndex >= flattened.length) setFocusedTreeIndex(flattened.length > 0 ? flattened.length - 1 : null);
+  }, [focusedTreeIndex, flattened.length]);
+  useEffect(() => {
+    if (focusedTreeIndex === null) return;
+    treeRef.current?.querySelector<HTMLButtonElement>(`[data-tree-index="${focusedTreeIndex}"]`)?.focus({ preventScroll: true });
+  }, [focusedTreeIndex, treeWindow.startIndex, treeWindow.endIndex]);
   const provenEdges = graph?.edges ?? [];
   const languages = useMemo(() => Array.from(new Set(index?.symbols.map((symbol) => symbol.language) ?? [])).sort(), [index]);
   const shownEdges = useMemo(() => index
@@ -2811,7 +2850,6 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
     : [], [index, provenEdges, view.kind, view.language, view.mapQuery, view.selectedFolder]);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
-      if (treeRef.current) treeRef.current.scrollTop = view.treeTop;
       if (canvasRef.current) canvasRef.current.scrollTop = view.canvasTop;
     });
     return () => cancelAnimationFrame(frame);
@@ -2828,10 +2866,32 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
 
   const choosePath = (row: InventoryRow) => {
     const folder = row.kind === 'directory' ? row.path : null;
-    const nextView = { ...view, selectedPath: row.path, selectedFolder: folder, selectedSymbol: null, selectedRelationship: null };
+    if (folder !== null) {
+      treeTopRef.current = 0;
+      if (treeRef.current) treeRef.current.scrollTop = 0;
+      setTreeViewport((current) => ({ ...current, scrollTop: 0 }));
+      setFocusedTreeIndex(null);
+    }
+    const nextView = { ...view, selectedPath: row.path, selectedFolder: folder, selectedSymbol: null, selectedRelationship: null, treeTop: treeTopRef.current };
     setView(nextView);
     try { sessionStorage.setItem(storageKey, JSON.stringify(nextView)); } catch { /* Session view persistence is optional. */ }
     onAtlasSelection(row.kind === 'directory' ? undefined : { kind: 'file', path: row.path }, row.path, view.viewport);
+  };
+  const focusTreeRow = (rowIndex: number) => {
+    if (flattened.length === 0) return;
+    const index = Math.max(0, Math.min(flattened.length - 1, rowIndex));
+    const tree = treeRef.current;
+    if (tree) {
+      let scrollTop = tree.scrollTop;
+      const rowTop = index * treeRowHeight;
+      const rowBottom = rowTop + treeRowHeight;
+      if (rowTop < scrollTop) scrollTop = rowTop;
+      else if (rowBottom > scrollTop + tree.clientHeight) scrollTop = rowBottom - tree.clientHeight;
+      if (scrollTop !== tree.scrollTop) tree.scrollTop = scrollTop;
+      treeTopRef.current = scrollTop;
+      setTreeViewport({ scrollTop, height: tree.clientHeight || ATLAS_TREE_DEFAULT_VIEWPORT_HEIGHT });
+    }
+    setFocusedTreeIndex(index);
   };
   const chooseSymbol = (id: string, path: string) => {
     setView((current) => ({ ...current, selectedPath: path, selectedFolder: null, selectedSymbol: id, selectedRelationship: null }));
@@ -2928,24 +2988,43 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
     <div className="atlas-workbench-heading"><div><strong>Repository map</strong><span>Snapshot {snapshotId} · inventory paths and local index evidence</span></div><div className="atlas-map-scope">Scope: {view.selectedFolder ?? 'entire snapshot'} · Only resolved, hash-verified high-confidence edges are drawn.</div></div>
     <div className="atlas-columns">
       <section className="atlas-tree-panel" aria-labelledby="atlas-tree-title">
-        <header><div><strong id="atlas-tree-title">Files</strong><small>{rows.length.toLocaleString()} inventory paths · {flattened.length.toLocaleString()} shown</small></div></header>
-        <label className="atlas-filter-search"><Search size={13} /><input aria-label="Search snapshot tree" placeholder="Search paths or skip reasons" value={view.treeQuery} onChange={(event) => setView((s) => ({ ...s, treeQuery: event.target.value }))} /></label>
-        {view.selectedFolder && <button className="atlas-scope-chip" onClick={() => { setView((s) => ({ ...s, selectedFolder: null })); onAtlasSelection(undefined, view.selectedPath ?? '', view.viewport); }}>Folder scope: {view.selectedFolder} <span>×</span></button>}
-        <div className="atlas-tree-scroll" ref={treeRef} role="tree" aria-label="Snapshot inventory tree" onScroll={(event) => setView((s) => ({ ...s, treeTop: event.currentTarget.scrollTop }))}>
-          {flattened.length === 0 ? <div className="atlas-empty-note"><strong>No paths match this search.</strong><span>Clear the search or widen the selected folder scope to see matching files.</span><button className="text-button" onClick={() => setView((current) => ({ ...current, treeQuery: '', selectedFolder: null }))}>Clear search and folder scope</button></div> : flattened.map((item, rowOrdinal) => {
+        <header><div><strong id="atlas-tree-title">Files</strong><small aria-live="polite">{rows.length.toLocaleString()} inventory paths · {flattened.length.toLocaleString()} shown</small></div></header>
+        <label className="atlas-filter-search"><Search size={13} /><input aria-label="Search snapshot tree" placeholder="Search paths or skip reasons" value={view.treeQuery} onChange={(event) => {
+          const query = event.target.value;
+          treeTopRef.current = 0;
+          if (treeRef.current) treeRef.current.scrollTop = 0;
+          setTreeViewport((current) => ({ ...current, scrollTop: 0 }));
+          setFocusedTreeIndex(null);
+          setView((s) => ({ ...s, treeQuery: query, treeTop: 0 }));
+        }} /></label>
+        {treeFilterPending && <span className="sr-only" role="status" aria-live="polite">Updating filtered paths.</span>}
+        {view.selectedFolder && <button className="atlas-scope-chip" onClick={() => { treeTopRef.current = 0; if (treeRef.current) treeRef.current.scrollTop = 0; setTreeViewport((current) => ({ ...current, scrollTop: 0 })); setFocusedTreeIndex(null); setView((s) => ({ ...s, selectedFolder: null, treeTop: 0 })); onAtlasSelection(undefined, view.selectedPath ?? '', view.viewport); }}>Folder scope: {view.selectedFolder} <span>×</span></button>}
+        <div className="atlas-tree-scroll" ref={treeRef} role="tree" aria-label="Snapshot inventory tree" aria-busy={treeFilterPending} onScroll={(event) => {
+          const tree = event.currentTarget;
+          const scrollTop = tree.scrollTop;
+          setTreeViewport({ scrollTop, height: tree.clientHeight || ATLAS_TREE_DEFAULT_VIEWPORT_HEIGHT });
+          treeTopRef.current = scrollTop;
+          if (treePersistTimerRef.current) clearTimeout(treePersistTimerRef.current);
+          treePersistTimerRef.current = setTimeout(() => {
+            setView((s) => s.treeTop === treeTopRef.current ? s : { ...s, treeTop: treeTopRef.current });
+            treePersistTimerRef.current = null;
+          }, 180);
+        }}>
+          {flattened.length === 0 ? <div className="atlas-empty-note"><strong>No paths match this search.</strong><span>Clear the search or widen the selected folder scope to see matching files.</span><button className="text-button" onClick={() => { treeTopRef.current = 0; if (treeRef.current) treeRef.current.scrollTop = 0; setTreeViewport((current) => ({ ...current, scrollTop: 0 })); setFocusedTreeIndex(null); setView((current) => ({ ...current, treeQuery: '', selectedFolder: null, treeTop: 0 })); }}>Clear search and folder scope</button></div> : <>
+            {treeWindow.topSpacerHeight > 0 && <div className="atlas-tree-window-spacer" aria-hidden="true" style={{ height: `${treeWindow.topSpacerHeight}px` }} />}
+            {visibleTreeRows.map((item, visibleIndex) => {
+            const rowOrdinal = treeWindow.startIndex + visibleIndex;
             const row = item.row;
             const selected = row.path === view.selectedPath && !view.selectedRelationship;
             const openable = row.disposition === 'captured' && (row.contentKind === 'text' || row.contentKind === 'unknown');
             const rowIndexLabel = atlasRowIndexStatusLabel(atlasRowIndexStatus(row, index, indexState, stalePathSet.has(row.path)));
-            return <div className={`atlas-tree-row${selected ? ' selected' : ''}${row.disposition !== 'captured' ? ' omitted' : ''}`} role="treeitem" aria-selected={selected} aria-expanded={item.hasChildren ? item.expanded : undefined} key={`${row.path}:${row.reason}:${rowOrdinal}`} style={{ paddingLeft: `${7 + item.depth * 13}px` }} title={row.details}>
+            return <div className={`atlas-tree-row${selected ? ' selected' : ''}${row.disposition !== 'captured' ? ' omitted' : ''}`} role="treeitem" aria-level={item.depth + 1} aria-posinset={item.positionInSet} aria-setsize={item.setSize} aria-selected={selected} aria-expanded={item.hasChildren ? item.expanded : undefined} key={`${row.path}:${row.reason}:${rowOrdinal}`} style={{ paddingLeft: `${7 + item.depth * 13}px` }} title={row.details}>
               {item.hasChildren ? <button className="atlas-tree-toggle" aria-label={`${item.expanded ? 'Collapse' : 'Expand'} ${row.path}`} onClick={() => setView((s) => ({ ...s, collapsed: s.collapsed.includes(item.path) ? s.collapsed.filter((p) => p !== item.path) : [...s.collapsed, item.path] }))}><ChevronDown size={12} className={item.expanded ? '' : 'collapsed'} /></button> : <span className="atlas-tree-spacer" />}
-              <button className="atlas-tree-entry" onClick={() => choosePath(row)} onKeyDown={(event) => {
+              <button className="atlas-tree-entry" data-tree-index={rowOrdinal} aria-label={`${row.path === '.' ? 'repository root' : row.path}, ${row.kind}, ${row.disposition}${rowIndexLabel ? `, ${rowIndexLabel}` : ''}`} onFocus={() => setFocusedTreeIndex(rowOrdinal)} onClick={() => choosePath(row)} onKeyDown={(event) => {
                 if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
-                  const entries = Array.from(treeRef.current?.querySelectorAll<HTMLButtonElement>('.atlas-tree-entry') ?? []);
-                  const currentIndex = entries.indexOf(event.currentTarget);
-                  const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? entries.length - 1 : Math.min(entries.length - 1, Math.max(0, currentIndex + (event.key === 'ArrowDown' ? 1 : -1)));
+                  const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? flattened.length - 1 : rowOrdinal + (event.key === 'ArrowDown' ? 1 : -1);
                   event.preventDefault();
-                  entries[nextIndex]?.focus();
+                  focusTreeRow(nextIndex);
                 } else if (event.key === 'Enter' && openable) {
                   event.preventDefault();
                   choosePath(row);
@@ -2954,7 +3033,9 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
               }}><span className={`atlas-state-mark ${row.disposition}`} />{row.kind === 'directory' ? <FolderOpen size={13} /> : <FileCode2 size={13} />}<code>{row.path === '.' ? 'repository root' : row.path.split('/').at(-1)}</code><small>{row.disposition}</small>{rowIndexLabel && <em>{rowIndexLabel}</em>}</button>
               {openable && <button className="atlas-tree-open" data-focus-key={`atlas-tree-open:${row.path}`} title="Open in Code Lens" aria-label={`Open ${row.path} in Code Lens`} onClick={() => { choosePath(row); onOpenFile(row.path, snapshotId); }}><ArrowRight size={12} /></button>}
             </div>;
-          })}
+            })}
+            {treeWindow.bottomSpacerHeight > 0 && <div className="atlas-tree-window-spacer" aria-hidden="true" style={{ height: `${treeWindow.bottomSpacerHeight}px` }} />}
+          </>}
         </div>
         <footer>Captured, skipped, excluded, and directory rows remain visible in the snapshot tree.</footer>
       </section>

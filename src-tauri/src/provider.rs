@@ -2779,19 +2779,19 @@ fn rig_request_failure(
         ),
         crate::provider_api::RigRequestFailure::QuotaExceeded => (
             ProviderFailureKind::QuotaExceeded,
-            "The selected provider reported a quota or rate limit. Choose when to retry; Code Atlas did not switch providers.",
+            "The selected provider reported a quota or rate limit. Choose when to retry; no fallback was attempted.",
         ),
         crate::provider_api::RigRequestFailure::BillingRequired => (
             ProviderFailureKind::BillingRequired,
-            "The selected provider requires billing for this request. Code Atlas did not switch providers.",
+            "The selected provider requires billing for this request. No fallback was attempted.",
         ),
         crate::provider_api::RigRequestFailure::RegionUnavailable => (
             ProviderFailureKind::RegionUnavailable,
-            "The selected provider is unavailable in this account region. Code Atlas did not switch providers.",
+            "The selected provider is unavailable in this account region. No fallback was attempted.",
         ),
         crate::provider_api::RigRequestFailure::UnavailableModel => (
             ProviderFailureKind::UnavailableModel,
-            "The selected model is unavailable. Choose a listed model explicitly; Code Atlas did not switch providers.",
+            "The selected model is unavailable. Choose a listed model explicitly; no fallback was attempted.",
         ),
         crate::provider_api::RigRequestFailure::ProviderRejected => (
             ProviderFailureKind::ProviderRejectedRequest,
@@ -3409,6 +3409,78 @@ mod tests {
         }
     }
 
+    fn code_lens_pending_request(
+        fixture: &ChapterFixture,
+        provider_id: &str,
+        model_id: &str,
+    ) -> PendingProviderRequest {
+        let source = fixture.sources(&[SIMPLE_PATH]).remove(0);
+        let start_byte = source
+            .contents
+            .find("export function greeting")
+            .expect("fixture has the selected function line");
+        let end_byte = source.contents[start_byte..]
+            .find('\n')
+            .map_or(source.contents.len(), |offset| start_byte + offset);
+        build_code_lens_request_review_for_provider(
+            &fixture.storage,
+            &BuildCodeLensReviewInput {
+                project_id: fixture.manifest.summary.project_id.clone(),
+                snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                target: CodeLensExplanationTarget {
+                    path: source.path,
+                    source_sha256: source.sha256,
+                    start_line: 2,
+                    end_line: 2,
+                    start_byte: Some(start_byte as u64),
+                    end_byte_exclusive: Some(end_byte as u64),
+                },
+                model_id: model_id.to_owned(),
+            },
+            provider_id,
+        )
+        .unwrap()
+    }
+
+    fn accepted_fixture_chapter_history(
+        fixture: &ChapterFixture,
+    ) -> Vec<chapters::ChapterRevision> {
+        let source = fixture.sources(&[SIMPLE_PATH]);
+        let proposal = crate::chapter_generation::tests::simple_proposal();
+        let mut revision = crate::chapter_generation::canonicalize_file_chapter(
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest,
+            Some(&fixture.index),
+            SIMPLE_PATH,
+            &source,
+            &HashSet::new(),
+            &serde_json::to_string(&proposal).unwrap(),
+        )
+        .unwrap();
+        let validation = chapters::validate_chapter_revision(
+            &fixture.storage,
+            &fixture.manifest,
+            Some(&fixture.index),
+            &revision,
+        );
+        assert_eq!(validation.status, chapters::ValidationReportStatus::Valid);
+        revision.validation_status = chapters::ValidationStatus::Valid;
+        let draft = crate::chapter_store::save_new_draft(&fixture.storage, revision).unwrap();
+        crate::chapter_review::accept_draft(
+            &fixture.storage,
+            &Mutex::new(()),
+            &draft.project_id,
+            &draft.revision_id,
+        )
+        .unwrap();
+        crate::chapter_store::list_for_snapshot(
+            &fixture.storage,
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest.summary.snapshot_id,
+        )
+        .unwrap()
+    }
+
     #[tokio::test]
     async fn pr_guide_review_is_bound_to_selected_hunks_and_moving_a_ref_invalidates_it() {
         let repository = FixtureDirectory::new();
@@ -3696,6 +3768,286 @@ mod tests {
                 assert_eq!(error.kind, ProviderFailureKind::QuotaExceeded);
                 assert_eq!(failures.load(Ordering::SeqCst), 1);
             }
+        }
+    }
+
+    #[tokio::test]
+    async fn code_lens_routes_the_exact_reviewed_range_through_all_provider_consents() {
+        let fixture = ChapterFixture::new();
+        let source = fixture.sources(&[SIMPLE_PATH]).remove(0);
+        let excerpt_start = source
+            .contents
+            .find("export function greeting")
+            .expect("fixture has the selected function line");
+        let excerpt_end = source.contents[excerpt_start..]
+            .find('\n')
+            .map_or(source.contents.len(), |offset| excerpt_start + offset);
+        let excerpt = &source.contents[excerpt_start..excerpt_end];
+        let quote = "export function greeting(name: string): string {";
+        assert_eq!(excerpt, quote);
+
+        for provider in provider_catalog() {
+            let model_id = provider
+                .models
+                .iter()
+                .find(|model| model.supports_structured_output)
+                .expect("each direct provider has a structured-output model")
+                .model_id
+                .clone();
+            let pending = code_lens_pending_request(&fixture, &provider.provider_id, &model_id);
+            let encoded = crate::provider_api::encode_request_preview(
+                &provider.provider_id,
+                &model_id,
+                &pending.review.system_instruction,
+                &pending.review.user_prompt,
+                &pending.review.generation_config,
+            )
+            .unwrap();
+
+            assert_eq!(pending.review.purpose, CODE_LENS_EXPLANATION_PURPOSE);
+            assert_eq!(pending.review.provider_id, provider.provider_id);
+            assert_eq!(pending.review.model_id, model_id);
+            assert_eq!(pending.review.endpoint_url, encoded.endpoint_url);
+            assert_eq!(pending.review.request_body_preview, encoded.body);
+            assert_eq!(pending.body, encoded.body);
+            assert_eq!(pending.review.selected_files.len(), 1);
+            assert_eq!(pending.review.selected_files[0].contents, excerpt);
+            assert!(pending.review.user_prompt.contains(excerpt));
+            let serialized_body = serde_json::to_string(&pending.body).unwrap();
+            assert!(serialized_body.contains(excerpt));
+            assert!(!serialized_body.contains("marker repeats"));
+            assert!(!serialized_body.contains("const overlapping"));
+
+            let calls = Arc::new(AtomicUsize::new(0));
+            let calls_before_consent = Arc::clone(&calls);
+            let mut incomplete_consent = all_consent();
+            incomplete_consent.billing_uncertainty_acknowledged = false;
+            let error = match dispatch_reviewed_request(
+                &pending,
+                Zeroizing::new("fixture-key".to_owned()),
+                &incomplete_consent,
+                move |_, _, _| async move {
+                    calls_before_consent.fetch_add(1, Ordering::SeqCst);
+                    Ok(ProviderHttpResult {
+                        model_version: None,
+                        response_text: String::new(),
+                        input_tokens: None,
+                        output_tokens: None,
+                    })
+                },
+            )
+            .await
+            {
+                Err(error) => error,
+                Ok(_) => panic!("incomplete Code Lens consent must not dispatch"),
+            };
+            assert_eq!(error.kind, ProviderFailureKind::ConsentRequired);
+            assert_eq!(calls.load(Ordering::SeqCst), 0);
+
+            let calls_after_consent = Arc::clone(&calls);
+            let expected_model = model_id.clone();
+            let expected_body = encoded.body.clone();
+            let prose = "The greeting function formats the supplied name as text.";
+            let response_text = serde_json::json!({
+                "claims": [{
+                    "prose": prose,
+                    "identifier": "greeting",
+                    "quote": quote,
+                }]
+            })
+            .to_string();
+            let expected_response = response_text.clone();
+            let sent = dispatch_reviewed_request(
+                &pending,
+                Zeroizing::new("fixture-key".to_owned()),
+                &all_consent(),
+                move |actual_model, _, actual_body| async move {
+                    assert_eq!(actual_model, expected_model);
+                    assert_eq!(actual_body, expected_body);
+                    calls_after_consent.fetch_add(1, Ordering::SeqCst);
+                    Ok(ProviderHttpResult {
+                        model_version: Some("fixture-model-version".to_owned()),
+                        response_text: expected_response,
+                        input_tokens: Some(20),
+                        output_tokens: Some(10),
+                    })
+                },
+            )
+            .await
+            .unwrap();
+            assert_eq!(calls.load(Ordering::SeqCst), 1);
+            assert_eq!(sent.model_id, model_id);
+            assert_eq!(sent.fingerprint, pending.review.fingerprint);
+
+            let explanation =
+                canonicalize_code_lens_explanation(&fixture.storage, &pending.review, &sent)
+                    .unwrap();
+            assert_eq!(explanation.provider_id, provider.provider_id);
+            assert_eq!(explanation.model_id, model_id);
+            assert_eq!(explanation.claims.len(), 1);
+            let citation = &explanation.claims[0].citation;
+            let quote_start = excerpt.find(quote).unwrap();
+            assert_eq!(citation.path, source.path);
+            assert_eq!(citation.snapshot_id, source.snapshot_id);
+            assert_eq!(citation.source_sha256, source.sha256);
+            assert_eq!(citation.start_line, 2);
+            assert_eq!(citation.end_line, 2);
+            assert_eq!(citation.start_byte, (excerpt_start + quote_start) as u64);
+            assert_eq!(
+                citation.end_byte_exclusive,
+                (excerpt_start + quote_start + quote.len()) as u64
+            );
+            assert_eq!(citation.quote, quote);
+
+            let invalid_quote = "export function greeting(name: string): boolean {";
+            let invalid_result = ProviderSendResult {
+                response_text: serde_json::json!({
+                    "claims": [{
+                        "prose": prose,
+                        "identifier": "greeting",
+                        "quote": invalid_quote,
+                    }]
+                })
+                .to_string(),
+                ..sent
+            };
+            let error = canonicalize_code_lens_explanation(
+                &fixture.storage,
+                &pending.review,
+                &invalid_result,
+            )
+            .err()
+            .expect("a quote absent from the exact selected excerpt must be rejected");
+            assert_eq!(error.kind, ProviderFailureKind::MalformedProviderResponse);
+        }
+    }
+
+    #[tokio::test]
+    async fn code_lens_provider_model_and_endpoint_mutations_invalidate_review_before_dispatch() {
+        let fixture = ChapterFixture::new();
+        let pending = code_lens_pending_request(&fixture, GEMINI_PROVIDER_ID, "gemini-3.8-flash");
+
+        let mut changed_provider = pending.clone();
+        changed_provider.review.provider_id = "openai".to_owned();
+        changed_provider.review.model_id = "gpt-6-luna".to_owned();
+
+        let mut changed_model = pending.clone();
+        changed_model.review.model_id = "gemini-3.5-flash-lite".to_owned();
+
+        let mut changed_endpoint = pending.clone();
+        changed_endpoint.review.endpoint_url = "https://api.example.invalid/v1".to_owned();
+
+        for changed in [changed_provider, changed_model, changed_endpoint] {
+            let error = revalidate_request_review(&fixture.storage, &changed.review)
+                .err()
+                .expect("a provider, model, or endpoint change must require a fresh review");
+            assert_eq!(error.kind, ProviderFailureKind::ReviewChanged);
+
+            let calls = Arc::new(AtomicUsize::new(0));
+            let calls_from_transport = Arc::clone(&calls);
+            let error = dispatch_reviewed_request(
+                &changed,
+                Zeroizing::new("fixture-key".to_owned()),
+                &all_consent(),
+                move |_, _, _| async move {
+                    calls_from_transport.fetch_add(1, Ordering::SeqCst);
+                    Ok(ProviderHttpResult {
+                        model_version: None,
+                        response_text: String::new(),
+                        input_tokens: None,
+                        output_tokens: None,
+                    })
+                },
+            )
+            .await
+            .err()
+            .expect("stale Code Lens review must not reach the transport");
+            assert_eq!(error.kind, ProviderFailureKind::ReviewChanged);
+            assert_eq!(calls.load(Ordering::SeqCst), 0);
+        }
+    }
+
+    #[tokio::test]
+    async fn code_lens_provider_failures_do_not_fallback_or_change_accepted_history() {
+        let fixture = ChapterFixture::new();
+        let history_before = accepted_fixture_chapter_history(&fixture);
+        let accepted_before = history_before
+            .iter()
+            .find(|revision| revision.lifecycle == RevisionLifecycle::Accepted)
+            .expect("fixture has an accepted chapter revision");
+        let accepted_bytes_before = chapters::encode_chapter_revision(accepted_before).unwrap();
+        let history_before_bytes = history_before
+            .iter()
+            .map(chapters::encode_chapter_revision)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        for provider in provider_catalog() {
+            let model_id = provider
+                .models
+                .iter()
+                .find(|model| model.supports_structured_output)
+                .expect("each direct provider has a structured-output model")
+                .model_id
+                .clone();
+            let pending = code_lens_pending_request(&fixture, &provider.provider_id, &model_id);
+            assert_eq!(pending.review.provider_id, provider.provider_id);
+            let calls = Arc::new(AtomicUsize::new(0));
+            let calls_from_transport = Arc::clone(&calls);
+            let selected_provider = provider.provider_id.clone();
+            let expected_model = model_id.clone();
+            let expected_body = pending.body.clone();
+            let error = dispatch_reviewed_request(
+                &pending,
+                Zeroizing::new("fixture-key".to_owned()),
+                &all_consent(),
+                move |actual_model, _, actual_body| {
+                    assert_eq!(actual_model, expected_model);
+                    assert_eq!(actual_body, expected_body);
+                    calls_from_transport.fetch_add(1, Ordering::SeqCst);
+                    async move {
+                        Err(rig_request_failure(
+                            crate::provider_api::RigRequestFailure::QuotaExceeded,
+                            &selected_provider,
+                        ))
+                    }
+                },
+            )
+            .await
+            .err()
+            .expect("the selected provider's mock quota failure must be returned");
+            assert_eq!(error.kind, ProviderFailureKind::QuotaExceeded);
+            let provider_name = match provider.provider_id.as_str() {
+                "gemini" => "Gemini",
+                "openai" => "OpenAI",
+                "anthropic" => "Anthropic",
+                _ => unreachable!("the provider catalog contains only named providers"),
+            };
+            assert!(error.message.contains(provider_name));
+            assert!(error.message.contains("no fallback was attempted"));
+            assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+            let history_after = crate::chapter_store::list_for_snapshot(
+                &fixture.storage,
+                &fixture.manifest.summary.project_id,
+                &fixture.manifest.summary.snapshot_id,
+            )
+            .unwrap();
+            assert_eq!(history_after, history_before);
+            let history_after_bytes = history_after
+                .iter()
+                .map(chapters::encode_chapter_revision)
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap();
+            assert_eq!(history_after_bytes, history_before_bytes);
+            let accepted_after = history_after
+                .iter()
+                .find(|revision| revision.lifecycle == RevisionLifecycle::Accepted)
+                .expect("accepted chapter history remains present");
+            assert_eq!(
+                chapters::encode_chapter_revision(accepted_after).unwrap(),
+                accepted_bytes_before
+            );
         }
     }
 
