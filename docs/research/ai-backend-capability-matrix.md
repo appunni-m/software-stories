@@ -3,6 +3,8 @@
 **Reviewed:** 2026-10-13  
 **Purpose:** Keep direct model APIs, multi-step coding-agent runtimes, and speech synthesis as separate choices. This is a candidate matrix; an unverified cell does not mean the integration is currently selectable in the app. The app already contains Gemini-specific generation code, but that implementation has not been accepted as covering the full cross-product capability contract below.
 
+**Implementation snapshot (2026-10-13):** `rig-core = 0.44.0` is pinned and now encodes the reviewed Gemini JSON request body locally. The app review displays the sanitized endpoint and encoded body hash, and its consent fingerprint includes both. The existing Gemini-only Reqwest sender still places the key in Google's required `x-goog-api-key` header and uses the existing Google-specific response/error parser. OpenAI and Anthropic are not selectable, have no end-to-end dispatch, and have not passed adapter fixtures. The Rig helper has branches for their wire encoders, but those branches are not acceptance evidence. All operation/provider cells below therefore remain unverified.
+
 ## Status legend
 
 - **Candidate · unverified:** evaluate this backend for the operation; it is not yet an app-supported route.
@@ -23,6 +25,8 @@ One selected API provider handles one complete request. The adapter must bind th
 | PR change explanation | Candidate · unverified | Candidate · unverified | Candidate · unverified | One reviewed file or hunk and its source anchors → one change explanation; does not write or comment on the PR. |
 
 For every cell promoted to **Supported**, the catalog records the pinned adapter/library and provider/model surface; schema, streaming, cancellation, endpoint, authentication, terms, usage disclosure, and data handling; a mocked fixture for the operation; exact-provider routing; consent fingerprint invalidation; and error behavior. An unsupported feature is shown before send. No key, prompt, source excerpt, or raw response is written to logs, local metadata, exports, or diagnostics.
+
+The current generation review exercises Rig's Gemini wire encoder for file chapters, optional orientation, and PR Guides. Existing provider tests cover those Gemini review/dispatch boundaries. They do not prove OpenAI or Anthropic endpoint calls, model eligibility, provider-specific consent disclosures, live cancellation, or the unimplemented selective-section, Code Lens, and PR-change generation operations.
 
 ### Cross-cutting API behavior to verify per model
 

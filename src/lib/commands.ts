@@ -762,7 +762,9 @@ export interface ProviderRequestReview {
   snapshotId: string;
   purpose: string;
   targetPath: string | null;
+  providerId: string;
   modelId: string;
+  endpointUrl: string;
   disclosureVersion: string;
   selectedFiles: ProviderRequestFile[];
   selectedSymbols: ProviderSymbolEvidence[];
@@ -775,6 +777,8 @@ export interface ProviderRequestReview {
   sourceBytes: number;
   estimatedInputTokens: number;
   requestBodyBytes: number;
+  requestBodySha256: string;
+  requestBodyPreview: Record<string, unknown>;
   fingerprint: string;
   expiresAtUnixMs: number;
 }

@@ -1995,6 +1995,8 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
                   <>
                     <div ref={requestSummaryRef} className="provider-request-summary" tabIndex={-1} aria-label="Reviewed request summary">
                       <div><span>{requestReview.targetPath ? 'Target file' : 'Chapter scope'}</span><code>{requestReview.targetPath ?? 'Repository overview'}</code></div>
+                      <div><span>Provider and model</span><strong>{requestReview.providerId} · {requestReview.modelId}</strong></div>
+                      <div><span>Endpoint</span><code>{requestReview.endpointUrl}</code></div>
                       <div><span>Source snapshot</span><code>{requestReview.snapshotId}</code></div>
                       <div><span>Source selected</span><strong>{requestReview.selectedFiles.length} {requestReview.selectedFiles.length === 1 ? 'file' : 'files'} · {formatBytes(requestReview.sourceBytes)}</strong></div>
                       <div><span>Input estimate</span><strong>About {requestReview.estimatedInputTokens.toLocaleString()} tokens · not a bill</strong></div>
@@ -2017,10 +2019,10 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
                       {requestReview.selectedSymbols.length === 0 && requestReview.selectedRelationships.length === 0 && <p>No saved structural evidence is available for this selection. The draft must use exact source text and identify its limits.</p>}
                     </details>
                     <details className="provider-prompt-preview">
-                      <summary>Inspect exact prompt text and generation settings</summary>
-                      <div><strong>System instruction</strong><pre>{requestReview.systemInstruction}</pre><strong>User prompt</strong><pre>{requestReview.userPrompt}</pre><strong>Generation settings and response schema</strong><pre>{JSON.stringify(requestReview.generationConfig, null, 2)}</pre></div>
+                      <summary>Inspect exact prompt and encoded provider request</summary>
+                      <div><strong>System instruction</strong><pre>{requestReview.systemInstruction}</pre><strong>User prompt</strong><pre>{requestReview.userPrompt}</pre><strong>Generation settings</strong><pre>{JSON.stringify(requestReview.generationConfig, null, 2)}</pre><strong>Exact JSON request body · SHA-256 {requestReview.requestBodySha256}</strong><pre>{JSON.stringify(requestReview.requestBodyPreview, null, 2)}</pre></div>
                     </details>
-                    <div className="provider-fingerprint"><span>Consent applies to this request fingerprint</span><code>{requestReview.fingerprint}</code><small>Model, prompt purpose, source paths and hashes, prompt version, disclosure version, and generation settings are included.</small></div>
+                    <div className="provider-fingerprint"><span>Consent applies to this request fingerprint</span><code>{requestReview.fingerprint}</code><small>Provider, model, endpoint, exact encoded body hash, prompt purpose, source paths and hashes, prompt version, disclosure version, and generation settings are included.</small></div>
                   </>
                 )}
                 {requestError && <div className="provider-error" role="alert"><TriangleAlert size={16} /><div><strong>{providerFailureTitle(requestError.kind)}</strong><span>{requestError.message}</span></div></div>}

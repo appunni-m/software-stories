@@ -366,8 +366,8 @@ export function PrGuideStudio({
         <section className="pr-guide-request-review" aria-labelledby="pr-guide-request-title">
           <div className="pr-guide-subheading"><div><span className="git-changes-kicker">NO REQUEST SENT YET</span><h3 id="pr-guide-request-title">Review what Gemini will receive</h3></div><ShieldCheck size={18} /></div>
           <div className="provider-request-summary">
-            <div><span>Provider and model</span><strong>Google Gemini · {requestReview.modelId}</strong></div>
-            <div><span>Endpoint</span><code>{disclosure.endpointUrl}{disclosure.requestPathTemplate.replace('{model}', requestReview.modelId)}</code></div>
+            <div><span>Provider and model</span><strong>{requestReview.providerId} · {requestReview.modelId}</strong></div>
+            <div><span>Endpoint</span><code>{requestReview.endpointUrl}</code></div>
             <div><span>Purpose</span><strong>PR Guide for {requestReview.prGuideContext?.baseRef} → {requestReview.prGuideContext?.headRef}</strong></div>
             <div><span>Selected evidence</span><strong>{requestReview.selectedFiles.length} changed files · {formatBytes(requestReview.sourceBytes)}</strong></div>
             <div><span>Input estimate</span><strong>About {requestReview.estimatedInputTokens.toLocaleString()} tokens · not a bill</strong></div>
@@ -381,10 +381,10 @@ export function PrGuideStudio({
             </details>
           ))}
           <details className="provider-prompt-preview">
-            <summary>Inspect exact prompt and generation settings</summary>
-            <div><strong>System instruction</strong><pre>{requestReview.systemInstruction}</pre><strong>User prompt</strong><pre>{requestReview.userPrompt}</pre><strong>Generation settings and response schema</strong><pre>{JSON.stringify(requestReview.generationConfig, null, 2)}</pre></div>
+            <summary>Inspect exact prompt and encoded provider request</summary>
+            <div><strong>System instruction</strong><pre>{requestReview.systemInstruction}</pre><strong>User prompt</strong><pre>{requestReview.userPrompt}</pre><strong>Generation settings</strong><pre>{JSON.stringify(requestReview.generationConfig, null, 2)}</pre><strong>Exact JSON request body · SHA-256 {requestReview.requestBodySha256}</strong><pre>{JSON.stringify(requestReview.requestBodyPreview, null, 2)}</pre></div>
           </details>
-          <div className="provider-fingerprint"><span>Consent is bound to this request fingerprint</span><code>{requestReview.fingerprint}</code><small>It includes the comparison identity, resolved base/head commits, selected diff hashes, prompt, model, settings, and disclosure version.</small></div>
+          <div className="provider-fingerprint"><span>Consent is bound to this request fingerprint</span><code>{requestReview.fingerprint}</code><small>It includes the comparison identity, provider, endpoint, resolved base/head commits, selected diff hashes, exact encoded request body, prompt, model, settings, and disclosure version.</small></div>
           <div className="pr-guide-disclosures">
             <h4><CircleDollarSign size={15} /> Provider terms and possible charges</h4>
             {selectedModel && <p><strong>{selectedModel.displayName} pricing checked {disclosure.checkedDate}:</strong> {selectedModel.freeTierStatus} Paid input: {selectedModel.paidInputUsdPerMillionTokens} per million tokens. Paid output: {selectedModel.paidOutputUsdPerMillionTokens} per million tokens{selectedModel.paidPriceChangeDate ? `; price changes ${selectedModel.paidPriceChangeDate}` : ''}.</p>}

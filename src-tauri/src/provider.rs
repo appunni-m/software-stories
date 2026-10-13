@@ -17,6 +17,7 @@ use uuid::Uuid;
 use zeroize::Zeroizing;
 
 const GEMINI_API_ROOT: &str = "https://generativelanguage.googleapis.com/v1beta";
+const DIRECT_PROVIDER_ID: &str = "gemini";
 const KEYCHAIN_SERVICE: &str = "com.codeatlas.desktop.gemini";
 const KEYCHAIN_ACCOUNT: &str = "user-api-key";
 const DISCLOSURE_VERSION: &str = "gemini-disclosure-2026-10-13-v1";
@@ -243,7 +244,9 @@ pub struct ProviderRequestReview {
     pub snapshot_id: String,
     pub purpose: String,
     pub target_path: Option<String>,
+    pub provider_id: String,
     pub model_id: String,
+    pub endpoint_url: String,
     pub disclosure_version: String,
     pub selected_files: Vec<ProviderRequestFile>,
     pub selected_symbols: Vec<ProviderSymbolEvidence>,
@@ -257,6 +260,8 @@ pub struct ProviderRequestReview {
     pub source_bytes: usize,
     pub estimated_input_tokens: usize,
     pub request_body_bytes: usize,
+    pub request_body_sha256: String,
+    pub request_body_preview: Value,
     pub fingerprint: String,
     pub expires_at_unix_ms: u64,
 }
@@ -301,7 +306,10 @@ struct FingerprintInputs<'a> {
     project_id: &'a str,
     snapshot_id: &'a str,
     target_path: Option<&'a str>,
+    provider_id: &'static str,
     model_id: &'a str,
+    endpoint_url: &'a str,
+    wire_body_sha256: &'a str,
     disclosure_version: &'a str,
     system_instruction: &'a str,
     user_prompt: &'a str,
@@ -873,18 +881,21 @@ pub fn build_pr_guide_request_review(
         total.saturating_add(file.contents.len())
     });
     let generation_config = pr_guide_generation_config();
-    let body = json!({
-        "systemInstruction": { "parts": [{ "text": system_instruction }] },
-        "contents": [{ "role": "user", "parts": [{ "text": user_prompt }] }],
-        "generationConfig": generation_config
-    });
-    let body_bytes = serde_json::to_vec(&body).map_err(|_| {
+    let encoded = crate::provider_api::encode_request_preview(
+        DIRECT_PROVIDER_ID,
+        &input.model_id,
+        &system_instruction,
+        &user_prompt,
+        &generation_config,
+    )
+    .map_err(|_| {
         failure(
             ProviderFailureKind::InvalidReview,
             "The exact PR Guide request could not be encoded for review.",
         )
     })?;
-    if body_bytes.len() > MAX_REQUEST_BODY_BYTES {
+    let body = encoded.body.clone();
+    if encoded.body_bytes > MAX_REQUEST_BODY_BYTES {
         return Err(failure(
             ProviderFailureKind::ContextTooLarge,
             "The exact PR Guide request exceeds the 512 KB review limit. Select fewer changed files.",
@@ -919,7 +930,9 @@ pub fn build_pr_guide_request_review(
         snapshot_id: context.comparison_id.clone(),
         purpose: PR_GUIDE_PURPOSE.to_owned(),
         target_path: None,
+        provider_id: DIRECT_PROVIDER_ID.to_owned(),
         model_id: model.model_id,
+        endpoint_url: encoded.endpoint_url,
         disclosure_version: DISCLOSURE_VERSION.to_owned(),
         selected_files,
         selected_symbols: Vec::new(),
@@ -930,8 +943,10 @@ pub fn build_pr_guide_request_review(
         user_prompt,
         generation_config,
         source_bytes,
-        estimated_input_tokens: body_bytes.len().div_ceil(4),
-        request_body_bytes: body_bytes.len(),
+        estimated_input_tokens: encoded.body_bytes.div_ceil(4),
+        request_body_bytes: encoded.body_bytes,
+        request_body_sha256: encoded.body_sha256,
+        request_body_preview: body.clone(),
         fingerprint,
         expires_at_unix_ms: now.saturating_add(REVIEW_LIFETIME_MS),
     };
@@ -950,6 +965,7 @@ pub fn revalidate_pr_guide_request(
         )
     })?;
     if review.purpose != PR_GUIDE_PURPOSE
+        || review.provider_id != DIRECT_PROVIDER_ID
         || review.target_path.is_some()
         || review.snapshot_id != context.comparison_id
     {
@@ -985,6 +1001,8 @@ pub fn revalidate_pr_guide_request(
     })?;
     if rebuilt.review.fingerprint != review.fingerprint
         || rebuilt.review.disclosure_version != review.disclosure_version
+        || rebuilt.review.endpoint_url != review.endpoint_url
+        || rebuilt.review.request_body_sha256 != review.request_body_sha256
         || rebuilt.review.pr_guide_context != review.pr_guide_context
     {
         return Err(failure(
@@ -1216,18 +1234,21 @@ SELECTED LOCAL INDEX EVIDENCE JSON:
             repository_overview_generation_config(),
         )
     };
-    let body = json!({
-        "systemInstruction": { "parts": [{ "text": system_instruction }] },
-        "contents": [{ "role": "user", "parts": [{ "text": user_prompt }] }],
-        "generationConfig": generation_config
-    });
-    let body_bytes = serde_json::to_vec(&body).map_err(|_| {
+    let encoded = crate::provider_api::encode_request_preview(
+        DIRECT_PROVIDER_ID,
+        &input.model_id,
+        &system_instruction,
+        &user_prompt,
+        &generation_config,
+    )
+    .map_err(|_| {
         failure(
             ProviderFailureKind::InvalidReview,
-            "The exact request body could not be encoded for review.",
+            "The exact provider request could not be encoded for review.",
         )
     })?;
-    if body_bytes.len() > MAX_REQUEST_BODY_BYTES {
+    let body = encoded.body.clone();
+    if encoded.body_bytes > MAX_REQUEST_BODY_BYTES {
         return Err(failure(
             ProviderFailureKind::ContextTooLarge,
             "The exact request body exceeds the 512 KB review limit. Reduce the file selection.",
@@ -1262,7 +1283,9 @@ SELECTED LOCAL INDEX EVIDENCE JSON:
         snapshot_id: input.snapshot_id.clone(),
         purpose: purpose.to_owned(),
         target_path: input.target_path.clone(),
+        provider_id: DIRECT_PROVIDER_ID.to_owned(),
         model_id: model.model_id,
+        endpoint_url: encoded.endpoint_url,
         disclosure_version: DISCLOSURE_VERSION.to_owned(),
         selected_files,
         selected_symbols,
@@ -1273,8 +1296,10 @@ SELECTED LOCAL INDEX EVIDENCE JSON:
         user_prompt,
         generation_config,
         source_bytes,
-        estimated_input_tokens: body_bytes.len().div_ceil(4),
-        request_body_bytes: body_bytes.len(),
+        estimated_input_tokens: encoded.body_bytes.div_ceil(4),
+        request_body_bytes: encoded.body_bytes,
+        request_body_sha256: encoded.body_sha256,
+        request_body_preview: body.clone(),
         fingerprint,
         expires_at_unix_ms: now.saturating_add(REVIEW_LIFETIME_MS),
     };
@@ -1293,6 +1318,19 @@ fn request_fingerprint(
     files: &[ProviderRequestFile],
     generation_config: Value,
 ) -> Result<String, ProviderFailure> {
+    let wire_preview = crate::provider_api::encode_request_preview(
+        DIRECT_PROVIDER_ID,
+        model_id,
+        system_instruction,
+        user_prompt,
+        &generation_config,
+    )
+    .map_err(|_| {
+        failure(
+            ProviderFailureKind::InvalidReview,
+            "The provider request could not be deterministically encoded for its consent fingerprint.",
+        )
+    })?;
     let inputs = FingerprintInputs {
         schema_version: 1,
         purpose,
@@ -1304,7 +1342,10 @@ fn request_fingerprint(
         project_id,
         snapshot_id,
         target_path,
+        provider_id: DIRECT_PROVIDER_ID,
         model_id,
+        endpoint_url: &wire_preview.endpoint_url,
+        wire_body_sha256: &wire_preview.body_sha256,
         disclosure_version,
         system_instruction,
         user_prompt,
@@ -1352,6 +1393,8 @@ pub fn revalidate_request_review(
     )?;
     if rebuilt.review.fingerprint != review.fingerprint
         || rebuilt.review.disclosure_version != review.disclosure_version
+        || rebuilt.review.endpoint_url != review.endpoint_url
+        || rebuilt.review.request_body_sha256 != review.request_body_sha256
     {
         return Err(failure(
             ProviderFailureKind::ReviewChanged,
@@ -1378,6 +1421,12 @@ where
         ));
     }
     let review = &request.review;
+    if review.provider_id != DIRECT_PROVIDER_ID {
+        return Err(failure(
+            ProviderFailureKind::ReviewChanged,
+            "The selected direct API provider does not match this request adapter. Build a fresh review.",
+        ));
+    }
     if review.expires_at_unix_ms <= unix_time_ms() {
         return Err(failure(
             ProviderFailureKind::ReviewExpired,
@@ -1399,11 +1448,19 @@ where
             ));
         }
     };
-    let expected_body = json!({
-        "systemInstruction": { "parts": [{ "text": review.system_instruction }] },
-        "contents": [{ "role": "user", "parts": [{ "text": review.user_prompt }] }],
-        "generationConfig": expected_config
-    });
+    let expected_encoded = crate::provider_api::encode_request_preview(
+        &review.provider_id,
+        &review.model_id,
+        &review.system_instruction,
+        &review.user_prompt,
+        &expected_config,
+    )
+    .map_err(|_| {
+        failure(
+            ProviderFailureKind::ReviewChanged,
+            "The reviewed provider request could not be rebuilt. Build and review a fresh request.",
+        )
+    })?;
     let expected_fingerprint = request_fingerprint(
         &review.purpose,
         &review.project_id,
@@ -1416,7 +1473,11 @@ where
         &review.selected_files,
         expected_config.clone(),
     )?;
-    if request.body != expected_body
+    if request.body != expected_encoded.body
+        || review.request_body_preview != expected_encoded.body
+        || review.endpoint_url != expected_encoded.endpoint_url
+        || review.request_body_sha256 != expected_encoded.body_sha256
+        || review.request_body_bytes != expected_encoded.body_bytes
         || review.generation_config != expected_config
         || review.fingerprint != expected_fingerprint
     {
@@ -2009,11 +2070,15 @@ mod tests {
             config.clone(),
         )
         .unwrap();
-        let body = json!({
-            "systemInstruction": { "parts": [{ "text": system_instruction }] },
-            "contents": [{ "role": "user", "parts": [{ "text": user_prompt }] }],
-            "generationConfig": config
-        });
+        let encoded = crate::provider_api::encode_request_preview(
+            DIRECT_PROVIDER_ID,
+            model,
+            &system_instruction,
+            &user_prompt,
+            &config,
+        )
+        .unwrap();
+        let body = encoded.body.clone();
         PendingProviderRequest {
             review: ProviderRequestReview {
                 review_id: "review-a".to_owned(),
@@ -2021,7 +2086,9 @@ mod tests {
                 snapshot_id: "snapshot-a".to_owned(),
                 purpose: "fileChapter".to_owned(),
                 target_path: Some("src/lib.rs".to_owned()),
+                provider_id: DIRECT_PROVIDER_ID.to_owned(),
                 model_id: model.to_owned(),
+                endpoint_url: encoded.endpoint_url,
                 disclosure_version: DISCLOSURE_VERSION.to_owned(),
                 selected_files: vec![file],
                 selected_symbols: Vec::new(),
@@ -2032,8 +2099,10 @@ mod tests {
                 user_prompt,
                 generation_config: config,
                 source_bytes: 27,
-                estimated_input_tokens: 35,
-                request_body_bytes: 140,
+                estimated_input_tokens: encoded.body_bytes.div_ceil(4),
+                request_body_bytes: encoded.body_bytes,
+                request_body_sha256: encoded.body_sha256,
+                request_body_preview: body.clone(),
                 fingerprint,
                 expires_at_unix_ms: unix_time_ms() + REVIEW_LIFETIME_MS,
             },
@@ -2798,10 +2867,16 @@ mod tests {
         assert!(encoded.contains("pub fn exact_snapshot() {}\\n"));
         assert!(!encoded.to_lowercase().contains("test-secret"));
         assert!(pending.body.get("key").is_none());
+        assert_eq!(pending.body["generationConfig"]["candidateCount"], 1);
         assert_eq!(
-            pending.body["generationConfig"],
-            pending.review.generation_config
+            pending.body["generationConfig"]["responseMimeType"],
+            "application/json"
         );
+        assert_eq!(
+            pending.body["generationConfig"]["responseJsonSchema"]["type"],
+            "object"
+        );
+        assert_eq!(pending.review.request_body_preview, pending.body);
         assert_eq!(
             pending.review.selected_files[0].contents,
             "pub fn exact_snapshot() {}\n"

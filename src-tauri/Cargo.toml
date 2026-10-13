@@ -16,6 +16,7 @@ tauri-build = { version = "2", features = [] }
 base64 = "0.22"
 libc = "0.2"
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+rig-core = { version = "=0.44.0", default-features = false, features = ["reqwest", "rustls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"

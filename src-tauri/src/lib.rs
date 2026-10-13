@@ -21,6 +21,7 @@ mod pr_guide;
 mod pr_guide_store;
 mod project;
 mod provider;
+mod provider_api;
 mod recovery;
 mod snapshot;
 
