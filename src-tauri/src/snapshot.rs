@@ -2265,22 +2265,21 @@ mod tests {
             loaded.contents,
             "fn snapshot_source() { println!(\"frozen\"); }\n"
         );
-        assert!(read_snapshot_source(
-            &storage,
-            &project.project_id,
-            "../outside",
-            "src/main.rs",
-        )
-        .unwrap_err()
-        .contains("does not belong to the selected repository"));
-        assert!(read_snapshot_source(
-            &storage,
-            &project.project_id,
-            &manifest.summary.snapshot_id,
-            "src/invalid.rs",
-        )
-        .unwrap_err()
-        .contains("not valid UTF-8"));
+        assert!(
+            read_snapshot_source(&storage, &project.project_id, "../outside", "src/main.rs",)
+                .unwrap_err()
+                .contains("does not belong to the selected repository")
+        );
+        assert!(
+            read_snapshot_source(
+                &storage,
+                &project.project_id,
+                &manifest.summary.snapshot_id,
+                "src/invalid.rs",
+            )
+            .unwrap_err()
+            .contains("not valid UTF-8")
+        );
         let captured = manifest
             .files
             .iter()
@@ -2291,23 +2290,27 @@ mod tests {
         let mut changed_blob = original_blob.clone();
         changed_blob[0] ^= 1;
         fs::write(&blob, changed_blob).unwrap();
-        assert!(read_snapshot_source(
-            &storage,
-            &project.project_id,
-            &manifest.summary.snapshot_id,
-            "src/main.rs",
-        )
-        .unwrap_err()
-        .contains("size or SHA-256 integrity check"));
+        assert!(
+            read_snapshot_source(
+                &storage,
+                &project.project_id,
+                &manifest.summary.snapshot_id,
+                "src/main.rs",
+            )
+            .unwrap_err()
+            .contains("size or SHA-256 integrity check")
+        );
         fs::write(&blob, &original_blob[..original_blob.len() - 1]).unwrap();
-        assert!(read_snapshot_source(
-            &storage,
-            &project.project_id,
-            &manifest.summary.snapshot_id,
-            "src/main.rs",
-        )
-        .unwrap_err()
-        .contains("size or SHA-256 integrity check"));
+        assert!(
+            read_snapshot_source(
+                &storage,
+                &project.project_id,
+                &manifest.summary.snapshot_id,
+                "src/main.rs",
+            )
+            .unwrap_err()
+            .contains("size or SHA-256 integrity check")
+        );
         assert!(
             read_snapshot_source(
                 &storage,

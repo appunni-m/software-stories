@@ -5,3 +5,5 @@ This checkout does not publish a verified private security-reporting address or 
 Before public release, the project owner needs to publish and verify a monitored private reporting route and update this document with its scope and response expectations. Until then, this repository cannot route a confidential report on its own.
 
 The app is under development. The provider and data-flow boundaries described in [Provider disclosures](docs/PROVIDER_DISCLOSURES.md) and the [technical plan](docs/TECHNICAL_PLAN.md) are source-level documentation, not a security certification or a promise that every release gate has passed.
+
+The current local input boundaries, limits, adversarial test coverage, and unsupported package-import scope are recorded in [Security validation](docs/SECURITY_VALIDATION.md). That inventory describes implementation and test evidence; it is not a security audit.

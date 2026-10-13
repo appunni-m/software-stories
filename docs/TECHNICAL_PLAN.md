@@ -168,3 +168,5 @@ The planned PR Guide builds on that evidence to produce a separate, reviewed dra
 - Keyboard focus, VoiceOver names/announcements, text zoom, reduced motion, and high-contrast legibility are part of each feature's acceptance.
 - Logs contain operation IDs and error categories, not API keys, raw prompt context, or source excerpts.
 - Release checks verify signed/notarized macOS artifacts and document supported macOS versions and storage locations.
+
+Current accessibility source evidence and unverified native checks are listed in [Accessibility validation](ACCESSIBILITY_VALIDATION.md). Repository and provider input boundaries are indexed in [Security validation](SECURITY_VALIDATION.md).

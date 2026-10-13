@@ -171,6 +171,43 @@ const projectResultTitles: Record<ProjectOpenStatus, string> = {
   recentProjectUnavailable: 'This recent project is unavailable',
 };
 
+function useModalFocusTrap(dialogRef: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
+        'a[href], button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), [contenteditable="true"], [tabindex]:not([tabindex="-1"])',
+      )).filter((element) => (
+        !element.hasAttribute('hidden')
+        && element.getAttribute('aria-hidden') !== 'true'
+        && element.getClientRects().length > 0
+      ));
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const active = document.activeElement;
+      const activeIndex = focusable.indexOf(active as HTMLElement);
+      if (!dialog.contains(active) || activeIndex < 0) {
+        event.preventDefault();
+        (event.shiftKey ? focusable[focusable.length - 1] : focusable[0]).focus();
+      } else if (event.shiftKey && activeIndex === 0) {
+        event.preventDefault();
+        focusable[focusable.length - 1].focus();
+      } else if (!event.shiftKey && activeIndex === focusable.length - 1) {
+        event.preventDefault();
+        focusable[0].focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [dialogRef]);
+}
+
 function App() {
   const [navigation, setNavigation] = useState<NavigationState>(initialNavigationState);
   const [runtime, setRuntime] = useState<ApplicationStatus | null>(null);
@@ -198,6 +235,7 @@ function App() {
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [providerDialog, setProviderDialog] = useState<ProviderDialogMode | null>(null);
   const providerReturnFocusRef = useRef<HTMLElement | null>(null);
+  const recoveredPreviewReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const searchButtonRef = useRef<HTMLButtonElement>(null);
   const projectButtonRef = useRef<HTMLButtonElement>(null);
   const pickerReturnFocusRef = useRef<string | undefined>(undefined);
@@ -803,6 +841,14 @@ function App() {
     requestAnimationFrame(() => returnFocus?.focus());
   };
 
+  const closeRecoveredPreview = () => {
+    const returnFocus = recoveredPreviewReturnFocusRef.current;
+    setRecoveredPreviewId(null);
+    requestAnimationFrame(() => {
+      (returnFocus?.isConnected ? returnFocus : projectButtonRef.current)?.focus();
+    });
+  };
+
   const chooseWorkspace = (workspace: Workspace) => {
     navigationActions.workspace(workspace);
     setNotice(null);
@@ -1255,7 +1301,7 @@ function App() {
                 <span>{preview.unavailableReason ?? `${preview.title}${preview.targetPath ? ` · ${preview.targetPath}` : ' · repository overview'} · ${preview.modelId ?? 'saved provider'}. Review or discard it; saving creates only a draft revision.`}</span>
               </div>
               <div className="notice-actions">
-                <button disabled={Boolean(preview.unavailableReason)} onClick={() => setRecoveredPreviewId(preview.generationId)}>Review saved preview</button>
+                <button disabled={Boolean(preview.unavailableReason)} onClick={(event) => { recoveredPreviewReturnFocusRef.current = event.currentTarget; setRecoveredPreviewId(preview.generationId); }}>Review saved preview</button>
                 <button onClick={() => { void discardPendingPreview(preview); }}>Discard</button>
               </div>
             </div>
@@ -1401,16 +1447,16 @@ function App() {
         <RecoveredGeneratedPreviewDialog
           key={recoveredPreviewId}
           generationId={recoveredPreviewId}
-          onClose={() => setRecoveredPreviewId(null)}
+          onClose={closeRecoveredPreview}
           onSaved={(revision) => {
             setPendingChapterPreviews((current) => current.filter((preview) => preview.generationId !== recoveredPreviewId));
-            setRecoveredPreviewId(null);
+            closeRecoveredPreview();
             window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed', { detail: { revision } }));
             window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
           }}
           onDiscarded={() => {
             setPendingChapterPreviews((current) => current.filter((preview) => preview.generationId !== recoveredPreviewId));
-            setRecoveredPreviewId(null);
+            closeRecoveredPreview();
             window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
           }}
           onRecoveryChanged={() => { void refreshPendingChapterPreviews(); }}
@@ -1462,6 +1508,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
   const dialogMounted = useRef(true);
   const providerDialogRef = useRef<HTMLElement>(null);
   const requestSummaryRef = useRef<HTMLDivElement>(null);
+  useModalFocusTrap(providerDialogRef);
   const [reviewGeneration, setReviewGeneration] = useState(0);
   const [unavailableModel, setUnavailableModel] = useState<string | null>(null);
   const credentialInfo = credential?.status === 'ok' ? credential.data : null;
@@ -1994,6 +2041,12 @@ function RecoveredGeneratedPreviewDialog({ generationId, onClose, onSaved, onDis
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+  useModalFocusTrap(dialogRef);
+
+  useEffect(() => {
+    dialogRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -2047,7 +2100,7 @@ function RecoveredGeneratedPreviewDialog({ generationId, onClose, onSaved, onDis
 
   return (
     <div className="provider-overlay">
-      <section className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="recovered-preview-title" tabIndex={-1}>
+      <section ref={dialogRef} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="recovered-preview-title" tabIndex={-1}>
         <header className="provider-dialog-header">
           <div><div className="step-pill"><span>LOCAL RECOVERY</span> UNACCEPTED</div><h2 id="recovered-preview-title">Review saved chapter preview</h2></div>
           <button className="icon-button" aria-label="Close saved preview" onClick={onClose}><X size={17} /></button>

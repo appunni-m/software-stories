@@ -2186,6 +2186,97 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "manual large-repository performance report; run by name with --ignored --nocapture"]
+    fn report_representative_large_repository_performance() {
+        use std::time::Instant;
+
+        let temporary = TestDirectory::new();
+        let root = temporary.path().join("representative-large-repository");
+        let source_dir = root.join("src");
+        fs::create_dir_all(&source_dir).unwrap();
+        git(&root, &["init", "-q"]);
+        git(&root, &["config", "user.name", "Code Atlas Benchmark"]);
+        git(
+            &root,
+            &["config", "user.email", "benchmark@example.invalid"],
+        );
+        git(&root, &["branch", "-M", "main"]);
+
+        const FILE_COUNT: usize = 2_000;
+        for index in 0..FILE_COUNT {
+            let group_dir = source_dir.join(format!("group_{:02}", index / 100));
+            if index % 100 == 0 {
+                fs::create_dir_all(&group_dir).unwrap();
+            }
+            let source = format!(
+                "export function transform_{index:04}(input: string): string {{\n  return input.trim();\n}}\n"
+            );
+            fs::write(group_dir.join(format!("module_{index:04}.ts")), source).unwrap();
+        }
+        commit_fixture(&root, "representative large fixture");
+
+        let storage = temporary.path().join("app-data");
+        let project = fixture_project(&root);
+
+        // Warm the filesystem and parser once; report three subsequent complete runs.
+        let warm_manifest = capture(&storage, &project);
+        let warm_index = build(&storage, &warm_manifest);
+        save_snapshot_index(&storage, &warm_index).unwrap();
+
+        let mut capture_ms = Vec::with_capacity(3);
+        let mut index_ms = Vec::with_capacity(3);
+        let mut save_ms = Vec::with_capacity(3);
+        let mut final_manifest = None;
+        let mut final_index = None;
+        for _ in 0..3 {
+            let started = Instant::now();
+            let manifest = capture(&storage, &project);
+            capture_ms.push(started.elapsed().as_millis());
+
+            let started = Instant::now();
+            let index = build(&storage, &manifest);
+            index_ms.push(started.elapsed().as_millis());
+
+            let started = Instant::now();
+            save_snapshot_index(&storage, &index).unwrap();
+            save_ms.push(started.elapsed().as_millis());
+
+            final_manifest = Some(manifest);
+            final_index = Some(index);
+        }
+
+        let manifest = final_manifest.unwrap();
+        let index = final_index.unwrap();
+        assert_eq!(manifest.files.len(), FILE_COUNT);
+        assert_eq!(index.status, SnapshotIndexStatus::Complete);
+        assert_eq!(index.files.len(), FILE_COUNT);
+        assert!(index.symbols.len() >= FILE_COUNT);
+
+        fn median(values: &[u128]) -> u128 {
+            let mut sorted = values.to_vec();
+            sorted.sort_unstable();
+            sorted[sorted.len() / 2]
+        }
+
+        eprintln!(
+            "ATLAS_PERF os={} arch={} files={} source_bytes={} indexed_files={} symbols={} relationships={} warmup=1 samples=3 capture_ms={:?} capture_median_ms={} index_ms={:?} index_median_ms={} save_ms={:?} save_median_ms={}",
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+            manifest.summary.files_captured,
+            manifest.summary.total_bytes,
+            index.files.len(),
+            index.symbols.len(),
+            index.relationships.len(),
+            capture_ms,
+            median(&capture_ms),
+            index_ms,
+            median(&index_ms),
+            save_ms,
+            median(&save_ms),
+        );
+    }
+
+    #[test]
     fn symbol_identity_survives_line_shifts_while_anchor_moves() {
         let temporary = TestDirectory::new();
         let root = temporary.path().join("repository");
