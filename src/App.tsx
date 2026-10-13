@@ -84,6 +84,7 @@ import {
   listProjectChapterRevisions,
   validateChapterRevision,
   saveChapterEdits,
+  restoreChapterRevision,
   acceptChapterDraft,
   rejectChapterDraft,
   storeGeminiApiKey,
@@ -3230,6 +3231,105 @@ function ChapterSourceDiff({ projectId, change }: { projectId: string; change: C
   </details>;
 }
 
+interface RevisionDiffValue {
+  field: string;
+  before: string;
+  after: string;
+}
+
+interface RevisionSectionDiff {
+  sectionId: string;
+  title: string;
+  change: 'added' | 'removed' | 'changed';
+  fields: RevisionDiffValue[];
+}
+
+function diffText(value: unknown): string {
+  const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+  return text || '—';
+}
+
+function anchorDiffValue(section: ChapterSection): string {
+  return section.claims.flatMap((claim) => claim.anchors.map((anchor) =>
+    `${anchor.path}:${anchor.startLine}-${anchor.endLine} · bytes ${anchor.startByte}-${anchor.endByteInclusive} · snapshot ${anchor.snapshotId} · ${anchor.symbolId ?? 'file range'} · sha256 ${anchor.sourceSha256}\n${anchor.excerpt}`,
+  )).join('\n\n') || 'No source citations';
+}
+
+function sectionRevisionDiff(before: ChapterRevision, after: ChapterRevision): RevisionSectionDiff[] {
+  const beforeById = new Map<string, ChapterSection>(before.sections.map((section) => [section.sectionId, section]));
+  const afterById = new Map<string, ChapterSection>(after.sections.map((section) => [section.sectionId, section]));
+  const ids = [...new Set([...beforeById.keys(), ...afterById.keys()])];
+  const result: RevisionSectionDiff[] = [];
+  for (const sectionId of ids) {
+    const oldSection = beforeById.get(sectionId);
+    const newSection = afterById.get(sectionId);
+    if (!oldSection && newSection) {
+      result.push({
+        sectionId,
+        title: newSection.title,
+        change: 'added',
+        fields: [{ field: 'Section content', before: '—', after: diffText({ title: newSection.title, prose: newSection.prose, spokenText: newSection.spokenText, claims: newSection.claims, anchors: anchorDiffValue(newSection), dependencies: newSection.dependencies, visual: newSection.visual, hotspots: newSection.hotspots }) }],
+      });
+      continue;
+    }
+    if (oldSection && !newSection) {
+      result.push({
+        sectionId,
+        title: oldSection.title,
+        change: 'removed',
+        fields: [{ field: 'Section content', before: diffText({ title: oldSection.title, prose: oldSection.prose, spokenText: oldSection.spokenText, claims: oldSection.claims, anchors: anchorDiffValue(oldSection), dependencies: oldSection.dependencies, visual: oldSection.visual, hotspots: oldSection.hotspots }), after: '—' }],
+      });
+      continue;
+    }
+    if (!oldSection || !newSection) continue;
+    const candidates: Array<[string, unknown, unknown]> = [
+      ['Section order', oldSection.order, newSection.order],
+      ['Section title', oldSection.title, newSection.title],
+      ['Explanation prose', oldSection.prose, newSection.prose],
+      ['Spoken narration', oldSection.spokenText, newSection.spokenText],
+      ['Claims', oldSection.claims, newSection.claims],
+      ['Source references', anchorDiffValue(oldSection), anchorDiffValue(newSection)],
+      ['Dependencies', oldSection.dependencies, newSection.dependencies],
+      ['Diagram asset inputs', oldSection.visual, newSection.visual],
+      ['Interactive hotspots', oldSection.hotspots, newSection.hotspots],
+    ];
+    const fields = candidates.flatMap(([field, oldValue, newValue]) => {
+      if (JSON.stringify(oldValue) === JSON.stringify(newValue)) return [];
+      return [{ field, before: diffText(oldValue), after: diffText(newValue) }];
+    });
+    if (fields.length > 0) result.push({ sectionId, title: newSection.title, change: 'changed', fields });
+  }
+  return result;
+}
+
+function ChapterRevisionComparison({ before, after }: { before: ChapterRevision; after: ChapterRevision }) {
+  const chapterFields: RevisionDiffValue[] = [
+    ...(before.title !== after.title ? [{ field: 'Chapter title', before: before.title, after: after.title }] : []),
+    ...(before.snapshotId !== after.snapshotId ? [{ field: 'Source snapshot', before: before.snapshotId, after: after.snapshotId }] : []),
+    ...(before.lifecycle !== after.lifecycle ? [{ field: 'Status', before: before.lifecycle, after: after.lifecycle }] : []),
+    ...(before.basedOnRevisionId !== after.basedOnRevisionId ? [{ field: 'Parent revision', before: before.basedOnRevisionId ?? '—', after: after.basedOnRevisionId ?? '—' }] : []),
+  ];
+  const sections = sectionRevisionDiff(before, after);
+  if (chapterFields.length === 0 && sections.length === 0) {
+    return <p className="chapter-revision-no-diff">No chapter content, claims, citations, dependencies, or assets changed between these revisions.</p>;
+  }
+  return <div className="chapter-revision-diff">
+    {chapterFields.length > 0 && <div className="chapter-revision-diff-group"><h5>Chapter</h5>{chapterFields.map((field) => <RevisionDiffRow key={field.field} value={field} />)}</div>}
+    {sections.map((section) => <div className="chapter-revision-diff-group" key={section.sectionId}>
+      <h5>{section.change === 'added' ? 'Added' : section.change === 'removed' ? 'Removed' : 'Changed'} · {section.title} <code>{section.sectionId}</code></h5>
+      {section.fields.map((field) => <RevisionDiffRow key={field.field} value={field} />)}
+    </div>)}
+  </div>;
+}
+
+function RevisionDiffRow({ value }: { value: RevisionDiffValue }) {
+  return <div className="chapter-revision-diff-row">
+    <strong>{value.field}</strong>
+    <div><span>Before</span><pre>{value.before}</pre></div>
+    <div><span>After</span><pre>{value.after}</pre></div>
+  </div>;
+}
+
 function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeRevisionId, routeSectionId, onSelectRevision, onClearRevisionRoute, onOpenFile, onGoPlan, onGenerate, onRegenerateSection, onGenerateOverview }: {
   projectId: string;
   manifest: SnapshotManifest;
@@ -3401,6 +3501,10 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     ?? selectedTarget?.latestAny
     ?? null;
   const isLatestCurrent = Boolean(selectedRevision && selectedTarget?.latestCurrent?.revisionId === selectedRevision.revisionId);
+  const previousRevision = selectedRevision
+    ? history.filter((revision) => revision.revisionNumber < selectedRevision.revisionNumber)
+      .sort((left, right) => right.revisionNumber - left.revisionNumber)[0] ?? null
+    : null;
   const activeDocument = editing && candidate ? candidate : selectedRevision;
   const status = !selectedTarget || selectedTarget.missing
     ? 'missing'
@@ -3517,6 +3621,35 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       onSelectRevision(saved.revision);
     } catch (error) {
       setFeedback({ message: typeof error === 'string' ? error : 'The draft could not be saved.', tone: 'error' });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const restoreSelectedRevision = async () => {
+    if (!selectedRevision || !selectedTarget?.latestCurrent || isLatestCurrent
+      || selectedRevision.revisionNumber >= selectedTarget.latestCurrent.revisionNumber || editing) return;
+    setBusy(true);
+    setFeedback(null);
+    try {
+      const restored = await restoreChapterRevision(
+        projectId,
+        selectedTarget.latestCurrent.revisionId,
+        selectedRevision.revisionId,
+      );
+      setValidation(restored.validation);
+      setEditing(false);
+      setCandidate(null);
+      setRejecting(false);
+      await reload(restored.revision.revisionId);
+      onSelectRevision(restored.revision);
+      setFeedback({
+        message: restored.validation.status === 'valid'
+          ? `Revision r${selectedRevision.revisionNumber} was restored as a new draft and revalidated against snapshot ${restored.revision.snapshotId.slice(-12)}.`
+          : `A new restore draft was created with ${restored.validation.issues.length} evidence issue${restored.validation.issues.length === 1 ? '' : 's'}. Repair the listed citations before accepting it.`,
+        tone: restored.validation.status === 'valid' ? 'success' : 'info',
+      });
+    } catch (error) {
+      setFeedback({ message: typeof error === 'string' ? error : 'The selected revision could not be restored.', tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -3645,8 +3778,12 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                     onClick={() => { setSelectedRevisionId(revision.revisionId); setEditing(false); setCandidate(null); setValidation(null); setRejecting(false); setFeedback(null); onSelectRevision(revision); }}
                     aria-pressed={selectedRevision?.revisionId === revision.revisionId}
                     title={`${revision.lifecycle} · snapshot ${revision.snapshotId}`}
-                  ><strong>r{revision.revisionNumber}</strong><span>{revision.lifecycle}</span></button>)}
+                  ><strong>r{revision.revisionNumber}</strong><span>{revision.lifecycle} · {new Date(revision.createdAtUnixMs).toLocaleDateString()}</span><small title={revision.basedOnRevisionId ? `Parent ${revision.basedOnRevisionId}` : 'No parent revision'}>snap {revision.snapshotId.slice(-8)} · {revision.basedOnRevisionId ? `from ${revision.basedOnRevisionId.slice(-8)}` : 'root'}</small></button>)}
                 </div>}
+                {previousRevision && selectedRevision && <details className="chapter-revision-comparison">
+                  <summary>Compare r{previousRevision.revisionNumber} with r{selectedRevision.revisionNumber}</summary>
+                  <ChapterRevisionComparison before={previousRevision} after={selectedRevision} />
+                </details>}
 
                 {selectedTarget.missing ? <div className="chapter-studio-empty"><BookOpen size={20} /><strong>{selectedTarget.overview ? 'No repository overview has been saved for this snapshot.' : 'This file has no chapter in the selected snapshot.'}</strong><p>Start with the captured source; the generated draft stays local until you choose to save it.</p>{selectedTarget.overview && <button className="primary-button" onClick={onGenerateOverview}><Sparkles size={14} /> Create optional overview</button>}</div>
                     : selectedRevision && activeDocument ? <>
@@ -3666,6 +3803,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                             {freshnessKey && isNativeRuntime() && <button className="secondary-button" onClick={() => { void assessFreshness(); }} disabled={selectedFreshness?.loading} title="Compare this accepted revision with the selected snapshot without changing either one.">
                               {selectedFreshness?.loading ? 'Assessing…' : selectedFreshness?.report ? 'Reassess freshness' : 'Assess freshness'}
                             </button>}
+                            {selectedTarget.latestCurrent && !isLatestCurrent && selectedRevision.revisionNumber < selectedTarget.latestCurrent.revisionNumber && <button className="secondary-button" onClick={() => { void restoreSelectedRevision(); }} disabled={busy || editing} title="Create a new draft from this earlier content and revalidate it against the current snapshot."><GitBranch size={14} /> Restore r{selectedRevision.revisionNumber} as draft</button>}
                             {isLatestCurrent && <button className="secondary-button" onClick={beginEditing} disabled={busy}><Pencil size={14} /> {selectedRevision.lifecycle === 'draft' ? 'Edit as new draft' : selectedRevision.lifecycle === 'rejected' ? 'Repair in new draft' : 'Start a new draft'}</button>}
                             {isLatestCurrent && selectedRevision.lifecycle === 'draft' && <>
                               <button className="primary-button" onClick={() => { void accept(); }} disabled={busy || selectedRevision.validationStatus !== 'valid'}><Check size={14} /> Accept</button>

@@ -990,6 +990,18 @@ export async function saveChapterEdits(
   });
 }
 
+export async function restoreChapterRevision(
+  projectId: string,
+  baseRevisionId: string,
+  sourceRevisionId: string,
+): Promise<SavedChapterReview> {
+  return invoke<SavedChapterReview>('restore_chapter_revision', {
+    projectId,
+    baseRevisionId,
+    sourceRevisionId,
+  });
+}
+
 export async function acceptChapterDraft(projectId: string, revisionId: string): Promise<SavedChapterReview> {
   return invoke<SavedChapterReview>('accept_chapter_draft', { projectId, revisionId });
 }

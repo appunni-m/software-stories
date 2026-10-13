@@ -496,6 +496,25 @@ fn save_chapter_edits(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+fn restore_chapter_revision(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    write_lock: State<'_, ChapterStoreLock>,
+    project_id: String,
+    base_revision_id: String,
+    source_revision_id: String,
+) -> Result<chapter_review::SavedChapterReview, String> {
+    let _project = sessions.get(&project_id)?;
+    chapter_review::restore_revision(
+        &app_data_directory(&app)?,
+        &write_lock.0,
+        &project_id,
+        &base_revision_id,
+        &source_revision_id,
+    )
+}
+
+#[tauri::command(rename_all = "camelCase")]
 fn accept_chapter_draft(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
@@ -1420,6 +1439,7 @@ pub fn run() {
             list_chapter_revisions,
             list_project_chapter_revisions,
             save_chapter_edits,
+            restore_chapter_revision,
             accept_chapter_draft,
             reject_chapter_draft,
             save_generated_chapter_draft,

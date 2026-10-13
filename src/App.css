@@ -835,10 +835,23 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .chapter-review-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .chapter-revision-history { display: flex; align-items: center; gap: 5px; overflow-x: auto; padding: 8px 0; border-bottom: 1px solid #212c24; }
 .chapter-revision-history > span { flex: 0 0 auto; margin-right: 4px; color: #7d8b80; font: 8px var(--mono); }
-.chapter-history-item { min-width: 58px; display: grid; gap: 3px; padding: 5px 7px; border: 1px solid #2d3930; border-radius: 5px; background: #111713; color: #8d9a8e; cursor: pointer; text-align: left; }
+.chapter-history-item { min-width: 96px; display: grid; gap: 3px; padding: 5px 7px; border: 1px solid #2d3930; border-radius: 5px; background: #111713; color: #8d9a8e; cursor: pointer; text-align: left; }
 .chapter-history-item.is-current { border-color: #60784c; background: #1a251a; color: #d2e2c7; }
 .chapter-history-item strong { font: 8px var(--mono); }
 .chapter-history-item span { font-size: 7px; text-transform: capitalize; }
+.chapter-history-item small { max-width: 145px; overflow: hidden; color: #708075; font: 6px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+.chapter-revision-comparison { margin: 8px 0; border: 1px solid #2a382e; border-radius: 6px; background: #101712; }
+.chapter-revision-comparison > summary { padding: 8px 10px; color: #aec29f; cursor: pointer; font: 8px var(--mono); }
+.chapter-revision-diff { display: grid; gap: 8px; padding: 0 8px 9px; }
+.chapter-revision-diff-group { padding: 8px; border: 1px solid #29372c; border-radius: 5px; background: #0c120e; }
+.chapter-revision-diff-group h5 { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 7px; color: #c7d8bf; font-size: 8px; }
+.chapter-revision-diff-group h5 code { color: #788b7d; font: 7px var(--mono); }
+.chapter-revision-diff-row { display: grid; grid-template-columns: minmax(105px, .4fr) minmax(0, 1fr) minmax(0, 1fr); gap: 7px; padding: 6px 0; border-top: 1px solid #202c23; }
+.chapter-revision-diff-row > strong { color: #a6b39f; font-size: 8px; }
+.chapter-revision-diff-row > div { min-width: 0; }
+.chapter-revision-diff-row > div > span { color: #6f8174; font: 7px var(--mono); text-transform: uppercase; }
+.chapter-revision-diff-row pre { max-height: 180px; overflow: auto; margin: 3px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; color: #aab9ac; font: 7px/1.5 var(--mono); }
+.chapter-revision-no-diff { margin: 0; padding: 0 10px 9px; color: #7f9384; font-size: 8px; }
 .chapter-review-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 8px 0; padding: 8px; border: 1px solid #2a382e; border-radius: 6px; background: #101712; }
 .chapter-editing-label, .chapter-validation-summary { display: flex; align-items: center; gap: 6px; color: #9aad99; font-size: 8px; }
 .chapter-edit-title-row { display: grid; gap: 5px; margin: 9px 0; color: #819083; font: 8px var(--mono); text-transform: uppercase; }

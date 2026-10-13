@@ -174,6 +174,8 @@ The completed capture view includes one searchable inventory for the selected im
 
 **Controls and destinations:**
 
+- **Revision history** lists immutable chapter revisions with their revision number, lifecycle, creation date, source snapshot suffix, and parent revision. Selecting an entry displays that revision read-only. When an earlier revision exists, **Compare rN with rN** expands a field-by-field comparison with the immediately preceding revision number. It reports chapter title, source snapshot, status, parent, and section additions/removals/changes across order, title, explanation prose, spoken narration, claims, source references (including exact range/hash/excerpt), dependencies, diagram inputs, and hotspots. The comparison shows complete before/after values; it does not change either revision.
+- **Restore rN as draft** is available for an earlier revision when the chapter has a current-snapshot revision. It copies the selected historical content into a new draft parented to that latest current revision; it never rewrites or reactivates the selected historical revision. If the source snapshot differs, citation anchors move only when the same stable symbol and exact excerpt are proven in the current snapshot. Unproven anchors remain on the draft, and the new draft is validated against the current snapshot. A draft with evidence issues stays unaccepted; Chapter Studio lists the precise validation issue and source location for repair. **Accept** remains disabled until validation passes.
 - Selecting a section changes the editor/evidence panel only. Section reorder controls move the selected section in the draft and show its new order before save.
 - **Edit accepted revision** creates a new draft based on it; original accepted content remains read-only.
 - Editing prose changes draft text; editing spoken text changes only the speech input. Removing a claim removes that claim from the draft and marks validation dirty; source anchors cannot be changed by changing visible prose.
@@ -300,7 +302,8 @@ The completed capture view includes one searchable inventory for the selected im
 4. Open Guide Plan and verify each inventory path has a visible status. Create one file draft; no network call occurs.
 5. Generate that file; inspect exact request manifest; verify the send button is disabled until all three separate acknowledgements; Close; verify no request and origin state is restored.
 6. Repeat with explicit consent in a mocked provider flow; land in Chapter Studio as an unaccepted draft; click a citation and return to the same section/editor position.
-7. Accept valid content; in Walkthrough use Previous/Continue, select a section directly, click a hotspot, return, and verify section/playback/transcript state.
-8. Trigger permission, parser, network, quota, malformed response, stale anchor, and persistence failures; verify the recovery actions from the product blueprint.
+7. In Chapter Studio, select an earlier revision, compare it with its immediate predecessor, and restore it as a draft. Verify the accepted revisions remain unchanged, the restore is parented to the latest current revision, and an unmappable citation remains invalid with a precise repair issue; acceptance stays disabled until validation passes.
+8. Accept valid content; in Walkthrough use Previous/Continue, select a section directly, click a hotspot, return, and verify section/playback/transcript state.
+9. Trigger permission, parser, network, quota, malformed response, stale anchor, and persistence failures; verify the recovery actions from the product blueprint.
 
 This walkthrough defines the behavior M0 must implement. Later feature issues add their own domain-specific acceptance; they must preserve these shared transitions and side-effect boundaries.

@@ -1,6 +1,7 @@
 use crate::chapter_store;
 use crate::chapters::{
-    self, ChapterRevision, RevisionLifecycle, ValidationReportStatus, ValidationStatus,
+    self, ChapterRevision, RevisionLifecycle, SectionDependency, ValidationReportStatus,
+    ValidationStatus,
 };
 use crate::{index, snapshot};
 use serde::Serialize;
@@ -70,6 +71,157 @@ pub fn save_edits(
         revision,
         validation,
     })
+}
+
+/// Restore immutable content from an earlier revision into a new draft based on
+/// the latest revision for the selected target. Evidence is remapped only when
+/// the same stable symbol and exact excerpt can be proven in the target snapshot.
+/// Unavailable anchors remain attached to the draft so validation can identify
+/// the precise repair locations; they never become accepted by this operation.
+pub fn restore_revision(
+    storage_dir: &Path,
+    write_lock: &Mutex<()>,
+    project_id: &str,
+    base_revision_id: &str,
+    source_revision_id: &str,
+) -> Result<SavedChapterReview, String> {
+    let _guard = write_lock
+        .lock()
+        .map_err(|_| "The local chapter store is temporarily unavailable.".to_owned())?;
+    let base = find_latest_base(storage_dir, project_id, base_revision_id)?;
+    let history = chapter_store::list_for_project(storage_dir, project_id)?;
+    let source = history
+        .iter()
+        .find(|revision| revision.revision_id == source_revision_id)
+        .cloned()
+        .ok_or_else(|| "The selected restore revision is no longer available.".to_owned())?;
+    if source.chapter_id != base.chapter_id
+        || source.target != base.target
+        || source.revision_id == base.revision_id
+        || source.revision_number >= base.revision_number
+    {
+        return Err(
+            "Restore requires an earlier immutable revision of the same chapter target.".to_owned(),
+        );
+    }
+
+    let source_manifest =
+        snapshot::load_snapshot_manifest(storage_dir, project_id, &source.snapshot_id)?;
+    let target_manifest =
+        snapshot::load_snapshot_manifest(storage_dir, project_id, &base.snapshot_id)?;
+    let source_index = index::load_snapshot_index(storage_dir, project_id, &source.snapshot_id)?;
+    let target_index = index::load_snapshot_index(storage_dir, project_id, &base.snapshot_id)?;
+
+    let mut restored = source.clone();
+    restored.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
+    restored.revision_id = new_id("revision");
+    restored.revision_number = base
+        .revision_number
+        .checked_add(1)
+        .ok_or_else(|| "The chapter revision number is exhausted.".to_owned())?;
+    restored.project_id = base.project_id.clone();
+    restored.snapshot_id = base.snapshot_id.clone();
+    restored.target = base.target.clone();
+    restored.lifecycle = RevisionLifecycle::Draft;
+    restored.validation_status = ValidationStatus::Unvalidated;
+    restored.created_at_unix_ms = unix_time_ms();
+    restored.based_on_revision_id = Some(base.revision_id.clone());
+    restored.decision_note = None;
+
+    if source.snapshot_id != base.snapshot_id {
+        for section in &mut restored.sections {
+            for claim in &mut section.claims {
+                for anchor in &mut claim.anchors {
+                    let remap = chapters::remap_anchor_between_snapshots(
+                        storage_dir,
+                        &source_manifest,
+                        source_index.as_ref(),
+                        &target_manifest,
+                        target_index.as_ref(),
+                        anchor,
+                    );
+                    if let Some(updated) = remap
+                        .anchor
+                        .filter(|_| matches!(remap.status, chapters::AnchorRemapStatus::Remapped))
+                    {
+                        *anchor = updated;
+                    }
+                }
+                for dependency in &mut claim.dependencies {
+                    rebase_dependency(dependency, &target_manifest, target_index.as_ref());
+                }
+            }
+            for dependency in &mut section.dependencies {
+                rebase_dependency(dependency, &target_manifest, target_index.as_ref());
+            }
+            section.section_revision_id = new_id("sectionrev");
+        }
+    } else {
+        for section in &mut restored.sections {
+            section.section_revision_id = new_id("sectionrev");
+        }
+    }
+
+    let validation = chapters::validate_chapter_revision(
+        storage_dir,
+        &target_manifest,
+        target_index.as_ref(),
+        &restored,
+    );
+    restored.validation_status = if validation.status == ValidationReportStatus::Valid {
+        ValidationStatus::Valid
+    } else {
+        ValidationStatus::Invalid
+    };
+    let revision = chapter_store::append_review_revision(storage_dir, restored)?;
+    Ok(SavedChapterReview {
+        revision,
+        validation,
+    })
+}
+
+fn rebase_dependency(
+    dependency: &mut SectionDependency,
+    manifest: &snapshot::SnapshotManifest,
+    index: Option<&index::SnapshotIndex>,
+) {
+    match dependency {
+        SectionDependency::SourceFile {
+            path,
+            source_sha256,
+        } => {
+            if let Some(file) = manifest.files.iter().find(|file| file.path == *path) {
+                *source_sha256 = file.sha256.clone();
+            }
+        }
+        SectionDependency::Symbol {
+            path,
+            source_sha256,
+            symbol_id,
+        } => {
+            if let Some(symbol) = index.and_then(|index| {
+                index
+                    .symbols
+                    .iter()
+                    .find(|symbol| symbol.path == *path && symbol.symbol_id == *symbol_id)
+            }) {
+                *source_sha256 = symbol.anchor.source_sha256.clone();
+            }
+        }
+        SectionDependency::Relationship {
+            path,
+            source_sha256,
+            relationship_id,
+        } => {
+            if let Some(relationship) = index.and_then(|index| {
+                index.relationships.iter().find(|edge| {
+                    edge.relationship_id == *relationship_id && edge.evidence.path == *path
+                })
+            }) {
+                *source_sha256 = relationship.evidence.source_sha256.clone();
+            }
+        }
+    }
 }
 
 pub fn accept_draft(
@@ -337,6 +489,231 @@ mod tests {
         )
         .unwrap();
         assert!(source.contents.contains("return `Hello, ${name}`;"));
+    }
+
+    #[test]
+    fn restore_appends_a_new_draft_and_keeps_both_accepted_payloads_and_assets_immutable() {
+        let fixture = Fixture::new();
+        let initial_draft = first_saved_draft(&fixture);
+        let mut with_visual = initial_draft.clone();
+        let anchor_id = with_visual.sections[0].claims[0].anchors[0]
+            .anchor_id
+            .clone();
+        with_visual.sections[0].visual =
+            Some(chapters::ChapterVisualPayload::from(chapters::VisualSpec {
+                schema_version: 2,
+                kind: chapters::VisualKind::DataFlow,
+                title: "Greeting return flow".to_owned(),
+                layout_hint: Some(chapters::VisualLayoutHint {
+                    direction: chapters::VisualLayoutDirection::LeftToRight,
+                }),
+                nodes: vec![chapters::VisualNode {
+                    node_id: "node:greeting".to_owned(),
+                    label: "greeting".to_owned(),
+                    detail: Some("returns the Hello template".to_owned()),
+                    hotspot_id: None,
+                    evidence_anchor_ids: vec![anchor_id],
+                }],
+                edges: Vec::new(),
+            }));
+        let visual_draft = save_edits(
+            &fixture.storage,
+            &Mutex::new(()),
+            &initial_draft.project_id,
+            &initial_draft.revision_id,
+            with_visual,
+        )
+        .unwrap();
+        assert_eq!(
+            visual_draft.validation.status,
+            ValidationReportStatus::Valid
+        );
+        let first_accepted = accept_draft(
+            &fixture.storage,
+            &Mutex::new(()),
+            &initial_draft.project_id,
+            &visual_draft.revision.revision_id,
+        )
+        .unwrap()
+        .revision;
+        let first_bytes = chapters::encode_chapter_revision(&first_accepted).unwrap();
+        let first_assets = crate::chapter_freshness::asset_ids_for_revision(&first_accepted);
+        assert_eq!(first_assets.len(), 1);
+
+        let mut changed = first_accepted.clone();
+        changed.title = "The revised greeting explanation".to_owned();
+        changed.sections[0].prose =
+            "greeting returns the name inside a more carefully described Hello template string."
+                .to_owned();
+        changed.sections[0].spoken_text =
+            "greeting places the name in its returned Hello template string.".to_owned();
+        if let Some(visual) = changed.sections[0]
+            .visual
+            .as_mut()
+            .and_then(chapters::ChapterVisualPayload::typed_visual_mut)
+        {
+            visual.nodes[0].label = "formatted greeting".to_owned();
+        }
+        let second_draft = save_edits(
+            &fixture.storage,
+            &Mutex::new(()),
+            &first_accepted.project_id,
+            &first_accepted.revision_id,
+            changed,
+        )
+        .unwrap();
+        assert_eq!(
+            second_draft.validation.status,
+            ValidationReportStatus::Valid
+        );
+        let second_accepted = accept_draft(
+            &fixture.storage,
+            &Mutex::new(()),
+            &first_accepted.project_id,
+            &second_draft.revision.revision_id,
+        )
+        .unwrap()
+        .revision;
+        let second_bytes = chapters::encode_chapter_revision(&second_accepted).unwrap();
+        assert_ne!(
+            crate::chapter_freshness::asset_ids_for_revision(&second_accepted),
+            first_assets
+        );
+
+        let restored = restore_revision(
+            &fixture.storage,
+            &Mutex::new(()),
+            &first_accepted.project_id,
+            &second_accepted.revision_id,
+            &first_accepted.revision_id,
+        )
+        .unwrap();
+        assert_eq!(restored.validation.status, ValidationReportStatus::Valid);
+        assert_eq!(restored.revision.lifecycle, RevisionLifecycle::Draft);
+        assert_eq!(restored.revision.title, first_accepted.title);
+        assert_eq!(
+            restored.revision.sections[0].visual,
+            first_accepted.sections[0].visual
+        );
+        assert_eq!(
+            crate::chapter_freshness::asset_ids_for_revision(&restored.revision),
+            first_assets
+        );
+        assert_eq!(
+            restored.revision.based_on_revision_id.as_deref(),
+            Some(second_accepted.revision_id.as_str())
+        );
+        assert_ne!(restored.revision.revision_id, first_accepted.revision_id);
+        assert_ne!(restored.revision.revision_id, second_accepted.revision_id);
+        assert_ne!(
+            restored.revision.sections[0].section_revision_id,
+            first_accepted.sections[0].section_revision_id
+        );
+        assert_eq!(
+            chapters::encode_chapter_revision(&first_accepted).unwrap(),
+            first_bytes
+        );
+        assert_eq!(
+            chapters::encode_chapter_revision(&second_accepted).unwrap(),
+            second_bytes
+        );
+        let history =
+            chapter_store::list_for_project(&fixture.storage, &first_accepted.project_id).unwrap();
+        assert!(history.contains(&first_accepted));
+        assert!(history.contains(&second_accepted));
+        assert!(history.contains(&restored.revision));
+    }
+
+    #[test]
+    fn restore_from_an_old_snapshot_keeps_unmappable_citations_invalid_and_unaccepted() {
+        let mut fixture = Fixture::new();
+        let old_draft = first_saved_draft(&fixture);
+        let old_accepted = accept_draft(
+            &fixture.storage,
+            &Mutex::new(()),
+            &old_draft.project_id,
+            &old_draft.revision_id,
+        )
+        .unwrap()
+        .revision;
+        let old_bytes = chapters::encode_chapter_revision(&old_accepted).unwrap();
+
+        let changed_source = crate::chapter_generation::tests::SIMPLE_SOURCE.replace(
+            "return `Hello, ${name}`;",
+            "return `Hello, ${name.trim()}`;",
+        );
+        fixture.recapture_with_source(SIMPLE_PATH, &changed_source);
+        let mut proposal = simple_proposal();
+        let updated_quote =
+            "function greeting(name: string): string {\n    return `Hello, ${name.trim()}`;\n}";
+        let updated_prose =
+            "greeting trims name before placing it in the returned Hello template string.";
+        proposal.sections[0].prose = updated_prose.to_owned();
+        proposal.sections[0].spoken_text = updated_prose.to_owned();
+        proposal.sections[0].claims[0].prose = updated_prose.to_owned();
+        proposal.sections[0].claims[0].evidence[0].quote = updated_quote.to_owned();
+        proposal.evidence_limits[0].evidence[0].quote = updated_quote.to_owned();
+        let current = chapter_generation::canonicalize_file_chapter(
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest,
+            Some(&fixture.index),
+            SIMPLE_PATH,
+            &fixture.sources(&[SIMPLE_PATH]),
+            &HashSet::new(),
+            &serde_json::to_string(&proposal).unwrap(),
+        )
+        .unwrap();
+        let mut current = current;
+        current.validation_status = ValidationStatus::Valid;
+        let current_draft = chapter_store::save_new_draft(&fixture.storage, current).unwrap();
+        let current_accepted = accept_draft(
+            &fixture.storage,
+            &Mutex::new(()),
+            &old_accepted.project_id,
+            &current_draft.revision_id,
+        )
+        .unwrap()
+        .revision;
+        let current_bytes = chapters::encode_chapter_revision(&current_accepted).unwrap();
+
+        let restored = restore_revision(
+            &fixture.storage,
+            &Mutex::new(()),
+            &old_accepted.project_id,
+            &current_accepted.revision_id,
+            &old_accepted.revision_id,
+        )
+        .unwrap();
+        assert_eq!(restored.revision.lifecycle, RevisionLifecycle::Draft);
+        assert_eq!(restored.validation.status, ValidationReportStatus::Invalid);
+        assert!(restored.validation.issues.iter().any(|issue| {
+            issue.code == chapters::ChapterIssueCode::WrongSnapshot
+                && issue.section_id.as_deref() == Some(old_accepted.sections[0].section_id.as_str())
+                && issue.anchor_id.is_some()
+        }));
+        assert!(
+            accept_draft(
+                &fixture.storage,
+                &Mutex::new(()),
+                &old_accepted.project_id,
+                &restored.revision.revision_id,
+            )
+            .unwrap_err()
+            .contains("cannot be accepted")
+        );
+        assert_eq!(
+            chapters::encode_chapter_revision(&old_accepted).unwrap(),
+            old_bytes
+        );
+        assert_eq!(
+            chapters::encode_chapter_revision(&current_accepted).unwrap(),
+            current_bytes
+        );
+        assert!(
+            chapter_store::list_for_project(&fixture.storage, &old_accepted.project_id)
+                .unwrap()
+                .contains(&restored.revision)
+        );
     }
 
     #[test]
