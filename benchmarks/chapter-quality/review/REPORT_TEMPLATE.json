@@ -1,5 +1,5 @@
 {
-  "reportSchemaVersion": 3,
+  "reportSchemaVersion": 4,
   "kind": "chapter-quality-review-report",
   "status": "pending",
   "corpusId": null,

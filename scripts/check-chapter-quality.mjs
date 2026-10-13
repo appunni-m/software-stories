@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const defaultManifest = "benchmarks/chapter-quality/corpus/manifest.json";
+const reportSchemaVersion = 4;
 // Bump this when the provider-facing file-chapter response contract changes.
 const responseSchemaVersion = 1;
 const requiredRoleFamilies = [
@@ -654,8 +655,8 @@ async function loadReportTemplate() {
 
 function validateReportTemplateShape(template) {
   exactKeys(template, ["reportSchemaVersion", "kind", "status", "corpusId", "corpusManifestSha256", "modelId", "modelVersion", "modelAllowlistSha256", "promptVersion", "promptSha256", "requestAssemblySha256", "generationConfigSha256", "chapterSchemaVersion", "responseSchemaVersion", "responseSchemaSha256", "reviewer", "reviewedAt", "qualityGateExample", "cases"], "Report template");
-  if (template.reportSchemaVersion !== 3 || template.kind !== "chapter-quality-review-report" || template.status !== "pending") {
-    throw new Error("Report template must use schema version 3 and remain pending");
+  if (template.reportSchemaVersion !== reportSchemaVersion || template.kind !== "chapter-quality-review-report" || template.status !== "pending") {
+    throw new Error(`Report template must use schema version ${reportSchemaVersion} and remain pending`);
   }
   for (const key of ["corpusId", "corpusManifestSha256", "modelId", "modelVersion", "modelAllowlistSha256", "promptVersion", "promptSha256", "requestAssemblySha256", "generationConfigSha256", "chapterSchemaVersion", "responseSchemaVersion", "responseSchemaSha256", "reviewer", "reviewedAt"]) {
     if (template[key] !== null) throw new Error(`Report template ${key} must remain empty until a local review batch is recorded`);
@@ -1266,8 +1267,8 @@ async function validateReport(reportArg, manifestArg) {
     throw new Error(`Could not read report JSON: ${error.message}`);
   }
   exactKeys(report, ["reportSchemaVersion", "kind", "status", "corpusId", "corpusManifestSha256", "modelId", "modelVersion", "modelAllowlistSha256", "promptVersion", "promptSha256", "requestAssemblySha256", "generationConfigSha256", "chapterSchemaVersion", "responseSchemaVersion", "responseSchemaSha256", "reviewer", "reviewedAt", "qualityGateExample", "cases"], "Report");
-  if (report.reportSchemaVersion !== 3 || report.kind !== "chapter-quality-review-report" || !["pass", "fail"].includes(report.status)) {
-    throw new Error("Report must use schema version 3 and final status pass or fail; pending or partial reports cannot gate release");
+  if (report.reportSchemaVersion !== reportSchemaVersion || report.kind !== "chapter-quality-review-report" || !["pass", "fail"].includes(report.status)) {
+    throw new Error(`Report must use schema version ${reportSchemaVersion} and final status pass or fail; pending or partial reports cannot gate release`);
   }
   const reportRealRelative = relative(reportsReal, reportReal);
   if (reportRealRelative.startsWith("..") || isAbsolute(reportRealRelative)) {
