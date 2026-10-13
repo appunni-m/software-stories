@@ -1,0 +1,151 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { describe, it } from 'node:test';
+import ts from 'typescript';
+import { initialNavigationState, navigateBack, navigateForward, navigateToWorkspace } from '../src/lib/navigation.ts';
+import { loadShellStartupData, PRIMARY_WORKSPACES, WORKSPACE_COPY } from '../src/lib/shell.ts';
+
+const allWorkspaces = ['atlas', 'code-lens', 'walkthrough', 'guide-plan', 'chapter-studio'];
+
+describe('desktop shell acceptance contract', () => {
+  it('starts at Atlas with no selected repository or snapshot and defines all five workflow surfaces', () => {
+    assert.deepEqual(initialNavigationState.current, {
+      workspace: 'atlas', projectId: null, snapshotId: null, focusTarget: 'atlas:open-repository',
+    });
+    assert.deepEqual(PRIMARY_WORKSPACES.map(({ id }) => id), ['atlas', 'code-lens', 'walkthrough']);
+    assert.deepEqual(Object.keys(WORKSPACE_COPY).sort(), [...allWorkspaces].sort());
+    for (const workspace of allWorkspaces) {
+      const copy = WORKSPACE_COPY[workspace];
+      assert.ok(copy.eyebrow.length > 0, `${workspace} has an eyebrow`);
+      assert.ok(copy.title.length > 0, `${workspace} has a title`);
+      assert.ok(copy.subtitle.length > 0, `${workspace} has explanatory empty-state copy`);
+    }
+  });
+
+  it('reaches all five workspaces while preserving one project and snapshot selection', () => {
+    let state = {
+      ...initialNavigationState,
+      current: { ...initialNavigationState.current, projectId: 'project-1', snapshotId: 'snapshot-1' },
+    };
+    for (const workspace of allWorkspaces.slice(1)) {
+      state = navigateToWorkspace(state, workspace);
+      assert.equal(state.current.workspace, workspace);
+      assert.equal(state.current.projectId, 'project-1');
+      assert.equal(state.current.snapshotId, 'snapshot-1');
+    }
+    for (let index = 0; index < allWorkspaces.length - 1; index += 1) state = navigateBack(state);
+    assert.equal(state.current.workspace, 'atlas');
+    assert.equal(state.current.projectId, 'project-1');
+    assert.equal(state.current.snapshotId, 'snapshot-1');
+    while (state.forward.length > 0) state = navigateForward(state);
+    assert.equal(state.current.workspace, 'chapter-studio');
+  });
+
+  it('loads startup data through only the safe shell command boundary and tolerates independent failures', async () => {
+    const calls = [];
+    const forbiddenCalls = [];
+    const recent = [{ projectId: 'p', displayName: 'Repo' }];
+    const result = await loadShellStartupData({
+      getApplicationStatus: async () => { calls.push('getApplicationStatus'); return { productName: 'Code Atlas', version: '0.1.0', native: true }; },
+      getCaptureLimits: async () => { calls.push('getCaptureLimits'); return { maxFileBytes: 1 }; },
+      listRecentProjects: async () => { calls.push('listRecentProjects'); return recent; },
+      listInterruptedOperations: async () => { calls.push('listInterruptedOperations'); return []; },
+      listPendingGeneratedChapterPreviews: async () => { calls.push('listPendingGeneratedChapterPreviews'); return []; },
+      inspectRepository: async () => { forbiddenCalls.push('inspectRepository'); },
+      getProviderCredentialStatus: async () => { forbiddenCalls.push('getProviderCredentialStatus'); },
+      sendGeminiRequest: async () => { forbiddenCalls.push('sendGeminiRequest'); },
+      synthesizeReviewedNarrationAudio: async () => { forbiddenCalls.push('synthesizeReviewedNarrationAudio'); },
+    });
+    assert.deepEqual(calls.sort(), ['getApplicationStatus', 'getCaptureLimits', 'listInterruptedOperations', 'listPendingGeneratedChapterPreviews', 'listRecentProjects']);
+    assert.deepEqual(forbiddenCalls, []);
+    assert.equal(result.applicationStatus?.native, true);
+    assert.deepEqual(result.recentProjects, recent);
+    assert.equal(result.applicationStatusUnavailable, false);
+    assert.equal(result.recentProjectsUnavailable, false);
+    assert.deepEqual(result.interruptedOperations, []);
+    assert.equal(result.interruptedOperationsUnavailable, false);
+    assert.deepEqual(result.pendingChapterPreviews, []);
+    assert.equal(result.pendingChapterPreviewsUnavailable, false);
+
+    const degraded = await loadShellStartupData({
+      getApplicationStatus: async () => { throw new Error('bridge down'); },
+      getCaptureLimits: async () => ({ maxFileBytes: 1 }),
+      listRecentProjects: async () => { throw new Error('storage unavailable'); },
+      listInterruptedOperations: async () => { throw new Error('recovery data unavailable'); },
+      listPendingGeneratedChapterPreviews: async () => { throw new Error('saved previews unavailable'); },
+    });
+    assert.equal(degraded.applicationStatusUnavailable, true);
+    assert.equal(degraded.applicationStatus, null);
+    assert.equal(degraded.captureLimits.maxFileBytes, 1);
+    assert.equal(degraded.recentProjectsUnavailable, true);
+    assert.equal(degraded.recentProjects, null);
+    assert.equal(degraded.interruptedOperationsUnavailable, true);
+    assert.equal(degraded.interruptedOperations, null);
+    assert.equal(degraded.pendingChapterPreviewsUnavailable, true);
+    assert.equal(degraded.pendingChapterPreviews, null);
+  });
+
+  it('offers a local Retry action when recents fail and presents explicit recovery actions', async () => {
+    const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
+    assert.match(source, /title: 'Recent projects could not be loaded'[\s\S]*?actionLabel: 'Retry'[\s\S]*?retryRecentProjectsLoad/);
+    assert.match(source, /Retry capture/);
+    assert.match(source, /Review a new request/);
+    assert.match(source, /Discard/);
+    assert.match(source, /prior consent is not reused/);
+  });
+
+  it('restores persisted previews for local review with only explicit save or discard actions', async () => {
+    const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
+    const commands = await readFile(new URL('../src/lib/commands.ts', import.meta.url), 'utf8');
+    assert.match(source, /listPendingGeneratedChapterPreviews/);
+    assert.match(source, /Review saved preview/);
+    assert.match(source, /Closing keeps this preview in local recovery/);
+    assert.match(source, /Save unaccepted draft/);
+    assert.match(source, /No provider request will be sent when you review or save it/);
+    assert.match(commands, /loadPendingGeneratedChapterPreview[\s\S]*?load_pending_generated_chapter_preview/);
+    const restoredDialog = source.slice(source.indexOf('function RecoveredGeneratedPreviewDialog'), source.indexOf('function GeneratedChapterPreview'));
+    assert.doesNotMatch(restoredDialog, /sendGeminiRequest|buildGeminiRequestReview|acceptChapterDraft/);
+    assert.match(restoredDialog, /discardGeneratedChapterDraft/);
+    assert.match(restoredDialog, /saveGeneratedChapterDraft/);
+  });
+
+  it('keeps App startup behind the shell bootstrap rather than invoking repo or provider commands directly', async () => {
+    const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
+    const file = ts.createSourceFile('App.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const forbidden = new Set([
+      'pickProjectFolder', 'openRecentProject', 'startSnapshot', 'startSnapshotIndexing', 'readSnapshotSource',
+      'getProviderCredentialStatus', 'getProviderDisclosure', 'buildGeminiRequestReview', 'sendGeminiRequest',
+      'getNarrationDisclosure', 'buildNarrationRequestReview', 'synthesizeReviewedNarrationAudio',
+    ]);
+    let bootstrapEffectCount = 0;
+    const visit = (node) => {
+      if (ts.isCallExpression(node) && node.expression.getText(file) === 'useEffect'
+        && node.arguments[0] && ts.isArrowFunction(node.arguments[0])
+        && node.arguments[0].getText(file).includes('loadShellStartupData')) {
+        bootstrapEffectCount += 1;
+        const effectCalls = [];
+        const visitEffect = (child) => {
+          if (ts.isCallExpression(child) && ts.isIdentifier(child.expression)) effectCalls.push(child.expression.text);
+          ts.forEachChild(child, visitEffect);
+        };
+        visitEffect(node.arguments[0]);
+        assert.deepEqual(effectCalls.filter((name) => forbidden.has(name)), []);
+        assert.ok(effectCalls.includes('loadShellStartupData'));
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(file);
+    assert.equal(bootstrapEffectCount, 1);
+  });
+
+  it('configures one resizable desktop window and grants no broad WebView filesystem or shell permission', async () => {
+    const config = JSON.parse(await readFile(new URL('../src-tauri/tauri.conf.json', import.meta.url), 'utf8'));
+    const capability = JSON.parse(await readFile(new URL('../src-tauri/capabilities/default.json', import.meta.url), 'utf8'));
+    assert.equal(config.app.windows.length, 1);
+    assert.equal(config.app.windows[0].label, 'main');
+    assert.equal(config.app.windows[0].resizable, true);
+    assert.ok(config.app.windows[0].minWidth >= 1024);
+    assert.ok(config.app.windows[0].minHeight >= 680);
+    assert.deepEqual(capability.permissions, ['core:default']);
+  });
+});

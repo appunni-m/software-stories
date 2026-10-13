@@ -1,0 +1,59 @@
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { dirname, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, it } from 'node:test';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const checker = resolve(root, 'scripts/check-chapter-quality.mjs');
+const manifestPath = resolve(root, 'benchmarks/chapter-quality/corpus/manifest.json');
+
+async function withTemporaryCorpus(run) {
+  const tempDirectory = await mkdtemp(join(root, 'tests', '.chapter-quality-corpus-'));
+  const corpusDirectory = join(tempDirectory, 'corpus');
+  try {
+    await cp(dirname(manifestPath), corpusDirectory, { recursive: true });
+    await run({ corpusDirectory, manifestPath: join(corpusDirectory, 'manifest.json') });
+  } finally {
+    await rm(tempDirectory, { recursive: true, force: true });
+  }
+}
+
+describe('offline chapter-quality corpus checker', () => {
+  it('accepts the checked-in corpus against the current parser-language contract', () => {
+    const result = spawnSync(process.execPath, [checker, '--corpus'], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.match(result.stdout, /6 cases across 3 synthetic repositories/);
+    assert.match(result.stdout, /unsupported language/);
+    assert.match(result.stdout, /Fact-coverage self-check rejects unrelated evidence spans and accepts containing anchors/);
+  });
+
+  it('rejects a parser-supported language used for the unsupported-language role', async () => {
+    await withTemporaryCorpus(async ({ manifestPath: tempManifestPath }) => {
+      const manifest = JSON.parse(await readFile(tempManifestPath, 'utf8'));
+      const unsupportedCase = manifest.cases.find((item) => item.id === 'unsupported-language');
+      unsupportedCase.language = 'TypeScript';
+      await writeFile(tempManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+      const relativeManifestPath = relative(root, tempManifestPath);
+      const result = spawnSync(process.execPath, [checker, '--corpus', relativeManifestPath], { cwd: root, encoding: 'utf8' });
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /unsupported-language: TypeScript is currently parser-supported and cannot represent the unsupported-language role/);
+    });
+  });
+
+  it('rejects a supported parser status for a language outside the current parser set', async () => {
+    await withTemporaryCorpus(async ({ manifestPath: tempManifestPath }) => {
+      const manifest = JSON.parse(await readFile(tempManifestPath, 'utf8'));
+      const serviceCase = manifest.cases.find((item) => item.id === 'service-core');
+      serviceCase.language = 'Synthetic Session Policy DSL';
+      await writeFile(tempManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+      const relativeManifestPath = relative(root, tempManifestPath);
+      const result = spawnSync(process.execPath, [checker, '--corpus', relativeManifestPath], { cwd: root, encoding: 'utf8' });
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /service-core: parserStatus is supported but Synthetic Session Policy DSL is not in the current parser language set/);
+    });
+  });
+});

@@ -1,0 +1,910 @@
+import { invoke } from '@tauri-apps/api/core';
+
+export interface ApplicationStatus {
+  productName: string;
+  version: string;
+  native: boolean;
+}
+
+export interface RecentProject {
+  projectId: string;
+  displayName: string;
+  selectedPath: string;
+  repositoryRoot: string;
+  branch: string | null;
+  head: string | null;
+  accessStatus: 'available';
+  lastOpenedUnixMs: number;
+}
+
+export interface InterruptedOperation {
+  operationId: string;
+  kind: 'capture' | 'providerGeneration';
+  projectId: string;
+  snapshotId: string;
+  targetPath: string | null;
+  startedAtUnixMs: number;
+}
+
+export type ProjectOpenStatus =
+  | 'cancelled'
+  | 'opened'
+  | 'notGitRepository'
+  | 'invalidDirectory'
+  | 'permissionDenied'
+  | 'gitUnavailable'
+  | 'gitError'
+  | 'storageError'
+  | 'recentProjectUnavailable';
+
+export interface ProjectOpenResult {
+  status: ProjectOpenStatus;
+  project: RecentProject | null;
+  selectedPath: string | null;
+  message: string | null;
+}
+
+export type CaptureStatus = 'running' | 'complete' | 'partial' | 'cancelled' | 'inconsistent' | 'failed';
+export type CapturePhase = 'scanning' | 'checkingIgnoreRules' | 'readingFiles' | 'finalizing';
+export type GitChangeState = 'clean' | 'modified';
+
+export interface CaptureLimits {
+  policyVersion: string;
+  maxFileBytes: number;
+  maxTotalBytes: number;
+  maxPaths: number;
+  maxPathBytes: number;
+  maxEntriesPerDirectory: number;
+  excludedDirectories: string[];
+  otherExclusions: string[];
+}
+
+export interface SnapshotSummary {
+  snapshotId: string;
+  projectId: string;
+  parentSnapshotId: string | null;
+  createdAtUnixMs: number;
+  branch: string | null;
+  head: string | null;
+  indexState: GitChangeState;
+  worktreeState: GitChangeState;
+  status: CaptureStatus;
+  filesCaptured: number;
+  pathsSkipped: number;
+  totalBytes: number;
+  pathsVisited: number;
+  policyVersion: string;
+}
+
+export interface SnapshotProgress {
+  projectId: string;
+  snapshotId: string;
+  parentSnapshotId: string | null;
+  status: CaptureStatus;
+  phase: CapturePhase;
+  pathsVisited: number;
+  candidateFiles: number;
+  filesProcessed: number;
+  filesCaptured: number;
+  pathsSkipped: number;
+  bytesRead: number;
+  currentPath: string | null;
+  message: string | null;
+  limits: CaptureLimits;
+  summary: SnapshotSummary | null;
+}
+
+export interface SnapshotStart {
+  snapshotId: string;
+  parentSnapshotId: string | null;
+  limits: CaptureLimits;
+}
+
+export interface CapturedFile {
+  path: string;
+  kind: 'file' | 'directory' | 'symlink' | 'other' | 'unknown';
+  sizeBytes: number;
+  sha256: string;
+  blobPath: string;
+  contentKind: 'text' | 'binary' | 'invalidEncoding' | 'unknown';
+  secretLike: boolean;
+}
+
+export interface SkippedPath {
+  path: string;
+  kind: 'file' | 'directory' | 'symlink' | 'other' | 'unknown';
+  sizeBytes: number | null;
+  reason: string;
+  details: string;
+}
+
+export interface InventoryDirectory {
+  path: string;
+  kind: 'directory';
+  sizeBytes: number | null;
+}
+
+export interface SnapshotManifest {
+  schemaVersion: number;
+  summary: SnapshotSummary;
+  repositoryRoot: string;
+  selectedPath: string;
+  captureLimits: CaptureLimits;
+  directories: InventoryDirectory[];
+  files: CapturedFile[];
+  skipped: SkippedPath[];
+}
+
+export interface SnapshotSource {
+  snapshotId: string;
+  path: string;
+  sha256: string;
+  sizeBytes: number;
+  contents: string;
+}
+
+export type SnapshotIndexStatus = 'complete' | 'partial' | 'cancelled';
+export type IndexFileStatus =
+  | 'indexed' | 'partialParse' | 'parseError' | 'unsupportedLanguage' | 'binary'
+  | 'invalidEncoding' | 'sourceUnavailable' | 'fileTooLarge' | 'indexLimitExceeded'
+  | 'analysisLimitExceeded' | 'parserUnavailable' | 'cancelled';
+export type IndexJobStatus = 'running' | 'complete' | 'partial' | 'cancelled' | 'failed';
+export type SymbolKind =
+  | 'function' | 'method' | 'class' | 'struct' | 'enum' | 'trait' | 'interface'
+  | 'typeAlias' | 'module' | 'constant' | 'variable' | 'macro';
+export type RelationshipKind = 'defines' | 'exports' | 'imports' | 'calls' | 'testReference';
+
+export interface ParserVersion {
+  engine: string;
+  engineVersion: string;
+  engineLanguageAbi: number;
+  grammar: string;
+  grammarVersion: string;
+  grammarAbi: number;
+}
+
+export interface SourceAnchor {
+  path: string;
+  sourceSha256: string;
+  startByte: number;
+  endByte: number;
+  startLine: number;
+  endLine: number;
+  startColumn: number;
+  endColumn: number;
+}
+
+export interface IndexedFile {
+  path: string;
+  fileId: string;
+  language: string | null;
+  status: IndexFileStatus;
+  parser: ParserVersion | null;
+  sourceSha256: string;
+  sourceSizeBytes: number;
+  parseErrorCount: number;
+  symbolCount: number;
+  relationshipCount: number;
+  message: string | null;
+}
+
+export interface IndexedSymbol {
+  symbolId: string;
+  path: string;
+  language: string;
+  kind: SymbolKind;
+  name: string;
+  qualifiedName: string;
+  declarationIdentity: string;
+  signatureSha256: string;
+  isExported: boolean;
+  isTest: boolean;
+  anchor: SourceAnchor;
+}
+
+export interface IndexedRelationship {
+  relationshipId: string;
+  kind: RelationshipKind;
+  sourceId: string;
+  targetId: string | null;
+  targetPath: string | null;
+  targetLabel: string | null;
+  confidence: 'high' | 'unresolved';
+  unresolvedReason: string | null;
+  evidence: SourceAnchor;
+}
+
+export interface SnapshotIndex {
+  schemaVersion: number;
+  indexerVersion: string;
+  projectId: string;
+  snapshotId: string;
+  status: SnapshotIndexStatus;
+  parsers: ParserVersion[];
+  files: IndexedFile[];
+  symbols: IndexedSymbol[];
+  relationships: IndexedRelationship[];
+}
+
+export type ChapterRevisionLifecycle = 'draft' | 'accepted' | 'rejected';
+export type ChapterValidationStatus = 'unvalidated' | 'valid' | 'invalid';
+export type ClaimCategory =
+  | { kind: 'codeBehavior' }
+  | { kind: 'repositoryContext' }
+  | { kind: 'inference'; visibleLabel: string; basis: string };
+export type ChapterTargetScope =
+  | { kind: 'overview' }
+  | { kind: 'file'; path: string }
+  | { kind: 'group'; paths: string[] };
+export type SectionDependency =
+  | { kind: 'sourceFile'; path: string; sourceSha256: string }
+  | { kind: 'symbol'; path: string; sourceSha256: string; symbolId: string }
+  | { kind: 'relationship'; path: string; sourceSha256: string; relationshipId: string };
+export type HotspotDestination =
+  | { kind: 'section'; sectionId: string }
+  | { kind: 'codeLens'; anchorId: string }
+  | { kind: 'atlasFile'; path: string }
+  | { kind: 'atlasSymbol'; path: string; symbolId: string }
+  | { kind: 'relationship'; relationshipId: string };
+
+/** Byte, line, and byte-column endpoints are inclusive and pinned to one snapshot. */
+export interface ChapterSourceAnchor {
+  anchorId: string;
+  path: string;
+  symbolId: string | null;
+  snapshotId: string;
+  sourceSha256: string;
+  startByte: number;
+  endByteInclusive: number;
+  startLine: number;
+  endLine: number;
+  startColumn: number;
+  endColumn: number;
+  excerpt: string;
+}
+
+export interface ChapterHotspot {
+  hotspotId: string;
+  label: string;
+  destination: HotspotDestination;
+}
+
+export type VisualLayoutDirection = 'auto' | 'leftToRight' | 'topToBottom';
+
+export interface VisualLayoutHint {
+  direction: VisualLayoutDirection;
+}
+
+export interface LegacyVisualSpec {
+  schemaVersion: 1;
+  kind: 'dataFlow' | 'sequence' | 'hierarchy';
+  title: string;
+  nodes: Array<{
+    nodeId: string;
+    label: string;
+    detail: string | null;
+    hotspotId: string | null;
+  }>;
+  edges: Array<{
+    edgeId: string;
+    fromNodeId: string;
+    toNodeId: string;
+    label: string;
+  }>;
+}
+
+export interface LinkedVisualNode {
+  nodeId: string;
+  label: string;
+  detail: string | null;
+  hotspotId: string | null;
+  evidenceAnchorIds: string[];
+}
+
+export interface LinkedVisualEdge {
+  edgeId: string;
+  fromNodeId: string;
+  toNodeId: string;
+  label: string;
+  evidenceAnchorIds: string[];
+}
+
+export interface EvidenceLinkedVisualSpec {
+  schemaVersion: 2;
+  kind: 'dataFlow' | 'sequence' | 'hierarchy';
+  title: string;
+  layoutHint: VisualLayoutHint;
+  nodes: LinkedVisualNode[];
+  edges: LinkedVisualEdge[];
+}
+
+/** Accepted v1 diagrams remain decodable and immutable; only v2 is interactive. */
+export type VisualSpec = LegacyVisualSpec | EvidenceLinkedVisualSpec;
+
+export interface ChapterClaim {
+  claimId: string;
+  category: ClaimCategory;
+  prose: string;
+  anchors: ChapterSourceAnchor[];
+  dependencies: SectionDependency[];
+}
+
+export interface ChapterSection {
+  sectionId: string;
+  sectionRevisionId: string;
+  order: number;
+  title: string;
+  prose: string;
+  spokenText: string;
+  claims: ChapterClaim[];
+  dependencies: SectionDependency[];
+  visual: VisualSpec | null;
+  hotspots: ChapterHotspot[];
+}
+
+export interface ChapterRevision {
+  schemaVersion: number;
+  chapterId: string;
+  revisionId: string;
+  revisionNumber: number;
+  projectId: string;
+  snapshotId: string;
+  target: { targetId: string; scope: ChapterTargetScope };
+  title: string;
+  lifecycle: ChapterRevisionLifecycle;
+  validationStatus: ChapterValidationStatus;
+  createdAtUnixMs: number;
+  basedOnRevisionId?: string | null;
+  decisionNote?: string | null;
+  sections: ChapterSection[];
+}
+
+export interface SavedChapterReview {
+  revision: ChapterRevision;
+  validation: ChapterValidationReport;
+}
+
+export type ChapterIssueCode =
+  | 'unsupportedSchemaVersion' | 'invalidId' | 'invalidRevision' | 'invalidTarget'
+  | 'invalidSectionOrder' | 'duplicateId' | 'invalidClaim' | 'wrongSnapshot'
+  | 'missingPath' | 'rangeMismatch' | 'hashMismatch' | 'excerptMismatch'
+  | 'ambiguousRemap' | 'missingSymbol' | 'invalidDependency' | 'invalidDestination' | 'invalidVisual'
+  | 'indexUnavailable' | 'sourceUnavailable';
+
+export interface ChapterValidationIssue {
+  code: ChapterIssueCode;
+  message: string;
+  path: string | null;
+  sectionId: string | null;
+  claimId: string | null;
+  anchorId: string | null;
+  hotspotId: string | null;
+  visualItemId: string | null;
+}
+
+export interface ChapterValidationReport {
+  schemaVersion: number;
+  chapterId: string;
+  revisionId: string;
+  snapshotId: string;
+  status: 'valid' | 'invalid';
+  issues: ChapterValidationIssue[];
+}
+
+export interface AnchorRemapResult {
+  status: 'remapped' | 'unavailable';
+  anchor: ChapterSourceAnchor | null;
+  issues: ChapterValidationIssue[];
+}
+
+export interface ChapterFreshnessLineRange {
+  /** Source path for this side of the change; it can differ from the change's summary path. */
+  path: string;
+  /** Immutable snapshot containing the captured bytes for this range. */
+  snapshotId: string;
+  /** Captured file hash required to verify this range in Code Lens. */
+  sourceSha256: string;
+  startLine: number;
+  endLine: number;
+}
+
+export interface ChapterFreshnessReason {
+  code: string;
+  message: string;
+  path: string | null;
+}
+
+export interface ChapterFreshnessSourceChange {
+  path: string;
+  kind: string;
+  oldRange: ChapterFreshnessLineRange | null;
+  newRange: ChapterFreshnessLineRange | null;
+}
+
+export type ChapterFreshnessStatus = 'current' | 'safeToCarry' | 'stale' | 'needsReview';
+export type ChapterFreshnessEvidenceState = 'complete' | 'partial' | 'unavailable';
+export type ChapterFreshnessIndexStatus = 'complete' | 'partial' | 'cancelled' | 'unavailable';
+
+export interface ChapterFreshnessIndexSummary {
+  status: ChapterFreshnessIndexStatus;
+  indexedFiles: number | null;
+  totalFiles: number | null;
+}
+
+export interface ChapterSectionFreshness {
+  sectionId: string;
+  sectionRevisionId: string;
+  status: ChapterFreshnessStatus;
+  evidenceState: ChapterFreshnessEvidenceState;
+  reasons: ChapterFreshnessReason[];
+  sourceChanges: ChapterFreshnessSourceChange[];
+}
+
+export interface ChapterFreshnessReverseDependency {
+  evidenceKey: string;
+  path: string;
+  dependentSectionIds: string[];
+  assetIds: string[];
+}
+
+/** Read-only comparison of one immutable chapter revision with another captured snapshot. */
+export interface ChapterFreshnessReport {
+  chapterRevisionId: string;
+  fromSnapshotId: string;
+  toSnapshotId: string;
+  indexes: {
+    from: ChapterFreshnessIndexSummary;
+    to: ChapterFreshnessIndexSummary;
+  };
+  sections: ChapterSectionFreshness[];
+  reverseDependencies: ChapterFreshnessReverseDependency[];
+}
+
+export interface IndexProgress {
+  jobId: string;
+  projectId: string;
+  snapshotId: string;
+  status: IndexJobStatus;
+  filesTotal: number;
+  filesProcessed: number;
+  filesIndexed: number;
+  symbolsFound: number;
+  relationshipsFound: number;
+  currentPath: string | null;
+  message: string | null;
+}
+
+export interface IndexStart {
+  jobId: string;
+  projectId: string;
+  snapshotId: string;
+  status: IndexJobStatus;
+}
+
+export interface ProviderModel {
+  modelId: string;
+  displayName: string;
+  intendedUse: string;
+  freeTierStatus: string;
+  paidInputUsdPerMillionTokens: string;
+  paidOutputUsdPerMillionTokens: string;
+  paidPriceChangeDate: string | null;
+}
+
+export interface ProviderDisclosure {
+  version: string;
+  checkedDate: string;
+  pricingUrl: string;
+  termsUrl: string;
+  regionsUrl: string;
+  apiKeyUrl: string;
+  apiKeySecurityNotice: string;
+  models: ProviderModel[];
+  unpaidServiceDataUse: string;
+  regionalDataUseException: string;
+  adultAndRegionRequirements: string;
+  billingUncertainty: string;
+}
+
+export interface ProviderCredentialStatus {
+  keychainAvailable: boolean;
+  apiKeyConfigured: boolean;
+  explanation: string;
+}
+
+export type ProviderFailureKind =
+  | 'keychainUnavailable' | 'keychainOperationFailed' | 'missingApiKey' | 'invalidApiKey'
+  | 'consentRequired' | 'reviewExpired' | 'reviewChanged' | 'reviewUnavailable' | 'invalidReview'
+  | 'contextTooLarge' | 'secretLikeContext' | 'unavailableModel' | 'billingRequired' | 'quotaExceeded'
+  | 'networkUnavailable' | 'requestTimedOut' | 'requestCancelled' | 'providerRejectedRequest' | 'providerResponseTooLarge'
+  | 'malformedProviderResponse';
+
+export interface ProviderFailure {
+  kind: ProviderFailureKind;
+  message: string;
+}
+
+export type ProviderCommandResult<T> =
+  | { status: 'ok'; data: T }
+  | { status: 'error'; error: ProviderFailure };
+
+export interface ProviderConsent {
+  privacyAndDataUseAcknowledged: boolean;
+  billingUncertaintyAcknowledged: boolean;
+  adultSupportedRegionAcknowledged: boolean;
+}
+
+export interface NarrationDisclosure {
+  version: string;
+  checkedDate: string;
+  provider: string;
+  modelId: string;
+  modelName: string;
+  freeTierTerms: string;
+  paidTierTerms: string;
+  dataUseTerms: string;
+  paidDataUseTerms: string;
+  regionalDataUseTerms: string;
+  eligibilityTerms: string;
+  billingUncertainty: string;
+  termsUrl: string;
+  pricingUrl: string;
+  regionsUrl: string;
+  apiKeyUrl: string;
+  requestScope: string;
+  voices: string[];
+}
+
+export interface NarrationPronunciationEntry {
+  name: string;
+  sayAs: string;
+  include: boolean;
+}
+
+export interface NarrationRequestReview {
+  reviewId: string;
+  exactText: string;
+  spokenTextSha256: string;
+  modelId: string;
+  voice: string;
+  style: string;
+  format: string;
+  fingerprint: string;
+  cachedAudioAvailable: boolean;
+  expiresAtUnixMs: number;
+}
+
+export interface NarrationAudio {
+  fingerprint: string;
+  mimeType: string;
+  audioBase64: string;
+  cacheHit: boolean;
+}
+
+export interface NarrationConsent {
+  termsAndRequestAcknowledged: boolean;
+}
+
+export interface ProviderRequestFile {
+  path: string;
+  sha256: string;
+  sizeBytes: number;
+  contents: string;
+}
+
+export interface ProviderSymbolEvidence {
+  symbolId: string;
+  path: string;
+  kind: string;
+  name: string;
+  qualifiedName: string;
+  isExported: boolean;
+  isTest: boolean;
+  startLine: number;
+  endLine: number;
+}
+
+export interface ProviderRelationshipEvidence {
+  relationshipId: string;
+  kind: string;
+  sourcePath: string;
+  sourceName: string;
+  targetPath: string | null;
+  targetName: string | null;
+  confidence: 'high' | 'unresolved';
+  unresolvedReason: string | null;
+  evidenceStartLine: number;
+  evidenceEndLine: number;
+  evidenceExcerpt: string;
+}
+
+export interface ProviderRequestReview {
+  reviewId: string;
+  projectId: string;
+  snapshotId: string;
+  purpose: string;
+  targetPath: string | null;
+  modelId: string;
+  disclosureVersion: string;
+  selectedFiles: ProviderRequestFile[];
+  selectedSymbols: ProviderSymbolEvidence[];
+  selectedRelationships: ProviderRelationshipEvidence[];
+  indexEvidenceTruncated: boolean;
+  systemInstruction: string;
+  userPrompt: string;
+  generationConfig: Record<string, unknown>;
+  sourceBytes: number;
+  estimatedInputTokens: number;
+  requestBodyBytes: number;
+  fingerprint: string;
+  expiresAtUnixMs: number;
+}
+
+export interface ChapterDraftPreview {
+  generationId: string;
+  revision: ChapterRevision;
+  validation: ChapterValidationReport;
+  modelId: string;
+  modelVersion: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+}
+
+export interface PendingChapterPreviewSummary {
+  generationId: string;
+  projectId: string | null;
+  snapshotId: string | null;
+  title: string;
+  modelId: string | null;
+  targetPath: string | null;
+  unavailableReason: string | null;
+}
+
+export interface ProjectSnapshots {
+  projectId: string;
+  snapshots: SnapshotSummary[];
+}
+
+export function isNativeRuntime(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}
+
+export async function getApplicationStatus(): Promise<ApplicationStatus> {
+  if (!isNativeRuntime()) {
+    return { productName: 'Code Atlas', version: '0.1.0', native: false };
+  }
+  return invoke<ApplicationStatus>('get_application_status');
+}
+
+export async function getCaptureLimits(): Promise<CaptureLimits> {
+  if (!isNativeRuntime()) {
+    return {
+      policyVersion: 'capture-policy-v1', maxFileBytes: 2 * 1024 * 1024,
+      maxTotalBytes: 100 * 1024 * 1024, maxPaths: 25_000, maxPathBytes: 1_024,
+      maxEntriesPerDirectory: 1_000,
+      excludedDirectories: ['node_modules', 'vendor', 'target', 'dist', 'build', 'coverage', 'out', 'generated', '.next', '.nuxt', '.turbo', '.cache', '.venv', 'venv'],
+      otherExclusions: ['Git-ignored paths; tracked files remain eligible', 'Symlinks and their targets', 'The repository .git marker and its contents', 'Nested Git repositories', 'Non-regular filesystem objects'],
+    };
+  }
+  return invoke<CaptureLimits>('get_capture_limits');
+}
+
+export async function listRecentProjects(): Promise<RecentProject[]> {
+  if (!isNativeRuntime()) return [];
+  return invoke<RecentProject[]>('list_recent_projects');
+}
+
+export async function listInterruptedOperations(): Promise<InterruptedOperation[]> {
+  if (!isNativeRuntime()) return [];
+  return invoke<InterruptedOperation[]>('list_interrupted_operations');
+}
+
+export async function discardInterruptedOperation(operationId: string): Promise<void> {
+  if (!isNativeRuntime()) return;
+  await invoke<void>('discard_interrupted_operation', { operationId });
+}
+
+export async function pickProjectFolder(): Promise<ProjectOpenResult> {
+  return invoke<ProjectOpenResult>('pick_project_folder');
+}
+
+export async function openRecentProject(projectId: string): Promise<ProjectOpenResult> {
+  return invoke<ProjectOpenResult>('open_recent_project', { projectId });
+}
+
+export async function removeRecentProject(projectId: string): Promise<RecentProject[]> {
+  return invoke<RecentProject[]>('remove_recent_project', { projectId });
+}
+
+export async function listProjectSnapshots(projectId: string): Promise<ProjectSnapshots> {
+  return invoke<ProjectSnapshots>('list_project_snapshots', { projectId });
+}
+
+export async function loadSnapshotManifest(projectId: string, snapshotId: string): Promise<SnapshotManifest> {
+  return invoke<SnapshotManifest>('load_snapshot_manifest', { projectId, snapshotId });
+}
+
+export async function readSnapshotSource(projectId: string, snapshotId: string, relativePath: string): Promise<SnapshotSource> {
+  return invoke<SnapshotSource>('read_snapshot_source', { projectId, snapshotId, relativePath });
+}
+
+export async function startSnapshot(projectId: string): Promise<SnapshotStart> {
+  return invoke<SnapshotStart>('start_snapshot', { projectId });
+}
+
+export async function cancelSnapshot(snapshotId: string): Promise<void> {
+  return invoke<void>('cancel_snapshot', { snapshotId });
+}
+
+export async function getSnapshotProgress(snapshotId: string): Promise<SnapshotProgress | null> {
+  return invoke<SnapshotProgress | null>('get_snapshot_progress', { snapshotId });
+}
+
+export async function startSnapshotIndexing(projectId: string, snapshotId: string): Promise<IndexStart> {
+  return invoke<IndexStart>('start_snapshot_indexing', { projectId, snapshotId });
+}
+
+export async function cancelSnapshotIndexing(jobId: string): Promise<void> {
+  return invoke<void>('cancel_snapshot_indexing', { jobId });
+}
+
+export async function getSnapshotIndexProgress(jobId: string): Promise<IndexProgress | null> {
+  return invoke<IndexProgress | null>('get_snapshot_index_progress', { jobId });
+}
+
+export async function loadSnapshotIndex(projectId: string, snapshotId: string): Promise<SnapshotIndex | null> {
+  return invoke<SnapshotIndex | null>('load_snapshot_index', { projectId, snapshotId });
+}
+
+export async function validateChapterRevision(
+  projectId: string,
+  revision: ChapterRevision,
+): Promise<ChapterValidationReport> {
+  return invoke<ChapterValidationReport>('validate_chapter_revision', {
+    projectId,
+    revisionJson: JSON.stringify(revision),
+  });
+}
+
+export async function listChapterRevisions(projectId: string, snapshotId: string): Promise<ChapterRevision[]> {
+  return invoke<ChapterRevision[]>('list_chapter_revisions', { projectId, snapshotId });
+}
+
+export async function listProjectChapterRevisions(projectId: string): Promise<ChapterRevision[]> {
+  return invoke<ChapterRevision[]>('list_project_chapter_revisions', { projectId });
+}
+
+export async function saveChapterEdits(
+  projectId: string,
+  baseRevisionId: string,
+  revision: ChapterRevision,
+): Promise<SavedChapterReview> {
+  return invoke<SavedChapterReview>('save_chapter_edits', {
+    projectId,
+    baseRevisionId,
+    revisionJson: JSON.stringify(revision),
+  });
+}
+
+export async function acceptChapterDraft(projectId: string, revisionId: string): Promise<SavedChapterReview> {
+  return invoke<SavedChapterReview>('accept_chapter_draft', { projectId, revisionId });
+}
+
+export async function rejectChapterDraft(projectId: string, revisionId: string, reason: string): Promise<ChapterRevision> {
+  return invoke<ChapterRevision>('reject_chapter_draft', { projectId, revisionId, reason });
+}
+
+export async function saveGeneratedChapterDraft(generationId: string): Promise<ChapterRevision> {
+  return invoke<ChapterRevision>('save_generated_chapter_draft', { generationId });
+}
+
+export async function listPendingGeneratedChapterPreviews(): Promise<PendingChapterPreviewSummary[]> {
+  if (!isNativeRuntime()) return [];
+  return invoke<PendingChapterPreviewSummary[]>('list_pending_generated_chapter_previews');
+}
+
+export async function loadPendingGeneratedChapterPreview(generationId: string): Promise<ChapterDraftPreview> {
+  return invoke<ChapterDraftPreview>('load_pending_generated_chapter_preview', { generationId });
+}
+
+export async function discardGeneratedChapterDraft(generationId: string): Promise<void> {
+  await invoke<void>('discard_generated_chapter_draft', { generationId });
+}
+
+export async function remapChapterAnchor(
+  projectId: string,
+  targetSnapshotId: string,
+  anchor: ChapterSourceAnchor,
+): Promise<AnchorRemapResult> {
+  return invoke<AnchorRemapResult>('remap_chapter_anchor', {
+    projectId,
+    targetSnapshotId,
+    anchorJson: JSON.stringify(anchor),
+  });
+}
+
+export async function assessChapterFreshness(
+  projectId: string,
+  revisionId: string,
+  targetSnapshotId: string,
+): Promise<ChapterFreshnessReport> {
+  return invoke<ChapterFreshnessReport>('assess_chapter_freshness', {
+    projectId,
+    revisionId,
+    targetSnapshotId,
+  });
+}
+
+export async function getProviderDisclosure(): Promise<ProviderDisclosure> {
+  return invoke<ProviderDisclosure>('get_provider_disclosure');
+}
+
+export async function getProviderCredentialStatus(): Promise<ProviderCommandResult<ProviderCredentialStatus>> {
+  return invoke<ProviderCommandResult<ProviderCredentialStatus>>('get_provider_credential_status');
+}
+
+export async function storeGeminiApiKey(apiKey: string): Promise<ProviderCommandResult<ProviderCredentialStatus>> {
+  return invoke<ProviderCommandResult<ProviderCredentialStatus>>('store_gemini_api_key', { apiKey });
+}
+
+export async function removeGeminiApiKey(): Promise<ProviderCommandResult<ProviderCredentialStatus>> {
+  return invoke<ProviderCommandResult<ProviderCredentialStatus>>('remove_gemini_api_key');
+}
+
+export async function buildGeminiRequestReview(input: {
+  projectId: string;
+  snapshotId: string;
+  targetPath: string | null;
+  selectedPaths: string[];
+  modelId: string;
+}): Promise<ProviderCommandResult<ProviderRequestReview>> {
+  return invoke<ProviderCommandResult<ProviderRequestReview>>('build_gemini_request_review', { input });
+}
+
+export async function discardGeminiRequestReview(reviewId: string): Promise<void> {
+  await invoke<void>('discard_gemini_request_review', { reviewId });
+}
+
+export async function cancelGeminiRequest(reviewId: string): Promise<boolean> {
+  return invoke<boolean>('cancel_gemini_request', { reviewId });
+}
+
+export async function sendGeminiRequest(input: {
+  reviewId: string;
+  fingerprint: string;
+  consent: ProviderConsent;
+}): Promise<ProviderCommandResult<ChapterDraftPreview>> {
+  return invoke<ProviderCommandResult<ChapterDraftPreview>>('send_gemini_request', input);
+}
+
+export async function getNarrationDisclosure(): Promise<NarrationDisclosure> {
+  return invoke<NarrationDisclosure>('get_narration_disclosure');
+}
+
+export async function buildNarrationRequestReview(input: {
+  spokenText: string;
+  voice: string;
+  style: string;
+  lexicon: NarrationPronunciationEntry[];
+}): Promise<ProviderCommandResult<NarrationRequestReview>> {
+  return invoke<ProviderCommandResult<NarrationRequestReview>>('build_narration_request_review', { input });
+}
+
+export async function discardNarrationRequestReview(reviewId: string): Promise<void> {
+  await invoke<void>('discard_narration_request_review', { reviewId });
+}
+
+export async function loadReviewedNarrationAudio(input: {
+  reviewId: string;
+  fingerprint: string;
+}): Promise<ProviderCommandResult<NarrationAudio>> {
+  return invoke<ProviderCommandResult<NarrationAudio>>('load_reviewed_narration_audio', input);
+}
+
+export async function synthesizeReviewedNarrationAudio(input: {
+  reviewId: string;
+  fingerprint: string;
+  consent: NarrationConsent;
+}): Promise<ProviderCommandResult<NarrationAudio>> {
+  return invoke<ProviderCommandResult<NarrationAudio>>('synthesize_reviewed_narration_audio', input);
+}

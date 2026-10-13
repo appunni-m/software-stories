@@ -1,81 +1,68 @@
-# Software Stories
+# Code Atlas
 
-A local, interactive guide to unfamiliar code, told through its purpose, design, and behavior. Start with responsibilities and data flow, then select a part or ask a question to generate a deeper explanation. The first journey explains this project itself.
+Code Atlas is an in-progress Mac-first desktop app for understanding a codebase from its actual files. The intended guide explains eligible files individually, links claims to captured source, and lets readers pause, inspect code, and choose when to continue. A repository overview is an orientation layer, not a substitute for file explanations.
 
-## Run this checkout
+The project currently runs from a source checkout; this repository does not provide a signed and notarized installer or a user download. Start with the [first-session guide](docs/GETTING_STARTED.md) for the native app workflow and its limits.
+
+![Concept board showing Atlas, Code Lens, and Walkthrough](docs/design/platform-overview.png)
+
+This image is a design concept, not a screenshot of the running app. Product behavior and release goals are described in the [blueprint](docs/PRODUCT_BLUEPRINT.md); they are not proof that every acceptance gate has passed.
+
+## What the current source contains
+
+- A Tauri desktop shell with local repository selection, bounded snapshot capture, Atlas, Code Lens, and a Rust index for a defined Rust, TypeScript, TSX, and JavaScript subset.
+- Local file-by-file coverage, Chapter Studio editing and review, immutable JSON chapter revisions, and a manually paced Walkthrough with source-linked citations and typed visual hotspots.
+- An early offline export path in Walkthrough creates one self-contained HTML file from selected accepted revisions. It previews paths and excerpts and supports section navigation and supported typed diagrams; it does not include narration audio or live Atlas/Code Lens destinations.
+- Direct Gemini API paths for file chapters and an optional repository overview. A reviewed request sends only the selected captured context after explicit confirmation; generated content is validated and remains unaccepted until the user saves and reviews it.
+- Optional Gemini text-to-speech for an edited section script. The speech request is reviewed separately and sends the selected script and voice settings, not source excerpts by default.
+
+These are source-level capabilities, not a claim of a finished or released product. The only direct text-generation provider currently implemented is Gemini. OpenAI and Anthropic direct APIs, and agent backends such as Codex, Claude Agent, and Google Antigravity, are tracked as separate planned integrations in [M7](docs/kata-tasks/phase-7.md). None is presented as currently selectable in this codebase.
+
+## Start here
+
+- [Getting started](docs/GETTING_STARTED.md) — run the current Mac app from source and complete a local first session.
+- [Troubleshooting](docs/TROUBLESHOOTING.md) — diagnose repository, snapshot, chapter, provider, and narration issues.
+- [Product blueprint](docs/PRODUCT_BLUEPRINT.md) — intended user journey, file coverage, trust rules, and release gates.
+- [Interaction contract](docs/INTERACTION_CONTRACT.md) — controls, navigation destinations, side effects, and acceptance walkthrough.
+- [Technical plan](docs/TECHNICAL_PLAN.md) — implemented architecture notes and clearly marked future boundaries.
+- [Chapter schema](docs/CHAPTER_SCHEMA.md) — persisted chapter format, evidence validation, visuals, and revisions.
+- [Provider disclosures](docs/PROVIDER_DISCLOSURES.md) — Gemini text and narration data-use, billing, eligibility, and request scope.
+- [Chapter quality gate](docs/CHAPTER_QUALITY_GATE.md) — synthetic corpus and human-reviewed release report workflow.
+- [Kata backlog](docs/KATA_BACKLOG.md) — milestone map and issue definitions.
+- [Design concepts](docs/design/) — visual references for the three connected workspaces.
+
+## Local development
+
+The lockfile's Vite toolchain requires Node.js 20.19 or newer in the 20.x line, or 22.12 or newer. The project does not declare a formal Node or Rust minimum, and it does not pin a Rust toolchain. Use a current stable Rust toolchain with Cargo for native commands.
 
 ```sh
-npm ci --ignore-scripts
-npm start
+npm ci
+npm run dev
 ```
 
-Open **http://127.0.0.1:4317**. Node.js 22 or newer, ripgrep, and FFmpeg are required. This checkout already has the local voice environment and downloaded model files. They are cached and excluded from version control.
-
-For a different repository, use **Open repository**, enter its local checkout path, and choose architecture, feature, or change explanation. Change explanations also require a Git base reference. Use an existing configured Codex or Claude CLI login; the application does not buy or provision model access. A locally installed CLI does not imply its model runs on-device.
-
-## What works
-
-- Saved source snapshots, content hashes, numbered excerpts, and source inspection.
-- Codex and Claude CLI adapters for structured explanations and follow-up questions.
-- Citation checks for source paths, line ranges, exact quotes, and evidence kinds.
-- Composable flow, sequence, branch, state, memory, comparison, and code scenes.
-- Narration starts from a developer’s problem, introduces responsibilities as they become relevant, and explains behavior through a concrete situation. Design intent needs documented evidence; inferred design consequences are labeled. Visuals support that explanation rather than supplying its script. Chapters have room for detail, capped at 160 spoken words.
-- A versioned narrative contract rewrites older animation commentary before narration or export, preserving chapter IDs, source snapshots, and position in the journey.
-- Audio playback, seeking, slower speed options, volume control, compact layouts, and exploratory chapters.
-- A stack of visited explanations with restored playback positions. Loading, playing, and paused details block further exploration; Back remains available and detaches late responses.
-- File-specific narrated walkthroughs and a one-click simpler explanation.
-- A readable light theme and responsive layouts selected from the player width.
-- Visual-form selection with a reason, step-specific evidence, and local spoken-word timing when alignment succeeds.
-- Local Qwen3-TTS **1.7B** on this machine’s AMD RX 580 through Vulkan, with a fixed Serena reference. The native named Serena speaker on CPU remains configurable.
-- Cached explanations and narration; repeated exploration reopens an existing chapter.
-- Local narrated H.264/AAC MP4 export with the same SVG renderer used by the player.
-
-## Code map
-
-| Responsibility | Source |
-| --- | --- |
-| Local HTTP API and background jobs | `src/server/index.mjs` |
-| Repository capture, source search, Git comparisons | `src/server/repository.mjs` |
-| Agent prompts and CLI adapters | `src/server/agent.mjs` |
-| Story contract and evidence validation | `src/shared/story.mjs` |
-| Reusable visual components and timeline rendering | `src/shared/render.mjs` |
-| Navigation stack and narration timeline | `src/shared/journey.mjs`, `src/shared/timeline.mjs` |
-| Narration cache and local speech backends | `src/server/speech.mjs`, `scripts/narrate_serena.py`, `scripts/audition_gpu.py` |
-| SVG rasterization and video encoding | `src/server/export.mjs` |
-| Curated source-backed introduction | `src/server/self-story.mjs` |
-| Player, source viewer, and chat | `public/app.mjs` |
-
-`config/settings.json` selects the narrator, voice reference, GPU/CPU backend, CLI model, reasoning effort, and export resolution. Codex explanations explicitly use `gpt-6-luna` with `xhigh` reasoning, and both settings participate in the explanation cache identity. `project-plan.json` records the scope and remaining work.
-
-## Verify
+`npm run dev` starts the Vite browser preview at `http://127.0.0.1:1420`. It is not equivalent to the native app: native repository picking, Keychain access, and provider operations require the Tauri shell.
 
 ```sh
-npm test
+npm run tauri dev
 npm run check
 ```
 
-Tests exercise double-click locking, paused-detail locking, Back during loading, late-response rejection, focused retrieval, spoken-cue timing, fabricated citations, incorrect evidence kinds, malformed scenes, deterministic rendering, all scene templates, immutable snapshots, symlink boundaries, and actual Git before/after comparisons.
+`npm run check` runs, in order: synthetic chapter-corpus validation, every Node test in `tests/*.test.mjs`, the TypeScript/Vite build, Rust library tests, and `cargo check` for the Tauri crate.
 
-## Voice assets
+`npm run quality:metadata` prints the fingerprints used by a chapter-quality review. `npm run quality:gate -- --report benchmarks/chapter-quality/review/reports/run.json` checks a completed human-reviewed report; generating metadata alone does not pass that gate.
 
-The default GPU path uses Qwen3-TTS 1.7B Base through Vulkan and the fixed full-precision Serena reference. It requires runtime logs to confirm layer offloading before accepting generated audio. This is not a ROCm/PyTorch path: this checkout has CPU-only PyTorch and no ROCm installation. For the native named Serena speaker, set `ttsEngine: "custom-voice"`; its pinned `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` revision is `0c0e3051f131929182e2c023b9537f8b1c68adfe`, and it runs offline in float32 on CPU. The two backends use different conditioning and may sound different. Matching a transcript does not establish voice naturalness.
+`npm run bundle:macos` is configured to build an unsigned `.app` and `.dmg` and verify their embedded metadata. It is a local packaging command, not a published installer or a signed/notarized release. The project does not yet declare a supported minimum macOS version or publish a user download.
 
-Narration keeps a target of roughly 120 words per minute, close to the accepted introduction pace. Small bounded tempo adjustments use FFmpeg atempo with pitch preserved. Audio is mastered to −25 LUFS with a −8 dB peak ceiling and delivered as lossless 48 kHz / 24-bit stereo WAV (the mono speech is centered equally in both channels). Video uses 192 kb/s stereo AAC. The player keeps the selected volume and defaults to 60%. Voice, model, text, pacing, and mastering settings participate in the cache identity.
+## Data and provider behavior
 
-Vulkan reference cloning uses `ttsEngine: "voice-clone"` and `ttsBackend: "vulkan"`. A clean full-precision Serena reference is available at `experiments/voice/output/serena-reference-fp32.wav`; aggressive int8 quantization of all Python model layers produced invalid speech and is not used. The GPU runtime is official llama.cpp **b11146** (archive SHA256 `d3ce40fce7403cc93bcf5718fc46c6efb61ed9709f8e5d9f10c86bf0e30e8fb3`), with `ggml-org/Qwen3-TTS-12Hz-1.7B-Base-GGUF` revision `ca27d74bc954b73dadab5b71ca265d87fc861a7c`, Q8_0 model and projector. Local paths are in `.cache/voice/gpu-model.json`.
+Local browsing, capture, indexing, and opening saved chapters do not need an API key or provider call. Opening settings or preparing a request does not send one. A confirmed Gemini text request sends the selected captured source directly from the app to Google. A confirmed narration request sends the reviewed speech script and selected voice/style settings. Read the [provider disclosures](docs/PROVIDER_DISCLOSURES.md) before using either path.
 
-The Python environment uses `requirements-voice-cpu.txt`, `requirements-voice.txt`, and the audition lock file.
+## Project state and trust routes
 
-See the [official Qwen3-TTS repository](https://github.com/QwenLM/Qwen3-TTS) and [llama.cpp TTS documentation](https://github.com/ggml-org/llama.cpp/tree/master/tools/tts) for model setup. `scripts/check_narration.py` optionally checks local speech intelligibility using a cached Whisper tiny.en model and `requirements-audio-evaluation.txt`. Transcription checks the words, not whether a voice is pleasant or perceptually identical.
+The full desired experience is still being built. Fine-grained selective regeneration, a user-facing revision compare/restore workflow, polished onboarding, release hardening, and PR explanations remain outstanding. The offline export path is present but has not passed the full offline-package acceptance workflow. Check the blueprint and Kata backlog for the target and outstanding gates.
 
-Speech stays on this machine; the configured explanation CLI may use a hosted model.
+Older prototypes and their plans are kept under [`deprecated/`](deprecated/). They are archival references; use the root README and `docs/` for the current project.
 
-## Current limits
+There is no `LICENSE` file in this checkout, so its license and reuse permissions are unspecified. No private security-reporting address, support contact, public issue tracker, or contribution review policy is published here. See [SECURITY.md](SECURITY.md) and [CONTRIBUTING.md](CONTRIBUTING.md) for the current limits and local development instructions.
 
-Exact citation matching verifies origin, not semantic correctness. Inferences remain interpretations. New scenes provide exact narration cues and relevant claim indices. Local Whisper word timestamps align recognized words to the known narration; missing or uncertain cues fall back to estimated timing, labeled in the player. Older scenes without cues also use estimates. Search combines lexical ranking, the selected responsibility, cited-file priority, and heuristic static import hints; it is not a full symbol or call graph. Source-reading highlights are a guide, not recorded execution. Repository capture currently includes up to 2,000 readable files, 250 KB per file, and roughly 12 MB total; omitted files are counted. Binary assets, generated directories, and common credential directories are excluded.
-
-Sourcebot/Zoekt integration and language-aware navigation are follow-on work. Sourcebot’s paid MCP layer is not a dependency of this project. Rendering uses the free sharp library and local FFmpeg; it does not use a hosted video service.
-
-The interactive component gallery is at **http://127.0.0.1:4317/visual-language.html**. It explains when each visual form is useful and makes missing before/after evidence explicit.
-
-Writing references: [Greg Wilson’s A Simple Web Server](https://aosabook.org/en/500L/a-simple-web-server.html) introduces a design as new requirements make it useful; [Why SQLite Uses Bytecode](https://www.sqlite.org/whybytecode.html) explains an architectural decision through benefits and tradeoffs; [Thinking in React](https://react.dev/learn/thinking-in-react) develops component boundaries around a concrete example. The narrator applies those patterns to supplied source evidence. Visual timing still follows multimedia learning principles, but the narration explains software rather than the animation. The application has not established learning gains for code comprehension.
+Kata project name: `code-atlas-rebuild`. Issue definitions live in [`docs/kata-tasks/`](docs/kata-tasks/); their task contracts describe intended work and should not be treated as proof that a release gate passed.

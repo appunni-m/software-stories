@@ -1,9 +1,32 @@
 {
-  "name": "software-stories",
-  "version": "0.1.0",
+  "name": "code-atlas-rebuild",
   "private": true,
+  "version": "0.1.0",
   "type": "module",
-  "engines": { "node": ">=22" },
-  "scripts": { "start": "node src/server/index.mjs", "test": "node --test tests/*.test.mjs", "check": "node --check src/server/index.mjs && node --check public/app.mjs" },
-  "dependencies": { "sharp": "0.34.5" }
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "bundle:macos": "node scripts/macos-bundle-metadata.mjs write && tauri build --no-sign --bundles app,dmg && node scripts/macos-bundle-metadata.mjs verify",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "quality:corpus": "node scripts/check-chapter-quality.mjs --corpus",
+    "quality:metadata": "node scripts/check-chapter-quality.mjs --metadata",
+    "quality:gate": "node scripts/check-chapter-quality.mjs",
+    "check": "npm run quality:corpus && npm run test && npm run build && cargo test --manifest-path src-tauri/Cargo.toml --lib && cargo check --manifest-path src-tauri/Cargo.toml"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.3",
+    "lucide-react": "^0.468.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.2",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.4"
+  }
 }

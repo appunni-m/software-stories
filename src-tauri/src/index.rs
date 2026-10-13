@@ -1,0 +1,2323 @@
+use crate::snapshot::{self, CapturedContentKind, SnapshotManifest};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::ops::ControlFlow;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+use tree_sitter::{Language, Node, ParseOptions, Parser, Point};
+use uuid::Uuid;
+
+const INDEX_SCHEMA_VERSION: u32 = 1;
+const INDEXER_VERSION: &str = "atlas-symbol-index-v1";
+const TREE_SITTER_RUNTIME_VERSION: &str = "0.27.1";
+const MAX_INDEXED_FILES: usize = 5_000;
+const MAX_SOURCE_BYTES_PER_FILE: u64 = 512 * 1024;
+const MAX_TOTAL_SOURCE_BYTES: u64 = 50 * 1024 * 1024;
+const MAX_AST_NODES_PER_FILE: usize = 250_000;
+const MAX_SCOPE_DEPTH: usize = 128;
+const MAX_INDEXED_SYMBOLS: usize = 50_000;
+const MAX_INDEXED_RELATIONSHIPS: usize = 100_000;
+const MAX_INDEXED_IMPORT_BINDINGS: usize = 50_000;
+const MAX_IMPORT_BINDINGS_PER_FILE: usize = 10_000;
+const MAX_INDEX_JSON_BYTES: usize = 32 * 1024 * 1024;
+const MAX_PARSE_TIME: Duration = Duration::from_millis(1_500);
+const MAX_RETAINED_JOBS: usize = 32;
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SnapshotIndexStatus {
+    Complete,
+    Partial,
+    Cancelled,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum IndexFileStatus {
+    Indexed,
+    PartialParse,
+    ParseError,
+    UnsupportedLanguage,
+    Binary,
+    InvalidEncoding,
+    SourceUnavailable,
+    FileTooLarge,
+    IndexLimitExceeded,
+    AnalysisLimitExceeded,
+    ParserUnavailable,
+    Cancelled,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum IndexJobStatus {
+    Running,
+    Complete,
+    Partial,
+    Cancelled,
+    Failed,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SymbolKind {
+    Function,
+    Method,
+    Class,
+    Struct,
+    Enum,
+    Trait,
+    Interface,
+    TypeAlias,
+    Module,
+    Constant,
+    Variable,
+    Macro,
+}
+
+impl SymbolKind {
+    fn is_callable(&self) -> bool {
+        matches!(self, Self::Function | Self::Method)
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RelationshipKind {
+    Defines,
+    Exports,
+    Imports,
+    Calls,
+    TestReference,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RelationshipConfidence {
+    High,
+    Unresolved,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ParserVersion {
+    pub engine: String,
+    pub engine_version: String,
+    pub engine_language_abi: usize,
+    pub grammar: String,
+    pub grammar_version: String,
+    pub grammar_abi: usize,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SourceAnchor {
+    pub path: String,
+    pub source_sha256: String,
+    pub start_byte: usize,
+    pub end_byte: usize,
+    pub start_line: usize,
+    pub end_line: usize,
+    /// One-based UTF-8 byte columns, matching Tree-sitter's byte-oriented points.
+    pub start_column: usize,
+    /// One-based UTF-8 byte columns, matching Tree-sitter's byte-oriented points.
+    pub end_column: usize,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexedFile {
+    pub path: String,
+    pub file_id: String,
+    pub language: Option<String>,
+    pub status: IndexFileStatus,
+    pub parser: Option<ParserVersion>,
+    pub source_sha256: String,
+    pub source_size_bytes: u64,
+    pub parse_error_count: usize,
+    pub symbol_count: usize,
+    pub relationship_count: usize,
+    pub message: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexedSymbol {
+    pub symbol_id: String,
+    pub path: String,
+    pub language: String,
+    pub kind: SymbolKind,
+    pub name: String,
+    pub qualified_name: String,
+    pub declaration_identity: String,
+    pub signature_sha256: String,
+    pub is_exported: bool,
+    pub is_test: bool,
+    pub anchor: SourceAnchor,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexedRelationship {
+    pub relationship_id: String,
+    pub kind: RelationshipKind,
+    pub source_id: String,
+    pub target_id: Option<String>,
+    pub target_path: Option<String>,
+    pub target_label: Option<String>,
+    pub confidence: RelationshipConfidence,
+    pub unresolved_reason: Option<String>,
+    pub evidence: SourceAnchor,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotIndex {
+    pub schema_version: u32,
+    pub indexer_version: String,
+    pub project_id: String,
+    pub snapshot_id: String,
+    pub status: SnapshotIndexStatus,
+    pub parsers: Vec<ParserVersion>,
+    pub files: Vec<IndexedFile>,
+    pub symbols: Vec<IndexedSymbol>,
+    pub relationships: Vec<IndexedRelationship>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexProgress {
+    pub job_id: String,
+    pub project_id: String,
+    pub snapshot_id: String,
+    pub status: IndexJobStatus,
+    pub files_total: usize,
+    pub files_processed: usize,
+    pub files_indexed: usize,
+    pub symbols_found: usize,
+    pub relationships_found: usize,
+    pub current_path: Option<String>,
+    pub message: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IndexStart {
+    pub job_id: String,
+    pub project_id: String,
+    pub snapshot_id: String,
+    pub status: IndexJobStatus,
+}
+
+#[derive(Clone, Debug)]
+struct WalkContext {
+    scopes: Arc<Vec<String>>,
+    owner_symbol_id: Option<Arc<str>>,
+    owner_is_test: bool,
+    inside_export: bool,
+}
+
+impl Default for WalkContext {
+    fn default() -> Self {
+        Self {
+            scopes: Arc::new(Vec::new()),
+            owner_symbol_id: None,
+            owner_is_test: false,
+            inside_export: false,
+        }
+    }
+}
+
+struct CallCandidate {
+    path: String,
+    source_id: String,
+    scopes: Arc<Vec<String>>,
+    is_test: bool,
+    name: String,
+    direct_identifier: bool,
+    unresolved_reason: Option<String>,
+    anchor: SourceAnchor,
+}
+
+struct ImportCandidate {
+    path: String,
+    module_specifier: Option<String>,
+    unresolved_reason: Option<String>,
+    bindings: Vec<ImportBinding>,
+    anchor: SourceAnchor,
+}
+
+struct ImportBinding {
+    local_name: String,
+    imported_name: String,
+}
+
+struct ParsedFile {
+    file: IndexedFile,
+    symbols: Vec<IndexedSymbol>,
+    calls: Vec<CallCandidate>,
+    imports: Vec<ImportCandidate>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SupportedLanguage {
+    Rust,
+    TypeScript,
+    Tsx,
+    JavaScript,
+}
+
+impl SupportedLanguage {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Rust => "rust",
+            Self::TypeScript => "typescript",
+            Self::Tsx => "tsx",
+            Self::JavaScript => "javascript",
+        }
+    }
+
+    fn grammar_name(self) -> &'static str {
+        match self {
+            Self::Rust => "tree-sitter-rust",
+            Self::TypeScript | Self::Tsx => "tree-sitter-typescript",
+            Self::JavaScript => "tree-sitter-javascript",
+        }
+    }
+
+    fn grammar_version(self) -> &'static str {
+        match self {
+            Self::Rust => "0.24.2",
+            Self::TypeScript | Self::Tsx => "0.23.2",
+            Self::JavaScript => "0.25.0",
+        }
+    }
+
+    fn language(self) -> Language {
+        match self {
+            Self::Rust => tree_sitter_rust::LANGUAGE.into(),
+            Self::TypeScript => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+            Self::Tsx => tree_sitter_typescript::LANGUAGE_TSX.into(),
+            Self::JavaScript => tree_sitter_javascript::LANGUAGE.into(),
+        }
+    }
+
+    fn from_path(path: &str) -> Option<Self> {
+        match Path::new(path)
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .map(str::to_ascii_lowercase)
+            .as_deref()
+        {
+            Some("rs") => Some(Self::Rust),
+            Some("ts") | Some("mts") | Some("cts") => Some(Self::TypeScript),
+            Some("tsx") => Some(Self::Tsx),
+            Some("js") | Some("jsx") | Some("mjs") | Some("cjs") => Some(Self::JavaScript),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct SnapshotIndexJobs(Arc<Mutex<HashMap<String, JobRecord>>>);
+
+#[derive(Clone)]
+struct JobRecord {
+    progress: IndexProgress,
+    cancellation: Arc<AtomicBool>,
+}
+
+impl SnapshotIndexJobs {
+    pub fn begin(
+        &self,
+        project_id: &str,
+        snapshot_id: &str,
+        files_total: usize,
+    ) -> Result<(IndexProgress, Arc<AtomicBool>), String> {
+        let mut jobs = self
+            .0
+            .lock()
+            .map_err(|_| "The parser job store is temporarily unavailable.".to_owned())?;
+        if jobs.values().any(|job| {
+            job.progress.project_id == project_id
+                && job.progress.snapshot_id == snapshot_id
+                && job.progress.status == IndexJobStatus::Running
+        }) {
+            return Err("This snapshot is already being indexed.".to_owned());
+        }
+        while jobs.len() >= MAX_RETAINED_JOBS {
+            let removable = jobs
+                .iter()
+                .find(|(_, job)| job.progress.status != IndexJobStatus::Running)
+                .map(|(id, _)| id.clone());
+            if let Some(id) = removable {
+                jobs.remove(&id);
+            } else {
+                return Err(
+                    "Too many snapshot indexes are running. Wait for one to finish.".to_owned(),
+                );
+            }
+        }
+        let job_id = Uuid::new_v4().to_string();
+        let cancellation = Arc::new(AtomicBool::new(false));
+        let progress = IndexProgress {
+            job_id: job_id.clone(),
+            project_id: project_id.to_owned(),
+            snapshot_id: snapshot_id.to_owned(),
+            status: IndexJobStatus::Running,
+            files_total,
+            files_processed: 0,
+            files_indexed: 0,
+            symbols_found: 0,
+            relationships_found: 0,
+            current_path: None,
+            message: None,
+        };
+        jobs.insert(
+            job_id,
+            JobRecord {
+                progress: progress.clone(),
+                cancellation: Arc::clone(&cancellation),
+            },
+        );
+        Ok((progress, cancellation))
+    }
+
+    pub fn update(&self, progress: IndexProgress) {
+        if let Ok(mut jobs) = self.0.lock() {
+            if let Some(job) = jobs.get_mut(&progress.job_id) {
+                job.progress = progress;
+            }
+        }
+    }
+
+    pub fn get(&self, job_id: &str) -> Option<IndexProgress> {
+        self.0
+            .lock()
+            .ok()?
+            .get(job_id)
+            .map(|job| job.progress.clone())
+    }
+
+    pub fn cancel(&self, job_id: &str) -> Result<(), String> {
+        let jobs = self
+            .0
+            .lock()
+            .map_err(|_| "The parser job store is temporarily unavailable.".to_owned())?;
+        let job = jobs
+            .get(job_id)
+            .ok_or_else(|| "This indexing job is no longer available.".to_owned())?;
+        if job.progress.status != IndexJobStatus::Running {
+            return Err("This indexing job has already finished.".to_owned());
+        }
+        job.cancellation.store(true, Ordering::Relaxed);
+        Ok(())
+    }
+}
+
+pub fn build_snapshot_index<F>(
+    storage_dir: &Path,
+    manifest: &SnapshotManifest,
+    job_id: &str,
+    cancellation: &AtomicBool,
+    mut on_progress: F,
+) -> SnapshotIndex
+where
+    F: FnMut(&IndexProgress),
+{
+    let mut progress = IndexProgress {
+        job_id: job_id.to_owned(),
+        project_id: manifest.summary.project_id.clone(),
+        snapshot_id: manifest.summary.snapshot_id.clone(),
+        status: IndexJobStatus::Running,
+        files_total: manifest.files.len(),
+        files_processed: 0,
+        files_indexed: 0,
+        symbols_found: 0,
+        relationships_found: 0,
+        current_path: None,
+        message: None,
+    };
+    let supported_parsers = parser_catalog();
+    let files_by_path = manifest
+        .files
+        .iter()
+        .map(|file| file.path.clone())
+        .collect::<BTreeSet<_>>();
+    let mut files = Vec::with_capacity(manifest.files.len());
+    let mut symbols = BTreeMap::<String, IndexedSymbol>::new();
+    let mut call_candidates = Vec::new();
+    let mut import_candidates = Vec::new();
+    let mut total_source_bytes = 0_u64;
+    let mut total_import_bindings = 0_usize;
+    let mut partial = false;
+    let mut hit_global_limit = false;
+    let mut ordered_files = manifest.files.iter().collect::<Vec<_>>();
+    ordered_files.sort_by(|left, right| left.path.cmp(&right.path));
+
+    for (file_index, captured) in ordered_files.iter().enumerate() {
+        progress.current_path = Some(captured.path.clone());
+        if cancellation.load(Ordering::Relaxed) {
+            progress.status = IndexJobStatus::Cancelled;
+            progress.message =
+                Some("Indexing was cancelled. No partial index was saved.".to_owned());
+            on_progress(&progress);
+            return snapshot_index(
+                manifest,
+                SnapshotIndexStatus::Cancelled,
+                supported_parsers,
+                files,
+                symbols.into_values().collect(),
+                Vec::new(),
+            );
+        }
+
+        if file_index >= MAX_INDEXED_FILES || hit_global_limit {
+            partial = true;
+            files.push(unprocessed_file(
+                captured,
+                IndexFileStatus::IndexLimitExceeded,
+                "The snapshot index reached its 5,000-file or 50 MB source limit. The file remains available in the repository inventory.",
+            ));
+            progress.files_processed += 1;
+            continue;
+        }
+        if captured.size_bytes > MAX_SOURCE_BYTES_PER_FILE {
+            partial = true;
+            files.push(unprocessed_file(
+                captured,
+                IndexFileStatus::FileTooLarge,
+                "This file exceeds the 512 KB per-file parser limit. Source browsing remains available.",
+            ));
+            progress.files_processed += 1;
+            update_progress_counts(
+                &mut progress,
+                &files,
+                &symbols,
+                &call_candidates,
+                &import_candidates,
+            );
+            on_progress(&progress);
+            continue;
+        }
+        match captured.content_kind {
+            CapturedContentKind::Binary => {
+                partial = true;
+                files.push(unprocessed_file(
+                    captured,
+                    IndexFileStatus::Binary,
+                    "Binary content is not parsed.",
+                ));
+                progress.files_processed += 1;
+                on_progress(&progress);
+                continue;
+            }
+            CapturedContentKind::InvalidEncoding => {
+                partial = true;
+                files.push(unprocessed_file(
+                    captured,
+                    IndexFileStatus::InvalidEncoding,
+                    "Invalid UTF-8 content is not parsed.",
+                ));
+                progress.files_processed += 1;
+                on_progress(&progress);
+                continue;
+            }
+            CapturedContentKind::Text | CapturedContentKind::Unknown => {}
+        }
+
+        let Some(language) = SupportedLanguage::from_path(&captured.path) else {
+            partial = true;
+            files.push(unprocessed_file(
+                captured,
+                IndexFileStatus::UnsupportedLanguage,
+                "No parser is shipped for this file extension. The file remains available in the repository inventory.",
+            ));
+            progress.files_processed += 1;
+            on_progress(&progress);
+            continue;
+        };
+        if total_source_bytes.saturating_add(captured.size_bytes) > MAX_TOTAL_SOURCE_BYTES {
+            partial = true;
+            hit_global_limit = true;
+            files.push(unprocessed_file(
+                captured,
+                IndexFileStatus::IndexLimitExceeded,
+                "The snapshot index reached its 50 MB total source limit. Remaining files stay available in the repository inventory.",
+            ));
+            progress.files_processed += 1;
+            on_progress(&progress);
+            continue;
+        }
+        let source = match snapshot::read_snapshot_source_from_manifest(
+            storage_dir,
+            manifest,
+            &captured.path,
+        ) {
+            Ok(source) => source,
+            Err(_) => {
+                partial = true;
+                files.push(unprocessed_file(
+                    captured,
+                    IndexFileStatus::SourceUnavailable,
+                    "The captured source blob is unavailable or failed its integrity check. Re-capture this repository to rebuild the index.",
+                ));
+                progress.files_processed += 1;
+                on_progress(&progress);
+                continue;
+            }
+        };
+        total_source_bytes = total_source_bytes.saturating_add(source.size_bytes);
+        let parsed = parse_file(
+            &source.path,
+            &source.sha256,
+            &source.contents,
+            language,
+            cancellation,
+        );
+        match parsed {
+            Err(ParseFailure::Cancelled) => {
+                progress.status = IndexJobStatus::Cancelled;
+                progress.message =
+                    Some("Indexing was cancelled. No partial index was saved.".to_owned());
+                on_progress(&progress);
+                return snapshot_index(
+                    manifest,
+                    SnapshotIndexStatus::Cancelled,
+                    supported_parsers,
+                    files,
+                    symbols.into_values().collect(),
+                    Vec::new(),
+                );
+            }
+            Err(ParseFailure::ParserUnavailable(message)) => {
+                partial = true;
+                files.push(unprocessed_file(
+                    captured,
+                    IndexFileStatus::ParserUnavailable,
+                    &message,
+                ));
+            }
+            Err(ParseFailure::AnalysisLimit) => {
+                partial = true;
+                files.push(unprocessed_file(
+                    captured,
+                    IndexFileStatus::AnalysisLimitExceeded,
+                    "The parser exceeded its per-file time or syntax-node limit. The file remains available in the repository inventory.",
+                ));
+            }
+            Ok(parsed) => {
+                partial |= matches!(
+                    parsed.file.status,
+                    IndexFileStatus::PartialParse | IndexFileStatus::ParseError
+                );
+                let parsed_import_binding_count = parsed
+                    .imports
+                    .iter()
+                    .map(|candidate| candidate.bindings.len())
+                    .sum::<usize>();
+                if symbols.len() + parsed.symbols.len() > MAX_INDEXED_SYMBOLS
+                    || call_candidates.len()
+                        + import_candidates.len()
+                        + parsed.calls.len()
+                        + parsed.imports.len()
+                        > MAX_INDEXED_RELATIONSHIPS
+                    || total_import_bindings.saturating_add(parsed_import_binding_count)
+                        > MAX_INDEXED_IMPORT_BINDINGS
+                {
+                    partial = true;
+                    hit_global_limit = true;
+                    files.push(unprocessed_file(
+                        captured,
+                        IndexFileStatus::IndexLimitExceeded,
+                        "The snapshot index reached its symbol or relationship limit. The file remains available in the repository inventory.",
+                    ));
+                } else {
+                    total_import_bindings += parsed_import_binding_count;
+                    for symbol in parsed.symbols {
+                        symbols.entry(symbol.symbol_id.clone()).or_insert(symbol);
+                    }
+                    call_candidates.extend(parsed.calls);
+                    import_candidates.extend(parsed.imports);
+                    files.push(parsed.file);
+                }
+            }
+        }
+        progress.files_processed += 1;
+        update_progress_counts(
+            &mut progress,
+            &files,
+            &symbols,
+            &call_candidates,
+            &import_candidates,
+        );
+        on_progress(&progress);
+    }
+
+    let mut relationships = build_definition_relationships(&symbols);
+    let (import_relationships, imported_call_targets) =
+        resolve_imports(import_candidates, &files_by_path, &files, &symbols);
+    relationships.extend(import_relationships);
+    relationships.extend(resolve_calls(
+        call_candidates,
+        &symbols,
+        &imported_call_targets,
+    ));
+    relationships.sort_by(relationship_order);
+    relationships.dedup_by(|left, right| left.relationship_id == right.relationship_id);
+    if relationships.len() > MAX_INDEXED_RELATIONSHIPS {
+        let omitted = relationships.split_off(MAX_INDEXED_RELATIONSHIPS);
+        let omitted_paths = omitted
+            .into_iter()
+            .map(|edge| edge.evidence.path)
+            .collect::<BTreeSet<_>>();
+        for file in files
+            .iter_mut()
+            .filter(|file| omitted_paths.contains(&file.path))
+        {
+            file.status = IndexFileStatus::IndexLimitExceeded;
+            file.message = Some(
+                "The index reached its 100,000-relationship limit. Some edges anchored in this file were omitted; all captured source remains browseable."
+                    .to_owned(),
+            );
+        }
+        partial = true;
+    }
+    let mut relationships_by_path = HashMap::<String, usize>::new();
+    for edge in &relationships {
+        *relationships_by_path
+            .entry(edge.evidence.path.clone())
+            .or_default() += 1;
+    }
+    for file in &mut files {
+        file.relationship_count = relationships_by_path
+            .get(&file.path)
+            .copied()
+            .unwrap_or_default();
+    }
+    if files
+        .iter()
+        .any(|file| file.status != IndexFileStatus::Indexed)
+    {
+        partial = true;
+    }
+    progress.status = if partial {
+        IndexJobStatus::Partial
+    } else {
+        IndexJobStatus::Complete
+    };
+    progress.current_path = None;
+    progress.files_indexed = files
+        .iter()
+        .filter(|file| {
+            matches!(
+                file.status,
+                IndexFileStatus::Indexed | IndexFileStatus::PartialParse
+            )
+        })
+        .count();
+    progress.symbols_found = symbols.len();
+    progress.relationships_found = relationships.len();
+    progress.message = Some(if partial {
+        "Index complete with unsupported files, parse gaps, or bounded work omitted. Unresolved edges remain listed with their reasons.".to_owned()
+    } else {
+        "Index complete for every captured file supported by the shipped parsers.".to_owned()
+    });
+    on_progress(&progress);
+    if cancellation.load(Ordering::Relaxed) {
+        progress.status = IndexJobStatus::Cancelled;
+        progress.message = Some("Indexing was cancelled. No partial index was saved.".to_owned());
+        on_progress(&progress);
+        return snapshot_index(
+            manifest,
+            SnapshotIndexStatus::Cancelled,
+            supported_parsers,
+            files,
+            symbols.into_values().collect(),
+            Vec::new(),
+        );
+    }
+    snapshot_index(
+        manifest,
+        if partial {
+            SnapshotIndexStatus::Partial
+        } else {
+            SnapshotIndexStatus::Complete
+        },
+        supported_parsers,
+        files,
+        symbols.into_values().collect(),
+        relationships,
+    )
+}
+
+fn parser_catalog() -> Vec<ParserVersion> {
+    [
+        SupportedLanguage::JavaScript,
+        SupportedLanguage::Rust,
+        SupportedLanguage::Tsx,
+        SupportedLanguage::TypeScript,
+    ]
+    .into_iter()
+    .map(parser_version)
+    .collect()
+}
+
+fn parser_version(language: SupportedLanguage) -> ParserVersion {
+    let grammar = language.language();
+    let grammar_version = grammar
+        .metadata()
+        .map(|metadata| {
+            format!(
+                "{}.{}.{}",
+                metadata.major_version, metadata.minor_version, metadata.patch_version
+            )
+        })
+        .unwrap_or_else(|| language.grammar_version().to_owned());
+    ParserVersion {
+        engine: "tree-sitter".to_owned(),
+        engine_version: TREE_SITTER_RUNTIME_VERSION.to_owned(),
+        engine_language_abi: tree_sitter::LANGUAGE_VERSION,
+        grammar: language.grammar_name().to_owned(),
+        grammar_version,
+        grammar_abi: grammar.abi_version(),
+    }
+}
+
+fn snapshot_index(
+    manifest: &SnapshotManifest,
+    status: SnapshotIndexStatus,
+    parsers: Vec<ParserVersion>,
+    mut files: Vec<IndexedFile>,
+    mut symbols: Vec<IndexedSymbol>,
+    mut relationships: Vec<IndexedRelationship>,
+) -> SnapshotIndex {
+    files.sort_by(|left, right| left.path.cmp(&right.path));
+    symbols.sort_by(|left, right| {
+        left.path
+            .cmp(&right.path)
+            .then(left.qualified_name.cmp(&right.qualified_name))
+            .then(symbol_kind_label(&left.kind).cmp(symbol_kind_label(&right.kind)))
+            .then(left.symbol_id.cmp(&right.symbol_id))
+    });
+    relationships.sort_by(relationship_order);
+    SnapshotIndex {
+        schema_version: INDEX_SCHEMA_VERSION,
+        indexer_version: INDEXER_VERSION.to_owned(),
+        project_id: manifest.summary.project_id.clone(),
+        snapshot_id: manifest.summary.snapshot_id.clone(),
+        status,
+        parsers,
+        files,
+        symbols,
+        relationships,
+    }
+}
+
+fn unprocessed_file(
+    captured: &snapshot::CapturedFile,
+    status: IndexFileStatus,
+    message: &str,
+) -> IndexedFile {
+    IndexedFile {
+        path: captured.path.clone(),
+        file_id: file_id(&captured.path),
+        language: SupportedLanguage::from_path(&captured.path)
+            .map(|language| language.label().to_owned()),
+        status,
+        parser: None,
+        source_sha256: captured.sha256.clone(),
+        source_size_bytes: captured.size_bytes,
+        parse_error_count: 0,
+        symbol_count: 0,
+        relationship_count: 0,
+        message: Some(message.to_owned()),
+    }
+}
+
+#[derive(Debug)]
+enum ParseFailure {
+    Cancelled,
+    ParserUnavailable(String),
+    AnalysisLimit,
+}
+
+fn parse_file(
+    path: &str,
+    source_sha256: &str,
+    source: &str,
+    language: SupportedLanguage,
+    cancellation: &AtomicBool,
+) -> Result<ParsedFile, ParseFailure> {
+    let language_object = language.language();
+    let mut parser = Parser::new();
+    parser.set_language(&language_object).map_err(|_| {
+        ParseFailure::ParserUnavailable(
+            "The bundled parser grammar is incompatible with this Tree-sitter runtime.".to_owned(),
+        )
+    })?;
+    let started = Instant::now();
+    let mut user_cancelled = false;
+    let mut exceeded_time = false;
+    let mut progress_callback = |_state: &tree_sitter::ParseState| {
+        if cancellation.load(Ordering::Relaxed) {
+            user_cancelled = true;
+            ControlFlow::Break(())
+        } else if started.elapsed() > MAX_PARSE_TIME {
+            exceeded_time = true;
+            ControlFlow::Break(())
+        } else {
+            ControlFlow::Continue(())
+        }
+    };
+    let options = ParseOptions::new().progress_callback(&mut progress_callback);
+    let source_bytes = source.as_bytes();
+    let mut read_chunk =
+        |offset: usize, _position: Point| source_bytes.get(offset..).unwrap_or(&[]);
+    let tree = parser.parse_with_options(&mut read_chunk, None, Some(options));
+    let Some(tree) = tree else {
+        return if user_cancelled || cancellation.load(Ordering::Relaxed) {
+            Err(ParseFailure::Cancelled)
+        } else if exceeded_time {
+            Err(ParseFailure::AnalysisLimit)
+        } else {
+            Err(ParseFailure::ParserUnavailable(
+                "The parser could not produce a syntax tree.".to_owned(),
+            ))
+        };
+    };
+    if cancellation.load(Ordering::Relaxed) {
+        return Err(ParseFailure::Cancelled);
+    }
+    collect_file_index(path, source_sha256, source, language, tree, cancellation)
+}
+
+fn collect_file_index(
+    path: &str,
+    source_sha256: &str,
+    source: &str,
+    language: SupportedLanguage,
+    tree: tree_sitter::Tree,
+    cancellation: &AtomicBool,
+) -> Result<ParsedFile, ParseFailure> {
+    let root = tree.root_node();
+    let parse_error_count = count_parse_errors(root, cancellation)?;
+    let file_id = file_id(path);
+    let parser = parser_version(language);
+    let file_is_test = is_test_path(path);
+    let mut symbols = Vec::new();
+    let mut calls = Vec::new();
+    let mut imports = Vec::new();
+    let mut import_binding_count = 0_usize;
+    let mut stack = vec![(root, WalkContext::default(), 0_usize)];
+    let mut visited = 0_usize;
+    let mut analysis_limited = false;
+
+    while let Some((node, context, depth)) = stack.pop() {
+        if cancellation.load(Ordering::Relaxed) {
+            return Err(ParseFailure::Cancelled);
+        }
+        visited += 1;
+        if visited > MAX_AST_NODES_PER_FILE || depth > MAX_SCOPE_DEPTH {
+            analysis_limited = true;
+            break;
+        }
+        if let Some((kind, name_node)) = declaration(&node, language, &context) {
+            let name = node_text(name_node, source);
+            if !name.is_empty() && name.len() <= 512 {
+                let exported = context.inside_export
+                    || (language == SupportedLanguage::Rust && rust_public(&node));
+                let is_test = kind.is_callable()
+                    && (file_is_test
+                        || (language == SupportedLanguage::Rust
+                            && rust_test_attribute(&node, source)));
+                let qualified_name = qualify(&context.scopes, &name);
+                let signature = signature_bytes(&node, name_node, source, &kind);
+                let signature_sha256 = digest(signature.as_bytes());
+                let declaration_identity = format!(
+                    "{}:{}:{}:{}:{}",
+                    language.label(),
+                    path,
+                    qualified_name,
+                    symbol_kind_label(&kind),
+                    signature_sha256
+                );
+                let symbol_id = format!("sym:{}", digest(declaration_identity.as_bytes()));
+                let indexed_symbol = IndexedSymbol {
+                    symbol_id: symbol_id.clone(),
+                    path: path.to_owned(),
+                    language: language.label().to_owned(),
+                    kind: kind.clone(),
+                    name: name.clone(),
+                    qualified_name,
+                    declaration_identity,
+                    signature_sha256,
+                    is_exported: exported,
+                    is_test,
+                    anchor: anchor(path, source_sha256, node),
+                };
+                symbols.push(indexed_symbol);
+
+                let child_scope = opens_symbol_scope(&kind, language);
+                if child_scope {
+                    let mut scopes = context.scopes.as_ref().clone();
+                    scopes.push(name);
+                    let mut child_context = context.clone();
+                    child_context.scopes = Arc::new(scopes);
+                    if kind.is_callable() {
+                        child_context.owner_symbol_id = Some(Arc::from(symbol_id));
+                        child_context.owner_is_test = is_test;
+                    }
+                    push_children(node, child_context, depth, &mut stack);
+                    continue;
+                }
+            }
+        }
+
+        if node.kind() == "impl_item" {
+            if let Some(implementation_type) = node.child_by_field_name("type") {
+                let mut scopes = context.scopes.as_ref().clone();
+                scopes.push(format!("impl:{}", node_text(implementation_type, source)));
+                let mut child_context = context.clone();
+                child_context.scopes = Arc::new(scopes);
+                push_children(node, child_context, depth, &mut stack);
+                continue;
+            }
+        }
+
+        let mut child_context = context.clone();
+        if node.kind() == "export_statement" || node.kind() == "export_declaration" {
+            child_context.inside_export = true;
+        }
+        if is_import_node(node, language) {
+            if let Some(candidate) = import_candidate(node, path, source, source_sha256, language) {
+                import_binding_count += candidate.bindings.len();
+                if import_binding_count > MAX_IMPORT_BINDINGS_PER_FILE {
+                    analysis_limited = true;
+                    break;
+                }
+                imports.push(candidate);
+            }
+        }
+        if node.kind() == "call_expression" {
+            if !is_static_import_call(node, source) {
+                calls.push(call_candidate(
+                    node,
+                    path,
+                    source,
+                    source_sha256,
+                    &context,
+                    file_is_test,
+                    language,
+                    &file_id,
+                ));
+            } else if let Some(candidate) =
+                import_candidate(node, path, source, source_sha256, language)
+            {
+                import_binding_count += candidate.bindings.len();
+                if import_binding_count > MAX_IMPORT_BINDINGS_PER_FILE {
+                    analysis_limited = true;
+                    break;
+                }
+                imports.push(candidate);
+            }
+        }
+        push_children(node, child_context, depth, &mut stack);
+    }
+
+    if analysis_limited {
+        return Err(ParseFailure::AnalysisLimit);
+    }
+    let status = if parse_error_count > 0 {
+        if symbols.is_empty() {
+            IndexFileStatus::ParseError
+        } else {
+            IndexFileStatus::PartialParse
+        }
+    } else {
+        IndexFileStatus::Indexed
+    };
+    let message = match status {
+        IndexFileStatus::PartialParse => Some("The parser recovered from syntax errors. Indexed declarations and relationships may be incomplete.".to_owned()),
+        IndexFileStatus::ParseError => Some("The parser found syntax errors and no usable declarations.".to_owned()),
+        _ => None,
+    };
+    let symbol_count = symbols.len();
+    Ok(ParsedFile {
+        file: IndexedFile {
+            path: path.to_owned(),
+            file_id,
+            language: Some(language.label().to_owned()),
+            status,
+            parser: Some(parser),
+            source_sha256: source_sha256.to_owned(),
+            source_size_bytes: source.len() as u64,
+            parse_error_count,
+            symbol_count,
+            relationship_count: 0,
+            message,
+        },
+        symbols,
+        calls,
+        imports,
+    })
+}
+
+fn push_children<'tree>(
+    node: Node<'tree>,
+    child_context: WalkContext,
+    depth: usize,
+    stack: &mut Vec<(Node<'tree>, WalkContext, usize)>,
+) {
+    for index in (0..node.child_count()).rev() {
+        if let Some(child) = node.child(index) {
+            stack.push((child, child_context.clone(), depth + 1));
+        }
+    }
+}
+
+fn declaration<'tree>(
+    node: &Node<'tree>,
+    language: SupportedLanguage,
+    context: &WalkContext,
+) -> Option<(SymbolKind, Node<'tree>)> {
+    let kind = node.kind();
+    let symbol_kind = match language {
+        SupportedLanguage::Rust => match kind {
+            "function_item" | "function_signature" => {
+                if context
+                    .scopes
+                    .last()
+                    .is_some_and(|scope| scope.starts_with("impl:"))
+                {
+                    SymbolKind::Method
+                } else {
+                    SymbolKind::Function
+                }
+            }
+            "struct_item" => SymbolKind::Struct,
+            "enum_item" => SymbolKind::Enum,
+            "union_item" => SymbolKind::Struct,
+            "trait_item" => SymbolKind::Trait,
+            "type_item" => SymbolKind::TypeAlias,
+            "mod_item" => SymbolKind::Module,
+            "const_item" | "static_item" => SymbolKind::Constant,
+            "macro_definition" => SymbolKind::Macro,
+            _ => return None,
+        },
+        SupportedLanguage::TypeScript | SupportedLanguage::Tsx => match kind {
+            "function_declaration" | "function_signature" | "generator_function_declaration" => {
+                SymbolKind::Function
+            }
+            "method_definition" | "method_signature" | "abstract_method_signature" => {
+                SymbolKind::Method
+            }
+            "class_declaration" | "abstract_class_declaration" => SymbolKind::Class,
+            "interface_declaration" => SymbolKind::Interface,
+            "type_alias_declaration" => SymbolKind::TypeAlias,
+            "enum_declaration" => SymbolKind::Enum,
+            "internal_module" | "module" => SymbolKind::Module,
+            "variable_declarator" => {
+                let parent_kind = node
+                    .parent()
+                    .map(|parent| parent.kind())
+                    .unwrap_or_default();
+                if !matches!(parent_kind, "lexical_declaration" | "variable_declaration") {
+                    return None;
+                }
+                let value_kind = node.child_by_field_name("value").map(|value| value.kind());
+                match value_kind {
+                    Some("arrow_function" | "function_expression" | "generator_function") => {
+                        SymbolKind::Function
+                    }
+                    _ => SymbolKind::Variable,
+                }
+            }
+            _ => return None,
+        },
+        SupportedLanguage::JavaScript => match kind {
+            "function_declaration" | "generator_function_declaration" => SymbolKind::Function,
+            "method_definition" => SymbolKind::Method,
+            "class_declaration" | "class" => SymbolKind::Class,
+            "variable_declarator" => {
+                let parent_kind = node
+                    .parent()
+                    .map(|parent| parent.kind())
+                    .unwrap_or_default();
+                if !matches!(parent_kind, "lexical_declaration" | "variable_declaration") {
+                    return None;
+                }
+                let value_kind = node.child_by_field_name("value").map(|value| value.kind());
+                match value_kind {
+                    Some("arrow_function" | "function_expression" | "generator_function") => {
+                        SymbolKind::Function
+                    }
+                    _ => SymbolKind::Variable,
+                }
+            }
+            _ => return None,
+        },
+    };
+    let name = node.child_by_field_name("name")?;
+    if name.kind().contains("pattern") || name.kind() == "object_pattern" {
+        return None;
+    }
+    Some((symbol_kind, name))
+}
+
+fn opens_symbol_scope(kind: &SymbolKind, language: SupportedLanguage) -> bool {
+    kind.is_callable()
+        || matches!(
+            kind,
+            SymbolKind::Class
+                | SymbolKind::Struct
+                | SymbolKind::Enum
+                | SymbolKind::Trait
+                | SymbolKind::Interface
+                | SymbolKind::Module
+        )
+        || (language == SupportedLanguage::Rust && matches!(kind, SymbolKind::TypeAlias))
+}
+
+fn rust_public(node: &Node<'_>) -> bool {
+    (0..node.child_count()).any(|index| {
+        node.child(index)
+            .is_some_and(|child| child.kind() == "visibility_modifier")
+    })
+}
+
+fn rust_test_attribute(node: &Node<'_>, source: &str) -> bool {
+    (0..node.child_count()).any(|index| {
+        node.child(index).is_some_and(|child| {
+            child.kind() == "attribute_item" && {
+                let text = node_text(child, source);
+                text.contains("test")
+            }
+        })
+    })
+}
+
+fn is_test_path(path: &str) -> bool {
+    let normalized = path.to_ascii_lowercase();
+    let file = normalized.rsplit('/').next().unwrap_or(&normalized);
+    normalized
+        .split('/')
+        .any(|part| part == "tests" || part == "__tests__")
+        || file.contains(".test.")
+        || file.contains(".spec.")
+        || file.ends_with("_test.rs")
+}
+
+fn signature_bytes(node: &Node<'_>, name: Node<'_>, source: &str, kind: &SymbolKind) -> String {
+    if !kind.is_callable() {
+        return node_text(name, source);
+    }
+    let end = node
+        .child_by_field_name("body")
+        .map(|body| body.start_byte())
+        .unwrap_or_else(|| node.end_byte());
+    source
+        .get(name.start_byte()..end)
+        .map(str::to_owned)
+        .unwrap_or_else(|| node_text(name, source))
+}
+
+fn qualify(scopes: &[String], name: &str) -> String {
+    if scopes.is_empty() {
+        name.to_owned()
+    } else {
+        format!("{}::{name}", scopes.join("::"))
+    }
+}
+
+fn symbol_kind_label(kind: &SymbolKind) -> &'static str {
+    match kind {
+        SymbolKind::Function => "function",
+        SymbolKind::Method => "method",
+        SymbolKind::Class => "class",
+        SymbolKind::Struct => "struct",
+        SymbolKind::Enum => "enum",
+        SymbolKind::Trait => "trait",
+        SymbolKind::Interface => "interface",
+        SymbolKind::TypeAlias => "typeAlias",
+        SymbolKind::Module => "module",
+        SymbolKind::Constant => "constant",
+        SymbolKind::Variable => "variable",
+        SymbolKind::Macro => "macro",
+    }
+}
+
+fn node_text(node: Node<'_>, source: &str) -> String {
+    source
+        .get(node.start_byte()..node.end_byte())
+        .unwrap_or_default()
+        .to_owned()
+}
+
+fn count_parse_errors(root: Node<'_>, cancellation: &AtomicBool) -> Result<usize, ParseFailure> {
+    let mut count = 0;
+    let mut stack = vec![root];
+    let mut visited = 0_usize;
+    while let Some(node) = stack.pop() {
+        if cancellation.load(Ordering::Relaxed) {
+            return Err(ParseFailure::Cancelled);
+        }
+        visited += 1;
+        if visited > MAX_AST_NODES_PER_FILE {
+            return Err(ParseFailure::AnalysisLimit);
+        }
+        if node.kind() == "ERROR" || node.is_missing() {
+            count += 1;
+        }
+        for index in 0..node.child_count() {
+            if let Some(child) = node.child(index) {
+                stack.push(child);
+            }
+        }
+    }
+    Ok(count)
+}
+
+fn call_candidate(
+    node: Node<'_>,
+    path: &str,
+    source: &str,
+    source_sha256: &str,
+    context: &WalkContext,
+    file_is_test: bool,
+    language: SupportedLanguage,
+    file_id: &str,
+) -> CallCandidate {
+    let function = node.child_by_field_name("function");
+    let function_kind = function.map(|function| function.kind()).unwrap_or_default();
+    let (label, direct_identifier, unresolved_reason) = match function {
+        Some(function) if function.kind() == "identifier" => {
+            (node_text(function, source), true, None)
+        }
+        Some(function)
+            if language == SupportedLanguage::Rust && function.kind() == "scoped_identifier" =>
+        {
+            (
+                node_text(function, source),
+                false,
+                Some("qualified_call_not_resolved".to_owned()),
+            )
+        }
+        Some(function)
+            if matches!(
+                function.kind(),
+                "member_expression" | "field_expression" | "subscript_expression"
+            ) =>
+        {
+            (
+                node_text(function, source),
+                false,
+                Some("member_or_index_dispatch_not_resolved".to_owned()),
+            )
+        }
+        _ => (
+            function
+                .map(|function| node_text(function, source))
+                .unwrap_or_else(|| "<unknown callee>".to_owned()),
+            false,
+            Some(
+                if function_kind == "" {
+                    "callee_missing"
+                } else {
+                    "dynamic_callee_not_resolved"
+                }
+                .to_owned(),
+            ),
+        ),
+    };
+    let safe_name = label.chars().take(256).collect::<String>();
+    CallCandidate {
+        path: path.to_owned(),
+        source_id: context
+            .owner_symbol_id
+            .as_deref()
+            .unwrap_or(file_id)
+            .to_owned(),
+        scopes: Arc::clone(&context.scopes),
+        is_test: context.owner_is_test || file_is_test,
+        name: safe_name,
+        direct_identifier,
+        unresolved_reason,
+        anchor: anchor(path, source_sha256, node),
+    }
+}
+
+fn is_import_node(node: Node<'_>, language: SupportedLanguage) -> bool {
+    match language {
+        SupportedLanguage::Rust => node.kind() == "use_declaration",
+        SupportedLanguage::TypeScript | SupportedLanguage::Tsx | SupportedLanguage::JavaScript => {
+            matches!(node.kind(), "import_statement" | "export_statement")
+        }
+    }
+}
+
+fn is_static_import_call(node: Node<'_>, source: &str) -> bool {
+    let Some(function) = node.child_by_field_name("function") else {
+        return false;
+    };
+    matches!(node_text(function, source).as_str(), "require" | "import")
+}
+
+fn import_candidate(
+    node: Node<'_>,
+    path: &str,
+    source: &str,
+    source_sha256: &str,
+    language: SupportedLanguage,
+) -> Option<ImportCandidate> {
+    if language == SupportedLanguage::Rust {
+        return Some(ImportCandidate {
+            path: path.to_owned(),
+            module_specifier: None,
+            unresolved_reason: Some("rust_use_path_not_resolved_in_m0".to_owned()),
+            bindings: Vec::new(),
+            anchor: anchor(path, source_sha256, node),
+        });
+    }
+
+    let source_node = if node.kind() == "call_expression" {
+        node.child_by_field_name("arguments")?.named_child(0)?
+    } else {
+        node.child_by_field_name("source")?
+    };
+    let raw = node_text(source_node, source);
+    let specifier = static_string_value(source_node.kind(), &raw);
+    let bindings = if node.kind() == "import_statement" {
+        import_bindings(node, source)
+    } else {
+        Vec::new()
+    };
+    Some(ImportCandidate {
+        path: path.to_owned(),
+        unresolved_reason: if specifier.is_some() {
+            None
+        } else {
+            Some("module_specifier_is_not_a_plain_static_string".to_owned())
+        },
+        module_specifier: specifier,
+        bindings,
+        anchor: anchor(path, source_sha256, node),
+    })
+}
+
+fn import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
+    let Some(clause) = (0..node.child_count())
+        .filter_map(|index| node.child(index))
+        .find(|child| child.kind() == "import_clause")
+    else {
+        return Vec::new();
+    };
+    let mut bindings = Vec::new();
+    for index in 0..clause.named_child_count() {
+        let Some(child) = clause.named_child(index as u32) else {
+            continue;
+        };
+        match child.kind() {
+            "identifier" => {
+                // Default exports have syntax-specific names; keep their import edge visible,
+                // but do not guess which declaration a default import refers to.
+                bindings.push(ImportBinding {
+                    local_name: node_text(child, source).to_owned(),
+                    imported_name: "default".to_owned(),
+                });
+            }
+            "named_imports" => {
+                for specifier_index in 0..child.named_child_count() {
+                    let Some(specifier) = child.named_child(specifier_index as u32) else {
+                        continue;
+                    };
+                    if specifier.kind() != "import_specifier" {
+                        continue;
+                    }
+                    let Some(name) = specifier.child_by_field_name("name") else {
+                        continue;
+                    };
+                    let imported_name = node_text(name, source).to_owned();
+                    let local_name = specifier
+                        .child_by_field_name("alias")
+                        .map(|alias| node_text(alias, source).to_owned())
+                        .unwrap_or_else(|| imported_name.clone());
+                    if !local_name.is_empty() && !imported_name.is_empty() {
+                        bindings.push(ImportBinding {
+                            local_name,
+                            imported_name,
+                        });
+                    }
+                }
+            }
+            // Namespace-member calls need type-aware dispatch to be safe. The import edge
+            // remains indexed while calls such as `api.run()` remain explicitly unresolved.
+            "namespace_import" => {}
+            _ => {}
+        }
+    }
+    bindings
+}
+
+fn static_string_value(kind: &str, raw: &str) -> Option<String> {
+    if !matches!(kind, "string" | "string_literal") || raw.len() < 2 {
+        return None;
+    }
+    let first = raw.as_bytes()[0];
+    let last = *raw.as_bytes().last()?;
+    if !matches!(first, b'\'' | b'"') || first != last || raw[1..raw.len() - 1].contains('\\') {
+        return None;
+    }
+    let value = raw[1..raw.len() - 1].to_owned();
+    (!value.trim().is_empty()).then_some(value)
+}
+
+fn build_definition_relationships(
+    symbols: &BTreeMap<String, IndexedSymbol>,
+) -> Vec<IndexedRelationship> {
+    let mut result = Vec::new();
+    for symbol in symbols.values() {
+        let file_id = file_id(&symbol.path);
+        result.push(relationship(
+            RelationshipKind::Defines,
+            &file_id,
+            Some(&symbol.symbol_id),
+            Some(&symbol.path),
+            Some(&symbol.qualified_name),
+            RelationshipConfidence::High,
+            None,
+            symbol.anchor.clone(),
+        ));
+        if symbol.is_exported {
+            result.push(relationship(
+                RelationshipKind::Exports,
+                &file_id,
+                Some(&symbol.symbol_id),
+                Some(&symbol.path),
+                Some(&symbol.name),
+                RelationshipConfidence::High,
+                None,
+                symbol.anchor.clone(),
+            ));
+        }
+    }
+    result
+}
+
+fn resolve_imports(
+    candidates: Vec<ImportCandidate>,
+    captured_paths: &BTreeSet<String>,
+    files: &[IndexedFile],
+    symbols: &BTreeMap<String, IndexedSymbol>,
+) -> (
+    Vec<IndexedRelationship>,
+    HashMap<(String, String), Vec<String>>,
+) {
+    let fully_parsed = files
+        .iter()
+        .filter(|file| file.status == IndexFileStatus::Indexed)
+        .map(|file| file.path.as_str())
+        .collect::<BTreeSet<_>>();
+    let mut exported_callables = HashMap::<(String, String), Vec<String>>::new();
+    for symbol in symbols.values().filter(|symbol| {
+        symbol.is_exported
+            && symbol.kind.is_callable()
+            && fully_parsed.contains(symbol.path.as_str())
+    }) {
+        exported_callables
+            .entry((symbol.path.clone(), symbol.name.clone()))
+            .or_default()
+            .push(symbol.symbol_id.clone());
+    }
+    for targets in exported_callables.values_mut() {
+        targets.sort();
+        targets.dedup();
+    }
+    let mut relationships = Vec::new();
+    let mut imported_targets = HashMap::<(String, String), Vec<String>>::new();
+    for candidate in candidates {
+        let (target_path, reason) = match (&candidate.module_specifier, candidate.unresolved_reason)
+        {
+            (Some(specifier), None) => {
+                resolve_relative_import(&candidate.path, specifier, captured_paths)
+            }
+            (_, Some(reason)) => (None, reason),
+            _ => (None, "module_specifier_not_resolved".to_owned()),
+        };
+        let target_id = target_path.as_deref().map(file_id);
+        relationships.push(relationship(
+            RelationshipKind::Imports,
+            &file_id(&candidate.path),
+            target_id.as_deref(),
+            target_path.as_deref(),
+            candidate.module_specifier.as_deref(),
+            if target_id.is_some() {
+                RelationshipConfidence::High
+            } else {
+                RelationshipConfidence::Unresolved
+            },
+            target_id.is_none().then_some(reason),
+            candidate.anchor,
+        ));
+        let Some(target_path) = target_path else {
+            continue;
+        };
+        // A recovered syntax tree cannot prove that its exported declarations are complete.
+        if !fully_parsed.contains(target_path.as_str()) {
+            continue;
+        }
+        for binding in candidate.bindings {
+            if binding.imported_name == "default" {
+                continue;
+            }
+            if let Some(matching_symbols) =
+                exported_callables.get(&(target_path.clone(), binding.imported_name))
+            {
+                imported_targets
+                    .entry((candidate.path.clone(), binding.local_name))
+                    .or_default()
+                    .extend(matching_symbols.iter().cloned());
+            }
+        }
+    }
+    for targets in imported_targets.values_mut() {
+        targets.sort();
+        targets.dedup();
+    }
+    (relationships, imported_targets)
+}
+
+fn resolve_relative_import(
+    importer: &str,
+    specifier: &str,
+    captured_paths: &BTreeSet<String>,
+) -> (Option<String>, String) {
+    if !specifier.starts_with('.') || specifier.contains('?') || specifier.contains('#') {
+        return (
+            None,
+            "external_or_non_relative_module_not_resolved".to_owned(),
+        );
+    }
+    let mut components = importer.split('/').collect::<Vec<_>>();
+    components.pop();
+    for component in specifier.split('/') {
+        match component {
+            "" | "." => {}
+            ".." => {
+                if components.pop().is_none() {
+                    return (None, "relative_import_escapes_snapshot_root".to_owned());
+                }
+            }
+            value => components.push(value),
+        }
+    }
+    let base = components.join("/");
+    if base.is_empty() {
+        return (None, "relative_import_resolves_to_empty_path".to_owned());
+    }
+    let has_extension = Path::new(&base).extension().is_some();
+    let candidates = if has_extension {
+        vec![base]
+    } else {
+        ["ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs", "json"]
+            .into_iter()
+            .map(|extension| format!("{base}.{extension}"))
+            .chain(
+                ["ts", "tsx", "js", "jsx", "mts", "cts", "mjs", "cjs", "json"]
+                    .into_iter()
+                    .map(|extension| format!("{base}/index.{extension}")),
+            )
+            .collect()
+    };
+    let found = candidates
+        .into_iter()
+        .filter(|candidate| captured_paths.contains(candidate))
+        .collect::<BTreeSet<_>>();
+    match found.len() {
+        1 => (found.into_iter().next(), String::new()),
+        0 => (None, "relative_module_not_captured_in_snapshot".to_owned()),
+        _ => (None, "relative_module_resolution_is_ambiguous".to_owned()),
+    }
+}
+
+fn resolve_calls(
+    candidates: Vec<CallCandidate>,
+    symbols: &BTreeMap<String, IndexedSymbol>,
+    imported_targets: &HashMap<(String, String), Vec<String>>,
+) -> Vec<IndexedRelationship> {
+    let mut by_qualified = HashMap::<(String, String), Vec<&IndexedSymbol>>::new();
+    for symbol in symbols.values().filter(|symbol| symbol.kind.is_callable()) {
+        by_qualified
+            .entry((symbol.path.clone(), symbol.qualified_name.clone()))
+            .or_default()
+            .push(symbol);
+    }
+    candidates
+        .into_iter()
+        .map(|candidate| {
+            let mut target = None;
+            let mut unresolved_reason = candidate.unresolved_reason.clone();
+            if candidate.direct_identifier {
+                let scopes = candidate.scopes.as_ref();
+                for depth in (0..=scopes.len()).rev() {
+                    let qualified_name = qualify(&scopes[..depth], &candidate.name);
+                    let matches = by_qualified
+                        .get(&(candidate.path.clone(), qualified_name))
+                        .map(Vec::as_slice)
+                        .unwrap_or_default();
+                    if matches.len() == 1 {
+                        target = matches.first().map(|symbol| symbol.symbol_id.clone());
+                        unresolved_reason = None;
+                        break;
+                    }
+                    if matches.len() > 1 {
+                        unresolved_reason = Some("multiple_same_scope_declarations".to_owned());
+                        break;
+                    }
+                }
+                if target.is_none() && unresolved_reason.is_none() {
+                    match imported_targets.get(&(candidate.path.clone(), candidate.name.clone())) {
+                        Some(matches) if matches.len() == 1 => {
+                            target = matches.first().cloned();
+                            unresolved_reason = None;
+                        }
+                        Some(matches) if matches.len() > 1 => {
+                            unresolved_reason = Some("multiple_imported_export_matches".to_owned());
+                        }
+                        _ => {
+                            unresolved_reason =
+                                Some("no_unique_same_file_or_imported_declaration".to_owned());
+                        }
+                    }
+                }
+            }
+            let kind = if candidate.is_test {
+                RelationshipKind::TestReference
+            } else {
+                RelationshipKind::Calls
+            };
+            relationship(
+                kind,
+                &candidate.source_id,
+                target.as_deref(),
+                target
+                    .as_deref()
+                    .and_then(|target_id| symbols.get(target_id))
+                    .map(|symbol| symbol.path.as_str()),
+                Some(&candidate.name),
+                if target.is_some() {
+                    RelationshipConfidence::High
+                } else {
+                    RelationshipConfidence::Unresolved
+                },
+                unresolved_reason,
+                candidate.anchor,
+            )
+        })
+        .collect()
+}
+
+fn relationship(
+    kind: RelationshipKind,
+    source_id: &str,
+    target_id: Option<&str>,
+    target_path: Option<&str>,
+    target_label: Option<&str>,
+    confidence: RelationshipConfidence,
+    unresolved_reason: Option<String>,
+    evidence: SourceAnchor,
+) -> IndexedRelationship {
+    let key = format!(
+        "{}:{}:{}:{}:{}:{}",
+        relationship_kind_label(&kind),
+        source_id,
+        target_id.unwrap_or_default(),
+        target_label.unwrap_or_default(),
+        evidence.path,
+        evidence.start_byte
+    );
+    IndexedRelationship {
+        relationship_id: format!("rel:{}", digest(key.as_bytes())),
+        kind,
+        source_id: source_id.to_owned(),
+        target_id: target_id.map(str::to_owned),
+        target_path: target_path.map(str::to_owned),
+        target_label: target_label.map(str::to_owned),
+        confidence,
+        unresolved_reason,
+        evidence,
+    }
+}
+
+fn relationship_kind_label(kind: &RelationshipKind) -> &'static str {
+    match kind {
+        RelationshipKind::Defines => "defines",
+        RelationshipKind::Exports => "exports",
+        RelationshipKind::Imports => "imports",
+        RelationshipKind::Calls => "calls",
+        RelationshipKind::TestReference => "testReference",
+    }
+}
+
+fn relationship_order(
+    left: &IndexedRelationship,
+    right: &IndexedRelationship,
+) -> std::cmp::Ordering {
+    relationship_kind_label(&left.kind)
+        .cmp(relationship_kind_label(&right.kind))
+        .then(left.source_id.cmp(&right.source_id))
+        .then(left.target_id.cmp(&right.target_id))
+        .then(left.evidence.path.cmp(&right.evidence.path))
+        .then(left.evidence.start_byte.cmp(&right.evidence.start_byte))
+        .then(left.relationship_id.cmp(&right.relationship_id))
+}
+
+fn update_progress_counts(
+    progress: &mut IndexProgress,
+    files: &[IndexedFile],
+    symbols: &BTreeMap<String, IndexedSymbol>,
+    calls: &[CallCandidate],
+    imports: &[ImportCandidate],
+) {
+    progress.files_indexed = files
+        .iter()
+        .filter(|file| {
+            matches!(
+                file.status,
+                IndexFileStatus::Indexed | IndexFileStatus::PartialParse
+            )
+        })
+        .count();
+    progress.symbols_found = symbols.len();
+    progress.relationships_found = symbols.len() + calls.len() + imports.len();
+}
+
+fn anchor(path: &str, source_sha256: &str, node: Node<'_>) -> SourceAnchor {
+    let start = node.start_position();
+    let end = node.end_position();
+    SourceAnchor {
+        path: path.to_owned(),
+        source_sha256: source_sha256.to_owned(),
+        start_byte: node.start_byte(),
+        end_byte: node.end_byte(),
+        start_line: start.row + 1,
+        end_line: end.row + 1,
+        start_column: start.column + 1,
+        end_column: end.column + 1,
+    }
+}
+
+fn file_id(path: &str) -> String {
+    format!("file:{}", digest(path.as_bytes()))
+}
+
+fn digest(bytes: &[u8]) -> String {
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::project::{AccessStatus, RecentProject};
+    use crate::snapshot::{self, CaptureLimits};
+    use std::process::Command;
+    use std::sync::atomic::AtomicBool;
+
+    struct TestDirectory(PathBuf);
+
+    impl TestDirectory {
+        fn new() -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "code-atlas-index-{}-{}",
+                std::process::id(),
+                Uuid::new_v4()
+            ));
+            fs::create_dir_all(&path).expect("fixture directory should be created");
+            Self(path)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TestDirectory {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn git(root: &Path, args: &[&str]) {
+        let output = Command::new("git")
+            .args(args)
+            .current_dir(root)
+            .output()
+            .expect("git should be available for snapshot fixtures");
+        assert!(
+            output.status.success(),
+            "git {args:?} failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    fn write_fixture(root: &Path, relative_path: &str, source: &str) {
+        let path = root.join(relative_path);
+        fs::create_dir_all(path.parent().expect("fixture has a parent directory"))
+            .expect("fixture directories should be created");
+        fs::write(path, source).expect("fixture source should be written");
+    }
+
+    fn commit_fixture(root: &Path, message: &str) {
+        git(root, &["add", "--all"]);
+        git(root, &["commit", "-qm", message]);
+    }
+
+    fn fixture_project(root: &Path) -> RecentProject {
+        let path = root
+            .canonicalize()
+            .expect("fixture repository should resolve")
+            .display()
+            .to_string();
+        RecentProject {
+            project_id: path.clone(),
+            display_name: "fixture".to_owned(),
+            selected_path: path.clone(),
+            repository_root: path,
+            branch: Some("main".to_owned()),
+            head: None,
+            access_status: AccessStatus::Available,
+            last_opened_unix_ms: 0,
+        }
+    }
+
+    fn capture(storage: &Path, project: &RecentProject) -> SnapshotManifest {
+        let progress = snapshot::new_capture_progress(storage, project, CaptureLimits::default())
+            .expect("snapshot capture should start");
+        snapshot::capture_snapshot_with_progress(
+            storage,
+            project,
+            progress,
+            &AtomicBool::new(false),
+            &mut |_| {},
+        )
+        .expect("snapshot fixture should be captured")
+    }
+
+    fn build(storage: &Path, manifest: &SnapshotManifest) -> SnapshotIndex {
+        build_snapshot_index(
+            storage,
+            manifest,
+            "test-index-job",
+            &AtomicBool::new(false),
+            |_| {},
+        )
+    }
+
+    fn relationship_for<'a>(
+        index: &'a SnapshotIndex,
+        kind: RelationshipKind,
+        source_path: &str,
+        label: &str,
+    ) -> &'a IndexedRelationship {
+        index
+            .relationships
+            .iter()
+            .find(|edge| {
+                edge.kind == kind
+                    && edge.evidence.path == source_path
+                    && edge.target_label.as_deref() == Some(label)
+            })
+            .unwrap_or_else(|| panic!("missing {kind:?} relationship for {source_path}:{label}"))
+    }
+
+    #[test]
+    fn captured_snapshot_index_is_deterministic_anchored_and_conservative() {
+        let temporary = TestDirectory::new();
+        let root = temporary.path().join("repository");
+        fs::create_dir_all(&root).unwrap();
+        git(&root, &["init", "-q", "--initial-branch=main"]);
+        git(&root, &["config", "user.name", "Code Atlas Index Tests"]);
+        git(
+            &root,
+            &["config", "user.email", "index-tests@example.invalid"],
+        );
+        let worker_source = "export function work(): number { return 1; }\n";
+        write_fixture(
+            &root,
+            "src/app.ts",
+            "import { work as runTask } from './worker';\nexport function main() { return runTask(); }\nfunction local() { return main(); }\nexport function localCall() { return local(); }\n",
+        );
+        write_fixture(&root, "src/worker.ts", worker_source);
+        write_fixture(
+            &root,
+            "src/widget.tsx",
+            "export const Widget = () => <button>Atlas</button>;\n",
+        );
+        write_fixture(
+            &root,
+            "src/view.jsx",
+            "export function view() { return <div />; }\n",
+        );
+        write_fixture(
+            &root,
+            "src/dynamic.ts",
+            "export function dispatch(api: any) { getHandler()(); api.run(); }\n",
+        );
+        write_fixture(
+            &root,
+            "src/no-execution.ts",
+            "throw new Error('repository source must never execute');\nexport function stillIndexable() { return true; }\n",
+        );
+        write_fixture(
+            &root,
+            "tests/work.test.ts",
+            "import { work } from '../src/worker';\ntest('work', () => { work(); });\n",
+        );
+        write_fixture(
+            &root,
+            "src/recovered.js",
+            "export function usable() { return 1; }\nfunction broken( {\n",
+        );
+        write_fixture(&root, "src/invalid.ts", "function (\n");
+        write_fixture(
+            &root,
+            "src/main.rs",
+            "pub fn rust_entry() { helper(); }\nfn helper() {}\n",
+        );
+        write_fixture(
+            &root,
+            "notes.md",
+            "A captured file with no shipped parser.\n",
+        );
+        write_fixture(
+            &root,
+            "src/large.ts",
+            &" ".repeat(MAX_SOURCE_BYTES_PER_FILE as usize + 1),
+        );
+        commit_fixture(&root, "index fixture");
+
+        let storage = temporary.path().join("app-data");
+        let project = fixture_project(&root);
+        let manifest = capture(&storage, &project);
+        let indexed = build(&storage, &manifest);
+        let repeated = build(&storage, &manifest);
+        assert_eq!(indexed, repeated, "index output should be deterministic");
+        assert_eq!(indexed.status, SnapshotIndexStatus::Partial);
+        save_snapshot_index(&storage, &indexed).expect("completed index should persist locally");
+        assert_eq!(
+            load_snapshot_index(&storage, &project.project_id, &manifest.summary.snapshot_id)
+                .expect("saved index should load")
+                .as_ref(),
+            Some(&indexed)
+        );
+        assert!(indexed.parsers.iter().any(|parser| {
+            parser.grammar == "tree-sitter-typescript" && parser.grammar_version == "0.23.2"
+        }));
+        assert_eq!(
+            indexed
+                .files
+                .iter()
+                .find(|file| file.path == "src/widget.tsx")
+                .unwrap()
+                .status,
+            IndexFileStatus::Indexed
+        );
+        assert_eq!(
+            indexed
+                .files
+                .iter()
+                .find(|file| file.path == "src/view.jsx")
+                .unwrap()
+                .status,
+            IndexFileStatus::Indexed
+        );
+
+        let work = indexed
+            .symbols
+            .iter()
+            .find(|symbol| symbol.path == "src/worker.ts" && symbol.name == "work")
+            .expect("exported worker function should be indexed");
+        let source = snapshot::read_snapshot_source(
+            &storage,
+            &project.project_id,
+            &manifest.summary.snapshot_id,
+            "src/worker.ts",
+        )
+        .expect("captured worker source should read");
+        assert_eq!(work.anchor.source_sha256, source.sha256);
+        assert_eq!(
+            &source.contents.as_bytes()[work.anchor.start_byte..work.anchor.end_byte],
+            worker_source
+                .trim_end()
+                .strip_prefix("export ")
+                .unwrap()
+                .as_bytes(),
+            "symbol byte anchors should select exact captured bytes"
+        );
+
+        let imported_call =
+            relationship_for(&indexed, RelationshipKind::Calls, "src/app.ts", "runTask");
+        assert_eq!(
+            imported_call.target_id.as_deref(),
+            Some(work.symbol_id.as_str())
+        );
+        assert_eq!(imported_call.target_path.as_deref(), Some("src/worker.ts"));
+        assert_eq!(imported_call.confidence, RelationshipConfidence::High);
+        let local_call = relationship_for(&indexed, RelationshipKind::Calls, "src/app.ts", "local");
+        assert_eq!(local_call.confidence, RelationshipConfidence::High);
+        let rust_call =
+            relationship_for(&indexed, RelationshipKind::Calls, "src/main.rs", "helper");
+        assert_eq!(rust_call.confidence, RelationshipConfidence::High);
+        let test_call = relationship_for(
+            &indexed,
+            RelationshipKind::TestReference,
+            "tests/work.test.ts",
+            "work",
+        );
+        assert_eq!(
+            test_call.target_id.as_deref(),
+            Some(work.symbol_id.as_str())
+        );
+
+        let unresolved = indexed
+            .relationships
+            .iter()
+            .filter(|edge| {
+                edge.evidence.path == "src/dynamic.ts" && edge.kind == RelationshipKind::Calls
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(unresolved.len(), 3);
+        assert!(unresolved.iter().all(|edge| {
+            edge.confidence == RelationshipConfidence::Unresolved && edge.target_id.is_none()
+        }));
+        assert!(
+            unresolved.iter().any(
+                |edge| edge.unresolved_reason.as_deref() == Some("dynamic_callee_not_resolved")
+            )
+        );
+        assert!(
+            unresolved
+                .iter()
+                .any(|edge| edge.unresolved_reason.as_deref()
+                    == Some("member_or_index_dispatch_not_resolved"))
+        );
+        assert_eq!(
+            indexed
+                .files
+                .iter()
+                .find(|file| file.path == "src/recovered.js")
+                .unwrap()
+                .status,
+            IndexFileStatus::PartialParse
+        );
+        assert_eq!(
+            indexed
+                .files
+                .iter()
+                .find(|file| file.path == "src/invalid.ts")
+                .unwrap()
+                .status,
+            IndexFileStatus::ParseError
+        );
+        assert!(
+            indexed
+                .symbols
+                .iter()
+                .any(|symbol| symbol.path == "src/main.rs" && symbol.name == "rust_entry")
+        );
+        assert_eq!(
+            indexed
+                .files
+                .iter()
+                .find(|file| file.path == "notes.md")
+                .unwrap()
+                .status,
+            IndexFileStatus::UnsupportedLanguage
+        );
+        assert_eq!(
+            indexed
+                .files
+                .iter()
+                .find(|file| file.path == "src/large.ts")
+                .unwrap()
+                .status,
+            IndexFileStatus::FileTooLarge
+        );
+        for file in &indexed.files {
+            assert_eq!(
+                file.relationship_count,
+                indexed
+                    .relationships
+                    .iter()
+                    .filter(|edge| edge.evidence.path == file.path)
+                    .count(),
+                "relationship counts should match source evidence path for {}",
+                file.path
+            );
+        }
+        let repository_state = Command::new("git")
+            .args(["status", "--porcelain"])
+            .current_dir(&root)
+            .output()
+            .unwrap();
+        assert!(repository_state.status.success());
+        assert!(
+            repository_state.stdout.is_empty(),
+            "indexing must not execute or modify the repository"
+        );
+
+        let cancelled = build_snapshot_index(
+            &storage,
+            &manifest,
+            "cancelled-job",
+            &AtomicBool::new(true),
+            |_| {},
+        );
+        assert_eq!(cancelled.status, SnapshotIndexStatus::Cancelled);
+        assert!(cancelled.relationships.is_empty());
+    }
+
+    #[test]
+    fn symbol_identity_survives_line_shifts_while_anchor_moves() {
+        let temporary = TestDirectory::new();
+        let root = temporary.path().join("repository");
+        fs::create_dir_all(&root).unwrap();
+        git(&root, &["init", "-q", "--initial-branch=main"]);
+        git(&root, &["config", "user.name", "Code Atlas Index Tests"]);
+        git(
+            &root,
+            &["config", "user.email", "index-tests@example.invalid"],
+        );
+        write_fixture(
+            &root,
+            "src/worker.ts",
+            "export function work(): number { return 1; }\n",
+        );
+        commit_fixture(&root, "initial source");
+        let storage = temporary.path().join("app-data");
+        let project = fixture_project(&root);
+        let first_manifest = capture(&storage, &project);
+        let first = build(&storage, &first_manifest);
+        let first_symbol = first
+            .symbols
+            .iter()
+            .find(|symbol| symbol.path == "src/worker.ts" && symbol.name == "work")
+            .unwrap();
+
+        write_fixture(
+            &root,
+            "src/worker.ts",
+            "// inserted before declaration\n\nexport function work(): number { return 1; }\n",
+        );
+        commit_fixture(&root, "move source declaration");
+        let second_manifest = capture(&storage, &project);
+        let second = build(&storage, &second_manifest);
+        let second_symbol = second
+            .symbols
+            .iter()
+            .find(|symbol| symbol.path == "src/worker.ts" && symbol.name == "work")
+            .unwrap();
+
+        assert_eq!(first_symbol.symbol_id, second_symbol.symbol_id);
+        assert_eq!(
+            first_symbol.anchor.start_line + 2,
+            second_symbol.anchor.start_line
+        );
+        assert_ne!(
+            first_symbol.anchor.source_sha256,
+            second_symbol.anchor.source_sha256
+        );
+    }
+}
+
+fn relationship_path(
+    storage_dir: &Path,
+    project_id: &str,
+    snapshot_id: &str,
+) -> Result<PathBuf, String> {
+    if snapshot_id.is_empty()
+        || !snapshot_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+    {
+        return Err("The snapshot identifier is not safe for local index storage.".to_owned());
+    }
+    Ok(storage_dir
+        .join("indexes")
+        .join(digest(project_id.as_bytes()))
+        .join(INDEXER_VERSION)
+        .join(format!("{snapshot_id}.json")))
+}
+
+pub fn save_snapshot_index(storage_dir: &Path, index: &SnapshotIndex) -> Result<(), String> {
+    if index.schema_version != INDEX_SCHEMA_VERSION || index.indexer_version != INDEXER_VERSION {
+        return Err("The snapshot index version does not match this app.".to_owned());
+    }
+    if index.status == SnapshotIndexStatus::Cancelled {
+        return Err("A cancelled snapshot index cannot replace a saved index.".to_owned());
+    }
+    let bytes = serde_json::to_vec(index)
+        .map_err(|_| "The snapshot index could not be serialized.".to_owned())?;
+    if bytes.len() > MAX_INDEX_JSON_BYTES {
+        return Err("The snapshot index exceeded its 32 MB storage limit.".to_owned());
+    }
+    let path = relationship_path(storage_dir, &index.project_id, &index.snapshot_id)?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| "The local index path is invalid.".to_owned())?;
+    fs::create_dir_all(parent)
+        .map_err(|_| "The local index folder could not be created.".to_owned())?;
+    let temporary = parent.join(format!(".index-{}.tmp", Uuid::new_v4()));
+    let result = (|| {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)
+            .map_err(|_| "The local index could not be written.".to_owned())?;
+        file.write_all(&bytes)
+            .map_err(|_| "The local index could not be written.".to_owned())?;
+        file.sync_all()
+            .map_err(|_| "The local index could not be synced.".to_owned())?;
+        fs::rename(&temporary, &path)
+            .map_err(|_| "The local index could not be finalized.".to_owned())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
+
+pub fn load_snapshot_index(
+    storage_dir: &Path,
+    project_id: &str,
+    snapshot_id: &str,
+) -> Result<Option<SnapshotIndex>, String> {
+    let path = relationship_path(storage_dir, project_id, snapshot_id)?;
+    let bytes = match fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(_) => return Err("The saved snapshot index could not be read.".to_owned()),
+    };
+    if bytes.len() > MAX_INDEX_JSON_BYTES {
+        return Err("The saved snapshot index exceeds the supported size.".to_owned());
+    }
+    let index: SnapshotIndex = serde_json::from_slice(&bytes).map_err(|_| {
+        "The saved snapshot index is invalid. Rebuild the index for this snapshot.".to_owned()
+    })?;
+    if index.schema_version != INDEX_SCHEMA_VERSION
+        || index.indexer_version != INDEXER_VERSION
+        || index.project_id != project_id
+        || index.snapshot_id != snapshot_id
+    {
+        return Err("The saved snapshot index was produced by a different parser version. Rebuild it to continue.".to_owned());
+    }
+    Ok(Some(index))
+}

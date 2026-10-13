@@ -1,0 +1,4 @@
+[release]
+channel = "stable"
+retry_limit = 3
+artifact_name = "atlas-desktop"

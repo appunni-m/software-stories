@@ -1,0 +1,43 @@
+[package]
+name = "code-atlas-desktop"
+version = "0.1.0"
+description = "A local-first guide to understanding software repositories"
+authors = ["Code Atlas contributors"]
+edition = "2024"
+
+[lib]
+name = "code_atlas_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+base64 = "0.22"
+libc = "0.2"
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tree-sitter = "=0.27.1"
+tree-sitter-javascript = "=0.25.0"
+tree-sitter-rust = "=0.24.2"
+tree-sitter-typescript = "=0.23.2"
+tokio = { version = "1", features = ["macros", "sync"] }
+uuid = { version = "1", features = ["v4"] }
+zeroize = "1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = "4.2"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

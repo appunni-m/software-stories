@@ -1,0 +1,5 @@
+policy stale_session
+when session.last_seen < clock.now - 15m
+then
+  session.status := "expired"
+  emit session.expired

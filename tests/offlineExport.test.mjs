@@ -1,0 +1,207 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { describe, it } from 'node:test';
+import {
+  buildOfflineExportPreview,
+  buildOfflineGuideHtml,
+  isOfflineExportableRevision,
+  isSafeOfflineSourcePath,
+  OFFLINE_PACKAGE_SCHEMA_VERSION,
+} from '../src/lib/offlineExport.ts';
+
+const sourceAnchor = (anchorId = 'anchor:entry', path = 'src/main.ts', excerpt = 'export function main() { return run(); }') => ({
+  anchorId,
+  path,
+  symbolId: 'symbol:main',
+  snapshotId: 'snapshot:fixture',
+  sourceSha256: 'a'.repeat(64),
+  startByte: 0,
+  endByteInclusive: excerpt.length - 1,
+  startLine: 1,
+  endLine: 2,
+  startColumn: 1,
+  endColumn: excerpt.length,
+  excerpt,
+});
+
+const typedVisual = () => ({
+  schemaVersion: 2,
+  kind: 'dataFlow',
+  title: 'Request path',
+  layoutHint: { direction: 'leftToRight' },
+  nodes: [
+    { nodeId: 'node:entry', label: 'handleRequest', detail: 'HTTP entry point', hotspotId: 'hotspot:code', evidenceAnchorIds: ['anchor:entry'] },
+    { nodeId: 'node:worker', label: 'runWorker', detail: null, hotspotId: null, evidenceAnchorIds: ['anchor:entry'] },
+  ],
+  edges: [{ edgeId: 'edge:call', fromNodeId: 'node:entry', toNodeId: 'node:worker', label: 'calls', evidenceAnchorIds: ['anchor:entry'] }],
+});
+
+const section = ({ visual = typedVisual(), anchors = [sourceAnchor()], sectionId = 'section:request', order = 0 } = {}) => ({
+  sectionId,
+  sectionRevisionId: `section-revision:${sectionId}`,
+  order,
+  title: 'Handle a request',
+  prose: 'The handler delegates to a worker.',
+  spokenText: 'The handler delegates to a worker.',
+  claims: [{
+    claimId: `claim:${sectionId}`,
+    category: { kind: 'codeBehavior' },
+    prose: 'The handler calls the worker.',
+    anchors,
+    dependencies: [],
+  }],
+  dependencies: [],
+  visual,
+  hotspots: [{
+    hotspotId: 'hotspot:code',
+    label: 'Open implementation',
+    destination: { kind: 'codeLens', anchorId: 'anchor:entry' },
+  }],
+});
+
+const chapter = ({ revisionId = 'revision:one', lifecycle = 'accepted', target = { kind: 'overview' }, sections = [section()], title = 'Request flow' } = {}) => ({
+  schemaVersion: 2,
+  chapterId: `chapter:${revisionId}`,
+  revisionId,
+  revisionNumber: 3,
+  projectId: 'project:local',
+  snapshotId: 'snapshot:fixture',
+  title,
+  lifecycle,
+  validationStatus: 'valid',
+  createdAtUnixMs: 1,
+  target: { targetId: 'target:one', scope: target },
+  sections,
+});
+
+describe('offline chapter export', () => {
+  it('includes only selected accepted revisions and records revision and snapshot identities', async () => {
+    const accepted = chapter();
+    const draft = chapter({ revisionId: 'revision:draft', lifecycle: 'draft' });
+    const rejected = chapter({ revisionId: 'revision:rejected', lifecycle: 'rejected' });
+    const result = await buildOfflineGuideHtml([accepted, draft, rejected], {
+      selectedRevisionIds: ['revision:one'],
+      includeExcerpts: true,
+      exportedAtUnixMs: 10,
+    });
+
+    assert.deepEqual(result.manifest.chapters, [{
+      revisionId: 'revision:one', revisionNumber: 3, snapshotId: 'snapshot:fixture', title: 'Request flow',
+    }]);
+    assert.equal(result.manifest.schemaVersion, OFFLINE_PACKAGE_SCHEMA_VERSION);
+    assert.equal(result.manifest.exportedAtUnixMs, 10);
+    assert.match(result.filename, /request-flow-offline-guide\.html$/);
+    assert.doesNotMatch(result.html, /revision:draft|revision:rejected/);
+    await assert.rejects(buildOfflineGuideHtml([accepted, draft], {
+      selectedRevisionIds: ['revision:draft'], includeExcerpts: true,
+    }), /Only accepted/);
+  });
+
+  it('bundles cited excerpts by default at the API level and hashes excerpts and safe typed visuals', async () => {
+    const result = await buildOfflineGuideHtml([chapter()], {
+      selectedRevisionIds: ['revision:one'], includeExcerpts: true, exportedAtUnixMs: 10,
+    });
+    const excerpt = result.manifest.assets.find((asset) => asset.kind === 'citedExcerpt');
+    const visual = result.manifest.assets.find((asset) => asset.kind === 'typedVisual');
+    assert.ok(excerpt);
+    assert.equal(excerpt.sha256, createHash('sha256').update('export function main() { return run(); }').digest('hex'));
+    assert.equal(excerpt.path, 'src/main.ts');
+    assert.equal(excerpt.snapshotId, 'snapshot:fixture');
+    assert.equal(excerpt.byteLength, Buffer.byteLength('export function main() { return run(); }'));
+    assert.ok(visual);
+    assert.equal(visual.mediaType, 'application/json');
+    assert.equal(visual.sha256, createHash('sha256').update(JSON.stringify(typedVisual())).digest('hex'));
+    assert.equal(visual.byteLength, Buffer.byteLength(JSON.stringify(typedVisual())));
+    assert.equal(visual.chapterRevisionId, 'revision:one');
+    assert.equal(visual.sectionId, 'section:request');
+    assert.match(visual.sha256, /^[a-f0-9]{64}$/);
+    assert.match(result.html, /Cited excerpts are bundled below their sections/);
+    assert.match(result.html, /Request path/);
+    assert.match(result.html, /Typed diagram data · JSON/);
+  });
+
+  it('has an explicit omit-excerpts mode while keeping path and line metadata', async () => {
+    const result = await buildOfflineGuideHtml([chapter()], {
+      selectedRevisionIds: ['revision:one'], includeExcerpts: false, exportedAtUnixMs: 10,
+    });
+    assert.equal(result.manifest.features.citedExcerpts, 'omitted');
+    assert.equal(result.manifest.assets.some((asset) => asset.kind === 'citedExcerpt'), false);
+    assert.equal(result.manifest.assets.some((asset) => asset.kind === 'typedVisual'), true);
+    assert.match(result.html, /Cited source excerpts were omitted/);
+    assert.match(result.html, /src\/main\.ts:1-2/);
+    assert.match(result.html, /Source excerpt omitted from this package/);
+    assert.match(result.html, /Privacy review:/);
+  });
+
+  it('renders chapter text and typed visuals as inert escaped text, with manual section navigation', async () => {
+    const first = section({
+      sectionId: 'section:first', order: 0,
+      anchors: [sourceAnchor()],
+    });
+    first.title = '<script>steal()</script>';
+    first.prose = 'Text <img src=x onerror=steal()> stays text.';
+    first.visual.nodes[0].label = '<script>diagram()</script>';
+    first.hotspots[0].label = '<svg onload=steal()>';
+    first.hotspots[0].destination = { kind: 'section', sectionId: 'section:second' };
+    const second = section({ sectionId: 'section:second', order: 1, visual: null });
+    const result = await buildOfflineGuideHtml([chapter({ sections: [first, second] })], {
+      selectedRevisionIds: ['revision:one'], includeExcerpts: true,
+    });
+
+    assert.doesNotMatch(result.html, /<script>|<img src=x|<svg onload=/i);
+    assert.match(result.html, /&lt;script&gt;steal\(\)&lt;\/script&gt;/);
+    assert.match(result.html, /&lt;script&gt;diagram\(\)&lt;\/script&gt;/);
+    assert.match(result.html, /href="#section-1-2"/);
+    assert.match(result.html, /Previous: &lt;script&gt;steal/);
+    assert.match(result.html, /Continue: Handle a request/);
+    assert.match(result.html, /&lt;svg onload=steal\(\)&gt;/);
+    assert.match(result.html, /not included|Narration audio is not bundled/);
+  });
+
+  it('omits hidden references and redacts common secrets and local paths from copied prose and excerpts', async () => {
+    const exposedKey = 'ghp_0123456789abcdefghijklmnopqrstuvwx';
+    const sensitive = chapter({ sections: [section({ anchors: [
+      sourceAnchor('anchor:public', 'src/main.ts', `const api_key = "${exposedKey}";`),
+      sourceAnchor('anchor:hidden', 'src/.env', 'PRIVATE_KEY=not-for-export'),
+    ] })] });
+    sensitive.sections[0].prose = `The checkout is /Users/alice/private-project and reads .ssh/id_ed25519. ${exposedKey}`;
+    const preview = buildOfflineExportPreview([sensitive], ['revision:one'], true);
+    assert.equal(preview.omittedHiddenReferences, 1);
+    assert.deepEqual(preview.sourcePaths, ['src/main.ts']);
+    assert.ok(preview.redactedCredentials > 0);
+    assert.doesNotMatch(JSON.stringify(preview), /alice|private-project|\.ssh|id_ed25519|src\/\.env|ghp_0123456789/);
+    assert.match(JSON.stringify(preview), /redacted credential/);
+
+    const result = await buildOfflineGuideHtml([sensitive], {
+      selectedRevisionIds: ['revision:one'], includeExcerpts: true,
+    });
+    assert.doesNotMatch(result.html, /alice|private-project|\.ssh|id_ed25519|src\/\.env|ghp_0123456789|PRIVATE_KEY=not-for-export/);
+    assert.match(result.html, /hidden or sensitive paths were omitted/);
+    assert.match(result.html, /likely credential was redacted/);
+  });
+
+  it('does not export unsafe target paths or allow an unselected duplicate revision ID', async () => {
+    assert.equal(isSafeOfflineSourcePath('src/main.ts'), true);
+    for (const path of ['/Users/me/repo/src.ts', '../secret', 'src/.env', 'config/credentials', 'keys/signing.pem', 'src\\main.ts']) {
+      assert.equal(isSafeOfflineSourcePath(path), false, path);
+    }
+    const unsafeTarget = chapter({ target: { kind: 'file', path: '.ssh/id_ed25519' } });
+    assert.equal(isOfflineExportableRevision(unsafeTarget), false);
+    await assert.rejects(buildOfflineGuideHtml([unsafeTarget], {
+      selectedRevisionIds: ['revision:one'], includeExcerpts: true,
+    }), /Only accepted/);
+    await assert.rejects(buildOfflineGuideHtml([chapter()], {
+      selectedRevisionIds: ['revision:one', 'revision:one'], includeExcerpts: true,
+    }), /selected more than once/);
+  });
+
+  it('shows a clear message for unsupported visuals and invalid selection', async () => {
+    const unsupported = chapter({ sections: [section({ visual: { schemaVersion: 9, html: '<script>run()</script>' } })] });
+    const result = await buildOfflineGuideHtml([unsupported], {
+      selectedRevisionIds: ['revision:one'], includeExcerpts: false,
+    });
+    assert.match(result.html, /This diagram is unavailable in the offline format/);
+    assert.doesNotMatch(result.html, /<script>run\(\)<\/script>/);
+    await assert.rejects(buildOfflineGuideHtml([chapter()], { selectedRevisionIds: [], includeExcerpts: true }), /Select at least one/);
+  });
+});

@@ -1,0 +1,898 @@
+{
+  "version": 1,
+  "corpusId": "code-atlas-chapter-quality-v1",
+  "purpose": "A small, deterministic, synthetic source corpus for human review of source-grounded file chapters. It contains expected facts, not golden chapter prose.",
+  "localOnly": true,
+  "sourcePolicy": "All repository names and fixture code are invented for this benchmark. The corpus runner must not call a provider or upload source. Real repository evaluation requires the ordinary exact-context review and explicit consent flow.",
+  "reviewContract": {
+    "schemaValidationIsSufficient": false,
+    "reviewerMode": "human",
+    "binaryVerdicts": [
+      "pass",
+      "fail",
+      "notApplicable"
+    ],
+    "notApplicableRule": "Only use notApplicable when the case applicability field says notApplicable; notProvided and notAssessable are limitations, not a pass on a required fact.",
+    "casePassRule": "PASS only when every mustCover fact is covered by an accurate chapter claim linked to the exact supporting anchor, every behavioral claim is supported by its cited source, and there are zero unsupported or contradicted claims. Any unsupported factual assertion or missed mustCover fact fails the case.",
+    "citationRule": "An exact quote proves that text exists at the recorded source span; a human reviewer must separately decide whether it supports the entire natural-language claim.",
+    "simpleFileRule": "Score required facts and applicable dimensions, not chapter length or section count."
+  },
+  "cases": [
+    {
+      "id": "route-entrypoint",
+      "repository": "event-reservations",
+      "path": "src/routes.ts",
+      "role": "route/entrypoint",
+      "language": "TypeScript",
+      "parserStatus": "supported",
+      "sourceFile": "fixtures/event-reservations/src/routes.ts",
+      "supportingFiles": [],
+      "complexity": "small",
+      "applicability": {
+        "responsibility": {
+          "status": "required",
+          "reason": "Explain what the request-to-route function returns."
+        },
+        "declarations": {
+          "status": "required",
+          "reason": "The Route union and resolver signature are in the target."
+        },
+        "executionPath": {
+          "status": "required",
+          "reason": "The path check selects one return branch, then falls back."
+        },
+        "inputsOutputs": {
+          "status": "required",
+          "reason": "The function reads method and URL path and returns a Route value."
+        },
+        "stateEffects": {
+          "status": "notApplicable",
+          "reason": "The target reads the request and returns values; it declares no mutable state or store."
+        },
+        "failurePaths": {
+          "status": "notProvided",
+          "reason": "No explicit error handling or caller behavior is present; do not invent error recovery."
+        },
+        "relatedCallersAndTests": {
+          "status": "notProvided",
+          "reason": "No caller or route test is selected for this case."
+        },
+        "uncertainty": {
+          "status": "required",
+          "reason": "Do not claim framework registration or production reachability without a caller."
+        }
+      },
+      "mustCover": [
+        "route-signature",
+        "url-from-request",
+        "get-users-condition",
+        "user-list-result",
+        "fallback-result"
+      ],
+      "reviewConstraints": [
+        "Do not describe this function as registered with a web framework; no registration or caller is in the selected context.",
+        "A generic statement that it resolves requests is insufficient without the method/path condition and both returned route values."
+      ],
+      "files": [
+        {
+          "path": "src/routes.ts",
+          "sourceFile": "fixtures/event-reservations/src/routes.ts",
+          "role": "target",
+          "sha256": "90d77d02cae631205eb2f059ef17ddb58e744bda2794cf4175b13869a6080e95",
+          "sizeBytes": 251
+        }
+      ],
+      "expectedFacts": [
+        {
+          "id": "route-signature",
+          "dimension": "responsibility",
+          "statement": "resolveRoute accepts a Request and declares Route as its return type.",
+          "path": "src/routes.ts",
+          "sourceFile": "fixtures/event-reservations/src/routes.ts",
+          "quote": "export function resolveRoute(request: Request): Route {",
+          "lineStart": 3,
+          "lineEnd": 3,
+          "byteStart": 46,
+          "byteEndExclusive": 101,
+          "sourceSha256": "90d77d02cae631205eb2f059ef17ddb58e744bda2794cf4175b13869a6080e95"
+        },
+        {
+          "id": "url-from-request",
+          "dimension": "inputsOutputs",
+          "statement": "The resolver constructs a URL from request.url.",
+          "path": "src/routes.ts",
+          "sourceFile": "fixtures/event-reservations/src/routes.ts",
+          "quote": "  const url = new URL(request.url);",
+          "lineStart": 4,
+          "lineEnd": 4,
+          "byteStart": 102,
+          "byteEndExclusive": 137,
+          "sourceSha256": "90d77d02cae631205eb2f059ef17ddb58e744bda2794cf4175b13869a6080e95"
+        },
+        {
+          "id": "get-users-condition",
+          "dimension": "executionPath",
+          "statement": "The named user-list branch requires both GET and the /users path.",
+          "path": "src/routes.ts",
+          "sourceFile": "fixtures/event-reservations/src/routes.ts",
+          "quote": "  if (request.method === \"GET\" && url.pathname === \"/users\") {",
+          "lineStart": 5,
+          "lineEnd": 5,
+          "byteStart": 138,
+          "byteEndExclusive": 200,
+          "sourceSha256": "90d77d02cae631205eb2f059ef17ddb58e744bda2794cf4175b13869a6080e95"
+        },
+        {
+          "id": "user-list-result",
+          "dimension": "executionPath",
+          "statement": "The matching branch returns the userList route value.",
+          "path": "src/routes.ts",
+          "sourceFile": "fixtures/event-reservations/src/routes.ts",
+          "quote": "    return \"userList\";",
+          "lineStart": 6,
+          "lineEnd": 6,
+          "byteStart": 201,
+          "byteEndExclusive": 223,
+          "sourceSha256": "90d77d02cae631205eb2f059ef17ddb58e744bda2794cf4175b13869a6080e95"
+        },
+        {
+          "id": "fallback-result",
+          "dimension": "executionPath",
+          "statement": "Every request that does not match the condition reaches the notFound return.",
+          "path": "src/routes.ts",
+          "sourceFile": "fixtures/event-reservations/src/routes.ts",
+          "quote": "  return \"notFound\";",
+          "lineStart": 8,
+          "lineEnd": 8,
+          "byteStart": 228,
+          "byteEndExclusive": 248,
+          "sourceSha256": "90d77d02cae631205eb2f059ef17ddb58e744bda2794cf4175b13869a6080e95"
+        }
+      ]
+    },
+    {
+      "id": "service-core",
+      "repository": "event-reservations",
+      "path": "src/reservation-service.ts",
+      "role": "service/core",
+      "language": "TypeScript",
+      "parserStatus": "supported",
+      "sourceFile": "fixtures/event-reservations/src/reservation-service.ts",
+      "supportingFiles": [],
+      "complexity": "moderate",
+      "applicability": {
+        "responsibility": {
+          "status": "required",
+          "reason": "Explain holdSeat using source-backed lookup, validation, and persistence behavior."
+        },
+        "declarations": {
+          "status": "required",
+          "reason": "Seat, SeatHold, SeatStore, and holdSeat define the service contract."
+        },
+        "executionPath": {
+          "status": "required",
+          "reason": "The function looks up, checks, creates, saves, and returns a hold in order."
+        },
+        "inputsOutputs": {
+          "status": "required",
+          "reason": "The function accepts eventId, seatId, and SeatStore and returns Promise<SeatHold>."
+        },
+        "stateEffects": {
+          "status": "required",
+          "reason": "The target awaits store.saveHold with the new record."
+        },
+        "failurePaths": {
+          "status": "required",
+          "reason": "The target throws for an unknown seat and a seat not marked available."
+        },
+        "relatedCallersAndTests": {
+          "status": "notProvided",
+          "reason": "No caller or test file is selected; do not claim production use or tested behavior."
+        },
+        "uncertainty": {
+          "status": "required",
+          "reason": "The store implementation and transaction/rollback guarantees are absent."
+        }
+      },
+      "mustCover": [
+        "service-signature",
+        "store-lookup",
+        "unknown-seat-error",
+        "unavailable-seat-error",
+        "held-record",
+        "persist-before-return"
+      ],
+      "reviewConstraints": [
+        "Do not claim database durability, atomicity, locking, or rollback: the SeatStore implementation is not included.",
+        "A returned hold must not be described as a confirmed reservation; the source only names a SeatHold with state held."
+      ],
+      "files": [
+        {
+          "path": "src/reservation-service.ts",
+          "sourceFile": "fixtures/event-reservations/src/reservation-service.ts",
+          "role": "target",
+          "sha256": "c3d720d9b39352f18e9c70e9a72068e2e65c29bbdbb817b667c299ef97404a84",
+          "sizeBytes": 759
+        }
+      ],
+      "expectedFacts": [
+        {
+          "id": "service-signature",
+          "dimension": "responsibility",
+          "statement": "holdSeat receives eventId, seatId, and a SeatStore and returns Promise<SeatHold>.",
+          "path": "src/reservation-service.ts",
+          "sourceFile": "fixtures/event-reservations/src/reservation-service.ts",
+          "quote": "export async function holdSeat(\n  eventId: string,\n  seatId: string,\n  store: SeatStore,\n): Promise<SeatHold> {",
+          "lineStart": 18,
+          "lineEnd": 22,
+          "byteStart": 321,
+          "byteEndExclusive": 432,
+          "sourceSha256": "c3d720d9b39352f18e9c70e9a72068e2e65c29bbdbb817b667c299ef97404a84"
+        },
+        {
+          "id": "store-lookup",
+          "dimension": "executionPath",
+          "statement": "The first operation awaits store.findSeat(eventId, seatId).",
+          "path": "src/reservation-service.ts",
+          "sourceFile": "fixtures/event-reservations/src/reservation-service.ts",
+          "quote": "  const seat = await store.findSeat(eventId, seatId);",
+          "lineStart": 23,
+          "lineEnd": 23,
+          "byteStart": 433,
+          "byteEndExclusive": 486,
+          "sourceSha256": "c3d720d9b39352f18e9c70e9a72068e2e65c29bbdbb817b667c299ef97404a84"
+        },
+        {
+          "id": "unknown-seat-error",
+          "dimension": "failurePaths",
+          "statement": "An absent seat causes an Error with the Unknown seat message.",
+          "path": "src/reservation-service.ts",
+          "sourceFile": "fixtures/event-reservations/src/reservation-service.ts",
+          "quote": "  if (!seat) {\n    throw new Error(`Unknown seat: ${seatId}`);\n  }",
+          "lineStart": 24,
+          "lineEnd": 26,
+          "byteStart": 487,
+          "byteEndExclusive": 553,
+          "sourceSha256": "c3d720d9b39352f18e9c70e9a72068e2e65c29bbdbb817b667c299ef97404a84"
+        },
+        {
+          "id": "unavailable-seat-error",
+          "dimension": "failurePaths",
+          "statement": "A seat whose state is not available causes an Error with the Seat is not available message.",
+          "path": "src/reservation-service.ts",
+          "sourceFile": "fixtures/event-reservations/src/reservation-service.ts",
+          "quote": "  if (seat.state !== \"available\") {\n    throw new Error(`Seat is not available: ${seatId}`);\n  }",
+          "lineStart": 27,
+          "lineEnd": 29,
+          "byteStart": 554,
+          "byteEndExclusive": 650,
+          "sourceSha256": "c3d720d9b39352f18e9c70e9a72068e2e65c29bbdbb817b667c299ef97404a84"
+        },
+        {
+          "id": "held-record",
+          "dimension": "stateEffects",
+          "statement": "The function constructs a SeatHold carrying the supplied eventId and seatId with state held.",
+          "path": "src/reservation-service.ts",
+          "sourceFile": "fixtures/event-reservations/src/reservation-service.ts",
+          "quote": "  const hold: SeatHold = { eventId, seatId, state: \"held\" };",
+          "lineStart": 30,
+          "lineEnd": 30,
+          "byteStart": 651,
+          "byteEndExclusive": 711,
+          "sourceSha256": "c3d720d9b39352f18e9c70e9a72068e2e65c29bbdbb817b667c299ef97404a84"
+        },
+        {
+          "id": "persist-before-return",
+          "dimension": "stateEffects",
+          "statement": "The function awaits saveHold(hold) before returning hold.",
+          "path": "src/reservation-service.ts",
+          "sourceFile": "fixtures/event-reservations/src/reservation-service.ts",
+          "quote": "  await store.saveHold(hold);\n  return hold;",
+          "lineStart": 31,
+          "lineEnd": 32,
+          "byteStart": 712,
+          "byteEndExclusive": 756,
+          "sourceSha256": "c3d720d9b39352f18e9c70e9a72068e2e65c29bbdbb817b667c299ef97404a84"
+        }
+      ]
+    },
+    {
+      "id": "data-model",
+      "repository": "job-runner",
+      "path": "src/retry-policy.ts",
+      "role": "data model",
+      "language": "TypeScript",
+      "parserStatus": "supported",
+      "sourceFile": "fixtures/job-runner/src/retry-policy.ts",
+      "supportingFiles": [],
+      "complexity": "small",
+      "applicability": {
+        "responsibility": {
+          "status": "required",
+          "reason": "Explain the job record fields and the retry predicate provided in this file."
+        },
+        "declarations": {
+          "status": "required",
+          "reason": "JobState and JobRecord are explicit public declarations."
+        },
+        "executionPath": {
+          "status": "required",
+          "reason": "isRetryable combines failed state and attempts below three."
+        },
+        "inputsOutputs": {
+          "status": "required",
+          "reason": "isRetryable accepts JobRecord and returns boolean."
+        },
+        "stateEffects": {
+          "status": "notApplicable",
+          "reason": "The file defines types and a predicate; it does not mutate the job."
+        },
+        "failurePaths": {
+          "status": "notApplicable",
+          "reason": "The predicate returns a boolean and contains no throwing/error branch."
+        },
+        "relatedCallersAndTests": {
+          "status": "notProvided",
+          "reason": "No callers or tests are selected in this case."
+        },
+        "uncertainty": {
+          "status": "required",
+          "reason": "The predicate does not establish that a worker actually retries or persists jobs."
+        }
+      },
+      "mustCover": [
+        "job-state-values",
+        "required-job-fields",
+        "optional-job-fields",
+        "retry-predicate-signature",
+        "retry-predicate-condition"
+      ],
+      "reviewConstraints": [
+        "Do not say jobs are retried automatically; this file only computes a boolean.",
+        "A concise explanation is expected; do not add generic sections merely to increase length."
+      ],
+      "files": [
+        {
+          "path": "src/retry-policy.ts",
+          "sourceFile": "fixtures/job-runner/src/retry-policy.ts",
+          "role": "target",
+          "sha256": "e94c65931e1b0d2c8e942a2a5d2b65a7d9141247d2d0d8fc735d39e047881e8b",
+          "sizeBytes": 302
+        }
+      ],
+      "expectedFacts": [
+        {
+          "id": "job-state-values",
+          "dimension": "declarations",
+          "statement": "JobState is the four-value union queued, running, done, and failed.",
+          "path": "src/retry-policy.ts",
+          "sourceFile": "fixtures/job-runner/src/retry-policy.ts",
+          "quote": "export type JobState = \"queued\" | \"running\" | \"done\" | \"failed\";",
+          "lineStart": 1,
+          "lineEnd": 1,
+          "byteStart": 0,
+          "byteEndExclusive": 64,
+          "sourceSha256": "e94c65931e1b0d2c8e942a2a5d2b65a7d9141247d2d0d8fc735d39e047881e8b"
+        },
+        {
+          "id": "required-job-fields",
+          "dimension": "declarations",
+          "statement": "JobRecord requires id, state, and attempts.",
+          "path": "src/retry-policy.ts",
+          "sourceFile": "fixtures/job-runner/src/retry-policy.ts",
+          "quote": "  id: string;\n  state: JobState;\n  attempts: number;",
+          "lineStart": 4,
+          "lineEnd": 6,
+          "byteStart": 95,
+          "byteEndExclusive": 147,
+          "sourceSha256": "e94c65931e1b0d2c8e942a2a5d2b65a7d9141247d2d0d8fc735d39e047881e8b"
+        },
+        {
+          "id": "optional-job-fields",
+          "dimension": "declarations",
+          "statement": "result and lastError are optional string fields.",
+          "path": "src/retry-policy.ts",
+          "sourceFile": "fixtures/job-runner/src/retry-policy.ts",
+          "quote": "  result?: string;\n  lastError?: string;",
+          "lineStart": 7,
+          "lineEnd": 8,
+          "byteStart": 148,
+          "byteEndExclusive": 188,
+          "sourceSha256": "e94c65931e1b0d2c8e942a2a5d2b65a7d9141247d2d0d8fc735d39e047881e8b"
+        },
+        {
+          "id": "retry-predicate-signature",
+          "dimension": "inputsOutputs",
+          "statement": "isRetryable accepts a JobRecord and returns boolean.",
+          "path": "src/retry-policy.ts",
+          "sourceFile": "fixtures/job-runner/src/retry-policy.ts",
+          "quote": "export function isRetryable(job: JobRecord): boolean {",
+          "lineStart": 11,
+          "lineEnd": 11,
+          "byteStart": 192,
+          "byteEndExclusive": 246,
+          "sourceSha256": "e94c65931e1b0d2c8e942a2a5d2b65a7d9141247d2d0d8fc735d39e047881e8b"
+        },
+        {
+          "id": "retry-predicate-condition",
+          "dimension": "executionPath",
+          "statement": "The predicate is true only when state is failed and attempts is less than three.",
+          "path": "src/retry-policy.ts",
+          "sourceFile": "fixtures/job-runner/src/retry-policy.ts",
+          "quote": "  return job.state === \"failed\" && job.attempts < 3;",
+          "lineStart": 12,
+          "lineEnd": 12,
+          "byteStart": 247,
+          "byteEndExclusive": 299,
+          "sourceSha256": "e94c65931e1b0d2c8e942a2a5d2b65a7d9141247d2d0d8fc735d39e047881e8b"
+        }
+      ]
+    },
+    {
+      "id": "test",
+      "repository": "job-runner",
+      "path": "tests/retry-policy.test.ts",
+      "role": "test",
+      "language": "TypeScript",
+      "parserStatus": "supported",
+      "sourceFile": "fixtures/job-runner/tests/retry-policy.test.ts",
+      "supportingFiles": [
+        {
+          "path": "src/retry-policy.ts",
+          "sourceFile": "fixtures/job-runner/src/retry-policy.ts"
+        }
+      ],
+      "complexity": "small",
+      "applicability": {
+        "responsibility": {
+          "status": "required",
+          "reason": "Explain which retry-policy expectations the test source declares."
+        },
+        "declarations": {
+          "status": "required",
+          "reason": "The test names, imported subject, and assertions are declarations in the target."
+        },
+        "executionPath": {
+          "status": "required",
+          "reason": "The test invokes isRetryable with below-limit, at-limit, and done-state inputs."
+        },
+        "inputsOutputs": {
+          "status": "required",
+          "reason": "Each assertion provides a concrete object and expected boolean."
+        },
+        "stateEffects": {
+          "status": "notApplicable",
+          "reason": "The selected test constructs values and asserts booleans; no external state is changed."
+        },
+        "failurePaths": {
+          "status": "sourceOnly",
+          "reason": "The assertions encode expected values; this source does not establish that the test was executed or passed."
+        },
+        "relatedCallersAndTests": {
+          "status": "required",
+          "reason": "The target imports isRetryable from the selected supporting source file."
+        },
+        "uncertainty": {
+          "status": "required",
+          "reason": "Never state that tests passed without execution output."
+        }
+      },
+      "mustCover": [
+        "test-subject-import",
+        "below-limit-assertion",
+        "at-limit-assertion",
+        "done-state-assertion",
+        "support-retry-rule",
+        "test-source-does-not-prove-execution"
+      ],
+      "reviewConstraints": [
+        "Describe assertions as expectations in source, not as observed passing results.",
+        "A test name is not evidence that the implementation passed the test."
+      ],
+      "files": [
+        {
+          "path": "tests/retry-policy.test.ts",
+          "sourceFile": "fixtures/job-runner/tests/retry-policy.test.ts",
+          "role": "target",
+          "sha256": "b2f9a5d7695354ddefc5957079c7553f9cd295554a65414cf50b93c5a14e8324",
+          "sizeBytes": 507
+        },
+        {
+          "path": "src/retry-policy.ts",
+          "sourceFile": "fixtures/job-runner/src/retry-policy.ts",
+          "role": "support",
+          "sha256": "e94c65931e1b0d2c8e942a2a5d2b65a7d9141247d2d0d8fc735d39e047881e8b",
+          "sizeBytes": 302
+        }
+      ],
+      "expectedFacts": [
+        {
+          "id": "test-subject-import",
+          "dimension": "relatedCallersAndTests",
+          "statement": "The test imports isRetryable from ../src/retry-policy.",
+          "path": "tests/retry-policy.test.ts",
+          "sourceFile": "fixtures/job-runner/tests/retry-policy.test.ts",
+          "quote": "import { isRetryable } from \"../src/retry-policy\";",
+          "lineStart": 3,
+          "lineEnd": 3,
+          "byteStart": 71,
+          "byteEndExclusive": 121,
+          "sourceSha256": "b2f9a5d7695354ddefc5957079c7553f9cd295554a65414cf50b93c5a14e8324"
+        },
+        {
+          "id": "below-limit-assertion",
+          "dimension": "inputsOutputs",
+          "statement": "The first test expects a failed job with two attempts to be retryable.",
+          "path": "tests/retry-policy.test.ts",
+          "sourceFile": "fixtures/job-runner/tests/retry-policy.test.ts",
+          "quote": "  assert.equal(isRetryable({ id: \"job-1\", state: \"failed\", attempts: 2 }), true);",
+          "lineStart": 6,
+          "lineEnd": 6,
+          "byteStart": 182,
+          "byteEndExclusive": 263,
+          "sourceSha256": "b2f9a5d7695354ddefc5957079c7553f9cd295554a65414cf50b93c5a14e8324"
+        },
+        {
+          "id": "at-limit-assertion",
+          "dimension": "inputsOutputs",
+          "statement": "The second test expects a failed job with three attempts not to be retryable.",
+          "path": "tests/retry-policy.test.ts",
+          "sourceFile": "fixtures/job-runner/tests/retry-policy.test.ts",
+          "quote": "  assert.equal(isRetryable({ id: \"job-2\", state: \"failed\", attempts: 3 }), false);",
+          "lineStart": 10,
+          "lineEnd": 10,
+          "byteStart": 339,
+          "byteEndExclusive": 421,
+          "sourceSha256": "b2f9a5d7695354ddefc5957079c7553f9cd295554a65414cf50b93c5a14e8324"
+        },
+        {
+          "id": "done-state-assertion",
+          "dimension": "inputsOutputs",
+          "statement": "The second test expects a done job with one attempt not to be retryable.",
+          "path": "tests/retry-policy.test.ts",
+          "sourceFile": "fixtures/job-runner/tests/retry-policy.test.ts",
+          "quote": "  assert.equal(isRetryable({ id: \"job-3\", state: \"done\", attempts: 1 }), false);",
+          "lineStart": 11,
+          "lineEnd": 11,
+          "byteStart": 422,
+          "byteEndExclusive": 502,
+          "sourceSha256": "b2f9a5d7695354ddefc5957079c7553f9cd295554a65414cf50b93c5a14e8324"
+        },
+        {
+          "id": "support-retry-rule",
+          "dimension": "executionPath",
+          "statement": "The imported isRetryable function requires failed state and attempts below three.",
+          "path": "src/retry-policy.ts",
+          "sourceFile": "fixtures/job-runner/src/retry-policy.ts",
+          "quote": "  return job.state === \"failed\" && job.attempts < 3;",
+          "lineStart": 12,
+          "lineEnd": 12,
+          "byteStart": 247,
+          "byteEndExclusive": 299,
+          "sourceSha256": "e94c65931e1b0d2c8e942a2a5d2b65a7d9141247d2d0d8fc735d39e047881e8b"
+        },
+        {
+          "id": "test-source-does-not-prove-execution",
+          "dimension": "uncertainty",
+          "statement": "The test file declares assertions but contains no execution result.",
+          "path": "tests/retry-policy.test.ts",
+          "sourceFile": "fixtures/job-runner/tests/retry-policy.test.ts",
+          "quote": "import assert from \"node:assert/strict\";\nimport test from \"node:test\";\nimport { isRetryable } from \"../src/retry-policy\";\n\ntest(\"allows failed jobs below the attempt limit\", () => {\n  assert.equal(isRetryable({ id: \"job-1\", state: \"failed\", attempts: 2 }), true);\n});\n\ntest(\"blocks jobs at the limit and jobs that are not failed\", () => {\n  assert.equal(isRetryable({ id: \"job-2\", state: \"failed\", attempts: 3 }), false);\n  assert.equal(isRetryable({ id: \"job-3\", state: \"done\", attempts: 1 }), false);\n});\n",
+          "lineStart": 1,
+          "lineEnd": 12,
+          "byteStart": 0,
+          "byteEndExclusive": 507,
+          "sourceSha256": "b2f9a5d7695354ddefc5957079c7553f9cd295554a65414cf50b93c5a14e8324"
+        }
+      ]
+    },
+    {
+      "id": "config",
+      "repository": "release-pipeline",
+      "path": "config/release.toml",
+      "role": "config",
+      "language": "TOML",
+      "parserStatus": "not-evaluated-config",
+      "sourceFile": "fixtures/release-pipeline/config/release.toml",
+      "supportingFiles": [],
+      "complexity": "small",
+      "applicability": {
+        "responsibility": {
+          "status": "sourceOnly",
+          "reason": "Only the release table and its values are supplied; no consumer is included."
+        },
+        "declarations": {
+          "status": "required",
+          "reason": "The section and three keys are explicit in the target."
+        },
+        "executionPath": {
+          "status": "notProvided",
+          "reason": "No loader or release command is selected."
+        },
+        "inputsOutputs": {
+          "status": "notProvided",
+          "reason": "The file records values but no consumer contract is supplied."
+        },
+        "stateEffects": {
+          "status": "notProvided",
+          "reason": "No application code consuming the configuration is supplied."
+        },
+        "failurePaths": {
+          "status": "notProvided",
+          "reason": "No parser or validation implementation is supplied."
+        },
+        "relatedCallersAndTests": {
+          "status": "notProvided",
+          "reason": "No config consumer or test is selected."
+        },
+        "uncertainty": {
+          "status": "required",
+          "reason": "Do not claim these values are read, applied, or sufficient for a release."
+        }
+      },
+      "mustCover": [
+        "release-section",
+        "stable-channel",
+        "retry-limit",
+        "artifact-name"
+      ],
+      "reviewConstraints": [
+        "Report the configured values only; do not infer their runtime effect or consumer.",
+        "Do not classify configuration data as the corpus unsupported-language case."
+      ],
+      "files": [
+        {
+          "path": "config/release.toml",
+          "sourceFile": "fixtures/release-pipeline/config/release.toml",
+          "role": "target",
+          "sha256": "d8430cffe753e983f072a9867bc1d2276d0fe2365742a9fefa4a28f811d37ab7",
+          "sizeBytes": 77
+        }
+      ],
+      "expectedFacts": [
+        {
+          "id": "release-section",
+          "dimension": "declarations",
+          "statement": "The file defines a release table.",
+          "path": "config/release.toml",
+          "sourceFile": "fixtures/release-pipeline/config/release.toml",
+          "quote": "[release]",
+          "lineStart": 1,
+          "lineEnd": 1,
+          "byteStart": 0,
+          "byteEndExclusive": 9,
+          "sourceSha256": "d8430cffe753e983f072a9867bc1d2276d0fe2365742a9fefa4a28f811d37ab7"
+        },
+        {
+          "id": "stable-channel",
+          "dimension": "declarations",
+          "statement": "The channel value is the string stable.",
+          "path": "config/release.toml",
+          "sourceFile": "fixtures/release-pipeline/config/release.toml",
+          "quote": "channel = \"stable\"",
+          "lineStart": 2,
+          "lineEnd": 2,
+          "byteStart": 10,
+          "byteEndExclusive": 28,
+          "sourceSha256": "d8430cffe753e983f072a9867bc1d2276d0fe2365742a9fefa4a28f811d37ab7"
+        },
+        {
+          "id": "retry-limit",
+          "dimension": "declarations",
+          "statement": "The retry_limit value is the integer 3.",
+          "path": "config/release.toml",
+          "sourceFile": "fixtures/release-pipeline/config/release.toml",
+          "quote": "retry_limit = 3",
+          "lineStart": 3,
+          "lineEnd": 3,
+          "byteStart": 29,
+          "byteEndExclusive": 44,
+          "sourceSha256": "d8430cffe753e983f072a9867bc1d2276d0fe2365742a9fefa4a28f811d37ab7"
+        },
+        {
+          "id": "artifact-name",
+          "dimension": "declarations",
+          "statement": "The artifact_name value is atlas-desktop.",
+          "path": "config/release.toml",
+          "sourceFile": "fixtures/release-pipeline/config/release.toml",
+          "quote": "artifact_name = \"atlas-desktop\"",
+          "lineStart": 4,
+          "lineEnd": 4,
+          "byteStart": 45,
+          "byteEndExclusive": 76,
+          "sourceSha256": "d8430cffe753e983f072a9867bc1d2276d0fe2365742a9fefa4a28f811d37ab7"
+        }
+      ]
+    },
+    {
+      "id": "unsupported-language",
+      "repository": "release-pipeline",
+      "path": "policies/session.policy",
+      "role": "unsupported language",
+      "language": "Synthetic Session Policy DSL",
+      "parserStatus": "unsupportedLanguage",
+      "sourceFile": "fixtures/release-pipeline/policies/session.policy",
+      "supportingFiles": [],
+      "complexity": "small",
+      "applicability": {
+        "responsibility": {
+          "status": "sourceOnly",
+          "reason": "The text has a rule heading but the DSL has no supplied specification."
+        },
+        "declarations": {
+          "status": "sourceOnly",
+          "reason": "Only lexical names and expressions may be described."
+        },
+        "executionPath": {
+          "status": "notAssessable",
+          "reason": "No parser or semantics for this synthetic DSL are available."
+        },
+        "inputsOutputs": {
+          "status": "sourceOnly",
+          "reason": "The text names fields and expressions; their runtime meaning is not established."
+        },
+        "stateEffects": {
+          "status": "notAssessable",
+          "reason": "The DSL assignment/event semantics are intentionally unspecified."
+        },
+        "failurePaths": {
+          "status": "notProvided",
+          "reason": "No failure syntax or runtime specification is supplied."
+        },
+        "relatedCallersAndTests": {
+          "status": "notProvided",
+          "reason": "No interpreter, caller, or tests are supplied."
+        },
+        "uncertainty": {
+          "status": "required",
+          "reason": "The explanation must disclose unsupported syntax and avoid claiming runtime behavior."
+        }
+      },
+      "mustCover": [
+        "policy-heading",
+        "policy-condition-text",
+        "policy-assignment-text",
+        "policy-event-text"
+      ],
+      "reviewConstraints": [
+        "Required limitation: parserStatus is unsupportedLanguage; state that only source text is being described.",
+        "Do not say the condition executes, status changes, or an event is emitted at runtime; no DSL specification/interpreter is supplied."
+      ],
+      "files": [
+        {
+          "path": "policies/session.policy",
+          "sourceFile": "fixtures/release-pipeline/policies/session.policy",
+          "role": "target",
+          "sha256": "0c9035f2bfe7f34ae9af6a0a88ba80e8ffd18f2ed3e02c5c4d491cd4c5a7766e",
+          "sizeBytes": 120
+        }
+      ],
+      "expectedFacts": [
+        {
+          "id": "policy-heading",
+          "dimension": "declarations",
+          "statement": "The first line contains the policy heading stale_session.",
+          "path": "policies/session.policy",
+          "sourceFile": "fixtures/release-pipeline/policies/session.policy",
+          "quote": "policy stale_session",
+          "lineStart": 1,
+          "lineEnd": 1,
+          "byteStart": 0,
+          "byteEndExclusive": 20,
+          "sourceSha256": "0c9035f2bfe7f34ae9af6a0a88ba80e8ffd18f2ed3e02c5c4d491cd4c5a7766e"
+        },
+        {
+          "id": "policy-condition-text",
+          "dimension": "inputsOutputs",
+          "statement": "The next line places the expression session.last_seen < clock.now - 15m after the token when.",
+          "path": "policies/session.policy",
+          "sourceFile": "fixtures/release-pipeline/policies/session.policy",
+          "quote": "when session.last_seen < clock.now - 15m",
+          "lineStart": 2,
+          "lineEnd": 2,
+          "byteStart": 21,
+          "byteEndExclusive": 61,
+          "sourceSha256": "0c9035f2bfe7f34ae9af6a0a88ba80e8ffd18f2ed3e02c5c4d491cd4c5a7766e"
+        },
+        {
+          "id": "policy-assignment-text",
+          "dimension": "declarations",
+          "statement": "The body contains a := statement naming session.status and the literal expired.",
+          "path": "policies/session.policy",
+          "sourceFile": "fixtures/release-pipeline/policies/session.policy",
+          "quote": "  session.status := \"expired\"",
+          "lineStart": 4,
+          "lineEnd": 4,
+          "byteStart": 67,
+          "byteEndExclusive": 96,
+          "sourceSha256": "0c9035f2bfe7f34ae9af6a0a88ba80e8ffd18f2ed3e02c5c4d491cd4c5a7766e"
+        },
+        {
+          "id": "policy-event-text",
+          "dimension": "declarations",
+          "statement": "The body contains the text emit session.expired.",
+          "path": "policies/session.policy",
+          "sourceFile": "fixtures/release-pipeline/policies/session.policy",
+          "quote": "  emit session.expired",
+          "lineStart": 5,
+          "lineEnd": 5,
+          "byteStart": 97,
+          "byteEndExclusive": 119,
+          "sourceSha256": "0c9035f2bfe7f34ae9af6a0a88ba80e8ffd18f2ed3e02c5c4d491cd4c5a7766e"
+        }
+      ]
+    }
+  ],
+  "knownFailureExamples": [
+    {
+      "id": "generic-but-valid-citation",
+      "caseId": "route-entrypoint",
+      "expectedDisposition": "fail",
+      "schemaShapedClaim": {
+        "category": "codeBehavior",
+        "aspect": "responsibility",
+        "prose": "resolveRoute accepts a request and produces a route for the application.",
+        "inferenceBasis": "",
+        "identifiers": [
+          "resolveRoute"
+        ],
+        "evidence": [
+          {
+            "path": "src/routes.ts",
+            "quote": "export function resolveRoute(request: Request): Route {"
+          }
+        ],
+        "relationshipIds": []
+      },
+      "failureCodes": [
+        "generic-explanation",
+        "missing-required-branches"
+      ],
+      "why": "The quote and identifier are valid, but this claim does not explain the method/path predicate, either branch result, or the notFound fallback."
+    },
+    {
+      "id": "unsupported-effect-with-real-identifiers",
+      "caseId": "service-core",
+      "expectedDisposition": "fail",
+      "schemaShapedClaim": {
+        "category": "codeBehavior",
+        "aspect": "stateEffect",
+        "prose": "holdSeat writes the new hold to standard output before saving it through store.",
+        "inferenceBasis": "",
+        "identifiers": [
+          "holdSeat",
+          "hold",
+          "store"
+        ],
+        "evidence": [
+          {
+            "path": "src/reservation-service.ts",
+            "quote": "export async function holdSeat("
+          },
+          {
+            "path": "src/reservation-service.ts",
+            "quote": "  const hold: SeatHold = { eventId, seatId, state: \"held\" };"
+          },
+          {
+            "path": "src/reservation-service.ts",
+            "quote": "  await store.saveHold(hold);"
+          }
+        ],
+        "relationshipIds": []
+      },
+      "failureCodes": [
+        "unsupported-side-effect"
+      ],
+      "why": "Every declared identifier appears in the cited source, but no output/logging operation exists. A human must assess whether cited ranges entail the prose; string/identifier overlap is not semantic proof."
+    }
+  ],
+  "minimumRepositoryCount": 2,
+  "requiredRoles": [
+    "route/entrypoint",
+    "service/core",
+    "data model",
+    "test",
+    "config",
+    "unsupported language"
+  ]
+}
