@@ -68,7 +68,7 @@ Code Atlas cannot determine account billing, region, eligibility, quota, or rete
 - The indexer recognizes a defined Rust, TypeScript, TSX, and JavaScript subset. Other files remain visible in inventory, with parser or capture limitations shown.
 - Each selected file is generated and reviewed individually. There is no generate-all action.
 - Generated prose and source identity validation are different checks: a valid citation does not prove that the explanation is semantically correct.
-- Gemini, OpenAI, and Anthropic are selectable for file chapters, optional orientation, selective section updates, and PR Guides. The cross-provider fixture/acceptance gate remains open; distinct on-demand Code Lens explanations, PR change explanations, and coding-agent backends are not implemented as direct API operations.
+- Gemini, OpenAI, and Anthropic are selectable for file chapters, optional orientation, selective section updates, PR Guides, and transient Code Lens explanations grounded in a verified source range. The cross-provider fixture/acceptance gate remains open; PR change explanations and coding-agent backends are not implemented as direct API operations.
 - Single-section stale-guide updates and user-facing revision compare/restore are implemented; updating several stale sections in one model request is not supported. Cross-file relationship impact in Git comparisons, polished onboarding, release signing, and the remaining PR Guide and offline-export acceptance evidence remain tracked; read the [Kata backlog](KATA_BACKLOG.md) for task contracts.
 - This checkout has no root license file. Reuse and redistribution terms are unspecified.
 

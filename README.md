@@ -17,7 +17,7 @@ This image is a design concept, not a screenshot of the running app. Product beh
 - Direct Gemini, OpenAI, and Anthropic API paths for file chapters, optional repository orientation, selective section updates, and PR Guides. A reviewed request sends only the selected captured context after explicit confirmation; generated content is validated and remains unaccepted until the user saves and reviews it.
 - Optional Gemini text-to-speech for an edited section script. The speech request is reviewed separately and sends the selected script and voice settings, not source excerpts by default.
 
-These are source-level capabilities, not a claim of a finished or released product. Gemini, OpenAI, and Anthropic are selectable direct APIs for the request paths listed above. The API-provider milestone remains open: distinct Code Lens range explanations, PR change explanations, operation-by-provider fixtures, and full capability evidence are incomplete. Coding-agent backends such as Codex, Claude Agent, Gemini CLI, and Google Antigravity remain separate planned integrations in [M7](docs/kata-tasks/phase-7.md).
+These are source-level capabilities, not a claim of a finished or released product. Gemini, OpenAI, and Anthropic are selectable direct APIs for the request paths listed above, including a separate, transient Code Lens range explanation. The API-provider milestone remains open: PR change explanations, Code Lens provider-by-operation fixtures, and full capability evidence are incomplete. Coding-agent backends such as Codex, Claude Agent, Gemini CLI, and Google Antigravity remain separate planned integrations in [M7](docs/kata-tasks/phase-7.md).
 
 ## Start here
 

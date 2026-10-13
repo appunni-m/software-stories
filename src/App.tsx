@@ -63,6 +63,9 @@ import {
   type ChapterFreshnessReport,
   type ChapterFreshnessSourceChange,
   type SectionUpdateReviewTarget,
+  type CodeLensExplanationTarget,
+  type CodeLensExplanationCitation,
+  type CodeLensExplanationPreview,
   type SnapshotIndex,
   type IndexProgress,
   type RelationshipKind,
@@ -71,6 +74,7 @@ import {
 import { WalkthroughScreen, type ReaderRouteContext } from './Walkthrough';
 import { GitChangesScreen } from './GitChanges';
 import {
+  buildCodeLensProviderRequestReview,
   buildProviderRequestReview,
   cancelProviderRequest,
   discardProviderRequestReview,
@@ -79,6 +83,7 @@ import {
   getProviderCatalog,
   removeProviderApiKey,
   sendProviderRequest,
+  sendCodeLensProviderRequest,
   saveGeneratedChapterDraft,
   listChapterRevisions,
   listProjectChapterRevisions,
@@ -155,6 +160,7 @@ type Notice = { title: string; message: string; actionLabel?: string; action?: (
 type ProviderDialogMode =
   | { kind: 'settings'; recoveryOperationId?: string }
   | { kind: 'review'; projectId: string; snapshotId: string; targetPath: string; recoveryOperationId?: string }
+  | { kind: 'code-lens-range'; projectId: string; snapshotId: string; target: CodeLensExplanationTarget }
   | { kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string; selectedPaths: string[]; baseRevision: ChapterRevision; sectionUpdate: SectionUpdateReviewTarget }
   | { kind: 'overview'; projectId: string; snapshotId: string; recoveryOperationId?: string };
 
@@ -848,6 +854,28 @@ function App() {
     });
   };
 
+  const explainCodeLensRangeWithProvider = (targetPath: string, range: SourceLineRange) => {
+    if (!currentProject || !sourceDocument || !range.sourceSha256) {
+      setNotice({ title: 'A verified source range is required', message: 'Open an exact Code Lens citation from the selected immutable snapshot before requesting a range explanation.' });
+      return;
+    }
+    providerReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setToolsOpen(false);
+    setProviderDialog({
+      kind: 'code-lens-range',
+      projectId: currentProject.projectId,
+      snapshotId: sourceDocument.snapshotId,
+      target: {
+        path: targetPath,
+        sourceSha256: range.sourceSha256,
+        startLine: range.startLine,
+        endLine: range.endLine,
+        startByte: range.startByte ?? null,
+        endByteExclusive: range.endByteExclusive ?? null,
+      },
+    });
+  };
+
   const closeProviderDialog = () => {
     const returnFocus = providerReturnFocusRef.current;
     setProviderDialog(null);
@@ -1376,6 +1404,7 @@ function App() {
                 onGoWalkthrough={navigation.back.at(-1)?.workspace === 'walkthrough' ? navigationActions.back : undefined}
                 onOpenFile={openCapturedFile}
                 onRequestExplanation={reviewFileWithProvider}
+                onRequestRangeExplanation={explainCodeLensRangeWithProvider}
                 source={sourceDocument}
                 sourceRange={navigation.current.sourceRange ?? null}
                 sourceRangeIssue={navigation.current.sourceRangeIssue ?? null}
@@ -1494,11 +1523,21 @@ function App() {
       </div>
       {providerDialog && (
         <ProviderDialog
-          key={providerDialog.kind === 'settings' ? 'settings' : `${providerDialog.kind}:${providerDialog.projectId}:${providerDialog.snapshotId}:${providerDialog.kind === 'review' ? providerDialog.targetPath : providerDialog.kind === 'section-update' ? providerDialog.sectionUpdate.sectionId : ''}:${'recoveryOperationId' in providerDialog ? providerDialog.recoveryOperationId ?? '' : ''}`}
+          key={providerDialog.kind === 'settings' ? 'settings' : `${providerDialog.kind}:${providerDialog.projectId}:${providerDialog.snapshotId}:${providerDialog.kind === 'review' ? providerDialog.targetPath : providerDialog.kind === 'section-update' ? providerDialog.sectionUpdate.sectionId : providerDialog.kind === 'code-lens-range' ? `${providerDialog.target.path}:${providerDialog.target.startLine}:${providerDialog.target.endLine}:${providerDialog.target.startByte ?? ''}:${providerDialog.target.endByteExclusive ?? ''}` : ''}:${'recoveryOperationId' in providerDialog ? providerDialog.recoveryOperationId ?? '' : ''}`}
           mode={providerDialog}
           native={runtime?.native ?? isNativeRuntime()}
           onClose={closeProviderDialog}
           onRecoveryReviewReady={completeRecoveredProviderReview}
+          onOpenCodeLensCitation={(citation) => {
+            closeProviderDialog();
+            openCapturedFile(citation.path, citation.snapshotId, {
+              startLine: citation.startLine,
+              endLine: citation.endLine,
+              sourceSha256: citation.sourceSha256,
+              startByte: citation.startByte,
+              endByteExclusive: citation.endByteExclusive,
+            });
+          }}
         />
       )}
       {recoveredPreviewId && (
@@ -1530,11 +1569,12 @@ const noProviderConsent: ProviderConsent = {
   adultSupportedRegionAcknowledged: false,
 };
 
-function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
+function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCodeLensCitation }: {
   mode: ProviderDialogMode;
   native: boolean;
   onClose: () => void;
   onRecoveryReviewReady: (operationId: string) => void;
+  onOpenCodeLensCitation: (citation: CodeLensExplanationCitation) => void;
 }) {
   const [providerCatalog, setProviderCatalog] = useState<ProviderDisclosure[]>([]);
   const [providerId, setProviderId] = useState('');
@@ -1558,6 +1598,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
   const [requestBuildError, setRequestBuildError] = useState<ProviderFailure | null>(null);
   const [requestError, setRequestError] = useState<ProviderFailure | null>(null);
   const [sendResult, setSendResult] = useState<ChapterDraftPreview | null>(null);
+  const [codeLensResult, setCodeLensResult] = useState<CodeLensExplanationPreview | null>(null);
   const [saveBusy, setSaveBusy] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedRevision, setSavedRevision] = useState<ChapterRevision | null>(null);
@@ -1579,6 +1620,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
   const reviewMode = mode.kind !== 'settings';
   const overviewMode = mode.kind === 'overview';
   const sectionUpdateMode = mode.kind === 'section-update';
+  const codeLensRangeMode = mode.kind === 'code-lens-range';
   const recoveryOperationId = 'recoveryOperationId' in mode ? mode.recoveryOperationId : undefined;
   const availableContextFiles = useMemo(() => (snapshotManifest?.files ?? [])
     .filter((file) => file.kind === 'file' && (file.contentKind === 'text' || file.contentKind === 'unknown')
@@ -1678,16 +1720,25 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
     setRequestReview(null);
     setConsent(noProviderConsent);
     setSendResult(null);
+    setCodeLensResult(null);
     setSavedRevision(null);
     setSaveError(null);
-    void buildProviderRequestReview(providerId, {
-      projectId: mode.projectId,
-      snapshotId: mode.snapshotId,
-      targetPath: mode.kind === 'review' || mode.kind === 'section-update' ? mode.targetPath : null,
-      selectedPaths,
-      modelId,
-      sectionUpdate: mode.kind === 'section-update' ? mode.sectionUpdate : null,
-    }).then((result) => {
+    const requestBuild = mode.kind === 'code-lens-range'
+      ? buildCodeLensProviderRequestReview(providerId, {
+        projectId: mode.projectId,
+        snapshotId: mode.snapshotId,
+        target: mode.target,
+        modelId,
+      })
+      : buildProviderRequestReview(providerId, {
+        projectId: mode.projectId,
+        snapshotId: mode.snapshotId,
+        targetPath: mode.kind === 'review' || mode.kind === 'section-update' ? mode.targetPath : null,
+        selectedPaths,
+        modelId,
+        sectionUpdate: mode.kind === 'section-update' ? mode.sectionUpdate : null,
+      });
+    void requestBuild.then((result) => {
       if (result.status === 'error') {
         if (active) setRequestBuildError(result.error);
         return;
@@ -1754,22 +1805,24 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
   };
 
   const handleModelChange = (nextModelId: string) => {
-    if (sending || saveBusy || sendResult) return;
+    if (sending || saveBusy || sendResult || codeLensResult) return;
     if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
     setConsent(noProviderConsent);
     setRequestReview(null);
     setSendResult(null);
+    setCodeLensResult(null);
     setUnavailableModel(null);
     setRequestError(null);
     setModelId(nextModelId);
   };
 
   const handleProviderChange = (nextProviderId: string) => {
-    if (sending || saveBusy || sendResult) return;
+    if (sending || saveBusy || sendResult || codeLensResult) return;
     if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
     setConsent(noProviderConsent);
     setRequestReview(null);
     setSendResult(null);
+    setCodeLensResult(null);
     setUnavailableModel(null);
     setRequestError(null);
     setKeyDraft('');
@@ -1780,7 +1833,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
   };
 
   const handleContextFileChange = (path: string, checked: boolean) => {
-    if (sending || saveBusy || sendResult) return;
+    if (sending || saveBusy || sendResult || codeLensResult) return;
     setRequestError(null);
     setSelectedPaths((current) => {
       if (checked) {
@@ -1793,7 +1846,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
   };
 
   const handleSend = async () => {
-    if (!providerId || !modelId || !requestReview || sending || saveBusy || sendResult || !hasApiKey || !consent.privacyAndDataUseAcknowledged
+    if (!providerId || !modelId || !requestReview || sending || saveBusy || sendResult || codeLensResult || !hasApiKey || !consent.privacyAndDataUseAcknowledged
       || !consent.billingUncertaintyAcknowledged || !consent.adultSupportedRegionAcknowledged
       || unavailableModel === modelId) return;
     setSending(true);
@@ -1802,6 +1855,36 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
     setCancelStatus(null);
     setRequestError(null);
     try {
+      if (mode.kind === 'code-lens-range') {
+        const result = await sendCodeLensProviderRequest({
+          reviewId: requestReview.reviewId,
+          fingerprint: requestReview.fingerprint,
+          consent,
+        });
+        if (result.status === 'ok') {
+          if (!dialogMounted.current) return;
+          if (cancelRequested.current) {
+            setRequestError({
+              kind: 'requestCancelled',
+              message: `Cancellation was requested after ${disclosure?.displayName ?? 'the selected provider'} had already returned. The transient explanation was discarded. The provider has already received the selected source.`,
+            });
+            setRequestReview(null);
+            setConsent(noProviderConsent);
+            setReviewGeneration((generation) => generation + 1);
+            return;
+          }
+          setCodeLensResult(result.data);
+          return;
+        }
+        setRequestError(result.error);
+        if (result.error.kind === 'unavailableModel') setUnavailableModel(modelId);
+        if (!['missingApiKey', 'keychainUnavailable', 'keychainOperationFailed', 'consentRequired'].includes(result.error.kind)) {
+          setRequestReview(null);
+          setConsent(noProviderConsent);
+          setReviewGeneration((generation) => generation + 1);
+        }
+        return;
+      }
       const result = await sendProviderRequest({
         reviewId: requestReview.reviewId,
         fingerprint: requestReview.fingerprint,
@@ -1931,8 +2014,8 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
         <header className="provider-dialog-header">
           <div>
             <div className="step-pill"><span>{reviewMode ? 'EXACT CONTEXT' : 'OPTIONAL'}</span> {disclosure?.displayName ?? 'DIRECT API'}</div>
-            <h2 id="provider-dialog-title">{reviewMode ? (sectionUpdateMode ? 'Regenerate one section' : overviewMode ? 'Map the repository' : 'Review before sending') : 'AI and narration setup'}</h2>
-            <p>{reviewMode ? (sectionUpdateMode ? `Only “${mode.baseRevision.sections.find((section) => section.sectionId === mode.sectionUpdate.sectionId)?.title ?? mode.sectionUpdate.sectionId}” and its declared evidence are included. Other sections stay separate.` : 'Choose a direct API, then inspect the exact snapshot context and disclosures. Nothing is sent until you confirm below.') : 'Local browsing works without a model API. Provider keys are optional and stay in macOS Keychain.'}</p>
+            <h2 id="provider-dialog-title">{reviewMode ? (codeLensRangeMode ? 'Explain cited source range' : sectionUpdateMode ? 'Regenerate one section' : overviewMode ? 'Map the repository' : 'Review before sending') : 'AI and narration setup'}</h2>
+            <p>{reviewMode ? (codeLensRangeMode ? `Explain only ${mode.target.path}:${mode.target.startLine}–${mode.target.endLine} from this immutable snapshot. The result is transient and will not create a chapter.` : sectionUpdateMode ? `Only “${mode.baseRevision.sections.find((section) => section.sectionId === mode.sectionUpdate.sectionId)?.title ?? mode.sectionUpdate.sectionId}” and its declared evidence are included. Other sections stay separate.` : 'Choose a direct API, then inspect the exact snapshot context and disclosures. Nothing is sent until you confirm below.') : 'Local browsing works without a model API. Provider keys are optional and stay in macOS Keychain.'}</p>
           </div>
           <button className="icon-button" onClick={handleClose} disabled={sending || saveBusy} aria-label="Close provider dialog"><X size={17} /></button>
         </header>
@@ -1949,7 +2032,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
         ) : (
           <div className="provider-dialog-content">
             <label className="provider-model-select">Direct API provider
-              <select value={providerId} onChange={(event) => handleProviderChange(event.target.value)} disabled={sending || saveBusy || Boolean(sendResult)}>
+              <select value={providerId} onChange={(event) => handleProviderChange(event.target.value)} disabled={sending || saveBusy || Boolean(sendResult || codeLensResult)}>
                 <option value="">Choose a provider…</option>
                 {providerCatalog.map((provider) => <option key={provider.providerId} value={provider.providerId}>{provider.displayName}</option>)}
               </select>
@@ -1992,7 +2075,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
                 </div>
                 {reviewMode && (
                   <label className="provider-model-select">Model
-                    <select value={modelId} onChange={(event) => handleModelChange(event.target.value)} disabled={sending || saveBusy || Boolean(sendResult) || disclosure.models.length === 0}>
+                    <select value={modelId} onChange={(event) => handleModelChange(event.target.value)} disabled={sending || saveBusy || Boolean(sendResult || codeLensResult) || disclosure.models.length === 0}>
                       <option value="">Choose a model…</option>
                       {disclosure.models.map((model) => <option key={model.modelId} value={model.modelId}>{model.displayName} · {model.modelId}</option>)}
                     </select>
@@ -2021,7 +2104,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
             {reviewMode && (
               <section className="provider-review-card" aria-labelledby="provider-review-title">
                   <div className="provider-section-heading">
-                  <div><span>LOCAL PREVIEW · {sectionUpdateMode ? 'ONE SECTION UPDATE' : overviewMode ? 'REPOSITORY OVERVIEW' : 'FILE CHAPTER DRAFT'}</span><h3 id="provider-review-title">Exact request context</h3></div>
+                  <div><span>LOCAL PREVIEW · {codeLensRangeMode ? 'CITED CODE RANGE' : sectionUpdateMode ? 'ONE SECTION UPDATE' : overviewMode ? 'REPOSITORY OVERVIEW' : 'FILE CHAPTER DRAFT'}</span><h3 id="provider-review-title">Exact request context</h3></div>
                   {requestReview && <span className="provider-expiry">Expires {new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(new Date(requestReview.expiresAtUnixMs))}</span>}
                 </div>
                 {requestBuilding && <div className="provider-loading" role="status"><HardDrive size={16} /> Building a local preview from the selected snapshot. No model request is sent.</div>}
@@ -2039,6 +2122,11 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
                   <p>This request regenerates one section only. Code Atlas selected the old section record and the exact declared files captured in snapshot {mode.snapshotId}; the selection cannot be broadened from this dialog.</p>
                   <ul className="provider-section-path-list">{selectedPaths.map((path) => <li key={path}><code>{path}</code>{path === mode.targetPath && <small>chapter target</small>}</li>)}</ul>
                   <p className="provider-small-note">Changing the model rebuilds the exact prompt and clears consent. No other section is rewritten or sent as chapter content.</p>
+                </div> : mode.kind === 'code-lens-range' ? <div className="provider-context-picker">
+                  <div className="provider-context-heading"><strong>Fixed source range</strong><span>{mode.target.path}</span></div>
+                  <p>Only this hash-verified range from snapshot {mode.snapshotId} is sent. It cannot be expanded to neighboring lines or other files.</p>
+                  <code>{mode.target.path}:{mode.target.startLine}–{mode.target.endLine}</code>
+                  <p className="provider-small-note">The structured result will cite exact quotes inside this range and remain a temporary Code Lens explanation. It is not added to chapter coverage or revision history.</p>
                 </div> : <div className="provider-context-picker">
                   <div className="provider-context-heading"><strong>Choose source files</strong><span>{selectedPaths.length} of 12 selected</span></div>
                   <p>{overviewMode ? 'Choose the files that should ground this optional repository map. Changing the selection rebuilds the preview and clears consent.' : 'The target stays selected. Add up to eleven supporting files from this snapshot; changing the selection rebuilds the preview and clears consent.'}</p>
@@ -2074,26 +2162,26 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
                       <div><span>Provider and model</span><strong>{requestReview.providerId} · {requestReview.modelId}</strong></div>
                       <div><span>Endpoint</span><code>{requestReview.endpointUrl}</code></div>
                       <div><span>Source snapshot</span><code>{requestReview.snapshotId}</code></div>
-                      <div><span>Source selected</span><strong>{requestReview.selectedFiles.length} {requestReview.selectedFiles.length === 1 ? 'file' : 'files'} · {formatBytes(requestReview.sourceBytes)}</strong></div>
+                      <div><span>{codeLensRangeMode ? 'Range sent' : 'Source selected'}</span><strong>{codeLensRangeMode ? `${formatBytes(requestReview.sourceBytes)} from one fixed range` : `${requestReview.selectedFiles.length} ${requestReview.selectedFiles.length === 1 ? 'file' : 'files'} · ${formatBytes(requestReview.sourceBytes)}`}</strong></div>
                       <div><span>Input estimate</span><strong>About {requestReview.estimatedInputTokens.toLocaleString()} tokens · not a bill</strong></div>
                       <div><span>Request body</span><strong>{formatBytes(requestReview.requestBodyBytes)}</strong></div>
-                      <div><span>Local index evidence</span><strong>{requestReview.selectedSymbols.length} declarations · {requestReview.selectedRelationships.length} relationships{requestReview.indexEvidenceTruncated ? ' · incomplete context' : ''}</strong></div>
+                      {!codeLensRangeMode && <div><span>Local index evidence</span><strong>{requestReview.selectedSymbols.length} declarations · {requestReview.selectedRelationships.length} relationships{requestReview.indexEvidenceTruncated ? ' · incomplete context' : ''}</strong></div>}
                     </div>
                     <p className="provider-warning-note"><TriangleAlert size={14} /> Review code for credentials and confidential or personal data before sending. The local secret-like scan catches common names and patterns, not every secret.</p>
                     {requestReview.selectedFiles.map((file) => (
                       <details className="provider-source-file" open key={`${file.path}:${file.sha256}`}>
-                        <summary><code>{file.path}</code><span>{formatBytes(file.sizeBytes)} · SHA-256 {file.sha256.slice(0, 16)}…</span></summary>
+                        <summary><code>{file.path}</code><span>{codeLensRangeMode ? `Sent excerpt ${formatBytes(file.contents.length)} · file SHA-256 ${file.sha256.slice(0, 16)}…` : `${formatBytes(file.sizeBytes)} · SHA-256 ${file.sha256.slice(0, 16)}…`}</span></summary>
                         <pre><code>{file.contents}</code></pre>
                       </details>
                     ))}
-                    <details className="provider-index-preview">
+                    {!codeLensRangeMode && <details className="provider-index-preview">
                       <summary>Inspect selected declarations and relationships</summary>
                       <p>These entries come from the saved local index. Every entry refers to selected source; unresolved relationships remain uncertain.</p>
                       {requestReview.indexEvidenceTruncated && <p>The index context is incomplete or reached its bound. Omitted entries are not sent or available as chapter evidence.</p>}
                       <ul>{requestReview.selectedSymbols.map((symbol) => <li key={symbol.symbolId}><code>{symbol.path}:{symbol.startLine}–{symbol.endLine}</code><strong>{symbol.kind} · {symbol.qualifiedName ?? symbol.name}</strong><small>{symbol.isExported ? 'exported' : 'local declaration'}{symbol.isTest ? ' · test' : ''}</small></li>)}</ul>
                       <ul>{requestReview.selectedRelationships.map((relationship) => <li key={relationship.relationshipId}><strong>{relationship.kind} · {relationship.confidence} confidence</strong><code>{relationship.sourcePath} → {relationship.targetPath ?? 'unresolved'}</code><small>{relationship.unresolvedReason ?? `${relationship.sourceName ?? 'file'} → ${relationship.targetName ?? 'file'}`}</small><pre>{relationship.evidenceExcerpt}</pre></li>)}</ul>
                       {requestReview.selectedSymbols.length === 0 && requestReview.selectedRelationships.length === 0 && <p>No saved structural evidence is available for this selection. The draft must use exact source text and identify its limits.</p>}
-                    </details>
+                    </details>}
                     <details className="provider-prompt-preview">
                       <summary>Inspect exact prompt and encoded provider request</summary>
                       <div><strong>System instruction</strong><pre>{requestReview.systemInstruction}</pre><strong>User prompt</strong><pre>{requestReview.userPrompt}</pre><strong>Generation settings</strong><pre>{JSON.stringify(requestReview.generationConfig, null, 2)}</pre><strong>Exact JSON request body · SHA-256 {requestReview.requestBodySha256}</strong><pre>{JSON.stringify(requestReview.requestBodyPreview, null, 2)}</pre></div>
@@ -2122,11 +2210,27 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
                     <small>{sendResult.modelVersion ?? sendResult.modelId}{savedRevision ? ` · ${savedRevision.revisionId}` : ''}</small>
                   </section>
                 )}
+                {codeLensResult && (
+                  <section className="provider-response" aria-labelledby="code-lens-explanation-title">
+                    <div><span>TRANSIENT · RANGE GROUNDED</span><h4 id="code-lens-explanation-title">What this code does</h4></div>
+                    <p>Each claim is checked against an exact, unique quote inside the selected source range. Nothing was saved to chapter history.</p>
+                    <ol className="code-lens-explanation-claims">{codeLensResult.claims.map((claim) => (
+                      <li key={claim.claimId}>
+                        <p>{claim.prose}</p>
+                        <button className="text-button" onClick={() => onOpenCodeLensCitation(claim.citation)}>
+                          <FileCode2 size={13} /> Open {claim.citation.path}:{claim.citation.startLine}–{claim.citation.endLine}
+                        </button>
+                        <details className="chapter-evidence"><summary>Inspect cited code</summary><pre><code>{claim.citation.quote}</code></pre></details>
+                      </li>
+                    ))}</ol>
+                    <small>{codeLensResult.modelVersion ?? codeLensResult.modelId} · {codeLensResult.inputTokens ?? '—'} input tokens · {codeLensResult.outputTokens ?? '—'} output tokens</small>
+                  </section>
+                )}
                 {disclosure && (
                   <div className="provider-consent-list">
-                    <label><input type="checkbox" checked={consent.privacyAndDataUseAcknowledged} onChange={(event) => updateConsent('privacyAndDataUseAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult)} /><span><strong>Privacy and data use</strong>{disclosure.dataUseTerms} {disclosure.regionRequirements}</span></label>
-                    <label><input type="checkbox" checked={consent.billingUncertaintyAcknowledged} onChange={(event) => updateConsent('billingUncertaintyAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult)} /><span><strong>Billing uncertainty</strong>{disclosure.billingUncertainty}</span></label>
-                    <label><input type="checkbox" checked={consent.adultSupportedRegionAcknowledged} onChange={(event) => updateConsent('adultSupportedRegionAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult)} /><span><strong>Eligibility and region</strong>{disclosure.eligibilityRequirements}</span></label>
+                    <label><input type="checkbox" checked={consent.privacyAndDataUseAcknowledged} onChange={(event) => updateConsent('privacyAndDataUseAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult || codeLensResult)} /><span><strong>Privacy and data use</strong>{disclosure.dataUseTerms} {disclosure.regionRequirements}</span></label>
+                    <label><input type="checkbox" checked={consent.billingUncertaintyAcknowledged} onChange={(event) => updateConsent('billingUncertaintyAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult || codeLensResult)} /><span><strong>Billing uncertainty</strong>{disclosure.billingUncertainty}</span></label>
+                    <label><input type="checkbox" checked={consent.adultSupportedRegionAcknowledged} onChange={(event) => updateConsent('adultSupportedRegionAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult || codeLensResult)} /><span><strong>Eligibility and region</strong>{disclosure.eligibilityRequirements}</span></label>
                   </div>
                 )}
               </section>
@@ -2135,16 +2239,18 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
         )}
 
         <footer className="provider-dialog-footer">
-          <button className="secondary-button" onClick={handleClose} disabled={sending || saveBusy}>{sending ? 'Provider request in progress…' : savedRevision ? 'Done' : 'Close'}</button>
+          <button className="secondary-button" onClick={handleClose} disabled={sending || saveBusy}>{sending ? 'Provider request in progress…' : savedRevision || codeLensResult ? 'Done' : 'Close'}</button>
           {reviewMode && (
             sending ? (
               <button className="secondary-button" onClick={() => setCancelConfirmation(true)} disabled={cancelBusy || cancelRequested.current}>
                 {cancelBusy || cancelRequested.current ? 'Cancelling…' : 'Cancel request'}
               </button>
+            ) : codeLensResult ? (
+              <span className="provider-saved-status" role="status"><Check size={15} /> Range explanation ready</span>
             ) : sendResult ? (
               savedRevision ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { void handleDiscardPreview(); }} disabled={saveBusy}>Discard preview</button><button className="primary-button" onClick={() => { void handleSaveDraft(); }} disabled={saveBusy}><Check size={15} /> {saveBusy ? 'Saving draft…' : sectionUpdateMode ? 'Save section update as draft' : 'Save unaccepted draft'}</button></div>
             ) : (
-              <button className="primary-button" onClick={() => { void handleSend(); }} disabled={!requestReady || requestBuilding || informationLoading || Boolean(sendResult)}>
+              <button className="primary-button" onClick={() => { void handleSend(); }} disabled={!requestReady || requestBuilding || informationLoading || Boolean(sendResult || codeLensResult)}>
                 <Sparkles size={15} /> Send this request
               </button>
             )
@@ -4087,7 +4193,7 @@ function AtlasEmptyState({ project, onOpen, onCreateSnapshot, busy, limits }: {
   );
 }
 
-function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWalkthrough, onOpenFile, onRequestExplanation, source, sourceRange, sourceRangeIssue, loading, error, selectedPath }: {
+function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWalkthrough, onOpenFile, onRequestExplanation, onRequestRangeExplanation, source, sourceRange, sourceRangeIssue, loading, error, selectedPath }: {
   projectId: string | null;
   snapshotId: string | null;
   manifest: SnapshotManifest | null;
@@ -4095,6 +4201,7 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
   onGoWalkthrough?: () => void;
   onOpenFile: (path: string, snapshotId?: string, sourceRange?: SourceLineRange) => void;
   onRequestExplanation: (path: string) => void;
+  onRequestRangeExplanation: (path: string, range: SourceLineRange) => void;
   source: SnapshotSource | null;
   sourceRange: SourceLineRange | null;
   sourceRangeIssue: WorkspaceRoute['sourceRangeIssue'] | null;
@@ -4230,7 +4337,8 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
           <div><span className="step-pill"><span>READ ONLY</span> SNAPSHOT SOURCE</span><h2>{source.path}</h2></div>
           <div className="source-view-actions">
             {onGoWalkthrough && <button className="secondary-button" onClick={onGoWalkthrough}><ArrowLeft size={15} /> Return to walkthrough</button>}
-            <button className="secondary-button" onClick={() => onRequestExplanation(source.path)}><Sparkles size={15} /> Explain captured file</button>
+            {visibleSourceRange && <button className="secondary-button" onClick={() => onRequestRangeExplanation(source.path, visibleSourceRange)}><Sparkles size={15} /> Explain cited range</button>}
+            <button className="secondary-button" onClick={() => onRequestExplanation(source.path)}><Sparkles size={15} /> Create file chapter</button>
             <button className="secondary-button" onClick={onGoAtlas}>Back to inventory <ArrowRight size={15} /></button>
           </div>
         </div>

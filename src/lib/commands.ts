@@ -780,6 +780,7 @@ export interface ProviderRequestReview {
   indexEvidenceTruncated: boolean;
   prGuideContext: PrGuideComparisonContext | null;
   sectionUpdateContext: SectionUpdateReviewTarget | null;
+  codeLensContext: CodeLensExplanationTarget | null;
   systemInstruction: string;
   userPrompt: string;
   generationConfig: Record<string, unknown>;
@@ -796,6 +797,41 @@ export interface SectionUpdateReviewTarget {
   chapterRevisionId: string;
   sectionId: string;
   sectionRevisionId: string;
+}
+
+export interface CodeLensExplanationTarget {
+  path: string;
+  sourceSha256: string;
+  startLine: number;
+  endLine: number;
+  startByte: number | null;
+  endByteExclusive: number | null;
+}
+
+export interface CodeLensExplanationCitation {
+  path: string;
+  snapshotId: string;
+  sourceSha256: string;
+  startLine: number;
+  endLine: number;
+  startByte: number;
+  endByteExclusive: number;
+  quote: string;
+}
+
+export interface CodeLensExplanationClaim {
+  claimId: string;
+  prose: string;
+  citation: CodeLensExplanationCitation;
+}
+
+export interface CodeLensExplanationPreview {
+  providerId: string;
+  modelId: string;
+  modelVersion: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  claims: CodeLensExplanationClaim[];
 }
 
 export interface ChapterDraftPreview {
@@ -1082,6 +1118,15 @@ export async function buildProviderRequestReview(providerId: string, input: {
   return invoke<ProviderCommandResult<ProviderRequestReview>>('build_provider_request_review', { providerId, input });
 }
 
+export async function buildCodeLensProviderRequestReview(providerId: string, input: {
+  projectId: string;
+  snapshotId: string;
+  target: CodeLensExplanationTarget;
+  modelId: string;
+}): Promise<ProviderCommandResult<ProviderRequestReview>> {
+  return invoke<ProviderCommandResult<ProviderRequestReview>>('build_code_lens_provider_request_review', { providerId, input });
+}
+
 export async function discardProviderRequestReview(reviewId: string): Promise<void> {
   await invoke<void>('discard_provider_request_review', { reviewId });
 }
@@ -1096,6 +1141,14 @@ export async function sendProviderRequest(input: {
   consent: ProviderConsent;
 }): Promise<ProviderCommandResult<ChapterDraftPreview>> {
   return invoke<ProviderCommandResult<ChapterDraftPreview>>('send_provider_request', input);
+}
+
+export async function sendCodeLensProviderRequest(input: {
+  reviewId: string;
+  fingerprint: string;
+  consent: ProviderConsent;
+}): Promise<ProviderCommandResult<CodeLensExplanationPreview>> {
+  return invoke<ProviderCommandResult<CodeLensExplanationPreview>>('send_code_lens_provider_request', input);
 }
 
 export async function getNarrationDisclosure(): Promise<NarrationDisclosure> {

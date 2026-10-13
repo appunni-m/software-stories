@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import {
   buildNarrationRequestReview,
-  cancelGeminiRequest,
+  cancelProviderRequest,
   discardNarrationRequestReview,
   getNarrationDisclosure,
   getProviderCredentialStatus,
@@ -108,7 +108,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   useEffect(() => {
     if (!isNativeRuntime()) return;
     let active = true;
-    void Promise.all([getNarrationDisclosure(), getProviderCredentialStatus()])
+    void Promise.all([getNarrationDisclosure(), getProviderCredentialStatus('gemini')])
       .then(([nextDisclosure, nextCredential]) => {
         if (!active) return;
         setDisclosure(nextDisclosure);
@@ -334,7 +334,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     setCancelConfirmation(false);
     setCancelStatus(null);
     try {
-      const stopped = await cancelGeminiRequest(review.reviewId);
+      const stopped = await cancelProviderRequest(review.reviewId);
       setCancelStatus(stopped
         ? 'The local request was stopped. Google may already have received the reviewed narration text; no returned audio will be accepted.'
         : 'The request had already finished locally. Its audio will be discarded because you chose Cancel.');

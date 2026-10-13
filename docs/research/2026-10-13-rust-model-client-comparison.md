@@ -55,6 +55,8 @@ The 0.44.0 `Streamed` API documents drop-based cancellation; it does not expose 
 
 The workspace pins `rig-core` 0.44.0 and connects its Gemini, OpenAI Responses, and Anthropic Messages wires to the reviewed request boundary for file chapters, optional orientation, selective section updates, and PR Guides. No API key or live request was used for this comparison. A Rust library compile check succeeded, but no test suite or mock transport fixture was run for this change. Real-provider billing, data handling, and capability behavior remain unverified; provider-by-operation fixture coverage, distinct Code Lens and PR change-explanation operations, and full runtime behavior remain acceptance work.
 
+**Implementation follow-up (2026-10-14):** the app now has a distinct transient Code Lens request scoped to an exact hash-verified snapshot range. This follow-up does not change the comparison's 2026-10-13 evidence; provider-by-operation Code Lens fixtures and the separate PR change-explanation operation remain open. See the [current capability matrix](ai-backend-capability-matrix.md).
+
 ## Primary sources
 
 - [`rig-core` 0.44.0 crate metadata, dependency list, size, and release history](https://docs.rs/crate/rig-core/0.44.0)
