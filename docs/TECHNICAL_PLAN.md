@@ -164,7 +164,7 @@ The planned PR Guide builds on that evidence to produce a separate, reviewed dra
 
 - Local-only browsing succeeds with networking disabled.
 - A cancellation or provider failure cannot leave a half-accepted chapter or corrupt prior revisions.
-- Large repository scans yield progress and cancellation; resource limits are covered by representative fixtures.
+- Large repository scans yield progress and cancellation; a measured 2,000-file fixture is recorded in [Performance validation](PERFORMANCE_VALIDATION.md). It measures backend phases, not rendered UI responsiveness.
 - Keyboard focus, VoiceOver names/announcements, text zoom, reduced motion, and high-contrast legibility are part of each feature's acceptance.
 - Logs contain operation IDs and error categories, not API keys, raw prompt context, or source excerpts.
 - Release checks verify signed/notarized macOS artifacts and document supported macOS versions and storage locations.

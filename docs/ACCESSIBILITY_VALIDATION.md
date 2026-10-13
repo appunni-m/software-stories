@@ -34,19 +34,29 @@ contrast, zoom, or native-app usability pass.
 - Reduced-motion styles and focus/reflow fixes are in
   [App.css](../src/App.css).
 
-## Native manual checks still required
+## Rendered keyboard preview pass
 
-No macOS app or browser preview was started for this record. Consequently, the
-following are **not verified**:
+On 2026-10-13, the Vite preview at 127.0.0.1:4173 was used at its normal
+1280-pixel viewport. From the empty-project screen, keyboard Tab showed a
+visible focus outline on the repository picker and workspace navigation.
+Return opened Walkthrough; the workspace heading received focus and showed a
+visible outline. Return opened Project Tools, Arrow Down focused its first menu
+item, Return opened Guide Plan, and Escape closed the menu and restored focus
+to the Tools button. The accessibility tree exposed the resulting workspace
+headings. This checks a rendered browser preview, not the packaged Tauri app.
 
-- A keyboard-only repository-to-walkthrough journey in the rendered app,
-  including focus visibility at every transition.
+## Manual checks still required
+
+The following are **not verified**:
+
 - VoiceOver announcements for project, snapshot, file, section, validation
   errors, and asynchronous progress/results.
 - Text zoom at 200%, narrow effective viewport reflow, and contrast legibility.
 - Reduced-motion behavior in the rendered app.
+- Keyboard focus through a populated repository-to-walkthrough journey,
+  including a focused chapter section heading and the provider/recovery dialogs.
 
-Run and record those checks on the packaged or native app before treating the
-accessibility acceptance criteria as complete. The Rust and frontend tests
-remain useful implementation evidence, but cannot substitute for those manual
-checks.
+Run and record those checks on the native app before treating the accessibility
+acceptance criteria as complete. The Rust and frontend tests and the preview
+pass remain implementation evidence, but cannot substitute for VoiceOver or
+native zoom testing.
