@@ -12,6 +12,7 @@
   "requestAssemblySha256": null,
   "generationConfigSha256": null,
   "chapterSchemaVersion": null,
+  "responseSchemaVersion": null,
   "responseSchemaSha256": null,
   "reviewer": null,
   "reviewedAt": null,

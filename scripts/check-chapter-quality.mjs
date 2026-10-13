@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const defaultManifest = "benchmarks/chapter-quality/corpus/manifest.json";
+// Bump this when the provider-facing file-chapter response contract changes.
+const responseSchemaVersion = 1;
 const requiredRoleFamilies = [
   { label: "route/entrypoint", aliases: ["route", "entrypoint", "route-entrypoint", "route/entrypoint"] },
   { label: "service/core", aliases: ["service", "core", "service-core", "service/core"] },
@@ -534,6 +536,7 @@ function validateFactCoverageContractExample() {
 }
 
 async function printCurrentMetadata(manifestArg) {
+  await loadReportTemplate();
   const loaded = await loadManifest(manifestArg);
   const current = await currentGenerationMetadata();
   console.log(JSON.stringify({
@@ -546,6 +549,7 @@ async function printCurrentMetadata(manifestArg) {
     requestAssemblySha256: current.requestAssemblySha256,
     generationConfigSha256: current.generationConfigSha256,
     chapterSchemaVersion: current.chapterSchemaVersion,
+    responseSchemaVersion: current.responseSchemaVersion,
     responseSchemaSha256: current.responseSchemaSha256,
   }, null, 2));
 }
@@ -604,18 +608,8 @@ async function currentGenerationMetadata() {
       "pub async fn dispatch_reviewed_request<",
       "pub async fn dispatch_reviewed_request_via_rig(",
       "fn rig_request_failure(",
-      "pub async fn send_to_gemini(",
-      "fn parse_gemini_response(",
       "fn check_generated_text_size(",
       "fn generated_text_too_large_failure(",
-      "async fn read_response_body(",
-      "fn classify_provider_error(",
-      "struct GenerateContentResponse",
-      "struct GeneratePromptFeedback",
-      "struct GenerateCandidate",
-      "struct GenerateContent ",
-      "struct GeneratePart",
-      "struct GenerateUsageMetadata",
     ].map((signature) => extractRustBlock(provider, signature)),
     chapterTypes.match(/pub const MAX_GENERATED_RESPONSE_BYTES: [^=]+ = [^;]+;/)?.[0] ?? "",
     indexSource,
@@ -637,6 +631,7 @@ async function currentGenerationMetadata() {
     requestAssemblySha256: sha256(requestAssembly),
     generationConfigSha256: sha256(generationConfig),
     chapterSchemaVersion,
+    responseSchemaVersion,
     modelIds,
     modelAllowlistSha256: sha256(JSON.stringify(modelIds)),
     responseSchemaSha256: sha256(responseSchema),
@@ -658,11 +653,11 @@ async function loadReportTemplate() {
 }
 
 function validateReportTemplateShape(template) {
-  exactKeys(template, ["reportSchemaVersion", "kind", "status", "corpusId", "corpusManifestSha256", "modelId", "modelVersion", "modelAllowlistSha256", "promptVersion", "promptSha256", "requestAssemblySha256", "generationConfigSha256", "chapterSchemaVersion", "responseSchemaSha256", "reviewer", "reviewedAt", "qualityGateExample", "cases"], "Report template");
+  exactKeys(template, ["reportSchemaVersion", "kind", "status", "corpusId", "corpusManifestSha256", "modelId", "modelVersion", "modelAllowlistSha256", "promptVersion", "promptSha256", "requestAssemblySha256", "generationConfigSha256", "chapterSchemaVersion", "responseSchemaVersion", "responseSchemaSha256", "reviewer", "reviewedAt", "qualityGateExample", "cases"], "Report template");
   if (template.reportSchemaVersion !== 3 || template.kind !== "chapter-quality-review-report" || template.status !== "pending") {
     throw new Error("Report template must use schema version 3 and remain pending");
   }
-  for (const key of ["corpusId", "corpusManifestSha256", "modelId", "modelVersion", "modelAllowlistSha256", "promptVersion", "promptSha256", "requestAssemblySha256", "generationConfigSha256", "chapterSchemaVersion", "responseSchemaSha256", "reviewer", "reviewedAt"]) {
+  for (const key of ["corpusId", "corpusManifestSha256", "modelId", "modelVersion", "modelAllowlistSha256", "promptVersion", "promptSha256", "requestAssemblySha256", "generationConfigSha256", "chapterSchemaVersion", "responseSchemaVersion", "responseSchemaSha256", "reviewer", "reviewedAt"]) {
     if (template[key] !== null) throw new Error(`Report template ${key} must remain empty until a local review batch is recorded`);
   }
   if (!Array.isArray(template.cases) || template.cases.length !== 1) throw new Error("Report template must contain one unrun case example");
@@ -1270,7 +1265,7 @@ async function validateReport(reportArg, manifestArg) {
   } catch (error) {
     throw new Error(`Could not read report JSON: ${error.message}`);
   }
-  exactKeys(report, ["reportSchemaVersion", "kind", "status", "corpusId", "corpusManifestSha256", "modelId", "modelVersion", "modelAllowlistSha256", "promptVersion", "promptSha256", "requestAssemblySha256", "generationConfigSha256", "chapterSchemaVersion", "responseSchemaSha256", "reviewer", "reviewedAt", "qualityGateExample", "cases"], "Report");
+  exactKeys(report, ["reportSchemaVersion", "kind", "status", "corpusId", "corpusManifestSha256", "modelId", "modelVersion", "modelAllowlistSha256", "promptVersion", "promptSha256", "requestAssemblySha256", "generationConfigSha256", "chapterSchemaVersion", "responseSchemaVersion", "responseSchemaSha256", "reviewer", "reviewedAt", "qualityGateExample", "cases"], "Report");
   if (report.reportSchemaVersion !== 3 || report.kind !== "chapter-quality-review-report" || !["pass", "fail"].includes(report.status)) {
     throw new Error("Report must use schema version 3 and final status pass or fail; pending or partial reports cannot gate release");
   }
@@ -1287,6 +1282,7 @@ async function validateReport(reportArg, manifestArg) {
   requireHash(report.promptSha256, "promptSha256");
   if (report.promptSha256 !== current.promptSha256) throw new Error("Report promptSha256 is stale; rerun quality review against the current prompt text");
   if (Number(report.chapterSchemaVersion) !== current.chapterSchemaVersion) throw new Error(`Report chapterSchemaVersion is stale; current version is ${current.chapterSchemaVersion}`);
+  if (report.responseSchemaVersion !== current.responseSchemaVersion) throw new Error(`Report responseSchemaVersion is stale; current version is ${current.responseSchemaVersion}`);
   for (const key of ["modelAllowlistSha256", "responseSchemaSha256"]) {
     requireHash(report[key], key);
     if (report[key] !== current[key]) throw new Error(`Report ${key} is stale; rerun quality review against the current generation contract`);

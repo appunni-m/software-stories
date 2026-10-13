@@ -29,6 +29,14 @@ describe('offline chapter-quality corpus checker', () => {
     assert.match(result.stdout, /Fact-coverage self-check rejects unrelated evidence spans and accepts containing anchors/);
   });
 
+  it('reports an explicit response-schema version alongside its content hash', () => {
+    const result = spawnSync(process.execPath, [checker, '--metadata'], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    const metadata = JSON.parse(result.stdout);
+    assert.equal(metadata.responseSchemaVersion, 1);
+    assert.match(metadata.responseSchemaSha256, /^[a-f0-9]{64}$/);
+  });
+
   it('rejects a parser-supported language used for the unsupported-language role', async () => {
     await withTemporaryCorpus(async ({ manifestPath: tempManifestPath }) => {
       const manifest = JSON.parse(await readFile(tempManifestPath, 'utf8'));
