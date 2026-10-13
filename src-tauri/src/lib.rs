@@ -1824,6 +1824,100 @@ mod chapter_pipeline_tests {
         }
     }
 
+    async fn assert_incomplete_consent_stops_section_dispatch(
+        request: &provider::PendingProviderRequest,
+    ) {
+        let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let calls_from_transport = std::sync::Arc::clone(&calls);
+        let error = provider::dispatch_reviewed_request(
+            request,
+            zeroize::Zeroizing::new("fixture-key".to_owned()),
+            &provider::ProviderConsent {
+                privacy_and_data_use_acknowledged: true,
+                billing_uncertainty_acknowledged: false,
+                adult_supported_region_acknowledged: true,
+            },
+            move |_, _, _| async move {
+                calls_from_transport.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                Ok(provider::ProviderHttpResult {
+                    model_version: None,
+                    response_text: "{}".to_owned(),
+                    input_tokens: None,
+                    output_tokens: None,
+                })
+            },
+        )
+        .await
+        .err()
+        .expect("incomplete consent must stop the section request");
+        assert_eq!(error.kind, provider::ProviderFailureKind::ConsentRequired);
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+    }
+
+    async fn assert_review_change_stops_section_dispatch(
+        request: &provider::PendingProviderRequest,
+    ) {
+        let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let calls_from_transport = std::sync::Arc::clone(&calls);
+        let error = provider::dispatch_reviewed_request(
+            request,
+            zeroize::Zeroizing::new("fixture-key".to_owned()),
+            &provider::ProviderConsent {
+                privacy_and_data_use_acknowledged: true,
+                billing_uncertainty_acknowledged: true,
+                adult_supported_region_acknowledged: true,
+            },
+            move |_, _, _| async move {
+                calls_from_transport.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                Ok(provider::ProviderHttpResult {
+                    model_version: None,
+                    response_text: "{}".to_owned(),
+                    input_tokens: None,
+                    output_tokens: None,
+                })
+            },
+        )
+        .await
+        .err()
+        .expect("a changed section request must be rejected before transport");
+        assert_eq!(error.kind, provider::ProviderFailureKind::ReviewChanged);
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 0);
+    }
+
+    async fn assert_section_quota_failure_is_not_retried(
+        request: &provider::PendingProviderRequest,
+    ) {
+        let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let calls_from_transport = std::sync::Arc::clone(&calls);
+        let expected_model = request.review.model_id.clone();
+        let expected_body = request.review.request_body_preview.clone();
+        let error = provider::dispatch_reviewed_request(
+            request,
+            zeroize::Zeroizing::new("fixture-key".to_owned()),
+            &provider::ProviderConsent {
+                privacy_and_data_use_acknowledged: true,
+                billing_uncertainty_acknowledged: true,
+                adult_supported_region_acknowledged: true,
+            },
+            move |model_id, _, body| {
+                assert_eq!(model_id, expected_model);
+                assert_eq!(body, expected_body);
+                calls_from_transport.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                async move {
+                    Err(provider::ProviderFailure {
+                        kind: provider::ProviderFailureKind::QuotaExceeded,
+                        message: "fixture quota failure".to_owned(),
+                    })
+                }
+            },
+        )
+        .await
+        .err()
+        .expect("the selected section provider's failure must be returned");
+        assert_eq!(error.kind, provider::ProviderFailureKind::QuotaExceeded);
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
     #[tokio::test]
     async fn selected_stale_section_regenerates_without_changing_other_section_or_asset_ids() {
         let mut fixture = Fixture::new();
@@ -2079,6 +2173,24 @@ mod chapter_pipeline_tests {
             assert_eq!(dispatch_calls.load(std::sync::atomic::Ordering::SeqCst), 1);
             assert_eq!(dispatched.model_id, model_id);
             assert_eq!(dispatched.fingerprint, provider_request.review.fingerprint);
+            assert_incomplete_consent_stops_section_dispatch(&provider_request).await;
+
+            let (alternate_provider, alternate_model) = match disclosure.provider_id.as_str() {
+                "gemini" => ("openai", "gpt-6-luna"),
+                "openai" => ("anthropic", "claude-haiku-5-5"),
+                _ => ("gemini", "gemini-3.8-flash"),
+            };
+            let mut changed_provider = provider_request.clone();
+            changed_provider.review.provider_id = alternate_provider.to_owned();
+            changed_provider.review.model_id = alternate_model.to_owned();
+            let mut changed_model = provider_request.clone();
+            changed_model.review.model_id = format!("unlisted-{}-model", disclosure.provider_id);
+            let mut changed_endpoint = provider_request.clone();
+            changed_endpoint.review.endpoint_url = "https://api.example.invalid/v1".to_owned();
+            for changed in [changed_provider, changed_model, changed_endpoint] {
+                assert_review_change_stops_section_dispatch(&changed).await;
+            }
+            assert_section_quota_failure_is_not_retried(&provider_request).await;
         }
 
         let request = provider::build_request_review(

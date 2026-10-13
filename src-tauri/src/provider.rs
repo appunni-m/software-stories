@@ -3920,6 +3920,79 @@ mod tests {
         }
     }
 
+    async fn assert_incomplete_consent_stops_dispatch(request: &PendingProviderRequest) {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let calls_from_transport = Arc::clone(&calls);
+        let mut incomplete = all_consent();
+        incomplete.billing_uncertainty_acknowledged = false;
+        let error = dispatch_reviewed_request(
+            request,
+            Zeroizing::new("fixture-key".to_owned()),
+            &incomplete,
+            move |_, _, _| async move {
+                calls_from_transport.fetch_add(1, Ordering::SeqCst);
+                Ok(ProviderHttpResult {
+                    model_version: None,
+                    response_text: "{}".to_owned(),
+                    input_tokens: None,
+                    output_tokens: None,
+                })
+            },
+        )
+        .await
+        .err()
+        .expect("incomplete consent must stop this provider operation");
+        assert_eq!(error.kind, ProviderFailureKind::ConsentRequired);
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+    }
+
+    async fn assert_review_change_stops_dispatch(request: &PendingProviderRequest) {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let calls_from_transport = Arc::clone(&calls);
+        let error = dispatch_reviewed_request(
+            request,
+            Zeroizing::new("fixture-key".to_owned()),
+            &all_consent(),
+            move |_, _, _| async move {
+                calls_from_transport.fetch_add(1, Ordering::SeqCst);
+                Ok(ProviderHttpResult {
+                    model_version: None,
+                    response_text: "{}".to_owned(),
+                    input_tokens: None,
+                    output_tokens: None,
+                })
+            },
+        )
+        .await
+        .err()
+        .expect("a changed reviewed request must be rejected before transport");
+        assert_eq!(error.kind, ProviderFailureKind::ReviewChanged);
+        assert_eq!(calls.load(Ordering::SeqCst), 0);
+    }
+
+    async fn assert_quota_failure_is_not_retried(request: &PendingProviderRequest) {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let calls_from_transport = Arc::clone(&calls);
+        let expected_model = request.review.model_id.clone();
+        let expected_body = request.body.clone();
+        let error = dispatch_reviewed_request(
+            request,
+            Zeroizing::new("fixture-key".to_owned()),
+            &all_consent(),
+            move |model_id, _, body| {
+                assert_eq!(model_id, expected_model);
+                assert_eq!(body, expected_body);
+                calls_from_transport.fetch_add(1, Ordering::SeqCst);
+                async move { Err(failure(ProviderFailureKind::QuotaExceeded, "fixture quota")) }
+            },
+        )
+        .await
+        .err()
+        .expect("the selected provider's failure must be returned");
+        assert_eq!(error.kind, ProviderFailureKind::QuotaExceeded);
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+    }
+
     fn code_lens_pending_request(
         fixture: &ChapterFixture,
         provider_id: &str,
@@ -4096,6 +4169,24 @@ mod tests {
             assert_eq!(dispatch_calls.load(Ordering::SeqCst), 1);
             assert_eq!(dispatched.model_id, provider_input.model_id);
             assert_eq!(dispatched.fingerprint, provider_review.review.fingerprint);
+            assert_incomplete_consent_stops_dispatch(&provider_review).await;
+
+            let (alternate_provider, alternate_model) = match provider.provider_id.as_str() {
+                "gemini" => ("openai", "gpt-6-luna"),
+                "openai" => ("anthropic", "claude-haiku-5-5"),
+                _ => ("gemini", "gemini-3.8-flash"),
+            };
+            let mut changed_provider = provider_review.clone();
+            changed_provider.review.provider_id = alternate_provider.to_owned();
+            changed_provider.review.model_id = alternate_model.to_owned();
+            let mut changed_model = provider_review.clone();
+            changed_model.review.model_id = format!("unlisted-{}-model", provider.provider_id);
+            let mut changed_endpoint = provider_review.clone();
+            changed_endpoint.review.endpoint_url = "https://api.example.invalid/v1".to_owned();
+            for changed in [changed_provider, changed_model, changed_endpoint] {
+                assert_review_change_stops_dispatch(&changed).await;
+            }
+            assert_quota_failure_is_not_retried(&provider_review).await;
         }
         let pending = build_pr_guide_request_review(&repository.0, &input).unwrap();
         assert_eq!(pending.review.purpose, PR_GUIDE_PURPOSE);
@@ -4414,7 +4505,7 @@ mod tests {
                 .as_mut()
                 .unwrap()
                 .hunk_index = 0;
-            for changed in [changed_endpoint, changed_provider, changed_hunk] {
+            for changed in [&changed_endpoint, &changed_provider, &changed_hunk] {
                 assert_eq!(
                     revalidate_pr_change_explanation_request(&repository.0, &changed.review)
                         .err()
@@ -4431,6 +4522,10 @@ mod tests {
                 model_error.kind,
                 ProviderFailureKind::ReviewChanged | ProviderFailureKind::UnavailableModel
             ));
+
+            for changed in [&changed_endpoint, &changed_provider, &changed_model] {
+                assert_review_change_stops_dispatch(changed).await;
+            }
 
             let calls_after_quota = Arc::new(AtomicUsize::new(0));
             let quota_calls = Arc::clone(&calls_after_quota);
@@ -4608,6 +4703,22 @@ mod tests {
                 };
                 assert_eq!(error.kind, ProviderFailureKind::QuotaExceeded);
                 assert_eq!(failures.load(Ordering::SeqCst), 1);
+
+                let (alternate_provider, alternate_model) = match provider.provider_id.as_str() {
+                    "gemini" => ("openai", "gpt-6-luna"),
+                    "openai" => ("anthropic", "claude-haiku-5-5"),
+                    _ => ("gemini", "gemini-3.8-flash"),
+                };
+                let mut changed_provider = pending.clone();
+                changed_provider.review.provider_id = alternate_provider.to_owned();
+                changed_provider.review.model_id = alternate_model.to_owned();
+                let mut changed_model = pending.clone();
+                changed_model.review.model_id = format!("unlisted-{}-model", provider.provider_id);
+                let mut changed_endpoint = pending.clone();
+                changed_endpoint.review.endpoint_url = "https://api.example.invalid/v1".to_owned();
+                for changed in [changed_provider, changed_model, changed_endpoint] {
+                    assert_review_change_stops_dispatch(&changed).await;
+                }
             }
         }
     }
@@ -4766,45 +4877,39 @@ mod tests {
     #[tokio::test]
     async fn code_lens_provider_model_and_endpoint_mutations_invalidate_review_before_dispatch() {
         let fixture = ChapterFixture::new();
-        let pending = code_lens_pending_request(&fixture, GEMINI_PROVIDER_ID, "gemini-3.8-flash");
+        for provider in provider_catalog() {
+            let model_id = provider
+                .models
+                .iter()
+                .find(|model| model.supports_structured_output)
+                .expect("each provider has a structured-output model")
+                .model_id
+                .clone();
+            let pending = code_lens_pending_request(&fixture, &provider.provider_id, &model_id);
+            let (alternate_provider, alternate_model) = match provider.provider_id.as_str() {
+                "gemini" => ("openai", "gpt-6-luna"),
+                "openai" => ("anthropic", "claude-haiku-5-5"),
+                _ => ("gemini", "gemini-3.8-flash"),
+            };
 
-        let mut changed_provider = pending.clone();
-        changed_provider.review.provider_id = "openai".to_owned();
-        changed_provider.review.model_id = "gpt-6-luna".to_owned();
+            let mut changed_provider = pending.clone();
+            changed_provider.review.provider_id = alternate_provider.to_owned();
+            changed_provider.review.model_id = alternate_model.to_owned();
+            let mut changed_model = pending.clone();
+            changed_model.review.model_id = format!("unlisted-{}-model", provider.provider_id);
+            let mut changed_endpoint = pending.clone();
+            changed_endpoint.review.endpoint_url = "https://api.example.invalid/v1".to_owned();
 
-        let mut changed_model = pending.clone();
-        changed_model.review.model_id = "gemini-3.5-flash-lite".to_owned();
-
-        let mut changed_endpoint = pending.clone();
-        changed_endpoint.review.endpoint_url = "https://api.example.invalid/v1".to_owned();
-
-        for changed in [changed_provider, changed_model, changed_endpoint] {
-            let error = revalidate_request_review(&fixture.storage, &changed.review)
-                .err()
-                .expect("a provider, model, or endpoint change must require a fresh review");
-            assert_eq!(error.kind, ProviderFailureKind::ReviewChanged);
-
-            let calls = Arc::new(AtomicUsize::new(0));
-            let calls_from_transport = Arc::clone(&calls);
-            let error = dispatch_reviewed_request(
-                &changed,
-                Zeroizing::new("fixture-key".to_owned()),
-                &all_consent(),
-                move |_, _, _| async move {
-                    calls_from_transport.fetch_add(1, Ordering::SeqCst);
-                    Ok(ProviderHttpResult {
-                        model_version: None,
-                        response_text: String::new(),
-                        input_tokens: None,
-                        output_tokens: None,
-                    })
-                },
-            )
-            .await
-            .err()
-            .expect("stale Code Lens review must not reach the transport");
-            assert_eq!(error.kind, ProviderFailureKind::ReviewChanged);
-            assert_eq!(calls.load(Ordering::SeqCst), 0);
+            for changed in [changed_provider, changed_model, changed_endpoint] {
+                let error = revalidate_request_review(&fixture.storage, &changed.review)
+                    .err()
+                    .expect("a provider, model, or endpoint change must require a fresh review");
+                assert!(matches!(
+                    error.kind,
+                    ProviderFailureKind::ReviewChanged | ProviderFailureKind::UnavailableModel
+                ));
+                assert_review_change_stops_dispatch(&changed).await;
+            }
         }
     }
 
