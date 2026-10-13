@@ -1681,6 +1681,57 @@ mod chapter_pipeline_tests {
             "{freshness:#?}"
         );
 
+        for disclosure in provider::provider_catalog() {
+            let model_id = disclosure.models[0].model_id.clone();
+            let input = provider::BuildProviderReviewInput {
+                project_id: accepted.project_id.clone(),
+                snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                target_path: Some(SIMPLE_PATH.to_owned()),
+                selected_paths: vec![SIMPLE_PATH.to_owned()],
+                model_id: model_id.clone(),
+                section_update: Some(target.clone()),
+            };
+            assert!(input.section_update.is_some());
+            assert!(
+                provider::disclosure_for(&disclosure.provider_id)
+                    .unwrap()
+                    .models
+                    .iter()
+                    .any(|model| model.model_id == model_id && model.supports_structured_output)
+            );
+            let provider_request = provider::build_request_review_for_provider(
+                &fixture.storage,
+                &input,
+                &disclosure.provider_id,
+            )
+            .unwrap_or_else(|error| {
+                panic!(
+                    "{}/{} section update review: {error:?}",
+                    disclosure.provider_id, model_id
+                )
+            });
+            assert_eq!(provider_request.review.purpose, "sectionUpdate");
+            assert_eq!(provider_request.review.provider_id, disclosure.provider_id);
+            assert_eq!(provider_request.review.model_id, model_id);
+            let wire = crate::provider_api::encode_request_preview(
+                &provider_request.review.provider_id,
+                &provider_request.review.model_id,
+                &provider_request.review.system_instruction,
+                &provider_request.review.user_prompt,
+                &provider_request.review.generation_config,
+            )
+            .unwrap();
+            assert_eq!(provider_request.review.endpoint_url, wire.endpoint_url);
+            assert_eq!(provider_request.review.request_body_preview, wire.body);
+            assert_eq!(
+                provider::revalidate_request_review(&fixture.storage, &provider_request.review)
+                    .unwrap()
+                    .review
+                    .fingerprint,
+                provider_request.review.fingerprint
+            );
+        }
+
         let request = provider::build_request_review(
             &fixture.storage,
             &provider::BuildProviderReviewInput {

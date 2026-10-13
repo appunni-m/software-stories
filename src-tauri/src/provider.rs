@@ -1663,8 +1663,9 @@ fn build_section_update_request_review(
     }
     old_files.sort_by(|left, right| left.path.cmp(&right.path));
 
-    // The common builder applies the same file safety, size, model, and endpoint checks;
-    // its whole-file prompt is replaced before this review can be displayed or sent.
+    // Preserve the selected provider through the common safety checks. The
+    // convenience builder defaults to Gemini; its whole-file prompt is replaced
+    // before this review can be displayed or sent.
     let common = BuildProviderReviewInput {
         project_id: input.project_id.clone(),
         snapshot_id: input.snapshot_id.clone(),
@@ -1673,7 +1674,7 @@ fn build_section_update_request_review(
         model_id: input.model_id.clone(),
         section_update: None,
     };
-    let mut pending = build_request_review(storage_dir, &common)?;
+    let mut pending = build_request_review_for_provider(storage_dir, &common, provider_id)?;
     let total_context_bytes = old_bytes.saturating_add(pending.review.source_bytes);
     if total_context_bytes > MAX_CONTEXT_BYTES {
         return Err(failure(
@@ -2674,6 +2675,7 @@ fn unix_time_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::chapter_generation::tests::{Fixture as ChapterFixture, SIMPLE_PATH};
     use crate::project;
     use std::fs;
     use std::path::PathBuf;
@@ -2840,6 +2842,36 @@ mod tests {
             }],
             model_id: "gemini-3.8-flash".to_owned(),
         };
+        for provider in provider_catalog() {
+            let mut provider_input = input.clone();
+            provider_input.model_id = provider.models[0].model_id.clone();
+            let provider_review = build_pr_guide_request_review_for_provider(
+                &repository.0,
+                &provider_input,
+                &provider.provider_id,
+            )
+            .unwrap();
+            let encoded = crate::provider_api::encode_request_preview(
+                &provider_review.review.provider_id,
+                &provider_review.review.model_id,
+                &provider_review.review.system_instruction,
+                &provider_review.review.user_prompt,
+                &provider_review.review.generation_config,
+            )
+            .unwrap();
+            assert_eq!(provider_review.review.purpose, PR_GUIDE_PURPOSE);
+            assert_eq!(provider_review.review.provider_id, provider.provider_id);
+            assert_eq!(provider_review.review.model_id, provider_input.model_id);
+            assert_eq!(provider_review.review.endpoint_url, encoded.endpoint_url);
+            assert_eq!(provider_review.review.request_body_preview, encoded.body);
+            assert_eq!(
+                revalidate_pr_guide_request(&repository.0, &provider_review.review)
+                    .unwrap()
+                    .review
+                    .fingerprint,
+                provider_review.review.fingerprint
+            );
+        }
         let pending = build_pr_guide_request_review(&repository.0, &input).unwrap();
         assert_eq!(pending.review.purpose, PR_GUIDE_PURPOSE);
         assert!(pending.review.pr_guide_context.is_some());
@@ -2921,6 +2953,139 @@ mod tests {
             .err()
             .unwrap();
         assert_eq!(error.kind, ProviderFailureKind::ReviewChanged);
+    }
+
+    #[tokio::test]
+    async fn file_and_overview_requests_keep_the_explicit_provider_through_review_and_consent() {
+        let fixture = ChapterFixture::new();
+        let cases = [
+            (
+                FILE_CHAPTER_PURPOSE,
+                Some(SIMPLE_PATH),
+                vec![SIMPLE_PATH.to_owned()],
+            ),
+            (
+                REPOSITORY_OVERVIEW_PURPOSE,
+                None,
+                vec![SIMPLE_PATH.to_owned()],
+            ),
+        ];
+
+        for provider in provider_catalog() {
+            let model_id = provider.models[0].model_id.clone();
+            for (purpose, target_path, selected_paths) in &cases {
+                let pending = build_request_review_for_provider(
+                    &fixture.storage,
+                    &BuildProviderReviewInput {
+                        project_id: fixture.manifest.summary.project_id.clone(),
+                        snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                        target_path: target_path.map(str::to_owned),
+                        selected_paths: selected_paths.clone(),
+                        model_id: model_id.clone(),
+                        section_update: None,
+                    },
+                    &provider.provider_id,
+                )
+                .unwrap();
+                let encoded = crate::provider_api::encode_request_preview(
+                    &pending.review.provider_id,
+                    &pending.review.model_id,
+                    &pending.review.system_instruction,
+                    &pending.review.user_prompt,
+                    &pending.review.generation_config,
+                )
+                .unwrap();
+
+                assert_eq!(pending.review.purpose, *purpose);
+                assert_eq!(pending.review.provider_id, provider.provider_id);
+                assert_eq!(pending.review.model_id, model_id);
+                assert_eq!(pending.review.endpoint_url, encoded.endpoint_url);
+                assert_eq!(pending.review.request_body_preview, encoded.body);
+                assert_eq!(
+                    revalidate_request_review(&fixture.storage, &pending.review)
+                        .unwrap()
+                        .review
+                        .fingerprint,
+                    pending.review.fingerprint
+                );
+
+                let calls = Arc::new(AtomicUsize::new(0));
+                let mut incomplete = all_consent();
+                incomplete.billing_uncertainty_acknowledged = false;
+                let calls_before_confirmation = Arc::clone(&calls);
+                let error = match dispatch_reviewed_request(
+                    &pending,
+                    Zeroizing::new("fixture-key".to_owned()),
+                    &incomplete,
+                    move |_, _, _| async move {
+                        calls_before_confirmation.fetch_add(1, Ordering::SeqCst);
+                        Ok(ProviderHttpResult {
+                            model_version: None,
+                            response_text: "{}".to_owned(),
+                            input_tokens: None,
+                            output_tokens: None,
+                        })
+                    },
+                )
+                .await
+                {
+                    Err(error) => error,
+                    Ok(_) => panic!("incomplete provider consent must not dispatch"),
+                };
+                assert_eq!(error.kind, ProviderFailureKind::ConsentRequired);
+                assert_eq!(calls.load(Ordering::SeqCst), 0);
+
+                let calls_after_confirmation = Arc::clone(&calls);
+                let expected_model = model_id.clone();
+                let expected_body = pending.review.request_body_preview.clone();
+                let result = dispatch_reviewed_request(
+                    &pending,
+                    Zeroizing::new("fixture-key".to_owned()),
+                    &all_consent(),
+                    move |actual_model, _, actual_body| async move {
+                        assert_eq!(actual_model, expected_model);
+                        assert_eq!(actual_body, expected_body);
+                        calls_after_confirmation.fetch_add(1, Ordering::SeqCst);
+                        Ok(ProviderHttpResult {
+                            model_version: Some("fixture-model-version".to_owned()),
+                            response_text: "{}".to_owned(),
+                            input_tokens: Some(10),
+                            output_tokens: Some(5),
+                        })
+                    },
+                )
+                .await
+                .unwrap();
+                assert_eq!(result.fingerprint, pending.review.fingerprint);
+                assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+                let failures = Arc::new(AtomicUsize::new(0));
+                let failures_from_transport = Arc::clone(&failures);
+                let expected_model = model_id.clone();
+                let expected_body = pending.review.request_body_preview.clone();
+                let error = match dispatch_reviewed_request(
+                    &pending,
+                    Zeroizing::new("fixture-key".to_owned()),
+                    &all_consent(),
+                    move |actual_model, _, actual_body| async move {
+                        assert_eq!(actual_model, expected_model);
+                        assert_eq!(actual_body, expected_body);
+                        failures_from_transport.fetch_add(1, Ordering::SeqCst);
+                        Err(failure(
+                            ProviderFailureKind::QuotaExceeded,
+                            "fixture quota failure",
+                        ))
+                    },
+                )
+                .await
+                {
+                    Err(error) => error,
+                    Ok(_) => panic!("a failed provider request must not become a success"),
+                };
+                assert_eq!(error.kind, ProviderFailureKind::QuotaExceeded);
+                assert_eq!(failures.load(Ordering::SeqCst), 1);
+            }
+        }
     }
 
     #[test]

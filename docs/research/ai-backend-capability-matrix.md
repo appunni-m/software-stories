@@ -1,9 +1,10 @@
 # AI backend capability matrix
 
-**Reviewed:** 2026-10-13  
+**Reviewed:** 2026-10-14
+
 **Purpose:** Keep direct model APIs, multi-step coding-agent runtimes, and speech synthesis as separate choices. This matrix distinguishes routes present in source from routes that have passed the full acceptance contract.
 
-**Implementation snapshot (2026-10-13):** `rig-core = 0.44.0` is pinned. Gemini, OpenAI Responses, and Anthropic Messages can be explicitly selected for file chapters, optional repository orientation, selective section regeneration, and PR Guides. Their local review binds provider, model, sanitized endpoint, encoded JSON body/hash, selected context, and disclosure version. A guarded Reqwest transport checks that the method, route, authentication placeholder, content type, and body match review before using the provider-specific sensitive auth header; requests require HTTPS and are unary. These are implemented routes, not accepted support: provider-by-operation fixtures, capability evidence, and cancellation/transport-close evidence remain open. The Code Lens action currently reuses file-chapter generation; a distinct range-level explanation and a separate PR change-explanation operation are not implemented.
+**Implementation snapshot (2026-10-14):** `rig-core = 0.44.0` is pinned. Gemini, OpenAI Responses, and Anthropic Messages can be explicitly selected for file chapters, optional repository orientation, selective section regeneration, and PR Guides. Their local review binds provider, model, sanitized endpoint, encoded JSON body/hash, selected context, and disclosure version. A guarded Reqwest transport checks that the method, route, authentication placeholder, content type, and body match review before using the provider-specific sensitive auth header; requests require HTTPS and are unary. New offline Rust fixtures verify selected-provider review routes and encoded bodies for all three adapters across those four implemented operations. They also prove zero mock dispatch before complete consent, exact model/body dispatch afterward, and one-dispatch quota failure behavior for file chapters and orientation. These are fixture proofs, not accepted provider support: live eligibility, the production HTTP transport, full per-operation capability behavior, and cancellation/connection-close evidence remain open. The Code Lens action currently reuses file-chapter generation; a distinct range-level explanation and a separate PR change-explanation operation are not implemented.
 
 ## Status legend
 
