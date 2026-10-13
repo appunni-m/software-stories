@@ -62,7 +62,7 @@ Local browsing, capture, indexing, and opening saved chapters do not need an API
 
 The full desired experience is still being built. Fine-grained selective regeneration, a user-facing guide revision compare/restore workflow, polished onboarding, release hardening, relationship impact in Git comparisons, and the remaining PR Guide acceptance evidence are outstanding. The source now contains a reviewed local PR Guide workflow, but its Kata task has not been marked complete. The offline export path is present but has not passed the full offline-package acceptance workflow. Check the blueprint and Kata backlog for the target and outstanding gates.
 
-Older prototypes and their plans are kept under [`deprecated/`](deprecated/). They are archival references; use the root README and `docs/` for the current project.
+The earlier prototype archive is kept locally under `deprecated/` in the original working copy and is intentionally excluded from this repository. It is not required to build or use the current app; use this README and `docs/` for the current project.
 
 There is no `LICENSE` file in this checkout, so its license and reuse permissions are unspecified. No private security-reporting address, support contact, public issue tracker, or contribution review policy is published here. See [SECURITY.md](SECURITY.md) and [CONTRIBUTING.md](CONTRIBUTING.md) for the current limits and local development instructions.
 
