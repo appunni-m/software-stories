@@ -59,6 +59,16 @@ item, Return opened Guide Plan, and Escape closed the menu and restored focus
 to the Tools button. The accessibility tree exposed the resulting workspace
 headings. This checks a rendered browser preview, not the packaged Tauri app.
 
+On 2026-10-14, the same preview server rendered the synthetic accepted-guide
+fixture at `/tests/visual-demo.html`. Keyboard navigation reached each source
+link and section control. Enter on the source link opened its exact cited range,
+focused the destination heading, and retained the fixture's 18-second playback
+position and 243-pixel transcript position; Back restored focus to the source
+link. Enter on the section control moved to section 2 and focused its heading;
+Previous returned focus to the original section control. The reader remained
+manual-pace with no auto-advance. This exercises the static synthetic fixture,
+not a populated repository or the packaged/native walkthrough.
+
 ## Manual checks still required
 
 The following are **not verified**:
@@ -68,8 +78,9 @@ The following are **not verified**:
 - Text zoom at 200%, narrow effective viewport reflow, and contrast legibility.
 - Reduced-motion behavior in the rendered app.
 - Keyboard focus through a populated repository-to-walkthrough journey,
-  including a focused chapter section heading, PR Guide citation-to-hunk links,
-  and the provider/recovery dialogs.
+  including PR Guide citation-to-hunk links and the provider/recovery dialogs.
+  The synthetic visual fixture covers section-heading focus and source-link
+  return only.
 
 Run and record those checks on the native app before treating the accessibility
 acceptance criteria as complete. The Rust and frontend tests and the preview

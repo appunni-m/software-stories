@@ -84,7 +84,11 @@ function InteractiveDiagramFixture() {
   const [returnEntry, setReturnEntry] = useState<DemoReturnEntry | null>(null);
 
   useEffect(() => {
-    if (screen.kind !== 'walkthrough' || !focusTarget) return;
+    if (screen.kind === 'destination') {
+      document.querySelector<HTMLElement>('[data-focus-key="reader-destination-heading"]')?.focus();
+      return;
+    }
+    if (!focusTarget) return;
     const target = Array.from(document.querySelectorAll<HTMLElement>('[data-focus-key]'))
       .find((element) => element.dataset.focusKey === focusTarget);
     target?.focus();
@@ -108,7 +112,7 @@ function InteractiveDiagramFixture() {
       if (!next) return;
       setReturnEntry({ screen, context: readerContext, focusTarget: returnFocus });
       setReaderContext({ ...readerContext, sectionId: next.sectionId, focusTarget: returnFocus });
-      setFocusTarget(undefined);
+      setFocusTarget(`reader-section-heading:${next.sectionId}`);
       setScreen({ kind: 'walkthrough', sectionId: next.sectionId });
       return;
     }
@@ -148,7 +152,7 @@ function InteractiveDiagramFixture() {
       {screen.kind === 'walkthrough' ? (
         <div className="visual-demo-reader">
           <div className="visual-demo-section-meta"><span>SECTION {String(sectionIndex + 1).padStart(2, '0')} / {String(revision.sections.length).padStart(2, '0')}</span><span>MANUAL PACE · NO AUTO-ADVANCE</span></div>
-          <h2>{activeSection.title}</h2>
+          <h2 data-focus-key={`reader-section-heading:${activeSection.sectionId}`} tabIndex={-1}>{activeSection.title}</h2>
           <p className="walkthrough-section-prose">{activeSection.prose}</p>
           {activeSection.sectionId === section.sectionId && (
             <button className="visual-demo-toggle secondary-button" onClick={() => setInvalidHotspot((value) => !value)}>
@@ -175,7 +179,7 @@ function InteractiveDiagramFixture() {
       ) : (
         <section className="visual-demo-destination" aria-labelledby="visual-demo-destination-heading">
           <span className="walkthrough-kicker">{screen.title}</span>
-          <h2 id="visual-demo-destination-heading">{screen.path}</h2>
+          <h2 id="visual-demo-destination-heading" data-focus-key="reader-destination-heading" tabIndex={-1}>{screen.path}</h2>
           <pre>{screen.excerpt}</pre>
           <p>Saved reader state: {returnEntry?.context.sectionId} · playback at {returnEntry?.context.playbackPosition}s · transcript at {returnEntry?.context.transcriptPosition}px. Back restores that state and the control that opened this destination.</p>
           <button className="primary-button" onClick={goBack}><ArrowLeft size={14} /> Back to the exact walkthrough control</button>
