@@ -29,7 +29,7 @@ When leaving a screen, save a local navigation-return entry with the origin scre
 | Snapshot picker | Click snapshot/revision label | List immutable snapshots with capture time, branch/HEAD, dirty-state summary, and partial/capture status. | Choosing one updates every view's shared snapshot. If a draft is open, ask Save draft / Discard draft / Cancel before switching. No new capture is made. |
 | Create snapshot | Click from project preflight or snapshot list | Start a bounded local capture and show progress, phase, count, limits, and Cancel. | This is the only action that starts repository byte capture. It performs no network request and never writes into the selected repository. |
 | Primary workspace nav | Click Atlas, Code Lens, or Walkthrough; shortcuts `⌘1`, `⌘2`, `⌘3` | Switch to the chosen workspace using the current project/snapshot and selection when applicable. | Focus moves to the destination heading/primary selection. Switching away from playback pauses it and stores position. |
-| Guide Plan entry | Click **Guide Plan** in project tools | Show file coverage for the current snapshot. | Returns to prior origin with selection/focus restored. Does not call Gemini. |
+| Guide Plan entry | Click **Guide Plan** in project tools | Show file coverage for the current snapshot. | Returns to prior origin with selection/focus restored. Does not call an AI API. |
 | Chapter Studio entry | Click **Chapter Studio** on a chapter row or draft notification | Open the selected chapter revision/draft. | Opening a draft is local. Opening an accepted revision is read-only until the user chooses Edit. |
 | Global search | `⌘K`, then type | Search captured paths, parsed symbols, and chapter titles within the displayed scope. Show scope and result type in each row. | Escape closes search and restores prior focus. Enter opens the selected result's defined destination; it never changes snapshot silently. |
 | Back / Forward | `⌘[` / `⌘]` or toolbar buttons | Traverse the app's local navigation-return entries. | Back restores previous selection, scroll, focus, and playback context. It never reverses a source edit or accepted revision. |
@@ -66,7 +66,7 @@ The completed capture view includes one searchable inventory for the selected im
 - Each row identifies path, filesystem kind, inferred language, known size, captured/skipped/excluded disposition, reason, parser readiness, and index eligibility. Binary and invalid-UTF-8 content are separate. A parser marked not ready is not presented as an indexed file.
 - Pages show both the visible range and the filtered/whole-inventory totals. Changing filters or page size returns to page one; an out-of-range page is clamped after the result set changes.
 - **Open captured text** loads the path by project ID, snapshot ID, and relative path from the immutable snapshot blob store, then verifies its byte count and SHA-256 before display. A missing or corrupt blob produces an unavailable state; there is no working-tree fallback.
-- Capture disposition is not a chapter state and does not select source for a future Gemini request. Guide Plan owns separate chapter coverage, and Request Review owns explicit outbound file selection.
+- Capture disposition is not a chapter state and does not select source for a future model request. Guide Plan owns separate chapter coverage, and Request Review owns explicit outbound file selection.
 
 ## Surface contracts
 
@@ -91,7 +91,7 @@ The completed capture view includes one searchable inventory for the selected im
 
 **Focus:** first launch focuses Open repository. Picker cancel returns focus to its invoking control. Capture completion announces counts and focuses the snapshot summary, not an unrelated tab.
 
-**Side effects:** project selection may read Git metadata needed for preflight. Only Create snapshot reads eligible source bytes. No screen entry checks a Gemini key or contacts Google.
+**Side effects:** project selection may read Git metadata needed for preflight. Only Create snapshot reads eligible source bytes. No screen entry checks a provider key or contacts an AI API.
 
 ### Atlas
 
@@ -116,7 +116,7 @@ The completed capture view includes one searchable inventory for the selected im
 
 **Focus/return:** tree uses arrow navigation; Enter opens Code Lens for a selected file/symbol; relationship canvas nodes are keyboard focusable with name/type/evidence summary. Returning from Code Lens restores query, filter chips, selected node, zoom, and pan.
 
-**Side effects:** searching/filtering/selecting/panning are local reads only. No source is sent to Google from Atlas.
+**Side effects:** searching/filtering/selecting/panning are local reads only. Atlas does not send source to an AI provider.
 
 ### Code Lens
 
@@ -221,18 +221,18 @@ The completed capture view includes one searchable inventory for the selected im
 
 **Purpose:** let the user understand and approve one exact outbound request, not a broad repository upload.
 
-**Primary selection:** request purpose, one captured target file, zero to eleven supporting captured files, model ID, and disclosure version. The target remains selected; supporting context can be filtered by path and selected from the same immutable snapshot.
+**Primary selection:** request purpose, direct API provider, model ID, disclosure version, one captured target file, and zero to eleven supporting captured files. The target remains selected; supporting context can be filtered by path and selected from the same immutable snapshot.
 
-**Review layout:** target and request purpose; model ID and published pricing/free-tier disclosure date; selectable eligible files; each selected file's complete captured UTF-8 contents, byte size, and hash; combined size/token estimate; exact system and user prompts and generation settings; request fingerprint; unpaid-service privacy notice; external Google terms/pricing/region links; separate unchecked privacy, billing, and age/region/use acknowledgements.
+**Review layout:** target and request purpose; provider, model ID, endpoint, disclosure date, and published pricing/free-tier notice; selectable eligible files; each selected file's complete captured UTF-8 contents, byte size, and hash; combined size/token estimate; exact system and user prompts and generation settings; request fingerprint; the selected provider's privacy notice and terms/pricing/region links; separate unchecked privacy, billing, and age/region/use acknowledgements.
 
 **Controls and destinations:**
 
 - **Choose source files** shows only captured regular text files with known or text content, each no larger than 250 KB, excluding paths marked secret-like. The target is required; up to eleven supporting files can be checked. The total selected source limit is 250 KB, and the encoded request limit is 512 KB. Binary, invalid-encoding, skipped, uncaptured, and secret-like files cannot be selected. Every selection change rebuilds the local request preview and clears all three acknowledgements.
-- **Change model** selects only an explicitly listed versioned model and refreshes disclosure/fingerprint. It never silently substitutes another model.
-- **View Google terms/pricing** opens the current first-party page in the system browser; it sends no repository source.
+- **Choose provider** and **Change model** select only explicit catalog entries and rebuild the review/fingerprint; neither silently substitutes a provider or model.
+- **View provider terms/pricing** opens the selected provider's first-party page in the system browser; it sends no repository source.
 - **Confirm privacy and data use**, **Confirm billing uncertainty**, and **Confirm age, region, and use** are separate, unchecked controls. They must all be checked with a current reviewed fingerprint before send.
-- **Send this request** makes exactly one request matching the reviewed fingerprint. It is the only control on this surface that sends source context to Google. The result is shown as an unaccepted response preview and is not saved as a chapter.
-- **Close** discards the temporary review and acknowledgement and sends nothing. During an active request it is disabled; there is no promise that an in-flight HTTPS request can be cancelled.
+- **Send this request** makes exactly one request matching the reviewed fingerprint to the selected Gemini, OpenAI, or Anthropic API. It is the only control on this surface that sends source context off the Mac. The result is shown as an unaccepted response preview and is not saved as a chapter.
+- **Close** discards the temporary review and acknowledgement and sends nothing. During an active request use the explicit cancel control; it drops the local future, but the selected provider may already have received the request.
 - Provider failure shows a sanitized named error. The consumed request is not retried; Code Atlas builds a fresh review and clears consent. The previous error remains visible while the new review is prepared.
 
 **States:** no key; Keychain unavailable; snapshot file list loading; local manifest preview; stale/expired manifest; awaiting three acknowledgements; sending; unaccepted response preview; quota/billing/region/network/model error; malformed response. A request review and exact source exist only in Rust/WebView memory for up to fifteen minutes. Key setup and model metadata display are local and do not send prompt content; the key is stored in macOS Keychain.
@@ -262,13 +262,13 @@ The completed capture view includes one searchable inventory for the selected im
 
 **Purpose:** explain a selected local change set with claims that can be traced back to immutable base/head evidence.
 
-**Entry:** after a complete ready comparison, use **Build a PR Guide**. The browser preview shows the interface but cannot run local Git, access macOS Keychain, or call Gemini.
+**Entry:** after a complete ready comparison, use **Build a PR Guide**. The browser preview shows the interface but cannot run local Git, access macOS Keychain, or call a model API.
 
 **Controls and destinations:**
 
 - Select up to twelve changed text files. Binary, oversized, unsupported, incomplete, or skipped diffs cannot be sent. Changing the selection invalidates any existing request review and consent.
-- **Review exact Gemini request** rebuilds the local comparison and shows the exact selected diff, prompt, generation settings/schema, model, endpoint, token estimate, pricing/data-use disclosure, and consent fingerprint. This makes no network request.
-- The three privacy/data-use, billing, and age/region/use acknowledgements start unchecked. **Send reviewed request** is enabled only for the current fingerprint after all acknowledgements. The app sends one request to the selected Gemini model; it does not retry through another model or provider.
+- **Review exact provider request** rebuilds the local comparison and lets the user select a provider and model. It shows the exact selected diff, prompt, generation settings/schema, endpoint, token estimate, pricing/data-use disclosure, and consent fingerprint. This makes no network request.
+- The three privacy/data-use, billing, and age/region/use acknowledgements start unchecked. **Send reviewed request** is enabled only for the current fingerprint after all acknowledgements. The app sends one request to the explicitly selected Gemini, OpenAI, or Anthropic model; it does not retry through another model or provider.
 - Each returned claim must contain an exact, unique diff-line citation with the correct base/head side and immutable commit/blob anchor. Static evidence does not prove runtime behavior. Inference claims require an explanation of their basis.
 - **Review draft** opens the saved, unaccepted guide. Exclude claims individually, then **Accept selected claims** or reject the draft with a reason. A citation button expands and scrolls to its exact diff hunk. A decision appends a PR Guide revision to this comparison's local history; it does not modify repository chapters, working-tree files, or Git refs.
 

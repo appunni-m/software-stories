@@ -20,19 +20,20 @@ indexes, chapter and PR Guide revisions, recovery records, and cached narration
 audio under that application data directory. The original Git working copy
 stays where you chose it; capture creates a separate local snapshot.
 
-## First-run permissions and Gemini
+## First-run permissions and optional model APIs
 
 Opening a local repository uses the native macOS folder picker. Code Atlas checks
 the selected folder and its Git metadata first; source bytes are read only when
 you choose **Create snapshot**. Local browsing, snapshots, indexes, and saved
 guides work without an AI key.
 
-Gemini is optional. If you add a key in **AI and narration setup**, Code Atlas
-saves it in macOS Keychain and never writes it to an app data file. macOS may
-ask you to unlock Keychain or approve access. If access is denied, the app says
-the key was not saved; retry after unlocking Keychain or approving the access
-request. Local browsing remains available. You can remove the key from the same
-settings screen.
+Direct model APIs are optional. If you add a provider key in **AI and
+narration setup**, Code Atlas saves it in a provider-specific macOS Keychain
+item and never writes it to an app data file. Gemini narration uses a separate
+Gemini key. macOS may ask you to unlock Keychain or approve access. If access
+is denied, the app says the key was not saved; retry after unlocking Keychain
+or approving the access request. Local browsing remains available. You can
+remove a key from the same settings screen.
 
 ## Exports and backups
 
@@ -55,9 +56,10 @@ To remove all Code Atlas data from this Mac, quit the app, open Finder's **Go >
 Go to Folder…**, enter `~/Library/Application Support/`, and move the
 `com.codeatlas.desktop` folder to the Trash. This removes local data for every
 project in Code Atlas. Emptying the Trash makes that deletion permanent. An
-offline HTML export stored elsewhere is not removed. The Gemini key is kept in
-Keychain separately; remove it first in **AI and narration setup** if you also
-want to delete it.
+offline HTML export stored elsewhere is not removed. Direct API keys are kept
+in provider-specific Keychain entries, and Gemini narration has its own key;
+remove the relevant keys in **AI and narration setup** if you also want to
+delete them.
 
 ## If storage is low
 

@@ -1,52 +1,34 @@
-# Google Gemini provider disclosures
+# Direct API and Gemini narration disclosures
 
-This document records the Google Gemini disclosures currently represented in Code Atlas source for direct text generation and optional narration. It is not a live price, quota, eligibility, or account-billing check. The app displays the relevant request disclosure before sending selected repository source or speech text.
+This document summarizes the versioned disclosures represented in Code Atlas source. It is not a live price, quota, eligibility, retention, or billing check. Direct text APIs and speech synthesis are separate request paths with separate provider/model records.
 
-## Record
+## Direct text API providers
 
-- Disclosure ID: `gemini-disclosure-2026-10-13-v1`
-- Sources checked: 13 October 2026
-- Provider: Google Gemini API, called directly from the macOS app
-- Account: user supplies their own API key; Code Atlas cannot identify its Cloud project or inspect billing/quota
-- Text generation: one explicit HTTPS `generateContent` request after exact-context review and three separate confirmations
-- Speech generation: separately reviewed HTTPS request(s) containing one section's edited speech text and speech settings; long scripts are split at sentence boundaries where possible and otherwise at whole-word boundaries, and the review lists the exact segments; its disclosure has its own version
+The versioned Gemini, OpenAI, and Anthropic records are defined in `src-tauri/src/provider.rs`. The selected provider and model are explicit; the app does not discover models or switch providers after failure. Prices, model IDs, and provider terms are static release metadata checked on 13 October 2026 and must be verified against the linked first-party sources before release. The app cannot inspect the account, key tier, billing, quota, retention configuration, eligibility, or regional availability behind a user-supplied key.
 
-## Versioned model allowlist
+### Data use and eligibility notices
 
-| Model ID | Shipped description | Google-published Free Tier status checked 13 October 2026 | Published paid Standard input / output rate |
-|---|---|---|---|
-| `gemini-3.8-flash` | Default for detailed explanations; Google's model page describes long-horizon software engineering and complex tasks. | Standard input and output tokens listed as free of charge on the Free Tier. Availability and quota can change. This does not guarantee the user's request is free. | `$0.75 / $3.75` per million tokens through 31 December 2026; `$1.50 / $7.50` from 1 January 2027. |
-| `gemini-3.1-flash-lite` | Lower-cost alternative for lightweight explanations; Google's model page describes high-volume, low-latency use. | Standard input and output tokens listed as free of charge on the Free Tier. Availability and quota can change. This does not guarantee the user's request is free. | `$0.25 / $1.50` per million tokens. |
+- **Gemini API:** the app warns that Google may use content sent through unpaid Gemini API services to improve products and may have people review it. Google's terms have a paid-service data-use exception for users in the EEA, Switzerland, and the United Kingdom, including users of unpaid quota. Age, professional/business-use, supported-region, and account terms still apply.
+- **OpenAI API:** the app discloses that API data is not used for training by default, while abuse-monitoring logs can contain prompts and responses and are normally retained for up to 30 days, subject to current account, legal, and safety controls. The reviewed Responses request sets `store: false`; this avoids Responses application-state storage and does not establish zero retention for all processing.
+- **Anthropic API:** the app's structured-output Messages request uses the provider's schema feature. Its notice describes the documented Zero Data Retention qualification for that feature, including schema caching for up to 24 hours and applicable account, trust-and-safety, and legal exceptions. Verify current retention terms and account eligibility before sending source.
 
-The model list and rates are release metadata, not fetched from Google by the app. Code Atlas does not auto-discover models, silently change the chosen model, or retry through another model. A Google billing/quota rejection is shown as an error. Verify the linked pricing page before a release and update the disclosure version, check date, tests, and UI together.
+Each provider has a separate price, terms, supported-region, and API-key reference in the app. A listed price or a model's feature flag is not a live availability, account-eligibility, free-use, or per-operation capability check.
 
-## Data use and eligibility shown before send
+### Key handling and request boundary
 
-The UI discloses that Google's Gemini API terms say prompts and generated responses submitted through unpaid services, including unpaid API quota, may be used to provide, improve, and develop Google products and machine-learning technologies; human reviewers may read, annotate, and process the input and output; and Google says not to submit sensitive, confidential, or personal information to unpaid services.
+The key is saved in a provider-specific macOS Keychain item and is never returned to the WebView. Rust loads it only after request review and explicit consent, keeps it in a zeroizing wrapper, and sends it in a sensitive HTTPS authentication header: `x-goog-api-key` for Gemini, `Authorization: Bearer` for OpenAI, and `x-api-key` for Anthropic. Keys are not included in the JSON request, request preview, local repository data, exports, or application-authored logs.
 
-The UI also discloses the terms' EEA, Switzerland, and UK paid-service data-use exception for users in those regions, even when using unpaid Gemini API quota. It links to the terms so the user can check the version applicable to their account and region.
+The current shared API route uses pinned `rig-core` 0.44.0 provider wires and a narrow Reqwest transport wrapper. Immediately before sending, the wrapper checks that the method, endpoint, JSON body, content type, and provider credential placeholder match the reviewed request. It requires HTTPS, applies a 90-second timeout, and bounds response bodies. The current app transport is unary; streaming is disabled even where a provider model supports streaming.
 
-Google's developer terms require users to be at least 18, in a supported region, and use the service for professional or business development rather than consumer use. Code Atlas does not verify age, location, account, intent, billing, or quota.
+The user must explicitly choose a provider and model, inspect the request purpose, exact selected source/diff, prompt/settings, endpoint, body digest, cost uncertainty, and disclosure, and confirm the unchecked privacy, billing, and age/region/use controls. Opening settings, loading the catalog, saving a key, and building or rebuilding a request preview do not contact a model API. A request review is fingerprinted, expires after fifteen minutes, and can be consumed once. No provider/model fallback or automatic retry occurs.
 
-The user sees three independent, initially unchecked acknowledgements before the Send button enables:
+### Current operation coverage
 
-1. Privacy and data use, including possible human review and the regional terms exception.
-2. Billing uncertainty, including the fact that Code Atlas cannot tell whether the API key's Cloud project has billing enabled. A Free Tier model does not guarantee a `$0` charge.
-3. Age, supported region, and professional/business-use requirements.
+The shared route is connected to file chapters, optional repository orientation, one-section regeneration, and PR Guides. This implementation status does not satisfy the full t28 acceptance contract: provider-by-operation mocked routing and cancellation fixtures have not been completed; Code Lens still has no distinct range-level explanation API operation, and there is no separate PR change-explanation operation. See the [capability matrix](research/ai-backend-capability-matrix.md) for the current status. Returned chapters and PR Guides remain unaccepted until the local validation and user-review flows complete.
 
-## API key handling
+For a file chapter, the reviewed request contains the target file and up to eleven selected supporting files from the same immutable snapshot. Selected source is capped at 250 KB and the encoded request body at 512 KB; secret-like, binary, invalid-encoding, skipped, and uncaptured files are rejected. A PR Guide has a separate review based on two local Git refs resolved to immutable commits and up to twelve selected bounded text-diff files. Its fingerprint covers the selected diff evidence and changing the refs or selection invalidates consent.
 
-The key is saved only in macOS Keychain under the Code Atlas service/account identifiers. The UI never reads the saved value back. Rust loads it into a zeroizing wrapper immediately before a confirmed request and sends it in the HTTPS `x-goog-api-key` header, marked sensitive by the HTTP client. The key is not part of the JSON body, request preview, local snapshot/chapter files, export, or application-authored logs.
-
-Google's key guide says to treat keys like passwords and recommends API restrictions; it states that new AI Studio keys are authorization keys and that unrestricted standard keys are rejected by the Gemini API. Users create/restrict their key in Google AI Studio. Code Atlas cannot apply restrictions to the user's Google account.
-
-## Request scope and consent lifetime
-
-The request is assembled from one captured target file plus zero to eleven selected supporting files from the same immutable snapshot. Exact source contents, hashes, paths, prompt text, generation settings, token/byte estimate, provider, model, endpoint, encoded JSON body, body SHA-256, purpose, snapshot, and disclosure version are shown before send. Selected source is capped at 250 KB and the encoded request body at 512 KB. The target must be included. Secret-like, binary, invalid-encoding, skipped, and uncaptured files are rejected.
-
-Consent belongs to a fingerprint of that exact request and disclosure. The request preview expires after fifteen minutes, can be used once, and stays only in application memory. There is no network call when opening settings, storing a key, loading the file list, changing context, or building/rebuilding the preview. After explicit Send, Code Atlas makes one HTTPS request with no retry, no model switch, no tool/grounding access, and no paid fallback. During that request the user can confirm **Cancel request**; Code Atlas drops its local HTTP future when possible, but Google may already have received the request. If local completion wins the race, a returned result may still appear as an unaccepted preview that requires review. Nothing is automatically accepted.
-
-The PR Guide purpose is separate from snapshot chapter requests. Its preview is rebuilt from two local Git refs resolved to immutable commits and contains only the selected bounded diff hunks from up to twelve eligible text files. The exact selected diff, serialized evidence in the prompt, prompt/schema/settings, model, endpoint, byte/token estimates, and the same provider data-use, billing, and eligibility notices are shown before consent. The local secret-like scan checks selected paths and diff excerpts but cannot identify every secret; inspect the full diff before sending. Its fingerprint includes both resolved commits and selected evidence, and moving either ref or changing any selected input invalidates the request. A validated response is written only as a separate unaccepted PR Guide draft; claim citations must match exact selected diff lines and the correct base/head commit/blob anchor. A late cancellation race can still produce that unaccepted draft, which the user must inspect before explicitly accepting or rejecting it. PR Guide history never mutates file-chapter records or Git refs.
+Cancellation drops the in-flight local request future when the user cancels. The provider may already have received or started processing the request, so cancellation cannot promise a refund, erase transmitted content, or revoke provider work. Any late response is discarded or kept only as an unaccepted draft according to the operation's recovery path.
 
 ## Optional section narration
 
@@ -56,7 +38,7 @@ The exact outbound narration request(s) contain one selected section's edited sp
 
 As checked in the source disclosure, Google lists this model's standard text and audio output as free on the Free Tier subject to project quota and availability. Code Atlas cannot inspect the key's project tier or remaining quota. The source disclosure lists paid-project rates of `$0.50` per million input text tokens and `$6.00` per million output audio tokens through 31 December 2026 (`$0.0015` per 10 seconds), then `$1.00` and `$12.00` from 1 January 2027. These prices and future rates must be rechecked against Google's pricing page before any release after the check date. A Free Tier label does not establish that a particular request is free or available.
 
-Narration repeats the same source-level Google data-use, regional, eligibility, and billing notices as text generation. For Paid Services, the shipped notice describes Google's stated product-improvement and limited logging terms. The app cannot inspect the key's billing project, region, age, or eligibility. The request is sent directly to Google's Gemini API over HTTPS, without a retry or paid/model fallback; local cancellation cannot establish whether Google received a request already in flight. The transcript and previous cached audio remain available on error.
+Gemini narration has its own Google data-use, regional, eligibility, and billing disclosure. The OpenAI and Anthropic text API disclosures do not apply to this speech request. For Paid Services, the shipped notice describes Google's stated product-improvement and limited logging terms. The app cannot inspect the key's billing project, region, age, or eligibility. The request is sent directly to Google's Gemini API over HTTPS, without a retry or paid/model fallback; local cancellation cannot establish whether Google received a request already in flight. The transcript and previous cached audio remain available on error.
 
 The speech disclosure and request behavior are defined in `src-tauri/src/narration.rs`; text-generation disclosures are defined in `src-tauri/src/provider.rs`. The dates and terms in this document are release metadata and must be reviewed before distribution.
 
@@ -69,3 +51,11 @@ The speech disclosure and request behavior are defined in `src-tauri/src/narrati
 - [Gemini models](https://ai.google.dev/gemini-api/docs/models)
 - [Gemini `generateContent` API](https://ai.google.dev/gemini-api/docs/generate-content/text-generation)
 - [Gemini speech generation](https://ai.google.dev/gemini-api/docs/speech-generation)
+- [OpenAI API models](https://developers.openai.com/api/docs/models) and [pricing](https://developers.openai.com/api/docs/pricing)
+- [OpenAI API data controls](https://developers.openai.com/api/docs/guides/your-data) and [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
+- [OpenAI terms](https://openai.com/policies/services-agreement/) and [supported countries](https://developers.openai.com/api/docs/supported-countries)
+- [OpenAI API keys](https://platform.openai.com/api-keys)
+- [Anthropic models](https://platform.claude.com/docs/en/models/overview) and [pricing](https://platform.claude.com/docs/en/about-claude/pricing)
+- [Anthropic structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs) and [API data retention](https://platform.claude.com/docs/en/manage-claude/api-and-data-retention)
+- [Anthropic commercial terms](https://www.anthropic.com/legal/commercial-terms) and [supported regions](https://platform.claude.com/docs/en/api/supported-regions)
+- [Anthropic API keys](https://console.anthropic.com/settings/keys)

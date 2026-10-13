@@ -2,15 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, RotateCcw, Send, ShieldCheck } from 'lucide-react';
 import {
   acceptPrGuideDraft,
-  buildGeminiPrGuideRequestReview,
-  cancelGeminiRequest,
-  discardGeminiRequestReview,
+  buildProviderPrGuideRequestReview,
+  cancelProviderRequest,
+  discardProviderRequestReview,
   getProviderCredentialStatus,
-  getProviderDisclosure,
+  getProviderCatalog,
   isNativeRuntime,
   listPrGuideRevisions,
   rejectPrGuideDraft,
-  sendGeminiPrGuideRequest,
+  sendProviderPrGuideRequest,
   type GitComparisonResult,
   type GitFileChange,
   type PrGuideRevision,
@@ -45,11 +45,13 @@ export function PrGuideStudio({
   onFocusChange,
   onOpenProviderSettings,
 }: PrGuideStudioProps) {
+  const [providerCatalog, setProviderCatalog] = useState<ProviderDisclosure[]>([]);
+  const [providerId, setProviderId] = useState('');
   const [disclosure, setDisclosure] = useState<ProviderDisclosure | null>(null);
   const [credential, setCredential] = useState<ProviderCommandResult<ProviderCredentialStatus> | null>(null);
   const [informationLoading, setInformationLoading] = useState(isNativeRuntime());
   const [informationError, setInformationError] = useState<string | null>(null);
-  const [modelId, setModelId] = useState('gemini-3.8-flash');
+  const [modelId, setModelId] = useState('');
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [requestReview, setRequestReview] = useState<ProviderRequestReview | null>(null);
   const requestReviewRef = useRef<ProviderRequestReview | null>(null);
@@ -85,6 +87,8 @@ export function PrGuideStudio({
       && selectedChanges.length > 0
       && selectedChanges.length <= 12
       && disclosure
+      && providerId
+      && modelId
       && !requestReview
       && !building
       && !sending,
@@ -97,19 +101,32 @@ export function PrGuideStudio({
       return () => { active = false; };
     }
     setInformationLoading(true);
-    void Promise.all([getProviderDisclosure(), getProviderCredentialStatus()])
-      .then(([nextDisclosure, nextCredential]) => {
+    void getProviderCatalog()
+      .then((catalog) => {
         if (!active) return;
-        setDisclosure(nextDisclosure);
-        setCredential(nextCredential);
-        if (!nextDisclosure.models.some((model) => model.modelId === modelId) && nextDisclosure.models[0]) {
-          setModelId(nextDisclosure.models[0].modelId);
-        }
+        setProviderCatalog(catalog);
       })
-      .catch(() => { if (active) setInformationError('Code Atlas could not load Gemini request settings. No model request was sent.'); })
+      .catch(() => { if (active) setInformationError('Code Atlas could not load direct API settings. No model request was sent.'); })
       .finally(() => { if (active) setInformationLoading(false); });
     return () => { active = false; };
-  }, [modelId]);
+  }, []);
+
+  useEffect(() => {
+    if (!providerId) {
+      setDisclosure(null);
+      setCredential(null);
+      return;
+    }
+    const selected = providerCatalog.find((provider) => provider.providerId === providerId) ?? null;
+    setDisclosure(selected);
+    setCredential(null);
+    if (!selected) return;
+    let active = true;
+    void getProviderCredentialStatus(providerId)
+      .then((status) => { if (active) setCredential(status); })
+      .catch(() => { if (active) setCredential(null); });
+    return () => { active = false; };
+  }, [providerCatalog, providerId]);
 
   useEffect(() => {
     requestReviewRef.current = requestReview;
@@ -117,15 +134,15 @@ export function PrGuideStudio({
 
   useEffect(() => {
     const refreshCredentials = () => {
-      void getProviderCredentialStatus().then(setCredential).catch(() => {});
+      if (providerId) void getProviderCredentialStatus(providerId).then(setCredential).catch(() => {});
     };
     window.addEventListener('code-atlas:provider-credentials-changed', refreshCredentials);
     return () => window.removeEventListener('code-atlas:provider-credentials-changed', refreshCredentials);
-  }, []);
+  }, [providerId]);
 
   useEffect(() => () => {
     const reviewId = requestReviewRef.current?.reviewId;
-    if (reviewId) void discardGeminiRequestReview(reviewId).catch(() => {});
+    if (reviewId) void discardProviderRequestReview(reviewId).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -145,7 +162,7 @@ export function PrGuideStudio({
   }, [comparison.comparisonId, comparison.status, projectId]);
 
   function clearReview() {
-    if (requestReviewRef.current) void discardGeminiRequestReview(requestReviewRef.current.reviewId).catch(() => {});
+    if (requestReviewRef.current) void discardProviderRequestReview(requestReviewRef.current.reviewId).catch(() => {});
     requestReviewRef.current = null;
     setRequestReview(null);
     setConsent(NO_CONSENT);
@@ -173,7 +190,7 @@ export function PrGuideStudio({
     setRequestError(null);
     setNotice(null);
     try {
-      const result = await buildGeminiPrGuideRequestReview({
+      const result = await buildProviderPrGuideRequestReview(providerId, {
         projectId,
         baseRef,
         headRef,
@@ -202,7 +219,7 @@ export function PrGuideStudio({
     setCancelStatus(null);
     cancelRequested.current = false;
     try {
-      const result = await sendGeminiPrGuideRequest({
+      const result = await sendProviderPrGuideRequest({
         reviewId: requestReview.reviewId,
         fingerprint: requestReview.fingerprint,
         consent,
@@ -236,12 +253,12 @@ export function PrGuideStudio({
     setCancelBusy(true);
     cancelRequested.current = true;
     try {
-      const stopped = await cancelGeminiRequest(requestReview.reviewId);
+      const stopped = await cancelProviderRequest(requestReview.reviewId);
       setCancelStatus(stopped
-        ? 'Cancellation reached the local request. Gemini may already have received the selected diff; any response remains an unaccepted draft.'
+        ? `Cancellation reached the local request. ${disclosure?.displayName ?? 'The provider'} may already have received the selected diff; any response remains an unaccepted draft.`
         : 'The request had already finished locally. Any returned guide remains an unaccepted draft until you review it.');
     } catch {
-      setCancelStatus('Code Atlas could not confirm a local abort. Gemini may already have received the selected diff; check the draft history after the request finishes.');
+      setCancelStatus(`Code Atlas could not confirm a local abort. ${disclosure?.displayName ?? 'The provider'} may already have received the selected diff; check the draft history after the request finishes.`);
     } finally {
       setCancelBusy(false);
     }
@@ -329,7 +346,7 @@ export function PrGuideStudio({
         <div><span className="git-changes-kicker">SEPARATE, REVIEWABLE HISTORY</span><h2 id="pr-guide-title">Build a PR Guide</h2></div>
         <span className="git-readonly-badge"><BookOpenCheck size={14} /> Local draft</span>
       </div>
-      <p className="pr-guide-muted">Select changed files, inspect the exact diff sent to Gemini, then review every claim against its base/head hunk. Accepting or rejecting saves a PR Guide revision; it never changes Git refs or file chapter history.</p>
+      <p className="pr-guide-muted">Choose a direct API, select changed files, inspect the exact diff sent, then review every claim against its base/head hunk. Accepting or rejecting saves a PR Guide revision; it never changes Git refs or file chapter history.</p>
       <fieldset className="pr-guide-file-picker" disabled={building || sending || decisionBusy}>
         <legend>Select changed files · {selectedChanges.length} of 12</legend>
         {eligibleChanges.length === 0 ? <p>No changed file has a complete bounded text diff to explain.</p> : eligibleChanges.map((change) => {
@@ -346,17 +363,25 @@ export function PrGuideStudio({
         })}
       </fieldset>
       <div className="pr-guide-actions">
-        <label className="pr-guide-model">Gemini model
+        <label className="pr-guide-model">Direct API provider
+          <select value={providerId} disabled={building || sending || Boolean(requestReview)} onChange={(event) => { clearReview(); setProviderId(event.target.value); setModelId(''); setCredential(null); }}>
+            <option value="">Choose a provider…</option>
+            {providerCatalog.map((provider) => <option key={provider.providerId} value={provider.providerId}>{provider.displayName}</option>)}
+          </select>
+        </label>
+        <label className="pr-guide-model">{disclosure?.displayName ?? 'Model'}
           <select value={modelId} disabled={!disclosure || building || sending || Boolean(requestReview)} onChange={(event) => { clearReview(); setModelId(event.target.value); }}>
+            <option value="">Choose a model…</option>
             {(disclosure?.models ?? []).map((model) => <option key={model.modelId} value={model.modelId}>{model.displayName}</option>)}
           </select>
         </label>
         <button className="primary-button" type="button" onClick={() => { void handleBuildReview(); }} disabled={!canBuild}>
-          <FileDiff size={15} /> {building ? 'Building exact review…' : requestReview ? 'Request ready for review below' : 'Review exact Gemini request'}
+          <FileDiff size={15} /> {building ? 'Building exact review…' : requestReview ? 'Request ready for review below' : 'Review exact provider request'}
         </button>
       </div>
-      {!isNativeRuntime() && <p className="git-preview-note" role="status">The browser preview can inspect the UI but cannot call Gemini or read local Git. Generation runs only in the packaged Mac app.</p>}
-      {informationLoading && <p className="pr-guide-muted" role="status">Loading provider terms and Keychain status locally…</p>}
+      {!isNativeRuntime() && <p className="git-preview-note" role="status">The browser preview can inspect the UI but cannot call provider APIs or read local Git. Generation runs only in the packaged Mac app.</p>}
+      {!providerId && <p className="pr-guide-muted" role="status">Choose a provider and model explicitly for this PR Guide. Selection makes no network request.</p>}
+      {informationLoading && <p className="pr-guide-muted" role="status">Loading direct API catalog locally…</p>}
       {informationError && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {informationError}</p>}
       {credential?.status === 'error' && <p className="git-error-note" role="alert">{credential.error.message}</p>}
       {requestError && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {requestError.message}</p>}
@@ -364,7 +389,7 @@ export function PrGuideStudio({
 
       {requestReview && disclosure && (
         <section className="pr-guide-request-review" aria-labelledby="pr-guide-request-title">
-          <div className="pr-guide-subheading"><div><span className="git-changes-kicker">NO REQUEST SENT YET</span><h3 id="pr-guide-request-title">Review what Gemini will receive</h3></div><ShieldCheck size={18} /></div>
+          <div className="pr-guide-subheading"><div><span className="git-changes-kicker">NO REQUEST SENT YET</span><h3 id="pr-guide-request-title">Review what {disclosure.displayName} will receive</h3></div><ShieldCheck size={18} /></div>
           <div className="provider-request-summary">
             <div><span>Provider and model</span><strong>{requestReview.providerId} · {requestReview.modelId}</strong></div>
             <div><span>Endpoint</span><code>{requestReview.endpointUrl}</code></div>
@@ -388,16 +413,16 @@ export function PrGuideStudio({
           <div className="pr-guide-disclosures">
             <h4><CircleDollarSign size={15} /> Provider terms and possible charges</h4>
             {selectedModel && <p><strong>{selectedModel.displayName} pricing checked {disclosure.checkedDate}:</strong> {selectedModel.freeTierStatus} Paid input: {selectedModel.paidInputUsdPerMillionTokens} per million tokens. Paid output: {selectedModel.paidOutputUsdPerMillionTokens} per million tokens{selectedModel.paidPriceChangeDate ? `; price changes ${selectedModel.paidPriceChangeDate}` : ''}.</p>}
-            <p>{disclosure.unpaidServiceDataUse}</p><p>{disclosure.regionalDataUseException}</p><p>{disclosure.billingUncertainty}</p>
-            <p>Google receives the reviewed diff if you send. One request is made; failures do not switch models or providers.</p>
-            <p><a href={disclosure.termsUrl} target="_blank" rel="noreferrer">Gemini API terms</a> · <a href={disclosure.pricingUrl} target="_blank" rel="noreferrer">Pricing</a> · <a href={disclosure.regionsUrl} target="_blank" rel="noreferrer">Supported regions</a></p>
+            <p>{disclosure.dataUseTerms}</p><p>{disclosure.regionRequirements}</p><p>{disclosure.eligibilityRequirements}</p><p>{disclosure.billingUncertainty}</p>
+            <p>{disclosure.displayName} receives the reviewed diff if you send. One request is made; failures do not switch models or providers.</p>
+            <p><a href={disclosure.termsUrl} target="_blank" rel="noreferrer">Provider API terms</a> · <a href={disclosure.pricingUrl} target="_blank" rel="noreferrer">Pricing</a> · <a href={disclosure.regionsUrl} target="_blank" rel="noreferrer">Availability and regions</a></p>
           </div>
           <div className="pr-guide-consent">
-            <label><input type="checkbox" checked={consent.privacyAndDataUseAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, privacyAndDataUseAcknowledged: event.target.checked }))} /> I reviewed the selected diff and understand Google’s data-use terms.</label>
+            <label><input type="checkbox" checked={consent.privacyAndDataUseAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, privacyAndDataUseAcknowledged: event.target.checked }))} /> I reviewed the selected diff and understand this provider’s data-use terms.</label>
             <label><input type="checkbox" checked={consent.billingUncertaintyAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, billingUncertaintyAcknowledged: event.target.checked }))} /> I understand this model may incur charges or quota limits.</label>
-            <label><input type="checkbox" checked={consent.adultSupportedRegionAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, adultSupportedRegionAcknowledged: event.target.checked }))} /> I meet Google’s age, region, and professional-use requirements.</label>
+            <label><input type="checkbox" checked={consent.adultSupportedRegionAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, adultSupportedRegionAcknowledged: event.target.checked }))} /> I meet this provider’s eligibility and supported-region requirements.</label>
           </div>
-          {!hasApiKey && <p className="pr-guide-muted">A Gemini API key is not configured. Add it in Settings; this review will remain local.</p>}
+          {!hasApiKey && <p className="pr-guide-muted">A {disclosure.displayName} API key is not configured. Add it in Settings; this review will remain local.</p>}
           <div className="pr-guide-actions">
             {!hasApiKey && <button type="button" className="secondary-button" onClick={onOpenProviderSettings}>Open provider settings</button>}
             <button type="button" className="secondary-button" onClick={clearReview} disabled={sending}>Discard this review</button>

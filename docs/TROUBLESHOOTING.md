@@ -16,10 +16,11 @@ If macOS denies folder access, choose an accessible local working copy and try a
 
 ## Keychain access is denied
 
-Keychain is needed only for an optional Gemini key. Follow the macOS prompt to
-unlock Keychain or approve Code Atlas access, then retry saving the key in **AI
-and narration setup**. If you deny access, the key is not saved and local
-browsing still works. Remove a saved key from that same setup screen.
+Keychain is needed only for optional direct API keys and Gemini narration.
+Follow the macOS prompt to unlock Keychain or approve Code Atlas access, then
+retry saving the selected provider's key in **AI and narration setup**. If you
+deny access, the key is not saved and local browsing still works. Remove a
+saved key from that same setup screen.
 
 ## Atlas has no source, or a path cannot be opened
 
@@ -36,15 +37,15 @@ Code Lens opens captured bytes from the selected snapshot. If the citation's sou
 
 ## Chapter Studio has no current chapter for a file
 
-Open Guide Plan to see that file's status, then select the file in Chapter Studio. A chapter from an older snapshot is not current for the selected snapshot. The current workflow creates a new chapter draft through **Generate current snapshot** and an exact-context Gemini request review. There is no bulk generation action.
+Open Guide Plan to see that file's status, then select the file in Chapter Studio. A chapter from an older snapshot is not current for the selected snapshot. The current workflow creates a new chapter draft through **Generate current snapshot** after you explicitly choose a direct API provider/model and review the exact context. There is no bulk generation action.
 
 A generated preview must be saved as a draft before it appears in chapter history. A saved draft still requires a separate review and acceptance. Schema and citation validation do not establish that the prose is accurate; read the explanation against the cited code.
 
 If an unaccepted generated preview remains after restarting the app, use **Review saved preview** or **Discard** in its recovery notice. That recovery applies to generated previews. Do not assume an unsaved Chapter Studio text edit survives closing or restarting the app.
 
-## Gemini setup or request fails
+## Direct API setup or request fails
 
-Gemini generation runs only in the native macOS app. Open **AI and narration setup** from the project-tools menu, check that Keychain is available, and save a key created for the Gemini API. Code Atlas does not read the saved key back into the UI.
+Direct API generation runs only in the native macOS app. Open **AI and narration setup** from the project-tools menu, choose the provider for this request, check that Keychain is available, and save a key created for that provider. Code Atlas does not read the saved key back into the UI. Gemini text-to-speech uses its separate Gemini key.
 
 Before sending, inspect the request review and all provider notices. A request can fail because of network access, model availability, quota, billing, eligibility, region, or provider limits. Code Atlas does not silently retry another model or switch to paid service. After failure, create and review a fresh request before retrying; prior consent is not reused.
 
@@ -54,7 +55,7 @@ Do not send confidential, personal, or secret source to a provider unless you ha
 
 PR Guide generation requires a complete local comparison with at least one
 selected, bounded text diff. The browser preview cannot read local Git or use
-Keychain; run the native Mac app. Rebuild **Review exact Gemini request** after
+Keychain; run the native Mac app. Rebuild **Review exact provider request** after
 changing the selected files or refs. If either local ref moved, compare again
 so the old request fingerprint and consent are discarded. A citation button
 should expand the cited file and scroll to its hunk; use the shown side, commit,

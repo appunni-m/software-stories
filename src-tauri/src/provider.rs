@@ -20,10 +20,17 @@ use uuid::Uuid;
 use zeroize::Zeroizing;
 
 const GEMINI_API_ROOT: &str = "https://generativelanguage.googleapis.com/v1beta";
-const DIRECT_PROVIDER_ID: &str = "gemini";
-const KEYCHAIN_SERVICE: &str = "com.codeatlas.desktop.gemini";
+const OPENAI_API_ROOT: &str = "https://api.openai.com/v1";
+const ANTHROPIC_API_ROOT: &str = "https://api.anthropic.com";
+const GEMINI_PROVIDER_ID: &str = "gemini";
+#[cfg(test)]
+const DIRECT_PROVIDER_ID: &str = GEMINI_PROVIDER_ID;
 const KEYCHAIN_ACCOUNT: &str = "user-api-key";
-const DISCLOSURE_VERSION: &str = "gemini-disclosure-2026-10-13-v1";
+const GEMINI_DISCLOSURE_VERSION: &str = "gemini-disclosure-2026-10-13-v2";
+const OPENAI_DISCLOSURE_VERSION: &str = "openai-disclosure-2026-10-13-v1";
+const ANTHROPIC_DISCLOSURE_VERSION: &str = "anthropic-disclosure-2026-10-13-v1";
+#[cfg(test)]
+const DISCLOSURE_VERSION: &str = GEMINI_DISCLOSURE_VERSION;
 const PROMPT_VERSION: &str = "structured-file-chapter-v3";
 const FILE_PROMPT_VERSION: &str = PROMPT_VERSION;
 const OVERVIEW_PROMPT_VERSION: &str = "structured-repository-overview-v2";
@@ -33,12 +40,12 @@ const REPOSITORY_OVERVIEW_PURPOSE: &str = "repositoryOverview";
 const SECTION_UPDATE_PURPOSE: &str = "sectionUpdate";
 const PR_GUIDE_PURPOSE: &str = "prGuide";
 const MAX_CONTEXT_BYTES: usize = 250_000;
-const MAX_REQUEST_BODY_BYTES: usize = 512_000;
+pub(crate) const MAX_REQUEST_BODY_BYTES: usize = 512_000;
 const MAX_SELECTED_FILES: usize = 12;
 const MAX_PENDING_REVIEWS: usize = 8;
 const REVIEW_LIFETIME_MS: u64 = 15 * 60 * 1_000;
-const MAX_PROVIDER_RESPONSE_BYTES: usize = 1_000_000;
-const MAX_PROVIDER_ERROR_BYTES: usize = 16_000;
+pub(crate) const MAX_PROVIDER_RESPONSE_BYTES: usize = 1_000_000;
+pub(crate) const MAX_PROVIDER_ERROR_BYTES: usize = 16_000;
 const MAX_REVIEW_SYMBOLS: usize = 200;
 const MAX_REVIEW_RELATIONSHIPS: usize = 300;
 
@@ -52,11 +59,15 @@ pub struct ProviderModel {
     pub paid_input_usd_per_million_tokens: String,
     pub paid_output_usd_per_million_tokens: String,
     pub paid_price_change_date: Option<String>,
+    pub supports_structured_output: bool,
+    pub supports_streaming: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderDisclosure {
+    pub provider_id: String,
+    pub display_name: String,
     pub version: String,
     pub checked_date: String,
     pub endpoint_url: String,
@@ -67,15 +78,36 @@ pub struct ProviderDisclosure {
     pub api_key_url: String,
     pub api_key_security_notice: String,
     pub models: Vec<ProviderModel>,
-    pub unpaid_service_data_use: String,
-    pub regional_data_use_exception: String,
-    pub adult_and_region_requirements: String,
+    pub data_use_terms: String,
+    pub region_requirements: String,
+    pub eligibility_requirements: String,
     pub billing_uncertainty: String,
 }
 
+pub fn provider_catalog() -> Vec<ProviderDisclosure> {
+    vec![
+        gemini_disclosure(),
+        openai_disclosure(),
+        anthropic_disclosure(),
+    ]
+}
+
+pub fn disclosure_for(provider_id: &str) -> Option<ProviderDisclosure> {
+    provider_catalog()
+        .into_iter()
+        .find(|provider| provider.provider_id == provider_id)
+}
+
+/// Kept for the separate Gemini narration flow, which has its own API boundary.
 pub fn disclosure() -> ProviderDisclosure {
+    gemini_disclosure()
+}
+
+fn gemini_disclosure() -> ProviderDisclosure {
     ProviderDisclosure {
-        version: DISCLOSURE_VERSION.to_owned(),
+        provider_id: GEMINI_PROVIDER_ID.to_owned(),
+        display_name: "Google Gemini API".to_owned(),
+        version: GEMINI_DISCLOSURE_VERSION.to_owned(),
         checked_date: "2026-10-13".to_owned(),
         endpoint_url: GEMINI_API_ROOT.to_owned(),
         request_path_template: "/models/{model}:generateContent".to_owned(),
@@ -88,26 +120,92 @@ pub fn disclosure() -> ProviderDisclosure {
             ProviderModel {
                 model_id: "gemini-3.8-flash".to_owned(),
                 display_name: "Gemini 3.8 Flash".to_owned(),
-                intended_use: "Default for detailed repository explanations; Google describes it for long-horizon software engineering and complex tasks.".to_owned(),
+                intended_use: "Google describes Gemini 3.8 Flash for long-horizon software engineering and complex tasks.".to_owned(),
                 free_tier_status: "Google's pricing page lists standard input and output tokens as free of charge on the Free Tier as checked on 13 October 2026. Model availability and quotas can change.".to_owned(),
                 paid_input_usd_per_million_tokens: "$0.75 through 31 December 2026; $1.50 from 1 January 2027".to_owned(),
                 paid_output_usd_per_million_tokens: "$3.75 through 31 December 2026; $7.50 from 1 January 2027".to_owned(),
                 paid_price_change_date: Some("2027-01-01".to_owned()),
+                supports_structured_output: true,
+                supports_streaming: true,
             },
             ProviderModel {
-                model_id: "gemini-3.1-flash-lite".to_owned(),
-                display_name: "Gemini 3.1 Flash-Lite".to_owned(),
-                intended_use: "Lower-cost alternative for lightweight explanations; Google describes it for high-volume, low-latency tasks.".to_owned(),
-                free_tier_status: "Google's pricing page lists standard input and output tokens as free of charge on the Free Tier as checked on 13 October 2026. Model availability and quotas can change.".to_owned(),
-                paid_input_usd_per_million_tokens: "$0.25".to_owned(),
-                paid_output_usd_per_million_tokens: "$1.50".to_owned(),
+                model_id: "gemini-3.5-flash-lite".to_owned(),
+                display_name: "Gemini 3.5 Flash-Lite".to_owned(),
+                intended_use: "Lower-cost model for focused, high-volume tasks; Google describes it for simple data processing and agentic workloads.".to_owned(),
+                free_tier_status: "Google lists standard input and output as free on the Free Tier as checked on 13 October 2026. Free-tier content may be used to improve Google products; account access and quotas can change.".to_owned(),
+                paid_input_usd_per_million_tokens: "$0.30".to_owned(),
+                paid_output_usd_per_million_tokens: "$2.50".to_owned(),
                 paid_price_change_date: None,
+                supports_structured_output: true,
+                supports_streaming: true,
             },
         ],
-        unpaid_service_data_use: "Google's Gemini API terms say prompts and generated responses submitted to unpaid services, including unpaid API quota, may be used to provide, improve, and develop Google products and machine-learning technologies. Human reviewers may read, annotate, and process the input and output. Google says not to submit sensitive, confidential, or personal information to unpaid services.".to_owned(),
-        regional_data_use_exception: "Google's terms state that the Paid Services data-use terms apply to users in the EEA, Switzerland, and the United Kingdom even when using unpaid Gemini API quota. Check the current terms for your account region.".to_owned(),
-        adult_and_region_requirements: "Google's developer terms require API users to be at least 18, limit use to supported regions, and describe the service as for professional or business development rather than consumer use. This app cannot verify your age, location, account, or intended use.".to_owned(),
-        billing_uncertainty: "Code Atlas cannot inspect which Cloud project owns this API key or whether that project has active billing. A free-tier model selection does not guarantee a $0 bill. Check the project's billing and quota in Google AI Studio or Cloud before sending.".to_owned(),
+        data_use_terms: "Google says content submitted under its free/unpaid Gemini API services may be used to improve Google products and may be reviewed by people. Paid API usage is not used for product improvement. Code Atlas cannot identify the tier attached to this key; review your Google project and the current Gemini API terms before sending source.".to_owned(),
+        region_requirements: "Google's terms apply paid-service data-use terms to users in the EEA, Switzerland, and United Kingdom even when they use unpaid Gemini API quota. Check current supported-region and account terms.".to_owned(),
+        eligibility_requirements: "Google's developer terms set age, region, and permitted-use requirements. Code Atlas cannot verify your age, location, account, or intended use.".to_owned(),
+        billing_uncertainty: "Google lists standard-token free-tier pricing for these models, but free access is limited by model availability and quotas. Code Atlas cannot inspect which Cloud project owns this key or its billing configuration. Check the project's pricing tier, billing, and quota before sending.".to_owned(),
+    }
+}
+
+fn openai_disclosure() -> ProviderDisclosure {
+    ProviderDisclosure {
+        provider_id: "openai".to_owned(),
+        display_name: "OpenAI API".to_owned(),
+        version: OPENAI_DISCLOSURE_VERSION.to_owned(),
+        checked_date: "2026-10-13".to_owned(),
+        endpoint_url: OPENAI_API_ROOT.to_owned(),
+        request_path_template: "/responses".to_owned(),
+        pricing_url: "https://developers.openai.com/api/docs/pricing".to_owned(),
+        terms_url: "https://openai.com/policies/services-agreement/".to_owned(),
+        regions_url: "https://developers.openai.com/api/docs/supported-countries".to_owned(),
+        api_key_url: "https://platform.openai.com/api-keys".to_owned(),
+        api_key_security_notice: "Treat API keys like passwords. Code Atlas stores the key in a provider-specific macOS Keychain item and sends it only in the HTTPS Authorization header; it is never returned to the WebView.".to_owned(),
+        models: vec![ProviderModel {
+            model_id: "gpt-6-luna".to_owned(),
+            display_name: "GPT-6 Luna".to_owned(),
+            intended_use: "OpenAI describes GPT-6 Luna as its efficient model for focused, high-volume tasks.".to_owned(),
+            free_tier_status: "OpenAI API usage is billed by token; no free API tier is listed for this model. The request uses the Responses API with response storage disabled.".to_owned(),
+            paid_input_usd_per_million_tokens: "$0.10".to_owned(),
+            paid_output_usd_per_million_tokens: "$0.50".to_owned(),
+            paid_price_change_date: None,
+            supports_structured_output: true,
+            supports_streaming: true,
+        }],
+        data_use_terms: "OpenAI states API data is not used to train or improve models by default. Standard abuse-monitoring logs may include prompts and responses and are retained for up to 30 days, subject to legal, safety, and account-specific exceptions. The reviewed request sets Responses API store=false to avoid response application-state storage.".to_owned(),
+        region_requirements: "API access is limited to OpenAI's supported countries and regions. Organization-level retention controls vary and may require prior approval; check the linked current documentation and your account configuration.".to_owned(),
+        eligibility_requirements: "Use is subject to OpenAI's current API terms, usage policies, account eligibility, and supported-region requirements. Code Atlas cannot verify those conditions.".to_owned(),
+        billing_uncertainty: "This model has no listed free API tier. The token estimate is approximate and does not predict your bill; actual charges depend on usage, current pricing, and the OpenAI project tied to this key.".to_owned(),
+    }
+}
+
+fn anthropic_disclosure() -> ProviderDisclosure {
+    ProviderDisclosure {
+        provider_id: "anthropic".to_owned(),
+        display_name: "Anthropic Claude API".to_owned(),
+        version: ANTHROPIC_DISCLOSURE_VERSION.to_owned(),
+        checked_date: "2026-10-13".to_owned(),
+        endpoint_url: ANTHROPIC_API_ROOT.to_owned(),
+        request_path_template: "/v1/messages".to_owned(),
+        pricing_url: "https://platform.claude.com/docs/en/about-claude/pricing".to_owned(),
+        terms_url: "https://www.anthropic.com/legal/commercial-terms".to_owned(),
+        regions_url: "https://platform.claude.com/docs/en/api/supported-regions".to_owned(),
+        api_key_url: "https://console.anthropic.com/settings/keys".to_owned(),
+        api_key_security_notice: "Treat API keys like passwords. Code Atlas stores the key in a provider-specific macOS Keychain item and sends it only in the HTTPS x-api-key header; it is never returned to the WebView.".to_owned(),
+        models: vec![ProviderModel {
+            model_id: "claude-haiku-5-5".to_owned(),
+            display_name: "Claude Haiku 5.5".to_owned(),
+            intended_use: "Anthropic describes Haiku 5.5 as its fastest model for high-volume, cost-sensitive tasks.".to_owned(),
+            free_tier_status: "Anthropic API usage is billed by token; no free API tier is listed. Input pricing increases for prompts over 100,000 tokens.".to_owned(),
+            paid_input_usd_per_million_tokens: "From $0.10".to_owned(),
+            paid_output_usd_per_million_tokens: "From $0.50".to_owned(),
+            paid_price_change_date: None,
+            supports_structured_output: true,
+            supports_streaming: true,
+        }],
+        data_use_terms: "Anthropic's structured-output Messages API is documented as qualified for Zero Data Retention: prompts and outputs are not stored for that feature, while the JSON schema may be cached for up to 24 hours. Account arrangements and trust-and-safety/legal retention exceptions still apply; review Anthropic's current retention terms.".to_owned(),
+        region_requirements: "Availability and retention controls depend on Anthropic's supported regions and account arrangements. Check the current region and data-retention documentation for your account.".to_owned(),
+        eligibility_requirements: "Use is subject to Anthropic's current commercial terms, usage policies, account eligibility, and supported-region requirements. Code Atlas cannot verify those conditions.".to_owned(),
+        billing_uncertainty: "This model has no listed free API tier. Published input pricing starts at $0.10 per million tokens and is higher for prompts over 100,000 tokens; the estimate is approximate and actual charges depend on usage and account pricing.".to_owned(),
     }
 }
 
@@ -323,7 +421,7 @@ struct FingerprintInputs<'a> {
     project_id: &'a str,
     snapshot_id: &'a str,
     target_path: Option<&'a str>,
-    provider_id: &'static str,
+    provider_id: &'a str,
     model_id: &'a str,
     endpoint_url: &'a str,
     wire_body_sha256: &'a str,
@@ -384,7 +482,7 @@ impl ProviderRequestCancellations {
 pub fn request_cancelled_failure() -> ProviderFailure {
     failure(
         ProviderFailureKind::RequestCancelled,
-        "The request was cancelled locally and no response was accepted. Google may already have received the selected source; review and confirm again before another send.",
+        "The request was cancelled locally and no response was accepted. The selected provider may already have received the reviewed source; review and confirm again before another send.",
     )
 }
 
@@ -492,11 +590,11 @@ struct ReviewSource {
     public: ProviderRequestFile,
 }
 
-fn model_is_allowed(model_id: &str) -> bool {
-    disclosure()
+fn model_for(provider_id: &str, model_id: &str) -> Option<ProviderModel> {
+    disclosure_for(provider_id)?
         .models
-        .iter()
-        .any(|model| model.model_id == model_id)
+        .into_iter()
+        .find(|model| model.model_id == model_id && model.supports_structured_output)
 }
 
 fn selected_index_evidence(
@@ -864,14 +962,29 @@ fn pr_guide_generation_config() -> Value {
 
 /// Rebuilds a PR Guide request from the selected local refs and changed paths.
 /// The returned request remains pending until its exact review is confirmed.
+#[cfg(test)]
 pub fn build_pr_guide_request_review(
     repository: &Path,
     input: &BuildPrGuideReviewInput,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
-    if !model_is_allowed(&input.model_id) {
+    build_pr_guide_request_review_for_provider(repository, input, GEMINI_PROVIDER_ID)
+}
+
+pub fn build_pr_guide_request_review_for_provider(
+    repository: &Path,
+    input: &BuildPrGuideReviewInput,
+    provider_id: &str,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    let disclosure = disclosure_for(provider_id).ok_or_else(|| {
+        failure(
+            ProviderFailureKind::UnavailableModel,
+            "Choose a provider in the Code Atlas direct API catalog.",
+        )
+    })?;
+    if model_for(provider_id, &input.model_id).is_none() {
         return Err(failure(
             ProviderFailureKind::UnavailableModel,
-            "Choose one of the versioned Gemini models listed by Code Atlas.",
+            "Choose a structured-output model listed for the selected provider.",
         ));
     }
     let context = pr_guide::build_context(repository, input).map_err(|message| {
@@ -915,7 +1028,7 @@ pub fn build_pr_guide_request_review(
     });
     let generation_config = pr_guide_generation_config();
     let encoded = crate::provider_api::encode_request_preview(
-        DIRECT_PROVIDER_ID,
+        provider_id,
         &input.model_id,
         &system_instruction,
         &user_prompt,
@@ -934,7 +1047,7 @@ pub fn build_pr_guide_request_review(
             "The exact PR Guide request exceeds the 512 KB review limit. Select fewer changed files.",
         ));
     }
-    let model = disclosure()
+    let model = disclosure
         .models
         .into_iter()
         .find(|model| model.model_id == input.model_id)
@@ -944,13 +1057,14 @@ pub fn build_pr_guide_request_review(
                 "This model is not in the current Code Atlas allowlist.",
             )
         })?;
-    let fingerprint = request_fingerprint(
+    let fingerprint = request_fingerprint_for_provider(
+        provider_id,
         PR_GUIDE_PURPOSE,
         &input.project_id,
         &context.comparison_id,
         None,
         &model.model_id,
-        DISCLOSURE_VERSION,
+        &disclosure.version,
         &system_instruction,
         &user_prompt,
         &selected_files,
@@ -963,10 +1077,10 @@ pub fn build_pr_guide_request_review(
         snapshot_id: context.comparison_id.clone(),
         purpose: PR_GUIDE_PURPOSE.to_owned(),
         target_path: None,
-        provider_id: DIRECT_PROVIDER_ID.to_owned(),
+        provider_id: provider_id.to_owned(),
         model_id: model.model_id,
         endpoint_url: encoded.endpoint_url,
-        disclosure_version: DISCLOSURE_VERSION.to_owned(),
+        disclosure_version: disclosure.version,
         selected_files,
         selected_symbols: Vec::new(),
         selected_relationships: Vec::new(),
@@ -999,7 +1113,7 @@ pub fn revalidate_pr_guide_request(
         )
     })?;
     if review.purpose != PR_GUIDE_PURPOSE
-        || review.provider_id != DIRECT_PROVIDER_ID
+        || disclosure_for(&review.provider_id).is_none()
         || review.target_path.is_some()
         || review.snapshot_id != context.comparison_id
     {
@@ -1023,7 +1137,12 @@ pub fn revalidate_pr_guide_request(
             .collect(),
         model_id: review.model_id.clone(),
     };
-    let rebuilt = build_pr_guide_request_review(repository, &input).map_err(|error| {
+    let rebuilt = build_pr_guide_request_review_for_provider(
+        repository,
+        &input,
+        &review.provider_id,
+    )
+    .map_err(|error| {
         if matches!(&error.kind, ProviderFailureKind::InvalidReview) {
             failure(
                 ProviderFailureKind::ReviewChanged,
@@ -1051,13 +1170,27 @@ pub fn build_request_review(
     storage_dir: &Path,
     input: &BuildProviderReviewInput,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
+    build_request_review_for_provider(storage_dir, input, GEMINI_PROVIDER_ID)
+}
+
+pub fn build_request_review_for_provider(
+    storage_dir: &Path,
+    input: &BuildProviderReviewInput,
+    provider_id: &str,
+) -> Result<PendingProviderRequest, ProviderFailure> {
     if input.section_update.is_some() {
-        return build_section_update_request_review(storage_dir, input);
+        return build_section_update_request_review(storage_dir, input, provider_id);
     }
-    if !model_is_allowed(&input.model_id) {
+    let disclosure = disclosure_for(provider_id).ok_or_else(|| {
+        failure(
+            ProviderFailureKind::UnavailableModel,
+            "Choose a provider in the Code Atlas direct API catalog.",
+        )
+    })?;
+    if model_for(provider_id, &input.model_id).is_none() {
         return Err(failure(
             ProviderFailureKind::UnavailableModel,
-            "Choose one of the versioned models listed by Code Atlas. Model discovery and automatic substitution are disabled.",
+            "Choose a structured-output model listed for the selected provider. Model discovery and automatic substitution are disabled.",
         ));
     }
     if input.selected_paths.is_empty()
@@ -1138,7 +1271,7 @@ pub fn build_request_review(
         if source_bytes > MAX_CONTEXT_BYTES {
             return Err(failure(
                 ProviderFailureKind::ContextTooLarge,
-                "Selected source exceeds the 250 KB request-context limit. Reduce the file selection before asking Gemini.",
+                "Selected source exceeds the 250 KB request-context limit. Reduce the file selection before building a provider request.",
             ));
         }
         sources.push(ReviewSource {
@@ -1272,7 +1405,7 @@ SELECTED LOCAL INDEX EVIDENCE JSON:
         )
     };
     let encoded = crate::provider_api::encode_request_preview(
-        DIRECT_PROVIDER_ID,
+        provider_id,
         &input.model_id,
         &system_instruction,
         &user_prompt,
@@ -1291,7 +1424,7 @@ SELECTED LOCAL INDEX EVIDENCE JSON:
             "The exact request body exceeds the 512 KB review limit. Reduce the file selection.",
         ));
     }
-    let model = disclosure()
+    let model = disclosure
         .models
         .into_iter()
         .find(|model| model.model_id == input.model_id)
@@ -1301,13 +1434,14 @@ SELECTED LOCAL INDEX EVIDENCE JSON:
                 "This model is not in the current Code Atlas allowlist.",
             )
         })?;
-    let fingerprint = request_fingerprint(
+    let fingerprint = request_fingerprint_for_provider(
+        provider_id,
         purpose,
         &input.project_id,
         &input.snapshot_id,
         input.target_path.as_deref(),
         &model.model_id,
-        DISCLOSURE_VERSION,
+        &disclosure.version,
         &system_instruction,
         &user_prompt,
         &selected_files,
@@ -1320,10 +1454,10 @@ SELECTED LOCAL INDEX EVIDENCE JSON:
         snapshot_id: input.snapshot_id.clone(),
         purpose: purpose.to_owned(),
         target_path: input.target_path.clone(),
-        provider_id: DIRECT_PROVIDER_ID.to_owned(),
+        provider_id: provider_id.to_owned(),
         model_id: model.model_id,
         endpoint_url: encoded.endpoint_url,
-        disclosure_version: DISCLOSURE_VERSION.to_owned(),
+        disclosure_version: disclosure.version,
         selected_files,
         selected_symbols,
         selected_relationships,
@@ -1347,12 +1481,13 @@ SELECTED LOCAL INDEX EVIDENCE JSON:
 fn build_section_update_request_review(
     storage_dir: &Path,
     input: &BuildProviderReviewInput,
+    provider_id: &str,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
     let failure_review = |message: String| failure(ProviderFailureKind::InvalidReview, message);
-    if !model_is_allowed(&input.model_id) {
+    if model_for(provider_id, &input.model_id).is_none() {
         return Err(failure(
             ProviderFailureKind::UnavailableModel,
-            "Choose one of the versioned Gemini models listed by Code Atlas.",
+            "Choose a structured-output model listed for the selected provider.",
         ));
     }
     let update = input
@@ -1638,7 +1773,7 @@ SELECTED RELATIONSHIP EVIDENCE JSON:
     );
     let generation_config = section_update_generation_config();
     let encoded = crate::provider_api::encode_request_preview(
-        DIRECT_PROVIDER_ID,
+        provider_id,
         &input.model_id,
         &system_instruction,
         &user_prompt,
@@ -1656,7 +1791,13 @@ SELECTED RELATIONSHIP EVIDENCE JSON:
             "The exact section-only request exceeds the 512 KB review limit. No model request was sent.",
         ));
     }
-    let disclosure_model = disclosure()
+    let disclosure = disclosure_for(provider_id).ok_or_else(|| {
+        failure(
+            ProviderFailureKind::UnavailableModel,
+            "Choose a provider in the Code Atlas direct API catalog.",
+        )
+    })?;
+    let disclosure_model = disclosure
         .models
         .into_iter()
         .find(|model| model.model_id == input.model_id)
@@ -1666,13 +1807,14 @@ SELECTED RELATIONSHIP EVIDENCE JSON:
                 "This model is not in the current Code Atlas allowlist.",
             )
         })?;
-    let fingerprint = request_fingerprint(
+    let fingerprint = request_fingerprint_for_provider(
+        provider_id,
         SECTION_UPDATE_PURPOSE,
         &input.project_id,
         &input.snapshot_id,
         Some(&target_path),
         &disclosure_model.model_id,
-        DISCLOSURE_VERSION,
+        &disclosure.version,
         &system_instruction,
         &user_prompt,
         &pending.review.selected_files,
@@ -1716,6 +1858,7 @@ fn section_declared_paths(section: &chapters::ChapterSection) -> BTreeSet<String
     paths
 }
 
+#[cfg(test)]
 fn request_fingerprint(
     purpose: &str,
     project_id: &str,
@@ -1728,8 +1871,36 @@ fn request_fingerprint(
     files: &[ProviderRequestFile],
     generation_config: Value,
 ) -> Result<String, ProviderFailure> {
-    let wire_preview = crate::provider_api::encode_request_preview(
+    request_fingerprint_for_provider(
         DIRECT_PROVIDER_ID,
+        purpose,
+        project_id,
+        snapshot_id,
+        target_path,
+        model_id,
+        disclosure_version,
+        system_instruction,
+        user_prompt,
+        files,
+        generation_config,
+    )
+}
+
+fn request_fingerprint_for_provider(
+    provider_id: &str,
+    purpose: &str,
+    project_id: &str,
+    snapshot_id: &str,
+    target_path: Option<&str>,
+    model_id: &str,
+    disclosure_version: &str,
+    system_instruction: &str,
+    user_prompt: &str,
+    files: &[ProviderRequestFile],
+    generation_config: Value,
+) -> Result<String, ProviderFailure> {
+    let wire_preview = crate::provider_api::encode_request_preview(
+        provider_id,
         model_id,
         system_instruction,
         user_prompt,
@@ -1753,7 +1924,7 @@ fn request_fingerprint(
         project_id,
         snapshot_id,
         target_path,
-        provider_id: DIRECT_PROVIDER_ID,
+        provider_id,
         model_id,
         endpoint_url: &wire_preview.endpoint_url,
         wire_body_sha256: &wire_preview.body_sha256,
@@ -1788,7 +1959,7 @@ pub fn revalidate_request_review(
     storage_dir: &Path,
     review: &ProviderRequestReview,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
-    let rebuilt = build_request_review(
+    let rebuilt = build_request_review_for_provider(
         storage_dir,
         &BuildProviderReviewInput {
             project_id: review.project_id.clone(),
@@ -1802,6 +1973,7 @@ pub fn revalidate_request_review(
             model_id: review.model_id.clone(),
             section_update: review.section_update_context.clone(),
         },
+        &review.provider_id,
     )?;
     if rebuilt.review.fingerprint != review.fingerprint
         || rebuilt.review.disclosure_version != review.disclosure_version
@@ -1834,10 +2006,18 @@ where
         ));
     }
     let review = &request.review;
-    if review.provider_id != DIRECT_PROVIDER_ID {
+    let Some(current_disclosure) = disclosure_for(&review.provider_id) else {
         return Err(failure(
             ProviderFailureKind::ReviewChanged,
-            "The selected direct API provider does not match this request adapter. Build a fresh review.",
+            "The selected provider is no longer in the direct API catalog. Build a fresh review.",
+        ));
+    };
+    if current_disclosure.version != review.disclosure_version
+        || model_for(&review.provider_id, &review.model_id).is_none()
+    {
+        return Err(failure(
+            ProviderFailureKind::ReviewChanged,
+            "The selected provider, disclosure, or model changed. Build a fresh review.",
         ));
     }
     if review.expires_at_unix_ms <= unix_time_ms() {
@@ -1879,7 +2059,8 @@ where
             "The reviewed provider request could not be rebuilt. Build and review a fresh request.",
         )
     })?;
-    let expected_fingerprint = request_fingerprint(
+    let expected_fingerprint = request_fingerprint_for_provider(
+        &review.provider_id,
         &review.purpose,
         &review.project_id,
         &review.snapshot_id,
@@ -1922,6 +2103,109 @@ where
     })
 }
 
+/// Send through the selected provider's Rig wire after the shared exact-review
+/// boundary has revalidated consent, endpoint, body, and request fingerprint.
+pub async fn dispatch_reviewed_request_via_rig(
+    request: &PendingProviderRequest,
+    api_key: Zeroizing<String>,
+    consent: &ProviderConsent,
+) -> Result<ProviderSendResult, ProviderFailure> {
+    let review = request.review.clone();
+    dispatch_reviewed_request(
+        request,
+        api_key,
+        consent,
+        move |model_id, api_key, body| async move {
+            let response = crate::provider_api::complete_reviewed_request(
+                &review.provider_id,
+                &model_id,
+                &review.endpoint_url,
+                api_key,
+                &review.system_instruction,
+                &review.user_prompt,
+                &review.generation_config,
+                &body,
+            )
+            .await
+            .map_err(|kind| rig_request_failure(kind, &review.provider_id))?;
+            Ok(ProviderHttpResult {
+                model_version: response.model_version,
+                response_text: response.response_text,
+                input_tokens: response.input_tokens,
+                output_tokens: response.output_tokens,
+            })
+        },
+    )
+    .await
+}
+
+fn rig_request_failure(
+    kind: crate::provider_api::RigRequestFailure,
+    provider_id: &str,
+) -> ProviderFailure {
+    let provider_name = match provider_id {
+        "gemini" => "Gemini",
+        "openai" => "OpenAI",
+        "anthropic" => "Anthropic",
+        _ => "the selected provider",
+    };
+    let (failure_kind, message) = match kind {
+        crate::provider_api::RigRequestFailure::RequestChanged => (
+            ProviderFailureKind::ReviewChanged,
+            "The exact request differs from its reviewed endpoint or body. Build and review it again.",
+        ),
+        crate::provider_api::RigRequestFailure::UnsupportedProvider => (
+            ProviderFailureKind::UnavailableModel,
+            "This provider is not in the enabled direct API catalog.",
+        ),
+        crate::provider_api::RigRequestFailure::ClientUnavailable => (
+            ProviderFailureKind::NetworkUnavailable,
+            "The provider request client could not start. Check the app network setup and review again.",
+        ),
+        crate::provider_api::RigRequestFailure::InvalidApiKey => (
+            ProviderFailureKind::InvalidApiKey,
+            "The selected provider rejected its saved API key. Check it in AI setup; no provider switch occurred.",
+        ),
+        crate::provider_api::RigRequestFailure::QuotaExceeded => (
+            ProviderFailureKind::QuotaExceeded,
+            "The selected provider reported a quota or rate limit. Choose when to retry; Code Atlas did not switch providers.",
+        ),
+        crate::provider_api::RigRequestFailure::BillingRequired => (
+            ProviderFailureKind::BillingRequired,
+            "The selected provider requires billing for this request. Code Atlas did not switch providers.",
+        ),
+        crate::provider_api::RigRequestFailure::RegionUnavailable => (
+            ProviderFailureKind::RegionUnavailable,
+            "The selected provider is unavailable in this account region. Code Atlas did not switch providers.",
+        ),
+        crate::provider_api::RigRequestFailure::UnavailableModel => (
+            ProviderFailureKind::UnavailableModel,
+            "The selected model is unavailable. Choose a listed model explicitly; Code Atlas did not switch providers.",
+        ),
+        crate::provider_api::RigRequestFailure::ProviderRejected => (
+            ProviderFailureKind::ProviderRejectedRequest,
+            "The selected provider rejected or did not complete the reviewed request. Review the context and create a fresh request.",
+        ),
+        crate::provider_api::RigRequestFailure::RequestTimedOut => (
+            ProviderFailureKind::RequestTimedOut,
+            "The selected provider did not respond within 90 seconds. Review and confirm a fresh request before retrying.",
+        ),
+        crate::provider_api::RigRequestFailure::NetworkUnavailable => (
+            ProviderFailureKind::NetworkUnavailable,
+            "The selected provider could not be reached. Check the network and review a fresh request before retrying.",
+        ),
+        crate::provider_api::RigRequestFailure::ResponseTooLarge => (
+            ProviderFailureKind::ProviderResponseTooLarge,
+            "The provider response exceeded the local size limit. No draft was created.",
+        ),
+        crate::provider_api::RigRequestFailure::MalformedResponse => (
+            ProviderFailureKind::MalformedProviderResponse,
+            "The provider did not return a complete text response. No draft was created.",
+        ),
+    };
+    failure(failure_kind, message.replace("provider", provider_name))
+}
+
 #[derive(Clone, Eq, PartialEq)]
 pub struct ProviderHttpResult {
     pub model_version: Option<String>,
@@ -1930,65 +2214,7 @@ pub struct ProviderHttpResult {
     pub output_tokens: Option<u64>,
 }
 
-pub async fn send_to_gemini(
-    model_id: &str,
-    api_key: &str,
-    body: Value,
-) -> Result<ProviderHttpResult, ProviderFailure> {
-    if !model_is_allowed(model_id) {
-        return Err(failure(
-            ProviderFailureKind::UnavailableModel,
-            "This model is no longer in the current Code Atlas allowlist. Review with an available model before sending.",
-        ));
-    }
-    let url = format!("{GEMINI_API_ROOT}/models/{model_id}:generateContent");
-    let mut key_header = reqwest::header::HeaderValue::from_str(api_key).map_err(|_| {
-        failure(
-            ProviderFailureKind::InvalidApiKey,
-            "The saved API key has an invalid header format. Replace it in AI and narration setup.",
-        )
-    })?;
-    key_header.set_sensitive(true);
-    let client = reqwest::Client::builder()
-        .https_only(true)
-        .timeout(std::time::Duration::from_secs(90))
-        .build()
-        .map_err(|_| {
-            failure(
-                ProviderFailureKind::NetworkUnavailable,
-                "The Gemini request client could not start. Check this app's network setup and retry after a new review.",
-            )
-        })?;
-    let response = client
-        .post(url)
-        .header(reqwest::header::CONTENT_TYPE, "application/json")
-        .header("x-goog-api-key", key_header)
-        .json(&body)
-        .send()
-        .await
-        .map_err(|error| {
-            failure(
-                if error.is_timeout() {
-                    ProviderFailureKind::RequestTimedOut
-                } else {
-                    ProviderFailureKind::NetworkUnavailable
-                },
-                if error.is_timeout() {
-                    "Gemini did not respond within 90 seconds. The request review was consumed; build and review again before retrying."
-                } else {
-                    "Gemini could not be reached. Check the network and build a fresh request review before retrying."
-                },
-            )
-        })?;
-    let status = response.status();
-    if !status.is_success() {
-        let bytes = read_response_body(response, MAX_PROVIDER_ERROR_BYTES).await?;
-        return Err(classify_provider_error(status.as_u16(), &bytes));
-    }
-    let bytes = read_response_body(response, MAX_PROVIDER_RESPONSE_BYTES).await?;
-    parse_gemini_response(&bytes)
-}
-
+#[cfg(test)]
 fn parse_gemini_response(bytes: &[u8]) -> Result<ProviderHttpResult, ProviderFailure> {
     if bytes.len() > MAX_PROVIDER_RESPONSE_BYTES {
         return Err(failure(
@@ -2083,39 +2309,8 @@ fn check_generated_text_size(text: &str) -> Result<(), ProviderFailure> {
 fn generated_text_too_large_failure() -> ProviderFailure {
     failure(
         ProviderFailureKind::ProviderResponseTooLarge,
-        "Gemini's chapter text exceeded the 300 KiB structured-draft limit. No draft was created.",
+        "The selected provider's structured-draft text exceeded the 300 KiB limit. No draft was created.",
     )
-}
-
-async fn read_response_body(
-    mut response: reqwest::Response,
-    limit: usize,
-) -> Result<Vec<u8>, ProviderFailure> {
-    if response
-        .content_length()
-        .is_some_and(|length| length > limit as u64)
-    {
-        return Err(failure(
-            ProviderFailureKind::ProviderResponseTooLarge,
-            "Gemini's response exceeded the local size limit. No draft was accepted.",
-        ));
-    }
-    let mut bytes = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(|_| {
-        failure(
-            ProviderFailureKind::NetworkUnavailable,
-            "Gemini's response was interrupted. No draft was accepted.",
-        )
-    })? {
-        if bytes.len().saturating_add(chunk.len()) > limit {
-            return Err(failure(
-                ProviderFailureKind::ProviderResponseTooLarge,
-                "Gemini's response exceeded the local size limit. No draft was accepted.",
-            ));
-        }
-        bytes.extend_from_slice(&chunk);
-    }
-    Ok(bytes)
 }
 
 pub(crate) fn is_region_restriction_error(provider_status: &str, provider_message: &str) -> bool {
@@ -2153,7 +2348,7 @@ pub(crate) fn is_region_restriction_error(provider_status: &str, provider_messag
         .any(|marker| message.contains(marker))
 }
 
-fn classify_provider_error(status: u16, bytes: &[u8]) -> ProviderFailure {
+pub(crate) fn classify_provider_error(status: u16, bytes: &[u8]) -> ProviderFailure {
     let body: Value = serde_json::from_slice(bytes).unwrap_or(Value::Null);
     let error = body.get("error").unwrap_or(&Value::Null);
     let provider_status = error
@@ -2211,6 +2406,7 @@ fn classify_provider_error(status: u16, bytes: &[u8]) -> ProviderFailure {
     }
 }
 
+#[cfg(test)]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct GenerateContentResponse {
@@ -2221,12 +2417,14 @@ struct GenerateContentResponse {
     usage_metadata: Option<GenerateUsageMetadata>,
 }
 
+#[cfg(test)]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct GeneratePromptFeedback {
     block_reason: Option<String>,
 }
 
+#[cfg(test)]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct GenerateCandidate {
@@ -2234,12 +2432,14 @@ struct GenerateCandidate {
     finish_reason: Option<String>,
 }
 
+#[cfg(test)]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct GenerateContent {
     parts: Vec<GeneratePart>,
 }
 
+#[cfg(test)]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct GeneratePart {
@@ -2247,6 +2447,7 @@ struct GeneratePart {
     thought: Option<bool>,
 }
 
+#[cfg(test)]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct GenerateUsageMetadata {
@@ -2254,7 +2455,14 @@ struct GenerateUsageMetadata {
     candidates_token_count: Option<u64>,
 }
 
-pub fn credential_status() -> ProviderCommandResult<ProviderCredentialStatus> {
+pub fn credential_status_for(provider_id: &str) -> ProviderCommandResult<ProviderCredentialStatus> {
+    let Some(provider) = disclosure_for(provider_id) else {
+        return ProviderCommandResult::error(
+            ProviderFailureKind::UnavailableModel,
+            "Choose a provider in the Code Atlas direct API catalog.",
+        );
+    };
+    let provider_name = provider.display_name;
     #[cfg(target_os = "macos")]
     {
         let keychain_available = keyring::Entry::store_status().is_ok();
@@ -2265,7 +2473,7 @@ pub fn credential_status() -> ProviderCommandResult<ProviderCredentialStatus> {
                 explanation: "macOS Keychain is unavailable to Code Atlas. Local repository browsing still works.".to_owned(),
             });
         }
-        return match keyring_entry().and_then(|entry| match entry.get_secret() {
+        return match keyring_entry(provider_id).and_then(|entry| match entry.get_secret() {
             Ok(secret) => Ok(!Zeroizing::new(secret).is_empty()),
             Err(keyring::Error::NoEntry) => Ok(false),
             Err(_) => Err(()),
@@ -2274,15 +2482,21 @@ pub fn credential_status() -> ProviderCommandResult<ProviderCredentialStatus> {
                 keychain_available: true,
                 api_key_configured: configured,
                 explanation: if configured {
-                    "Gemini key is stored in macOS Keychain. It is never returned to the WebView.".to_owned()
+                    format!(
+                        "{provider_name} key is stored in macOS Keychain. It is never returned to the WebView."
+                    )
                 } else {
-                    "No Gemini key is stored. Local browsing does not require one.".to_owned()
+                    format!(
+                        "No {provider_name} key is stored. Local browsing does not require one."
+                    )
                 },
             }),
             Err(()) => ProviderCommandResult::ok(ProviderCredentialStatus {
                 keychain_available: false,
                 api_key_configured: false,
-                explanation: "Code Atlas could not read the Gemini key from macOS Keychain. Unlock Keychain or approve Code Atlas access. Local browsing still works.".to_owned(),
+                explanation: format!(
+                    "Code Atlas could not read the {provider_name} key from macOS Keychain. Unlock Keychain or approve Code Atlas access. Local browsing still works."
+                ),
             }),
         };
     }
@@ -2290,27 +2504,41 @@ pub fn credential_status() -> ProviderCommandResult<ProviderCredentialStatus> {
     ProviderCommandResult::ok(ProviderCredentialStatus {
         keychain_available: false,
         api_key_configured: false,
-        explanation: "Gemini requests are available in the signed macOS app where Code Atlas can use macOS Keychain. Local browsing remains available here.".to_owned(),
+        explanation: format!(
+            "Direct API requests are available in the signed macOS app where Code Atlas can use macOS Keychain. Local browsing remains available here."
+        ),
     })
 }
 
-pub fn store_api_key(api_key: String) -> ProviderCommandResult<ProviderCredentialStatus> {
+pub fn store_api_key_for(
+    provider_id: &str,
+    api_key: String,
+) -> ProviderCommandResult<ProviderCredentialStatus> {
+    let Some(provider) = disclosure_for(provider_id) else {
+        return ProviderCommandResult::error(
+            ProviderFailureKind::UnavailableModel,
+            "Choose a provider in the Code Atlas direct API catalog.",
+        );
+    };
+    let provider_name = provider.display_name;
     let api_key = Zeroizing::new(api_key);
     if api_key.is_empty() || api_key.len() > 512 || api_key.trim() != api_key.as_str() {
         return ProviderCommandResult::error(
             ProviderFailureKind::InvalidApiKey,
-            "Enter a non-empty Gemini API key without surrounding whitespace. The key has not been saved.",
+            format!(
+                "Enter a non-empty {provider_name} API key without surrounding whitespace. The key has not been saved."
+            ),
         );
     }
     #[cfg(target_os = "macos")]
     {
-        match keyring_entry().and_then(|entry| entry.set_secret(api_key.as_bytes()).map_err(|_| ()))
+        match keyring_entry(provider_id).and_then(|entry| entry.set_secret(api_key.as_bytes()).map_err(|_| ()))
         {
             Ok(()) => ProviderCommandResult::ok(ProviderCredentialStatus {
                 keychain_available: true,
                 api_key_configured: true,
                 explanation:
-                    "Gemini key saved in macOS Keychain. It is never returned to the WebView."
+                    format!("{provider_name} key saved in macOS Keychain. It is never returned to the WebView.")
                         .to_owned(),
             }),
             Err(()) => ProviderCommandResult::error(
@@ -2324,40 +2552,63 @@ pub fn store_api_key(api_key: String) -> ProviderCommandResult<ProviderCredentia
         let _ = api_key;
         ProviderCommandResult::error(
             ProviderFailureKind::KeychainUnavailable,
-            "Gemini keys can be stored only by the macOS Keychain integration in the desktop app.",
+            format!(
+                "{provider_name} keys can be stored only by the macOS Keychain integration in the desktop app."
+            ),
         )
     }
 }
 
-pub fn remove_api_key() -> ProviderCommandResult<ProviderCredentialStatus> {
+pub fn remove_api_key_for(provider_id: &str) -> ProviderCommandResult<ProviderCredentialStatus> {
+    let Some(provider) = disclosure_for(provider_id) else {
+        return ProviderCommandResult::error(
+            ProviderFailureKind::UnavailableModel,
+            "Choose a provider in the Code Atlas direct API catalog.",
+        );
+    };
+    let provider_name = provider.display_name;
     #[cfg(target_os = "macos")]
     {
-        match keyring_entry().and_then(|entry| match entry.delete_credential() {
+        match keyring_entry(provider_id).and_then(|entry| match entry.delete_credential() {
             Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
             Err(_) => Err(()),
         }) {
             Ok(()) => ProviderCommandResult::ok(ProviderCredentialStatus {
                 keychain_available: true,
                 api_key_configured: false,
-                explanation: "The Gemini key was removed from macOS Keychain.".to_owned(),
+                explanation: format!("The {provider_name} key was removed from macOS Keychain."),
             }),
             Err(()) => ProviderCommandResult::error(
                 ProviderFailureKind::KeychainOperationFailed,
-                "Code Atlas could not remove the Gemini key from macOS Keychain.",
+                format!("Code Atlas could not remove the {provider_name} key from macOS Keychain."),
             ),
         }
     }
     #[cfg(not(target_os = "macos"))]
     ProviderCommandResult::error(
         ProviderFailureKind::KeychainUnavailable,
-        "Gemini keys can be removed only by the macOS Keychain integration in the desktop app.",
+        format!(
+            "{provider_name} keys can be removed only by the macOS Keychain integration in the desktop app."
+        ),
     )
 }
 
 pub fn load_api_key() -> Result<Zeroizing<String>, ProviderFailure> {
+    load_api_key_for(GEMINI_PROVIDER_ID)
+}
+
+pub fn load_api_key_for(provider_id: &str) -> Result<Zeroizing<String>, ProviderFailure> {
+    let provider_name = disclosure_for(provider_id)
+        .map(|provider| provider.display_name)
+        .ok_or_else(|| {
+            failure(
+                ProviderFailureKind::UnavailableModel,
+                "Choose a provider in the Code Atlas direct API catalog.",
+            )
+        })?;
     #[cfg(target_os = "macos")]
     {
-        let secret = keyring_entry()
+        let secret = keyring_entry(provider_id)
             .map_err(|_| {
                 failure(
                     ProviderFailureKind::KeychainUnavailable,
@@ -2369,12 +2620,12 @@ pub fn load_api_key() -> Result<Zeroizing<String>, ProviderFailure> {
                 if matches!(error, keyring::Error::NoEntry) {
                     failure(
                         ProviderFailureKind::MissingApiKey,
-                        "Add a Gemini key in AI and narration setup before sending.",
+                        format!("Add a {provider_name} key in AI and narration setup before sending."),
                     )
                 } else {
                     failure(
                         ProviderFailureKind::KeychainOperationFailed,
-                        "Code Atlas could not read the Gemini key from macOS Keychain. Unlock Keychain or approve Code Atlas access, then review the request again. No request was sent.",
+                        format!("Code Atlas could not read the {provider_name} key from macOS Keychain. Unlock Keychain or approve Code Atlas access, then review the request again. No request was sent."),
                     )
                 }
             })?;
@@ -2382,13 +2633,13 @@ pub fn load_api_key() -> Result<Zeroizing<String>, ProviderFailure> {
         let value = Zeroizing::new(std::str::from_utf8(&secret).map_err(|_| {
             failure(
                 ProviderFailureKind::InvalidApiKey,
-                "The saved Gemini key is not valid UTF-8. Replace it in AI and narration setup.",
+                format!("The saved {provider_name} key is not valid UTF-8. Replace it in AI and narration setup."),
             )
         })?.to_owned());
         if value.is_empty() {
             return Err(failure(
                 ProviderFailureKind::MissingApiKey,
-                "Add a Gemini key in AI and narration setup before sending.",
+                format!("Add a {provider_name} key in AI and narration setup before sending."),
             ));
         }
         Ok(value)
@@ -2396,13 +2647,21 @@ pub fn load_api_key() -> Result<Zeroizing<String>, ProviderFailure> {
     #[cfg(not(target_os = "macos"))]
     Err(failure(
         ProviderFailureKind::KeychainUnavailable,
-        "Gemini requests require macOS Keychain. Local browsing remains available.",
+        format!(
+            "{provider_name} requests require macOS Keychain. Local browsing remains available."
+        ),
     ))
 }
 
 #[cfg(target_os = "macos")]
-fn keyring_entry() -> Result<keyring::Entry, ()> {
-    keyring::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT).map_err(|_| ())
+fn keyring_entry(provider_id: &str) -> Result<keyring::Entry, ()> {
+    let service = match provider_id {
+        "gemini" => "com.codeatlas.desktop.gemini",
+        "openai" => "com.codeatlas.desktop.openai",
+        "anthropic" => "com.codeatlas.desktop.anthropic",
+        _ => return Err(()),
+    };
+    keyring::Entry::new(service, KEYCHAIN_ACCOUNT).map_err(|_| ())
 }
 
 fn unix_time_ms() -> u64 {
@@ -2674,18 +2933,10 @@ mod tests {
                 .iter()
                 .any(|model| model.model_id == "gemini-3.8-flash")
         );
-        assert!(record.unpaid_service_data_use.contains("Human reviewers"));
-        assert!(
-            record
-                .regional_data_use_exception
-                .contains("EEA, Switzerland")
-        );
-        assert!(record.adult_and_region_requirements.contains("at least 18"));
-        assert!(
-            record
-                .billing_uncertainty
-                .contains("does not guarantee a $0 bill")
-        );
+        assert!(record.data_use_terms.contains("reviewed by people"));
+        assert!(record.region_requirements.contains("EEA, Switzerland"));
+        assert!(record.eligibility_requirements.contains("age"));
+        assert!(record.billing_uncertainty.contains("cannot inspect"));
         assert!(
             record
                 .api_key_security_notice

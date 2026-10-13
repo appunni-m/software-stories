@@ -1,13 +1,15 @@
 # AI backend capability matrix
 
 **Reviewed:** 2026-10-13  
-**Purpose:** Keep direct model APIs, multi-step coding-agent runtimes, and speech synthesis as separate choices. This is a candidate matrix; an unverified cell does not mean the integration is currently selectable in the app. The app already contains Gemini-specific generation code, but that implementation has not been accepted as covering the full cross-product capability contract below.
+**Purpose:** Keep direct model APIs, multi-step coding-agent runtimes, and speech synthesis as separate choices. This matrix distinguishes routes present in source from routes that have passed the full acceptance contract.
 
-**Implementation snapshot (2026-10-13):** `rig-core = 0.44.0` is pinned and now encodes the reviewed Gemini JSON request body locally. The app review displays the sanitized endpoint and encoded body hash, and its consent fingerprint includes both. The existing Gemini-only Reqwest sender still places the key in Google's required `x-goog-api-key` header and uses the existing Google-specific response/error parser. OpenAI and Anthropic are not selectable, have no end-to-end dispatch, and have not passed adapter fixtures. The Rig helper has branches for their wire encoders, but those branches are not acceptance evidence. All operation/provider cells below therefore remain unverified.
+**Implementation snapshot (2026-10-13):** `rig-core = 0.44.0` is pinned. Gemini, OpenAI Responses, and Anthropic Messages can be explicitly selected for file chapters, optional repository orientation, selective section regeneration, and PR Guides. Their local review binds provider, model, sanitized endpoint, encoded JSON body/hash, selected context, and disclosure version. A guarded Reqwest transport checks that the method, route, authentication placeholder, content type, and body match review before using the provider-specific sensitive auth header; requests require HTTPS and are unary. These are implemented routes, not accepted support: provider-by-operation fixtures, capability evidence, and cancellation/transport-close evidence remain open. The Code Lens action currently reuses file-chapter generation; a distinct range-level explanation and a separate PR change-explanation operation are not implemented.
 
 ## Status legend
 
-- **Candidate · unverified:** evaluate this backend for the operation; it is not yet an app-supported route.
+- **Implemented · fixture gate open:** a selectable route exists in source for this operation/provider, but required mocked routing and capability evidence is incomplete, so it is not marked accepted support.
+- **Not implemented as a distinct operation:** no operation-specific route exists, even if another workflow can be launched from the same screen.
+- **Candidate · unverified:** evaluate this backend; no app-supported route exists yet.
 - **Unavailable until verified:** do not show as selectable for that operation until the exact version, auth/terms, capability boundary, and fixture acceptance are recorded.
 - **Supported:** may be used only after the corresponding acceptance evidence is linked here. No cell currently has enough evidence to carry this status under the full matrix contract.
 
@@ -17,27 +19,27 @@ One selected API provider handles one complete request. The adapter must bind th
 
 | Product operation | Gemini API | OpenAI API | Anthropic API | Reviewed input and validated output |
 |---|---|---|---|---|
-| File chapter | Candidate · unverified | Candidate · unverified | Candidate · unverified | Exact snapshot file set and cited source ranges → one file's chapter schema. |
-| Optional orientation | Candidate · unverified | Candidate · unverified | Candidate · unverified | Exact selected snapshot excerpts → overview/orientation schema; never substitutes for per-file chapters. |
-| Selective section regeneration | Candidate · unverified | Candidate · unverified | Candidate · unverified | One accepted immutable chapter revision, selected section, and required dependency anchors → a new draft revision; unaffected sections keep their prior revisions. |
-| On-demand Code Lens explanation | Candidate · unverified | Candidate · unverified | Candidate · unverified | User-selected captured range and explicit surrounding context → transient explanation with citations to that snapshot. |
-| PR guide | Candidate · unverified | Candidate · unverified | Candidate · unverified | Reviewed base/head diff plus only user-approved snapshot files → PR guide draft with change evidence. |
-| PR change explanation | Candidate · unverified | Candidate · unverified | Candidate · unverified | One reviewed file or hunk and its source anchors → one change explanation; does not write or comment on the PR. |
+| File chapter | Implemented · fixture gate open | Implemented · fixture gate open | Implemented · fixture gate open | Exact snapshot file set and cited source ranges → one file's chapter schema. |
+| Optional orientation | Implemented · fixture gate open | Implemented · fixture gate open | Implemented · fixture gate open | Exact selected snapshot excerpts → overview/orientation schema; never substitutes for per-file chapters. |
+| Selective section regeneration | Implemented · fixture gate open | Implemented · fixture gate open | Implemented · fixture gate open | One accepted immutable chapter revision, selected section, and required dependency anchors → a new draft revision; unaffected sections keep their prior revisions. |
+| On-demand Code Lens explanation | Not implemented as a distinct operation | Not implemented as a distinct operation | Not implemented as a distinct operation | The current Code Lens action can launch file-chapter generation; a range-scoped transient explanation with citations is not wired. |
+| PR Guide | Implemented · fixture gate open | Implemented · fixture gate open | Implemented · fixture gate open | Reviewed base/head diff and selected bounded text hunks → a separate PR Guide draft with change evidence. |
+| PR change explanation | Not implemented as a distinct operation | Not implemented as a distinct operation | Not implemented as a distinct operation | A reviewed file/hunk → one change explanation; does not write or comment on the PR. |
 
-For every cell promoted to **Supported**, the catalog records the pinned adapter/library and provider/model surface; schema, streaming, cancellation, endpoint, authentication, terms, usage disclosure, and data handling; a mocked fixture for the operation; exact-provider routing; consent fingerprint invalidation; and error behavior. An unsupported feature is shown before send. No key, prompt, source excerpt, or raw response is written to logs, local metadata, exports, or diagnostics.
+For every cell promoted to **Supported**, the catalog must record the pinned adapter/library and provider/model surface; schema, streaming, cancellation, endpoint, authentication, terms, usage disclosure, and data handling; a mocked fixture for the operation; exact-provider routing; consent fingerprint invalidation; and error behavior. An unsupported feature must be shown before send. No key, prompt, source excerpt, or raw response is written to logs, local metadata, exports, or diagnostics.
 
-The current generation review exercises Rig's Gemini wire encoder for file chapters, optional orientation, and PR Guides. Existing provider tests cover those Gemini review/dispatch boundaries. They do not prove OpenAI or Anthropic endpoint calls, model eligibility, provider-specific consent disclosures, live cancellation, or the unimplemented selective-section, Code Lens, and PR-change generation operations.
+The source now routes all three direct APIs through Rig's provider-specific unary adapters and the same exact-review boundary. The app catalog contains structured-output and provider streaming flags, but the current transport explicitly rejects streaming; per-operation streaming/cancellation support is therefore not selectable capability evidence. Rust formatting and a library compile check were completed for this snapshot. They do not prove endpoint behavior, provider eligibility, provider-by-operation mock routing, credential non-disclosure, cancellation closing the HTTP transport, or the unimplemented Code Lens and PR change operations. No live API key or request was used.
 
 ### Cross-cutting API behavior to verify per model
 
 | Capability | Required product behavior |
 |---|---|
-| Structured output | Record whether the selected model supports the operation's required schema and provider dialect. Disable the operation or surface the limitation before consent when it does not. Local schema and citation validation always runs afterward. |
-| Streaming | Record whether output can be streamed for the exact operation/provider/model. Streaming is a presentation option and never makes unvalidated output acceptable. |
-| Cancellation | Verify cancellation stops local processing and aborts the transport where supported. Explain that a provider may still bill already-accepted work. Never restart on another provider. |
-| Exact routing | Bind an explicit adapter, provider, model, and endpoint; assert mocked requests reach only that route. |
-| Consent | Show the full request fingerprint and disclosure before send. Changing provider/model/endpoint, prompt/schema, files/hashes, settings, or disclosure requires fresh consent. |
-| Failure | Surface quota, billing, auth, timeout, unsupported-feature, and provider errors on the same selected backend. Do not modify accepted guide history. |
+| Structured output | Rig is given the catalogued JSON schema and local chapter/PR validators run afterward. Per-provider, per-operation fixtures remain open. |
+| Streaming | Provider catalog flags describe model/provider capability; the app transport currently rejects streaming requests for every route. Current operations use unary responses. |
+| Cancellation | Tauri cancellation drops the in-flight local request future and discards late output. The provider may already have accepted work; transport-close behavior still needs a mocked fixture. |
+| Exact routing | Review and dispatch bind explicit provider, model, endpoint, request body, and disclosure. Code constructs that provider's Rig adapter and has no fallback path; mocked route assertions remain open. |
+| Consent | The request review fingerprints provider/model/endpoint/body/context/disclosure and requires fresh consent after changes. This source-level behavior still needs operation-by-provider fixtures. |
+| Failure | Gemini has provider-specific error classification; OpenAI/Anthropic map status classes into shared failures. Per-provider error fixtures and proof that accepted guide history remains untouched are still required. |
 
 ## Coding-agent runtime workflows
 

@@ -12,7 +12,7 @@ blocked_by: t10, t17, t18, t19
 The user can repair one part of a walkthrough without recreating the whole guide, while seeing any other sections affected by shared evidence.
 
 ## Contract
-From the stale-section view, show the source diff, stale reason, dependent sections, and fingerprints for narration/visual assets. The user selects one section, reviews its exact Gemini manifest if regeneration is requested, confirms that request, and receives a new draft section revision. A prose-only edit can be local. Preserve the accepted section and chapter manifest until explicit acceptance. Reuse unaffected sections and assets by input fingerprint.
+From the stale-section view, show the source diff, stale reason, dependent sections, and fingerprints for narration/visual assets. The user selects one section, chooses an available direct API provider/model, reviews its exact request manifest if regeneration is requested, confirms that request, and receives a new draft section revision. A prose-only edit can be local. Preserve the accepted section and chapter manifest until explicit acceptance. Reuse unaffected sections and assets by input fingerprint.
 
 ## Acceptance criteria
 - Regeneration targets one selected section and its declared evidence; no whole-chapter or whole-guide call is hidden behind the action.

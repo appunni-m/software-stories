@@ -626,9 +626,13 @@ export interface ProviderModel {
   paidInputUsdPerMillionTokens: string;
   paidOutputUsdPerMillionTokens: string;
   paidPriceChangeDate: string | null;
+  supportsStructuredOutput: boolean;
+  supportsStreaming: boolean;
 }
 
 export interface ProviderDisclosure {
+  providerId: string;
+  displayName: string;
   version: string;
   checkedDate: string;
   endpointUrl: string;
@@ -639,9 +643,9 @@ export interface ProviderDisclosure {
   apiKeyUrl: string;
   apiKeySecurityNotice: string;
   models: ProviderModel[];
-  unpaidServiceDataUse: string;
-  regionalDataUseException: string;
-  adultAndRegionRequirements: string;
+  dataUseTerms: string;
+  regionRequirements: string;
+  eligibilityRequirements: string;
   billingUncertainty: string;
 }
 
@@ -875,7 +879,7 @@ export async function compareLocalGitRevisions(
   return invoke<GitComparisonResult>('compare_local_git_revisions', { projectId, baseRef, headRef });
 }
 
-export async function buildGeminiPrGuideRequestReview(input: {
+export async function buildProviderPrGuideRequestReview(providerId: string, input: {
   projectId: string;
   baseRef: string;
   headRef: string;
@@ -883,15 +887,15 @@ export async function buildGeminiPrGuideRequestReview(input: {
   selectedChanges: SelectedGitChangeIdentity[];
   modelId: string;
 }): Promise<ProviderCommandResult<ProviderRequestReview>> {
-  return invoke<ProviderCommandResult<ProviderRequestReview>>('build_gemini_pr_guide_request_review', { input });
+  return invoke<ProviderCommandResult<ProviderRequestReview>>('build_provider_pr_guide_request_review', { providerId, input });
 }
 
-export async function sendGeminiPrGuideRequest(input: {
+export async function sendProviderPrGuideRequest(input: {
   reviewId: string;
   fingerprint: string;
   consent: ProviderConsent;
 }): Promise<ProviderCommandResult<PrGuidePreview>> {
-  return invoke<ProviderCommandResult<PrGuidePreview>>('send_gemini_pr_guide_request', input);
+  return invoke<ProviderCommandResult<PrGuidePreview>>('send_provider_pr_guide_request', input);
 }
 
 export async function listPrGuideRevisions(projectId: string, comparisonId: string): Promise<PrGuideRevision[]> {
@@ -1051,23 +1055,23 @@ export async function assessChapterFreshness(
   });
 }
 
-export async function getProviderDisclosure(): Promise<ProviderDisclosure> {
-  return invoke<ProviderDisclosure>('get_provider_disclosure');
+export async function getProviderCatalog(): Promise<ProviderDisclosure[]> {
+  return invoke<ProviderDisclosure[]>('get_provider_catalog');
 }
 
-export async function getProviderCredentialStatus(): Promise<ProviderCommandResult<ProviderCredentialStatus>> {
-  return invoke<ProviderCommandResult<ProviderCredentialStatus>>('get_provider_credential_status');
+export async function getProviderCredentialStatus(providerId: string): Promise<ProviderCommandResult<ProviderCredentialStatus>> {
+  return invoke<ProviderCommandResult<ProviderCredentialStatus>>('get_provider_credential_status', { providerId });
 }
 
-export async function storeGeminiApiKey(apiKey: string): Promise<ProviderCommandResult<ProviderCredentialStatus>> {
-  return invoke<ProviderCommandResult<ProviderCredentialStatus>>('store_gemini_api_key', { apiKey });
+export async function storeProviderApiKey(providerId: string, apiKey: string): Promise<ProviderCommandResult<ProviderCredentialStatus>> {
+  return invoke<ProviderCommandResult<ProviderCredentialStatus>>('store_provider_api_key', { providerId, apiKey });
 }
 
-export async function removeGeminiApiKey(): Promise<ProviderCommandResult<ProviderCredentialStatus>> {
-  return invoke<ProviderCommandResult<ProviderCredentialStatus>>('remove_gemini_api_key');
+export async function removeProviderApiKey(providerId: string): Promise<ProviderCommandResult<ProviderCredentialStatus>> {
+  return invoke<ProviderCommandResult<ProviderCredentialStatus>>('remove_provider_api_key', { providerId });
 }
 
-export async function buildGeminiRequestReview(input: {
+export async function buildProviderRequestReview(providerId: string, input: {
   projectId: string;
   snapshotId: string;
   targetPath: string | null;
@@ -1075,23 +1079,23 @@ export async function buildGeminiRequestReview(input: {
   modelId: string;
   sectionUpdate?: SectionUpdateReviewTarget | null;
 }): Promise<ProviderCommandResult<ProviderRequestReview>> {
-  return invoke<ProviderCommandResult<ProviderRequestReview>>('build_gemini_request_review', { input });
+  return invoke<ProviderCommandResult<ProviderRequestReview>>('build_provider_request_review', { providerId, input });
 }
 
-export async function discardGeminiRequestReview(reviewId: string): Promise<void> {
-  await invoke<void>('discard_gemini_request_review', { reviewId });
+export async function discardProviderRequestReview(reviewId: string): Promise<void> {
+  await invoke<void>('discard_provider_request_review', { reviewId });
 }
 
-export async function cancelGeminiRequest(reviewId: string): Promise<boolean> {
-  return invoke<boolean>('cancel_gemini_request', { reviewId });
+export async function cancelProviderRequest(reviewId: string): Promise<boolean> {
+  return invoke<boolean>('cancel_provider_request', { reviewId });
 }
 
-export async function sendGeminiRequest(input: {
+export async function sendProviderRequest(input: {
   reviewId: string;
   fingerprint: string;
   consent: ProviderConsent;
 }): Promise<ProviderCommandResult<ChapterDraftPreview>> {
-  return invoke<ProviderCommandResult<ChapterDraftPreview>>('send_gemini_request', input);
+  return invoke<ProviderCommandResult<ChapterDraftPreview>>('send_provider_request', input);
 }
 
 export async function getNarrationDisclosure(): Promise<NarrationDisclosure> {

@@ -557,6 +557,7 @@ async function currentGenerationMetadata() {
   const chapterGeneration = await readFile(resolve(root, "src-tauri/src/chapter_generation.rs"), "utf8");
   const chapterValidation = chapterTypes;
   const commandBridge = await readFile(resolve(root, "src-tauri/src/lib.rs"), "utf8");
+  const providerApiSource = await readFile(resolve(root, "src-tauri/src/provider_api.rs"), "utf8");
   const promptVersion = provider.match(/const PROMPT_VERSION: &str = "([^"]+)";/)?.[1];
   const chapterSchemaVersion = Number(chapterTypes.match(/pub const CHAPTER_SCHEMA_VERSION: u32 = (\d+);/)?.[1]);
   if (!promptVersion || !Number.isInteger(chapterSchemaVersion)) {
@@ -566,15 +567,15 @@ async function currentGenerationMetadata() {
   const userPromptTemplate = provider.match(/let user_prompt = format!\(\s*r#"([\s\S]*?)"#,/)?.[1];
   if (!systemPrompt || !userPromptTemplate) throw new Error("Could not fingerprint the current chapter prompt text");
 
-  const disclosure = extractRustBlock(provider, "pub fn disclosure()");
+  const disclosure = extractRustBlock(provider, "fn gemini_disclosure()");
   const modelIds = [...disclosure.matchAll(/model_id:\s*"([^"]+)"/g)].map((match) => match[1]).sort();
   if (modelIds.length === 0 || new Set(modelIds).size !== modelIds.length) {
-    throw new Error("Could not derive a unique model allowlist from provider::disclosure");
+    throw new Error("Could not derive a unique Gemini chapter-model allowlist from provider::gemini_disclosure");
   }
   const responseSchema = extractRustBlock(provider, "fn file_chapter_response_schema()");
   const generationConfig = extractRustBlock(provider, "fn file_chapter_generation_config()");
   const requestAssembly = [
-    ...["GEMINI_API_ROOT", "DISCLOSURE_VERSION", "PROMPT_VERSION", "MAX_CONTEXT_BYTES", "MAX_REQUEST_BODY_BYTES", "MAX_SELECTED_FILES", "MAX_REVIEW_SYMBOLS", "MAX_REVIEW_RELATIONSHIPS", "MAX_PROVIDER_RESPONSE_BYTES", "MAX_PROVIDER_ERROR_BYTES"]
+    ...["GEMINI_API_ROOT", "OPENAI_API_ROOT", "ANTHROPIC_API_ROOT", "GEMINI_DISCLOSURE_VERSION", "OPENAI_DISCLOSURE_VERSION", "ANTHROPIC_DISCLOSURE_VERSION", "DISCLOSURE_VERSION", "PROMPT_VERSION", "MAX_CONTEXT_BYTES", "MAX_REQUEST_BODY_BYTES", "MAX_SELECTED_FILES", "MAX_REVIEW_SYMBOLS", "MAX_REVIEW_RELATIONSHIPS", "MAX_PROVIDER_RESPONSE_BYTES", "MAX_PROVIDER_ERROR_BYTES"]
       .map((name) => provider.match(new RegExp(`const ${name}: [^=]+ = [^;]+;`))?.[0] ?? ""),
     ...[
       "pub struct ProviderRequestFile",
@@ -587,12 +588,22 @@ async function currentGenerationMetadata() {
       "pub struct ProviderHttpResult",
       "pub struct BuildProviderReviewInput",
       "pub struct PendingProviderRequest",
+      "pub struct ProviderModel",
+      "pub struct ProviderDisclosure",
       "fn selected_index_evidence(",
       "fn checked_index_excerpt<",
+      "pub fn provider_catalog()",
+      "pub fn disclosure_for(",
+      "fn model_for(",
       "pub fn build_request_review(",
+      "pub fn build_request_review_for_provider(",
+      "pub fn build_pr_guide_request_review_for_provider(",
       "fn request_fingerprint(",
+      "fn request_fingerprint_for_provider(",
       "pub fn revalidate_request_review(",
       "pub async fn dispatch_reviewed_request<",
+      "pub async fn dispatch_reviewed_request_via_rig(",
+      "fn rig_request_failure(",
       "pub async fn send_to_gemini(",
       "fn parse_gemini_response(",
       "fn check_generated_text_size(",
@@ -610,7 +621,12 @@ async function currentGenerationMetadata() {
     indexSource,
     chapterGeneration,
     chapterValidation,
+    providerApiSource,
     extractRustBlock(commandBridge, "fn prepare_chapter_draft_preview("),
+    extractRustBlock(commandBridge, "fn build_provider_request_review("),
+    extractRustBlock(commandBridge, "fn build_provider_pr_guide_request_review("),
+    extractRustBlock(commandBridge, "async fn send_provider_request("),
+    extractRustBlock(commandBridge, "async fn send_provider_pr_guide_request("),
     await readFile(resolve(root, "src-tauri/src/snapshot.rs"), "utf8"),
     await readFile(resolve(root, "src-tauri/Cargo.toml"), "utf8"),
     await readFile(resolve(root, "src-tauri/Cargo.lock"), "utf8"),

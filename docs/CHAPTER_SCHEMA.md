@@ -34,7 +34,7 @@ Chapter Studio transitions are append-only: edit creates a draft from the curren
 
 ## Generated file-chapter proposal
 
-File generation accepts a separate, strict proposal, defined by the `GeneratedChapter*` structs in `src-tauri/src/chapters.rs`. It describes one selected target file and can cite up to eleven explicitly selected supporting files. Every property below is required at its respective level; unknown properties are rejected. Gemini receives this proposal schema through `generationConfig.responseSchema` with `responseMimeType: "application/json"`, one candidate, a temperature of 0.2, and at most 8,192 output tokens. Repository-overview generation is a separate request purpose and canonicalization path; this subsection documents the file-target proposal.
+File generation accepts a separate, strict proposal, defined by the `GeneratedChapter*` structs in `src-tauri/src/chapters.rs`. It describes one selected target file and can cite up to eleven explicitly selected supporting files. Every property below is required at its respective level; unknown properties are rejected. The local request requires JSON output, one candidate, temperature 0.2, and at most 8,192 output tokens. The selected Rig provider wire maps the schema and generation settings to Gemini `responseSchema`, OpenAI Responses structured output, or Anthropic Messages structured output; the returned proposal is still validated locally. Repository-overview generation is a separate request purpose and canonicalization path; this subsection documents the file-target proposal.
 
 ```json
 {

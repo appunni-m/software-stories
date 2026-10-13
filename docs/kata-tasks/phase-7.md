@@ -25,8 +25,8 @@ Ship a clear backend catalog with separate **Model APIs**, **Agent runtimes**, a
 
 ## Current research artifacts
 
-- [AI backend capability matrix, with every unverified operation explicitly marked unavailable](../research/ai-backend-capability-matrix.md)
-- [Dated Rust model-client comparison and `rig-core` prototype recommendation](../research/2026-10-13-rust-model-client-comparison.md)
+- [AI backend capability matrix, separating implemented routes from accepted support and missing operations](../research/ai-backend-capability-matrix.md)
+- [Dated Rust model-client comparison, `rig-core` adapter decision, and remaining acceptance evidence](../research/2026-10-13-rust-model-client-comparison.md)
 
 ## Excludes
 Building a new model gateway, inventing an agent protocol or tool loop, silent provider routing/fallback, collecting vendor credentials through browser scraping, and treating API providers and agent runtimes as interchangeable.

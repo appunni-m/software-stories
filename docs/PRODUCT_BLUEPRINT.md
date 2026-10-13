@@ -77,7 +77,7 @@ The complete control-level destinations, keyboard/focus rules, side-effect bound
 |---|---|---|---|
 | Atlas file/symbol | Open source/evidence | Code Lens at the same snapshot and anchor | Restore tree selection, map viewport, and filter. |
 | Guide Plan file row | Create chapter | Local chapter target preview, then Request Review if the user chooses Generate | Cancel returns to the same row and status; no request was sent. |
-| Request Review | Confirm exact request | Gemini request, then unaccepted Chapter Studio draft | User sees the draft and validation result; errors return to a retryable review state. |
+| Request Review | Confirm exact request | Selected Gemini, OpenAI, or Anthropic API request, then unaccepted Chapter Studio draft | User sees the draft and validation result; errors return to a retryable review state. |
 | Chapter Studio | Accept valid draft | Accepted chapter in Walkthrough | Chapter remains visible in Guide Plan; prior revisions remain accessible. |
 | Walkthrough hotspot | Open code | Code Lens at the hotspot's exact evidence | Return restores section ID, time, transcript position, and focused hotspot. |
 | New source snapshot | Review changed evidence | Freshness list with source diff and affected sections/assets | User can inspect any source diff and leave without changing accepted guide history. |
@@ -92,7 +92,7 @@ No transition silently switches repository snapshots. A snapshot change is an ex
 | Folder access denied | Repo path and permission error; no capture progress | Choose another folder or grant macOS access, then retry explicitly. Existing project snapshots remain available. |
 | Capture cancelled or bounded | Cancelled/partial label, captured/skipped counts, exact reasons | Resume only as a new capture, change the selected scope, or inspect captured files. Never treat partial as complete. |
 | Parser unsupported or fails | File stays in inventory; parser state and reason are shown | Read captured text when possible. No relationship edges or chapter facts are fabricated from parse failure. |
-| No Gemini key or Keychain unavailable | Provider setup state; local features remain active | Add/remove key or grant Keychain access. No request is sent during setup. |
+| No selected API key or Keychain unavailable | Provider setup state; local features remain active | Choose a provider, add/remove its key, or grant Keychain access. No request is sent during setup. |
 | Network, quota, billing, region, or model error | Named provider error; saved content remains available | A retry requires a fresh exact manifest and consent; otherwise continue using local content. No paid fallback. |
 | Invalid model response or citation | Validation issues next to the draft; Accept disabled | Edit/remove unsupported claim, request a repaired draft after new review, or reject it. Existing accepted revision is unchanged. |
 | TTS unavailable | Transcript stays visible; audio status names failure | Read, replay locally cached speech if available, or retry TTS under a new request review. |
@@ -132,7 +132,7 @@ Each path has exactly one visible disposition:
 - **Excluded:** omitted from a particular AI request or guide by a visible rule or user action. The path remains in the inventory and can be reconsidered when eligible.
 - **Non-text/unavailable:** binary, unreadable, oversized, or outside the capture limits; show the exact reason and do not pretend it was analyzed.
 
-The inventory and guide status are distinct. Excluding a file from Gemini context does not erase it from the repository map or mark its explanation complete.
+The inventory and guide status are distinct. Excluding a file from a provider request does not erase it from the repository map or mark its explanation complete.
 
 ## What each file chapter must explain
 
@@ -174,7 +174,7 @@ This model makes the editing unit a section with explicit evidence dependencies.
 
 ## AI backend choices, cost, and privacy
 
-Gemini is the only direct text-generation provider currently implemented in source; optional Gemini TTS is a separate speech path. The planned AI-backend milestone keeps two integration categories distinct: direct APIs for Gemini, OpenAI, and Anthropic, and coding-agent runtimes such as OpenAI Codex, Claude Agent (powered by Claude Code), Gemini CLI, and Google Antigravity. Antigravity's SDK, ACP binary, and headless CLI are separate surfaces to evaluate, not one interchangeable integration. The app must not automate interactive terminal UIs or reuse a consumer Antigravity login.
+Gemini, OpenAI, and Anthropic direct API routes are implemented for file chapters, optional orientation, selective section updates, and PR Guides; their operation-by-provider fixture and acceptance gate remains open. Optional Gemini TTS is a separate speech path. Coding-agent runtimes such as OpenAI Codex, Claude Agent (powered by Claude Code), Gemini CLI, and Google Antigravity remain separate planned integrations. Antigravity's SDK, ACP binary, and headless CLI are separate surfaces to evaluate, not one interchangeable integration. The app must not automate interactive terminal UIs or reuse a consumer Antigravity login. Separate range-level Code Lens explanations and PR change explanations are not implemented as direct API operations yet.
 
 Each candidate remains unavailable until its exact version, authentication and terms, capability limits, request scope, cancellation behavior, and read-only boundary pass the relevant acceptance gate. Prefer an existing vendor-supported SDK/app-server or a protocol adapter where it fits; do not build a new agent loop or infer equivalent permissions across runtimes. The user chooses an API provider or an agent runtime for each supported operation. These execution modes have different capabilities, authentication, and usage behavior. The product does not host a model gateway or switch provider silently. See the [M7 capability matrix](research/ai-backend-capability-matrix.md) for dated candidate research and status.
 
@@ -204,7 +204,7 @@ Users can preview or edit the narration before speech generation. Audio is optio
 
 - Local repository capture, complete path inventory, supported-language index, Atlas, and Code Lens.
 - A substantive individual chapter for every eligible file, with visible disposition for every path.
-- Exact per-request Gemini review, local validation, Chapter Studio editing, and explicit acceptance.
+- Exact per-request direct API review, local validation, Chapter Studio editing, and explicit acceptance.
 - Section-based interactive walkthrough with clickable diagrams, transcript, manual controls, and optional TTS.
 - Git-like section/chapter history, stale evidence detection, selective regeneration, and offline guide export.
 - Mac onboarding, recovery, accessibility, and signed/notarized packaging.

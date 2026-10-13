@@ -743,8 +743,8 @@ fn compare_local_git_revisions(
 }
 
 #[tauri::command]
-fn get_provider_disclosure() -> provider::ProviderDisclosure {
-    provider::disclosure()
+fn get_provider_catalog() -> Vec<provider::ProviderDisclosure> {
+    provider::provider_catalog()
 }
 
 #[tauri::command]
@@ -833,28 +833,33 @@ async fn synthesize_reviewed_narration_audio(
 }
 
 #[tauri::command]
-fn get_provider_credential_status()
--> provider::ProviderCommandResult<provider::ProviderCredentialStatus> {
-    provider::credential_status()
+fn get_provider_credential_status(
+    provider_id: String,
+) -> provider::ProviderCommandResult<provider::ProviderCredentialStatus> {
+    provider::credential_status_for(&provider_id)
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn store_gemini_api_key(
+fn store_provider_api_key(
+    provider_id: String,
     api_key: String,
 ) -> provider::ProviderCommandResult<provider::ProviderCredentialStatus> {
-    provider::store_api_key(api_key)
-}
-
-#[tauri::command]
-fn remove_gemini_api_key() -> provider::ProviderCommandResult<provider::ProviderCredentialStatus> {
-    provider::remove_api_key()
+    provider::store_api_key_for(&provider_id, api_key)
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn build_gemini_request_review(
+fn remove_provider_api_key(
+    provider_id: String,
+) -> provider::ProviderCommandResult<provider::ProviderCredentialStatus> {
+    provider::remove_api_key_for(&provider_id)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn build_provider_request_review(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
     reviews: State<'_, provider::PendingProviderReviews>,
+    provider_id: String,
     input: provider::BuildProviderReviewInput,
 ) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
     if sessions.get(&input.project_id).is_err() {
@@ -863,7 +868,7 @@ fn build_gemini_request_review(
             "Reopen the selected repository before building a provider request review.",
         );
     }
-    let pending = match provider::build_request_review(
+    let pending = match provider::build_request_review_for_provider(
         &match app_data_directory(&app) {
             Ok(path) => path,
             Err(_) => {
@@ -874,6 +879,7 @@ fn build_gemini_request_review(
             }
         },
         &input,
+        &provider_id,
     ) {
         Ok(pending) => pending,
         Err(error) => return provider::ProviderCommandResult::failed(error),
@@ -885,9 +891,10 @@ fn build_gemini_request_review(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn build_gemini_pr_guide_request_review(
+fn build_provider_pr_guide_request_review(
     sessions: State<'_, ProjectSessions>,
     reviews: State<'_, provider::PendingProviderReviews>,
+    provider_id: String,
     input: pr_guide::BuildReviewInput,
 ) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
     let project = match sessions.get(&input.project_id) {
@@ -899,9 +906,10 @@ fn build_gemini_pr_guide_request_review(
             );
         }
     };
-    let pending = match provider::build_pr_guide_request_review(
+    let pending = match provider::build_pr_guide_request_review_for_provider(
         Path::new(&project.repository_root),
         &input,
+        &provider_id,
     ) {
         Ok(pending) => pending,
         Err(error) => return provider::ProviderCommandResult::failed(error),
@@ -913,7 +921,7 @@ fn build_gemini_pr_guide_request_review(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn discard_gemini_request_review(
+fn discard_provider_request_review(
     reviews: State<'_, provider::PendingProviderReviews>,
     review_id: String,
 ) {
@@ -921,7 +929,7 @@ fn discard_gemini_request_review(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn cancel_gemini_request(
+fn cancel_provider_request(
     cancellations: State<'_, provider::ProviderRequestCancellations>,
     review_id: String,
 ) -> bool {
@@ -929,7 +937,7 @@ fn cancel_gemini_request(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-async fn send_gemini_request(
+async fn send_provider_request(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
     reviews: State<'_, provider::PendingProviderReviews>,
@@ -978,7 +986,7 @@ async fn send_gemini_request(
             reviews.remove(&review_id);
             return provider::ProviderCommandResult::failed(error);
         }
-        let api_key = match provider::load_api_key() {
+        let api_key = match provider::load_api_key_for(&pending.review.provider_id) {
             Ok(api_key) => api_key,
             Err(error) => return provider::ProviderCommandResult::failed(error),
         };
@@ -1002,13 +1010,10 @@ async fn send_gemini_request(
                 || {
                     provider::await_cancellable_request(
                         &mut cancellation,
-                        provider::dispatch_reviewed_request(
+                        provider::dispatch_reviewed_request_via_rig(
                             &pending,
                             api_key,
                             &consent,
-                            |model_id, api_key, body| async move {
-                                provider::send_to_gemini(&model_id, &api_key, body).await
-                            },
                         ),
                     )
                 },
@@ -1053,7 +1058,7 @@ async fn send_gemini_request(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-async fn send_gemini_pr_guide_request(
+async fn send_provider_pr_guide_request(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
     reviews: State<'_, provider::PendingProviderReviews>,
@@ -1107,7 +1112,7 @@ async fn send_gemini_pr_guide_request(
             reviews.remove(&review_id);
             return provider::ProviderCommandResult::failed(error);
         }
-        let api_key = match provider::load_api_key() {
+        let api_key = match provider::load_api_key_for(&pending.review.provider_id) {
             Ok(api_key) => api_key,
             Err(error) => return provider::ProviderCommandResult::failed(error),
         };
@@ -1131,13 +1136,10 @@ async fn send_gemini_pr_guide_request(
                 || {
                     provider::await_cancellable_request(
                         &mut cancellation,
-                        provider::dispatch_reviewed_request(
+                        provider::dispatch_reviewed_request_via_rig(
                             &pending,
                             api_key,
                             &consent,
-                            |model_id, api_key, body| async move {
-                                provider::send_to_gemini(&model_id, &api_key, body).await
-                            },
                         ),
                     )
                 },
@@ -1284,7 +1286,7 @@ fn prepare_chapter_draft_preview(
         return Err(failure(provider::ProviderFailureKind::InvalidReview, "The returned chapter does not match the reviewed request identity. No draft was created.".to_owned()));
     }
     let manifest = snapshot::load_snapshot_manifest(storage_dir, &review.project_id, &review.snapshot_id)
-        .map_err(|_| failure(provider::ProviderFailureKind::InvalidReview, "The exact source snapshot became unavailable. Gemini returned text, but no chapter draft was created.".to_owned()))?;
+        .map_err(|_| failure(provider::ProviderFailureKind::InvalidReview, "The exact source snapshot became unavailable. The provider returned text, but no chapter draft was created.".to_owned()))?;
     let snapshot_index =
         index::load_snapshot_index(storage_dir, &review.project_id, &review.snapshot_id)
             .ok()
@@ -1452,21 +1454,21 @@ pub fn run() {
             list_pr_guide_revisions,
             accept_pr_guide_draft,
             reject_pr_guide_draft,
-            get_provider_disclosure,
+            get_provider_catalog,
             get_narration_disclosure,
             build_narration_request_review,
             discard_narration_request_review,
             load_reviewed_narration_audio,
             synthesize_reviewed_narration_audio,
             get_provider_credential_status,
-            store_gemini_api_key,
-            remove_gemini_api_key,
-            build_gemini_request_review,
-            build_gemini_pr_guide_request_review,
-            discard_gemini_request_review,
-            cancel_gemini_request,
-            send_gemini_request,
-            send_gemini_pr_guide_request
+            store_provider_api_key,
+            remove_provider_api_key,
+            build_provider_request_review,
+            build_provider_pr_guide_request_review,
+            discard_provider_request_review,
+            cancel_provider_request,
+            send_provider_request,
+            send_provider_pr_guide_request
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Code Atlas");

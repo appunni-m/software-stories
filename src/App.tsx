@@ -71,14 +71,14 @@ import {
 import { WalkthroughScreen, type ReaderRouteContext } from './Walkthrough';
 import { GitChangesScreen } from './GitChanges';
 import {
-  buildGeminiRequestReview,
-  cancelGeminiRequest,
-  discardGeminiRequestReview,
+  buildProviderRequestReview,
+  cancelProviderRequest,
+  discardProviderRequestReview,
   discardGeneratedChapterDraft,
   getProviderCredentialStatus,
-  getProviderDisclosure,
-  removeGeminiApiKey,
-  sendGeminiRequest,
+  getProviderCatalog,
+  removeProviderApiKey,
+  sendProviderRequest,
   saveGeneratedChapterDraft,
   listChapterRevisions,
   listProjectChapterRevisions,
@@ -87,7 +87,7 @@ import {
   restoreChapterRevision,
   acceptChapterDraft,
   rejectChapterDraft,
-  storeGeminiApiKey,
+  storeProviderApiKey,
   type ProviderCommandResult,
   type ProviderConsent,
   type ProviderCredentialStatus,
@@ -832,7 +832,7 @@ function App() {
     setProviderDialog({ kind: 'settings' });
   };
 
-  const reviewFileWithGemini = (targetPath: string) => {
+  const reviewFileWithProvider = (targetPath: string) => {
     if (!currentProject || !selectedSnapshot) {
       setNotice({ title: 'A snapshot is required', message: 'Capture a repository snapshot before preparing an exact-context request.' });
       return;
@@ -1374,7 +1374,7 @@ function App() {
                 onGoAtlas={() => navigation.back.at(-1)?.workspace === 'atlas' ? navigationActions.back() : chooseWorkspace('atlas')}
                 onGoWalkthrough={navigation.back.at(-1)?.workspace === 'walkthrough' ? navigationActions.back : undefined}
                 onOpenFile={openCapturedFile}
-                onRequestExplanation={reviewFileWithGemini}
+                onRequestExplanation={reviewFileWithProvider}
                 source={sourceDocument}
                 sourceRange={navigation.current.sourceRange ?? null}
                 sourceRangeIssue={navigation.current.sourceRangeIssue ?? null}
@@ -1535,6 +1535,8 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
   onClose: () => void;
   onRecoveryReviewReady: (operationId: string) => void;
 }) {
+  const [providerCatalog, setProviderCatalog] = useState<ProviderDisclosure[]>([]);
+  const [providerId, setProviderId] = useState('');
   const [disclosure, setDisclosure] = useState<ProviderDisclosure | null>(null);
   const [credential, setCredential] = useState<ProviderCommandResult<ProviderCredentialStatus> | null>(null);
   const [informationLoading, setInformationLoading] = useState(native);
@@ -1542,7 +1544,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
   const [keyDraft, setKeyDraft] = useState('');
   const [keyBusy, setKeyBusy] = useState(false);
   const [keyMessage, setKeyMessage] = useState<string | null>(null);
-  const [modelId, setModelId] = useState('gemini-3.8-flash');
+  const [modelId, setModelId] = useState('');
   const [requestReview, setRequestReview] = useState<ProviderRequestReview | null>(null);
   const [snapshotManifest, setSnapshotManifest] = useState<SnapshotManifest | null>(null);
   const [snapshotManifestError, setSnapshotManifestError] = useState<string | null>(null);
@@ -1603,7 +1605,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
         setCancelConfirmation(true);
         return;
       }
-      if (requestReview) void discardGeminiRequestReview(requestReview.reviewId);
+      if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
       onClose();
     };
     window.addEventListener('keydown', onKeyDown);
@@ -1630,13 +1632,10 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
     let active = true;
     setInformationLoading(true);
     setInformationError(null);
-    Promise.all([getProviderDisclosure(), getProviderCredentialStatus()])
-      .then(([nextDisclosure, nextCredential]) => {
+    getProviderCatalog()
+      .then((catalog) => {
         if (!active) return;
-        setDisclosure(nextDisclosure);
-        setCredential(nextCredential);
-        const firstModel = nextDisclosure.models[0]?.modelId;
-        if (firstModel) setModelId((current) => nextDisclosure.models.some((item) => item.modelId === current) ? current : firstModel);
+        setProviderCatalog(catalog);
       })
       .catch(() => {
         if (active) setInformationError('Code Atlas could not load local provider settings. No model request was sent.');
@@ -1646,7 +1645,24 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
   }, [native]);
 
   useEffect(() => {
-    if (!reviewMode || !native || !disclosure) return;
+    if (!native || !providerId) {
+      setDisclosure(null);
+      setCredential(null);
+      return;
+    }
+    const selected = providerCatalog.find((provider) => provider.providerId === providerId) ?? null;
+    setDisclosure(selected);
+    setCredential(null);
+    if (!selected) return;
+    let active = true;
+    void getProviderCredentialStatus(providerId)
+      .then((status) => { if (active) setCredential(status); })
+      .catch(() => { if (active) setCredential(null); });
+    return () => { active = false; };
+  }, [native, providerCatalog, providerId]);
+
+  useEffect(() => {
+    if (!reviewMode || !native || !disclosure || !modelId) return;
     if (mode.kind === 'overview' && selectedPaths.length === 0) {
       setRequestReview(null);
       setRequestBuildError(null);
@@ -1663,7 +1679,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
     setSendResult(null);
     setSavedRevision(null);
     setSaveError(null);
-    void buildGeminiRequestReview({
+    void buildProviderRequestReview(providerId, {
       projectId: mode.projectId,
       snapshotId: mode.snapshotId,
       targetPath: mode.kind === 'review' || mode.kind === 'section-update' ? mode.targetPath : null,
@@ -1680,7 +1696,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
         setRequestReview(result.data);
         if (recoveryOperationId) onRecoveryReviewReady(recoveryOperationId);
       }
-      else void discardGeminiRequestReview(result.data.reviewId);
+      else void discardProviderRequestReview(result.data.reviewId);
     }).catch(() => {
       if (active) setRequestBuildError({
         kind: 'invalidReview',
@@ -1689,9 +1705,9 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
     }).finally(() => { if (active) setRequestBuilding(false); });
     return () => {
       active = false;
-      if (createdReviewId) void discardGeminiRequestReview(createdReviewId);
+      if (createdReviewId) void discardProviderRequestReview(createdReviewId);
     };
-  }, [disclosure, mode, modelId, native, onRecoveryReviewReady, reviewGeneration, reviewMode, selectedPaths]);
+  }, [disclosure, mode, modelId, native, onRecoveryReviewReady, providerId, reviewGeneration, reviewMode, selectedPaths]);
 
   const updateConsent = (key: keyof ProviderConsent, checked: boolean) => {
     setConsent((current) => ({ ...current, [key]: checked }));
@@ -1700,10 +1716,11 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
 
   const handleSaveKey = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!providerId) return;
     setKeyMessage(null);
     setKeyBusy(true);
     try {
-      const result = await storeGeminiApiKey(keyDraft);
+      const result = await storeProviderApiKey(providerId, keyDraft);
       setCredential(result);
       window.dispatchEvent(new Event('code-atlas:provider-credentials-changed'));
       if (result.status === 'ok' && result.data.apiKeyConfigured) {
@@ -1720,10 +1737,11 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
   };
 
   const handleRemoveKey = async () => {
+    if (!providerId) return;
     setKeyMessage(null);
     setKeyBusy(true);
     try {
-      const result = await removeGeminiApiKey();
+      const result = await removeProviderApiKey(providerId);
       setCredential(result);
       window.dispatchEvent(new Event('code-atlas:provider-credentials-changed'));
       setKeyMessage(result.status === 'ok' ? result.data.explanation : result.error.message);
@@ -1736,13 +1754,28 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
 
   const handleModelChange = (nextModelId: string) => {
     if (sending || saveBusy || sendResult) return;
-    if (requestReview) void discardGeminiRequestReview(requestReview.reviewId);
+    if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
     setConsent(noProviderConsent);
     setRequestReview(null);
     setSendResult(null);
     setUnavailableModel(null);
     setRequestError(null);
     setModelId(nextModelId);
+  };
+
+  const handleProviderChange = (nextProviderId: string) => {
+    if (sending || saveBusy || sendResult) return;
+    if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
+    setConsent(noProviderConsent);
+    setRequestReview(null);
+    setSendResult(null);
+    setUnavailableModel(null);
+    setRequestError(null);
+    setKeyDraft('');
+    setKeyMessage(null);
+    setCredential(null);
+    setModelId('');
+    setProviderId(nextProviderId);
   };
 
   const handleContextFileChange = (path: string, checked: boolean) => {
@@ -1759,7 +1792,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
   };
 
   const handleSend = async () => {
-    if (!requestReview || sending || saveBusy || sendResult || !hasApiKey || !consent.privacyAndDataUseAcknowledged
+    if (!providerId || !modelId || !requestReview || sending || saveBusy || sendResult || !hasApiKey || !consent.privacyAndDataUseAcknowledged
       || !consent.billingUncertaintyAcknowledged || !consent.adultSupportedRegionAcknowledged
       || unavailableModel === modelId) return;
     setSending(true);
@@ -1768,7 +1801,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
     setCancelStatus(null);
     setRequestError(null);
     try {
-      const result = await sendGeminiRequest({
+      const result = await sendProviderRequest({
         reviewId: requestReview.reviewId,
         fingerprint: requestReview.fingerprint,
         consent,
@@ -1782,7 +1815,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
           await discardGeneratedChapterDraft(result.data.generationId);
           setRequestError({
             kind: 'requestCancelled',
-            message: 'Cancellation was requested after Gemini had already returned. The response was discarded and not accepted. Google has already received the selected source.',
+            message: `Cancellation was requested after ${disclosure?.displayName ?? 'the selected provider'} had already returned. The response was discarded and not accepted. The provider has already received the selected source.`,
           });
           setRequestReview(null);
           setConsent(noProviderConsent);
@@ -1823,12 +1856,12 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
     setCancelConfirmation(false);
     setCancelStatus(null);
     try {
-      const stopped = await cancelGeminiRequest(requestReview.reviewId);
+      const stopped = await cancelProviderRequest(requestReview.reviewId);
       setCancelStatus(stopped
-        ? 'Cancellation reached the local request. Google may already have received the selected source; no response will be accepted.'
+        ? `Cancellation reached the local request. ${disclosure?.displayName ?? 'The provider'} may already have received the selected source; no response will be accepted.`
         : 'The request had already finished locally. Its response will be discarded because you chose Cancel.');
     } catch {
-      setCancelStatus('The app could not confirm a local abort. Google may already have received the selected source; any returned response will be discarded.');
+      setCancelStatus(`The app could not confirm a local abort. ${disclosure?.displayName ?? 'The provider'} may already have received the selected source; any returned response will be discarded.`);
     } finally {
       setCancelBusy(false);
     }
@@ -1836,7 +1869,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
 
   const handleClose = () => {
     if (sending || saveBusy) return;
-    if (requestReview) void discardGeminiRequestReview(requestReview.reviewId);
+    if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
     onClose();
   };
 
@@ -1875,7 +1908,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
       setSaveError(typeof error === 'string' ? error : 'The local recovery copy could not be discarded.');
       return;
     }
-    if (requestReview) void discardGeminiRequestReview(requestReview.reviewId);
+    if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
     window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
     setSendResult(null);
     setSavedRevision(null);
@@ -1886,7 +1919,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
   };
 
   const requestReady = Boolean(
-    requestReview && hasApiKey && consent.privacyAndDataUseAcknowledged
+    providerId && modelId && requestReview && hasApiKey && consent.privacyAndDataUseAcknowledged
       && consent.billingUncertaintyAcknowledged && consent.adultSupportedRegionAcknowledged
       && unavailableModel !== modelId,
   );
@@ -1896,9 +1929,9 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
       <section ref={providerDialogRef} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="provider-dialog-title" tabIndex={-1}>
         <header className="provider-dialog-header">
           <div>
-            <div className="step-pill"><span>{reviewMode ? 'EXACT CONTEXT' : 'OPTIONAL'}</span> GOOGLE GEMINI</div>
+            <div className="step-pill"><span>{reviewMode ? 'EXACT CONTEXT' : 'OPTIONAL'}</span> {disclosure?.displayName ?? 'DIRECT API'}</div>
             <h2 id="provider-dialog-title">{reviewMode ? (sectionUpdateMode ? 'Regenerate one section' : overviewMode ? 'Map the repository' : 'Review before sending') : 'AI and narration setup'}</h2>
-            <p>{reviewMode ? (sectionUpdateMode ? `Only “${mode.baseRevision.sections.find((section) => section.sectionId === mode.sectionUpdate.sectionId)?.title ?? mode.sectionUpdate.sectionId}” and its declared evidence are included. Other sections stay separate.` : 'Inspect the exact snapshot source and disclosures. Nothing is sent until you confirm below.') : 'Local browsing works without Gemini. A key is optional and stays in macOS Keychain.'}</p>
+            <p>{reviewMode ? (sectionUpdateMode ? `Only “${mode.baseRevision.sections.find((section) => section.sectionId === mode.sectionUpdate.sectionId)?.title ?? mode.sectionUpdate.sectionId}” and its declared evidence are included. Other sections stay separate.` : 'Choose a direct API, then inspect the exact snapshot context and disclosures. Nothing is sent until you confirm below.') : 'Local browsing works without a model API. Provider keys are optional and stay in macOS Keychain.'}</p>
           </div>
           <button className="icon-button" onClick={handleClose} disabled={sending || saveBusy} aria-label="Close provider dialog"><X size={17} /></button>
         </header>
@@ -1906,34 +1939,41 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
         {!native ? (
           <div className="provider-preview-only" role="status">
             <HardDrive size={18} />
-            <div><strong>Gemini requests run in the macOS app.</strong><p>The desktop preview does not read Keychain or send repository content. No API key or source was requested here.</p></div>
+            <div><strong>Direct model requests run in the macOS app.</strong><p>The desktop preview does not read Keychain or send repository content. No API key or source was requested here.</p></div>
           </div>
         ) : informationLoading ? (
-          <div className="provider-loading" role="status"><Sparkles size={17} /> Loading versioned disclosures and local Keychain status…</div>
+          <div className="provider-loading" role="status"><Sparkles size={17} /> Loading direct API catalog…</div>
         ) : informationError ? (
           <div className="provider-error" role="alert"><TriangleAlert size={16} /><span>{informationError}</span></div>
         ) : (
           <div className="provider-dialog-content">
-            <details className="provider-key-card" open={!hasApiKey || !reviewMode}>
-              <summary>Gemini API key · {credentialInfo?.keychainAvailable ? (hasApiKey ? 'stored in Keychain' : 'Keychain ready') : 'Keychain unavailable'}</summary>
+            <label className="provider-model-select">Direct API provider
+              <select value={providerId} onChange={(event) => handleProviderChange(event.target.value)} disabled={sending || saveBusy || Boolean(sendResult)}>
+                <option value="">Choose a provider…</option>
+                {providerCatalog.map((provider) => <option key={provider.providerId} value={provider.providerId}>{provider.displayName}</option>)}
+              </select>
+            </label>
+            {!providerId && <p className="provider-small-note" role="status">Choose a provider explicitly for this task. Provider choice does not send a request or select a model automatically.</p>}
+            {disclosure && <details className="provider-key-card" open={!hasApiKey || !reviewMode}>
+              <summary>{disclosure.displayName} API key · {credentialInfo?.keychainAvailable ? (hasApiKey ? 'stored in Keychain' : 'Keychain ready') : 'Keychain unavailable'}</summary>
               <div className="provider-key-content">
                 <p>{credentialInfo?.explanation ?? credentialError ?? 'Code Atlas checks Keychain only after you open provider setup.'}</p>
                 <form className="provider-key-form" onSubmit={(event) => { void handleSaveKey(event); }}>
-                  <label htmlFor="gemini-api-key">Your Gemini API key</label>
+                  <label htmlFor="provider-api-key">Your {disclosure.displayName} API key</label>
                   <input
-                    id="gemini-api-key"
+                    id="provider-api-key"
                     type="password"
                     value={keyDraft}
                     onChange={(event) => setKeyDraft(event.target.value)}
                     autoComplete="new-password"
                     spellCheck={false}
-                    placeholder="Paste a key from Google AI Studio"
+                    placeholder="Paste a provider API key"
                     disabled={!credentialInfo?.keychainAvailable || keyBusy}
                   />
                   <div className="provider-key-actions">
                     <button className="primary-button" type="submit" disabled={!credentialInfo?.keychainAvailable || keyDraft.length === 0 || keyBusy}>{keyBusy ? 'Saving…' : 'Save to Keychain'}</button>
                     {hasApiKey && <button className="secondary-button" type="button" onClick={() => { void handleRemoveKey(); }} disabled={keyBusy}>Remove saved key</button>}
-                    {disclosure && <a href={disclosure.apiKeyUrl} target="_blank" rel="noreferrer">Get a Gemini API key ↗</a>}
+                    <a href={disclosure.apiKeyUrl} target="_blank" rel="noreferrer">Get an API key ↗</a>
                   </div>
                 </form>
                 {keyMessage && <p className="provider-status-note" role="status">{keyMessage}</p>}
@@ -1941,17 +1981,18 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
                 {disclosure && <p className="provider-small-note">{disclosure.apiKeySecurityNotice}</p>}
                 <p className="provider-small-note">The key is sent only in an HTTPS request header from Rust. It is not returned to the WebView or written to project files, settings, or logs.</p>
               </div>
-            </details>
+            </details>}
 
             {disclosure && (
               <section className="provider-disclosure-card" aria-labelledby="provider-model-title">
                 <div className="provider-section-heading">
-                  <div><span>MODEL ALLOWLIST · CHECKED {disclosure.checkedDate}</span><h3 id="provider-model-title">Versioned models and current terms</h3></div>
+                  <div><span>{disclosure.displayName.toUpperCase()} MODEL ALLOWLIST · CHECKED {disclosure.checkedDate}</span><h3 id="provider-model-title">Versioned models and current terms</h3></div>
                   <code>{disclosure.version}</code>
                 </div>
                 {reviewMode && (
                   <label className="provider-model-select">Model
                     <select value={modelId} onChange={(event) => handleModelChange(event.target.value)} disabled={sending || saveBusy || Boolean(sendResult) || disclosure.models.length === 0}>
+                      <option value="">Choose a model…</option>
                       {disclosure.models.map((model) => <option key={model.modelId} value={model.modelId}>{model.displayName} · {model.modelId}</option>)}
                     </select>
                   </label>
@@ -1963,13 +2004,14 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
                       <p>{model.intendedUse}</p>
                       <p>{model.freeTierStatus}</p>
                       <small>Published paid Standard rate: input {model.paidInputUsdPerMillionTokens}/1M tokens · output {model.paidOutputUsdPerMillionTokens}/1M tokens.</small>
+                      <small>{model.supportsStructuredOutput ? 'Structured JSON output supported' : 'Structured output unavailable'} · {model.supportsStreaming ? 'provider streaming available; Code Atlas sends one non-streaming request' : 'provider streaming unavailable'}</small>
                     </article>
                   ))}
                 </div>
                 <div className="provider-source-links">
-                  <a href={disclosure.pricingUrl} target="_blank" rel="noreferrer">Current Google pricing ↗</a>
-                  <a href={disclosure.termsUrl} target="_blank" rel="noreferrer">Gemini API terms ↗</a>
-                  <a href={disclosure.regionsUrl} target="_blank" rel="noreferrer">Supported regions ↗</a>
+                  <a href={disclosure.pricingUrl} target="_blank" rel="noreferrer">{disclosure.displayName} pricing ↗</a>
+                  <a href={disclosure.termsUrl} target="_blank" rel="noreferrer">Provider API terms ↗</a>
+                  <a href={disclosure.regionsUrl} target="_blank" rel="noreferrer">Availability and regions ↗</a>
                 </div>
                 <p className="provider-small-note">The model list is shipped with the app; Code Atlas does not discover models, change a model automatically, or use a paid fallback. Pricing and availability can change after the checked date.</p>
               </section>
@@ -1986,7 +2028,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
                 {cancelConfirmation && sending && (
                   <div className="provider-cancel-confirm" role="group" aria-labelledby="provider-cancel-title" aria-describedby="provider-cancel-description">
                     <strong id="provider-cancel-title">Cancel this request?</strong>
-                    <p id="provider-cancel-description">Code Atlas will try to stop its local HTTPS request. Google may already have received the selected source. Any returned response will be discarded.</p>
+                    <p id="provider-cancel-description">Code Atlas will try to stop its local HTTPS request. {disclosure?.displayName ?? 'The provider'} may already have received the selected source. Any returned response will be discarded.</p>
                     <div><button className="secondary-button" onClick={() => setCancelConfirmation(false)}>Keep waiting</button><button className="danger-button" onClick={() => { void handleConfirmCancel(); }} disabled={cancelBusy}>{cancelBusy ? 'Stopping…' : 'Confirm cancel'}</button></div>
                   </div>
                 )}
@@ -2059,7 +2101,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
                   </>
                 )}
                 {requestError && <div className="provider-error" role="alert"><TriangleAlert size={16} /><div><strong>{providerFailureTitle(requestError.kind)}</strong><span>{requestError.message}</span></div></div>}
-                {unavailableModel === modelId && <p className="provider-error-text" role="alert">This model was rejected by Google. Choose another listed model explicitly; Code Atlas will not switch it for you.</p>}
+                {unavailableModel === modelId && <p className="provider-error-text" role="alert">This model was rejected by {disclosure?.displayName ?? 'the provider'}. Choose another listed model explicitly; Code Atlas will not switch it for you.</p>}
                 {sendResult && (
                   <section className="provider-response" aria-labelledby="provider-response-title">
                     <div><span>{savedRevision ? 'SAVED · UNACCEPTED DRAFT' : 'VALIDATED · UNSAVED PREVIEW'}</span><h4 id="provider-response-title">{sendResult.revision.title}</h4></div>
@@ -2081,9 +2123,9 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
                 )}
                 {disclosure && (
                   <div className="provider-consent-list">
-                    <label><input type="checkbox" checked={consent.privacyAndDataUseAcknowledged} onChange={(event) => updateConsent('privacyAndDataUseAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult)} /><span><strong>Privacy and data use</strong>{disclosure.unpaidServiceDataUse} {disclosure.regionalDataUseException}</span></label>
+                    <label><input type="checkbox" checked={consent.privacyAndDataUseAcknowledged} onChange={(event) => updateConsent('privacyAndDataUseAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult)} /><span><strong>Privacy and data use</strong>{disclosure.dataUseTerms} {disclosure.regionRequirements}</span></label>
                     <label><input type="checkbox" checked={consent.billingUncertaintyAcknowledged} onChange={(event) => updateConsent('billingUncertaintyAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult)} /><span><strong>Billing uncertainty</strong>{disclosure.billingUncertainty}</span></label>
-                    <label><input type="checkbox" checked={consent.adultSupportedRegionAcknowledged} onChange={(event) => updateConsent('adultSupportedRegionAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult)} /><span><strong>Age, region, and use</strong>{disclosure.adultAndRegionRequirements}</span></label>
+                    <label><input type="checkbox" checked={consent.adultSupportedRegionAcknowledged} onChange={(event) => updateConsent('adultSupportedRegionAcknowledged', event.target.checked)} disabled={sending || Boolean(sendResult)} /><span><strong>Eligibility and region</strong>{disclosure.eligibilityRequirements}</span></label>
                   </div>
                 )}
               </section>
@@ -2092,7 +2134,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
         )}
 
         <footer className="provider-dialog-footer">
-          <button className="secondary-button" onClick={handleClose} disabled={sending || saveBusy}>{sending ? 'Gemini request in progress…' : savedRevision ? 'Done' : 'Close'}</button>
+          <button className="secondary-button" onClick={handleClose} disabled={sending || saveBusy}>{sending ? 'Provider request in progress…' : savedRevision ? 'Done' : 'Close'}</button>
           {reviewMode && (
             sending ? (
               <button className="secondary-button" onClick={() => setCancelConfirmation(true)} disabled={cancelBusy || cancelRequested.current}>
@@ -2236,8 +2278,8 @@ function providerFailureTitle(kind: ProviderFailure['kind']): string {
   const titles: Record<ProviderFailure['kind'], string> = {
     keychainUnavailable: 'Keychain unavailable',
     keychainOperationFailed: 'Keychain operation failed',
-    missingApiKey: 'Gemini key required',
-    invalidApiKey: 'Gemini key rejected',
+    missingApiKey: 'Provider API key required',
+    invalidApiKey: 'Provider API key rejected',
     consentRequired: 'Review and confirm every disclosure',
     reviewExpired: 'Request review expired',
     reviewChanged: 'Request context changed',
@@ -2247,15 +2289,15 @@ function providerFailureTitle(kind: ProviderFailure['kind']): string {
     contextTooLarge: 'Selected context is too large',
     secretLikeContext: 'Secret-like path blocked',
     unavailableModel: 'Model unavailable',
-    billingRequired: 'Google requires billing for this key',
-    quotaExceeded: 'Google quota or rate limit reached',
-    regionUnavailable: 'Google Gemini is unavailable in this region',
-    networkUnavailable: 'Gemini could not be reached',
-    requestTimedOut: 'Gemini request timed out',
+    billingRequired: 'Provider requires billing for this key',
+    quotaExceeded: 'Provider quota or rate limit reached',
+    regionUnavailable: 'Provider is unavailable in this region',
+    networkUnavailable: 'Provider could not be reached',
+    requestTimedOut: 'Provider request timed out',
     requestCancelled: 'Request cancelled',
-    providerRejectedRequest: 'Google rejected this request',
+    providerRejectedRequest: 'Provider rejected this request',
     providerResponseTooLarge: 'Response exceeded the size limit',
-    malformedProviderResponse: 'Gemini returned an unreadable response',
+    malformedProviderResponse: 'Provider returned an unreadable response',
   };
   return titles[kind];
 }
@@ -4210,7 +4252,7 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
           <div><span className="step-pill"><span>READ ONLY</span> SNAPSHOT SOURCE</span><h2>{source.path}</h2></div>
           <div className="source-view-actions">
             {onGoWalkthrough && <button className="secondary-button" onClick={onGoWalkthrough}><ArrowLeft size={15} /> Return to walkthrough</button>}
-            <button className="secondary-button" onClick={() => onRequestExplanation(source.path)}><Sparkles size={15} /> Review Gemini request</button>
+            <button className="secondary-button" onClick={() => onRequestExplanation(source.path)}><Sparkles size={15} /> Explain captured file</button>
             <button className="secondary-button" onClick={onGoAtlas}>Back to inventory <ArrowRight size={15} /></button>
           </div>
         </div>
