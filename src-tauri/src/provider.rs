@@ -4065,6 +4065,37 @@ mod tests {
                     .fingerprint,
                 provider_review.review.fingerprint
             );
+
+            let dispatch_calls = Arc::new(AtomicUsize::new(0));
+            let calls_during_dispatch = Arc::clone(&dispatch_calls);
+            let expected_model = provider_review.review.model_id.clone();
+            let expected_body = provider_review.body.clone();
+            let dispatched = dispatch_reviewed_request(
+                &provider_review,
+                Zeroizing::new("fixture-key".to_owned()),
+                &all_consent(),
+                move |model_id, _, body| async move {
+                    assert_eq!(model_id, expected_model);
+                    assert_eq!(body, expected_body);
+                    calls_during_dispatch.fetch_add(1, Ordering::SeqCst);
+                    Ok(ProviderHttpResult {
+                        model_version: Some(format!("{model_id}-fixture")),
+                        response_text: "{}".to_owned(),
+                        input_tokens: Some(100),
+                        output_tokens: Some(40),
+                    })
+                },
+            )
+            .await
+            .unwrap_or_else(|error| {
+                panic!(
+                    "{}/{} PR Guide dispatch: {error:?}",
+                    provider.provider_id, provider_input.model_id
+                )
+            });
+            assert_eq!(dispatch_calls.load(Ordering::SeqCst), 1);
+            assert_eq!(dispatched.model_id, provider_input.model_id);
+            assert_eq!(dispatched.fingerprint, provider_review.review.fingerprint);
         }
         let pending = build_pr_guide_request_review(&repository.0, &input).unwrap();
         assert_eq!(pending.review.purpose, PR_GUIDE_PURPOSE);
