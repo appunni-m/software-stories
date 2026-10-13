@@ -500,39 +500,33 @@ fn classify_rig_failure(
     provider_id: &str,
 ) -> RigRequestFailure {
     if let Some(status) = error.provider_response_status() {
-        if provider_id == GEMINI_PROVIDER {
-            let mapped = crate::provider::classify_provider_error(
-                status.as_u16(),
-                error
-                    .provider_response_body()
-                    .unwrap_or_default()
-                    .as_bytes(),
-            );
-            return match mapped.kind {
-                crate::provider::ProviderFailureKind::InvalidApiKey => {
-                    RigRequestFailure::InvalidApiKey
+        let status = status.as_u16();
+        let body = error.provider_response_body().unwrap_or_default();
+        return match provider_id {
+            GEMINI_PROVIDER => {
+                let mapped = crate::provider::classify_provider_error(status, body.as_bytes());
+                match mapped.kind {
+                    crate::provider::ProviderFailureKind::InvalidApiKey => {
+                        RigRequestFailure::InvalidApiKey
+                    }
+                    crate::provider::ProviderFailureKind::QuotaExceeded => {
+                        RigRequestFailure::QuotaExceeded
+                    }
+                    crate::provider::ProviderFailureKind::BillingRequired => {
+                        RigRequestFailure::BillingRequired
+                    }
+                    crate::provider::ProviderFailureKind::RegionUnavailable => {
+                        RigRequestFailure::RegionUnavailable
+                    }
+                    crate::provider::ProviderFailureKind::UnavailableModel => {
+                        RigRequestFailure::UnavailableModel
+                    }
+                    _ => RigRequestFailure::ProviderRejected,
                 }
-                crate::provider::ProviderFailureKind::QuotaExceeded => {
-                    RigRequestFailure::QuotaExceeded
-                }
-                crate::provider::ProviderFailureKind::BillingRequired => {
-                    RigRequestFailure::BillingRequired
-                }
-                crate::provider::ProviderFailureKind::RegionUnavailable => {
-                    RigRequestFailure::RegionUnavailable
-                }
-                crate::provider::ProviderFailureKind::UnavailableModel => {
-                    RigRequestFailure::UnavailableModel
-                }
-                _ => RigRequestFailure::ProviderRejected,
-            };
-        }
-        return match status.as_u16() {
-            401 | 403 => RigRequestFailure::InvalidApiKey,
-            402 => RigRequestFailure::BillingRequired,
-            429 => RigRequestFailure::QuotaExceeded,
-            400..=499 => RigRequestFailure::ProviderRejected,
-            _ => RigRequestFailure::NetworkUnavailable,
+            }
+            OPENAI_PROVIDER => classify_openai_failure(status, body),
+            ANTHROPIC_PROVIDER => classify_anthropic_failure(status, body),
+            _ => classify_http_status(status),
         };
     }
     let mut source: Option<&(dyn std::error::Error + 'static)> = Some(&error);
@@ -555,6 +549,76 @@ fn classify_rig_failure(
         source = cause.source();
     }
     RigRequestFailure::NetworkUnavailable
+}
+
+fn classify_openai_failure(status: u16, body: &str) -> RigRequestFailure {
+    let (code, message) = provider_error_fields(body);
+    if status == 403 && crate::provider::is_region_restriction_error(&code, &message) {
+        return RigRequestFailure::RegionUnavailable;
+    }
+    if status == 429
+        && matches!(
+            code.as_str(),
+            "credit_balance_exhausted"
+                | "organization_spend_limit_exceeded"
+                | "project_spend_limit_exceeded"
+        )
+    {
+        return RigRequestFailure::BillingRequired;
+    }
+    if status == 429 && code == "organization_usage_limit_exceeded" {
+        return RigRequestFailure::QuotaExceeded;
+    }
+    if status == 401
+        && (code.contains("authentication")
+            || code.contains("api_key")
+            || message.contains("authentication")
+            || message.contains("api key"))
+    {
+        return RigRequestFailure::InvalidApiKey;
+    }
+    classify_http_status(status)
+}
+
+fn classify_anthropic_failure(status: u16, body: &str) -> RigRequestFailure {
+    let (code, message) = provider_error_fields(body);
+    if status == 403 && crate::provider::is_region_restriction_error(&code, &message) {
+        return RigRequestFailure::RegionUnavailable;
+    }
+    match status {
+        401 => RigRequestFailure::InvalidApiKey,
+        402 => RigRequestFailure::BillingRequired,
+        429 => RigRequestFailure::QuotaExceeded,
+        _ => classify_http_status(status),
+    }
+}
+
+fn classify_http_status(status: u16) -> RigRequestFailure {
+    match status {
+        402 => RigRequestFailure::BillingRequired,
+        429 => RigRequestFailure::QuotaExceeded,
+        400..=499 => RigRequestFailure::ProviderRejected,
+        500..=599 => RigRequestFailure::NetworkUnavailable,
+        _ => RigRequestFailure::ProviderRejected,
+    }
+}
+
+fn provider_error_fields(body: &str) -> (String, String) {
+    let value: Value = serde_json::from_str(body).unwrap_or(Value::Null);
+    let error = value.get("error").unwrap_or(&value);
+    let code = error
+        .get("code")
+        .and_then(Value::as_str)
+        .or_else(|| error.get("type").and_then(Value::as_str))
+        .or_else(|| error.get("status").and_then(Value::as_str))
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let message = error
+        .get("message")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    (code, message)
 }
 
 fn encode_wire<W>(wire: W, request: CompletionRequest) -> Result<Encoded, &'static str>
@@ -611,7 +675,10 @@ fn hex_digest(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{PREVIEW_CREDENTIAL, SafeRigHttpClient, encode_request_preview};
+    use super::{
+        PREVIEW_CREDENTIAL, RigRequestFailure, SafeRigHttpClient, classify_rig_failure,
+        encode_request_preview,
+    };
     use rig_core::http_client::Request;
     use serde_json::{Value, json};
     use zeroize::Zeroizing;
@@ -836,5 +903,144 @@ mod tests {
             .body(bytes::Bytes::from_static(b"{}"))
             .unwrap();
         assert!(client.prepare_request(request).is_err());
+    }
+
+    #[test]
+    fn provider_http_failures_use_vendor_specific_safe_classification() {
+        let cases = [
+            (
+                "gemini",
+                401,
+                r#"{"error":{"status":"UNAUTHENTICATED","message":"private api key detail"}}"#,
+                RigRequestFailure::InvalidApiKey,
+            ),
+            (
+                "gemini",
+                403,
+                r#"{"error":{"status":"PERMISSION_DENIED","message":"This API is not available in your region"}}"#,
+                RigRequestFailure::RegionUnavailable,
+            ),
+            (
+                "gemini",
+                403,
+                r#"{"error":{"status":"PERMISSION_DENIED","message":"generic access denied"}}"#,
+                RigRequestFailure::ProviderRejected,
+            ),
+            (
+                "gemini",
+                402,
+                r#"{"error":{"status":"PAYMENT_REQUIRED","message":"prepay credits are depleted"}}"#,
+                RigRequestFailure::BillingRequired,
+            ),
+            (
+                "gemini",
+                404,
+                r#"{"error":{"status":"NOT_FOUND","message":"unknown model"}}"#,
+                RigRequestFailure::UnavailableModel,
+            ),
+            (
+                "gemini",
+                429,
+                r#"{"error":{"status":"RESOURCE_EXHAUSTED","message":"quota exceeded"}}"#,
+                RigRequestFailure::QuotaExceeded,
+            ),
+            (
+                "openai",
+                401,
+                r#"{"error":{"type":"invalid_request_error","message":"Incorrect API key provided: private-key-marker"}}"#,
+                RigRequestFailure::InvalidApiKey,
+            ),
+            (
+                "openai",
+                401,
+                r#"{"error":{"type":"invalid_request_error","message":"You must be a member of an organization"}}"#,
+                RigRequestFailure::ProviderRejected,
+            ),
+            (
+                "openai",
+                403,
+                r#"{"error":{"type":"unsupported_country_region_territory","message":"Country, region, or territory not supported"}}"#,
+                RigRequestFailure::RegionUnavailable,
+            ),
+            (
+                "openai",
+                403,
+                r#"{"error":{"type":"permission_error","message":"The project cannot use this resource"}}"#,
+                RigRequestFailure::ProviderRejected,
+            ),
+            (
+                "openai",
+                429,
+                r#"{"error":{"code":"credit_balance_exhausted","message":"private account detail"}}"#,
+                RigRequestFailure::BillingRequired,
+            ),
+            (
+                "openai",
+                429,
+                r#"{"error":{"type":"rate_limit_error","code":"rate_limit_exceeded","message":"slow down"}}"#,
+                RigRequestFailure::QuotaExceeded,
+            ),
+            (
+                "openai",
+                429,
+                r#"{"error":{"code":"organization_usage_limit_exceeded","message":"usage limit reached"}}"#,
+                RigRequestFailure::QuotaExceeded,
+            ),
+            (
+                "openai",
+                503,
+                r#"{"error":{"type":"service_unavailable_error","message":"temporarily overloaded"}}"#,
+                RigRequestFailure::NetworkUnavailable,
+            ),
+            (
+                "openai",
+                200,
+                r#"{"error":{"type":"api_error","message":"error envelope in success response"}}"#,
+                RigRequestFailure::ProviderRejected,
+            ),
+            (
+                "anthropic",
+                401,
+                r#"{"type":"error","error":{"type":"authentication_error","message":"private key detail"}}"#,
+                RigRequestFailure::InvalidApiKey,
+            ),
+            (
+                "anthropic",
+                402,
+                r#"{"type":"error","error":{"type":"billing_error","message":"billing required"}}"#,
+                RigRequestFailure::BillingRequired,
+            ),
+            (
+                "anthropic",
+                403,
+                r#"{"type":"error","error":{"type":"permission_error","message":"resource access denied"}}"#,
+                RigRequestFailure::ProviderRejected,
+            ),
+            (
+                "anthropic",
+                429,
+                r#"{"type":"error","error":{"type":"rate_limit_error","message":"request limit reached"}}"#,
+                RigRequestFailure::QuotaExceeded,
+            ),
+            (
+                "anthropic",
+                529,
+                r#"{"type":"error","error":{"type":"overloaded_error","message":"overloaded"}}"#,
+                RigRequestFailure::NetworkUnavailable,
+            ),
+        ];
+
+        for (provider_id, status, body, expected) in cases {
+            let error = rig_core::error::ProviderError::from_http_response(
+                reqwest::StatusCode::from_u16(status).unwrap(),
+                body,
+            );
+            let classified = classify_rig_failure(error, provider_id);
+            assert_eq!(classified, expected, "{provider_id} HTTP {status}");
+            assert!(
+                !format!("{classified:?}").contains("private"),
+                "{provider_id} HTTP {status} must not retain the provider body"
+            );
+        }
     }
 }

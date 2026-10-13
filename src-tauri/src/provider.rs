@@ -3289,11 +3289,11 @@ fn rig_request_failure(
         ),
         crate::provider_api::RigRequestFailure::QuotaExceeded => (
             ProviderFailureKind::QuotaExceeded,
-            "The selected provider reported a quota or rate limit. Choose when to retry; no fallback was attempted.",
+            "The selected provider reported a quota, rate, or account usage limit. Check its usage details before creating a fresh request; no fallback was attempted.",
         ),
         crate::provider_api::RigRequestFailure::BillingRequired => (
             ProviderFailureKind::BillingRequired,
-            "The selected provider requires billing for this request. No fallback was attempted.",
+            "The selected provider reported a billing, prepaid-credit, or spend-limit requirement. No billing was enabled and no fallback was attempted.",
         ),
         crate::provider_api::RigRequestFailure::RegionUnavailable => (
             ProviderFailureKind::RegionUnavailable,
@@ -3444,6 +3444,8 @@ pub(crate) fn is_region_restriction_error(provider_status: &str, provider_messag
         "location_not_available",
         "unsupported_region",
         "unsupported_location",
+        "unsupported_country_region",
+        "country_region_territory_not_supported",
     ]
     .iter()
     .any(|marker| status.contains(marker))
@@ -3464,6 +3466,8 @@ pub(crate) fn is_region_restriction_error(provider_status: &str, provider_messag
             "not available in your country",
             "not supported in your country",
             "unsupported country",
+            "country, region, or territory not supported",
+            "country region or territory not supported",
         ]
         .iter()
         .any(|marker| message.contains(marker))
@@ -3494,12 +3498,15 @@ pub(crate) fn classify_provider_error(status: u16, bytes: &[u8]) -> ProviderFail
     {
         failure(
             ProviderFailureKind::QuotaExceeded,
-            "Google reported a quota or rate limit. Code Atlas will not switch models or enable paid usage. Check the key's project quota before building a fresh review.",
+            "Google reported a quota, rate, or spend-based limit. Code Atlas will not switch models or enable paid usage. Check the key's project quota and billing status before building a fresh review.",
         )
-    } else if provider_message.contains("billing") || provider_status.contains("billing") {
+    } else if status == 402
+        || provider_message.contains("billing")
+        || provider_status.contains("billing")
+    {
         failure(
             ProviderFailureKind::BillingRequired,
-            "Google reported a billing requirement for this key or project. Code Atlas did not enable billing or switch to paid use.",
+            "Google reported a billing or prepay-credit requirement for this key or project. Code Atlas did not enable billing or switch to paid use.",
         )
     } else if is_region_restriction_error(&provider_status, &provider_message) {
         failure(
