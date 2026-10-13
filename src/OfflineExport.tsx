@@ -298,6 +298,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
                         {chapter.sections.map((section) => (
                           <div className="offline-export-preview-section" key={section.sectionId}>
                             <strong>{section.title}</strong>
+                            <p className="offline-export-muted">Typed diagram asset: {section.typedVisual === 'included' ? 'included' : section.typedVisual === 'unavailable' ? 'unsupported diagram omitted with an explanation' : 'none attached'}.</p>
                             {section.spokenText.trim() && <details>
                               <summary>Narration transcript preview{section.spokenText.includes('[redacted credential]') ? ' · credential redacted' : ''}</summary>
                               <pre>{section.spokenText}</pre>

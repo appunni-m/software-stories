@@ -19,10 +19,11 @@ Export selected accepted chapters as a versioned, self-contained offline package
 - Package opens offline and reports missing/unsupported features instead of blank controls.
 - A package manifest records schema version, chapter revisions, evidence snapshot IDs, and included asset hashes.
 - The exporter warns about paths and excerpts that may expose sensitive code; no API key or hidden repository files are included.
+- Before download, the preview shows each selected section's typed-diagram status and each matching cached-audio asset, alongside chapter names, source paths, and cited excerpts. Unsupported diagrams and missing audio are identified as omitted rather than silently disappearing.
 - Reopening an export does not mutate the source project or guide history.
 
 ## Excludes
 Uploading to a hosting service, bundling the full repository by default, MP4-only export, and executing package scripts.
 
 ## Done evidence
-Export selected accepted chapters with/without excerpts and audio, disconnect network, open the package, navigate every section and hotspot, and verify manifest/hashes and excluded secrets.
+Export selected accepted chapters with/without excerpts and audio, review the per-section asset preview, disconnect network, open the package, navigate every section and hotspot, and verify manifest/hashes and excluded secrets.

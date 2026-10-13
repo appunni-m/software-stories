@@ -40,6 +40,7 @@ export interface OfflineExportSectionPreview {
   title: string;
   prose: string;
   spokenText: string;
+  typedVisual: 'included' | 'unavailable' | 'none';
   references: OfflineExportReference[];
 }
 
@@ -190,6 +191,9 @@ export function buildOfflineExportPreview(
         title: section.title,
         prose: section.prose,
         spokenText: section.spokenText,
+        typedVisual: section.visual
+          ? 'included'
+          : section.visualUnavailable ? 'unavailable' : 'none',
         references: section.references,
       })),
       sourcePaths: [...new Set(chapter.references.map((reference) => reference.path))].sort(),

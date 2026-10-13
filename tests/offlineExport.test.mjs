@@ -117,6 +117,8 @@ describe('offline chapter export', () => {
   });
 
   it('bundles cited excerpts by default at the API level and hashes excerpts and safe typed visuals', async () => {
+    const preview = buildOfflineExportPreview([chapter()], ['revision:one'], true);
+    assert.equal(preview.chapters[0].sections[0].typedVisual, 'included');
     const result = await buildOfflineGuideHtml([chapter()], {
       selectedRevisionIds: ['revision:one'], includeExcerpts: true, exportedAtUnixMs: 10,
     });
@@ -330,6 +332,8 @@ describe('offline chapter export', () => {
 
   it('shows a clear message for unsupported visuals and invalid selection', async () => {
     const unsupported = chapter({ sections: [section({ visual: { schemaVersion: 9, html: '<script>run()</script>' } })] });
+    const preview = buildOfflineExportPreview([unsupported], ['revision:one'], false);
+    assert.equal(preview.chapters[0].sections[0].typedVisual, 'unavailable');
     const result = await buildOfflineGuideHtml([unsupported], {
       selectedRevisionIds: ['revision:one'], includeExcerpts: false,
     });
