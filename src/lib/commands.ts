@@ -781,6 +781,7 @@ export interface ProviderRequestReview {
   prGuideContext: PrGuideComparisonContext | null;
   sectionUpdateContext: SectionUpdateReviewTarget | null;
   codeLensContext: CodeLensExplanationTarget | null;
+  prChangeContext: PrChangeExplanationTarget | null;
   systemInstruction: string;
   userPrompt: string;
   generationConfig: Record<string, unknown>;
@@ -806,6 +807,39 @@ export interface CodeLensExplanationTarget {
   endLine: number;
   startByte: number | null;
   endByteExclusive: number | null;
+}
+
+export interface PrChangeExplanationTarget {
+  baseRef: string;
+  headRef: string;
+  comparisonId: string;
+  selectedChange: SelectedGitChangeIdentity;
+  hunkIndex: number;
+}
+
+export interface PrChangeExplanationCitation {
+  side: GitEvidenceSide;
+  anchor: GitSourceAnchor;
+  hunkIndex: number;
+  quote: string;
+}
+
+export interface PrChangeExplanationClaim {
+  claimId: string;
+  category: PrGuideClaimCategory;
+  prose: string;
+  inferenceBasis: string | null;
+  citation: PrChangeExplanationCitation;
+}
+
+export interface PrChangeExplanationPreview {
+  providerId: string;
+  modelId: string;
+  modelVersion: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  title: string;
+  claims: PrChangeExplanationClaim[];
 }
 
 export interface CodeLensExplanationCitation {
@@ -926,12 +960,28 @@ export async function buildProviderPrGuideRequestReview(providerId: string, inpu
   return invoke<ProviderCommandResult<ProviderRequestReview>>('build_provider_pr_guide_request_review', { providerId, input });
 }
 
+export async function buildProviderPrChangeExplanationRequestReview(providerId: string, input: {
+  projectId: string;
+  target: PrChangeExplanationTarget;
+  modelId: string;
+}): Promise<ProviderCommandResult<ProviderRequestReview>> {
+  return invoke<ProviderCommandResult<ProviderRequestReview>>('build_provider_pr_change_explanation_request_review', { providerId, input });
+}
+
 export async function sendProviderPrGuideRequest(input: {
   reviewId: string;
   fingerprint: string;
   consent: ProviderConsent;
 }): Promise<ProviderCommandResult<PrGuidePreview>> {
   return invoke<ProviderCommandResult<PrGuidePreview>>('send_provider_pr_guide_request', input);
+}
+
+export async function sendProviderPrChangeExplanationRequest(input: {
+  reviewId: string;
+  fingerprint: string;
+  consent: ProviderConsent;
+}): Promise<ProviderCommandResult<PrChangeExplanationPreview>> {
+  return invoke<ProviderCommandResult<PrChangeExplanationPreview>>('send_provider_pr_change_explanation_request', input);
 }
 
 export async function listPrGuideRevisions(projectId: string, comparisonId: string): Promise<PrGuideRevision[]> {

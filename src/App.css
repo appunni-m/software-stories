@@ -1513,12 +1513,16 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .pr-guide-muted { margin: 0; color: #9aa79e; font-size: 9px; line-height: 1.6; }
 .pr-guide-file-picker { display: grid; gap: 5px; min-width: 0; margin: 0; padding: 10px; border: 1px solid #2d3a31; border-radius: 7px; }
 .pr-guide-file-picker legend { padding: 0 5px; color: #c7d5c9; font-size: 9px; font-weight: 600; }
-.pr-guide-file-picker > label { min-width: 0; display: flex; align-items: center; gap: 9px; padding: 8px; border: 1px solid transparent; border-radius: 5px; color: #b8c4bb; background: #0e1411; cursor: pointer; }
-.pr-guide-file-picker > label.selected { border-color: #3d553c; background: #131d14; }
-.pr-guide-file-picker > label > span { min-width: 0; display: grid; gap: 3px; }
-.pr-guide-file-picker > label strong { color: #9caf8e; font: 7px var(--mono); text-transform: uppercase; }
-.pr-guide-file-picker > label code { overflow-wrap: anywhere; color: #d0dbd2; font: 9px var(--mono); }
-.pr-guide-file-picker > label small { margin-left: auto; color: #849188; font: 8px var(--mono); white-space: nowrap; }
+.pr-guide-change-option { display: grid; gap: 5px; padding: 4px; border: 1px solid #27332a; border-radius: 6px; background: #0d1310; }
+.pr-guide-change-option > label { min-width: 0; display: flex; align-items: center; gap: 9px; padding: 8px; border: 1px solid transparent; border-radius: 5px; color: #b8c4bb; background: #0e1411; cursor: pointer; }
+.pr-guide-change-option > label.selected { border-color: #3d553c; background: #131d14; }
+.pr-guide-change-option > label > span { min-width: 0; display: grid; gap: 3px; }
+.pr-guide-change-option > label strong { color: #9caf8e; font: 7px var(--mono); text-transform: uppercase; }
+.pr-guide-change-option > label code { overflow-wrap: anywhere; color: #d0dbd2; font: 9px var(--mono); }
+.pr-guide-change-option > label small { margin-left: auto; color: #849188; font: 8px var(--mono); white-space: nowrap; }
+.pr-guide-hunk-actions { display: flex; flex-wrap: wrap; gap: 5px; padding: 0 8px 5px 30px; }
+.pr-guide-hunk-actions .secondary-button { margin: 0; padding: 5px 7px; font-size: 8px; }
+.pr-guide-hunk-actions .secondary-button svg { flex: 0 0 auto; }
 .pr-guide-file-picker input, .pr-guide-consent input, .pr-guide-claim-select input { accent-color: #9dbd7d; }
 .pr-guide-actions { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
 .pr-guide-actions > .primary-button, .pr-guide-actions > .secondary-button { margin: 0; }
@@ -1581,8 +1585,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .git-change-count { grid-column: 2; }
   .git-evidence-classification { grid-column: 1; grid-row: 2; }
   .pr-guide-panel { padding: 11px; }
-  .pr-guide-file-picker > label { align-items: flex-start; }
-  .pr-guide-file-picker > label small { margin-left: auto; }
+  .pr-guide-change-option > label { align-items: flex-start; }
+  .pr-guide-change-option > label small { margin-left: auto; }
   .pr-guide-decision-actions { align-items: stretch; }
   .pr-guide-decision-actions > .primary-button { flex: 1 1 100%; }
 }

@@ -958,6 +958,36 @@ fn build_provider_pr_guide_request_review(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+fn build_provider_pr_change_explanation_request_review(
+    sessions: State<'_, ProjectSessions>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    provider_id: String,
+    input: provider::BuildPrChangeExplanationReviewInput,
+) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
+    let project = match sessions.get(&input.project_id) {
+        Ok(project) => project,
+        Err(message) => {
+            return provider::ProviderCommandResult::error(
+                provider::ProviderFailureKind::InvalidReview,
+                message,
+            );
+        }
+    };
+    let pending = match provider::build_pr_change_explanation_request_review_for_provider(
+        Path::new(&project.repository_root),
+        &input,
+        &provider_id,
+    ) {
+        Ok(pending) => pending,
+        Err(error) => return provider::ProviderCommandResult::failed(error),
+    };
+    match reviews.insert(pending) {
+        Ok(review) => provider::ProviderCommandResult::ok(review),
+        Err(error) => provider::ProviderCommandResult::failed(error),
+    }
+}
+
+#[tauri::command(rename_all = "camelCase")]
 fn discard_provider_request_review(
     reviews: State<'_, provider::PendingProviderReviews>,
     review_id: String,
@@ -1204,6 +1234,131 @@ async fn send_code_lens_provider_request(
             return provider::ProviderCommandResult::error(
                 provider::ProviderFailureKind::LocalStorageUnavailable,
                 format!("The request finished, but its local recovery notice could not be cleared: {error} Review a new exact-range request with fresh consent before trying again."),
+            );
+        }
+        command_result
+    }
+    .await;
+    Ok(result)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn send_provider_pr_change_explanation_request(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    cancellations: State<'_, provider::ProviderRequestCancellations>,
+    interruptions: State<'_, recovery::InterruptionJournal>,
+    review_id: String,
+    fingerprint: String,
+    consent: provider::ProviderConsent,
+) -> Result<provider::ProviderCommandResult<provider::PrChangeExplanationPreview>, String> {
+    let interruptions = (*interruptions).clone();
+    let result = async move {
+        if !consent.is_complete() {
+            return provider::ProviderCommandResult::error(
+                provider::ProviderFailureKind::ConsentRequired,
+                "Confirm the privacy/data-use, billing uncertainty, and adult/supported-region statements before sending.",
+            );
+        }
+        let pending = match reviews.get(&review_id) {
+            Ok(pending) => pending,
+            Err(error) => return provider::ProviderCommandResult::failed(error),
+        };
+        if pending.review.purpose != "prChangeExplanation"
+            || pending.review.fingerprint != fingerprint
+        {
+            reviews.remove(&review_id);
+            return provider::ProviderCommandResult::error(
+                provider::ProviderFailureKind::ReviewChanged,
+                "The reviewed PR change fingerprint changed. Build and review the exact hunk again.",
+            );
+        }
+        let project = match sessions.get(&pending.review.project_id) {
+            Ok(project) => project,
+            Err(message) => {
+                return provider::ProviderCommandResult::error(
+                    provider::ProviderFailureKind::InvalidReview,
+                    message,
+                );
+            }
+        };
+        let repository = Path::new(&project.repository_root);
+        if let Err(error) =
+            provider::revalidate_pr_change_explanation_request(repository, &pending.review)
+        {
+            reviews.remove(&review_id);
+            return provider::ProviderCommandResult::failed(error);
+        }
+        let storage_dir = match app_data_directory(&app) {
+            Ok(path) => path,
+            Err(_) => {
+                return provider::ProviderCommandResult::error(
+                    provider::ProviderFailureKind::LocalStorageUnavailable,
+                    "Code Atlas local recovery storage is unavailable. No request was sent.",
+                );
+            }
+        };
+        let api_key = match provider::load_api_key_for(&pending.review.provider_id) {
+            Ok(api_key) => api_key,
+            Err(error) => return provider::ProviderCommandResult::failed(error),
+        };
+        let pending = match reviews.consume(&review_id, &fingerprint) {
+            Ok(pending) => pending,
+            Err(error) => return provider::ProviderCommandResult::failed(error),
+        };
+        let mut cancellation = match cancellations.begin(&review_id) {
+            Ok(cancellation) => cancellation,
+            Err(error) => return provider::ProviderCommandResult::failed(error),
+        };
+        let target_path = pending.review.target_path.clone();
+        let dispatched = match interruptions
+            .begin_async(
+                &storage_dir,
+                recovery::new_provider_operation(
+                    pending.review.project_id.clone(),
+                    pending.review.snapshot_id.clone(),
+                    target_path,
+                    pending.review.review_id.clone(),
+                ),
+                || {
+                    provider::await_cancellable_request(
+                        &mut cancellation,
+                        provider::dispatch_reviewed_request_via_rig(
+                            &pending,
+                            api_key,
+                            &consent,
+                        ),
+                    )
+                },
+            )
+            .await
+        {
+            Ok(result) => result,
+            Err(error) => {
+                cancellations.finish(&review_id);
+                return provider::ProviderCommandResult::error(
+                    provider::ProviderFailureKind::LocalStorageUnavailable,
+                    format!("Local recovery state could not be saved, so no provider request was sent: {error}"),
+                );
+            }
+        };
+        cancellations.finish(&review_id);
+        let command_result = match dispatched {
+            Ok(response) => match provider::canonicalize_pr_change_explanation(
+                repository,
+                &pending.review,
+                &response,
+            ) {
+                Ok(preview) => provider::ProviderCommandResult::ok(preview),
+                Err(error) => provider::ProviderCommandResult::failed(error),
+            },
+            Err(error) => provider::ProviderCommandResult::failed(error),
+        };
+        if let Err(error) = interruptions.discard(&storage_dir, &review_id) {
+            return provider::ProviderCommandResult::error(
+                provider::ProviderFailureKind::LocalStorageUnavailable,
+                format!("The provider request finished, but its local interruption notice could not be cleared: {error}. Build a new hunk review before trying again."),
             );
         }
         command_result
@@ -1621,11 +1776,13 @@ pub fn run() {
             build_provider_request_review,
             build_code_lens_provider_request_review,
             build_provider_pr_guide_request_review,
+            build_provider_pr_change_explanation_request_review,
             discard_provider_request_review,
             cancel_provider_request,
             send_provider_request,
             send_code_lens_provider_request,
-            send_provider_pr_guide_request
+            send_provider_pr_guide_request,
+            send_provider_pr_change_explanation_request
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Code Atlas");

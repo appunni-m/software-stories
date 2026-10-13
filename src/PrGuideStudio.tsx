@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, RotateCcw, Send, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, RotateCcw, Send, ShieldCheck, Sparkles } from 'lucide-react';
 import {
   acceptPrGuideDraft,
+  buildProviderPrChangeExplanationRequestReview,
   buildProviderPrGuideRequestReview,
   cancelProviderRequest,
   discardProviderRequestReview,
@@ -10,10 +11,13 @@ import {
   isNativeRuntime,
   listPrGuideRevisions,
   rejectPrGuideDraft,
+  sendProviderPrChangeExplanationRequest,
   sendProviderPrGuideRequest,
   type GitComparisonResult,
   type GitFileChange,
   type PrGuideRevision,
+  type PrChangeExplanationTarget,
+  type PrChangeExplanationPreview,
   type ProviderCommandResult,
   type ProviderConsent,
   type ProviderCredentialStatus,
@@ -71,6 +75,7 @@ export function PrGuideStudio({
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('A claim needs more evidence.');
   const [notice, setNotice] = useState<string | null>(null);
+  const [changeExplanationSelection, setChangeExplanationSelection] = useState<{ change: GitFileChange; hunkIndex: number } | null>(null);
 
   const eligibleChanges = useMemo(() => comparison.changes.filter(isGuideEligible), [comparison.changes]);
   const selectedChanges = useMemo(
@@ -90,6 +95,7 @@ export function PrGuideStudio({
       && providerId
       && modelId
       && !requestReview
+      && !changeExplanationSelection
       && !building
       && !sending,
   );
@@ -347,30 +353,43 @@ export function PrGuideStudio({
         <span className="git-readonly-badge"><BookOpenCheck size={14} /> Local draft</span>
       </div>
       <p className="pr-guide-muted">Choose a direct API, select changed files, inspect the exact diff sent, then review every claim against its base/head hunk. Accepting or rejecting saves a PR Guide revision; it never changes Git refs or file chapter history.</p>
-      <fieldset className="pr-guide-file-picker" disabled={building || sending || decisionBusy}>
+      <fieldset className="pr-guide-file-picker" disabled={building || sending || decisionBusy || Boolean(changeExplanationSelection)}>
         <legend>Select changed files · {selectedChanges.length} of 12</legend>
         {eligibleChanges.length === 0 ? <p>No changed file has a complete bounded text diff to explain.</p> : eligibleChanges.map((change) => {
           const key = changeKey(change);
           const checked = selectedKeys.includes(key);
           const pathLabel = labelChange(change);
           return (
-            <label className={checked ? 'selected' : ''} key={key}>
-              <input type="checkbox" checked={checked} disabled={!checked && selectedKeys.length >= 12} onChange={() => toggleChange(change)} />
-              <span><strong>{change.kind}</strong><code>{pathLabel}</code></span>
-              <small>{change.hunks.length} {change.hunks.length === 1 ? 'hunk' : 'hunks'}</small>
-            </label>
+            <div className="pr-guide-change-option" key={key}>
+              <label className={checked ? 'selected' : ''}>
+                <input type="checkbox" checked={checked} disabled={!checked && selectedKeys.length >= 12} onChange={() => toggleChange(change)} />
+                <span><strong>{change.kind}</strong><code>{pathLabel}</code></span>
+                <small>{change.hunks.length} {change.hunks.length === 1 ? 'hunk' : 'hunks'}</small>
+              </label>
+              <div className="pr-guide-hunk-actions" aria-label={`Explain a hunk in ${pathLabel}`}>
+                {change.hunks.map((_, hunkIndex) => (
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    key={hunkIndex}
+                    disabled={!providerId || !modelId || !disclosure || building || sending || Boolean(requestReview)}
+                    onClick={() => setChangeExplanationSelection({ change, hunkIndex })}
+                  ><Sparkles size={13} /> Explain hunk {hunkIndex + 1}</button>
+                ))}
+              </div>
+            </div>
           );
         })}
       </fieldset>
       <div className="pr-guide-actions">
         <label className="pr-guide-model">Direct API provider
-          <select value={providerId} disabled={building || sending || Boolean(requestReview)} onChange={(event) => { clearReview(); setProviderId(event.target.value); setModelId(''); setCredential(null); }}>
+          <select value={providerId} disabled={building || sending || Boolean(requestReview) || Boolean(changeExplanationSelection)} onChange={(event) => { clearReview(); setProviderId(event.target.value); setModelId(''); setCredential(null); }}>
             <option value="">Choose a provider…</option>
             {providerCatalog.map((provider) => <option key={provider.providerId} value={provider.providerId}>{provider.displayName}</option>)}
           </select>
         </label>
         <label className="pr-guide-model">{disclosure?.displayName ?? 'Model'}
-          <select value={modelId} disabled={!disclosure || building || sending || Boolean(requestReview)} onChange={(event) => { clearReview(); setModelId(event.target.value); }}>
+          <select value={modelId} disabled={!disclosure || building || sending || Boolean(requestReview) || Boolean(changeExplanationSelection)} onChange={(event) => { clearReview(); setModelId(event.target.value); }}>
             <option value="">Choose a model…</option>
             {(disclosure?.models ?? []).map((model) => <option key={model.modelId} value={model.modelId}>{model.displayName}</option>)}
           </select>
@@ -386,6 +405,24 @@ export function PrGuideStudio({
       {credential?.status === 'error' && <p className="git-error-note" role="alert">{credential.error.message}</p>}
       {requestError && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {requestError.message}</p>}
       {notice && <p className="pr-guide-notice" role="status"><Check size={15} /> {notice}</p>}
+
+      {changeExplanationSelection && disclosure && modelId && (
+        <PrChangeExplanationPanel
+          projectId={projectId}
+          baseRef={baseRef}
+          headRef={headRef}
+          comparisonId={comparison.comparisonId}
+          change={changeExplanationSelection.change}
+          hunkIndex={changeExplanationSelection.hunkIndex}
+          providerId={providerId}
+          modelId={modelId}
+          disclosure={disclosure}
+          hasApiKey={hasApiKey}
+          onFocusChange={onFocusChange}
+          onOpenProviderSettings={onOpenProviderSettings}
+          onClose={() => setChangeExplanationSelection(null)}
+        />
+      )}
 
       {requestReview && disclosure && (
         <section className="pr-guide-request-review" aria-labelledby="pr-guide-request-title">
@@ -532,6 +569,196 @@ function GuideDraftReview({
       <label className="pr-guide-rejection-reason">Reason for rejecting this draft<textarea value={rejectionReason} disabled={busy} maxLength={4_000} onChange={(event) => onRejectionReasonChange(event.target.value)} /></label>
       {error && <p className="git-error-note" role="alert">{error}</p>}
       <button type="button" className="secondary-button" disabled={busy || !rejectionReason.trim()} onClick={onReject}>Reject this PR Guide draft</button>
+    </section>
+  );
+}
+
+function PrChangeExplanationPanel({
+  projectId,
+  baseRef,
+  headRef,
+  comparisonId,
+  change,
+  hunkIndex,
+  providerId,
+  modelId,
+  disclosure,
+  hasApiKey,
+  onFocusChange,
+  onOpenProviderSettings,
+  onClose,
+}: {
+  projectId: string;
+  baseRef: string;
+  headRef: string;
+  comparisonId: string;
+  change: GitFileChange;
+  hunkIndex: number;
+  providerId: string;
+  modelId: string;
+  disclosure: ProviderDisclosure;
+  hasApiKey: boolean;
+  onFocusChange: (path: string | undefined, hunkIndex?: number) => void;
+  onOpenProviderSettings: () => void;
+  onClose: () => void;
+}) {
+  const [requestReview, setRequestReview] = useState<ProviderRequestReview | null>(null);
+  const reviewRef = useRef<ProviderRequestReview | null>(null);
+  const [consent, setConsent] = useState<ProviderConsent>(NO_CONSENT);
+  const [preview, setPreview] = useState<PrChangeExplanationPreview | null>(null);
+  const [building, setBuilding] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelRequested, setCancelRequested] = useState(false);
+  const [error, setError] = useState<ProviderFailure | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setBuilding(true);
+    setError(null);
+    setPreview(null);
+    setConsent(NO_CONSENT);
+    const target: PrChangeExplanationTarget = {
+      baseRef,
+      headRef,
+      comparisonId,
+      selectedChange: { basePath: change.basePath, headPath: change.headPath },
+      hunkIndex,
+    };
+    void buildProviderPrChangeExplanationRequestReview(providerId, { projectId, target, modelId })
+      .then((result) => {
+        if (!active) {
+          if (result.status === 'ok') void discardProviderRequestReview(result.data.reviewId).catch(() => {});
+          return;
+        }
+        if (result.status === 'error') {
+          setError(result.error);
+          return;
+        }
+        reviewRef.current = result.data;
+        setRequestReview(result.data);
+      })
+      .catch(() => {
+        if (active) setError({ kind: 'invalidReview', message: 'The local hunk review could not be built. No provider request was sent.' });
+      })
+      .finally(() => { if (active) setBuilding(false); });
+    return () => {
+      active = false;
+      const reviewId = reviewRef.current?.reviewId;
+      reviewRef.current = null;
+      if (reviewId) void discardProviderRequestReview(reviewId).catch(() => {});
+    };
+  }, [baseRef, change.basePath, change.headPath, comparisonId, headRef, hunkIndex, modelId, projectId, providerId]);
+
+  async function send() {
+    if (!requestReview || !hasApiKey || sending || !completeConsent(consent)) return;
+    setSending(true);
+    setError(null);
+    setCancelRequested(false);
+    try {
+      const result = await sendProviderPrChangeExplanationRequest({
+        reviewId: requestReview.reviewId,
+        fingerprint: requestReview.fingerprint,
+        consent,
+      });
+      reviewRef.current = null;
+      setRequestReview(null);
+      if (result.status === 'error') {
+        setError(result.error);
+        return;
+      }
+      setPreview(result.data);
+    } catch {
+      reviewRef.current = null;
+      setRequestReview(null);
+      setError({ kind: 'networkUnavailable', message: 'The request result could not be confirmed. Review the hunk again before sending another request.' });
+    } finally {
+      setSending(false);
+      setCancelBusy(false);
+    }
+  }
+
+  async function cancel() {
+    if (!requestReview || cancelBusy) return;
+    setCancelBusy(true);
+    try {
+      const accepted = await cancelProviderRequest(requestReview.reviewId);
+      setCancelRequested(accepted);
+    } catch {
+      setError({ kind: 'networkUnavailable', message: 'The cancellation request could not be confirmed.' });
+      setCancelBusy(false);
+    }
+  }
+
+  const selectedModel = disclosure.models.find((model) => model.modelId === modelId) ?? null;
+  return (
+    <section className="pr-guide-request-review pr-change-explanation" aria-labelledby="pr-change-explanation-title">
+      <div className="pr-guide-subheading">
+        <div><span className="git-changes-kicker">TRANSIENT HUNK EXPLANATION</span><h3 id="pr-change-explanation-title">Explain {labelChange(change)} · hunk {hunkIndex + 1}</h3></div>
+        <button type="button" className="secondary-button" onClick={onClose} disabled={sending}>Close</button>
+      </div>
+      <p className="pr-guide-muted">This request explains one selected hunk and returns temporary claims linked to the exact base/head source. It does not create PR Guide history or change Git refs.</p>
+      {building && <p className="pr-guide-muted" role="status">Building the exact local hunk review…</p>}
+      {error && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {error.message}</p>}
+      {requestReview && (
+        <>
+          <div className="provider-request-summary">
+            <div><span>Provider and model</span><strong>{requestReview.providerId} · {requestReview.modelId}</strong></div>
+            <div><span>Endpoint</span><code>{requestReview.endpointUrl}</code></div>
+            <div><span>Purpose</span><strong>One hunk from {baseRef} → {headRef}</strong></div>
+            <div><span>Selected context</span><strong>{requestReview.selectedFiles[0]?.path} · {formatBytes(requestReview.sourceBytes)}</strong></div>
+            <div><span>Input estimate</span><strong>About {requestReview.estimatedInputTokens.toLocaleString()} tokens · not a bill</strong></div>
+          </div>
+          <p className="provider-warning-note"><AlertTriangle size={14} /> Review the exact hunk for credentials and confidential or personal data. Local scans cannot find every secret.</p>
+          {requestReview.selectedFiles.map((file) => (
+            <details className="provider-source-file" open key={`${file.path}:${file.sha256}`}>
+              <summary><code>{file.path}</code><span>{formatBytes(file.sizeBytes)} · SHA-256 {file.sha256.slice(0, 16)}…</span></summary>
+              <pre><code>{file.contents}</code></pre>
+            </details>
+          ))}
+          <details className="provider-prompt-preview">
+            <summary>Inspect exact prompt and encoded provider request</summary>
+            <div><strong>System instruction</strong><pre>{requestReview.systemInstruction}</pre><strong>User prompt</strong><pre>{requestReview.userPrompt}</pre><strong>Generation settings</strong><pre>{JSON.stringify(requestReview.generationConfig, null, 2)}</pre><strong>Exact JSON request body · SHA-256 {requestReview.requestBodySha256}</strong><pre>{JSON.stringify(requestReview.requestBodyPreview, null, 2)}</pre></div>
+          </details>
+          <div className="provider-fingerprint"><span>Consent is bound to this exact hunk request</span><code>{requestReview.fingerprint}</code><small>It includes the comparison and hunk, provider, model, endpoint, request body, generation settings, and disclosure version.</small></div>
+          <div className="pr-guide-disclosures">
+            <h4><CircleDollarSign size={15} /> Provider terms and possible charges</h4>
+            {selectedModel && <p><strong>{selectedModel.displayName} pricing checked {disclosure.checkedDate}:</strong> {selectedModel.freeTierStatus} Paid input: {selectedModel.paidInputUsdPerMillionTokens} per million tokens. Paid output: {selectedModel.paidOutputUsdPerMillionTokens} per million tokens{selectedModel.paidPriceChangeDate ? `; price changes ${selectedModel.paidPriceChangeDate}` : ''}.</p>}
+            <p>{disclosure.dataUseTerms}</p><p>{disclosure.regionRequirements}</p><p>{disclosure.eligibilityRequirements}</p><p>{disclosure.billingUncertainty}</p>
+            <p>{disclosure.displayName} receives the reviewed hunk if you send. One request is made; failures do not switch providers or models.</p>
+            <p><a href={disclosure.termsUrl} target="_blank" rel="noreferrer">Provider API terms</a> · <a href={disclosure.pricingUrl} target="_blank" rel="noreferrer">Pricing</a> · <a href={disclosure.regionsUrl} target="_blank" rel="noreferrer">Availability and regions</a></p>
+          </div>
+          <div className="pr-guide-consent">
+            <label><input type="checkbox" checked={consent.privacyAndDataUseAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, privacyAndDataUseAcknowledged: event.target.checked }))} /> I reviewed this hunk and understand the provider’s data-use terms.</label>
+            <label><input type="checkbox" checked={consent.billingUncertaintyAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, billingUncertaintyAcknowledged: event.target.checked }))} /> I understand this model may incur charges or quota limits.</label>
+            <label><input type="checkbox" checked={consent.adultSupportedRegionAcknowledged} disabled={sending} onChange={(event) => setConsent((value) => ({ ...value, adultSupportedRegionAcknowledged: event.target.checked }))} /> I meet this provider’s eligibility and supported-region requirements.</label>
+          </div>
+          {!hasApiKey && <p className="pr-guide-muted">A {disclosure.displayName} API key is not configured. Add it in Settings; this review will remain local.</p>}
+          <div className="pr-guide-actions">
+            {!hasApiKey && <button type="button" className="secondary-button" onClick={onOpenProviderSettings}>Open provider settings</button>}
+            <button type="button" className="primary-button" onClick={() => { void send(); }} disabled={!hasApiKey || !completeConsent(consent) || sending}><Send size={15} /> {sending ? 'Sending reviewed hunk…' : 'Send reviewed request'}</button>
+            {sending && <button type="button" className="secondary-button" onClick={() => { void cancel(); }} disabled={cancelBusy}>{cancelBusy ? 'Cancelling…' : 'Cancel request'}</button>}
+          </div>
+          {cancelRequested && <p className="pr-guide-muted" role="status">Cancellation was requested. The provider may already have received the request.</p>}
+        </>
+      )}
+      {preview && (
+        <div className="pr-change-explanation-result" aria-live="polite">
+          <div className="pr-guide-subheading"><div><span className="git-changes-kicker">LOCAL CITATION CHECK PASSED · TRANSIENT RESULT</span><h4>{preview.title}</h4></div><span>{preview.providerId} · {preview.modelId}</span></div>
+          {preview.claims.map((claim) => (
+            <article className="pr-guide-claim" key={claim.claimId}>
+              <strong>{claim.category === 'inference' ? 'Inference' : 'Code change'}</strong>
+              <p>{claim.prose}</p>
+              {claim.inferenceBasis && <p className="pr-guide-inference-basis"><strong>Why this is an inference:</strong> {claim.inferenceBasis}</p>}
+              <button type="button" className="pr-guide-citation-link" onClick={() => onFocusChange(changeKey(change), claim.citation.hunkIndex)}>
+                <span>{claim.citation.side} · {claim.citation.anchor.path}:{claim.citation.anchor.startLine}–{claim.citation.anchor.endLine}</span>
+                <small>commit {claim.citation.anchor.revisionId.slice(0, 12)} · blob {claim.citation.anchor.blobId.slice(0, 12)} · hunk {claim.citation.hunkIndex + 1}</small>
+                <code>{claim.citation.quote}</code>
+              </button>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

@@ -46,6 +46,7 @@
     ],
     "resources": ["macos-release-metadata.json"],
     "macOS": {
+      "hardenedRuntime": true,
       "minimumSystemVersion": null
     }
   }

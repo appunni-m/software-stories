@@ -389,14 +389,30 @@ async fn await_cancellable_audio_request<T, F>(
 where
     F: Future<Output = Result<T, ProviderFailure>>,
 {
-    tokio::select! {
+    let result = tokio::select! {
         biased;
-        _ = cancellation => Err(failure(
+        _ = &mut *cancellation => Err(failure(
             ProviderFailureKind::RequestCancelled,
             "The narration request was cancelled locally. Google may already have received the reviewed speech text; no response was accepted. Review and confirm again before another send.",
         )),
         result = request => result,
+    };
+    if result.is_ok() {
+        check_audio_request_cancellation(cancellation)?;
     }
+    result
+}
+
+fn check_audio_request_cancellation(
+    cancellation: &mut oneshot::Receiver<()>,
+) -> Result<(), ProviderFailure> {
+    if cancellation.try_recv().is_ok() {
+        return Err(failure(
+            ProviderFailureKind::RequestCancelled,
+            "The narration request was cancelled locally. Google may already have received the reviewed speech text; no response was accepted. Review and confirm again before another send.",
+        ));
+    }
+    Ok(())
 }
 
 async fn synthesize_segments<F, Fut>(
@@ -447,7 +463,9 @@ where
         }
         audio_segments.push(audio);
     }
-    join_wav_segments(&audio_segments)
+    let combined = join_wav_segments(&audio_segments)?;
+    check_audio_request_cancellation(cancellation)?;
+    Ok(combined)
 }
 
 fn consume_review(
@@ -1138,6 +1156,29 @@ mod tests {
         dropped_receiver
             .await
             .expect("the pending audio request future should be dropped");
+    }
+
+    #[tokio::test]
+    async fn cancellation_arriving_with_a_completed_segment_discards_the_audio() {
+        let segments = vec!["One completed segment.".to_owned()];
+        let (cancel_sender, mut cancellation) = oneshot::channel();
+        let mut cancel_sender = Some(cancel_sender);
+
+        let error = synthesize_segments(&segments, &mut cancellation, move |_segment| {
+            let cancel_sender = cancel_sender
+                .take()
+                .expect("the single request should own the cancellation sender");
+            async move {
+                // Signal cancellation during the same poll that completes the
+                // request. The completed HTTP response must still be dropped.
+                let _ = cancel_sender.send(());
+                Ok(valid_test_wav(5))
+            }
+        })
+        .await
+        .expect_err("a simultaneously completed request should be discarded");
+
+        assert_eq!(error.kind, ProviderFailureKind::RequestCancelled);
     }
 
     #[test]

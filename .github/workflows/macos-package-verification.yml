@@ -1,0 +1,35 @@
+name: macOS package verification
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-unsigned-package:
+    name: Build and inspect unsigned bundles
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Build and inspect unsigned macOS bundles
+        run: npm run bundle:macos

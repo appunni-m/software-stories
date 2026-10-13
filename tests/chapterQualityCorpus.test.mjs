@@ -35,7 +35,11 @@ describe('offline chapter-quality corpus checker', () => {
     const metadata = JSON.parse(result.stdout);
     assert.equal(metadata.responseSchemaVersion, 1);
     assert.match(metadata.responseSchemaSha256, /^[a-f0-9]{64}$/);
-    assert.equal(JSON.parse(await readFile(join(root, 'benchmarks/chapter-quality/review/REPORT_TEMPLATE.json'), 'utf8')).reportSchemaVersion, 4);
+    const reportTemplate = JSON.parse(await readFile(join(root, 'benchmarks/chapter-quality/review/REPORT_TEMPLATE.json'), 'utf8'));
+    assert.equal(reportTemplate.reportSchemaVersion, 4);
+    const rubric = await readFile(join(root, 'benchmarks/chapter-quality/review/RUBRIC.md'), 'utf8');
+    assert.match(rubric, new RegExp(`report schema v${reportTemplate.reportSchemaVersion}`));
+    assert.match(rubric, /response-schema version and SHA-256/);
   });
 
   it('rejects a parser-supported language used for the unsupported-language role', async () => {
