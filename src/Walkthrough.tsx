@@ -363,7 +363,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
             );
           })}
         </div>
-        <div className="walkthrough-rail-footer"><span><CheckCircle2 size={13} /> Saved on this Mac</span><OfflineExport revisions={chapterList} /></div>
+        <div className="walkthrough-rail-footer"><span><CheckCircle2 size={13} /> Saved on this Mac</span><OfflineExport projectId={projectId} revisions={chapterList} /></div>
       </aside>
 
       {!selectedRevision || !selectedSection ? (

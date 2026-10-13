@@ -25,7 +25,11 @@ import {
   type NarrationRequestReview,
   type ProviderCredentialStatus,
 } from './lib/commands';
-import { narrationPreferencesMatch } from './lib/narration';
+import {
+  parseNarrationPreferences,
+  narrationPreferencesMatch,
+  type NarrationPreferencesSnapshot,
+} from './lib/narration';
 import type { ChapterSection } from './lib/commands';
 
 interface NarrationPlayerProps {
@@ -40,12 +44,7 @@ interface NarrationPlayerProps {
   onOpenProviderSettings: () => void;
 }
 
-interface NarrationPreferences {
-  spokenText: string;
-  voice: string;
-  style: string;
-  lexicon: NarrationPronunciationEntry[];
-}
+type NarrationPreferences = NarrationPreferencesSnapshot;
 
 interface LoadedTrack {
   audioUrl: string;
@@ -57,8 +56,6 @@ interface LoadedTrack {
   fingerprint: string;
   cacheHit: boolean;
 }
-
-const DEFAULT_STYLE = 'Clear, calm, conversational.';
 
 export function NarrationPlayer({ projectId, chapterId, revisionId, section, restorePosition, transcriptPosition, onPlaybackPositionChange, onTranscriptPositionChange, onOpenProviderSettings }: NarrationPlayerProps) {
   const storageKey = `code-atlas:narration:${projectId}:${chapterId}:${revisionId}:${section.sectionId}`;
@@ -592,25 +589,9 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
 
 function readPreferences(storageKey: string, fallbackText: string): NarrationPreferences {
   try {
-    const value = window.localStorage.getItem(storageKey);
-    if (value) {
-      const parsed = JSON.parse(value) as Partial<NarrationPreferences>;
-      return {
-        spokenText: typeof parsed.spokenText === 'string' ? parsed.spokenText : fallbackText,
-        voice: typeof parsed.voice === 'string' ? parsed.voice : 'Kore',
-        style: typeof parsed.style === 'string' ? parsed.style : DEFAULT_STYLE,
-        lexicon: Array.isArray(parsed.lexicon) ? parsed.lexicon.filter(isLexiconEntry).slice(0, 12) : [],
-      };
-    }
+    return parseNarrationPreferences(window.localStorage.getItem(storageKey), fallbackText);
   } catch { /* Default to the accepted chapter script when storage is unavailable. */ }
-  return { spokenText: fallbackText, voice: 'Kore', style: DEFAULT_STYLE, lexicon: [] };
-}
-
-function isLexiconEntry(value: unknown): value is NarrationPronunciationEntry {
-  return Boolean(value && typeof value === 'object'
-    && typeof (value as NarrationPronunciationEntry).name === 'string'
-    && typeof (value as NarrationPronunciationEntry).sayAs === 'string'
-    && typeof (value as NarrationPronunciationEntry).include === 'boolean');
+  return parseNarrationPreferences(null, fallbackText);
 }
 
 function replaceLexiconEntry(entries: NarrationPronunciationEntry[], index: number, entry: NarrationPronunciationEntry) {

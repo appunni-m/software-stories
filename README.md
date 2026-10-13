@@ -12,7 +12,7 @@ This image is a design concept, not a screenshot of the running app. Product beh
 
 - A Tauri desktop shell with local repository selection, bounded snapshot capture, Atlas, Code Lens, and a Rust index for a defined Rust, TypeScript, TSX, and JavaScript subset.
 - Local file-by-file coverage, Chapter Studio editing and review, immutable JSON chapter revisions, and a manually paced Walkthrough with source-linked citations and typed visual hotspots.
-- An early offline export path in Walkthrough creates one self-contained HTML file from selected accepted revisions. It previews paths and excerpts and supports section navigation and supported typed diagrams; it does not include narration audio or live Atlas/Code Lens destinations.
+- Walkthrough can export one self-contained HTML file from selected accepted revisions. It previews paths and excerpts, supports section navigation and supported typed diagrams, and can include narration audio already cached on this Mac; it does not include live Atlas/Code Lens destinations.
 - Direct Gemini API paths for file chapters and an optional repository overview. A reviewed request sends only the selected captured context after explicit confirmation; generated content is validated and remains unaccepted until the user saves and reviews it.
 - Optional Gemini text-to-speech for an edited section script. The speech request is reviewed separately and sends the selected script and voice settings, not source excerpts by default.
 

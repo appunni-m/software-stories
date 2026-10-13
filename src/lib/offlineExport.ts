@@ -4,16 +4,26 @@ import type {
   ChapterSection,
   ChapterSourceAnchor,
   EvidenceLinkedVisualSpec,
+  NarrationAudio,
 } from './commands';
 import { inspectInteractiveVisual } from './visuals.ts';
 
-export const OFFLINE_PACKAGE_SCHEMA_VERSION = 1;
+export const OFFLINE_PACKAGE_SCHEMA_VERSION = 2;
 export const MAX_OFFLINE_HTML_BYTES = 25 * 1024 * 1024;
+const MAX_NARRATION_AUDIO_BYTES = 12 * 1024 * 1024;
 
 export interface OfflineExportOptions {
   selectedRevisionIds: string[];
   includeExcerpts: boolean;
+  includeNarrationAudio?: boolean;
+  narrationAudio?: readonly OfflineNarrationAudio[];
   exportedAtUnixMs?: number;
+}
+
+export interface OfflineNarrationAudio {
+  chapterRevisionId: string;
+  sectionId: string;
+  audio: NarrationAudio;
 }
 
 export interface OfflineExportReference {
@@ -64,12 +74,13 @@ export interface OfflinePackageManifest {
   }>;
   assets: Array<{
     assetId: string;
-    kind: 'citedExcerpt' | 'typedVisual';
-    mediaType: 'text/plain' | 'application/json';
+    kind: 'citedExcerpt' | 'typedVisual' | 'narrationAudio';
+    mediaType: 'text/plain' | 'application/json' | 'audio/wav';
     chapterRevisionId: string;
     snapshotId: string;
     anchorId?: string;
     sectionId?: string;
+    cacheFingerprint?: string;
     path?: string;
     startLine?: number;
     endLine?: number;
@@ -80,7 +91,7 @@ export interface OfflinePackageManifest {
     sectionNavigation: 'included';
     citedExcerpts: 'included' | 'omitted';
     typedVisuals: 'included-when-supported';
-    narrationAudio: 'not-included';
+    narrationAudio: 'included' | 'omitted' | 'none-cached';
   };
 }
 
@@ -108,6 +119,11 @@ interface SafeSection {
   visualAssetText: string | null;
   visualUnavailable: boolean;
   hotspots: ChapterSection['hotspots'];
+  narrationAudio: NarrationAudio | null;
+}
+
+interface PreparedNarrationAudio extends OfflineNarrationAudio {
+  bytes: Uint8Array;
 }
 
 interface SafeChapter {
@@ -198,6 +214,14 @@ export async function buildOfflineGuideHtml(
   if (selected.length === 0) throw new Error('Select at least one accepted chapter with exportable source paths.');
 
   const chapters = selected.map((revision) => createSafeChapter(revision));
+  const narrationAudio = options.includeNarrationAudio
+    ? validateNarrationAudio(selected, options.narrationAudio ?? [])
+    : new Map<string, PreparedNarrationAudio>();
+  for (const chapter of chapters) {
+    for (const section of chapter.sections) {
+      section.narrationAudio = narrationAudio.get(sectionKey(chapter.revision.revisionId, section.section.sectionId))?.audio ?? null;
+    }
+  }
   const assets: OfflinePackageManifest['assets'] = [];
   for (const chapter of chapters) {
     for (const section of chapter.sections) {
@@ -212,6 +236,20 @@ export async function buildOfflineGuideHtml(
           sectionId: section.section.sectionId,
           sha256: await sha256(bytes),
           byteLength: bytes.byteLength,
+        });
+      }
+      const narration = narrationAudio.get(sectionKey(chapter.revision.revisionId, section.section.sectionId));
+      if (narration) {
+        assets.push({
+          assetId: `narration:${chapter.revision.revisionId}:${section.section.sectionId}`,
+          kind: 'narrationAudio',
+          mediaType: 'audio/wav',
+          chapterRevisionId: chapter.revision.revisionId,
+          snapshotId: chapter.revision.snapshotId,
+          sectionId: section.section.sectionId,
+          cacheFingerprint: narration.audio.fingerprint,
+          sha256: await sha256(narration.bytes),
+          byteLength: narration.bytes.byteLength,
         });
       }
     }
@@ -248,12 +286,14 @@ export async function buildOfflineGuideHtml(
       sectionNavigation: 'included',
       citedExcerpts: options.includeExcerpts ? 'included' : 'omitted',
       typedVisuals: 'included-when-supported',
-      narrationAudio: 'not-included',
+      narrationAudio: narrationAudio.size > 0
+        ? 'included'
+        : options.includeNarrationAudio ? 'none-cached' : 'omitted',
     },
   };
   const html = renderPackage(chapters, manifest, options.includeExcerpts);
   if (new TextEncoder().encode(html).byteLength > MAX_OFFLINE_HTML_BYTES) {
-    throw new Error('This offline guide would exceed the 25 MB local export limit. Select fewer chapters or omit cited excerpts.');
+    throw new Error('This offline guide would exceed the 25 MB local export limit. Select fewer chapters, omit cited excerpts, or leave cached audio out.');
   }
   return { filename: filenameFor(chapters), html, manifest };
 }
@@ -345,6 +385,7 @@ function createSafeChapter(revision: ChapterRevision): SafeChapter {
         visualAssetText,
         visualUnavailable: section.visual !== null && visual === null,
         hotspots,
+        narrationAudio: null,
       };
     });
   const references = uniqueReferences(sections.flatMap((section) => section.references));
@@ -359,6 +400,80 @@ function createSafeChapter(revision: ChapterRevision): SafeChapter {
     hiddenReferencesOmitted,
     redactedCredentials: sanitizer.redactedCredentialCount,
   };
+}
+
+function validateNarrationAudio(
+  revisions: readonly ChapterRevision[],
+  candidates: readonly OfflineNarrationAudio[],
+): Map<string, PreparedNarrationAudio> {
+  const selectedKeys = new Set(revisions.flatMap((revision) => revision.sections.map((section) => sectionKey(revision.revisionId, section.sectionId))));
+  const prepared = new Map<string, PreparedNarrationAudio>();
+  for (const candidate of candidates) {
+    const key = sectionKey(candidate.chapterRevisionId, candidate.sectionId);
+    if (!selectedKeys.has(key)) continue;
+    if (prepared.has(key)) throw new Error('Cached narration was supplied more than once for one chapter section.');
+    if (!/^[a-f0-9]{64}$/i.test(candidate.audio.fingerprint) || candidate.audio.mimeType !== 'audio/wav') {
+      throw new Error('A selected narration asset has an unsupported format or cache identity.');
+    }
+    const bytes = decodeAndValidateNarrationWav(candidate.audio.audioBase64);
+    prepared.set(key, { ...candidate, bytes });
+  }
+  return prepared;
+}
+
+function decodeAndValidateNarrationWav(encoded: string): Uint8Array {
+  if (!encoded || encoded.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)) {
+    throw new Error('A cached narration asset is not valid base64 WAV data.');
+  }
+  if (encoded.length > Math.ceil(MAX_NARRATION_AUDIO_BYTES / 3) * 4) {
+    throw new Error('A cached narration asset exceeds the 12 MB per-section limit.');
+  }
+  const binary = atob(encoded);
+  if (binary.length > MAX_NARRATION_AUDIO_BYTES) throw new Error('A cached narration asset exceeds the 12 MB per-section limit.');
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  if (!isSupportedNarrationWav(bytes)) throw new Error('A cached narration asset is not the supported 24 kHz mono PCM WAV format.');
+  return bytes;
+}
+
+function isSupportedNarrationWav(bytes: Uint8Array): boolean {
+  if (bytes.length < 44 || ascii(bytes, 0, 4) !== 'RIFF' || ascii(bytes, 8, 12) !== 'WAVE') return false;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (view.getUint32(4, true) + 8 !== bytes.length) return false;
+  let cursor = 12;
+  let hasPcmFormat = false;
+  let hasAudioData = false;
+  while (cursor + 8 <= bytes.length) {
+    const chunkId = ascii(bytes, cursor, cursor + 4);
+    const chunkSize = view.getUint32(cursor + 4, true);
+    const dataStart = cursor + 8;
+    const dataEnd = dataStart + chunkSize;
+    if (!Number.isSafeInteger(dataEnd) || dataEnd > bytes.length) return false;
+    if (chunkId === 'fmt ') {
+      if (chunkSize < 16 || hasPcmFormat) return false;
+      hasPcmFormat = view.getUint16(dataStart, true) === 1
+        && view.getUint16(dataStart + 2, true) === 1
+        && view.getUint32(dataStart + 4, true) === 24_000
+        && view.getUint32(dataStart + 8, true) === 48_000
+        && view.getUint16(dataStart + 12, true) === 2
+        && view.getUint16(dataStart + 14, true) === 16;
+      if (!hasPcmFormat) return false;
+    } else if (chunkId === 'data') {
+      if (hasAudioData || chunkSize === 0 || chunkSize % 2 !== 0) return false;
+      hasAudioData = true;
+    }
+    const next = dataStart + chunkSize + (chunkSize % 2);
+    if (!Number.isSafeInteger(next) || next > bytes.length) return false;
+    cursor = next;
+  }
+  return cursor === bytes.length && hasPcmFormat && hasAudioData;
+}
+
+function ascii(bytes: Uint8Array, start: number, end: number): string {
+  return String.fromCharCode(...bytes.subarray(start, end));
+}
+
+function sectionKey(revisionId: string, sectionId: string): string {
+  return `${revisionId}\u0000${sectionId}`;
 }
 
 function sanitizeVisual(visual: EvidenceLinkedVisualSpec, clean: (text: string) => SanitizedText): EvidenceLinkedVisualSpec {
@@ -524,7 +639,10 @@ function renderPackage(
       const nextLink = next
         ? `<a class="primary" href="#${next.id}">Continue: ${escapeHtml(next.section.title)}</a>`
         : '<span class="muted">End of guide</span>';
-      return `<section class="section" id="${sectionId}"><p class="eyebrow">SECTION ${sectionIndex + 1} OF ${chapter.sections.length}</p><h3>${escapeHtml(section.title)}</h3><p class="prose">${escapeHtml(section.prose)}</p>${claims ? `<section class="evidence"><h4>What supports this explanation?</h4>${claims}</section>` : ''}${visual}${renderEvidenceAppendix(chapter, section, chapterIndex, evidenceIds, includeExcerpts)}<nav class="section-nav" aria-label="Section navigation">${previousLink}${nextLink}</nav></section>`;
+      const narration = section.narrationAudio
+        ? `<section class="narration-audio" aria-label="Cached narration"><h4>Cached narration</h4><audio controls preload="none" aria-label="Narration for ${escapeHtml(section.title)}" src="data:audio/wav;base64,${section.narrationAudio.audioBase64}">This browser cannot play the bundled narration audio.</audio></section>`
+        : '';
+      return `<section class="section" id="${sectionId}"><p class="eyebrow">SECTION ${sectionIndex + 1} OF ${chapter.sections.length}</p><h3>${escapeHtml(section.title)}</h3><p class="prose">${escapeHtml(section.prose)}</p>${narration}${claims ? `<section class="evidence"><h4>What supports this explanation?</h4>${claims}</section>` : ''}${visual}${renderEvidenceAppendix(chapter, section, chapterIndex, evidenceIds, includeExcerpts)}<nav class="section-nav" aria-label="Section navigation">${previousLink}${nextLink}</nav></section>`;
     }).join('');
     const omitted = chapter.hiddenReferencesOmitted > 0
       ? `<p class="notice">${chapter.hiddenReferencesOmitted} source reference${chapter.hiddenReferencesOmitted === 1 ? '' : 's'} to hidden or sensitive paths were omitted. Some claims may have less bundled evidence.</p>`
@@ -536,22 +654,27 @@ function renderPackage(
   const excerptMessage = includeExcerpts
     ? 'Cited excerpts are bundled below their sections. Review the manifest to verify each excerpt hash.'
     : 'Cited source excerpts were omitted. Source path and line references remain as metadata.';
+  const narrationMessage = manifest.features.narrationAudio === 'included'
+    ? 'Selected cached narration is bundled in its matching sections and can be played offline.'
+    : manifest.features.narrationAudio === 'none-cached'
+      ? 'Narration was requested, but no cached section audio was available; no audio is bundled.'
+      : 'Narration audio was not selected for this package.';
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; media-src data:; base-uri 'none'; form-action 'none'">
 <title>Code Atlas · Offline guide</title>
 <style>
-:root{color-scheme:light;--ink:#18231c;--muted:#56665b;--line:#d8e0d9;--paper:#f7f9f6;--panel:#fff;--green:#315e3e;--soft:#edf4ed}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}a{color:var(--green);text-underline-offset:3px}a:focus-visible{outline:3px solid #b36b00;outline-offset:3px}header.page{padding:42px max(22px,calc((100vw - 1080px)/2));background:#17251b;color:#f4f8f2}header.page h1{max-width:780px;margin:8px 0;font-size:clamp(28px,5vw,48px);line-height:1.1}header.page p{max-width:760px;color:#c8d4c9}.eyebrow{margin:0;color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}.page .eyebrow{color:#a8c5a9}.wrap{width:min(1080px,calc(100% - 36px));margin:0 auto}.notice{padding:12px 14px;border:1px solid #c28a35;border-radius:8px;background:#fff7e8;color:#614619}.guide-layout{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:26px;padding:28px 0 60px}.contents{align-self:start;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.contents h2{margin:0 0 10px;font-size:17px}.contents ol{padding-left:20px}.contents li{margin:6px 0}.contents span{display:block;color:var(--muted);font-size:12px;overflow-wrap:anywhere}.chapter{margin:0 0 30px;padding:24px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}.chapter>header{padding-bottom:15px;border-bottom:1px solid var(--line)}.chapter h2{margin:5px 0;font-size:clamp(23px,3vw,34px);line-height:1.2}.chapter h3{margin:8px 0 14px;font-size:clamp(20px,2.5vw,27px);line-height:1.25}.section{padding:22px 0 26px;border-bottom:1px solid var(--line);scroll-margin-top:16px}.section:last-child{border-bottom:0}.prose{font-size:17px}.evidence,.visual,.excerpt{margin:18px 0;padding:16px;border:1px solid var(--line);border-radius:10px;background:#fbfcfa}.evidence h4,.visual h4,.excerpt h4{margin:0 0 12px;font-size:16px}.claim{margin:10px 0;padding:12px;border-left:3px solid #8ca98e;background:var(--soft)}.claim p{margin:4px 0}.citations{margin:6px 0;padding-left:20px}.inference{color:#6a501e}.muted{color:var(--muted)}.diagram{display:grid;gap:10px;list-style:none;padding:0}.diagram-node{padding:13px;border:1px solid #bfd0c1;border-radius:8px;background:#f3f8f2}.diagram-node strong{display:block}.diagram-node small{display:block;color:var(--muted)}.diagram-edge{padding:8px 12px;color:var(--muted);border-left:2px solid #9ab39c}.diagram-links{margin:7px 0 0;padding-left:18px;font-size:14px}.hotspot{display:inline-block;margin:8px 5px 0 0;padding:3px 8px;border:1px solid #c7d5c8;border-radius:999px;background:#fff;font-size:13px}.excerpt pre,.manifest pre,.visual-source pre{max-width:100%;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}.reference-meta{color:var(--muted);font-size:13px}.visual-source{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}.visual-source summary{cursor:pointer;color:var(--muted);font-size:13px}.visual-source pre{max-height:360px;margin-top:8px;padding:10px;border-radius:6px;background:#f1f4f0}.section-nav{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}.section-nav a{display:inline-block;padding:8px 12px;border:1px solid var(--line);border-radius:8px;text-decoration:none}.section-nav .primary{background:var(--green);color:#fff;border-color:var(--green)}.manifest{margin:30px 0;padding:18px;border:1px solid var(--line);border-radius:10px;background:#fff}.manifest summary{cursor:pointer;font-weight:700}.manifest pre{max-height:480px}.page-footer{padding:22px 0;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+:root{color-scheme:light;--ink:#18231c;--muted:#56665b;--line:#d8e0d9;--paper:#f7f9f6;--panel:#fff;--green:#315e3e;--soft:#edf4ed}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}a{color:var(--green);text-underline-offset:3px}a:focus-visible{outline:3px solid #b36b00;outline-offset:3px}header.page{padding:42px max(22px,calc((100vw - 1080px)/2));background:#17251b;color:#f4f8f2}header.page h1{max-width:780px;margin:8px 0;font-size:clamp(28px,5vw,48px);line-height:1.1}header.page p{max-width:760px;color:#c8d4c9}.eyebrow{margin:0;color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}.page .eyebrow{color:#a8c5a9}.wrap{width:min(1080px,calc(100% - 36px));margin:0 auto}.notice{padding:12px 14px;border:1px solid #c28a35;border-radius:8px;background:#fff7e8;color:#614619}.guide-layout{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:26px;padding:28px 0 60px}.contents{align-self:start;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.contents h2{margin:0 0 10px;font-size:17px}.contents ol{padding-left:20px}.contents li{margin:6px 0}.contents span{display:block;color:var(--muted);font-size:12px;overflow-wrap:anywhere}.chapter{margin:0 0 30px;padding:24px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}.chapter>header{padding-bottom:15px;border-bottom:1px solid var(--line)}.chapter h2{margin:5px 0;font-size:clamp(23px,3vw,34px);line-height:1.2}.chapter h3{margin:8px 0 14px;font-size:clamp(20px,2.5vw,27px);line-height:1.25}.section{padding:22px 0 26px;border-bottom:1px solid var(--line);scroll-margin-top:16px}.section:last-child{border-bottom:0}.prose{font-size:17px}.evidence,.visual,.excerpt,.narration-audio{margin:18px 0;padding:16px;border:1px solid var(--line);border-radius:10px;background:#fbfcfa}.evidence h4,.visual h4,.excerpt h4,.narration-audio h4{margin:0 0 12px;font-size:16px}.narration-audio audio{display:block;width:min(100%,520px)}.claim{margin:10px 0;padding:12px;border-left:3px solid #8ca98e;background:var(--soft)}.claim p{margin:4px 0}.citations{margin:6px 0;padding-left:20px}.inference{color:#6a501e}.muted{color:var(--muted)}.diagram{display:grid;gap:10px;list-style:none;padding:0}.diagram-node{padding:13px;border:1px solid #bfd0c1;border-radius:8px;background:#f3f8f2}.diagram-node strong{display:block}.diagram-node small{display:block;color:var(--muted)}.diagram-edge{padding:8px 12px;color:var(--muted);border-left:2px solid #9ab39c}.diagram-links{margin:7px 0 0;padding-left:18px;font-size:14px}.hotspot{display:inline-block;margin:8px 5px 0 0;padding:3px 8px;border:1px solid #c7d5c8;border-radius:999px;background:#fff;font-size:13px}.excerpt pre,.manifest pre,.visual-source pre{max-width:100%;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}.reference-meta{color:var(--muted);font-size:13px}.visual-source{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}.visual-source summary{cursor:pointer;color:var(--muted);font-size:13px}.visual-source pre{max-height:360px;margin-top:8px;padding:10px;border-radius:6px;background:#f1f4f0}.section-nav{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}.section-nav a{display:inline-block;padding:8px 12px;border:1px solid var(--line);border-radius:8px;text-decoration:none}.section-nav .primary{background:var(--green);color:#fff;border-color:var(--green)}.manifest{margin:30px 0;padding:18px;border:1px solid var(--line);border-radius:10px;background:#fff}.manifest summary{cursor:pointer;font-weight:700}.manifest pre{max-height:480px}.page-footer{padding:22px 0;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
 @media(max-width:760px){.guide-layout{grid-template-columns:1fr}.contents{position:static;max-height:none}.chapter{padding:17px}.section-nav{align-items:stretch;flex-direction:column}.section-nav a{width:100%}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
 </head>
 <body>
-<header class="page"><div class="wrap"><p class="eyebrow">Code Atlas · Offline guide</p><h1>Read the code story at your own pace.</h1><p>This file works without Code Atlas or a network connection. ${escapeHtml(excerptMessage)} Narration audio is not bundled; written explanations and source references remain available.</p><p class="notice">Privacy review: this package includes selected chapter explanations and the source paths shown below${includeExcerpts ? ', plus the cited excerpts listed in the export preview' : ''}. Source excerpts can contain sensitive code. Provider configuration and the local repository checkout are not part of this package. Common credential patterns and hidden paths are filtered; review the exported text before sharing.</p></div></header>
-<main class="wrap"><div class="guide-layout"><nav class="contents" aria-label="Guide contents"><h2>Chapters and sections</h2><ol>${contents}</ol></nav><div class="guide">${renderedChapters}<details class="manifest"><summary>Package manifest · schema ${manifest.schemaVersion}</summary><p>Revision IDs, evidence snapshots, and hashes for included excerpts and typed diagram data.</p><pre>${manifestText}</pre></details></div></div><footer class="page-footer">Exported by Code Atlas. This static package does not execute chapter content or open local source files.</footer></main>
+<header class="page"><div class="wrap"><p class="eyebrow">Code Atlas · Offline guide</p><h1>Read the code story at your own pace.</h1><p>This file works without Code Atlas or a network connection. ${escapeHtml(excerptMessage)} ${escapeHtml(narrationMessage)}</p><p class="notice">Privacy review: this package includes selected chapter explanations and the source paths shown below${includeExcerpts ? ', plus the cited excerpts listed in the export preview' : ''}${manifest.features.narrationAudio === 'included' ? ', plus cached narration audio for the sections listed in the export preview' : ''}. Source excerpts can contain sensitive code. Provider configuration and the local repository checkout are not part of this package. Common credential patterns and hidden paths are filtered; review the exported text before sharing.</p></div></header>
+<main class="wrap"><div class="guide-layout"><nav class="contents" aria-label="Guide contents"><h2>Chapters and sections</h2><ol>${contents}</ol></nav><div class="guide">${renderedChapters}<details class="manifest"><summary>Package manifest · schema ${manifest.schemaVersion}</summary><p>Revision IDs, evidence snapshots, and hashes for included excerpts, typed diagram data, and narration audio.</p><pre>${manifestText}</pre></details></div></div><footer class="page-footer">Exported by Code Atlas. This static package does not execute chapter content or open local source files.</footer></main>
 </body>
 </html>`;
 }

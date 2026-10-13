@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { applyPronunciationLexicon, narrationPreferencesMatch } from '../src/lib/narration.ts';
+import {
+  applyPronunciationLexicon,
+  DEFAULT_NARRATION_STYLE,
+  DEFAULT_NARRATION_VOICE,
+  narrationPreferencesMatch,
+  parseNarrationPreferences,
+} from '../src/lib/narration.ts';
 
 const preferences = (overrides = {}) => ({
   spokenText: 'Explain the cacheKey.',
@@ -11,6 +17,22 @@ const preferences = (overrides = {}) => ({
 });
 
 describe('narration cache request snapshots', () => {
+  it('parses saved section preferences and falls back safely for malformed storage', () => {
+    assert.deepEqual(parseNarrationPreferences('{"spokenText":"Saved script","voice":"Puck","style":"Gentle","lexicon":[{"name":"foo","sayAs":"f oo","include":true},null]}', 'Chapter script'), {
+      spokenText: 'Saved script',
+      voice: 'Puck',
+      style: 'Gentle',
+      lexicon: [{ name: 'foo', sayAs: 'f oo', include: true }],
+    });
+    assert.deepEqual(parseNarrationPreferences('{broken', 'Chapter script'), {
+      spokenText: 'Chapter script',
+      voice: DEFAULT_NARRATION_VOICE,
+      style: DEFAULT_NARRATION_STYLE,
+      lexicon: [],
+    });
+    assert.deepEqual(parseNarrationPreferences(null, 'Chapter script').spokenText, 'Chapter script');
+  });
+
   it('accepts cached audio only while the transcript and speech settings still match', () => {
     const requested = preferences();
     assert.equal(narrationPreferencesMatch(requested, preferences()), true);

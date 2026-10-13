@@ -74,6 +74,25 @@ const chapter = ({ revisionId = 'revision:one', lifecycle = 'accepted', target =
   sections,
 });
 
+const narrationWav = () => {
+  const wav = Buffer.alloc(46);
+  wav.write('RIFF', 0);
+  wav.writeUInt32LE(wav.length - 8, 4);
+  wav.write('WAVE', 8);
+  wav.write('fmt ', 12);
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(24_000, 24);
+  wav.writeUInt32LE(48_000, 28);
+  wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write('data', 36);
+  wav.writeUInt32LE(2, 40);
+  wav.writeInt16LE(120, 44);
+  return wav;
+};
+
 describe('offline chapter export', () => {
   it('includes only selected accepted revisions and records revision and snapshot identities', async () => {
     const accepted = chapter();
@@ -120,6 +139,76 @@ describe('offline chapter export', () => {
     assert.match(result.html, /Typed diagram data · JSON/);
   });
 
+  it('embeds only selected cached WAV tracks and records their byte hashes in schema 2', async () => {
+    const wav = narrationWav();
+    const audio = {
+      chapterRevisionId: 'revision:one',
+      sectionId: 'section:request',
+      audio: {
+        fingerprint: 'b'.repeat(64),
+        mimeType: 'audio/wav',
+        audioBase64: wav.toString('base64'),
+        cacheHit: true,
+      },
+    };
+    const result = await buildOfflineGuideHtml([chapter()], {
+      selectedRevisionIds: ['revision:one'],
+      includeExcerpts: false,
+      includeNarrationAudio: true,
+      narrationAudio: [audio],
+      exportedAtUnixMs: 10,
+    });
+    const bundled = result.manifest.assets.find((asset) => asset.kind === 'narrationAudio');
+    assert.equal(result.manifest.schemaVersion, 2);
+    assert.equal(result.manifest.features.narrationAudio, 'included');
+    assert.deepEqual(bundled, {
+      assetId: 'narration:revision:one:section:request',
+      kind: 'narrationAudio',
+      mediaType: 'audio/wav',
+      chapterRevisionId: 'revision:one',
+      snapshotId: 'snapshot:fixture',
+      sectionId: 'section:request',
+      cacheFingerprint: 'b'.repeat(64),
+      sha256: createHash('sha256').update(wav).digest('hex'),
+      byteLength: wav.length,
+    });
+    assert.match(result.html, /media-src data:/);
+    assert.match(result.html, /<audio controls preload="none" aria-label="Narration for Handle a request" src="data:audio\/wav;base64,/);
+    assert.match(result.html, /Selected cached narration is bundled in its matching sections/);
+    assert.doesNotMatch(result.html, /https?:\/\//);
+  });
+
+  it('reports when audio was requested but no matching cached track exists', async () => {
+    const result = await buildOfflineGuideHtml([chapter()], {
+      selectedRevisionIds: ['revision:one'],
+      includeExcerpts: false,
+      includeNarrationAudio: true,
+    });
+    assert.equal(result.manifest.features.narrationAudio, 'none-cached');
+    assert.equal(result.manifest.assets.some((asset) => asset.kind === 'narrationAudio'), false);
+    assert.match(result.html, /no cached section audio was available/);
+    assert.doesNotMatch(result.html, /<audio /);
+  });
+
+  it('rejects malformed or unsupported narration assets before producing a package', async () => {
+    const invalid = {
+      chapterRevisionId: 'revision:one',
+      sectionId: 'section:request',
+      audio: {
+        fingerprint: 'c'.repeat(64),
+        mimeType: 'audio/wav',
+        audioBase64: Buffer.from('not a WAV').toString('base64'),
+        cacheHit: true,
+      },
+    };
+    await assert.rejects(buildOfflineGuideHtml([chapter()], {
+      selectedRevisionIds: ['revision:one'],
+      includeExcerpts: false,
+      includeNarrationAudio: true,
+      narrationAudio: [invalid],
+    }), /not the supported 24 kHz mono PCM WAV format/);
+  });
+
   it('has an explicit omit-excerpts mode while keeping path and line metadata', async () => {
     const result = await buildOfflineGuideHtml([chapter()], {
       selectedRevisionIds: ['revision:one'], includeExcerpts: false, exportedAtUnixMs: 10,
@@ -155,7 +244,7 @@ describe('offline chapter export', () => {
     assert.match(result.html, /Previous: &lt;script&gt;steal/);
     assert.match(result.html, /Continue: Handle a request/);
     assert.match(result.html, /&lt;svg onload=steal\(\)&gt;/);
-    assert.match(result.html, /not included|Narration audio is not bundled/);
+    assert.match(result.html, /Narration audio was not selected/);
   });
 
   it('omits hidden references and redacts common secrets and local paths from copied prose and excerpts', async () => {

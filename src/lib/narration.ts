@@ -5,6 +5,36 @@ export interface NarrationPreferencesSnapshot {
   lexicon: Array<{ name: string; sayAs: string; include: boolean }>;
 }
 
+export const DEFAULT_NARRATION_VOICE = 'Kore';
+export const DEFAULT_NARRATION_STYLE = 'Clear, calm, conversational.';
+
+/** Decode the saved per-section narration preferences without trusting storage data. */
+export function parseNarrationPreferences(
+  serialized: string | null,
+  fallbackText: string,
+): NarrationPreferencesSnapshot {
+  const fallback: NarrationPreferencesSnapshot = {
+    spokenText: fallbackText,
+    voice: DEFAULT_NARRATION_VOICE,
+    style: DEFAULT_NARRATION_STYLE,
+    lexicon: [],
+  };
+  if (!serialized) return fallback;
+  try {
+    const parsed = JSON.parse(serialized) as Partial<NarrationPreferencesSnapshot>;
+    return {
+      spokenText: typeof parsed.spokenText === 'string' ? parsed.spokenText : fallbackText,
+      voice: typeof parsed.voice === 'string' ? parsed.voice : DEFAULT_NARRATION_VOICE,
+      style: typeof parsed.style === 'string' ? parsed.style : DEFAULT_NARRATION_STYLE,
+      lexicon: Array.isArray(parsed.lexicon)
+        ? parsed.lexicon.filter(isPronunciationEntry).slice(0, 12)
+        : [],
+    };
+  } catch {
+    return fallback;
+  }
+}
+
 /** Apply the enabled, whole-identifier pronunciation substitutions sent to TTS. */
 export function applyPronunciationLexicon(
   spokenText: string,
@@ -50,4 +80,11 @@ export function narrationPreferencesMatch(
 
 function isIdentifierCharacter(character: string | undefined): boolean {
   return Boolean(character && /[\p{L}\p{N}_$]/u.test(character));
+}
+
+function isPronunciationEntry(value: unknown): value is NarrationPreferencesSnapshot['lexicon'][number] {
+  return Boolean(value && typeof value === 'object'
+    && typeof (value as NarrationPreferencesSnapshot['lexicon'][number]).name === 'string'
+    && typeof (value as NarrationPreferencesSnapshot['lexicon'][number]).sayAs === 'string'
+    && typeof (value as NarrationPreferencesSnapshot['lexicon'][number]).include === 'boolean');
 }

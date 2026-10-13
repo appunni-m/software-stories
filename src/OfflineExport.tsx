@@ -1,21 +1,41 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { AlertTriangle, Download, FileCode2, X } from 'lucide-react';
-import type { ChapterRevision } from './lib/commands';
+import {
+  buildNarrationRequestReview,
+  discardNarrationRequestReview,
+  isNativeRuntime,
+  loadReviewedNarrationAudio,
+  type ChapterRevision,
+} from './lib/commands';
+import { parseNarrationPreferences } from './lib/narration';
 import {
   buildOfflineExportPreview,
   buildOfflineGuideHtml,
   isOfflineExportableRevision,
+  type OfflineNarrationAudio,
   type OfflineExportPreview,
 } from './lib/offlineExport';
 
 interface OfflineExportProps {
+  projectId: string;
   revisions: ChapterRevision[];
 }
 
-export function OfflineExport({ revisions }: OfflineExportProps) {
+interface CachedNarrationPreview extends OfflineNarrationAudio {
+  chapterTitle: string;
+  sectionTitle: string;
+}
+
+type NarrationCacheScanState = 'idle' | 'loading' | 'ready' | 'desktop-only' | 'unavailable';
+
+export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
   const [open, setOpen] = useState(false);
   const [selectedRevisionIds, setSelectedRevisionIds] = useState<string[]>([]);
   const [includeExcerpts, setIncludeExcerpts] = useState(true);
+  const [includeNarrationAudio, setIncludeNarrationAudio] = useState(false);
+  const [cachedNarration, setCachedNarration] = useState<CachedNarrationPreview[]>([]);
+  const [narrationCacheScan, setNarrationCacheScan] = useState<NarrationCacheScanState>('idle');
+  const [missingNarrationCount, setMissingNarrationCount] = useState(0);
   const [privacyReviewed, setPrivacyReviewed] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,11 +62,89 @@ export function OfflineExport({ revisions }: OfflineExportProps) {
 
   const selectedSet = new Set(selectedRevisionIds);
   const selected = exportableRevisions.filter((revision) => selectedSet.has(revision.revisionId));
+  const selectedRevisionKey = selected.map((revision) => revision.revisionId).join('\u0000');
   const preview: OfflineExportPreview = useMemo(
     () => buildOfflineExportPreview(selected, selectedRevisionIds, includeExcerpts),
     [selected, selectedRevisionIds, includeExcerpts],
   );
   const hiddenTargetCount = acceptedRevisions.length - exportableRevisions.length;
+
+  useEffect(() => {
+    let active = true;
+    if (!open || !includeNarrationAudio) {
+      setCachedNarration([]);
+      setMissingNarrationCount(0);
+      setNarrationCacheScan('idle');
+      return () => { active = false; };
+    }
+    if (!isNativeRuntime()) {
+      setCachedNarration([]);
+      setMissingNarrationCount(selected.reduce((count, revision) => count + revision.sections.filter((section) => section.spokenText.trim()).length, 0));
+      setNarrationCacheScan('desktop-only');
+      return () => { active = false; };
+    }
+
+    const selectedIds = new Set(selectedRevisionKey ? selectedRevisionKey.split('\u0000') : []);
+    const revisionsToScan = exportableRevisions.filter((revision) => selectedIds.has(revision.revisionId));
+    setCachedNarration([]);
+    setMissingNarrationCount(0);
+    setNarrationCacheScan('loading');
+    void (async () => {
+      const found: CachedNarrationPreview[] = [];
+      let missing = 0;
+      let unavailable = false;
+      for (const revision of revisionsToScan) {
+        for (const section of revision.sections) {
+          if (!active) return;
+          if (!section.spokenText.trim()) continue;
+          const storageKey = `code-atlas:narration:${projectId}:${revision.chapterId}:${revision.revisionId}:${section.sectionId}`;
+          let serialized: string | null = null;
+          try { serialized = window.localStorage.getItem(storageKey); } catch { /* Accepted chapter script remains the fallback. */ }
+          const preferences = parseNarrationPreferences(serialized, section.spokenText);
+          let reviewId: string | null = null;
+          try {
+            const reviewResult = await buildNarrationRequestReview(preferences);
+            if (reviewResult.status !== 'ok') {
+              missing += 1;
+              unavailable = true;
+              continue;
+            }
+            const review = reviewResult.data;
+            reviewId = review.reviewId;
+            if (!active) continue;
+            if (!review.cachedAudioAvailable) {
+              missing += 1;
+              continue;
+            }
+            const audioResult = await loadReviewedNarrationAudio({ reviewId: review.reviewId, fingerprint: review.fingerprint });
+            if (!active) continue;
+            if (audioResult.status === 'ok' && audioResult.data.fingerprint === review.fingerprint) {
+              found.push({
+                chapterRevisionId: revision.revisionId,
+                sectionId: section.sectionId,
+                audio: audioResult.data,
+                chapterTitle: revision.title,
+                sectionTitle: section.title,
+              });
+            } else {
+              missing += 1;
+              unavailable = true;
+            }
+          } catch {
+            missing += 1;
+            unavailable = true;
+          } finally {
+            if (reviewId) await discardNarrationRequestReview(reviewId).catch(() => {});
+          }
+        }
+      }
+      if (!active) return;
+      setCachedNarration(found);
+      setMissingNarrationCount(missing);
+      setNarrationCacheScan(unavailable ? 'unavailable' : 'ready');
+    })();
+    return () => { active = false; };
+  }, [open, includeNarrationAudio, projectId, selectedRevisionKey]);
 
   useEffect(() => {
     if (!open) return;
@@ -85,7 +183,12 @@ export function OfflineExport({ revisions }: OfflineExportProps) {
     setExporting(true);
     setError(null);
     try {
-      const result = await buildOfflineGuideHtml(acceptedRevisions, { selectedRevisionIds, includeExcerpts });
+      const result = await buildOfflineGuideHtml(acceptedRevisions, {
+        selectedRevisionIds,
+        includeExcerpts,
+        includeNarrationAudio,
+        narrationAudio: cachedNarration,
+      });
       const blob = new Blob([result.html], { type: 'text/html;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
@@ -161,7 +264,7 @@ export function OfflineExport({ revisions }: OfflineExportProps) {
             <div className="provider-dialog-content offline-export-content">
               <section className="offline-export-callout" aria-label="Offline feature limits">
                 <FileCode2 size={16} />
-                <p><strong>What works offline:</strong> written sections, cited source excerpts when included, section navigation, and supported typed diagrams. <strong>Not included:</strong> narration audio and live Atlas or Code Lens destinations. Legacy or malformed diagrams show a message instead of running chapter-provided markup.</p>
+                <p><strong>What works offline:</strong> written sections, cited source excerpts when included, section navigation, supported typed diagrams, and cached narration when selected. <strong>Not included:</strong> live Atlas or Code Lens destinations. Legacy or malformed diagrams show a message instead of running chapter-provided markup.</p>
               </section>
 
               <section className="offline-export-chapters" aria-labelledby="offline-export-chapters-title">
@@ -214,17 +317,36 @@ export function OfflineExport({ revisions }: OfflineExportProps) {
                 {preview.redactedCredentials > 0 && <p className="offline-export-muted">Likely credential values were redacted from {preview.redactedCredentials} text field{preview.redactedCredentials === 1 ? '' : 's'}.</p>}
               </section>
 
+              <section className="offline-export-audio" aria-labelledby="offline-export-audio-title">
+                <div className="offline-export-section-heading"><div><span className="provider-kicker">OPTIONAL LOCAL ASSET</span><h3 id="offline-export-audio-title">Cached narration</h3></div><span>{includeNarrationAudio ? `${cachedNarration.length} available` : 'not selected'}</span></div>
+                <label className="offline-export-include-option">
+                  <input type="checkbox" checked={includeNarrationAudio} disabled={!isNativeRuntime()} onChange={(event) => { setIncludeNarrationAudio(event.target.checked); setPrivacyReviewed(false); setError(null); }} />
+                  <span><strong>Include audio already saved on this Mac</strong><small>This only reads local audio caches. It never generates speech or sends a provider request.</small></span>
+                </label>
+                {!isNativeRuntime() && <p className="offline-export-muted">Cached narration can be bundled from the desktop app after it has been generated there.</p>}
+                {includeNarrationAudio && narrationCacheScan === 'loading' && <p className="offline-export-muted" role="status">Checking selected sections for locally cached audio…</p>}
+                {includeNarrationAudio && narrationCacheScan === 'ready' && cachedNarration.length === 0 && <p className="offline-export-muted" role="status">No cached narration was found. The guide will remain text-only.</p>}
+                {includeNarrationAudio && narrationCacheScan === 'unavailable' && <p className="offline-export-muted" role="status">Some saved audio could not be read. Only verified cached tracks will be included; no new narration request was sent.</p>}
+                {includeNarrationAudio && narrationCacheScan === 'desktop-only' && <p className="offline-export-muted" role="status">No desktop audio cache is available in this browser preview.</p>}
+                {includeNarrationAudio && cachedNarration.length > 0 && (
+                  <div className="offline-export-audio-list" aria-label="Cached narration selected for export">
+                    {cachedNarration.map((entry) => <p key={`${entry.chapterRevisionId}:${entry.sectionId}`}><strong>{entry.chapterTitle}</strong><span>{entry.sectionTitle}</span></p>)}
+                    {missingNarrationCount > 0 && <p className="offline-export-muted">{missingNarrationCount} selected section{missingNarrationCount === 1 ? ' has' : 's have'} no matching cached audio and will remain transcript-only.</p>}
+                  </div>
+                )}
+              </section>
+
               <div className="offline-export-privacy" role="note">
                 <AlertTriangle size={16} />
-                <p><strong>Privacy review:</strong> cited excerpts are real source code and may contain sensitive material. Common credentials, hidden paths, and local checkout paths are filtered, but automatic filtering cannot catch every secret. Review the preview before sharing. The package does not include provider configuration or the repository checkout.</p>
+                <p><strong>Privacy review:</strong> cited excerpts are real source code and may contain sensitive material. Common credentials, hidden paths, and local checkout paths are filtered, but automatic filtering cannot catch every secret. Selected narration is embedded as playable audio. Review both the text and audio selections before sharing. The package does not include provider configuration or the repository checkout.</p>
               </div>
               <label className="offline-export-confirm"><input type="checkbox" checked={privacyReviewed} onChange={(event) => setPrivacyReviewed(event.target.checked)} /><span>I reviewed the selected chapter content and understand what will be included.</span></label>
               {error && <div className="provider-error" role="alert"><AlertTriangle size={15} /><div><strong>Export failed</strong><span>{error}</span></div></div>}
             </div>
 
             <footer className="provider-dialog-footer offline-export-footer">
-              <span>{selected.length} accepted {selected.length === 1 ? 'chapter' : 'chapters'} · {includeExcerpts ? `${preview.includedExcerptCount} excerpts` : 'excerpts omitted'}</span>
-              <div><button className="secondary-button" onClick={close} disabled={exporting}>Cancel</button><button className="primary-button" onClick={() => void download()} disabled={!privacyReviewed || selected.length === 0 || exporting}>{exporting ? 'Preparing…' : 'Download HTML'} <Download size={14} /></button></div>
+              <span>{selected.length} accepted {selected.length === 1 ? 'chapter' : 'chapters'} · {includeExcerpts ? `${preview.includedExcerptCount} excerpts` : 'excerpts omitted'}{includeNarrationAudio ? ` · ${cachedNarration.length} audio tracks` : ''}</span>
+              <div><button className="secondary-button" onClick={close} disabled={exporting}>Cancel</button><button className="primary-button" onClick={() => void download()} disabled={!privacyReviewed || selected.length === 0 || exporting || (includeNarrationAudio && narrationCacheScan === 'loading')}>{exporting ? 'Preparing…' : 'Download HTML'} <Download size={14} /></button></div>
             </footer>
           </section>
         </div>

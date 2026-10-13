@@ -36,7 +36,7 @@ This last command starts a browser-only UI preview at http://127.0.0.1:1420. It 
 4. Open **Guide Plan** from the project-tools menu. It keeps every recorded path visible and shows whether a file still needs a chapter, has a draft or accepted revision, is excluded, or is unavailable or unsupported.
 5. Open **Chapter Studio** from the same menu. Select a file with no chapter for the current snapshot and choose **Generate current snapshot** only if you want to try Gemini. The generated result starts as a preview or draft and is not automatically accepted.
 6. After reviewing and accepting a chapter, open **Walkthrough**. Select a chapter and section, inspect its citations or visual hotspots, and use **Previous** or **Continue** when you are ready to move. Audio is optional; the transcript and manual controls remain available without it.
-7. To take a guide offline, choose **Offline export** in the Walkthrough footer. Select accepted revisions, review the source paths and excerpts included, acknowledge the privacy review, and download the single HTML file. The current export includes written sections, navigation, and supported typed diagrams; it does not include narration audio or live Atlas/Code Lens destinations.
+7. To take a guide offline, choose **Offline export** in the Walkthrough footer. Select accepted revisions, review the source paths and excerpts included, optionally include narration audio already cached on this Mac, acknowledge the privacy review, and download the single HTML file. Export never generates or sends narration. The package includes written sections, navigation, and supported typed diagrams; live Atlas and Code Lens destinations remain unavailable offline.
 
 ## Optional Gemini generation
 

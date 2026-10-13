@@ -67,6 +67,14 @@ typed visual labels are escaped, hidden references and common credentials are
 omitted or redacted, and unsafe target paths are not exported:
 tests/offlineExport.test.mjs.
 
+When the user opts in, export reads narration only through a local, reviewed
+cache lookup; it never starts TTS or sends a provider request. Each selected
+track must match the section's current narration fingerprint and the supported
+24 kHz mono PCM WAV format. The package hashes the decoded audio bytes, embeds
+them as `data:audio/wav`, and permits only that media source in its content
+security policy. Each track is capped at 12 MiB and the complete HTML package
+remains capped at 25 MiB.
+
 ## Package-format scope
 
 There is no general-purpose package/archive import endpoint in the current
