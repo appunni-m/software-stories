@@ -904,6 +904,19 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .chapter-freshness-change > div:first-child span { flex: 0 0 auto; color: #8d9b8e; font: 7px var(--mono); text-transform: capitalize; }
 .chapter-freshness-unavailable, .chapter-freshness-clear { color: #87958b; font-size: 8px; }
 .chapter-freshness-clear { margin: 8px 0 0; }
+.chapter-freshness-section .chapter-section-title-row > button { flex: 0 0 auto; margin-left: auto; }
+.chapter-freshness-assets { display: grid; gap: 5px; margin-top: 9px; padding: 8px; border: 1px solid #2a3930; border-radius: 5px; color: #8f9f92; background: #0d140f; font-size: 8px; line-height: 1.5; }
+.chapter-freshness-assets > strong { color: #c1d0c1; font-size: 8px; }
+.chapter-freshness-assets ul { display: grid; gap: 3px; margin: 0; padding-left: 15px; }
+.chapter-freshness-assets code { color: #a9c59d; font: 7px var(--mono); overflow-wrap: anywhere; }
+.chapter-source-diff { margin-top: 4px; border-top: 1px solid #25332a; color: #aebcaf; }
+.chapter-source-diff summary { width: fit-content; padding: 4px 0; color: #a7c89b; cursor: pointer; font-size: 8px; }
+.chapter-source-diff-labels { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; color: #87998b; font: 7px var(--mono); }
+.chapter-source-diff-lines { max-height: 280px; overflow: auto; margin: 0; padding: 7px; border: 1px solid #26342a; border-radius: 4px; background: #090e0a; color: #b7c4b9; font: 7px/1.55 var(--mono); white-space: pre; }
+.chapter-source-diff-lines span { display: block; min-width: max-content; }
+.chapter-source-diff-lines .diff-removed { color: #e1a49a; background: #291713; }
+.chapter-source-diff-lines .diff-added { color: #b0d39e; background: #142119; }
+.chapter-freshness-section .chapter-source-diff > p { margin: 4px 0; }
 .chapter-rejection-form { display: grid; gap: 7px; margin: 8px 0; padding: 9px; border: 1px solid #674b42; border-radius: 6px; background: #1a1412; }
 .chapter-rejection-form label { display: grid; gap: 5px; color: #d2aca2; font-size: 8px; }
 .chapter-rejection-form > div { display: flex; justify-content: flex-end; gap: 6px; }
@@ -1253,6 +1266,10 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .provider-context-files small { color: #78888e; font: 8px var(--mono); }
 .provider-context-files > p { padding: 0 9px; }
 .provider-context-picker > .provider-small-note { margin-bottom: 0; }
+.provider-section-path-list { display: grid; gap: 4px; margin: 7px 0; padding-left: 16px; }
+.provider-section-path-list li { display: flex; justify-content: space-between; gap: 8px; color: #b4c1c5; font-size: 8px; }
+.provider-section-path-list code { overflow-wrap: anywhere; font: 8px var(--mono); }
+.provider-section-path-list small { color: #91a1a8; font: 7px var(--mono); }
 .provider-cancel-confirm { margin: 10px 0; padding: 11px; border: 1px solid #70443d; border-radius: 7px; background: #241614; }
 .provider-cancel-confirm > strong { color: #f0cbc5; font-size: 10px; }
 .provider-cancel-confirm > p { margin: 6px 0 10px; color: #e1b7b0; font-size: 9px; line-height: 1.55; }
@@ -1288,6 +1305,13 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .provider-response > div { padding: 11px 12px 0; }
 .provider-response h4 { margin: 5px 0 0; color: #d8e7cf; font-size: 11px; }
 .provider-response p { margin: 7px 12px 10px; color: #9dad9a; font-size: 9px; line-height: 1.5; }
+.section-update-preview-summary { display: grid; gap: 5px; margin: 10px 12px; padding: 9px; border: 1px solid #2d3c30; border-radius: 5px; background: #0d140f; }
+.section-update-preview-summary > strong { color: #c5d5c2; font-size: 8px; }
+.section-update-preview-summary > div { display: grid; grid-template-columns: 105px minmax(0, 1fr); gap: 3px 8px; padding: 4px 0; border-top: 1px solid #243027; }
+.section-update-preview-summary > div > span { color: #a7c898; font-size: 8px; }
+.section-update-preview-summary > div > code { overflow-wrap: anywhere; color: #c0cbbd; font: 8px var(--mono); }
+.section-update-preview-summary > div > small { grid-column: 2; overflow-wrap: anywhere; color: #76867b; font: 7px var(--mono); }
+.section-update-preview-summary > p { margin: 4px 0 0; }
 .provider-response small { display: block; padding: 8px 12px; color: #87968b; font: 8px var(--mono); }
 .provider-index-preview { margin-top: 9px; border: 1px solid #2a353d; border-radius: 6px; background: #0f151a; }
 .provider-index-preview > summary { padding: 10px; color: #bfccca; font-size: 10px; cursor: pointer; }

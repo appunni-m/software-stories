@@ -175,6 +175,8 @@ pub struct ChapterDraftPreview {
     pub model_version: Option<String>,
     pub input_tokens: Option<u64>,
     pub output_tokens: Option<u64>,
+    #[serde(default)]
+    pub update_notes: Vec<String>,
 }
 
 #[derive(Clone)]

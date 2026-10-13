@@ -753,6 +753,25 @@ fn audio_cache_key(
     )
 }
 
+#[cfg(test)]
+pub(crate) fn audio_cache_key_for_script(
+    exact_text: &str,
+    model: &str,
+    voice: &str,
+    style: &str,
+    format: &str,
+) -> String {
+    let request_segments = split_spoken_text(exact_text, MAX_TTS_REQUEST_TEXT_BYTES);
+    audio_cache_key(
+        &sha256(exact_text.as_bytes()),
+        &request_segments,
+        model,
+        voice,
+        style,
+        format,
+    )
+}
+
 fn request_fingerprint(
     cache_key: &str,
     disclosure_version: &str,

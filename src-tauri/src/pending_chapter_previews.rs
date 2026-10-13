@@ -469,6 +469,7 @@ mod tests {
             model_version: Some("model-version".to_owned()),
             input_tokens: Some(4),
             output_tokens: Some(8),
+            update_notes: Vec::new(),
         }
     }
 

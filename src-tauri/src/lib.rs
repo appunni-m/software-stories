@@ -628,7 +628,11 @@ fn save_pending_chapter_draft(
     }
     let mut revision = revision;
     revision.validation_status = chapters::ValidationStatus::Valid;
-    let saved = chapter_store::save_new_draft(storage_dir, revision)?;
+    let saved = if revision.based_on_revision_id.is_some() {
+        chapter_store::append_review_revision(storage_dir, revision)?
+    } else {
+        chapter_store::save_new_draft(storage_dir, revision)?
+    };
     pending_chapter_previews::remove(storage_dir, generation_id)?;
     drafts.remove(generation_id);
     Ok(saved)
@@ -1280,7 +1284,7 @@ fn prepare_chapter_draft_preview(
         .iter()
         .map(|relationship| relationship.relationship_id.clone())
         .collect::<std::collections::HashSet<_>>();
-    let mut revision = match (review.purpose.as_str(), review.target_path.as_deref()) {
+    let (mut revision, update_notes) = match (review.purpose.as_str(), review.target_path.as_deref()) {
         ("fileChapter", Some(target_path)) => chapter_generation::canonicalize_file_chapter(
             &review.project_id,
             &manifest,
@@ -1289,7 +1293,7 @@ fn prepare_chapter_draft_preview(
             &sources,
             &allowed_relationships,
             &result.response_text,
-        ),
+        ).map(|revision| (revision, Vec::new())),
         ("repositoryOverview", None) => chapter_generation::canonicalize_repository_overview(
             &review.project_id,
             &manifest,
@@ -1297,7 +1301,28 @@ fn prepare_chapter_draft_preview(
             &sources,
             &allowed_relationships,
             &result.response_text,
-        ),
+        ).map(|revision| (revision, Vec::new())),
+        ("sectionUpdate", Some(_)) => {
+            let context = review.section_update_context.as_ref().ok_or_else(|| failure(
+                provider::ProviderFailureKind::InvalidReview,
+                "The one-section request is missing its selected chapter identity.".to_owned(),
+            ))?;
+            let history = chapter_store::list_for_project(storage_dir, &review.project_id)
+                .map_err(|message| failure(provider::ProviderFailureKind::ReviewUnavailable, message))?;
+            let base = history.iter().find(|revision| revision.revision_id == context.chapter_revision_id)
+                .ok_or_else(|| failure(provider::ProviderFailureKind::ReviewUnavailable, "The accepted chapter revision is no longer available. No draft was created.".to_owned()))?;
+            chapter_generation::canonicalize_section_update(
+                storage_dir,
+                base,
+                &manifest,
+                snapshot_index.as_ref(),
+                &sources,
+                &context.section_id,
+                &context.section_revision_id,
+                &allowed_relationships,
+                &result.response_text,
+            )
+        },
         _ => Err("The reviewed request purpose and target do not match.".to_owned()),
     }
     .map_err(|message| {
@@ -1337,6 +1362,7 @@ fn prepare_chapter_draft_preview(
         model_version: result.model_version,
         input_tokens: result.input_tokens,
         output_tokens: result.output_tokens,
+        update_notes,
     };
     if let Err(message) = pending_chapter_previews::save(storage_dir, &preview) {
         drafts.remove(&preview.generation_id);
@@ -1440,6 +1466,7 @@ mod chapter_pipeline_tests {
                 target_path: Some(SIMPLE_PATH.to_owned()),
                 selected_paths: vec![SIMPLE_PATH.to_owned()],
                 model_id: "gemini-3.8-flash".to_owned(),
+                section_update: None,
             },
         )
         .unwrap()
@@ -1459,6 +1486,353 @@ mod chapter_pipeline_tests {
             input_tokens: Some(100),
             output_tokens: Some(50),
         }
+    }
+
+    #[test]
+    fn selected_stale_section_regenerates_without_changing_other_section_or_asset_ids() {
+        let mut fixture = Fixture::new();
+        let mut proposal = simple_proposal();
+        let stable_quote = "overlapping = \"aaaaaaaaa\"";
+        let stable_prose = "overlapping stores the repeated literal in one local constant without changing repository state.";
+        proposal.sections.push(chapters::GeneratedChapterSection {
+            title: "The unrelated overlap marker".to_owned(),
+            prose: stable_prose.to_owned(),
+            spoken_text:
+                "The overlapping constant holds one repeated literal for this local example."
+                    .to_owned(),
+            claims: vec![chapters::GeneratedChapterClaim {
+                category: "codeBehavior".to_owned(),
+                aspect: "stateEffect".to_owned(),
+                prose: stable_prose.to_owned(),
+                inference_basis: String::new(),
+                identifiers: vec!["overlapping".to_owned()],
+                evidence: vec![chapters::GeneratedChapterEvidence {
+                    path: SIMPLE_PATH.to_owned(),
+                    quote: stable_quote.to_owned(),
+                }],
+                relationship_ids: Vec::new(),
+            }],
+        });
+        proposal.evidence_limits = vec![chapters::GeneratedChapterEvidenceLimit {
+            prose: "overlapping holds one repeated literal here; this captured source does not show how another module uses it.".to_owned(),
+            basis: "Only the selected static source was captured and indexed for this local example.".to_owned(),
+            identifiers: vec!["overlapping".to_owned()],
+            evidence: vec![chapters::GeneratedChapterEvidence {
+                path: SIMPLE_PATH.to_owned(),
+                quote: stable_quote.to_owned(),
+            }],
+        }];
+        let relationships = std::collections::HashSet::new();
+        let mut base = chapter_generation::canonicalize_file_chapter(
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest,
+            Some(&fixture.index),
+            SIMPLE_PATH,
+            &fixture.sources(&[SIMPLE_PATH]),
+            &relationships,
+            &serde_json::to_string(&proposal).unwrap(),
+        )
+        .unwrap();
+        let stable_anchor = base.sections[1].claims[0].anchors[0].anchor_id.clone();
+        base.sections[1].spoken_text =
+            "The overlapping constant keeps this sample's repeated literal.".to_owned();
+        base.sections[1].visual =
+            Some(chapters::ChapterVisualPayload::from(chapters::VisualSpec {
+                schema_version: 2,
+                kind: chapters::VisualKind::DataFlow,
+                title: "The repeated literal".to_owned(),
+                layout_hint: Some(chapters::VisualLayoutHint {
+                    direction: chapters::VisualLayoutDirection::LeftToRight,
+                }),
+                nodes: vec![chapters::VisualNode {
+                    node_id: "node:overlapping".to_owned(),
+                    label: "overlapping".to_owned(),
+                    detail: Some("one module constant".to_owned()),
+                    hotspot_id: None,
+                    evidence_anchor_ids: vec![stable_anchor],
+                }],
+                edges: Vec::new(),
+            }));
+        let initial_validation = chapters::validate_chapter_revision(
+            &fixture.storage,
+            &fixture.manifest,
+            Some(&fixture.index),
+            &base,
+        );
+        assert_eq!(
+            initial_validation.status,
+            chapters::ValidationReportStatus::Valid,
+            "{initial_validation:#?}"
+        );
+        base.validation_status = chapters::ValidationStatus::Valid;
+        let base_draft = chapter_store::save_new_draft(&fixture.storage, base).unwrap();
+        let accepted = chapter_review::accept_draft(
+            &fixture.storage,
+            &Mutex::new(()),
+            &base_draft.project_id,
+            &base_draft.revision_id,
+        )
+        .unwrap()
+        .revision;
+        let accepted_bytes = chapters::encode_chapter_revision(&accepted).unwrap();
+        let old_selected_section = accepted.sections[0].clone();
+        let old_unrelated_section = accepted.sections[1].clone();
+        let old_visual_assets = chapter_freshness::asset_ids_for_revision(&accepted)
+            .into_iter()
+            .filter(|asset| asset.starts_with("visual:"))
+            .collect::<Vec<_>>();
+        assert_eq!(old_visual_assets.len(), 1);
+        let old_unrelated_audio = narration::audio_cache_key_for_script(
+            &old_unrelated_section.spoken_text,
+            "gemini-tts-test",
+            "Kore",
+            "plain",
+            "wav",
+        );
+
+        let multiple_stale_source = chapter_generation::tests::SIMPLE_SOURCE
+            .replace(
+                "return `Hello, ${name}`;",
+                "return `Hello, ${name.trim()}`;",
+            )
+            .replace(
+                "const overlapping = \"aaaaaaaaa\";",
+                "const overlapping = \"bbbbbbbbb\";",
+            );
+        fixture.recapture_with_source(SIMPLE_PATH, &multiple_stale_source);
+        let target = provider::SectionUpdateReviewTarget {
+            chapter_revision_id: accepted.revision_id.clone(),
+            section_id: old_selected_section.section_id.clone(),
+            section_revision_id: old_selected_section.section_revision_id.clone(),
+        };
+        let blocked = provider::build_request_review(
+            &fixture.storage,
+            &provider::BuildProviderReviewInput {
+                project_id: accepted.project_id.clone(),
+                snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                target_path: Some(SIMPLE_PATH.to_owned()),
+                selected_paths: vec![SIMPLE_PATH.to_owned()],
+                model_id: "gemini-3.8-flash".to_owned(),
+                section_update: Some(target.clone()),
+            },
+        )
+        .err()
+        .expect("a second stale section must be resolved before preparing a paid request");
+        assert!(blocked.message.contains("The unrelated overlap marker"));
+        assert!(blocked.message.contains("No request was sent"));
+
+        let current_source = chapter_generation::tests::SIMPLE_SOURCE.replace(
+            "return `Hello, ${name}`;",
+            "return `Hello, ${name.trim()}`;",
+        );
+        fixture.recapture_with_source(SIMPLE_PATH, &current_source);
+        let freshness = chapter_freshness::classify_chapter_freshness(
+            &fixture.storage,
+            &snapshot::load_snapshot_manifest(
+                &fixture.storage,
+                &accepted.project_id,
+                &accepted.snapshot_id,
+            )
+            .unwrap(),
+            Some(
+                &index::load_snapshot_index(
+                    &fixture.storage,
+                    &accepted.project_id,
+                    &accepted.snapshot_id,
+                )
+                .unwrap()
+                .unwrap(),
+            ),
+            &fixture.manifest,
+            Some(&fixture.index),
+            &accepted,
+        )
+        .unwrap();
+        assert_eq!(
+            freshness.sections[0].status,
+            chapter_freshness::SectionFreshnessStatus::Stale,
+            "{freshness:#?}"
+        );
+        assert_eq!(
+            freshness.sections[1].status,
+            chapter_freshness::SectionFreshnessStatus::SafeToCarry,
+            "{freshness:#?}"
+        );
+
+        let request = provider::build_request_review(
+            &fixture.storage,
+            &provider::BuildProviderReviewInput {
+                project_id: accepted.project_id.clone(),
+                snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                target_path: Some(SIMPLE_PATH.to_owned()),
+                selected_paths: vec![SIMPLE_PATH.to_owned()],
+                model_id: "gemini-3.8-flash".to_owned(),
+                section_update: Some(target),
+            },
+        )
+        .unwrap();
+        assert_eq!(request.review.purpose, "sectionUpdate");
+        assert_eq!(
+            request
+                .review
+                .selected_files
+                .iter()
+                .map(|file| file.path.as_str())
+                .collect::<Vec<_>>(),
+            vec![SIMPLE_PATH]
+        );
+        assert!(
+            request
+                .review
+                .user_prompt
+                .contains("Return exactly one JSON object")
+        );
+        assert!(
+            !request
+                .review
+                .user_prompt
+                .contains("The unrelated overlap marker")
+        );
+        assert_eq!(
+            provider::revalidate_request_review(&fixture.storage, &request.review)
+                .unwrap()
+                .review
+                .fingerprint,
+            request.review.fingerprint,
+        );
+
+        let updated_quote =
+            "function greeting(name: string): string {\n    return `Hello, ${name.trim()}`;\n}";
+        let updated_prose = "greeting trims name before placing it in the Hello template string returned from the function.";
+        let generated_section = chapters::GeneratedChapterSection {
+            title: "Trim the name before formatting".to_owned(),
+            prose: updated_prose.to_owned(),
+            spoken_text: "greeting trims the name before returning the Hello string.".to_owned(),
+            claims: vec![chapters::GeneratedChapterClaim {
+                category: "codeBehavior".to_owned(),
+                aspect: "execution".to_owned(),
+                prose: updated_prose.to_owned(),
+                inference_basis: String::new(),
+                identifiers: vec!["greeting".to_owned(), "name".to_owned()],
+                evidence: vec![chapters::GeneratedChapterEvidence {
+                    path: SIMPLE_PATH.to_owned(),
+                    quote: updated_quote.to_owned(),
+                }],
+                relationship_ids: Vec::new(),
+            }],
+        };
+        let pending = chapters::PendingChapterDrafts::default();
+        let preview = prepare_chapter_draft_preview(
+            &fixture.storage,
+            &request.review,
+            response(
+                &request.review,
+                serde_json::to_string(&generated_section).unwrap(),
+            ),
+            &pending,
+        )
+        .unwrap();
+        assert_eq!(
+            preview.validation.status,
+            chapters::ValidationReportStatus::Valid,
+            "{:#?}",
+            preview.validation
+        );
+        assert_eq!(
+            preview.revision.snapshot_id,
+            fixture.manifest.summary.snapshot_id
+        );
+        assert_eq!(
+            preview.revision.based_on_revision_id.as_deref(),
+            Some(accepted.revision_id.as_str())
+        );
+        let next_selected = &preview.revision.sections[0];
+        let next_unrelated = &preview.revision.sections[1];
+        assert_eq!(next_selected.section_id, old_selected_section.section_id);
+        assert_ne!(
+            next_selected.section_revision_id,
+            old_selected_section.section_revision_id
+        );
+        assert_eq!(next_unrelated.section_id, old_unrelated_section.section_id);
+        assert_eq!(
+            next_unrelated.section_revision_id,
+            old_unrelated_section.section_revision_id
+        );
+        assert_eq!(
+            next_unrelated.spoken_text,
+            old_unrelated_section.spoken_text
+        );
+        assert_eq!(next_unrelated.visual, old_unrelated_section.visual);
+        assert_eq!(
+            chapter_freshness::asset_ids_for_revision(&preview.revision)
+                .into_iter()
+                .filter(|asset| asset.starts_with("visual:"))
+                .collect::<Vec<_>>(),
+            old_visual_assets,
+        );
+        assert_eq!(
+            narration::audio_cache_key_for_script(
+                &next_unrelated.spoken_text,
+                "gemini-tts-test",
+                "Kore",
+                "plain",
+                "wav"
+            ),
+            old_unrelated_audio,
+        );
+        assert_ne!(
+            narration::audio_cache_key_for_script(
+                &next_selected.spoken_text,
+                "gemini-tts-test",
+                "Kore",
+                "plain",
+                "wav"
+            ),
+            narration::audio_cache_key_for_script(
+                &old_selected_section.spoken_text,
+                "gemini-tts-test",
+                "Kore",
+                "plain",
+                "wav"
+            ),
+        );
+        assert_eq!(
+            chapters::encode_chapter_revision(&accepted).unwrap(),
+            accepted_bytes
+        );
+
+        let saved = save_pending_chapter_draft(
+            &fixture.storage,
+            &pending,
+            &Mutex::new(()),
+            &preview.generation_id,
+        )
+        .unwrap();
+        assert_eq!(saved.lifecycle, chapters::RevisionLifecycle::Draft);
+        assert_eq!(
+            saved.based_on_revision_id.as_deref(),
+            Some(accepted.revision_id.as_str())
+        );
+        let new_accepted = chapter_review::accept_draft(
+            &fixture.storage,
+            &Mutex::new(()),
+            &saved.project_id,
+            &saved.revision_id,
+        )
+        .unwrap();
+        assert_eq!(
+            new_accepted.validation.status,
+            chapters::ValidationReportStatus::Valid
+        );
+        assert_eq!(
+            chapters::encode_chapter_revision(&accepted).unwrap(),
+            accepted_bytes
+        );
+        let history =
+            chapter_store::list_for_project(&fixture.storage, &accepted.project_id).unwrap();
+        assert!(history.contains(&accepted));
+        assert!(history.contains(&saved));
+        assert!(history.contains(&new_accepted.revision));
     }
 
     #[test]
@@ -1546,6 +1920,7 @@ mod chapter_pipeline_tests {
                 target_path: None,
                 selected_paths: vec![SIMPLE_PATH.to_owned(), "src/names.ts".to_owned()],
                 model_id: "gemini-3.8-flash".to_owned(),
+                section_update: None,
             },
         )
         .unwrap()
@@ -1651,6 +2026,7 @@ mod chapter_pipeline_tests {
                 target_path: None,
                 selected_paths: vec![SIMPLE_PATH.to_owned(), "src/names.ts".to_owned()],
                 model_id: "gemini-3.8-flash".to_owned(),
+                section_update: None,
             },
         )
         .unwrap()

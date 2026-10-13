@@ -574,6 +574,7 @@ export interface ChapterSectionFreshness {
   evidenceState: ChapterFreshnessEvidenceState;
   reasons: ChapterFreshnessReason[];
   sourceChanges: ChapterFreshnessSourceChange[];
+  narrationScriptSha256: string | null;
 }
 
 export interface ChapterFreshnessReverseDependency {
@@ -774,6 +775,7 @@ export interface ProviderRequestReview {
   selectedRelationships: ProviderRelationshipEvidence[];
   indexEvidenceTruncated: boolean;
   prGuideContext: PrGuideComparisonContext | null;
+  sectionUpdateContext: SectionUpdateReviewTarget | null;
   systemInstruction: string;
   userPrompt: string;
   generationConfig: Record<string, unknown>;
@@ -786,6 +788,12 @@ export interface ProviderRequestReview {
   expiresAtUnixMs: number;
 }
 
+export interface SectionUpdateReviewTarget {
+  chapterRevisionId: string;
+  sectionId: string;
+  sectionRevisionId: string;
+}
+
 export interface ChapterDraftPreview {
   generationId: string;
   revision: ChapterRevision;
@@ -794,6 +802,7 @@ export interface ChapterDraftPreview {
   modelVersion: string | null;
   inputTokens: number | null;
   outputTokens: number | null;
+  updateNotes: string[];
 }
 
 export interface PendingChapterPreviewSummary {
@@ -1052,6 +1061,7 @@ export async function buildGeminiRequestReview(input: {
   targetPath: string | null;
   selectedPaths: string[];
   modelId: string;
+  sectionUpdate?: SectionUpdateReviewTarget | null;
 }): Promise<ProviderCommandResult<ProviderRequestReview>> {
   return invoke<ProviderCommandResult<ProviderRequestReview>>('build_gemini_request_review', { input });
 }

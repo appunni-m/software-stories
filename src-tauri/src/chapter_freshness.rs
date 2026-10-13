@@ -58,6 +58,7 @@ pub struct SectionFreshness {
     pub evidence_state: EvidenceState,
     pub reasons: Vec<FreshnessReason>,
     pub source_changes: Vec<FreshnessSourceChange>,
+    pub narration_script_sha256: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -192,6 +193,12 @@ impl SectionAssessment {
             evidence_state,
             reasons: self.reasons,
             source_changes: self.changes,
+            narration_script_sha256: if section.spoken_text.is_empty() {
+                None
+            } else {
+                let digest = Sha256::digest(section.spoken_text.as_bytes());
+                Some(digest.iter().map(|byte| format!("{byte:02x}")).collect())
+            },
         }
     }
 }
@@ -1733,6 +1740,17 @@ fn build_reverse_dependencies(revision: &ChapterRevision) -> Vec<ReverseDependen
         .collect()
 }
 
+#[cfg(test)]
+pub(crate) fn asset_ids_for_revision(revision: &ChapterRevision) -> Vec<String> {
+    let mut ids = build_reverse_dependencies(revision)
+        .into_iter()
+        .flat_map(|dependency| dependency.asset_ids)
+        .collect::<Vec<_>>();
+    ids.sort();
+    ids.dedup();
+    ids
+}
+
 fn anchor_dependency_key(anchor: &ChapterSourceAnchor) -> String {
     format!(
         "anchor:{}:{}:{}:{}-{}",
@@ -1779,12 +1797,20 @@ fn visual_asset_identity(
 ) -> Option<(String, BTreeSet<String>)> {
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
+    struct AssetAnchorFingerprint<'a> {
+        path: &'a str,
+        symbol_id: Option<&'a str>,
+        excerpt: &'a str,
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
     struct FingerprintInput<'a> {
         renderer_contract_version: u32,
         visual: &'a VisualSpec,
-        evidence_anchors: Vec<&'a ChapterSourceAnchor>,
+        evidence_anchors: Vec<AssetAnchorFingerprint<'a>>,
         used_hotspots: Vec<&'a ChapterHotspot>,
-        destination_anchors: Vec<&'a ChapterSourceAnchor>,
+        destination_anchors: Vec<AssetAnchorFingerprint<'a>>,
     }
 
     let evidence_anchor_ids = visual
@@ -1825,10 +1851,20 @@ fn visual_asset_identity(
     let evidence_anchors = evidence_anchor_ids
         .iter()
         .filter_map(|anchor_id| anchors_by_id.get(anchor_id).copied())
+        .map(|anchor| AssetAnchorFingerprint {
+            path: &anchor.path,
+            symbol_id: anchor.symbol_id.as_deref(),
+            excerpt: &anchor.excerpt,
+        })
         .collect::<Vec<_>>();
     let destination_anchors = destination_anchor_ids
         .iter()
         .filter_map(|anchor_id| anchors_by_id.get(anchor_id).copied())
+        .map(|anchor| AssetAnchorFingerprint {
+            path: &anchor.path,
+            symbol_id: anchor.symbol_id.as_deref(),
+            excerpt: &anchor.excerpt,
+        })
         .collect::<Vec<_>>();
     let input = FingerprintInput {
         renderer_contract_version: chapters::VISUAL_RENDERER_CONTRACT_VERSION,
@@ -2323,7 +2359,7 @@ mod tests {
         );
 
         let mut changed_anchor = original.clone();
-        changed_anchor.sections[0].claims[0].anchors[0].source_sha256 = "b".repeat(64);
+        changed_anchor.sections[0].claims[0].anchors[0].excerpt = "worker() changed".to_owned();
         assert_ne!(
             visual_asset_id(&changed_anchor, "visual-section"),
             original_id
@@ -2332,10 +2368,10 @@ mod tests {
         let mut changed_snapshot_link = original.clone();
         changed_snapshot_link.sections[0].claims[0].anchors[0].snapshot_id =
             "snapshot:next".to_owned();
-        assert_ne!(
+        assert_eq!(
             visual_asset_id(&changed_snapshot_link, "visual-section"),
             original_id,
-            "snapshot-scoped source links are part of visual identity even when source bytes match"
+            "an unchanged visual keeps its identity when its exact citation is carried to a new snapshot"
         );
 
         let mut changed_used_hotspot = original.clone();

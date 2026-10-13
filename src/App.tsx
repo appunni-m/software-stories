@@ -61,6 +61,8 @@ import {
   type HotspotDestination,
   type ChapterValidationReport,
   type ChapterFreshnessReport,
+  type ChapterFreshnessSourceChange,
+  type SectionUpdateReviewTarget,
   type SnapshotIndex,
   type IndexProgress,
   type RelationshipKind,
@@ -151,6 +153,7 @@ type Notice = { title: string; message: string; actionLabel?: string; action?: (
 type ProviderDialogMode =
   | { kind: 'settings'; recoveryOperationId?: string }
   | { kind: 'review'; projectId: string; snapshotId: string; targetPath: string; recoveryOperationId?: string }
+  | { kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string; selectedPaths: string[]; baseRevision: ChapterRevision; sectionUpdate: SectionUpdateReviewTarget }
   | { kind: 'overview'; projectId: string; snapshotId: string; recoveryOperationId?: string };
 
 const workspaceIcons: Record<Workspace, typeof Network> = {
@@ -1420,6 +1423,23 @@ function App() {
                 onClearRevisionRoute={clearStudioRevisionRoute}
                 onOpenFile={openCapturedFile}
                 onGoPlan={() => chooseWorkspace('guide-plan')}
+                onRegenerateSection={(revision, section, selectedPaths) => {
+                  const targetPath = revision.target.scope.kind === 'file' ? revision.target.scope.path : null;
+                  if (!targetPath || !currentProject) return;
+                  setProviderDialog({
+                    kind: 'section-update',
+                    projectId: currentProject.projectId,
+                    snapshotId: selectedSnapshot.snapshotId,
+                    targetPath,
+                    selectedPaths,
+                    baseRevision: revision,
+                    sectionUpdate: {
+                      chapterRevisionId: revision.revisionId,
+                      sectionId: section.sectionId,
+                      sectionRevisionId: section.sectionRevisionId,
+                    },
+                  });
+                }}
                 onGenerateOverview={() => setProviderDialog({
                   kind: 'overview',
                   projectId: currentProject.projectId,
@@ -1472,7 +1492,7 @@ function App() {
       </div>
       {providerDialog && (
         <ProviderDialog
-          key={providerDialog.kind === 'settings' ? 'settings' : `${providerDialog.kind}:${providerDialog.projectId}:${providerDialog.snapshotId}:${providerDialog.kind === 'review' ? providerDialog.targetPath : ''}:${providerDialog.recoveryOperationId ?? ''}`}
+          key={providerDialog.kind === 'settings' ? 'settings' : `${providerDialog.kind}:${providerDialog.projectId}:${providerDialog.snapshotId}:${providerDialog.kind === 'review' ? providerDialog.targetPath : providerDialog.kind === 'section-update' ? providerDialog.sectionUpdate.sectionId : ''}:${'recoveryOperationId' in providerDialog ? providerDialog.recoveryOperationId ?? '' : ''}`}
           mode={providerDialog}
           native={runtime?.native ?? isNativeRuntime()}
           onClose={closeProviderDialog}
@@ -1526,7 +1546,9 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
   const [snapshotManifest, setSnapshotManifest] = useState<SnapshotManifest | null>(null);
   const [snapshotManifestError, setSnapshotManifestError] = useState<string | null>(null);
   const [snapshotManifestLoading, setSnapshotManifestLoading] = useState(false);
-  const [selectedPaths, setSelectedPaths] = useState<string[]>(mode.kind === 'review' ? [mode.targetPath] : []);
+  const [selectedPaths, setSelectedPaths] = useState<string[]>(mode.kind === 'review'
+    ? [mode.targetPath]
+    : mode.kind === 'section-update' ? mode.selectedPaths : []);
   const [contextQuery, setContextQuery] = useState('');
   const [requestBuilding, setRequestBuilding] = useState(false);
   const [requestBuildError, setRequestBuildError] = useState<ProviderFailure | null>(null);
@@ -1552,6 +1574,8 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
   const hasApiKey = credentialInfo?.apiKeyConfigured ?? false;
   const reviewMode = mode.kind !== 'settings';
   const overviewMode = mode.kind === 'overview';
+  const sectionUpdateMode = mode.kind === 'section-update';
+  const recoveryOperationId = 'recoveryOperationId' in mode ? mode.recoveryOperationId : undefined;
   const availableContextFiles = useMemo(() => (snapshotManifest?.files ?? [])
     .filter((file) => file.kind === 'file' && (file.contentKind === 'text' || file.contentKind === 'unknown')
       && !file.secretLike && file.sizeBytes <= 250_000)
@@ -1641,9 +1665,10 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
     void buildGeminiRequestReview({
       projectId: mode.projectId,
       snapshotId: mode.snapshotId,
-      targetPath: mode.kind === 'review' ? mode.targetPath : null,
+      targetPath: mode.kind === 'review' || mode.kind === 'section-update' ? mode.targetPath : null,
       selectedPaths,
       modelId,
+      sectionUpdate: mode.kind === 'section-update' ? mode.sectionUpdate : null,
     }).then((result) => {
       if (result.status === 'error') {
         if (active) setRequestBuildError(result.error);
@@ -1652,7 +1677,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
       createdReviewId = result.data.reviewId;
       if (active) {
         setRequestReview(result.data);
-        if (mode.recoveryOperationId) onRecoveryReviewReady(mode.recoveryOperationId);
+        if (recoveryOperationId) onRecoveryReviewReady(recoveryOperationId);
       }
       else void discardGeminiRequestReview(result.data.reviewId);
     }).catch(() => {
@@ -1871,8 +1896,8 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
         <header className="provider-dialog-header">
           <div>
             <div className="step-pill"><span>{reviewMode ? 'EXACT CONTEXT' : 'OPTIONAL'}</span> GOOGLE GEMINI</div>
-            <h2 id="provider-dialog-title">{reviewMode ? (overviewMode ? 'Map the repository' : 'Review before sending') : 'AI and narration setup'}</h2>
-            <p>{reviewMode ? 'Inspect the exact snapshot source and disclosures. Nothing is sent until you confirm below.' : 'Local browsing works without Gemini. A key is optional and stays in macOS Keychain.'}</p>
+            <h2 id="provider-dialog-title">{reviewMode ? (sectionUpdateMode ? 'Regenerate one section' : overviewMode ? 'Map the repository' : 'Review before sending') : 'AI and narration setup'}</h2>
+            <p>{reviewMode ? (sectionUpdateMode ? `Only “${mode.baseRevision.sections.find((section) => section.sectionId === mode.sectionUpdate.sectionId)?.title ?? mode.sectionUpdate.sectionId}” and its declared evidence are included. Other sections stay separate.` : 'Inspect the exact snapshot source and disclosures. Nothing is sent until you confirm below.') : 'Local browsing works without Gemini. A key is optional and stays in macOS Keychain.'}</p>
           </div>
           <button className="icon-button" onClick={handleClose} disabled={sending || saveBusy} aria-label="Close provider dialog"><X size={17} /></button>
         </header>
@@ -1952,7 +1977,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
             {reviewMode && (
               <section className="provider-review-card" aria-labelledby="provider-review-title">
                   <div className="provider-section-heading">
-                  <div><span>LOCAL PREVIEW · {overviewMode ? 'REPOSITORY OVERVIEW' : 'FILE CHAPTER DRAFT'}</span><h3 id="provider-review-title">Exact request context</h3></div>
+                  <div><span>LOCAL PREVIEW · {sectionUpdateMode ? 'ONE SECTION UPDATE' : overviewMode ? 'REPOSITORY OVERVIEW' : 'FILE CHAPTER DRAFT'}</span><h3 id="provider-review-title">Exact request context</h3></div>
                   {requestReview && <span className="provider-expiry">Expires {new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(new Date(requestReview.expiresAtUnixMs))}</span>}
                 </div>
                 {requestBuilding && <div className="provider-loading" role="status"><HardDrive size={16} /> Building a local preview from the selected snapshot. No model request is sent.</div>}
@@ -1965,7 +1990,12 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
                   </div>
                 )}
                 {cancelStatus && <p className="provider-small-note" role="status">{cancelStatus}</p>}
-                <div className="provider-context-picker">
+                {sectionUpdateMode ? <div className="provider-context-picker">
+                  <div className="provider-context-heading"><strong>Selected section evidence</strong><span>{selectedPaths.length} declared files</span></div>
+                  <p>This request regenerates one section only. Code Atlas selected the old section record and the exact declared files captured in snapshot {mode.snapshotId}; the selection cannot be broadened from this dialog.</p>
+                  <ul className="provider-section-path-list">{selectedPaths.map((path) => <li key={path}><code>{path}</code>{path === mode.targetPath && <small>chapter target</small>}</li>)}</ul>
+                  <p className="provider-small-note">Changing the model rebuilds the exact prompt and clears consent. No other section is rewritten or sent as chapter content.</p>
+                </div> : <div className="provider-context-picker">
                   <div className="provider-context-heading"><strong>Choose source files</strong><span>{selectedPaths.length} of 12 selected</span></div>
                   <p>{overviewMode ? 'Choose the files that should ground this optional repository map. Changing the selection rebuilds the preview and clears consent.' : 'The target stays selected. Add up to eleven supporting files from this snapshot; changing the selection rebuilds the preview and clears consent.'}</p>
                   {overviewMode && selectedPaths.length === 0 && <p className="provider-small-note" role="status">Select at least one captured text file to build the overview request preview.</p>}
@@ -1990,10 +2020,12 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
                       <p className="provider-small-note">Only captured text up to 250 KB per file is listed. Selected source is limited to 250 KB total and the encoded request to 512 KB. Secret-like, binary, invalid-encoding, skipped, and uncaptured paths cannot be selected.</p>
                     </>
                   )}
-                </div>
+                </div>}
                 {requestReview && (
                   <>
                     <div ref={requestSummaryRef} className="provider-request-summary" tabIndex={-1} aria-label="Reviewed request summary">
+                      {sectionUpdateMode && <div><span>Update target</span><strong>One section · {mode.sectionUpdate.sectionId}</strong></div>}
+                      {sectionUpdateMode && <div><span>Accepted source revision</span><code>{mode.baseRevision.revisionId} · snapshot {mode.baseRevision.snapshotId}</code></div>}
                       <div><span>{requestReview.targetPath ? 'Target file' : 'Chapter scope'}</span><code>{requestReview.targetPath ?? 'Repository overview'}</code></div>
                       <div><span>Provider and model</span><strong>{requestReview.providerId} · {requestReview.modelId}</strong></div>
                       <div><span>Endpoint</span><code>{requestReview.endpointUrl}</code></div>
@@ -2030,7 +2062,16 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
                 {sendResult && (
                   <section className="provider-response" aria-labelledby="provider-response-title">
                     <div><span>{savedRevision ? 'SAVED · UNACCEPTED DRAFT' : 'VALIDATED · UNSAVED PREVIEW'}</span><h4 id="provider-response-title">{sendResult.revision.title}</h4></div>
-                    <p>{savedRevision ? `Draft revision ${savedRevision.revisionNumber} is saved locally. Guide Plan counts it as a draft. Acceptance requires a separate review.` : 'The schema and exact source citations passed local validation. Review what the claims mean, then save an unaccepted draft. Closing keeps this preview in local recovery until you save or discard it.'}</p>
+                    <p>{savedRevision ? `Draft revision ${savedRevision.revisionNumber} is saved locally. Guide Plan counts it as a draft. Acceptance requires a separate review.` : sectionUpdateMode ? 'Only the selected section received new claims. Other section revision IDs remain unchanged after their citations verify in the current snapshot. Assets with changed evidence are listed below for review.' : 'The schema and exact source citations passed local validation. Review what the claims mean, then save an unaccepted draft. Closing keeps this preview in local recovery until you save or discard it.'}</p>
+                    {sectionUpdateMode && <div className="section-update-preview-summary">
+                      <strong>Section-by-section revision check</strong>
+                      {sendResult.revision.sections.map((section) => {
+                        const previous = mode.baseRevision.sections.find((item) => item.sectionId === section.sectionId);
+                        const changed = section.sectionId === mode.sectionUpdate.sectionId;
+                        return <div key={section.sectionId}><span>{changed ? 'Regenerated' : previous?.sectionRevisionId === section.sectionRevisionId ? 'Carried unchanged' : 'Changed'}</span><code>{section.title}</code><small>{section.sectionRevisionId}</small></div>;
+                      })}
+                      {(sendResult.updateNotes ?? []).map((note) => <p className="provider-small-note" key={note}>{note}</p>)}
+                    </div>}
                     <GeneratedChapterPreview revision={sendResult.revision} />
                     {saveError && <p className="provider-error-text" role="alert">{saveError}</p>}
                     <small>{sendResult.inputTokens ?? '—'} input tokens · {sendResult.outputTokens ?? '—'} output tokens · one request · no fallback</small>
@@ -2057,7 +2098,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady }: {
                 {cancelBusy || cancelRequested.current ? 'Cancelling…' : 'Cancel request'}
               </button>
             ) : sendResult ? (
-              savedRevision ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { void handleDiscardPreview(); }} disabled={saveBusy}>Discard preview</button><button className="primary-button" onClick={() => { void handleSaveDraft(); }} disabled={saveBusy}><Check size={15} /> {saveBusy ? 'Saving draft…' : 'Save unaccepted draft'}</button></div>
+              savedRevision ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { void handleDiscardPreview(); }} disabled={saveBusy}>Discard preview</button><button className="primary-button" onClick={() => { void handleSaveDraft(); }} disabled={saveBusy}><Check size={15} /> {saveBusy ? 'Saving draft…' : sectionUpdateMode ? 'Save section update as draft' : 'Save unaccepted draft'}</button></div>
             ) : (
               <button className="primary-button" onClick={() => { void handleSend(); }} disabled={!requestReady || requestBuilding || informationLoading || Boolean(sendResult)}>
                 <Sparkles size={15} /> Send this request
@@ -3093,7 +3134,103 @@ interface ChapterFreshnessState {
   loading: boolean;
 }
 
-function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeRevisionId, routeSectionId, onSelectRevision, onClearRevisionRoute, onOpenFile, onGoPlan, onGenerate, onGenerateOverview }: {
+interface RangedDiffLine {
+  line: number;
+  text: string;
+}
+
+interface DiffLine {
+  kind: 'same' | 'removed' | 'added';
+  oldLine?: number;
+  newLine?: number;
+  text: string;
+}
+
+function changedRangeLines(source: SnapshotSource, range: { startLine: number; endLine: number }): { lines: RangedDiffLine[]; truncated: boolean } {
+  const allLines = source.contents.split(/\r?\n/);
+  const start = Math.max(0, range.startLine - 1);
+  const stop = Math.min(allLines.length, Math.max(start, range.endLine));
+  const selected = allLines.slice(start, stop);
+  const lines: RangedDiffLine[] = [];
+  let bytes = 0;
+  for (let index = 0; index < selected.length; index += 1) {
+    const original = selected[index];
+    const text = original.slice(0, 1_000);
+    bytes += text.length;
+    if (lines.length >= 120 || bytes > 16_000) return { lines, truncated: true };
+    lines.push({ line: start + index + 1, text });
+  }
+  return { lines, truncated: stop < range.endLine || selected.some((line) => line.length > 1_000) };
+}
+
+function compareRangeLines(oldLines: RangedDiffLine[], newLines: RangedDiffLine[]): DiffLine[] {
+  const oldCount = oldLines.length;
+  const newCount = newLines.length;
+  const stride = newCount + 1;
+  const lcs = new Uint16Array((oldCount + 1) * (newCount + 1));
+  for (let oldIndex = oldCount - 1; oldIndex >= 0; oldIndex -= 1) {
+    for (let newIndex = newCount - 1; newIndex >= 0; newIndex -= 1) {
+      const cell = oldIndex * stride + newIndex;
+      lcs[cell] = oldLines[oldIndex].text === newLines[newIndex].text
+        ? lcs[(oldIndex + 1) * stride + newIndex + 1] + 1
+        : Math.max(lcs[(oldIndex + 1) * stride + newIndex], lcs[oldIndex * stride + newIndex + 1]);
+    }
+  }
+  const diff: DiffLine[] = [];
+  let oldIndex = 0;
+  let newIndex = 0;
+  while (oldIndex < oldCount || newIndex < newCount) {
+    if (oldIndex < oldCount && newIndex < newCount && oldLines[oldIndex].text === newLines[newIndex].text) {
+      diff.push({ kind: 'same', oldLine: oldLines[oldIndex].line, newLine: newLines[newIndex].line, text: oldLines[oldIndex].text });
+      oldIndex += 1;
+      newIndex += 1;
+    } else if (oldIndex < oldCount && (newIndex >= newCount || lcs[(oldIndex + 1) * stride + newIndex] >= lcs[oldIndex * stride + newIndex + 1])) {
+      diff.push({ kind: 'removed', oldLine: oldLines[oldIndex].line, text: oldLines[oldIndex].text });
+      oldIndex += 1;
+    } else {
+      diff.push({ kind: 'added', newLine: newLines[newIndex].line, text: newLines[newIndex].text });
+      newIndex += 1;
+    }
+  }
+  return diff;
+}
+
+function ChapterSourceDiff({ projectId, change }: { projectId: string; change: ChapterFreshnessSourceChange }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [diff, setDiff] = useState<{ lines: DiffLine[]; oldTruncated: boolean; newTruncated: boolean } | null>(null);
+  const started = useRef(false);
+  useEffect(() => {
+    if (!open || diff || started.current) return;
+    started.current = true;
+    let active = true;
+    setLoading(true);
+    const readRange = (range: ChapterFreshnessSourceChange['oldRange']) => range
+      ? readSnapshotSource(projectId, range.snapshotId, range.path).then((source) => changedRangeLines(source, range))
+      : Promise.resolve({ lines: [] as RangedDiffLine[], truncated: false });
+    void Promise.all([readRange(change.oldRange), readRange(change.newRange)])
+      .then(([oldSide, newSide]) => { if (active) setDiff({ lines: compareRangeLines(oldSide.lines, newSide.lines), oldTruncated: oldSide.truncated, newTruncated: newSide.truncated }); })
+      .catch(() => { if (active) setError('The saved source ranges could not be loaded for a local diff.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [change, diff, open, projectId]);
+  return <details className="chapter-source-diff" onToggle={(event) => setOpen(event.currentTarget.open)}>
+    <summary>Show exact source diff</summary>
+    {loading && <p role="status">Loading both captured source ranges locally…</p>}
+    {error && <p role="alert">{error}</p>}
+    {diff && <>
+      <div className="chapter-source-diff-labels">
+        <span>Old {change.oldRange ? `${change.oldRange.path}:${change.oldRange.startLine}–${change.oldRange.endLine}` : 'source removed'}</span>
+        <span>Current {change.newRange ? `${change.newRange.path}:${change.newRange.startLine}–${change.newRange.endLine}` : 'source removed'}</span>
+      </div>
+      {(diff.oldTruncated || diff.newTruncated) && <p className="provider-small-note">Large range: showing a bounded excerpt. Open the exact old or current range in Code Lens for full source.</p>}
+      <pre className="chapter-source-diff-lines" aria-label="Captured source diff">{diff.lines.map((line, index) => <span className={`diff-${line.kind}`} key={`${line.kind}:${line.oldLine}:${line.newLine}:${index}`}>{line.kind === 'removed' ? '−' : line.kind === 'added' ? '+' : ' '} {String(line.oldLine ?? line.newLine ?? '').padStart(4, ' ')} │ {line.text}{'\n'}</span>)}</pre>
+    </>}
+  </details>;
+}
+
+function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeRevisionId, routeSectionId, onSelectRevision, onClearRevisionRoute, onOpenFile, onGoPlan, onGenerate, onRegenerateSection, onGenerateOverview }: {
   projectId: string;
   manifest: SnapshotManifest;
   rows: InventoryRow[];
@@ -3105,6 +3242,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   onOpenFile: (path: string, snapshotId?: string, sourceRange?: SourceLineRange) => void;
   onGoPlan: () => void;
   onGenerate: (path: string) => void;
+  onRegenerateSection: (revision: ChapterRevision, section: ChapterSection, selectedPaths: string[]) => void;
   onGenerateOverview: () => void;
 }) {
   const snapshotId = manifest.summary.snapshotId;
@@ -3349,6 +3487,17 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       });
     }
   };
+  const declaredCurrentPaths = (section: ChapterSection, targetPath: string) => {
+    const paths = new Set<string>([targetPath]);
+    for (const claim of section.claims) {
+      for (const anchor of claim.anchors) paths.add(anchor.path);
+      for (const dependency of claim.dependencies) paths.add(dependency.path);
+    }
+    for (const dependency of section.dependencies) paths.add(dependency.path);
+    return Array.from(paths)
+      .filter((path) => manifest.files.some((file) => file.path === path))
+      .sort((left, right) => left.localeCompare(right));
+  };
   const saveEdits = async () => {
     if (!candidate || !selectedRevision || !isLatestCurrent) return;
     setBusy(true);
@@ -3551,11 +3700,26 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                           const section = activeDocument.sections.find((item) => item.sectionId === sectionResult.sectionId);
                           const labels = { current: 'Current', safeToCarry: 'Safe to carry forward', stale: 'Stale', needsReview: 'Needs review' };
                           const sectionTitle = section?.title ?? sectionResult.sectionId;
+                          const targetPath = selectedTarget.paths.length === 1 ? selectedTarget.paths[0] : null;
+                          const sectionPaths = section && targetPath ? declaredCurrentPaths(section, targetPath) : [];
+                          const dependentSections = Array.from(new Set(selectedFreshness.report!.reverseDependencies
+                            .filter((dependency) => dependency.dependentSectionIds.includes(sectionResult.sectionId))
+                            .flatMap((dependency) => dependency.dependentSectionIds)
+                            .filter((id) => id !== sectionResult.sectionId)));
+                          const assetIds = Array.from(new Set(selectedFreshness.report!.reverseDependencies
+                            .filter((dependency) => dependency.dependentSectionIds.includes(sectionResult.sectionId))
+                            .flatMap((dependency) => dependency.assetIds)));
                           return <article className="chapter-studio-section chapter-freshness-section" key={sectionResult.sectionId}>
                             <div className="chapter-section-title-row">
                               <h4>{sectionTitle}</h4>
                               <span className={`chapter-review-status status-${sectionResult.status}`}>{labels[sectionResult.status]}</span>
                               <span className="chapter-review-status">Evidence {sectionResult.evidenceState}</span>
+                              {sectionResult.status === 'stale' && section && targetPath && isNativeRuntime() && <button
+                                className="secondary-button"
+                                disabled={busy || sectionPaths.length === 0 || sectionPaths.length > 12}
+                                onClick={() => onRegenerateSection(selectedRevision, section, sectionPaths)}
+                                title="Review and regenerate only this section using its declared source evidence."
+                              ><Sparkles size={13} /> Regenerate this section</button>}
                             </div>
                             {sectionResult.reasons.length > 0 && <ul className="chapter-freshness-reasons">
                               {sectionResult.reasons.map((reason, index) => <li key={`${reason.code}:${reason.path ?? ''}:${index}`}>
@@ -3576,9 +3740,18 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                                       ? <button className="text-button" onClick={() => { onSelectRevision(selectedRevision, sectionResult.sectionId); onOpenFile(change.newRange!.path, change.newRange!.snapshotId, change.newRange!); }}><FileCode2 size={12} /> Current lines {rangeText(change.newRange)}</button>
                                       : <span className="chapter-freshness-unavailable">No current range</span>}
                                   </div>
+                                  <ChapterSourceDiff projectId={projectId} change={change} />
                                 </div>;
                               })}
                             </div>}
+                            {dependentSections.length > 0 && <p className="chapter-freshness-clear"><strong>Other sections share changed evidence:</strong> {dependentSections.map((id) => activeDocument.sections.find((item) => item.sectionId === id)?.title ?? id).join(', ')}. Each section is reviewed and updated separately.</p>}
+                            <div className="chapter-freshness-assets">
+                              <strong>Asset input fingerprints</strong>
+                              {assetIds.length > 0 ? <ul>{assetIds.map((assetId) => <li key={assetId}><code>{assetId}</code></li>)}</ul> : <span>No visual or hotspot assets reference this section's changed evidence.</span>}
+                              {sectionResult.narrationScriptSha256
+                                ? <span>Narration script SHA-256 <code>{sectionResult.narrationScriptSha256}</code>. Audio cache keys also include the chosen model, voice, style, and format.</span>
+                                : <span>No narration script is attached to this section.</span>}
+                            </div>
                             {sectionResult.reasons.length === 0 && sectionResult.sourceChanges.length === 0 && <p className="chapter-freshness-clear">{sectionResult.status === 'needsReview' || sectionResult.evidenceState !== 'complete' ? 'The available index evidence is not enough to confirm this section.' : 'No changed evidence was found for this section.'}</p>}
                           </article>;
                         })}

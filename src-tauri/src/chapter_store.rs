@@ -150,10 +150,35 @@ fn append_revision(
         if parent.chapter_id != revision.chapter_id
             || parent.target.target_id != revision.target.target_id
             || parent.target.scope != revision.target.scope
-            || parent.snapshot_id != revision.snapshot_id
-            || latest_for_snapshot.map(|latest| latest.revision_id.as_str()) != Some(parent_id)
         {
             return Err("This chapter changed since it was opened. Reload the latest revision before saving.".to_owned());
+        }
+        if parent.snapshot_id == revision.snapshot_id {
+            if latest_for_snapshot.map(|latest| latest.revision_id.as_str()) != Some(parent_id) {
+                return Err("This chapter changed since it was opened. Reload the latest revision before saving.".to_owned());
+            }
+        } else {
+            // Moving an accepted chapter into a newer captured snapshot is an
+            // explicit review branch. It may only create the first draft for
+            // that target/snapshot and must start from the latest accepted
+            // revision of its source snapshot. Acceptance later follows the
+            // ordinary same-snapshot append-only path from this draft.
+            let latest_parent_snapshot = existing
+                .revisions
+                .iter()
+                .filter(|item| {
+                    item.target.target_id == parent.target.target_id
+                        && item.snapshot_id == parent.snapshot_id
+                })
+                .max_by_key(|item| item.revision_number);
+            if revision.lifecycle != RevisionLifecycle::Draft
+                || parent.lifecycle != RevisionLifecycle::Accepted
+                || latest_parent_snapshot.map(|latest| latest.revision_id.as_str())
+                    != Some(parent_id)
+                || latest_for_snapshot.is_some()
+            {
+                return Err("A cross-snapshot update must start from the latest accepted revision and create the first draft for the selected snapshot.".to_owned());
+            }
         }
         if matches!(
             revision.lifecycle,
@@ -456,26 +481,55 @@ fn validate_project_revision_order(revisions: &[ChapterRevision]) -> Result<(), 
             if parent.chapter_id != revision.chapter_id
                 || parent.target.target_id != revision.target.target_id
                 || parent.target.scope != revision.target.scope
-                || parent.snapshot_id != revision.snapshot_id
                 || parent.revision_number >= revision.revision_number
             {
                 return Err(
                     "A local chapter review revision has inconsistent parent history.".to_owned(),
                 );
             }
-            let latest_prior = revisions
-                .iter()
-                .filter(|item| {
+            if parent.snapshot_id == revision.snapshot_id {
+                let latest_prior = revisions
+                    .iter()
+                    .filter(|item| {
+                        item.target.target_id == revision.target.target_id
+                            && item.snapshot_id == revision.snapshot_id
+                            && item.revision_number < revision.revision_number
+                    })
+                    .max_by_key(|item| item.revision_number);
+                if latest_prior.map(|item| item.revision_id.as_str()) != Some(parent_id) {
+                    return Err(
+                        "A local chapter review revision does not follow the latest prior revision for its snapshot."
+                            .to_owned(),
+                    );
+                }
+            } else {
+                // A selective update starts a new snapshot history with a draft
+                // based on the latest accepted revision from the old snapshot.
+                // Later acceptance/rejection is then an ordinary same-snapshot
+                // child of that saved draft.
+                let latest_parent_snapshot = revisions
+                    .iter()
+                    .filter(|item| {
+                        item.target.target_id == parent.target.target_id
+                            && item.snapshot_id == parent.snapshot_id
+                    })
+                    .max_by_key(|item| item.revision_number);
+                let has_prior_destination_revision = revisions.iter().any(|item| {
                     item.target.target_id == revision.target.target_id
                         && item.snapshot_id == revision.snapshot_id
                         && item.revision_number < revision.revision_number
-                })
-                .max_by_key(|item| item.revision_number);
-            if latest_prior.map(|item| item.revision_id.as_str()) != Some(parent_id) {
-                return Err(
-                    "A local chapter review revision does not follow the latest prior revision for its snapshot."
-                        .to_owned(),
-                );
+                });
+                if revision.lifecycle != RevisionLifecycle::Draft
+                    || parent.lifecycle != RevisionLifecycle::Accepted
+                    || latest_parent_snapshot.map(|item| item.revision_id.as_str())
+                        != Some(parent_id)
+                    || has_prior_destination_revision
+                {
+                    return Err(
+                        "A cross-snapshot update must be the first draft in its snapshot and follow the latest accepted source revision."
+                            .to_owned(),
+                    );
+                }
             }
             if matches!(
                 revision.lifecycle,

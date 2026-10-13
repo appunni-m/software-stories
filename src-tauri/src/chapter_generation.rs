@@ -1,7 +1,9 @@
+use crate::chapter_freshness::{self, SectionFreshnessStatus};
 use crate::chapters::{
-    self, ChapterClaim, ChapterRevision, ChapterSection, ChapterSourceAnchor, ClaimCategory,
-    GeneratedChapterClaim, GeneratedChapterEvidence, GeneratedChapterEvidenceLimit,
-    GeneratedChapterProposal, SectionDependency,
+    self, ChapterClaim, ChapterRevision, ChapterSection, ChapterSourceAnchor, ChapterVisualPayload,
+    ClaimCategory, GeneratedChapterClaim, GeneratedChapterEvidence, GeneratedChapterEvidenceLimit,
+    GeneratedChapterProposal, GeneratedChapterSection, HotspotDestination, RevisionLifecycle,
+    SectionDependency, ValidationStatus,
 };
 use crate::index::{IndexedRelationship, RelationshipConfidence, SnapshotIndex};
 use crate::snapshot::{SnapshotManifest, SnapshotSource};
@@ -9,6 +11,408 @@ use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
+
+pub fn canonicalize_section_update(
+    storage_dir: &std::path::Path,
+    base: &ChapterRevision,
+    current_manifest: &SnapshotManifest,
+    current_index: Option<&SnapshotIndex>,
+    current_sources: &[SnapshotSource],
+    selected_section_id: &str,
+    selected_section_revision_id: &str,
+    allowed_relationship_ids: &HashSet<String>,
+    response_text: &str,
+) -> Result<(ChapterRevision, Vec<String>), String> {
+    if response_text.len() > chapters::MAX_GENERATED_RESPONSE_BYTES {
+        return Err(
+            "Gemini's section response exceeds the 300 KB structured-draft limit.".to_owned(),
+        );
+    }
+    if base.lifecycle != RevisionLifecycle::Accepted
+        || base.project_id != current_manifest.summary.project_id
+        || base.snapshot_id == current_manifest.summary.snapshot_id
+    {
+        return Err("Section updates require an accepted source chapter and a distinct current snapshot from the same project.".to_owned());
+    }
+    let (old_manifest, old_index) = (
+        crate::snapshot::load_snapshot_manifest(storage_dir, &base.project_id, &base.snapshot_id)?,
+        crate::index::load_snapshot_index(storage_dir, &base.project_id, &base.snapshot_id)
+            .ok()
+            .flatten(),
+    );
+    let freshness = chapter_freshness::classify_chapter_freshness(
+        storage_dir,
+        &old_manifest,
+        old_index.as_ref(),
+        current_manifest,
+        current_index,
+        base,
+    )?;
+    let selected_freshness = freshness
+        .sections
+        .iter()
+        .find(|item| item.section_id == selected_section_id)
+        .ok_or_else(|| "The selected section is absent from the freshness report.".to_owned())?;
+    if selected_freshness.section_revision_id != selected_section_revision_id
+        || selected_freshness.status != SectionFreshnessStatus::Stale
+    {
+        return Err("The selected section changed or is no longer proven stale. Reassess freshness and review a new request.".to_owned());
+    }
+    let blocked_sections = freshness
+        .sections
+        .iter()
+        .filter(|item| {
+            item.section_id != selected_section_id
+                && !matches!(
+                    item.status,
+                    SectionFreshnessStatus::Current | SectionFreshnessStatus::SafeToCarry
+                )
+        })
+        .map(|item| item.section_id.as_str())
+        .collect::<Vec<_>>();
+    if !blocked_sections.is_empty() {
+        return Err(format!(
+            "Other sections also need repair or review: {}. They were not changed. Update each explicitly before creating a current-snapshot chapter draft.",
+            blocked_sections.join(", ")
+        ));
+    }
+    let target_path = match &base.target.scope {
+        chapters::ChapterTargetScope::File { path } => path.as_str(),
+        _ => {
+            return Err(
+                "Selective regeneration currently supports a single-file chapter.".to_owned(),
+            );
+        }
+    };
+    let old_section = base
+        .sections
+        .iter()
+        .find(|section| section.section_id == selected_section_id)
+        .ok_or_else(|| "The selected section no longer exists.".to_owned())?;
+    if old_section.section_revision_id != selected_section_revision_id {
+        return Err(
+            "The selected section revision changed before its response was prepared.".to_owned(),
+        );
+    }
+    let sources = checked_sources(current_manifest, current_sources)?;
+    if !sources.contains_key(target_path) {
+        return Err(
+            "The file chapter's target is missing from the selected section's current evidence."
+                .to_owned(),
+        );
+    }
+    let selected_paths = sources.keys().cloned().collect::<HashSet<_>>();
+    let mut section = canonicalize_generated_section(
+        &serde_json::from_str::<GeneratedChapterSection>(response_text)
+            .map_err(|_| "Gemini's response did not match the strict single-section schema. No draft was created.".to_owned())?,
+        selected_section_id,
+        target_path,
+        &selected_paths,
+        &sources,
+        current_index,
+        allowed_relationship_ids,
+    )?;
+    section.section_revision_id = generated_id("sectionrev");
+    let mut update_notes = Vec::new();
+    reuse_matching_anchor_ids(old_section, &mut section, &mut update_notes);
+
+    let mut sections = Vec::with_capacity(base.sections.len());
+    for (order, previous) in base.sections.iter().enumerate() {
+        if previous.section_id == selected_section_id {
+            let mut updated = section.clone();
+            updated.order = order as u32;
+            sections.push(updated);
+        } else {
+            let mut remapped = remap_carried_section(
+                storage_dir,
+                &old_manifest,
+                old_index.as_ref(),
+                current_manifest,
+                current_index,
+                previous,
+            )?;
+            remapped.order = order as u32;
+            sections.push(remapped);
+        }
+    }
+    let mut revision = base.clone();
+    revision.revision_id = generated_id("revision");
+    revision.revision_number = base
+        .revision_number
+        .checked_add(1)
+        .ok_or_else(|| "The chapter revision number is exhausted.".to_owned())?;
+    revision.snapshot_id = current_manifest.summary.snapshot_id.clone();
+    revision.lifecycle = RevisionLifecycle::Draft;
+    revision.validation_status = ValidationStatus::Unvalidated;
+    revision.created_at_unix_ms = unix_time_ms();
+    revision.based_on_revision_id = Some(base.revision_id.clone());
+    revision.decision_note = None;
+    revision.sections = sections;
+    Ok((revision, update_notes))
+}
+
+fn canonicalize_generated_section(
+    proposed: &GeneratedChapterSection,
+    section_id: &str,
+    target_path: &str,
+    selected_paths: &HashSet<String>,
+    sources: &HashMap<String, &SnapshotSource>,
+    index: Option<&SnapshotIndex>,
+    allowed_relationship_ids: &HashSet<String>,
+) -> Result<ChapterSection, String> {
+    if proposed.title.trim().is_empty()
+        || proposed.title.len() > 120
+        || !(20..=4_000).contains(&proposed.prose.trim().len())
+        || proposed.spoken_text.len() > 1_000
+        || proposed.spoken_text.contains("```")
+        || proposed.claims.is_empty()
+        || proposed.claims.len() > 20
+    {
+        return Err("The regenerated section needs a specific title, substantive prose, bounded narration, and one to twenty claims.".to_owned());
+    }
+    let mut claims = Vec::with_capacity(proposed.claims.len());
+    let mut dependencies = Vec::new();
+    let mut target_anchored = false;
+    for proposed_claim in &proposed.claims {
+        let (claim, claim_dependencies, anchored_target) = build_claim(
+            proposed_claim,
+            section_id,
+            Some(target_path),
+            selected_paths,
+            sources,
+            index,
+            allowed_relationship_ids,
+        )?;
+        target_anchored |= anchored_target;
+        for dependency in claim_dependencies {
+            push_unique(&mut dependencies, dependency);
+        }
+        claims.push(claim);
+    }
+    if !target_anchored {
+        return Err(
+            "The regenerated section must cite exact evidence from its target file.".to_owned(),
+        );
+    }
+    Ok(ChapterSection {
+        section_id: section_id.to_owned(),
+        section_revision_id: generated_id("sectionrev"),
+        order: 0,
+        title: proposed.title.trim().to_owned(),
+        prose: proposed.prose.trim().to_owned(),
+        spoken_text: proposed.spoken_text.trim().to_owned(),
+        claims,
+        dependencies,
+        visual: None,
+        hotspots: Vec::new(),
+    })
+}
+
+fn remap_carried_section(
+    storage_dir: &std::path::Path,
+    old_manifest: &SnapshotManifest,
+    old_index: Option<&SnapshotIndex>,
+    new_manifest: &SnapshotManifest,
+    new_index: Option<&SnapshotIndex>,
+    previous: &ChapterSection,
+) -> Result<ChapterSection, String> {
+    let mut section = previous.clone();
+    for anchor in section
+        .claims
+        .iter_mut()
+        .flat_map(|claim| &mut claim.anchors)
+    {
+        let new_file = new_manifest.files.iter().find(|file| file.path == anchor.path)
+            .ok_or_else(|| format!("Unaffected section '{}' cites a file that is missing from the selected snapshot.", previous.title))?;
+        let remap = if new_file.sha256 == anchor.source_sha256 {
+            let source = crate::snapshot::read_snapshot_source_from_manifest(
+                storage_dir,
+                new_manifest,
+                &anchor.path,
+            )?;
+            let start = usize::try_from(anchor.start_byte)
+                .map_err(|_| "A carried citation offset is unavailable.".to_owned())?;
+            let end = usize::try_from(anchor.end_byte_inclusive.saturating_add(1))
+                .map_err(|_| "A carried citation offset is unavailable.".to_owned())?;
+            if source.contents.as_bytes().get(start..end) != Some(anchor.excerpt.as_bytes()) {
+                return Err(format!(
+                    "An unchanged citation in '{}' no longer matches its captured bytes.",
+                    previous.title
+                ));
+            }
+            let mut updated = anchor.clone();
+            updated.snapshot_id = new_manifest.summary.snapshot_id.clone();
+            Some(updated)
+        } else {
+            let result = chapters::remap_anchor_between_snapshots(
+                storage_dir,
+                old_manifest,
+                old_index,
+                new_manifest,
+                new_index,
+                anchor,
+            );
+            if matches!(result.status, chapters::AnchorRemapStatus::Remapped) {
+                result.anchor
+            } else {
+                None
+            }
+        };
+        *anchor = remap.ok_or_else(|| format!("A citation in unaffected section '{}' can no longer be verified in the selected snapshot.", previous.title))?;
+    }
+    for dependency in section.dependencies.iter_mut().chain(
+        section
+            .claims
+            .iter_mut()
+            .flat_map(|claim| &mut claim.dependencies),
+    ) {
+        let (path, symbol_id, relationship_id) = match dependency {
+            SectionDependency::SourceFile { path, .. } => (path.clone(), None, None),
+            SectionDependency::Symbol {
+                path, symbol_id, ..
+            } => (path.clone(), Some(symbol_id.clone()), None),
+            SectionDependency::Relationship {
+                path,
+                relationship_id,
+                ..
+            } => (path.clone(), None, Some(relationship_id.clone())),
+        };
+        let new_file = new_manifest.files.iter().find(|file| file.path == path)
+            .ok_or_else(|| format!("A declared dependency in unaffected section '{}' is missing from the selected snapshot.", previous.title))?;
+        if let Some(symbol_id) = symbol_id {
+            let present = new_index.is_some_and(|index| {
+                index.symbols.iter().any(|symbol| {
+                    symbol.symbol_id == symbol_id
+                        && symbol.path == path
+                        && symbol.anchor.source_sha256 == new_file.sha256
+                })
+            });
+            if !present {
+                return Err(format!(
+                    "A symbol dependency in unaffected section '{}' cannot be verified in the selected index.",
+                    previous.title
+                ));
+            }
+        }
+        if let Some(relationship_id) = relationship_id {
+            let present = new_index.is_some_and(|index| {
+                index.relationships.iter().any(|relationship| {
+                    relationship.relationship_id == relationship_id
+                        && relationship.evidence.path == path
+                        && relationship.evidence.source_sha256 == new_file.sha256
+                })
+            });
+            if !present {
+                return Err(format!(
+                    "A relationship dependency in unaffected section '{}' cannot be verified in the selected index.",
+                    previous.title
+                ));
+            }
+        }
+        match dependency {
+            SectionDependency::SourceFile { source_sha256, .. }
+            | SectionDependency::Symbol { source_sha256, .. }
+            | SectionDependency::Relationship { source_sha256, .. } => {
+                *source_sha256 = new_file.sha256.clone()
+            }
+        }
+    }
+    Ok(section)
+}
+
+fn reuse_matching_anchor_ids(
+    previous: &ChapterSection,
+    next: &mut ChapterSection,
+    notes: &mut Vec<String>,
+) {
+    let old_anchors = previous
+        .claims
+        .iter()
+        .flat_map(|claim| &claim.anchors)
+        .collect::<Vec<_>>();
+    let next_anchors = next
+        .claims
+        .iter_mut()
+        .flat_map(|claim| &mut claim.anchors)
+        .collect::<Vec<_>>();
+    let mut used = HashSet::<String>::new();
+    let mut mapped = HashSet::<String>::new();
+    for anchor in next_anchors {
+        let matches = old_anchors
+            .iter()
+            .filter(|old| {
+                old.path == anchor.path
+                    && old.excerpt == anchor.excerpt
+                    && old.symbol_id == anchor.symbol_id
+                    && !used.contains(&old.anchor_id)
+            })
+            .collect::<Vec<_>>();
+        if matches.len() == 1 {
+            let old = matches[0];
+            used.insert(old.anchor_id.clone());
+            mapped.insert(old.anchor_id.clone());
+            anchor.anchor_id = old.anchor_id.clone();
+        }
+    }
+    let mut required = previous
+        .visual
+        .as_ref()
+        .and_then(ChapterVisualPayload::typed_visual)
+        .map(|visual| {
+            visual
+                .nodes
+                .iter()
+                .flat_map(|node| node.evidence_anchor_ids.iter())
+                .chain(
+                    visual
+                        .edges
+                        .iter()
+                        .flat_map(|edge| edge.evidence_anchor_ids.iter()),
+                )
+                .cloned()
+                .collect::<HashSet<_>>()
+        })
+        .unwrap_or_default();
+    for hotspot in &previous.hotspots {
+        if let HotspotDestination::CodeLens { anchor_id } = &hotspot.destination {
+            required.insert(anchor_id.clone());
+        }
+    }
+    if previous.visual.is_some() {
+        if required.iter().all(|anchor_id| mapped.contains(anchor_id)) {
+            next.visual = previous.visual.clone();
+            next.hotspots = previous.hotspots.clone();
+        } else {
+            notes.push(format!("The visual for '{}' cites evidence changed by this update, so the prior visual was not copied into the draft.", previous.title));
+            next.visual = None;
+            next.hotspots = previous
+                .hotspots
+                .iter()
+                .filter(|hotspot| match &hotspot.destination {
+                    HotspotDestination::CodeLens { anchor_id } => mapped.contains(anchor_id),
+                    _ => true,
+                })
+                .cloned()
+                .collect();
+        }
+    } else {
+        next.hotspots = previous
+            .hotspots
+            .iter()
+            .filter(|hotspot| match &hotspot.destination {
+                HotspotDestination::CodeLens { anchor_id } => mapped.contains(anchor_id),
+                _ => true,
+            })
+            .cloned()
+            .collect();
+        if next.hotspots.len() != previous.hotspots.len() {
+            notes.push(format!(
+                "Code Lens hotspots for '{}' were removed because their cited ranges changed.",
+                previous.title
+            ));
+        }
+    }
+}
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -937,8 +1341,8 @@ pub(crate) mod tests {
     const CONFIG_PATH: &str = "config/release.toml";
     const UNSELECTED_PATH: &str = "src/unselected.ts";
     const SIMPLE_FUNCTION: &str =
-        "export function greeting(name: string): string {\n    return `Hello, ${name}`;\n}";
-    const SIMPLE_SOURCE: &str = "// greeting formats UTF-8 text such as café.\nexport function greeting(name: string): string {\n    return `Hello, ${name}`;\n}\n// marker repeats.\n// marker repeats.\nconst overlapping = \"aaaaaaaaa\";\n";
+        "function greeting(name: string): string {\n    return `Hello, ${name}`;\n}";
+    pub(crate) const SIMPLE_SOURCE: &str = "// greeting formats UTF-8 text such as café.\nexport function greeting(name: string): string {\n    return `Hello, ${name}`;\n}\n// marker repeats.\n// marker repeats.\nconst overlapping = \"aaaaaaaaa\";\n";
     const COMPLEX_SOURCE: &str = "import { normalizeName } from './names';\nexport function parseUser(input: string): string {\n    if (!input.trim()) {\n        throw new Error('user name is empty');\n    }\n    const normalized = normalizeName(input);\n    return normalized.toUpperCase();\n}\n";
     const SUPPORT_SOURCE: &str =
         "export function normalizeName(value: string): string { return value.trim(); }\n";
@@ -1035,6 +1439,42 @@ pub(crate) mod tests {
                     .unwrap()
                 })
                 .collect()
+        }
+
+        pub(crate) fn recapture_with_source(&mut self, path: &str, contents: &str) {
+            let file_path = self.root.join(path);
+            fs::write(&file_path, contents).unwrap();
+            let project = RecentProject {
+                project_id: self.manifest.summary.project_id.clone(),
+                display_name: "independent chapters".to_owned(),
+                selected_path: self.manifest.selected_path.clone(),
+                repository_root: self.root.canonicalize().unwrap().display().to_string(),
+                branch: Some("main".to_owned()),
+                head: self.manifest.summary.head.clone(),
+                access_status: AccessStatus::Available,
+                last_opened_unix_ms: 0,
+            };
+            let progress =
+                snapshot::new_capture_progress(&self.storage, &project, CaptureLimits::default())
+                    .unwrap();
+            let manifest = snapshot::capture_snapshot_with_progress(
+                &self.storage,
+                &project,
+                progress,
+                &AtomicBool::new(false),
+                &mut |_| {},
+            )
+            .unwrap();
+            let index = index::build_snapshot_index(
+                &self.storage,
+                &manifest,
+                "generated-chapter-fixtures",
+                &AtomicBool::new(false),
+                |_| {},
+            );
+            index::save_snapshot_index(&self.storage, &index).unwrap();
+            self.manifest = manifest;
+            self.index = index;
         }
 
         fn relationship(
