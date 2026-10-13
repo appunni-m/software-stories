@@ -28,6 +28,10 @@ npm run dev
 
 This command starts the same browser-only UI preview at http://127.0.0.1:4173. Do not run it alongside an already running preview; reuse or restart that one process. The browser preview is useful for layout, but cannot use the native folder picker, macOS Keychain, local repository commands, or Gemini requests. Use the Tauri command for the native workflow.
 
+Code Atlas stores captures and guide history in its local application data
+folder. Read [Local data and permissions](LOCAL_DATA.md) before removing that
+folder or relying on an offline export as a backup.
+
 ## Explore a repository locally
 
 1. In the app, choose **Open repository** and select a folder inside a local Git working copy. Code Atlas resolves the Git working-copy root. Choosing a folder checks directory and Git metadata; it does not read repository source.

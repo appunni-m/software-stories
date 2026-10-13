@@ -14,6 +14,13 @@ Select a directory inside a local Git working copy. Code Atlas requires Git meta
 
 If macOS denies folder access, choose an accessible local working copy and try again. The app does not execute repository scripts while capturing.
 
+## Keychain access is denied
+
+Keychain is needed only for an optional Gemini key. Follow the macOS prompt to
+unlock Keychain or approve Code Atlas access, then retry saving the key in **AI
+and narration setup**. If you deny access, the key is not saved and local
+browsing still works. Remove a saved key from that same setup screen.
+
 ## Atlas has no source, or a path cannot be opened
 
 Confirm that a snapshot was created for the selected project. The app does not read the working tree until capture starts. In Atlas, inspect the path's capture disposition and parser/index state:
@@ -58,6 +65,14 @@ reject the draft when the explanation overstates what the diff proves.
 ## Narration is missing or synthesis is rejected
 
 Audio is optional. The transcript and section navigation remain usable without narration. A narration request has its own review and confirmation; it sends the edited spoken script and speech settings, not source excerpts by default. A script can contain up to 16,000 UTF-8 bytes; longer scripts should be divided into separate sections. The review shows the exact sequential requests of at most 4,000 bytes each, split at sentence boundaries when possible and whole-word boundaries otherwise.
+
+## A capture or save fails while the Mac is low on disk space
+
+Free space outside Code Atlas' application data folder, reopen the app, and
+retry the operation. Do not delete that folder unless you intend to erase all
+local snapshots, indexes, revisions, recovery records, and narration audio.
+See [Local data and permissions](LOCAL_DATA.md) for the storage path and the
+limits of Offline export.
 
 ## Build or documentation checks fail
 

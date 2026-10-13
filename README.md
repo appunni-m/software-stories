@@ -23,6 +23,7 @@ These are source-level capabilities, not a claim of a finished or released produ
 
 - [Getting started](docs/GETTING_STARTED.md) — run the current Mac app from source and complete a local first session.
 - [Troubleshooting](docs/TROUBLESHOOTING.md) — diagnose repository, snapshot, chapter, provider, and narration issues.
+- [Local data and permissions](docs/LOCAL_DATA.md) — find local snapshots, understand Keychain access, exports, and deletion.
 - [Product blueprint](docs/PRODUCT_BLUEPRINT.md) — intended user journey, file coverage, trust rules, and release gates.
 - [Interaction contract](docs/INTERACTION_CONTRACT.md) — controls, navigation destinations, side effects, and acceptance walkthrough.
 - [Technical plan](docs/TECHNICAL_PLAN.md) — implemented architecture notes and clearly marked future boundaries.
@@ -52,7 +53,7 @@ npm run check
 
 `npm run quality:metadata` prints the fingerprints used by a chapter-quality review. `npm run quality:gate -- --report benchmarks/chapter-quality/review/reports/run.json` checks a completed human-reviewed report; generating metadata alone does not pass that gate.
 
-`npm run bundle:macos` is configured to build an unsigned `.app` and `.dmg` and verify their embedded metadata. It is a local packaging command, not a published installer or a signed/notarized release. The project does not yet declare a supported minimum macOS version or publish a user download.
+`npm run bundle:macos` is configured to request an unsigned `.app` and `.dmg` and verify their identity and embedded schema metadata. It is a local packaging command, not a published installer or a signed/notarized release. No user-download artifact has been verified, and the project does not yet declare a supported minimum macOS version.
 
 ## Data and provider behavior
 
