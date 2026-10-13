@@ -9,7 +9,7 @@ This document records the Google Gemini disclosures currently represented in Cod
 - Provider: Google Gemini API, called directly from the macOS app
 - Account: user supplies their own API key; Code Atlas cannot identify its Cloud project or inspect billing/quota
 - Text generation: one explicit HTTPS `generateContent` request after exact-context review and three separate confirmations
-- Speech generation: a separately reviewed HTTPS request containing one section's edited speech text and speech settings; its disclosure has its own version
+- Speech generation: separately reviewed HTTPS request(s) containing one section's edited speech text and speech settings; long scripts are split at sentence boundaries where possible and otherwise at whole-word boundaries, and the review lists the exact segments; its disclosure has its own version
 
 ## Versioned model allowlist
 
@@ -50,9 +50,9 @@ The PR Guide purpose is separate from snapshot chapter requests. Its preview is 
 
 ## Optional section narration
 
-Narration has a separate record: `gemini-tts-disclosure-2026-10-13-v1`, checked 13 October 2026. The source currently selects model ID `gemini-3.8-flash-lite-tts` (displayed as Gemini 3.8 Flash-Lite TTS) and the listed prebuilt voices. These are static app values, not a live capability check.
+Narration has a separate record: `gemini-tts-disclosure-2026-10-13-v2`, checked 13 October 2026. The source currently selects model ID `gemini-3.8-flash-lite-tts` (displayed as Gemini 3.8 Flash-Lite TTS) and the listed prebuilt voices. These are static app values, not a live capability check.
 
-The exact outbound narration request contains one selected section's edited speech text after any explicitly enabled pronunciation substitutions, the selected voice, delivery style, and WAV response format. It does not include source files, citations, file paths, or the whole chapter by default. Speech text is capped at 4,000 UTF-8 bytes; the request review is fingerprinted and expires after fifteen minutes. The user confirms the request and current terms before synthesis. A cache hit can be served locally after review without sending another provider request.
+The exact outbound narration request(s) contain one selected section's edited speech text after any explicitly enabled pronunciation substitutions, the selected voice, delivery style, and WAV response format. Scripts up to 16,000 UTF-8 bytes are split into sequential segments of at most 4,000 bytes, preferring sentence boundaries and otherwise whole-word boundaries; the request review shows the full text and each exact segment. Source files, citations, file paths, and the whole chapter are not included by default. The review is fingerprinted and expires after fifteen minutes. The user confirms the request and current terms before synthesis. A cache hit can be served locally after review without sending another provider request.
 
 As checked in the source disclosure, Google lists this model's standard text and audio output as free on the Free Tier subject to project quota and availability. Code Atlas cannot inspect the key's project tier or remaining quota. The source disclosure lists paid-project rates of `$0.50` per million input text tokens and `$6.00` per million output audio tokens through 31 December 2026 (`$0.0015` per 10 seconds), then `$1.00` and `$12.00` from 1 January 2027. These prices and future rates must be rechecked against Google's pricing page before any release after the check date. A Free Tier label does not establish that a particular request is free or available.
 

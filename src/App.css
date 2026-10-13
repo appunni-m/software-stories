@@ -347,6 +347,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .walkthrough-narration-editor[open] > summary svg { transform: rotate(180deg); }
 .walkthrough-narration-editor > p, .walkthrough-pronunciation > p { margin: 6px 0 8px; color: #7f8e82; font-size: 8px; line-height: 1.5; }
 .walkthrough-narration-field { min-width: 0; display: grid; gap: 4px; color: #91a18f; font-size: 8px; }
+.walkthrough-narration-field small { color: #7f8e82; font-size: 7px; line-height: 1.45; }
 .walkthrough-narration-field textarea, .walkthrough-narration-field input, .walkthrough-narration-field select, .walkthrough-pronunciation-row input { width: 100%; min-height: 28px; padding: 6px 7px; border: 1px solid #304134; border-radius: 4px; background: #0b120e; color: #c6d4c2; font: 9px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .walkthrough-narration-field textarea { min-height: 72px; resize: vertical; }
 .walkthrough-narration-field select { cursor: pointer; }
@@ -385,6 +386,12 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .walkthrough-narration-review dd code { color: #a9c797; font: 7px var(--mono); }
 .walkthrough-narration-exact-text { padding: 7px; border: 1px solid #304335; border-radius: 4px; background: #0a110d; }
 .walkthrough-narration-exact-text > p { margin: 5px 0 0; color: #d0dccd; font-size: 9px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.walkthrough-narration-segments { padding: 7px; border: 1px solid #304335; border-radius: 4px; background: #0d1510; }
+.walkthrough-narration-segments > summary { color: #aec49f; font-size: 8px; cursor: pointer; }
+.walkthrough-narration-segments ol { display: grid; gap: 7px; margin: 8px 0 0; padding-left: 20px; }
+.walkthrough-narration-segments li { padding-left: 2px; color: #758879; font: 7px var(--mono); }
+.walkthrough-narration-segments li > span { color: #8daa7c; }
+.walkthrough-narration-segments li > p { margin: 4px 0 0; color: #c6d4c2; font: 8px/1.55 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; white-space: pre-wrap; overflow-wrap: anywhere; }
 .walkthrough-narration-disclosure { display: grid; gap: 5px; color: #8b998d; font-size: 7px; line-height: 1.55; }
 .walkthrough-narration-disclosure p { margin: 0; }
 .walkthrough-narration-disclosure strong { color: #b9cbb4; font-weight: 600; }

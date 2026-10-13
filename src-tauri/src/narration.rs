@@ -24,10 +24,11 @@ use uuid::Uuid;
 const MODEL_ID: &str = "gemini-3.8-flash-lite-tts";
 const ENDPOINT: &str = "https://generativelanguage.googleapis.com/v1beta/interactions";
 const CACHE_VERSION: &str = "gemini-narration-cache-v1";
-const DISCLOSURE_VERSION: &str = "gemini-tts-disclosure-2026-10-13-v1";
+const DISCLOSURE_VERSION: &str = "gemini-tts-disclosure-2026-10-13-v2";
 const REVIEW_LIFETIME_MS: u64 = 15 * 60 * 1_000;
 const MAX_PENDING_REVIEWS: usize = 16;
-const MAX_SPOKEN_TEXT_BYTES: usize = 4_000;
+const MAX_SPOKEN_TEXT_BYTES: usize = 16_000;
+const MAX_TTS_REQUEST_TEXT_BYTES: usize = 4_000;
 const MAX_STYLE_BYTES: usize = 160;
 const MAX_LEXICON_ENTRIES: usize = 12;
 const MAX_RESPONSE_BYTES: usize = 12 * 1024 * 1024;
@@ -107,7 +108,7 @@ pub fn disclosure() -> NarrationDisclosure {
         pricing_url: "https://ai.google.dev/gemini-api/docs/pricing".to_owned(),
         regions_url: "https://ai.google.dev/gemini-api/docs/available-regions".to_owned(),
         api_key_url: "https://aistudio.google.com/app/apikey".to_owned(),
-        request_scope: "One selected section's exact narration script, optional pronunciation substitutions, the selected prebuilt voice, delivery style, and WAV format. No source excerpt or whole-chapter context is included.".to_owned(),
+        request_scope: "One selected section's exact narration script, optional pronunciation substitutions, the selected prebuilt voice, delivery style, and WAV format. Scripts over 4,000 UTF-8 bytes are split at sentence boundaries where possible and otherwise at whole-word boundaries, then sent as sequential requests. No source excerpt or whole-chapter context is included.".to_owned(),
         voices: PREBUILT_VOICES.iter().map(|voice| (*voice).to_owned()).collect(),
     }
 }
@@ -134,12 +135,15 @@ pub struct BuildNarrationReviewInput {
 pub struct NarrationRequestReview {
     pub review_id: String,
     pub exact_text: String,
+    pub request_segments: Vec<String>,
     pub spoken_text_sha256: String,
+    pub disclosure_version: String,
     pub model_id: String,
     pub voice: String,
     pub style: String,
     pub format: String,
     pub fingerprint: String,
+    pub cache_key: String,
     pub cached_audio_available: bool,
     pub expires_at_unix_ms: u64,
 }
@@ -270,29 +274,35 @@ pub fn build_request_review(
     if exact_text.trim().is_empty() || exact_text.len() > MAX_SPOKEN_TEXT_BYTES {
         return ProviderCommandResult::error(
             ProviderFailureKind::InvalidReview,
-            "Pronunciation substitutions must leave this section's narration between 1 and 4,000 UTF-8 bytes.",
+            "Pronunciation substitutions must leave this section's narration between 1 and 16,000 UTF-8 bytes.",
         );
     }
+    let request_segments = split_spoken_text(&exact_text, MAX_TTS_REQUEST_TEXT_BYTES);
     let spoken_text_sha256 = sha256(exact_text.as_bytes());
     let format = "audio/wav".to_owned();
-    let fingerprint = request_fingerprint(
+    let cache_key = audio_cache_key(
         &spoken_text_sha256,
+        &request_segments,
         MODEL_ID,
         &input.voice,
         &input.style,
         &format,
     );
-    let cached_audio_available = read_cached_audio(storage_dir, &fingerprint).is_some();
+    let fingerprint = request_fingerprint(&cache_key, DISCLOSURE_VERSION, &request_segments);
+    let cached_audio_available = read_cached_audio(storage_dir, &cache_key).is_some();
     let expires_at_unix_ms = now_unix_ms().saturating_add(REVIEW_LIFETIME_MS);
     let review = NarrationRequestReview {
         review_id: Uuid::new_v4().to_string(),
         exact_text,
+        request_segments,
         spoken_text_sha256,
+        disclosure_version: DISCLOSURE_VERSION.to_owned(),
         model_id: MODEL_ID.to_owned(),
         voice: input.voice,
         style: input.style,
         format,
         fingerprint,
+        cache_key,
         cached_audio_available,
         expires_at_unix_ms,
     };
@@ -318,7 +328,7 @@ pub fn load_reviewed_audio(
         Ok(pending) => pending,
         Err(error) => return ProviderCommandResult::failed(error),
     };
-    match read_cached_audio(storage_dir, &pending.review.fingerprint) {
+    match read_cached_audio(storage_dir, &pending.review.cache_key) {
         Some(bytes) => ProviderCommandResult::ok(audio_result(&pending.review, bytes, true)),
         None => ProviderCommandResult::error(
             ProviderFailureKind::ReviewUnavailable,
@@ -345,21 +355,27 @@ pub async fn synthesize_reviewed_audio(
         Ok(pending) => pending,
         Err(error) => return ProviderCommandResult::failed(error),
     };
-    if let Some(bytes) = read_cached_audio(storage_dir, &pending.review.fingerprint) {
+    if let Some(bytes) = read_cached_audio(storage_dir, &pending.review.cache_key) {
         return ProviderCommandResult::ok(audio_result(&pending.review, bytes, true));
     }
     let api_key = match load_api_key() {
         Ok(key) => key,
         Err(error) => return ProviderCommandResult::failed(error),
     };
-    let result =
-        await_cancellable_audio_request(cancellation, request_audio(&pending.review, &api_key))
-            .await;
+    let base_review = pending.review.clone();
+    let request_key = api_key.clone();
+    let result = synthesize_segments(&base_review.request_segments, cancellation, |segment| {
+        let mut segment_review = base_review.clone();
+        segment_review.exact_text = segment;
+        let segment_key = request_key.clone();
+        async move { request_audio(&segment_review, &segment_key).await }
+    })
+    .await;
     let bytes = match result {
         Ok(bytes) => bytes,
         Err(error) => return ProviderCommandResult::failed(error),
     };
-    if let Err(_error) = write_cached_audio(storage_dir, &pending.review.fingerprint, &bytes) {
+    if let Err(_error) = write_cached_audio(storage_dir, &pending.review.cache_key, &bytes) {
         // The successfully generated bytes still reach the player if local cache
         // storage is unavailable; a future replay will require a new request.
     }
@@ -381,6 +397,57 @@ where
         )),
         result = request => result,
     }
+}
+
+async fn synthesize_segments<F, Fut>(
+    segments: &[String],
+    cancellation: &mut oneshot::Receiver<()>,
+    mut request_segment: F,
+) -> Result<Vec<u8>, ProviderFailure>
+where
+    F: FnMut(String) -> Fut,
+    Fut: Future<Output = Result<Vec<u8>, ProviderFailure>>,
+{
+    if segments.is_empty()
+        || segments
+            .iter()
+            .any(|segment| segment.is_empty() || segment.len() > MAX_TTS_REQUEST_TEXT_BYTES)
+    {
+        return Err(failure(
+            ProviderFailureKind::ReviewChanged,
+            "The reviewed narration segments are invalid. Review the exact text again before sending.",
+        ));
+    }
+
+    let mut audio_segments = Vec::with_capacity(segments.len());
+    let mut total_pcm_bytes = 0_usize;
+    for segment in segments {
+        let audio =
+            await_cancellable_audio_request(cancellation, request_segment(segment.clone())).await?;
+        if !is_wav(&audio) {
+            return Err(failure(
+                ProviderFailureKind::MalformedProviderResponse,
+                "Google returned an invalid WAV segment. The transcript and previous audio remain available.",
+            ));
+        }
+        let Some(pcm) = wav_pcm_data(&audio) else {
+            return Err(failure(
+                ProviderFailureKind::MalformedProviderResponse,
+                "Google returned WAV audio with no PCM data. The transcript and previous audio remain available.",
+            ));
+        };
+        total_pcm_bytes = total_pcm_bytes.saturating_add(pcm.len());
+        let joined_pcm_bytes =
+            total_pcm_bytes.saturating_add(9_600_usize.saturating_mul(audio_segments.len()));
+        if 44_usize.saturating_add(joined_pcm_bytes) > MAX_RESPONSE_BYTES {
+            return Err(failure(
+                ProviderFailureKind::ProviderResponseTooLarge,
+                "The combined narration exceeded the local audio size limit. The transcript and previous audio remain available.",
+            ));
+        }
+        audio_segments.push(audio);
+    }
+    join_wav_segments(&audio_segments)
 }
 
 fn consume_review(
@@ -412,7 +479,7 @@ fn validate_input(
     if input.spoken_text.is_empty() || input.spoken_text.len() > MAX_SPOKEN_TEXT_BYTES {
         return Err(failure(
             ProviderFailureKind::InvalidReview,
-            "Narration text must contain 1 to 4,000 UTF-8 bytes for this section. Long material is requested one section at a time.",
+            "Narration text must contain 1 to 16,000 UTF-8 bytes for this section. Longer scripts need to be divided into separate sections.",
         ));
     }
     if input.style.len() > MAX_STYLE_BYTES
@@ -456,6 +523,165 @@ fn validate_input(
     Ok(input)
 }
 
+fn split_spoken_text(text: &str, max_segment_bytes: usize) -> Vec<String> {
+    if text.is_empty() || max_segment_bytes == 0 {
+        return Vec::new();
+    }
+
+    let mut segments = Vec::new();
+    let mut remaining = text;
+    while remaining.len() > max_segment_bytes {
+        let limit = remaining
+            .char_indices()
+            .map(|(index, character)| index + character.len_utf8())
+            .take_while(|end| *end <= max_segment_bytes)
+            .last()
+            .unwrap_or_else(|| {
+                remaining
+                    .chars()
+                    .next()
+                    .map(char::len_utf8)
+                    .unwrap_or(remaining.len())
+            });
+        let bounded_prefix = &remaining[..limit];
+        let sentence_boundary = sentence_boundary_in(bounded_prefix);
+        let word_boundary = bounded_prefix
+            .char_indices()
+            .rev()
+            .find(|(_, character)| character.is_whitespace())
+            .map(|(index, character)| index + character.len_utf8());
+        let boundary = sentence_boundary
+            .or(word_boundary)
+            .filter(|boundary| *boundary > 0)
+            .unwrap_or(limit);
+        segments.push(remaining[..boundary].to_owned());
+        remaining = &remaining[boundary..];
+    }
+    if !remaining.is_empty() {
+        segments.push(remaining.to_owned());
+    }
+    segments
+}
+
+fn sentence_boundary_in(text: &str) -> Option<usize> {
+    let mut latest = None;
+    for (index, character) in text.char_indices() {
+        if !matches!(character, '.' | '?' | '!') {
+            continue;
+        }
+        let mut boundary = index + character.len_utf8();
+        let punctuation_end = boundary;
+        for (next_index, next) in text[punctuation_end..].char_indices() {
+            if matches!(next, '\"' | '\'' | ')' | ']' | '}') {
+                boundary = punctuation_end + next_index + next.len_utf8();
+            } else if next.is_whitespace() {
+                boundary = punctuation_end + next_index + next.len_utf8();
+            } else {
+                break;
+            }
+        }
+        latest = Some(boundary);
+    }
+    latest
+}
+
+fn join_wav_segments(segments: &[Vec<u8>]) -> Result<Vec<u8>, ProviderFailure> {
+    if segments.is_empty() {
+        return Err(failure(
+            ProviderFailureKind::MalformedProviderResponse,
+            "Google returned no narration segments. The transcript and previous audio remain available.",
+        ));
+    }
+    if segments.len() == 1 {
+        let audio = &segments[0];
+        if audio.len() > MAX_RESPONSE_BYTES || !is_wav(audio) {
+            return Err(failure(
+                ProviderFailureKind::MalformedProviderResponse,
+                "Google returned invalid or oversized WAV audio. The transcript and previous audio remain available.",
+            ));
+        }
+        return Ok(audio.clone());
+    }
+
+    const WAV_HEADER_BYTES: usize = 44;
+    const SILENCE_BETWEEN_SEGMENTS_BYTES: usize = 9_600; // 200 ms of 24 kHz mono PCM16.
+    let mut pcm_segments = Vec::with_capacity(segments.len());
+    let mut total_pcm_bytes = 0_usize;
+    for audio in segments {
+        if !is_wav(audio) || audio.len() > MAX_RESPONSE_BYTES {
+            return Err(failure(
+                ProviderFailureKind::MalformedProviderResponse,
+                "Google returned an invalid WAV segment. The transcript and previous audio remain available.",
+            ));
+        }
+        let pcm = wav_pcm_data(audio).ok_or_else(|| {
+            failure(
+                ProviderFailureKind::MalformedProviderResponse,
+                "Google returned WAV audio with no PCM data. The transcript and previous audio remain available.",
+            )
+        })?;
+        total_pcm_bytes = total_pcm_bytes.saturating_add(pcm.len());
+        pcm_segments.push(pcm);
+    }
+    total_pcm_bytes = total_pcm_bytes.saturating_add(
+        SILENCE_BETWEEN_SEGMENTS_BYTES.saturating_mul(segments.len().saturating_sub(1)),
+    );
+    let total_bytes = WAV_HEADER_BYTES.saturating_add(total_pcm_bytes);
+    if total_bytes > MAX_RESPONSE_BYTES || total_pcm_bytes > u32::MAX as usize - 36 {
+        return Err(failure(
+            ProviderFailureKind::ProviderResponseTooLarge,
+            "The combined narration exceeded the local audio size limit. The transcript and previous audio remain available.",
+        ));
+    }
+
+    let mut wav = Vec::with_capacity(total_bytes);
+    wav.extend_from_slice(b"RIFF");
+    wav.extend_from_slice(&((36 + total_pcm_bytes) as u32).to_le_bytes());
+    wav.extend_from_slice(b"WAVEfmt ");
+    wav.extend_from_slice(&16_u32.to_le_bytes());
+    wav.extend_from_slice(&1_u16.to_le_bytes());
+    wav.extend_from_slice(&1_u16.to_le_bytes());
+    wav.extend_from_slice(&24_000_u32.to_le_bytes());
+    wav.extend_from_slice(&48_000_u32.to_le_bytes());
+    wav.extend_from_slice(&2_u16.to_le_bytes());
+    wav.extend_from_slice(&16_u16.to_le_bytes());
+    wav.extend_from_slice(b"data");
+    wav.extend_from_slice(&(total_pcm_bytes as u32).to_le_bytes());
+    for (index, pcm) in pcm_segments.iter().enumerate() {
+        wav.extend_from_slice(pcm);
+        if index + 1 < pcm_segments.len() {
+            wav.resize(wav.len() + SILENCE_BETWEEN_SEGMENTS_BYTES, 0);
+        }
+    }
+    if !is_wav(&wav) {
+        return Err(failure(
+            ProviderFailureKind::MalformedProviderResponse,
+            "The combined narration could not be validated as WAV audio. The transcript and previous audio remain available.",
+        ));
+    }
+    Ok(wav)
+}
+
+fn wav_pcm_data(audio: &[u8]) -> Option<&[u8]> {
+    let mut cursor = 12;
+    while cursor + 8 <= audio.len() {
+        let chunk_id = &audio[cursor..cursor + 4];
+        let chunk_size =
+            u32::from_le_bytes(audio[cursor + 4..cursor + 8].try_into().ok()?) as usize;
+        let data_start = cursor.checked_add(8)?;
+        let data_end = data_start.checked_add(chunk_size)?;
+        if data_end > audio.len() {
+            return None;
+        }
+        if chunk_id == b"data" {
+            return Some(&audio[data_start..data_end]);
+        }
+        let padded_size = chunk_size.checked_add(chunk_size % 2)?;
+        cursor = data_start.checked_add(padded_size)?;
+    }
+    None
+}
+
 fn apply_lexicon(text: &str, lexicon: &[PronunciationEntry]) -> String {
     let mut entries = lexicon
         .iter()
@@ -495,14 +721,15 @@ fn is_identifier_char(character: char) -> bool {
     character.is_alphanumeric() || character == '_' || character == '$'
 }
 
-fn request_fingerprint(
+fn audio_cache_key(
     text_hash: &str,
+    request_segments: &[String],
     model: &str,
     voice: &str,
     style: &str,
     format: &str,
 ) -> String {
-    let contract = json!({
+    let mut contract = json!({
         "cacheVersion": CACHE_VERSION,
         "spokenTextSha256": text_hash,
         "provider": "Google Gemini Developer API",
@@ -510,6 +737,31 @@ fn request_fingerprint(
         "voice": voice,
         "style": style,
         "format": format,
+    });
+    if request_segments.len() > 1 {
+        contract["requestSegmentSha256"] = json!(
+            request_segments
+                .iter()
+                .map(|segment| sha256(segment.as_bytes()))
+                .collect::<Vec<_>>()
+        );
+    }
+    sha256(
+        serde_json::to_string(&contract)
+            .unwrap_or_default()
+            .as_bytes(),
+    )
+}
+
+fn request_fingerprint(
+    cache_key: &str,
+    disclosure_version: &str,
+    request_segments: &[String],
+) -> String {
+    let contract = json!({
+        "cacheKey": cache_key,
+        "disclosureVersion": disclosure_version,
+        "requestSegmentSha256": request_segments.iter().map(|segment| sha256(segment.as_bytes())).collect::<Vec<_>>(),
     });
     sha256(
         serde_json::to_string(&contract)
@@ -928,6 +1180,131 @@ mod tests {
         bytes
     }
 
+    #[tokio::test]
+    async fn reviewed_segments_are_synthesized_sequentially_before_audio_is_joined() {
+        let segments = vec!["First part.".to_owned(), "Second part.".to_owned()];
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let observed_requests = requests.clone();
+        let (_cancel_sender, mut cancellation) = oneshot::channel();
+
+        let audio = synthesize_segments(&segments, &mut cancellation, move |segment| {
+            let requests = observed_requests.clone();
+            async move {
+                requests.lock().unwrap().push(segment);
+                Ok(valid_test_wav(3))
+            }
+        })
+        .await
+        .expect("both reviewed segments should synthesize and join");
+
+        assert_eq!(*requests.lock().unwrap(), segments);
+        assert!(is_wav(&audio));
+        assert_eq!(wav_pcm_data(&audio).unwrap().len(), 4 + 9_600 + 4);
+    }
+
+    #[tokio::test]
+    async fn failed_segment_stops_the_sequence_without_producing_combined_audio() {
+        let segments = vec!["First part.".to_owned(), "Second part.".to_owned()];
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let observed_requests = requests.clone();
+        let (_cancel_sender, mut cancellation) = oneshot::channel();
+
+        let error = synthesize_segments(&segments, &mut cancellation, move |segment| {
+            let requests = observed_requests.clone();
+            async move {
+                requests.lock().unwrap().push(segment.clone());
+                if segment == "First part." {
+                    Err(failure(
+                        ProviderFailureKind::QuotaExceeded,
+                        "mock quota failure",
+                    ))
+                } else {
+                    Ok(valid_test_wav(4))
+                }
+            }
+        })
+        .await
+        .expect_err("a rejected first segment should stop synthesis");
+
+        assert_eq!(error.kind, ProviderFailureKind::QuotaExceeded);
+        assert_eq!(*requests.lock().unwrap(), vec!["First part.".to_owned()]);
+    }
+
+    #[test]
+    fn long_speech_is_split_at_sentence_boundaries_without_losing_text() {
+        let text = "First sentence. Second sentence. Third sentence.";
+        let segments = split_spoken_text(text, 20);
+        assert!(segments.len() > 1);
+        assert_eq!(segments.concat(), text);
+        assert!(segments.iter().all(|segment| segment.len() <= 20));
+        assert_eq!(segments[0], "First sentence. ");
+    }
+
+    #[test]
+    fn speech_splitting_preserves_unicode_and_uses_word_boundaries_when_needed() {
+        let text = "Résumé walkthrough. Next section, with details.";
+        let segments = split_spoken_text(text, 18);
+        assert_eq!(segments.concat(), text);
+        assert!(segments.iter().all(|segment| segment.len() <= 18));
+        assert_eq!(segments[0], "Résumé ");
+
+        let unbroken = "x".repeat(21);
+        let pieces = split_spoken_text(&unbroken, 8);
+        assert_eq!(
+            pieces,
+            vec![
+                "xxxxxxxx".to_owned(),
+                "xxxxxxxx".to_owned(),
+                "xxxxx".to_owned()
+            ]
+        );
+
+        let multi_byte = "界界界界界";
+        let pieces = split_spoken_text(multi_byte, 4);
+        assert_eq!(pieces.concat(), multi_byte);
+        assert!(pieces.iter().all(|piece| piece.len() <= 4));
+    }
+
+    #[test]
+    fn combined_wav_keeps_segment_audio_in_order_with_a_short_pause() {
+        let first = valid_test_wav(1);
+        let second = valid_test_wav(2);
+        let combined = join_wav_segments(&[first.clone(), second.clone()])
+            .expect("valid WAV segments should join");
+        assert!(is_wav(&combined));
+        assert_eq!(wav_pcm_data(&combined).unwrap().len(), 4 + 9_600 + 4);
+        assert_eq!(&combined[44..48], wav_pcm_data(&first).unwrap());
+        assert!(combined[48..48 + 9_600].iter().all(|byte| *byte == 0));
+        assert_eq!(
+            &combined[48 + 9_600..52 + 9_600],
+            wav_pcm_data(&second).unwrap()
+        );
+    }
+
+    #[test]
+    fn review_exposes_each_exact_request_segment_for_consent() {
+        let storage = TestStorage::new();
+        let reviews = PendingNarrationReviews::default();
+        let text = format!("{} First sentence. Second sentence.", "word ".repeat(900));
+        let review = build_review(storage.path(), &reviews, &text, "Kore", "", vec![]);
+        assert_eq!(review.request_segments.concat(), review.exact_text);
+        assert!(review.request_segments.len() > 1);
+        assert!(
+            review
+                .request_segments
+                .iter()
+                .all(|segment| segment.len() <= MAX_TTS_REQUEST_TEXT_BYTES)
+        );
+        for segment in &review.request_segments {
+            let mut request_review = review.clone();
+            request_review.exact_text = segment.clone();
+            assert_eq!(
+                build_request_body(&request_review)["input"][0]["content"][0]["text"],
+                *segment
+            );
+        }
+    }
+
     #[test]
     fn outgoing_tts_body_contains_only_the_reviewed_script_and_speech_settings() {
         let storage = TestStorage::new();
@@ -1054,7 +1431,7 @@ mod tests {
             vec![],
         );
         let audio = valid_test_wav(7);
-        write_cached_audio(storage.path(), &base.fingerprint, &audio)
+        write_cached_audio(storage.path(), &base.cache_key, &audio)
             .expect("valid WAV should cache");
 
         let same = build_review(
@@ -1091,8 +1468,19 @@ mod tests {
         );
 
         assert_eq!(same.fingerprint, base.fingerprint);
+        assert_eq!(same.cache_key, base.cache_key);
         assert!(same.cached_audio_available);
+        assert_ne!(
+            request_fingerprint(&same.cache_key, "later-disclosure", &same.request_segments),
+            same.fingerprint,
+            "a changed disclosure must require a fresh confirmation"
+        );
+        assert!(
+            read_cached_audio(storage.path(), &same.cache_key).is_some(),
+            "the same reviewed speech can reuse audio when disclosure metadata changes"
+        );
         for changed in [changed_text, changed_voice, changed_style] {
+            assert_ne!(changed.cache_key, base.cache_key);
             assert_ne!(changed.fingerprint, base.fingerprint);
             assert!(!changed.cached_audio_available);
         }
@@ -1111,7 +1499,7 @@ mod tests {
             vec![],
         );
         let expected = valid_test_wav(19);
-        write_cached_audio(storage.path(), &review.fingerprint, &expected)
+        write_cached_audio(storage.path(), &review.cache_key, &expected)
             .expect("valid WAV should cache");
 
         let loaded = load_reviewed_audio(
@@ -1179,17 +1567,17 @@ mod tests {
             vec![],
         );
         let previous = valid_test_wav(23);
-        write_cached_audio(storage.path(), &review.fingerprint, &previous)
+        write_cached_audio(storage.path(), &review.cache_key, &previous)
             .expect("valid WAV should cache");
 
         assert_eq!(
-            write_cached_audio(storage.path(), &review.fingerprint, b"not-a-wave")
+            write_cached_audio(storage.path(), &review.cache_key, b"not-a-wave")
                 .unwrap_err()
                 .kind,
             ProviderFailureKind::MalformedProviderResponse
         );
         assert_eq!(
-            read_cached_audio(storage.path(), &review.fingerprint),
+            read_cached_audio(storage.path(), &review.cache_key),
             Some(previous)
         );
     }

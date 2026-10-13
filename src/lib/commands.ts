@@ -702,12 +702,15 @@ export interface NarrationPronunciationEntry {
 export interface NarrationRequestReview {
   reviewId: string;
   exactText: string;
+  requestSegments: string[];
   spokenTextSha256: string;
+  disclosureVersion: string;
   modelId: string;
   voice: string;
   style: string;
   format: string;
   fingerprint: string;
+  cacheKey: string;
   cachedAudioAvailable: boolean;
   expiresAtUnixMs: number;
 }

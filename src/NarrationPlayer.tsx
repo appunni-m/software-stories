@@ -61,6 +61,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   const storageKey = `code-atlas:narration:${projectId}:${chapterId}:${revisionId}:${section.sectionId}`;
   const preferences = useMemo(() => readPreferences(storageKey, section.spokenText), [storageKey, section.spokenText]);
   const [draft, setDraft] = useState<NarrationPreferences>(preferences);
+  const spokenTextUtf8Bytes = useMemo(() => new TextEncoder().encode(draft.spokenText).length, [draft.spokenText]);
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const [disclosure, setDisclosure] = useState<NarrationDisclosure | null>(null);
@@ -471,7 +472,8 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         <summary><span>Edit spoken text</span><ChevronDown size={13} /></summary>
         <p>Only this section's script is sent for narration. Source code, file paths, and citations are left out.</p>
         <label className="walkthrough-narration-field">Spoken text
-          <textarea value={draft.spokenText} maxLength={4000} rows={4} onChange={(event) => updateDraft((value) => ({ ...value, spokenText: event.target.value }))} placeholder="Write what you want the reader to say in natural language." />
+          <textarea value={draft.spokenText} maxLength={16000} rows={4} onChange={(event) => updateDraft((value) => ({ ...value, spokenText: event.target.value }))} placeholder="Write what you want the reader to say in natural language." />
+          <small>{spokenTextUtf8Bytes.toLocaleString()} / 16,000 UTF-8 bytes. Scripts over 16,000 bytes must be divided into sections; this script is sent in reviewed segments of at most 4,000 bytes.</small>
         </label>
         <div className="walkthrough-narration-settings">
           <label className="walkthrough-narration-field">Voice
@@ -516,7 +518,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       {track && !savedAudioMatchesDraft && <p className="walkthrough-narration-prior-audio" role="status">Previous audio is kept for its reviewed transcript. New edits do not change it unless you generate another recording.</p>}
 
       <div className="walkthrough-narration-review-actions">
-        <button type="button" className="secondary-button" onClick={() => { void makeReview(); }} disabled={reviewBusy || requestBusy || !disclosure || !draft.spokenText.trim()}>
+        <button type="button" className="secondary-button" onClick={() => { void makeReview(); }} disabled={reviewBusy || requestBusy || !disclosure || !draft.spokenText.trim() || spokenTextUtf8Bytes > 16000}>
           {reviewBusy ? 'Reviewing locally…' : 'Review exact speech request'}
         </button>
         {review && <span className="walkthrough-narration-fingerprint"><Check size={12} /> Request reviewed · {review.fingerprint.slice(0, 12)}</span>}
@@ -528,10 +530,15 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
           <dl>
             <div><dt>Provider/model</dt><dd>{disclosure.provider} · <code>{review.modelId}</code></dd></div>
             <div><dt>Voice and style</dt><dd>{review.voice}{review.style ? ` · ${review.style}` : ' · default delivery'}</dd></div>
-            <div><dt>Format</dt><dd>{review.format} · one current section</dd></div>
+            <div><dt>Format</dt><dd>{review.format} · {review.requestSegments.length} sequential request{review.requestSegments.length === 1 ? '' : 's'} for this section</dd></div>
+            <div><dt>Terms version</dt><dd><code>{review.disclosureVersion}</code></dd></div>
             <div><dt>Text hash</dt><dd><code>{review.spokenTextSha256}</code></dd></div>
           </dl>
-          <div className="walkthrough-narration-exact-text"><span>EXACT NARRATION TEXT THAT WOULD BE SENT</span><p>{review.exactText}</p></div>
+          <div className="walkthrough-narration-exact-text"><span>FULL EXACT NARRATION TEXT FOR THESE REQUESTS</span><p>{review.exactText}</p></div>
+          {review.requestSegments.length > 1 && <details className="walkthrough-narration-segments">
+            <summary>Inspect the {review.requestSegments.length} exact request segments</summary>
+            <ol>{review.requestSegments.map((segment, index) => <li key={`${review.reviewId}-${index}`}><span>Request {index + 1}</span><p>{segment}</p></li>)}</ol>
+          </details>}
           <div className="walkthrough-narration-disclosure">
             <p><strong>Free Tier.</strong> {disclosure.freeTierTerms}</p>
             <p><strong>Possible paid-tier charges.</strong> {disclosure.paidTierTerms}</p>

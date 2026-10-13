@@ -57,7 +57,7 @@ reject the draft when the explanation overstates what the diff proves.
 
 ## Narration is missing or synthesis is rejected
 
-Audio is optional. The transcript and section navigation remain usable without narration. A narration request has its own review and confirmation; it sends the edited spoken script and speech settings, not source excerpts by default. The current source limits a section script to 4,000 UTF-8 bytes. Shorten the spoken script and review the replacement request if it exceeds that limit.
+Audio is optional. The transcript and section navigation remain usable without narration. A narration request has its own review and confirmation; it sends the edited spoken script and speech settings, not source excerpts by default. A script can contain up to 16,000 UTF-8 bytes; longer scripts should be divided into separate sections. The review shows the exact sequential requests of at most 4,000 bytes each, split at sentence boundaries when possible and whole-word boundaries otherwise.
 
 ## Build or documentation checks fail
 
