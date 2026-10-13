@@ -848,6 +848,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .chapter-revision-diff-group h5 code { color: #788b7d; font: 7px var(--mono); }
 .chapter-revision-diff-row { display: grid; grid-template-columns: minmax(105px, .4fr) minmax(0, 1fr) minmax(0, 1fr); gap: 7px; padding: 6px 0; border-top: 1px solid #202c23; }
 .chapter-revision-diff-row > strong { color: #a6b39f; font-size: 8px; }
+.chapter-revision-diff-row > strong small { display: block; margin-top: 3px; color: #708075; font: 6px/1.4 var(--mono); overflow-wrap: anywhere; }
 .chapter-revision-diff-row > div { min-width: 0; }
 .chapter-revision-diff-row > div > span { color: #6f8174; font: 7px var(--mono); text-transform: uppercase; }
 .chapter-revision-diff-row pre { max-height: 180px; overflow: auto; margin: 3px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; color: #aab9ac; font: 7px/1.5 var(--mono); }

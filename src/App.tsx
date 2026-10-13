@@ -119,6 +119,7 @@ import {
 import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, buildInventoryTree, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, zoomAtlasViewport, type AtlasViewport, type ProvenGraphEdge } from './lib/atlas';
 import { classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, sourceLineTextRanges, splitCapturedSourceLines, splitSourceTextAtRange } from './lib/codeLens';
 import { loadShellStartupData, PRIMARY_WORKSPACES, WORKSPACE_COPY } from './lib/shell';
+import { compareChapterRevisions, type RevisionChange } from './lib/revisionHistory';
 import {
   addCoverageGroup,
   buildCoverageRows,
@@ -3277,96 +3278,73 @@ interface RevisionDiffValue {
   field: string;
   before: string;
   after: string;
+  path?: string;
 }
 
-interface RevisionSectionDiff {
-  sectionId: string;
-  title: string;
-  change: 'added' | 'removed' | 'changed';
-  fields: RevisionDiffValue[];
-}
-
-function diffText(value: unknown): string {
-  const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-  return text || '—';
-}
-
-function anchorDiffValue(section: ChapterSection): string {
-  return section.claims.flatMap((claim) => claim.anchors.map((anchor) =>
-    `${anchor.path}:${anchor.startLine}-${anchor.endLine} · bytes ${anchor.startByte}-${anchor.endByteInclusive} · snapshot ${anchor.snapshotId} · ${anchor.symbolId ?? 'file range'} · sha256 ${anchor.sourceSha256}\n${anchor.excerpt}`,
-  )).join('\n\n') || 'No source citations';
-}
-
-function sectionRevisionDiff(before: ChapterRevision, after: ChapterRevision): RevisionSectionDiff[] {
-  const beforeById = new Map<string, ChapterSection>(before.sections.map((section) => [section.sectionId, section]));
-  const afterById = new Map<string, ChapterSection>(after.sections.map((section) => [section.sectionId, section]));
-  const ids = [...new Set([...beforeById.keys(), ...afterById.keys()])];
-  const result: RevisionSectionDiff[] = [];
-  for (const sectionId of ids) {
-    const oldSection = beforeById.get(sectionId);
-    const newSection = afterById.get(sectionId);
-    if (!oldSection && newSection) {
-      result.push({
-        sectionId,
-        title: newSection.title,
-        change: 'added',
-        fields: [{ field: 'Section content', before: '—', after: diffText({ title: newSection.title, prose: newSection.prose, spokenText: newSection.spokenText, claims: newSection.claims, anchors: anchorDiffValue(newSection), dependencies: newSection.dependencies, visual: newSection.visual, hotspots: newSection.hotspots }) }],
-      });
-      continue;
-    }
-    if (oldSection && !newSection) {
-      result.push({
-        sectionId,
-        title: oldSection.title,
-        change: 'removed',
-        fields: [{ field: 'Section content', before: diffText({ title: oldSection.title, prose: oldSection.prose, spokenText: oldSection.spokenText, claims: oldSection.claims, anchors: anchorDiffValue(oldSection), dependencies: oldSection.dependencies, visual: oldSection.visual, hotspots: oldSection.hotspots }), after: '—' }],
-      });
-      continue;
-    }
-    if (!oldSection || !newSection) continue;
-    const candidates: Array<[string, unknown, unknown]> = [
-      ['Section order', oldSection.order, newSection.order],
-      ['Section title', oldSection.title, newSection.title],
-      ['Explanation prose', oldSection.prose, newSection.prose],
-      ['Spoken narration', oldSection.spokenText, newSection.spokenText],
-      ['Claims', oldSection.claims, newSection.claims],
-      ['Source references', anchorDiffValue(oldSection), anchorDiffValue(newSection)],
-      ['Dependencies', oldSection.dependencies, newSection.dependencies],
-      ['Diagram asset inputs', oldSection.visual, newSection.visual],
-      ['Interactive hotspots', oldSection.hotspots, newSection.hotspots],
-    ];
-    const fields = candidates.flatMap(([field, oldValue, newValue]) => {
-      if (JSON.stringify(oldValue) === JSON.stringify(newValue)) return [];
-      return [{ field, before: diffText(oldValue), after: diffText(newValue) }];
-    });
-    if (fields.length > 0) result.push({ sectionId, title: newSection.title, change: 'changed', fields });
+function revisionEntityLabel(entity: RevisionChange['entity']): string {
+  switch (entity) {
+    case 'chapter': return 'chapter';
+    case 'section': return 'section';
+    case 'claim': return 'claim';
+    case 'anchor': return 'source reference';
+    case 'dependency': return 'dependency';
+    case 'visual': return 'diagram';
+    case 'visualNode': return 'diagram node';
+    case 'visualEdge': return 'diagram edge';
+    case 'hotspot': return 'hotspot';
   }
-  return result;
+  return String(entity);
+}
+
+function revisionFieldLabel(field: string): string {
+  const labels: Record<string, string> = {
+    startByte: 'start byte',
+    endByteInclusive: 'end byte',
+    startLine: 'start line',
+    endLine: 'end line',
+    startColumn: 'start column',
+    endColumn: 'end column',
+    sourceSha256: 'source hash',
+    evidenceAnchorIds: 'source references',
+    spokenText: 'spoken narration',
+    targetScope: 'target',
+  };
+  return labels[field] ?? field.replace(/[A-Z]/g, (letter) => ` ${letter.toLowerCase()}`);
+}
+
+function revisionChangeRow(change: RevisionChange): RevisionDiffValue {
+  const action = change.kind[0].toUpperCase() + change.kind.slice(1);
+  const identity = change.id ? ` · ${change.id}` : '';
+  const field = change.field ? ` · ${revisionFieldLabel(change.field)}` : '';
+  return {
+    field: `${action} ${revisionEntityLabel(change.entity)}${field}${identity}`,
+    path: change.path,
+    before: change.beforeSummary ?? '—',
+    after: change.afterSummary ?? '—',
+  };
 }
 
 function ChapterRevisionComparison({ before, after }: { before: ChapterRevision; after: ChapterRevision }) {
+  const contentDiff = compareChapterRevisions(before, after);
   const chapterFields: RevisionDiffValue[] = [
     ...(before.title !== after.title ? [{ field: 'Chapter title', before: before.title, after: after.title }] : []),
     ...(before.snapshotId !== after.snapshotId ? [{ field: 'Source snapshot', before: before.snapshotId, after: after.snapshotId }] : []),
     ...(before.lifecycle !== after.lifecycle ? [{ field: 'Status', before: before.lifecycle, after: after.lifecycle }] : []),
     ...(before.basedOnRevisionId !== after.basedOnRevisionId ? [{ field: 'Parent revision', before: before.basedOnRevisionId ?? '—', after: after.basedOnRevisionId ?? '—' }] : []),
   ];
-  const sections = sectionRevisionDiff(before, after);
-  if (chapterFields.length === 0 && sections.length === 0) {
+  const contentRows = contentDiff.changes.map(revisionChangeRow);
+  if (chapterFields.length === 0 && contentRows.length === 0) {
     return <p className="chapter-revision-no-diff">No chapter content, claims, citations, dependencies, or assets changed between these revisions.</p>;
   }
   return <div className="chapter-revision-diff">
     {chapterFields.length > 0 && <div className="chapter-revision-diff-group"><h5>Chapter</h5>{chapterFields.map((field) => <RevisionDiffRow key={field.field} value={field} />)}</div>}
-    {sections.map((section) => <div className="chapter-revision-diff-group" key={section.sectionId}>
-      <h5>{section.change === 'added' ? 'Added' : section.change === 'removed' ? 'Removed' : 'Changed'} · {section.title} <code>{section.sectionId}</code></h5>
-      {section.fields.map((field) => <RevisionDiffRow key={field.field} value={field} />)}
-    </div>)}
+    {contentRows.length > 0 && <div className="chapter-revision-diff-group"><h5>Content · {contentDiff.counts.total} change{contentDiff.counts.total === 1 ? '' : 's'}</h5>{contentRows.map((field, index) => <RevisionDiffRow key={`${field.path}:${field.field}:${index}`} value={field} />)}</div>}
   </div>;
 }
 
 function RevisionDiffRow({ value }: { value: RevisionDiffValue }) {
   return <div className="chapter-revision-diff-row">
-    <strong>{value.field}</strong>
+    <strong>{value.field}{value.path && <small>{value.path}</small>}</strong>
     <div><span>Before</span><pre>{value.before}</pre></div>
     <div><span>After</span><pre>{value.after}</pre></div>
   </div>;

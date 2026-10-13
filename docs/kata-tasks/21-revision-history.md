@@ -17,6 +17,7 @@ Chapter Studio lists revision time, source snapshot, status, and parent revision
 ## Acceptance criteria
 - Accepted chapter and section revisions cannot be edited in place.
 - Diff identifies changed/added/removed fields and source references.
+- The comparison is field-level and content-safe: source paths, ranges, and hashes may be summarized, but raw source excerpts are not copied into diff output.
 - Restore creates a distinct draft while retaining the selected old version and current accepted version.
 - Invalid restored anchors block acceptance and show exact repair options.
 - Rejected draft history remains visible and cannot be accepted without a new revision.
