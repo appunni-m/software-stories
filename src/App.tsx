@@ -335,7 +335,7 @@ function App() {
     } catch (error) {
       setNotice({
         title: 'Recent projects could not be loaded',
-        message: error instanceof Error ? error.message : 'The local project list is unavailable.',
+        message: errorMessageOr(error, 'The local project list is unavailable.'),
         actionLabel: 'Retry',
         action: () => { void retryRecentProjectsLoad(); },
         tone: 'error',
@@ -350,7 +350,7 @@ function App() {
     } catch (error) {
       setNotice({
         title: 'Recovery notice could not be cleared',
-        message: error instanceof Error ? error.message : 'The old request notice remains. The new request still requires fresh review and consent.',
+        message: errorMessageOr(error, 'The old request notice remains. The new request still requires fresh review and consent.'),
         tone: 'error',
       });
     }
@@ -382,7 +382,7 @@ function App() {
     } catch (error) {
       setNotice({
         title: 'Saved preview could not be discarded',
-        message: error instanceof Error ? error.message : 'The local recovery copy is still available.',
+        message: errorMessageOr(error, 'The local recovery copy is still available.'),
         tone: 'error',
       });
     }
@@ -396,7 +396,7 @@ function App() {
     } catch (error) {
       setNotice({
         title: 'Recovery notice could not be cleared',
-        message: error instanceof Error ? error.message : 'The local recovery record could not be updated.',
+        message: errorMessageOr(error, 'The local recovery record could not be updated.'),
         tone: 'error',
       });
     } finally {
@@ -427,14 +427,14 @@ function App() {
       } catch (error) {
         setNotice({
           title: 'A fresh capture started; old recovery data remains',
-          message: error instanceof Error ? error.message : 'The old staging bytes could not be cleared. The interrupted item remains available to discard.',
+          message: errorMessageOr(error, 'The old staging bytes could not be cleared. The interrupted item remains available to discard.'),
           tone: 'warning',
         });
       }
     } catch (error) {
       setNotice({
         title: 'Capture retry could not start',
-        message: error instanceof Error ? error.message : 'Open the repository and try a new capture again.',
+        message: errorMessageOr(error, 'Open the repository and try a new capture again.'),
         tone: 'error',
       });
     } finally {
@@ -475,7 +475,7 @@ function App() {
     } catch (error) {
       setNotice({
         title: 'A fresh request review could not open',
-        message: error instanceof Error ? error.message : 'Reopen the repository and review a new exact-context request.',
+        message: errorMessageOr(error, 'Reopen the repository and review a new exact-context request.'),
         tone: 'error',
       });
     } finally {
@@ -569,7 +569,7 @@ function App() {
     } catch (error) {
       setNotice({
         title: 'Could not open the folder picker',
-        message: error instanceof Error ? error.message : 'The native folder picker did not respond.',
+        message: errorMessageOr(error, 'The native folder picker did not respond.'),
         actionLabel: 'Try again',
         action: () => { void openLocalRepository(); },
         tone: 'error',
@@ -588,7 +588,7 @@ function App() {
     } catch (error) {
       setNotice({
         title: 'Could not open this recent project',
-        message: error instanceof Error ? error.message : 'Local project metadata could not be read.',
+        message: errorMessageOr(error, 'Local project metadata could not be read.'),
         actionLabel: 'Choose a folder',
         action: () => { void openLocalRepository(); },
         tone: 'error',
@@ -611,7 +611,7 @@ function App() {
     } catch (error) {
       setNotice({
         title: 'Could not update Recents',
-        message: error instanceof Error ? error.message : 'The local project list could not be updated.',
+        message: errorMessageOr(error, 'The local project list could not be updated.'),
         tone: 'error',
       });
     } finally {
@@ -639,7 +639,7 @@ function App() {
     } catch (error) {
       setNotice({
         title: 'Snapshot could not start',
-        message: error instanceof Error ? error.message : 'The local capture service did not respond.',
+        message: errorMessageOr(error, 'The local capture service did not respond.'),
         tone: 'error',
       });
     } finally {
@@ -654,7 +654,7 @@ function App() {
     } catch (error) {
       setNotice({
         title: 'Capture could not be cancelled',
-        message: error instanceof Error ? error.message : 'The capture may have already finished.',
+        message: errorMessageOr(error, 'The capture may have already finished.'),
         tone: 'error',
       });
     }
@@ -716,7 +716,7 @@ function App() {
       })
       .catch((error) => {
         if (active && isNativeRuntime()) {
-          setNotice({ title: 'Snapshot history could not be loaded', message: error instanceof Error ? error.message : 'Local snapshot history is unavailable.', tone: 'error' });
+          setNotice({ title: 'Snapshot history could not be loaded', message: errorMessageOr(error, 'Local snapshot history is unavailable.'), tone: 'error' });
         }
       });
     return () => { active = false; };
@@ -1706,7 +1706,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCo
     setSnapshotManifestError(null);
     void loadSnapshotManifest(mode.projectId, mode.snapshotId)
       .then((manifest) => { if (active) setSnapshotManifest(manifest); })
-    .catch(() => { if (active) setSnapshotManifestError('The captured file list could not be loaded. Select source files again after reopening the snapshot.'); })
+      .catch((error) => { if (active) setSnapshotManifestError(errorMessageOr(error, 'The captured file list could not be loaded. Select source files again after reopening the snapshot.')); })
       .finally(() => { if (active) setSnapshotManifestLoading(false); });
     return () => { active = false; };
   }, [mode, native, reviewMode]);
@@ -2021,7 +2021,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCo
         window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed', { detail: { revision: existing } }));
         window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
       } else {
-        setSaveError(typeof error === 'string' ? error : 'The draft could not be saved. Existing revisions were preserved.');
+        setSaveError(errorMessageOr(error, 'The draft could not be saved. Existing revisions were preserved.'));
       }
     } finally {
       setSaveBusy(false);
@@ -2033,7 +2033,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCo
     try {
       await discardGeneratedChapterDraft(sendResult.generationId);
     } catch (error) {
-      setSaveError(typeof error === 'string' ? error : 'The local recovery copy could not be discarded.');
+      setSaveError(errorMessageOr(error, 'The local recovery copy could not be discarded.'));
       return;
     }
     if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
@@ -2330,7 +2330,7 @@ function RecoveredGeneratedPreviewDialog({ generationId, onClose, onSaved, onDis
       .then((value) => { if (active) setPreview(value); })
       .catch((failure) => {
         if (!active) return;
-        setError(typeof failure === 'string' ? failure : 'The saved preview could not be revalidated against its local snapshot.');
+        setError(errorMessageOr(failure, 'The saved preview could not be revalidated against its local snapshot.'));
         onRecoveryChanged();
       })
       .finally(() => { if (active) setLoading(false); });
@@ -2352,7 +2352,7 @@ function RecoveredGeneratedPreviewDialog({ generationId, onClose, onSaved, onDis
         await discardGeneratedChapterDraft(generationId).catch(() => {});
         onSaved(existing);
       } else {
-        setError(typeof failure === 'string' ? failure : 'The draft could not be saved. Existing revisions were preserved.');
+        setError(errorMessageOr(failure, 'The draft could not be saved. Existing revisions were preserved.'));
       }
     } finally {
       setBusy(false);
@@ -2367,7 +2367,7 @@ function RecoveredGeneratedPreviewDialog({ generationId, onClose, onSaved, onDis
       await discardGeneratedChapterDraft(generationId);
       onDiscarded();
     } catch (failure) {
-      setError(typeof failure === 'string' ? failure : 'The local recovery copy could not be discarded.');
+      setError(errorMessageOr(failure, 'The local recovery copy could not be discarded.'));
     } finally {
       setBusy(false);
     }
@@ -2646,7 +2646,7 @@ function AtlasDestinationCard({ refElement, manifest, selection, onOpenFile }: {
         setIndex(loaded?.projectId === projectId && loaded.snapshotId === snapshotId ? loaded : null);
       })
       .catch((error) => {
-        if (active) setIndexError(error instanceof Error ? error.message : 'The local source index could not be opened.');
+        if (active) setIndexError(errorMessageOr(error, 'The local source index could not be opened.'));
       })
       .finally(() => { if (active) setIndexLoading(false); });
     return () => { active = false; };
@@ -2808,7 +2808,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
       } else setIndexState('pending');
     }).catch((error) => {
       if (!active) return;
-      setIndexError(error instanceof Error ? error.message : 'The local snapshot index could not be loaded.');
+      setIndexError(errorMessageOr(error, 'The local snapshot index could not be loaded.'));
       setIndexState('error');
     });
     return () => { active = false; };
@@ -2830,7 +2830,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
         setIndexJobId(null);
       } catch (error) {
         if (!active) return;
-        setIndexError(error instanceof Error ? error.message : 'Index progress could not be read.');
+        setIndexError(errorMessageOr(error, 'Index progress could not be read.'));
         setIndexState('error');
         setIndexJobId(null);
       }
@@ -2972,7 +2972,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
       const started = await startSnapshotIndexing(projectId, snapshotId);
       setIndexProgress(null); setIndexJobId(started.jobId); setIndexState('loading');
     } catch (error) {
-      setIndexError(error instanceof Error ? error.message : 'Snapshot indexing could not start.');
+      setIndexError(errorMessageOr(error, 'Snapshot indexing could not start.'));
       setIndexState('error');
     } finally { setStartingIndex(false); }
   };
@@ -3228,7 +3228,7 @@ function GuidePlanScreen({ projectId, manifest, rows, onGoAtlas, onGoStudio, onO
     setRevisionsError(null);
     void listProjectChapterRevisions(projectId)
       .then((saved) => { if (active) setRevisions(saved); })
-      .catch((error) => { if (active) setRevisionsError(typeof error === 'string' ? error : 'Saved chapter revisions could not be loaded. Coverage counts are incomplete until you retry.'); })
+      .catch((error) => { if (active) setRevisionsError(errorMessageOr(error, 'Saved chapter revisions could not be loaded. Coverage counts are incomplete until you retry.')); })
       .finally(() => { if (active) setRevisionsLoading(false); });
     return () => { active = false; };
   }, [projectId, snapshotId, revisionRefresh]);
@@ -3270,7 +3270,7 @@ function GuidePlanScreen({ projectId, manifest, rows, onGoAtlas, onGoStudio, onO
       setGroupFormOpen(false);
       setFeedback('Group created. Each file remains listed and keeps its own source link.');
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : 'The group could not be created.');
+      setFeedback(errorMessageOr(error, 'The group could not be created.'));
     }
   };
   const submitExclusion = (event: FormEvent<HTMLFormElement>, row: CoverageRow) => {
@@ -3283,7 +3283,7 @@ function GuidePlanScreen({ projectId, manifest, rows, onGoAtlas, onGoStudio, onO
       setExcludeReason('');
       setFeedback(`${row.inventory.path} is excluded from this guide plan. You can include it again at any time.`);
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : 'The file could not be excluded.');
+      setFeedback(errorMessageOr(error, 'The file could not be excluded.'));
     }
   };
   const dissolveGroup = (groupId: string, name: string) => {
@@ -3697,7 +3697,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     setLoadError(null);
     void listProjectChapterRevisions(projectId)
       .then((saved) => { if (active) setRevisions(saved); })
-      .catch((error) => { if (active) setLoadError(typeof error === 'string' ? error : 'Saved chapter history could not be loaded.'); })
+      .catch((error) => { if (active) setLoadError(errorMessageOr(error, 'Saved chapter history could not be loaded.')); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [projectId, refreshKey]);
@@ -3847,7 +3847,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
         tone: report.status === 'valid' ? 'success' : 'error',
       });
     } catch (error) {
-      setFeedback({ message: typeof error === 'string' ? error : 'The chapter could not be validated.', tone: 'error' });
+      setFeedback({ message: errorMessageOr(error, 'The chapter could not be validated.'), tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -3863,7 +3863,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       setFreshnessState({
         key,
         report: null,
-        error: typeof error === 'string' ? error : error instanceof Error ? error.message : 'Freshness could not be assessed. Check indexing and try again.',
+        error: errorMessageOr(error, 'Freshness could not be assessed. Check indexing and try again.'),
         loading: false,
       });
     }
@@ -3897,7 +3897,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       });
       onSelectRevision(saved.revision);
     } catch (error) {
-      setFeedback({ message: typeof error === 'string' ? error : 'The draft could not be saved.', tone: 'error' });
+      setFeedback({ message: errorMessageOr(error, 'The draft could not be saved.'), tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -3926,7 +3926,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
         tone: restored.validation.status === 'valid' ? 'success' : 'info',
       });
     } catch (error) {
-      setFeedback({ message: typeof error === 'string' ? error : 'The selected revision could not be restored.', tone: 'error' });
+      setFeedback({ message: errorMessageOr(error, 'The selected revision could not be restored.'), tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -3942,7 +3942,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       onSelectRevision(accepted.revision);
       setFeedback({ message: 'Accepted. The draft and accepted revision remain in history.', tone: 'success' });
     } catch (error) {
-      setFeedback({ message: typeof error === 'string' ? error : 'The chapter could not be accepted.', tone: 'error' });
+      setFeedback({ message: errorMessageOr(error, 'The chapter could not be accepted.'), tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -3960,7 +3960,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       setRejectReason('');
       setFeedback({ message: 'Rejected with reason recorded. The draft payload is still available in history.', tone: 'success' });
     } catch (error) {
-      setFeedback({ message: typeof error === 'string' ? error : 'The draft could not be rejected.', tone: 'error' });
+      setFeedback({ message: errorMessageOr(error, 'The draft could not be rejected.'), tone: 'error' });
     } finally {
       setBusy(false);
     }
@@ -4407,7 +4407,7 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
         setSnapshotIndex(loaded?.projectId === projectId && loaded.snapshotId === snapshotId ? loaded : null);
       })
       .catch((loadError) => {
-        if (active) setRelationshipError(loadError instanceof Error ? loadError.message : 'The saved snapshot index could not be opened.');
+        if (active) setRelationshipError(errorMessageOr(loadError, 'The saved snapshot index could not be opened.'));
       })
       .finally(() => { if (active) setRelationshipLoading(false); });
     return () => { active = false; };

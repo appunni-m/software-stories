@@ -8,6 +8,7 @@ import {
   type ChapterRevision,
 } from './lib/commands';
 import { parseNarrationPreferences } from './lib/narration';
+import { errorMessageOr } from './lib/errorMessage';
 import {
   buildOfflineExportPreview,
   buildOfflineGuideHtml,
@@ -240,7 +241,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
       setOpen(false);
     } catch (exportError) {
-      setError(exportError instanceof Error ? exportError.message : 'The offline guide could not be created.');
+      setError(errorMessageOr(exportError, 'The offline guide could not be created.'));
     } finally {
       setExporting(false);
     }

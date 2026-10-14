@@ -26,6 +26,7 @@ import { inspectInteractiveVisual } from './lib/visuals';
 import type { WorkspaceRoute } from './lib/navigation';
 import { NarrationPlayer } from './NarrationPlayer';
 import { OfflineExport } from './OfflineExport';
+import { errorMessageOr } from './lib/errorMessage';
 
 export interface ReaderRouteContext {
   projectId: string;
@@ -68,7 +69,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
     setLoadError(null);
     void listProjectChapterRevisions(projectId)
       .then(setRevisions)
-      .catch((error) => setLoadError(error instanceof Error ? error.message : 'Accepted chapter revisions could not be loaded.'))
+      .catch((error) => setLoadError(errorMessageOr(error, 'Accepted chapter revisions could not be loaded.')))
       .finally(() => setLoading(false));
   };
 
