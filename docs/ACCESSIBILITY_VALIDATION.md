@@ -41,6 +41,9 @@ contrast, zoom, or native-app usability pass.
   reduced-motion media query also disables CSS animations and transitions
   throughout the app. The preference helper is isolated for reuse; rendered
   behavior still requires the native acceptance pass below.
+- Sidebar help text color was raised to meet the 4.5:1 normal-text contrast
+  threshold on its current background (computed ratio: 5.92:1). Native Increase
+  Contrast review and the remaining rendered color-pair audit are still pending.
 - The Atlas inventory tree filters with retained-path sets, renders a virtual
   row window, and exposes tree hierarchy/position metadata plus full-list arrow
   navigation in [App.tsx](../src/App.tsx). The 25,000-row helper fixture in
