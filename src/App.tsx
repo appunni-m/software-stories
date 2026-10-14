@@ -72,6 +72,7 @@ import {
   type GitComparisonResult,
 } from './lib/commands';
 import type { ReaderRouteContext } from './Walkthrough';
+import { scrollBehaviorForMotionPreference } from './lib/motion';
 const WalkthroughScreen = lazy(() => import('./Walkthrough').then(({ WalkthroughScreen }) => ({ default: WalkthroughScreen })));
 const GitChangesScreen = lazy(() => import('./GitChanges').then(({ GitChangesScreen }) => ({ default: GitChangesScreen })));
 import {
@@ -3738,7 +3739,10 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     const frame = requestAnimationFrame(() => {
       const section = document.getElementById(`studio-section-${routeSectionId}`);
       section?.focus({ preventScroll: true });
-      section?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      section?.scrollIntoView({
+        block: 'start',
+        behavior: scrollBehaviorForMotionPreference(window.matchMedia('(prefers-reduced-motion: reduce)').matches),
+      });
     });
     return () => cancelAnimationFrame(frame);
   }, [activeDocument?.revisionId, routeSectionId]);
@@ -4370,7 +4374,10 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
 
   useEffect(() => {
     if (!visibleSourceRange || !source) return;
-    const frame = requestAnimationFrame(() => citedLineRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    const frame = requestAnimationFrame(() => citedLineRef.current?.scrollIntoView({
+      block: 'center',
+      behavior: scrollBehaviorForMotionPreference(window.matchMedia('(prefers-reduced-motion: reduce)').matches),
+    }));
     return () => cancelAnimationFrame(frame);
   }, [source?.snapshotId, source?.path, visibleSourceRange?.startLine, visibleSourceRange?.endLine, showCompleteSource]);
 

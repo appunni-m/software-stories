@@ -1166,7 +1166,13 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 /* Repository selection and preflight */
@@ -1589,7 +1595,4 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .pr-guide-change-option > label small { margin-left: auto; }
   .pr-guide-decision-actions { align-items: stretch; }
   .pr-guide-decision-actions > .primary-button { flex: 1 1 100%; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .git-spin { animation: none; }
 }

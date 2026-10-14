@@ -36,6 +36,11 @@ contrast, zoom, or native-app usability pass.
   the rendered UI.
 - Reduced-motion styles and focus/reflow fixes are in
   [App.css](../src/App.css).
+- Chapter Studio section navigation and Code Lens citation navigation now
+  select non-animated scrolling when macOS Reduce Motion is enabled. The
+  reduced-motion media query also disables CSS animations and transitions
+  throughout the app. The preference helper is isolated for reuse; rendered
+  behavior still requires the native acceptance pass below.
 - The Atlas inventory tree filters with retained-path sets, renders a virtual
   row window, and exposes tree hierarchy/position metadata plus full-list arrow
   navigation in [App.tsx](../src/App.tsx). The 25,000-row helper fixture in
