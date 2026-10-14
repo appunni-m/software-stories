@@ -26,7 +26,8 @@ contrast, zoom, or native-app usability pass.
 - Modal focus containment and the recovered-preview focus return are implemented
   in [App.tsx](../src/App.tsx).
 - Walkthrough section navigation exposes aria-current, Previous/Continue
-  buttons, keyboard section movement, and focus restoration in
+  buttons, keyboard section movement, and focus restoration. The focused section
+  heading includes its position and title in its accessible name in
   [Walkthrough.tsx](../src/Walkthrough.tsx).
 - Notices, interrupted jobs, captions, and narration errors use status or alert
   semantics in [App.tsx](../src/App.tsx) and
@@ -50,11 +51,12 @@ contrast, zoom, or native-app usability pass.
 - The Atlas inventory tree filters with retained-path sets, renders a virtual
   row window, and exposes a single roving tree-item focus stop, Left/Right
   expand/collapse and parent/child navigation, and hierarchy/position metadata
-  in [App.tsx](../src/App.tsx). The 25,000-row helper fixture in
-  [atlas.test.mjs](../tests/atlas.test.mjs) checks that a 510 CSS-pixel viewport
-  calculates a maximum 39-row window at the default row height. This is a
-  bounded-window calculation, not a rendered responsiveness or screen-reader
-  acceptance test.
+  in [App.tsx](../src/App.tsx). Selecting a tree row with a pointer moves focus
+  to that tree item so its selected state is announced. A 25,000-row helper
+  fixture in [atlas.test.mjs](../tests/atlas.test.mjs) checks that a 510
+  CSS-pixel viewport calculates a maximum 39-row window at the default row
+  height. This checks the bounded window calculation, not rendered
+  responsiveness or screen-reader acceptance.
 - PR Guide citations connect to selected hunks in
   [GitChanges.tsx](../src/GitChanges.tsx) and
   [PrGuideStudio.tsx](../src/PrGuideStudio.tsx). Source/build evidence is not a

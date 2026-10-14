@@ -3081,6 +3081,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
             const rowIndexLabel = atlasRowIndexStatusLabel(atlasRowIndexStatus(row, index, indexState, stalePathSet.has(row.path)));
             return <div className={`atlas-tree-row${selected ? ' selected' : ''}${row.disposition !== 'captured' ? ' omitted' : ''}`} role="treeitem" data-tree-index={rowOrdinal} tabIndex={rowOrdinal === activeTreeIndex ? 0 : -1} aria-label={`${row.path === '.' ? 'repository root' : row.path}, ${row.kind}, ${row.disposition}${rowIndexLabel ? `, ${rowIndexLabel}` : ''}`} aria-level={item.depth + 1} aria-posinset={item.positionInSet} aria-setsize={item.setSize} aria-selected={selected} aria-expanded={item.hasChildren ? item.expanded : undefined} key={`${row.path}:${row.reason}:${rowOrdinal}`} style={{ paddingLeft: `${7 + item.depth * 13}px` }} title={row.details} onFocus={() => setFocusedTreeIndex(rowOrdinal)} onClick={(event) => {
               if ((event.target as HTMLElement).closest('[data-tree-action]')) return;
+              if (document.activeElement !== event.currentTarget) event.currentTarget.focus();
               choosePath(row);
             }} onKeyDown={(event) => {
               const action = atlasTreeKeyboardAction(flattened, rowOrdinal, event.key);

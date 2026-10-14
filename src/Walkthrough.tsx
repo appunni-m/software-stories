@@ -387,7 +387,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
           <div className="walkthrough-reader-grid">
             <article className="walkthrough-section-content" aria-label={`Section ${selectedSectionIndex + 1} of ${sections.length}`}>
               <div className="walkthrough-section-meta"><span>SECTION {String(selectedSectionIndex + 1).padStart(2, '0')} / {String(sections.length).padStart(2, '0')}</span><span>MANUAL PACE</span></div>
-              <h2 ref={headingRef} tabIndex={-1} data-focus-key={`reader-section-heading:${selectedSection.sectionId}`}>{selectedSection.title}</h2>
+              <h2 ref={headingRef} tabIndex={-1} aria-label={`Section ${selectedSectionIndex + 1} of ${sections.length}: ${selectedSection.title}`} data-focus-key={`reader-section-heading:${selectedSection.sectionId}`}>{selectedSection.title}</h2>
               <div className="walkthrough-boundary walkthrough-boundary-start"><span className="walkthrough-boundary-mark" /><span>Section start · Read and inspect at your own pace.</span></div>
               <p className="walkthrough-section-prose">{selectedSection.prose}</p>
 
