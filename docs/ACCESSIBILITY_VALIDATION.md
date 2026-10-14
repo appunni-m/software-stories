@@ -97,6 +97,13 @@ Previous returned focus to the original section control. The reader remained
 manual-pace with no auto-advance. This exercises the static synthetic fixture,
 not a populated repository or the packaged/native walkthrough.
 
+On 2026-10-14, the same synthetic fixture was rendered at a 640 by 900 CSS-pixel
+viewport as a narrow-width check. The document width remained 640 px with no
+page-level horizontal overflow. The left-to-right diagram used its own
+horizontal scroller (520 px viewport, 748 px content), keeping the surrounding
+reader in bounds. This viewport override does not enlarge text and is not a
+200% zoom or packaged WebView acceptance pass.
+
 ## Manual checks still required
 
 The following are **not verified**:
