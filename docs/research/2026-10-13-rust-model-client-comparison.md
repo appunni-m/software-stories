@@ -57,7 +57,7 @@ The workspace pins `rig-core` 0.44.0 and connects its Gemini, OpenAI Responses, 
 
 **Implementation follow-up (2026-10-14 snapshot):** the app added a distinct transient Code Lens request scoped to an exact hash-verified snapshot range. At that checkpoint, provider-by-operation Code Lens fixtures and the separate PR change-explanation operation remained open; this note preserves the comparison's 2026-10-13 evidence and is not the current implementation status.
 
-**Later implementation update (2026-10-14):** the app now also has a transient single-hunk PR change-explanation route for Gemini, OpenAI, and Anthropic. It reviews and sends one local diff hunk, validates side-aware citations, and does not create PR Guide history. The current [capability matrix](ai-backend-capability-matrix.md) records the source and fixture status; live provider eligibility, complete operation-by-provider invalidation/error coverage, and cancellation/transport-close acceptance remain open.
+**Later implementation update (2026-10-14):** the app now also has a transient single-hunk PR change-explanation route for Gemini, OpenAI, and Anthropic. It reviews and sends one local diff hunk, validates side-aware citations, and does not create PR Guide history. Follow-up loopback Reqwest/Rig fixtures verify credential placement and socket closure on cancellation; those local checks do not establish vendor eligibility, production TLS/proxy behavior, or whether a provider accepted work before the local cancellation. The current [capability matrix](ai-backend-capability-matrix.md) records the complete implementation and remaining acceptance gaps.
 
 ## Primary sources
 
