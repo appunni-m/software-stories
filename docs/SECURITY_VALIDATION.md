@@ -30,8 +30,11 @@ a previously saved complete index.
 Chapter revision JSON is capped at 4 MiB and decoded with duplicate-key
 rejection. Rust validates cited paths, hashes, ranges, excerpts, typed visuals,
 and app-owned destinations against the selected snapshot. The chapter schema
-does not define HTML, scripts, arbitrary URLs, or CSS fields. Repository text
-and labels are treated as data.
+does not define HTML, scripts, arbitrary URLs, or CSS fields. Before typed
+decoding, Rust rejects case-insensitive `html`, `script`, or `javascript` keys
+at any depth inside a visual payload. Unsupported non-executable visual shapes
+remain unavailable to the renderer. Prose and labels are strings and must be
+rendered as text.
 
 Relevant evidence:
 
@@ -46,6 +49,10 @@ Relevant evidence:
   chapters::tests::visual_validation_reports_item_and_anchor_for_malformed_typed_inputs
   and chapters::tests::invalid_revision_reports_snapshot_path_range_hash_excerpt_claim_and_destination_codes
   exercise malformed visuals and invalid evidence.
+- [chapters.rs](../src-tauri/src/chapters.rs), test
+  chapters::tests::chapter_decoder_rejects_html_and_script_fields_in_visual_payloads
+  rejects executable-shaped fields at the Rust revision boundary while
+  preserving unsupported non-executable visual data as unavailable.
 
 ## Provider responses and offline export
 

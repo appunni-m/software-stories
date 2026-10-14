@@ -776,6 +776,9 @@ pub fn decode_chapter_revision(bytes: &[u8]) -> Result<ChapterRevision, String> 
             "Chapter schema version {schema_version} is not supported by this app."
         ));
     }
+    if chapter_contains_executable_visual_fields(&value) {
+        return Err("Chapter visuals cannot contain HTML or script fields.".to_owned());
+    }
     if schema_version == LEGACY_CHAPTER_SCHEMA_VERSION
         && value.as_object().is_some_and(|object| {
             object.contains_key("basedOnRevisionId") || object.contains_key("decisionNote")
@@ -798,6 +801,32 @@ pub fn decode_chapter_revision(bytes: &[u8]) -> Result<ChapterRevision, String> 
     }
     validate_overview_revision_identity(&revision)?;
     Ok(revision)
+}
+
+fn chapter_contains_executable_visual_fields(value: &serde_json::Value) -> bool {
+    value
+        .get("sections")
+        .and_then(serde_json::Value::as_array)
+        .is_some_and(|sections| {
+            sections.iter().any(|section| {
+                section
+                    .get("visual")
+                    .is_some_and(visual_contains_executable_fields)
+            })
+        })
+}
+
+fn visual_contains_executable_fields(value: &serde_json::Value) -> bool {
+    match value {
+        serde_json::Value::Object(fields) => fields.iter().any(|(key, nested)| {
+            ["html", "script", "javascript"]
+                .iter()
+                .any(|field| key.eq_ignore_ascii_case(field))
+                || visual_contains_executable_fields(nested)
+        }),
+        serde_json::Value::Array(values) => values.iter().any(visual_contains_executable_fields),
+        _ => false,
+    }
 }
 
 fn legacy_visual_contains_v2_fields(value: &serde_json::Value) -> bool {
@@ -2962,11 +2991,11 @@ mod tests {
             ValidationReportStatus::Valid
         );
 
-        let mut executable_shape = before.clone();
-        executable_shape["sections"][0]["visual"]["html"] =
-            serde_json::json!("<script>run()</script>");
-        let executable_bytes = serde_json::to_vec(&executable_shape).unwrap();
-        let safe_read = decode_chapter_revision(&executable_bytes).unwrap();
+        let mut unsupported_shape = before.clone();
+        unsupported_shape["sections"][0]["visual"]["futureRendererField"] =
+            serde_json::json!("not executable data");
+        let unsupported_bytes = serde_json::to_vec(&unsupported_shape).unwrap();
+        let safe_read = decode_chapter_revision(&unsupported_bytes).unwrap();
         assert!(matches!(
             safe_read.sections[0].visual.as_ref(),
             Some(ChapterVisualPayload::Unavailable(_))
@@ -2976,8 +3005,8 @@ mod tests {
                 decode_chapter_revision(&encode_chapter_revision(&safe_read).unwrap()).unwrap()
             )
             .unwrap(),
-            executable_shape,
-            "a malformed visual remains byte-value-equivalent when a chapter is read and encoded"
+            unsupported_shape,
+            "an unsupported non-executable visual remains value-equivalent when read and encoded"
         );
 
         let mut semantically_invalid_visual = serde_json::to_value(&revision).unwrap();
@@ -3027,6 +3056,34 @@ mod tests {
         let mut future_version = before;
         future_version["schemaVersion"] = serde_json::json!(CHAPTER_SCHEMA_VERSION + 1);
         assert!(decode_chapter_revision(&serde_json::to_vec(&future_version).unwrap()).is_err());
+    }
+
+    #[test]
+    fn chapter_decoder_rejects_html_and_script_fields_in_visual_payloads() {
+        let temporary = TestDirectory::new();
+        let (_root, storage, project, manifest, index) = fixture(&temporary);
+        let revision = valid_revision(&storage, &project, &manifest, &index);
+        let baseline = serde_json::to_value(&revision).unwrap();
+
+        for field in ["html", "HTML", "script", "Script", "javascript"] {
+            let mut executable_visual = baseline.clone();
+            executable_visual["sections"][0]["visual"][field] =
+                serde_json::json!("<script>run()</script>");
+            assert_eq!(
+                decode_chapter_revision(&serde_json::to_vec(&executable_visual).unwrap())
+                    .unwrap_err(),
+                "Chapter visuals cannot contain HTML or script fields.",
+                "root visual field {field:?} must be rejected"
+            );
+        }
+
+        let mut nested_script = baseline;
+        nested_script["sections"][0]["visual"]["nodes"][0]["script"] = serde_json::json!("run()");
+        assert_eq!(
+            decode_chapter_revision(&serde_json::to_vec(&nested_script).unwrap()).unwrap_err(),
+            "Chapter visuals cannot contain HTML or script fields.",
+            "executable-shaped fields are rejected at any depth"
+        );
     }
 
     #[test]
