@@ -366,7 +366,7 @@ export function PrGuideStudio({
                 <span><strong>{change.kind}</strong><code>{pathLabel}</code></span>
                 <small>{change.hunks.length} {change.hunks.length === 1 ? 'hunk' : 'hunks'}</small>
               </label>
-              <div className="pr-guide-hunk-actions" aria-label={`Explain a hunk in ${pathLabel}`}>
+              <div className="pr-guide-hunk-actions" role="group" aria-label={`Explain a hunk in ${pathLabel}`}>
                 {change.hunks.map((_, hunkIndex) => (
                   <button
                     type="button"

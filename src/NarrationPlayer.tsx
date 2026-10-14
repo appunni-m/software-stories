@@ -461,7 +461,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         <span className={`walkthrough-transcript-state${isPlaying ? ' is-playing' : ''}`}><Volume2 size={13} /> {isPlaying ? 'PLAYING' : track ? 'PAUSED' : 'AUDIO OFF'}</span>
       </div>
 
-      <div className="walkthrough-transcript-scroll" ref={transcriptRef} onScroll={(event) => onTranscriptPositionChange(event.currentTarget.scrollTop)} tabIndex={0} aria-label={`Transcript for ${section.title}`}>
+      <div className="walkthrough-transcript-scroll" ref={transcriptRef} onScroll={(event) => onTranscriptPositionChange(event.currentTarget.scrollTop)} role="group" tabIndex={0} aria-label={`Transcript for ${section.title}`}>
         <div className="walkthrough-caption" aria-live="polite" aria-atomic="true">
           <span>{isPlaying ? 'CAPTION · CURRENT SECTION' : 'TRANSCRIPT · CURRENT SECTION'}</span>
           <p>{captionText.trim() ? captionText : <em>No narration text is saved for this section. The written explanation and source evidence remain available.</em>}</p>
@@ -510,7 +510,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
           <button type="button" disabled={!track && !review} onClick={stop} aria-label="Stop narration"><Square size={12} /></button>
           <span className="walkthrough-duration">{formatTime(currentTime)} / {formatTime(duration)}</span>
         </div>
-        <label className="walkthrough-seek-label" aria-label="Seek narration">
+        <label className="walkthrough-seek-label">
           <span>Audio position</span>
           <input type="range" min={0} max={duration || 0} step={0.05} value={Math.min(currentTime, duration || 0)} disabled={!track || !duration} onChange={(event) => seek(Number(event.target.value))} />
         </label>
@@ -525,7 +525,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       </div>
 
       {showReview && review && disclosure && (
-        <div className="walkthrough-narration-review" aria-label="Narration request review">
+        <div className="walkthrough-narration-review" role="group" aria-label="Narration request review">
           <div className="walkthrough-narration-review-title"><div><span>LOCAL REVIEW · NO MODEL REQUEST SENT</span><strong>{disclosure.modelName}</strong></div><span>{review.cachedAudioAvailable ? 'AUDIO CACHED' : 'NEW AUDIO'}</span></div>
           <dl>
             <div><dt>Provider/model</dt><dd>{disclosure.provider} · <code>{review.modelId}</code></dd></div>

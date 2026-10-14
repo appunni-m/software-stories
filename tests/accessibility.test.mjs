@@ -1,10 +1,48 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
+import path from 'node:path';
 import test from 'node:test';
+import ts from 'typescript';
 import { scrollBehaviorForMotionPreference } from '../src/lib/motion.ts';
 
 const css = await readFile(new URL('../src/App.css', import.meta.url), 'utf8');
+const sourceRoot = new URL('../src/', import.meta.url);
 const surfaces = ['#0b0e12', '#10141a', '#141a21', '#1a222b'];
+const nameableRoles = new Set([
+  'alert', 'alertdialog', 'application', 'article', 'button', 'complementary', 'dialog',
+  'figure', 'form', 'grid', 'group', 'list', 'listbox', 'main', 'menu', 'navigation',
+  'region', 'row', 'status', 'table', 'tablist', 'tabpanel', 'toolbar', 'tree', 'treegrid',
+  'treeitem',
+]);
+
+async function collectTsxFiles(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const nested = await Promise.all(entries.map(async (entry) => {
+    const file = new URL(`${entry.name}${entry.isDirectory() ? '/' : ''}`, directory);
+    if (entry.isDirectory()) return collectTsxFiles(file);
+    return entry.isFile() && entry.name.endsWith('.tsx') ? [file] : [];
+  }));
+  return nested.flat();
+}
+
+function jsxAttribute(element, name) {
+  return element.attributes.properties.find((property) =>
+    ts.isJsxAttribute(property) && property.name.getText() === name);
+}
+
+function roleIsNameable(roleAttribute, sourceFile) {
+  if (!roleAttribute?.initializer) return false;
+  if (ts.isStringLiteral(roleAttribute.initializer)) return nameableRoles.has(roleAttribute.initializer.text);
+
+  const possibleRoles = [];
+  const collect = (node) => {
+    if (ts.isStringLiteral(node)) possibleRoles.push(node.text);
+    ts.forEachChild(node, collect);
+  };
+  collect(roleAttribute.initializer);
+  return possibleRoles.length > 0 && possibleRoles.every((role) => nameableRoles.has(role))
+    && roleAttribute.initializer.getText(sourceFile).includes('undefined');
+}
 
 function readTokens(block) {
   return Object.fromEntries(
@@ -66,4 +104,35 @@ test('Reduce Motion selects instant navigation and disables app animations and t
   assert.match(reducedMotionBlock, /scroll-behavior:\s*auto\s*!important;/);
   assert.match(reducedMotionBlock, /animation:\s*none\s*!important;/);
   assert.match(reducedMotionBlock, /transition:\s*none\s*!important;/);
+});
+
+test('ARIA labels on generic containers have an explicit nameable role', async () => {
+  const genericTags = new Set(['div', 'label', 'pre', 'span']);
+  const files = await collectTsxFiles(sourceRoot);
+  const unlabeledRoles = [];
+
+  for (const file of files) {
+    const source = await readFile(file, 'utf8');
+    const sourceFile = ts.createSourceFile(file.pathname, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    const inspect = (node) => {
+      if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+        const tag = node.tagName.getText(sourceFile);
+        const hasAccessibleName = jsxAttribute(node, 'aria-label') || jsxAttribute(node, 'aria-labelledby');
+        if (genericTags.has(tag) && hasAccessibleName) {
+          const roleAttribute = jsxAttribute(node, 'role');
+          const role = roleAttribute && ts.isStringLiteral(roleAttribute.initializer)
+            ? roleAttribute.initializer.text
+            : undefined;
+          if (role ? !nameableRoles.has(role) : !roleIsNameable(roleAttribute, sourceFile)) {
+            const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
+            unlabeledRoles.push(`${path.relative(sourceRoot.pathname, file.pathname)}:${line} <${tag}>`);
+          }
+        }
+      }
+      ts.forEachChild(node, inspect);
+    };
+    inspect(sourceFile);
+  }
+
+  assert.deepEqual(unlabeledRoles, [], `generic containers cannot be named by ARIA without a nameable role:\n${unlabeledRoles.join('\n')}`);
 });

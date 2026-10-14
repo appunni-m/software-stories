@@ -406,7 +406,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
                 onTranscriptPositionChange={rememberTranscriptPosition}
                 onOpenProviderSettings={onOpenProviderSettings}
               />
-              {selectedSection.claims.some((claim) => claim.anchors.length > 0) && <div className="walkthrough-transcript-citations" aria-label="Source references for this section">
+              {selectedSection.claims.some((claim) => claim.anchors.length > 0) && <div className="walkthrough-transcript-citations" role="group" aria-label="Source references for this section">
                   <span>SECTION SOURCES · NOT MAPPED TO INDIVIDUAL TRANSCRIPT LINES</span>
                   {[...new Map(selectedSection.claims.flatMap((claim) => claim.anchors).map((anchor) => [anchor.anchorId, anchor])).values()].map((anchor) => <button key={`transcript-${anchor.anchorId}`} data-focus-key={`reader-transcript-citation:${anchor.anchorId}`} onClick={() => openAnchor(anchor, `reader-transcript-citation:${anchor.anchorId}`)}><FileCode2 size={12} /><code>{anchor.path}:{anchor.startLine}-{anchor.endLine}</code><ArrowRight size={11} /></button>)}
                 </div>}
@@ -501,7 +501,7 @@ export function VisualPanel({ revision, section, activeFocusTarget, onFollowHots
                 <span className="walkthrough-diagram-node-number">{String(index + 1).padStart(2, '0')}</span>
                 <strong>{node.label}</strong>
                 {node.detail && <small>{node.detail}</small>}
-                {node.evidenceAnchorIds.length > 0 && <div className="walkthrough-visual-evidence" aria-label={`Evidence for ${node.label}`}>
+                {node.evidenceAnchorIds.length > 0 && <div className="walkthrough-visual-evidence" role="group" aria-label={`Evidence for ${node.label}`}>
                   {node.evidenceAnchorIds.map((anchorId) => {
                     const anchor = anchorsById.get(anchorId)!;
                     const focusKey = `reader-visual-citation:${node.nodeId}:${anchorId}`;
@@ -514,7 +514,7 @@ export function VisualPanel({ revision, section, activeFocusTarget, onFollowHots
                 const target = nodesById.get(edge.toNodeId)!;
                 return <div className="walkthrough-diagram-edge" key={edge.edgeId}>
                   <div className="walkthrough-diagram-edge-route"><span>{edge.label}</span><ArrowRight size={13} /><strong>{target.label}</strong></div>
-                  <div className="walkthrough-visual-evidence" aria-label={`Evidence for ${edge.label}`}>
+                  <div className="walkthrough-visual-evidence" role="group" aria-label={`Evidence for ${edge.label}`}>
                     {edge.evidenceAnchorIds.map((anchorId) => {
                       const anchor = anchorsById.get(anchorId)!;
                       const focusKey = `reader-visual-citation:${edge.edgeId}:${anchorId}`;

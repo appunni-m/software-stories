@@ -381,7 +381,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
                 {includeNarrationAudio && narrationCacheScan === 'desktop-only' && <p className="offline-export-muted" role="status">No desktop audio cache is available in this browser preview.</p>}
                 {includeNarrationAudio && narrationCacheScan !== 'loading' && narrationCacheScan !== 'idle' && sectionsWithoutUsableAudio > 0 && <p className="offline-export-muted">{sectionsWithoutUsableAudio} selected section{sectionsWithoutUsableAudio === 1 ? ' has' : 's have'} no usable audio; each section shows whether its audio is omitted or unavailable.</p>}
                 {includeNarrationAudio && cachedNarration.length > 0 && (
-                  <div className="offline-export-audio-list" aria-label="Cached narration selected for export">
+                  <div className="offline-export-audio-list" role="group" aria-label="Cached narration selected for export">
                     {cachedNarration.map((entry) => <p key={`${entry.chapterRevisionId}:${entry.sectionId}`}><strong>{entry.chapterTitle}</strong><span>{entry.sectionTitle}</span></p>)}
                   </div>
                 )}

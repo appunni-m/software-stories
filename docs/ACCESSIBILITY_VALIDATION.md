@@ -25,6 +25,13 @@ contrast, zoom, or native-app usability pass.
 - The Tauri main WebView enables [Tauri's page-zoom hotkeys](https://v2.tauri.app/reference/config/#zoomhotkeysenabled)
   on macOS: `⌘=` / `⌘−` in 20% steps. The narrow-window and enlarged-text
   result still needs a packaged-app check.
+- Named source, citation, transcript, provider-review, and relationship-map
+  containers now use roles that accept accessible names. The narration seek
+  slider uses its visible “Audio position” label. A TypeScript-AST regression
+  check rejects `aria-label`/`aria-labelledby` on generic containers without a
+  nameable role. The [W3C naming guidance](https://www.w3.org/WAI/ARIA/apg/practices/names-and-descriptions/)
+  identifies `generic` as prohibited from naming. This source check does not
+  prove the native WebView's VoiceOver output.
 - PR Guide citation buttons remain keyboard-operable, expand the cited file,
   scroll the exact hunk into view, and highlight it. Citation scrolling uses
   non-smooth behavior when reduced motion is requested.
@@ -75,6 +82,9 @@ contrast, zoom, or native-app usability pass.
   CSS-pixel viewport calculates a maximum 39-row window at the default row
   height. This checks the bounded window calculation, not rendered
   responsiveness or screen-reader acceptance.
+- `accessibility.test.mjs` parses the TSX AST and checks that labeled generic
+  containers use a role that supports naming. This catches markup regressions;
+  it does not test the native accessibility tree.
 - PR Guide citations connect to selected hunks in
   [GitChanges.tsx](../src/GitChanges.tsx) and
   [PrGuideStudio.tsx](../src/PrGuideStudio.tsx). Source/build evidence is not a

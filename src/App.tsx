@@ -1075,7 +1075,7 @@ function App() {
         {repositoryContextAnnouncement}
       </div>
       <header className="topbar">
-        <div className="brand-lockup" aria-label="Code Atlas">
+        <div className="brand-lockup">
           <div className="brand-mark"><Layers3 size={19} strokeWidth={2.1} /></div>
           <span className="brand-name">code<span>atlas</span></span>
         </div>
@@ -2198,7 +2198,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCo
                 </div>}
                 {requestReview && (
                   <>
-                    <div ref={requestSummaryRef} className="provider-request-summary" tabIndex={-1} aria-label="Reviewed request summary">
+                    <div ref={requestSummaryRef} className="provider-request-summary" role="group" tabIndex={-1} aria-label="Reviewed request summary">
                       {sectionUpdateMode && <div><span>Update target</span><strong>One section · {mode.sectionUpdate.sectionId}</strong></div>}
                       {sectionUpdateMode && <div><span>Accepted source revision</span><code>{mode.baseRevision.revisionId} · snapshot {mode.baseRevision.snapshotId}</code></div>}
                       <div><span>{requestReview.targetPath ? 'Target file' : 'Chapter scope'}</span><code>{requestReview.targetPath ?? 'Repository overview'}</code></div>
@@ -3109,7 +3109,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
       <section className="atlas-map-panel" aria-labelledby="atlas-map-title">
         <header><div><strong id="atlas-map-title">Relationships</strong><small>{shownEdges.length} shown · {provenEdges.length} proven for snapshot</small></div><span className="atlas-snapshot-badge">{index?.status ?? (indexState === 'loading' ? 'indexing' : indexState)}</span></header>
         <div className="atlas-map-filters"><label className="atlas-filter-search"><Search size={13} /><input aria-label="Search relationships" placeholder="Search symbol, path, or evidence" value={view.mapQuery} onChange={(event) => setView((s) => ({ ...s, mapQuery: event.target.value }))} /></label><label><span>Type</span><select aria-label="Filter relationships by type" value={view.kind} onChange={(event) => setView((s) => ({ ...s, kind: event.target.value as AtlasWorkbenchViewState['kind'] }))}><option value="all">All types</option><option value="calls">Calls</option><option value="imports">Imports</option><option value="testReference">Test references</option><option value="defines">Defines</option><option value="exports">Exports</option></select></label><label><span>Language</span><select aria-label="Filter relationships by language" value={view.language} onChange={(event) => setView((s) => ({ ...s, language: event.target.value }))}><option value="all">All languages</option>{languages.map((language) => <option key={language} value={language}>{language}</option>)}</select></label></div>
-        {(view.selectedFolder || view.kind !== 'all' || view.language !== 'all') && <div className="atlas-active-filter-chips" aria-label="Active relationship filters">
+        {(view.selectedFolder || view.kind !== 'all' || view.language !== 'all') && <div className="atlas-active-filter-chips" role="group" aria-label="Active relationship filters">
           {view.selectedFolder && <button className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, selectedFolder: null }))}>Path: {view.selectedFolder} <span aria-hidden="true">×</span></button>}
           {view.kind !== 'all' && <button className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, kind: 'all' }))}>Type: {view.kind} <span aria-hidden="true">×</span></button>}
           {view.language !== 'all' && <button className="atlas-active-filter-chip" onClick={() => setView((s) => ({ ...s, language: 'all' }))}>Language: {view.language} <span aria-hidden="true">×</span></button>}
@@ -3120,14 +3120,14 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
         {indexState === 'error' && <div className="atlas-index-banner stale" role="alert"><strong>Index unavailable</strong><span>{indexError}</span><button onClick={() => { setIndexError(null); setIndexState('pending'); }}>Try indexing</button></div>}
         {indexState === 'ready' && stalePaths.length > 0 && <div className="atlas-index-banner stale" role="status"><strong>Stale snapshot evidence</strong><span>{stalePaths.length} indexed file hash{stalePaths.length === 1 ? '' : 'es'} differ from the selected snapshot; affected edges are withheld.</span>{isNativeRuntime() && <button onClick={() => { void startIndex(); }} disabled={startingIndex || Boolean(indexJobId)}>{startingIndex || indexJobId ? 'Re-indexing…' : 'Re-index snapshot'}</button>}</div>}
         {indexState === 'ready' && unsupportedCount > 0 && <div className="atlas-index-banner unsupported" role="status"><strong>{unsupportedCount} unsupported path{unsupportedCount === 1 ? '' : 's'}</strong><span>They remain in the tree but cannot contribute indexed symbols.</span></div>}
-        <div className="atlas-canvas-toolbar" aria-label="Relationship map viewport controls">
+        <div className="atlas-canvas-toolbar" role="group" aria-label="Relationship map viewport controls">
           <span>Zoom {Math.round((dragViewport ?? view.viewport).scale * 100)}% · drag empty canvas to pan</span>
           <button aria-label="Zoom out relationship map" title="Zoom out (−)" onClick={() => zoomAtCenter(-ATLAS_ZOOM_STEP)} disabled={(dragViewport ?? view.viewport).scale <= ATLAS_MIN_ZOOM}>−</button>
           <button aria-label="Zoom in relationship map" title="Zoom in (+)" onClick={() => zoomAtCenter(ATLAS_ZOOM_STEP)} disabled={(dragViewport ?? view.viewport).scale >= ATLAS_MAX_ZOOM}>+</button>
           <button onClick={fitMap}>Fit</button>
           <button onClick={resetMap}>Reset</button>
         </div>
-        <div className={`atlas-relationship-canvas${dragViewport ? ' is-panning' : ''}`} ref={canvasRef} tabIndex={0} aria-label="Relationship map viewport. Use arrow keys to pan, plus and minus to zoom, F to fit, or 0 to reset." aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight + - F 0" onKeyDown={handleCanvasKeyDown} onPointerDown={handleCanvasPointerDown} onPointerMove={handleCanvasPointerMove} onPointerUp={finishCanvasPointer} onPointerCancel={finishCanvasPointer}>
+        <div className={`atlas-relationship-canvas${dragViewport ? ' is-panning' : ''}`} ref={canvasRef} role="group" tabIndex={0} aria-label="Relationship map viewport. Use arrow keys to pan, plus and minus to zoom, F to fit, or 0 to reset." aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight + - F 0" onKeyDown={handleCanvasKeyDown} onPointerDown={handleCanvasPointerDown} onPointerMove={handleCanvasPointerMove} onPointerUp={finishCanvasPointer} onPointerCancel={finishCanvasPointer}>
           <div className="atlas-canvas-content" ref={canvasContentRef} style={{ transform: `translate(${(dragViewport ?? view.viewport).x}px, ${(dragViewport ?? view.viewport).y}px) scale(${(dragViewport ?? view.viewport).scale})` }}>
           {indexState === 'ready' && shownEdges.length > 0 ? shownEdges.map((edge) => {
             const from = index?.symbols.find((symbol) => symbol.symbolId === edge.sourceId);
@@ -3315,7 +3315,7 @@ function GuidePlanScreen({ projectId, manifest, rows, onGoAtlas, onGoStudio, onO
         {revisionsLoading && <p className="coverage-feedback" role="status">Loading saved chapter revisions across snapshots…</p>}
         {revisionsError && <p className="coverage-storage-warning" role="alert">{revisionsError}<button className="text-button" onClick={() => setRevisionRefresh((value) => value + 1)}>Retry</button></p>}
 
-        {coverageReady && <div className="coverage-total-strip" aria-label={`${totals.total} inventory paths accounted for`}>
+        {coverageReady && <div className="coverage-total-strip">
           <div className="coverage-total-main"><strong>{totals.total.toLocaleString()}</strong><span>inventory paths</span><small>Each row below has exactly one status.</small></div>
           {COVERAGE_STATUSES.map((status) => (
             <button
@@ -3522,7 +3522,7 @@ function ChapterSourceDiff({ projectId, change }: { projectId: string; change: C
         <span>Current {change.newRange ? `${change.newRange.path}:${change.newRange.startLine}–${change.newRange.endLine}` : 'source removed'}</span>
       </div>
       {(diff.oldTruncated || diff.newTruncated) && <p className="provider-small-note">Large range: showing a bounded excerpt. Open the exact old or current range in Code Lens for full source.</p>}
-      <pre className="chapter-source-diff-lines" aria-label="Captured source diff">{diff.lines.map((line, index) => <span className={`diff-${line.kind}`} key={`${line.kind}:${line.oldLine}:${line.newLine}:${index}`}>{line.kind === 'removed' ? '−' : line.kind === 'added' ? '+' : ' '} {String(line.oldLine ?? line.newLine ?? '').padStart(4, ' ')} │ {line.text}{'\n'}</span>)}</pre>
+      <pre className="chapter-source-diff-lines" role="group" aria-label="Captured source diff">{diff.lines.map((line, index) => <span className={`diff-${line.kind}`} key={`${line.kind}:${line.oldLine}:${line.newLine}:${index}`}>{line.kind === 'removed' ? '−' : line.kind === 'added' ? '+' : ' '} {String(line.oldLine ?? line.newLine ?? '').padStart(4, ' ')} │ {line.text}{'\n'}</span>)}</pre>
     </>}
   </details>;
 }
@@ -4045,7 +4045,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                   </div> : null}
                 </div>
 
-                {history.length > 0 && <div className="chapter-revision-history" aria-label="Immutable chapter revision history">
+                {history.length > 0 && <div className="chapter-revision-history" role="group" aria-label="Immutable chapter revision history">
                   <span>Revision history</span>
                   {history.map((revision) => <button
                     key={revision.revisionId}
@@ -4513,7 +4513,7 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
           </span>
           <button className="text-button" onClick={() => setShowCompleteSource((value) => !value)}>{showCompleteSource ? 'Show cited context' : 'Show complete file'}</button>
         </div>}
-        <pre className="snapshot-source-code" tabIndex={0} aria-label={visibleSourceRange
+        <pre className="snapshot-source-code" role="group" tabIndex={0} aria-label={visibleSourceRange
           ? `Read-only source from snapshot ${source.snapshotId}, citation lines ${visibleSourceRange.startLine} to ${visibleSourceRange.endLine}`
           : `Read-only source from snapshot ${source.snapshotId}`}>
           <code>

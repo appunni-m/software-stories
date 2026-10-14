@@ -209,7 +209,7 @@ function ComparisonResults({
         {comparison.comparisonId && <code className="git-comparison-id" title="Stable identity derived from both requested refs and resolved commits">{comparison.comparisonId.slice(0, 18)}</code>}
       </header>
       {comparison.base && comparison.head && (
-        <div className="git-resolved-refs" aria-label="Resolved immutable commit IDs">
+        <div className="git-resolved-refs" role="group" aria-label="Resolved immutable commit IDs">
           <CommitIdentity label="Base" ref={comparison.base} />
           <CommitIdentity label="Head" ref={comparison.head} />
         </div>
@@ -220,7 +220,7 @@ function ComparisonResults({
       {comparison.changes.length === 0 && comparison.status !== 'chooseAgain' && comparison.status !== 'error' ? (
         <p className="git-no-changes">These commits have no file changes in the comparison result.</p>
       ) : (
-        <div className="git-change-list" aria-label="Changed files">
+        <div className="git-change-list" role="group" aria-label="Changed files">
           {comparison.changes.map((change) => {
             const identity = changeIdentity(change);
             const expanded = selectedChangePath === identity;
@@ -295,7 +295,7 @@ function ChangeDisclosure({ change, expanded, focusedHunkIndex, onToggle }: { ch
                 <AnchorIdentity side="Head" anchor={hunk.headAnchor} />
               </div>
               {(hunk.baseChangedRanges.length > 0 || hunk.headChangedRanges.length > 0) && (
-                <div className="git-hunk-changed-ranges" aria-label="Exact changed line ranges">
+                <div className="git-hunk-changed-ranges" role="group" aria-label="Exact changed line ranges">
                   <strong>Changed source lines</strong>
                   <span><b>Base</b> {formatChangedRanges(hunk.baseChangedRanges)}</span>
                   <span><b>Head</b> {formatChangedRanges(hunk.headChangedRanges)}</span>
