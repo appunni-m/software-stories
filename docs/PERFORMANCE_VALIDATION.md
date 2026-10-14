@@ -1,7 +1,7 @@
 # Large repository performance report
 
 Measured on 2026-10-14 against source revision
-898a60780d1a695b5c06675d19bda8bcc386c34c. The benchmark is intentionally
+8e28d0a1c68034325b7aabac57251b9072f949e7. The benchmark is intentionally
 small enough to reproduce locally; it is not a general performance guarantee.
 
 ## Environment and fixture
@@ -20,9 +20,9 @@ small enough to reproduce locally; it is not a general performance guarantee.
 
 | Phase | Samples (ms) | Median |
 | --- | --- | ---: |
-| Snapshot capture | 5,553; 5,703; 5,488 | 5,553 ms |
-| Static indexing | 352; 348; 349 | 349 ms |
-| Index save | 152; 151; 150 | 151 ms |
+| Snapshot capture | 7,016; 7,370; 7,309 | 7,309 ms |
+| Static indexing | 339; 338; 340 | 339 ms |
+| Index save | 147; 148; 148 | 148 ms |
 
 All 2,000 files were captured and indexed; the index contained 2,000 symbols
 and 6,000 relationships. The capture phase includes Git metadata checks,
@@ -47,13 +47,14 @@ Those still need a measured desktop fixture and manual acceptance.
 
 ## Production JavaScript bundle
 
-Measured on 2026-10-14 at source revision `e3ade52ecff7135ef9959167590495f79603bab8`
-with `npm run build`. The initial JavaScript entry is 449.84 kB (129.44 kB
-gzip); Walkthrough is a 92.32 kB (26.52 kB gzip) on-demand chunk, and Git
-Changes is an 11.52 kB (4.07 kB gzip) on-demand chunk. The initial JavaScript
-entry is below Vite's 500 kB advisory threshold. These are compressed artifact
-sizes, not browser startup timings; no rendered performance or accessibility
-claim follows from them.
+Measured on 2026-10-14 at source revision
+`8e28d0a1c68034325b7aabac57251b9072f949e7` with `npm run build`. The initial
+JavaScript entry is 452.21 kB (130.30 kB gzip); Walkthrough is a 92.38 kB
+(26.53 kB gzip) on-demand chunk, Git Changes is 11.52 kB (4.07 kB gzip), and
+PR Guide Studio is a 31.84 kB (7.99 kB gzip) on-demand chunk. The initial
+JavaScript entry is below Vite's 500 kB advisory threshold. These are
+compressed artifact sizes, not browser startup timings; no rendered
+performance or accessibility claim follows from them.
 
 ## Reproduction
 
