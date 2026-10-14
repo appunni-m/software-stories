@@ -2,6 +2,10 @@
 
 These steps apply to the current source checkout. This repository does not provide a signed and notarized installer or a user download, and it does not publish a public support inbox.
 
+## The browser preview refuses to connect
+
+The Vite preview uses the fixed address `http://127.0.0.1:4173`; it does not move to a second port when that port is occupied. A refused connection means no preview is listening at that address. From the repository root, start `npm run dev` only if the preview is not already running. If the terminal reports that port 4173 is occupied, reuse or restart the existing preview process instead of starting another one on a different port. The browser preview is separate from the native Mac app.
+
 ## The repository picker is unavailable or a folder is rejected
 
 The browser preview does not expose the native folder picker. Start the macOS app with:
