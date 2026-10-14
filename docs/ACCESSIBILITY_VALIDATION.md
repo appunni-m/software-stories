@@ -19,9 +19,9 @@ contrast, zoom, or native-app usability pass.
   application surfaces. When the WebView reports `prefers-contrast: more`, the
   app raises text, border, separator, and keyboard-focus contrast. CSS-token
   checks are in [accessibility.test.mjs](../tests/accessibility.test.mjs).
-- The Tauri main WebView now enables its documented `⌘=` / `⌘−` page-zoom
-  hotkeys in 20% steps. The narrow-window and enlarged-text result still needs
-  a packaged-app check.
+- The Tauri main WebView enables [Tauri's page-zoom hotkeys](https://v2.tauri.app/reference/config/#zoomhotkeysenabled)
+  on macOS: `⌘=` / `⌘−` in 20% steps. The narrow-window and enlarged-text
+  result still needs a packaged-app check.
 - PR Guide citation buttons remain keyboard-operable, expand the cited file,
   scroll the exact hunk into view, and highlight it. Citation scrolling uses
   non-smooth behavior when reduced motion is requested.
