@@ -26,6 +26,8 @@ saved key from that same setup screen.
 
 Confirm that a snapshot was created for the selected project. The app does not read the working tree until capture starts. In Atlas, inspect the path's capture disposition and parser/index state:
 
+The browser preview cannot read local snapshots. Open Code Atlas in the Mac app to view captured source; this browser limitation does not indicate that the file or snapshot is corrupt.
+
 - **Skipped, excluded, binary, oversized, or invalid encoding** means source text was not captured for that path. The stated reason is the evidence available; Code Atlas does not substitute the current working-tree file.
 - **Unsupported parser** means the path remains in inventory but is outside the supported indexing subset. If readable source was captured, it can still be opened in Code Lens.
 - **Partial index or parse error** means some structural relationships may be absent. A missing edge is not proof that two files are unrelated.

@@ -745,6 +745,12 @@ function App() {
       setSourceLoading(false);
       return;
     }
+    if (!isNativeRuntime()) {
+      setSourceDocument(null);
+      setSourceError(null);
+      setSourceLoading(false);
+      return;
+    }
     let active = true;
     setSourceDocument(null);
     setSourceError(null);
@@ -935,6 +941,13 @@ function App() {
   };
 
   const openCapturedFile = (relativePath: string, sourceSnapshotId?: string, sourceRange?: SourceLineRange) => {
+    if (!isNativeRuntime()) {
+      setNotice({
+        title: 'Open source in the Code Atlas Mac app',
+        message: 'The browser preview cannot read local snapshots. Reopen Code Atlas in the Mac app to view this file.',
+      });
+      return;
+    }
     const targetSnapshotId = sourceSnapshotId ?? selectedSnapshot?.snapshotId;
     if (!currentProject || !targetSnapshotId) return;
     const activeElement = document.activeElement;
@@ -4442,6 +4455,17 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
     return () => cancelAnimationFrame(frame);
   }, [source?.snapshotId, source?.path, visibleSourceRange?.startLine, visibleSourceRange?.endLine, showCompleteSource]);
 
+  if (selectedPath && !isNativeRuntime()) {
+    return (
+      <div className="empty-workspace simple-empty" role="status">
+        <div className="empty-state-icon code-icon"><HardDrive size={22} /></div>
+        <div className="step-pill"><span>LOCAL SOURCE</span> MAC APP REQUIRED</div>
+        <h2>Open this file in the Code Atlas Mac app</h2>
+        <p>The browser preview cannot read local snapshots. No source was loaded.</p>
+        <button className="secondary-button" onClick={onGoAtlas}>Back to inventory <ArrowRight size={15} /></button>
+      </div>
+    );
+  }
   if (selectedPath && loading) {
     return <div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Verifying and opening {selectedPath} from the selected snapshot…</span></div>;
   }

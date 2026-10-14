@@ -106,6 +106,7 @@ The completed capture view includes one searchable inventory for the selected im
 - Typing in **Search** narrows paths/symbols in the current scope and updates the visible result count. A scope selector chooses repository, current folder, or indexed symbols. **Clear** removes only the text query.
 - Clicking a folder selects it and filters canvas results to descendants. It does not open a chapter.
 - Clicking a file/symbol selects it and shows details/evidence. **Open in Code Lens** or Enter opens the exact source anchor. Double-clicking a file row performs the same action.
+- In the browser preview, source-open actions explain that local snapshots require the Mac app; they do not attempt a native snapshot read or imply that the file is missing.
 - Clicking a relationship selects the edge and shows its type, confidence, and evidence. **Open evidence** navigates to the exact source range that proves the edge.
 - Relationship-type filters use AND with the current path/language filters. Selected filters appear as removable chips; **Clear filters** removes all active filter chips but preserves the selected snapshot.
 - Map **Fit**, **Zoom +**, **Zoom −**, and **Reset** affect only the viewport. Dragging empty canvas pans; selecting a node does not recenter the map unexpectedly.
