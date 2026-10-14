@@ -1072,6 +1072,42 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn production_transport_refuses_plain_http_before_opening_a_socket() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let endpoint = format!("http://{}/v1/test", listener.local_addr().unwrap());
+        let preview = encode_request_preview(
+            "openai",
+            "test-openai-model",
+            "system instruction",
+            "reviewed source context",
+            &generation_config(),
+        )
+        .unwrap();
+        let reviewed_body = serde_json::to_vec(&preview.body).unwrap();
+        let client = SafeRigHttpClient::new(
+            "openai",
+            &endpoint,
+            Zeroizing::new("private-https-only-marker".to_owned()),
+            reviewed_body.clone(),
+        )
+        .unwrap();
+        let request = request_with_placeholder("openai", &endpoint, &reviewed_body);
+
+        assert!(
+            client
+                .send::<bytes::Bytes, bytes::Bytes>(request)
+                .await
+                .is_err(),
+            "production provider transport rejects plain HTTP"
+        );
+        assert!(matches!(
+            listener.accept(),
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock
+        ));
+    }
+
+    #[tokio::test]
     async fn cancelling_a_loopback_rig_request_closes_its_in_flight_socket() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let endpoint = format!("http://{}/v1/test", listener.local_addr().unwrap());

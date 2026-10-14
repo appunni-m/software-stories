@@ -69,7 +69,9 @@ appears only in the provider's authentication header. A separate pending
 request test cancels through the HTTP layer and verifies that the loopback
 server observes the connection close. The test-only client is restricted to
 127.0.0.1 and disables environment proxies. These fixtures do not verify vendor
-eligibility, production TLS/proxy behavior, or a live provider endpoint.
+eligibility, production TLS/proxy behavior, or a live provider endpoint. A
+separate regression test sends an HTTP URL to the production client and checks
+that it rejects the request before the loopback listener accepts a connection.
 
 The local PR Guide path separately rebuilds a ready comparison from local Git
 objects, restricts the request to up to twelve selected eligible text diffs,
