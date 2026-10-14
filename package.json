@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "bundle:macos": "node scripts/macos-bundle-metadata.mjs write && tauri build --no-sign --bundles app,dmg && node scripts/macos-bundle-metadata.mjs verify",
+    "bundle:macos": "node scripts/macos-bundle-metadata.mjs write && CI=true tauri build --no-sign --bundles app,dmg && node scripts/macos-bundle-metadata.mjs verify",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "quality:corpus": "node scripts/check-chapter-quality.mjs --corpus",
     "quality:metadata": "node scripts/check-chapter-quality.mjs --metadata",

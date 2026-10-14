@@ -73,9 +73,16 @@ if (process.argv[2] === 'write') {
   const diskImagePrefix = `${config.productName}_${config.version}_`;
   const diskImages = (await readdir(dmgDir)).filter((name) => name.startsWith(diskImagePrefix) && name.endsWith('.dmg'));
   if (diskImages.length !== 1) throw new Error(`Expected exactly one DMG in ${dmgDir}, found ${diskImages.length}`);
+  const dmgPath = join(dmgDir, diskImages[0]);
+  const checksum = spawnSync('hdiutil', ['verify', dmgPath], { encoding: 'utf8' });
+  if (checksum.error || checksum.status !== 0) {
+    const details = [checksum.error?.message, checksum.stderr?.trim(), checksum.stdout?.trim()].filter(Boolean).join('\n');
+    throw new Error(`DMG checksum verification failed${details ? `: ${details}` : '.'}`);
+  }
+  console.log(`Verified DMG checksum: ${diskImages[0]}`);
   console.log(JSON.stringify({
     app: appPath,
-    dmg: join(dmgDir, diskImages[0]),
+    dmg: dmgPath,
     identifier: plistValue('CFBundleIdentifier'),
     version: plistValue('CFBundleShortVersionString'),
     minimumSystemVersion: null,
