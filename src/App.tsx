@@ -73,6 +73,7 @@ import {
 } from './lib/commands';
 import type { ReaderRouteContext } from './Walkthrough';
 import { scrollBehaviorForMotionPreference } from './lib/motion';
+import { errorMessageOr } from './lib/errorMessage';
 const WalkthroughScreen = lazy(() => import('./Walkthrough').then(({ WalkthroughScreen }) => ({ default: WalkthroughScreen })));
 const GitChangesScreen = lazy(() => import('./GitChanges').then(({ GitChangesScreen }) => ({ default: GitChangesScreen })));
 import {
@@ -731,7 +732,7 @@ function App() {
     void loadSnapshotManifest(currentProject.projectId, navigation.current.snapshotId)
       .then((manifest) => { if (active) setSnapshotManifest(manifest); })
       .catch((error) => {
-        if (active) setNotice({ title: 'Snapshot details could not be opened', message: error instanceof Error ? error.message : 'The immutable snapshot manifest is unavailable.', tone: 'error' });
+        if (active) setNotice({ title: 'Snapshot details could not be opened', message: errorMessageOr(error, 'The immutable snapshot manifest is unavailable.'), tone: 'error' });
       });
     return () => { active = false; };
   }, [currentProject?.projectId, navigation.current.snapshotId]);
@@ -751,7 +752,7 @@ function App() {
     void readSnapshotSource(route.projectId, route.snapshotId, route.relativePath)
       .then((source) => { if (active) setSourceDocument(source); })
       .catch((error) => {
-        if (active) setSourceError(error instanceof Error ? error.message : 'Snapshot source could not be opened.');
+        if (active) setSourceError(errorMessageOr(error, 'Snapshot source could not be opened.'));
       })
       .finally(() => { if (active) setSourceLoading(false); });
     return () => { active = false; };
