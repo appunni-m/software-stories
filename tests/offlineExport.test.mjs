@@ -76,7 +76,10 @@ const chapter = ({ revisionId = 'revision:one', lifecycle = 'accepted', target =
 });
 
 const narrationWav = () => {
-  const wav = Buffer.alloc(46);
+  const sampleRate = 24_000;
+  const sampleCount = sampleRate;
+  const dataBytes = sampleCount * 2;
+  const wav = Buffer.alloc(44 + dataBytes);
   wav.write('RIFF', 0);
   wav.writeUInt32LE(wav.length - 8, 4);
   wav.write('WAVE', 8);
@@ -89,8 +92,11 @@ const narrationWav = () => {
   wav.writeUInt16LE(2, 32);
   wav.writeUInt16LE(16, 34);
   wav.write('data', 36);
-  wav.writeUInt32LE(2, 40);
-  wav.writeInt16LE(120, 44);
+  wav.writeUInt32LE(dataBytes, 40);
+  for (let sample = 0; sample < sampleCount; sample += 1) {
+    const phase = (2 * Math.PI * 440 * sample) / sampleRate;
+    wav.writeInt16LE(Math.round(Math.sin(phase) * 4_000), 44 + sample * 2);
+  }
   return wav;
 };
 
