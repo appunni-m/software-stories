@@ -4072,6 +4072,29 @@ mod tests {
         .unwrap()
     }
 
+    fn encoded_chapter_history(history: &[chapters::ChapterRevision]) -> Vec<Vec<u8>> {
+        history
+            .iter()
+            .map(chapters::encode_chapter_revision)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap()
+    }
+
+    fn assert_chapter_history_unchanged(
+        fixture: &ChapterFixture,
+        expected: &[chapters::ChapterRevision],
+        expected_bytes: &[Vec<u8>],
+    ) {
+        let actual = crate::chapter_store::list_for_snapshot(
+            &fixture.storage,
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest.summary.snapshot_id,
+        )
+        .unwrap();
+        assert_eq!(actual.as_slice(), expected);
+        assert_eq!(encoded_chapter_history(&actual), expected_bytes);
+    }
+
     #[tokio::test]
     async fn pr_guide_review_is_bound_to_selected_hunks_and_moving_a_ref_invalidates_it() {
         let repository = FixtureDirectory::new();
@@ -4104,12 +4127,16 @@ mod tests {
         let comparison =
             crate::git_evidence::compare_local_revisions(&repository.0, "base", "feature");
         let comparison_id = comparison.comparison_id.clone().unwrap();
+        let chapter_fixture = ChapterFixture::new();
+        let chapter_history_before = accepted_fixture_chapter_history(&chapter_fixture);
+        let chapter_history_before_bytes = encoded_chapter_history(&chapter_history_before);
+        let storage_dir = chapter_fixture.storage.clone();
         let changed_file = comparison.changes.first().unwrap();
         let input = BuildPrGuideReviewInput {
             project_id: "project:pr-guide-test".to_owned(),
             base_ref: "base".to_owned(),
             head_ref: "feature".to_owned(),
-            comparison_id,
+            comparison_id: comparison_id.clone(),
             selected_changes: vec![pr_guide::SelectedChangeIdentity {
                 base_path: changed_file.base_path.clone(),
                 head_path: changed_file.head_path.clone(),
@@ -4194,6 +4221,21 @@ mod tests {
                 assert_review_change_stops_dispatch(&changed).await;
             }
             assert_quota_failure_is_not_retried(&provider_review).await;
+            assert_chapter_history_unchanged(
+                &chapter_fixture,
+                &chapter_history_before,
+                &chapter_history_before_bytes,
+            );
+            assert!(
+                crate::pr_guide_store::list_for_comparison(
+                    &storage_dir,
+                    &provider_review.review.project_id,
+                    &comparison_id,
+                )
+                .unwrap()
+                .is_empty(),
+                "a failed PR Guide request must not create PR Guide history"
+            );
         }
         let pending = build_pr_guide_request_review(&repository.0, &input).unwrap();
         assert_eq!(pending.review.purpose, PR_GUIDE_PURPOSE);
@@ -4280,6 +4322,9 @@ mod tests {
 
     #[tokio::test]
     async fn pr_change_explanations_send_one_reviewed_hunk_and_remain_transient() {
+        let chapter_fixture = ChapterFixture::new();
+        let chapter_history_before = accepted_fixture_chapter_history(&chapter_fixture);
+        let chapter_history_before_bytes = encoded_chapter_history(&chapter_history_before);
         let repository = FixtureDirectory::new();
         run_git(&repository.0, &["init", "--quiet"]);
         run_git(&repository.0, &["config", "user.name", "Code Atlas Test"]);
@@ -4559,6 +4604,11 @@ mod tests {
             .unwrap();
             assert_eq!(quota_error.kind, ProviderFailureKind::QuotaExceeded);
             assert_eq!(calls_after_quota.load(Ordering::SeqCst), 1);
+            assert_chapter_history_unchanged(
+                &chapter_fixture,
+                &chapter_history_before,
+                &chapter_history_before_bytes,
+            );
         }
 
         assert_eq!(
@@ -4584,6 +4634,8 @@ mod tests {
     #[tokio::test]
     async fn file_and_overview_requests_keep_the_explicit_provider_through_review_and_consent() {
         let fixture = ChapterFixture::new();
+        let history_before = accepted_fixture_chapter_history(&fixture);
+        let history_before_bytes = encoded_chapter_history(&history_before);
         let cases = [
             (
                 FILE_CHAPTER_PURPOSE,
@@ -4710,6 +4762,7 @@ mod tests {
                 };
                 assert_eq!(error.kind, ProviderFailureKind::QuotaExceeded);
                 assert_eq!(failures.load(Ordering::SeqCst), 1);
+                assert_chapter_history_unchanged(&fixture, &history_before, &history_before_bytes);
 
                 let (alternate_provider, alternate_model) = match provider.provider_id.as_str() {
                     "gemini" => ("openai", "gpt-6-luna"),

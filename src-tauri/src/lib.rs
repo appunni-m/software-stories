@@ -2005,6 +2005,13 @@ mod chapter_pipeline_tests {
         .unwrap()
         .revision;
         let accepted_bytes = chapters::encode_chapter_revision(&accepted).unwrap();
+        let history_before =
+            chapter_store::list_for_project(&fixture.storage, &accepted.project_id).unwrap();
+        let history_before_bytes = history_before
+            .iter()
+            .map(chapters::encode_chapter_revision)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
         let old_selected_section = accepted.sections[0].clone();
         let old_unrelated_section = accepted.sections[1].clone();
         let old_visual_assets = chapter_freshness::asset_ids_for_revision(&accepted)
@@ -2191,6 +2198,18 @@ mod chapter_pipeline_tests {
                 assert_review_change_stops_section_dispatch(&changed).await;
             }
             assert_section_quota_failure_is_not_retried(&provider_request).await;
+            let history_after =
+                chapter_store::list_for_project(&fixture.storage, &accepted.project_id).unwrap();
+            assert_eq!(history_after, history_before);
+            assert_eq!(
+                history_after
+                    .iter()
+                    .map(chapters::encode_chapter_revision)
+                    .collect::<Result<Vec<_>, _>>()
+                    .unwrap(),
+                history_before_bytes,
+                "a failed selective section request must not change stored chapter history"
+            );
         }
 
         let request = provider::build_request_review(
