@@ -13,11 +13,42 @@
   --border-strong: #2e3944;
   --text: #e8edf2;
   --muted: #9ca8b5;
-  --dim: #64717d;
+  --dim: #82909b;
   --accent: #a8e66b;
   --accent-strong: #c0f584;
   --blue: #71b7f2;
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --border: #697782;
+    --border-strong: #8b97a1;
+    --muted: #c2cbd3;
+    --dim: #aeb9c3;
+    --accent: #c8f68b;
+    --accent-strong: #d6ffa2;
+    --blue: #a0d6ff;
+  }
+
+  :where(*) {
+    border-color: var(--border-strong) !important;
+  }
+
+  :where(.header-divider, .toolbar-separator, .menu-rule, .sidebar-rule) {
+    background: var(--border-strong) !important;
+  }
+
+  :where(
+    :focus-visible,
+    .walkthrough-section-content > h2:focus,
+    .atlas-destination-body:focus,
+    .chapter-studio-section:focus,
+    .provider-dialog:focus
+  ) {
+    outline: 3px solid #ffffff !important;
+    outline-offset: 3px !important;
+  }
 }
 
 * { box-sizing: border-box; }

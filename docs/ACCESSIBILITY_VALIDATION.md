@@ -15,6 +15,10 @@ contrast, zoom, or native-app usability pass.
   the narrow-window breakpoint.
 - Reduced-motion rules remain active for application animations, transitions,
   and smooth scrolling.
+- The default dim token now has at least 4.5:1 contrast against the four main
+  application surfaces. When the WebView reports `prefers-contrast: more`, the
+  app raises text, border, separator, and keyboard-focus contrast. CSS-token
+  checks are in [accessibility.test.mjs](../tests/accessibility.test.mjs).
 - PR Guide citation buttons remain keyboard-operable, expand the cited file,
   scroll the exact hunk into view, and highlight it. Citation scrolling uses
   non-smooth behavior when reduced motion is requested.
@@ -40,6 +44,13 @@ contrast, zoom, or native-app usability pass.
   the rendered UI.
 - Reduced-motion styles and focus/reflow fixes are in
   [App.css](../src/App.css).
+- Increase Contrast is implemented with the standard
+  [`prefers-contrast: more`](https://www.w3.org/TR/mediaqueries-5/#prefers-contrast)
+  media feature: it strengthens border tokens, applies them to component
+  boundaries, and gives focused controls a 3 px white outline. The Node fixture
+  checks declared palette ratios and rule presence; it does not prove the
+  packaged WebView receives the macOS preference or that the rendered app
+  remains legible at every size.
 - Chapter Studio section navigation and Code Lens citation navigation now
   select non-animated scrolling when macOS Reduce Motion is enabled. The
   reduced-motion media query also disables CSS animations and transitions
@@ -89,7 +100,9 @@ The following are **not verified**:
 
 - VoiceOver announcements for project, snapshot, file, section, validation
   errors, and asynchronous progress/results.
-- Text zoom at 200%, narrow effective viewport reflow, and contrast legibility.
+- Text zoom at 200%, narrow effective viewport reflow, and rendered contrast
+  behavior (including whether macOS Increase Contrast reaches the packaged
+  WebView).
 - Reduced-motion behavior in the rendered app.
 - Keyboard focus through a populated repository-to-walkthrough journey,
   including PR Guide citation-to-hunk links and the provider/recovery dialogs.
