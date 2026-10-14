@@ -1236,7 +1236,7 @@ function App() {
           </div>
           <button
             className="icon-button help-button"
-            onClick={() => showComingSoon('Code Atlas help', 'Shortcuts: ⌘1 Atlas · ⌘2 Code Lens · ⌘3 Walkthrough · ⌘[ Back · ⌘] Forward.')}
+            onClick={() => showComingSoon('Code Atlas help', 'Shortcuts: ⌘1 Atlas · ⌘2 Code Lens · ⌘3 Walkthrough · ⌘[ Back · ⌘] Forward · ⌘= zoom in · ⌘− zoom out (20% steps).')}
             aria-label="Help and keyboard shortcuts"
           >
             <CircleHelp size={17} />

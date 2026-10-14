@@ -149,7 +149,7 @@ describe('desktop shell acceptance contract', () => {
     assert.equal(bootstrapEffectCount, 1);
   });
 
-  it('configures one resizable desktop window and grants no broad WebView filesystem or shell permission', async () => {
+  it('configures one resizable zoom-capable desktop window without broad filesystem or shell access', async () => {
     const config = JSON.parse(await readFile(new URL('../src-tauri/tauri.conf.json', import.meta.url), 'utf8'));
     const capability = JSON.parse(await readFile(new URL('../src-tauri/capabilities/default.json', import.meta.url), 'utf8'));
     assert.equal(config.app.windows.length, 1);
@@ -157,6 +157,10 @@ describe('desktop shell acceptance contract', () => {
     assert.equal(config.app.windows[0].resizable, true);
     assert.ok(config.app.windows[0].minWidth >= 1024);
     assert.ok(config.app.windows[0].minHeight >= 680);
-    assert.deepEqual(capability.permissions, ['core:default']);
+    assert.equal(config.app.windows[0].zoomHotkeysEnabled, true);
+    assert.deepEqual(capability.permissions, ['core:default', 'core:webview:allow-set-webview-zoom']);
+
+    const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
+    assert.match(source, /⌘= zoom in · ⌘− zoom out \(20% steps\)/);
   });
 });

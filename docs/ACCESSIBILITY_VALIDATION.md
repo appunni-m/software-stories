@@ -19,6 +19,9 @@ contrast, zoom, or native-app usability pass.
   application surfaces. When the WebView reports `prefers-contrast: more`, the
   app raises text, border, separator, and keyboard-focus contrast. CSS-token
   checks are in [accessibility.test.mjs](../tests/accessibility.test.mjs).
+- The Tauri main WebView now enables its documented `⌘=` / `⌘−` page-zoom
+  hotkeys in 20% steps. The narrow-window and enlarged-text result still needs
+  a packaged-app check.
 - PR Guide citation buttons remain keyboard-operable, expand the cited file,
   scroll the exact hunk into view, and highlight it. Citation scrolling uses
   non-smooth behavior when reduced motion is requested.
@@ -138,10 +141,11 @@ as part of this accessibility pass.
    action, lost focus, invisible focus, unexpected section/playback change, or
    focus that does not return to its origin.
 3. **Zoom and reflow.** Set the app's supported page/text zoom to 200% if
-   available, resize the app to the resulting narrow effective content width,
-   and inspect all controls and evidence in Atlas, Code Lens, Walkthrough,
-   Chapter Studio, and the open dialog. Record the actual zoom and window size.
-   Mark zoom unsupported if no page/text zoom control exists; the macOS screen
+   available. On the packaged Tauri app, press `⌘=` five times from 100%; each
+   press increases page zoom by 20%. Use `⌘−` five times to return to 100%.
+   Resize the app to the resulting narrow effective content width, and inspect
+   all controls and evidence in Atlas, Code Lens, Walkthrough, Chapter Studio,
+   and the open dialog. Record the actual zoom and window size. The macOS screen
    magnifier by itself is not a reflow pass. Confirm that text, citations,
    validation messages, and primary controls remain visible and operable.
 4. **Contrast and motion.** Enable macOS Increase Contrast and Reduce Motion,
