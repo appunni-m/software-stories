@@ -31,6 +31,23 @@ Confirm that a snapshot was created for the selected project. The app does not r
 - **Partial index or parse error** means some structural relationships may be absent. A missing edge is not proof that two files are unrelated.
 - A **partial snapshot** remains partial. Capture again to make a new snapshot; prior snapshots remain separate.
 
+## Opening a file in Code Lens shows an error
+
+First note how you opened it: **Open in Code Lens** from an Atlas file row, a
+source citation, or a relationship. Check that the selected snapshot is the
+one shown by the file or chapter. In Atlas, inspect the path's capture
+disposition. A path that was skipped, excluded, binary, oversized, or not
+valid UTF-8 has no readable captured source for Code Lens to show.
+
+If Atlas says the file was captured but Code Lens still shows an error, report
+the exact error text (or a screenshot with source contents obscured), which
+control you used, the repository-relative path if it is safe to share, the
+snapshot ID, and whether Code Atlas stayed open or closed. If the path itself
+is sensitive, share only its extension and a redacted path shape. These details
+help distinguish a failed snapshot-source read from a citation or navigation
+problem. Do not include source text, API keys, or secrets. Code Lens reads the
+immutable snapshot; switching to the live working tree would hide the failure.
+
 ## A citation is stale or unavailable
 
 Code Lens opens captured bytes from the selected snapshot. If the citation's source hash or line range does not match, it reports that evidence as stale or unavailable instead of jumping to a nearby line or reading the live file. Select the snapshot the chapter names, inspect the captured source, and use Chapter Studio's freshness information to decide what to review. Do not treat a nearby line as a verified replacement.
