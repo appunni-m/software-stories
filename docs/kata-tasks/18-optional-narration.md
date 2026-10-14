@@ -27,4 +27,4 @@ Keep editable `spoken_text` separate from visible explanation, code, path labels
 Voice cloning, required narration, synthesizing code verbatim by default, and generating audio for an entire guide without review.
 
 ## Done evidence
-Listen to sample scripts containing identifiers and punctuation; verify edited natural speech is sent, raw source is absent by default, cache reuse follows fingerprints, and transcript works offline.
+Complete the [narration acceptance run sheet](../NARRATION_VALIDATION.md) on the packaged macOS app. Listen to natural and opt-in identifier scripts; verify the reviewed speech text is sent, raw source is absent by default, cost/tier is checked before consent, cache reuse follows fingerprints, playback stays synchronized, and cached transcript/audio work offline. Do not close the task on a source inspection or generated fixture alone.
