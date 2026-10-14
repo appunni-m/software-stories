@@ -1,7 +1,7 @@
 # Large repository performance report
 
 Measured on 2026-10-14 against source revision
-7c3f6c26d0152ff0d2ec29f79d5cb6612f5ecef1. The benchmark is intentionally
+4133f1491b33b77e80b38677c2884f786e8a213f. The benchmark is intentionally
 small enough to reproduce locally; it is not a general performance guarantee.
 
 ## Environment and fixture
@@ -20,9 +20,9 @@ small enough to reproduce locally; it is not a general performance guarantee.
 
 | Phase | Samples (ms) | Median |
 | --- | --- | ---: |
-| Snapshot capture | 6,206; 6,392; 6,886 | 6,392 ms |
-| Static indexing | 362; 364; 358 | 362 ms |
-| Index save | 158; 161; 157 | 158 ms |
+| Snapshot capture | 5,760; 5,577; 6,089 | 5,760 ms |
+| Static indexing | 358; 353; 352 | 353 ms |
+| Index save | 153; 163; 152 | 153 ms |
 
 All 2,000 files were captured and indexed; the index contained 2,000 symbols
 and 6,000 relationships. The capture phase includes Git metadata checks,
@@ -48,7 +48,7 @@ Those still need a measured desktop fixture and manual acceptance.
 ## Production JavaScript bundle
 
 Measured on 2026-10-14 at source revision
-`7c3f6c26d0152ff0d2ec29f79d5cb6612f5ecef1` with `npm run build`. The initial
+`4133f1491b33b77e80b38677c2884f786e8a213f` with `npm run build`. The initial
 JavaScript entry is 451.72 kB (130.26 kB gzip); Walkthrough is a 92.39 kB
 (26.52 kB gzip) on-demand chunk, Git Changes is 11.55 kB (4.08 kB gzip), and
 PR Guide Studio is a 31.86 kB (8.00 kB gzip) on-demand chunk. The initial
@@ -60,7 +60,7 @@ performance or accessibility claim follows from them.
 
 Run from the repository root:
 
-    cargo test --manifest-path src-tauri/Cargo.toml --lib report_representative_large_repository_performance -- --ignored --nocapture
+    cargo test --locked --manifest-path src-tauri/Cargo.toml --lib report_representative_large_repository_performance -- --ignored --nocapture
 
 The ignored test creates and removes its fixture under the system temporary
 directory. It performs no provider request, opens no port, and does not modify
