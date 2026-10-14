@@ -22,6 +22,7 @@ These are source-level capabilities, not a claim of a finished or released produ
 ## Start here
 
 - [Getting started](docs/GETTING_STARTED.md) — run the current Mac app from source and complete a local first session.
+- [0.1.0 release readiness draft](docs/releases/0.1.0-draft.md) — unreleased status, parser coverage, capture limits, and open gates.
 - [Troubleshooting](docs/TROUBLESHOOTING.md) — diagnose repository, snapshot, chapter, provider, and narration issues.
 - [Local data and permissions](docs/LOCAL_DATA.md) — find local snapshots, understand Keychain access, exports, and deletion.
 - [Product blueprint](docs/PRODUCT_BLUEPRINT.md) — intended user journey, file coverage, trust rules, and release gates.
