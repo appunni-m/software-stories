@@ -1,7 +1,7 @@
 # Large repository performance report
 
 Measured on 2026-10-14 against source revision
-8e28d0a1c68034325b7aabac57251b9072f949e7. The benchmark is intentionally
+7c3f6c26d0152ff0d2ec29f79d5cb6612f5ecef1. The benchmark is intentionally
 small enough to reproduce locally; it is not a general performance guarantee.
 
 ## Environment and fixture
@@ -20,9 +20,9 @@ small enough to reproduce locally; it is not a general performance guarantee.
 
 | Phase | Samples (ms) | Median |
 | --- | --- | ---: |
-| Snapshot capture | 7,016; 7,370; 7,309 | 7,309 ms |
-| Static indexing | 339; 338; 340 | 339 ms |
-| Index save | 147; 148; 148 | 148 ms |
+| Snapshot capture | 6,206; 6,392; 6,886 | 6,392 ms |
+| Static indexing | 362; 364; 358 | 362 ms |
+| Index save | 158; 161; 157 | 158 ms |
 
 All 2,000 files were captured and indexed; the index contained 2,000 symbols
 and 6,000 relationships. The capture phase includes Git metadata checks,
@@ -48,10 +48,10 @@ Those still need a measured desktop fixture and manual acceptance.
 ## Production JavaScript bundle
 
 Measured on 2026-10-14 at source revision
-`360969dd71b3401ddef2a2e0cbae813d3f26fde9` with `npm run build`. The initial
-JavaScript entry is 452.22 kB (130.30 kB gzip); Walkthrough is a 92.43 kB
-(26.53 kB gzip) on-demand chunk, Git Changes is 11.55 kB (4.07 kB gzip), and
-PR Guide Studio is a 31.85 kB (7.99 kB gzip) on-demand chunk. The initial
+`7c3f6c26d0152ff0d2ec29f79d5cb6612f5ecef1` with `npm run build`. The initial
+JavaScript entry is 451.72 kB (130.26 kB gzip); Walkthrough is a 92.39 kB
+(26.52 kB gzip) on-demand chunk, Git Changes is 11.55 kB (4.08 kB gzip), and
+PR Guide Studio is a 31.86 kB (8.00 kB gzip) on-demand chunk. The initial
 JavaScript entry is below Vite's 500 kB advisory threshold. These are
 compressed artifact sizes, not browser startup timings; no rendered
 performance or accessibility claim follows from them.
