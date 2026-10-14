@@ -14,7 +14,7 @@
       {
         "title": "Name to result string",
         "prose": "greeting uses name to build a result string.",
-        "spokenText": "",
+        "spokenText": "The function uses the supplied name to make a result string.",
         "claims": [
           {
             "category": "codeBehavior",
@@ -87,7 +87,7 @@
       {
         "title": "The returned greeting template",
         "prose": "greeting returns a template string with a literal Hello, prefix followed by name unchanged.",
-        "spokenText": "",
+        "spokenText": "It adds the greeting prefix, then returns the supplied name unchanged.",
         "claims": [
           {
             "category": "codeBehavior",

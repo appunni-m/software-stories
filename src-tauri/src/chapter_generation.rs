@@ -163,12 +163,13 @@ fn canonicalize_generated_section(
     if proposed.title.trim().is_empty()
         || proposed.title.len() > 120
         || !(20..=4_000).contains(&proposed.prose.trim().len())
+        || proposed.spoken_text.trim().is_empty()
         || proposed.spoken_text.len() > 1_000
         || proposed.spoken_text.contains("```")
         || proposed.claims.is_empty()
         || proposed.claims.len() > 20
     {
-        return Err("The regenerated section needs a specific title, substantive prose, bounded narration, and one to twenty claims.".to_owned());
+        return Err("The regenerated section needs a specific title, substantive prose, non-empty bounded narration, and one to twenty claims.".to_owned());
     }
     let mut claims = Vec::with_capacity(proposed.claims.len());
     let mut dependencies = Vec::new();
@@ -708,12 +709,13 @@ fn validate_overview_proposal_shape(proposal: &GeneratedOverviewProposal) -> Res
         if section.title.trim().is_empty()
             || section.title.len() > 120
             || !(20..=4_000).contains(&section.prose.trim().len())
+            || section.spoken_text.trim().is_empty()
             || section.spoken_text.len() > 1_000
             || section.spoken_text.contains("```")
             || section.claims.is_empty()
             || section.claims.len() > 20
         {
-            return Err("Each overview section needs a specific title, substantive prose, bounded narration, and one to twenty claims.".to_owned());
+            return Err("Each overview section needs a specific title, substantive prose, non-empty bounded narration, and one to twenty claims.".to_owned());
         }
     }
     Ok(())
@@ -820,10 +822,11 @@ fn validate_proposal_shape(proposal: &GeneratedChapterProposal) -> Result<(), St
         if section.title.trim().is_empty()
             || section.title.len() > 120
             || !(20..=4_000).contains(&section.prose.trim().len())
+            || section.spoken_text.trim().is_empty()
             || section.spoken_text.len() > 1_000
             || section.spoken_text.contains("```")
         {
-            return Err("A chapter section needs a specific title, substantive prose, and bounded narration text.".to_owned());
+            return Err("A chapter section needs a specific title, substantive prose, and non-empty bounded narration text.".to_owned());
         }
         if section.claims.is_empty() || section.claims.len() > 20 {
             return Err(
@@ -1906,6 +1909,64 @@ pub(crate) mod tests {
         }
         assert_eq!(chapter_ids.len(), 4);
         assert_eq!(fixture.manifest.files.len(), 6);
+    }
+
+    #[test]
+    fn generated_behavior_sections_require_narration_but_synthetic_limits_may_be_silent() {
+        let fixture = Fixture::new();
+
+        let mut file_proposal = simple_proposal();
+        file_proposal.sections[0].spoken_text = "  \n".to_owned();
+        assert!(
+            fixture
+                .generate(SIMPLE_PATH, &[SIMPLE_PATH], &file_proposal)
+                .unwrap_err()
+                .contains("non-empty bounded narration")
+        );
+
+        let generated = fixture
+            .generate(SIMPLE_PATH, &[SIMPLE_PATH], &simple_proposal())
+            .unwrap();
+        assert!(generated.sections.last().unwrap().spoken_text.is_empty());
+
+        let selected_sources = fixture.sources(&[SIMPLE_PATH]);
+        let source_map = checked_sources(&fixture.manifest, &selected_sources).unwrap();
+        let selected_paths = source_map.keys().cloned().collect::<HashSet<_>>();
+        let mut regenerated_proposal = simple_proposal();
+        let mut regenerated = regenerated_proposal.sections.remove(0);
+        regenerated.spoken_text.clear();
+        assert!(
+            canonicalize_generated_section(
+                &regenerated,
+                "section:test",
+                SIMPLE_PATH,
+                &selected_paths,
+                &source_map,
+                Some(&fixture.index),
+                &HashSet::new(),
+            )
+            .unwrap_err()
+            .contains("non-empty bounded narration")
+        );
+
+        let mut overview = simple_proposal();
+        overview.sections[0].spoken_text.clear();
+        let overview = GeneratedOverviewProposal {
+            title: "Greeting behavior across the repository".to_owned(),
+            sections: overview.sections,
+        };
+        assert!(
+            canonicalize_repository_overview(
+                &fixture.manifest.summary.project_id,
+                &fixture.manifest,
+                Some(&fixture.index),
+                &fixture.sources(&[SIMPLE_PATH, SUPPORT_PATH]),
+                &HashSet::new(),
+                &serde_json::to_string(&overview).unwrap(),
+            )
+            .unwrap_err()
+            .contains("non-empty bounded narration")
+        );
     }
 
     #[test]

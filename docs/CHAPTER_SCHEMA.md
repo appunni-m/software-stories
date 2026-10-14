@@ -112,7 +112,7 @@ Only the explicit **Save local draft** action adds that pending revision to chap
 
 ## Claims and evidence
 
-Each section stores `title`, explanatory `prose`, independently editable `spokenText`, claims, explicit dependencies, an optional typed visual, and typed hotspots. Empty `spokenText` is allowed when narration is not present.
+Each section stores `title`, explanatory `prose`, independently editable `spokenText`, claims, explicit dependencies, an optional typed visual, and typed hotspots. Empty `spokenText` remains allowed for legacy or manually authored sections where narration is absent. Newly generated behavior sections require a short, natural-language script by default; the app-generated evidence-limit section remains silent. TTS audio is still optional and is never requested until the reader reviews and consents to that request.
 
 Claim categories are tagged values:
 

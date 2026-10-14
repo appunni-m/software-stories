@@ -12,6 +12,10 @@ offline-export checks.
   Tier. Code Atlas cannot inspect project tier, quota, or remaining usage.
 - Keep narration optional. The chapter prose, captured source, path names, and
   citations must remain visible/readable with audio unavailable.
+- Newly generated behavior sections should already contain a concise natural
+  speech script; this script is still editable, and no audio is synthesized
+  until the reader explicitly requests it. App-generated evidence-limit
+  sections may remain silent.
 - Use only the synthetic speech text below for this pass. Do not put source
   code, private repository details, or credentials in the script.
 - Review the current model terms, quota, and pricing in the request dialog.
