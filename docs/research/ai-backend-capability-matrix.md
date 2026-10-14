@@ -61,13 +61,15 @@ For each workflow/runtime pair, the versioned compatibility record must state **
 
 MCP may be evaluated as a shared read-only tool/context protocol only if needed. ACP and MCP are communication protocols; neither is by itself an OS security boundary.
 
+Provider authentication/model traffic is a separate control path from agent-tool egress. A runtime may use only the selected adapter's documented authentication and model endpoints through an app-managed broker or an OS-enforced, destination-restricted route. Agent-controlled arbitrary destinations, browser/web/search/fetch tools, and unrelated MCP remain denied; approvals cannot widen that boundary. Authentication/setup must send no repository context, and model requests require explicit consent for the reviewed staged context. Each supported runtime needs a positive fixture for its provider path and negative fixtures for unapproved destinations and tools; if the runtime cannot separate them, it remains unavailable.
+
 ### macOS agent isolation research (reviewed 2026-10-14)
 
 No current runtime has a verified Code Atlas boundary. Codex's app-server documents restricted readable roots for `readOnly`, but the same surface also exposes `command/exec`; that mode therefore does not establish the task's no-shell/no-build requirement. ACP provides terminal methods and file operations as protocol capabilities, but withholding client-side methods does not prove that an agent's own tools cannot access the host. Keep all candidates unavailable until both filesystem confinement and command/tool restrictions are exercised against the selected version. See [Codex sandbox read access and command execution](https://developers.openai.com/codex/app-server), [ACP terminals](https://agentclientprotocol.com/protocol/v1/terminals), and [ACP tool calls and permissions](https://agentclientprotocol.com/protocol/v1/tool-calls).
 
 One macOS boundary candidate is a per-run Linux VM that exposes only a newly materialized reviewed snapshot directory through a read-only `VZSharedDirectory`. This can omit the live checkout and `.git` from guest-visible mounts, but it does not itself prevent a guest process from running shell/build commands or reaching the network. The runtime must still have its command, web, and unapproved MCP tools removed and those restrictions tested; egress, cancellation, crash cleanup, and stage deletion also need explicit checks. Apple's Virtualization framework requires the virtualization entitlement and architecture-matched Linux guest assets, so startup time, bundle size, updates, and supported Mac architectures need a separate packaging decision. See [VZSharedDirectory](https://developer.apple.com/documentation/virtualization/vzshareddirectory), [running Linux in a VM](https://developer.apple.com/documentation/virtualization/running-linux-in-a-virtual-machine), and [adding the Virtualization entitlement](https://developer.apple.com/documentation/virtualization/adding-the-virtualization-entitlement-to-your-project).
 
-**Next evidence:** run a no-agent boundary spike with a synthetic stage using either the sandboxed XPC candidate below or a Linux VM when it can boot under the intended signing/runtime setup. Prove writes fail, `.git` and unrelated host paths are absent, arbitrary shell/build execution is denied by the chosen runtime configuration, and cancel/crash cleanup removes per-run state. Keep the user-requested Codex, Claude Agent, and Antigravity routes unavailable until each also passes its own version, terms, lifecycle, and runtime-tool checks.
+**Next evidence:** run a no-agent boundary spike with a synthetic stage using either the sandboxed XPC candidate below or a Linux VM when it can boot under the intended signing/runtime setup. Prove writes fail, `.git` and unrelated host paths are absent, arbitrary shell/build execution and arbitrary network destinations are denied by the chosen runtime configuration, and cancel/crash cleanup removes per-run state. Then separately prove the selected adapter can use its narrowly reviewed provider-control route without enabling other egress. Keep the user-requested Codex, Claude Agent, and Antigravity routes unavailable until each also passes its own version, terms, lifecycle, provider-route, and runtime-tool checks.
 
 **No-agent VM startup probe (2026-10-14):** On the development Mac
 (macOS 15.7.7, arm64), a temporary Swift probe used the Fedora 44 ARM64
@@ -112,7 +114,9 @@ launch a shell/build tool or access unrelated network/MCP services. Also test
 that cancellation and service crash remove the stage and invalidate the run.
 The service still needs an explicit, narrowly reviewed route for the selected
 agent's model traffic; an XPC boundary is not evidence that outbound traffic
-is restricted to that provider.
+is restricted to that provider. Verify the positive provider route separately
+from denials for arbitrary destinations, web tools, and unapproved MCP; the
+agent's own approval settings must not expand the route.
 
 **Developer-host toolchain check (2026-10-14):** On macOS 15.7.7 arm64,
 `/usr/bin/sandbox-exec` is present, but the installed `sandbox-exec(1)` manual
@@ -140,7 +144,9 @@ requirements: the implementation must still show that the extension reads only
 the reviewed staging directory, cannot modify it, cannot access the live
 checkout or `.git`, cannot launch shell/build tools, and cannot make
 unreviewed network or MCP requests. A service that needs model traffic may
-require an explicitly reviewed host-mediated request path.
+require an explicitly reviewed host-mediated request path; verify that it
+allows only the selected provider endpoints and cannot be expanded by the
+agent's tools or approval settings.
 
 Do not infer the feature's minimum runtime OS from the older
 `AppExtensionProcess` API availability. Apple's app-extension guide says
