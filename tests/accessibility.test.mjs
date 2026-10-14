@@ -65,6 +65,13 @@ function contrastRatio(foreground, background) {
   return (luminances[0] + 0.05) / (luminances[1] + 0.05);
 }
 
+function resolveSolidColor(value, tokens) {
+  const normalized = value.trim().toLowerCase();
+  const token = /^var\(--([\w-]+)\)$/.exec(normalized);
+  const color = token ? tokens[token[1]] : normalized;
+  return color && /^#[\da-f]{6}$/.test(color) ? color : undefined;
+}
+
 const rootBlock = css.match(/:root\s*\{([\s\S]*?)\n\}/)?.[1];
 const highContrastBlock = css.match(/@media\s*\(prefers-contrast:\s*more\)\s*\{\s*:root\s*\{([\s\S]*?)\n\s{2}\}/)?.[1];
 
@@ -93,6 +100,33 @@ test('Increase Contrast preference strengthens text, boundaries, and focus indic
   }
   assert.match(css, /@media\s*\(prefers-contrast:\s*more\)[\s\S]*?:where\(\*\)\s*\{\s*border-color:\s*var\(--border-strong\)\s*!important;/);
   assert.match(css, /@media\s*\(prefers-contrast:\s*more\)[\s\S]*?outline:\s*3px solid #ffffff\s*!important;/);
+});
+
+test('solid text and surface colors in the same CSS rule meet normal-text contrast', () => {
+  assert.ok(rootBlock, 'root design tokens are present');
+  const defaultTokens = readTokens(rootBlock);
+  const contrastTokens = { ...defaultTokens, ...readTokens(highContrastBlock ?? '') };
+  const failingPairs = [];
+
+  for (const [, selector, declarations] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const foregroundValues = [...declarations.matchAll(/(?<![\w-])color:\s*([^;]+)/g)]
+      .map(([, value]) => value);
+    const backgroundValues = [...declarations.matchAll(/(?<![\w-])background(?:-color)?:\s*([^;]+)/g)]
+      .map(([, value]) => value);
+    const pairs = foregroundValues.flatMap((foreground) => backgroundValues.map((background) => [foreground, background]));
+
+    for (const [foregroundValue, backgroundValue] of pairs) {
+      for (const [mode, tokens] of [['default', defaultTokens], ['Increase Contrast', contrastTokens]]) {
+        const foreground = resolveSolidColor(foregroundValue, tokens);
+        const background = resolveSolidColor(backgroundValue, tokens);
+        if (foreground && background && contrastRatio(foreground, background) < 4.5) {
+          failingPairs.push(`${selector.trim()} (${mode}): ${foregroundValue.trim()} on ${backgroundValue.trim()}`);
+        }
+      }
+    }
+  }
+
+  assert.deepEqual(failingPairs, [], `same-rule solid text/surface color pairs need at least 4.5:1 contrast:\n${failingPairs.join('\n')}`);
 });
 
 test('Reduce Motion selects instant navigation and disables app animations and transitions', () => {

@@ -20,8 +20,12 @@ contrast, zoom, or native-app usability pass.
   on the packaged app remains unverified.
 - The default dim token now has at least 4.5:1 contrast against the four main
   application surfaces. When the WebView reports `prefers-contrast: more`, the
-  app raises text, border, separator, and keyboard-focus contrast. CSS-token
-  checks are in [accessibility.test.mjs](../tests/accessibility.test.mjs).
+  app raises text, border, separator, and keyboard-focus contrast. In addition
+  to CSS-token checks, [accessibility.test.mjs](../tests/accessibility.test.mjs)
+  checks detectable solid foreground/background pairs declared together in a
+  rule under default and Increase Contrast tokens. That source scan does not
+  resolve inherited backgrounds, gradients, transparency, or final rendered
+  native WebView colors.
 - The Tauri main WebView enables [Tauri's page-zoom hotkeys](https://v2.tauri.app/reference/config/#zoomhotkeysenabled)
   on macOS: `⌘=` / `⌘−` in 20% steps. The narrow-window and enlarged-text
   result still needs a packaged-app check.
@@ -71,8 +75,10 @@ contrast, zoom, or native-app usability pass.
   source-level test; rendered behavior still requires the native acceptance
   pass below.
 - Sidebar help text color was raised to meet the 4.5:1 normal-text contrast
-  threshold on its current background (computed ratio: 5.92:1). Native Increase
-  Contrast review and the remaining rendered color-pair audit are still pending.
+  threshold on its current background (computed ratio: 5.92:1). The source scan
+  found and corrected the inventory and coverage table headers from 4.29:1 to
+  5.21:1. Native Increase Contrast review and rendered color-pair validation
+  are still pending.
 - The Atlas inventory tree filters with retained-path sets, renders a virtual
   row window, and exposes a single roving tree-item focus stop, Left/Right
   expand/collapse and parent/child navigation, and hierarchy/position metadata
