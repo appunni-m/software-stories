@@ -69,6 +69,43 @@ The clearest macOS boundary candidate to prototype is a per-run Linux VM that ex
 
 **Next evidence:** run a no-agent boundary spike with a synthetic stage. Prove writes fail, `.git` and unrelated host paths are absent, arbitrary shell/build execution is denied by the chosen runtime configuration, and cancel/crash cleanup removes per-run state. Keep the user-requested Codex, Claude Agent, and Antigravity routes unavailable until each also passes its own version, terms, lifecycle, and runtime-tool checks.
 
+### Local Codex app-server schema probe (reviewed 2026-10-14)
+
+On the development Mac (macOS 15.7.7, arm64), `codex --version` reports
+`codex-cli 0.149.1`. The installed binary generated both its stable and
+experimental JSON Schema bundles with `codex app-server generate-json-schema`;
+no app-server session, model request, or repository context was sent. The
+generated `ModelListResponse` declares model-specific `supportedReasoningEfforts`,
+and `TurnStartParams` declares per-turn `model`, `effort`, `approvalPolicy`, and
+`sandboxPolicy` fields. These shapes are useful for a future adapter, but the
+schema alone does not prove how the runtime enforces them.
+
+Neither generated bundle contains `readOnlyAccess`, `readableRoots`, or
+`includePlatformDefaults`. In this exact installed version, the `readOnly`
+`sandboxPolicy` shape contains only `type` and `networkAccess` (default false),
+so the app-server schema does not provide a way to restrict readable paths to
+the reviewed staging directory. The protocol bundle also declares command
+execution request/response methods. Do not expose this installed version for
+repository explanation. A future pinned version must be probed again and pass
+the staging-path, command-denial, network, cancellation, and cleanup fixture;
+otherwise the product must provide and verify an outer OS boundary first.
+
+Reproduce the local schema inspection without starting an agent turn:
+
+```sh
+codex --version
+schema_dir="$(mktemp -d)"
+mkdir -p "$schema_dir/stable" "$schema_dir/experimental"
+codex app-server generate-json-schema --out "$schema_dir/stable"
+codex app-server generate-json-schema --experimental --out "$schema_dir/experimental"
+```
+
+These bundles are generated from the local executable and are not committed.
+The checked values therefore describe only this development host's
+`0.149.1` installation. The live app-server documentation may describe a
+newer protocol surface; it does not upgrade the local binary or prove that a
+different pinned runtime behaves the same way.
+
 ### Reuse decisions and current first-party surfaces (reviewed 2026-10-13)
 
 Prefer a maintained, vendor-supported integration surface when it meets the product contract. Use a shared protocol such as ACP only where the exact runtime/adapter supports the needed lifecycle and permissions. Do not drive a vendor's interactive terminal UI, and do not create a new agent loop merely to normalize providers. Compare release activity, license, reproducible adoption signals, platform support, and capability evidence; stars or protocol participation alone do not establish safety or fit.
