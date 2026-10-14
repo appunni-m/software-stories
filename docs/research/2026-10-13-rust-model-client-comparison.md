@@ -47,7 +47,7 @@ Rig's 0.44.0 Gemini GenerateContent encoder puts its API key in the request URI 
 
 The current adapter handles Rig's Gemini wire placing its placeholder key in the query by checking the exact reviewed request, removing the placeholder query, and inserting the saved key into a sensitive `x-goog-api-key` header. OpenAI and Anthropic routes likewise check the Rig placeholder authentication and endpoint before inserting the saved key into their documented headers. For all three routes, the Reqwest wrapper requires POST and JSON, compares the serialized bytes with the reviewed body, requires HTTPS, and bounds time and response size; streaming and multipart requests are rejected. This is a source inspection plus successful Rust library compile, not transport-test evidence. Never weaken credential handling for library symmetry.
 
-The 0.44.0 `Streamed` API documents drop-based cancellation; it does not expose the older `cancel()` method shown by older Rig source pages. Code Atlas can own the cancellation by dropping the in-flight call/stream future, but must validate transport closure with a mocked transport before describing cancellation as supported.
+The 0.44.0 `Streamed` API documents drop-based cancellation; it does not expose the older `cancel()` method shown by older Rig source pages. Code Atlas owns cancellation by dropping the in-flight call future. A later Reqwest/Rig loopback regression verifies that this closes a pending local socket; it does not prove whether a live provider received or completed work before cancellation. See the current [capability matrix](ai-backend-capability-matrix.md) for the remaining live-provider and production-transport gaps.
 
 ## Alternatives and unresolved evidence
 
