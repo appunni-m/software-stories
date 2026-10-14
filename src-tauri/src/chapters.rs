@@ -3227,6 +3227,34 @@ mod tests {
     }
 
     #[test]
+    fn chapter_revision_json_enforces_its_four_megabyte_boundary() {
+        let temporary = TestDirectory::new();
+        let (_root, storage, project, manifest, index) = fixture(&temporary);
+        let revision = valid_revision(&storage, &project, &manifest, &index);
+
+        let mut at_limit = encode_chapter_revision(&revision).unwrap();
+        assert!(at_limit.len() < MAX_CHAPTER_JSON_BYTES);
+        at_limit.resize(MAX_CHAPTER_JSON_BYTES, b' ');
+        assert_eq!(decode_chapter_revision(&at_limit).unwrap(), revision);
+
+        let mut over_limit = at_limit;
+        over_limit.push(b' ');
+        assert!(
+            decode_chapter_revision(&over_limit)
+                .unwrap_err()
+                .contains("4 MB size limit")
+        );
+
+        let mut oversized_revision = revision;
+        oversized_revision.title = "x".repeat(MAX_CHAPTER_JSON_BYTES);
+        assert!(
+            encode_chapter_revision(&oversized_revision)
+                .unwrap_err()
+                .contains("4 MB size limit")
+        );
+    }
+
+    #[test]
     fn chapter_decoder_rejects_duplicate_keys_at_every_depth_and_v1_review_keys() {
         let temporary = TestDirectory::new();
         let (_root, storage, project, manifest, index) = fixture(&temporary);

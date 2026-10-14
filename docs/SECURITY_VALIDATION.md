@@ -44,7 +44,10 @@ Relevant evidence:
   unchanged after indexing.
 - [chapters.rs](../src-tauri/src/chapters.rs), test
   chapters::tests::chapter_decoder_rejects_duplicate_keys_at_every_depth_and_v1_review_keys
-  checks duplicate JSON keys and version-specific field rejection.
+  checks duplicate JSON keys and version-specific field rejection. Test
+  chapters::tests::chapter_revision_json_enforces_its_four_megabyte_boundary
+  accepts a valid revision at the exact byte cap and rejects oversized decode
+  and encode inputs.
 - [chapters.rs](../src-tauri/src/chapters.rs), test
   chapters::tests::visual_validation_reports_item_and_anchor_for_malformed_typed_inputs
   and chapters::tests::invalid_revision_reports_snapshot_path_range_hash_excerpt_claim_and_destination_codes
