@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import {
   ArrowLeft,
@@ -71,8 +71,9 @@ import {
   type RelationshipKind,
   type GitComparisonResult,
 } from './lib/commands';
-import { WalkthroughScreen, type ReaderRouteContext } from './Walkthrough';
-import { GitChangesScreen } from './GitChanges';
+import type { ReaderRouteContext } from './Walkthrough';
+const WalkthroughScreen = lazy(() => import('./Walkthrough').then(({ WalkthroughScreen }) => ({ default: WalkthroughScreen })));
+const GitChangesScreen = lazy(() => import('./GitChanges').then(({ GitChangesScreen }) => ({ default: GitChangesScreen })));
 import {
   buildCodeLensProviderRequestReview,
   buildProviderRequestReview,
@@ -1413,20 +1414,22 @@ function App() {
                 selectedPath={navigation.current.relativePath ?? null}
               />
             ) : currentWorkspace === 'walkthrough' ? (
-              currentProject ? (
-                <WalkthroughScreen
-                  key={currentProject.projectId}
-                  projectId={currentProject.projectId}
-                  selectedSnapshotId={navigation.current.snapshotId}
-                  route={navigation.current}
-                  onReplaceRoute={(route) => setNavigation((state) => replaceCurrentRoute(state, route))}
-                  onNavigateRoute={(route) => setNavigation((state) => navigateToRoute(state, route))}
-                  onOpenSource={openWalkthroughSource}
-                  onOpenAtlas={openWalkthroughAtlas}
-                  onGoPlan={() => chooseWorkspace('guide-plan')}
-                  onOpenProviderSettings={openProviderSettings}
-                />
-              ) : <WalkthroughEmptyState onGoPlan={() => chooseWorkspace('guide-plan')} />
+              <Suspense fallback={<div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Loading Walkthrough…</span></div>}>
+                {currentProject ? (
+                  <WalkthroughScreen
+                    key={currentProject.projectId}
+                    projectId={currentProject.projectId}
+                    selectedSnapshotId={navigation.current.snapshotId}
+                    route={navigation.current}
+                    onReplaceRoute={(route) => setNavigation((state) => replaceCurrentRoute(state, route))}
+                    onNavigateRoute={(route) => setNavigation((state) => navigateToRoute(state, route))}
+                    onOpenSource={openWalkthroughSource}
+                    onOpenAtlas={openWalkthroughAtlas}
+                    onGoPlan={() => chooseWorkspace('guide-plan')}
+                    onOpenProviderSettings={openProviderSettings}
+                  />
+                ) : <WalkthroughEmptyState onGoPlan={() => chooseWorkspace('guide-plan')} />}
+              </Suspense>
             ) : currentWorkspace === 'guide-plan' && currentProject && selectedSnapshot && snapshotManifest ? (
               <GuidePlanScreen
                 key={`${currentProject.projectId}:${selectedSnapshot.snapshotId}`}
@@ -1486,30 +1489,32 @@ function App() {
             ) : currentWorkspace === 'chapter-studio' && selectedSnapshot ? (
               <div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Opening the selected snapshot for Chapter Studio…</span></div>
             ) : currentWorkspace === 'changes' ? (
-              <GitChangesScreen
-                projectId={currentProject?.projectId ?? null}
-                baseRef={navigation.current.baseRef ?? ''}
-                headRef={navigation.current.headRef ?? ''}
-                selectedChangePath={navigation.current.selectedChangePath}
-                comparison={currentProject ? gitComparisonsByProject[currentProject.projectId] ?? null : null}
-                onRefsChange={(baseRef, headRef) => setNavigation((state) => replaceCurrentRoute(state, {
-                  ...state.current,
-                  baseRef,
-                  headRef,
-                  selectedChangePath: undefined,
-                  focusTarget: undefined,
-                }))}
-                onSelectChange={(selectedChangePath) => setNavigation((state) => replaceCurrentRoute(state, {
-                  ...state.current,
-                  selectedChangePath,
-                }))}
-                onComparison={(projectId, baseRef, headRef, result) => setGitComparisonsByProject((state) => ({
-                  ...state,
-                  [projectId]: { baseRef, headRef, result },
-                }))}
-                onOpenRepository={() => { void openLocalRepository(); }}
-                onOpenProviderSettings={() => setProviderDialog({ kind: 'settings' })}
-              />
+              <Suspense fallback={<div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Loading Changes…</span></div>}>
+                <GitChangesScreen
+                  projectId={currentProject?.projectId ?? null}
+                  baseRef={navigation.current.baseRef ?? ''}
+                  headRef={navigation.current.headRef ?? ''}
+                  selectedChangePath={navigation.current.selectedChangePath}
+                  comparison={currentProject ? gitComparisonsByProject[currentProject.projectId] ?? null : null}
+                  onRefsChange={(baseRef, headRef) => setNavigation((state) => replaceCurrentRoute(state, {
+                    ...state.current,
+                    baseRef,
+                    headRef,
+                    selectedChangePath: undefined,
+                    focusTarget: undefined,
+                  }))}
+                  onSelectChange={(selectedChangePath) => setNavigation((state) => replaceCurrentRoute(state, {
+                    ...state.current,
+                    selectedChangePath,
+                  }))}
+                  onComparison={(projectId, baseRef, headRef, result) => setGitComparisonsByProject((state) => ({
+                    ...state,
+                    [projectId]: { baseRef, headRef, result },
+                  }))}
+                  onOpenRepository={() => { void openLocalRepository(); }}
+                  onOpenProviderSettings={() => setProviderDialog({ kind: 'settings' })}
+                />
+              </Suspense>
             ) : (
               <WorkflowEmptyState kind="studio" onGoPlan={() => chooseWorkspace('guide-plan')} />
             )}
