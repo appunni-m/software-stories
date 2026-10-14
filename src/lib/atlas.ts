@@ -20,6 +20,41 @@ export interface FlattenedInventoryRow {
   setSize: number;
 }
 
+export type AtlasTreeKeyboardAction =
+  | { kind: 'focus'; index: number }
+  | { kind: 'expand' | 'collapse'; path: string }
+  | { kind: 'activate' | 'select' | 'handled' | 'none' };
+
+/** Maps standard tree keys to a roving focus, expand/collapse, or activation action. */
+export function atlasTreeKeyboardAction(
+  items: readonly FlattenedInventoryRow[],
+  index: number,
+  key: string,
+): AtlasTreeKeyboardAction {
+  const item = items[index];
+  if (!item) return { kind: 'none' };
+  if (key === 'ArrowDown' || key === 'ArrowUp' || key === 'Home' || key === 'End') {
+    const target = key === 'Home' ? 0 : key === 'End' ? items.length - 1 : index + (key === 'ArrowDown' ? 1 : -1);
+    return { kind: 'focus', index: Math.max(0, Math.min(items.length - 1, target)) };
+  }
+  if (key === 'ArrowRight') {
+    if (!item.hasChildren) return { kind: 'handled' };
+    if (!item.expanded) return { kind: 'expand', path: item.path };
+    const child = items.findIndex((candidate, candidateIndex) => candidateIndex > index && candidate.depth > item.depth);
+    return child >= 0 ? { kind: 'focus', index: child } : { kind: 'handled' };
+  }
+  if (key === 'ArrowLeft') {
+    if (item.hasChildren && item.expanded) return { kind: 'collapse', path: item.path };
+    for (let parent = index - 1; parent >= 0; parent -= 1) {
+      if (items[parent].depth < item.depth) return { kind: 'focus', index: parent };
+    }
+    return { kind: 'handled' };
+  }
+  if (key === 'Enter') return { kind: 'activate' };
+  if (key === ' ') return { kind: 'select' };
+  return { kind: 'none' };
+}
+
 function compare(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }

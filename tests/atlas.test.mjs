@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { buildInventory } from '../src/lib/inventory.ts';
-import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport } from '../src/lib/atlas.ts';
+import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, atlasTreeKeyboardAction, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport } from '../src/lib/atlas.ts';
 
 const sha = (letter) => letter.repeat(64);
 const manifest = {
@@ -83,6 +83,29 @@ describe('Atlas data helpers', () => {
       '.', 'assets', 'assets/image.bin', 'src', 'vendor',
     ]);
     assert.deepEqual(flattenInventoryTree(tree).map((item) => item.row.path), flattenInventoryTree(buildInventoryTree(rows)).map((item) => item.row.path));
+  });
+
+  it('maps tree keys to roving focus and folder expansion actions', () => {
+    const tree = buildInventoryTree(buildInventory(manifest));
+    const flat = flattenInventoryTree(tree);
+    const root = flat.findIndex((item) => item.row.path === '.');
+    const assets = flat.findIndex((item) => item.row.path === 'assets');
+    const image = flat.findIndex((item) => item.row.path === 'assets/image.bin');
+    assert.deepEqual(atlasTreeKeyboardAction(flat, assets, 'ArrowRight'), { kind: 'focus', index: image });
+    assert.deepEqual(atlasTreeKeyboardAction(flat, image, 'ArrowLeft'), { kind: 'focus', index: assets });
+    assert.deepEqual(atlasTreeKeyboardAction(flat, assets, 'ArrowLeft'), { kind: 'collapse', path: 'assets' });
+    assert.deepEqual(atlasTreeKeyboardAction(flat, root, 'ArrowLeft'), { kind: 'collapse', path: '.' });
+    assert.deepEqual(atlasTreeKeyboardAction(flat, assets, 'ArrowDown'), { kind: 'focus', index: image });
+    assert.deepEqual(atlasTreeKeyboardAction(flat, image, 'Home'), { kind: 'focus', index: 0 });
+    assert.deepEqual(atlasTreeKeyboardAction(flat, root, 'End'), { kind: 'focus', index: flat.length - 1 });
+    assert.deepEqual(atlasTreeKeyboardAction(flat, assets, 'Enter'), { kind: 'activate' });
+    assert.deepEqual(atlasTreeKeyboardAction(flat, assets, ' '), { kind: 'select' });
+
+    const collapsed = flattenInventoryTree(tree, new Set(['assets']));
+    const collapsedAssets = collapsed.findIndex((item) => item.row.path === 'assets');
+    assert.deepEqual(atlasTreeKeyboardAction(collapsed, collapsedAssets, 'ArrowRight'), { kind: 'expand', path: 'assets' });
+    const collapsedRoot = flattenInventoryTree(tree, new Set(['.']));
+    assert.deepEqual(atlasTreeKeyboardAction(collapsedRoot, 0, 'ArrowLeft'), { kind: 'handled' });
   });
 
   it('filters tree rows with ancestor retention and bounded virtual windows', () => {

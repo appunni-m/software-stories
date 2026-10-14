@@ -31,6 +31,9 @@ contrast, zoom, or native-app usability pass.
 - Notices, interrupted jobs, captions, and narration errors use status or alert
   semantics in [App.tsx](../src/App.tsx) and
   [NarrationPlayer.tsx](../src/NarrationPlayer.tsx).
+- Repository and snapshot route changes update a persistent polite live region
+  with the repository name and selected snapshot branch, commit, completeness,
+  and creation date. Native VoiceOver confirmation remains pending.
 - Focus restoration in the navigation model is covered by
   [navigation.test.mjs](../tests/navigation.test.mjs); that test does not drive
   the rendered UI.
@@ -45,8 +48,9 @@ contrast, zoom, or native-app usability pass.
   threshold on its current background (computed ratio: 5.92:1). Native Increase
   Contrast review and the remaining rendered color-pair audit are still pending.
 - The Atlas inventory tree filters with retained-path sets, renders a virtual
-  row window, and exposes tree hierarchy/position metadata plus full-list arrow
-  navigation in [App.tsx](../src/App.tsx). The 25,000-row helper fixture in
+  row window, and exposes a single roving tree-item focus stop, Left/Right
+  expand/collapse and parent/child navigation, and hierarchy/position metadata
+  in [App.tsx](../src/App.tsx). The 25,000-row helper fixture in
   [atlas.test.mjs](../tests/atlas.test.mjs) checks that a 510 CSS-pixel viewport
   calculates a maximum 39-row window at the default row height. This is a
   bounded-window calculation, not a rendered responsiveness or screen-reader

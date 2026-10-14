@@ -627,7 +627,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .atlas-scope-chip span { padding-left: 5px; color: #e0c788; }
 .atlas-tree-scroll { flex: 1; min-height: 245px; max-height: 510px; overflow: auto; padding: 0; scrollbar-color: #38443b #111713; }
 .atlas-tree-window-spacer { display: block; flex: 0 0 auto; pointer-events: none; }
-.atlas-tree-row { box-sizing: border-box; min-height: 29px; display: flex; flex: 0 0 auto; align-items: center; gap: 3px; padding-right: 6px; border-bottom: 1px solid #1d261f; }
+.atlas-tree-row { box-sizing: border-box; min-height: 29px; display: flex; flex: 0 0 auto; align-items: center; gap: 3px; padding-right: 6px; border-bottom: 1px solid #1d261f; cursor: pointer; }
+.atlas-tree-row:focus-visible { outline: 2px solid var(--accent-strong); outline-offset: -2px; }
 .atlas-tree-row:hover, .atlas-tree-row.selected { background: #19231a; }
 .atlas-tree-row.selected { box-shadow: inset 2px 0 var(--accent); }
 .atlas-tree-row.omitted .atlas-tree-entry { color: #a79575; }
