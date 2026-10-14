@@ -25,4 +25,4 @@ Apply semantic roles, accessible names, focus order, announcements for async sta
 Claiming universal language support or replacing security review with UI validation.
 
 ## Done evidence
-Keyboard/VoiceOver/reduced-motion pass on repository-to-walkthrough journey, performance report on a representative large fixture, and documented adversarial path/content checks.
+Complete the [native acceptance run sheet](../ACCESSIBILITY_VALIDATION.md#native-acceptance-run-sheet) on a populated macOS app and record VoiceOver, keyboard-only, 200% zoom/reflow, contrast, and reduced-motion results. Also attach the performance report for a representative large fixture and documented adversarial path/content checks. Keep the issue open until every required result passes or a concrete unsupported capability is resolved in the contract.

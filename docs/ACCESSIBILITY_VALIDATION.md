@@ -86,3 +86,53 @@ Run and record those checks on the native app before treating the accessibility
 acceptance criteria as complete. The Rust and frontend tests and the preview
 pass remain implementation evidence, but cannot substitute for VoiceOver or
 native zoom testing.
+
+## Native acceptance run sheet
+
+Use the packaged macOS app built from the commit being reviewed. Record the
+macOS version, app version/commit, repository, snapshot ID, and VoiceOver state.
+Use a populated snapshot with an accepted multi-section chapter. If a provider
+review or PR Guide is needed, open its review surface but do not send a request
+as part of this accessibility pass.
+
+1. **VoiceOver.** Enable VoiceOver with `⌘F5`. Navigate without the pointer
+   through the project and snapshot picker, Atlas file tree, Code Lens source
+   range, Guide Plan, Walkthrough section rail and reader, Chapter Studio
+   validation, and any provider or recovery dialog used in the journey. Record
+   whether VoiceOver announces the selected repository/snapshot, file path and
+   state, exact section and source destination, validation result, and async
+   progress/result. Check that dialog entry announces its title, Tab remains
+   inside it while modal, Escape/cancel restores focus to the invoker, and no
+   error or selection state is conveyed by color alone.
+2. **Keyboard-only journey.** With VoiceOver off, repeat the populated journey
+   using Tab, Shift+Tab, arrow keys, Return, and Escape. Check the repository
+   tree, section Previous/Continue controls, source-citation return, PR
+   citation-to-hunk link, and provider/recovery dialogs. Record any pointer-only
+   action, lost focus, invisible focus, unexpected section/playback change, or
+   focus that does not return to its origin.
+3. **Zoom and reflow.** Set the app's supported page/text zoom to 200% if
+   available, resize the app to the resulting narrow effective content width,
+   and inspect all controls and evidence in Atlas, Code Lens, Walkthrough,
+   Chapter Studio, and the open dialog. Record the actual zoom and window size.
+   Mark zoom unsupported if no page/text zoom control exists; the macOS screen
+   magnifier by itself is not a reflow pass. Confirm that text, citations,
+   validation messages, and primary controls remain visible and operable.
+4. **Contrast and motion.** Enable macOS Increase Contrast and Reduce Motion,
+   then repeat section navigation, citation navigation, menu/dialog open/close,
+   and status/error review. Confirm focus remains visible, information is not
+   conveyed by color alone, and the same destinations work without smooth
+   scrolling or decorative transitions.
+
+Record results before closing issue `bcn2`:
+
+```text
+Date/time and tester:
+macOS version / app version+commit:
+Repository / snapshot ID:
+VoiceOver: pass | fail — notes:
+Keyboard-only journey: pass | fail — notes:
+200% zoom / effective width: pass | fail | unsupported — notes:
+Increase Contrast: pass | fail — notes:
+Reduce Motion: pass | fail — notes:
+Unresolved controls or announcements:
+```
