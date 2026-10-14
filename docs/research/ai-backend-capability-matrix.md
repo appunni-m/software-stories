@@ -114,7 +114,19 @@ The service still needs an explicit, narrowly reviewed route for the selected
 agent's model traffic; an XPC boundary is not evidence that outbound traffic
 is restricted to that provider.
 
-Current sources: [XPC services and their sandbox](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingXPCServices.html), [read-only security-scoped file access and sharing bookmarks between processes](https://developer.apple.com/documentation/security/accessing-files-from-the-macos-app-sandbox), [App Sandbox overview](https://developer.apple.com/documentation/security/app_sandbox), and [embedding a sandboxed helper tool](https://developer.apple.com/documentation/xcode/embedding-a-helper-tool-in-a-sandboxed-app). The XPC service overview is archived Apple documentation; verify its lifecycle and entitlement behavior on the supported macOS version before implementation.
+**Developer-host toolchain check (2026-10-14):** On macOS 15.7.7 arm64,
+`/usr/bin/sandbox-exec` is present, but the installed `sandbox-exec(1)` manual
+marks it deprecated and directs app developers to App Sandbox. Do not treat a
+profile-wrapped CLI as the release isolation design. This machine has Command
+Line Tools but not full Xcode, and `security find-identity -v -p codesigning`
+reports zero valid identities. That leaves a signed XPC integration and clean
+release-package verification unproven here; an ad hoc local probe would not
+satisfy the distribution gate. Apple's current App Sandbox documentation
+describes kernel-enforced file, network, and process restrictions, but the
+Code Atlas host app still needs a product-specific permission and bookmark
+design before adopting it.
+
+Current sources: [XPC services and their sandbox](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingXPCServices.html), [read-only security-scoped file access and sharing bookmarks between processes](https://developer.apple.com/documentation/security/accessing-files-from-the-macos-app-sandbox), [current App Sandbox protections](https://developer.apple.com/documentation/security/protecting-user-data-with-app-sandbox), and [embedding a sandboxed helper tool](https://developer.apple.com/documentation/xcode/embedding-a-helper-tool-in-a-sandboxed-app). The XPC service overview is archived Apple documentation; verify its lifecycle and entitlement behavior on the supported macOS version before implementation.
 
 ### Local Codex app-server schema probe (reviewed 2026-10-14)
 
