@@ -288,6 +288,49 @@ impl SafeRigHttpClient {
             .timeout(Duration::from_secs(90))
             .build()
             .map_err(|_| "the provider request client could not start")?;
+        Self::with_client(provider_id, endpoint_url, api_key, reviewed_body, client)
+    }
+
+    #[cfg(test)]
+    fn new_for_loopback_test(
+        provider_id: &str,
+        endpoint_url: &str,
+        api_key: Zeroizing<String>,
+        reviewed_body: Vec<u8>,
+    ) -> Result<Self, &'static str> {
+        let endpoint = reqwest::Url::parse(endpoint_url)
+            .map_err(|_| "test transport requires a valid loopback URL")?;
+        if endpoint.scheme() != "http"
+            || endpoint.host_str() != Some("127.0.0.1")
+            || endpoint.query().is_some()
+            || !endpoint.username().is_empty()
+            || endpoint.password().is_some()
+            || endpoint.fragment().is_some()
+        {
+            return Err("test transport accepts only credential-free loopback HTTP URLs");
+        }
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .https_only(false)
+            .timeout(Duration::from_secs(90))
+            .build()
+            .map_err(|_| "the loopback test client could not start")?;
+        Self::with_client(provider_id, endpoint_url, api_key, reviewed_body, client)
+    }
+
+    fn with_client(
+        provider_id: &str,
+        endpoint_url: &str,
+        api_key: Zeroizing<String>,
+        reviewed_body: Vec<u8>,
+        client: reqwest::Client,
+    ) -> Result<Self, &'static str> {
+        if !matches!(
+            provider_id,
+            GEMINI_PROVIDER | OPENAI_PROVIDER | ANTHROPIC_PROVIDER
+        ) {
+            return Err("provider is not in the direct API adapter catalog");
+        }
         Ok(Self {
             provider_id: provider_id.to_owned(),
             endpoint_url: endpoint_url.to_owned(),
@@ -679,8 +722,12 @@ mod tests {
         PREVIEW_CREDENTIAL, RigRequestFailure, SafeRigHttpClient, classify_rig_failure,
         encode_request_preview,
     };
-    use rig_core::http_client::Request;
+    use rig_core::http_client::{HttpClientExt, Request};
     use serde_json::{Value, json};
+    use std::io::{Read, Write};
+    use std::net::{TcpListener, TcpStream};
+    use std::sync::mpsc;
+    use std::time::Duration;
     use zeroize::Zeroizing;
 
     fn generation_config() -> Value {
@@ -702,6 +749,78 @@ mod tests {
                 "additionalProperties": false
             }
         })
+    }
+
+    fn request_with_placeholder(
+        provider_id: &str,
+        endpoint: &str,
+        body: &[u8],
+    ) -> Request<bytes::Bytes> {
+        let uri = if provider_id == "gemini" {
+            format!("{endpoint}?key={PREVIEW_CREDENTIAL}")
+        } else {
+            endpoint.to_owned()
+        };
+        let mut builder = Request::builder()
+            .method("POST")
+            .uri(uri)
+            .header(reqwest::header::CONTENT_TYPE, "application/json");
+        match provider_id {
+            "openai" => {
+                builder = builder.header(
+                    reqwest::header::AUTHORIZATION,
+                    format!("Bearer {PREVIEW_CREDENTIAL}"),
+                );
+            }
+            "anthropic" => {
+                builder = builder
+                    .header("x-api-key", PREVIEW_CREDENTIAL)
+                    .header("anthropic-version", "2023-06-01");
+            }
+            _ => {}
+        }
+        builder
+            .body(bytes::Bytes::copy_from_slice(body))
+            .expect("test request is valid")
+    }
+
+    fn read_http_request(stream: &mut TcpStream) -> std::io::Result<Vec<u8>> {
+        let mut request = Vec::new();
+        let mut buffer = [0_u8; 1024];
+        loop {
+            let read = stream.read(&mut buffer)?;
+            if read == 0 {
+                return Ok(request);
+            }
+            request.extend_from_slice(&buffer[..read]);
+            if request.len() > 64 * 1024 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "loopback test request exceeded its bound",
+                ));
+            }
+            let Some(header_end) = request.windows(4).position(|bytes| bytes == b"\r\n\r\n") else {
+                continue;
+            };
+            let headers = String::from_utf8_lossy(&request[..header_end]);
+            let content_length = headers
+                .lines()
+                .filter_map(|line| line.split_once(':'))
+                .find_map(|(name, value)| {
+                    name.eq_ignore_ascii_case("content-length")
+                        .then(|| value.trim().parse::<usize>().ok())
+                        .flatten()
+                })
+                .ok_or_else(|| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "loopback test request has no content length",
+                    )
+                })?;
+            if request.len() >= header_end + 4 + content_length {
+                return Ok(request);
+            }
+        }
     }
 
     #[test]
@@ -859,6 +978,178 @@ mod tests {
                 "{provider_id} receives the credential only in its auth header"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn actual_loopback_transport_keeps_each_provider_key_in_its_auth_header() {
+        let cases = [
+            ("gemini", "test-gemini-model", "x-goog-api-key"),
+            ("openai", "test-openai-model", "authorization"),
+            ("anthropic", "test-anthropic-model", "x-api-key"),
+        ];
+
+        for (provider_id, model_id, credential_header) in cases {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let endpoint = format!("http://{}/v1/test", listener.local_addr().unwrap());
+            let preview = encode_request_preview(
+                provider_id,
+                model_id,
+                "system instruction",
+                "reviewed source context",
+                &generation_config(),
+            )
+            .unwrap();
+            let reviewed_body = serde_json::to_vec(&preview.body).unwrap();
+            let api_key = format!("private-marker-{provider_id}");
+            let client = SafeRigHttpClient::new_for_loopback_test(
+                provider_id,
+                &endpoint,
+                Zeroizing::new(api_key.clone()),
+                reviewed_body.clone(),
+            )
+            .unwrap();
+            let request = request_with_placeholder(provider_id, &endpoint, &reviewed_body);
+
+            let server = std::thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .unwrap();
+                let request = read_http_request(&mut stream).unwrap();
+                stream
+                    .write_all(
+                        b"HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: 2\r\nconnection: close\r\n\r\n{}",
+                    )
+                    .unwrap();
+                request
+            });
+
+            let response = client
+                .send::<bytes::Bytes, bytes::Bytes>(request)
+                .await
+                .unwrap();
+            let response_body = response.into_body().await.unwrap();
+            assert_eq!(response_body.as_ref(), b"{}");
+            let wire_request = server.join().unwrap();
+            let header_end = wire_request
+                .windows(4)
+                .position(|bytes| bytes == b"\r\n\r\n")
+                .expect("request has a header boundary");
+            let headers = String::from_utf8_lossy(&wire_request[..header_end]);
+            let body = &wire_request[header_end + 4..];
+            let request_line = headers.lines().next().unwrap_or_default();
+            assert!(request_line.starts_with("POST /v1/test "), "{request_line}");
+            assert_eq!(body, reviewed_body, "{provider_id} sends the reviewed body");
+
+            let auth_line = headers
+                .lines()
+                .find(|line| {
+                    line.split_once(':')
+                        .is_some_and(|(name, _)| name.eq_ignore_ascii_case(credential_header))
+                })
+                .unwrap_or_else(|| panic!("{provider_id} auth header is present"));
+            assert!(auth_line.contains(&api_key), "{provider_id} auth header");
+            let other_headers = headers
+                .lines()
+                .filter(|line| {
+                    !line
+                        .split_once(':')
+                        .is_some_and(|(name, _)| name.eq_ignore_ascii_case(credential_header))
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            assert!(
+                !other_headers.contains(&api_key),
+                "{provider_id} other headers"
+            );
+            assert!(
+                !request_line.contains(&api_key),
+                "{provider_id} request target"
+            );
+            assert!(!String::from_utf8_lossy(body).contains(&api_key));
+            assert!(!headers.contains(PREVIEW_CREDENTIAL));
+        }
+    }
+
+    #[tokio::test]
+    async fn cancelling_a_loopback_rig_request_closes_its_in_flight_socket() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let endpoint = format!("http://{}/v1/test", listener.local_addr().unwrap());
+        let preview = encode_request_preview(
+            "openai",
+            "test-openai-model",
+            "system instruction",
+            "reviewed source context",
+            &generation_config(),
+        )
+        .unwrap();
+        let reviewed_body = serde_json::to_vec(&preview.body).unwrap();
+        let client = SafeRigHttpClient::new_for_loopback_test(
+            "openai",
+            &endpoint,
+            Zeroizing::new("private-cancellation-marker".to_owned()),
+            reviewed_body.clone(),
+        )
+        .unwrap();
+        let request = request_with_placeholder("openai", &endpoint, &reviewed_body);
+        let (request_seen_tx, request_seen_rx) = mpsc::channel();
+        let (connection_closed_tx, connection_closed_rx) = mpsc::channel();
+
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            let request = read_http_request(&mut stream).unwrap();
+            request_seen_tx.send(request).unwrap();
+            let mut byte = [0_u8; 1];
+            let closed = match stream.read(&mut byte) {
+                Ok(0) => true,
+                Err(error) => matches!(
+                    error.kind(),
+                    std::io::ErrorKind::ConnectionReset
+                        | std::io::ErrorKind::BrokenPipe
+                        | std::io::ErrorKind::UnexpectedEof
+                ),
+                Ok(_) => false,
+            };
+            connection_closed_tx.send(closed).unwrap();
+        });
+
+        let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
+        let request_task = tokio::spawn(async move {
+            let request = client.send::<bytes::Bytes, bytes::Bytes>(request);
+            tokio::select! {
+                biased;
+                _ = cancel_rx => false,
+                _ = request => true,
+            }
+        });
+        let wire_request = tokio::task::spawn_blocking(move || {
+            request_seen_rx
+                .recv_timeout(Duration::from_secs(5))
+                .unwrap()
+        })
+        .await
+        .unwrap();
+        assert!(String::from_utf8_lossy(&wire_request).contains("private-cancellation-marker"));
+        cancel_tx.send(()).unwrap();
+        assert!(
+            !request_task.await.unwrap(),
+            "cancellation wins over the pending response"
+        );
+        let connection_closed = tokio::task::spawn_blocking(move || {
+            connection_closed_rx
+                .recv_timeout(Duration::from_secs(6))
+                .unwrap()
+        })
+        .await
+        .unwrap();
+        assert!(
+            connection_closed,
+            "dropping the request future closes its socket"
+        );
+        server.join().unwrap();
     }
 
     #[test]

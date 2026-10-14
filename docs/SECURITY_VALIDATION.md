@@ -60,6 +60,17 @@ provider::tests::blocked_incomplete_and_oversized_provider_responses_create_no_r
 and provider::tests::request_body_contains_the_exact_source_and_no_key_field
 cover those cases.
 
+The production Rig transport uses HTTPS-only Reqwest and replaces its internal
+credential placeholder only after the endpoint and exact reviewed body match.
+Localhost-only tests in [provider_api.rs](../src-tauri/src/provider_api.rs)
+send through that transport for Gemini, OpenAI, and Anthropic. They inspect the
+raw HTTP request to verify that the reviewed body is unchanged and the key
+appears only in the provider's authentication header. A separate pending
+request test cancels through the HTTP layer and verifies that the loopback
+server observes the connection close. The test-only client is restricted to
+127.0.0.1 and disables environment proxies. These fixtures do not verify vendor
+eligibility, production TLS/proxy behavior, or a live provider endpoint.
+
 The local PR Guide path separately rebuilds a ready comparison from local Git
 objects, restricts the request to up to twelve selected eligible text diffs,
 and refuses secret-like paths or excerpts before request review. The user sees
