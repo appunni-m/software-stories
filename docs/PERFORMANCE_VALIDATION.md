@@ -45,6 +45,16 @@ it is not a browser render benchmark and does not establish end-to-end UI
 responsiveness, VoiceOver behavior, or accessibility at enlarged text sizes.
 Those still need a measured desktop fixture and manual acceptance.
 
+## Production JavaScript bundle
+
+Measured on 2026-10-14 at source revision `e3ade52ecff7135ef9959167590495f79603bab8`
+with `npm run build`. The initial JavaScript entry is 449.84 kB (129.44 kB
+gzip); Walkthrough is a 92.32 kB (26.52 kB gzip) on-demand chunk, and Git
+Changes is an 11.52 kB (4.07 kB gzip) on-demand chunk. The initial JavaScript
+entry is below Vite's 500 kB advisory threshold. These are compressed artifact
+sizes, not browser startup timings; no rendered performance or accessibility
+claim follows from them.
+
 ## Reproduction
 
 Run from the repository root:
