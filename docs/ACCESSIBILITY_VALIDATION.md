@@ -14,7 +14,10 @@ contrast, zoom, or native-app usability pass.
   responsive layouts can take effect between 761 and 900 pixels as well as at
   the narrow-window breakpoint.
 - Reduced-motion rules remain active for application animations, transitions,
-  and smooth scrolling.
+  and smooth scrolling. A source-level regression check now verifies the global
+  CSS override and the instant-scroll preference helper in
+  [accessibility.test.mjs](../tests/accessibility.test.mjs); rendered behavior
+  on the packaged app remains unverified.
 - The default dim token now has at least 4.5:1 contrast against the four main
   application surfaces. When the WebView reports `prefers-contrast: more`, the
   app raises text, border, separator, and keyboard-focus contrast. CSS-token
@@ -57,8 +60,9 @@ contrast, zoom, or native-app usability pass.
 - Chapter Studio section navigation and Code Lens citation navigation now
   select non-animated scrolling when macOS Reduce Motion is enabled. The
   reduced-motion media query also disables CSS animations and transitions
-  throughout the app. The preference helper is isolated for reuse; rendered
-  behavior still requires the native acceptance pass below.
+  throughout the app. The preference helper and CSS contract are covered by a
+  source-level test; rendered behavior still requires the native acceptance
+  pass below.
 - Sidebar help text color was raised to meet the 4.5:1 normal-text contrast
   threshold on its current background (computed ratio: 5.92:1). Native Increase
   Contrast review and the remaining rendered color-pair audit are still pending.

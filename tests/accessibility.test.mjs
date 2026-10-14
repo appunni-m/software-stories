@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { scrollBehaviorForMotionPreference } from '../src/lib/motion.ts';
 
 const css = await readFile(new URL('../src/App.css', import.meta.url), 'utf8');
 const surfaces = ['#0b0e12', '#10141a', '#141a21', '#1a222b'];
@@ -54,4 +55,15 @@ test('Increase Contrast preference strengthens text, boundaries, and focus indic
   }
   assert.match(css, /@media\s*\(prefers-contrast:\s*more\)[\s\S]*?:where\(\*\)\s*\{\s*border-color:\s*var\(--border-strong\)\s*!important;/);
   assert.match(css, /@media\s*\(prefers-contrast:\s*more\)[\s\S]*?outline:\s*3px solid #ffffff\s*!important;/);
+});
+
+test('Reduce Motion selects instant navigation and disables app animations and transitions', () => {
+  assert.equal(scrollBehaviorForMotionPreference(true), 'auto');
+  assert.equal(scrollBehaviorForMotionPreference(false), 'smooth');
+
+  const reducedMotionBlock = css.match(/@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{\s*\*,\s*\*::before,\s*\*::after\s*\{([\s\S]*?)\n\s*\}/)?.[1];
+  assert.ok(reducedMotionBlock, 'a global prefers-reduced-motion override is present');
+  assert.match(reducedMotionBlock, /scroll-behavior:\s*auto\s*!important;/);
+  assert.match(reducedMotionBlock, /animation:\s*none\s*!important;/);
+  assert.match(reducedMotionBlock, /transition:\s*none\s*!important;/);
 });
