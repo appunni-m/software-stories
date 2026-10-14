@@ -48,10 +48,10 @@ Those still need a measured desktop fixture and manual acceptance.
 ## Production JavaScript bundle
 
 Measured on 2026-10-14 at source revision
-`8e28d0a1c68034325b7aabac57251b9072f949e7` with `npm run build`. The initial
-JavaScript entry is 452.21 kB (130.30 kB gzip); Walkthrough is a 92.38 kB
-(26.53 kB gzip) on-demand chunk, Git Changes is 11.52 kB (4.07 kB gzip), and
-PR Guide Studio is a 31.84 kB (7.99 kB gzip) on-demand chunk. The initial
+`360969dd71b3401ddef2a2e0cbae813d3f26fde9` with `npm run build`. The initial
+JavaScript entry is 452.22 kB (130.30 kB gzip); Walkthrough is a 92.43 kB
+(26.53 kB gzip) on-demand chunk, Git Changes is 11.55 kB (4.07 kB gzip), and
+PR Guide Studio is a 31.85 kB (7.99 kB gzip) on-demand chunk. The initial
 JavaScript entry is below Vite's 500 kB advisory threshold. These are
 compressed artifact sizes, not browser startup timings; no rendered
 performance or accessibility claim follows from them.
