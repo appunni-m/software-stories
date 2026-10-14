@@ -128,6 +128,41 @@ design before adopting it.
 
 Current sources: [XPC services and their sandbox](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingXPCServices.html), [read-only security-scoped file access and sharing bookmarks between processes](https://developer.apple.com/documentation/security/accessing-files-from-the-macos-app-sandbox), [current App Sandbox protections](https://developer.apple.com/documentation/security/protecting-user-data-with-app-sandbox), and [embedding a sandboxed helper tool](https://developer.apple.com/documentation/xcode/embedding-a-helper-tool-in-a-sandboxed-app). The XPC service overview is archived Apple documentation; verify its lifecycle and entitlement behavior on the supported macOS version before implementation.
 
+### Enhanced Security helper extension candidate (reviewed 2026-10-14)
+
+Apple's Xcode 26 release notes introduce an Enhanced Security extension target
+for handling untrusted data in a separate process. Apple's setup guide says the
+system runs the extension in a sandbox that restricts most system services and
+frameworks, disallows extension UI, and expects the host app to provide UI and
+system services over XPC. This could offer a stronger starting boundary than a
+plain child process, but it does **not** by itself prove the exact Code Atlas
+requirements: the implementation must still show that the extension reads only
+the reviewed staging directory, cannot modify it, cannot access the live
+checkout or `.git`, cannot launch shell/build tools, and cannot make
+unreviewed network or MCP requests. A service that needs model traffic may
+require an explicitly reviewed host-mediated request path.
+
+Do not infer the feature's minimum runtime OS from the older
+`AppExtensionProcess` API availability. Apple's app-extension guide says
+programmatic `.appext` generation from extension-point definitions is supported
+starting with macOS 26; the exact deployment floor for a manually supplied
+extension point and the Enhanced Security runtime still needs a target-OS test.
+The project's supported macOS floor is also undecided, so this candidate cannot
+be selected until that decision and compatibility are verified.
+
+**Developer-host check (2026-10-14):** This Mac runs macOS 15.7.7 arm64 and has
+Command Line Tools with SDK 15.5 and Swift 6.1.2, but no full Xcode. The SDK can
+import `ExtensionFoundation` and declares `AppExtensionProcess`, but it does
+not declare `AppExtensionPoint`; a direct Swift compile probe for
+`AppExtensionPoint` fails with “cannot find in scope.” `xcodebuild -version`
+confirms full Xcode is required. Therefore the documented Xcode 26 extension
+template and its Enhanced Security behavior cannot be built or run on this
+host. This is a toolchain limitation, not evidence that the candidate is
+unsafe or safe. Keep it unproven until a supported Xcode/macOS environment can
+run the no-agent boundary checks and verify the actual process entitlements.
+
+Current sources: [Xcode 26 release notes](https://developer.apple.com/documentation/xcode-release-notes/xcode-26-release-notes), [Creating Enhanced Security helper extensions](https://developer.apple.com/documentation/xcode/creating-enhanced-security-helper-extensions), [AppExtensionPoint](https://developer.apple.com/documentation/extensionfoundation/appextensionpoint), and [AppExtensionProcess](https://developer.apple.com/documentation/extensionfoundation/appextensionprocess).
+
 ### Local Codex app-server schema probe (reviewed 2026-10-14)
 
 On the development Mac (macOS 15.7.7, arm64), `codex --version` reports
