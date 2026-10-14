@@ -1,9 +1,8 @@
 # Kata backlog — Code Atlas rebuild
 
 Workspace project: **code-atlas-rebuild**. Product plan: [PRODUCT_BLUEPRINT.md](PRODUCT_BLUEPRINT.md).
-Technical plan: [TECHNICAL_PLAN.md](TECHNICAL_PLAN.md). Generated on 2026-10-13.
+Technical plan: [TECHNICAL_PLAN.md](TECHNICAL_PLAN.md). Generated on 2026-10-14.
 Kata issue bodies are synchronized from `docs/kata-tasks/*.md`; each issue states its user outcome, interaction contract, acceptance criteria, exclusions, and closure evidence.
-This file is a dated snapshot of issue definitions. Live open/closed status and blocking relationships are maintained in the Kata project; a task should close only after its listed evidence is demonstrated.
 
 ## Product contract
 

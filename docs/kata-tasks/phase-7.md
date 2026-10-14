@@ -32,5 +32,10 @@ Ship a clear backend catalog with separate **Model APIs**, **Agent runtimes**, a
 ## Excludes
 Building a new model gateway, inventing an agent protocol or tool loop, silent provider routing/fallback, collecting vendor credentials through browser scraping, and treating API providers and agent runtimes as interchangeable.
 
+## Child issues
+
+- `c8nz` — [28-model-api-providers.md](28-model-api-providers.md) adds selectable direct model API providers.
+- `tpta` — [29-agent-runtime-backends.md](29-agent-runtime-backends.md) adds selectable read-only coding-agent backends.
+
 ## Done evidence
 Review the dated provider/runtime capability matrix and the selected existing libraries/protocols, with evidence for adoption, maintenance, and unsupported features. Complete one consented direct-API draft and one consented read-only agent-backed draft; verify context, disclosure, permission boundary, local evidence validation, cancellation, and manual acceptance for both. Verify provider failure never switches backend and prior guide history remains intact.
