@@ -40,6 +40,6 @@ That command validates the synthetic chapter corpus, runs all Node test files, b
 - Treat direct model APIs, speech synthesis, and coding-agent runtimes as distinct integration types. Check the M7 tasks before adding a provider abstraction.
 - Update the relevant docs and acceptance criteria when code behavior changes. The [technical plan](docs/TECHNICAL_PLAN.md) distinguishes current source behavior from planned architecture.
 
-## Project contact and review process
+## Public contact and review expectations
 
-This checkout does not publish a repository URL, issue tracker, maintainer contact, contribution review policy, or pull-request instructions. Confirm the project owner's preferred private coordination route before proposing an external contribution. No source license is included, so do not assume that public reuse or redistribution is permitted.
+The [public GitHub repository](https://github.com/appunni-m/software-stories) exposes an [Issues page](https://github.com/appunni-m/software-stories/issues), but no triage or response policy is published. Do not post credentials, private source, or vulnerability details there; see [Security reporting](SECURITY.md). No maintainer contact, response time, or contribution review policy is published, so opening an issue or submitting a change does not imply that it will be accepted. No source license is included; its license and reuse permissions are unspecified.
