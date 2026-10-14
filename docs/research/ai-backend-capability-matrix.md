@@ -65,9 +65,9 @@ MCP may be evaluated as a shared read-only tool/context protocol only if needed.
 
 No current runtime has a verified Code Atlas boundary. Codex's app-server documents restricted readable roots for `readOnly`, but the same surface also exposes `command/exec`; that mode therefore does not establish the task's no-shell/no-build requirement. ACP provides terminal methods and file operations as protocol capabilities, but withholding client-side methods does not prove that an agent's own tools cannot access the host. Keep all candidates unavailable until both filesystem confinement and command/tool restrictions are exercised against the selected version. See [Codex sandbox read access and command execution](https://developers.openai.com/codex/app-server), [ACP terminals](https://agentclientprotocol.com/protocol/v1/terminals), and [ACP tool calls and permissions](https://agentclientprotocol.com/protocol/v1/tool-calls).
 
-The clearest macOS boundary candidate to prototype is a per-run Linux VM that exposes only a newly materialized reviewed snapshot directory through a read-only `VZSharedDirectory`. This can omit the live checkout and `.git` from guest-visible mounts, but it does not itself prevent a guest process from running shell/build commands or reaching the network. The runtime must still have its command, web, and unapproved MCP tools removed and those restrictions tested; egress, cancellation, crash cleanup, and stage deletion also need explicit checks. Apple's Virtualization framework requires the virtualization entitlement and architecture-matched Linux guest assets, so startup time, bundle size, updates, and supported Mac architectures need a separate packaging decision. See [VZSharedDirectory](https://developer.apple.com/documentation/virtualization/vzshareddirectory), [running Linux in a VM](https://developer.apple.com/documentation/virtualization/running-linux-in-a-virtual-machine), and [adding the Virtualization entitlement](https://developer.apple.com/documentation/virtualization/adding-the-virtualization-entitlement-to-your-project).
+One macOS boundary candidate is a per-run Linux VM that exposes only a newly materialized reviewed snapshot directory through a read-only `VZSharedDirectory`. This can omit the live checkout and `.git` from guest-visible mounts, but it does not itself prevent a guest process from running shell/build commands or reaching the network. The runtime must still have its command, web, and unapproved MCP tools removed and those restrictions tested; egress, cancellation, crash cleanup, and stage deletion also need explicit checks. Apple's Virtualization framework requires the virtualization entitlement and architecture-matched Linux guest assets, so startup time, bundle size, updates, and supported Mac architectures need a separate packaging decision. See [VZSharedDirectory](https://developer.apple.com/documentation/virtualization/vzshareddirectory), [running Linux in a VM](https://developer.apple.com/documentation/virtualization/running-linux-in-a-virtual-machine), and [adding the Virtualization entitlement](https://developer.apple.com/documentation/virtualization/adding-the-virtualization-entitlement-to-your-project).
 
-**Next evidence:** run a no-agent boundary spike with a synthetic stage. Prove writes fail, `.git` and unrelated host paths are absent, arbitrary shell/build execution is denied by the chosen runtime configuration, and cancel/crash cleanup removes per-run state. Keep the user-requested Codex, Claude Agent, and Antigravity routes unavailable until each also passes its own version, terms, lifecycle, and runtime-tool checks.
+**Next evidence:** run a no-agent boundary spike with a synthetic stage using either the sandboxed XPC candidate below or a Linux VM when it can boot under the intended signing/runtime setup. Prove writes fail, `.git` and unrelated host paths are absent, arbitrary shell/build execution is denied by the chosen runtime configuration, and cancel/crash cleanup removes per-run state. Keep the user-requested Codex, Claude Agent, and Antigravity routes unavailable until each also passes its own version, terms, lifecycle, and runtime-tool checks.
 
 **No-agent VM startup probe (2026-10-14):** On the development Mac
 (macOS 15.7.7, arm64), a temporary Swift probe used the Fedora 44 ARM64
@@ -86,6 +86,35 @@ reported zero valid identities), so a normally signed application launch also
 remains unverified. Keep the VM boundary candidate unproven and diagnose a
 guest boot under the intended app-signing/runtime environment before relying
 on it. Sources: [Apple's Linux VM sample and Fedora PXE image guidance](https://developer.apple.com/documentation/virtualization/running-linux-in-a-virtual-machine), [Virtualization entitlement setup](https://developer.apple.com/documentation/virtualization/adding-the-virtualization-entitlement-to-your-project).
+
+### Alternate macOS process boundary: sandboxed XPC service (reviewed 2026-10-14)
+
+Apple documents XPC services as separate processes with their own sandbox;
+by default they run with minimal filesystem and network access. Apple also
+documents passing a security-scoped bookmark to another process and creating
+one with read-only access. These APIs make an app-embedded XPC service a
+promising next boundary experiment: create the immutable stage in Code Atlas,
+grant the service only a read-only scoped bookmark for that stage, and keep
+the service's own container free of repository content and credentials. This
+is a candidate architecture, not a demonstrated boundary. The existing
+Code Atlas app is not yet an App Sandbox/XPC product, and these sources do
+not prove what a specific agent SDK or its subprocesses can access.
+
+Do not replace XPC with a plain `NSTask`/`posix_spawn` helper and call that
+privilege separation: Apple's XPC guidance says those child-process APIs do
+not create a distinct sandbox. A separately embedded command-line helper can
+inherit its containing app's sandbox, but that alone does not prove a
+stage-only read root or deny shell/build execution. For any XPC prototype,
+record the signed service entitlements and test, using synthetic sentinels,
+that it can read only the staged files, cannot write the stage or repository,
+cannot read the live checkout, `.git`, or unrelated user files, and cannot
+launch a shell/build tool or access unrelated network/MCP services. Also test
+that cancellation and service crash remove the stage and invalidate the run.
+The service still needs an explicit, narrowly reviewed route for the selected
+agent's model traffic; an XPC boundary is not evidence that outbound traffic
+is restricted to that provider.
+
+Current sources: [XPC services and their sandbox](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingXPCServices.html), [read-only security-scoped file access and sharing bookmarks between processes](https://developer.apple.com/documentation/security/accessing-files-from-the-macos-app-sandbox), [App Sandbox overview](https://developer.apple.com/documentation/security/app_sandbox), and [embedding a sandboxed helper tool](https://developer.apple.com/documentation/xcode/embedding-a-helper-tool-in-a-sandboxed-app). The XPC service overview is archived Apple documentation; verify its lifecycle and entitlement behavior on the supported macOS version before implementation.
 
 ### Local Codex app-server schema probe (reviewed 2026-10-14)
 
