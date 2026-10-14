@@ -69,6 +69,24 @@ The clearest macOS boundary candidate to prototype is a per-run Linux VM that ex
 
 **Next evidence:** run a no-agent boundary spike with a synthetic stage. Prove writes fail, `.git` and unrelated host paths are absent, arbitrary shell/build execution is denied by the chosen runtime configuration, and cancel/crash cleanup removes per-run state. Keep the user-requested Codex, Claude Agent, and Antigravity routes unavailable until each also passes its own version, terms, lifecycle, and runtime-tool checks.
 
+**No-agent VM startup probe (2026-10-14):** On the development Mac
+(macOS 15.7.7, arm64), a temporary Swift probe used the Fedora 44 ARM64
+PXE kernel and initrd from the path Apple documents for its Linux VM sample.
+The read-only `VZSharedDirectory` configuration validated with one `stage`
+share and zero network devices. Starting that guest returned
+`VZErrorDomain` code 1 (`Internal Virtualization error. The virtual machine
+failed to start.`) before any serial output. A minimal no-share VM using the
+same boot assets failed the same way, both with a custom serial VM queue and
+the framework's default main queue. Therefore this does not isolate the
+failure to virtiofs and does not establish an Apple Virtualization limitation.
+The guest never ran, so host-path absence and write-denial checks were not
+reached; the synthetic stage and sentinel were removed. The only available
+probe signature was ad hoc (`security find-identity -v -p codesigning`
+reported zero valid identities), so a normally signed application launch also
+remains unverified. Keep the VM boundary candidate unproven and diagnose a
+guest boot under the intended app-signing/runtime environment before relying
+on it. Sources: [Apple's Linux VM sample and Fedora PXE image guidance](https://developer.apple.com/documentation/virtualization/running-linux-in-a-virtual-machine), [Virtualization entitlement setup](https://developer.apple.com/documentation/virtualization/adding-the-virtualization-entitlement-to-your-project).
+
 ### Local Codex app-server schema probe (reviewed 2026-10-14)
 
 On the development Mac (macOS 15.7.7, arm64), `codex --version` reports
