@@ -1506,10 +1506,10 @@ pub(crate) fn canonicalize_claude_pr_change_explanation(
     repository: &Path,
     review: &ProviderRequestReview,
     result: &ProviderSendResult,
-    runtime: &crate::claude_agent::ClaudeReviewRuntime,
+    access: &crate::claude_connections::ClaudeOperationAccess,
 ) -> Result<PrChangeExplanationPreview, ProviderFailure> {
     canonicalize_pr_change_with_revalidation(repository, review, result, || {
-        rebuild_claude_request_review(storage_dir, repository, review, runtime)
+        rebuild_active_claude_review(storage_dir, repository, review, access)
     })
 }
 
@@ -3384,6 +3384,30 @@ pub(crate) fn rebuild_claude_request_review(
             "Build a fresh Claude Agent review before generating.",
         ));
     }
+    rebuild_claude_context(storage_dir, repository, review, runtime)
+}
+
+/// A consumed review cannot admit a new run after expiry. Its native owner
+/// can finish the same bounded run, retaining the original fingerprint and
+/// expiry. Revocation is checked around the blocking evidence rebuild.
+pub(crate) fn rebuild_active_claude_review(
+    storage_dir: &Path,
+    repository: &Path,
+    review: &ProviderRequestReview,
+    access: &crate::claude_connections::ClaudeOperationAccess,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    access.check_review(review)?;
+    let rebuilt = rebuild_claude_context(storage_dir, repository, review, access.runtime())?;
+    access.check_review(review)?;
+    Ok(rebuilt)
+}
+
+fn rebuild_claude_context(
+    storage_dir: &Path,
+    repository: &Path,
+    review: &ProviderRequestReview,
+    runtime: &crate::claude_agent::ClaudeReviewRuntime,
+) -> Result<PendingProviderRequest, ProviderFailure> {
     let operation = claude_review_operation(review)?;
     let settings = claude_settings_from_review(review)?;
     let rebuilt = match operation {

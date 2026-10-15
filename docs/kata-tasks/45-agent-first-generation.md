@@ -9,6 +9,8 @@ blocked_by: codex-account-backend, claude-agent-backend
 ---
 
 ## User outcome
+**Priority decision:** automatic Codex and Claude Agent generation is a prerequisite for this product. Complete their app flows before further API expansion or visual polish. A settings screen, connection check, offline preview, manual handoff or disabled option cannot count as delivery. The user must be able to choose either installed agent and finish the explanation in the app without configuring a direct API key.
+
 
 A user who already uses Codex or Claude Code can explain a repository from inside Code Atlas through a supported agent integration. A direct API key is optional. Agent support is a release requirement and must be delivered before visual polish or narrative quality is described as a complete product experience.
 
@@ -61,3 +63,8 @@ Claude now has a native five-minute observed catalog connection and a registered
 ### Claude operation pipeline delta
 
 The internal candidate Claude pipeline now includes exact range, PR Guide and single-hunk operations through shared immutable context, strict per-operation contracts, one worker lifecycle and independent result validators. New registered commands are offline review only; their typed helpers have no app caller. Automatic sender/UI, qualified native runtime/account/isolation ownership, disconnect-aware results and scope-preserving recovery remain absent. This does not complete any automatic Claude cell or weaken this release gate. No tests, builds or runtime/model calls ran.
+
+
+### Native lifecycle delta; automatic app delivery remains open
+
+The internal Claude pipeline now binds every operation to a revocable native owner shared with worker cancellation. Refresh/disconnect/cancel prevent subsequent publication; ordinary five-minute review expiry cannot invalidate the same already-consented ten-minute run. An async owner drop revokes worker and blocking validator access. A preview or guide whose publication already won remains unaccepted and may need recovery/history lookup after a late disconnect. This does not connect Claude's sender to the app, qualify its account/runtime boundary or establish renderer cancellation/late-reply disposal. Keep the priority-0 gate and all Claude automatic cells open until the actual integrated flows, exact settings and scope-preserving recovery are delivered and accepted. No tests, builds or agent/model calls ran.

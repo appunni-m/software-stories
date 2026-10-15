@@ -109,3 +109,8 @@ PR Guide generation and single-hunk explanations now have registered native Code
 ## Claude range/Git pipeline source delta
 
 Candidate Claude range, guide and hunk reviews now share immutable evidence/prompt/schema builders with the other transports. Strict operation admission and full native-runtime review rebuilding feed the common worker, with independent range/hunk validators and separate unaccepted guide history. Registered native offline review commands reuse connection ownership and expiry; no UI caller for those new reviews or registered sender was added. Neither these internal methods nor catalog metadata authorizes inference. Exact account/product/runtime/isolation qualification, automatic dispatch/UI, disconnect handling and recovery remain open. All Claude automatic cells remain Missing; direct APIs stay optional.
+
+
+## Claude native lifecycle source delta
+
+Internal Claude senders now reserve one revocable operation lease bound to the native connection, review and fingerprint, share cancellation with the worker, and guard review consumption and result publication against disconnect/refresh. Ordinary review expiry rejects a new request without invalidating an already consented bounded run. Dropping the async owner revokes blocking access; uncertain cleanup retains recovery state. An already-published unaccepted preview/guide remains discoverable after a late disconnect. See `8gqw` for the exact lifecycle contract and deferred cases. No qualified account/runtime/isolation owner, registered Claude generation command or app inference flow was added. Claude automatic operation cells and this parent remain open; APIs and manual exchange do not complete them. No tests, builds or runtime/model requests ran.

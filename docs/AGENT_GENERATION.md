@@ -7,7 +7,7 @@ Coding agents are primary generation options. Direct API keys are optional. The 
 | Choice | How the task runs | Configure model, reasoning and approvals | Current scope |
 | --- | --- | --- | --- |
 | Codex · ChatGPT account | Native managed official app-server | Select advertised model/reasoning in Code Atlas; approval currently fixed to `never` | File chapters, selected-source overviews, one-section repairs, exact code selections, PR Guides and single hunks; runtime/account/package qualification pending |
-| Claude Agent · setup check | Explicit native version/account-metadata inspection; no prompt | No generation settings yet | Setup only; automatic generation remains missing |
+| Claude Agent · setup and offline review | Explicit native version/account/catalog inspection, then a local request preview | Advertised model/effort, fixed approval and turn limit; preview only | File/overview/section review UI; automatic generation remains missing |
 | Claude Code · manual handoff | Copy task into your own agent, then import JSON | In Claude Code; Code Atlas cannot apply or verify them | File chapters and selected-source overviews; automatic Claude Agent adapter remains required |
 | Antigravity or another agent · manual handoff | Same user-operated text exchange | In the external agent; unverified here | Same bounded chapters; automatic vendor integrations remain pending |
 | Direct API | An explicitly selected API provider | In its Code Atlas request dialog | Existing API operation matrix; separate API key and billing |
@@ -46,7 +46,7 @@ Claude Agent is a separate required automatic backend; its PR operations remain 
 
 From the backend chooser, select **Check Claude installation** in the macOS app. Enter the absolute path to your installed CLI and explicitly start the check. It inspects version and, for the candidate adapter version, reported account metadata. The app remembers only the canonical executable path. Cancel or close to abandon the check; browser preview cannot run it.
 
-The result is an installation observation. It does not log in, discover models, prove plan eligibility or start generation. A reported API-key/helper route stays distinct from a reported Claude account. Automatic Claude generation remains required in `8gqw`; this setup screen does not complete it.
+The first check is an installation/account observation. The separate advanced catalog check requires installed CLI, Node and SDK paths. After a successful native catalog observation, the app can preview a local file/overview/section request with supported model/effort, fixed approval and turn limit. Previewing sends no source to an agent. Neither check logs in, proves plan eligibility or enables generation. A reported API-key/helper route stays distinct from a reported Claude account. Automatic Claude generation remains required in `8gqw`; setup and offline review do not complete it.
 
 ## Manual Claude Code or other agent handoff
 

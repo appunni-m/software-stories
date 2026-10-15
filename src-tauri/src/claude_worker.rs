@@ -18,12 +18,18 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 const CANCEL_TTL: Duration = Duration::from_secs(15 * 60);
+pub(crate) const RUN_TIMEOUT: Duration = Duration::from_secs(600);
 const MAX_CANCELLED_RUNS: usize = 256;
 const BUSY: &str =
     "Claude Agent is busy. Finish or cancel the active operation before starting another.";
 
 pub(crate) struct ClaudeWorkerInput {
     pub run_id: String,
+    /// Native operation ownership, shared with connection revocation. Never
+    /// accepted from the renderer or reconstructed from a stored request.
+    pub cancel_signal: Arc<AtomicBool>,
+    /// Monotonic start owned by review consumption, including queue time.
+    pub started_at: Instant,
     pub settings: ClaudeGenerationSettings,
     pub system_instruction: String,
     pub user_prompt: String,
@@ -103,7 +109,7 @@ impl ClaudeWorkerManager {
         preflight: impl FnOnce() -> Result<(), ClaudeWorkerFailure>,
         mut progress: impl FnMut(ClaudeWorkerProgress),
     ) -> Result<ClaudeStructuredResult, ClaudeWorkerFailure> {
-        self.with_operation(&input.run_id, |cancelled| {
+        self.with_operation(&input.run_id, Some(&input.cancel_signal), |cancelled| {
             progress(ClaudeWorkerProgress {
                 run_id: input.run_id.clone(), phase: "preparing",
                 message: "Preparing the reviewed Claude request in private temporary storage.",
@@ -127,7 +133,7 @@ impl ClaudeWorkerManager {
         executable: &Path,
         run_id: &str,
     ) -> Result<crate::claude_connection::ClaudeConnectionObservation, ClaudeWorkerFailure> {
-        self.with_operation(run_id, |cancelled| {
+        self.with_operation(run_id, None, |cancelled| {
             #[cfg(unix)]
             { native::inspect_connection(&self.0, storage_dir, executable, cancelled) }
             #[cfg(not(unix))]
@@ -150,7 +156,7 @@ impl ClaudeWorkerManager {
         sdk_module: &Path,
         run_id: &str,
     ) -> Result<crate::claude_discovery::ClaudeModelDiscoveryObservation, ClaudeWorkerFailure> {
-        self.with_operation(run_id, |cancelled| {
+        self.with_operation(run_id, None, |cancelled| {
             #[cfg(unix)]
             { native::inspect_model_catalog(&self.0, storage_dir, executable, node_executable, sdk_module, cancelled) }
             #[cfg(not(unix))]
@@ -165,6 +171,7 @@ impl ClaudeWorkerManager {
     fn with_operation<T>(
         &self,
         run_id: &str,
+        cancel_signal: Option<&Arc<AtomicBool>>,
         operation: impl FnOnce(&AtomicBool) -> Result<T, ClaudeWorkerFailure>,
     ) -> Result<T, ClaudeWorkerFailure> {
         use ClaudeWorkerFailureKind as Kind;
@@ -185,7 +192,9 @@ impl ClaudeWorkerManager {
                 "A previous Claude cleanup could not be confirmed. Resolve the native process/storage state before restarting this app and generating again.",
             ));
         }
-        let cancelled = Arc::new(AtomicBool::new(false));
+        let cancelled = cancel_signal
+            .cloned()
+            .unwrap_or_else(|| Arc::new(AtomicBool::new(false)));
         {
             // cancel() uses the same lock order, covering cancellation before
             // a queued blocking task can register its active operation.
@@ -327,7 +336,6 @@ mod native {
     use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, ExitStatus, Stdio};
     use std::thread;
 
-    const RUN_TIMEOUT: Duration = Duration::from_secs(600);
     const POLL_INTERVAL: Duration = Duration::from_millis(10);
     const INTERRUPT_GRACE: Duration = Duration::from_secs(2);
     const TERMINATE_GRACE: Duration = Duration::from_secs(1);
@@ -1013,7 +1021,7 @@ mod native {
         progress: &mut impl FnMut(ClaudeWorkerProgress),
     ) -> Result<ClaudeStructuredResult, ClaudeWorkerFailure> {
         use ClaudeWorkerFailureKind as Kind;
-        let started = Instant::now();
+        let started = input.started_at;
         runtime
             .validate_settings(&input.settings)
             .map_err(|message| failure(Kind::PreparationFailed, message))?;
