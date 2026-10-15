@@ -57,6 +57,13 @@ Kata issue bodies are synchronized from `docs/kata-tasks/*.md`; each issue state
 | M7 | c8nz | Add selectable direct model API providers | wmaj Add optional Gemini with exact-context consent and billing disclosure<br>a3xq Generate one substantive, source-grounded chapter per selected file<br>bwdx Add an optional repository orientation chapter<br>tbsh Edit or regenerate one selected stale section and reuse unaffected assets<br>a9v9 Generate focused, reviewed explanations for a local change set | [28-model-api-providers.md](kata-tasks/28-model-api-providers.md) |
 | M7 | tpta | Add selectable read-only coding-agent backends | c8nz Add selectable direct model API providers | [29-agent-runtime-backends.md](kata-tasks/29-agent-runtime-backends.md) |
 
+## Additional design and acceptance tasks
+
+| Ref | Task | Relationship | Definition |
+|---|---|---|---|
+| 13yp | Make the packaged app follow the approved product designs | Parent `s0tj`; related to `48yv` | [43-design-implementation-parity.md](kata-tasks/43-design-implementation-parity.md) |
+| x21h | Record concrete UI gaps against the approved designs | Parent `s0tj`; related to `13yp` | [44-design-gap-audit.md](kata-tasks/44-design-gap-audit.md) |
+
 ## Build order
 
 1. Design the screen/state/navigation contract, then build the empty app shell.

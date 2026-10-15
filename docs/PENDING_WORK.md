@@ -1,6 +1,6 @@
 # Pending work after the October 15 static review
 
-Kata project: `code-atlas-rebuild`. This list records **31 tracked issues: 17 open, 13 blocked, and 1 closed; 13 new detailed tasks and 18 existing tasks updated with remaining work**. Parser issue 129x closed after regression evidence on 2026-10-15. Each linked specification includes the intended behavior, acceptance criteria and closure evidence. Issue IDs are recorded in [issue-refs.json](kata-tasks/issue-refs.json). The bounded-metadata issue `k9yd` was closed after implementation and Rust-suite evidence on 2026-10-15.
+Kata project: `code-atlas-rebuild`. This list records **32 tracked issues: 18 open, 13 blocked, and 1 closed; 14 new detailed tasks and 18 existing tasks updated with remaining work**. Parser issue 129x closed after regression evidence on 2026-10-15. Each linked specification includes the intended behavior, acceptance criteria and closure evidence. Issue IDs are recorded in [issue-refs.json](kata-tasks/issue-refs.json). The bounded-metadata issue `k9yd` was closed after implementation and Rust-suite evidence on 2026-10-15.
 
 The initial static-review pass intentionally did not run tests, builds, app launches, or runtime probes, as requested. That statement applies only to that pass; later verification is recorded below and in the relevant issue specifications. Source inspection alone cannot establish that every bug is fixed.
 
@@ -50,6 +50,7 @@ All items below remain open. “Waiting on” lists open dependency edges; child
 | `8gqw` | [Implement Claude Agent chapter adapter and resolve account eligibility](kata-tasks/41-claude-agent-backend.md) | No open dependency edge |
 | `m00g` | [Qualify Antigravity account integration and implement the supported adapter](kata-tasks/42-antigravity-agent-backend.md) | No open dependency edge |
 | `13yp` | [Make the packaged app follow the approved product designs](kata-tasks/43-design-implementation-parity.md) | Parent `s0tj`; related to `48yv` |
+| `x21h` | [Record concrete UI gaps against the approved designs](kata-tasks/44-design-gap-audit.md) | Parent `s0tj`; related to `13yp` |
 | `kghr` | [Bound and cancel repository Git subprocesses](kata-tasks/32-bounded-git-lifecycle.md) | No open dependency edge |
 | `q6g3` | [Integrate one managed local Pocket TTS runtime](kata-tasks/34-pocket-runtime.md) | No open dependency edge |
 | `dbmd` | [Make Pocket TTS the default narration path with distinct cache identity](kata-tasks/35-pocket-player-cache.md) | `q6g3` |
