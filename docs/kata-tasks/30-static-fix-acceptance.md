@@ -71,3 +71,19 @@ No issue can be closed from the source implementation or formatting alone.
 - Keep the candidate helpers unavailable for automatic generation until the separately owned account/runtime/isolation, supervisor/cancel/reap, dispatch/UI and recovery requirements in `8gqw` are implemented and accepted. No source implementation or offline review constitutes a qualified Claude integration.
 
 All cases are deferred. No tests, build or runtime request was run for this source change.
+
+## Claude process supervisor — pending
+
+These cases cover `claude_worker.rs` source changes. They do not authorize agent execution; use an explicitly authorized native acceptance run later.
+
+- Reject a second active run, invalid operation IDs and runs cancelled before registration. Bound/expire cancellation records; shutdown prevents later starts. A progress callback that cancels must prevent the next source write, and cancellation during final cleanup must prevent result acceptance.
+- Reinspect an absolute canonical executable and its reviewed SHA-256. Reject symlinks, missing/nonexecutables, changed contents and files above 256 MiB. A file growing during hashing is read only to cap plus one byte. Qualify immutable execution separately: hashing before spawn does not eliminate path replacement races.
+- Restrict private stage/tmp/instruction permissions and reject symlinked data paths. Source remains on stdin; raw output/diagnostics do not reach progress, logs or user errors. Verify the actual cleared environment, account route and effective CLI flags in the qualified runtime; a private working directory is not an OS sandbox.
+- Stall stdin while stdout/stderr fill, split JSON frames across reads, omit the final newline, and close a pipe early. Nonblocking I/O must continue cancellation/deadline checks without stranded I/O threads. Reject a frame above 2 MiB, output above 32 MiB, diagnostics above 256 KiB and the independent parser event/result limits. Never accept a partial source delivery.
+- A success-shaped final result is withheld until stdout/stderr EOF, successful child exit and staging cleanup. Trailing malformed events, nonzero exit, missing result and inherited pipes staying open after leader exit must reject without saving history. Independent chapter/evidence validators remain mandatory after the worker returns.
+- Cancel or expire during preparation, input delivery, generation and drain. Check SIGINT, then SIGTERM/SIGKILL grace escalation; invalid protocol may kill immediately. Exercise app exit and child descendants, and record process ownership/no-orphan evidence. Hard app termination and children escaping the group require separate qualification, not an assumption from signal delivery.
+- Observe exit without reaping, signal remaining owned-group members, then reap under the PID registry lock. Concurrent shutdown cannot signal a stale identity. On `ECHILD`, clear the identity, reject cleanup and disable further session runs; do not signal a possibly reused PID.
+- Inject failures in pipe setup, child status inspection/reaping and private-storage cleanup, including preparation errors/unwinding. Cleanup failure takes precedence over a concurrent cancel; no response is accepted and further runs stay disabled for the session. Confirm fresh-launch recovery handles leftover staging before enabling generation.
+- Qualify the locked libc/macOS `fcntl`, `waitid` and `kill` assumptions on supported packaged targets. Source review and SAFETY comments are not runtime evidence; non-Unix execution remains unavailable.
+
+No test, build, app launch, agent login or model request ran for these changes. Automatic Claude dispatch, account/catalog discovery, UI, isolation and persisted recovery remain owned by `8gqw`.

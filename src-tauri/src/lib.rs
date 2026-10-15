@@ -17,6 +17,7 @@ mod chapter_store;
 mod chapters;
 mod agent_handoff;
 mod claude_agent;
+mod claude_worker;
 mod codex_agent;
 mod codex_commands;
 mod git_evidence;
@@ -1751,6 +1752,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(ProjectSessions::default())
         .manage(codex_agent::CodexAgentManager::default())
+        .manage(claude_worker::ClaudeWorkerManager::default())
         .manage(SnapshotJobs::default())
         .manage(index::SnapshotIndexJobs::default())
         .manage(provider::PendingProviderReviews::default())
@@ -1836,6 +1838,7 @@ pub fn run() {
         .run(|app, event| {
             if matches!(event, tauri::RunEvent::Exit) {
                 app.state::<codex_agent::CodexAgentManager>().shutdown();
+                app.state::<claude_worker::ClaudeWorkerManager>().shutdown();
                 pocket_tts::shutdown();
             }
         });

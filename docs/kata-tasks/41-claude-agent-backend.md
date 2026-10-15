@@ -43,7 +43,7 @@ Reimplementing the agent loop, token extraction, invented universal effort optio
 ## Done evidence
 Auth eligibility decision, pinned worker adapter, configuration UI and later account/permission/cancel/chapter acceptance.
 
-## Source progress — October 15, protocol preparation only
+## Source progress — October 15, protocol and process supervision; unqualified
 
 `src-tauri/src/claude_agent.rs` now prepares the documented programmatic CLI invocation and an environment-cleared command without spawning it. It validates native-owned runtime/account digests and model-specific effort capabilities, fixes approval to `dontAsk`, bounds turns, puts source on stdin, requests safe/restricted mode, removes external tools/MCP/customization and disables session persistence. Version `2.1.300` is a candidate from the official changelog, not an accepted runtime pin.
 
@@ -51,7 +51,11 @@ The bounded output consumer checks initialization, session/model identity, permi
 
 `provider.rs` now shares the chapter/section review builder between Codex and the offline Claude contract. Claude review/revalidation binds captured evidence, selected section/base identity, executable hash/version, account digest and effective requested settings. No direct API request is built to obtain this context. The Claude contract explicitly remains pending qualification.
 
-**Not delivered:** runtime/account discovery, qualified model catalog, executable/account reinspection, bounded process supervisor/cancel/reap, Tauri dispatch, connection/generation UI, recovery, range/PR operations or permitted account-route evidence. These helpers have no registered native command and do not enable automatic Claude generation. Native code must supply runtime identity; the WebView cannot deserialize it. Environment clearing does not prove managed-policy behavior, OS confinement, provider egress restrictions or absence of internal model fallback. Qualify those before enabling a route. No tests, builds, agent processes, logins or model requests ran.
+`src-tauri/src/claude_worker.rs` adds a native worker manager with a single active operation, bounded early-cancel records, a ten-minute cooperative deadline, executable SHA-256 reinspection, private per-run staging, nonblocking stdin/stdout/stderr and application-authored progress. It rejects oversized streams, incomplete input, missing EOF, nonzero exit and invalid protocol. Cancellation interrupts the owned process group, then escalates and reaps; shutdown signals that same owned group. Successful output is withheld until process completion and staging cleanup. Cleanup uncertainty disables further runs for the app session, including failures during preparation or unwinding. The manager is registered only for state and shutdown; no generation command calls it.
+
+The Unix implementation observes child exit using `waitid(..., WNOWAIT)` before group cleanup and reaping, with signaling and PID publication under one mutex. `ECHILD` drops the stale identity and rejects the run instead of signaling a possibly reused PID. Pipe flag and wait-record FFI contracts were inspected against locked libc `0.2.190` and local macOS SDK headers. This is source review, not native lifecycle evidence. Hard app termination, child escape, platform behavior, blocking OS cleanup and executable replacement between hash inspection and launch remain unqualified.
+
+**Not delivered:** runtime/account discovery, qualified model catalog, account reinspection, Tauri dispatch, connection/generation UI, persisted recovery, range/PR operations or permitted account-route evidence. Automatic Claude generation is still unavailable. Native code must supply runtime identity; the WebView cannot deserialize it. Environment clearing and staged working directories do not prove managed-policy behavior, OS confinement, provider egress restrictions or absence of internal model fallback. Qualify those before enabling a route. No tests, builds, agent processes, logins or model requests ran. Process supervision and storage cleanup also require the deferred acceptance in `xymb`; source implementation does not close this task.
 
 ## References
 - https://code.claude.com/docs/en/agent-sdk/overview

@@ -16,8 +16,8 @@ pub(crate) const CANDIDATE_RUNTIME_VERSION: &str = "2.1.300";
 const MAX_PROMPT_BYTES: usize = 768 * 1024;
 const MAX_SYSTEM_BYTES: usize = 64 * 1024;
 const MAX_SCHEMA_BYTES: usize = 120 * 1024;
-const MAX_FRAME_BYTES: usize = 2 * 1024 * 1024;
-const MAX_STREAM_BYTES: usize = 32 * 1024 * 1024;
+pub(crate) const MAX_FRAME_BYTES: usize = 2 * 1024 * 1024;
+pub(crate) const MAX_STREAM_BYTES: usize = 32 * 1024 * 1024;
 const MAX_RESULT_BYTES: usize = 1_000_000;
 const MAX_EVENTS: usize = 100_000;
 
@@ -251,7 +251,7 @@ pub(crate) fn prepare_command(
     Ok(command)
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub(crate) enum ClaudeProgressPhase {
     Started,
     Generating,
