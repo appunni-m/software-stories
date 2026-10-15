@@ -31,6 +31,8 @@ The working tree also contains the following in-progress source changes. They ar
 
 ## Agent support takes priority — 2026-10-15
 
+The [required operation parity contract](AGENT_OPERATION_PARITY.md) now names every Codex/Claude workflow, current automatic-adapter gap, common settings/review/lifecycle behavior and source reuse point. Kata `2r6n` is explicitly blocked by Codex `z3an` and Claude Agent `8gqw`; requested Antigravity `m00g` separately blocks M7. Implementing APIs, manual handoffs or catalog labels cannot close those gates. Automatic Claude implementation remains priority 0; no new automatic backend was delivered by this contract update.
+
 Subsequent source delta: Codex now accepts one-section stale repair requests using shared API/agent context building and the existing preservation validator. The review binds the accepted base and section revision, source selection is fixed, old/current source bytes are bounded and old source is screened for secret-like content. Code Lens/PR and native runtime acceptance remain pending. Static review also fixed the manual handoff's response-envelope field in `0d1160b`; no tests or builds ran.
 
 The user has reaffirmed that Codex and Claude Agent generation are core requirements and direct API keys must be optional. The [agent-first release gate](kata-tasks/45-agent-first-generation.md) is priority 0 and blocks the backend milestone. Complete those integrated paths before further visual/narrative polish. Existing per-backend tasks remain open.

@@ -58,7 +58,7 @@ Kata issue bodies are synchronized from `docs/kata-tasks/*.md`; each issue state
 | M6 | a9v9 | Generate focused, reviewed explanations for a local change set | wmaj Add optional Gemini with exact-context consent and billing disclosure<br>8bw6 Define versioned chapter, section, claim, anchor, and hotspot records<br>a3xq Generate one substantive, source-grounded chapter per selected file<br>s4df Detect changed evidence and mark only dependent sections stale<br>tbng Build bounded read-only evidence for local Git base and head refs | [27-pr-guide.md](kata-tasks/27-pr-guide.md) |
 | M7 | c8nz | Add selectable direct model API providers | wmaj Add optional Gemini with exact-context consent and billing disclosure<br>a3xq Generate one substantive, source-grounded chapter per selected file<br>bwdx Add an optional repository orientation chapter<br>tbsh Edit or regenerate one selected stale section and reuse unaffected assets<br>a9v9 Generate focused, reviewed explanations for a local change set | [28-model-api-providers.md](kata-tasks/28-model-api-providers.md) |
 | M7 | tpta | Add selectable read-only coding-agent backends | No open dependency edge | [29-agent-runtime-backends.md](kata-tasks/29-agent-runtime-backends.md) |
-| M7 | 2r6n | Make Codex and Claude Agent complete generation choices without mandatory API keys | Parent tpta; blocks mfz2 | [45-agent-first-generation.md](kata-tasks/45-agent-first-generation.md) |
+| M7 | 2r6n | Make Codex and Claude Agent complete generation choices without mandatory API keys | Blocked by z3an, 8gqw; parent tpta; blocks mfz2 | [45-agent-first-generation.md](kata-tasks/45-agent-first-generation.md) |
 
 ## Additional design and acceptance tasks
 

@@ -5,6 +5,7 @@ parent: t29
 title: Make Codex and Claude Agent complete generation choices without mandatory API keys
 priority: 0
 labels: agents, product-quality, release-gate
+blocked_by: codex-account-backend, claude-agent-backend
 ---
 
 ## User outcome
@@ -23,6 +24,8 @@ Codex section repair now has scope-aware interruption recovery in source: the jo
 
 ## Required product flow
 
+The [required operation matrix and user flow](../AGENT_OPERATION_PARITY.md) define exact coverage. File chapters, selected-source overviews, one-section repair, source-range explanation, PR Guides and single-hunk explanations must each work through both Codex and Claude Agent. Agent-backed repository planning is required alongside the future AI narrative planner. An API implementation cannot satisfy an agent cell; the static reading planner cannot satisfy AI narrative planning. Exact current gaps and source reuse points are recorded there.
+
 1. From Explain file, Create repository tour, journey step, Regenerate section, Explain selection, or Explain PR, choose Coding agent or Direct API. Never require an API credential before the agent choice.
 2. Choose Codex or Claude Agent. Show installation, connection and supported-operation status with one concrete recovery action. Evaluate Antigravity separately; clearly explain an unavailable operation.
 3. Configure supported model, reasoning and action-approval settings per agent. Remember non-secret defaults, allow deliberate run overrides and display actual effective settings. Unsupported settings are unavailable. A manual handoff delegates configuration to the agent and cannot claim these controls.
@@ -33,7 +36,7 @@ Codex section repair now has scope-aware interruption recovery in source: the jo
 ## Acceptance checklist
 
 - [ ] Codex and Claude Agent each complete a real native file chapter and selected-source overview without requiring a direct API key in Code Atlas, through a documented permitted account route.
-- [ ] A dated operation matrix covers repository planning, chapter generation, selected-section regeneration, Code Lens and PR guide/change explanations. Implement required pairs; do not silently route an agent-selected operation to an API.
+- [ ] Every required Codex/Claude pair in the linked operation matrix has automatic dispatch and dated acceptance evidence, including file, overview, section, range and both PR operations. Repository planning receives both agents when that feature is implemented. No direct API credential is a prerequisite; unsupported pairs cannot silently route to an API.
 - [ ] Per-agent model/reasoning/approval defaults and overrides reach the runtime and appear in the review. Unsupported controls cannot be selected or silently ignored.
 - [ ] Connection, quota, expired login, unavailable model, runtime crash, invalid evidence, cancellation and interrupted-save recovery remain on the chosen backend and preserve history.
 - [ ] Exact supported versions, distribution/account eligibility, immutable source scope and runtime permission boundaries have recorded acceptance evidence.

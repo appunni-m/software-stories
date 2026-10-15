@@ -2,6 +2,8 @@
 
 Coding agents are primary generation options. Direct API keys are optional. The following paths are implemented in source and still need native runtime acceptance; this page does not certify a production release.
 
+**Automatic multi-agent generation is incomplete:** Codex has an automatic source adapter; Claude Agent and Antigravity do not. The [required operation matrix](AGENT_OPERATION_PARITY.md) records the exact gaps and implementation order. Manual handoffs below do not meet that requirement.
+
 | Choice | How the task runs | Configure model, reasoning and approvals | Current scope |
 | --- | --- | --- | --- |
 | Codex · ChatGPT account | Native managed official app-server | Select advertised model/reasoning in Code Atlas; approval currently fixed to `never` | File chapters, selected-source overviews and one-section stale repairs; runtime/account/package qualification pending |

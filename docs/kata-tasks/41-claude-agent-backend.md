@@ -19,12 +19,16 @@ The official pages remain distinct in their wording: the Help Center says third-
 
 ## Contract
 
+Implement automatic dispatch first for file chapters and selected-source overviews, then the section/range/PR operations in the [required parity matrix](../AGENT_OPERATION_PARITY.md). Reuse transport-independent captured context and the existing local validators. The same task owns agent installation/connection state, supported model/effort/approval defaults and overrides, exact review, streaming progress, bounded cancellation/process cleanup and scope-preserving interruption recovery. Claude must be selectable before any direct API setup. An API-key-only Agent SDK route cannot close the user's no-mandatory-API requirement.
+
 This is a required automatic agent integration, not an optional API adapter. The separate manual Claude Code handoff now present in source provides reviewed task copy/import and local evidence validation without an API key in Code Atlas. It does not manage a Claude runtime or account, verify model/reasoning settings, enforce permissions, or provide cancellation. It does not satisfy this task. See the [agent-first release gate](45-agent-first-generation.md).
 Pin SDK/binary versions and use the documented auth store/flow with isolated app configuration. Separate account-backed usage from optional API-key usage. Strip inherited credential/provider/endpoint environment that could select API billing; ANTHROPIC_API_KEY overrides account auth in noninteractive mode. Do not assume --bare supports OAuth token behavior. Reuse chapter JSON schema, independent citation validation and explicit draft acceptance.
 
 Expose model-dependent effort, approval behavior and max turns; unsupported values are unavailable. Explicitly configure available tools, empty settingSources and strict app-owned MCP settings. allowedTools is an auto-approval list, not a tool-removal boundary. Remove write/command/web/subagent capabilities and enforce staged-file scope with per-call checks and appropriate sandboxing. Stream progress; interrupt then terminate/reap after a bounded grace period. Never retry through a direct API automatically.
 
 ## Acceptance criteria
+
+- All required Claude operation rows in the parity matrix complete through an automatic supported agent adapter; file/overview milestones alone do not close the full task. The API path, manual handoff and a disabled chooser entry are not acceptance evidence.
 - Dated resolution records which exact account/distribution path is permitted; login UI follows it.
 - Account mode cannot silently pick inherited API credentials or incur API billing; quota/eligibility failures stay on selected backend.
 - A real chapter returns structured_output and passes existing local schema/evidence checks; success without structured output is a failure.

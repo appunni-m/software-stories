@@ -4,13 +4,16 @@ key: m7
 title: M7 — Selectable AI backends
 priority: 0
 labels: phase-7, ai, providers, agents
-blocked_by: m6, agent-first-generation
+blocked_by: m6, agent-first-generation, antigravity-agent-backend
 ---
 
 ## User outcome
 The user can choose the AI integration that fits the work: a direct model API for bounded text-generation requests, a coding-agent runtime for multi-step investigation, or a modality-specific backend for speech. Google Gemini is one provider choice, not the only AI path. The catalog can grow through verified adapters to established providers and agent runtimes.
 
 ## Gate definition
+
+Automatic Codex and Claude Agent coverage is a prerequisite, tracked by `2r6n` and its blocking adapter tasks `z3an` and `8gqw`. The [operation parity contract](../AGENT_OPERATION_PARITY.md) defines each required pair. Direct APIs and manual handoffs cannot satisfy it. The separately requested Antigravity integration `m00g` also blocks M7 until its permitted automatic route is delivered and accepted.
+
 Ship a clear backend catalog with separate **Model APIs**, **Agent runtimes**, and modality-specific capabilities such as **Speech**. Direct API calls, agent sessions, and speech synthesis keep their own capabilities, authentication, permissions, data disclosures, cancellation behavior, and usage/billing information. Every AI-enabled feature maps to a supported capability and shows and uses the backend selected for that operation; unavailable features explain why they cannot run on a selected backend. Reuse established maintained clients and official programmatic surfaces where suitable: evaluate a maintained multi-provider client for model APIs, ACP for agent sessions, and MCP only for shared tools/context when needed. Do not create a new general-purpose agent framework or pretend one protocol works for every runtime; record adapter provenance, compatibility, and capability gaps.
 
 ## Exit criteria
