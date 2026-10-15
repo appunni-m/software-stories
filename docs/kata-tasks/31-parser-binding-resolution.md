@@ -17,15 +17,17 @@ The original static findings in `src-tauri/src/index.rs` were missing parameter/
 
 The indexer now uses `atlas-symbol-index-v2`, gathers lexical binding/scope information, marks shadowed/reassigned/ambiguous or unsupported bindings unresolved, checks direct module exports, and retains repeated declaration occurrences. Snapshot and separate base/head comparison indexes share the changed implementation. The new version separates derived index caches from v1 evidence. Source presence does not qualify complete Rust, TypeScript, TSX or JavaScript semantics.
 
+Static follow-up on 2026-10-15 found that any Rust `visibility_modifier` was treated as a public export, including restricted forms such as `pub(crate)` and `pub(super)`. The check now accepts only bare `pub`, which is the only unambiguous crate-root visibility. Rust items inside inline modules are still not marked exported; module-chain visibility is not resolved. This is an untested correction and does not qualify parser semantics.
+
 Remaining work, with every acceptance criterion still open:
 
 - [ ] Review and later exercise parameter/default/destructuring, block/catch/loop, hoisting/initialization, reassignment and duplicate-declaration cases across the existing language subset.
 - [ ] Confirm genuine supported calls/imports keep exact anchors while uncertain bindings retain an explicit unresolved reason; inspect opaque/unsupported scope behavior for false high-confidence edges.
 - [ ] Qualify nested export and duplicate occurrence identity behavior, including source movement and freshness/remapping.
 - [ ] Verify v1 indexes are not reused, both Git revision indexes use v2, and Atlas/Code Lens/provider evidence reports partial/unresolved results consistently.
-- [ ] Record pinned grammar/runtime versions and actual regression results in the language capability task before advertising support.
+- [ ] Record pinned grammar/runtime versions and actual regression results in the language capability task before advertising support. The currently pinned versions are recorded there; regression evidence remains outstanding.
 
-No tests, builds or runtime probes ran for this source-only change.
+The earlier October 15 run passed the Rust library suite (177 passed, 0 failed, 1 ignored) and `npm run check` (98 JavaScript tests, TypeScript/Vite build, Rust check, and the same Rust library suite). Those runs preceded the restricted-Rust-visibility correction above and do not cover the full lexical-shadowing matrix. No test, build, or runtime probe was run after that correction; every acceptance criterion remains open.
 
 ## Contract
 Resolve a call only when its exact lexical scope has one statically supported binding. Shadowed, dynamic or ambiguous bindings stay unresolved with a reason. Module exports must reflect actual exported bindings. Preserve duplicate occurrences or explicitly record ambiguity. Bump the indexer semantics/cache version so old relationships are not silently reused.

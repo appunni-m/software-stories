@@ -1870,9 +1870,13 @@ fn opens_symbol_scope(kind: &SymbolKind, language: SupportedLanguage) -> bool {
 }
 
 fn rust_public(node: &Node<'_>) -> bool {
+    // Restricted visibility (`pub(crate)`, `pub(super)`, `pub(in path)`) is not
+    // a crate-root export and must not become a high-confidence export edge.
     (0..node.child_count()).any(|index| {
         node.child(index)
-            .is_some_and(|child| child.kind() == "visibility_modifier")
+            .is_some_and(|child| {
+                child.kind() == "visibility_modifier" && child.named_child_count() == 0
+            })
     })
 }
 

@@ -12,7 +12,7 @@ blocked_by: parser-binding-resolution
 Users know which languages have reliable structural evidence and receive honest useful explanations for mixed-language repositories.
 
 ## Current evidence
-index.rs ships Rust, TypeScript, TSX and JavaScript parser variants. Other text can be cited, but text explanation is not equivalent to symbol/import/call analysis. Even the current supported set has unresolved/shadowing correctness work. No evidence demonstrates full narrative quality for arbitrary languages.
+index.rs ships Rust, TypeScript, TSX and JavaScript parser variants. `src-tauri/Cargo.toml` pins tree-sitter runtime 0.27.1, tree-sitter-rust 0.24.2, tree-sitter-typescript 0.23.2 and tree-sitter-javascript 0.25.0; indexed parser metadata also records grammar version and ABI. These pins identify the parser build only; they do not establish semantic correctness. Other text can be cited, but text explanation is not equivalent to symbol/import/call analysis. Even the current supported set has unresolved/shadowing correctness work. No evidence demonstrates full narrative quality for arbitrary languages.
 
 ## Contract
 Publish capability tiers by language and operation: text capture/citations, declarations, imports, calls/tests, framework entry points, cross-language links and generated explanation quality. Separate grammar availability from semantic resolution and narrative quality. Repair the existing parser set first. Add maintained Tree-sitter/LSP/compiler integrations where they fit; do not build a custom parser framework. Choose expansion languages from representative target repos, with Python and Go as initial candidates rather than promises of finished support.
