@@ -39,6 +39,8 @@ A registered native `send_claude_repository_plan_request` now enters the same re
 
 ## Current source — incomplete automatic backend
 
+The setup form now offers native file selection for the Claude CLI, Node host and installed SDK `sdk.mjs`, while retaining manual path entry. It reuses the existing Tauri dialog library and one typed native command shared with Codex; no package manager, discovery daemon, shell, login or agent runs when choosing a file. A chosen Claude path invalidates its existing connection/catalog/review; cancellation preserves it and abandoned replies are ignored. Selection is only a path hint, never runtime qualification. This source is unbuilt/unexecuted, and native dialog/focus/adapter acceptance remains in `xymb`. The generation registry stays empty and automatic support remains unavailable.
+
 | Layer | Source present | Required next evidence or work |
 | --- | --- | --- |
 | Version/account inspection | Explicit managed native command; sanitized bounded observations, no repository source or user prompt; native account digest is not a credential | Trusted installation, account/product eligibility and actual metadata behavior |

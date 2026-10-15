@@ -41,6 +41,15 @@ Static fixes are committed as `0494bd4` (Fix snapshot integrity and async explan
 
 ## Additional October 15 integration acceptance — pending
 
+### Native agent installation-file selection — pending
+
+- In packaged macOS setup, choose a Codex executable, Claude executable, Node executable and installed SDK `sdk.mjs`. Confirm exact path-field mapping, manual entry, keyboard/VoiceOver labels, native dialog cancellation/focus return and paths containing spaces/non-ASCII characters. File selection must start no agent, shell, package manager, login, metadata check or model request.
+- Cancel each picker with an existing path and connected/reviewed state. The original path, connection, catalog and review remain. Selecting a new Claude path clears its old observed connection/catalog/review; selecting Codex only fills its unsaved field until explicit Save. Existing native save/inspection checks still reject unavailable/incompatible/non-executable selections and changed identities.
+- Reject an unknown file-kind discriminator, a nonlocal/non-UTF-8/overlong/control-containing path, unavailable or directory selection, and a Claude SDK filename other than `sdk.mjs`. Exercise ordinary installation symlinks; selection does not replace canonical identity/provenance checks or execute a target. A filename is not a qualification.
+- Close/change backend or replace the dialog while selection is pending. A late reply cannot populate another dialog, save configuration, renew consent or start work. Attempt concurrent pickers: the native picker owner permits only one installation picker. Existing inspection/generation locks remain effective; no secondary Node process/listener appears. A failed picker leaves manual entry available.
+
+These cases are deferred. No tests, builds, app launches or picker/agent/runtime probes ran. Neither native file selection nor its source implementation satisfies automatic agent acceptance.
+
 ### Native repository planning contract — pending
 
 - Recheck chapter/overview source selection and exact prompts after extracting the shared evidence loader: file bounds/order, target inclusion, secret-like and encoding checks, filtered index evidence, section-update bypass, request fingerprints and draft validation retain their original behavior. Preparation constructs no direct API request.

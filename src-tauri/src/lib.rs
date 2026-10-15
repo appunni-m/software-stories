@@ -16,6 +16,7 @@ mod chapter_review;
 mod chapter_store;
 mod chapters;
 mod agent_handoff;
+mod agent_installation;
 mod claude_agent;
 mod claude_commands;
 mod claude_connection;
@@ -1914,6 +1915,7 @@ pub fn run() {
         .manage(recovery::InterruptionJournal::default())
         .manage(ChapterStoreLock::default())
         .invoke_handler(tauri::generate_handler![
+            agent_installation::pick_agent_installation_file,
             agent_handoff::build_agent_handoff_review,
             agent_handoff::export_agent_handoff,
             agent_handoff::import_agent_handoff_result,

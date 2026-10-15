@@ -9,7 +9,7 @@ import {
   buildCodexChapterReview, buildCodexCodeLensReview, buildCodexPrGuideReview, buildCodexPrChangeReview, cancelCodexChapterRequest, cancelCodexLogin,
   configureCodexAgent, discardGeneratedChapterDraft, discardProviderRequestReview,
   getCodexAgentStatus, listChapterRevisions, listCodexModels, loadSnapshotManifest,
-  logoutCodexAgent, saveGeneratedChapterDraft, sendCodexChapterRequest, sendCodexCodeLensRequest, sendCodexPrGuideRequest, sendCodexPrChangeRequest, startCodexLogin,
+  logoutCodexAgent, pickAgentInstallationFile, saveGeneratedChapterDraft, sendCodexChapterRequest, sendCodexCodeLensRequest, sendCodexPrGuideRequest, sendCodexPrChangeRequest, startCodexLogin,
   type ChapterDraftPreview, type ChapterRevision, type CodexAgentStatus, type CodexModel, type CodexProgress,
   type ProviderFailure, type ProviderRequestReview, type SectionUpdateReviewTarget, type SnapshotManifest,
   type CodeLensExplanationTarget, type CodeLensExplanationPreview, type CodeLensExplanationCitation,
@@ -70,7 +70,7 @@ export interface CodexChapterDialogProps {
   onOpenPendingPreview?: (generationId: string) => void;
 }
 
-type Busy = 'status' | 'configure' | 'login' | 'cancel-login' | 'logout' | 'models' | 'build' | 'send' | 'save' | 'discard';
+type Busy = 'status' | 'choose-file' | 'configure' | 'login' | 'cancel-login' | 'logout' | 'models' | 'build' | 'send' | 'save' | 'discard';
 const preferenceKey = 'code-atlas:codex-chapter-preferences';
 
 function preferences(): { modelId: string; effort: string } {
@@ -306,6 +306,20 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       const value = await getCodexAgentStatus();
       if (lifetime.current === epoch) acceptStatus(value);
     } catch { if (lifetime.current === epoch) setError('Account status is unavailable. Check that the selected Codex executable is installed and accessible.'); }
+    finally { finish(epoch); }
+  };
+
+  const chooseExecutable = async () => {
+    if (hasResult || otherRun || resources.current.login) return;
+    const epoch = begin('choose-file');
+    if (epoch === null) return;
+    try {
+      const selected = await pickAgentInstallationFile('codexExecutable');
+      if (lifetime.current === epoch && selected !== null) {
+        setExecutablePath(selected);
+        setNote('Path selected. Save executable to apply it. Selecting a file did not start Codex.');
+      }
+    } catch { if (lifetime.current === epoch) setError('The file could not be selected. Enter the installed Codex executable path instead.'); }
     finally { finish(epoch); }
   };
 
@@ -647,8 +661,9 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 {status?.authenticated && <p>{status.accountEmail ?? 'ChatGPT account'} · {status.planType ?? 'Account plan'} · {status.runtimeRunning ? 'Codex running' : 'Codex stopped'}</p>}
                 <form className="provider-key-form" onSubmit={(event) => { event.preventDefault(); void configure(); }}>
                   <label htmlFor="codex-executable">Codex executable · absolute path</label>
-                  <input id="codex-executable" value={executablePath} onChange={(event) => setExecutablePath(event.target.value)} placeholder="/opt/homebrew/bin/codex" spellCheck={false} autoComplete="off" disabled={locked || otherRun || Boolean(login)} />
-                  <div className="provider-key-actions"><button type="submit" className="secondary-button" disabled={locked || otherRun || Boolean(login) || !executablePath.trim()}>{busy === 'configure' ? 'Saving…' : 'Save executable'}</button>
+                  <input id="codex-executable" value={executablePath} onChange={(event) => setExecutablePath(event.target.value)} maxLength={4096} placeholder="/opt/homebrew/bin/codex" spellCheck={false} autoComplete="off" disabled={locked || otherRun || Boolean(login)} />
+                  <div className="provider-key-actions"><button type="button" className="secondary-button" disabled={locked || otherRun || Boolean(login)} onClick={() => { void chooseExecutable(); }}>{busy === 'choose-file' ? 'Choosing…' : 'Choose executable…'}</button>
+                    <button type="submit" className="secondary-button" disabled={locked || otherRun || Boolean(login) || !executablePath.trim()}>{busy === 'configure' ? 'Saving…' : 'Save executable'}</button>
                     <a href="https://developers.openai.com/codex/cli" target="_blank" rel="noreferrer">Codex installation guide ↗</a></div>
                 </form>
                 <div className="provider-key-actions">

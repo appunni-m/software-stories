@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { HardDrive, X } from 'lucide-react';
 import {
   cancelClaudeAgentOperation, forgetClaudeAgentConnection, inspectClaudeAgentConnection, inspectClaudeAgentModelCatalog,
-  type ClaudeConnectionObservation, type ClaudeInspectionFailureKind, type ClaudeModelDiscoveryObservation,
+  pickAgentInstallationFile,
+  type AgentInstallationFile, type ClaudeConnectionObservation, type ClaudeInspectionFailureKind, type ClaudeModelDiscoveryObservation,
 } from './lib/commands';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import { ClaudeOperationReview } from './ClaudeOperationReview';
@@ -13,6 +14,7 @@ import { ChapterRecoveryReview } from './ChapterRecoveryReview';
 const preferenceKey = 'code-atlas:claude-agent-executable';
 const nodePreferenceKey = 'code-atlas:claude-agent-node-executable';
 const sdkPreferenceKey = 'code-atlas:claude-agent-sdk-module';
+type ClaudeInstallationFile = Exclude<AgentInstallationFile, 'codexExecutable'>;
 function savedPath(key: string): string {
   try { const value = localStorage.getItem(key) ?? ''; return value.length <= 4096 ? value : ''; }
   catch { return ''; }
@@ -53,9 +55,11 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
   const [observation, setObservation] = useState<ClaudeConnectionObservation | null>(null);
   const [catalogObservation, setCatalogObservation] = useState<ClaudeModelDiscoveryObservation | null>(null);
   const [busyKind, setBusyKind] = useState<'connection' | 'catalog' | null>(null);
+  const [choosingFile, setChoosingFile] = useState<ClaudeInstallationFile | null>(null);
+  const fileChoice = useRef<{ epoch: number; kind: ClaudeInstallationFile } | null>(null);
   const [generationHeld, setGenerationHeld] = useState(false);
   const generationHold = useRef(false);
-  const busy = busyKind !== null || generationHeld;
+  const busy = busyKind !== null || generationHeld || choosingFile !== null;
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const dialog = useRef<HTMLElement>(null);
@@ -68,7 +72,7 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
 
   useEffect(() => {
     ++lifetime.current;
-    setBusyKind(null); setObservation(null); setCatalogObservation(null); setError(null); setNote(null);
+    setBusyKind(null); setChoosingFile(null); setObservation(null); setCatalogObservation(null); setError(null); setNote(null);
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dialog.current?.focus();
     const escape = (event: KeyboardEvent) => {
@@ -77,6 +81,7 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
     document.addEventListener('keydown', escape, true);
     return () => {
       ++lifetime.current;
+      fileChoice.current = null;
       document.removeEventListener('keydown', escape, true);
       const run = active.current;
       active.current = null;
@@ -89,7 +94,7 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
   }, [native]);
 
   const inspect = async (kind: 'connection' | 'catalog') => {
-    if (!native || active.current || generationHold.current || !path.trim() || (kind === 'catalog' && (!nodePath.trim() || !sdkPath.trim()))) return;
+    if (!native || active.current || fileChoice.current || generationHold.current || !path.trim() || (kind === 'catalog' && (!nodePath.trim() || !sdkPath.trim()))) return;
     const epoch = lifetime.current;
     let id: string;
     try { id = crypto.randomUUID(); }
@@ -159,6 +164,28 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
     if (native && connectionId) void forgetClaudeAgentConnection(connectionId).catch(() => {});
     setObservation(null); setCatalogObservation(null); setError(null); setNote(null);
   };
+  const chooseFile = async (kind: ClaudeInstallationFile) => {
+    if (!native || active.current || fileChoice.current || generationHold.current) return;
+    const run = { epoch: lifetime.current, kind };
+    fileChoice.current = run;
+    setChoosingFile(kind); setError(null); setNote(null);
+    try {
+      const selected = await pickAgentInstallationFile(kind);
+      if (lifetime.current !== run.epoch || fileChoice.current !== run || selected === null) return;
+      clearObservation();
+      if (kind === 'claudeExecutable') setPath(selected);
+      else if (kind === 'nodeExecutable') setNodePath(selected);
+      else setSdkPath(selected);
+      setNote('Path selected. Run the installation or catalog check to inspect it. Selecting a file starts no process.');
+    } catch {
+      if (lifetime.current === run.epoch && fileChoice.current === run) setError('The file could not be selected. Enter its installed path instead.');
+    } finally {
+      if (fileChoice.current === run) {
+        fileChoice.current = null;
+        if (lifetime.current === run.epoch) setChoosingFile(null);
+      }
+    }
+  };
   const reviewScopeKey = claudeReviewScopeKey(reviewMode);
 
   return <div className="provider-overlay">
@@ -180,7 +207,8 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
             <label className="provider-model-select">Claude CLI executable · absolute path
               <input value={path} onChange={(event) => { if (!active.current) { setPath(event.target.value); clearObservation(); } }} maxLength={4096} placeholder="/Users/you/.local/bin/claude" spellCheck={false} autoComplete="off" disabled={busy} />
             </label>
-            <div className="provider-key-actions"><button className="primary-button" type="submit" disabled={!native || busy || !path.trim()}>{busyKind === 'connection' ? 'Checking CLI…' : 'Check installation and account route'}</button>
+            <div className="provider-key-actions"><button className="secondary-button" type="button" disabled={!native || busy} onClick={() => { void chooseFile('claudeExecutable'); }}>{choosingFile === 'claudeExecutable' ? 'Choosing…' : 'Choose Claude executable…'}</button>
+              <button className="primary-button" type="submit" disabled={!native || busy || !path.trim()}>{busyKind === 'connection' ? 'Checking CLI…' : 'Check installation and account route'}</button>
               <a href="https://code.claude.com/docs/en/setup" target="_blank" rel="noreferrer">Official installation guide ↗</a></div>
           </form>
           <p className="provider-small-note">The app runs the documented version and authentication-status commands in private temporary storage. Account/network metadata may be accessed by the vendor CLI. This check does not start a model turn or enable generation.</p>
@@ -192,9 +220,11 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
               <label className="provider-model-select">Node executable · absolute path
                 <input value={nodePath} onChange={(event) => { if (!active.current) { setNodePath(event.target.value); clearObservation(); } }} maxLength={4096} placeholder="/opt/homebrew/bin/node" spellCheck={false} autoComplete="off" disabled={busy} />
               </label>
+              <button className="secondary-button" type="button" disabled={!native || busy} onClick={() => { void chooseFile('nodeExecutable'); }}>{choosingFile === 'nodeExecutable' ? 'Choosing…' : 'Choose Node executable…'}</button>
               <label className="provider-model-select">Installed SDK module · absolute path to sdk.mjs
                 <input value={sdkPath} onChange={(event) => { if (!active.current) { setSdkPath(event.target.value); clearObservation(); } }} maxLength={4096} placeholder="/absolute/installation/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs" spellCheck={false} autoComplete="off" disabled={busy} />
               </label>
+              <button className="secondary-button" type="button" disabled={!native || busy} onClick={() => { void chooseFile('claudeSdkModule'); }}>{choosingFile === 'claudeSdkModule' ? 'Choosing…' : 'Choose SDK module…'}</button>
               <p className="provider-small-note">Check catalog starts the selected executables and SDK in private temporary storage. It may contact the vendor using the existing account. The app supplies no repository source or user prompt. Only use installation paths you trust. No API fallback or login is offered.</p>
               <button className="secondary-button" type="submit" disabled={!native || busy || !path.trim() || !nodePath.trim() || !sdkPath.trim()}>{busyKind === 'catalog' ? 'Checking catalog…' : 'Check catalog'}</button>
             </form>
@@ -212,6 +242,7 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
         {catalogObservation?.reviewConnection && <ClaudeOperationReview
           key={`${catalogObservation.reviewConnection.connectionId}:${reviewScopeKey}`}
           native={native} mode={reviewMode} discovery={catalogObservation}
+          setupBusy={choosingFile !== null || busyKind !== null}
           recoveryReady={recoveryReady}
           onHoldChange={(held) => { generationHold.current = held; setGenerationHeld(held); }}
           onOpenCodeLensCitation={onOpenCodeLensCitation} onOpenPrChangeCitation={onOpenPrChangeCitation}

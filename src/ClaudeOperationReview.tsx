@@ -51,7 +51,7 @@ function reviewError(error: ProviderFailure): string {
 
 /** Local review followed by native-gated generation. The empty qualification
  * registry keeps current builds unavailable; a preview is never consent. */
-export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, recoveryReady,
+export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, recoveryReady, setupBusy,
   onOpenCodeLensCitation, onOpenPrChangeCitation, onPrGuideReady, onRecoveryResultReady,
 }: ClaudeResultCallbacks & {
   native: boolean;
@@ -59,6 +59,7 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
   discovery: ClaudeModelDiscoveryObservation;
   onHoldChange: (held: boolean) => void;
   recoveryReady: boolean;
+  setupBusy: boolean;
 }) {
   const scope = typeof mode === 'object' ? mode : null;
   const chapterScope = isClaudeChapterScope(scope) ? scope : null;
@@ -165,7 +166,7 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
   const sourceReady = planningScope ? planningReady : chapterScope ? chapterReady : rangeScope ? rangeScope.target.startLine >= 1 && rangeScope.target.endLine >= rangeScope.target.startLine
     : scope?.kind === 'pr-guide' ? scope.selectedChanges.length > 0 && scope.selectedChanges.length <= 12
       : scope?.kind === 'pr-change' ? Number.isSafeInteger(scope.target.hunkIndex) && scope.target.hunkIndex >= 0 : false;
-  const locked = busy || generationHeld || expired || !native;
+  const locked = busy || generationHeld || expired || !native || setupBusy;
 
   const holdGeneration = (held: boolean) => {
     resources.current.generationHeld = held;
@@ -332,10 +333,11 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
         <details className="provider-index-preview"><summary>Exact declarations and relationships</summary><pre>{JSON.stringify({ symbols: review.selectedSymbols, relationships: review.selectedRelationships, truncated: review.indexEvidenceTruncated }, null, 2)}</pre></details>
         <details className="provider-prompt-preview"><summary>Exact prompt, settings and output schema</summary><pre>{JSON.stringify(review.requestBodyPreview, null, 2)}</pre></details>
         <div className="provider-fingerprint"><span>Local review identity</span><code>{review.fingerprint}</code><small>Changing source, settings or connection discards this preview. This is not consent to send source.</small></div>
-        <button className="text-button" disabled={busy || generationHeld} onClick={releaseReview}>Discard request preview</button>
+        <button className="text-button" disabled={busy || generationHeld || setupBusy} onClick={releaseReview}>Discard request preview</button>
         <ClaudeGenerationPanel key={review.reviewId} native={native} mode={scope} review={review}
-          available={connection?.generation.available === true && recoveryReady}
-          unavailableMessage={!recoveryReady ? 'Check earlier local results before requesting another generation.'
+          available={connection?.generation.available === true && recoveryReady && !setupBusy}
+          unavailableMessage={setupBusy ? 'Finish choosing the installation file before starting a request.'
+            : !recoveryReady ? 'Check earlier local results before requesting another generation.'
             : connection?.generation.message ?? 'Automatic Claude generation is unavailable for this connection.'}
           onHoldChange={holdGeneration} onReset={() => { holdGeneration(false); releaseReview(); }}
           onOpenCodeLensCitation={onOpenCodeLensCitation} onOpenPrChangeCitation={onOpenPrChangeCitation}

@@ -15,7 +15,7 @@ Coding agents are primary generation options. Direct API keys are optional. The 
 ## Codex
 
 1. Capture source, then choose **Explain** on a file or **Create repository tour** from Guide.
-2. Choose **Use Codex**. Configure the supported executable and connect your account through the native flow. No direct API key is required for this path.
+2. Choose **Use Codex**. Use **Choose executable…** or enter its absolute path, then **Save executable**. Connect your account through the native flow. No direct API key is required for this path.
 3. Load its model catalog and select model/reasoning. Catalog membership is not proof of account entitlement or remaining quota.
 4. Select and review the immutable source and effective request. Confirm sharing that context, then generate.
 5. Review the locally validated preview. **Save unaccepted draft**, then review and accept from the app's editing workflow.
@@ -58,7 +58,9 @@ Closing a recovered review before generation, cancellation, failure, unavailable
 
 ## Check Claude installation
 
-From the backend chooser, select **Check Claude installation** in the macOS app. Enter the absolute path to your installed CLI and explicitly start the check. It inspects version and, for the candidate adapter version, reported account metadata. The app remembers only the canonical executable path. Cancel or close to abandon the check; browser preview cannot run it.
+From the backend chooser, select **Check Claude installation** in the macOS app. Use **Choose Claude executable…** or enter the absolute path to your installed CLI, then explicitly start the check. It inspects version and, for the candidate adapter version, reported account metadata. The app remembers only the canonical executable path. Cancel or close to abandon the check; browser preview cannot run it.
+
+The advanced catalog form also offers **Choose Node executable…** and **Choose SDK module…** for the installed `sdk.mjs`. All four selectors use the existing native file-dialog library; they do not install, execute, hash or qualify a runtime. Cancel preserves the previous field and observations. Choosing a Claude path clears its previous connection/catalog/review, while choosing a Codex path fills an unsaved field until **Save executable**. Manual entry remains available. Late picker replies cannot update a closed/replaced dialog. This source change is unbuilt and unexecuted; native file selection, keyboard/focus behavior and subsequent adapter checks remain pending in `xymb`. It does not enable Claude generation or satisfy either agent's acceptance gate.
 
 The first check is an installation/account observation. The separate advanced catalog check requires installed CLI, Node and SDK paths. After a successful native catalog observation, the app can preview a local file, overview, section, exact code range, PR Guide or single-hunk request with supported model/effort, fixed approval and turn limit. Previewing sends no source to an agent. Neither check logs in or proves plan eligibility. Five native send commands, including repository planning, are registered behind a release-owned admission gate, but its qualification registry is empty and app generation controls now have source wiring but no runtime acceptance. Neither check enables generation. See [native admission and remaining evidence](CLAUDE_RUNTIME_QUALIFICATION.md). A reported API-key/helper route stays distinct from a reported Claude account. For a range, open Claude from the selected lines in Files; the path, captured-file hash, lines and optional UTF-8 bytes stay fixed. In Changes, select Claude, then **Preview guide request with Claude** or **Preview hunk request**; the original refs, comparison, path pairs and hunk stay fixed. Return to Files or Changes to change that evidence. These actions prepare a local request, never a chapter or model response. Automatic Claude generation remains required in `8gqw`; setup and offline review do not complete it.
 

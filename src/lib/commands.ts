@@ -1312,6 +1312,13 @@ export async function synthesizeReviewedNarrationAudio(input: {
   return invoke<ProviderCommandResult<NarrationAudio>>('synthesize_reviewed_narration_audio', input);
 }
 
+export type AgentInstallationFile = 'codexExecutable' | 'claudeExecutable' | 'nodeExecutable' | 'claudeSdkModule';
+
+/** A local path hint only; selecting a file starts no agent or account check. */
+export async function pickAgentInstallationFile(kind: AgentInstallationFile): Promise<string | null> {
+  return invoke<string | null>('pick_agent_installation_file', { kind });
+}
+
 export interface CodexAgentStatus {
   executablePath: string | null;
   runtimeRunning: boolean;
