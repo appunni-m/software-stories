@@ -1,13 +1,13 @@
 # Pending work after the October 15 static review
 
-Kata project: `code-atlas-rebuild`. This list records **31 open issues: 13 new detailed tasks and 18 existing tasks updated with remaining work**. Each linked specification includes the intended behavior, acceptance criteria and closure evidence. Issue IDs are recorded in [issue-refs.json](kata-tasks/issue-refs.json).
+Kata project: `code-atlas-rebuild`. This list records **30 currently open issues: 12 new detailed tasks and 18 existing tasks updated with remaining work**. Each linked specification includes the intended behavior, acceptance criteria and closure evidence. Issue IDs are recorded in [issue-refs.json](kata-tasks/issue-refs.json). The bounded-metadata issue `k9yd` was closed after implementation and Rust-suite evidence on 2026-10-15.
 
-No tests, builds, app launches, or runtime probes were performed locally during this pass, as requested. Source inspection cannot establish that every bug is fixed. Existing historical passing runs do not cover this patch.
+The initial static-review pass intentionally did not run tests, builds, app launches, or runtime probes, as requested. That statement applies only to that pass; later verification is recorded below and in the relevant issue specifications. Source inspection alone cannot establish that every bug is fixed.
 
 ## Changes made by code inspection
 
 - Snapshot capture now respects Git ignore negations and rechecks earlier captured file fingerprints before finalization.
-- Index, recovery-journal, source-object and narration-cache reads apply bounds during reading. Remaining metadata read sites are tracked separately.
+- Index, recovery-journal, source-object and narration-cache reads apply bounds during reading. Recents, snapshot catalog/manifest and existing-object metadata bounds are implemented in commit `0a5e32e`; `k9yd` is closed with Rust-suite evidence.
 - Direct-model and narration clients refuse redirects beyond the exact reviewed endpoint.
 - Walkthrough and Git Changes ignore superseded async results; provider settings prevent Keychain results being applied to another provider.
 - Chapter Studio retains history for files no longer captured, locks editing/selection during save or validation, filters unrelated save events, and avoids route updates after unmount.
@@ -20,17 +20,18 @@ The subsequent product review identified three core gaps: chapters currently con
 
 ## Subsequent implementation update — 2026-10-15
 
-The working tree now contains the following additional source changes. They are not covered by the historical commit's acceptance evidence, and every linked task remains open.
+The working tree also contains the following in-progress source changes. They are not covered by the historical commit's acceptance evidence, and their related tasks remain open.
 
 - **Codex (`z3an`):** native managed ChatGPT login, a Rust-managed app-server child over stdio, explicit runtime model/reasoning selection, reviewed file chapters or 1–12-file overviews, cancellation/progress, and shared validation into unaccepted drafts. This is a local-app integration, not direct Sign in with ChatGPT. Runtime `model/list` is a catalog, not entitlement proof. Runtime version pinning, account/distribution qualification, license, packaging, boundary verification, and real-run acceptance remain open; section, Code Lens and PR routes are not wired. Threads are ephemeral with no persisted resume.
 - **Pocket runtime (`q6g3`):** managed Python/venv/assets under app data, pinned model and Alba voice, setup/repair/status, bounded offline worker synthesis, and cancellation/exit cleanup are implemented in source. Apple Silicon only; `uv` is still an external prerequisite. Workers reload per segment. Installer packaging/signing, transitive artifact hashes, requirements, and clean-account/offline/process acceptance remain open.
 - **Pocket player/cache (`dbmd`):** new preferences default local; prior Google preferences/cache remain distinct. Exact script review, local setup without a key/cloud consent, runtime-aware cache identity, guarded async lifecycle, and backend-aware cache lookup for export are wired. Listening, playback/cache/navigation, corruption and offline-export acceptance remain open.
 - **Index v2 (`129x`):** lexical bindings, shadow/reassignment uncertainty, direct module export checks, duplicate declaration occurrences, and a new semantics/cache version are implemented. This is conservative source work in the existing language subset; no language support or regression gate has been qualified.
+- **Git lifecycle (`kghr`):** bounded process execution for project inspection, snapshot capture, and local Git comparison is committed and pushed in `0a5e32e`. Rust unit evidence passes; the task remains open for native cancellation/no-orphan acceptance and the remaining call-site audit.
 
 ## Recommended implementation order
 
 1. Finish Codex runtime/version, account and distribution qualification (`z3an`) and implement generated visuals/narrative work (`j53m`, `6qk9`). Claude (`8gqw`) and Antigravity (`m00g`) still need their separately permitted adapters. Extend Codex beyond file/selected-file-overview chapters only after its initial boundary is qualified.
-2. Review and later qualify index-v2 relationship behavior (`129x`) before relying on high-confidence evidence; qualify language support (`7xx7`). Bound/cancel Git work in `kghr` and complete metadata read limits in `k9yd`.
+2. Review and later qualify index-v2 relationship behavior (`129x`) before relying on high-confidence evidence; qualify language support (`7xx7`). Complete the remaining native Git lifecycle acceptance for `kghr`; metadata bounds (`k9yd`) are complete.
 3. Finish Pocket's packaged setup and whole-section scheduling (`q6g3`), setup/help/run-sheet documentation and player/cache/export qualification (`dbmd`). The app-managed adapter exists in source; earlier standalone CLI audio is not its acceptance evidence.
 4. Complete PR generation/navigation recovery `qjm3`. Keep the exact immutable comparison attached to every operation.
 5. When testing is authorized, execute `xymb`, then the existing quality, native accessibility, selective-update, revision and offline-export acceptance gates.
@@ -50,7 +51,6 @@ All items below remain open. “Waiting on” lists open dependency edges; child
 | `m00g` | [Qualify Antigravity account integration and implement the supported adapter](kata-tasks/42-antigravity-agent-backend.md) | No open dependency edge |
 | `129x` | [Resolve calls and exports conservatively under lexical shadowing](kata-tasks/31-parser-binding-resolution.md) | No open dependency edge |
 | `kghr` | [Bound and cancel repository Git subprocesses](kata-tasks/32-bounded-git-lifecycle.md) | No open dependency edge |
-| `k9yd` | [Bound remaining local metadata and existing-object reads](kata-tasks/33-bounded-metadata.md) | No open dependency edge |
 | `q6g3` | [Integrate one managed local Pocket TTS runtime](kata-tasks/34-pocket-runtime.md) | No open dependency edge |
 | `dbmd` | [Make Pocket TTS the default narration path with distinct cache identity](kata-tasks/35-pocket-player-cache.md) | `q6g3` |
 | `qjm3` | [Define recoverable PR generation and decisions across navigation](kata-tasks/36-pr-navigation-lifecycle.md) | No open dependency edge |
@@ -76,4 +76,4 @@ All items below remain open. “Waiting on” lists open dependency edges; child
 
 ## Working with the list
 
-From this checkout, use `kata show code-atlas-rebuild#<id>` to read a full task and `kata ready --project code-atlas-rebuild` to see currently unblocked work. Canonical Markdown specifications are kept alongside Kata. No issue was closed during this pass. A generated audio sample, passing schema check, or static code review does not satisfy the human listening, source-quality, native accessibility or release gates.
+From this checkout, use `kata show code-atlas-rebuild#<id>` to read a full task and `kata ready --project code-atlas-rebuild` to see currently unblocked work. Canonical Markdown specifications are kept alongside Kata. `k9yd` was closed after passing `cargo test --manifest-path src-tauri/Cargo.toml --lib` (177 passed, 0 failed, 1 ignored). No other issue was closed during this pass. A generated audio sample, passing schema check, or static code review does not satisfy the human listening, source-quality, native accessibility or release gates.
