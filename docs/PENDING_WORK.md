@@ -1,6 +1,6 @@
 # Pending work after the October 15 static review
 
-Kata project: `code-atlas-rebuild`. This list records **30 currently open issues: 12 new detailed tasks and 18 existing tasks updated with remaining work**. Each linked specification includes the intended behavior, acceptance criteria and closure evidence. Issue IDs are recorded in [issue-refs.json](kata-tasks/issue-refs.json). The bounded-metadata issue `k9yd` was closed after implementation and Rust-suite evidence on 2026-10-15.
+Kata project: `code-atlas-rebuild`. This list records **31 tracked issues: 17 open, 13 blocked, and 1 closed; 13 new detailed tasks and 18 existing tasks updated with remaining work**. Parser issue 129x closed after regression evidence on 2026-10-15. Each linked specification includes the intended behavior, acceptance criteria and closure evidence. Issue IDs are recorded in [issue-refs.json](kata-tasks/issue-refs.json). The bounded-metadata issue `k9yd` was closed after implementation and Rust-suite evidence on 2026-10-15.
 
 The initial static-review pass intentionally did not run tests, builds, app launches, or runtime probes, as requested. That statement applies only to that pass; later verification is recorded below and in the relevant issue specifications. Source inspection alone cannot establish that every bug is fixed.
 
@@ -25,13 +25,13 @@ The working tree also contains the following in-progress source changes. They ar
 - **Codex (`z3an`):** native managed ChatGPT login, a Rust-managed app-server child over stdio, explicit runtime model/reasoning selection, reviewed file chapters or 1–12-file overviews, cancellation/progress, and shared validation into unaccepted drafts. This is a local-app integration, not direct Sign in with ChatGPT. Runtime `model/list` is a catalog, not entitlement proof. Runtime version pinning, account/distribution qualification, license, packaging, boundary verification, and real-run acceptance remain open; section, Code Lens and PR routes are not wired. Threads are ephemeral with no persisted resume.
 - **Pocket runtime (`q6g3`):** managed Python/venv/assets under app data, pinned model and Alba voice, setup/repair/status, bounded offline worker synthesis, and cancellation/exit cleanup are implemented in source. Apple Silicon only; `uv` is still an external prerequisite. Workers reload per segment. Installer packaging/signing, transitive artifact hashes, requirements, and clean-account/offline/process acceptance remain open.
 - **Pocket player/cache (`dbmd`):** new preferences default local; prior Google preferences/cache remain distinct. Exact script review, local setup without a key/cloud consent, runtime-aware cache identity, guarded async lifecycle, and backend-aware cache lookup for export are wired. Listening, playback/cache/navigation, corruption and offline-export acceptance remain open.
-- **Index v2 (`129x`):** lexical bindings, shadow/reassignment uncertainty, direct module export checks, duplicate declaration occurrences, and a new semantics/cache version are implemented. Static review found and corrected one false-export case: restricted Rust visibility such as `pub(crate)` no longer counts as a crate-root export. Inline Rust module exports remain unsupported, intentionally avoiding claims without module visibility analysis. Parser regression and language qualification remain open.
+- **Index v2 (`129x`, closed):** lexical bindings, shadow/reassignment uncertainty, direct module export checks, duplicate declaration occurrences, and a new semantics/cache version are implemented and covered by cross-language and base/head regressions. Restricted Rust visibility such as `pub(crate)` no longer counts as a crate-root export. Inline Rust module exports remain unsupported, intentionally avoiding claims without module visibility analysis. Broader language qualification remains open in `7xx7`.
 - **Git lifecycle (`kghr`):** bounded process execution for project inspection, snapshot capture, and local Git comparison is committed and pushed in `0a5e32e`. Rust unit evidence passes; the task remains open for native cancellation/no-orphan acceptance and the remaining call-site audit.
 
 ## Recommended implementation order
 
 1. Finish Codex runtime/version, account and distribution qualification (`z3an`) and implement generated visuals/narrative work (`j53m`, `6qk9`). Claude (`8gqw`) and Antigravity (`m00g`) still need their separately permitted adapters. Extend Codex beyond file/selected-file-overview chapters only after its initial boundary is qualified.
-2. Review and later qualify index-v2 relationship behavior (`129x`) before relying on high-confidence evidence; qualify language support (`7xx7`). Complete the remaining native Git lifecycle acceptance for `kghr`; metadata bounds (`k9yd`) are complete.
+2. Index-v2 targeted correctness (`129x`) is verified and closed. Qualify broader language support (`7xx7`) before advertising structural capabilities. Complete the remaining native Git lifecycle acceptance for `kghr`; metadata bounds (`k9yd`) are complete.
 3. Finish Pocket's packaged setup and whole-section scheduling (`q6g3`), setup/help/run-sheet documentation and player/cache/export qualification (`dbmd`). The app-managed adapter exists in source; earlier standalone CLI audio is not its acceptance evidence.
 4. Complete PR generation/navigation recovery `qjm3`. Keep the exact immutable comparison attached to every operation.
 5. When testing is authorized, execute `xymb`, then the existing quality, native accessibility, selective-update, revision and offline-export acceptance gates.
@@ -44,12 +44,12 @@ All items below remain open. “Waiting on” lists open dependency edges; child
 | Kata ID | Task specification | Waiting on |
 | --- | --- | --- |
 | `z3an` | [Implement Codex app-server chapter generation with account sign-in](kata-tasks/40-codex-account-backend.md) | No open dependency edge |
-| `j53m` | [Generate source-grounded visual explanations from real chapters](kata-tasks/37-generated-visuals.md) | `129x` |
+| `j53m` | [Generate source-grounded visual explanations from real chapters](kata-tasks/37-generated-visuals.md) | No open dependency edge |
 | `6qk9` | [Build coherent repository narratives with file-level drill-down](kata-tasks/38-repository-narratives.md) | No open dependency edge |
-| `7xx7` | [Define and qualify language support for code explanations](kata-tasks/39-language-capability-tiers.md) | `129x` |
+| `7xx7` | [Define and qualify language support for code explanations](kata-tasks/39-language-capability-tiers.md) | No open dependency edge |
 | `8gqw` | [Implement Claude Agent chapter adapter and resolve account eligibility](kata-tasks/41-claude-agent-backend.md) | No open dependency edge |
 | `m00g` | [Qualify Antigravity account integration and implement the supported adapter](kata-tasks/42-antigravity-agent-backend.md) | No open dependency edge |
-| `129x` | [Resolve calls and exports conservatively under lexical shadowing](kata-tasks/31-parser-binding-resolution.md) | No open dependency edge |
+| `13yp` | [Make the packaged app follow the approved product designs](kata-tasks/43-design-implementation-parity.md) | Parent `s0tj`; related to `48yv` |
 | `kghr` | [Bound and cancel repository Git subprocesses](kata-tasks/32-bounded-git-lifecycle.md) | No open dependency edge |
 | `q6g3` | [Integrate one managed local Pocket TTS runtime](kata-tasks/34-pocket-runtime.md) | No open dependency edge |
 | `dbmd` | [Make Pocket TTS the default narration path with distinct cache identity](kata-tasks/35-pocket-player-cache.md) | `q6g3` |
@@ -62,7 +62,7 @@ All items below remain open. “Waiting on” lists open dependency edges; child
 | `8r4j` | [Export an accepted interactive guide for offline reading](kata-tasks/22-offline-export.md) | `gace` |
 | `bcn2` | [Meet accessibility, responsiveness, and repository safety requirements](kata-tasks/24-accessibility-performance.md) | No open dependency edge |
 | `e42a` | [Package, sign, notarize, and document the first Mac release](kata-tasks/25-macos-packaging.md) | `8r4j`, `bcn2` |
-| `tbng` | [Build bounded read-only evidence for local Git base and head refs](kata-tasks/26-pr-diff-evidence.md) | `e42a`, `129x` |
+| `tbng` | [Build bounded read-only evidence for local Git base and head refs](kata-tasks/26-pr-diff-evidence.md) | `e42a` |
 | `a9v9` | [Generate focused, reviewed explanations for a local change set](kata-tasks/27-pr-guide.md) | `tbng` |
 | `c8nz` | [Add selectable direct model API providers](kata-tasks/28-model-api-providers.md) | `tbsh`, `a9v9` |
 | `tpta` | [Add selectable read-only coding-agent backends](kata-tasks/29-agent-runtime-backends.md) | No open dependency edge |
