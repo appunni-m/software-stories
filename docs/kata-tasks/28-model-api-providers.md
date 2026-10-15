@@ -45,3 +45,12 @@ Generate and locally validate fixtures for every operation claimed in the capabi
 - [`genai` Rust multi-provider client](https://github.com/jeremychone/rust-genai)
 - [LiteLLM overview](https://docs.litellm.ai/docs/) for the optional gateway/service alternative
 - [Gemini API reference](https://ai.google.dev/api/), [OpenAI SDKs and APIs](https://developers.openai.com/api/docs/libraries), and [Anthropic API documentation](https://docs.anthropic.com/en/api/overview)
+
+## Pending work — 2026-10-15
+
+- [ ] Run each advertised operation through each selected API adapter when validation is authorized; use the maintained shared client and exact effective config.
+- [ ] Verify redirects are rejected by production transport and consent invalidates on any provider/model/context/endpoint/settings change.
+- [ ] Complete Code Lens cited-range, chapter, overview, selective section, PR guide and hunk explanation cases with precise locally validated claims.
+- [ ] Keep missing capabilities visible and never substitute another provider/model; TTS remains a separate modality.
+
+No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.

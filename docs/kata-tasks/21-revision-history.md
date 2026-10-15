@@ -27,3 +27,12 @@ Mutating Git history, deleting accepted revisions during restore, and silently p
 
 ## Done evidence
 Accept two distinct revisions, compare every changed field family, restore the older version, and verify all three records and their asset references remain separate.
+
+## Pending work — 2026-10-15
+
+- [ ] Keep deleted/excluded/non-text file chapter histories reachable; static fix applied, acceptance pending.
+- [ ] Accept two distinct revisions and inspect every comparison field; restore an older revision as a new current-snapshot draft.
+- [ ] Verify previous accepted/history/assets survive, invalid restored anchors block acceptance, and rejected content needs a new draft.
+- [ ] Exercise edit/save/validate/navigation races against the patched UI; do not count source inspection as acceptance.
+
+No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.

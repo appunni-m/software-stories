@@ -26,3 +26,12 @@ Claiming universal language support or replacing security review with UI validat
 
 ## Done evidence
 Complete the [native acceptance run sheet](../ACCESSIBILITY_VALIDATION.md#native-acceptance-run-sheet) on a populated macOS app and record VoiceOver, keyboard-only, 200% zoom/reflow, contrast, and reduced-motion results. Also attach the performance report for a representative large fixture and documented adversarial path/content checks. Keep the issue open until every required result passes or a concrete unsupported capability is resolved in the contract.
+
+## Pending work — 2026-10-15
+
+- [ ] Complete new child issues for lexical scope/export resolution, bounded Git process lifecycle and remaining metadata reads.
+- [ ] Complete the static-fix acceptance child only when testing is authorized.
+- [ ] Use a populated packaged app for actual VoiceOver speech, keyboard-only navigation, 200% zoom/reflow, contrast and reduced-motion evidence.
+- [ ] Record responsiveness/cancellation on a representative large repository and repository boundary cases; keep native gates open until evidence exists.
+
+No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.

@@ -5,7 +5,6 @@ parent: m7
 title: Add selectable read-only coding-agent backends
 priority: 1
 labels: phase-7, agents, provider, safety
-blocked_by: t28
 ---
 
 ## User outcome
@@ -66,3 +65,16 @@ Attach the dated operation-to-runtime matrix and rationale for each evaluated in
 - [Codex as an application backend](https://developers.openai.com/blog/codex-as-a-platform), [Codex SDK](https://developers.openai.com/codex/codex-sdk), [Codex app-server and sandbox controls](https://developers.openai.com/codex/app-server), [Codex app-server with Sign in with ChatGPT for open-source clients](https://developers.openai.com/siwc/token-sharing-open-source/codex-app-server), and [Codex configuration and sandbox controls](https://developers.openai.com/codex/config-reference/)
 - [Claude Agent SDK overview, branding, and authentication requirements](https://code.claude.com/docs/en/agent-sdk/overview), [Claude Agent SDK permission controls](https://code.claude.com/docs/en/agent-sdk/permissions), [Claude plan usage for the Agent SDK](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan), and [Claude Code CLI reference](https://code.claude.com/docs/en/cli-usage)
 - [Antigravity SDK overview](https://www.antigravity.google/docs/sdk/overview), [SDK tools](https://www.antigravity.google/docs/sdk/tools), [SDK policies](https://www.antigravity.google/docs/sdk/policies), [CLI headless mode](https://www.antigravity.google/docs/cli/headless/), [FAQ on third-party login and headless embedding](https://www.antigravity.google/docs/faq/), [Additional Terms](https://www.antigravity.google/terms), and [ACP registry](https://agentclientprotocol.com/get-started/registry)
+
+## Pending work — 2026-10-15
+
+- [ ] Finish the dated runtime/adapter capability and terms matrix for Codex, Claude Agent and Antigravity; candidates remain unavailable until supported.
+- [ ] Implement the chosen maintained SDK/app-server/ACP adapters and persisted model/reasoning/approval settings with per-run effective config review.
+- [ ] Enforce reviewed immutable staging and verified filesystem/process/network boundaries using supported runtime controls or an OS sandbox.
+- [ ] Later exercise real pinned runtime auth, progress, permission, cancel, failure and validated draft acceptance. Do not count an unavailable option as requested backend support.
+
+No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.
+
+## Implementation order — 2026-10-15
+
+Start the Codex account-backed app-server child first, independently of completing every direct API operation. Claude Agent and Antigravity have separate child tasks with explicit account eligibility decisions and runtime controls. Read [the current feasibility evaluation](../research/2026-10-15-agent-backends.md). A successful connection must be carried through generation, local validation and saved draft review; a catalog entry alone is not implementation.

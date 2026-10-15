@@ -15,3 +15,7 @@ A new user reaches offline Atlas without a key; cancellation and provider errors
 
 ## Child issues
 `23-onboarding-recovery.md`, `24-accessibility-performance.md`, and `25-macos-packaging.md`.
+
+## Pending work — 2026-10-15
+
+Pending: bcn2 native accessibility/repository safety and newly recorded parser/process/storage tasks, then e42a signed/notarized clean-account release. Static fixes are untested.

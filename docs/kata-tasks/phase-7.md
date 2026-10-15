@@ -40,3 +40,11 @@ Building a new model gateway, inventing an agent protocol or tool loop, silent p
 
 ## Done evidence
 Review the dated provider/runtime capability matrix and the selected existing libraries/protocols, with evidence for adoption, maintenance, and unsupported features. Complete one consented direct-API draft and one consented read-only agent-backed draft; verify context, disclosure, permission boundary, local evidence validation, cancellation, and manual acceptance for both. Verify provider failure never switches backend and prior guide history remains intact.
+
+## Pending work — 2026-10-15
+
+Pending: c8nz full direct-operation/provider acceptance and tpta verified supported agent adapters/configuration. Google is one selectable option; local Pocket TTS is owned separately by 70x5.
+
+## Implementation order — October 15
+
+Start Codex account-backed app-server `z3an` first. Claude Agent `8gqw` and Antigravity `m00g` have separate auth-eligibility and runtime tasks under `tpta`. Agent implementation no longer waits for all direct API operations; release acceptance remains explicit. See [the updated evaluation](../research/2026-10-15-agent-backends.md).

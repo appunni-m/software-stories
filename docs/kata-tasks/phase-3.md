@@ -15,3 +15,11 @@ A reader can stop at every boundary, follow a hotspot to the exact code, return 
 
 ## Child issues
 `16-walkthrough-player.md`, `17-linked-visuals.md`, and `18-optional-narration.md`.
+
+## Pending work — 2026-10-15
+
+Pending leaf: 70x5 local Pocket runtime and player/cache integration, human listening and playback acceptance. Preserve deliberate section navigation and transcript-only use.
+
+## Core delivery gaps — October 15
+
+Generated chapter visuals (`j53m`) are missing even though the typed diagram renderer exists. Local Pocket runtime (`q6g3`) and player/cache integration (`dbmd`) remain pending under `70x5`.

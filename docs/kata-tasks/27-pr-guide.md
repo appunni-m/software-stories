@@ -26,3 +26,12 @@ Remote PR fetch, GitHub comments, merge/checkouts, auto-approval, and broad repo
 
 ## Done evidence
 Explain a fixture change, trace each claim to a base/head hunk or source anchor, reject one inference, accept the remainder, and verify repository guide histories and Git refs are untouched.
+
+## Pending work — 2026-10-15
+
+- [ ] Complete the PR navigation/recovery child and the static-fix acceptance cases for review/decision races.
+- [ ] Generate a consented local base/head guide, inspect concrete claims and both-side anchors, reject invalid/shallow claims and accept only selected valid ones.
+- [ ] Reopen the same immutable comparison and confirm drafts/decisions/history remain discoverable and separate from repository chapters.
+- [ ] Record cancellation/error/retry behavior; no remote PR write or automatic provider fallback.
+
+No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.

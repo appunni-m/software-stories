@@ -1,0 +1,70 @@
+# Pending work after the October 15 static review
+
+Kata project: `code-atlas-rebuild`. This list records **31 open issues: 13 new detailed tasks and 18 existing tasks updated with remaining work**. Each linked specification includes the intended behavior, acceptance criteria and closure evidence. Issue IDs are recorded in [issue-refs.json](kata-tasks/issue-refs.json).
+
+No tests, builds, app launches, or runtime probes were performed locally during this pass, as requested. Source inspection cannot establish that every bug is fixed. Existing historical passing runs do not cover this patch.
+
+## Changes made by code inspection
+
+- Snapshot capture now respects Git ignore negations and rechecks earlier captured file fingerprints before finalization.
+- Index, recovery-journal, source-object and narration-cache reads apply bounds during reading. Remaining metadata read sites are tracked separately.
+- Direct-model and narration clients refuse redirects beyond the exact reviewed endpoint.
+- Walkthrough and Git Changes ignore superseded async results; provider settings prevent Keychain results being applied to another provider.
+- Chapter Studio retains history for files no longer captured, locks editing/selection during save or validation, filters unrelated save events, and avoids route updates after unmount.
+- PR Guide locks context during decisions, scopes credential callbacks and discards late abandoned review builds.
+- Narration cancels work on section unmount, discards late results/reviews and keeps the active request controls stable while synthesis runs.
+
+These are implemented changes in commit `0494bd4`, awaiting acceptance in `xymb`.
+
+The subsequent product review identified three core gaps: chapters currently contain no generated visuals; repository-wide narrative quality is unqualified; and structural language support is limited to Rust, TypeScript/TSX and JavaScript. Agent chapter backends are also still unimplemented. See [the current agent evaluation](research/2026-10-15-agent-backends.md).
+
+## Recommended implementation order
+
+1. Implement account-backed Codex chapter generation (`z3an`) and the core generated-visual/narrative work (`j53m`, `6qk9`); qualify language support (`7xx7`). Claude (`8gqw`) and Antigravity (`m00g`) have separate account eligibility and adapter tasks.
+2. Fix relationship correctness in `129x` before relying on high-confidence parser evidence. Bound/cancel Git work in `kghr` and complete metadata read limits in `k9yd`.
+3. Implement local Pocket TTS runtime `q6g3`, then default player/cache/export integration `dbmd`. The current app still uses Google TTS; the earlier Pocket CLI sample is not app integration.
+4. Complete PR generation/navigation recovery `qjm3`. Keep the exact immutable comparison attached to every operation.
+5. When testing is authorized, execute `xymb`, then the existing quality, native accessibility, selective-update, revision and offline-export acceptance gates.
+6. Finish signing/notarization and clean-account release acceptance. Keep agent runtime integrations unavailable until their documented capability/configuration and permission boundaries are implemented and verified.
+
+## Detailed task index
+
+All items below remain open. “Waiting on” lists open dependency edges; child acceptance is also required before a parent closes. Existing release sequencing is preserved; agent implementation no longer depends on completing the direct API backlog.
+
+| Kata ID | Task specification | Waiting on |
+| --- | --- | --- |
+| `z3an` | [Implement Codex app-server chapter generation with account sign-in](kata-tasks/40-codex-account-backend.md) | No open dependency edge |
+| `j53m` | [Generate source-grounded visual explanations from real chapters](kata-tasks/37-generated-visuals.md) | `129x` |
+| `6qk9` | [Build coherent repository narratives with file-level drill-down](kata-tasks/38-repository-narratives.md) | No open dependency edge |
+| `7xx7` | [Define and qualify language support for code explanations](kata-tasks/39-language-capability-tiers.md) | `129x` |
+| `8gqw` | [Implement Claude Agent chapter adapter and resolve account eligibility](kata-tasks/41-claude-agent-backend.md) | No open dependency edge |
+| `m00g` | [Qualify Antigravity account integration and implement the supported adapter](kata-tasks/42-antigravity-agent-backend.md) | No open dependency edge |
+| `129x` | [Resolve calls and exports conservatively under lexical shadowing](kata-tasks/31-parser-binding-resolution.md) | No open dependency edge |
+| `kghr` | [Bound and cancel repository Git subprocesses](kata-tasks/32-bounded-git-lifecycle.md) | No open dependency edge |
+| `k9yd` | [Bound remaining local metadata and existing-object reads](kata-tasks/33-bounded-metadata.md) | No open dependency edge |
+| `q6g3` | [Integrate one managed local Pocket TTS runtime](kata-tasks/34-pocket-runtime.md) | No open dependency edge |
+| `dbmd` | [Make Pocket TTS the default narration path with distinct cache identity](kata-tasks/35-pocket-player-cache.md) | `q6g3` |
+| `qjm3` | [Define recoverable PR generation and decisions across navigation](kata-tasks/36-pr-navigation-lifecycle.md) | No open dependency edge |
+| `xymb` | [Validate the October 15 static bug fixes when testing is authorized](kata-tasks/30-static-fix-acceptance.md) | No open dependency edge |
+| `q0sm` | [Establish a repo-level chapter quality benchmark and review gate](kata-tasks/14-chapter-quality.md) | No open dependency edge |
+| `70x5` | [Add local Pocket TTS narration and distinct cached audio](kata-tasks/18-optional-narration.md) | No open dependency edge |
+| `tbsh` | [Edit or regenerate one selected stale section and reuse unaffected assets](kata-tasks/20-selective-section-update.md) | `70x5` |
+| `gace` | [Compare immutable guide revisions and restore as a new draft](kata-tasks/21-revision-history.md) | `tbsh` |
+| `8r4j` | [Export an accepted interactive guide for offline reading](kata-tasks/22-offline-export.md) | `gace` |
+| `bcn2` | [Meet accessibility, responsiveness, and repository safety requirements](kata-tasks/24-accessibility-performance.md) | No open dependency edge |
+| `e42a` | [Package, sign, notarize, and document the first Mac release](kata-tasks/25-macos-packaging.md) | `8r4j`, `bcn2` |
+| `tbng` | [Build bounded read-only evidence for local Git base and head refs](kata-tasks/26-pr-diff-evidence.md) | `e42a`, `129x` |
+| `a9v9` | [Generate focused, reviewed explanations for a local change set](kata-tasks/27-pr-guide.md) | `tbng` |
+| `c8nz` | [Add selectable direct model API providers](kata-tasks/28-model-api-providers.md) | `tbsh`, `a9v9` |
+| `tpta` | [Add selectable read-only coding-agent backends](kata-tasks/29-agent-runtime-backends.md) | No open dependency edge |
+| `wzce` | [M2 — Explain every eligible file](kata-tasks/phase-2.md) | No open dependency edge |
+| `gtte` | [M3 — Interactive explainer](kata-tasks/phase-3.md) | `wzce` |
+| `b4cp` | [M4 — Git-like guide revisions](kata-tasks/phase-4.md) | `gtte` |
+| `48yv` | [M5 — Dependable first Mac release](kata-tasks/phase-5.md) | `b4cp` |
+| `hsn3` | [M6 — Local PR Guide follow-up](kata-tasks/phase-6.md) | `48yv` |
+| `mfz2` | [M7 — Selectable AI backends](kata-tasks/phase-7.md) | `hsn3` |
+| `s0tj` | [Code Atlas — greenfield product contract](kata-tasks/00-contract.md) | No open dependency edge |
+
+## Working with the list
+
+From this checkout, use `kata show code-atlas-rebuild#<id>` to read a full task and `kata ready --project code-atlas-rebuild` to see currently unblocked work. Canonical Markdown specifications are kept alongside Kata. No issue was closed during this pass. A generated audio sample, passing schema check, or static code review does not satisfy the human listening, source-quality, native accessibility or release gates.

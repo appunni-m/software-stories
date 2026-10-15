@@ -1,10 +1,15 @@
 # AI backend capability matrix
 
-**Reviewed:** 2026-10-14
+**Reviewed:** 2026-10-15
 
 **Purpose:** Keep direct model APIs, multi-step coding-agent runtimes, and speech synthesis as separate choices. This matrix distinguishes routes present in source from routes that have passed the full acceptance contract.
 
 **Implementation snapshot (2026-10-14):** `rig-core = 0.44.0` is pinned. Gemini, OpenAI Responses, and Anthropic Messages can be explicitly selected for file chapters, optional repository orientation, selective section regeneration, PR Guides, transient single-hunk PR change explanations, and a distinct range-scoped Code Lens explanation. Their local review binds provider, model, sanitized endpoint, encoded JSON body/hash, selected context, and disclosure version. PR change explanations rebuild one selected local file/hunk from immutable base/head refs, display and send only that hunk, return bounded side-aware claims with exact hunk citations, and do not create PR Guide history or alter Git refs. The Code Lens route accepts only a hash-verified inclusive line range and optional exact UTF-8 byte span from the immutable snapshot, caps the excerpt at 32 KB, screens the selected bytes for secret-like content, and returns only bounded claims with exact in-range citations; it does not create a chapter or affect coverage. A guarded Reqwest transport checks that the method, route, authentication placeholder, content type, and body match review before using the provider-specific sensitive auth header; requests require HTTPS and are unary. Offline Rust fixtures cover exact reviewed provider/model/body dispatch, complete-consent gating, changed-review rejection, and one-call propagation of synthetic quota failures for every currently wired operation/provider pair. They also assert byte-for-byte preservation of accepted chapter history across saved-operation failures; transient PR change failures leave Git refs, the Git index, and PR Guide history unchanged. A separate classifier fixture covers provider-specific status categories from constructed Rig error responses. Local loopback tests through the Reqwest/Rig transport verify that Gemini, OpenAI, and Anthropic send the reviewed body with credentials only in the provider auth header, and that cancellation closes a pending request socket. Both transient explanation routes validate returned citations locally and avoid provider fallback. Live-provider eligibility and behavior, production TLS/proxy behavior, provider-response parsing, and whether a provider received or completed a request before cancellation remain open.
+
+
+## October 15 implementation decision
+
+[The current agent-backend evaluation](2026-10-15-agent-backends.md) selects Codex app-server with the documented account sign-in route as the first implementation (`z3an`), with separate Claude (`8gqw`) and Antigravity (`m00g`) tasks. All three app adapters remain unimplemented. Current official account and tool-control findings in that evaluation supersede earlier feasibility assumptions below; earlier local version/VM/XPC observations remain historical evidence only. Agent implementation no longer waits for the direct API backlog.
 
 ## Status legend
 

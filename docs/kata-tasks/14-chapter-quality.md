@@ -28,3 +28,12 @@ Claiming semantic truth from a citation hash, using provider self-critique as so
 
 ## Done evidence
 Review a benchmark batch, identify and repair shallow failures, and show that schema-valid but generic output is rejected by the human quality gate.
+
+## Pending work — 2026-10-15
+
+- [ ] Run a representative consented benchmark batch only when generation/validation is authorized; include route, core module, model, test, config and unsupported language.
+- [ ] Have a human score source-specific behavior, execution/data/error paths, exact claims/anchors and uncertainty using the binary rubric.
+- [ ] Preserve a shallow failed attempt and a separately generated/reviewed repair with exact artifact fingerprints and mustCover mappings.
+- [ ] Do not close from schema validation, source inspection, polished prose or provider self-review.
+
+No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.

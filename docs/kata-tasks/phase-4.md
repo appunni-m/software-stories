@@ -15,3 +15,7 @@ Changing a cited source range stales only its dependent sections and assets. One
 
 ## Child issues
 `19-section-staleness.md`, `20-selective-section-update.md`, `21-revision-history.md`, and `22-offline-export.md`.
+
+## Pending work — 2026-10-15
+
+Pending leaves: tbsh one-section/asset reuse acceptance, gace revision compare/restore acceptance, 8r4j offline export with local narration. Dependencies remain open.

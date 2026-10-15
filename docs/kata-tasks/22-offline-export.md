@@ -27,3 +27,12 @@ Uploading to a hosting service, bundling the full repository by default, MP4-onl
 
 ## Done evidence
 Export selected accepted chapters with/without excerpts and audio, review the per-section asset preview, disconnect network, open the package, navigate every section and hotspot, and verify manifest/hashes and excluded secrets.
+
+## Pending work — 2026-10-15
+
+- [ ] After revision and Pocket integration, export selected accepted sections with/without excerpts and matching audio.
+- [ ] Inspect the exact per-section preview and manifest, including omitted unsupported diagrams/missing audio.
+- [ ] Open the package offline and exercise every section/hotspot; verify hashes and no unselected source/keys/hidden files.
+- [ ] Record unchanged source history and clear unsupported/malformed-package errors.
+
+No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.

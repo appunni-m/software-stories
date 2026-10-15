@@ -15,3 +15,7 @@ Every PR explanation is a separate reviewed draft with claims pinned to a real d
 
 ## Child issues
 `26-pr-diff-evidence.md` and `27-pr-guide.md`. This follow-up does not block the first Mac release.
+
+## Pending work — 2026-10-15
+
+Pending: tbng bounded immutable Git relationship evidence acceptance and a9v9 reviewed source-grounded local PR guide/navigation acceptance.

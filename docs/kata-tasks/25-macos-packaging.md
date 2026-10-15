@@ -37,3 +37,12 @@ Release decisions remain open: set and validate the supported minimum macOS vers
 The current storage path, optional Keychain behavior, export limits, and removal steps are documented in [Local data and permissions](../LOCAL_DATA.md). That guide states that Offline export is not a complete backup and that removing a project from Recents does not delete its stored data.
 
 References: [Tauri macOS bundle configuration](https://v2.tauri.app/reference/config/#macconfig), [Tauri macOS signing and notarization](https://v2.tauri.app/distribute/sign/macos/), and [Apple notarization requirements](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution).
+
+## Pending work — 2026-10-15
+
+- [ ] Choose and validate the supported macOS floor/architectures, including the Pocket runtime packaging requirements.
+- [ ] Provide Developer ID signing/team and notarization credentials through secure local configuration; current unsigned preflight is not a release.
+- [ ] Produce signed/notarized artifacts and record identity, schema/runtime versions and checksums.
+- [ ] Install on a clean supported account; exercise offline browsing/audio/export, Keychain, permission denial and disk failure recovery.
+
+No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.

@@ -5,27 +5,43 @@ parent: m6
 title: Build bounded read-only evidence for local Git base and head refs
 priority: 1
 labels: phase-6, pull-request, repository
-blocked_by: t04, t06, t25
+blocked_by: t04, t06, t25, parser-binding-resolution
 ---
 
 ## User outcome
-The user can compare two local Git revisions and inspect exactly which source lines and symbols changed, without changing their checkout.
+The developer can compare two locally available Git revisions and inspect changed source, declarations, and parser-resolved cross-file references without changing the checkout.
 
 ## Contract
-Accept explicit local base/head refs or full commit IDs, resolve them to immutable object IDs, and compute a bounded tree/diff. Classify added/deleted/modified files and changed hunks. Attach parser-backed symbols/relationships only when resolved at the corresponding revision. Preserve line context and skipped reasons. This is separate from working-tree snapshots and does not checkout or modify refs.
+Accept an explicit local base/head ref or full commit ID, resolve each once to an immutable commit object ID, and build deterministic bounded diff evidence from those commits. Do not fetch or invoke network-backed Git operations.
+
+Build a separate static parser index for each revision. Prioritize changed paths. The relationship scan is limited to 10,000 regular tree entries plus changed paths from the 128-file diff cap, 5,000 indexed files and 50 MiB of source per revision, 512 KiB per file, and eight seconds across both revisions. Retain at most 16 sorted relationship records for each changed file and revision.
+
+Attach high-confidence resolved imports when their target is a changed file. Attach calls and test references only when they resolve to an exact changed declaration. Keep base and head records separate. Every relationship source anchor and resolved declaration anchor identifies the exact commit object ID, blob ID, path, and line range.
+
+Report relationship analysis as complete, partial, or unavailable. Complete means the supported Rust, TypeScript, TSX, and JavaScript parser subset was indexed within these bounds. Parser uncertainty, unsupported files, dynamic/unresolved edges, tree/source/time limits, and per-file relationship caps must never be described as proof of no other reference. This is static source evidence; it does not infer runtime impact.
+
+The comparison must not checkout, change refs, update the index, or write repository files. It must not modify existing repository chapter history.
 
 ## Acceptance criteria
-- Ambiguous, missing, and invalid refs are rejected with a choose-again state.
-- Diff output is deterministic for resolved object IDs and distinguishes base/head source anchors.
-- Rename, binary, oversized, unsupported, and parser-uncertain changes are visibly classified.
-- Build a separate parser index for each immutable revision, prioritizing changed paths. The relationship scan is bounded to 10,000 tree files, the existing 5,000-file and 50 MiB index limits, the existing 512 KiB per-file parser limit, and eight seconds across both revisions.
-- Attach high-confidence resolved imports targeting a changed path and calls or test references targeting an exact changed declaration. Keep base and head evidence separate; every source and declaration anchor names its revision, Git blob, path, and line range. Retain at most 16 sorted relationships for each changed file and revision.
-- Report relationship analysis as complete, partial, or unavailable. Parser, tree, source-byte, time, and relationship caps must never be presented as proof that no other references exist. Dynamic and unresolved edges are omitted, and no runtime impact is inferred.
-- No fetch, push, checkout, commit, PR API call, or GitHub authentication occurs.
-- Existing repository chapters remain unchanged when PR evidence is created.
+- Ambiguous, missing, invalid, and non-commit refs return a choose-again state; full object IDs and unambiguous local refs resolve to immutable IDs.
+- Diff order and evidence are deterministic for the same resolved commit pair. Base and head anchors use the correct revision and blob.
+- Added, deleted, modified, renamed, binary, oversized, unsupported, and parser-uncertain changes retain an explicit classification and skipped reason where needed.
+- High-confidence imports to changed files and calls/test references to exact changed declarations carry correct base/head source and target anchors. Unrelated files and same-file edges are not attached.
+- Limits or parser uncertainty produce partial/unavailable relationship status with an explanation; edge truncation is surfaced and deterministic.
+- Temporary-repository verification confirms refs, working-tree files, and Git index are unchanged.
+- No fetch, push, checkout, commit, PR API call, GitHub authentication, runtime claim, or existing chapter-history mutation occurs.
 
 ## Excludes
 Remote GitHub PR integration, comments/reviews, merge operations, and inferred runtime impact.
 
 ## Done evidence
-Compare temporary base/head commits containing add/edit/delete/rename/binary and parser-resolvable changes; confirm exact cross-file import and call evidence on both sides, capped/partial relationship status, uncertainty, deterministic results, and unchanged refs/worktree/index.
+Use temporary base/head commits to cover ambiguous/missing/invalid refs; add/edit/delete/rename/binary and parser uncertainty; exact import/call evidence in both revisions; per-file edge caps and incomplete-index reporting; deterministic anchors; and unchanged refs, index, worktree, and chapter history. Run the focused Git-evidence tests and the repository validation suite.
+
+## Pending work — 2026-10-15
+
+- [ ] Fix shared indexer lexical shadowing/export ambiguity before treating high-confidence relationships as dependable evidence.
+- [ ] Keep existing bounded base/head parser evidence implementation; verify both immutable sides with add/edit/delete/rename/binary/uncertain and capped cases.
+- [ ] Record exact relationship anchors, deterministic truncation and complete/partial/unavailable labels without runtime-impact claims.
+- [ ] Complete packaged Changes acceptance and unchanged refs/index/worktree/history evidence after prerequisites.
+
+No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.

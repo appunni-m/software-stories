@@ -32,6 +32,7 @@ These are source-level capabilities, not a claim of a finished or released produ
 - [Provider disclosures](docs/PROVIDER_DISCLOSURES.md) — direct API provider and Gemini narration data-use, billing, eligibility, and request scope.
 - [Chapter quality gate](docs/CHAPTER_QUALITY_GATE.md) — synthetic corpus and human-reviewed release report workflow.
 - [Kata backlog](docs/KATA_BACKLOG.md) — milestone map and issue definitions.
+- [Current pending work](docs/PENDING_WORK.md) — October 15 static fixes, remaining bugs, Pocket TTS integration and acceptance tasks.
 - [Design concepts](docs/design/) — visual references for the three connected workspaces.
 
 ## Local development

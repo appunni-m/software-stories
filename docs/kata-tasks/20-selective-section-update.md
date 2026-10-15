@@ -26,3 +26,12 @@ Background/bulk regeneration, replacing all sections by default, silent asset de
 
 ## Done evidence
 Change one cited function, regenerate one selected section, accept it, and verify an unrelated section, unchanged diagram/audio assets, and prior accepted manifest retain their IDs and payloads.
+
+## Pending work — 2026-10-15
+
+- [ ] After Pocket cache identity is integrated, change one cited function and review exactly one stale section.
+- [ ] Regenerate/accept only that section with explicit provider/model/request review. Record new section/chapter IDs.
+- [ ] Compare unaffected section, diagram and narration IDs/payloads; verify shared dependencies appear separately and old accepted history survives.
+- [ ] Exercise cancellation/rejection/provider failure with no hidden whole-guide regeneration.
+
+No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.

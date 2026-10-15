@@ -33,3 +33,11 @@ All implementation issues inherit the screen states, source/evidence rules, fail
 
 ## Done evidence
 The product blueprint, technical boundaries, design concept images, complete milestone breakdown, and issue links are present and cross-referenced in this repository. Every implementation issue has an independent user outcome, interaction contract, acceptance criteria, exclusions, and evidence needed to close it. The repository files are versioned in Git and the live task state is tracked in Kata.
+
+## Pending work — 2026-10-15
+
+Pending: repo-level quality, local Pocket narration, section/revision/export acceptance, native reliability/release, local PR acceptance and verified agent adapters. See detailed child tasks; no feature milestone is closed by this static review.
+
+## Core delivery gaps — October 15
+
+The product review added generated visuals (`j53m`), repository narratives (`6qk9`) and qualified language support (`7xx7`). Chapter generation currently emits no visual payload, and existing file/overview generation is not evidence of a complete mixed-language narrative. Agent runtime delivery is split into Codex (`z3an`), Claude Agent (`8gqw`) and Antigravity (`m00g`); none is implemented in the app yet. Follow [the current pending work index](../PENDING_WORK.md) and [agent evaluation](../research/2026-10-15-agent-backends.md).
