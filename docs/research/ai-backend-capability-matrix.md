@@ -17,7 +17,7 @@
 
 ## October 15 implementation decision
 
-[The current agent-backend evaluation](2026-10-15-agent-backends.md) selects Codex app-server with the documented account sign-in route as the first implementation (`z3an`), with separate Claude (`8gqw`) and Antigravity (`m00g`) tasks. Codex now has a source-only experimental adapter for file chapters and selected-source overviews; Claude and Antigravity app adapters remain unimplemented. No agent route has passed packaged/live acceptance. Current official account and tool-control findings in that evaluation supersede earlier feasibility assumptions below; earlier local version/VM/XPC observations remain historical evidence only. Agent implementation no longer waits for the direct API backlog.
+[The current agent-backend evaluation](2026-10-15-agent-backends.md) selects Codex app-server with the documented account sign-in route as the first implementation (`z3an`), with separate Claude (`8gqw`) and Antigravity (`m00g`) tasks. Codex now has source dispatch for file chapters, selected-source overviews, section repairs, exact ranges, PR Guides and single-hunk explanations, plus exact-scope recovery. Claude has native inspection/catalog supervision, internal operation pipelines and app-connected offline review for those six explanation scopes, but no app-connected automatic sender. Antigravity automatic integration remains missing. No agent route has passed packaged/live acceptance. Current official account and tool-control findings in that evaluation supersede earlier feasibility assumptions below; earlier local version/VM/XPC observations remain historical evidence only. Agent implementation no longer waits for the direct API backlog.
 
 ## Status legend
 

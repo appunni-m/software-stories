@@ -1785,7 +1785,7 @@ function ProviderDialog(props: ProviderDialogProps) {
   const choose = (next: 'codex' | 'claude-setup' | 'handoff' | 'api') => setBackend(next);
   if (backend === 'api') return <DirectApiDialog {...props} onChooseBackend={() => setBackend('choose')} />;
   if (backend === 'claude-setup') return <ClaudeConnectionDialog native={props.native}
-    reviewMode={props.mode.kind === 'settings' ? 'settings' : props.mode.kind === 'review' || props.mode.kind === 'overview' || props.mode.kind === 'section-update' ? props.mode : null}
+    reviewMode={props.mode.kind === 'settings' ? 'settings' : props.mode}
     onClose={props.onClose} onChooseBackend={() => setBackend('choose')} />;
   if (backend === 'handoff' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview')) {
     return <AgentHandoffDialog mode={props.mode.kind === 'settings' ? 'settings' : props.mode} native={props.native}
@@ -1815,7 +1815,7 @@ function ProviderDialog(props: ProviderDialogProps) {
           {!agentOperation && <p role="status">Codex support for this operation is pending. The current source adapter covers file chapters, overviews, one-section repairs and exact code selections.</p>}
         </section>
         <section className="provider-review-card"><h3>Claude Agent · setup in progress</h3>
-          <p>Check an installed Claude CLI and its catalog, configure supported settings, and preview file, overview or section requests locally. Automatic generation is still being implemented.</p>
+          <p>Check an installed Claude CLI and its catalog, configure supported settings, and preview the selected request locally. Automatic generation is still being implemented.</p>
           <button className="secondary-button" onClick={() => choose('claude-setup')}>Check Claude installation</button>
           <h4>Manual Claude Code handoff</h4>
           <p>Copy a reviewed task into Claude Code, then import its JSON explanation for local source validation. Configure model, reasoning and approvals in Claude Code. Code Atlas needs no API key for this workflow.</p>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, RotateCcw, Send, ShieldCheck, Sparkles } from 'lucide-react';
 import { CodexChapterDialog, type CodexChapterDialogMode, type CodexGitRecovery } from './CodexChapterDialog';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
+import type { ClaudeOperationReviewMode } from './lib/claudeReview';
 import {
   acceptPrGuideDraft,
   buildProviderPrChangeExplanationRequestReview,
@@ -58,7 +59,7 @@ export function PrGuideStudio({
 }: PrGuideStudioProps) {
   const [backend, setBackend] = useState<'codex' | 'claude-agent' | 'api'>('codex');
   const [codexMode, setCodexMode] = useState<CodexChapterDialogMode | null>(null);
-  const [claudeSetup, setClaudeSetup] = useState(false);
+  const [claudeMode, setClaudeMode] = useState<ClaudeOperationReviewMode | 'settings' | null>(null);
   const [recoveryHistoryChecked, setRecoveryHistoryChecked] = useState(false);
   const [providerCatalog, setProviderCatalog] = useState<ProviderDisclosure[]>([]);
   const [providerId, setProviderId] = useState('');
@@ -237,11 +238,20 @@ export function PrGuideStudio({
       selectedChanges: selectedChanges.map(({ basePath, headPath }) => ({ basePath, headPath })) });
   }
 
+  function previewClaudeGuide() {
+    if (building || sending || decisionBusy || !comparison.comparisonId || !selectedChanges.length || selectedChanges.length > 12) return;
+    clearReview();
+    setClaudeMode({ kind: 'pr-guide', projectId, baseRef, headRef, comparisonId: comparison.comparisonId,
+      selectedChanges: selectedChanges.map(({ basePath, headPath }) => ({ basePath, headPath })) });
+  }
+
   function explainHunk(change: GitFileChange, hunkIndex: number) {
-    if (backend === 'codex' && comparison.comparisonId) {
+    if ((backend === 'codex' || backend === 'claude-agent') && comparison.comparisonId) {
       clearReview();
-      setCodexMode({ kind: 'pr-change', projectId, target: { baseRef, headRef,
-        comparisonId: comparison.comparisonId, selectedChange: { basePath: change.basePath, headPath: change.headPath }, hunkIndex } });
+      const mode = { kind: 'pr-change' as const, projectId, target: { baseRef, headRef,
+        comparisonId: comparison.comparisonId, selectedChange: { basePath: change.basePath, headPath: change.headPath }, hunkIndex } };
+      if (backend === 'codex') setCodexMode(mode);
+      else setClaudeMode(mode);
     } else if (backend === 'api') setChangeExplanationSelection({ change, hunkIndex });
   }
 
@@ -430,7 +440,7 @@ export function PrGuideStudio({
           {historyError && <button className="secondary-button" onClick={() => { void refreshHistory(); }}>Reload saved guides</button>}
           <label className="provider-checkbox"><input type="checkbox" checked={recoveryHistoryChecked} disabled={historyLoading || Boolean(historyError)} onChange={(event) => setRecoveryHistoryChecked(event.target.checked)} />I checked the saved guides and want a new request review.</label>
         </>}
-        <button className="primary-button" disabled={building || sending || decisionBusy || Boolean(codexMode) || Boolean(changeExplanationSelection) || claudeSetup
+        <button className="primary-button" disabled={building || sending || decisionBusy || Boolean(codexMode) || Boolean(changeExplanationSelection) || Boolean(claudeMode)
           || (matchingRecovery.mode.kind === 'pr-guide' && (!recoveryHistoryChecked || historyLoading || Boolean(historyError)))}
           onClick={() => {
             clearReview(); setBackend('codex');
@@ -439,17 +449,17 @@ export function PrGuideStudio({
           }}>Review original scope with Codex</button>
       </section>}
       <label className="pr-guide-model">Generate with
-        <select value={backend} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection) || Boolean(codexMode) || claudeSetup}
+        <select value={backend} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection) || Boolean(codexMode) || Boolean(claudeMode)}
           onChange={(event) => { clearReview(); setBackend(event.target.value as typeof backend); }}>
           <option value="codex">Codex · ChatGPT account</option>
-          <option value="claude-agent">Claude Agent · Claude Code runtime (pending)</option>
+          <option value="claude-agent">Claude Agent · local review (generation pending)</option>
           <option value="api">Direct API · optional</option>
         </select>
       </label>
       {backend === 'codex' && <p className="pr-guide-muted">Use your Codex account without an API key. Choose model and reasoning, review the exact patches, then generate. Plan quota applies.</p>}
-      {backend === 'claude-agent' && <div className="pr-guide-notice" role="status"><div><p>Claude Code is a required automatic backend. Its PR Guide and hunk dispatch are still missing; installation checks do not enable generation.</p>
-        <button className="secondary-button" onClick={() => setClaudeSetup(true)}>Check Claude installation</button></div></div>}
-      <fieldset className="pr-guide-file-picker" disabled={building || sending || decisionBusy || Boolean(changeExplanationSelection) || Boolean(codexMode) || claudeSetup}>
+      {backend === 'claude-agent' && <div className="pr-guide-notice" role="status"><div><p>Preview a guide or hunk request with Claude’s supported settings and the exact local diff. Automatic Claude generation remains unfinished; this review sends no source to an agent.</p>
+        <button className="secondary-button" onClick={() => setClaudeMode('settings')}>Claude installation and defaults</button></div></div>}
+      <fieldset className="pr-guide-file-picker" disabled={building || sending || decisionBusy || Boolean(changeExplanationSelection) || Boolean(codexMode) || Boolean(claudeMode)}>
         <legend>Select changed files · {selectedChanges.length} of 12</legend>
         {eligibleChanges.length === 0 ? <p>No changed file has a complete bounded text diff to explain.</p> : eligibleChanges.map((change) => {
           const key = changeKey(change);
@@ -468,9 +478,9 @@ export function PrGuideStudio({
                     type="button"
                     className="secondary-button"
                     key={hunkIndex}
-                    disabled={backend === 'claude-agent' || (backend === 'api' && (!providerId || !modelId || !disclosure)) || building || sending || decisionBusy || Boolean(requestReview)}
+                    disabled={(backend === 'api' && (!providerId || !modelId || !disclosure)) || building || sending || decisionBusy || Boolean(requestReview)}
                     onClick={() => explainHunk(change, hunkIndex)}
-                  ><Sparkles size={13} /> Explain hunk {hunkIndex + 1}</button>
+                  ><Sparkles size={13} /> {backend === 'claude-agent' ? 'Preview hunk request' : 'Explain hunk'} {hunkIndex + 1}</button>
                 ))}
               </div>
             </div>
@@ -478,6 +488,7 @@ export function PrGuideStudio({
         })}
       </fieldset>
       {backend === 'codex' && <div className="pr-guide-actions"><button className="primary-button" onClick={reviewCodexGuide} disabled={!selectedChanges.length || selectedChanges.length > 12 || building || sending || decisionBusy || Boolean(codexMode)}><FileDiff size={15} /> Review with Codex</button></div>}
+      {backend === 'claude-agent' && <div className="pr-guide-actions"><button className="secondary-button" onClick={previewClaudeGuide} disabled={!selectedChanges.length || selectedChanges.length > 12 || building || sending || decisionBusy || Boolean(claudeMode)}><FileDiff size={15} /> Preview guide request with Claude</button></div>}
       {backend === 'api' && <><div className="pr-guide-actions">
         <label className="pr-guide-model">Direct API provider
           <select value={providerId} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection)} onChange={(event) => { clearReview(); setProviderId(event.target.value); setModelId(''); setCredential(null); }}>
@@ -519,8 +530,8 @@ export function PrGuideStudio({
             setCodexMode(null);
           }
         }} />}
-      {claudeSetup && <ClaudeConnectionDialog native={isNativeRuntime()} reviewMode="settings"
-        onClose={() => setClaudeSetup(false)} onChooseBackend={() => setClaudeSetup(false)} />}
+      {claudeMode && <ClaudeConnectionDialog native={isNativeRuntime()} reviewMode={claudeMode}
+        onClose={() => setClaudeMode(null)} onChooseBackend={() => setClaudeMode(null)} />}
 
       {changeExplanationSelection && disclosure && modelId && (
         <PrChangeExplanationPanel

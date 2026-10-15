@@ -5,7 +5,8 @@ import {
   type ClaudeConnectionObservation, type ClaudeInspectionFailureKind, type ClaudeModelDiscoveryObservation,
 } from './lib/commands';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
-import { ClaudeChapterReview, type ClaudeChapterReviewMode } from './ClaudeChapterReview';
+import { ClaudeOperationReview } from './ClaudeOperationReview';
+import { claudeReviewScopeKey, type ClaudeOperationReviewMode } from './lib/claudeReview';
 
 const preferenceKey = 'code-atlas:claude-agent-executable';
 const nodePreferenceKey = 'code-atlas:claude-agent-node-executable';
@@ -35,7 +36,7 @@ function inspectionError(error: unknown): string {
 }
 
 export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBackend }: {
-  native: boolean; reviewMode: ClaudeChapterReviewMode | 'settings' | null;
+  native: boolean; reviewMode: ClaudeOperationReviewMode | 'settings' | null;
   onClose: () => void; onChooseBackend: () => void;
 }) {
   const [path, setPath] = useState(() => savedPath(preferenceKey));
@@ -148,17 +149,14 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
     if (native && connectionId) void forgetClaudeAgentConnection(connectionId).catch(() => {});
     setObservation(null); setCatalogObservation(null); setError(null); setNote(null);
   };
-  const reviewScopeKey = JSON.stringify(reviewMode && typeof reviewMode === 'object'
-    ? [reviewMode.kind, reviewMode.projectId, reviewMode.snapshotId, reviewMode.kind === 'overview' ? null : reviewMode.targetPath,
-      reviewMode.selectedPaths ?? [], reviewMode.kind === 'section-update' ? reviewMode.sectionUpdate : null]
-    : [reviewMode]);
+  const reviewScopeKey = claudeReviewScopeKey(reviewMode);
 
   return <div className="provider-overlay">
     <section className="provider-dialog" ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="claude-setup-title">
       <header className="provider-dialog-header">
         <div><div className="step-pill"><span>CLAUDE AGENT</span> SETUP CHECK</div>
           <h2 id="claude-setup-title">Check Claude installation</h2>
-          <p>Check the installed CLI, inspect its catalog, then preview a chapter request locally. Installation and catalog checks exclude repository source.</p></div>
+          <p>Check the installed CLI, inspect its catalog, then preview the selected operation locally. Installation and catalog checks exclude repository source.</p></div>
         <button className="icon-button" aria-label="Close Claude setup" onClick={onClose}><X size={17} /></button>
       </header>
       <div className="provider-dialog-content">
@@ -197,7 +195,7 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
           </dl>
           <details><summary>Installation fingerprint</summary><code>{observation.executablePath}</code><p>SHA-256 {observation.executableSha256}</p></details>
         </section>}
-        {catalogObservation?.reviewConnection && <ClaudeChapterReview
+        {catalogObservation?.reviewConnection && <ClaudeOperationReview
           key={`${catalogObservation.reviewConnection.connectionId}:${reviewScopeKey}`}
           native={native} mode={reviewMode} discovery={catalogObservation} />}
         {catalogObservation && <section className="provider-review-card" aria-labelledby="claude-models-title">

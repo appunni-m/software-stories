@@ -1,18 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  buildClaudeChapterReview, discardProviderRequestReview, loadSnapshotManifest,
+  discardProviderRequestReview, loadSnapshotManifest,
   type ClaudeGenerationSettings, type ClaudeModelDiscoveryObservation, type ClaudeReasoningEffort,
-  type ProviderFailure, type ProviderRequestReview, type SectionUpdateReviewTarget, type SnapshotManifest,
+  type ProviderFailure, type ProviderRequestReview, type SnapshotManifest,
 } from './lib/commands';
-
-export type ClaudeChapterReviewMode = {
-  kind: 'review'; projectId: string; snapshotId: string; targetPath: string; selectedPaths?: string[];
-} | {
-  kind: 'overview'; projectId: string; snapshotId: string; selectedPaths?: string[];
-} | {
-  kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string;
-  selectedPaths: string[]; sectionUpdate: SectionUpdateReviewTarget;
-};
+import {
+  claudeOperationLabel, claudeReviewScopeKey, gitChangeLabel, isClaudeChapterScope,
+  matchesClaudeOperationReview, prepareClaudeOperationReview, type ClaudeOperationReviewMode,
+} from './lib/claudeReview';
 
 type Selection = Pick<ClaudeGenerationSettings, 'modelId' | 'effort' | 'maxTurns'>;
 const preferenceKey = 'code-atlas:claude-chapter-preferences';
@@ -43,27 +38,32 @@ function reviewError(error: ProviderFailure): string {
   const messages: Partial<Record<ProviderFailure['kind'], string>> = {
     reviewChanged: 'The native connection or reviewed context changed. Check the Claude catalog and prepare a fresh preview.',
     reviewExpired: 'This source review expired. Prepare a fresh preview.',
-    reviewUnavailable: 'The local review is unavailable. Check the snapshot and try preparing it again.',
-    invalidReview: 'The source or Claude settings could not be validated. Check the selected files, model and effort.',
+    reviewUnavailable: 'The local review is unavailable. Check the original evidence and prepare it again.',
+    invalidReview: 'The source or Claude settings could not be validated. Reopen the original snapshot range or Git comparison, then check model and effort.',
     unavailableModel: 'Choose a model and effort from the current Claude catalog.',
     contextTooLarge: 'This context exceeds the request limit. Select fewer or smaller files.',
     secretLikeContext: 'A selected path or source pattern is blocked as secret-like. Remove it from the source selection.',
-    localStorageUnavailable: 'The captured source is unavailable in local storage. Reopen the repository and snapshot.',
+    localStorageUnavailable: 'The local evidence is unavailable. Reopen the repository and selected snapshot or comparison.',
   };
   return messages[error.kind] ?? 'The local request preview could not be prepared. Check the captured source and settings.';
 }
 
 /** Offline source/settings preview only. No consent or inference control is
  * present here until the qualified native sender is implemented. */
-export function ClaudeChapterReview({ native, mode, discovery }: {
+export function ClaudeOperationReview({ native, mode, discovery }: {
   native: boolean;
-  mode: ClaudeChapterReviewMode | 'settings' | null;
+  mode: ClaudeOperationReviewMode | 'settings' | null;
   discovery: ClaudeModelDiscoveryObservation;
 }) {
   const scope = typeof mode === 'object' ? mode : null;
+  const chapterScope = isClaudeChapterScope(scope) ? scope : null;
+  const rangeScope = scope?.kind === 'code-lens-range' ? scope : null;
+  const gitScope = scope?.kind === 'pr-guide' ? scope : scope?.kind === 'pr-change' ? scope.target : null;
+  const gitChanges = scope?.kind === 'pr-guide' ? scope.selectedChanges : scope?.kind === 'pr-change' ? [scope.target.selectedChange] : [];
+  const scopeKey = claudeReviewScopeKey(mode);
   const projectId = scope?.projectId ?? null;
-  const snapshotId = scope?.snapshotId ?? null;
-  const targetPath = scope && scope.kind !== 'overview' ? scope.targetPath : null;
+  const snapshotId = chapterScope?.snapshotId ?? null;
+  const targetPath = chapterScope && chapterScope.kind !== 'overview' ? chapterScope.targetPath : null;
   const sectionUpdate = scope?.kind === 'section-update' ? scope.sectionUpdate : null;
   const connection = discovery.reviewConnection;
   const connectionId = connection?.connectionId ?? '';
@@ -72,7 +72,7 @@ export function ClaudeChapterReview({ native, mode, discovery }: {
   // Preserve the full requested scope. Oversized selections must be corrected
   // explicitly; in particular, never truncate a frozen section-repair scope.
   const [paths, setPaths] = useState<string[]>(() => [...new Set([
-    ...(targetPath ? [targetPath] : []), ...(scope?.selectedPaths ?? []),
+    ...(targetPath ? [targetPath] : []), ...(chapterScope?.selectedPaths ?? []),
   ])]);
   const [manifest, setManifest] = useState<SnapshotManifest | null>(null);
   const [manifestLoading, setManifestLoading] = useState(false);
@@ -92,6 +92,7 @@ export function ClaudeChapterReview({ native, mode, discovery }: {
     current.mounted = true;
     let abandoned = false;
     setManifest(null); setManifestError(null); setReview(null); setBusy(false);
+    setPaths([...new Set([...(targetPath ? [targetPath] : []), ...(chapterScope?.selectedPaths ?? [])])]);
     setExpired(Date.now() >= connectionExpiry);
     const release = () => {
       ++current.version;
@@ -125,7 +126,7 @@ export function ClaudeChapterReview({ native, mode, discovery }: {
       window.clearTimeout(timer);
       release();
     };
-  }, [native, projectId, snapshotId, connectionId, connectionExpiry]);
+  }, [native, projectId, snapshotId, connectionId, connectionExpiry, scopeKey]);
 
   useEffect(() => { if (review) summary.current?.focus(); }, [review]);
 
@@ -139,9 +140,12 @@ export function ClaudeChapterReview({ native, mode, discovery }: {
   const selectedModel = discovery.catalog.models.find((model) => model.modelId === selection.modelId);
   const effortKnown = selection.effort === null || !!selectedModel?.supportedEfforts.includes(selection.effort);
   const modelReady = !!selectedModel && effortKnown;
-  const sourceReady = !!scope && !!manifest && paths.length > 0 && paths.length <= 12 && selectedBytes <= 250_000
+  const chapterReady = !!chapterScope && !!manifest && paths.length > 0 && paths.length <= 12 && selectedBytes <= 250_000
     && paths.every((path) => eligibleFiles.some((file) => file.path === path))
-    && (scope.kind === 'overview' || !!targetPath && paths.includes(targetPath));
+    && (chapterScope.kind === 'overview' || !!targetPath && paths.includes(targetPath));
+  const sourceReady = chapterScope ? chapterReady : rangeScope ? rangeScope.target.startLine >= 1 && rangeScope.target.endLine >= rangeScope.target.startLine
+    : scope?.kind === 'pr-guide' ? scope.selectedChanges.length > 0 && scope.selectedChanges.length <= 12
+      : scope?.kind === 'pr-change' ? Number.isSafeInteger(scope.target.hunkIndex) && scope.target.hunkIndex >= 0 : false;
   const locked = busy || expired || !native;
 
   const releaseReview = () => {
@@ -166,50 +170,43 @@ export function ClaudeChapterReview({ native, mode, discovery }: {
 
   const prepare = async () => {
     const current = resources.current;
-    if (!native || !scope || !projectId || !snapshotId || !connectionId || locked
+    if (!native || !scope || !projectId || !connectionId || locked
       || current.active !== null || !modelReady || !sourceReady) return;
     if (Date.now() >= connectionExpiry) { releaseReview(); setExpired(true); return; }
     releaseReview();
     const version = ++current.version;
     current.active = version;
     setBusy(true);
+    let unclaimedReview: string | null = null;
     const settings: ClaudeGenerationSettings = { ...selection, approvalPolicy: 'dontAsk' };
     try {
-      const value = await buildClaudeChapterReview(connectionId, {
-        projectId, snapshotId, targetPath, selectedPaths: paths,
-        settings, sectionUpdate,
-      });
+      const value = await prepareClaudeOperationReview(connectionId, scope, settings, paths);
       if (value.status === 'error') {
         if (current.mounted && current.version === version) setError(reviewError(value.error));
         return;
       }
       const prepared = value.data;
-      if (!current.mounted || current.version !== version || Date.now() >= prepared.expiresAtUnixMs) {
+      unclaimedReview = prepared.reviewId;
+      if (!current.mounted || current.version !== version) {
         await discardProviderRequestReview(prepared.reviewId).catch(() => {});
+        unclaimedReview = null;
         return;
       }
-      const expectedPurpose = scope.kind === 'overview' ? 'repositoryOverview'
-        : scope.kind === 'section-update' ? 'sectionUpdate' : 'fileChapter';
-      const returnedSection = prepared.sectionUpdateContext;
-      const sectionMatches = sectionUpdate
-        ? returnedSection?.chapterRevisionId === sectionUpdate.chapterRevisionId
-          && returnedSection?.sectionId === sectionUpdate.sectionId
-          && returnedSection?.sectionRevisionId === sectionUpdate.sectionRevisionId
-        : returnedSection === null;
-      if (prepared.providerId !== 'claude-agent' || prepared.projectId !== projectId || prepared.snapshotId !== snapshotId
-        || prepared.purpose !== expectedPurpose || prepared.targetPath !== targetPath || prepared.modelId !== settings.modelId
-        || !sectionMatches
-        || prepared.generationConfig.connectionId !== connectionId || prepared.generationConfig.effort !== settings.effort
-        || prepared.generationConfig.approvalPolicy !== settings.approvalPolicy || prepared.generationConfig.maxTurns !== settings.maxTurns) {
+      if (!Number.isFinite(prepared.expiresAtUnixMs) || prepared.expiresAtUnixMs <= Date.now()
+        || prepared.expiresAtUnixMs > connectionExpiry
+        || !matchesClaudeOperationReview(prepared, scope, settings, connectionId, paths)) {
         await discardProviderRequestReview(prepared.reviewId).catch(() => {});
-        if (current.mounted && current.version === version) setError('The returned review did not match this source and configuration. Refresh the native connection.');
+        unclaimedReview = null;
+        if (current.mounted && current.version === version) setError('The returned review expired or did not match this operation, source and configuration. Refresh the native connection.');
         return;
       }
       current.reviewId = prepared.reviewId;
+      unclaimedReview = null;
       setReview(prepared);
     } catch {
-      if (current.mounted && current.version === version) setError('The local review could not be prepared. Check the selected snapshot and native connection.');
+      if (current.mounted && current.version === version) setError('The local review could not be prepared. Check the selected evidence and native connection.');
     } finally {
+      if (unclaimedReview) void discardProviderRequestReview(unclaimedReview).catch(() => {});
       if (current.active === version) {
         current.active = null;
         if (current.mounted) setBusy(false);
@@ -247,34 +244,54 @@ export function ClaudeChapterReview({ native, mode, discovery }: {
     {!!selectedModel && !modelReady && <p role="status">The saved effort is unavailable for this model. Choose an advertised effort or Runtime default.</p>}
     {expired && <p className="provider-status-note" role="status">This review connection expired. Check the catalog again.</p>}
     {scope && <>
-      {manifestLoading && <p role="status">Loading the captured file list…</p>}
-      {manifestError && <p className="provider-error-text" role="alert">{manifestError}</p>}
-      <details open={scope.kind === 'overview'}>
-        <summary>{sectionUpdate ? 'Fixed section-repair source' : 'Selected captured source'} · {paths.length} files · {selectedBytes.toLocaleString()}/250,000 current source bytes</summary>
-        {sectionUpdate && <p>Only the selected section will be requested. Its declared file scope is fixed for preservation checks. Previous source and section text are context only; current source is citable, and the native byte limit counts both snapshots.</p>}
-        <ul className="provider-section-path-list">{paths.map((path) => <li key={path}><code>{path}</code>{path === targetPath ? ' · target' : ''}
-          {!sectionUpdate && path !== targetPath && <button className="text-button" disabled={locked} onClick={() => changePath(path, false)}>Remove</button>}</li>)}</ul>
-        <label className="provider-context-search">Filter captured files<input value={query} onChange={(event) => setQuery(event.target.value)} disabled={locked} /></label>
-        <div className="provider-context-files">{matches.slice(0, 100).map((file) => <label key={file.path} className={paths.includes(file.path) ? 'selected' : undefined}>
-          <input type="checkbox" checked={paths.includes(file.path)} disabled={locked || !!sectionUpdate || file.path === targetPath
-            || !paths.includes(file.path) && (paths.length >= 12 || selectedBytes + file.sizeBytes > 250_000)} onChange={(event) => changePath(file.path, event.target.checked)} />
-          <code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} bytes</small>
-        </label>)}</div>
-        {matches.length > 100 && <p>Showing 100 of {matches.length} matching files. Refine the filter to see other files.</p>}
-        {!manifestLoading && !manifestError && !matches.length && <p>No eligible captured files match this filter.</p>}
-      </details>
-      {!sourceReady && !manifestLoading && !manifestError && <p role="status">{sectionUpdate
-        ? 'This repair requires its exact declared files and a bounded captured context. Reopen the section and current snapshot to correct its scope.'
-        : targetPath ? 'Select 1–12 eligible captured text files within 250,000 bytes, including the target. Recapture source if the target is unavailable.'
-          : 'Choose 1–12 eligible captured text files within 250,000 bytes for the overview.'}</p>}
+      {chapterScope && <>
+        {manifestLoading && <p role="status">Loading the captured file list…</p>}
+        {manifestError && <p className="provider-error-text" role="alert">{manifestError}</p>}
+        <details open={chapterScope.kind === 'overview'}>
+          <summary>{sectionUpdate ? 'Fixed section-repair source' : 'Selected captured source'} · {paths.length} files · {selectedBytes.toLocaleString()}/250,000 current source bytes</summary>
+          {sectionUpdate && <p>Only the selected section will be requested. Its declared file scope is fixed for preservation checks. Previous source and section text are context only; current source is citable, and the native byte limit counts both snapshots.</p>}
+          <ul className="provider-section-path-list">{paths.map((path) => <li key={path}><code>{path}</code>{path === targetPath ? ' · target' : ''}
+            {!sectionUpdate && path !== targetPath && <button className="text-button" disabled={locked} onClick={() => changePath(path, false)}>Remove</button>}</li>)}</ul>
+          <label className="provider-context-search">Filter captured files<input value={query} onChange={(event) => setQuery(event.target.value)} disabled={locked} /></label>
+          <div className="provider-context-files">{matches.slice(0, 100).map((file) => <label key={file.path} className={paths.includes(file.path) ? 'selected' : undefined}>
+            <input type="checkbox" checked={paths.includes(file.path)} disabled={locked || !!sectionUpdate || file.path === targetPath
+              || !paths.includes(file.path) && (paths.length >= 12 || selectedBytes + file.sizeBytes > 250_000)} onChange={(event) => changePath(file.path, event.target.checked)} />
+            <code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} bytes</small>
+          </label>)}</div>
+          {matches.length > 100 && <p>Showing 100 of {matches.length} matching files. Refine the filter to see other files.</p>}
+          {!manifestLoading && !manifestError && !matches.length && <p>No eligible captured files match this filter.</p>}
+        </details>
+        {!sourceReady && !manifestLoading && !manifestError && <p role="status">{sectionUpdate
+          ? 'This repair requires its exact declared files and a bounded captured context. Reopen the section and current snapshot to correct its scope.'
+          : targetPath ? 'Select 1–12 eligible captured text files within 250,000 bytes, including the target. Recapture source if the target is unavailable.'
+            : 'Choose 1–12 eligible captured text files within 250,000 bytes for the overview.'}</p>}
+      </>}
+      {rangeScope && <section className="provider-review-card" aria-labelledby="claude-range-title">
+        <h4 id="claude-range-title">Fixed source selection</h4>
+        <p><code>{rangeScope.target.path}</code> · lines {rangeScope.target.startLine}–{rangeScope.target.endLine}</p>
+        <p>File SHA-256 <code>{rangeScope.target.sourceSha256}</code></p>
+        {rangeScope.target.startByte !== null && rangeScope.target.endByteExclusive !== null
+          ? <p>UTF-8 bytes [{rangeScope.target.startByte}, {rangeScope.target.endByteExclusive})</p>
+          : <p>The selected complete lines are included.</p>}
+        <p>Only this captured excerpt enters the local preview. Native preparation verifies the file hash, bounds, UTF-8 and 32 KiB excerpt limit. Reselect in Files to change the range.</p>
+      </section>}
+      {gitScope && <section className="provider-review-card" aria-labelledby="claude-git-title">
+        <h4 id="claude-git-title">{scope.kind === 'pr-guide' ? 'Fixed PR Guide selection' : 'Fixed diff hunk'}</h4>
+        <dl><dt>Starting version</dt><dd><code>{gitScope.baseRef}</code></dd>
+          <dt>Ending version</dt><dd><code>{gitScope.headRef}</code></dd>
+          <dt>Comparison</dt><dd><code>{gitScope.comparisonId}</code></dd></dl>
+        <ul className="provider-section-path-list">{gitChanges.map((change) => <li key={JSON.stringify([change.basePath, change.headPath])}><code>{gitChangeLabel(change)}</code></li>)}</ul>
+        {scope.kind === 'pr-change' && <p>Original hunk {scope.target.hunkIndex + 1} only.</p>}
+        <p>Preview preparation rereads existing local Git objects and rejects changed refs, unavailable hunks or excluded evidence. It starts no agent. Return to Changes to alter this selection.</p>
+      </section>}
       <button className="secondary-button" disabled={locked || !modelReady || !sourceReady} onClick={() => { void prepare(); }}>{busy ? 'Preparing local preview…' : review ? 'Refresh request preview' : 'Preview exact request'}</button>
       {review && <>
         <div ref={summary} className="provider-request-summary" tabIndex={-1} role="group" aria-label="Exact local Claude request">
-          <div><span>Operation</span><strong>{scope.kind === 'overview' ? 'Repository overview' : sectionUpdate ? 'One-section repair' : 'File chapter'}</strong></div>
-          <div><span>Snapshot</span><code>{review.snapshotId}</code></div>
+          <div><span>Operation</span><strong>{claudeOperationLabel(scope)}</strong></div>
+          <div><span>{gitScope ? 'Comparison' : 'Snapshot'}</span><code>{review.snapshotId}</code></div>
           <div><span>Model</span><strong>{review.modelId}</strong></div>
           <div><span>Effort · turns · approval</span><strong>{selection.effort ?? 'Runtime default'} · {selection.maxTurns} · Don’t ask</strong></div>
-          <div><span>Captured context</span><strong>{review.selectedFiles.length} files · {review.sourceBytes.toLocaleString()} bytes</strong></div>
+          <div><span>Reviewed evidence</span><strong>{review.selectedFiles.length} {gitScope ? 'patches' : 'files'} · {review.sourceBytes.toLocaleString()} bytes</strong></div>
           <div><span>Review expiry</span><strong>{new Date(review.expiresAtUnixMs).toLocaleTimeString()}</strong></div>
         </div>
         {review.selectedFiles.map((file) => <details className="provider-source-file" key={file.path}><summary><code>{file.path}</code><span>SHA-256 {file.sha256}</span></summary><pre><code>{file.contents}</code></pre></details>)}
@@ -284,7 +301,7 @@ export function ClaudeChapterReview({ native, mode, discovery }: {
         <button className="text-button" disabled={busy} onClick={releaseReview}>Discard request preview</button>
       </>}
     </>}
-    {mode === null && <p role="status">Offline chapter review is available for file chapters, overviews and one-section repairs. This operation is not connected to Claude yet.</p>}
+    {mode === null && <p role="status">Open Claude from a captured file, overview, section, code range or Git selection to preview that exact operation. Automatic generation remains unavailable.</p>}
     {error && <p className="provider-error-text" role="alert">{error}</p>}
   </section>;
 }
