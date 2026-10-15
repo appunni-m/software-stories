@@ -36,7 +36,7 @@ These are source-level capabilities, not a claim of a finished or released produ
 
 ## Local development
 
-The lockfile's Vite toolchain requires Node.js 20.19 or newer in the 20.x line, or 22.12 or newer. The project does not declare a formal Node or Rust minimum, and it does not pin a Rust toolchain. Use a current stable Rust toolchain with Cargo for native commands.
+The lockfile's Vite toolchain requires Node.js 20.19 or newer in the 20.x line, or 22.12 or newer. The Rust crate uses edition 2024, which requires Rust 1.85 or newer ([edition release](https://blog.rust-lang.org/2025/02/20/Rust-1.85.0.html)). The project does not set Cargo's `rust-version` or pin a Rust toolchain, so compatibility of the locked dependencies with Rust 1.85 has not been verified. Use current stable Rust with Cargo for native commands.
 
 ```sh
 npm ci

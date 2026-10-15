@@ -6,10 +6,10 @@ Code Atlas is an in-progress macOS desktop app. This guide walks through a first
 
 - macOS to use the native repository picker, local persistence, and provider keys in Keychain; Gemini narration uses a separate key.
 - Node.js 20.19 or newer in the 20.x line, or 22.12 or newer, plus npm.
-- A current stable Rust toolchain with Cargo.
+- Rust 1.85 or newer with Cargo for the Rust 2024 edition; current stable is recommended.
 - A local Git working copy to explore.
 
-The project does not declare a Rust minimum version or a minimum supported macOS version. The source-only development workflow has not been verified here from a clean macOS account.
+The project does not set Cargo's `rust-version`, so compatibility of the locked dependencies with Rust 1.85 is not verified. It also has not declared a minimum supported macOS version. The source-only development workflow has not been verified here from a clean macOS account.
 
 ## Launch the native app
 

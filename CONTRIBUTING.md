@@ -8,7 +8,7 @@ For a source-backed first run, see [Getting started](docs/GETTING_STARTED.md). F
 
 - Node.js 20.19 or newer in the 20.x line, or 22.12 or newer, as required by the locked Vite toolchain.
 - npm, using the checked-in `package-lock.json`.
-- A current stable Rust toolchain and Cargo for Tauri and Rust commands. The workspace does not currently pin a Rust toolchain or declare an MSRV.
+- Rust 1.85 or newer and Cargo for the Rust 2024 edition. Use current stable for development. The workspace does not pin a Rust toolchain or declare `rust-version`; compatibility of the locked dependencies with Rust 1.85 has not been verified.
 - macOS for exercising the native desktop shell and macOS Keychain integrations.
 
 ## Set up and work locally
