@@ -1861,7 +1861,7 @@ pub fn build_pr_guide_request_review_for_provider(
     Ok(PendingProviderRequest { review, body })
 }
 
-/// Revalidate journal-owned chapter/range/Git identities locally, without model
+/// Revalidate journal-owned chapter/plan/range/Git identities locally, without model
 /// admission, a pending request, consent or an agent/API call. Shared pure
 /// builders enforce the same source limits and exclusions as generation.
 pub(crate) fn revalidate_interrupted_evidence(
@@ -1872,10 +1872,39 @@ pub(crate) fn revalidate_interrupted_evidence(
     let changed = || {
         failure(
             ProviderFailureKind::ReviewChanged,
-            "The original interrupted evidence is missing or changed. Reselect its exact chapter, section, source range or Git comparison; no broader request was opened.",
+            "The original interrupted evidence is missing or changed. Reselect its exact chapter, learning question, section, source range or Git comparison; no broader request was opened.",
         )
     };
     let request = operation.provider_request.as_ref().ok_or_else(changed)?;
+    if request.purpose == REPOSITORY_PLAN_PURPOSE {
+        let scope = request.repository_plan.as_ref().ok_or_else(changed)?;
+        if !matches!(request.provider_id.as_str(), "codex" | "claude-agent")
+            || operation.target_path.is_some()
+            || request.section_update.is_some()
+            || request.code_lens.is_some()
+            || request.git.is_some()
+            || !scope.valid_recovery_shape(request.selected_paths.len())
+        {
+            return Err(changed());
+        }
+        let context = crate::repository_plan::prepare(
+            storage_dir,
+            crate::repository_plan::PrepareRepositoryPlanInput {
+                project_id: operation.project_id.clone(),
+                snapshot_id: operation.snapshot_id.clone(),
+                question: scope.question.clone(),
+                selected_paths: request.selected_paths.clone(),
+            },
+        )
+        .map_err(|_| changed())?;
+        if context.review_scope() != *scope {
+            return Err(changed());
+        }
+        return Ok(None);
+    }
+    if request.repository_plan.is_some() {
+        return Err(changed());
+    }
     if matches!(
         request.purpose.as_str(),
         FILE_CHAPTER_PURPOSE | REPOSITORY_OVERVIEW_PURPOSE | SECTION_UPDATE_PURPOSE

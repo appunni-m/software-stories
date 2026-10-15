@@ -42,6 +42,8 @@ pub struct InterruptedProviderRequest {
     pub code_lens: Option<crate::provider::CodeLensExplanationTarget>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub git: Option<InterruptedGitScope>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) repository_plan: Option<crate::repository_plan::RepositoryPlanReviewScope>,
 }
 
 /// Immutable Git selection only: never patches, source, settings or consent.
@@ -180,7 +182,8 @@ pub fn new_provider_operation(
     operation
 }
 
-/// Retain request scope, never prompts, source bytes, credentials or consent.
+/// Retain request scope, including a plan's learning question. Never retain
+/// assembled prompts, source bytes, credentials, agent settings or consent.
 pub fn new_reviewed_provider_operation(
     review: &crate::provider::ProviderRequestReview,
 ) -> InterruptedOperation {
@@ -202,6 +205,13 @@ pub fn new_reviewed_provider_operation(
             .collect(),
         section_update: review.section_update_context.clone(),
         code_lens: review.code_lens_context.clone(),
+        // An invalid or missing native planning scope cannot be journaled:
+        // validate_operation below requires it exactly for repositoryPlan.
+        repository_plan: (review.purpose == "repositoryPlan")
+            .then(|| {
+                serde_json::from_value(review.generation_config["repositoryPlan"].clone()).ok()
+            })
+            .flatten(),
         git: review
             .pr_guide_context
             .as_ref()
@@ -297,6 +307,7 @@ fn validate_operation(operation: &InterruptedOperation) -> Result<(), String> {
                 | "codeLensExplanation"
                 | "prGuide"
                 | "prChangeExplanation"
+                | "repositoryPlan"
         ) || request.selected_paths.len() > 24
             || request
                 .selected_paths
@@ -309,8 +320,20 @@ fn validate_operation(operation: &InterruptedOperation) -> Result<(), String> {
                 .len()
                 != request.selected_paths.len()
             || (request.purpose == "sectionUpdate") != request.section_update.is_some()
+            || (request.purpose == "repositoryPlan") != request.repository_plan.is_some()
         {
             return Err("The interrupted provider request scope is invalid.".to_owned());
+        }
+        if let Some(scope) = &request.repository_plan {
+            if !matches!(request.provider_id.as_str(), "codex" | "claude-agent")
+                || operation.target_path.is_some()
+                || request.section_update.is_some()
+                || request.code_lens.is_some()
+                || request.git.is_some()
+                || !scope.valid_recovery_shape(request.selected_paths.len())
+            {
+                return Err("The interrupted repository planning scope is invalid.".to_owned());
+            }
         }
         if matches!(
             request.purpose.as_str(),

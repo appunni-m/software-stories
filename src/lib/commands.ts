@@ -26,11 +26,12 @@ export interface InterruptedOperation {
   startedAtUnixMs: number;
   providerRequest?: {
     providerId: string;
-    purpose: 'fileChapter' | 'repositoryOverview' | 'sectionUpdate' | 'codeLensExplanation' | 'prGuide' | 'prChangeExplanation';
+    purpose: 'fileChapter' | 'repositoryOverview' | 'sectionUpdate' | 'codeLensExplanation' | 'prGuide' | 'prChangeExplanation' | 'repositoryPlan';
     selectedPaths: string[];
     sectionUpdate: SectionUpdateReviewTarget | null;
     codeLens?: CodeLensExplanationTarget | null;
     git?: InterruptedGitScope | null;
+    repositoryPlan?: import('./repositoryPlans').RepositoryPlanReviewScope | null;
   } | null;
 }
 

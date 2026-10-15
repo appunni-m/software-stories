@@ -446,6 +446,12 @@ function App() {
       if (!current()) return;
       const request = recovered ? recovered.operation.providerRequest : recordedRequest;
       if (!request) throw new Error('The interrupted request scope is unavailable. Select the original evidence again.');
+      // A learning plan has its own original question and evidence contract.
+      // Until that dialog exists, retain this notice without navigating it to
+      // a chapter, Git comparison or API review.
+      if (request.purpose === 'repositoryPlan') {
+        throw new Error('Repository learning plan recovery is not available yet. This notice keeps your original question and source selection. No new request was opened.');
+      }
       if (recovered) {
         const original = recovered.operation;
         const exact = original.providerRequest;
@@ -1481,10 +1487,12 @@ function App() {
             <div className="notice-banner notice-warning interrupted-work" role="status" key={operation.operationId}>
               <div className="notice-icon"><TriangleAlert size={15} /></div>
               <div>
-                <strong>{operation.kind === 'capture' ? 'A repository capture was interrupted' : operation.providerRequest?.purpose === 'sectionUpdate' ? 'Section repair was interrupted' : 'Explanation generation was interrupted'}</strong>
+                <strong>{operation.kind === 'capture' ? 'A repository capture was interrupted' : operation.providerRequest?.purpose === 'repositoryPlan' ? 'Repository planning was interrupted' : operation.providerRequest?.purpose === 'sectionUpdate' ? 'Section repair was interrupted' : 'Explanation generation was interrupted'}</strong>
                 <span>{operation.kind === 'capture'
                   ? 'Retry starts a fresh capture; existing snapshots remain available.'
-                  : 'Check saved previews and PR Guide history before a new request. Existing history is preserved; prior consent is not reused.'}</span>
+                  : operation.providerRequest?.purpose === 'repositoryPlan'
+                    ? `This notice keeps your source selection. Planning recovery is not available yet. Original question: ${operation.providerRequest.repositoryPlan?.question ?? 'Unavailable'}`
+                    : 'Check saved previews and PR Guide history before a new request. Existing history is preserved; prior consent is not reused.'}</span>
               </div>
               <div className="notice-actions">
                 {operation.kind === 'capture'

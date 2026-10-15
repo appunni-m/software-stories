@@ -62,6 +62,33 @@ pub(crate) struct RepositoryPlanReviewScope {
     pub index_status: String,
 }
 
+impl RepositoryPlanReviewScope {
+    /// A journal retains descriptive planning context only. Reopening it must
+    /// still reproduce this entire scope from native immutable evidence.
+    pub(crate) fn valid_recovery_shape(&self, selected_count: usize) -> bool {
+        let valid_digest = |value: &str| {
+            value.len() == 64
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        };
+        self.schema_version == 1
+            && valid_learning_question(&self.question)
+            && valid_digest(&self.inventory_sha256)
+            && valid_digest(&self.context_sha256)
+            && valid_digest(&self.planning_contract_sha256)
+            && (1..=12).contains(&selected_count)
+            && self.coverage.selected_file_count == selected_count
+            && self.coverage.eligible_captured_file_count >= selected_count
+            && self.coverage.unselected_eligible_file_count
+                == self.coverage.eligible_captured_file_count - selected_count
+            && matches!(
+                self.index_status.as_str(),
+                "complete" | "partial" | "cancelled" | "missing" | "unreadable"
+            )
+    }
+}
+
 /// Owned native inputs for the existing transport-independent agent review
 /// builder. No renderer deserializer can supply prompt/schema/source parts.
 pub(crate) struct RepositoryPlanRequestParts {
@@ -195,7 +222,7 @@ pub(crate) fn prepare(
     storage: &Path,
     input: PrepareRepositoryPlanInput,
 ) -> Result<PreparedRepositoryPlanContext, String> {
-    if !bounded_text(input.question.trim(), 8, 300) || input.question != input.question.trim() {
+    if !valid_learning_question(&input.question) {
         return Err("Describe the learning question in 8–300 characters without leading/trailing whitespace or control characters.".to_owned());
     }
     let evidence = load_evidence(storage, &input)?;
@@ -274,6 +301,10 @@ pub(crate) fn prepare(
         estimated_input_tokens: encoded.len().div_ceil(4),
         input,
     })
+}
+
+fn valid_learning_question(question: &str) -> bool {
+    bounded_text(question, 8, 300) && question == question.trim()
 }
 
 /// Accept only a response to the same re-opened immutable planning context.

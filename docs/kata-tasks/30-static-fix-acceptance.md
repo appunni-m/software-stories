@@ -357,3 +357,13 @@ Exact Claude interruption restoration now has source wiring; its acceptance rema
 - Closing, changing backend, preview preparation, expired/unavailable runtime, failed request, cancelled chapter/range/hunk and unwanted late results must retain the old notice. Adopting a validated wanted chapter/range/hunk or separately saved guide resolves it. A late-cancelled saved guide stays unaccepted and discoverable. A deliberate direct API preview must not clear the agent notice. Failed notice cleanup remains actionable.
 
 Source formatting and diff checks do not qualify this workflow. No tests, builds, app launches, probes or model requests ran.
+
+## Planning interruption scope — pending source acceptance
+
+No cases below have run. They remain deferred under the source-only instruction.
+
+- Prepare a real native Codex planning review and an observed-connection Claude planning review, construct each reviewed interruption record, then record/reload it. Check exact backend/project/snapshot/question/selection and descriptive scope. Confirm no source contents, assembled prompt, connection/settings, credential, consent or automatic resume is retained. These local cases must not start a process or model request.
+- Reject missing planning metadata, metadata on another purpose, direct-API planning records, empty/duplicate/over-twelve selections, file/section/range/Git targets, malformed/future scope versions, invalid question/digests/index status and inconsistent coverage counts. A failed write preserves the prior journal; no sender can start after journal admission fails.
+- Load a journal-owned plan through the native recovery command, after reopening its project. Rebuild its exact original question and selection locally and compare inventory/context/contract/capture/coverage/index identity. Missing or changed source/index/inventory must reject recovery without creating a pending request or widening scope. Discard/replacement during the blocking read must prevent publication.
+- Reopen an older non-planning record that omits the optional planning field. Confirm existing exact chapter/section/range/Git behavior remains scoped; malformed journals are reported and preserved. Older app versions are not claimed to read the new planning field.
+- In the app, show a planning notice and original question. Until its dialog is implemented, Review must retain the notice and report unavailable planning recovery, with no chapter/overview/Git navigation or API/agent dispatch. This guard cannot count as delivered planning recovery. Later acceptance still requires fresh same-agent configuration, a reviewed original question/scope, explicit consent and discoverable saved results before another request.

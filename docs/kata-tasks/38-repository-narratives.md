@@ -49,3 +49,7 @@ Autoplay through an entire repository, hidden bulk provider spend, marketing-onl
 
 ## Done evidence
 A complete source-grounded guide on representative repositories, coverage map, incremental-edit demonstration and human comprehension review when validation is authorized.
+
+## Planning interruption scope — source progress, 2026-10-16
+
+The shared native journal can retain either agent's distinct repository plan, including the original learning question, selected paths and inventory/context/contract/capture/coverage/index identity. Local recovery rebuilds and compares the entire scope without restoring a runtime, settings or consent. Missing/mixed planning metadata is rejected; old non-planning records remain compatible. The app labels a planning notice and shows its question, then preserves it without opening a chapter, overview, Git or API request because the planning dialog is still absent. No planning dispatcher creates these records yet. This groundwork cannot close automatic planning, durable plan storage or recovery; both planning cells stay Missing. See the [planning contract](../REPOSITORY_PLANNING.md) and deferred cases in `xymb`. No tests, builds, launches, probes or model calls ran.

@@ -13,7 +13,7 @@ pub(crate) struct RecoveredGenerationScope {
 }
 
 /// Read the journal natively so the renderer cannot replace a recovered
-/// chapter/section/range/Git scope with a broader selection. A request requires
+/// chapter/plan/section/range/Git scope with a broader selection. A request requires
 /// fresh runtime configuration, evidence review and explicit sending consent.
 #[tauri::command(rename_all = "camelCase")]
 pub(crate) async fn load_interrupted_generation_scope(
