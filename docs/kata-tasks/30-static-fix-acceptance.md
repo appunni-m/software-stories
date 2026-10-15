@@ -60,3 +60,14 @@ The subsequent source changes add Codex account-backed chapters, Pocket narratio
 - Check normal exit, cancellation during preparation, malformed protocol frames, stalled writers/readers and killed workers for owned-child cleanup. Verify packaged permissions and runtime boundaries under the separate acceptance contracts.
 
 No issue can be closed from the source implementation or formatting alone.
+
+## Claude protocol preparation and shared agent review — pending
+
+- Recheck Codex file/overview/section contracts after shared review extraction: identical effective controls, schema, evidence and deterministic fingerprint inputs; invalid scope/source still fails before dispatch.
+- Claude offline review/revalidation must reject changed executable/account digests, candidate version, model, effort, turn limit, source, base/section revision, schema and expiry. Capability/catalog data must originate from bounded native runtime discovery, never WebView input or a fabricated bundled model list.
+- Invocation preparation must reject unsupported model-specific effort/policy/limits and keep source off argv. Command preparation must reject a mismatched runtime/account/stage and clear inherited API, endpoint, cloud-provider, proxy and Node options. Verify no default, managed-policy or internal fallback can silently change the account/billing/model route.
+- Feed malformed, oversized, out-of-order, duplicate-init, wrong-session, changed-model, nested-agent, permission, hook and external-tool events. Rejected streams cannot be recovered by appending a valid result. Check total bytes, frames, events and structured-result limits separately.
+- Permit only the runtime's internal `StructuredOutput` formatter; its tool results must reference observed formatter calls. An external MCP lookalike, injected user message or free-form final text cannot become a draft. A valid final field still requires successful process exit/EOF and independent schema/citation/section-preservation validation.
+- Keep the candidate helpers unavailable for automatic generation until the separately owned account/runtime/isolation, supervisor/cancel/reap, dispatch/UI and recovery requirements in `8gqw` are implemented and accepted. No source implementation or offline review constitutes a qualified Claude integration.
+
+All cases are deferred. No tests, build or runtime request was run for this source change.

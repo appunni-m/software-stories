@@ -16,6 +16,7 @@ mod chapter_review;
 mod chapter_store;
 mod chapters;
 mod agent_handoff;
+mod claude_agent;
 mod codex_agent;
 mod codex_commands;
 mod git_evidence;

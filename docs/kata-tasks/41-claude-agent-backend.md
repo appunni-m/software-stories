@@ -43,6 +43,16 @@ Reimplementing the agent loop, token extraction, invented universal effort optio
 ## Done evidence
 Auth eligibility decision, pinned worker adapter, configuration UI and later account/permission/cancel/chapter acceptance.
 
+## Source progress — October 15, protocol preparation only
+
+`src-tauri/src/claude_agent.rs` now prepares the documented programmatic CLI invocation and an environment-cleared command without spawning it. It validates native-owned runtime/account digests and model-specific effort capabilities, fixes approval to `dontAsk`, bounds turns, puts source on stdin, requests safe/restricted mode, removes external tools/MCP/customization and disables session persistence. Version `2.1.300` is a candidate from the official changelog, not an accepted runtime pin.
+
+The bounded output consumer checks initialization, session/model identity, permission/tool/customization scope and final structured output. The runtime's internal `StructuredOutput` formatter is distinct from external tools; its intermediate arguments/results cannot become chapters. Wrong/oversized/malformed/late output poisons the stream. A final result requires EOF and a successful process exit before it may reach the existing independent validators.
+
+`provider.rs` now shares the chapter/section review builder between Codex and the offline Claude contract. Claude review/revalidation binds captured evidence, selected section/base identity, executable hash/version, account digest and effective requested settings. No direct API request is built to obtain this context. The Claude contract explicitly remains pending qualification.
+
+**Not delivered:** runtime/account discovery, qualified model catalog, executable/account reinspection, bounded process supervisor/cancel/reap, Tauri dispatch, connection/generation UI, recovery, range/PR operations or permitted account-route evidence. These helpers have no registered native command and do not enable automatic Claude generation. Native code must supply runtime identity; the WebView cannot deserialize it. Environment clearing does not prove managed-policy behavior, OS confinement, provider egress restrictions or absence of internal model fallback. Qualify those before enabling a route. No tests, builds, agent processes, logins or model requests ran.
+
 ## References
 - https://code.claude.com/docs/en/agent-sdk/overview
 - https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan

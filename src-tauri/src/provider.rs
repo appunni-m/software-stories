@@ -2219,18 +2219,7 @@ pub(crate) fn build_codex_chapter_review(
             "Configure Codex, choose an advertised model and reasoning level, and use the supported Never approval policy.",
         ));
     }
-    let ChapterRequestContext {
-        selected_files,
-        selected_symbols,
-        selected_relationships,
-        index_evidence_truncated,
-        system_instruction,
-        user_prompt,
-        generation_config,
-        source_bytes,
-        purpose,
-        section_update_context,
-    } = build_chapter_context(
+    build_agent_chapter_review(
         storage_dir,
         &BuildProviderReviewInput {
             project_id: input.project_id.clone(),
@@ -2240,8 +2229,105 @@ pub(crate) fn build_codex_chapter_review(
             model_id: input.model_id.clone(),
             section_update: input.section_update.clone(),
         },
-    )?;
-    let mut output_schema = generation_config
+        AgentChapterTransport {
+            provider_id: "codex",
+            authentication: "chatgpt-account",
+            endpoint_url: "codex-app-server://stdio",
+            disclosure_version: "codex-account-2026-10-15-v1",
+            config: json!({
+                "contractVersion": "codex-chapter-v2", "effort": input.effort,
+                "approvalPolicy": "never", "executablePath": executable_path,
+                "shell": false, "webSearch": false,
+                "filesystem": "read-only staged selected source", "ephemeral": true,
+                "timeoutSeconds": 600,
+            }),
+        },
+    )
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct BuildClaudeReviewInput {
+    pub project_id: String,
+    pub snapshot_id: String,
+    pub target_path: Option<String>,
+    pub selected_paths: Vec<String>,
+    pub settings: crate::claude_agent::ClaudeGenerationSettings,
+    #[serde(default)]
+    pub section_update: Option<SectionUpdateReviewTarget>,
+}
+
+/// Offline operation preparation only. Native account/runtime qualification,
+/// dispatch and exact effective-setting verification remain separate work;
+/// creating this review cannot start a Claude process or grant consent.
+pub(crate) fn build_claude_chapter_review(
+    storage_dir: &Path,
+    input: &BuildClaudeReviewInput,
+    runtime: &crate::claude_agent::ClaudeReviewRuntime,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    runtime
+        .validate_settings(&input.settings)
+        .map_err(|message| failure(ProviderFailureKind::InvalidReview, message))?;
+    build_agent_chapter_review(
+        storage_dir,
+        &BuildProviderReviewInput {
+            project_id: input.project_id.clone(),
+            snapshot_id: input.snapshot_id.clone(),
+            target_path: input.target_path.clone(),
+            selected_paths: input.selected_paths.clone(),
+            model_id: input.settings.model_id.clone(),
+            section_update: input.section_update.clone(),
+        },
+        AgentChapterTransport {
+            provider_id: "claude-agent",
+            authentication: "claude-plan",
+            endpoint_url: "claude-agent-cli://stdio",
+            disclosure_version: "claude-agent-candidate-2026-10-15-v1",
+            config: json!({
+                "contractVersion": "claude-chapter-v1", "effort": input.settings.effort,
+                "approvalPolicy": "dontAsk", "maxTurns": input.settings.max_turns,
+                "executablePath": runtime.executable_path,
+                "executableSha256": runtime.executable_sha256,
+                "runtimeVersion": runtime.runtime_version,
+                "accountIdentitySha256": runtime.account_identity_sha256,
+                "shell": false, "webSearch": false, "externalTools": false,
+                "filesystem": "no model file tools; reviewed context over stdin",
+                "safeMode": true, "restricted": true, "ephemeral": true,
+                "timeoutSeconds": 600, "qualification": "pending",
+            }),
+        },
+    )
+}
+
+struct AgentChapterTransport<'a> {
+    provider_id: &'a str,
+    authentication: &'a str,
+    endpoint_url: &'a str,
+    disclosure_version: &'a str,
+    config: Value,
+}
+
+/// One evidence/schema/fingerprint path for bounded coding-agent chapters.
+/// Transport-specific controls stay explicit; this does not implement an agent
+/// loop, normalize vendors' effort enums or build a direct API wire request.
+fn build_agent_chapter_review(
+    storage_dir: &Path,
+    input: &BuildProviderReviewInput,
+    transport: AgentChapterTransport<'_>,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    let ChapterRequestContext {
+        selected_files,
+        selected_symbols,
+        selected_relationships,
+        index_evidence_truncated,
+        system_instruction,
+        user_prompt,
+        generation_config: chapter_config,
+        source_bytes,
+        purpose,
+        section_update_context,
+    } = build_chapter_context(storage_dir, input)?;
+    let mut output_schema = chapter_config
         .get("responseSchema")
         .cloned()
         .ok_or_else(|| {
@@ -2252,35 +2338,42 @@ pub(crate) fn build_codex_chapter_review(
         })?;
     crate::provider_api::lowercase_schema_types(&mut output_schema);
     close_agent_schema_objects(&mut output_schema);
-    let generation_config = json!({
-        "contractVersion": "codex-chapter-v2", "effort": input.effort,
-        "approvalPolicy": "never", "executablePath": executable_path,
-        "outputSchema": output_schema, "shell": false, "webSearch": false,
-        "filesystem": "read-only staged selected source", "ephemeral": true,
-        "timeoutSeconds": 600,
-    });
+    let AgentChapterTransport {
+        provider_id,
+        authentication,
+        endpoint_url,
+        disclosure_version,
+        config: mut generation_config,
+    } = transport;
+    generation_config
+        .as_object_mut()
+        .ok_or_else(|| {
+            failure(
+                ProviderFailureKind::InvalidReview,
+                "The coding-agent settings are invalid.",
+            )
+        })?
+        .insert("outputSchema".to_owned(), output_schema);
     let body = json!({
-        "provider": "codex", "authentication": "chatgpt-account", "model": input.model_id,
+        "provider": provider_id, "authentication": authentication, "model": input.model_id,
         "systemInstruction": system_instruction, "userPrompt": user_prompt,
-        "settings": generation_config,
-        "sectionUpdate": section_update_context,
+        "settings": generation_config, "sectionUpdate": section_update_context,
     });
     let encoded = serde_json::to_vec(&body).map_err(|_| {
         failure(
             ProviderFailureKind::InvalidReview,
-            "The Codex request contract could not be encoded.",
+            "The coding-agent request contract could not be encoded.",
         )
     })?;
     if encoded.len() > MAX_REQUEST_BODY_BYTES {
         return Err(failure(
             ProviderFailureKind::ContextTooLarge,
-            "The reviewed Codex operation exceeds 512 KB. Select fewer source files.",
+            "The reviewed coding-agent operation exceeds 512 KB. Select fewer source files.",
         ));
     }
     let request_body_sha256 = format!("{:x}", Sha256::digest(&encoded));
-    let disclosure_version = "codex-account-2026-10-15-v1";
     let fingerprint_input = json!({
-        "providerId": "codex", "projectId": input.project_id, "snapshotId": input.snapshot_id,
+        "providerId": provider_id, "projectId": input.project_id, "snapshotId": input.snapshot_id,
         "purpose": purpose, "targetPath": input.target_path, "modelId": input.model_id,
         "disclosureVersion": disclosure_version, "contractSha256": request_body_sha256,
         "selectedFiles": selected_files,
@@ -2289,7 +2382,7 @@ pub(crate) fn build_codex_chapter_review(
         "{:x}",
         Sha256::digest(serde_json::to_vec(&fingerprint_input).map_err(|_| failure(
             ProviderFailureKind::InvalidReview,
-            "The Codex review fingerprint could not be encoded."
+            "The coding-agent fingerprint could not be encoded."
         ))?)
     );
     let review = ProviderRequestReview {
@@ -2298,9 +2391,9 @@ pub(crate) fn build_codex_chapter_review(
         snapshot_id: input.snapshot_id.clone(),
         purpose: purpose.to_owned(),
         target_path: input.target_path.clone(),
-        provider_id: "codex".to_owned(),
+        provider_id: provider_id.to_owned(),
         model_id: input.model_id.clone(),
-        endpoint_url: "codex-app-server://stdio".to_owned(),
+        endpoint_url: endpoint_url.to_owned(),
         disclosure_version: disclosure_version.to_owned(),
         selected_files,
         selected_symbols,
@@ -2571,6 +2664,71 @@ pub(crate) fn revalidate_codex_chapter_review(
         return Err(failure(
             ProviderFailureKind::ReviewChanged,
             "The source, runtime configuration or chapter contract changed. Review a new Codex request.",
+        ));
+    }
+    Ok(())
+}
+
+/// Rebuild the exact offline Claude contract from native-owned runtime identity
+/// and immutable source. This does not authorize account use or execution.
+pub(crate) fn revalidate_claude_chapter_review(
+    storage_dir: &Path,
+    review: &ProviderRequestReview,
+    runtime: &crate::claude_agent::ClaudeReviewRuntime,
+) -> Result<(), ProviderFailure> {
+    if review.provider_id != "claude-agent" || review.expires_at_unix_ms <= unix_time_ms() {
+        return Err(failure(
+            ProviderFailureKind::ReviewExpired,
+            "Build a fresh Claude Agent review before generating.",
+        ));
+    }
+    let config = &review.generation_config;
+    let effort = match config.get("effort") {
+        Some(Value::Null) => None,
+        Some(Value::String(value)) => Some(value.clone()),
+        _ => {
+            return Err(failure(
+                ProviderFailureKind::InvalidReview,
+                "The reviewed Claude reasoning setting is invalid.",
+            ));
+        }
+    };
+    let max_turns = config["maxTurns"]
+        .as_u64()
+        .and_then(|value| u32::try_from(value).ok())
+        .ok_or_else(|| {
+            failure(
+                ProviderFailureKind::InvalidReview,
+                "The reviewed Claude turn limit is invalid.",
+            )
+        })?;
+    let input = BuildClaudeReviewInput {
+        project_id: review.project_id.clone(),
+        snapshot_id: review.snapshot_id.clone(),
+        target_path: review.target_path.clone(),
+        selected_paths: review
+            .selected_files
+            .iter()
+            .map(|file| file.path.clone())
+            .collect(),
+        settings: crate::claude_agent::ClaudeGenerationSettings {
+            model_id: review.model_id.clone(),
+            effort,
+            approval_policy: config["approvalPolicy"].as_str().unwrap_or("").to_owned(),
+            max_turns,
+        },
+        section_update: review.section_update_context.clone(),
+    };
+    let rebuilt = build_claude_chapter_review(storage_dir, &input, runtime)?;
+    if rebuilt.review.fingerprint != review.fingerprint
+        || rebuilt.review.request_body_preview != review.request_body_preview
+        || rebuilt.review.purpose != review.purpose
+        || rebuilt.review.section_update_context != review.section_update_context
+        || rebuilt.review.generation_config != review.generation_config
+    {
+        return Err(failure(
+            ProviderFailureKind::ReviewChanged,
+            "The source, Claude executable/account, settings or chapter contract changed. Prepare a new review.",
         ));
     }
     Ok(())

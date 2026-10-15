@@ -12,6 +12,8 @@ Direct APIs remain separately selectable. Manual handoff remains separately labe
 
 **Source** means native dispatch and local validation are present in source, with runtime acceptance still pending. **Missing** means the automatic adapter/operation is not implemented. None of these entries means production support.
 
+Claude now has offline invocation/stream-consumer and shared chapter/section review helpers in source. Its process supervisor, dispatch, UI and account/runtime qualification remain missing, so its automatic operation cells stay **Missing**.
+
 | Operation and result | Codex | Claude Agent | Antigravity |
 | --- | --- | --- | --- |
 | Plan a repository explanation with file coverage, ordering and evidence | Missing; the local static reading planner is separate | Missing | Missing |
