@@ -13,7 +13,7 @@ use tree_sitter::{Language, Node, ParseOptions, Parser, Point};
 use uuid::Uuid;
 
 const INDEX_SCHEMA_VERSION: u32 = 1;
-const INDEXER_VERSION: &str = "atlas-symbol-index-v1";
+const INDEXER_VERSION: &str = "atlas-symbol-index-v2";
 const TREE_SITTER_RUNTIME_VERSION: &str = "0.27.1";
 pub(crate) const MAX_INDEXED_FILES: usize = 5_000;
 pub(crate) const MAX_SOURCE_BYTES_PER_FILE: u64 = 512 * 1024;
@@ -219,7 +219,6 @@ struct WalkContext {
     scopes: Arc<Vec<String>>,
     owner_symbol_id: Option<Arc<str>>,
     owner_is_test: bool,
-    inside_export: bool,
 }
 
 impl Default for WalkContext {
@@ -228,7 +227,6 @@ impl Default for WalkContext {
             scopes: Arc::new(Vec::new()),
             owner_symbol_id: None,
             owner_is_test: false,
-            inside_export: false,
         }
     }
 }
@@ -236,7 +234,7 @@ impl Default for WalkContext {
 struct CallCandidate {
     path: String,
     source_id: String,
-    scopes: Arc<Vec<String>>,
+    binding: Option<BindingTarget>,
     is_test: bool,
     name: String,
     direct_identifier: bool,
@@ -250,11 +248,32 @@ struct ImportCandidate {
     unresolved_reason: Option<String>,
     bindings: Vec<ImportBinding>,
     anchor: SourceAnchor,
+    is_require_call: bool,
 }
 
 struct ImportBinding {
     local_name: String,
     imported_name: String,
+    is_value_binding: bool,
+}
+
+#[derive(Clone)]
+enum BindingTarget {
+    Symbol(String),
+    Import,
+    Unknown(&'static str),
+}
+
+struct LexicalBinding {
+    target: BindingTarget,
+    available_from: usize,
+}
+
+struct LexicalScope {
+    parent: Option<usize>,
+    function_scope: usize,
+    bindings: HashMap<String, Vec<LexicalBinding>>,
+    opaque: bool,
 }
 
 struct ParsedFile {
@@ -262,6 +281,7 @@ struct ParsedFile {
     symbols: Vec<IndexedSymbol>,
     calls: Vec<CallCandidate>,
     imports: Vec<ImportCandidate>,
+    callable_exports: BTreeSet<String>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -502,6 +522,7 @@ where
     let mut symbols = BTreeMap::<String, IndexedSymbol>::new();
     let mut call_candidates = Vec::new();
     let mut import_candidates = Vec::new();
+    let mut callable_exports = BTreeSet::new();
     let mut total_source_bytes = 0_u64;
     let mut total_import_bindings = 0_usize;
     let mut partial = false;
@@ -694,6 +715,7 @@ where
                     }
                     call_candidates.extend(parsed.calls);
                     import_candidates.extend(parsed.imports);
+                    callable_exports.extend(parsed.callable_exports);
                     files.push(parsed.file);
                 }
             }
@@ -710,8 +732,13 @@ where
     }
 
     let mut relationships = build_definition_relationships(&symbols);
-    let (import_relationships, imported_call_targets) =
-        resolve_imports(import_candidates, &files_by_path, &files, &symbols);
+    let (import_relationships, imported_call_targets) = resolve_imports(
+        import_candidates,
+        &files_by_path,
+        &files,
+        &symbols,
+        &callable_exports,
+    );
     relationships.extend(import_relationships);
     relationships.extend(resolve_calls(
         call_candidates,
@@ -961,6 +988,7 @@ fn collect_file_index(
     let parser = parser_version(language);
     let file_is_test = is_test_path(path);
     let mut symbols = Vec::new();
+    let mut declaration_occurrences = HashMap::<String, usize>::new();
     let mut calls = Vec::new();
     let mut imports = Vec::new();
     let mut import_binding_count = 0_usize;
@@ -980,8 +1008,7 @@ fn collect_file_index(
         if let Some((kind, name_node)) = declaration(&node, language, &context) {
             let name = node_text(name_node, source);
             if !name.is_empty() && name.len() <= 512 {
-                let exported = context.inside_export
-                    || (language == SupportedLanguage::Rust && rust_public(&node));
+                let exported = direct_module_export(node, language);
                 let is_test = kind.is_callable()
                     && (file_is_test
                         || (language == SupportedLanguage::Rust
@@ -997,7 +1024,18 @@ fn collect_file_index(
                     symbol_kind_label(&kind),
                     signature_sha256
                 );
-                let symbol_id = format!("sym:{}", digest(declaration_identity.as_bytes()));
+                let occurrence = declaration_occurrences
+                    .entry(declaration_identity.clone())
+                    .or_default();
+                *occurrence += 1;
+                // Keep the first declaration's stable identity while retaining
+                // repeated occurrences instead of silently collapsing ambiguity.
+                let occurrence_identity = if *occurrence == 1 {
+                    declaration_identity.clone()
+                } else {
+                    format!("{declaration_identity}:occurrence:{occurrence}")
+                };
+                let symbol_id = format!("sym:{}", digest(occurrence_identity.as_bytes()));
                 let indexed_symbol = IndexedSymbol {
                     symbol_id: symbol_id.clone(),
                     path: path.to_owned(),
@@ -1040,10 +1078,6 @@ fn collect_file_index(
             }
         }
 
-        let mut child_context = context.clone();
-        if node.kind() == "export_statement" || node.kind() == "export_declaration" {
-            child_context.inside_export = true;
-        }
         if is_import_node(node, language) {
             if let Some(candidate) = import_candidate(node, path, source, source_sha256, language) {
                 import_binding_count += candidate.bindings.len();
@@ -1055,7 +1089,7 @@ fn collect_file_index(
             }
         }
         if node.kind() == "call_expression" {
-            if !is_static_import_call(node, source) {
+            if language == SupportedLanguage::Rust || !is_static_import_call(node, source) {
                 calls.push(call_candidate(
                     node,
                     path,
@@ -1069,6 +1103,21 @@ fn collect_file_index(
             } else if let Some(candidate) =
                 import_candidate(node, path, source, source_sha256, language)
             {
+                // `require` is an ordinary identifier and can be shadowed.
+                // Keep its call until lexical binding analysis decides whether
+                // this is the conventional module loader or a local function.
+                if candidate.is_require_call {
+                    calls.push(call_candidate(
+                        node,
+                        path,
+                        source,
+                        source_sha256,
+                        &context,
+                        file_is_test,
+                        language,
+                        &file_id,
+                    ));
+                }
                 import_binding_count += candidate.bindings.len();
                 if import_binding_count > MAX_IMPORT_BINDINGS_PER_FILE {
                     analysis_limited = true;
@@ -1077,12 +1126,45 @@ fn collect_file_index(
                 imports.push(candidate);
             }
         }
-        push_children(node, child_context, depth, &mut stack);
+        push_children(node, context, depth, &mut stack);
     }
 
     if analysis_limited {
         return Err(ParseFailure::AnalysisLimit);
     }
+    let mut callable_exports =
+        bind_calls_lexically(root, source, language, &symbols, &mut calls, cancellation)?;
+    if parse_error_count > 0 {
+        callable_exports.clear();
+        for call in &mut calls {
+            if call.direct_identifier {
+                call.binding = Some(BindingTarget::Unknown("source_has_parse_errors"));
+            }
+        }
+    }
+    let require_calls = imports
+        .iter()
+        .filter(|import| import.is_require_call)
+        .map(|import| import.anchor.start_byte)
+        .collect::<BTreeSet<_>>();
+    let shadowed_require_calls = calls
+        .iter()
+        .filter(|call| {
+            require_calls.contains(&call.anchor.start_byte)
+                && !matches!(
+                    call.binding.as_ref(),
+                    Some(BindingTarget::Unknown("no_visible_lexical_binding"))
+                )
+        })
+        .map(|call| call.anchor.start_byte)
+        .collect::<BTreeSet<_>>();
+    imports.retain(|import| {
+        !import.is_require_call || !shadowed_require_calls.contains(&import.anchor.start_byte)
+    });
+    calls.retain(|call| {
+        !require_calls.contains(&call.anchor.start_byte)
+            || shadowed_require_calls.contains(&call.anchor.start_byte)
+    });
     let status = if parse_error_count > 0 {
         if symbols.is_empty() {
             IndexFileStatus::ParseError
@@ -1115,7 +1197,556 @@ fn collect_file_index(
         symbols,
         calls,
         imports,
+        callable_exports,
     })
+}
+
+fn direct_module_export(node: Node<'_>, language: SupportedLanguage) -> bool {
+    if language == SupportedLanguage::Rust {
+        return node
+            .parent()
+            .is_some_and(|parent| parent.kind() == "source_file")
+            && rust_public(&node);
+    }
+    let mut declaration = node;
+    if node.kind() == "variable_declarator" {
+        let Some(parent) = node.parent() else {
+            return false;
+        };
+        declaration = parent;
+    }
+    let Some(export) = declaration.parent() else {
+        return false;
+    };
+    matches!(export.kind(), "export_statement" | "export_declaration")
+        && export
+            .parent()
+            .is_some_and(|parent| parent.kind() == "program")
+        && !(0..export.child_count()).any(|index| {
+            export
+                .child(index)
+                .is_some_and(|child| child.kind() == "default")
+        })
+}
+
+fn lexical_function(kind: &str) -> bool {
+    matches!(
+        kind,
+        "function_item"
+            | "function_signature_item"
+            | "function_declaration"
+            | "function_signature"
+            | "generator_function_declaration"
+            | "function_expression"
+            | "generator_function"
+            | "arrow_function"
+            | "method_definition"
+            | "method_signature"
+            | "abstract_method_signature"
+            | "closure_expression"
+    )
+}
+
+fn lexical_block(kind: &str) -> bool {
+    matches!(
+        kind,
+        "block"
+            | "statement_block"
+            | "switch_body"
+            | "catch_clause"
+            | "for_statement"
+            | "for_in_statement"
+            | "for_expression"
+            | "match_arm"
+            | "if_expression"
+            | "while_expression"
+            | "class_declaration"
+            | "abstract_class_declaration"
+            | "class"
+            | "impl_item"
+            | "trait_item"
+            | "mod_item"
+            | "internal_module"
+            | "module"
+            | "with_statement"
+    )
+}
+
+// Only binding positions are visited. Property keys, type names and default
+// value expressions must never become variables in the enclosing scope.
+fn pattern_binding_names(pattern: Node<'_>, source: &str) -> (Vec<String>, bool) {
+    let mut names = BTreeSet::new();
+    let mut stack = vec![pattern];
+    let mut understood = true;
+    while let Some(node) = stack.pop() {
+        match node.kind() {
+            "identifier"
+            | "shorthand_property_identifier_pattern"
+            | "shorthand_field_identifier" => {
+                names.insert(node_text(node, source));
+            }
+            "required_parameter" | "optional_parameter" | "parameter" => {
+                if let Some(binding) = node
+                    .child_by_field_name("pattern")
+                    .or_else(|| node.child_by_field_name("name"))
+                {
+                    stack.push(binding);
+                } else {
+                    understood = false;
+                }
+            }
+            "assignment_pattern" | "object_assignment_pattern" => {
+                if let Some(left) = node.child_by_field_name("left") {
+                    stack.push(left);
+                }
+            }
+            "pair_pattern" => {
+                if let Some(value) = node.child_by_field_name("value") {
+                    stack.push(value);
+                }
+            }
+            "field_pattern" => {
+                if let Some(binding) = node
+                    .child_by_field_name("pattern")
+                    .or_else(|| node.child_by_field_name("name"))
+                {
+                    if binding.kind() != "field_identifier" {
+                        stack.push(binding);
+                    }
+                }
+            }
+            "formal_parameters"
+            | "parameters"
+            | "closure_parameters"
+            | "array_pattern"
+            | "object_pattern"
+            | "rest_pattern"
+            | "tuple_pattern"
+            | "slice_pattern"
+            | "or_pattern"
+            | "reference_pattern"
+            | "ref_pattern"
+            | "mut_pattern"
+            | "captured_pattern"
+            | "struct_pattern"
+            | "tuple_struct_pattern"
+            | "match_pattern" => {
+                let type_node = node.child_by_field_name("type");
+                let condition = node.child_by_field_name("condition");
+                for index in 0..node.named_child_count() {
+                    if let Some(child) = node.named_child(index as u32) {
+                        if type_node.is_some_and(|item| item.id() == child.id())
+                            || condition.is_some_and(|item| item.id() == child.id())
+                        {
+                            continue;
+                        }
+                        stack.push(child);
+                    }
+                }
+            }
+            "self"
+            | "self_parameter"
+            | "this"
+            | "_"
+            | "remaining_field_pattern"
+            | "mutable_specifier"
+            | "lifetime"
+            | "scoped_identifier"
+            | "scoped_type_identifier"
+            | "type_identifier"
+            | "range_pattern"
+            | "integer_literal"
+            | "float_literal"
+            | "string_literal"
+            | "char_literal"
+            | "boolean_literal"
+            | "negative_literal" => {}
+            _ => understood = false,
+        }
+    }
+    (names.into_iter().collect(), understood)
+}
+
+fn add_pattern_bindings(
+    scopes: &mut [LexicalScope],
+    scope: usize,
+    pattern: Node<'_>,
+    source: &str,
+    target: BindingTarget,
+    available_from: usize,
+) {
+    let (names, understood) = pattern_binding_names(pattern, source);
+    scopes[scope].opaque |= !understood;
+    for name in names {
+        scopes[scope]
+            .bindings
+            .entry(name)
+            .or_default()
+            .push(LexicalBinding {
+                target: target.clone(),
+                available_from,
+            });
+    }
+}
+
+fn binding_scope(scopes: &[LexicalScope], mut scope: usize, name: &str) -> Option<usize> {
+    loop {
+        if scopes[scope].bindings.contains_key(name) || scopes[scope].opaque {
+            return Some(scope);
+        }
+        scope = scopes[scope].parent?;
+    }
+}
+
+fn add_rust_import_bindings(scope: &mut LexicalScope, node: Node<'_>, source: &str) {
+    let mut stack = vec![node];
+    while let Some(node) = stack.pop() {
+        let name = match node.kind() {
+            "identifier" => Some(node),
+            "use_as_clause" => node.child_by_field_name("alias"),
+            "scoped_identifier" => node.child_by_field_name("name"),
+            "use_declaration" => {
+                if let Some(argument) = node.child_by_field_name("argument") {
+                    stack.push(argument);
+                }
+                None
+            }
+            "scoped_use_list" => {
+                if let Some(list) = node.child_by_field_name("list") {
+                    stack.push(list);
+                }
+                None
+            }
+            "use_list" => {
+                for index in 0..node.named_child_count() {
+                    if let Some(child) = node.named_child(index as u32) {
+                        stack.push(child);
+                    }
+                }
+                None
+            }
+            _ => {
+                // Glob imports and context-dependent `self` imports cannot be
+                // enumerated without resolving Rust's module graph.
+                scope.opaque = true;
+                None
+            }
+        };
+        if let Some(name) = name {
+            scope
+                .bindings
+                .entry(node_text(name, source))
+                .or_default()
+                .push(LexicalBinding {
+                    target: BindingTarget::Unknown("rust_import_binding_not_resolved"),
+                    available_from: 0,
+                });
+        }
+    }
+}
+
+fn bind_calls_lexically(
+    root: Node<'_>,
+    source: &str,
+    language: SupportedLanguage,
+    symbols: &[IndexedSymbol],
+    calls: &mut [CallCandidate],
+    cancellation: &AtomicBool,
+) -> Result<BTreeSet<String>, ParseFailure> {
+    let symbols_by_span = symbols
+        .iter()
+        .map(|symbol| ((symbol.anchor.start_byte, symbol.anchor.end_byte), symbol))
+        .collect::<HashMap<_, _>>();
+    let mut scopes = vec![LexicalScope {
+        parent: None,
+        function_scope: 0,
+        bindings: HashMap::new(),
+        opaque: false,
+    }];
+    let mut call_scopes = HashMap::new();
+    let mut assignments = Vec::new();
+    let mut stack = vec![(root, 0_usize, 0_usize)];
+    let mut visited = 0_usize;
+    while let Some((node, inherited_scope, depth)) = stack.pop() {
+        if cancellation.load(Ordering::Relaxed) {
+            return Err(ParseFailure::Cancelled);
+        }
+        visited += 1;
+        if visited > MAX_AST_NODES_PER_FILE || depth > MAX_SCOPE_DEPTH {
+            return Err(ParseFailure::AnalysisLimit);
+        }
+        let kind = node.kind();
+        let symbol = symbols_by_span
+            .get(&(node.start_byte(), node.end_byte()))
+            .copied();
+        // Declarations bind outside their own body; methods do not introduce
+        // bare lexical names, and named function/class expressions bind inside.
+        if let Some(symbol) = symbol {
+            if !matches!(kind, "variable_declarator" | "class") && symbol.kind != SymbolKind::Method
+            {
+                scopes[inherited_scope]
+                    .bindings
+                    .entry(symbol.name.clone())
+                    .or_default()
+                    .push(LexicalBinding {
+                        target: if symbol.kind.is_callable() {
+                            BindingTarget::Symbol(symbol.symbol_id.clone())
+                        } else {
+                            BindingTarget::Unknown("nearest_binding_is_not_a_static_callable")
+                        },
+                        available_from: 0,
+                    });
+            }
+        }
+        let function = lexical_function(kind);
+        let mut scope = inherited_scope;
+        if function || lexical_block(kind) {
+            scope = scopes.len();
+            let module = matches!(kind, "mod_item" | "internal_module" | "module");
+            scopes.push(LexicalScope {
+                // A Rust module has its own namespace; outer items require an
+                // explicit use/super path, unlike a closure's lexical lookup.
+                parent: if language == SupportedLanguage::Rust && kind == "mod_item" {
+                    None
+                } else {
+                    Some(inherited_scope)
+                },
+                function_scope: if function || module {
+                    scope
+                } else {
+                    scopes[inherited_scope].function_scope
+                },
+                bindings: HashMap::new(),
+                opaque: kind == "with_statement",
+            });
+        }
+        if function {
+            if let Some(parameters) = node
+                .child_by_field_name("parameters")
+                .or_else(|| node.child_by_field_name("parameter"))
+            {
+                add_pattern_bindings(
+                    &mut scopes,
+                    scope,
+                    parameters,
+                    source,
+                    BindingTarget::Unknown("call_is_shadowed_by_parameter"),
+                    0,
+                );
+            }
+            if matches!(kind, "function_expression" | "generator_function") {
+                if let Some(name) = node.child_by_field_name("name") {
+                    add_pattern_bindings(
+                        &mut scopes,
+                        scope,
+                        name,
+                        source,
+                        BindingTarget::Unknown("named_function_expression_not_resolved"),
+                        0,
+                    );
+                }
+            }
+        }
+        if kind == "class" {
+            if let Some(name) = node.child_by_field_name("name") {
+                // TypeScript class names use type_identifier, but they occupy
+                // the value namespace too.
+                scopes[scope]
+                    .bindings
+                    .entry(node_text(name, source))
+                    .or_default()
+                    .push(LexicalBinding {
+                        target: BindingTarget::Unknown("class_binding_is_not_a_direct_call"),
+                        available_from: 0,
+                    });
+            }
+        }
+        match kind {
+            "variable_declarator" => {
+                if let Some(pattern) = node.child_by_field_name("name") {
+                    let destination = if node
+                        .parent()
+                        .is_some_and(|parent| parent.kind() == "variable_declaration")
+                    {
+                        scopes[scope].function_scope
+                    } else {
+                        scope
+                    };
+                    let target = symbol
+                        .filter(|symbol| symbol.kind.is_callable())
+                        .map(|symbol| BindingTarget::Symbol(symbol.symbol_id.clone()))
+                        .unwrap_or(BindingTarget::Unknown("call_is_shadowed_by_local_binding"));
+                    add_pattern_bindings(
+                        &mut scopes,
+                        destination,
+                        pattern,
+                        source,
+                        target,
+                        node.end_byte(),
+                    );
+                }
+            }
+            "let_declaration" | "let_condition" | "for_expression" | "match_arm" => {
+                if let Some(pattern) = node.child_by_field_name("pattern") {
+                    add_pattern_bindings(
+                        &mut scopes,
+                        scope,
+                        pattern,
+                        source,
+                        BindingTarget::Unknown("call_is_shadowed_by_pattern_binding"),
+                        0,
+                    );
+                }
+            }
+            "catch_clause" => {
+                if let Some(pattern) = node.child_by_field_name("parameter") {
+                    add_pattern_bindings(
+                        &mut scopes,
+                        scope,
+                        pattern,
+                        source,
+                        BindingTarget::Unknown("call_is_shadowed_by_catch_binding"),
+                        0,
+                    );
+                }
+            }
+            "for_in_statement" => {
+                if let Some(pattern) = node.child_by_field_name("left") {
+                    if node.child_by_field_name("kind").is_none() {
+                        let (names, _) = pattern_binding_names(pattern, source);
+                        assignments.push((scope, names));
+                    } else {
+                        let destination = if node
+                            .child_by_field_name("kind")
+                            .is_some_and(|kind| kind.kind() == "var")
+                        {
+                            scopes[scope].function_scope
+                        } else {
+                            scope
+                        };
+                        add_pattern_bindings(
+                            &mut scopes,
+                            destination,
+                            pattern,
+                            source,
+                            BindingTarget::Unknown("call_is_shadowed_by_loop_binding"),
+                            0,
+                        );
+                    }
+                }
+            }
+            "import_statement" => {
+                for binding in import_bindings(node, source) {
+                    scopes[scope]
+                        .bindings
+                        .entry(binding.local_name)
+                        .or_default()
+                        .push(LexicalBinding {
+                            target: if binding.is_value_binding
+                                && binding.imported_name != "default"
+                                && binding.imported_name != "*"
+                            {
+                                BindingTarget::Import
+                            } else {
+                                BindingTarget::Unknown("import_binding_not_statically_resolved")
+                            },
+                            available_from: 0,
+                        });
+                }
+            }
+            "use_declaration" if language == SupportedLanguage::Rust => {
+                // Rust use trees need crate/module resolution; until that is
+                // available, do not let an unresolved import expose an outer
+                // declaration with the same name as a high-confidence call.
+                add_rust_import_bindings(&mut scopes[scope], node, source);
+            }
+            "assignment_expression"
+            | "augmented_assignment_expression"
+            | "compound_assignment_expr" => {
+                if let Some(left) = node.child_by_field_name("left") {
+                    let (names, _) = pattern_binding_names(left, source);
+                    assignments.push((scope, names));
+                }
+            }
+            "update_expression" => {
+                if let Some(argument) = node.child_by_field_name("argument") {
+                    let (names, _) = pattern_binding_names(argument, source);
+                    assignments.push((scope, names));
+                }
+            }
+            "call_expression" => {
+                call_scopes.insert(node.start_byte(), scope);
+                if language != SupportedLanguage::Rust
+                    && node.child_by_field_name("function").is_some_and(|callee| {
+                        callee.kind() == "identifier" && node_text(callee, source) == "eval"
+                    })
+                {
+                    let function_scope = scopes[scope].function_scope;
+                    scopes[function_scope].opaque = true;
+                }
+            }
+            _ => {}
+        }
+        for index in (0..node.named_child_count()).rev() {
+            if let Some(child) = node.named_child(index as u32) {
+                stack.push((child, scope, depth + 1));
+            }
+        }
+    }
+    // An assignment anywhere in the lexical lifetime makes a static target
+    // uncertain. This intentionally avoids pretending to perform data flow.
+    for (scope, names) in assignments {
+        for name in names {
+            if let Some(destination) = binding_scope(&scopes, scope, &name) {
+                if let Some(bindings) = scopes[destination].bindings.get_mut(&name) {
+                    for binding in bindings {
+                        binding.target = BindingTarget::Unknown("binding_is_reassigned");
+                    }
+                }
+            }
+        }
+    }
+    for call in calls.iter_mut().filter(|call| call.direct_identifier) {
+        if cancellation.load(Ordering::Relaxed) {
+            return Err(ParseFailure::Cancelled);
+        }
+        let Some(scope) = call_scopes.get(&call.anchor.start_byte).copied() else {
+            call.binding = Some(BindingTarget::Unknown("lexical_scope_unavailable"));
+            continue;
+        };
+        let Some(destination) = binding_scope(&scopes, scope, &call.name) else {
+            call.binding = Some(BindingTarget::Unknown("no_visible_lexical_binding"));
+            continue;
+        };
+        call.binding = Some(if scopes[destination].opaque {
+            BindingTarget::Unknown("lexical_scope_contains_unresolved_bindings")
+        } else {
+            match scopes[destination]
+                .bindings
+                .get(&call.name)
+                .map(Vec::as_slice)
+            {
+                Some([binding]) if call.anchor.start_byte >= binding.available_from => {
+                    binding.target.clone()
+                }
+                Some([_]) => BindingTarget::Unknown("binding_not_initialized_at_call_site"),
+                Some(_) => BindingTarget::Unknown("multiple_bindings_in_lexical_scope"),
+                None => BindingTarget::Unknown("no_visible_lexical_binding"),
+            }
+        });
+    }
+    Ok(symbols
+        .iter()
+        .filter(|symbol| {
+            symbol.is_exported
+                && symbol.kind.is_callable()
+                && !scopes[0].opaque
+                && matches!(scopes[0].bindings.get(&symbol.name).map(Vec::as_slice),
+                Some([LexicalBinding { target: BindingTarget::Symbol(target), .. }])
+                    if target == &symbol.symbol_id)
+        })
+        .map(|symbol| symbol.symbol_id.clone())
+        .collect())
 }
 
 fn push_children<'tree>(
@@ -1139,11 +1770,15 @@ fn declaration<'tree>(
     let kind = node.kind();
     let symbol_kind = match language {
         SupportedLanguage::Rust => match kind {
-            "function_item" | "function_signature" => {
+            "function_item" | "function_signature" | "function_signature_item" => {
                 if context
                     .scopes
                     .last()
                     .is_some_and(|scope| scope.starts_with("impl:"))
+                    || node
+                        .parent()
+                        .and_then(|parent| parent.parent())
+                        .is_some_and(|parent| parent.kind() == "trait_item")
                 {
                     SymbolKind::Method
                 } else {
@@ -1393,7 +2028,7 @@ fn call_candidate(
             .as_deref()
             .unwrap_or(file_id)
             .to_owned(),
-        scopes: Arc::clone(&context.scopes),
+        binding: None,
         is_test: context.owner_is_test || file_is_test,
         name: safe_name,
         direct_identifier,
@@ -1432,6 +2067,7 @@ fn import_candidate(
             unresolved_reason: Some("rust_use_path_not_resolved_in_m0".to_owned()),
             bindings: Vec::new(),
             anchor: anchor(path, source_sha256, node),
+            is_require_call: false,
         });
     }
 
@@ -1457,6 +2093,10 @@ fn import_candidate(
         module_specifier: specifier,
         bindings,
         anchor: anchor(path, source_sha256, node),
+        is_require_call: node.kind() == "call_expression"
+            && node.child_by_field_name("function").is_some_and(|callee| {
+                callee.kind() == "identifier" && node_text(callee, source) == "require"
+            }),
     })
 }
 
@@ -1467,6 +2107,9 @@ fn import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
     else {
         return Vec::new();
     };
+    let declaration_is_type_only = (0..node.child_count())
+        .filter_map(|index| node.child(index))
+        .any(|child| !child.is_named() && child.kind() == "type");
     let mut bindings = Vec::new();
     for index in 0..clause.named_child_count() {
         let Some(child) = clause.named_child(index as u32) else {
@@ -1479,6 +2122,7 @@ fn import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
                 bindings.push(ImportBinding {
                     local_name: node_text(child, source).to_owned(),
                     imported_name: "default".to_owned(),
+                    is_value_binding: !declaration_is_type_only,
                 });
             }
             "named_imports" => {
@@ -1501,13 +2145,25 @@ fn import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
                         bindings.push(ImportBinding {
                             local_name,
                             imported_name,
+                            is_value_binding: !declaration_is_type_only
+                                && !(0..specifier.child_count())
+                                    .filter_map(|index| specifier.child(index))
+                                    .any(|child| !child.is_named() && child.kind() == "type"),
                         });
                     }
                 }
             }
             // Namespace-member calls need type-aware dispatch to be safe. The import edge
             // remains indexed while calls such as `api.run()` remain explicitly unresolved.
-            "namespace_import" => {}
+            "namespace_import" => {
+                if let Some(name) = child.named_child(0) {
+                    bindings.push(ImportBinding {
+                        local_name: node_text(name, source),
+                        imported_name: "*".to_owned(),
+                        is_value_binding: !declaration_is_type_only,
+                    });
+                }
+            }
             _ => {}
         }
     }
@@ -1564,6 +2220,7 @@ fn resolve_imports(
     captured_paths: &BTreeSet<String>,
     files: &[IndexedFile],
     symbols: &BTreeMap<String, IndexedSymbol>,
+    callable_exports: &BTreeSet<String>,
 ) -> (
     Vec<IndexedRelationship>,
     HashMap<(String, String), Vec<String>>,
@@ -1575,7 +2232,7 @@ fn resolve_imports(
         .collect::<BTreeSet<_>>();
     let mut exported_callables = HashMap::<(String, String), Vec<String>>::new();
     for symbol in symbols.values().filter(|symbol| {
-        symbol.is_exported
+        callable_exports.contains(&symbol.symbol_id)
             && symbol.kind.is_callable()
             && fully_parsed.contains(symbol.path.as_str())
     }) {
@@ -1622,7 +2279,9 @@ fn resolve_imports(
             continue;
         }
         for binding in candidate.bindings {
-            if binding.imported_name == "default" {
+            if !binding.is_value_binding
+                || matches!(binding.imported_name.as_str(), "default" | "*")
+            {
                 continue;
             }
             if let Some(matching_symbols) =
@@ -1700,50 +2359,38 @@ fn resolve_calls(
     symbols: &BTreeMap<String, IndexedSymbol>,
     imported_targets: &HashMap<(String, String), Vec<String>>,
 ) -> Vec<IndexedRelationship> {
-    let mut by_qualified = HashMap::<(String, String), Vec<&IndexedSymbol>>::new();
-    for symbol in symbols.values().filter(|symbol| symbol.kind.is_callable()) {
-        by_qualified
-            .entry((symbol.path.clone(), symbol.qualified_name.clone()))
-            .or_default()
-            .push(symbol);
-    }
     candidates
         .into_iter()
         .map(|candidate| {
             let mut target = None;
             let mut unresolved_reason = candidate.unresolved_reason.clone();
             if candidate.direct_identifier {
-                let scopes = candidate.scopes.as_ref();
-                for depth in (0..=scopes.len()).rev() {
-                    let qualified_name = qualify(&scopes[..depth], &candidate.name);
-                    let matches = by_qualified
-                        .get(&(candidate.path.clone(), qualified_name))
-                        .map(Vec::as_slice)
-                        .unwrap_or_default();
-                    if matches.len() == 1 {
-                        target = matches.first().map(|symbol| symbol.symbol_id.clone());
+                match candidate.binding {
+                    Some(BindingTarget::Symbol(symbol_id)) if symbols.contains_key(&symbol_id) => {
+                        target = Some(symbol_id);
                         unresolved_reason = None;
-                        break;
                     }
-                    if matches.len() > 1 {
-                        unresolved_reason = Some("multiple_same_scope_declarations".to_owned());
-                        break;
-                    }
-                }
-                if target.is_none() && unresolved_reason.is_none() {
-                    match imported_targets.get(&(candidate.path.clone(), candidate.name.clone())) {
-                        Some(matches) if matches.len() == 1 => {
-                            target = matches.first().cloned();
-                            unresolved_reason = None;
-                        }
-                        Some(matches) if matches.len() > 1 => {
-                            unresolved_reason = Some("multiple_imported_export_matches".to_owned());
-                        }
-                        _ => {
-                            unresolved_reason =
-                                Some("no_unique_same_file_or_imported_declaration".to_owned());
+                    Some(BindingTarget::Import) => {
+                        match imported_targets
+                            .get(&(candidate.path.clone(), candidate.name.clone()))
+                        {
+                            Some(matches) if matches.len() == 1 => {
+                                target = matches.first().cloned();
+                                unresolved_reason = None;
+                            }
+                            Some(matches) if matches.len() > 1 => {
+                                unresolved_reason =
+                                    Some("multiple_imported_export_matches".to_owned());
+                            }
+                            _ => {
+                                unresolved_reason = Some("no_unique_imported_export".to_owned());
+                            }
                         }
                     }
+                    Some(BindingTarget::Unknown(reason)) => {
+                        unresolved_reason = Some(reason.to_owned());
+                    }
+                    _ => unresolved_reason = Some("lexical_target_unavailable".to_owned()),
                 }
             }
             let kind = if candidate.is_test {
