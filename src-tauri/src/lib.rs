@@ -8,8 +8,8 @@
 
 #![deny(missing_docs)]
 
-mod bounded_process;
 mod bounded_file;
+mod bounded_process;
 mod chapter_freshness;
 mod chapter_generation;
 mod chapter_review;

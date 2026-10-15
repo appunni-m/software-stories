@@ -2497,6 +2497,76 @@ mod tests {
     }
 
     #[test]
+    fn base_and_head_revision_indexes_apply_lexical_shadowing_independently() {
+        let temporary = TestDirectory::new();
+        let repository = temporary.path();
+        init_repository(repository);
+        fs::create_dir_all(repository.join("src")).unwrap();
+        fs::write(
+            repository.join("src/worker.ts"),
+            "export function targetFn(value: number): number { return value + 1; }\n",
+        )
+        .unwrap();
+        fs::write(
+            repository.join("src/client.ts"),
+            concat!(
+                "import { targetFn } from './worker';\n",
+                "export function caller(targetFn: (value: number) => number) { return targetFn(1); }\n",
+            ),
+        )
+        .unwrap();
+        let base = commit_fixture(repository, "shadowed base");
+
+        fs::write(
+            repository.join("src/worker.ts"),
+            "export function targetFn(value: number): number { return value + 2; }\n",
+        )
+        .unwrap();
+        fs::write(
+            repository.join("src/client.ts"),
+            concat!(
+                "import { targetFn } from './worker';\n",
+                "export function caller() { return targetFn(1); }\n",
+            ),
+        )
+        .unwrap();
+        let head = commit_fixture(repository, "unshadowed head");
+
+        let result = compare_local_revisions(repository, &base, &head);
+        assert_eq!(result.status, GitComparisonStatus::Ready);
+        assert_eq!(
+            result.relationship_impact.status,
+            GitRelationshipImpactStatus::Complete,
+            "{}",
+            result.relationship_impact.message
+        );
+        let change = file_change(&result, "src/worker.ts");
+        assert_eq!(change.base_relationships.len(), 1);
+        assert_eq!(change.base_relationships[0].kind, "imports");
+        assert_eq!(change.base_relationships[0].confidence, "high");
+        assert_eq!(change.head_relationships.len(), 2);
+        let head_call = change
+            .head_relationships
+            .iter()
+            .find(|relationship| relationship.kind == "calls")
+            .expect("the unshadowed head call should resolve to the changed declaration");
+        assert_eq!(head_call.confidence, "high");
+        assert_eq!(head_call.target_name.as_deref(), Some("targetFn"));
+        let target = head_call
+            .target_anchor
+            .as_ref()
+            .expect("the resolved target must retain its exact head anchor");
+        assert_eq!(target.revision_id, head);
+        assert_eq!(target.path, "src/worker.ts");
+        assert_eq!(target.blob_id, blob_at(repository, &head, "src/worker.ts"));
+        assert_eq!(head_call.evidence_anchor.revision_id, head);
+        assert_eq!(
+            head_call.evidence_anchor.blob_id,
+            blob_at(repository, &head, "src/client.ts")
+        );
+    }
+
+    #[test]
     fn labels_relationship_evidence_partial_when_a_supported_file_is_parser_uncertain() {
         let temporary = TestDirectory::new();
         let repository = temporary.path();

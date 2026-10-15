@@ -1873,10 +1873,9 @@ fn rust_public(node: &Node<'_>) -> bool {
     // Restricted visibility (`pub(crate)`, `pub(super)`, `pub(in path)`) is not
     // a crate-root export and must not become a high-confidence export edge.
     (0..node.child_count()).any(|index| {
-        node.child(index)
-            .is_some_and(|child| {
-                child.kind() == "visibility_modifier" && child.named_child_count() == 0
-            })
+        node.child(index).is_some_and(|child| {
+            child.kind() == "visibility_modifier" && child.named_child_count() == 0
+        })
     })
 }
 
@@ -2637,6 +2636,363 @@ mod tests {
                     && edge.target_label.as_deref() == Some(label)
             })
             .unwrap_or_else(|| panic!("missing {kind:?} relationship for {source_path}:{label}"))
+    }
+
+    fn call_at_line<'a>(
+        index: &'a SnapshotIndex,
+        source_path: &str,
+        line: usize,
+        label: &str,
+    ) -> &'a IndexedRelationship {
+        index
+            .relationships
+            .iter()
+            .find(|edge| {
+                edge.kind == RelationshipKind::Calls
+                    && edge.evidence.path == source_path
+                    && edge.evidence.start_line == line
+                    && edge.target_label.as_deref() == Some(label)
+            })
+            .unwrap_or_else(|| panic!("missing call relationship for {source_path}:{line}:{label}"))
+    }
+
+    fn assert_unresolved_call(
+        index: &SnapshotIndex,
+        source_path: &str,
+        line: usize,
+        label: &str,
+        reason: &str,
+    ) {
+        let call = call_at_line(index, source_path, line, label);
+        assert_eq!(
+            call.confidence,
+            RelationshipConfidence::Unresolved,
+            "{source_path}:{line}:{label} reason={reason}: {call:#?}"
+        );
+        assert_eq!(call.target_id, None);
+        assert_eq!(call.target_path, None);
+        assert_eq!(call.unresolved_reason.as_deref(), Some(reason));
+    }
+
+    #[test]
+    fn lexical_resolution_is_conservative_across_the_shipped_grammars() {
+        let temporary = TestDirectory::new();
+        let root = temporary.path().join("repository");
+        fs::create_dir_all(&root).unwrap();
+        git(&root, &["init", "-q", "--initial-branch=main"]);
+        git(&root, &["config", "user.name", "Code Atlas Index Tests"]);
+        git(
+            &root,
+            &["config", "user.email", "index-tests@example.invalid"],
+        );
+
+        write_fixture(
+            &root,
+            "src/ts-worker.ts",
+            concat!(
+                "export function imported(value: string) { return value; }\n",
+                "export function duplicateExport() {}\n",
+                "export function duplicateExport() {}\n",
+            ),
+        );
+        let typescript = concat!(
+            "import { imported as run, duplicateExport } from './ts-worker';\n",
+            "export function direct() { return run('direct'); }\n",
+            "export function parameter(run: (value: string) => string) { return run('parameter'); }\n",
+            "export function defaultParameter(run = (value: string) => value) { return run('default'); }\n",
+            "export function destructured({ run }: { run: (value: string) => string }) { return run('destructured'); }\n",
+            "export function destructuredDefault({ run = (value: string) => value }: { run?: (value: string) => string }) { return run('destructured default'); }\n",
+            "export function blockScoped() { { const run = (value: string) => value; run('block'); } }\n",
+            "export function nonCallableShadow() { { const run = 'not a function'; run(); } }\n",
+            "export function caught() { try { throw (value: string) => value; } catch (run) { run('catch'); } }\n",
+            "export function looped(values: Array<(value: string) => string>) { for (const run of values) { run('loop'); } }\n",
+            "export function reassigned() { let local = (value: string) => value; local = run; return local('changed'); }\n",
+            "export function temporal() { late(); const late = () => ''; }\n",
+            "export function duplicate() {}\n",
+            "export function duplicate() {}\n",
+            "export function callsDuplicate() { duplicate(); }\n",
+            "export function enclosing() { function nested() {} class Inner { method() {} } nested(); }\n",
+            "export function callsAmbiguousImport() { duplicateExport(); }\n",
+        );
+        write_fixture(&root, "src/shadow.ts", typescript);
+        write_fixture(
+            &root,
+            "src/worker.js",
+            "export function imported(value) { return value; }\n",
+        );
+        write_fixture(
+            &root,
+            "src/client.js",
+            concat!(
+                "import { imported as run } from './worker.js';\n",
+                "export function direct() { return run('direct'); }\n",
+                "export function parameter(run) { return run('parameter'); }\n",
+                "export function defaultParameter(run = value => value) { return run('default'); }\n",
+                "export function destructured({ run }) { return run('destructured'); }\n",
+                "export function blockScoped() { { const run = value => value; run('block'); } }\n",
+            ),
+        );
+        write_fixture(
+            &root,
+            "src/component.tsx",
+            concat!(
+                "import { imported as run } from './ts-worker';\n",
+                "export function direct() { return run('tsx'); }\n",
+                "export function parameter(run: (value: string) => string) { return run('parameter'); }\n",
+                "export const Handler = ({ run }: { run: (value: string) => string }) => <button onClick={() => run('handler')} />;\n",
+            ),
+        );
+        write_fixture(
+            &root,
+            "src/main.rs",
+            concat!(
+                "fn helper() {}\n",
+                "pub fn direct() { helper(); }\n",
+                "pub fn parameter(helper: fn()) { helper(); }\n",
+                "pub fn local() { let helper = || {}; helper(); }\n",
+                "fn duplicate() {}\n",
+                "fn duplicate() {}\n",
+                "pub fn calls_duplicate() { duplicate(); }\n",
+                "pub fn enclosing() { fn nested() {} nested(); }\n",
+                "pub(crate) fn crate_only() {}\n",
+                "pub fn public_api() {}\n",
+                "pub mod nested { pub fn inline_item() {} pub(super) fn restricted_item() {} }\n",
+            ),
+        );
+        commit_fixture(&root, "lexical resolution fixtures");
+
+        let storage = temporary.path().join("app-data");
+        let project = fixture_project(&root);
+        let manifest = capture(&storage, &project);
+        let index = build(&storage, &manifest);
+        assert_eq!(index.indexer_version, INDEXER_VERSION);
+        let legacy_path = storage
+            .join("indexes")
+            .join(digest(project.project_id.as_bytes()))
+            .join("atlas-symbol-index-v1")
+            .join(format!("{}.json", manifest.summary.snapshot_id));
+        fs::create_dir_all(legacy_path.parent().unwrap()).unwrap();
+        let mut legacy_index = index.clone();
+        legacy_index.indexer_version = "atlas-symbol-index-v1".to_owned();
+        fs::write(&legacy_path, serde_json::to_vec(&legacy_index).unwrap()).unwrap();
+        assert!(
+            load_snapshot_index(&storage, &project.project_id, &manifest.summary.snapshot_id)
+                .unwrap()
+                .is_none(),
+            "v1 cache entries must not be reused under indexer v2"
+        );
+
+        let imported = index
+            .symbols
+            .iter()
+            .find(|symbol| symbol.path == "src/ts-worker.ts" && symbol.name == "imported")
+            .expect("the named export should be indexed");
+        let direct = call_at_line(&index, "src/shadow.ts", 2, "run");
+        assert_eq!(
+            direct.confidence,
+            RelationshipConfidence::High,
+            "{direct:#?}"
+        );
+        assert_eq!(
+            direct.target_id.as_deref(),
+            Some(imported.symbol_id.as_str())
+        );
+        assert_eq!(direct.target_path.as_deref(), Some("src/ts-worker.ts"));
+        let typescript_bytes = typescript.as_bytes();
+        assert_eq!(
+            &typescript_bytes[direct.evidence.start_byte..direct.evidence.end_byte],
+            b"run('direct')",
+            "resolved call anchors must retain the exact source expression"
+        );
+        for (line, reason) in [
+            (3, "call_is_shadowed_by_parameter"),
+            (4, "call_is_shadowed_by_parameter"),
+            (5, "call_is_shadowed_by_parameter"),
+            (6, "call_is_shadowed_by_parameter"),
+            (8, "call_is_shadowed_by_local_binding"),
+            (9, "call_is_shadowed_by_catch_binding"),
+            (10, "call_is_shadowed_by_loop_binding"),
+            (11, "binding_is_reassigned"),
+            (12, "binding_not_initialized_at_call_site"),
+            (15, "multiple_bindings_in_lexical_scope"),
+        ] {
+            let label = if line == 11 {
+                "local"
+            } else if line == 12 {
+                "late"
+            } else if line == 15 {
+                "duplicate"
+            } else {
+                "run"
+            };
+            assert_unresolved_call(&index, "src/shadow.ts", line, label, reason);
+        }
+        let local_arrow_call = call_at_line(&index, "src/shadow.ts", 7, "run");
+        let local_arrow = index
+            .symbols
+            .iter()
+            .find(|symbol| {
+                symbol.path == "src/shadow.ts"
+                    && symbol.name == "run"
+                    && symbol.anchor.start_line == 7
+            })
+            .expect("a local arrow function should have a symbol identity");
+        assert_eq!(local_arrow_call.confidence, RelationshipConfidence::High);
+        assert_eq!(
+            local_arrow_call.target_id.as_deref(),
+            Some(local_arrow.symbol_id.as_str())
+        );
+
+        let duplicate_symbols = index
+            .symbols
+            .iter()
+            .filter(|symbol| symbol.path == "src/shadow.ts" && symbol.name == "duplicate")
+            .collect::<Vec<_>>();
+        assert_eq!(duplicate_symbols.len(), 2);
+        assert_ne!(
+            duplicate_symbols[0].symbol_id,
+            duplicate_symbols[1].symbol_id
+        );
+        for nested_name in ["nested", "method"] {
+            let symbol = index
+                .symbols
+                .iter()
+                .find(|symbol| symbol.path == "src/shadow.ts" && symbol.name == nested_name)
+                .expect("nested declarations should remain indexed");
+            assert!(!symbol.is_exported, "{nested_name} is not a module export");
+        }
+        let duplicate_ids = duplicate_symbols
+            .iter()
+            .map(|symbol| symbol.symbol_id.as_str())
+            .collect::<BTreeSet<_>>();
+        let duplicate_exports = index
+            .relationships
+            .iter()
+            .filter(|edge| {
+                edge.kind == RelationshipKind::Exports
+                    && edge.evidence.path == "src/shadow.ts"
+                    && edge.target_label.as_deref() == Some("duplicate")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(duplicate_exports.len(), 2);
+        assert!(duplicate_exports.iter().all(|edge| {
+            edge.confidence == RelationshipConfidence::High
+                && duplicate_ids.contains(edge.target_id.as_deref().unwrap_or_default())
+        }));
+        assert_unresolved_call(
+            &index,
+            "src/shadow.ts",
+            17,
+            "duplicateExport",
+            "no_unique_imported_export",
+        );
+
+        let js_imported = index
+            .symbols
+            .iter()
+            .find(|symbol| symbol.path == "src/worker.js" && symbol.name == "imported")
+            .expect("the JavaScript export should be indexed");
+        let js_direct = call_at_line(&index, "src/client.js", 2, "run");
+        assert_eq!(js_direct.confidence, RelationshipConfidence::High);
+        assert_eq!(
+            js_direct.target_id.as_deref(),
+            Some(js_imported.symbol_id.as_str())
+        );
+        for (line, reason) in [
+            (3, "call_is_shadowed_by_parameter"),
+            (4, "call_is_shadowed_by_parameter"),
+            (5, "call_is_shadowed_by_parameter"),
+        ] {
+            assert_unresolved_call(&index, "src/client.js", line, "run", reason);
+        }
+        let js_local_arrow = call_at_line(&index, "src/client.js", 6, "run");
+        assert_eq!(js_local_arrow.confidence, RelationshipConfidence::High);
+        assert_eq!(js_local_arrow.target_path.as_deref(), Some("src/client.js"));
+
+        let tsx_imported = index
+            .symbols
+            .iter()
+            .find(|symbol| symbol.path == "src/ts-worker.ts" && symbol.name == "imported")
+            .expect("the TSX named export should be indexed");
+        let tsx_direct = call_at_line(&index, "src/component.tsx", 2, "run");
+        assert_eq!(tsx_direct.confidence, RelationshipConfidence::High);
+        assert_eq!(
+            tsx_direct.target_id.as_deref(),
+            Some(tsx_imported.symbol_id.as_str())
+        );
+        assert_unresolved_call(
+            &index,
+            "src/component.tsx",
+            3,
+            "run",
+            "call_is_shadowed_by_parameter",
+        );
+        assert_unresolved_call(
+            &index,
+            "src/component.tsx",
+            4,
+            "run",
+            "call_is_shadowed_by_parameter",
+        );
+
+        let rust_direct = call_at_line(&index, "src/main.rs", 2, "helper");
+        let helper = index
+            .symbols
+            .iter()
+            .find(|symbol| symbol.path == "src/main.rs" && symbol.name == "helper")
+            .expect("the root helper should be indexed");
+        assert_eq!(rust_direct.confidence, RelationshipConfidence::High);
+        assert_eq!(
+            rust_direct.target_id.as_deref(),
+            Some(helper.symbol_id.as_str())
+        );
+        assert_unresolved_call(
+            &index,
+            "src/main.rs",
+            3,
+            "helper",
+            "call_is_shadowed_by_parameter",
+        );
+        assert_unresolved_call(
+            &index,
+            "src/main.rs",
+            4,
+            "helper",
+            "call_is_shadowed_by_pattern_binding",
+        );
+        assert_unresolved_call(
+            &index,
+            "src/main.rs",
+            7,
+            "duplicate",
+            "multiple_bindings_in_lexical_scope",
+        );
+        let nested_call = call_at_line(&index, "src/main.rs", 8, "nested");
+        assert_eq!(nested_call.confidence, RelationshipConfidence::High);
+        assert_eq!(nested_call.target_path.as_deref(), Some("src/main.rs"));
+
+        let duplicate_rust_symbols = index
+            .symbols
+            .iter()
+            .filter(|symbol| symbol.path == "src/main.rs" && symbol.name == "duplicate")
+            .collect::<Vec<_>>();
+        assert_eq!(duplicate_rust_symbols.len(), 2);
+        assert_ne!(
+            duplicate_rust_symbols[0].symbol_id,
+            duplicate_rust_symbols[1].symbol_id
+        );
+        let rust_exports = index
+            .relationships
+            .iter()
+            .filter(|edge| {
+                edge.kind == RelationshipKind::Exports && edge.evidence.path == "src/main.rs"
+            })
+            .filter_map(|edge| edge.target_label.as_deref())
+            .collect::<BTreeSet<_>>();
+        assert!(rust_exports.contains("public_api"));
+        assert!(!rust_exports.contains("crate_only"));
+        assert!(!rust_exports.contains("inline_item"));
+        assert!(!rust_exports.contains("restricted_item"));
     }
 
     #[test]
