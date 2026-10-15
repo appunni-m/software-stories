@@ -7,6 +7,7 @@
 //! This initial adapter exposes bounded explanation generation with command and web
 //! tools disabled, restricted read access, and unexpected tool events rejected.
 
+use crate::codex_identity::{self, CodexReviewRuntime};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -95,7 +96,7 @@ pub(crate) struct CodexSourceFile {
 /// Construct this only from a freshly revalidated native request review.
 pub(crate) struct CodexRunInput {
     pub run_id: String,
-    pub expected_executable_path: String,
+    pub expected_runtime: CodexReviewRuntime,
     pub model: String,
     pub effort: String,
     pub approval_policy: String,
@@ -131,13 +132,17 @@ pub(crate) struct CodexRunResult {
 pub(crate) struct CodexResultAccess<'a> {
     run_id: &'a str,
     fingerprint: &'a str,
-    executable_path: &'a str,
+    runtime: &'a CodexReviewRuntime,
     shutdown: &'a AtomicBool,
     cancelled: &'a AtomicBool,
     started_at: Instant,
 }
 
 impl CodexResultAccess<'_> {
+    pub(crate) fn runtime(&self) -> &CodexReviewRuntime {
+        self.runtime
+    }
+
     pub(crate) fn check_review(
         &self,
         review_id: &str,
@@ -146,7 +151,7 @@ impl CodexResultAccess<'_> {
     ) -> Result<(), String> {
         if review_id != self.run_id
             || fingerprint != self.fingerprint
-            || executable_path != self.executable_path
+            || executable_path != self.runtime.executable_path
         {
             return Err("The Codex result belongs to a different reviewed operation. Prepare a fresh review.".to_owned());
         }
@@ -223,6 +228,38 @@ impl CodexAgentManager {
             .as_ref()
             .map(|run| run.id.clone());
         Ok(status)
+    }
+
+    /// Observe an already-connected runtime. Preparing a review never starts a
+    /// process, renews login or sends source/model input.
+    pub(crate) fn review_runtime(&self, storage_dir: &Path) -> Result<CodexReviewRuntime, String> {
+        let mut slot = self.lock_process()?;
+        let process = slot.as_mut().ok_or_else(codex_identity::changed)?;
+        self.observe_runtime(storage_dir, process)
+    }
+
+    fn observe_runtime(
+        &self,
+        storage_dir: &Path,
+        process: &mut ServerProcess,
+    ) -> Result<CodexReviewRuntime, String> {
+        let executable = configured_executable(storage_dir)?.ok_or_else(codex_identity::changed)?;
+        if process.has_exited()?
+            || process.executable != executable
+            || executable_digest(&executable, &self.0.shutdown, process.cancelled.as_deref())?
+                != process.executable_sha256
+        {
+            return Err(codex_identity::changed());
+        }
+        let account = process.request("account/read", json!({"refreshToken": false}), RPC_TIMEOUT)?;
+        self.remember_account(&account);
+        CodexReviewRuntime::from_observation(
+            &process.connection_id,
+            &process.executable,
+            &process.executable_sha256,
+            process.account_revision,
+            &account,
+        )
     }
 
     /// Save a user-selected executable without starting it or signing in.
@@ -438,19 +475,17 @@ impl CodexAgentManager {
         let result = (|| {
             check_cancelled(&self.0.shutdown, Some(&cancelled))?;
             if started_at.elapsed() >= RUN_TIMEOUT {
-                return Err("The Codex operation exceeded ten minutes before dispatch. Prepare a fresh review.".to_owned());
+                return Err(
+                    "The Codex operation exceeded ten minutes before dispatch. Prepare a fresh review."
+                        .to_owned(),
+                );
             }
-            let executable = configured_executable(storage_dir)?.ok_or(
-                "The reviewed Codex executable is no longer available. Review the request again.",
-            )?;
-            if executable.to_string_lossy() != input.expected_executable_path.as_str() {
-                return Err("The Codex executable changed after review. Build a new request review before sending.".to_owned());
+            // A reviewed connection may not be silently replaced/restarted.
+            let process = slot.as_mut().ok_or_else(codex_identity::changed)?;
+            process.cancelled = Some(cancelled.clone());
+            if self.observe_runtime(storage_dir, process)? != input.expected_runtime {
+                return Err(codex_identity::changed());
             }
-            let process = self.ensure_started(storage_dir, &mut slot, Some(cancelled.clone()))?;
-            if cancelled.load(Ordering::Acquire) {
-                return Err(cancelled_message());
-            }
-            self.require_account(process)?;
             let models = process.models()?;
             let model = models.iter().find(|model| model.model_id == input.model)
                 .ok_or_else(|| "The selected model is not in this Codex account's model catalog. Refresh models and review the request again.".to_owned())?;
@@ -461,11 +496,19 @@ impl CodexAgentManager {
             {
                 return Err("The selected model does not advertise that reasoning effort. Choose a supported effort and review again.".to_owned());
             }
+            // Model discovery can observe account-change events as well.
+            if self.observe_runtime(storage_dir, process)? != input.expected_runtime {
+                return Err(codex_identity::changed());
+            }
             let stage = StagedContext::create(storage_dir, &input.sources)?;
             if cancelled.load(Ordering::Acquire) {
                 return Err(cancelled_message());
             }
-            process.generate(&input, &stage.path, &cancelled, started_at, &progress)
+            let response = process.generate(&input, &stage.path, &cancelled, started_at, &progress)?;
+            if self.observe_runtime(storage_dir, process)? != input.expected_runtime {
+                return Err(codex_identity::changed());
+            }
+            Ok(response)
         })();
         // Clear per-turn transport cancellation before pure local validation.
         if let Some(process) = slot.as_mut() {
@@ -474,22 +517,31 @@ impl CodexAgentManager {
         let access = CodexResultAccess {
             run_id: &input.run_id,
             fingerprint,
-            executable_path: &input.expected_executable_path,
+            runtime: &input.expected_runtime,
             shutdown: &self.0.shutdown,
             cancelled: &cancelled,
             started_at,
         };
         let finalized = (|| {
-            access.check_review(&input.run_id, fingerprint, &input.expected_executable_path)?;
+            access.check_review(
+                &input.run_id,
+                fingerprint,
+                &input.expected_runtime.executable_path,
+            )?;
             let response = result?;
             let validated = validate(response, &access);
             // Serialize final publication with cancel(). Work after this point is
             // already published; a later cancel cannot retract a returned result.
             let mut active = self.0.active.lock().map_err(|_| BUSY)?;
-            access.check_review(&input.run_id, fingerprint, &input.expected_executable_path)?;
-            if !active.as_ref().is_some_and(|run| {
-                run.id == input.run_id && Arc::ptr_eq(&run.cancelled, &cancelled)
-            }) {
+            access.check_review(
+                &input.run_id,
+                fingerprint,
+                &input.expected_runtime.executable_path,
+            )?;
+            if !active
+                .as_ref()
+                .is_some_and(|run| run.id == input.run_id && Arc::ptr_eq(&run.cancelled, &cancelled))
+            {
                 return Err(
                     "The native Codex operation owner changed. No late response was published."
                         .to_owned(),
@@ -505,9 +557,13 @@ impl CodexAgentManager {
             slot.take();
             self.update_status(|status| {
                 status.runtime_running = false;
+                status.authenticated = false;
+                status.account_email = None;
+                status.plan_type = None;
+                status.capability_checked = false;
                 status.pending_login_id = None;
                 status.message =
-                    "The Codex run stopped. Existing chapter history was preserved.".to_owned();
+                    "The Codex run stopped. Reconnect and prepare a fresh review. Existing chapter history was preserved.".to_owned();
             });
         }
         finalized
@@ -568,7 +624,11 @@ impl CodexAgentManager {
         check_cancelled(&self.0.shutdown, cancelled.as_deref())?;
         let executable = configured_executable(storage_dir)?.ok_or_else(|| "Install Codex and select its executable in Settings, then connect your ChatGPT account.".to_owned())?;
         if let Some(process) = slot.as_mut() {
-            if process.has_exited()? || process.executable != executable {
+            if process.has_exited()?
+                || process.executable != executable
+                || executable_digest(&executable, &self.0.shutdown, cancelled.as_deref())?
+                    != process.executable_sha256
+            {
                 slot.take();
             }
         }
@@ -593,7 +653,9 @@ impl CodexAgentManager {
                 status.executable_path = Some(executable.to_string_lossy().into_owned());
                 status.runtime_running = true;
                 status.capability_checked = true;
-                status.message = "Codex is running with read-only staged context and command/web tools disabled.".to_owned();
+                status.message =
+                    "Codex is running with read-only staged context and command/web tools disabled."
+                        .to_owned();
             });
         }
         let process = slot
@@ -669,6 +731,9 @@ struct ServerProcess {
     shutdown: Arc<AtomicBool>,
     cancelled: Option<Arc<AtomicBool>>,
     executable: PathBuf,
+    executable_sha256: String,
+    connection_id: String,
+    account_revision: u64,
     reaped: bool,
 }
 
@@ -686,6 +751,7 @@ impl ServerProcess {
         cancelled: Option<Arc<AtomicBool>>,
     ) -> Result<Self, String> {
         check_cancelled(&shutdown, cancelled.as_deref())?;
+        let executable_sha256 = executable_digest(executable, &shutdown, cancelled.as_deref())?;
         let mut command = isolated_command(executable, root)?;
         command.args(["app-server", "--listen", "stdio://"]);
         // Explicit overrides are application-owned and never taken from the
@@ -728,6 +794,12 @@ impl ServerProcess {
             .spawn()
             .map_err(|_| "Codex could not start. Check the executable path and installation.")?;
         let registration = RegisteredChild::new(process_id.clone(), child.id());
+        if !executable_digest(executable, &shutdown, cancelled.as_deref())
+            .is_ok_and(|digest| digest == executable_sha256)
+        {
+            kill_and_reap(&mut child);
+            return Err(codex_identity::changed());
+        }
         if let Err(error) = check_cancelled(&shutdown, cancelled.as_deref()) {
             kill_and_reap(&mut child);
             return Err(error);
@@ -770,8 +842,7 @@ impl ServerProcess {
                         .and_then(|_| stdin.write_all(b"\n"))
                         .and_then(|_| stdin.flush())
                         .map_err(|_| {
-                            "The Codex process disconnected. Reconnect before trying again."
-                                .to_owned()
+                            "The Codex process disconnected. Reconnect before trying again.".to_owned()
                         });
                     let failed = result.is_err();
                     let _ = frame.acknowledged.send(result);
@@ -800,6 +871,9 @@ impl ServerProcess {
             shutdown,
             cancelled,
             executable: executable.to_owned(),
+            executable_sha256,
+            connection_id: Uuid::new_v4().to_string(),
+            account_revision: 0,
             reaped: false,
         };
         registration.disarm();
@@ -957,6 +1031,9 @@ impl ServerProcess {
             None,
             "Starting the reviewed explanation request.",
         ));
+        if self.account_revision != input.expected_runtime.account_revision {
+            return Err(codex_identity::changed());
+        }
         let request_id = self.send_request("turn/start", json!({
             "threadId": thread_id, "input": [{"type": "text", "text": input.user_prompt}],
             "cwd": stage, "model": input.model, "effort": input.effort, "approvalPolicy": "never",
@@ -1036,6 +1113,7 @@ impl ServerProcess {
             }
             match method {
                 "configWarning" | "warning" => return Err("Codex reported a configuration or runtime warning. The run was stopped rather than using uncertain settings.".to_owned()),
+                "account/updated" => return Err(codex_identity::changed()),
                 "model/rerouted" => return Err("Codex changed the requested model. The response was discarded; choose and review a model again.".to_owned()),
                 "item/started" | "item/completed" => {
                     let item = params.get("item").ok_or("Codex returned an invalid item event.")?;
@@ -1218,7 +1296,7 @@ impl ServerProcess {
         }
     }
 
-    fn receive(&self, timeout: Duration, total: &mut usize) -> Result<Option<Value>, String> {
+    fn receive(&mut self, timeout: Duration, total: &mut usize) -> Result<Option<Value>, String> {
         match self
             .receiver
             .as_ref()
@@ -1233,6 +1311,12 @@ impl ServerProcess {
                 );
                 if *total > MAX_OPERATION_BYTES {
                     return Err("Codex output exceeded the local operation limit.".to_owned());
+                }
+                if value.get("method").and_then(Value::as_str) == Some("account/updated") {
+                    self.account_revision = self
+                        .account_revision
+                        .checked_add(1)
+                        .ok_or_else(codex_identity::changed)?;
                 }
                 Ok(Some(value))
             }
@@ -1335,14 +1419,8 @@ fn read_frame(reader: &mut impl BufRead) -> Result<Value, String> {
 }
 
 fn validate_run(input: &CodexRunInput) -> Result<(), String> {
-    if input.expected_executable_path.is_empty()
-        || input.expected_executable_path.len() > 4096
-        || !Path::new(&input.expected_executable_path).is_absolute()
-    {
-        return Err(
-            "The reviewed Codex executable identity is invalid. Build a fresh request review."
-                .to_owned(),
-        );
+    if !input.expected_runtime.valid_shape() {
+        return Err(codex_identity::changed());
     }
     if input.run_id.is_empty()
         || input.run_id.len() > 256
@@ -1502,6 +1580,56 @@ fn checked_executable(path: &Path) -> Result<PathBuf, String> {
         }
     }
     Ok(canonical)
+}
+
+/// Bounded native file observation; no executable, package manager or shell is
+/// run by hashing. This does not close the path-to-exec replacement race.
+fn executable_digest(
+    executable: &Path,
+    shutdown: &AtomicBool,
+    cancelled: Option<&AtomicBool>,
+) -> Result<String, String> {
+    const LIMIT: u64 = 1024 * 1024 * 1024;
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW);
+    }
+    let mut file = options
+        .open(executable)
+        .map_err(|_| codex_identity::changed())?;
+    let before = file.metadata().map_err(|_| codex_identity::changed())?;
+    if !before.is_file() || before.len() == 0 || before.len() > LIMIT {
+        return Err(codex_identity::changed());
+    }
+    let mut hasher = Sha256::new();
+    let mut total = 0_u64;
+    let mut bytes = [0_u8; 64 * 1024];
+    loop {
+        check_cancelled(shutdown, cancelled)?;
+        let limit = (LIMIT - total + 1).min(bytes.len() as u64) as usize;
+        let count = file
+            .read(&mut bytes[..limit])
+            .map_err(|_| codex_identity::changed())?;
+        if count == 0 {
+            break;
+        }
+        total += count as u64;
+        if total > LIMIT {
+            return Err(codex_identity::changed());
+        }
+        hasher.update(&bytes[..count]);
+    }
+    let after = file.metadata().map_err(|_| codex_identity::changed())?;
+    if total != before.len()
+        || after.len() != before.len()
+        || before.modified().ok() != after.modified().ok()
+    {
+        return Err(codex_identity::changed());
+    }
+    Ok(format!("{:x}", hasher.finalize()))
 }
 
 fn isolated_command(executable: &Path, root: &Path) -> Result<Command, String> {

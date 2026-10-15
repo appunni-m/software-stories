@@ -22,6 +22,8 @@ Coding agents are primary generation options. Direct API keys are optional. The 
 
 **Change backend** returns to all choices; it discards an unsaved preview. Requests never automatically switch to a paid API. The source adapter covers exact Code Lens selections and Git comparisons/hunks. Its full account, permission, cancellation and packaged-runtime acceptance remains open in `z3an`.
 
+The current source binds a request to its running Codex connection, observed ChatGPT account and executable digest. Reconnecting or changing those observations requires a fresh review. This change detection and its limits still need native acceptance; see [Codex review identity](CODEX_REVIEW_IDENTITY.md).
+
 ### Explain a selected code range with Codex
 
 In Files, select the captured code range, choose its explanation action and **Use Codex**. The range stays fixed while you choose model/reasoning and review the excerpt. Confirm the reviewed source, then generate. Locally validated claims appear temporarily with actions that open their exact citations. Closing or discarding the explanation saves no chapter draft or history. For newer interruption notices, Review interrupted work restores the original range after local source validation. Older notices require exact reselection. Review and confirm a new request in both cases. Native runtime acceptance remains pending.

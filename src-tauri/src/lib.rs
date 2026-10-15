@@ -26,6 +26,7 @@ mod claude_models;
 mod claude_runtime;
 mod claude_worker;
 mod codex_agent;
+mod codex_identity;
 mod codex_commands;
 mod git_evidence;
 mod index;

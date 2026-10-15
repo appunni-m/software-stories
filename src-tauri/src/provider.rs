@@ -1555,13 +1555,7 @@ pub fn canonicalize_pr_change_explanation(
 ) -> Result<PrChangeExplanationPreview, ProviderFailure> {
     canonicalize_pr_change_with_revalidation(repository, review, result, || {
         if review.provider_id == "codex" {
-            revalidate_codex_git_review(
-                repository,
-                review,
-                review.generation_config["executablePath"]
-                    .as_str()
-                    .unwrap_or(""),
-            )
+            revalidate_codex_git_review(repository, review, &codex_runtime_from_review(review)?)
         } else {
             revalidate_pr_change_explanation_request(repository, review)
         }
@@ -2613,7 +2607,7 @@ pub(crate) struct BuildCodexReviewInput {
 pub(crate) fn build_codex_chapter_review(
     storage_dir: &Path,
     input: &BuildCodexReviewInput,
-    executable_path: &str,
+    runtime: &crate::codex_identity::CodexReviewRuntime,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
     build_agent_chapter_review(
         storage_dir,
@@ -2629,7 +2623,7 @@ pub(crate) fn build_codex_chapter_review(
             &input.model_id,
             &input.effort,
             &input.approval_policy,
-            executable_path,
+            runtime,
             "codex-chapter-v2",
         )?,
     )
@@ -2649,13 +2643,13 @@ pub(crate) struct BuildCodexCodeLensInput {
 pub(crate) fn build_codex_code_lens_review(
     storage_dir: &Path,
     input: &BuildCodexCodeLensInput,
-    executable_path: &str,
+    runtime: &crate::codex_identity::CodexReviewRuntime,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
     let transport = codex_transport(
         &input.model_id,
         &input.effort,
         &input.approval_policy,
-        executable_path,
+        runtime,
         "codex-code-lens-v1",
     )?;
     let context = build_code_lens_context(
@@ -2708,13 +2702,13 @@ pub(crate) struct BuildCodexPrChangeInput {
 pub(crate) fn build_codex_pr_guide_review(
     repository: &Path,
     input: &BuildCodexPrGuideInput,
-    executable_path: &str,
+    runtime: &crate::codex_identity::CodexReviewRuntime,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
     let transport = codex_transport(
         &input.model_id,
         &input.effort,
         &input.approval_policy,
-        executable_path,
+        runtime,
         "codex-pr-guide-v1",
     )?;
     let (context, explanation) = build_pr_guide_context(
@@ -2742,13 +2736,13 @@ pub(crate) fn build_codex_pr_guide_review(
 pub(crate) fn build_codex_pr_change_review(
     repository: &Path,
     input: &BuildCodexPrChangeInput,
-    executable_path: &str,
+    runtime: &crate::codex_identity::CodexReviewRuntime,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
     let transport = codex_transport(
         &input.model_id,
         &input.effort,
         &input.approval_policy,
-        executable_path,
+        runtime,
         "codex-pr-change-v1",
     )?;
     let explanation = build_pr_change_context(
@@ -2843,11 +2837,37 @@ pub(crate) fn agent_diff_source_name(index: usize) -> String {
     format!("reviewed-diff-{index:04}.patch")
 }
 
+/// Decode a record for contract comparison, never as runtime admission. Only
+/// the manager can observe the current live process/account before dispatch.
+pub(crate) fn codex_runtime_from_review(
+    review: &ProviderRequestReview,
+) -> Result<crate::codex_identity::CodexReviewRuntime, ProviderFailure> {
+    let invalid = || {
+        failure(
+            ProviderFailureKind::ReviewChanged,
+            "The native Codex runtime/account identity is missing or changed. Prepare a fresh review.",
+        )
+    };
+    if review.provider_id != "codex" || review.endpoint_url != "codex-app-server://stdio" {
+        return Err(invalid());
+    }
+    let runtime: crate::codex_identity::CodexReviewRuntime =
+        serde_json::from_value(review.generation_config["runtimeIdentity"].clone())
+            .map_err(|_| invalid())?;
+    if !runtime.valid_shape()
+        || review.generation_config["executablePath"].as_str()
+            != Some(runtime.executable_path.as_str())
+    {
+        return Err(invalid());
+    }
+    Ok(runtime)
+}
+
 fn codex_transport(
     model_id: &str,
     effort: &str,
     approval_policy: &str,
-    executable_path: &str,
+    runtime: &crate::codex_identity::CodexReviewRuntime,
     contract_version: &str,
 ) -> Result<AgentTransport<'static>, ProviderFailure> {
     if model_id.trim().is_empty()
@@ -2855,8 +2875,7 @@ fn codex_transport(
         || effort.trim().is_empty()
         || effort.len() > 32
         || approval_policy != "never"
-        || executable_path.is_empty()
-        || executable_path.len() > 4096
+        || !runtime.valid_shape()
     {
         return Err(failure(
             ProviderFailureKind::InvalidReview,
@@ -2867,10 +2886,10 @@ fn codex_transport(
         provider_id: "codex",
         authentication: "chatgpt-account",
         endpoint_url: "codex-app-server://stdio",
-        disclosure_version: "codex-account-2026-10-15-v1",
+        disclosure_version: "codex-account-2026-10-16-v2",
         config: json!({
             "contractVersion": contract_version, "effort": effort,
-            "approvalPolicy": "never", "executablePath": executable_path,
+            "approvalPolicy": "never", "executablePath": runtime.executable_path, "runtimeIdentity": runtime,
             "shell": false, "webSearch": false,
             "filesystem": "read-only staged selected source", "ephemeral": true,
             "timeoutSeconds": 600,
@@ -3079,7 +3098,7 @@ pub(crate) struct BuildClaudePlannedChapterInput {
 pub(crate) fn build_codex_planned_chapter_review(
     storage: &Path,
     input: &BuildCodexPlannedChapterInput,
-    executable_path: &str,
+    runtime: &crate::codex_identity::CodexReviewRuntime,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
     build_planned_chapter_review(
         storage,
@@ -3090,7 +3109,7 @@ pub(crate) fn build_codex_planned_chapter_review(
             &input.model_id,
             &input.effort,
             &input.approval_policy,
-            executable_path,
+            runtime,
             "codex-planned-chapter-v1",
         )?,
     )
@@ -3224,7 +3243,7 @@ pub(crate) struct BuildClaudeRepositoryPlanInput {
 pub(crate) fn build_codex_repository_plan_review(
     storage_dir: &Path,
     input: &BuildCodexRepositoryPlanInput,
-    executable_path: &str,
+    runtime: &crate::codex_identity::CodexReviewRuntime,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
     build_agent_repository_plan_review(
         storage_dir,
@@ -3239,7 +3258,7 @@ pub(crate) fn build_codex_repository_plan_review(
             &input.model_id,
             &input.effort,
             &input.approval_policy,
-            executable_path,
+            runtime,
             "codex-repository-plan-v1",
         )?,
     )
@@ -3373,7 +3392,7 @@ fn match_repository_plan_review(
 pub(crate) fn rebuild_codex_repository_plan_review(
     storage_dir: &Path,
     review: &ProviderRequestReview,
-    executable_path: &str,
+    runtime: &crate::codex_identity::CodexReviewRuntime,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
     if review.provider_id != "codex" || review.expires_at_unix_ms <= unix_time_ms() {
         return Err(failure(
@@ -3381,7 +3400,7 @@ pub(crate) fn rebuild_codex_repository_plan_review(
             "Prepare a fresh Codex planning review before generating.",
         ));
     }
-    rebuild_codex_repository_plan_context(storage_dir, review, executable_path)
+    rebuild_codex_repository_plan_context(storage_dir, review, runtime)
 }
 
 /// Only the same admitted native run may validate a result after review expiry.
@@ -3391,6 +3410,13 @@ pub(crate) fn rebuild_active_codex_repository_plan_review(
     review: &ProviderRequestReview,
     access: &crate::codex_agent::CodexResultAccess<'_>,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
+    let runtime = codex_runtime_from_review(review)?;
+    if &runtime != access.runtime() {
+        return Err(failure(
+            ProviderFailureKind::ReviewChanged,
+            "The Codex result has a different native runtime/account observation.",
+        ));
+    }
     let check = || {
         access
             .check_review(
@@ -3403,13 +3429,7 @@ pub(crate) fn rebuild_active_codex_repository_plan_review(
             .map_err(|message| failure(ProviderFailureKind::ReviewChanged, message))
     };
     check()?;
-    let rebuilt = rebuild_codex_repository_plan_context(
-        storage_dir,
-        review,
-        review.generation_config["executablePath"]
-            .as_str()
-            .unwrap_or(""),
-    )?;
+    let rebuilt = rebuild_codex_repository_plan_context(storage_dir, review, &runtime)?;
     check()?;
     Ok(rebuilt)
 }
@@ -3417,7 +3437,7 @@ pub(crate) fn rebuild_active_codex_repository_plan_review(
 fn rebuild_codex_repository_plan_context(
     storage_dir: &Path,
     review: &ProviderRequestReview,
-    executable_path: &str,
+    runtime: &crate::codex_identity::CodexReviewRuntime,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
     let scope = repository_plan_review_scope(review)?;
     if review.provider_id != "codex" {
@@ -3447,7 +3467,7 @@ fn rebuild_codex_repository_plan_context(
                 .unwrap_or("")
                 .to_owned(),
         },
-        executable_path,
+        runtime,
     )?;
     match_repository_plan_review(review, rebuilt)
 }
@@ -3954,7 +3974,7 @@ fn close_agent_schema_objects(schema: &mut Value) {
 pub(crate) fn revalidate_codex_git_review(
     repository: &Path,
     review: &ProviderRequestReview,
-    executable_path: &str,
+    runtime: &crate::codex_identity::CodexReviewRuntime,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
     if review.provider_id != "codex" || review.expires_at_unix_ms <= unix_time_ms() {
         return Err(failure(
@@ -3962,13 +3982,13 @@ pub(crate) fn revalidate_codex_git_review(
             "Build a fresh Codex Git-change review before generating.",
         ));
     }
-    rebuild_codex_git_review_context(repository, review, executable_path)
+    rebuild_codex_git_review_context(repository, review, runtime)
 }
 
 fn rebuild_codex_git_review_context(
     repository: &Path,
     review: &ProviderRequestReview,
-    executable_path: &str,
+    runtime: &crate::codex_identity::CodexReviewRuntime,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
     if review.section_update_context.is_some() || review.code_lens_context.is_some() {
         return Err(failure(
@@ -3995,7 +4015,7 @@ fn rebuild_codex_git_review_context(
                 selected_changes: context.selected_changes.iter().map(|change| pr_guide::SelectedChangeIdentity {
                     base_path: change.base_path.clone(), head_path: change.head_path.clone(),
                 }).collect(), model_id: review.model_id.clone(), effort, approval_policy,
-            }, executable_path)
+            }, runtime)
         }
         PR_CHANGE_EXPLANATION_PURPOSE if review.pr_guide_context.is_none() => {
             let target = review.pr_change_context.as_ref().filter(|target| target.comparison_id == review.snapshot_id)
@@ -4004,7 +4024,7 @@ fn rebuild_codex_git_review_context(
             build_codex_pr_change_review(repository, &BuildCodexPrChangeInput {
                 project_id: review.project_id.clone(), target: target.clone(),
                 model_id: review.model_id.clone(), effort, approval_policy,
-            }, executable_path)
+            }, runtime)
         }
         _ => return Err(failure(ProviderFailureKind::InvalidReview,
             "Prepare a Codex review for the exact Git-change operation.")),
@@ -4033,7 +4053,7 @@ fn rebuild_codex_git_review_context(
 pub(crate) fn revalidate_codex_request_review(
     storage_dir: &Path,
     review: &ProviderRequestReview,
-    executable_path: &str,
+    runtime: &crate::codex_identity::CodexReviewRuntime,
 ) -> Result<(), ProviderFailure> {
     if review.provider_id != "codex" || review.expires_at_unix_ms <= unix_time_ms() {
         return Err(failure(
@@ -4041,13 +4061,13 @@ pub(crate) fn revalidate_codex_request_review(
             "Build a fresh Codex request review before generating.",
         ));
     }
-    rebuild_codex_request_review_context(storage_dir, review, executable_path).map(|_| ())
+    rebuild_codex_request_review_context(storage_dir, review, runtime).map(|_| ())
 }
 
 fn rebuild_codex_request_review_context(
     storage_dir: &Path,
     review: &ProviderRequestReview,
-    executable_path: &str,
+    runtime: &crate::codex_identity::CodexReviewRuntime,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
     let input = BuildCodexReviewInput {
         project_id: review.project_id.clone(),
@@ -4084,7 +4104,7 @@ fn rebuild_codex_request_review_context(
                 effort: input.effort,
                 approval_policy: input.approval_policy,
             },
-            executable_path,
+            runtime,
         )?
     } else if review.purpose == CODE_LENS_EXPLANATION_PURPOSE {
         let target = review.code_lens_context.clone().ok_or_else(|| {
@@ -4103,10 +4123,10 @@ fn rebuild_codex_request_review_context(
                 effort: input.effort,
                 approval_policy: input.approval_policy,
             },
-            executable_path,
+            runtime,
         )?
     } else {
-        build_codex_chapter_review(storage_dir, &input, executable_path)?
+        build_codex_chapter_review(storage_dir, &input, runtime)?
     };
     if rebuilt.review.fingerprint != review.fingerprint
         || rebuilt.review.request_body_preview != review.request_body_preview
@@ -4130,6 +4150,13 @@ pub(crate) fn rebuild_active_codex_review(
     review: &ProviderRequestReview,
     access: &crate::codex_agent::CodexResultAccess<'_>,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
+    let runtime = codex_runtime_from_review(review)?;
+    if &runtime != access.runtime() {
+        return Err(failure(
+            ProviderFailureKind::ReviewChanged,
+            "The Codex result has a different native runtime/account observation.",
+        ));
+    }
     let executable = review.generation_config["executablePath"]
         .as_str()
         .unwrap_or("");
@@ -4147,10 +4174,10 @@ pub(crate) fn rebuild_active_codex_review(
     }
     let mut rebuilt = match review.purpose.as_str() {
         PR_GUIDE_PURPOSE | PR_CHANGE_EXPLANATION_PURPOSE => {
-            rebuild_codex_git_review_context(repository, review, executable)?
+            rebuild_codex_git_review_context(repository, review, &runtime)?
         }
         "fileChapter" | "repositoryOverview" | "sectionUpdate" | CODE_LENS_EXPLANATION_PURPOSE => {
-            rebuild_codex_request_review_context(storage_dir, review, executable)?
+            rebuild_codex_request_review_context(storage_dir, review, &runtime)?
         }
         _ => {
             return Err(failure(

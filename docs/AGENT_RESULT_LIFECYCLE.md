@@ -29,6 +29,8 @@ New request reviews keep their ordinary expiry. A result can finish after that e
 
 Pure validation retains process/run ownership while leaving cancellation available. Final publication uses the same active-run lock as cancel. Worker panic shuts down the manager and retains original recovery scope. Failure, cancellation, timeout, changed evidence, invalid output or failed publication no longer count as a reason to clear the journal. These are unexecuted source invariants.
 
+Codex review construction now observes an already-connected native process/account and includes its connection UUID, executable digest, account-metadata digest and event revision in the exact contract. Dispatch cannot restart a lost reviewed connection. Native observations are compared before source delivery and after generation; account-change events stop the turn/result path. Active reconstruction compares the manager-owned identity, without treating a decoded record as execution authority. See [the exact limits and pending acceptance](CODEX_REVIEW_IDENTITY.md).
+
 ### Claude
 
 The existing native lease checks original connection/runtime/review and cancellation. Refresh, forget, disconnect and owner drop remain revocations. Chapter and PR Guide validation now prepare their candidate outside the final publication lock. Publication alone holds that lock, so local validation does not prevent revocation from taking effect before a save.

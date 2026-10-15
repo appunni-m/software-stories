@@ -140,17 +140,14 @@ pub(crate) async fn build_codex_chapter_review(
     let storage = app_data_directory(&app)?;
     let runtime = manager.inner().clone();
     let pending = tauri::async_runtime::spawn_blocking(move || {
-        let status = runtime
-            .status(&storage)
-            .map_err(|message| provider::ProviderFailure {
-                kind: provider::ProviderFailureKind::ReviewUnavailable,
-                message,
-            })?;
-        provider::build_codex_chapter_review(
-            &storage,
-            &input,
-            status.executable_path.as_deref().unwrap_or(""),
-        )
+        let identity =
+            runtime
+                .review_runtime(&storage)
+                .map_err(|message| provider::ProviderFailure {
+                    kind: provider::ProviderFailureKind::ReviewUnavailable,
+                    message,
+                })?;
+        provider::build_codex_chapter_review(&storage, &input, &identity)
     })
     .await
     .map_err(|_| "Codex request review could not be prepared.".to_owned())?;
@@ -172,17 +169,14 @@ pub(crate) async fn build_codex_planned_chapter_review(
     let storage = app_data_directory(&app)?;
     let runtime = manager.inner().clone();
     let pending = tauri::async_runtime::spawn_blocking(move || {
-        let status = runtime
-            .status(&storage)
-            .map_err(|message| provider::ProviderFailure {
-                kind: provider::ProviderFailureKind::ReviewUnavailable,
-                message,
-            })?;
-        provider::build_codex_planned_chapter_review(
-            &storage,
-            &input,
-            status.executable_path.as_deref().unwrap_or(""),
-        )
+        let identity =
+            runtime
+                .review_runtime(&storage)
+                .map_err(|message| provider::ProviderFailure {
+                    kind: provider::ProviderFailureKind::ReviewUnavailable,
+                    message,
+                })?;
+        provider::build_codex_planned_chapter_review(&storage, &input, &identity)
     })
     .await
     .map_err(|_| "Codex plan-step chapter review could not be prepared.".to_owned())?;
@@ -204,11 +198,11 @@ pub(crate) async fn build_codex_repository_plan_review(
     let storage = app_data_directory(&app)?;
     let runtime = manager.inner().clone();
     let pending = tauri::async_runtime::spawn_blocking(move || {
-        let status = runtime.status(&storage).map_err(|message| {
+        let identity = runtime.review_runtime(&storage).map_err(|message| {
             command_failure(provider::ProviderFailureKind::ReviewUnavailable, message)
         })?;
         provider::build_codex_repository_plan_review(
-            &storage, &input, status.executable_path.as_deref().unwrap_or(""),
+            &storage, &input, &identity,
         )
     }).await.map_err(|_| "The Codex planning review could not be prepared. Existing plans and chapters were preserved.".to_owned())?;
     Ok(match pending.and_then(|pending| reviews.insert(pending)) {
@@ -229,14 +223,10 @@ pub(crate) async fn build_codex_code_lens_review(
     let storage = app_data_directory(&app)?;
     let runtime = manager.inner().clone();
     let pending = tauri::async_runtime::spawn_blocking(move || {
-        let status = runtime.status(&storage).map_err(|message| {
+        let identity = runtime.review_runtime(&storage).map_err(|message| {
             command_failure(provider::ProviderFailureKind::ReviewUnavailable, message)
         })?;
-        provider::build_codex_code_lens_review(
-            &storage,
-            &input,
-            status.executable_path.as_deref().unwrap_or(""),
-        )
+        provider::build_codex_code_lens_review(&storage, &input, &identity)
     })
     .await
     .map_err(|_| "Codex source range review could not be prepared.".to_owned())?;
@@ -302,20 +292,19 @@ async fn build_git_review(
     let storage = app_data_directory(&app)?;
     let runtime = manager.clone();
     let pending = tauri::async_runtime::spawn_blocking(move || {
-        let status = runtime.status(&storage).map_err(|message| {
+        let identity = runtime.review_runtime(&storage).map_err(|message| {
             command_failure(provider::ProviderFailureKind::ReviewUnavailable, message)
         })?;
-        let executable = status.executable_path.as_deref().unwrap_or("");
         match input {
             GitReviewInput::Guide(input) => provider::build_codex_pr_guide_review(
                 Path::new(&project.repository_root),
                 &input,
-                executable,
+                &identity,
             ),
             GitReviewInput::Change(input) => provider::build_codex_pr_change_review(
                 Path::new(&project.repository_root),
                 &input,
-                executable,
+                &identity,
             ),
         }
     })
@@ -777,27 +766,22 @@ async fn prepare_codex_operation(
     let storage_for_review = storage.clone();
     let repository_for_review = repository.clone();
     let validated = tauri::async_runtime::spawn_blocking(move || {
-        let status = runtime
-            .status(&storage_for_review)
+        let identity = runtime
+            .review_runtime(&storage_for_review)
             .map_err(|message| command_failure(Kind::ReviewUnavailable, message))?;
-        let executable = status.executable_path.as_deref().unwrap_or("");
         match operation {
             CodexOperation::RepositoryPlan => provider::rebuild_codex_repository_plan_review(
                 &storage_for_review,
                 &reviewed,
-                executable,
+                &identity,
             )
             .map(|_| ()),
             CodexOperation::PrGuide | CodexOperation::PrChange => {
-                provider::revalidate_codex_git_review(&repository_for_review, &reviewed, executable)
+                provider::revalidate_codex_git_review(&repository_for_review, &reviewed, &identity)
                     .map(|_| ())
             }
             CodexOperation::Chapter | CodexOperation::CodeLens => {
-                provider::revalidate_codex_request_review(
-                    &storage_for_review,
-                    &reviewed,
-                    executable,
-                )
+                provider::revalidate_codex_request_review(&storage_for_review, &reviewed, &identity)
             }
         }
     })
@@ -821,10 +805,7 @@ async fn prepare_codex_operation(
     let input = codex_agent::CodexRunInput {
         run_id: review_id.to_owned(),
         model: review.model_id.clone(),
-        expected_executable_path: review.generation_config["executablePath"]
-            .as_str()
-            .unwrap_or("")
-            .to_owned(),
+        expected_runtime: provider::codex_runtime_from_review(&review)?,
         effort: review.generation_config["effort"]
             .as_str()
             .unwrap_or("")
