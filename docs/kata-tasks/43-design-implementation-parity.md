@@ -11,22 +11,33 @@ labels: product, design, ux, acceptance
 
 A new developer can open Code Atlas and immediately understand where to start, what a file does, and what changed between two revisions. The shipped Mac app follows the approved screens and interactions, rather than only containing matching workspace labels in source code.
 
-## Evidence observed on 2026-10-15
+## Initial evidence and current source status — 2026-10-15
 
-There are two conflicting product directions in the repository:
+The task began from a real mismatch between the proposal and the installed Mac app. The inspected bundle (Code Atlas 0.1.0) showed Atlas, Code Lens, and Walkthrough in its primary bar, with Guide Plan and Chapter Studio outside that navigation. On fontdone it showed 2,768 captured files and 25 skipped paths in the persistent project panel. The inspected Code Lens view for `tests/support/generated_constant_lookup.rs` had repeated TestReference cards that crowded the source explanation. That was a layout and information-architecture problem, not just spacing.
 
-- The current simplification proposal, docs/design/PROPOSED_SIMPLIFICATION.md and proposed-00 through proposed-04 SVGs, defines Guide, Files, and Changes. Guide is a start/continue home with file coverage; Files combines the tree, selected source, explanation, and evidence; Walkthrough is a manually paced Guide flow.
-- The greenfield contract, docs/kata-tasks/00-contract.md, and the older design image prompt still define Atlas, Code Lens, and Walkthrough as three equally important destinations, with Guide Plan and Chapter Studio as supporting workflows.
+The checkout already labeled the primary bar Guide, Files, and Changes, but its behavior still diverged from the proposals: Guide opened directly on the dense coverage manager, and selecting a file navigated to the separate Code Lens route. Source-only changes are now in progress:
 
-The code and packaged app also disagree:
+- The product blueprint, primary interaction contract, greenfield Kata contract, README, and design notes now identify Guide / Files / Changes as the current design authority. The previous PNG concepts and prompt are labeled historical.
+- Guide now has a repository home that uses a saved accepted overview when available, otherwise leads to a captured file. Coverage remains available under **File-by-file coverage**.
+- Files source links now target the existing Files route. The tree, selected snapshot source, exact citations, and selected file's current accepted explanation are composed together; relationship exploration remains optional.
+- The source route keeps navigation history so citation and related-file links can return to the previous file or Guide reader context.
+- Changes has not yet been compared against the approved design in the packaged app.
 
-- Source src/lib/shell.ts maps the primary bar to Guide, Files, and Changes, but Guide currently opens GuidePlanScreen headed “What still needs an explanation?”; it does not open the proposed overview/continue-tour home.
-- Files currently opens the Atlas workspace. Code Lens remains a separate route. Opening a file therefore moves from the file inventory/map into a separate source screen instead of showing the proposed tree, exact source, concise explanation, and clickable citations together.
-- Guide Plan and Chapter Studio remain distinct route screens in src/App.tsx. The More menu exposes separate “Browse accepted guides” and “Review a draft” actions; the source-first editing/review surface is not beside the selected file explanation as specified.
-- The running packaged Mac app showed Atlas, Code Lens, and Walkthrough in its primary bar, with Guide Plan and Chapter Studio outside that navigation. On fontdone it showed 2,768 captured files and 25 skipped paths in the persistent project panel. The inspected Code Lens view for tests/support/generated_constant_lookup.rs had long repeated TestReference cards, including adjacent lines all resolving generated_rust_constant to constant_to_i64. This makes parser/index evidence dominate the file explanation.
-- The app reported Mac app 0.1.0. This visible bundle does not match the checked-out shell source, which already labels the primary destinations Guide, Files, and Changes. Therefore source-only inspection or a web preview cannot prove the user-facing app is current.
+These edits have not been built, tested, launched, or inspected in the native app. The installed 0.1.0 bundle has not been replaced or confirmed to match the checkout. Source-level changes and updated docs are progress evidence, not packaged-app acceptance.
 
-These are information-architecture and workflow gaps, not merely spacing or color differences. The existing design proposal’s “first implementation pass” notes are not packaged-app parity evidence.
+## Concrete design-to-app mismatch record
+
+This is the dedicated design-parity task. The table records the specific mismatch that motivated it and separates direct observation from work that still needs packaged-app evidence.
+
+| Approved reference | What the app was doing or showing | What the design requires | Evidence status |
+| --- | --- | --- | --- |
+| `proposed-00-first-run.svg` | The installed app opened in an older Atlas-centered shell. Its first-run hierarchy was not reviewed against this screen. | A clear first-run path from choosing a repository, through a snapshot, to a useful Guide or file explanation. | Design parity not yet inspected in the packaged app. |
+| `proposed-01-guide-home.svg` | The source checkout opened Guide directly on the dense coverage manager. The installed app exposed Guide Plan as a supporting workflow instead of the landing destination. | A repository-oriented Guide home with a useful next action; per-file coverage stays available as a secondary task. | Source now has a Guide home, but the packaged app has not been rebuilt or reviewed. |
+| `proposed-02-files-explainer.svg` | The source checkout sent file selection to a separate Code Lens route. In the inspected fontdone snapshot, repeated static TestReference cards crowded the source explanation. The installed shell also listed Atlas and Code Lens as separate primary destinations. | One Files destination keeps the tree, selected snapshot source, concise explanation, and exact clickable citations together. Relationship exploration is optional. | Source now composes these areas in Files; the native navigation, layout, and return behavior are still unverified. |
+| `proposed-03-walkthrough.svg` | The prior user review reported that content moved too quickly, felt shallow, and did not make it easy to stop, inspect code, and continue deliberately. Packaged behavior was not rechecked in this turn. | One section at a time, with visible Previous/Continue controls, source/evidence links, and return to the same section. | Existing reader controls are in source; packaged pacing, source hops, and return-state preservation need review. |
+| `proposed-04-changes.svg` | The installed app's Changes screen was not inspected against this reference during the design review. | Explicit local base/head selection, changed-file list, focused before/after source, grounded explanation, and links to changed lines. | Not yet compared in the packaged app; record screenshot evidence and deviations before acceptance. |
+
+The user-facing mismatch is therefore concrete: the old app made three technical workspaces its primary navigation, hid the Guide behind a tools flow, split a file's code and explanation across destinations, and let repetitive relationship details dominate the file-understanding task. Source edits now move toward the approved design, but only packaged screenshots and interaction checks can establish that the shipped app follows it.
 
 ## Required work
 

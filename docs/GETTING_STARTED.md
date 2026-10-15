@@ -36,11 +36,11 @@ folder or relying on an offline export as a backup.
 
 1. In the app, choose **Open repository** and select a folder inside a local Git working copy. Code Atlas resolves the Git working-copy root. Choosing a folder checks directory and Git metadata; it does not read repository source.
 2. Review the selected project and choose **Create snapshot**. This starts a bounded local read into an immutable snapshot. The capture view reports progress and skipped paths, and a running capture can be cancelled. A partial capture remains labeled partial.
-3. Open **Atlas**. Use the repository tree and its capture/parser details to see what was captured and what was skipped. Select a captured text file and choose **Open in Code Lens** to inspect the source bytes from that snapshot. Atlas relationships are static parser evidence; they are not a complete runtime call graph.
-4. Open **Guide Plan** from the project-tools menu. It keeps every recorded path visible and shows whether a file still needs a chapter, has a draft or accepted revision, is excluded, or is unavailable or unsupported.
+3. Open **Files**. Browse the captured repository tree and select a text file to see its snapshot source and saved explanation together. Click a citation to open the exact cited range. Relationship exploration is optional; its links also return to exact snapshot source. Parser relationships are static evidence, not a complete runtime call graph.
+4. Open **Guide** for the repository overview and section-by-section reader. Use **File-by-file coverage** when you want to see which captured files have accepted explanations, drafts, or source limitations.
 5. Open **Chapter Studio** from the same menu. Select a file with no chapter for the current snapshot and choose **Generate current snapshot** if you want to use a direct model API. Select the provider and model explicitly, then review the exact request before sending. The generated result starts as a preview or draft and is not automatically accepted.
-6. After reviewing and accepting a chapter, open **Walkthrough**. Select a chapter and section, inspect its citations or visual hotspots, and use **Previous** or **Continue** when you are ready to move. Audio is optional; the transcript and manual controls remain available without it.
-7. To take a guide offline, choose **Offline export** in the Walkthrough footer. Select accepted revisions, review each section's audio coverage and the transcript paired with any included cached track, source paths, and excerpts, acknowledge the privacy review, and download the single HTML file. Export never generates or sends narration. The package includes written sections, transcripts, navigation, and supported typed diagrams; live Atlas and Code Lens destinations remain unavailable offline.
+6. In the Guide reader, select a chapter and section, inspect its citations or visual hotspots, and use **Previous** or **Continue** when you are ready to move. Audio is optional; the transcript and manual controls remain available without it.
+7. To take a guide offline, choose **Offline export** in the Guide reader footer. Select accepted revisions, review each section's audio coverage and the transcript paired with any included cached track, source paths, and excerpts, acknowledge the privacy review, and download the single HTML file. Export never generates or sends narration. The package includes written sections, transcripts, navigation, and supported typed diagrams; live repository browsing is unavailable offline.
 
 ## Compare local revisions
 
@@ -54,7 +54,7 @@ For an explanation of one change without creating a saved guide, select a direct
 
 ## Optional direct API generation
 
-Local capture, Atlas, Code Lens, existing saved chapters, and chapter editing do not require an API key. To send a generation request:
+Local capture, Files, existing saved explanations, and chapter editing do not require an API key. To send a generation request:
 
 1. Open the project-tools menu and choose **AI and narration setup**.
 2. Choose Gemini, OpenAI, or Anthropic, review its model and provider disclosures, then save that provider's API key to macOS Keychain.
@@ -70,7 +70,7 @@ Code Atlas cannot determine account billing, region, eligibility, quota, or rete
 - The indexer recognizes a defined Rust, TypeScript, TSX, and JavaScript subset. Other files remain visible in inventory, with parser or capture limitations shown.
 - Each selected file is generated and reviewed individually. There is no generate-all action.
 - Generated prose and source identity validation are different checks: a valid citation does not prove that the explanation is semantically correct.
-- Gemini, OpenAI, and Anthropic are selectable for file chapters, optional orientation, selective section updates, PR Guides, transient one-hunk PR change explanations, and transient Code Lens explanations grounded in a verified source range. Offline mock fixtures cover every wired provider/operation pair; full capability and acceptance evidence remains open for live provider behavior, eligibility, production transport, response parsing, and manual disclosure review. Coding-agent backends are separate planned integrations and are not selectable.
+- Gemini, OpenAI, and Anthropic are selectable for file chapters, optional orientation, selective section updates, PR Guides, transient one-hunk PR change explanations, and transient source-range explanations grounded in a verified file range. Offline mock fixtures cover every wired provider/operation pair; full capability and acceptance evidence remains open for live provider behavior, eligibility, production transport, response parsing, and manual disclosure review. Coding-agent backends are separate planned integrations and are not selectable.
 - Single-section stale-guide updates and user-facing revision compare/restore are implemented; updating several stale sections in one model request is not supported. Local Git comparisons now show bounded, revision-specific static references to changed files and declarations, with explicit partial results when analysis limits apply; they do not infer runtime impact. Polished onboarding, release signing, and the remaining PR Guide and offline-export acceptance evidence remain tracked; read the [Kata backlog](KATA_BACKLOG.md) for task contracts.
 - This checkout has no root license file. Reuse and redistribution terms are unspecified.
 

@@ -8,6 +8,8 @@ labels: phase-0, foundation, design
 blocked_by: t01
 ---
 
+> **Historical shell contract:** this task predates the approved Guide / Files / Changes primary navigation. Its implementation outcome is superseded by [`43-design-implementation-parity.md`](43-design-implementation-parity.md); keep the task for its foundation work, not as current navigation guidance.
+
 ## User outcome
 The app opens to a calm, coherent workspace and lets the user move between the three core views without needing a repository or account.
 

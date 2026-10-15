@@ -1,8 +1,6 @@
 # Code Atlas simplification
 
-These five SVGs are the design reference for a simpler Code Atlas. The first
-implementation pass now carries that direction into the app while preserving
-the existing source, guide, and revision workflows.
+These five SVGs are the approved design reference for the Code Atlas information architecture. They describe the target experience; they are not packaged-app screenshots. Source changes to align Guide and Files are in progress, and Kata task `13yp` remains open until the packaged Mac app is rebuilt and accepted against the references.
 
 ## The proposed shape
 
@@ -53,14 +51,19 @@ source evidence, request consent, safe capture, or revision history exist.
 
 ## What the current app showed
 
-The open Mac app has three primary tabs, then Guide Plan, Chapter Studio, and
-revision comparison hidden in a project-tools menu. Atlas combines an inventory
-tree, a relationship canvas, multiple filters, unresolved-edge counts, and
-evidence details at once. In the inspected fontdone snapshot, Code Lens showed
-hundreds of unresolved relationship rows below the source. Guide Plan presents
-per-path statuses, filters, grouping, pagination, and chapter actions together.
-That forces a new reader to learn internal product concepts before they can
-answer “what does this file do?”
+In the inspected installed Mac app (version 0.1.0), the primary tabs were Atlas,
+Code Lens, and Walkthrough; Guide Plan, Chapter Studio, and revision comparison
+were separate or hidden workflows. Atlas presented an inventory tree, a
+relationship canvas, filters, unresolved-edge counts, and evidence details at
+once. In the inspected fontdone snapshot, Code Lens showed hundreds of
+unresolved relationship rows below the source. Guide Plan put per-path statuses,
+filters, grouping, pagination, and chapter actions together. That made a new
+reader learn internal product concepts before answering “what does this file do?”
+
+The observations above describe that installed build. A source-only iteration
+started moving Guide and Files toward the approved hierarchy on 15 October
+2026. The packaged app has not been rebuilt or inspected for that iteration, so
+it is not yet evidence of design parity.
 
 The redesign focuses each screen on one question:
 
@@ -99,22 +102,23 @@ model. They use the existing dark graphite, warm-neutral, blue, and restrained
 lime design language. The SVGs remain design references; they are not screenshots
 of the current build.
 
-## First implementation pass
+## Current source iteration — not yet packaged or accepted
 
-- The main bar now presents **Guide**, **Files**, and **Changes**. File source
-  and the guide reader keep their route state and return to their parent
-  destination.
-- Guide opens on file-by-file coverage. Its first view offers three plain
-  filters, path search, direct actions to read accepted explanations or open a
-  file that needs one, and optional advanced filters and grouping.
-- Files opens a file directly from its row. Snapshot hashes, capture limits,
-  and the relationship map stay available behind deliberate details controls.
-- Code Lens presents a short list of resolved links first; unresolved references
-  are separate and collapsed.
-- The repository search shortcut now focuses the file search instead of showing
-  a “coming soon” message.
+- Guide now has a repository home that reads a current accepted overview when
+  one exists, otherwise points to a real captured file. The optional overview
+  remains separate from file-by-file coverage, which is behind an explicit
+  disclosure.
+- Files now routes source links to the selected snapshot in the Files view.
+  The intended composition keeps the tree, read-only source, exact citation,
+  and saved explanation together. Relationship exploration remains optional.
+- The file explanation panel is scoped to the selected file and snapshot. It
+  shows the latest accepted revision, draft/rejected state, or a clear
+  explanation action. Source links remain tied to their recorded path, range,
+  hash, and snapshot.
+- The walkthrough still uses explicit Previous and Continue controls, and
+  source navigation retains its return route.
 
-This is an initial usability pass, not a claim that every screen is finished.
-The AI request/review flow, change comparison, native accessibility, and visual
-acceptance still need their own review. No automated test or build was run for
-this pass, in keeping with the request to work from source without testing.
+These are source edits only. No test, build, native app launch, screenshot, or
+accessibility acceptance was performed for this iteration. Kata task `13yp`
+remains open for source review, packaged-app interaction checks, screenshots,
+and confirmation that the built app presents these screens as designed.

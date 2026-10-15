@@ -739,7 +739,7 @@ function App() {
 
   useEffect(() => {
     const route = navigation.current;
-    if (route.workspace !== 'code-lens' || !route.projectId || !route.snapshotId || !route.relativePath) {
+    if ((route.workspace !== 'atlas' && route.workspace !== 'code-lens') || !route.projectId || !route.snapshotId || !route.relativePath) {
       setSourceDocument(null);
       setSourceError(null);
       setSourceLoading(false);
@@ -899,7 +899,7 @@ function App() {
 
   const explainCodeLensRangeWithProvider = (targetPath: string, range: SourceLineRange) => {
     if (!currentProject || !sourceDocument || !range.sourceSha256) {
-      setNotice({ title: 'A verified source range is required', message: 'Open an exact Code Lens citation from the selected immutable snapshot before requesting a range explanation.' });
+      setNotice({ title: 'A verified source range is required', message: 'Open an exact source citation in Files from the selected immutable snapshot before requesting a range explanation.' });
       return;
     }
     providerReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -958,14 +958,30 @@ function App() {
       const origin = returnFocusTarget
         ? replaceCurrentRoute(state, { ...state.current, focusTarget: returnFocusTarget })
         : state;
-      return navigateToRoute(origin, {
-        workspace: 'code-lens',
+      const destination: WorkspaceRoute = {
+        ...origin.current,
+        workspace: 'atlas',
         projectId: currentProject.projectId,
         snapshotId: targetSnapshotId,
         relativePath,
         sourceRange,
-        focusTarget: 'heading:code-lens',
-      });
+        sourceRangeIssue: undefined,
+        symbolId: undefined,
+        atlasSelection: undefined,
+        treeSelection: relativePath,
+        chapterId: undefined,
+        chapterRevisionId: undefined,
+        sectionId: undefined,
+        playbackPosition: undefined,
+        transcriptPosition: undefined,
+        readerSnapshotBaselineId: undefined,
+        focusTarget: 'heading:atlas',
+      };
+      return origin.current.workspace === 'atlas'
+        && origin.current.snapshotId === targetSnapshotId
+        && origin.current.relativePath === relativePath
+        ? replaceCurrentRoute(origin, destination)
+        : navigateToRoute(origin, destination);
     });
     setNotice(null);
   };
@@ -988,12 +1004,14 @@ function App() {
         focusTarget: context.focusTarget,
       };
       return navigateToRoute(replaceCurrentRoute(state, readerOrigin), {
-        workspace: 'code-lens',
+        workspace: 'atlas',
         projectId: context.projectId,
         snapshotId: anchor.snapshotId,
         relativePath: anchor.path,
         sourceRange: codeLensRangeFromChapterAnchor(anchor),
-        focusTarget: 'heading:code-lens',
+        atlasSelection: undefined,
+        treeSelection: anchor.path,
+        focusTarget: 'heading:atlas',
       });
     });
     setNotice(null);
@@ -1033,7 +1051,7 @@ function App() {
           : atlasSelection.kind === 'symbol'
             ? `${atlasSelection.path}#${atlasSelection.symbolId}`
             : atlasSelection.path,
-        focusTarget: 'atlas-destination',
+        focusTarget: atlasSelection.kind === 'file' ? 'heading:atlas' : 'atlas-destination',
       });
     });
   };
@@ -1436,11 +1454,22 @@ function App() {
                     onView={currentCapture.summary ? () => selectSnapshot(currentCapture.summary!) : undefined}
                   />
                 )}
-                <SnapshotReadyState key={snapshotManifest.summary.snapshotId} manifest={snapshotManifest} atlasSelection={navigation.current.atlasSelection} mapViewport={navigation.current.mapViewport} onCaptureAgain={() => { void createSnapshot(); }} onOpenFile={openCapturedFile} onAtlasSelection={(selection, treeSelection, mapViewport) => {
+                <SnapshotReadyState key={snapshotManifest.summary.snapshotId} manifest={snapshotManifest} atlasSelection={navigation.current.atlasSelection} mapViewport={navigation.current.mapViewport} selectedPath={navigation.current.relativePath ?? null} source={sourceDocument} sourceRange={navigation.current.sourceRange ?? null} sourceRangeIssue={navigation.current.sourceRangeIssue ?? null} sourceLoading={sourceLoading} sourceError={sourceError} onCaptureAgain={() => { void createSnapshot(); }} onOpenFile={openCapturedFile} onRequestExplanation={reviewFileWithProvider} onRequestRangeExplanation={explainCodeLensRangeWithProvider} onReadRevision={openGuideRevision} onReviewRevision={(revision) => setNavigation((state) => navigateToRoute(state, {
+                  ...state.current,
+                  workspace: 'chapter-studio',
+                  projectId: revision.projectId,
+                  snapshotId: revision.snapshotId,
+                  chapterId: revision.chapterId,
+                  chapterRevisionId: revision.revisionId,
+                  sectionId: undefined,
+                  focusTarget: 'heading:chapter-studio',
+                }))} onAtlasSelection={(selection, treeSelection, mapViewport) => {
                   setNavigation((state) => replaceCurrentRoute(state, {
                     ...state.current,
                     atlasSelection: undefined,
                     relativePath: selection && (selection.kind === 'file' || selection.kind === 'symbol') ? selection.path : undefined,
+                    sourceRange: undefined,
+                    sourceRangeIssue: undefined,
                     symbolId: selection?.kind === 'symbol' ? selection.symbolId : undefined,
                     treeSelection,
                     mapViewport,
@@ -1501,9 +1530,11 @@ function App() {
               <GuidePlanScreen
                 key={`${currentProject.projectId}:${selectedSnapshot.snapshotId}`}
                 projectId={currentProject.projectId}
+                projectName={currentProject.displayName}
                 manifest={snapshotManifest}
                 rows={buildInventory(snapshotManifest)}
                 onGoAtlas={() => chooseWorkspace('atlas')}
+                onGoChanges={() => chooseWorkspace('changes')}
                 onGoStudio={() => chooseWorkspace('chapter-studio')}
                 onReadRevision={openGuideRevision}
                 onReviewRevision={(revision) => setNavigation((state) => navigateToRoute(state, {
@@ -2278,7 +2309,7 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
                   <div className="provider-context-heading"><strong>Fixed source range</strong><span>{mode.target.path}</span></div>
                   <p>Only this hash-verified range from snapshot {mode.snapshotId} is sent. It cannot be expanded to neighboring lines or other files.</p>
                   <code>{mode.target.path}:{mode.target.startLine}–{mode.target.endLine}</code>
-                  <p className="provider-small-note">The structured result will cite exact quotes inside this range and remain a temporary Code Lens explanation. It is not added to chapter coverage or revision history.</p>
+                  <p className="provider-small-note">The structured result will cite exact quotes inside this range and remain a temporary source-range explanation. It is not added to chapter coverage or revision history.</p>
                 </div> : <div className="provider-context-picker">
                   <div className="provider-context-heading"><strong>Choose source files</strong><span>{selectedPaths.length} of 12 selected</span></div>
                   <p>{overviewMode ? 'Choose the files that should ground this optional repository map. Changing the selection rebuilds the preview and clears consent.' : 'The target stays selected. Add up to eleven supporting files from this snapshot; changing the selection rebuilds the preview and clears consent.'}</p>
@@ -2677,7 +2708,25 @@ function SnapshotCaptureResult({ progress, onRetry }: { progress: SnapshotProgre
   );
 }
 
-function SnapshotReadyState({ manifest, atlasSelection, mapViewport, onCaptureAgain, onOpenFile, onAtlasSelection, onAtlasViewportChange }: { manifest: SnapshotManifest; atlasSelection?: WorkspaceRoute['atlasSelection']; mapViewport?: AtlasViewport; onCaptureAgain: () => void; onOpenFile: (path: string, snapshotId?: string, sourceRange?: SourceLineRange) => void; onAtlasSelection: (selection: WorkspaceRoute['atlasSelection'], treeSelection: string, mapViewport?: AtlasViewport) => void; onAtlasViewportChange: (mapViewport: AtlasViewport) => void }) {
+function SnapshotReadyState({ manifest, atlasSelection, mapViewport, selectedPath, source, sourceRange, sourceRangeIssue, sourceLoading, sourceError, onCaptureAgain, onOpenFile, onAtlasSelection, onAtlasViewportChange, onRequestExplanation, onRequestRangeExplanation, onReviewRevision, onReadRevision }: {
+  manifest: SnapshotManifest;
+  atlasSelection?: WorkspaceRoute['atlasSelection'];
+  mapViewport?: AtlasViewport;
+  selectedPath: string | null;
+  source: SnapshotSource | null;
+  sourceRange: SourceLineRange | null;
+  sourceRangeIssue: WorkspaceRoute['sourceRangeIssue'] | null;
+  sourceLoading: boolean;
+  sourceError: string | null;
+  onCaptureAgain: () => void;
+  onOpenFile: (path: string, snapshotId?: string, sourceRange?: SourceLineRange) => void;
+  onAtlasSelection: (selection: WorkspaceRoute['atlasSelection'], treeSelection: string, mapViewport?: AtlasViewport) => void;
+  onAtlasViewportChange: (mapViewport: AtlasViewport) => void;
+  onRequestExplanation: (path: string) => void;
+  onRequestRangeExplanation: (path: string, range: SourceLineRange) => void;
+  onReviewRevision: (revision: ChapterRevision) => void;
+  onReadRevision: (revision: ChapterRevision) => void;
+}) {
   const { summary } = manifest;
   const partial = summary.status === 'partial';
   const inventory = useMemo(() => buildInventory(manifest), [manifest]);
@@ -2686,15 +2735,18 @@ function SnapshotReadyState({ manifest, atlasSelection, mapViewport, onCaptureAg
   const atlasSelectionKey = atlasSelection ? JSON.stringify(atlasSelection) : '';
 
   useEffect(() => {
-    if (!atlasSelection) return;
+    if (!atlasSelection || atlasSelection.kind === 'file') return;
     const frame = requestAnimationFrame(() => destinationRef.current?.focus({ preventScroll: false }));
     return () => cancelAnimationFrame(frame);
   }, [atlasSelectionKey, summary.snapshotId]);
 
   return (
     <div className="empty-workspace snapshot-ready-state">
-      <section className="snapshot-ready-card" aria-labelledby="snapshot-ready-title">
-        <div className="snapshot-ready-heading">
+      <section className="snapshot-ready-card" aria-label="Selected repository snapshot and files">
+        {selectedPath ? <div className="files-selected-header" data-focus-key="files-source" tabIndex={-1}>
+          <span>FILES <ChevronDown size={12} /> <code>{selectedPath}</code></span>
+          <small>Source and explanation from the selected immutable snapshot</small>
+        </div> : <div className="snapshot-ready-heading">
           <div className="snapshot-state-icon"><Check size={22} /></div>
           <div>
             <div className="step-pill"><span>{partial ? 'PARTIAL' : 'IMMUTABLE'}</span> SOURCE SNAPSHOT</div>
@@ -2702,7 +2754,7 @@ function SnapshotReadyState({ manifest, atlasSelection, mapViewport, onCaptureAg
             <p>{summary.filesCaptured.toLocaleString()} files captured · {formatSnapshotDate(summary.createdAtUnixMs)} · {summary.branch ?? 'Detached HEAD'}</p>
           </div>
           <button className="secondary-button" onClick={onCaptureAgain}>Capture again</button>
-        </div>
+        </div>}
         {partial && <div className="snapshot-partial-warning" role="status"><TriangleAlert size={15} /><span><strong>{summary.pathsSkipped.toLocaleString()} paths were skipped.</strong> They remain visible in the file list with a reason; no source was read for them.</span></div>}
         <details className="snapshot-technical-details">
           <summary>Snapshot details and capture limits</summary>
@@ -2716,9 +2768,28 @@ function SnapshotReadyState({ manifest, atlasSelection, mapViewport, onCaptureAg
           <div className="snapshot-dirty-state"><GitBranch size={15} /><span>Git index: <strong>{summary.indexState}</strong></span><span>Working tree: <strong>{summary.worktreeState}</strong></span><span>HEAD: <code>{summary.head?.slice(0, 12) ?? 'unborn'}</code></span></div>
           <CapturePolicy limits={manifest.captureLimits} />
         </details>
-        {atlasSelection && <AtlasDestinationCard refElement={destinationRef} manifest={manifest} selection={atlasSelection} onOpenFile={onOpenFile} />}
-        <AtlasWorkbench key={`${summary.projectId}:${summary.snapshotId}`} manifest={manifest} rows={inventory} routeSelection={atlasSelection} routeViewport={mapViewport} onOpenFile={onOpenFile} onAtlasSelection={onAtlasSelection} onViewportChange={onAtlasViewportChange} />
-        <div className="snapshot-next-step"><HardDrive size={15} /><span>Choose a file to read its captured source and create an explanation linked to its exact lines.</span></div>
+        {atlasSelection && atlasSelection.kind !== 'file' && <AtlasDestinationCard refElement={destinationRef} manifest={manifest} selection={atlasSelection} onOpenFile={onOpenFile} />}
+        <AtlasWorkbench
+          key={`${summary.projectId}:${summary.snapshotId}`}
+          manifest={manifest}
+          rows={inventory}
+          routeSelection={atlasSelection}
+          selectedPath={selectedPath}
+          routeViewport={mapViewport}
+          source={source}
+          sourceRange={sourceRange}
+          sourceRangeIssue={sourceRangeIssue}
+          sourceLoading={sourceLoading}
+          sourceError={sourceError}
+          onOpenFile={onOpenFile}
+          onAtlasSelection={onAtlasSelection}
+          onViewportChange={onAtlasViewportChange}
+          onRequestExplanation={onRequestExplanation}
+          onRequestRangeExplanation={onRequestRangeExplanation}
+          onReviewRevision={onReviewRevision}
+          onReadRevision={onReadRevision}
+        />
+        {!selectedPath && <div className="snapshot-next-step"><HardDrive size={15} /><span>Choose a file to read its captured source and create an explanation linked to its exact lines.</span></div>}
       </section>
     </div>
   );
@@ -2837,14 +2908,24 @@ function loadAtlasWorkbenchState(key: string): AtlasWorkbenchViewState {
   } catch { return emptyAtlasWorkbenchState(); }
 }
 
-function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenFile, onAtlasSelection, onViewportChange }: {
+function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeViewport, source, sourceRange, sourceRangeIssue, sourceLoading, sourceError, onOpenFile, onAtlasSelection, onViewportChange, onRequestExplanation, onRequestRangeExplanation, onReviewRevision, onReadRevision }: {
   manifest: SnapshotManifest;
   rows: InventoryRow[];
   routeSelection?: WorkspaceRoute['atlasSelection'];
+  selectedPath: string | null;
   routeViewport?: AtlasViewport;
+  source: SnapshotSource | null;
+  sourceRange: SourceLineRange | null;
+  sourceRangeIssue: WorkspaceRoute['sourceRangeIssue'] | null;
+  sourceLoading: boolean;
+  sourceError: string | null;
   onOpenFile: (path: string, snapshotId?: string, sourceRange?: SourceLineRange) => void;
   onAtlasSelection: (selection: WorkspaceRoute['atlasSelection'], treeSelection: string, mapViewport?: AtlasViewport) => void;
   onViewportChange: (viewport: AtlasViewport) => void;
+  onRequestExplanation: (path: string) => void;
+  onRequestRangeExplanation: (path: string, range: SourceLineRange) => void;
+  onReviewRevision: (revision: ChapterRevision) => void;
+  onReadRevision: (revision: ChapterRevision) => void;
 }) {
   const snapshotId = manifest.summary.snapshotId;
   const projectId = manifest.summary.projectId;
@@ -2894,15 +2975,20 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
     if (treePersistTimerRef.current) clearTimeout(treePersistTimerRef.current);
   }, []);
   useEffect(() => {
-    if (!routeSelection) return;
-    setView((current) => ({
-      ...current,
-      selectedPath: routeSelection.kind === 'file' || routeSelection.kind === 'symbol' ? routeSelection.path : null,
-      selectedSymbol: routeSelection.kind === 'symbol' ? routeSelection.symbolId : null,
-      selectedRelationship: routeSelection.kind === 'relationship' ? routeSelection.relationshipId : null,
-      selectedFolder: null,
-    }));
-  }, [routeKey]);
+    if (routeSelection) {
+      setView((current) => ({
+        ...current,
+        selectedPath: routeSelection.kind === 'file' || routeSelection.kind === 'symbol' ? routeSelection.path : null,
+        selectedSymbol: routeSelection.kind === 'symbol' ? routeSelection.symbolId : null,
+        selectedRelationship: routeSelection.kind === 'relationship' ? routeSelection.relationshipId : null,
+        selectedFolder: null,
+      }));
+    } else if (selectedPath) {
+      setView((current) => current.selectedPath === selectedPath && !current.selectedFolder
+        ? current
+        : { ...current, selectedPath, selectedFolder: null, selectedSymbol: null, selectedRelationship: null });
+    }
+  }, [routeKey, routeSelection, selectedPath]);
   useEffect(() => {
     let active = true;
     setIndexState('loading');
@@ -3157,8 +3243,8 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
-  return <section className="atlas-workbench" aria-label="Atlas repository explorer">
-    <div className="atlas-workbench-heading"><div><strong>Repository files</strong><span>Click a file to open its source. Expand a folder to browse inside it.</span></div></div>
+  return <section className="atlas-workbench" aria-label="Repository files and relationships">
+    <div className="atlas-workbench-heading"><div><strong>Repository files</strong><span>Select a captured file to read its exact source, explanation, and clickable evidence here.</span></div></div>
     <div className="atlas-columns">
       <section className="atlas-tree-panel" aria-labelledby="atlas-tree-title">
         <header><div><strong id="atlas-tree-title">Files</strong><small aria-live="polite">{rows.length.toLocaleString()} paths · {flattened.length.toLocaleString()} shown</small></div></header>
@@ -3220,6 +3306,31 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
         <footer>Skipped paths stay visible here with a reason.</footer>
       </section>
 
+      <CodeLensEmptyState
+        inline
+        projectId={projectId}
+        snapshotId={snapshotId}
+        manifest={manifest}
+        selectedPath={selectedPath}
+        source={source}
+        sourceRange={sourceRange}
+        sourceRangeIssue={sourceRangeIssue}
+        loading={sourceLoading}
+        error={sourceError}
+        onOpenFile={onOpenFile}
+        onRequestExplanation={onRequestExplanation}
+        onRequestRangeExplanation={onRequestRangeExplanation}
+      />
+      <FileExplanationPanel
+        projectId={projectId}
+        snapshotId={snapshotId}
+        selectedPath={selectedPath}
+        onOpenFile={onOpenFile}
+        onRequestExplanation={onRequestExplanation}
+        onReviewRevision={onReviewRevision}
+        onReadRevision={onReadRevision}
+      />
+
       <details className="atlas-relationship-details">
         <summary>Explore code relationships <span>Optional · verified links from the snapshot index</span></summary>
         <div className="atlas-map-columns">
@@ -3264,9 +3375,9 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
       <aside className="atlas-details-panel" aria-labelledby="atlas-details-title">
         <header><div><strong id="atlas-details-title">Evidence details</strong><small>Snapshot {snapshotId.slice(-12)}</small></div></header>
         {selectedEdge ? <div className="atlas-detail-content"><span className="atlas-detail-kicker">PROVEN · HIGH CONFIDENCE</span><h3>{selectedEdge.relationship.kind}</h3><code>{index?.symbols.find((symbol) => symbol.symbolId === selectedEdge.sourceId)?.qualifiedName} → {index?.symbols.find((symbol) => symbol.symbolId === selectedEdge.targetId)?.qualifiedName}</code><dl><div><dt>Evidence</dt><dd>{selectedEdge.evidence.path}:{selectedEdge.evidence.startLine}–{selectedEdge.evidence.endLine}</dd></div><div><dt>SHA-256</dt><dd><code>{selectedEdge.evidence.sha256}</code></dd></div></dl><button className="atlas-open-evidence" data-focus-key={`atlas-open-edge:${selectedEdge.relationship.relationshipId}`} onClick={() => openEdgeEvidence(selectedEdge)}><FileCode2 size={14} /> Open exact source evidence</button></div>
-          : selectedSymbol ? <div className="atlas-detail-content"><span className="atlas-detail-kicker">INDEXED SYMBOL</span><h3>{selectedSymbol.qualifiedName}</h3><code>{selectedSymbol.path}</code><p>{selectedSymbol.kind} · {selectedSymbol.language} · lines {selectedSymbol.anchor.startLine}–{selectedSymbol.anchor.endLine}</p><dl><div><dt>SHA-256</dt><dd><code>{selectedSymbol.anchor.sourceSha256}</code></dd></div></dl><button className="atlas-open-evidence" data-focus-key={`atlas-open-symbol:${selectedSymbol.symbolId}`} onClick={() => onOpenFile(selectedSymbol.path, snapshotId, codeLensRangeFromIndexedAnchor(selectedSymbol.anchor))}><FileCode2 size={14} /> Open symbol in Code Lens</button></div>
+            : selectedSymbol ? <div className="atlas-detail-content"><span className="atlas-detail-kicker">INDEXED SYMBOL</span><h3>{selectedSymbol.qualifiedName}</h3><code>{selectedSymbol.path}</code><p>{selectedSymbol.kind} · {selectedSymbol.language} · lines {selectedSymbol.anchor.startLine}–{selectedSymbol.anchor.endLine}</p><dl><div><dt>SHA-256</dt><dd><code>{selectedSymbol.anchor.sourceSha256}</code></dd></div></dl><button className="atlas-open-evidence" data-focus-key={`atlas-open-symbol:${selectedSymbol.symbolId}`} onClick={() => onOpenFile(selectedSymbol.path, snapshotId, codeLensRangeFromIndexedAnchor(selectedSymbol.anchor))}><FileCode2 size={14} /> Open symbol source</button></div>
             : rawRelationship ? <div className="atlas-detail-content"><span className="atlas-detail-kicker warning">NOT PROVEN</span><h3>{rawRelationship.kind} · {rawRelationship.confidence}</h3><p>This relationship is unresolved or its exact snapshot evidence is unavailable, so it is withheld from the canvas.</p><code>{rawRelationship.evidence.path}</code><small>{rawRelationship.unresolvedReason ?? 'Relationship did not pass endpoint and hash verification.'}</small><button className="atlas-open-evidence" data-focus-key={`atlas-open-relationship:${rawRelationship.relationshipId}`} onClick={() => onOpenFile(rawRelationship.evidence.path, snapshotId, codeLensRangeFromIndexedAnchor(rawRelationship.evidence))}><FileCode2 size={14} /> Inspect indexed anchor</button></div>
-                : selectedRow ? <div className="atlas-detail-content"><span className="atlas-detail-kicker">{selectedRow.kind} · {selectedRow.disposition}</span><h3>{selectedRow.path === '.' ? 'Repository root' : selectedRow.path.split('/').at(-1)}</h3><code>{selectedRow.path}</code><dl><div><dt>Language</dt><dd>{selectedRow.language}</dd></div><div><dt>Capture</dt><dd>{inventoryReasonLabel(selectedRow.reason)}</dd></div><div><dt>Parser / index</dt><dd>{selectedRow.parserReadiness} · {atlasRowIndexStatusLabel(atlasRowIndexStatus(selectedRow, index, indexState, stalePathSet.has(selectedRow.path))) ?? 'not applicable'}</dd></div>{selectedIndexCounts && <><div><dt>Indexed files</dt><dd>{selectedIndexCounts.indexedFiles}</dd></div><div><dt>Symbols</dt><dd>{selectedIndexCounts.symbols}</dd></div><div><dt>Relationships</dt><dd>{selectedIndexCounts.relationships}</dd></div></>}{selectedRow.sizeBytes !== null && <div><dt>Size</dt><dd>{formatBytes(selectedRow.sizeBytes)}</dd></div>}{selectedRow.sha256 && <div><dt>SHA-256</dt><dd><code>{selectedRow.sha256}</code></dd></div>}</dl>{selectedRow.parserReadiness === 'unsupported' && <p className="atlas-detail-note">Unsupported by the local indexer; this row remains available in inventory.</p>}{selectedRow.disposition !== 'captured' && <p className="atlas-detail-note warning">No source bytes were captured. {selectedRow.details}</p>}{selectedRow.kind === 'directory' && <p className="atlas-detail-note">Folder selection scopes the relationship canvas to descendants.</p>}{selectedRow.disposition === 'captured' && (selectedRow.contentKind === 'text' || selectedRow.contentKind === 'unknown') && <button className="atlas-open-evidence" data-focus-key={`atlas-open-file:${selectedRow.path}`} onClick={() => onOpenFile(selectedRow.path, snapshotId)}><FileCode2 size={14} /> Open in Code Lens</button>}</div>
+                : selectedRow ? <div className="atlas-detail-content"><span className="atlas-detail-kicker">{selectedRow.kind} · {selectedRow.disposition}</span><h3>{selectedRow.path === '.' ? 'Repository root' : selectedRow.path.split('/').at(-1)}</h3><code>{selectedRow.path}</code><dl><div><dt>Language</dt><dd>{selectedRow.language}</dd></div><div><dt>Capture</dt><dd>{inventoryReasonLabel(selectedRow.reason)}</dd></div><div><dt>Parser / index</dt><dd>{selectedRow.parserReadiness} · {atlasRowIndexStatusLabel(atlasRowIndexStatus(selectedRow, index, indexState, stalePathSet.has(selectedRow.path))) ?? 'not applicable'}</dd></div>{selectedIndexCounts && <><div><dt>Indexed files</dt><dd>{selectedIndexCounts.indexedFiles}</dd></div><div><dt>Symbols</dt><dd>{selectedIndexCounts.symbols}</dd></div><div><dt>Relationships</dt><dd>{selectedIndexCounts.relationships}</dd></div></>}{selectedRow.sizeBytes !== null && <div><dt>Size</dt><dd>{formatBytes(selectedRow.sizeBytes)}</dd></div>}{selectedRow.sha256 && <div><dt>SHA-256</dt><dd><code>{selectedRow.sha256}</code></dd></div>}</dl>{selectedRow.parserReadiness === 'unsupported' && <p className="atlas-detail-note">Unsupported by the local indexer; this row remains available in inventory.</p>}{selectedRow.disposition !== 'captured' && <p className="atlas-detail-note warning">No source bytes were captured. {selectedRow.details}</p>}{selectedRow.kind === 'directory' && <p className="atlas-detail-note">Folder selection scopes the relationship canvas to descendants.</p>}{selectedRow.disposition === 'captured' && (selectedRow.contentKind === 'text' || selectedRow.contentKind === 'unknown') && <button className="atlas-open-evidence" data-focus-key={`atlas-open-file:${selectedRow.path}`} onClick={() => onOpenFile(selectedRow.path, snapshotId)}><FileCode2 size={14} /> Open file source</button>}</div>
                 : <div className="atlas-detail-empty"><Network size={18} /><strong>Select a folder, file, symbol, or edge.</strong><span>Details retain exact snapshot path and source hash evidence.</span></div>}
         <footer>Dynamic and unresolved relationships are never presented as proven.</footer>
       </aside>
@@ -3276,15 +3387,116 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
   </section>;
 }
 
+function FileExplanationPanel({ projectId, snapshotId, selectedPath, onOpenFile, onRequestExplanation, onReviewRevision, onReadRevision }: {
+  projectId: string;
+  snapshotId: string;
+  selectedPath: string | null;
+  onOpenFile: (path: string, snapshotId?: string, sourceRange?: SourceLineRange) => void;
+  onRequestExplanation: (path: string) => void;
+  onReviewRevision: (revision: ChapterRevision) => void;
+  onReadRevision: (revision: ChapterRevision) => void;
+}) {
+  const [revisions, setRevisions] = useState<ChapterRevision[]>([]);
+  const [loading, setLoading] = useState(isNativeRuntime());
+  const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setRefreshKey((value) => value + 1);
+    window.addEventListener('code-atlas:chapters-changed', refresh);
+    return () => window.removeEventListener('code-atlas:chapters-changed', refresh);
+  }, []);
+
+  useEffect(() => {
+    if (!isNativeRuntime()) {
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    let active = true;
+    setLoading(true);
+    setError(null);
+    void listProjectChapterRevisions(projectId)
+      .then((saved) => { if (active) setRevisions(saved); })
+      .catch((loadError) => { if (active) setError(errorMessageOr(loadError, 'This file’s saved explanation could not be loaded.')); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [projectId, snapshotId, refreshKey]);
+
+  const pathRevisions = selectedPath ? revisions.filter((revision) => (
+    revision.projectId === projectId
+      && revision.target.scope.kind === 'file'
+      && revision.target.scope.path === selectedPath
+  )) : [];
+  const currentRevisions = pathRevisions.filter((revision) => revision.snapshotId === snapshotId)
+    .sort((left, right) => right.revisionNumber - left.revisionNumber || right.createdAtUnixMs - left.createdAtUnixMs);
+  const latestCurrent = currentRevisions[0] ?? null;
+  const accepted = latestCurrent?.lifecycle === 'accepted' ? latestCurrent : null;
+  const currentDraft = latestCurrent && latestCurrent.lifecycle !== 'accepted' ? latestCurrent : null;
+  const previousAccepted = pathRevisions
+    .filter((revision) => revision.lifecycle === 'accepted')
+    .sort((left, right) => right.revisionNumber - left.revisionNumber || right.createdAtUnixMs - left.createdAtUnixMs)[0] ?? null;
+
+  return <aside className="file-explanation-panel" aria-labelledby="file-explanation-title">
+    <header>
+      <span className="file-explanation-kicker">THIS FILE</span>
+      <h2 id="file-explanation-title">{selectedPath ? selectedPath.split('/').at(-1) : 'File explanation'}</h2>
+      {selectedPath && <code>{selectedPath}</code>}
+    </header>
+    {!selectedPath ? <div className="file-explanation-empty"><BookOpen size={20} /><strong>Select a file to see what it does.</strong><span>Explanations link back to the exact lines they describe.</span></div>
+      : !isNativeRuntime() ? <p className="file-explanation-message">Saved explanations and captured source are available in the Code Atlas Mac app.</p>
+        : loading ? <p className="file-explanation-message" role="status">Looking for an explanation saved for this snapshot…</p>
+          : error ? <div className="file-explanation-message" role="alert"><span>{error}</span><button className="text-button" onClick={() => setRefreshKey((value) => value + 1)}>Retry</button></div>
+            : accepted ? <>
+              <div className="file-explanation-status"><span>ACCEPTED · THIS SNAPSHOT</span><button className="text-button" onClick={() => onReadRevision(accepted)}>Read section by section <ArrowRight size={13} /></button></div>
+              <div className="file-explanation-sections">
+                {accepted.sections.map((section) => {
+                  const anchors = Array.from(new Map(section.claims.flatMap((claim) => claim.anchors)
+                    .map((anchor) => [`${anchor.path}:${anchor.startLine}-${anchor.endLine}:${anchor.sourceSha256}`, anchor] as const)).values());
+                  const visibleAnchors = anchors.slice(0, 4);
+                  const additionalAnchors = anchors.slice(4);
+                  return <article key={section.sectionId}>
+                    <h3>{section.title}</h3>
+                    <p>{section.prose}</p>
+                    {visibleAnchors.length > 0 && <div className="file-explanation-citations" aria-label={`Evidence for ${section.title}`}>
+                      {visibleAnchors.map((anchor) => <button key={anchor.anchorId} onClick={() => onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor))}>
+                        <FileCode2 size={12} /><span>{anchor.path}:{anchor.startLine}–{anchor.endLine}</span>
+                      </button>)}
+                    </div>}
+                    {additionalAnchors.length > 0 && <details className="file-explanation-more-citations">
+                      <summary>Show {additionalAnchors.length} more source links</summary>
+                      <div className="file-explanation-citations">
+                        {additionalAnchors.map((anchor) => <button key={anchor.anchorId} onClick={() => onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor))}>
+                          <FileCode2 size={12} /><span>{anchor.path}:{anchor.startLine}–{anchor.endLine}</span>
+                        </button>)}
+                      </div>
+                    </details>}
+                  </article>;
+                })}
+              </div>
+              <button className="file-explanation-review" onClick={() => onReviewRevision(accepted)}><Pencil size={13} /> Review this explanation</button>
+            </> : currentDraft ? <>
+              <div className="file-explanation-empty"><span className="coverage-status coverage-status-draft">{currentDraft.lifecycle === 'rejected' ? 'Needs revision' : 'Draft saved'}</span><strong>This version is not an accepted explanation yet.</strong><span>Review it against the captured source before reading it as the guide for this file.</span></div>
+              <button className="file-explanation-review" onClick={() => onReviewRevision(currentDraft)}><Pencil size={13} /> Review saved draft</button>
+            </> : <>
+              {previousAccepted && <p className="file-explanation-message">An explanation exists for an older snapshot. Re-explain this file against the selected source version.</p>}
+              <div className="file-explanation-empty"><BookOpen size={20} /><strong>No accepted explanation for this snapshot.</strong><span>The source stays available, and you can request a grounded explanation for this one file.</span></div>
+              <button className="file-explanation-review" onClick={() => onRequestExplanation(selectedPath)}><Sparkles size={13} /> Explain this file</button>
+            </>}
+  </aside>;
+}
+
 function inventoryFilterKey(row: Pick<InventoryRow, 'path' | 'kind' | 'reason'>): string {
   return `${row.path}\u0000${row.kind}\u0000${row.reason}`;
 }
 
-function GuidePlanScreen({ projectId, manifest, rows, onGoAtlas, onGoStudio, onReadRevision, onReviewRevision, onOpenFile }: {
+function GuidePlanScreen({ projectId, projectName, manifest, rows, onGoAtlas, onGoChanges, onGoStudio, onReadRevision, onReviewRevision, onOpenFile }: {
   projectId: string;
+  projectName: string;
   manifest: SnapshotManifest;
   rows: InventoryRow[];
   onGoAtlas: () => void;
+  onGoChanges: () => void;
   onGoStudio: () => void;
   onReadRevision: (revision: ChapterRevision) => void;
   onReviewRevision: (revision: ChapterRevision) => void;
@@ -3428,9 +3640,88 @@ function GuidePlanScreen({ projectId, manifest, rows, onGoAtlas, onGoStudio, onR
     missing: 'Needs explanation', draft: 'Draft', rejected: 'Rejected', stale: 'Older snapshot', accepted: 'Accepted',
     excluded: 'Excluded by you', unsupported: 'Parser unsupported', unavailable: 'Source unavailable',
   };
+  const acceptedOverviews = revisions
+    .filter((revision) => revision.lifecycle === 'accepted' && revision.target.scope.kind === 'overview')
+    .sort((left, right) => right.createdAtUnixMs - left.createdAtUnixMs || right.revisionNumber - left.revisionNumber);
+  const acceptedOverview = acceptedOverviews.find((revision) => revision.snapshotId === snapshotId) ?? acceptedOverviews[0] ?? null;
+  const acceptedOverviewIsCurrent = acceptedOverview?.snapshotId === snapshotId;
+  const nextFiles = coverageRows.filter((row) => row.canOpenSource
+    && ['missing', 'draft', 'rejected', 'stale', 'unsupported'].includes(row.status)).slice(0, 3);
+  const explainedFiles = coverageRows.filter((row) => row.status === 'accepted').slice(0, 3);
+  const guideEligibleTotal = coverageRows.filter((row) => row.canOpenSource && row.status !== 'excluded').length;
+  const guideProgress = guideEligibleTotal > 0 ? Math.round((totals.accepted / guideEligibleTotal) * 100) : 0;
 
   return (
     <div className="empty-workspace guide-plan-screen">
+      <section className="guide-home-dashboard" aria-labelledby="guide-home-title">
+        <div className="guide-home-context">
+          <span className="step-pill"><span>YOUR REPOSITORY GUIDE</span> {projectName}</span>
+          <p>{manifest.summary.branch ?? 'Detached HEAD'} · {manifest.summary.filesCaptured.toLocaleString()} captured files · {languages.length} detected languages</p>
+        </div>
+        <div className="guide-home-grid">
+          <section className="guide-tour-card" aria-labelledby="guide-home-title">
+            <div className="guide-tour-icon"><Play size={19} /></div>
+            {acceptedOverview ? <>
+              <div className="guide-tour-copy">
+                <span className="guide-home-kicker">{acceptedOverview.sections.length} SECTION{acceptedOverview.sections.length === 1 ? '' : 'S'} · ACCEPTED REPOSITORY GUIDE{acceptedOverviewIsCurrent ? '' : ' · OLDER SNAPSHOT'}</span>
+                <h2 id="guide-home-title">{acceptedOverview.title}</h2>
+                <p>{acceptedOverviewIsCurrent
+                  ? acceptedOverview.sections[0]?.prose || 'Follow the repository explanation one section at a time. Open its cited code whenever you want to inspect the evidence.'
+                  : `This guide is pinned to snapshot ${acceptedOverview.snapshotId.slice(-10)}. Its source links still open the exact version it describes.`}</p>
+                <span className="guide-tour-pacing">Pause, skip, or open the exact source at any point.</span>
+              </div>
+              <button className="primary-button" onClick={() => onReadRevision(acceptedOverview)}>{acceptedOverviewIsCurrent ? 'Read the guide' : 'Read earlier guide'} <ArrowRight size={15} /></button>
+            </> : revisionsLoading ? <>
+              <div className="guide-tour-copy">
+                <span className="guide-home-kicker">CHECKING THIS SNAPSHOT</span>
+                <h2 id="guide-home-title">Looking for a saved repository guide.</h2>
+                <p>While the local guide index loads, you can browse captured files or compare revisions.</p>
+              </div>
+            </> : revisionsError ? <>
+              <div className="guide-tour-copy">
+                <span className="guide-home-kicker">GUIDE STATUS UNAVAILABLE</span>
+                <h2 id="guide-home-title">Saved explanations could not be loaded.</h2>
+                <p>{revisionsError}</p>
+                <button className="secondary-button" onClick={() => setRevisionRefresh((value) => value + 1)}>Retry</button>
+              </div>
+            </> : <>
+              <div className="guide-tour-copy">
+                <span className="guide-home-kicker">START WITH A REAL FILE</span>
+                <h2 id="guide-home-title">{nextFiles.length > 0 ? 'What does an important file do?' : 'Your file explanations are up to date.'}</h2>
+                <p>{nextFiles.length > 0
+                  ? 'Repository tours are optional. Start with a file explanation grounded in the captured source; each file can be understood on its own.'
+                  : 'There are no captured text files waiting for an explanation in this snapshot. Browse the files or read an explanation already saved.'}</p>
+                {nextFiles[0] && <button className="primary-button" onClick={() => onOpenFile(nextFiles[0].inventory.path)}><FileCode2 size={14} /> Open {nextFiles[0].inventory.path} <ArrowRight size={14} /></button>}
+              </div>
+            </>}
+          </section>
+          <section className="guide-home-coverage" aria-label="File explanation progress">
+            <div className="guide-home-coverage-heading"><strong>File explanations</strong><span>{revisionsError ? 'Unavailable' : revisionsLoading ? 'Loading…' : `${totals.accepted} / ${guideEligibleTotal}`}</span></div>
+            <div className="guide-home-progress" role="progressbar" aria-label="Captured files with accepted explanations" aria-valuemin={0} aria-valuemax={guideEligibleTotal} aria-valuenow={totals.accepted}><span style={{ width: `${guideProgress}%` }} /></div>
+            <p>{revisionsError ? 'Coverage is unavailable until saved revisions can be read.' : revisionsLoading ? 'Loading saved file explanations…' : `${totals.accepted.toLocaleString()} explained · ${(guideEligibleTotal - totals.accepted).toLocaleString()} still to explore`}</p>
+            <div className="guide-home-file-list">
+              {coverageReady && (nextFiles.length > 0 ? nextFiles : explainedFiles).slice(0, 3).map((row) => (
+                <button key={row.inventory.path} onClick={() => onOpenFile(row.inventory.path)}>
+                  <span className={`guide-file-dot ${row.status === 'accepted' ? 'is-explained' : ''}`} />
+                  <code>{row.inventory.path}</code>
+                  <small>{row.status === 'accepted' ? 'Read' : row.status === 'missing' ? 'Needs explanation' : statusLabel[row.status]}</small>
+                  <ArrowRight size={12} />
+                </button>
+              ))}
+              {coverageReady && nextFiles.length === 0 && explainedFiles.length === 0 && <span className="guide-home-no-files">No captured text files in this snapshot.</span>}
+            </div>
+            {revisionsLoading && <small className="guide-home-loading" role="status">Loading saved explanations…</small>}
+          </section>
+        </div>
+        <div className="guide-home-actions">
+          <button className="secondary-button" onClick={onGoAtlas}><FileCode2 size={14} /> Browse all files</button>
+          <button className="secondary-button" onClick={onGoChanges}><GitBranch size={14} /> See what changed</button>
+          {acceptedOverview && <span>Tour and per-file explanations are separate. Every source link opens its exact snapshot.</span>}
+        </div>
+      </section>
+
+      <details className="guide-coverage-disclosure">
+        <summary><span>File-by-file coverage</span><small>{totals.accepted} explained · {Math.max(0, guideEligibleTotal - totals.accepted)} remaining · {totals.total} inventory paths</small></summary>
       <section className="guide-plan-card" aria-labelledby="guide-plan-title">
         <div className="guide-plan-topline">
           <div>
@@ -3526,6 +3817,7 @@ function GuidePlanScreen({ projectId, manifest, rows, onGoAtlas, onGoStudio, onR
         <p className="coverage-footnote">Draft and accepted counts reflect chapter revisions tied to this exact project and snapshot. Capture exclusions remain unavailable inventory rows; they are never counted as completed explanations.</p>
         {coverageReady && totals.draft === 0 && totals.accepted === 0 && <p className="coverage-no-revisions">No draft or accepted chapter revision is saved for this snapshot yet. Captured text files still appear as independent work items.</p>}
       </section>
+      </details>
     </div>
   );
 }
@@ -3647,7 +3939,7 @@ function ChapterSourceDiff({ projectId, change }: { projectId: string; change: C
         <span>Old {change.oldRange ? `${change.oldRange.path}:${change.oldRange.startLine}–${change.oldRange.endLine}` : 'source removed'}</span>
         <span>Current {change.newRange ? `${change.newRange.path}:${change.newRange.startLine}–${change.newRange.endLine}` : 'source removed'}</span>
       </div>
-      {(diff.oldTruncated || diff.newTruncated) && <p className="provider-small-note">Large range: showing a bounded excerpt. Open the exact old or current range in Code Lens for full source.</p>}
+      {(diff.oldTruncated || diff.newTruncated) && <p className="provider-small-note">Large range: showing a bounded excerpt. Open the exact old or current range in Files for full source.</p>}
       <pre className="chapter-source-diff-lines" role="group" aria-label="Captured source diff">{diff.lines.map((line, index) => <span className={`diff-${line.kind}`} key={`${line.kind}:${line.oldLine}:${line.newLine}:${index}`}>{line.kind === 'removed' ? '−' : line.kind === 'added' ? '+' : ' '} {String(line.oldLine ?? line.newLine ?? '').padStart(4, ' ')} │ {line.text}{'\n'}</span>)}</pre>
     </>}
   </details>;
@@ -4505,11 +4797,11 @@ function AtlasEmptyState({ project, onOpen, onCreateSnapshot, busy, limits }: {
   );
 }
 
-function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWalkthrough, onOpenFile, onRequestExplanation, onRequestRangeExplanation, source, sourceRange, sourceRangeIssue, loading, error, selectedPath }: {
+function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWalkthrough, onOpenFile, onRequestExplanation, onRequestRangeExplanation, source, sourceRange, sourceRangeIssue, loading, error, selectedPath, inline = false }: {
   projectId: string | null;
   snapshotId: string | null;
   manifest: SnapshotManifest | null;
-  onGoAtlas: () => void;
+  onGoAtlas?: () => void;
   onGoWalkthrough?: () => void;
   onOpenFile: (path: string, snapshotId?: string, sourceRange?: SourceLineRange) => void;
   onRequestExplanation: (path: string) => void;
@@ -4520,6 +4812,7 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
   loading: boolean;
   error: string | null;
   selectedPath: string | null;
+  inline?: boolean;
 }) {
   const [showCompleteSource, setShowCompleteSource] = useState(false);
   const [showAllRelationships, setShowAllRelationships] = useState(false);
@@ -4634,17 +4927,17 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
 
   if (selectedPath && !isNativeRuntime()) {
     return (
-      <div className="empty-workspace simple-empty" role="status">
+      <div className={`empty-workspace simple-empty${inline ? ' source-inline-state' : ''}`} role="status" data-focus-key={inline ? 'files-source' : undefined} tabIndex={inline ? -1 : undefined}>
         <div className="empty-state-icon code-icon"><HardDrive size={22} /></div>
         <div className="step-pill"><span>LOCAL SOURCE</span> MAC APP REQUIRED</div>
         <h2>Open this file in the Code Atlas Mac app</h2>
         <p>The browser preview cannot read local snapshots. No source was loaded.</p>
-        <button className="secondary-button" onClick={onGoAtlas}>Back to inventory <ArrowRight size={15} /></button>
+        {!inline && onGoAtlas && <button className="secondary-button" onClick={onGoAtlas}>Back to inventory <ArrowRight size={15} /></button>}
       </div>
     );
   }
   if (selectedPath && (loading || (!source && !error))) {
-    return <div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Verifying and opening {selectedPath} from the selected snapshot…</span></div>;
+    return <div className={`empty-workspace snapshot-loading${inline ? ' source-inline-state' : ''}`} role="status" data-focus-key={inline ? 'files-source' : undefined} tabIndex={inline ? -1 : undefined}><HardDrive size={18} /><span>Verifying and opening {selectedPath} from the selected snapshot…</span></div>;
   }
   if (selectedPath && error) {
     const capturedFile = manifest?.files.find((file) => file.path === selectedPath);
@@ -4675,26 +4968,26 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
             ? 'The selected snapshot has no captured or skipped entry for this path. The live repository was not checked.'
             : error;
     return (
-      <div className="empty-workspace simple-empty source-error" role="alert">
+      <div className={`empty-workspace simple-empty source-error${inline ? ' source-inline-state' : ''}`} role="alert" data-focus-key={inline ? 'files-source' : undefined} tabIndex={inline ? -1 : undefined}>
         <div className="empty-state-icon code-icon"><TriangleAlert size={22} /></div>
         <div className="step-pill"><span>SNAPSHOT</span> SOURCE UNAVAILABLE</div>
         <h2>{unavailableTitle}</h2>
         <p>{unavailableMessage} Code Atlas did not fall back to the live repository.</p>
-        {onGoWalkthrough && <button className="secondary-button" onClick={onGoWalkthrough}><ArrowLeft size={15} /> Return to guide</button>}
-        <button className="secondary-button" onClick={onGoAtlas}>Back to files <ArrowRight size={15} /></button>
+        {!inline && onGoWalkthrough && <button className="secondary-button" onClick={onGoWalkthrough}><ArrowLeft size={15} /> Return to guide</button>}
+        {!inline && onGoAtlas && <button className="secondary-button" onClick={onGoAtlas}>Back to files <ArrowRight size={15} /></button>}
       </div>
     );
   }
   if (selectedPath && source) {
     return (
-      <div className="empty-workspace source-view">
+      <div className={`empty-workspace source-view${inline ? ' source-view-inline' : ''}`} data-focus-key={inline ? 'files-source' : undefined} tabIndex={inline ? -1 : undefined}>
         <div className="source-view-toolbar">
           <div><span className="step-pill"><span>READ ONLY</span> SNAPSHOT SOURCE</span><h2>{source.path}</h2></div>
           <div className="source-view-actions">
-            {onGoWalkthrough && <button className="secondary-button" onClick={onGoWalkthrough}><ArrowLeft size={15} /> Return to guide</button>}
+            {!inline && onGoWalkthrough && <button className="secondary-button" onClick={onGoWalkthrough}><ArrowLeft size={15} /> Return to guide</button>}
             {visibleSourceRange && <button className="secondary-button" onClick={() => onRequestRangeExplanation(source.path, visibleSourceRange)}><Sparkles size={15} /> Explain cited range</button>}
             <button className="secondary-button" onClick={() => onRequestExplanation(source.path)}><Sparkles size={15} /> Explain this file</button>
-            <button className="secondary-button" onClick={onGoAtlas}>Back to files <ArrowRight size={15} /></button>
+            {!inline && onGoAtlas && <button className="secondary-button" onClick={onGoAtlas}>Back to files <ArrowRight size={15} /></button>}
           </div>
         </div>
         <div className="source-provenance">
@@ -4782,12 +5075,12 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
     );
   }
   return (
-    <div className="empty-workspace simple-empty">
+    <div className={`empty-workspace simple-empty${inline ? ' source-inline-state' : ''}`} data-focus-key={inline ? 'files-source' : undefined} tabIndex={inline ? -1 : undefined}>
       <div className="empty-state-icon code-icon"><Code2 size={24} /></div>
       <div className="step-pill"><span>FILES</span> SOURCE</div>
       <h2>Choose a file to see its source.</h2>
       <p>Source opens from the selected snapshot and is checked against its saved hash. The live working copy is not substituted.</p>
-      <button className="secondary-button" data-focus-key="cta:code-lens-atlas" onClick={onGoAtlas}>Browse files <ArrowRight size={15} /></button>
+      {!inline && onGoAtlas && <button className="secondary-button" data-focus-key="cta:code-lens-atlas" onClick={onGoAtlas}>Browse files <ArrowRight size={15} /></button>}
       <div className="state-note"><HardDrive size={14} /> No source file is selected.</div>
     </div>
   );

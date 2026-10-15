@@ -9,9 +9,9 @@ export const PRIMARY_WORKSPACES: ReadonlyArray<{ id: Workspace; label: string; a
 
 export const WORKSPACE_COPY: Record<Workspace, { eyebrow: string; title: string; subtitle: string }> = {
   atlas: {
-    eyebrow: 'FILES · BROWSE',
-    title: 'Find the file you need to understand.',
-    subtitle: 'Browse captured source and open a file for its explanation. The relationship map is available when you need it.',
+    eyebrow: 'FILES · SOURCE AND EXPLANATION',
+    title: 'Choose a file. See what it does and where the code proves it.',
+    subtitle: 'Browse one captured snapshot, read its explanation, and open any cited lines without leaving Files.',
   },
   'code-lens': {
     eyebrow: 'FILES · SOURCE',
@@ -24,9 +24,9 @@ export const WORKSPACE_COPY: Record<Workspace, { eyebrow: string; title: string;
     subtitle: 'Move one section at a time. Open any source link, then return to where you were.',
   },
   'guide-plan': {
-    eyebrow: 'GUIDE · FILE BY FILE',
-    title: 'Explain the files in your repository.',
-    subtitle: 'Start with a file that needs an explanation. Each explanation stays linked to the exact source it describes.',
+    eyebrow: 'YOUR REPOSITORY GUIDE',
+    title: 'Understand this codebase.',
+    subtitle: 'Start with a short accepted guide, continue where you left off, or open a real file to see what it does.',
   },
   'chapter-studio': {
     eyebrow: 'GUIDE · EDIT',

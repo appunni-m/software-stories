@@ -2,6 +2,10 @@
 
 Generated with Codex ImageGen for the Code Atlas product blueprint.
 
+> **Historical / superseded:** this prompt describes the earlier Atlas, Code Lens,
+> and Walkthrough primary navigation. The current approved direction is Guide,
+> Files, and Changes in [PROPOSED_SIMPLIFICATION.md](PROPOSED_SIMPLIFICATION.md).
+
 > Use case: ui-mockup  
 > Asset type: concept board for a Mac desktop product plan  
 > Primary request: Show one coherent Code Atlas Mac app as three connected workspaces for understanding an unfamiliar software repository: Atlas with a navigable repository tree and evidence-backed relationship map; Code Lens with exact source code, a highlighted citation, and an explanation panel; Walkthrough with a clickable diagram, code excerpt, transcript, and deliberate Continue control. All three point to the same selected repository and evidence.  

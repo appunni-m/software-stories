@@ -8,6 +8,8 @@ labels: phase-0, design, product
 blocked_by:
 ---
 
+> **Historical design contract:** this task captured the original Atlas / Code Lens / Walkthrough navigation. The approved Guide / Files / Changes design supersedes its primary-navigation requirements; see [`43-design-implementation-parity.md`](43-design-implementation-parity.md). Keep this issue as implementation history, not the current screen authority.
+
 ## User outcome
 The user sees one understandable product, not three unrelated demos. Every main control, destination, empty state, and error state has an agreed meaning before feature implementation.
 

@@ -11,16 +11,16 @@ blocked_by:
 Code Atlas is a Mac-first desktop app that helps a developer understand an unfamiliar local repository quickly and accurately. Its default guide explains every eligible file individually, links every code-behavior claim to exact captured source, and lets readers inspect and navigate at their own pace.
 
 ## Product shape
-Three equally important workspaces share one project and immutable source snapshot:
+Three primary destinations share one project and immutable source snapshot:
 
-- **Atlas:** repository tree and evidence-backed relationships.
-- **Code Lens:** exact captured source, cited ranges, and related references.
-- **Walkthrough:** accepted file chapters as manually paced, interactive sections.
+- **Guide:** repository orientation, an optional accepted repository tour, file-level progress, and direct next actions.
+- **Files:** a repository tree with exact captured source, the selected file's explanation and clickable evidence; the relationship map is optional within this destination.
+- **Changes:** local base/head comparisons and evidence-backed change explanations.
 
-Guide Plan and Chapter Studio are supporting workflows for coverage, generation, and review.
+The section-by-section Walkthrough is the Guide's reading mode, with deliberate Previous/Continue controls and clickable source evidence. File-by-file coverage remains available inside Guide. Chapter Studio remains a contextual editing/review surface, not a primary destination. This approved direction is detailed in [`docs/design/PROPOSED_SIMPLIFICATION.md`](../design/PROPOSED_SIMPLIFICATION.md); task `13yp` tracks implementation and packaged-app parity.
 
 ## Global interaction rules
-- Every captured path appears in Guide Plan with one visible disposition and reason where applicable.
+- Every captured path appears in Guide's file-by-file coverage with one visible disposition and reason where applicable.
 - Eligible files get an independent substantive chapter by default. Initial release has no automatic grouping or bulk generation; user-created groups never hide member files.
 - Every code-behavior claim resolves to exact path, range, excerpt, hash, and selected snapshot. Inferences are labeled. Static relationships are not described as runtime facts.
 - Every walkthrough section has Previous and deliberate Continue behavior. Hotspots have validated destinations. Back from source restores section and playback position.
@@ -32,7 +32,7 @@ Guide Plan and Chapter Studio are supporting workflows for coverage, generation,
 All implementation issues inherit the screen states, source/evidence rules, failure behavior, and exclusions in [`docs/PRODUCT_BLUEPRINT.md`](../PRODUCT_BLUEPRINT.md) and [`docs/TECHNICAL_PLAN.md`](../TECHNICAL_PLAN.md). When an issue conflicts with those contracts, update the product contract and affected issues before implementation continues.
 
 ## Done evidence
-The product blueprint, technical boundaries, design concept images, complete milestone breakdown, and issue links are present and cross-referenced in this repository. Every implementation issue has an independent user outcome, interaction contract, acceptance criteria, exclusions, and evidence needed to close it. The repository files are versioned in Git and the live task state is tracked in Kata.
+The product blueprint, technical boundaries, approved design proposals, milestone breakdown, and issue links are versioned here and tracked in Kata. The former Atlas / Code Lens / Walkthrough concept images are historical and are not the current primary-navigation contract. Task `13yp` records the remaining source-to-package parity work; it is not closed by these documents or by source-only edits.
 
 ## Pending work — 2026-10-15
 
