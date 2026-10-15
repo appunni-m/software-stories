@@ -747,6 +747,8 @@ mod tests {
             head_blob_id: Some("d".repeat(40)),
             base_size_bytes: Some(20),
             head_size_bytes: Some(21),
+            base_relationships: Vec::new(),
+            head_relationships: Vec::new(),
             hunks: vec![GitDiffHunk {
                 base_anchor: Some(GitSourceAnchor {
                     revision_id: base.clone(),

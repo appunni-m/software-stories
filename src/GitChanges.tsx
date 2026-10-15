@@ -217,6 +217,12 @@ function ComparisonResults({
       {comparison.refProblem && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {comparison.refProblem.message} ({comparison.refProblem.side}: “{comparison.refProblem.requested}”)</p>}
       {comparison.message && !comparison.refProblem && <p className={isPartial ? 'git-stale-result' : 'git-error-note'} role={comparison.status === 'error' ? 'alert' : 'status'}>{comparison.message}</p>}
       {comparison.omittedChangeCount > 0 && <p className="git-stale-result" role="status">{comparison.omittedChangeCount} more {comparison.omittedChangeCount === 1 ? 'change was' : 'changes were'} omitted. {comparison.omittedReason}</p>}
+      {comparison.changes.length > 0 && comparison.relationshipImpact.status !== 'notNeeded' && (
+        <div className={`git-relationship-status impact-${comparison.relationshipImpact.status}`} role="status">
+          <strong>Static cross-file relationships · {formatRelationshipStatus(comparison.relationshipImpact.status)}</strong>
+          <p>{comparison.relationshipImpact.message}</p>
+        </div>
+      )}
       {comparison.changes.length === 0 && comparison.status !== 'chooseAgain' && comparison.status !== 'error' ? (
         <p className="git-no-changes">These commits have no file changes in the comparison result.</p>
       ) : (
@@ -227,6 +233,7 @@ function ComparisonResults({
             return <ChangeDisclosure
               key={identity}
               change={change}
+              relationshipImpact={comparison.relationshipImpact}
               expanded={expanded}
               focusedHunkIndex={focusedCitation?.identity === identity ? focusedCitation.hunkIndex : undefined}
               onToggle={() => { setFocusedCitation(null); onSelectChange(expanded ? undefined : identity); }}
@@ -260,7 +267,7 @@ function CommitIdentity({ label, ref }: { label: string; ref: { requested: strin
   );
 }
 
-function ChangeDisclosure({ change, expanded, focusedHunkIndex, onToggle }: { change: GitFileChange; expanded: boolean; focusedHunkIndex?: number; onToggle: () => void }) {
+function ChangeDisclosure({ change, relationshipImpact, expanded, focusedHunkIndex, onToggle }: { change: GitFileChange; relationshipImpact: GitComparisonResult['relationshipImpact']; expanded: boolean; focusedHunkIndex?: number; onToggle: () => void }) {
   const path = change.headPath ?? change.basePath ?? 'Unknown path';
   const cardRef = useRef<HTMLElement>(null);
 
@@ -288,6 +295,23 @@ function ChangeDisclosure({ change, expanded, focusedHunkIndex, onToggle }: { ch
       {expanded && (
         <div className="git-change-detail">
           {change.skippedReason && <p className="git-stale-result" role="status">{change.skippedReason}</p>}
+          <section className="git-relationship-evidence" aria-label={`Cross-file static relationships for ${path}`}>
+            <div>
+              <strong>Cross-file static references</strong>
+              <p>Parser-resolved source references to this changed file or its changed declarations. These do not establish runtime impact.</p>
+            </div>
+            <div className="git-relationship-groups">
+              <RelationshipList side="Base" relationships={change.baseRelationships} />
+              <RelationshipList side="Head" relationships={change.headRelationships} />
+            </div>
+            {change.baseRelationships.length === 0 && change.headRelationships.length === 0 && (
+              <p className="git-relationship-empty">
+                {relationshipImpact.status === 'complete'
+                  ? 'No high-confidence parser-resolved cross-file references were found for this file.'
+                  : 'No relationship records are available for this file. The analysis status above explains which results may be missing.'}
+              </p>
+            )}
+          </section>
           {change.hunks.length === 0 ? <p className="git-no-changes">No bounded text hunk is available for this path.</p> : change.hunks.map((hunk, index) => (
             <section className={`git-hunk${focusedHunkIndex === index ? ' is-focused' : ''}`} key={`${path}:${index}`} data-hunk-index={index} aria-label={`Diff hunk ${index + 1}`}>
               <div className="git-hunk-anchors">
@@ -322,6 +346,46 @@ function ChangeDisclosure({ change, expanded, focusedHunkIndex, onToggle }: { ch
       )}
     </article>
   );
+}
+
+function RelationshipList({ side, relationships }: { side: 'Base' | 'Head'; relationships: GitFileChange['baseRelationships'] }) {
+  if (relationships.length === 0) return null;
+  return (
+    <section className="git-relationship-side" aria-label={`${side} revision relationships`}>
+      <h4>{side} revision</h4>
+      <ul>
+        {relationships.map((relationship) => (
+          <li key={`${relationship.evidenceAnchor.revisionId}:${relationship.sourcePath}:${relationship.evidenceAnchor.startLine}:${relationship.kind}:${relationship.targetPath}:${relationship.targetName ?? ''}`}>
+            <div>
+              <strong>{formatRelationshipKind(relationship.kind)}</strong>
+              <span>{relationship.confidence} confidence</span>
+            </div>
+            <p>
+              <code>{relationship.sourcePath}:{relationship.evidenceAnchor.startLine}–{relationship.evidenceAnchor.endLine}</code>
+              {relationship.sourceName && <> in <code>{relationship.sourceName}</code></>}
+              {' → '}
+              <code>{relationship.targetPath}</code>
+              {relationship.targetName && <> · <code>{relationship.targetName}</code></>}
+              {relationship.targetAnchor && <small> declared at {relationship.targetAnchor.path}:{relationship.targetAnchor.startLine}–{relationship.targetAnchor.endLine}</small>}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function formatRelationshipStatus(status: GitComparisonResult['relationshipImpact']['status']): string {
+  switch (status) {
+    case 'complete': return 'indexed';
+    case 'partial': return 'partial';
+    case 'unavailable': return 'unavailable';
+    default: return 'not needed';
+  }
+}
+
+function formatRelationshipKind(kind: string): string {
+  return kind.replace(/([A-Z])/g, ' $1').toLowerCase();
 }
 
 function AnchorIdentity({ side, anchor }: { side: string; anchor: GitSourceAnchor | null }) {

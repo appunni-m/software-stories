@@ -505,6 +505,8 @@ mod tests {
                 head_blob_id: Some("d".repeat(40)),
                 base_size_bytes: Some(40),
                 head_size_bytes: Some(42),
+                base_relationships: Vec::new(),
+                head_relationships: Vec::new(),
                 skipped_reason: None,
                 hunks: vec![GitDiffHunk {
                     base_anchor: Some(GitSourceAnchor { revision_id: base, path: "src/lib.rs".to_owned(), blob_id: "c".repeat(40), start_line: 1, end_line: 3 }),

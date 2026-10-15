@@ -1522,6 +1522,25 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .git-change-count { color: #8b99a4; font: 8px var(--mono); white-space: nowrap; }
 .git-change-detail { display: grid; gap: 9px; padding: 10px; border-top: 1px solid #27323a; }
 .git-change-detail .git-stale-result, .git-change-detail .git-no-changes { margin: 0; }
+.git-relationship-status { display: grid; gap: 4px; margin: 0; padding: 8px 10px; border: 1px solid #344239; border-radius: 5px; color: #adbbb1; background: #101712; }
+.git-relationship-status strong { color: #d0ddcb; font-size: 10px; }
+.git-relationship-status p { margin: 0; font-size: 9px; line-height: 1.55; }
+.git-relationship-status.impact-partial, .git-relationship-status.impact-unavailable { border-color: #55482e; color: #c2b68f; background: #17140e; }
+.git-relationship-status.impact-partial strong, .git-relationship-status.impact-unavailable strong { color: #e1ca8e; }
+.git-relationship-evidence { min-width: 0; display: grid; gap: 7px; padding: 9px; border: 1px solid #293a31; border-radius: 5px; background: #0c1210; }
+.git-relationship-evidence > div:first-child { display: grid; gap: 3px; }
+.git-relationship-evidence > div:first-child > strong { color: #c8d8c9; font-size: 10px; }
+.git-relationship-evidence > div:first-child > p, .git-relationship-empty { margin: 0; color: #899991; font-size: 9px; line-height: 1.55; }
+.git-relationship-groups { min-width: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 8px; }
+.git-relationship-side { min-width: 0; display: grid; gap: 5px; padding: 7px; border: 1px solid #26342b; border-radius: 4px; background: #0a0f0c; }
+.git-relationship-side h4 { margin: 0; color: #b5c8b5; font-size: 10px; }
+.git-relationship-side ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.git-relationship-side li { display: grid; gap: 3px; min-width: 0; }
+.git-relationship-side li > div { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.git-relationship-side li strong { color: #c6d4c3; font: 8px var(--mono); text-transform: capitalize; }
+.git-relationship-side li span, .git-relationship-side li small { color: #798880; font-size: 8px; }
+.git-relationship-side li p { margin: 0; color: #9eaca2; font-size: 9px; line-height: 1.55; overflow-wrap: anywhere; }
+.git-relationship-side li code { color: #c1d1bd; font: 9px var(--mono); overflow-wrap: anywhere; }
 .git-hunk { min-width: 0; overflow: hidden; border: 1px solid #27323a; border-radius: 5px; background: #080c10; }
 .git-hunk.is-focused { border-color: #d5a45d; box-shadow: 0 0 0 2px rgb(213 164 93 / 24%); scroll-margin-block: 22vh; }
 .git-hunk-anchors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 8px; border-bottom: 1px solid #27323a; background: #10161c; }

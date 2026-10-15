@@ -1,4 +1,4 @@
-use crate::snapshot::{self, CapturedContentKind, SnapshotManifest};
+use crate::snapshot::{self, CapturedContentKind, CapturedFile, SnapshotManifest, SnapshotSource};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -15,9 +15,9 @@ use uuid::Uuid;
 const INDEX_SCHEMA_VERSION: u32 = 1;
 const INDEXER_VERSION: &str = "atlas-symbol-index-v1";
 const TREE_SITTER_RUNTIME_VERSION: &str = "0.27.1";
-const MAX_INDEXED_FILES: usize = 5_000;
-const MAX_SOURCE_BYTES_PER_FILE: u64 = 512 * 1024;
-const MAX_TOTAL_SOURCE_BYTES: u64 = 50 * 1024 * 1024;
+pub(crate) const MAX_INDEXED_FILES: usize = 5_000;
+pub(crate) const MAX_SOURCE_BYTES_PER_FILE: u64 = 512 * 1024;
+pub(crate) const MAX_TOTAL_SOURCE_BYTES: u64 = 50 * 1024 * 1024;
 const MAX_AST_NODES_PER_FILE: usize = 250_000;
 const MAX_SCOPE_DEPTH: usize = 128;
 const MAX_INDEXED_SYMBOLS: usize = 50_000;
@@ -425,10 +425,59 @@ pub fn build_snapshot_index<F>(
     manifest: &SnapshotManifest,
     job_id: &str,
     cancellation: &AtomicBool,
-    mut on_progress: F,
+    on_progress: F,
 ) -> SnapshotIndex
 where
     F: FnMut(&IndexProgress),
+{
+    build_snapshot_index_with_reader(
+        manifest,
+        job_id,
+        cancellation,
+        &BTreeSet::new(),
+        on_progress,
+        |captured| {
+            snapshot::read_snapshot_source_from_manifest(storage_dir, manifest, &captured.path)
+        },
+    )
+}
+
+pub(crate) fn build_snapshot_index_from_sources<F>(
+    manifest: &SnapshotManifest,
+    sources: &HashMap<String, SnapshotSource>,
+    priority_paths: &BTreeSet<String>,
+    job_id: &str,
+    cancellation: &AtomicBool,
+    on_progress: F,
+) -> SnapshotIndex
+where
+    F: FnMut(&IndexProgress),
+{
+    build_snapshot_index_with_reader(
+        manifest,
+        job_id,
+        cancellation,
+        priority_paths,
+        on_progress,
+        |captured| {
+            sources.get(&captured.path).cloned().ok_or_else(|| {
+                "The immutable Git revision source was omitted by its scan limit.".to_owned()
+            })
+        },
+    )
+}
+
+fn build_snapshot_index_with_reader<R, F>(
+    manifest: &SnapshotManifest,
+    job_id: &str,
+    cancellation: &AtomicBool,
+    priority_paths: &BTreeSet<String>,
+    mut on_progress: F,
+    mut read_source: R,
+) -> SnapshotIndex
+where
+    F: FnMut(&IndexProgress),
+    R: FnMut(&CapturedFile) -> Result<SnapshotSource, String>,
 {
     let mut progress = IndexProgress {
         job_id: job_id.to_owned(),
@@ -458,7 +507,12 @@ where
     let mut partial = false;
     let mut hit_global_limit = false;
     let mut ordered_files = manifest.files.iter().collect::<Vec<_>>();
-    ordered_files.sort_by(|left, right| left.path.cmp(&right.path));
+    ordered_files.sort_by(|left, right| {
+        priority_paths
+            .contains(&right.path)
+            .cmp(&priority_paths.contains(&left.path))
+            .then_with(|| left.path.cmp(&right.path))
+    });
 
     for (file_index, captured) in ordered_files.iter().enumerate() {
         progress.current_path = Some(captured.path.clone());
@@ -554,11 +608,7 @@ where
             on_progress(&progress);
             continue;
         }
-        let source = match snapshot::read_snapshot_source_from_manifest(
-            storage_dir,
-            manifest,
-            &captured.path,
-        ) {
+        let source = match read_source(captured) {
             Ok(source) => source,
             Err(_) => {
                 partial = true;

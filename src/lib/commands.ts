@@ -120,6 +120,24 @@ export interface GitSourceAnchor {
   endLine: number;
 }
 
+export type GitRelationshipImpactStatus = 'notNeeded' | 'complete' | 'partial' | 'unavailable';
+
+export interface GitRelationshipImpact {
+  status: GitRelationshipImpactStatus;
+  message: string;
+}
+
+export interface GitRelationshipEvidence {
+  kind: string;
+  confidence: string;
+  sourcePath: string;
+  sourceName: string | null;
+  targetPath: string;
+  targetName: string | null;
+  evidenceAnchor: GitSourceAnchor;
+  targetAnchor: GitSourceAnchor | null;
+}
+
 export interface GitDiffHunk {
   baseAnchor: GitSourceAnchor | null;
   headAnchor: GitSourceAnchor | null;
@@ -151,6 +169,8 @@ export interface GitFileChange {
   baseSizeBytes: number | null;
   headSizeBytes: number | null;
   hunks: GitDiffHunk[];
+  baseRelationships: GitRelationshipEvidence[];
+  headRelationships: GitRelationshipEvidence[];
   skippedReason: string | null;
 }
 
@@ -161,6 +181,7 @@ export interface GitComparisonResult {
   head: ResolvedGitRef | null;
   refProblem: GitRefProblem | null;
   changes: GitFileChange[];
+  relationshipImpact: GitRelationshipImpact;
   omittedChangeCount: number;
   omittedReason: string | null;
   message: string | null;
