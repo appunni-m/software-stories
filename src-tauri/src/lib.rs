@@ -19,6 +19,7 @@ mod agent_handoff;
 mod claude_agent;
 mod claude_commands;
 mod claude_connection;
+mod claude_models;
 mod claude_worker;
 mod codex_agent;
 mod codex_commands;

@@ -87,13 +87,7 @@ fn is_digest(value: &str) -> bool {
 }
 
 fn validate_settings_shape(settings: &ClaudeGenerationSettings) -> Result<(), String> {
-    if !settings.model_id.starts_with("claude-")
-        || settings.model_id.len() > 200
-        || !settings
-            .model_id
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
-    {
+    if !is_exact_model_id(&settings.model_id) {
         return Err("Choose a full Claude model identifier from the runtime catalog; aliases and alternate-provider model names are unavailable.".to_owned());
     }
     if settings
@@ -106,6 +100,18 @@ fn validate_settings_shape(settings: &ClaudeGenerationSettings) -> Result<(), St
         return Err("Use an advertised Claude reasoning effort, the fixed Dont ask approval policy and a turn limit from 1 to 8. Tool, command and write approvals are unavailable for explanation generation.".to_owned());
     }
     Ok(())
+}
+
+/// A supported full wire selector, not a guarantee that model weights are
+/// immutable. Named aliases require the SDK's explicit canonical resolution.
+pub(crate) fn is_exact_model_id(value: &str) -> bool {
+    value.starts_with("claude-")
+        && value.len() > "claude-".len()
+        && value.len() <= 200
+        && !value.ends_with("-latest")
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
 }
 
 /// Prepared argv/stdin only. Creation grants no right to execute the runtime.

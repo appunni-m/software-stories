@@ -1,0 +1,34 @@
+{
+  "reviewedAt": "2026-10-15",
+  "package": "@anthropic-ai/claude-agent-sdk",
+  "version": "0.3.300",
+  "claudeCodeVersion": "2.1.300",
+  "packageMetadataUrl": "https://registry.npmjs.org/@anthropic-ai%2fclaude-agent-sdk/0.3.300",
+  "tarballUrl": "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-0.3.300.tgz",
+  "tarballIntegrity": "sha512-3NGPEUj+VTMQAQ0vaUUQtrce6rNb9a4XhY8QKIOLUp9mDkdbwrrjjD9oMKcDpcLhFKqZdTc02RBUo55GrbY9CA==",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "licenseDeclaration": "SEE LICENSE IN README.md",
+  "inspectedFileSha256": {
+    "sdk.d.ts": "9ebce26cc46cea565330280703f180801556956ef8f2b52b86e6da947546633d",
+    "sdk.mjs": "c1ccee152f98ff6899c2989b6151086e5d0ff34aedd93bd98cc4576619c41d5f",
+    "package.json": "404f707d1b4fa47032231e31afc830452d1bb58fa33428c3b48e9323793ddd8e"
+  },
+  "surfaces": [
+    "query({prompt: AsyncIterable<SDKUserMessage>, options})",
+    "Query.initializationResult()",
+    "Query.supportedModels()",
+    "Query.close()",
+    "Query.return()"
+  ],
+  "modelFields": [
+    "value",
+    "resolvedModel",
+    "displayName",
+    "supportsEffort",
+    "supportedEffortLevels"
+  ],
+  "executionPerformed": false,
+  "limits": "Source inspection only. Registry checksum matched the downloaded archive; registry signatures were not verified. No SDK/runtime acceptance, account entitlement, distribution approval or packaged integration is established."
+}

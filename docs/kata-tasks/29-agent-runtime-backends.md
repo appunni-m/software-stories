@@ -80,6 +80,8 @@ Every acceptance criterion remains open. No pinned packaged runtime, native logi
 
 ## Pending work — 2026-10-15
 
+Claude catalog source now includes a maintained TypeScript SDK discovery library and independent bounded native admission for canonical model IDs and model-specific efforts. SDK `0.3.300`/CLI `2.1.300` provenance was inspected without executing it. The library has no registered launcher; trusted runtime packaging, managed discovery/UI, account/isolation qualification and generation remain pending in `8gqw`. A catalog or helper cannot close an automatic operation in the parity matrix.
+
 - [ ] Complete Codex runtime pinning, packaging/license and native account/distribution qualification; distinguish implemented source from supported operation pairs in the matrix.
 - [ ] Implement the permitted Claude Agent and Antigravity routes, with their own authentication decisions and model/reasoning/approval capability records; evaluate Gemini CLI separately.
 - [ ] Complete Codex operation coverage and lifecycle decisions beyond its initial file/selected-file-overview and ephemeral-run scope. Persist only verified supported settings; do not invent approval modes.

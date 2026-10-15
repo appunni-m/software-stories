@@ -22,6 +22,8 @@ A user who already uses Codex or Claude Code can explain a repository from insid
 
 Codex section repair now has scope-aware interruption recovery in source: the journal retains provider, purpose, selected paths and exact section revision metadata. It reopens the original Codex operation with a fresh review rather than widening to a file chapter. Legacy/range/PR records missing full evidence identity require reselection. Runtime thread resume, full PR/range recovery and native lifecycle acceptance remain pending.
 
+Claude catalog groundwork now also uses the maintained SDK's public model/init contract and an independent native normalizer; the inspected candidate artifact is `0.3.300` paired with CLI `2.1.300`. It resolves aliases to full selectors and preserves per-model effort limits without a direct API dependency. It has no managed launcher, packaged SDK/host runtime or catalog UI and does not enable generation. Every Claude automatic operation remains **Missing** in the matrix.
+
 ## Required product flow
 
 The [required operation matrix and user flow](../AGENT_OPERATION_PARITY.md) define exact coverage. File chapters, selected-source overviews, one-section repair, source-range explanation, PR Guides and single-hunk explanations must each work through both Codex and Claude Agent. Agent-backed repository planning is required alongside the future AI narrative planner. An API implementation cannot satisfy an agent cell; the static reading planner cannot satisfy AI narrative planning. Exact current gaps and source reuse points are recorded there.
