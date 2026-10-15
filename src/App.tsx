@@ -1,6 +1,7 @@
+import type { AgentGitRecovery } from './lib/agentRecovery';
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { CodexChapterDialog, type CodexChapterDialogMode, type CodexGitRecovery } from './CodexChapterDialog';
+import { CodexChapterDialog, type CodexChapterDialogMode } from './CodexChapterDialog';
 import { AgentHandoffDialog } from './AgentHandoffDialog';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
@@ -175,7 +176,7 @@ type ProviderDialogMode = (
   | { kind: 'code-lens-range'; projectId: string; snapshotId: string; target: CodeLensExplanationTarget; recoveryOperationId?: string }
   | { kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string; selectedPaths: string[]; baseRevision: ChapterRevision; sectionUpdate: SectionUpdateReviewTarget; recoveryOperationId?: string }
   | { kind: 'overview'; projectId: string; snapshotId: string; selectedPaths?: string[]; recoveryOperationId?: string }
-) & { recoveryBackend?: 'codex' };
+) & { recoveryBackend?: 'codex' | 'claude-agent' };
 
 const workspaceIcons: Record<Workspace, typeof Network> = {
   atlas: FolderOpen,
@@ -231,7 +232,7 @@ function App() {
   }>>({});
   const [recoveredPreviewId, setRecoveredPreviewId] = useState<string | null>(null);
   const [recoveryBusyId, setRecoveryBusyId] = useState<string | null>(null);
-  const [recoveredGitRequest, setRecoveredGitRequest] = useState<CodexGitRecovery | null>(null);
+  const [recoveredGitRequest, setRecoveredGitRequest] = useState<AgentGitRecovery | null>(null);
   const [sourceDocument, setSourceDocument] = useState<SnapshotSource | null>(null);
   const [sourceLoading, setSourceLoading] = useState(false);
   const [sourceError, setSourceError] = useState<string | null>(null);
@@ -429,20 +430,37 @@ function App() {
     setRecoveryBusyId(operation.operationId);
     setRecoveredGitRequest(null);
     try {
-      const request = operation.providerRequest;
-      if (!request) throw new Error('This older interruption record does not identify the request scope. Reopen the project and select the original file, section, source range or change before preparing a new request. The app will not assume it was a whole-file explanation.');
-      if (!['codex', 'gemini', 'openai', 'anthropic'].includes(request.providerId)) throw new Error('The original agent is not connected to interruption recovery yet. Its backend and exact source scope are preserved in this notice. Complete that agent setup before retrying; no API request was opened.');
+      const recordedRequest = operation.providerRequest;
+      if (!recordedRequest) throw new Error('This older interruption record does not identify the request scope. Reopen the project and select the original file, section, source range or change before preparing a new request. The app will not assume it was a whole-file explanation.');
+      if (!['codex', 'claude-agent', 'gemini', 'openai', 'anthropic'].includes(recordedRequest.providerId)) throw new Error('The original backend is not connected to interruption recovery. Its scope stays in this notice; no API request was opened.');
       const opened = await openRecentProject(operation.projectId);
       if (!current()) return;
       if (!opened.project || (opened.status !== 'opened' && opened.status !== 'storageError')) {
         handleProjectOpenResult(opened);
         return;
       }
+      const recoveryBackend = recordedRequest.providerId === 'codex' ? 'codex' : recordedRequest.providerId === 'claude-agent' ? 'claude-agent' : undefined;
+      // Both agents restore native journal-owned evidence. This reads local
+      // source/Git only; it restores neither runtime settings nor consent.
+      const recovered = recoveryBackend ? await loadInterruptedGenerationScope(operation.operationId) : null;
+      if (!current()) return;
+      const request = recovered ? recovered.operation.providerRequest : recordedRequest;
+      if (!request) throw new Error('The interrupted request scope is unavailable. Select the original evidence again.');
+      if (recovered) {
+        const original = recovered.operation;
+        const exact = original.providerRequest;
+        if (!exact || original.operationId !== operation.operationId || original.projectId !== operation.projectId
+          || original.snapshotId !== operation.snapshotId || original.targetPath !== operation.targetPath
+          || original.startedAtUnixMs !== operation.startedAtUnixMs
+          || exact.providerId !== recoveryBackend || exact.purpose !== recordedRequest.purpose) {
+          throw new Error('The interrupted request changed during recovery. Review the current notice again.');
+        }
+      }
       const sectionTarget = request.sectionUpdate;
       let sectionBase: ChapterRevision | null = null;
       if (request.purpose === 'sectionUpdate') {
         if (!sectionTarget || !operation.targetPath) throw new Error('The interrupted section identity is incomplete. Select the original stale section in Edit and review it again.');
-        const revisions = await listChapterRevisions(operation.projectId);
+        const revisions = await listProjectChapterRevisions(operation.projectId);
         if (!current()) return;
         const base = revisions.find((revision) => revision.revisionId === sectionTarget.chapterRevisionId);
         const section = base?.sections.find((item) => item.sectionId === sectionTarget.sectionId && item.sectionRevisionId === sectionTarget.sectionRevisionId);
@@ -451,38 +469,30 @@ function App() {
         }
         sectionBase = base;
       }
-      // Recover only journal-owned evidence, after local native revalidation.
-      // Claude keeps its notice until its automatic app flow is connected.
       let rangeTarget: CodeLensExplanationTarget | null = null;
-      let gitRecovery: CodexGitRecovery | null = null;
+      let gitRecovery: AgentGitRecovery | null = null;
       let recoveredComparison: GitComparisonResult | null = null;
-      if (request.providerId === 'codex' && ['codeLensExplanation', 'prGuide', 'prChangeExplanation'].includes(request.purpose)) {
-        const recovered = await loadInterruptedGenerationScope(operation.operationId);
-        if (!current()) return;
-        const original = recovered.operation;
-        const exact = original.providerRequest;
-        if (original.operationId !== operation.operationId || original.projectId !== operation.projectId
-          || original.snapshotId !== operation.snapshotId || exact?.providerId !== 'codex' || exact.purpose !== request.purpose) {
-          throw new Error('The interrupted request changed during recovery. Review the current notice again.');
-        }
-        if (exact.purpose === 'codeLensExplanation') {
-          if (!exact.codeLens) throw new Error('This older notice has no exact range. Select the original range again.');
-          rangeTarget = exact.codeLens;
+      if (recovered && recoveryBackend && ['codeLensExplanation', 'prGuide', 'prChangeExplanation'].includes(request.purpose)) {
+        if (request.purpose === 'codeLensExplanation') {
+          if (!request.codeLens) throw new Error('This older notice has no exact range. Select the original range again.');
+          rangeTarget = request.codeLens;
         } else {
-          const git = exact.git;
+          const git = request.git;
           if (!git || !recovered.comparison || recovered.comparison.comparisonId !== git.comparisonId) {
             throw new Error('This notice has no recoverable Git selection. Select the original comparison again.');
           }
           recoveredComparison = recovered.comparison;
-          if (exact.purpose === 'prGuide') {
-            gitRecovery = { operationId: operation.operationId, mode: { kind: 'pr-guide', projectId: operation.projectId,
-              baseRef: git.baseRef, headRef: git.headRef, comparisonId: git.comparisonId,
-              selectedChanges: git.selectedChanges, recoveryOperationId: operation.operationId } };
+          if (request.purpose === 'prGuide') {
+            gitRecovery = { operationId: operation.operationId, backend: recoveryBackend,
+              mode: { kind: 'pr-guide', projectId: operation.projectId,
+                baseRef: git.baseRef, headRef: git.headRef, comparisonId: git.comparisonId,
+                selectedChanges: git.selectedChanges, recoveryOperationId: operation.operationId } };
           } else {
             if (git.hunkIndex === null || git.selectedChanges.length !== 1) throw new Error('The exact interrupted hunk is unavailable. Select it again.');
-            gitRecovery = { operationId: operation.operationId, mode: { kind: 'pr-change', projectId: operation.projectId,
-              target: { baseRef: git.baseRef, headRef: git.headRef, comparisonId: git.comparisonId,
-                selectedChange: git.selectedChanges[0], hunkIndex: git.hunkIndex }, recoveryOperationId: operation.operationId } };
+            gitRecovery = { operationId: operation.operationId, backend: recoveryBackend,
+              mode: { kind: 'pr-change', projectId: operation.projectId,
+                target: { baseRef: git.baseRef, headRef: git.headRef, comparisonId: git.comparisonId,
+                  selectedChange: git.selectedChanges[0], hunkIndex: git.hunkIndex }, recoveryOperationId: operation.operationId } };
           }
         }
       }
@@ -505,12 +515,11 @@ function App() {
           ...(rangeTarget.startByte === null || rangeTarget.endByteExclusive === null ? {} : { startByte: rangeTarget.startByte, endByteExclusive: rangeTarget.endByteExclusive }) } : undefined,
         focusTarget: chapterRequest ? 'heading:chapter-studio' : request.purpose === 'codeLensExplanation' ? 'heading:atlas' : 'heading:changes',
       }));
-      const recoveryBackend = request.providerId === 'codex' ? 'codex' as const : undefined;
       if (gitRecovery) {
         setRecoveredGitRequest(gitRecovery);
       } else if (rangeTarget) {
         setProviderDialog({ kind: 'code-lens-range', projectId: operation.projectId, snapshotId: operation.snapshotId,
-          target: rangeTarget, recoveryOperationId: operation.operationId, recoveryBackend: 'codex' });
+          target: rangeTarget, recoveryOperationId: operation.operationId, recoveryBackend });
       } else if (request.purpose === 'sectionUpdate' && sectionBase && sectionTarget && operation.targetPath) {
         setProviderDialog({ kind: 'section-update', projectId: operation.projectId, snapshotId: operation.snapshotId,
           targetPath: operation.targetPath, selectedPaths: request.selectedPaths, baseRevision: sectionBase, sectionUpdate: sectionTarget,
@@ -1713,6 +1722,7 @@ function App() {
           native={runtime?.native ?? isNativeRuntime()}
           onClose={closeProviderDialog}
           onRecoveryReviewReady={completeRecoveredProviderReview}
+          onOpenPendingPreview={(generationId) => { closeProviderDialog(); setRecoveredPreviewId(generationId); }}
           onOpenCodeLensCitation={(citation) => {
             closeProviderDialog();
             openCapturedFile(citation.path, citation.snapshotId, {
@@ -1760,6 +1770,7 @@ interface ProviderDialogProps {
   onClose: () => void;
   onRecoveryReviewReady: (operationId: string) => void;
   onOpenCodeLensCitation: (citation: CodeLensExplanationCitation) => void;
+  onOpenPendingPreview: (generationId: string) => void;
 }
 
 function ProviderDialog(props: ProviderDialogProps) {
@@ -1767,6 +1778,7 @@ function ProviderDialog(props: ProviderDialogProps) {
   const handoffOperation = props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview';
   const [backend, setBackend] = useState<'choose' | 'codex' | 'claude-setup' | 'handoff' | 'api'>(() => {
     if (props.mode.recoveryBackend === 'codex' && agentOperation) return 'codex';
+    if (props.mode.recoveryBackend === 'claude-agent' && agentOperation) return 'claude-setup';
     if (props.mode.kind === 'settings' && props.mode.backend === 'api') return 'api';
     return 'choose';
   });
@@ -1787,6 +1799,8 @@ function ProviderDialog(props: ProviderDialogProps) {
   if (backend === 'claude-setup') return <ClaudeConnectionDialog native={props.native}
     reviewMode={props.mode.kind === 'settings' ? 'settings' : props.mode}
     onClose={props.onClose} onChooseBackend={() => setBackend('choose')}
+    onRecoveryResultReady={props.onRecoveryReviewReady}
+    onOpenPendingPreview={props.onOpenPendingPreview}
     onOpenCodeLensCitation={props.onOpenCodeLensCitation} />;
   if (backend === 'handoff' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview')) {
     return <AgentHandoffDialog mode={props.mode.kind === 'settings' ? 'settings' : props.mode} native={props.native}
@@ -1799,6 +1813,7 @@ function ProviderDialog(props: ProviderDialogProps) {
       : selectedMode;
     return <CodexChapterDialog mode={mode}
       native={props.native} onClose={props.onClose} onChooseBackend={() => setBackend('choose')}
+      onOpenPendingPreview={props.onOpenPendingPreview}
       onRecoveryReviewReady={props.onRecoveryReviewReady} onOpenCodeLensCitation={props.onOpenCodeLensCitation} />;
   }
   return <div className="provider-overlay">
@@ -1883,7 +1898,7 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
   const overviewMode = mode.kind === 'overview';
   const sectionUpdateMode = mode.kind === 'section-update';
   const codeLensRangeMode = mode.kind === 'code-lens-range';
-  const recoveryOperationId = 'recoveryOperationId' in mode ? mode.recoveryOperationId : undefined;
+  const recoveryOperationId = !mode.recoveryBackend && 'recoveryOperationId' in mode ? mode.recoveryOperationId : undefined;
   const availableContextFiles = useMemo(() => (snapshotManifest?.files ?? [])
     .filter((file) => file.kind === 'file' && (file.contentKind === 'text' || file.contentKind === 'unknown')
       && !file.secretLike && file.sizeBytes <= 250_000)

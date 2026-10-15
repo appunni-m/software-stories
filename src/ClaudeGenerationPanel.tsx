@@ -15,6 +15,8 @@ export interface ClaudeResultCallbacks {
   onOpenCodeLensCitation?: (citation: CodeLensExplanationCitation) => void;
   onOpenPrChangeCitation?: (citation: PrChangeExplanationCitation) => void;
   onPrGuideReady?: (preview: PrGuidePreview) => void;
+  /** Only a validated result adopted by the current view resolves a notice. */
+  onRecoveryResultReady?: (operationId: string) => void;
 }
 
 type Result = { kind: 'chapter'; value: ChapterDraftPreview }
@@ -66,7 +68,7 @@ function failure(error: ProviderFailure): string {
 /** Automatic UI uses only reviewed identities. Native admission remains
  * authoritative; the current empty release registry cannot start inference. */
 export function ClaudeGenerationPanel({ native, mode, review, available, unavailableMessage,
-  onHoldChange, onReset, onOpenCodeLensCitation, onOpenPrChangeCitation, onPrGuideReady,
+  onHoldChange, onReset, onOpenCodeLensCitation, onOpenPrChangeCitation, onPrGuideReady, onRecoveryResultReady,
 }: ClaudeResultCallbacks & {
   native: boolean; mode: ClaudeOperationReviewMode; review: ProviderRequestReview;
   available: boolean; unavailableMessage: string;
@@ -82,8 +84,8 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
   const [progress, setProgress] = useState<Progress | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const output = useRef<HTMLDivElement>(null);
-  const callbacks = useRef({ onHoldChange, onPrGuideReady });
-  callbacks.current = { onHoldChange, onPrGuideReady };
+  const callbacks = useRef({ onHoldChange, onPrGuideReady, onRecoveryResultReady });
+  callbacks.current = { onHoldChange, onPrGuideReady, onRecoveryResultReady };
   const state = useRef({ mounted: false, version: 0, active: false, attempted: false,
     run: null as string | null, draft: null as string | null, saving: false, cancelled: false,
     unlisten: null as UnlistenFn | null });
@@ -174,6 +176,7 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
         if (current.cancelled) setNote('Cancellation arrived after an unaccepted PR Guide draft was saved. Review it in PR Guide history.');
       }
       setResult(value);
+      if (mode.recoveryOperationId) callbacks.current.onRecoveryResultReady?.(mode.recoveryOperationId);
     } catch {
       if (current.mounted && current.version === version) setError(!invoked
         ? 'Progress tracking could not be prepared. No agent request was started. Prepare a fresh review.'

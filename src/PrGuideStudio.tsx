@@ -1,6 +1,7 @@
+import type { AgentGitRecovery } from './lib/agentRecovery';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, RotateCcw, Send, ShieldCheck, Sparkles } from 'lucide-react';
-import { CodexChapterDialog, type CodexChapterDialogMode, type CodexGitRecovery } from './CodexChapterDialog';
+import { CodexChapterDialog, type CodexChapterDialogMode } from './CodexChapterDialog';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import type { ClaudeOperationReviewMode } from './lib/claudeReview';
 import {
@@ -43,7 +44,7 @@ interface PrGuideStudioProps {
   comparison: GitComparisonResult;
   onFocusChange: (path: string | undefined, hunkIndex?: number) => void;
   onOpenProviderSettings: () => void;
-  recovery?: CodexGitRecovery | null;
+  recovery?: AgentGitRecovery | null;
   onRecoveryReviewReady?: (operationId: string) => void;
 }
 
@@ -431,7 +432,7 @@ export function PrGuideStudio({
       </div>
       <p className="pr-guide-muted">Choose a backend, select changed files, inspect the exact diff sent, then review every claim against its base/head hunk. Accepting or rejecting saves a PR Guide revision; it never changes Git refs or file chapter history.</p>
       {matchingRecovery && <section className="provider-review-card" aria-labelledby="recovered-git-title">
-        <h3 id="recovered-git-title">Review interrupted Codex work</h3>
+        <h3 id="recovered-git-title">Review interrupted {matchingRecovery.backend === 'codex' ? 'Codex' : 'Claude'} work</h3>
         <p>{matchingRecovery.mode.kind === 'pr-guide'
           ? `${matchingRecovery.mode.selectedChanges.length} original changed files are preserved.`
           : `The original file and hunk ${matchingRecovery.mode.target.hunkIndex + 1} are preserved.`} Local validation checked the comparison and patch hashes. Choose current model settings, review the exact request and confirm again. Nothing resumes automatically.</p>
@@ -443,10 +444,11 @@ export function PrGuideStudio({
         <button className="primary-button" disabled={building || sending || decisionBusy || Boolean(codexMode) || Boolean(changeExplanationSelection) || Boolean(claudeMode)
           || (matchingRecovery.mode.kind === 'pr-guide' && (!recoveryHistoryChecked || historyLoading || Boolean(historyError)))}
           onClick={() => {
-            clearReview(); setBackend('codex');
+            clearReview(); setBackend(matchingRecovery.backend);
             if (matchingRecovery.mode.kind === 'pr-guide') setSelectedKeys(matchingRecovery.mode.selectedChanges.map(changeKey));
-            setCodexMode(matchingRecovery.mode);
-          }}>Review original scope with Codex</button>
+            if (matchingRecovery.backend === 'codex') setCodexMode(matchingRecovery.mode);
+            else setClaudeMode(matchingRecovery.mode);
+          }}>Review original scope with {matchingRecovery.backend === 'codex' ? 'Codex' : 'Claude'}</button>
       </section>}
       <label className="pr-guide-model">Generate with
         <select value={backend} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection) || Boolean(codexMode) || Boolean(claudeMode)}
@@ -532,6 +534,7 @@ export function PrGuideStudio({
         }} />}
       {claudeMode && <ClaudeConnectionDialog native={isNativeRuntime()} reviewMode={claudeMode}
         onClose={() => setClaudeMode(null)} onChooseBackend={() => setClaudeMode(null)}
+        onRecoveryResultReady={onRecoveryReviewReady}
         onPrGuideReady={(preview) => {
           setCurrentDraft(preview.revision);
           setIncludedClaimIds(allClaimIds(preview.revision));

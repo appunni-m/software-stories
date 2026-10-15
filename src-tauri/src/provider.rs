@@ -1792,7 +1792,7 @@ pub fn build_pr_guide_request_review_for_provider(
     Ok(PendingProviderRequest { review, body })
 }
 
-/// Revalidate journal-owned range/Git identities locally, without model
+/// Revalidate journal-owned chapter/range/Git identities locally, without model
 /// admission, a pending request, consent or an agent/API call. Shared pure
 /// builders enforce the same source limits and exclusions as generation.
 pub(crate) fn revalidate_interrupted_evidence(
@@ -1803,10 +1803,44 @@ pub(crate) fn revalidate_interrupted_evidence(
     let changed = || {
         failure(
             ProviderFailureKind::ReviewChanged,
-            "The original interrupted evidence is missing or changed. Reselect its exact range or Git comparison; no broader request was opened.",
+            "The original interrupted evidence is missing or changed. Reselect its exact chapter, section, source range or Git comparison; no broader request was opened.",
         )
     };
     let request = operation.provider_request.as_ref().ok_or_else(changed)?;
+    if matches!(
+        request.purpose.as_str(),
+        FILE_CHAPTER_PURPOSE | REPOSITORY_OVERVIEW_PURPOSE | SECTION_UPDATE_PURPOSE
+    ) {
+        if request.code_lens.is_some() || request.git.is_some() {
+            return Err(changed());
+        }
+        // This pure builder reopens the immutable source and, for section
+        // repair, checks the exact accepted base and preservation scope. An
+        // empty model selector is intentional: recovery admits no transport.
+        let context = build_chapter_context(
+            storage_dir,
+            &BuildProviderReviewInput {
+                project_id: operation.project_id.clone(),
+                snapshot_id: operation.snapshot_id.clone(),
+                target_path: operation.target_path.clone(),
+                selected_paths: request.selected_paths.clone(),
+                model_id: String::new(),
+                section_update: request.section_update.clone(),
+            },
+        )?;
+        if context.purpose != request.purpose
+            || context.section_update_context != request.section_update
+            || context
+                .selected_files
+                .iter()
+                .map(|file| &file.path)
+                .collect::<BTreeSet<_>>()
+                != request.selected_paths.iter().collect::<BTreeSet<_>>()
+        {
+            return Err(changed());
+        }
+        return Ok(None);
+    }
     if request.purpose == CODE_LENS_EXPLANATION_PURPOSE {
         let target = request.code_lens.clone().ok_or_else(changed)?;
         build_code_lens_context(

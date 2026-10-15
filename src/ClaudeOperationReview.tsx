@@ -51,13 +51,14 @@ function reviewError(error: ProviderFailure): string {
 
 /** Local review followed by native-gated generation. The empty qualification
  * registry keeps current builds unavailable; a preview is never consent. */
-export function ClaudeOperationReview({ native, mode, discovery, onHoldChange,
-  onOpenCodeLensCitation, onOpenPrChangeCitation, onPrGuideReady,
+export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, recoveryReady,
+  onOpenCodeLensCitation, onOpenPrChangeCitation, onPrGuideReady, onRecoveryResultReady,
 }: ClaudeResultCallbacks & {
   native: boolean;
   mode: ClaudeOperationReviewMode | 'settings' | null;
   discovery: ClaudeModelDiscoveryObservation;
   onHoldChange: (held: boolean) => void;
+  recoveryReady: boolean;
 }) {
   const scope = typeof mode === 'object' ? mode : null;
   const chapterScope = isClaudeChapterScope(scope) ? scope : null;
@@ -190,7 +191,7 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange,
   const prepare = async () => {
     const current = resources.current;
     if (!native || !scope || !projectId || !connectionId || locked
-      || current.generationHeld || current.active !== null || !modelReady || !sourceReady) return;
+      || current.generationHeld || current.active !== null || !modelReady || !sourceReady || !recoveryReady) return;
     if (Date.now() >= connectionExpiry) { releaseReview(); setExpired(true); return; }
     releaseReview();
     const version = ++current.version;
@@ -303,7 +304,7 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange,
         {scope.kind === 'pr-change' && <p>Original hunk {scope.target.hunkIndex + 1} only.</p>}
         <p>Preview preparation rereads existing local Git objects and rejects changed refs, unavailable hunks or excluded evidence. It starts no agent. Return to Changes to alter this selection.</p>
       </section>}
-      <button className="secondary-button" disabled={locked || !modelReady || !sourceReady} onClick={() => { void prepare(); }}>{busy ? 'Preparing local preview…' : review ? 'Refresh request preview' : 'Preview exact request'}</button>
+      <button className="secondary-button" disabled={locked || !modelReady || !sourceReady || !recoveryReady} onClick={() => { void prepare(); }}>{busy ? 'Preparing local preview…' : review ? 'Refresh request preview' : 'Preview exact request'}</button>
       {review && <>
         <div ref={summary} className="provider-request-summary" tabIndex={-1} role="group" aria-label="Exact local Claude request">
           <div><span>Operation</span><strong>{claudeOperationLabel(scope)}</strong></div>
@@ -319,11 +320,12 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange,
         <div className="provider-fingerprint"><span>Local review identity</span><code>{review.fingerprint}</code><small>Changing source, settings or connection discards this preview. This is not consent to send source.</small></div>
         <button className="text-button" disabled={busy || generationHeld} onClick={releaseReview}>Discard request preview</button>
         <ClaudeGenerationPanel key={review.reviewId} native={native} mode={scope} review={review}
-          available={connection?.generation.available === true}
-          unavailableMessage={connection?.generation.message ?? 'Automatic Claude generation is unavailable for this connection.'}
+          available={connection?.generation.available === true && recoveryReady}
+          unavailableMessage={!recoveryReady ? 'Check earlier local results before requesting another generation.'
+            : connection?.generation.message ?? 'Automatic Claude generation is unavailable for this connection.'}
           onHoldChange={holdGeneration} onReset={() => { holdGeneration(false); releaseReview(); }}
           onOpenCodeLensCitation={onOpenCodeLensCitation} onOpenPrChangeCitation={onOpenPrChangeCitation}
-          onPrGuideReady={onPrGuideReady} />
+          onPrGuideReady={onPrGuideReady} onRecoveryResultReady={onRecoveryResultReady} />
       </>}
     </>}
     {mode === null && <p role="status">Open Claude from a captured file, overview, section, code range or Git selection to preview that exact operation. Automatic generation remains unavailable.</p>}

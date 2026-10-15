@@ -112,4 +112,11 @@ Claude range/Git source delta: candidate pure context/review/revalidation and in
 
 The six scoped local reviews now mount automatic generation controls linked to the four native send commands. Explicit review consent, progress/cancel, fixed per-run source/settings, chapter preview/save/discard, transient range/hunk citations and separate guide draft adoption are in source. Mounted-view/run checks dispose abandoned chapter replies, reject unwanted transient replies and refresh independently recoverable chapter/guide lists. A five-minute connection expiry cannot erase a consented bounded run or its saveable result. Lost save replies reconcile exact immutable revision identity.
 
-The release qualification registry remains empty, so no current route can generate automatically with Claude. No tests, builds, app launch or model request ran. Account/runtime/installation qualification, exact Claude interruption recovery and real native user workflow evidence remain priority-zero work in `8gqw`/`2r6n`; automatic Claude cells stay Missing. This source checkpoint does not complete the user's multi-agent requirement.
+The release qualification registry remains empty, so no current route can generate automatically with Claude. No tests, builds, app launch or model request ran. Account/runtime/installation qualification, exact Claude interruption recovery acceptance and real native user workflow evidence remain priority-zero work in `8gqw`/`2r6n`; automatic Claude cells stay Missing. This source checkpoint does not complete the user's multi-agent requirement.
+
+
+## Both-agent exact recovery — source progress
+
+Claude and Codex now share native journal-owned chapter/range/Git evidence recovery and a backend-tagged Git scope. Claude records reopen the original agent, exact chapter/section/range/comparison/path-pair/hunk and a fresh review. Section recovery uses project-wide accepted history. Chapter recovery lists possible pending/saved results before another request; guide recovery inspects separate PR history. No prior runtime/settings authorization or consent resumes. Preparation, failure, cancellation, closing and unavailable runtime preserve the original notice; validated wanted result adoption resolves it. API preview creation cannot resolve an agent notice.
+
+This source has not been built or exercised. Claude's release registry is still empty, all automatic Claude cells remain Missing, and native runtime/account/boundary/recovery acceptance remains open. Deferred cases are in `xymb`.

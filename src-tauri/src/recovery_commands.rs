@@ -12,8 +12,8 @@ pub(crate) struct RecoveredGenerationScope {
     comparison: Option<git_evidence::GitComparisonResult>,
 }
 
-/// Read the journal natively so the renderer cannot replace a recovered range
-/// or hunk with a broader source selection. The later request still requires
+/// Read the journal natively so the renderer cannot replace a recovered
+/// chapter/section/range/Git scope with a broader selection. A request requires
 /// fresh runtime configuration, evidence review and explicit sending consent.
 #[tauri::command(rename_all = "camelCase")]
 pub(crate) async fn load_interrupted_generation_scope(

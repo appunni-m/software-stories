@@ -91,3 +91,8 @@ The app restores newer Codex ranges directly into the fixed range dialog. Guide/
 Building a Codex review no longer clears its old interruption notice. Failed/cancelled generation and abandoned review preserve it. Successful result adoption clears it; a saved PR Guide received after late cancellation is still shown as an unaccepted saved draft and can clear the resolved original notice. Accepted history remains untouched. Existing notices/worker cleanup do not become thread resume. All runtime/package/account/isolation/native acceptance criteria remain open; no test, build, app launch, CLI/SDK probe, login or model call ran.
 
 PR Guide history now shares a latest-request sequence between initial/event loads and manual refresh, keeps loading state during refresh, and drops abandoned replies. This supports the recovery history check; native race acceptance remains deferred. A currently open transient API hunk panel blocks opening the recovery dialog rather than stacking active explanation flows.
+
+
+## Shared chapter and Git recovery source checkpoint
+
+Git recovery now has a shared backend-tagged type so Claude notices do not route through Codex. Codex chapter/overview/section recovery also uses native pure context revalidation and a local pending/saved-result inspection panel before another review. The accepted section base is looked up with project-wide history, fixing an omitted snapshot argument in the prior source call. Candidate preview matches are explicitly not proof of originating agent/request. No tests, builds, launches, login or model requests ran; all native acceptance remains pending in `xymb`.

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
 import { AlertTriangle, ArrowDownUp, GitBranch, GitCommitHorizontal, RefreshCw } from 'lucide-react';
-import type { CodexGitRecovery } from './CodexChapterDialog';
+import type { AgentGitRecovery } from './lib/agentRecovery';
 import {
   compareLocalGitRevisions,
   isNativeRuntime,
@@ -22,7 +22,7 @@ interface GitChangesScreenProps {
   onComparison: (projectId: string, baseRef: string, headRef: string, result: GitComparisonResult) => void;
   onOpenRepository: () => void;
   onOpenProviderSettings: () => void;
-  recovery?: CodexGitRecovery | null;
+  recovery?: AgentGitRecovery | null;
   onRecoveryReviewReady?: (operationId: string) => void;
 }
 
@@ -201,7 +201,7 @@ function ComparisonResults({
   selectedChangePath?: string;
   onSelectChange: (path: string | undefined) => void;
   onOpenProviderSettings: () => void;
-  recovery?: CodexGitRecovery | null;
+  recovery?: AgentGitRecovery | null;
   onRecoveryReviewReady?: (operationId: string) => void;
 }) {
   const [focusedCitation, setFocusedCitation] = useState<{ identity: string; hunkIndex: number } | null>(null);
@@ -259,6 +259,7 @@ function ComparisonResults({
       )}
       <Suspense fallback={<p className="pr-guide-muted" role="status">Loading PR Guide review controls…</p>}>
         <PrGuideStudio
+          key={JSON.stringify([projectId, baseRef, headRef, comparison.comparisonId])}
           projectId={projectId}
           baseRef={baseRef}
           headRef={headRef}

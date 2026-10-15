@@ -13,16 +13,16 @@ export type ClaudeChapterScope = {
   selectedPaths: string[]; sectionUpdate: SectionUpdateReviewTarget;
 };
 
-export type ClaudeOperationReviewMode = ClaudeChapterScope | {
+export type ClaudeOperationReviewMode = (ClaudeChapterScope | {
   kind: 'code-lens-range'; projectId: string; snapshotId: string; target: CodeLensExplanationTarget;
 } | {
   kind: 'pr-guide'; projectId: string; baseRef: string; headRef: string;
   comparisonId: string; selectedChanges: SelectedGitChangeIdentity[];
 } | {
   kind: 'pr-change'; projectId: string; target: PrChangeExplanationTarget;
-};
+}) & { recoveryOperationId?: string };
 
-export function isClaudeChapterScope(mode: ClaudeOperationReviewMode | null): mode is ClaudeChapterScope {
+export function isClaudeChapterScope(mode: ClaudeOperationReviewMode | null): mode is ClaudeChapterScope & { recoveryOperationId?: string } {
   return mode !== null && (mode.kind === 'review' || mode.kind === 'overview' || mode.kind === 'section-update');
 }
 
@@ -34,10 +34,10 @@ export function claudeReviewScopeKey(mode: ClaudeOperationReviewMode | 'settings
     case 'review': case 'overview': case 'section-update':
       return JSON.stringify([mode.kind, mode.projectId, mode.snapshotId,
         mode.kind === 'overview' ? null : mode.targetPath, mode.selectedPaths ?? [],
-        mode.kind === 'section-update' ? mode.sectionUpdate : null]);
-    case 'code-lens-range': return JSON.stringify([mode.kind, mode.projectId, mode.snapshotId, mode.target]);
-    case 'pr-guide': return JSON.stringify([mode.kind, mode.projectId, mode.baseRef, mode.headRef, mode.comparisonId, mode.selectedChanges]);
-    case 'pr-change': return JSON.stringify([mode.kind, mode.projectId, mode.target]);
+        mode.kind === 'section-update' ? mode.sectionUpdate : null, mode.recoveryOperationId ?? null]);
+    case 'code-lens-range': return JSON.stringify([mode.kind, mode.projectId, mode.snapshotId, mode.target, mode.recoveryOperationId ?? null]);
+    case 'pr-guide': return JSON.stringify([mode.kind, mode.projectId, mode.baseRef, mode.headRef, mode.comparisonId, mode.selectedChanges, mode.recoveryOperationId ?? null]);
+    case 'pr-change': return JSON.stringify([mode.kind, mode.projectId, mode.target, mode.recoveryOperationId ?? null]);
   }
 }
 

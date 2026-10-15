@@ -6,8 +6,9 @@ import {
 } from './lib/commands';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import { ClaudeOperationReview } from './ClaudeOperationReview';
-import { claudeReviewScopeKey, type ClaudeOperationReviewMode } from './lib/claudeReview';
+import { claudeReviewScopeKey, isClaudeChapterScope, type ClaudeOperationReviewMode } from './lib/claudeReview';
 import type { ClaudeResultCallbacks } from './ClaudeGenerationPanel';
+import { ChapterRecoveryReview } from './ChapterRecoveryReview';
 
 const preferenceKey = 'code-atlas:claude-agent-executable';
 const nodePreferenceKey = 'code-atlas:claude-agent-node-executable';
@@ -37,11 +38,15 @@ function inspectionError(error: unknown): string {
 }
 
 export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBackend,
-  onOpenCodeLensCitation, onOpenPrChangeCitation, onPrGuideReady,
+  onOpenCodeLensCitation, onOpenPrChangeCitation, onPrGuideReady, onRecoveryResultReady, onOpenPendingPreview,
 }: ClaudeResultCallbacks & {
   native: boolean; reviewMode: ClaudeOperationReviewMode | 'settings' | null;
   onClose: () => void; onChooseBackend: () => void;
+  onOpenPendingPreview?: (generationId: string) => void;
 }) {
+  const chapterRecovery = typeof reviewMode === 'object' && isClaudeChapterScope(reviewMode)
+    && reviewMode.recoveryOperationId ? reviewMode : null;
+  const [recoveryReady, setRecoveryReady] = useState(!chapterRecovery);
   const [path, setPath] = useState(() => savedPath(preferenceKey));
   const [nodePath, setNodePath] = useState(() => savedPath(nodePreferenceKey));
   const [sdkPath, setSdkPath] = useState(() => savedPath(sdkPreferenceKey));
@@ -166,6 +171,10 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
       </header>
       <div className="provider-dialog-content">
         {!native && <div className="provider-preview-only" role="status"><HardDrive size={18} /><p>CLI inspection runs in the macOS app. This browser preview cannot launch it.</p></div>}
+        {chapterRecovery && <ChapterRecoveryReview key={chapterRecovery.recoveryOperationId}
+          native={native} projectId={chapterRecovery.projectId} snapshotId={chapterRecovery.snapshotId}
+          targetPath={chapterRecovery.kind === 'overview' ? null : chapterRecovery.targetPath}
+          locked={busy} onReady={setRecoveryReady} onOpenPreview={onOpenPendingPreview} />}
         <section className="provider-review-card">
           <form onSubmit={(event) => { event.preventDefault(); void inspect('connection'); }}>
             <label className="provider-model-select">Claude CLI executable · absolute path
@@ -203,9 +212,10 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
         {catalogObservation?.reviewConnection && <ClaudeOperationReview
           key={`${catalogObservation.reviewConnection.connectionId}:${reviewScopeKey}`}
           native={native} mode={reviewMode} discovery={catalogObservation}
+          recoveryReady={recoveryReady}
           onHoldChange={(held) => { generationHold.current = held; setGenerationHeld(held); }}
           onOpenCodeLensCitation={onOpenCodeLensCitation} onOpenPrChangeCitation={onOpenPrChangeCitation}
-          onPrGuideReady={onPrGuideReady} />}
+          onPrGuideReady={onPrGuideReady} onRecoveryResultReady={onRecoveryResultReady} />}
         {catalogObservation && <section className="provider-review-card" aria-labelledby="claude-models-title">
           <h3 id="claude-models-title">Candidate model catalog</h3>
           <p role="status">{catalogObservation.catalog.models.length} exact model IDs observed. Generation readiness is checked separately by native code.</p>

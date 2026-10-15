@@ -82,3 +82,8 @@ Runtime controls must be checked on the pinned packaged integration when validat
 ## Claude operation implementation delta
 
 Candidate Claude range and Git reviews now use transport-independent native evidence builders and distinct operation contracts. Offline review commands resolve current connection identity natively and derive the repository root from the open project. Internal senders use the existing managed worker and independent validators: ranges/hunks stay transient; guides use separate unaccepted history. No direct API request is built to obtain agent context. Claude receives reviewed evidence through stdin rather than claiming Codex's physical patch staging. These are source changes only: range/Git review helpers now have app callers for exact local request preview, registered native send commands are gated by an empty release qualification registry, app generation controls have source wiring but no runtime acceptance, and product/account/runtime/isolation qualification remains unresolved. All automatic Claude cells remain Missing; no tests, builds or runtime/model calls ran.
+
+
+## Local recovery implementation checkpoint
+
+Codex and Claude now both restore journal-owned chapter/section/range/Git scope through native local evidence validation. The frontend preserves the original backend, checks possible earlier chapter/guide results and requires a fresh review and consent. The old notice is retained through request preparation/failure/cancellation and resolves after wanted validated result adoption. This is source wiring, not a new vendor/account eligibility finding or accepted native behavior. Claude remains gated by an empty qualification registry. No runtime/model calls, builds or tests ran.

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { Check, FileCode2, HardDrive, Sparkles, X } from 'lucide-react';
+import { ChapterRecoveryReview } from './ChapterRecoveryReview';
 import {
   buildCodexChapterReview, buildCodexCodeLensReview, buildCodexPrGuideReview, buildCodexPrChangeReview, cancelCodexChapterRequest, cancelCodexLogin,
   configureCodexAgent, discardGeneratedChapterDraft, discardProviderRequestReview,
@@ -50,11 +51,6 @@ export type CodexChapterDialogMode = 'settings' | {
   recoveryOperationId?: string;
 };
 
-export interface CodexGitRecovery {
-  operationId: string;
-  mode: Extract<CodexChapterDialogMode, { kind: 'pr-guide' | 'pr-change' }>;
-}
-
 export interface CodexChapterDialogProps {
   mode: CodexChapterDialogMode;
   native: boolean;
@@ -65,6 +61,7 @@ export interface CodexChapterDialogProps {
   onOpenCodeLensCitation?: (citation: CodeLensExplanationCitation) => void;
   onPrGuideReady?: (preview: PrGuidePreview) => void;
   onOpenPrChangeCitation?: (citation: PrChangeExplanationCitation) => void;
+  onOpenPendingPreview?: (generationId: string) => void;
 }
 
 type Busy = 'status' | 'configure' | 'login' | 'cancel-login' | 'logout' | 'models' | 'build' | 'send' | 'save' | 'discard';
@@ -118,7 +115,7 @@ function loginHref(value: string): string | null {
   } catch { return null; }
 }
 
-export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onSaved, onRecoveryReviewReady, onOpenCodeLensCitation, onPrGuideReady, onOpenPrChangeCitation }: CodexChapterDialogProps) {
+export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onSaved, onRecoveryReviewReady, onOpenCodeLensCitation, onPrGuideReady, onOpenPrChangeCitation, onOpenPendingPreview }: CodexChapterDialogProps) {
   const projectId = mode === 'settings' ? null : mode.projectId;
   const snapshotId = mode !== 'settings' && 'snapshotId' in mode ? mode.snapshotId : null;
   const codeLensTarget = mode !== 'settings' && mode.kind === 'code-lens-range' ? mode.target : null;
@@ -130,6 +127,9 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     : mode.kind === 'code-lens-range' ? mode.target.path : mode.targetPath ?? null;
   const sectionUpdate = mode !== 'settings' && mode.kind === 'section-update' ? mode.sectionUpdate : undefined;
   const initialSelectedPaths = mode !== 'settings' && 'selectedPaths' in mode ? mode.selectedPaths : undefined;
+  const chapterRecovery = mode !== 'settings' && (mode.kind === 'review' || mode.kind === 'overview' || mode.kind === 'section-update')
+    && mode.recoveryOperationId ? mode : null;
+  const [recoveryReady, setRecoveryReady] = useState(!chapterRecovery);
   const [status, setStatus] = useState<CodexAgentStatus | null>(null);
   const [executablePath, setExecutablePath] = useState('');
   const [login, setLogin] = useState<{ loginId: string; authUrl: string } | null>(null);
@@ -396,7 +396,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   };
 
   const buildReview = async () => {
-    if (!projectId || (!snapshotId && !gitOperation) || !sourceReady || !modelReady || hasResult || otherRun || resources.current.login) return;
+    if (!projectId || (!snapshotId && !gitOperation) || !sourceReady || !modelReady || !recoveryReady || hasResult || otherRun || resources.current.login) return;
     const epoch = begin('build');
     if (epoch === null) return;
     releaseReview();
@@ -420,7 +420,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   };
 
   const generate = async () => {
-    if (!review || !consent || hasResult || !modelReady || !status?.authenticated || otherRun || resources.current.login) return;
+    if (!review || !consent || hasResult || !modelReady || !recoveryReady || !status?.authenticated || otherRun || resources.current.login) return;
     if (Date.now() >= review.expiresAtUnixMs) { releaseReview(); setError('This review expired. Build a new review and confirm it again.'); return; }
     const epoch = begin('send');
     if (epoch === null) return;
@@ -580,6 +580,10 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           <button className="icon-button" aria-label="Close Codex dialog" disabled={busy !== null} onClick={() => { if (!activeBusy.current) onClose(); }}><X size={17} /></button>
         </header>
         <div className="provider-dialog-content">
+          {chapterRecovery && <ChapterRecoveryReview key={chapterRecovery.recoveryOperationId}
+            native={native} projectId={chapterRecovery.projectId} snapshotId={chapterRecovery.snapshotId}
+            targetPath={chapterRecovery.kind === 'overview' ? null : chapterRecovery.targetPath ?? null}
+            locked={busy !== null || hasResult} onReady={setRecoveryReady} onOpenPreview={onOpenPendingPreview} />}
           {!native ? <div className="provider-preview-only" role="status"><HardDrive size={18} /><div><strong>Codex runs in the macOS app.</strong><p>This browser preview cannot launch Codex, sign in, read snapshot files, or generate chapters.</p></div></div> : <>
             <details className="provider-key-card" open={mode === 'settings' || !status?.authenticated}>
               <summary>Codex setup · {status?.authenticated ? 'account connected' : 'connect your account'}</summary>
@@ -645,7 +649,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 </>}
                 <p className="provider-small-note">Captured text only, up to 250 KB per file. The native review enforces the total request limit and blocks secret-like context.</p>
               </div>}
-              <button className="secondary-button" disabled={locked || otherRun || !sourceReady || !modelReady || Boolean(login)} onClick={() => { void buildReview(); }}>{busy === 'build' ? 'Building local review…' : review ? 'Rebuild exact request review' : 'Review exact request'}</button>
+              <button className="secondary-button" disabled={locked || otherRun || !sourceReady || !modelReady || !recoveryReady || Boolean(login)} onClick={() => { void buildReview(); }}>{busy === 'build' ? 'Building local review…' : review ? 'Rebuild exact request review' : 'Review exact request'}</button>
               <p className="provider-small-note">Reviewing prepares the exact request locally. Generation starts only after your consent below.</p>
               {review && <>
                 <div ref={summaryRef} className="provider-request-summary" role="group" aria-label="Exact Codex request" tabIndex={-1}>
@@ -712,7 +716,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
             : prGuideResult ? <span className="provider-saved-status" role="status"><Check size={15} /> PR draft saved locally</span>
             : codeLensResult || prChangeResult ? <button className="secondary-button" disabled={busy !== null} onClick={() => { setCodeLensResult(null); setPrChangeResult(null); setNote('Temporary explanation discarded. Review a new request to generate again.'); }}>Discard explanation</button>
             : preview ? saved ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { void discard(); }} disabled={busy !== null}>Discard preview</button><button className="primary-button" onClick={() => { void save(); }} disabled={busy !== null || preview.validation.status !== 'valid'}>{busy === 'save' ? 'Saving…' : 'Save unaccepted draft'}</button></div>
-              : <button className="primary-button" onClick={() => { void generate(); }} disabled={busy !== null || otherRun || !review || !consent || !status?.authenticated || !modelReady || Boolean(login)}><Sparkles size={15} /> {sectionUpdate ? 'Regenerate section with Codex' : 'Generate with Codex'}</button>)}
+              : <button className="primary-button" onClick={() => { void generate(); }} disabled={busy !== null || otherRun || !review || !consent || !status?.authenticated || !modelReady || !recoveryReady || Boolean(login)}><Sparkles size={15} /> {sectionUpdate ? 'Regenerate section with Codex' : 'Generate with Codex'}</button>)}
         </footer>
       </section>
     </div>

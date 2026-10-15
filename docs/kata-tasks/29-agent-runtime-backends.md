@@ -108,7 +108,7 @@ PR Guide generation and single-hunk explanations now have registered native Code
 
 ## Claude range/Git pipeline source delta
 
-Candidate Claude range, guide and hunk reviews now share immutable evidence/prompt/schema builders with the other transports. Strict operation admission and full native-runtime review rebuilding feed the common worker, with independent range/hunk validators and separate unaccepted guide history. Registered native offline review commands reuse connection ownership and expiry; those reviews now have local UI callers, while registered send commands remain unavailable behind an empty release qualification registry. Neither these internal methods nor catalog metadata authorizes inference. Exact account/product/runtime/isolation qualification, automatic workflow/disconnect acceptance and exact recovery remain open. All Claude automatic cells remain Missing; direct APIs stay optional.
+Candidate Claude range, guide and hunk reviews now share immutable evidence/prompt/schema builders with the other transports. Strict operation admission and full native-runtime review rebuilding feed the common worker, with independent range/hunk validators and separate unaccepted guide history. Registered native offline review commands reuse connection ownership and expiry; those reviews now have local UI callers, while registered send commands remain unavailable behind an empty release qualification registry. Neither these internal methods nor catalog metadata authorizes inference. Exact account/product/runtime/isolation qualification, automatic workflow/disconnect/recovery acceptance remains open. All Claude automatic cells remain Missing; direct APIs stay optional.
 
 
 ## Claude native lifecycle source delta
@@ -119,3 +119,10 @@ Internal Claude senders now reserve one revocable operation lease bound to the n
 ## Exact agent recovery source delta
 
 The shared interruption journal now retains bounded range/Git selection identities and patch digests without source or consent. A native local-only command revalidates journal-owned evidence and repository ownership; newer Codex records now reopen the exact range or original comparison/change set/hunk through the app, with fresh configuration/review/consent. Guide recovery requires checking saved history; a review alone no longer removes the old Codex notice. See `z3an` and deferred `xymb` cases. The internal Claude sender records the same metadata, but its automatic app/recovery flow, qualified runtime/account/isolation route and packaged acceptance remain open. No tests, builds or runtime/model requests ran; this parent remains open.
+
+
+## Both-agent exact recovery — source progress
+
+Claude and Codex now share native journal-owned chapter/range/Git evidence recovery and a backend-tagged Git scope. Claude records reopen the original agent, exact chapter/section/range/comparison/path-pair/hunk and a fresh review. Section recovery uses project-wide accepted history. Chapter recovery lists possible pending/saved results before another request; guide recovery inspects separate PR history. No prior runtime/settings authorization or consent resumes. Preparation, failure, cancellation, closing and unavailable runtime preserve the original notice; validated wanted result adoption resolves it. API preview creation cannot resolve an agent notice.
+
+This source has not been built or exercised. Claude's release registry is still empty, all automatic Claude cells remain Missing, and native runtime/account/boundary/recovery acceptance remains open. Deferred cases are in `xymb`.
