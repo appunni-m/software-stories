@@ -19,6 +19,7 @@ mod agent_handoff;
 mod claude_agent;
 mod claude_commands;
 mod claude_connection;
+mod claude_connections;
 mod claude_discovery;
 mod claude_generation;
 mod claude_models;
@@ -1758,6 +1759,7 @@ pub fn run() {
         .manage(ProjectSessions::default())
         .manage(codex_agent::CodexAgentManager::default())
         .manage(claude_worker::ClaudeWorkerManager::default())
+        .manage(claude_connections::ClaudeConnections::default())
         .manage(SnapshotJobs::default())
         .manage(index::SnapshotIndexJobs::default())
         .manage(provider::PendingProviderReviews::default())
@@ -1784,6 +1786,8 @@ pub fn run() {
             claude_commands::inspect_claude_agent_connection,
             claude_commands::inspect_claude_agent_model_catalog,
             claude_commands::cancel_claude_agent_operation,
+            claude_commands::forget_claude_agent_connection,
+            claude_commands::build_claude_chapter_review,
             get_application_status,
             get_capture_limits,
             pick_project_folder,

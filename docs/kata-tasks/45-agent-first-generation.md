@@ -53,3 +53,7 @@ Codex: `z3an`; automatic Claude Agent: `8gqw`; Antigravity: `m00g`; parent: `tpt
 ## Done evidence
 
 Record the exact commit, native package/runtime versions, permitted account routes, operation/configuration matrix, real generation/cancel/recovery results and user workflow review. No tests, builds, logins or runtime requests were executed during this source implementation. All acceptance remains pending.
+
+### Native review ownership delta
+
+Claude now has a native five-minute observed catalog connection and a registered offline file/overview/section review command. Requested settings/source enter from the renderer; account/runtime/capability observations come from native state only. Refresh/cancel/path change/close invalidate the connection, late catalog completion cannot republish it, and review fingerprints/expiry bind to the current record. This prepares review integration; no review UI caller or qualified inference command/UI was delivered. The account/runtime/isolation qualification and every automatic Claude operation remain open, along with disconnect-aware active-run/result handling. Metadata and offline reviews still cannot satisfy this release gate. No tests, builds, agent probes or model calls ran.

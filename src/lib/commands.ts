@@ -1377,6 +1377,7 @@ export async function inspectClaudeAgentConnection(executablePath: string, runId
   return invoke('inspect_claude_agent_connection', { executablePath, runId });
 }
 export interface ClaudeModelDiscoveryObservation {
+  reviewConnection: { connectionId: string; expiresAtUnixMs: number } | null;
   connection: ClaudeConnectionObservation;
   catalog: {
     sdkVersion: string;
@@ -1403,6 +1404,24 @@ export async function inspectClaudeAgentModelCatalog(
 }
 export async function cancelClaudeAgentOperation(runId: string): Promise<boolean> {
   return invoke('cancel_claude_agent_operation', { runId });
+}
+export async function forgetClaudeAgentConnection(connectionId: string): Promise<boolean> {
+  return invoke('forget_claude_agent_connection', { connectionId });
+}
+export interface ClaudeGenerationSettings {
+  modelId: string;
+  effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | null;
+  approvalPolicy: 'dontAsk';
+  maxTurns: number;
+}
+/** Offline preparation only. Native identity/capabilities come from the opaque
+ * current connection; this does not grant consent or dispatch generation. */
+export async function buildClaudeChapterReview(connectionId: string, input: {
+  projectId: string; snapshotId: string; targetPath: string | null;
+  selectedPaths: string[]; settings: ClaudeGenerationSettings;
+  sectionUpdate?: SectionUpdateReviewTarget | null;
+}): Promise<ProviderCommandResult<ProviderRequestReview>> {
+  return invoke('build_claude_chapter_review', { connectionId, input });
 }
 
 export type HandoffAgent = 'claude-code' | 'codex' | 'antigravity' | 'other';

@@ -2349,6 +2349,7 @@ pub(crate) fn build_claude_chapter_review(
             config: json!({
                 "contractVersion": "claude-chapter-v1", "effort": input.settings.effort,
                 "approvalPolicy": "dontAsk", "maxTurns": input.settings.max_turns,
+                "connectionId": runtime.connection_id,
                 "executablePath": runtime.executable_path,
                 "executableSha256": runtime.executable_sha256,
                 "runtimeVersion": runtime.runtime_version,

@@ -166,3 +166,18 @@ Source-only; all command/UI/native acceptance remains deferred. No tests, builds
 - Recheck existing metadata-only installation/catalog commands after introducing the inspection budget object and the new review-change failure type. Their shared 45-second budget, caps, no-source input, early cancellation, cleanup priority and no-process-on-mount behavior must remain intact. Recheck Claude review reconstruction after sharing stored-setting decoding; Codex/API context contracts remain unchanged.
 
 All cases remain deferred. This source work ran no tests, builds, app launches, CLI/SDK/Node probes, logins or model requests.
+
+## Native Claude observed connection and offline review — pending
+
+These source changes do not authorize agent execution or inference. Record actual acceptance later:
+
+- A successful bounded native catalog check publishes exactly one native connection; no WebView command accepts account/executable digests or model capabilities. Missing identity/models/candidate metadata cannot create review state.
+- Starting either metadata check invalidates the old connection, even when the new check fails. Complete two checks out of order; only the current native ticket may publish. Cancel before registration, during work, between worker return/publication and after publication; the cancelled operation cannot leave a usable connection.
+- Connection state is in memory only. Expire it at five monotonic minutes; clock changes must not extend native lease validity. A pending review cannot outlive its display expiry, and dispatch must resolve/check the current native connection again before any future qualified send.
+- Compare-and-forget from an older window cannot clear a newer connection. Path edit, setup close, backend change and native/preview transitions request invalidation. Late metadata, manifest/review completion and cancellation errors cannot restore stale state or populate another view.
+- The registered offline review command accepts only the opaque connection ID and strict source/settings DTO. It starts no process, does not accept sending consent, and does not construct a direct API request. Unknown IDs, expired/replaced state, unsupported model/effort/policy/turns and cross-operation source all reject without inference.
+- Disconnect/refresh/expiry while the blocking source review is being prepared must prevent insertion. Insertion rechecks the native record under its lock; keep future connection/review lock ordering consistent. Reconnecting the same account produces a new connection ID and fingerprint.
+- Preserve source snapshot, file/overview/one-section contracts and unsupported range/PR rejection. The resulting pending review is bounded by both its normal review lifetime and the connection expiry. The renderer cannot override either native identity or capabilities.
+- Keep qualification separate: a native observed record, offline review command, typed frontend helper or displayed catalog cannot enable inference, qualify the account route or close an automatic matrix cell. The review UI caller, qualified send route, disconnect-aware active-run/result disposal, recovery and packaged acceptance remain unimplemented/unaccepted.
+
+No tests, builds, app launches, SDK/CLI probes, logins or model calls ran.

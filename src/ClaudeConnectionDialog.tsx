@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { HardDrive, X } from 'lucide-react';
 import {
-  cancelClaudeAgentOperation, inspectClaudeAgentConnection, inspectClaudeAgentModelCatalog,
+  cancelClaudeAgentOperation, forgetClaudeAgentConnection, inspectClaudeAgentConnection, inspectClaudeAgentModelCatalog,
   type ClaudeConnectionObservation, type ClaudeInspectionFailureKind, type ClaudeModelDiscoveryObservation,
 } from './lib/commands';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
@@ -48,6 +48,7 @@ export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
   const dialog = useRef<HTMLElement>(null);
   const lifetime = useRef(0);
   const active = useRef<{ id: string; cancelled: boolean; cleanupFailed: boolean } | null>(null);
+  const reviewConnection = useRef<string | null>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useModalFocusTrap(dialog);
@@ -67,6 +68,9 @@ export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
       const run = active.current;
       active.current = null;
       if (native && run) void cancelClaudeAgentOperation(run.id).catch(() => {});
+      const connectionId = reviewConnection.current;
+      reviewConnection.current = null;
+      if (native && connectionId) void forgetClaudeAgentConnection(connectionId).catch(() => {});
       if (previous?.isConnected) previous.focus();
     };
   }, [native]);
@@ -78,6 +82,10 @@ export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
     try { id = crypto.randomUUID(); }
     catch { setError('A secure operation identity is unavailable. Reopen the native app before trying again.'); return; }
     const run = { id, cancelled: false, cleanupFailed: false };
+    // New native inspections invalidate the old connection before work starts.
+    const previousConnection = reviewConnection.current;
+    reviewConnection.current = null;
+    if (previousConnection) void forgetClaudeAgentConnection(previousConnection).catch(() => {});
     active.current = run;
     setBusyKind(kind); setError(null); setNote(null); setObservation(null); setCatalogObservation(null);
     try {
@@ -91,6 +99,7 @@ export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
       setObservation(value);
       setPath(value.executablePath);
       if (discovery) {
+        reviewConnection.current = discovery.reviewConnection?.connectionId ?? null;
         setCatalogObservation(discovery);
         setNodePath(discovery.nodeExecutablePath);
         setSdkPath(discovery.sdkModulePath);
@@ -132,6 +141,9 @@ export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
   };
 
   const clearObservation = () => {
+    const connectionId = reviewConnection.current;
+    reviewConnection.current = null;
+    if (native && connectionId) void forgetClaudeAgentConnection(connectionId).catch(() => {});
     setObservation(null); setCatalogObservation(null); setError(null); setNote(null);
   };
 
@@ -182,6 +194,7 @@ export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
         {catalogObservation && <section className="provider-review-card" aria-labelledby="claude-models-title">
           <h3 id="claude-models-title">Candidate model catalog</h3>
           <p role="status">{catalogObservation.catalog.models.length} exact model IDs observed. Account entitlement and automatic generation remain unqualified.</p>
+          {catalogObservation.reviewConnection && <p className="provider-small-note">This native review connection expires at {new Date(catalogObservation.reviewConnection.expiresAtUnixMs).toLocaleTimeString()}. Changing installation paths or leaving setup discards it. It cannot authorize generation.</p>}
           <ul>{catalogObservation.catalog.models.map((model) => <li key={model.modelId}>
             <strong>{model.displayName}</strong> · <code>{model.modelId}</code>
             <p>Advertised effort: {model.supportedEfforts.length ? model.supportedEfforts.join(', ') : 'no explicit levels; runtime default only'}.</p>

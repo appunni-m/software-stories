@@ -1,9 +1,10 @@
 //! Internal reviewed chapter pipeline for a qualified native Claude runtime.
 //!
-//! This module neither qualifies nor constructs that runtime. It has no Tauri
-//! registration or app caller: the permitted account/install/isolation owner
-//! and generation UI remain missing. A setup catalog cannot call this module
-//! or become generation authorization. No direct API transport is used here.
+//! This module neither qualifies nor constructs that runtime. A registered
+//! command calls offline review preparation with native-owned observations.
+//! The sender has no registered command or app caller: the permitted account,
+//! installation/isolation owner and generation UI remain missing. A setup
+//! catalog cannot become generation authorization. No direct API is used here.
 
 use crate::{
     ProjectSessions, app_data_directory, chapters,
@@ -17,25 +18,22 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
-/// Native-only entry. The caller must qualify the runtime/account route and
-/// obtain fresh native capabilities first; no WebView runtime DTO is accepted.
-/// Run on the blocking pool; source review creates no model turn or consent.
-pub(crate) fn build_chapter_review(
+/// Offline entry with a native-owned observed connection, never a WebView
+/// runtime DTO. The command owner rechecks that connection before storing the
+/// review. Run on the blocking pool; this creates no model turn or consent.
+pub(crate) fn prepare_chapter_review(
     storage: &Path,
     sessions: &ProjectSessions,
-    reviews: &provider::PendingProviderReviews,
     runtime: &ClaudeReviewRuntime,
     input: &provider::BuildClaudeReviewInput,
-) -> Result<provider::ProviderRequestReview, provider::ProviderFailure> {
+) -> Result<provider::PendingProviderRequest, provider::ProviderFailure> {
     sessions.get(&input.project_id).map_err(|_| {
         failure(
             provider::ProviderFailureKind::InvalidReview,
             "Reopen the selected repository before reviewing this Claude operation.",
         )
     })?;
-    reviews.insert(provider::build_claude_chapter_review(
-        storage, input, runtime,
-    )?)
+    provider::build_claude_chapter_review(storage, input, runtime)
 }
 
 /// Future qualified native caller supplies the runtime, not the renderer. A

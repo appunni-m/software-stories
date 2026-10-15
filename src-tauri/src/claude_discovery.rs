@@ -29,6 +29,8 @@ pub(crate) struct ClaudeDiscoveryRuntime {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ClaudeModelDiscoveryObservation {
+    /// Set only by the native connection owner after managed inspection.
+    pub review_connection: Option<crate::claude_connections::ClaudeReviewConnection>,
     pub connection: crate::claude_connection::ClaudeConnectionObservation,
     pub catalog: crate::claude_models::ClaudeModelCatalog,
     pub node_executable_path: String,

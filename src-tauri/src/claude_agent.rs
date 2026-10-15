@@ -32,8 +32,10 @@ pub(crate) struct ClaudeGenerationSettings {
 }
 
 /// Native-owned capability/identity data, never deserialized from the WebView.
-/// The future runtime manager must obtain and qualify each field itself.
+/// The connection owner obtains these observations itself. Review identity is
+/// separate from account/runtime qualification and does not authorize a run.
 pub(crate) struct ClaudeReviewRuntime {
+    pub connection_id: String,
     pub executable_path: PathBuf,
     pub executable_sha256: String,
     pub runtime_version: String,
@@ -52,7 +54,8 @@ impl ClaudeReviewRuntime {
         &self,
         settings: &ClaudeGenerationSettings,
     ) -> Result<(), String> {
-        if !self.executable_path.is_absolute()
+        if uuid::Uuid::parse_str(&self.connection_id).is_err()
+            || !self.executable_path.is_absolute()
             || self.executable_path.to_str().is_none()
             || self.executable_path.as_os_str().len() > 4096
             || !is_digest(&self.executable_sha256)

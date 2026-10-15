@@ -93,3 +93,7 @@ No tests or builds were run during the October 15 static bug-fix pass. Keep acce
 ## Implementation order — 2026-10-15
 
 Finish qualifying the initial Codex account-backed app-server route independently of completing every direct API operation. Claude Agent and Antigravity have separate child tasks with explicit account eligibility decisions and runtime controls. Read [the current feasibility evaluation](../research/2026-10-15-agent-backends.md). Source wiring now reaches generation, local validation and saved draft review; an actual pinned-runtime account and packaged workflow must still be demonstrated before acceptance.
+
+### Native Claude review connection — source progress
+
+Managed catalog observations now enter a native, in-memory five-minute connection record. Refresh/cancel/disconnect invalidate it; opaque IDs cannot supply capabilities or authorize generation. A registered offline file/overview/section review command uses that record, binds its ID into the fingerprint, and rechecks it before storing a review capped to its expiry. A typed frontend helper exists; the review UI caller, qualified runtime/account/isolation owner, inference command/UI, disconnect-aware run disposal and full recovery remain open. All automatic Claude operations remain Missing. See [the exact contract](41-claude-agent-backend.md). No tests, builds or runtime/provider requests ran.

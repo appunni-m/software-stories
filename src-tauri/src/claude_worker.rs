@@ -663,6 +663,7 @@ mod native {
             }
             check()?;
             Ok(discovery::ClaudeModelDiscoveryObservation {
+                review_connection: None,
                 connection: after,
                 catalog,
                 node_executable_path: runtime
