@@ -1786,7 +1786,8 @@ function ProviderDialog(props: ProviderDialogProps) {
   if (backend === 'api') return <DirectApiDialog {...props} onChooseBackend={() => setBackend('choose')} />;
   if (backend === 'claude-setup') return <ClaudeConnectionDialog native={props.native}
     reviewMode={props.mode.kind === 'settings' ? 'settings' : props.mode}
-    onClose={props.onClose} onChooseBackend={() => setBackend('choose')} />;
+    onClose={props.onClose} onChooseBackend={() => setBackend('choose')}
+    onOpenCodeLensCitation={props.onOpenCodeLensCitation} />;
   if (backend === 'handoff' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview')) {
     return <AgentHandoffDialog mode={props.mode.kind === 'settings' ? 'settings' : props.mode} native={props.native}
       initialAgent={handoffAgent} onClose={props.onClose} onChooseBackend={() => setBackend('choose')} />;

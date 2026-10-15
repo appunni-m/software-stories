@@ -3,7 +3,7 @@
 //! This module neither qualifies nor constructs that runtime. A registered
 //! command calls offline review preparation with native-owned observations.
 //! Registered send commands require the release-owned runtime admission type.
-//! The qualification registry is empty and the generation UI remains missing;
+//! The qualification registry is empty and app generation flows are unaccepted;
 //! setup/catalog observations cannot authorize inference. No direct API is used.
 
 use crate::{

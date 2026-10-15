@@ -531,7 +531,19 @@ export function PrGuideStudio({
           }
         }} />}
       {claudeMode && <ClaudeConnectionDialog native={isNativeRuntime()} reviewMode={claudeMode}
-        onClose={() => setClaudeMode(null)} onChooseBackend={() => setClaudeMode(null)} />}
+        onClose={() => setClaudeMode(null)} onChooseBackend={() => setClaudeMode(null)}
+        onPrGuideReady={(preview) => {
+          setCurrentDraft(preview.revision);
+          setIncludedClaimIds(allClaimIds(preview.revision));
+          setDecisionError(null);
+          setNotice('Claude saved a validated, unaccepted PR Guide draft. Review each claim below before acceptance.');
+        }}
+        onOpenPrChangeCitation={(citation) => {
+          if (claudeMode !== 'settings' && claudeMode.kind === 'pr-change') {
+            onFocusChange(changeKey(claudeMode.target.selectedChange), citation.hunkIndex);
+            setClaudeMode(null);
+          }
+        }} />}
 
       {changeExplanationSelection && disclosure && modelId && (
         <PrChangeExplanationPanel

@@ -8,6 +8,7 @@ import {
   claudeOperationLabel, claudeReviewScopeKey, gitChangeLabel, isClaudeChapterScope,
   matchesClaudeOperationReview, prepareClaudeOperationReview, type ClaudeOperationReviewMode,
 } from './lib/claudeReview';
+import { ClaudeGenerationPanel, type ClaudeResultCallbacks } from './ClaudeGenerationPanel';
 
 type Selection = Pick<ClaudeGenerationSettings, 'modelId' | 'effort' | 'maxTurns'>;
 const preferenceKey = 'code-atlas:claude-chapter-preferences';
@@ -48,12 +49,15 @@ function reviewError(error: ProviderFailure): string {
   return messages[error.kind] ?? 'The local request preview could not be prepared. Check the captured source and settings.';
 }
 
-/** Offline source/settings preview only. No consent or inference control is
- * present here until the qualified native sender is implemented. */
-export function ClaudeOperationReview({ native, mode, discovery }: {
+/** Local review followed by native-gated generation. The empty qualification
+ * registry keeps current builds unavailable; a preview is never consent. */
+export function ClaudeOperationReview({ native, mode, discovery, onHoldChange,
+  onOpenCodeLensCitation, onOpenPrChangeCitation, onPrGuideReady,
+}: ClaudeResultCallbacks & {
   native: boolean;
   mode: ClaudeOperationReviewMode | 'settings' | null;
   discovery: ClaudeModelDiscoveryObservation;
+  onHoldChange: (held: boolean) => void;
 }) {
   const scope = typeof mode === 'object' ? mode : null;
   const chapterScope = isClaudeChapterScope(scope) ? scope : null;
@@ -80,11 +84,14 @@ export function ClaudeOperationReview({ native, mode, discovery }: {
   const [query, setQuery] = useState('');
   const [review, setReview] = useState<ProviderRequestReview | null>(null);
   const [busy, setBusy] = useState(false);
+  const [generationHeld, setGenerationHeld] = useState(false);
   const [expired, setExpired] = useState(Date.now() >= connectionExpiry);
   const [error, setError] = useState<string | null>(null);
   const summary = useRef<HTMLDivElement>(null);
-  const resources = useRef<{ mounted: boolean; version: number; active: number | null; reviewId: string | null }>({
-    mounted: false, version: 0, active: null, reviewId: null,
+  const holdCallback = useRef(onHoldChange);
+  holdCallback.current = onHoldChange;
+  const resources = useRef<{ mounted: boolean; version: number; active: number | null; reviewId: string | null; generationHeld: boolean }>({
+    mounted: false, version: 0, active: null, reviewId: null, generationHeld: false,
   });
 
   useEffect(() => {
@@ -103,8 +110,13 @@ export function ClaudeOperationReview({ native, mode, discovery }: {
     // Native monotonic expiry remains authoritative. Bound each UI timer to
     // five minutes as well; the renderer cannot extend the native lease.
     const timer = window.setTimeout(() => {
-      release();
-      if (!abandoned) { setExpired(true); setReview(null); setError(null); }
+      // Admission expires after five minutes. An already-consented run keeps
+      // its native ten-minute budget and its result must still be saveable.
+      if (!current.generationHeld) release();
+      if (!abandoned) {
+        setExpired(true);
+        if (!current.generationHeld) { setReview(null); setError(null); }
+      }
     }, Math.min(300_000, Math.max(0, connectionExpiry - Date.now())));
     if (native && projectId && snapshotId && connectionId) {
       setManifestLoading(true);
@@ -125,6 +137,7 @@ export function ClaudeOperationReview({ native, mode, discovery }: {
       current.active = null;
       window.clearTimeout(timer);
       release();
+      holdCallback.current(false);
     };
   }, [native, projectId, snapshotId, connectionId, connectionExpiry, scopeKey]);
 
@@ -146,7 +159,13 @@ export function ClaudeOperationReview({ native, mode, discovery }: {
   const sourceReady = chapterScope ? chapterReady : rangeScope ? rangeScope.target.startLine >= 1 && rangeScope.target.endLine >= rangeScope.target.startLine
     : scope?.kind === 'pr-guide' ? scope.selectedChanges.length > 0 && scope.selectedChanges.length <= 12
       : scope?.kind === 'pr-change' ? Number.isSafeInteger(scope.target.hunkIndex) && scope.target.hunkIndex >= 0 : false;
-  const locked = busy || expired || !native;
+  const locked = busy || generationHeld || expired || !native;
+
+  const holdGeneration = (held: boolean) => {
+    resources.current.generationHeld = held;
+    setGenerationHeld(held);
+    holdCallback.current(held);
+  };
 
   const releaseReview = () => {
     const current = resources.current;
@@ -157,11 +176,11 @@ export function ClaudeOperationReview({ native, mode, discovery }: {
     setReview(null); setError(null);
   };
   const changeSettings = (next: Selection) => {
-    if (locked || resources.current.active !== null) return;
+    if (locked || resources.current.generationHeld || resources.current.active !== null) return;
     releaseReview(); setSelection(next); remember(next);
   };
   const changePath = (path: string, checked: boolean) => {
-    if (locked || resources.current.active !== null || sectionUpdate || path === targetPath) return;
+    if (locked || resources.current.generationHeld || resources.current.active !== null || sectionUpdate || path === targetPath) return;
     releaseReview();
     setPaths((previous) => checked
       ? previous.includes(path) || previous.length >= 12 ? previous : [...previous, path]
@@ -171,7 +190,7 @@ export function ClaudeOperationReview({ native, mode, discovery }: {
   const prepare = async () => {
     const current = resources.current;
     if (!native || !scope || !projectId || !connectionId || locked
-      || current.active !== null || !modelReady || !sourceReady) return;
+      || current.generationHeld || current.active !== null || !modelReady || !sourceReady) return;
     if (Date.now() >= connectionExpiry) { releaseReview(); setExpired(true); return; }
     releaseReview();
     const version = ++current.version;
@@ -215,8 +234,8 @@ export function ClaudeOperationReview({ native, mode, discovery }: {
   };
 
   return <section className="provider-review-card" aria-labelledby="claude-review-title">
-    <h3 id="claude-review-title">{scope ? 'Preview a Claude request' : 'Claude defaults'}</h3>
-    <p>Choose supported settings for this installed runtime. Automatic generation is being implemented; this preview prepares source locally.</p>
+    <h3 id="claude-review-title">{scope ? 'Review a Claude request' : 'Claude defaults'}</h3>
+    <p>Choose supported settings and review the exact source locally. Generation needs an admitted native runtime and your explicit confirmation.</p>
     <label className="provider-model-select">Model
       <select value={selectedModel ? selection.modelId : ''} disabled={locked} onChange={(event) => changeSettings({ ...selection, modelId: event.target.value, effort: null })}>
         <option value="">Choose from this catalog…</option>
@@ -298,7 +317,13 @@ export function ClaudeOperationReview({ native, mode, discovery }: {
         <details className="provider-index-preview"><summary>Exact declarations and relationships</summary><pre>{JSON.stringify({ symbols: review.selectedSymbols, relationships: review.selectedRelationships, truncated: review.indexEvidenceTruncated }, null, 2)}</pre></details>
         <details className="provider-prompt-preview"><summary>Exact prompt, settings and output schema</summary><pre>{JSON.stringify(review.requestBodyPreview, null, 2)}</pre></details>
         <div className="provider-fingerprint"><span>Local review identity</span><code>{review.fingerprint}</code><small>Changing source, settings or connection discards this preview. This is not consent to send source.</small></div>
-        <button className="text-button" disabled={busy} onClick={releaseReview}>Discard request preview</button>
+        <button className="text-button" disabled={busy || generationHeld} onClick={releaseReview}>Discard request preview</button>
+        <ClaudeGenerationPanel key={review.reviewId} native={native} mode={scope} review={review}
+          available={connection?.generation.available === true}
+          unavailableMessage={connection?.generation.message ?? 'Automatic Claude generation is unavailable for this connection.'}
+          onHoldChange={holdGeneration} onReset={() => { holdGeneration(false); releaseReview(); }}
+          onOpenCodeLensCitation={onOpenCodeLensCitation} onOpenPrChangeCitation={onOpenPrChangeCitation}
+          onPrGuideReady={onPrGuideReady} />
       </>}
     </>}
     {mode === null && <p role="status">Open Claude from a captured file, overview, section, code range or Git selection to preview that exact operation. Automatic generation remains unavailable.</p>}
