@@ -285,6 +285,9 @@ impl SafeRigHttpClient {
         }
         let client = reqwest::Client::builder()
             .https_only(true)
+            // Consent covers this exact endpoint. A redirect must never resend
+            // the reviewed source body or provider credentials elsewhere.
+            .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(90))
             .build()
             .map_err(|_| "the provider request client could not start")?;

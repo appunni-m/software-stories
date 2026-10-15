@@ -59,6 +59,7 @@ export function PrGuideStudio({
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [requestReview, setRequestReview] = useState<ProviderRequestReview | null>(null);
   const requestReviewRef = useRef<ProviderRequestReview | null>(null);
+  const reviewLifecycle = useRef(0);
   const [consent, setConsent] = useState<ProviderConsent>(NO_CONSENT);
   const [building, setBuilding] = useState(false);
   const [sending, setSending] = useState(false);
@@ -97,7 +98,8 @@ export function PrGuideStudio({
       && !requestReview
       && !changeExplanationSelection
       && !building
-      && !sending,
+      && !sending
+      && !decisionBusy,
   );
 
   useEffect(() => {
@@ -139,14 +141,21 @@ export function PrGuideStudio({
   }, [requestReview]);
 
   useEffect(() => {
+    let active = true;
     const refreshCredentials = () => {
-      if (providerId) void getProviderCredentialStatus(providerId).then(setCredential).catch(() => {});
+      if (providerId) void getProviderCredentialStatus(providerId)
+        .then((status) => { if (active) setCredential(status); })
+        .catch(() => {});
     };
     window.addEventListener('code-atlas:provider-credentials-changed', refreshCredentials);
-    return () => window.removeEventListener('code-atlas:provider-credentials-changed', refreshCredentials);
+    return () => {
+      active = false;
+      window.removeEventListener('code-atlas:provider-credentials-changed', refreshCredentials);
+    };
   }, [providerId]);
 
   useEffect(() => () => {
+    reviewLifecycle.current += 1;
     const reviewId = requestReviewRef.current?.reviewId;
     if (reviewId) void discardProviderRequestReview(reviewId).catch(() => {});
   }, []);
@@ -191,6 +200,7 @@ export function PrGuideStudio({
 
   async function handleBuildReview() {
     if (!canBuild || !comparison.comparisonId) return;
+    const lifecycle = reviewLifecycle.current;
     clearReview();
     setBuilding(true);
     setRequestError(null);
@@ -204,6 +214,10 @@ export function PrGuideStudio({
         selectedChanges: selectedChanges.map(({ basePath, headPath }) => ({ basePath, headPath })),
         modelId,
       });
+      if (lifecycle !== reviewLifecycle.current) {
+        if (result.status === 'ok') void discardProviderRequestReview(result.data.reviewId).catch(() => {});
+        return;
+      }
       if (result.status === 'error') {
         setRequestError(result.error);
         return;
@@ -212,9 +226,9 @@ export function PrGuideStudio({
       setRequestReview(result.data);
       setConsent(NO_CONSENT);
     } catch {
-      setRequestError({ kind: 'invalidReview', message: 'The local PR Guide request preview could not be built. No model request was sent.' });
+      if (lifecycle === reviewLifecycle.current) setRequestError({ kind: 'invalidReview', message: 'The local PR Guide request preview could not be built. No model request was sent.' });
     } finally {
-      setBuilding(false);
+      if (lifecycle === reviewLifecycle.current) setBuilding(false);
     }
   }
 
@@ -325,6 +339,7 @@ export function PrGuideStudio({
   }
 
   function openDraft(revision: PrGuideRevision) {
+    if (decisionBusy || building || sending) return;
     setCurrentDraft(revision);
     setIncludedClaimIds(allClaimIds(revision));
     setDecisionError(null);
@@ -372,7 +387,7 @@ export function PrGuideStudio({
                     type="button"
                     className="secondary-button"
                     key={hunkIndex}
-                    disabled={!providerId || !modelId || !disclosure || building || sending || Boolean(requestReview)}
+                    disabled={!providerId || !modelId || !disclosure || building || sending || decisionBusy || Boolean(requestReview)}
                     onClick={() => setChangeExplanationSelection({ change, hunkIndex })}
                   ><Sparkles size={13} /> Explain hunk {hunkIndex + 1}</button>
                 ))}
@@ -383,13 +398,13 @@ export function PrGuideStudio({
       </fieldset>
       <div className="pr-guide-actions">
         <label className="pr-guide-model">Direct API provider
-          <select value={providerId} disabled={building || sending || Boolean(requestReview) || Boolean(changeExplanationSelection)} onChange={(event) => { clearReview(); setProviderId(event.target.value); setModelId(''); setCredential(null); }}>
+          <select value={providerId} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection)} onChange={(event) => { clearReview(); setProviderId(event.target.value); setModelId(''); setCredential(null); }}>
             <option value="">Choose a provider…</option>
             {providerCatalog.map((provider) => <option key={provider.providerId} value={provider.providerId}>{provider.displayName}</option>)}
           </select>
         </label>
         <label className="pr-guide-model">{disclosure?.displayName ?? 'Model'}
-          <select value={modelId} disabled={!disclosure || building || sending || Boolean(requestReview) || Boolean(changeExplanationSelection)} onChange={(event) => { clearReview(); setModelId(event.target.value); }}>
+          <select value={modelId} disabled={!disclosure || building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection)} onChange={(event) => { clearReview(); setModelId(event.target.value); }}>
             <option value="">Choose a model…</option>
             {(disclosure?.models ?? []).map((model) => <option key={model.modelId} value={model.modelId}>{model.displayName}</option>)}
           </select>
@@ -504,7 +519,7 @@ export function PrGuideStudio({
             <li key={revision.revisionId}>
               <span className={`pr-guide-lifecycle lifecycle-${decision?.lifecycle ?? revision.lifecycle}`}>{statusLabel}</span>
               <div><strong>{revision.title}</strong><small>Revision {revision.revisionNumber} · {countClaims(revision)} claims · {revision.revisionId.slice(-8)}{decision ? ` · decision in revision ${decision.revisionNumber}` : ''}</small></div>
-              {revision.lifecycle === 'draft' && !decision && <button type="button" className="secondary-button" onClick={() => openDraft(revision)}>Review draft</button>}
+              {revision.lifecycle === 'draft' && !decision && <button type="button" className="secondary-button" disabled={decisionBusy || building || sending} onClick={() => openDraft(revision)}>Review draft</button>}
             </li>
           );
         })}</ol>}

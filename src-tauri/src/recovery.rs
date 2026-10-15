@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
-use std::fs::{self, OpenOptions};
+use std::fs::{self, File, OpenOptions};
 use std::future::Future;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -200,13 +200,17 @@ fn journal_path(storage_dir: &Path) -> PathBuf {
 
 fn read_journal(storage_dir: &Path) -> Result<JournalFile, String> {
     let path = journal_path(storage_dir);
-    let bytes = match fs::read(&path) {
-        Ok(bytes) => bytes,
+    let file = match File::open(&path) {
+        Ok(file) => file,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return Ok(empty_journal());
         }
         Err(error) => return Err(format!("Interrupted work could not be read: {error}")),
     };
+    let mut bytes = Vec::new();
+    file.take(MAX_JOURNAL_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("Interrupted work could not be read: {error}"))?;
     if bytes.len() as u64 > MAX_JOURNAL_BYTES {
         return Err("Interrupted work data is larger than the local recovery limit.".to_owned());
     }

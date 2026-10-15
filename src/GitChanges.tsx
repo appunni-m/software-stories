@@ -46,7 +46,11 @@ export function GitChangesScreen({
     setHeadRef(initialHeadRef);
   }, [initialBaseRef, initialHeadRef]);
 
-  useEffect(() => () => { requestSequence.current += 1; }, []);
+  useEffect(() => {
+    setBusy(false);
+    setError(null);
+    return () => { requestSequence.current += 1; };
+  }, [projectId]);
 
   const matchingComparison = comparison
     && comparison.baseRef === baseRef.trim()

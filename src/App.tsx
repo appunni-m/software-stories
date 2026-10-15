@@ -1700,7 +1700,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCo
       if (event.key !== 'Escape') return;
       event.preventDefault();
       event.stopPropagation();
-      if (saveBusy) return;
+      if (saveBusy || keyBusy) return;
       if (sending) {
         setCancelConfirmation(true);
         return;
@@ -1710,7 +1710,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCo
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose, requestReview, saveBusy, sending]);
+  }, [keyBusy, onClose, requestReview, saveBusy, sending]);
 
   useEffect(() => {
     if (!reviewMode || !native) return;
@@ -1752,6 +1752,8 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCo
     }
     const selected = providerCatalog.find((provider) => provider.providerId === providerId) ?? null;
     setDisclosure(selected);
+    // Invalidate any earlier status read while Keychain is being changed.
+    if (keyBusy) return;
     setCredential(null);
     if (!selected) return;
     let active = true;
@@ -1759,7 +1761,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCo
       .then((status) => { if (active) setCredential(status); })
       .catch(() => { if (active) setCredential(null); });
     return () => { active = false; };
-  }, [native, providerCatalog, providerId]);
+  }, [keyBusy, native, providerCatalog, providerId]);
 
   useEffect(() => {
     if (!reviewMode || !native || !disclosure || !modelId) return;
@@ -1825,7 +1827,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCo
 
   const handleSaveKey = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!providerId) return;
+    if (!providerId || keyBusy) return;
     setKeyMessage(null);
     setKeyBusy(true);
     try {
@@ -1846,7 +1848,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCo
   };
 
   const handleRemoveKey = async () => {
-    if (!providerId) return;
+    if (!providerId || keyBusy) return;
     setKeyMessage(null);
     setKeyBusy(true);
     try {
@@ -1874,7 +1876,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCo
   };
 
   const handleProviderChange = (nextProviderId: string) => {
-    if (sending || saveBusy || sendResult || codeLensResult) return;
+    if (keyBusy || sending || saveBusy || sendResult || codeLensResult) return;
     if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
     setConsent(noProviderConsent);
     setRequestReview(null);
@@ -2009,7 +2011,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCo
   };
 
   const handleClose = () => {
-    if (sending || saveBusy) return;
+    if (keyBusy || sending || saveBusy) return;
     if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
     onClose();
   };
@@ -2074,7 +2076,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCo
             <h2 id="provider-dialog-title">{reviewMode ? (codeLensRangeMode ? 'Explain cited source range' : sectionUpdateMode ? 'Regenerate one section' : overviewMode ? 'Map the repository' : 'Review before sending') : 'AI and narration setup'}</h2>
             <p>{reviewMode ? (codeLensRangeMode ? `Explain only ${mode.target.path}:${mode.target.startLine}–${mode.target.endLine} from this immutable snapshot. The result is transient and will not create a chapter.` : sectionUpdateMode ? `Only “${mode.baseRevision.sections.find((section) => section.sectionId === mode.sectionUpdate.sectionId)?.title ?? mode.sectionUpdate.sectionId}” and its declared evidence are included. Other sections stay separate.` : 'Choose a direct API, then inspect the exact snapshot context and disclosures. Nothing is sent until you confirm below.') : 'Local browsing works without a model API. Provider keys are optional and stay in macOS Keychain.'}</p>
           </div>
-          <button className="icon-button" onClick={handleClose} disabled={sending || saveBusy} aria-label="Close provider dialog"><X size={17} /></button>
+          <button className="icon-button" onClick={handleClose} disabled={keyBusy || sending || saveBusy} aria-label="Close provider dialog"><X size={17} /></button>
         </header>
 
         {!native ? (
@@ -2089,7 +2091,7 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCo
         ) : (
           <div className="provider-dialog-content">
             <label className="provider-model-select">Direct API provider
-              <select value={providerId} onChange={(event) => handleProviderChange(event.target.value)} disabled={sending || saveBusy || Boolean(sendResult || codeLensResult)}>
+              <select value={providerId} onChange={(event) => handleProviderChange(event.target.value)} disabled={keyBusy || sending || saveBusy || Boolean(sendResult || codeLensResult)}>
                 <option value="">Choose a provider…</option>
                 {providerCatalog.map((provider) => <option key={provider.providerId} value={provider.providerId}>{provider.displayName}</option>)}
               </select>
@@ -3648,6 +3650,11 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       return null;
     }
   });
+  const studioMounted = useRef(false);
+  useEffect(() => {
+    studioMounted.current = true;
+    return () => { studioMounted.current = false; };
+  }, []);
   const [revisions, setRevisions] = useState<ChapterRevision[]>([]);
   const [loading, setLoading] = useState(isNativeRuntime());
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -3671,7 +3678,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     const refresh = (event: Event) => {
       setRefreshKey((value) => value + 1);
       const revision = (event as CustomEvent<{ revision?: ChapterRevision }>).detail?.revision;
-      if (!revision) return;
+      if (!revision || revision.projectId !== projectId || revision.snapshotId !== snapshotId) return;
       setSelectedTargetKey(revision.target.scope.kind === 'overview' ? 'overview' : revision.target.targetId);
       setSelectedRevisionId(revision.revisionId);
       setEditing(false);
@@ -3681,7 +3688,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     };
     window.addEventListener('code-atlas:chapters-changed', refresh);
     return () => window.removeEventListener('code-atlas:chapters-changed', refresh);
-  }, [onSelectRevision]);
+  }, [onSelectRevision, projectId, snapshotId]);
 
   useEffect(() => {
     if (!editing || !candidate || !selectedRevisionId || !selectedTargetKey) {
@@ -3738,6 +3745,14 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
         for (const targetId of ids) addTarget(targetId, targetId, [row.path], chapterRevisions(targetId));
       } else {
         addTarget(`file:${row.path}`, null, [row.path], []);
+      }
+    }
+    // Retain chapter history when a file is deleted, excluded, or no longer text
+    // in the current snapshot. Its citations still open the original snapshot.
+    for (const revision of revisions) {
+      if (revision.target.scope.kind === 'file') {
+        addTarget(revision.target.targetId, revision.target.targetId,
+          [revision.target.scope.path], chapterRevisions(revision.target.targetId));
       }
     }
     const groupIds = Array.from(new Set(revisions
@@ -3823,6 +3838,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
 
   const reload = async (selectId?: string) => {
     const saved = await listProjectChapterRevisions(projectId);
+    if (!studioMounted.current) return;
     setRevisions(saved);
     if (selectId) setSelectedRevisionId(selectId);
   };
@@ -3847,11 +3863,12 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     setValidation(null);
   };
   const validateCurrent = async () => {
-    if (!activeDocument) return;
+    if (!activeDocument || busy) return;
     setBusy(true);
     setFeedback(null);
     try {
       const report = await validateChapterRevision(projectId, activeDocument);
+      if (!studioMounted.current) return;
       setValidation(report);
       setFeedback({
         message: report.status === 'valid'
@@ -3860,9 +3877,10 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
         tone: report.status === 'valid' ? 'success' : 'error',
       });
     } catch (error) {
+      if (!studioMounted.current) return;
       setFeedback({ message: errorMessageOr(error, 'The chapter could not be validated.'), tone: 'error' });
     } finally {
-      setBusy(false);
+      if (studioMounted.current) setBusy(false);
     }
   };
   const assessFreshness = async () => {
@@ -3871,8 +3889,10 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     setFreshnessState({ key, report: null, error: null, loading: true });
     try {
       const report = await assessChapterFreshness(projectId, selectedRevision.revisionId, snapshotId);
+      if (!studioMounted.current) return;
       setFreshnessState({ key, report, error: null, loading: false });
     } catch (error) {
+      if (!studioMounted.current) return;
       setFreshnessState({
         key,
         report: null,
@@ -3893,13 +3913,15 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       .sort((left, right) => left.localeCompare(right));
   };
   const saveEdits = async () => {
-    if (!candidate || !selectedRevision || !isLatestCurrent) return;
+    if (!candidate || !selectedRevision || !isLatestCurrent || busy) return;
     setBusy(true);
     setFeedback(null);
     try {
       const saved = await saveChapterEdits(projectId, selectedRevision.revisionId, candidate);
+      if (!studioMounted.current) return;
       setValidation(saved.validation);
       await reload(saved.revision.revisionId);
+      if (!studioMounted.current) return;
       setCandidate(null);
       setEditing(false);
       setFeedback({
@@ -3910,14 +3932,15 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       });
       onSelectRevision(saved.revision);
     } catch (error) {
+      if (!studioMounted.current) return;
       setFeedback({ message: errorMessageOr(error, 'The draft could not be saved.'), tone: 'error' });
     } finally {
-      setBusy(false);
+      if (studioMounted.current) setBusy(false);
     }
   };
   const restoreSelectedRevision = async () => {
     if (!selectedRevision || !selectedTarget?.latestCurrent || isLatestCurrent
-      || selectedRevision.revisionNumber >= selectedTarget.latestCurrent.revisionNumber || editing) return;
+      || selectedRevision.revisionNumber >= selectedTarget.latestCurrent.revisionNumber || editing || busy) return;
     setBusy(true);
     setFeedback(null);
     try {
@@ -3926,11 +3949,13 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
         selectedTarget.latestCurrent.revisionId,
         selectedRevision.revisionId,
       );
+      if (!studioMounted.current) return;
       setValidation(restored.validation);
       setEditing(false);
       setCandidate(null);
       setRejecting(false);
       await reload(restored.revision.revisionId);
+      if (!studioMounted.current) return;
       onSelectRevision(restored.revision);
       setFeedback({
         message: restored.validation.status === 'valid'
@@ -3939,43 +3964,49 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
         tone: restored.validation.status === 'valid' ? 'success' : 'info',
       });
     } catch (error) {
+      if (!studioMounted.current) return;
       setFeedback({ message: errorMessageOr(error, 'The selected revision could not be restored.'), tone: 'error' });
     } finally {
-      setBusy(false);
+      if (studioMounted.current) setBusy(false);
     }
   };
   const accept = async () => {
-    if (!selectedRevision || !isLatestCurrent || selectedRevision.lifecycle !== 'draft') return;
+    if (!selectedRevision || !isLatestCurrent || selectedRevision.lifecycle !== 'draft' || busy) return;
     setBusy(true);
     setFeedback(null);
     try {
       const accepted = await acceptChapterDraft(projectId, selectedRevision.revisionId);
+      if (!studioMounted.current) return;
       setValidation(accepted.validation);
       await reload(accepted.revision.revisionId);
+      if (!studioMounted.current) return;
       onSelectRevision(accepted.revision);
       setFeedback({ message: 'Accepted. The draft and accepted revision remain in history.', tone: 'success' });
     } catch (error) {
+      if (!studioMounted.current) return;
       setFeedback({ message: errorMessageOr(error, 'The chapter could not be accepted.'), tone: 'error' });
     } finally {
-      setBusy(false);
+      if (studioMounted.current) setBusy(false);
     }
   };
   const reject = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!selectedRevision || !isLatestCurrent || selectedRevision.lifecycle !== 'draft') return;
+    if (!selectedRevision || !isLatestCurrent || selectedRevision.lifecycle !== 'draft' || busy) return;
     setBusy(true);
     setFeedback(null);
     try {
       const rejected = await rejectChapterDraft(projectId, selectedRevision.revisionId, rejectReason);
       await reload(rejected.revisionId);
+      if (!studioMounted.current) return;
       onSelectRevision(rejected);
       setRejecting(false);
       setRejectReason('');
       setFeedback({ message: 'Rejected with reason recorded. The draft payload is still available in history.', tone: 'success' });
     } catch (error) {
+      if (!studioMounted.current) return;
       setFeedback({ message: errorMessageOr(error, 'The draft could not be rejected.'), tone: 'error' });
     } finally {
-      setBusy(false);
+      if (studioMounted.current) setBusy(false);
     }
   };
   const moveSection = (sectionId: string, direction: -1 | 1) => {
@@ -4027,7 +4058,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                 return <button
                   key={target.key}
                   className={`chapter-studio-target${selectedTargetKey === target.key ? ' is-selected' : ''}`}
-                  disabled={editing}
+                  disabled={editing || busy}
                   onClick={() => {
                     setSelectedTargetKey(target.key);
                     setSelectedRevisionId(target.latestCurrent?.revisionId ?? target.latestAny?.revisionId ?? null);
@@ -4055,7 +4086,9 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                     {!selectedTarget.overview && <button className="secondary-button" onClick={() => onOpenFile(selectedTarget.paths[0], selectedRevision?.snapshotId ?? selectedTarget.latestAny?.snapshotId)}><FileCode2 size={14} /> Open source</button>}
                     {selectedTarget.overview
                       ? <button className="primary-button" onClick={onGenerateOverview}><Sparkles size={14} /> Generate current overview</button>
-                      : selectedTarget.paths.length === 1 && !selectedTarget.latestCurrent && <button className="primary-button" onClick={() => onGenerate(selectedTarget.paths[0])}><Sparkles size={14} /> Generate current snapshot</button>}
+                      : selectedTarget.paths.length === 1 && !selectedTarget.latestCurrent
+                        && rows.some((row) => row.path === selectedTarget.paths[0] && row.disposition === 'captured' && row.kind === 'file' && ['text', 'unknown'].includes(row.contentKind))
+                        && <button className="primary-button" onClick={() => onGenerate(selectedTarget.paths[0])}><Sparkles size={14} /> Generate current snapshot</button>}
                   </div> : null}
                 </div>
 
@@ -4064,7 +4097,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                   {history.map((revision) => <button
                     key={revision.revisionId}
                     className={`chapter-history-item lifecycle-${revision.lifecycle}${selectedRevision?.revisionId === revision.revisionId ? ' is-current' : ''}`}
-                    disabled={editing}
+                    disabled={editing || busy}
                     onClick={() => { setSelectedRevisionId(revision.revisionId); setEditing(false); setCandidate(null); setValidation(null); setRejecting(false); setFeedback(null); onSelectRevision(revision); }}
                     aria-pressed={selectedRevision?.revisionId === revision.revisionId}
                     title={`${revision.lifecycle} · snapshot ${revision.snapshotId}`}
@@ -4104,7 +4137,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                       </div>
 
                       {rejecting && selectedRevision.lifecycle === 'draft' && <form className="chapter-rejection-form" onSubmit={(event) => { void reject(event); }}>
-                        <label><span>Why is this draft rejected?</span><textarea autoFocus rows={2} maxLength={4000} value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} placeholder="Record what needs to change. The draft remains in history." required /></label>
+                        <label><span>Why is this draft rejected?</span><textarea disabled={busy} autoFocus rows={2} maxLength={4000} value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} placeholder="Record what needs to change. The draft remains in history." required /></label>
                         <div><button className="text-button" type="button" onClick={() => setRejecting(false)}>Cancel</button><button className="secondary-button" type="submit" disabled={busy || !rejectReason.trim()}>Record rejection</button></div>
                       </form>}
 
@@ -4192,16 +4225,16 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                         return <li key={`${issue.code}:${issue.sectionId}:${issue.visualItemId}:${issue.path}:${issue.anchorId}:${index}`}><span>{issue.code}</span> {issue.message}{issue.sectionId && <code>section {issue.sectionId}</code>}{issue.visualItemId && <code>visual item {issue.visualItemId}</code>}{issue.anchorId && <code>anchor {issue.anchorId}</code>}{issue.hotspotId && <code>hotspot {issue.hotspotId}</code>}{issue.path && <code>{issue.path}{range}</code>}</li>;
                       })}</ul></div>}
 
-                      <div className="chapter-edit-title-row"><span>Chapter title</span>{editing && candidate ? <input value={candidate.title} maxLength={200} onChange={(event) => { setCandidate({ ...candidate, title: event.target.value }); setValidation(null); }} aria-label="Chapter title" /> : null}</div>
+                      <div className="chapter-edit-title-row"><span>Chapter title</span>{editing && candidate ? <input disabled={busy} value={candidate.title} maxLength={200} onChange={(event) => { setCandidate({ ...candidate, title: event.target.value }); setValidation(null); }} aria-label="Chapter title" /> : null}</div>
                       {activeDocument.sections.map((section, index) => <article className={`chapter-studio-section${routeSectionId === section.sectionId ? ' is-route-focused' : ''}`} key={section.sectionId} id={`studio-section-${section.sectionId}`} tabIndex={-1} data-focus-key={`chapter-section:${section.sectionId}`}>
-                        <div className="chapter-section-title-row"><span className="chapter-section-number">{String(index + 1).padStart(2, '0')}</span>{editing && candidate ? <input value={section.title} maxLength={160} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, title: event.target.value }))} aria-label={`Section ${index + 1} title`} /> : <h4>{section.title}</h4>}
-                          {editing && <div className="chapter-section-reorder"><button className="icon-button" onClick={() => moveSection(section.sectionId, -1)} disabled={index === 0} aria-label={`Move ${section.title} up`}><MoveUp size={14} /></button><button className="icon-button" onClick={() => moveSection(section.sectionId, 1)} disabled={index === activeDocument.sections.length - 1} aria-label={`Move ${section.title} down`}><MoveDown size={14} /></button></div>}
+                        <div className="chapter-section-title-row"><span className="chapter-section-number">{String(index + 1).padStart(2, '0')}</span>{editing && candidate ? <input disabled={busy} value={section.title} maxLength={160} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, title: event.target.value }))} aria-label={`Section ${index + 1} title`} /> : <h4>{section.title}</h4>}
+                          {editing && <div className="chapter-section-reorder"><button className="icon-button" onClick={() => moveSection(section.sectionId, -1)} disabled={busy || index === 0} aria-label={`Move ${section.title} up`}><MoveUp size={14} /></button><button className="icon-button" onClick={() => moveSection(section.sectionId, 1)} disabled={busy || index === activeDocument.sections.length - 1} aria-label={`Move ${section.title} down`}><MoveDown size={14} /></button></div>}
                         </div>
-                        <div className="chapter-section-copy"><span>EXPLANATION</span>{editing && candidate ? <textarea rows={3} value={section.prose} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, prose: event.target.value }))} aria-label={`Explanation for ${section.title}`} /> : <p>{section.prose}</p>}</div>
-                        <div className="chapter-section-copy chapter-spoken-copy"><span>VOICE SCRIPT</span>{editing && candidate ? <textarea rows={2} value={section.spokenText} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, spokenText: event.target.value }))} aria-label={`Spoken text for ${section.title}`} placeholder="Optional narration script" /> : <p>{section.spokenText || <em>No narration script saved.</em>}</p>}</div>
+                        <div className="chapter-section-copy"><span>EXPLANATION</span>{editing && candidate ? <textarea disabled={busy} rows={3} value={section.prose} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, prose: event.target.value }))} aria-label={`Explanation for ${section.title}`} /> : <p>{section.prose}</p>}</div>
+                        <div className="chapter-section-copy chapter-spoken-copy"><span>VOICE SCRIPT</span>{editing && candidate ? <textarea disabled={busy} rows={2} value={section.spokenText} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, spokenText: event.target.value }))} aria-label={`Spoken text for ${section.title}`} placeholder="Optional narration script" /> : <p>{section.spokenText || <em>No narration script saved.</em>}</p>}</div>
                         {section.claims.map((claim: ChapterClaim) => <div className="chapter-claim-card" key={claim.claimId}>
-                          <div className="chapter-claim-heading"><span className={`claim-label claim-${claim.category.kind}`}>{claim.category.kind === 'codeBehavior' ? 'Code behavior' : claim.category.kind === 'repositoryContext' ? 'Repository context' : claim.category.visibleLabel || 'Inference'}</span>{editing && <button className="text-button chapter-remove-claim" onClick={() => removeClaim(section.sectionId, claim.claimId)}><Trash2 size={12} /> Remove claim</button>}</div>
-                          {editing && candidate ? <textarea rows={2} value={claim.prose} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, claims: item.claims.map((saved) => saved.claimId === claim.claimId ? { ...saved, prose: event.target.value } : saved) }))} aria-label={`Claim ${claim.claimId}`} /> : <p>{claim.prose}</p>}
+                          <div className="chapter-claim-heading"><span className={`claim-label claim-${claim.category.kind}`}>{claim.category.kind === 'codeBehavior' ? 'Code behavior' : claim.category.kind === 'repositoryContext' ? 'Repository context' : claim.category.visibleLabel || 'Inference'}</span>{editing && <button className="text-button chapter-remove-claim" disabled={busy} onClick={() => removeClaim(section.sectionId, claim.claimId)}><Trash2 size={12} /> Remove claim</button>}</div>
+                          {editing && candidate ? <textarea disabled={busy} rows={2} value={claim.prose} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, claims: item.claims.map((saved) => saved.claimId === claim.claimId ? { ...saved, prose: event.target.value } : saved) }))} aria-label={`Claim ${claim.claimId}`} /> : <p>{claim.prose}</p>}
                           {claim.category.kind === 'inference' && <p className="chapter-inference-basis"><strong>{claim.category.visibleLabel} basis:</strong> {claim.category.basis}</p>}
                           <div className="chapter-citations"><span>EXACT SOURCE</span>{claim.anchors.length === 0 ? <small>No source range is attached to this claim.</small> : claim.anchors.map((anchor) => <div className="chapter-citation" key={anchor.anchorId}>
                             <div><code>{anchor.path}:{anchor.startLine}-{anchor.endLine}</code><button className="text-button" onClick={() => { onSelectRevision(selectedRevision, section.sectionId); onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor)); }}><FileCode2 size={12} /> Open in Code Lens</button></div>

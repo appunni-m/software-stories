@@ -15,6 +15,7 @@ use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
 use std::future::Future;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -820,8 +821,12 @@ fn cache_path(storage_dir: &Path, fingerprint: &str) -> PathBuf {
 }
 
 fn read_cached_audio(storage_dir: &Path, fingerprint: &str) -> Option<Vec<u8>> {
-    let bytes = fs::read(cache_path(storage_dir, fingerprint)).ok()?;
-    is_wav(&bytes).then_some(bytes)
+    let file = fs::File::open(cache_path(storage_dir, fingerprint)).ok()?;
+    let mut bytes = Vec::new();
+    file.take(MAX_RESPONSE_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)
+        .ok()?;
+    (bytes.len() <= MAX_RESPONSE_BYTES && is_wav(&bytes)).then_some(bytes)
 }
 
 fn write_cached_audio(
@@ -829,10 +834,10 @@ fn write_cached_audio(
     fingerprint: &str,
     bytes: &[u8],
 ) -> Result<(), ProviderFailure> {
-    if !is_wav(bytes) {
+    if bytes.len() > MAX_RESPONSE_BYTES || !is_wav(bytes) {
         return Err(failure(
             ProviderFailureKind::MalformedProviderResponse,
-            "Google returned audio without a valid WAV container. The prior audio cache was left untouched.",
+            "Google returned invalid or oversized WAV audio. The prior audio cache was left untouched.",
         ));
     }
     let path = cache_path(storage_dir, fingerprint);
@@ -977,6 +982,7 @@ async fn request_audio(
     let body = build_request_body(review);
     let client = reqwest::Client::builder()
         .https_only(true)
+        .redirect(reqwest::redirect::Policy::none())
         .timeout(std::time::Duration::from_secs(90))
         .build()
         .map_err(|_| {

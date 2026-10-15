@@ -2,8 +2,8 @@ use crate::snapshot::{self, CapturedContentKind, CapturedFile, SnapshotManifest,
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs::{self, File, OpenOptions};
+use std::io::{Read, Write};
 use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -2442,11 +2442,15 @@ pub fn load_snapshot_index(
     snapshot_id: &str,
 ) -> Result<Option<SnapshotIndex>, String> {
     let path = relationship_path(storage_dir, project_id, snapshot_id)?;
-    let bytes = match fs::read(path) {
-        Ok(bytes) => bytes,
+    let file = match File::open(path) {
+        Ok(file) => file,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(_) => return Err("The saved snapshot index could not be read.".to_owned()),
     };
+    let mut bytes = Vec::new();
+    file.take(MAX_INDEX_JSON_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "The saved snapshot index could not be read.".to_owned())?;
     if bytes.len() > MAX_INDEX_JSON_BYTES {
         return Err("The saved snapshot index exceeds the supported size.".to_owned());
     }

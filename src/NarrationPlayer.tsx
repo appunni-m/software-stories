@@ -85,6 +85,9 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   const transcriptRef = useRef<HTMLDivElement>(null);
   const autoPlayRef = useRef(false);
   const cancelRequested = useRef(false);
+  const mountedRef = useRef(false);
+  const reviewGenerationRef = useRef(0);
+  const synthesisReviewIdRef = useRef<string | null>(null);
   const restoreTimeRef = useRef<number | null>(restorePosition > 0 ? restorePosition : null);
   const lastRoutePositionRef = useRef(restorePosition);
   const lastRouteWriteRef = useRef(0);
@@ -142,9 +145,24 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
 
   const reviewRef = useRef<NarrationRequestReview | null>(review);
   reviewRef.current = review;
-  useEffect(() => () => {
-    audioRef.current?.pause();
-    if (reviewRef.current?.reviewId) void discardNarrationRequestReview(reviewRef.current.reviewId).catch(() => {});
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      reviewGenerationRef.current += 1;
+      autoPlayRef.current = false;
+      audioRef.current?.pause();
+      // A section change also ends its in-flight request. Discarding its review
+      // covers a command which has not consumed it yet; cancellation covers one
+      // which has already started sending the reviewed text.
+      const synthesisReviewId = synthesisReviewIdRef.current;
+      if (synthesisReviewId) {
+        cancelRequested.current = true;
+        void cancelProviderRequest(synthesisReviewId).catch(() => {});
+        void discardNarrationRequestReview(synthesisReviewId).catch(() => {});
+      }
+      if (reviewRef.current?.reviewId) void discardNarrationRequestReview(reviewRef.current.reviewId).catch(() => {});
+    };
   }, []);
 
   const savedAudioMatchesDraft = Boolean(track
@@ -175,6 +193,8 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     }
     setReviewBusy(true);
     setError(null);
+    const generation = ++reviewGenerationRef.current;
+    const isCurrent = () => mountedRef.current && reviewGenerationRef.current === generation;
     const requestedDraft = draft;
     try {
       const result = await buildNarrationRequestReview({
@@ -183,6 +203,10 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         style: requestedDraft.style,
         lexicon: requestedDraft.lexicon,
       });
+      if (!isCurrent()) {
+        if (result.status === 'ok') void discardNarrationRequestReview(result.data.reviewId).catch(() => {});
+        return null;
+      }
       if (result.status === 'error') {
         setError(result.error.message);
         return null;
@@ -198,6 +222,10 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       setShowReview(true);
       if (restoreCache && result.data.cachedAudioAvailable) {
         const cached = await loadReviewedNarrationAudio({ reviewId: result.data.reviewId, fingerprint: result.data.fingerprint });
+        if (!isCurrent()) {
+          void discardNarrationRequestReview(result.data.reviewId).catch(() => {});
+          return null;
+        }
         if (cached.status === 'ok') {
           if (!narrationPreferencesMatch(draftRef.current, requestedDraft)) {
             void discardNarrationRequestReview(result.data.reviewId).catch(() => {});
@@ -208,10 +236,10 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       }
       return result.data;
     } catch {
-      setError('The local narration review could not be built. No model request was sent.');
+      if (isCurrent()) setError('The local narration review could not be built. No model request was sent.');
       return null;
     } finally {
-      setReviewBusy(false);
+      if (isCurrent()) setReviewBusy(false);
     }
   };
 
@@ -226,7 +254,11 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       // loadedmetadata restores a paused position; playback remains manual.
       else restoreTimeRef.current = restoredPosition;
     });
-    return () => { active = false; };
+    return () => {
+      active = false;
+      // React may restart this mount effect before its cache read completes.
+      if (restoreTimeRef.current === null) restoreTimeRef.current = restoredPosition;
+    };
   }, []);
 
   const setLoadedTrack = (audio: NarrationAudio, currentReview: NarrationRequestReview, playAfterLoad: boolean, sourcePreferences: NarrationPreferences = draft) => {
@@ -254,6 +286,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     setError(null);
     try {
       const result = await loadReviewedNarrationAudio({ reviewId: currentReview.reviewId, fingerprint: currentReview.fingerprint });
+      if (!mountedRef.current) return;
       if (result.status === 'error') {
         setError(result.error.message);
         return;
@@ -261,20 +294,21 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       if (!narrationPreferencesMatch(draftRef.current, requestedDraft)) return;
       setLoadedTrack(result.data, currentReview, playAfterLoad, requestedDraft);
     } catch {
-      setError('The local audio cache could not be read. The transcript remains available.');
+      if (mountedRef.current) setError('The local audio cache could not be read. The transcript remains available.');
     } finally {
-      setRequestBusy(false);
+      if (mountedRef.current) setRequestBusy(false);
     }
   };
 
   const synthesize = async () => {
-    if (!review) return;
+    if (!review || synthesisReviewIdRef.current) return;
     if (!credential?.apiKeyConfigured) {
       setError('Add a Gemini API key from this narration setup before requesting audio.');
       return;
     }
     setRequestBusy(true);
     setProviderRequestBusy(true);
+    synthesisReviewIdRef.current = review.reviewId;
     cancelRequested.current = false;
     setCancelConfirmation(false);
     setCancelBusy(false);
@@ -287,6 +321,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         fingerprint: review.fingerprint,
         consent: { termsAndRequestAcknowledged: consent },
       });
+      if (!mountedRef.current) return;
       if (result.status === 'error') {
         setError(result.error.message);
         // The native command consumes its reviewed request before checking the
@@ -310,20 +345,24 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         setShowReview(false);
         return;
       }
-    setLoadedTrack(result.data, review, true, draft);
+      setLoadedTrack(result.data, review, true, draft);
       setConsent(false);
       setReview(null);
       setShowReview(false);
     } catch {
+      if (!mountedRef.current) return;
       setError('Google TTS could not be reached. The transcript and previous audio remain available; review again before retrying.');
       setReview(null);
       setConsent(false);
       setShowReview(false);
     } finally {
-      setRequestBusy(false);
-      setProviderRequestBusy(false);
-      setCancelConfirmation(false);
-      setCancelBusy(false);
+      synthesisReviewIdRef.current = null;
+      if (mountedRef.current) {
+        setRequestBusy(false);
+        setProviderRequestBusy(false);
+        setCancelConfirmation(false);
+        setCancelBusy(false);
+      }
     }
   };
 
@@ -335,13 +374,14 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     setCancelStatus(null);
     try {
       const stopped = await cancelProviderRequest(review.reviewId);
+      if (!mountedRef.current) return;
       setCancelStatus(stopped
         ? 'The local request was stopped. Google may already have received the reviewed narration text; no returned audio will be accepted.'
         : 'The request had already finished locally. Its audio will be discarded because you chose Cancel.');
     } catch {
-      setCancelStatus('The app could not confirm a local abort. Google may already have received the reviewed narration text; any returned audio will be discarded.');
+      if (mountedRef.current) setCancelStatus('The app could not confirm a local abort. Google may already have received the reviewed narration text; any returned audio will be discarded.');
     } finally {
-      setCancelBusy(false);
+      if (mountedRef.current) setCancelBusy(false);
     }
   };
 
@@ -472,17 +512,17 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         <summary><span>Edit spoken text</span><ChevronDown size={13} /></summary>
         <p>Only this section's script is sent for narration. Source code, file paths, and citations are left out.</p>
         <label className="walkthrough-narration-field">Spoken text
-          <textarea value={draft.spokenText} maxLength={16000} rows={4} onChange={(event) => updateDraft((value) => ({ ...value, spokenText: event.target.value }))} placeholder="Write what you want the reader to say in natural language." />
+          <textarea value={draft.spokenText} disabled={reviewBusy || requestBusy} maxLength={16000} rows={4} onChange={(event) => updateDraft((value) => ({ ...value, spokenText: event.target.value }))} placeholder="Write what you want the reader to say in natural language." />
           <small>{spokenTextUtf8Bytes.toLocaleString()} / 16,000 UTF-8 bytes. Scripts over 16,000 bytes must be divided into sections; this script is sent in reviewed segments of at most 4,000 bytes.</small>
         </label>
         <div className="walkthrough-narration-settings">
           <label className="walkthrough-narration-field">Voice
-            <select value={draft.voice} disabled={!disclosure} onChange={(event) => updateDraft((value) => ({ ...value, voice: event.target.value }))}>
+            <select value={draft.voice} disabled={!disclosure || reviewBusy || requestBusy} onChange={(event) => updateDraft((value) => ({ ...value, voice: event.target.value }))}>
               {(disclosure?.voices ?? ['Kore', 'Charon', 'Puck', 'Aoede']).map((voice) => <option value={voice} key={voice}>{voice}</option>)}
             </select>
           </label>
           <label className="walkthrough-narration-field">Delivery style
-            <input value={draft.style} maxLength={160} onChange={(event) => updateDraft((value) => ({ ...value, style: event.target.value }))} placeholder="Optional, e.g. clear and conversational" />
+            <input value={draft.style} disabled={reviewBusy || requestBusy} maxLength={160} onChange={(event) => updateDraft((value) => ({ ...value, style: event.target.value }))} placeholder="Optional, e.g. clear and conversational" />
           </label>
         </div>
 
@@ -491,20 +531,20 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
           <p>Add a code name and how it should sound. Include it only when you want matching text in the script replaced for speech.</p>
           {draft.lexicon.map((entry, index) => (
             <div className="walkthrough-pronunciation-row" key={`lexicon-${index}`}>
-              <label>Exact name<input value={entry.name} maxLength={120} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, name: event.target.value }) }))} placeholder="parseRoutes" /></label>
-              <label>Say it as<input value={entry.sayAs} maxLength={160} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, sayAs: event.target.value }) }))} placeholder="parse routes" /></label>
-              <label className="walkthrough-pronunciation-include"><input type="checkbox" checked={entry.include} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, include: event.target.checked }) }))} /> Include</label>
-              <button type="button" className="walkthrough-pronunciation-remove" onClick={() => updateDraft((value) => ({ ...value, lexicon: value.lexicon.filter((_, itemIndex) => itemIndex !== index) }))} aria-label="Remove pronunciation entry"><X size={13} /></button>
+              <label>Exact name<input value={entry.name} disabled={reviewBusy || requestBusy} maxLength={120} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, name: event.target.value }) }))} placeholder="parseRoutes" /></label>
+              <label>Say it as<input value={entry.sayAs} disabled={reviewBusy || requestBusy} maxLength={160} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, sayAs: event.target.value }) }))} placeholder="parse routes" /></label>
+              <label className="walkthrough-pronunciation-include"><input type="checkbox" disabled={reviewBusy || requestBusy} checked={entry.include} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, include: event.target.checked }) }))} /> Include</label>
+              <button type="button" className="walkthrough-pronunciation-remove" disabled={reviewBusy || requestBusy} onClick={() => updateDraft((value) => ({ ...value, lexicon: value.lexicon.filter((_, itemIndex) => itemIndex !== index) }))} aria-label="Remove pronunciation entry"><X size={13} /></button>
             </div>
           ))}
-          {draft.lexicon.length < 12 && <button type="button" className="walkthrough-add-pronunciation" onClick={() => updateDraft((value) => ({ ...value, lexicon: [...value.lexicon, { name: '', sayAs: '', include: false }] }))}>Add a name</button>}
+          {draft.lexicon.length < 12 && <button type="button" className="walkthrough-add-pronunciation" disabled={reviewBusy || requestBusy} onClick={() => updateDraft((value) => ({ ...value, lexicon: [...value.lexicon, { name: '', sayAs: '', include: false }] }))}>Add a name</button>}
         </details>
       </details>
 
       <div className="walkthrough-playback">
         <div className="walkthrough-playback-buttons">
-          <button type="button" disabled={requestBusy || !draft.spokenText.trim()} onClick={() => { void replay(); }} aria-label="Replay narration"><RotateCcw size={14} /></button>
-          <button type="button" className="walkthrough-play-control" disabled={requestBusy || !draft.spokenText.trim()} onClick={() => { void playOrPause(); }} aria-label={isPlaying ? 'Pause narration' : track ? 'Resume narration' : 'Review and play narration'}>
+          <button type="button" disabled={reviewBusy || requestBusy || !draft.spokenText.trim()} onClick={() => { void replay(); }} aria-label="Replay narration"><RotateCcw size={14} /></button>
+          <button type="button" className="walkthrough-play-control" disabled={reviewBusy || requestBusy || !draft.spokenText.trim()} onClick={() => { void playOrPause(); }} aria-label={isPlaying ? 'Pause narration' : track ? 'Resume narration' : 'Review and play narration'}>
             {isPlaying ? <Pause size={14} /> : <Play size={14} />} {isPlaying ? 'Pause' : track ? 'Play' : 'Play'}
           </button>
           <button type="button" disabled={!track && !review} onClick={stop} aria-label="Stop narration"><Square size={12} /></button>

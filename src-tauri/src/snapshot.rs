@@ -605,9 +605,19 @@ pub fn read_snapshot_source_from_manifest(
     if file.sha256.len() != 64 || !file.sha256.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err("The snapshot contains an invalid content hash for this path.".to_owned());
     }
-    let bytes = fs::read(blob_absolute_path(storage_dir, &file.sha256)).map_err(|error| {
+    if file.size_bytes > MAX_FILE_BYTES {
+        return Err("Captured source exceeds the supported per-file size limit.".to_owned());
+    }
+    let input = File::open(blob_absolute_path(storage_dir, &file.sha256)).map_err(|error| {
         format!("Captured source bytes are unavailable in local snapshot storage: {error}")
     })?;
+    // Bound the read itself: a damaged object must not allocate its entire
+    // contents before its recorded size and hash can be rejected.
+    let mut bytes = Vec::new();
+    input
+        .take(file.size_bytes + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("Captured source bytes could not be read: {error}"))?;
     if bytes.len() as u64 != file.size_bytes || sha256(&bytes) != file.sha256 {
         return Err("Captured source failed its size or SHA-256 integrity check.".to_owned());
     }
@@ -948,6 +958,11 @@ fn ignored_paths(root: &Path, paths: &[String]) -> Result<HashSet<String>, Strin
     let fields: Vec<&[u8]> = bytes.split(|byte| *byte == 0).collect();
     let mut ignored = HashSet::new();
     for record in fields.chunks_exact(4) {
+        // Verbose check-ignore also reports matching negated patterns. Those
+        // paths were explicitly included again and must remain eligible.
+        if record[2].starts_with(b"!") {
+            continue;
+        }
         if let Ok(path) = std::str::from_utf8(record[3]) {
             ignored.insert(path.to_owned());
         }
@@ -1507,6 +1522,7 @@ where
         path: staging_path.clone(),
     };
     let mut captured = Vec::new();
+    let mut captured_candidates = Vec::new();
     let mut staged = Vec::new();
     let mut skipped_paths = scan.skipped;
     let mut bytes_read = 0_u64;
@@ -1736,6 +1752,7 @@ where
             content_kind: classify_content(&file_contents),
             secret_like: looks_secret_like(&candidate.relative_path, &file_contents),
         });
+        captured_candidates.push(candidate);
         staged.push((staged_path, hash));
         bytes_read = bytes_read.saturating_add(file_bytes);
         progress.bytes_read = bytes_read;
@@ -1743,6 +1760,26 @@ where
         progress.files_processed = index + 1;
     }
 
+    // Reading a later file can take long enough for an earlier file to change.
+    // Directory timestamps and Git's clean/modified flags do not detect an
+    // edit to an already-dirty file, so recheck every captured file identity.
+    for candidate in captured_candidates {
+        let after = metadata_no_follow(&candidate.absolute_path)
+            .map(|metadata| file_fingerprint(&metadata));
+        if after.as_ref().ok() != Some(&candidate.fingerprint) {
+            let error = CaptureError::Inconsistent {
+                path: Some(candidate.relative_path.clone()),
+                message: "A captured file changed before snapshot finalization; no snapshot was committed.".to_owned(),
+            };
+            fail_progress(
+                &mut progress,
+                CaptureStatus::Inconsistent,
+                format_capture_error(&error),
+                callback,
+            );
+            return Err(error);
+        }
+    }
     for (directory, fingerprint, relative) in &scan.directories {
         let after = metadata_no_follow(directory).map(|metadata| file_fingerprint(&metadata));
         if after.as_ref().ok() != Some(fingerprint) {

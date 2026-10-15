@@ -58,22 +58,22 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
   const [refreshKey, setRefreshKey] = useState(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
-  const loadRevisions = () => {
+  useEffect(() => {
+    let active = true;
     if (!isNativeRuntime()) {
       setRevisions([]);
       setLoading(false);
       setLoadError(null);
-      return;
+      return () => { active = false; };
     }
     setLoading(true);
     setLoadError(null);
     void listProjectChapterRevisions(projectId)
-      .then(setRevisions)
-      .catch((error) => setLoadError(errorMessageOr(error, 'Accepted chapter revisions could not be loaded.')))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { loadRevisions(); }, [projectId, refreshKey]);
+      .then((loaded) => { if (active) setRevisions(loaded); })
+      .catch((error) => { if (active) setLoadError(errorMessageOr(error, 'Accepted chapter revisions could not be loaded.')); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [projectId, refreshKey]);
   useEffect(() => {
     const refresh = () => setRefreshKey((value) => value + 1);
     window.addEventListener('code-atlas:chapters-changed', refresh);
@@ -308,7 +308,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
       <div className="step-pill"><span>LOCAL CHAPTERS</span> UNAVAILABLE</div>
       <h2>Saved explanations could not be loaded.</h2>
       <p>{loadError}</p>
-      <button className="secondary-button" onClick={loadRevisions}>Retry <ArrowRight size={15} /></button>
+      <button className="secondary-button" onClick={() => setRefreshKey((value) => value + 1)}>Retry <ArrowRight size={15} /></button>
     </div>
   );
   if (acceptedRevisions.length === 0) return (
