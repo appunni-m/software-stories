@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, RotateCcw, Send, ShieldCheck, Sparkles } from 'lucide-react';
+import { CodexChapterDialog, type CodexChapterDialogMode } from './CodexChapterDialog';
+import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import {
   acceptPrGuideDraft,
   buildProviderPrChangeExplanationRequestReview,
@@ -24,6 +26,7 @@ import {
   type ProviderDisclosure,
   type ProviderFailure,
   type ProviderRequestReview,
+  type SelectedGitChangeIdentity,
 } from './lib/commands';
 
 const NO_CONSENT: ProviderConsent = {
@@ -49,6 +52,9 @@ export function PrGuideStudio({
   onFocusChange,
   onOpenProviderSettings,
 }: PrGuideStudioProps) {
+  const [backend, setBackend] = useState<'codex' | 'claude-agent' | 'api'>('codex');
+  const [codexMode, setCodexMode] = useState<CodexChapterDialogMode | null>(null);
+  const [claudeSetup, setClaudeSetup] = useState(false);
   const [providerCatalog, setProviderCatalog] = useState<ProviderDisclosure[]>([]);
   const [providerId, setProviderId] = useState('');
   const [disclosure, setDisclosure] = useState<ProviderDisclosure | null>(null);
@@ -90,6 +96,7 @@ export function PrGuideStudio({
     isNativeRuntime()
       && comparison.status === 'ready'
       && comparison.comparisonId
+      && backend === 'api'
       && selectedChanges.length > 0
       && selectedChanges.length <= 12
       && disclosure
@@ -104,7 +111,7 @@ export function PrGuideStudio({
 
   useEffect(() => {
     let active = true;
-    if (!isNativeRuntime()) {
+    if (!isNativeRuntime() || backend !== 'api') {
       setInformationLoading(false);
       return () => { active = false; };
     }
@@ -117,10 +124,10 @@ export function PrGuideStudio({
       .catch(() => { if (active) setInformationError('Code Atlas could not load direct API settings. No model request was sent.'); })
       .finally(() => { if (active) setInformationLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [backend]);
 
   useEffect(() => {
-    if (!providerId) {
+    if (!providerId || backend !== 'api') {
       setDisclosure(null);
       setCredential(null);
       return;
@@ -134,7 +141,7 @@ export function PrGuideStudio({
       .then((status) => { if (active) setCredential(status); })
       .catch(() => { if (active) setCredential(null); });
     return () => { active = false; };
-  }, [providerCatalog, providerId]);
+  }, [backend, providerCatalog, providerId]);
 
   useEffect(() => {
     requestReviewRef.current = requestReview;
@@ -143,7 +150,7 @@ export function PrGuideStudio({
   useEffect(() => {
     let active = true;
     const refreshCredentials = () => {
-      if (providerId) void getProviderCredentialStatus(providerId)
+      if (providerId && backend === 'api') void getProviderCredentialStatus(providerId)
         .then((status) => { if (active) setCredential(status); })
         .catch(() => {});
     };
@@ -152,7 +159,7 @@ export function PrGuideStudio({
       active = false;
       window.removeEventListener('code-atlas:provider-credentials-changed', refreshCredentials);
     };
-  }, [providerId]);
+  }, [backend, providerId]);
 
   useEffect(() => () => {
     reviewLifecycle.current += 1;
@@ -167,13 +174,24 @@ export function PrGuideStudio({
       return;
     }
     let active = true;
-    setHistoryLoading(true);
-    setHistoryError(null);
-    void listPrGuideRevisions(projectId, comparison.comparisonId)
-      .then((revisions) => { if (active) setHistory(revisions); })
-      .catch(() => { if (active) setHistoryError('The local PR Guide history could not be loaded.'); })
-      .finally(() => { if (active) setHistoryLoading(false); });
-    return () => { active = false; };
+    let sequence = 0;
+    const comparisonId = comparison.comparisonId;
+    const reload = () => {
+      const request = ++sequence;
+      setHistoryLoading(true);
+      setHistoryError(null);
+      void listPrGuideRevisions(projectId, comparisonId)
+        .then((revisions) => { if (active && sequence === request) setHistory(revisions); })
+        .catch(() => { if (active && sequence === request) setHistoryError('The local PR Guide history could not be loaded.'); })
+        .finally(() => { if (active && sequence === request) setHistoryLoading(false); });
+    };
+    const changed = (event: Event) => {
+      const detail = (event as CustomEvent<{ projectId: string; comparisonId: string }>).detail;
+      if (detail?.projectId === projectId && detail.comparisonId === comparisonId) reload();
+    };
+    reload();
+    window.addEventListener('code-atlas:pr-guides-changed', changed);
+    return () => { active = false; window.removeEventListener('code-atlas:pr-guides-changed', changed); };
   }, [comparison.comparisonId, comparison.status, projectId]);
 
   function clearReview() {
@@ -196,6 +214,21 @@ export function PrGuideStudio({
       if (current.length >= 12) return current;
       return [...current, key];
     });
+  }
+
+  function reviewCodexGuide() {
+    if (building || sending || decisionBusy || !comparison.comparisonId || !selectedChanges.length || selectedChanges.length > 12) return;
+    clearReview();
+    setCodexMode({ kind: 'pr-guide', projectId, baseRef, headRef, comparisonId: comparison.comparisonId,
+      selectedChanges: selectedChanges.map(({ basePath, headPath }) => ({ basePath, headPath })) });
+  }
+
+  function explainHunk(change: GitFileChange, hunkIndex: number) {
+    if (backend === 'codex' && comparison.comparisonId) {
+      clearReview();
+      setCodexMode({ kind: 'pr-change', projectId, target: { baseRef, headRef,
+        comparisonId: comparison.comparisonId, selectedChange: { basePath: change.basePath, headPath: change.headPath }, hunkIndex } });
+    } else if (backend === 'api') setChangeExplanationSelection({ change, hunkIndex });
   }
 
   async function handleBuildReview() {
@@ -367,8 +400,19 @@ export function PrGuideStudio({
         <div><span className="git-changes-kicker">SEPARATE, REVIEWABLE HISTORY</span><h2 id="pr-guide-title">Build a PR Guide</h2></div>
         <span className="git-readonly-badge"><BookOpenCheck size={14} /> Local draft</span>
       </div>
-      <p className="pr-guide-muted">Choose a direct API, select changed files, inspect the exact diff sent, then review every claim against its base/head hunk. Accepting or rejecting saves a PR Guide revision; it never changes Git refs or file chapter history.</p>
-      <fieldset className="pr-guide-file-picker" disabled={building || sending || decisionBusy || Boolean(changeExplanationSelection)}>
+      <p className="pr-guide-muted">Choose a backend, select changed files, inspect the exact diff sent, then review every claim against its base/head hunk. Accepting or rejecting saves a PR Guide revision; it never changes Git refs or file chapter history.</p>
+      <label className="pr-guide-model">Generate with
+        <select value={backend} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection) || Boolean(codexMode) || claudeSetup}
+          onChange={(event) => { clearReview(); setBackend(event.target.value as typeof backend); }}>
+          <option value="codex">Codex · ChatGPT account</option>
+          <option value="claude-agent">Claude Agent · Claude Code runtime (pending)</option>
+          <option value="api">Direct API · optional</option>
+        </select>
+      </label>
+      {backend === 'codex' && <p className="pr-guide-muted">Use your Codex account without an API key. Choose model and reasoning, review the exact patches, then generate. Plan quota applies.</p>}
+      {backend === 'claude-agent' && <div className="pr-guide-notice" role="status"><div><p>Claude Code is a required automatic backend. Its PR Guide and hunk dispatch are still missing; installation checks do not enable generation.</p>
+        <button className="secondary-button" onClick={() => setClaudeSetup(true)}>Check Claude installation</button></div></div>}
+      <fieldset className="pr-guide-file-picker" disabled={building || sending || decisionBusy || Boolean(changeExplanationSelection) || Boolean(codexMode) || claudeSetup}>
         <legend>Select changed files · {selectedChanges.length} of 12</legend>
         {eligibleChanges.length === 0 ? <p>No changed file has a complete bounded text diff to explain.</p> : eligibleChanges.map((change) => {
           const key = changeKey(change);
@@ -387,8 +431,8 @@ export function PrGuideStudio({
                     type="button"
                     className="secondary-button"
                     key={hunkIndex}
-                    disabled={!providerId || !modelId || !disclosure || building || sending || decisionBusy || Boolean(requestReview)}
-                    onClick={() => setChangeExplanationSelection({ change, hunkIndex })}
+                    disabled={backend === 'claude-agent' || (backend === 'api' && (!providerId || !modelId || !disclosure)) || building || sending || decisionBusy || Boolean(requestReview)}
+                    onClick={() => explainHunk(change, hunkIndex)}
                   ><Sparkles size={13} /> Explain hunk {hunkIndex + 1}</button>
                 ))}
               </div>
@@ -396,7 +440,8 @@ export function PrGuideStudio({
           );
         })}
       </fieldset>
-      <div className="pr-guide-actions">
+      {backend === 'codex' && <div className="pr-guide-actions"><button className="primary-button" onClick={reviewCodexGuide} disabled={!selectedChanges.length || selectedChanges.length > 12 || building || sending || decisionBusy || Boolean(codexMode)}><FileDiff size={15} /> Review with Codex</button></div>}
+      {backend === 'api' && <><div className="pr-guide-actions">
         <label className="pr-guide-model">Direct API provider
           <select value={providerId} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection)} onChange={(event) => { clearReview(); setProviderId(event.target.value); setModelId(''); setCredential(null); }}>
             <option value="">Choose a provider…</option>
@@ -413,13 +458,31 @@ export function PrGuideStudio({
           <FileDiff size={15} /> {building ? 'Building exact review…' : requestReview ? 'Request ready for review below' : 'Review exact provider request'}
         </button>
       </div>
-      {!isNativeRuntime() && <p className="git-preview-note" role="status">The browser preview can inspect the UI but cannot call provider APIs or read local Git. Generation runs only in the packaged Mac app.</p>}
       {!providerId && <p className="pr-guide-muted" role="status">Choose a provider and model explicitly for this PR Guide. Selection makes no network request.</p>}
       {informationLoading && <p className="pr-guide-muted" role="status">Loading direct API catalog locally…</p>}
       {informationError && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {informationError}</p>}
       {credential?.status === 'error' && <p className="git-error-note" role="alert">{credential.error.message}</p>}
+      </>}
+      {!isNativeRuntime() && <p className="git-preview-note" role="status">The browser preview can inspect the UI but cannot run coding agents, call provider APIs or read local Git. Generation runs only in the packaged Mac app.</p>}
       {requestError && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {requestError.message}</p>}
       {notice && <p className="pr-guide-notice" role="status"><Check size={15} /> {notice}</p>}
+
+      {codexMode && <CodexChapterDialog mode={codexMode} native={isNativeRuntime()}
+        onClose={() => setCodexMode(null)} onChooseBackend={() => setCodexMode(null)}
+        onPrGuideReady={(preview) => {
+          setCurrentDraft(preview.revision);
+          setIncludedClaimIds(allClaimIds(preview.revision));
+          setDecisionError(null);
+          setNotice('Codex saved a validated, unaccepted PR Guide draft. Review each claim below before acceptance.');
+        }}
+        onOpenPrChangeCitation={(citation) => {
+          if (codexMode !== 'settings' && codexMode.kind === 'pr-change') {
+            onFocusChange(changeKey(codexMode.target.selectedChange), citation.hunkIndex);
+            setCodexMode(null);
+          }
+        }} />}
+      {claudeSetup && <ClaudeConnectionDialog native={isNativeRuntime()} reviewMode="settings"
+        onClose={() => setClaudeSetup(false)} onChooseBackend={() => setClaudeSetup(false)} />}
 
       {changeExplanationSelection && disclosure && modelId && (
         <PrChangeExplanationPanel
@@ -788,7 +851,7 @@ function isGuideEligible(change: GitFileChange): boolean {
     && !change.skippedReason;
 }
 
-function changeKey(change: GitFileChange): string {
+function changeKey(change: SelectedGitChangeIdentity): string {
   return `${change.basePath ?? ''}\u0000${change.headPath ?? ''}`;
 }
 

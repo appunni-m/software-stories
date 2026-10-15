@@ -1244,6 +1244,92 @@ pub fn build_pr_change_explanation_request_review_for_provider(
                 "Choose a structured-output model listed for the selected provider.",
             )
         })?;
+    let ExplanationRequestContext {
+        selected_files,
+        system_instruction,
+        user_prompt,
+        generation_config,
+        ..
+    } = build_pr_change_context(repository, input)?;
+    let selected_file = selected_files.into_iter().next().ok_or_else(|| {
+        failure(
+            ProviderFailureKind::InvalidReview,
+            "The selected diff hunk is unavailable.",
+        )
+    })?;
+    let encoded = crate::provider_api::encode_request_preview(
+        provider_id,
+        &model.model_id,
+        &system_instruction,
+        &user_prompt,
+        &generation_config,
+    )
+    .map_err(|_| {
+        failure(
+            ProviderFailureKind::InvalidReview,
+            "The exact PR change explanation request could not be encoded for review.",
+        )
+    })?;
+    if encoded.body_bytes > MAX_REQUEST_BODY_BYTES {
+        return Err(failure(
+            ProviderFailureKind::ContextTooLarge,
+            "The exact PR change explanation request exceeds the 512 KB review limit.",
+        ));
+    }
+    let fingerprint = request_fingerprint_for_provider(
+        provider_id,
+        PR_CHANGE_EXPLANATION_PURPOSE,
+        &input.project_id,
+        &input.target.comparison_id,
+        Some(&selected_file.path),
+        &model.model_id,
+        &disclosure.version,
+        &system_instruction,
+        &user_prompt,
+        std::slice::from_ref(&selected_file),
+        generation_config.clone(),
+    )?;
+    let now = unix_time_ms();
+    let review = ProviderRequestReview {
+        review_id: Uuid::new_v4().to_string(),
+        project_id: input.project_id.clone(),
+        snapshot_id: input.target.comparison_id.clone(),
+        purpose: PR_CHANGE_EXPLANATION_PURPOSE.to_owned(),
+        target_path: Some(selected_file.path.clone()),
+        provider_id: provider_id.to_owned(),
+        model_id: model.model_id.clone(),
+        endpoint_url: encoded.endpoint_url,
+        disclosure_version: disclosure.version,
+        selected_files: vec![selected_file.clone()],
+        selected_symbols: Vec::new(),
+        selected_relationships: Vec::new(),
+        index_evidence_truncated: false,
+        pr_guide_context: None,
+        section_update_context: None,
+        code_lens_context: None,
+        pr_change_context: Some(input.target.clone()),
+        system_instruction,
+        user_prompt,
+        generation_config,
+        source_bytes: selected_file.contents.len(),
+        estimated_input_tokens: encoded.body_bytes.div_ceil(4),
+        request_body_bytes: encoded.body_bytes,
+        request_body_sha256: encoded.body_sha256,
+        request_body_preview: encoded.body.clone(),
+        fingerprint,
+        expires_at_unix_ms: now.saturating_add(REVIEW_LIFETIME_MS),
+    };
+    Ok(PendingProviderRequest {
+        review,
+        body: encoded.body,
+    })
+}
+
+/// Immutable single-hunk evidence and prompt, independent of API/agent transport.
+fn build_pr_change_context(
+    repository: &Path,
+    input: &BuildPrChangeExplanationReviewInput,
+) -> Result<ExplanationRequestContext, ProviderFailure> {
     let guide_input = BuildPrGuideReviewInput {
         project_id: input.project_id.clone(),
         base_ref: input.target.base_ref.clone(),
@@ -1308,72 +1394,17 @@ pub fn build_pr_change_explanation_request_review_for_provider(
         size_bytes: hunk.patch_excerpt.len() as u64,
         contents: hunk.patch_excerpt,
     };
-    let generation_config = pr_change_explanation_generation_config();
-    let encoded = crate::provider_api::encode_request_preview(
-        provider_id,
-        &model.model_id,
-        &system_instruction,
-        &user_prompt,
-        &generation_config,
-    )
-    .map_err(|_| {
-        failure(
-            ProviderFailureKind::InvalidReview,
-            "The exact PR change explanation request could not be encoded for review.",
-        )
-    })?;
-    if encoded.body_bytes > MAX_REQUEST_BODY_BYTES {
-        return Err(failure(
-            ProviderFailureKind::ContextTooLarge,
-            "The exact PR change explanation request exceeds the 512 KB review limit.",
-        ));
-    }
-    let fingerprint = request_fingerprint_for_provider(
-        provider_id,
-        PR_CHANGE_EXPLANATION_PURPOSE,
-        &input.project_id,
-        &context.comparison_id,
-        Some(&selected_file.path),
-        &model.model_id,
-        &disclosure.version,
-        &system_instruction,
-        &user_prompt,
-        std::slice::from_ref(&selected_file),
-        generation_config.clone(),
-    )?;
-    let now = unix_time_ms();
-    let review = ProviderRequestReview {
-        review_id: Uuid::new_v4().to_string(),
-        project_id: input.project_id.clone(),
-        snapshot_id: context.comparison_id,
-        purpose: PR_CHANGE_EXPLANATION_PURPOSE.to_owned(),
-        target_path: Some(selected_file.path.clone()),
-        provider_id: provider_id.to_owned(),
-        model_id: model.model_id.clone(),
-        endpoint_url: encoded.endpoint_url,
-        disclosure_version: disclosure.version,
-        selected_files: vec![selected_file.clone()],
+    Ok(ExplanationRequestContext {
+        source_bytes: selected_file.contents.len(),
+        selected_files: vec![selected_file],
         selected_symbols: Vec::new(),
         selected_relationships: Vec::new(),
         index_evidence_truncated: false,
-        pr_guide_context: None,
-        section_update_context: None,
-        code_lens_context: None,
-        pr_change_context: Some(input.target.clone()),
         system_instruction,
         user_prompt,
-        generation_config,
-        source_bytes: selected_file.contents.len(),
-        estimated_input_tokens: encoded.body_bytes.div_ceil(4),
-        request_body_bytes: encoded.body_bytes,
-        request_body_sha256: encoded.body_sha256,
-        request_body_preview: encoded.body.clone(),
-        fingerprint,
-        expires_at_unix_ms: now.saturating_add(REVIEW_LIFETIME_MS),
-    };
-    Ok(PendingProviderRequest {
-        review,
-        body: encoded.body,
+        generation_config: pr_change_explanation_generation_config(),
+        purpose: PR_CHANGE_EXPLANATION_PURPOSE,
+        section_update_context: None,
     })
 }
 
@@ -1474,7 +1505,19 @@ pub fn canonicalize_pr_change_explanation(
             "The PR change explanation exceeded the supported response size.",
         ));
     }
-    let refreshed = revalidate_pr_change_explanation_request(repository, review)?;
+    let refreshed = if review.provider_id == "codex" {
+        // The agent dispatch already compared the native runtime path. Rebuild
+        // immutable Git evidence again here without entering API admission.
+        revalidate_codex_git_review(
+            repository,
+            review,
+            review.generation_config["executablePath"]
+                .as_str()
+                .unwrap_or(""),
+        )?
+    } else {
+        revalidate_pr_change_explanation_request(repository, review)?
+    };
     let change = refreshed
         .review
         .selected_files
@@ -1639,46 +1682,17 @@ pub fn build_pr_guide_request_review_for_provider(
             "Choose a structured-output model listed for the selected provider.",
         ));
     }
-    let context = pr_guide::build_context(repository, input).map_err(|message| {
-        let kind = if message.contains("secret-like") {
-            ProviderFailureKind::SecretLikeContext
-        } else {
-            ProviderFailureKind::InvalidReview
-        };
-        failure(kind, message)
-    })?;
-    let (system_instruction, user_prompt) = pr_guide::request_prompt(&context)
-        .map_err(|message| failure(ProviderFailureKind::InvalidReview, message))?;
-    let selected_files = context
-        .selected_changes
-        .iter()
-        .map(|change| {
-            let contents = change
-                .hunks
-                .iter()
-                .map(|hunk| hunk.patch_excerpt.as_str())
-                .collect::<Vec<_>>()
-                .join("\n--- next diff hunk ---\n");
-            let path = match (&change.base_path, &change.head_path) {
-                (Some(base), Some(head)) if base != head => format!("{base} → {head}"),
-                (Some(path), _) | (_, Some(path)) => path.clone(),
-                (None, None) => "unknown path".to_owned(),
-            };
-            ProviderRequestFile {
-                path,
-                sha256: Sha256::digest(contents.as_bytes())
-                    .iter()
-                    .map(|byte| format!("{byte:02x}"))
-                    .collect(),
-                size_bytes: contents.len() as u64,
-                contents,
-            }
-        })
-        .collect::<Vec<_>>();
-    let source_bytes = selected_files.iter().fold(0_usize, |total, file| {
-        total.saturating_add(file.contents.len())
-    });
-    let generation_config = pr_guide_generation_config();
+    let (
+        context,
+        ExplanationRequestContext {
+            selected_files,
+            source_bytes,
+            system_instruction,
+            user_prompt,
+            generation_config,
+            ..
+        },
+    ) = build_pr_guide_context(repository, input)?;
     let encoded = crate::provider_api::encode_request_preview(
         provider_id,
         &input.model_id,
@@ -1753,6 +1767,67 @@ pub fn build_pr_guide_request_review_for_provider(
         expires_at_unix_ms: now.saturating_add(REVIEW_LIFETIME_MS),
     };
     Ok(PendingProviderRequest { review, body })
+}
+
+/// One immutable comparison/evidence/prompt path for every transport.
+fn build_pr_guide_context(
+    repository: &Path,
+    input: &BuildPrGuideReviewInput,
+) -> Result<(pr_guide::ComparisonContext, ExplanationRequestContext), ProviderFailure> {
+    let context = pr_guide::build_context(repository, input).map_err(|message| {
+        let kind = if message.contains("secret-like") {
+            ProviderFailureKind::SecretLikeContext
+        } else {
+            ProviderFailureKind::InvalidReview
+        };
+        failure(kind, message)
+    })?;
+    let (system_instruction, user_prompt) = pr_guide::request_prompt(&context)
+        .map_err(|message| failure(ProviderFailureKind::InvalidReview, message))?;
+    let selected_files = context
+        .selected_changes
+        .iter()
+        .map(|change| {
+            let contents = change
+                .hunks
+                .iter()
+                .map(|hunk| hunk.patch_excerpt.as_str())
+                .collect::<Vec<_>>()
+                .join("\n--- next diff hunk ---\n");
+            let path = match (&change.base_path, &change.head_path) {
+                (Some(base), Some(head)) if base != head => format!("{base} → {head}"),
+                (Some(path), _) | (_, Some(path)) => path.clone(),
+                (None, None) => "unknown path".to_owned(),
+            };
+            ProviderRequestFile {
+                path,
+                sha256: Sha256::digest(contents.as_bytes())
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect(),
+                size_bytes: contents.len() as u64,
+                contents,
+            }
+        })
+        .collect::<Vec<_>>();
+    let source_bytes = selected_files.iter().fold(0_usize, |total, file| {
+        total.saturating_add(file.contents.len())
+    });
+    Ok((
+        context,
+        ExplanationRequestContext {
+            selected_files,
+            source_bytes,
+            system_instruction,
+            user_prompt,
+            selected_symbols: Vec::new(),
+            selected_relationships: Vec::new(),
+            index_evidence_truncated: false,
+            generation_config: pr_guide_generation_config(),
+            purpose: PR_GUIDE_PURPOSE,
+            section_update_context: None,
+        },
+    ))
 }
 
 /// Rebuilds the current Git evidence before a previously reviewed PR Guide is sent.
@@ -2273,6 +2348,162 @@ pub(crate) fn build_codex_code_lens_review(
     )
 }
 
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct BuildCodexPrGuideInput {
+    pub project_id: String,
+    pub base_ref: String,
+    pub head_ref: String,
+    pub comparison_id: String,
+    pub selected_changes: Vec<pr_guide::SelectedChangeIdentity>,
+    pub model_id: String,
+    pub effort: String,
+    pub approval_policy: String,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct BuildCodexPrChangeInput {
+    pub project_id: String,
+    pub target: PrChangeExplanationTarget,
+    pub model_id: String,
+    pub effort: String,
+    pub approval_policy: String,
+}
+
+pub(crate) fn build_codex_pr_guide_review(
+    repository: &Path,
+    input: &BuildCodexPrGuideInput,
+    executable_path: &str,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    let transport = codex_transport(
+        &input.model_id,
+        &input.effort,
+        &input.approval_policy,
+        executable_path,
+        "codex-pr-guide-v1",
+    )?;
+    let (context, explanation) = build_pr_guide_context(
+        repository,
+        &BuildPrGuideReviewInput {
+            project_id: input.project_id.clone(),
+            base_ref: input.base_ref.clone(),
+            head_ref: input.head_ref.clone(),
+            comparison_id: input.comparison_id.clone(),
+            selected_changes: input.selected_changes.clone(),
+            model_id: input.model_id.clone(),
+        },
+    )?;
+    build_agent_git_review(
+        &input.project_id,
+        &input.comparison_id,
+        &input.model_id,
+        None,
+        explanation,
+        AgentGitContext::Guide(context),
+        transport,
+    )
+}
+
+pub(crate) fn build_codex_pr_change_review(
+    repository: &Path,
+    input: &BuildCodexPrChangeInput,
+    executable_path: &str,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    let transport = codex_transport(
+        &input.model_id,
+        &input.effort,
+        &input.approval_policy,
+        executable_path,
+        "codex-pr-change-v1",
+    )?;
+    let explanation = build_pr_change_context(
+        repository,
+        &BuildPrChangeExplanationReviewInput {
+            project_id: input.project_id.clone(),
+            target: input.target.clone(),
+            model_id: input.model_id.clone(),
+        },
+    )?;
+    let target_path = explanation
+        .selected_files
+        .first()
+        .map(|file| file.path.clone());
+    build_agent_git_review(
+        &input.project_id,
+        &input.target.comparison_id,
+        &input.model_id,
+        target_path,
+        explanation,
+        AgentGitContext::Change(input.target.clone()),
+        transport,
+    )
+}
+
+fn build_agent_git_review(
+    project_id: &str,
+    comparison_id: &str,
+    model_id: &str,
+    target_path: Option<String>,
+    mut context: ExplanationRequestContext,
+    git_context: AgentGitContext,
+    mut transport: AgentTransport<'_>,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    // Includes separators added to the reviewed patches, not just Git's raw
+    // patch-byte count. Reject at review rather than later in native staging.
+    if context.source_bytes > MAX_CONTEXT_BYTES {
+        return Err(failure(
+            ProviderFailureKind::ContextTooLarge,
+            "The reviewed Git evidence exceeds 250 KB. Select fewer changed files or a smaller hunk.",
+        ));
+    }
+    let manifest = context
+        .selected_files
+        .iter()
+        .enumerate()
+        .map(|(index, file)| {
+            json!({
+                "contextPath": agent_diff_source_name(index), "gitPathLabel": file.path,
+                "sha256": file.sha256,
+            })
+        })
+        .collect::<Vec<_>>();
+    let mapping = serde_json::to_string(&manifest).map_err(|_| {
+        failure(
+            ProviderFailureKind::InvalidReview,
+            "The staged Git evidence mapping could not be encoded.",
+        )
+    })?;
+    context.user_prompt.push_str("\n\nReviewed staged patch mapping (metadata only). Cite original Git paths, sides and hunks from the comparison, never these staging aliases:\n");
+    context.user_prompt.push_str(&mapping);
+    transport.config["stagedDiffManifest"] = json!(manifest);
+    build_scoped_agent_context_review(
+        &BuildProviderReviewInput {
+            project_id: project_id.to_owned(),
+            snapshot_id: comparison_id.to_owned(),
+            target_path,
+            selected_paths: context
+                .selected_files
+                .iter()
+                .map(|file| file.path.clone())
+                .collect(),
+            model_id: model_id.to_owned(),
+            section_update: None,
+        },
+        context,
+        None,
+        Some(git_context),
+        transport,
+    )
+}
+
+/// Neutral context identity for a reviewed patch, never a repository path.
+/// Rename labels may collide or exceed filesystem path limits; Git evidence
+/// keeps their exact original identities separately for citation validation.
+pub(crate) fn agent_diff_source_name(index: usize) -> String {
+    format!("reviewed-diff-{index:04}.patch")
+}
+
 fn codex_transport(
     model_id: &str,
     effort: &str,
@@ -2393,6 +2624,21 @@ fn build_agent_context_review(
     code_lens_context: Option<CodeLensExplanationTarget>,
     transport: AgentTransport<'_>,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
+    build_scoped_agent_context_review(input, context, code_lens_context, None, transport)
+}
+
+enum AgentGitContext {
+    Guide(pr_guide::ComparisonContext),
+    Change(PrChangeExplanationTarget),
+}
+
+fn build_scoped_agent_context_review(
+    input: &BuildProviderReviewInput,
+    context: ExplanationRequestContext,
+    code_lens_context: Option<CodeLensExplanationTarget>,
+    git_context: Option<AgentGitContext>,
+    transport: AgentTransport<'_>,
+) -> Result<PendingProviderRequest, ProviderFailure> {
     let ExplanationRequestContext {
         selected_files,
         selected_symbols,
@@ -2440,6 +2686,33 @@ fn build_agent_context_review(
     if let Some(target) = &code_lens_context {
         body["codeLens"] = json!(target);
     }
+    let mut pr_guide_context = None;
+    let mut pr_change_context = None;
+    match git_context {
+        Some(AgentGitContext::Guide(context)) => {
+            // The prompt contains the full evidence. Bind its complete native
+            // comparison separately without duplicating patches in the wire
+            // contract and artificially exhausting the encoded request limit.
+            let evidence = serde_json::to_vec(&context).map_err(|_| {
+                failure(
+                    ProviderFailureKind::InvalidReview,
+                    "The immutable Git comparison could not be encoded.",
+                )
+            })?;
+            body["prGuide"] = json!({
+                "comparisonId": context.comparison_id,
+                "baseRef": context.base_ref, "headRef": context.head_ref,
+                "base": context.base, "head": context.head,
+                "evidenceSha256": format!("{:x}", Sha256::digest(evidence)),
+            });
+            pr_guide_context = Some(context);
+        }
+        Some(AgentGitContext::Change(target)) => {
+            body["prChange"] = json!(target);
+            pr_change_context = Some(target);
+        }
+        None => {}
+    }
     let encoded = serde_json::to_vec(&body).map_err(|_| {
         failure(
             ProviderFailureKind::InvalidReview,
@@ -2480,10 +2753,10 @@ fn build_agent_context_review(
         selected_symbols,
         selected_relationships,
         index_evidence_truncated,
-        pr_guide_context: None,
+        pr_guide_context,
         section_update_context,
         code_lens_context,
-        pr_change_context: None,
+        pr_change_context,
         system_instruction,
         user_prompt,
         generation_config,
@@ -2699,6 +2972,79 @@ fn close_agent_schema_objects(schema: &mut Value) {
         }
         _ => {}
     }
+}
+
+/// Rebuild the selected immutable comparison/hunk without an API catalog or
+/// request. The executable path is observed by the native runtime owner.
+pub(crate) fn revalidate_codex_git_review(
+    repository: &Path,
+    review: &ProviderRequestReview,
+    executable_path: &str,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    if review.provider_id != "codex" || review.expires_at_unix_ms <= unix_time_ms() {
+        return Err(failure(
+            ProviderFailureKind::ReviewExpired,
+            "Build a fresh Codex Git-change review before generating.",
+        ));
+    }
+    if review.section_update_context.is_some() || review.code_lens_context.is_some() {
+        return Err(failure(
+            ProviderFailureKind::InvalidReview,
+            "A chapter or source-range review cannot dispatch a Codex Git-change operation.",
+        ));
+    }
+    let effort = review.generation_config["effort"]
+        .as_str()
+        .unwrap_or("")
+        .to_owned();
+    let approval_policy = review.generation_config["approvalPolicy"]
+        .as_str()
+        .unwrap_or("")
+        .to_owned();
+    let rebuilt = match review.purpose.as_str() {
+        PR_GUIDE_PURPOSE if review.pr_change_context.is_none() && review.target_path.is_none() => {
+            let context = review.pr_guide_context.as_ref().filter(|context| context.comparison_id == review.snapshot_id)
+                .ok_or_else(|| failure(ProviderFailureKind::ReviewChanged,
+                    "The exact Codex Git comparison is missing. Select it again."))?;
+            build_codex_pr_guide_review(repository, &BuildCodexPrGuideInput {
+                project_id: review.project_id.clone(), base_ref: context.base_ref.clone(),
+                head_ref: context.head_ref.clone(), comparison_id: context.comparison_id.clone(),
+                selected_changes: context.selected_changes.iter().map(|change| pr_guide::SelectedChangeIdentity {
+                    base_path: change.base_path.clone(), head_path: change.head_path.clone(),
+                }).collect(), model_id: review.model_id.clone(), effort, approval_policy,
+            }, executable_path)
+        }
+        PR_CHANGE_EXPLANATION_PURPOSE if review.pr_guide_context.is_none() => {
+            let target = review.pr_change_context.as_ref().filter(|target| target.comparison_id == review.snapshot_id)
+                .ok_or_else(|| failure(ProviderFailureKind::ReviewChanged,
+                    "The exact Codex diff hunk is missing. Select it again."))?;
+            build_codex_pr_change_review(repository, &BuildCodexPrChangeInput {
+                project_id: review.project_id.clone(), target: target.clone(),
+                model_id: review.model_id.clone(), effort, approval_policy,
+            }, executable_path)
+        }
+        _ => return Err(failure(ProviderFailureKind::InvalidReview,
+            "Prepare a Codex review for the exact Git-change operation.")),
+    }.map_err(|error| if matches!(&error.kind, ProviderFailureKind::InvalidReview) {
+        failure(ProviderFailureKind::ReviewChanged,
+            "The selected Git refs, changes or hunk no longer match this review. Select and review them again.")
+    } else { error })?;
+    if rebuilt.review.fingerprint != review.fingerprint
+        || rebuilt.review.request_body_preview != review.request_body_preview
+        || rebuilt.review.generation_config != review.generation_config
+        || rebuilt.review.request_body_sha256 != review.request_body_sha256
+        || rebuilt.review.endpoint_url != review.endpoint_url
+        || rebuilt.review.disclosure_version != review.disclosure_version
+        || rebuilt.review.target_path != review.target_path
+        || rebuilt.review.pr_guide_context != review.pr_guide_context
+        || rebuilt.review.pr_change_context != review.pr_change_context
+    {
+        return Err(failure(
+            ProviderFailureKind::ReviewChanged,
+            "The Git evidence, Codex executable, model, settings or operation contract changed. Prepare a fresh review.",
+        ));
+    }
+    Ok(rebuilt)
 }
 
 pub(crate) fn revalidate_codex_request_review(

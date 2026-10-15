@@ -1353,6 +1353,25 @@ export async function sendCodexChapterRequest(reviewId: string, fingerprint: str
 export async function cancelCodexChapterRequest(runId: string): Promise<boolean> {
   return invoke('cancel_codex_chapter_request', { runId });
 }
+export async function buildCodexPrGuideReview(input: {
+  projectId: string; baseRef: string; headRef: string; comparisonId: string;
+  selectedChanges: { basePath: string | null; headPath: string | null }[];
+  modelId: string; effort: string; approvalPolicy: 'never';
+}): Promise<ProviderCommandResult<ProviderRequestReview>> {
+  return invoke('build_codex_pr_guide_review', { input });
+}
+export async function buildCodexPrChangeReview(input: {
+  projectId: string; target: PrChangeExplanationTarget;
+  modelId: string; effort: string; approvalPolicy: 'never';
+}): Promise<ProviderCommandResult<ProviderRequestReview>> {
+  return invoke('build_codex_pr_change_review', { input });
+}
+export async function sendCodexPrGuideRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<PrGuidePreview>> {
+  return invoke('send_codex_pr_guide_request', { reviewId, fingerprint, consent });
+}
+export async function sendCodexPrChangeRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<PrChangeExplanationPreview>> {
+  return invoke('send_codex_pr_change_request', { reviewId, fingerprint, consent });
+}
 
 export type ClaudeInspectionFailureKind = 'busy' | 'cancelled' | 'timedOut' | 'runtimeChanged' | 'reviewChanged'
   | 'preparationFailed' | 'processFailed' | 'protocolRejected' | 'outputLimit' | 'cleanupFailed' | 'unsupportedPlatform';

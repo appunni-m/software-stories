@@ -21,8 +21,8 @@ Claude now has invocation/stream-consumer, shared chapter/section review helpers
 | Generate an optional overview of selected captured files | Source | Missing | Missing |
 | Regenerate one stale section while preserving eligible unchanged sections | Source | Missing | Missing |
 | Explain the exact selected source range in Files | Source | Missing | Missing |
-| Generate a guide for a selected immutable Git comparison | Missing | Missing | Missing |
-| Explain one selected base/head diff hunk | Missing | Missing | Missing |
+| Generate a guide for a selected immutable Git comparison | Source | Missing | Missing |
+| Explain one selected base/head diff hunk | Source | Missing | Missing |
 
 File chapters, overviews, section repair, source-range explanations and both Git-change operations are required for Codex and Claude Agent. Repository planning must also support these agents when the AI narrative planner is implemented; a static call list does not satisfy generated narrative planning. Antigravity remains a separately required M7 integration subject to its exact permitted surface and account route. A direct API result in any row cannot qualify its agent counterpart.
 
@@ -43,7 +43,7 @@ Generation through either agent must retain the same language evidence limits an
 
 Use vendor-maintained agent loops: the official Codex app-server, the official Claude Agent SDK or its documented programmatic CLI, and a qualified official Antigravity surface. Evaluate maintained ACP adapters where they fit. Code Atlas owns context review, dispatch, lifecycle and validation; it does not implement a new agent loop, credential system or universal model/effort catalog.
 
-Keep operation context and validation independent of transport. Extend the existing shared chapter context rather than building an API request to obtain an agent prompt. Apply the same separation to the existing range and PR context builders when wiring their agent operations.
+Keep operation context and validation independent of transport. Extend the existing shared chapter context rather than building an API request to obtain an agent prompt. Range and PR context builders now have that separation for the Codex source routes; reuse those builders when wiring Claude operations.
 
 | Existing source | Responsibility to reuse or extend |
 | --- | --- |
@@ -59,10 +59,12 @@ Keep operation context and validation independent of transport. Extend the exist
 ## Implementation order and owners
 
 1. **Automatic Claude Agent (`8gqw`, priority 0):** implement the maintained SDK/CLI adapter, effective settings, managed lifecycle and shared file/overview validation. Resolve the exact product/account eligibility in the same task; do not replace it with an API requirement or call manual handoff complete. Current official pages disagree on third-party subscription integration, so account-route qualification remains open. See [the recorded sources and decision](kata-tasks/41-claude-agent-backend.md).
-2. **Codex completion (`z3an`, priority 0):** qualify the implemented routes and extend the shared context/dispatch to range and Git-change operations. Retain exact section identity and preservation semantics.
+2. **Codex completion (`z3an`, priority 0):** qualify the implemented chapter, section, range and Git-change routes and finish scope-preserving recovery. Retain exact section identity and preservation semantics.
 3. **Coverage and UX gate (`2r6n`, priority 0):** require both agents for every required row above, real effective controls, cancellation and scope-preserving recovery. Update this matrix with exact runtime/adapter versions and dated acceptance evidence before promoting any cell to supported.
 4. **Antigravity (`m00g`):** qualify its supported integration and account route independently. An unresolved requested backend keeps M7 open.
 
 Codex range dispatch now shares immutable range context with direct APIs and uses the existing managed runtime and independent citation validator. It stages only the excerpt, returns a transient explanation and never prepares a chapter draft. The full captured-file identity remains in the review; staged-content integrity uses the excerpt digest. Native acceptance, runtime qualification and scope-preserving interruption recovery remain pending.
 
 Runtime qualification, login, real generation and native acceptance remain pending. This contract update ran no tests, builds, agent processes or provider requests.
+
+Codex Git-change source dispatch now calls the shared transport-independent comparison/hunk builders. Four native review/send commands and the PR Guide backend chooser connect model/effort controls, exact review/consent, progress and cancellation to the managed runtime without an API prerequisite. Revalidation binds refs, resolved commits, selected path pairs/hunk, patch hashes, schema and settings. Neutral patch aliases keep arbitrary Git rename labels out of staging paths; the reviewed mapping retains original citation identities. Guides pass independent base/head citation validation into separate unaccepted PR Guide history; hunk results remain transient with citation navigation. A worker panic preserves its interruption notice. Full Git-scope recovery, exact runtime/account/boundary qualification and native acceptance remain pending. Claude automatic dispatch remains Missing; showing its pending option or metadata check cannot satisfy that row. No tests, builds or agent processes ran for this source delta.

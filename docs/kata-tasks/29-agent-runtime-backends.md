@@ -101,3 +101,7 @@ Managed catalog observations now enter a native, in-memory five-minute connectio
 ### Explicit source limits
 
 Codex and the Claude offline review panel now preserve the complete supplied selection instead of silently truncating it to the supported 12-file limit. An oversized selection requires deliberate correction before a valid review; section repair keeps its exact declared scope. Manual handoff and direct API initialization received the same correction. Native evidence/path/byte limits remain authoritative; all acceptance is pending in `xymb`.
+
+## Codex Git-change source delta
+
+PR Guide generation and single-hunk explanations now have registered native Codex review/send commands and an app caller. The PR screen defaults to Codex, offers Claude Agent with its exact pending-operation status and keeps direct APIs optional. Shared pure Git context feeds both agent and API reviews; the agent path does not enter API model admission, encoding or credentials. Exact comparison/hunk/settings revalidation, neutral staged patch mapping, independent citation checks, separate guide drafts, transient hunk results and progress/cancel UI are present in source. Full Git interruption recovery, native/runtime/account qualification and acceptance remain open. Claude automatic dispatch remains the priority-0 implementation gap; this increment cannot close the multi-agent requirement. No tests, builds or runtime calls ran.

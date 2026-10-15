@@ -6,7 +6,7 @@ Coding agents are primary generation options. Direct API keys are optional. The 
 
 | Choice | How the task runs | Configure model, reasoning and approvals | Current scope |
 | --- | --- | --- | --- |
-| Codex · ChatGPT account | Native managed official app-server | Select advertised model/reasoning in Code Atlas; approval currently fixed to `never` | File chapters, selected-source overviews, one-section stale repairs and exact code selections; runtime/account/package qualification pending |
+| Codex · ChatGPT account | Native managed official app-server | Select advertised model/reasoning in Code Atlas; approval currently fixed to `never` | File chapters, selected-source overviews, one-section repairs, exact code selections, PR Guides and single hunks; runtime/account/package qualification pending |
 | Claude Agent · setup check | Explicit native version/account-metadata inspection; no prompt | No generation settings yet | Setup only; automatic generation remains missing |
 | Claude Code · manual handoff | Copy task into your own agent, then import JSON | In Claude Code; Code Atlas cannot apply or verify them | File chapters and selected-source overviews; automatic Claude Agent adapter remains required |
 | Antigravity or another agent · manual handoff | Same user-operated text exchange | In the external agent; unverified here | Same bounded chapters; automatic vendor integrations remain pending |
@@ -20,7 +20,7 @@ Coding agents are primary generation options. Direct API keys are optional. The 
 4. Select and review the immutable source and effective request. Confirm sharing that context, then generate.
 5. Review the locally validated preview. **Save unaccepted draft**, then review and accept from the app's editing workflow.
 
-**Change backend** returns to all choices; it discards an unsaved preview. Requests never automatically switch to a paid API. The source adapter covers exact Code Lens selections; PR generation remains missing. Its full account, permission, cancellation and packaged-runtime acceptance remains open in `z3an`.
+**Change backend** returns to all choices; it discards an unsaved preview. Requests never automatically switch to a paid API. The source adapter covers exact Code Lens selections and Git comparisons/hunks. Its full account, permission, cancellation and packaged-runtime acceptance remains open in `z3an`.
 
 ### Explain a selected code range with Codex
 
@@ -29,6 +29,14 @@ In Files, select the captured code range, choose its explanation action and **Us
 ### Repair one stale section with Codex
 
 In Edit, assess an accepted older chapter against the selected current snapshot. When exactly one section is proven stale and every other section can carry forward, choose that section's regeneration action and **Use Codex**. The declared current source selection is fixed. Review the exact prompt: it includes the previous section and old source as context, plus current source as the only citable evidence. The 250,000-byte source limit counts old and current source together. Select model/reasoning, review and confirm, then **Regenerate section with Codex**. Local validation reconstructs a new unaccepted chapter revision and preserves eligible untouched section/asset identities. Saving and accepting remain separate. Multiple stale sections, a superseded base, changed source/section identity or invalid evidence stops the operation. This route is source-only and has not been run in the native app.
+
+### Explain Git changes with Codex
+
+In **Compare local revisions**, resolve the base/head refs. The PR Guide panel defaults to **Codex · ChatGPT account**. Select 1–12 changed files and **Review with Codex**, or use **Explain hunk** for a single hunk. Configure the installed Codex runtime/account, load models, choose model/reasoning and build the exact request review. Inspect the patches, resolved comparison evidence and effective settings, then confirm sharing and generate. No API key is required.
+
+A validated guide is saved as an unaccepted PR Guide draft. Select **Done** to review its claims before accepting or rejecting. A single-hunk explanation appears temporarily; its citations open the selected base/head hunk. Closing it writes no chapter or guide revision. A late cancellation or lost reply can follow a saved guide, so check PR Guide history before regenerating. The source workflow has not been run or accepted in the packaged app.
+
+Claude Agent is a separate required automatic backend; its PR operations remain missing. Selecting its pending option preserves that choice and offers an installation check. It does not send through a direct API.
 
 ### Interrupted requests
 

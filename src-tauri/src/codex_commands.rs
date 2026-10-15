@@ -2,8 +2,8 @@
 //! local validators are shared with API workflows; authentication is separate.
 
 use super::{
-    ProjectSessions, app_data_directory, chapters, codex_agent, prepare_chapter_draft_preview,
-    provider, recovery,
+    ProjectSessions, app_data_directory, chapters, codex_agent, pr_guide,
+    prepare_chapter_draft_preview, prepare_pr_guide_preview, provider, recovery,
 };
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
@@ -187,6 +187,87 @@ pub(crate) async fn build_codex_code_lens_review(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn build_codex_pr_guide_review(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    input: provider::BuildCodexPrGuideInput,
+) -> Result<provider::ProviderCommandResult<provider::ProviderRequestReview>, String> {
+    build_git_review(
+        app,
+        &sessions,
+        &manager,
+        &reviews,
+        GitReviewInput::Guide(input),
+    )
+    .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn build_codex_pr_change_review(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    input: provider::BuildCodexPrChangeInput,
+) -> Result<provider::ProviderCommandResult<provider::ProviderRequestReview>, String> {
+    build_git_review(
+        app,
+        &sessions,
+        &manager,
+        &reviews,
+        GitReviewInput::Change(input),
+    )
+    .await
+}
+
+enum GitReviewInput {
+    Guide(provider::BuildCodexPrGuideInput),
+    Change(provider::BuildCodexPrChangeInput),
+}
+
+async fn build_git_review(
+    app: AppHandle,
+    sessions: &ProjectSessions,
+    manager: &codex_agent::CodexAgentManager,
+    reviews: &provider::PendingProviderReviews,
+    input: GitReviewInput,
+) -> Result<provider::ProviderCommandResult<provider::ProviderRequestReview>, String> {
+    let project_id = match &input {
+        GitReviewInput::Guide(input) => &input.project_id,
+        GitReviewInput::Change(input) => &input.project_id,
+    };
+    let project = sessions.get(project_id)?;
+    let storage = app_data_directory(&app)?;
+    let runtime = manager.clone();
+    let pending = tauri::async_runtime::spawn_blocking(move || {
+        let status = runtime.status(&storage).map_err(|message| {
+            command_failure(provider::ProviderFailureKind::ReviewUnavailable, message)
+        })?;
+        let executable = status.executable_path.as_deref().unwrap_or("");
+        match input {
+            GitReviewInput::Guide(input) => provider::build_codex_pr_guide_review(
+                Path::new(&project.repository_root),
+                &input,
+                executable,
+            ),
+            GitReviewInput::Change(input) => provider::build_codex_pr_change_review(
+                Path::new(&project.repository_root),
+                &input,
+                executable,
+            ),
+        }
+    })
+    .await
+    .map_err(|_| "The Codex Git-change review could not be prepared.".to_owned())?;
+    Ok(match pending.and_then(|pending| reviews.insert(pending)) {
+        Ok(review) => provider::ProviderCommandResult::ok(review),
+        Err(error) => provider::ProviderCommandResult::failed(error),
+    })
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub(crate) fn cancel_codex_chapter_request(
     manager: State<'_, codex_agent::CodexAgentManager>,
     run_id: String,
@@ -231,12 +312,14 @@ pub(crate) async fn send_codex_chapter_request(
         }
         Err(error) => ResultEnvelope::failed(error),
     };
-    if let Err(message) = interruptions.discard(&completed.storage, &review_id) {
-        match &mut result {
+    if completed.clear_interruption {
+        if let Err(message) = interruptions.discard(&completed.storage, &review_id) {
+            match &mut result {
             ResultEnvelope::Ok { data } => data.update_notes.push(format!(
                 "Your validated preview is available. Its interruption notice could not be cleared: {message} Save or discard this preview before generating again.")),
             ResultEnvelope::Error { .. } => return Ok(ResultEnvelope::error(Kind::LocalStorageUnavailable,
                 format!("Codex stopped, but its recovery notice could not be cleared: {message} Check saved previews before generating again."))),
+        }
         }
     }
     Ok(result)
@@ -277,9 +360,10 @@ pub(crate) async fn send_codex_code_lens_request(
             &response,
         )
     });
-    if interruptions
-        .discard(&completed.storage, &review_id)
-        .is_err()
+    if completed.clear_interruption
+        && interruptions
+            .discard(&completed.storage, &review_id)
+            .is_err()
     {
         return Ok(ResultEnvelope::error(
             Kind::LocalStorageUnavailable,
@@ -292,26 +376,156 @@ pub(crate) async fn send_codex_code_lens_request(
     })
 }
 
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn send_codex_pr_guide_request(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    interruptions: State<'_, recovery::InterruptionJournal>,
+    review_id: String,
+    fingerprint: String,
+    consent: bool,
+) -> Result<provider::ProviderCommandResult<pr_guide::PrGuidePreview>, String> {
+    use provider::{ProviderCommandResult as Envelope, ProviderFailureKind as Kind};
+    let completed = match execute_codex_operation(
+        app,
+        &sessions,
+        &manager,
+        &reviews,
+        &interruptions,
+        &review_id,
+        &fingerprint,
+        consent,
+        CodexOperation::PrGuide,
+    )
+    .await
+    {
+        Ok(completed) => completed,
+        Err(error) => return Ok(Envelope::failed(error)),
+    };
+    let result = completed.result.and_then(|response| {
+        provider::revalidate_codex_git_review(
+            &completed.repository,
+            &completed.review,
+            completed.review.generation_config["executablePath"]
+                .as_str()
+                .unwrap_or(""),
+        )?;
+        // PR Guides retain their separate unaccepted revision family. Never
+        // route this result through chapter history or accept it automatically.
+        prepare_pr_guide_preview(&completed.storage, &completed.review, response)
+    });
+    if completed.clear_interruption
+        && interruptions
+            .discard(&completed.storage, &review_id)
+            .is_err()
+    {
+        return Ok(Envelope::error(
+            Kind::LocalStorageUnavailable,
+            if result.is_ok() {
+                "The validated PR Guide draft is saved in PR Guide history, but its interruption notice could not be cleared. Open that draft before considering another generation."
+            } else {
+                "Codex stopped, but its interruption notice could not be cleared. Check recovery state and select the exact Git comparison before preparing another request."
+            },
+        ));
+    }
+    Ok(match result {
+        Ok(preview) => Envelope::ok(preview),
+        Err(error) => Envelope::failed(error),
+    })
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn send_codex_pr_change_request(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    interruptions: State<'_, recovery::InterruptionJournal>,
+    review_id: String,
+    fingerprint: String,
+    consent: bool,
+) -> Result<provider::ProviderCommandResult<provider::PrChangeExplanationPreview>, String> {
+    use provider::{ProviderCommandResult as Envelope, ProviderFailureKind as Kind};
+    let completed = match execute_codex_operation(
+        app,
+        &sessions,
+        &manager,
+        &reviews,
+        &interruptions,
+        &review_id,
+        &fingerprint,
+        consent,
+        CodexOperation::PrChange,
+    )
+    .await
+    {
+        Ok(completed) => completed,
+        Err(error) => return Ok(Envelope::failed(error)),
+    };
+    let result = completed.result.and_then(|response| {
+        provider::canonicalize_pr_change_explanation(
+            &completed.repository,
+            &completed.review,
+            &response,
+        )
+    });
+    if completed.clear_interruption
+        && interruptions
+            .discard(&completed.storage, &review_id)
+            .is_err()
+    {
+        return Ok(Envelope::error(
+            Kind::LocalStorageUnavailable,
+            "Codex stopped, but its interruption notice could not be cleared. Select the exact Git comparison and hunk before preparing another request.",
+        ));
+    }
+    // Hunk claims remain transient. No chapter or PR Guide draft is written.
+    Ok(match result {
+        Ok(preview) => Envelope::ok(preview),
+        Err(error) => Envelope::failed(error),
+    })
+}
+
 #[derive(Clone, Copy)]
 enum CodexOperation {
     Chapter,
     CodeLens,
+    PrGuide,
+    PrChange,
 }
 impl CodexOperation {
     fn accepts(self, review: &provider::ProviderRequestReview) -> bool {
-        if review.pr_guide_context.is_some() || review.pr_change_context.is_some() {
-            return false;
-        }
+        let no_git = review.pr_guide_context.is_none() && review.pr_change_context.is_none();
         match self {
             Self::Chapter => {
                 matches!(
                     review.purpose.as_str(),
                     "fileChapter" | "repositoryOverview" | "sectionUpdate"
                 ) && review.code_lens_context.is_none()
+                    && no_git
             }
             Self::CodeLens => {
                 review.purpose == "codeLensExplanation"
                     && review.code_lens_context.is_some()
+                    && review.section_update_context.is_none()
+                    && no_git
+            }
+            Self::PrGuide => {
+                review.purpose == "prGuide"
+                    && review.pr_guide_context.is_some()
+                    && review.pr_change_context.is_none()
+                    && review.target_path.is_none()
+                    && review.code_lens_context.is_none()
+                    && review.section_update_context.is_none()
+            }
+            Self::PrChange => {
+                review.purpose == "prChangeExplanation"
+                    && review.pr_change_context.is_some()
+                    && review.pr_guide_context.is_none()
+                    && review.target_path.is_some()
+                    && review.code_lens_context.is_none()
                     && review.section_update_context.is_none()
             }
         }
@@ -320,8 +534,10 @@ impl CodexOperation {
 
 struct CompletedCodexOperation {
     storage: PathBuf,
+    repository: PathBuf,
     review: provider::ProviderRequestReview,
     result: Result<provider::ProviderSendResult, provider::ProviderFailure>,
+    clear_interruption: bool,
 }
 
 fn command_failure(
@@ -365,12 +581,13 @@ async fn execute_codex_operation(
             "Build a fresh Codex review for this operation with the selected source and settings.",
         ));
     }
-    sessions.get(&pending.review.project_id).map_err(|_| {
+    let project = sessions.get(&pending.review.project_id).map_err(|_| {
         command_failure(
             Kind::InvalidReview,
             "Reopen the selected repository before reviewing this Codex operation again.",
         )
     })?;
+    let repository = PathBuf::from(project.repository_root);
     let storage = app_data_directory(&app).map_err(|_| {
         command_failure(
             Kind::LocalStorageUnavailable,
@@ -380,15 +597,25 @@ async fn execute_codex_operation(
     let runtime = manager.clone();
     let reviewed = pending.review.clone();
     let storage_for_review = storage.clone();
+    let repository_for_review = repository.clone();
     let validated = tauri::async_runtime::spawn_blocking(move || {
         let status = runtime
             .status(&storage_for_review)
             .map_err(|message| command_failure(Kind::ReviewUnavailable, message))?;
-        provider::revalidate_codex_request_review(
-            &storage_for_review,
-            &reviewed,
-            status.executable_path.as_deref().unwrap_or(""),
-        )
+        let executable = status.executable_path.as_deref().unwrap_or("");
+        match operation {
+            CodexOperation::PrGuide | CodexOperation::PrChange => {
+                provider::revalidate_codex_git_review(&repository_for_review, &reviewed, executable)
+                    .map(|_| ())
+            }
+            CodexOperation::Chapter | CodexOperation::CodeLens => {
+                provider::revalidate_codex_request_review(
+                    &storage_for_review,
+                    &reviewed,
+                    executable,
+                )
+            }
+        }
     })
     .await
     .map_err(|_| {
@@ -427,8 +654,16 @@ async fn execute_codex_operation(
         sources: review
             .selected_files
             .iter()
-            .map(|file| codex_agent::CodexSourceFile {
-                path: file.path.clone(),
+            .enumerate()
+            .map(|(index, file)| codex_agent::CodexSourceFile {
+                path: if matches!(
+                    operation,
+                    CodexOperation::PrGuide | CodexOperation::PrChange
+                ) {
+                    provider::agent_diff_source_name(index)
+                } else {
+                    file.path.clone()
+                },
                 // Code Lens stages only the reviewed excerpt. Its integrity digest
                 // differs from the original file identity retained in the review.
                 sha256: format!("{:x}", Sha256::digest(file.contents.as_bytes())),
@@ -444,29 +679,40 @@ async fn execute_codex_operation(
         })
     })
     .await;
-    let result = match run {
-        Ok(Ok(response)) => Ok(provider::ProviderSendResult {
-            review_id: review_id.to_owned(),
-            fingerprint: fingerprint.to_owned(),
-            model_id: response.model,
-            model_version: None,
-            response_text: response.response_text,
-            input_tokens: None,
-            output_tokens: None,
-        }),
-        Ok(Err(message)) => Err(command_failure(codex_run_failure_kind(&message), message)),
+    let (result, clear_interruption) = match run {
+        Ok(Ok(response)) => (
+            Ok(provider::ProviderSendResult {
+                review_id: review_id.to_owned(),
+                fingerprint: fingerprint.to_owned(),
+                model_id: response.model,
+                model_version: None,
+                response_text: response.response_text,
+                input_tokens: None,
+                output_tokens: None,
+            }),
+            true,
+        ),
+        Ok(Err(message)) => (
+            Err(command_failure(codex_run_failure_kind(&message), message)),
+            true,
+        ),
         Err(_) => {
             manager.shutdown();
-            Err(command_failure(
-                Kind::ProviderRejectedRequest,
-                "The Codex worker stopped unexpectedly. Restart the app and review a new request before retrying.",
-            ))
+            (
+                Err(command_failure(
+                    Kind::ProviderRejectedRequest,
+                    "The Codex worker stopped unexpectedly. Restart the app and review a new request before retrying.",
+                )),
+                false,
+            )
         }
     };
     Ok(CompletedCodexOperation {
         storage,
+        repository,
         review,
         result,
+        clear_interruption,
     })
 }
 
