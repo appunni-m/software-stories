@@ -28,7 +28,10 @@ mod tests {
     use super::*;
     use std::fs;
     use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    static NEXT_TEST_FILE: AtomicU64 = AtomicU64::new(0);
 
     struct TestFile(PathBuf);
 
@@ -38,9 +41,10 @@ mod tests {
                 .duration_since(UNIX_EPOCH)
                 .expect("system clock should be after UNIX epoch")
                 .as_nanos();
+            let sequence = NEXT_TEST_FILE.fetch_add(1, Ordering::Relaxed);
             let path = std::env::temp_dir().join(format!(
-                "code-atlas-bounded-file-{}-{nonce}",
-                std::process::id()
+                "code-atlas-bounded-file-{}-{nonce}-{sequence}",
+                std::process::id(),
             ));
             fs::write(&path, contents).expect("fixture bytes should be written");
             Self(path)

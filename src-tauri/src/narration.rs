@@ -313,8 +313,16 @@ fn build_review_for_backend(
         Ok(input) => input,
         Err(error) => return ProviderCommandResult::failed(error),
     };
-    let model_id = if local { crate::pocket_tts::MODEL_ID } else { MODEL_ID };
-    let disclosure_version = if local { LOCAL_DISCLOSURE_VERSION } else { DISCLOSURE_VERSION };
+    let model_id = if local {
+        crate::pocket_tts::MODEL_ID
+    } else {
+        MODEL_ID
+    };
+    let disclosure_version = if local {
+        LOCAL_DISCLOSURE_VERSION
+    } else {
+        DISCLOSURE_VERSION
+    };
     let exact_text = apply_lexicon(&input.spoken_text, &input.lexicon);
     if exact_text.trim().is_empty() || exact_text.len() > MAX_SPOKEN_TEXT_BYTES {
         return ProviderCommandResult::error(
@@ -422,19 +430,26 @@ pub async fn synthesize_reviewed_audio(
                 Err(error) => return ProviderCommandResult::failed(error),
             };
             if !is_wav(&audio) {
-                return ProviderCommandResult::error(ProviderFailureKind::MalformedProviderResponse,
-                    "Local narration returned invalid WAV audio. Previous audio is preserved.");
+                return ProviderCommandResult::error(
+                    ProviderFailureKind::MalformedProviderResponse,
+                    "Local narration returned invalid WAV audio. Previous audio is preserved.",
+                );
             }
             let Some(pcm) = wav_pcm_data(&audio) else {
-                return ProviderCommandResult::error(ProviderFailureKind::MalformedProviderResponse,
-                    "Local narration returned WAV audio with no PCM data. Previous audio is preserved.");
+                return ProviderCommandResult::error(
+                    ProviderFailureKind::MalformedProviderResponse,
+                    "Local narration returned WAV audio with no PCM data. Previous audio is preserved.",
+                );
             };
             total_pcm_bytes = total_pcm_bytes.saturating_add(pcm.len());
-            let total_bytes = 44_usize.saturating_add(total_pcm_bytes)
+            let total_bytes = 44_usize
+                .saturating_add(total_pcm_bytes)
                 .saturating_add(9_600_usize.saturating_mul(segments.len()));
             if audio.len() > MAX_RESPONSE_BYTES || total_bytes > MAX_RESPONSE_BYTES {
-                return ProviderCommandResult::error(ProviderFailureKind::ProviderResponseTooLarge,
-                    "Local narration exceeded the audio limit. Previous audio is preserved.");
+                return ProviderCommandResult::error(
+                    ProviderFailureKind::ProviderResponseTooLarge,
+                    "Local narration exceeded the audio limit. Previous audio is preserved.",
+                );
             }
             segments.push(audio);
         }
@@ -449,8 +464,10 @@ pub async fn synthesize_reviewed_audio(
         return ProviderCommandResult::ok(audio_result(&pending.review, bytes, false));
     }
     if pending.review.model_id != MODEL_ID {
-        return ProviderCommandResult::error(ProviderFailureKind::ReviewChanged,
-            "This narration backend is unavailable. Review the section again; no fallback was used.");
+        return ProviderCommandResult::error(
+            ProviderFailureKind::ReviewChanged,
+            "This narration backend is unavailable. Review the section again; no fallback was used.",
+        );
     }
     let api_key = match load_api_key() {
         Ok(key) => key,
@@ -500,7 +517,10 @@ where
 fn check_audio_request_cancellation(
     cancellation: &mut oneshot::Receiver<()>,
 ) -> Result<(), ProviderFailure> {
-    if !matches!(cancellation.try_recv(), Err(oneshot::error::TryRecvError::Empty)) {
+    if !matches!(
+        cancellation.try_recv(),
+        Err(oneshot::error::TryRecvError::Empty)
+    ) {
         return Err(failure(
             ProviderFailureKind::RequestCancelled,
             "The narration request was cancelled locally. No returned audio was accepted. Review again before generating more audio.",
@@ -584,7 +604,9 @@ fn audio_result(
 }
 
 #[cfg(test)]
-fn validate_input(input: BuildNarrationReviewInput) -> Result<BuildNarrationReviewInput, ProviderFailure> {
+fn validate_input(
+    input: BuildNarrationReviewInput,
+) -> Result<BuildNarrationReviewInput, ProviderFailure> {
     validate_input_for_backend(input, false)
 }
 
@@ -610,8 +632,10 @@ fn validate_input_for_backend(
         ));
     }
     if local && (input.voice != crate::pocket_tts::VOICE || !input.style.is_empty()) {
-        return Err(failure(ProviderFailureKind::InvalidReview,
-            "Pocket TTS uses the Alba voice and does not support delivery-style prompts. Review local voice settings again."));
+        return Err(failure(
+            ProviderFailureKind::InvalidReview,
+            "Pocket TTS uses the Alba voice and does not support delivery-style prompts. Review local voice settings again.",
+        ));
     }
     if !local && !PREBUILT_VOICES.contains(&input.voice.as_str()) {
         return Err(failure(

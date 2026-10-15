@@ -8,7 +8,7 @@
 //! tools disabled, restricted read access, and unexpected tool events rejected.
 
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File, OpenOptions};
@@ -16,7 +16,7 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::{mpsc, Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, mpsc};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 use uuid::Uuid;
@@ -1718,7 +1718,9 @@ fn rpc_failure(method: &str, response: &Value) -> String {
     {
         UPGRADE.to_owned()
     } else {
-        format!("Codex could not complete {method}. The request was not retried and existing chapters were preserved.")
+        format!(
+            "Codex could not complete {method}. The request was not retried and existing chapters were preserved."
+        )
     }
 }
 

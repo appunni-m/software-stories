@@ -8,11 +8,15 @@ import { loadShellStartupData, PRIMARY_WORKSPACES, WORKSPACE_COPY } from '../src
 const allWorkspaces = ['atlas', 'code-lens', 'walkthrough', 'guide-plan', 'chapter-studio', 'changes'];
 
 describe('desktop shell acceptance contract', () => {
-  it('starts at Atlas with no selected repository or snapshot and defines the core and local-change surfaces', () => {
+  it('opens local file browsing with no project and exposes the simple primary destinations', () => {
     assert.deepEqual(initialNavigationState.current, {
       workspace: 'atlas', projectId: null, snapshotId: null, focusTarget: 'atlas:open-repository',
     });
-    assert.deepEqual(PRIMARY_WORKSPACES.map(({ id }) => id), ['atlas', 'code-lens', 'walkthrough']);
+    assert.deepEqual(PRIMARY_WORKSPACES.map(({ id, label }) => [id, label]), [
+      ['guide-plan', 'Guide'],
+      ['atlas', 'Files'],
+      ['changes', 'Changes'],
+    ]);
     assert.deepEqual(Object.keys(WORKSPACE_COPY).sort(), [...allWorkspaces].sort());
     for (const workspace of allWorkspaces) {
       const copy = WORKSPACE_COPY[workspace];
