@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { CodexChapterDialog, type CodexChapterDialogMode } from './CodexChapterDialog';
+import { CodexChapterDialog, type CodexChapterDialogMode, type CodexGitRecovery } from './CodexChapterDialog';
 import { AgentHandoffDialog } from './AgentHandoffDialog';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
@@ -42,6 +42,7 @@ import {
   loadSnapshotIndex,
   listRecentProjects,
   listInterruptedOperations,
+  loadInterruptedGenerationScope,
   listPendingGeneratedChapterPreviews,
   loadPendingGeneratedChapterPreview,
   pickProjectFolder,
@@ -171,7 +172,7 @@ type Notice = { title: string; message: string; actionLabel?: string; action?: (
 type ProviderDialogMode = (
   | { kind: 'settings'; backend?: 'api'; recoveryOperationId?: string }
   | { kind: 'review'; projectId: string; snapshotId: string; targetPath: string; selectedPaths?: string[]; recoveryOperationId?: string }
-  | { kind: 'code-lens-range'; projectId: string; snapshotId: string; target: CodeLensExplanationTarget }
+  | { kind: 'code-lens-range'; projectId: string; snapshotId: string; target: CodeLensExplanationTarget; recoveryOperationId?: string }
   | { kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string; selectedPaths: string[]; baseRevision: ChapterRevision; sectionUpdate: SectionUpdateReviewTarget; recoveryOperationId?: string }
   | { kind: 'overview'; projectId: string; snapshotId: string; selectedPaths?: string[]; recoveryOperationId?: string }
 ) & { recoveryBackend?: 'codex' };
@@ -230,6 +231,7 @@ function App() {
   }>>({});
   const [recoveredPreviewId, setRecoveredPreviewId] = useState<string | null>(null);
   const [recoveryBusyId, setRecoveryBusyId] = useState<string | null>(null);
+  const [recoveredGitRequest, setRecoveredGitRequest] = useState<CodexGitRecovery | null>(null);
   const [sourceDocument, setSourceDocument] = useState<SnapshotSource | null>(null);
   const [sourceLoading, setSourceLoading] = useState(false);
   const [sourceError, setSourceError] = useState<string | null>(null);
@@ -322,6 +324,7 @@ function App() {
     try {
       await discardInterruptedOperation(operationId);
       setInterruptedOperations((current) => current.filter((operation) => operation.operationId !== operationId));
+      setRecoveredGitRequest((current) => current?.operationId === operationId ? null : current);
     } catch (error) {
       setNotice({
         title: 'Recovery notice could not be cleared',
@@ -368,6 +371,7 @@ function App() {
     try {
       await discardInterruptedOperation(operation.operationId);
       setInterruptedOperations((current) => current.filter((item) => item.operationId !== operation.operationId));
+      setRecoveredGitRequest((current) => current?.operationId === operation.operationId ? null : current);
     } catch (error) {
       setNotice({
         title: 'Recovery notice could not be cleared',
@@ -423,6 +427,7 @@ function App() {
     const originRoute = navigationRef.current.current;
     const current = () => interruptedReviewToken.current === token && navigationRef.current.current === originRoute;
     setRecoveryBusyId(operation.operationId);
+    setRecoveredGitRequest(null);
     try {
       const request = operation.providerRequest;
       if (!request) throw new Error('This older interruption record does not identify the request scope. Reopen the project and select the original file, section, source range or change before preparing a new request. The app will not assume it was a whole-file explanation.');
@@ -446,17 +451,67 @@ function App() {
         }
         sectionBase = base;
       }
+      // Recover only journal-owned evidence, after local native revalidation.
+      // Claude keeps its notice until its automatic app flow is connected.
+      let rangeTarget: CodeLensExplanationTarget | null = null;
+      let gitRecovery: CodexGitRecovery | null = null;
+      let recoveredComparison: GitComparisonResult | null = null;
+      if (request.providerId === 'codex' && ['codeLensExplanation', 'prGuide', 'prChangeExplanation'].includes(request.purpose)) {
+        const recovered = await loadInterruptedGenerationScope(operation.operationId);
+        if (!current()) return;
+        const original = recovered.operation;
+        const exact = original.providerRequest;
+        if (original.operationId !== operation.operationId || original.projectId !== operation.projectId
+          || original.snapshotId !== operation.snapshotId || exact?.providerId !== 'codex' || exact.purpose !== request.purpose) {
+          throw new Error('The interrupted request changed during recovery. Review the current notice again.');
+        }
+        if (exact.purpose === 'codeLensExplanation') {
+          if (!exact.codeLens) throw new Error('This older notice has no exact range. Select the original range again.');
+          rangeTarget = exact.codeLens;
+        } else {
+          const git = exact.git;
+          if (!git || !recovered.comparison || recovered.comparison.comparisonId !== git.comparisonId) {
+            throw new Error('This notice has no recoverable Git selection. Select the original comparison again.');
+          }
+          recoveredComparison = recovered.comparison;
+          if (exact.purpose === 'prGuide') {
+            gitRecovery = { operationId: operation.operationId, mode: { kind: 'pr-guide', projectId: operation.projectId,
+              baseRef: git.baseRef, headRef: git.headRef, comparisonId: git.comparisonId,
+              selectedChanges: git.selectedChanges, recoveryOperationId: operation.operationId } };
+          } else {
+            if (git.hunkIndex === null || git.selectedChanges.length !== 1) throw new Error('The exact interrupted hunk is unavailable. Select it again.');
+            gitRecovery = { operationId: operation.operationId, mode: { kind: 'pr-change', projectId: operation.projectId,
+              target: { baseRef: git.baseRef, headRef: git.headRef, comparisonId: git.comparisonId,
+                selectedChange: git.selectedChanges[0], hunkIndex: git.hunkIndex }, recoveryOperationId: operation.operationId } };
+          }
+        }
+      }
       handleProjectOpenResult(opened);
       const chapterRequest = ['fileChapter', 'repositoryOverview', 'sectionUpdate'].includes(request.purpose);
+      const recoveredRefs = !gitRecovery ? null : gitRecovery.mode.kind === 'pr-guide' ? gitRecovery.mode : gitRecovery.mode.target;
+      if (recoveredRefs && recoveredComparison) {
+        const result = recoveredComparison;
+        setGitComparisonsByProject((state) => ({ ...state, [operation.projectId]: {
+          baseRef: recoveredRefs.baseRef, headRef: recoveredRefs.headRef, result,
+        } }));
+      }
       setNavigation((state) => navigateToRoute(state, {
         workspace: chapterRequest ? 'chapter-studio' : request.purpose === 'codeLensExplanation' ? 'atlas' : 'changes',
         projectId: operation.projectId,
-        snapshotId: operation.snapshotId,
-        relativePath: request.purpose === 'codeLensExplanation' ? operation.targetPath ?? undefined : undefined,
+        snapshotId: request.purpose === 'prGuide' || request.purpose === 'prChangeExplanation' ? null : operation.snapshotId,
+        baseRef: recoveredRefs?.baseRef, headRef: recoveredRefs?.headRef,
+        relativePath: rangeTarget?.path ?? (request.purpose === 'codeLensExplanation' ? operation.targetPath ?? undefined : undefined),
+        sourceRange: rangeTarget ? { startLine: rangeTarget.startLine, endLine: rangeTarget.endLine, sourceSha256: rangeTarget.sourceSha256,
+          ...(rangeTarget.startByte === null || rangeTarget.endByteExclusive === null ? {} : { startByte: rangeTarget.startByte, endByteExclusive: rangeTarget.endByteExclusive }) } : undefined,
         focusTarget: chapterRequest ? 'heading:chapter-studio' : request.purpose === 'codeLensExplanation' ? 'heading:atlas' : 'heading:changes',
       }));
       const recoveryBackend = request.providerId === 'codex' ? 'codex' as const : undefined;
-      if (request.purpose === 'sectionUpdate' && sectionBase && sectionTarget && operation.targetPath) {
+      if (gitRecovery) {
+        setRecoveredGitRequest(gitRecovery);
+      } else if (rangeTarget) {
+        setProviderDialog({ kind: 'code-lens-range', projectId: operation.projectId, snapshotId: operation.snapshotId,
+          target: rangeTarget, recoveryOperationId: operation.operationId, recoveryBackend: 'codex' });
+      } else if (request.purpose === 'sectionUpdate' && sectionBase && sectionTarget && operation.targetPath) {
         setProviderDialog({ kind: 'section-update', projectId: operation.projectId, snapshotId: operation.snapshotId,
           targetPath: operation.targetPath, selectedPaths: request.selectedPaths, baseRevision: sectionBase, sectionUpdate: sectionTarget,
           recoveryOperationId: operation.operationId, recoveryBackend });
@@ -1420,7 +1475,7 @@ function App() {
                 <strong>{operation.kind === 'capture' ? 'A repository capture was interrupted' : operation.providerRequest?.purpose === 'sectionUpdate' ? 'Section repair was interrupted' : 'Explanation generation was interrupted'}</strong>
                 <span>{operation.kind === 'capture'
                   ? 'Retry starts a fresh capture; existing snapshots remain available.'
-                  : 'No generated revision was accepted. Review a new exact-context request; prior consent is not reused.'}</span>
+                  : 'Check saved previews and PR Guide history before a new request. Existing history is preserved; prior consent is not reused.'}</span>
               </div>
               <div className="notice-actions">
                 {operation.kind === 'capture'
@@ -1636,6 +1691,8 @@ function App() {
                   }))}
                   onOpenRepository={() => { void openLocalRepository(); }}
                   onOpenProviderSettings={() => setProviderDialog({ kind: 'settings', backend: 'api' })}
+                  recovery={recoveredGitRequest}
+                  onRecoveryReviewReady={completeRecoveredProviderReview}
                 />
               </Suspense>
             ) : (

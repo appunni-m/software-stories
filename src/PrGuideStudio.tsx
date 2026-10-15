@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, RotateCcw, Send, ShieldCheck, Sparkles } from 'lucide-react';
-import { CodexChapterDialog, type CodexChapterDialogMode } from './CodexChapterDialog';
+import { CodexChapterDialog, type CodexChapterDialogMode, type CodexGitRecovery } from './CodexChapterDialog';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import {
   acceptPrGuideDraft,
@@ -42,6 +42,8 @@ interface PrGuideStudioProps {
   comparison: GitComparisonResult;
   onFocusChange: (path: string | undefined, hunkIndex?: number) => void;
   onOpenProviderSettings: () => void;
+  recovery?: CodexGitRecovery | null;
+  onRecoveryReviewReady?: (operationId: string) => void;
 }
 
 export function PrGuideStudio({
@@ -51,10 +53,13 @@ export function PrGuideStudio({
   comparison,
   onFocusChange,
   onOpenProviderSettings,
+  recovery,
+  onRecoveryReviewReady,
 }: PrGuideStudioProps) {
   const [backend, setBackend] = useState<'codex' | 'claude-agent' | 'api'>('codex');
   const [codexMode, setCodexMode] = useState<CodexChapterDialogMode | null>(null);
   const [claudeSetup, setClaudeSetup] = useState(false);
+  const [recoveryHistoryChecked, setRecoveryHistoryChecked] = useState(false);
   const [providerCatalog, setProviderCatalog] = useState<ProviderDisclosure[]>([]);
   const [providerId, setProviderId] = useState('');
   const [disclosure, setDisclosure] = useState<ProviderDisclosure | null>(null);
@@ -76,6 +81,8 @@ export function PrGuideStudio({
   const [history, setHistory] = useState<PrGuideRevision[]>([]);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const historyLookup = useRef(0);
+  const historyActive = useRef(false);
   const [currentDraft, setCurrentDraft] = useState<PrGuideRevision | null>(null);
   const [includedClaimIds, setIncludedClaimIds] = useState<string[]>([]);
   const [decisionBusy, setDecisionBusy] = useState(false);
@@ -89,6 +96,11 @@ export function PrGuideStudio({
     () => eligibleChanges.filter((change) => selectedKeys.includes(changeKey(change))),
     [eligibleChanges, selectedKeys],
   );
+  const recoveryRefs = !recovery ? null : recovery.mode.kind === 'pr-guide' ? recovery.mode : recovery.mode.target;
+  const matchingRecovery = recovery && recovery.mode.projectId === projectId
+    && recoveryRefs && recoveryRefs.comparisonId === comparison.comparisonId && recoveryRefs.baseRef === baseRef && recoveryRefs.headRef === headRef ? recovery : null;
+
+  useEffect(() => { setRecoveryHistoryChecked(false); }, [recovery?.operationId, history.length]);
   const credentialInfo = credential?.status === 'ok' ? credential.data : null;
   const hasApiKey = credentialInfo?.apiKeyConfigured ?? false;
   const selectedModel = disclosure?.models.find((model) => model.modelId === modelId) ?? null;
@@ -169,21 +181,23 @@ export function PrGuideStudio({
 
   useEffect(() => {
     if (comparison.status !== 'ready' || !comparison.comparisonId) {
+      historyActive.current = false;
       setHistory([]);
       setHistoryError(null);
+      setHistoryLoading(false);
       return;
     }
     let active = true;
-    let sequence = 0;
+    historyActive.current = true;
     const comparisonId = comparison.comparisonId;
     const reload = () => {
-      const request = ++sequence;
+      const request = ++historyLookup.current;
       setHistoryLoading(true);
       setHistoryError(null);
       void listPrGuideRevisions(projectId, comparisonId)
-        .then((revisions) => { if (active && sequence === request) setHistory(revisions); })
-        .catch(() => { if (active && sequence === request) setHistoryError('The local PR Guide history could not be loaded.'); })
-        .finally(() => { if (active && sequence === request) setHistoryLoading(false); });
+        .then((revisions) => { if (active && historyLookup.current === request) setHistory(revisions); })
+        .catch(() => { if (active && historyLookup.current === request) setHistoryError('The local PR Guide history could not be loaded.'); })
+        .finally(() => { if (active && historyLookup.current === request) setHistoryLoading(false); });
     };
     const changed = (event: Event) => {
       const detail = (event as CustomEvent<{ projectId: string; comparisonId: string }>).detail;
@@ -191,7 +205,7 @@ export function PrGuideStudio({
     };
     reload();
     window.addEventListener('code-atlas:pr-guides-changed', changed);
-    return () => { active = false; window.removeEventListener('code-atlas:pr-guides-changed', changed); };
+    return () => { active = false; historyActive.current = false; historyLookup.current += 1; window.removeEventListener('code-atlas:pr-guides-changed', changed); };
   }, [comparison.comparisonId, comparison.status, projectId]);
 
   function clearReview() {
@@ -318,12 +332,17 @@ export function PrGuideStudio({
   }
 
   async function refreshHistory() {
-    if (!comparison.comparisonId) return;
+    if (!comparison.comparisonId || !historyActive.current) return;
+    const request = ++historyLookup.current;
+    setHistoryLoading(true);
+    setHistoryError(null);
     try {
-      setHistory(await listPrGuideRevisions(projectId, comparison.comparisonId));
-      setHistoryError(null);
+      const revisions = await listPrGuideRevisions(projectId, comparison.comparisonId);
+      if (historyActive.current && historyLookup.current === request) setHistory(revisions);
     } catch {
-      setHistoryError('The local PR Guide history could not be refreshed.');
+      if (historyActive.current && historyLookup.current === request) setHistoryError('The local PR Guide history could not be refreshed.');
+    } finally {
+      if (historyActive.current && historyLookup.current === request) setHistoryLoading(false);
     }
   }
 
@@ -401,6 +420,24 @@ export function PrGuideStudio({
         <span className="git-readonly-badge"><BookOpenCheck size={14} /> Local draft</span>
       </div>
       <p className="pr-guide-muted">Choose a backend, select changed files, inspect the exact diff sent, then review every claim against its base/head hunk. Accepting or rejecting saves a PR Guide revision; it never changes Git refs or file chapter history.</p>
+      {matchingRecovery && <section className="provider-review-card" aria-labelledby="recovered-git-title">
+        <h3 id="recovered-git-title">Review interrupted Codex work</h3>
+        <p>{matchingRecovery.mode.kind === 'pr-guide'
+          ? `${matchingRecovery.mode.selectedChanges.length} original changed files are preserved.`
+          : `The original file and hunk ${matchingRecovery.mode.target.hunkIndex + 1} are preserved.`} Local validation checked the comparison and patch hashes. Choose current model settings, review the exact request and confirm again. Nothing resumes automatically.</p>
+        {matchingRecovery.mode.kind === 'pr-guide' && <>
+          <p>A response may already have saved a draft. Review this comparison’s PR Guide history below before requesting another generation.</p>
+          {historyError && <button className="secondary-button" onClick={() => { void refreshHistory(); }}>Reload saved guides</button>}
+          <label className="provider-checkbox"><input type="checkbox" checked={recoveryHistoryChecked} disabled={historyLoading || Boolean(historyError)} onChange={(event) => setRecoveryHistoryChecked(event.target.checked)} />I checked the saved guides and want a new request review.</label>
+        </>}
+        <button className="primary-button" disabled={building || sending || decisionBusy || Boolean(codexMode) || Boolean(changeExplanationSelection) || claudeSetup
+          || (matchingRecovery.mode.kind === 'pr-guide' && (!recoveryHistoryChecked || historyLoading || Boolean(historyError)))}
+          onClick={() => {
+            clearReview(); setBackend('codex');
+            if (matchingRecovery.mode.kind === 'pr-guide') setSelectedKeys(matchingRecovery.mode.selectedChanges.map(changeKey));
+            setCodexMode(matchingRecovery.mode);
+          }}>Review original scope with Codex</button>
+      </section>}
       <label className="pr-guide-model">Generate with
         <select value={backend} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection) || Boolean(codexMode) || claudeSetup}
           onChange={(event) => { clearReview(); setBackend(event.target.value as typeof backend); }}>
@@ -469,6 +506,7 @@ export function PrGuideStudio({
 
       {codexMode && <CodexChapterDialog mode={codexMode} native={isNativeRuntime()}
         onClose={() => setCodexMode(null)} onChooseBackend={() => setCodexMode(null)}
+        onRecoveryReviewReady={onRecoveryReviewReady}
         onPrGuideReady={(preview) => {
           setCurrentDraft(preview.revision);
           setIncludedClaimIds(allClaimIds(preview.revision));

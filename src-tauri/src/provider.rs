@@ -1792,6 +1792,114 @@ pub fn build_pr_guide_request_review_for_provider(
     Ok(PendingProviderRequest { review, body })
 }
 
+/// Revalidate journal-owned range/Git identities locally, without model
+/// admission, a pending request, consent or an agent/API call. Shared pure
+/// builders enforce the same source limits and exclusions as generation.
+pub(crate) fn revalidate_interrupted_evidence(
+    storage_dir: &Path,
+    repository: &Path,
+    operation: &crate::recovery::InterruptedOperation,
+) -> Result<Option<crate::git_evidence::GitComparisonResult>, ProviderFailure> {
+    let changed = || {
+        failure(
+            ProviderFailureKind::ReviewChanged,
+            "The original interrupted evidence is missing or changed. Reselect its exact range or Git comparison; no broader request was opened.",
+        )
+    };
+    let request = operation.provider_request.as_ref().ok_or_else(changed)?;
+    if request.purpose == CODE_LENS_EXPLANATION_PURPOSE {
+        let target = request.code_lens.clone().ok_or_else(changed)?;
+        build_code_lens_context(
+            storage_dir,
+            &BuildCodeLensReviewInput {
+                project_id: operation.project_id.clone(),
+                snapshot_id: operation.snapshot_id.clone(),
+                target,
+                model_id: String::new(), // Pure evidence builder ignores transport/model.
+            },
+        )?;
+        return Ok(None);
+    }
+    let git = request.git.as_ref().ok_or_else(changed)?;
+    let context = if request.purpose == PR_GUIDE_PURPOSE && git.hunk_index.is_none() {
+        let (comparison, context) = build_pr_guide_context(
+            repository,
+            &BuildPrGuideReviewInput {
+                project_id: operation.project_id.clone(),
+                base_ref: git.base_ref.clone(),
+                head_ref: git.head_ref.clone(),
+                comparison_id: git.comparison_id.clone(),
+                selected_changes: git.selected_changes.clone(),
+                model_id: String::new(),
+            },
+        )?;
+        let selected = comparison
+            .selected_changes
+            .iter()
+            .map(|change| pr_guide::SelectedChangeIdentity {
+                base_path: change.base_path.clone(),
+                head_path: change.head_path.clone(),
+            })
+            .collect::<Vec<_>>();
+        if selected != git.selected_changes {
+            return Err(changed());
+        }
+        context
+    } else if request.purpose == PR_CHANGE_EXPLANATION_PURPOSE && git.selected_changes.len() == 1 {
+        build_pr_change_context(
+            repository,
+            &BuildPrChangeExplanationReviewInput {
+                project_id: operation.project_id.clone(),
+                model_id: String::new(),
+                target: PrChangeExplanationTarget {
+                    base_ref: git.base_ref.clone(),
+                    head_ref: git.head_ref.clone(),
+                    comparison_id: git.comparison_id.clone(),
+                    selected_change: git.selected_changes[0].clone(),
+                    hunk_index: git.hunk_index.ok_or_else(changed)?,
+                },
+            },
+        )?
+    } else {
+        return Err(changed());
+    };
+    if context
+        .selected_files
+        .iter()
+        .map(|file| &file.sha256)
+        .collect::<Vec<_>>()
+        != git.patch_sha256.iter().collect::<Vec<_>>()
+        || context
+            .selected_files
+            .iter()
+            .map(|file| file.path.clone())
+            .collect::<BTreeSet<_>>()
+            != request
+                .selected_paths
+                .iter()
+                .cloned()
+                .collect::<BTreeSet<_>>()
+        || (request.purpose == PR_CHANGE_EXPLANATION_PURPOSE
+            && operation.target_path.as_deref()
+                != context
+                    .selected_files
+                    .first()
+                    .map(|file| file.path.as_str()))
+    {
+        return Err(changed());
+    }
+    // Return the normal comparison for the Changes workspace. Check identity
+    // again in case a requested branch moved during the first evidence read.
+    let comparison =
+        crate::git_evidence::compare_local_revisions(repository, &git.base_ref, &git.head_ref);
+    if comparison.status != crate::git_evidence::GitComparisonStatus::Ready
+        || comparison.comparison_id.as_deref() != Some(git.comparison_id.as_str())
+    {
+        return Err(changed());
+    }
+    Ok(Some(comparison))
+}
+
 /// One immutable comparison/evidence/prompt path for every transport.
 fn build_pr_guide_context(
     repository: &Path,

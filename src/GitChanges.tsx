@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
 import { AlertTriangle, ArrowDownUp, GitBranch, GitCommitHorizontal, RefreshCw } from 'lucide-react';
+import type { CodexGitRecovery } from './CodexChapterDialog';
 import {
   compareLocalGitRevisions,
   isNativeRuntime,
@@ -21,6 +22,8 @@ interface GitChangesScreenProps {
   onComparison: (projectId: string, baseRef: string, headRef: string, result: GitComparisonResult) => void;
   onOpenRepository: () => void;
   onOpenProviderSettings: () => void;
+  recovery?: CodexGitRecovery | null;
+  onRecoveryReviewReady?: (operationId: string) => void;
 }
 
 export function GitChangesScreen({
@@ -34,6 +37,8 @@ export function GitChangesScreen({
   onComparison,
   onOpenRepository,
   onOpenProviderSettings,
+  recovery,
+  onRecoveryReviewReady,
 }: GitChangesScreenProps) {
   const [baseRef, setBaseRef] = useState(initialBaseRef);
   const [headRef, setHeadRef] = useState(initialHeadRef);
@@ -171,6 +176,8 @@ export function GitChangesScreen({
         selectedChangePath={selectedChangePath}
         onSelectChange={onSelectChange}
         onOpenProviderSettings={onOpenProviderSettings}
+        recovery={recovery}
+        onRecoveryReviewReady={onRecoveryReviewReady}
       />}
     </div>
   );
@@ -184,6 +191,8 @@ function ComparisonResults({
   selectedChangePath,
   onSelectChange,
   onOpenProviderSettings,
+  recovery,
+  onRecoveryReviewReady,
 }: {
   comparison: GitComparisonResult;
   projectId: string;
@@ -192,6 +201,8 @@ function ComparisonResults({
   selectedChangePath?: string;
   onSelectChange: (path: string | undefined) => void;
   onOpenProviderSettings: () => void;
+  recovery?: CodexGitRecovery | null;
+  onRecoveryReviewReady?: (operationId: string) => void;
 }) {
   const [focusedCitation, setFocusedCitation] = useState<{ identity: string; hunkIndex: number } | null>(null);
   const isPartial = comparison.status === 'limited';
@@ -257,6 +268,8 @@ function ComparisonResults({
             onSelectChange(identity);
           }}
           onOpenProviderSettings={onOpenProviderSettings}
+          recovery={recovery}
+          onRecoveryReviewReady={onRecoveryReviewReady}
         />
       </Suspense>
     </section>

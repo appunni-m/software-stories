@@ -37,6 +37,7 @@ mod project;
 mod provider;
 mod provider_api;
 mod recovery;
+mod recovery_commands;
 mod snapshot;
 
 use project::{ProjectOpenResult, RecentProject};
@@ -1806,6 +1807,7 @@ pub fn run() {
             read_snapshot_source,
             start_snapshot,
             list_interrupted_operations,
+            recovery_commands::load_interrupted_generation_scope,
             discard_interrupted_operation,
             cancel_snapshot,
             get_snapshot_progress,

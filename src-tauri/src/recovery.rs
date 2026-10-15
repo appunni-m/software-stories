@@ -38,6 +38,23 @@ pub struct InterruptedProviderRequest {
     pub purpose: String,
     pub selected_paths: Vec<String>,
     pub section_update: Option<crate::provider::SectionUpdateReviewTarget>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub code_lens: Option<crate::provider::CodeLensExplanationTarget>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub git: Option<InterruptedGitScope>,
+}
+
+/// Immutable Git selection only: never patches, source, settings or consent.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct InterruptedGitScope {
+    pub base_ref: String,
+    pub head_ref: String,
+    /// Binds the requested refs and their resolved commit object identities.
+    pub comparison_id: String,
+    pub selected_changes: Vec<crate::pr_guide::SelectedChangeIdentity>,
+    pub hunk_index: Option<usize>,
+    pub patch_sha256: Vec<String>,
 }
 
 #[derive(Clone, Default)]
@@ -184,6 +201,46 @@ pub fn new_reviewed_provider_operation(
             .into_iter()
             .collect(),
         section_update: review.section_update_context.clone(),
+        code_lens: review.code_lens_context.clone(),
+        git: review
+            .pr_guide_context
+            .as_ref()
+            .map(|context| InterruptedGitScope {
+                base_ref: context.base_ref.clone(),
+                head_ref: context.head_ref.clone(),
+                comparison_id: context.comparison_id.clone(),
+                selected_changes: context
+                    .selected_changes
+                    .iter()
+                    .map(|change| crate::pr_guide::SelectedChangeIdentity {
+                        base_path: change.base_path.clone(),
+                        head_path: change.head_path.clone(),
+                    })
+                    .collect(),
+                hunk_index: None,
+                patch_sha256: review
+                    .selected_files
+                    .iter()
+                    .map(|file| file.sha256.clone())
+                    .collect(),
+            })
+            .or_else(|| {
+                review
+                    .pr_change_context
+                    .as_ref()
+                    .map(|target| InterruptedGitScope {
+                        base_ref: target.base_ref.clone(),
+                        head_ref: target.head_ref.clone(),
+                        comparison_id: target.comparison_id.clone(),
+                        selected_changes: vec![target.selected_change.clone()],
+                        hunk_index: Some(target.hunk_index),
+                        patch_sha256: review
+                            .selected_files
+                            .iter()
+                            .map(|file| file.sha256.clone())
+                            .collect(),
+                    })
+            }),
     });
     operation
 }
@@ -277,8 +334,69 @@ fn validate_operation(operation: &InterruptedOperation) -> Result<(), String> {
         }) {
             return Err("The interrupted section identity is invalid.".to_owned());
         }
+        if let Some(target) = &request.code_lens {
+            if request.purpose != "codeLensExplanation"
+                || request.git.is_some()
+                || operation.target_path.as_deref() != Some(target.path.as_str())
+                || request.selected_paths != [target.path.clone()]
+                || !valid_text(&target.path, 4096)
+                || !valid_sha256(&target.source_sha256)
+                || target.start_line == 0
+                || target.end_line < target.start_line
+                || match (target.start_byte, target.end_byte_exclusive) {
+                    (None, None) => false,
+                    (Some(start), Some(end)) => end <= start || end > (1_u64 << 53) - 1,
+                    _ => true,
+                }
+            {
+                return Err("The interrupted source range is invalid.".to_owned());
+            }
+        }
+        if let Some(git) = &request.git {
+            let is_hunk = request.purpose == "prChangeExplanation";
+            if !matches!(request.purpose.as_str(), "prGuide" | "prChangeExplanation")
+                || request.code_lens.is_some()
+                || git.selected_changes.is_empty()
+                || git.selected_changes.len() > 12
+                || !valid_text(&git.base_ref, 4096)
+                || !valid_text(&git.head_ref, 4096)
+                || git
+                    .comparison_id
+                    .strip_prefix("cmp:")
+                    .is_none_or(|hash| !valid_sha256(hash))
+                || operation.snapshot_id != git.comparison_id
+                || (request.purpose == "prGuide" && operation.target_path.is_some())
+                || (is_hunk && (operation.target_path.is_none() || git.selected_changes.len() != 1))
+                || is_hunk != git.hunk_index.is_some()
+                || git.patch_sha256.len() != git.selected_changes.len()
+                || git.hunk_index.is_some_and(|index| index > 1_000_000)
+                || git.patch_sha256.iter().any(|hash| !valid_sha256(hash))
+                || git.selected_changes.iter().any(|change| {
+                    (change.base_path.is_none() && change.head_path.is_none())
+                        || change
+                            .base_path
+                            .iter()
+                            .chain(change.head_path.iter())
+                            .any(|path| !valid_text(path, 4096))
+                })
+                || git
+                    .selected_changes
+                    .iter()
+                    .enumerate()
+                    .any(|(index, change)| git.selected_changes[..index].contains(change))
+            {
+                return Err("The interrupted Git selection is invalid.".to_owned());
+            }
+        }
     }
     Ok(())
+}
+
+fn valid_sha256(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
 }
 
 fn journal_path(storage_dir: &Path) -> PathBuf {

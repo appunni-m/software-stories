@@ -24,7 +24,7 @@ Coding agents are primary generation options. Direct API keys are optional. The 
 
 ### Explain a selected code range with Codex
 
-In Files, select the captured code range, choose its explanation action and **Use Codex**. The range stays fixed while you choose model/reasoning and review the excerpt. Confirm the reviewed source, then generate. Locally validated claims appear temporarily with actions that open their exact citations. Closing or discarding the explanation saves no chapter draft or history. After interruption, reselect the original range and review again. Native runtime acceptance remains pending.
+In Files, select the captured code range, choose its explanation action and **Use Codex**. The range stays fixed while you choose model/reasoning and review the excerpt. Confirm the reviewed source, then generate. Locally validated claims appear temporarily with actions that open their exact citations. Closing or discarding the explanation saves no chapter draft or history. For newer interruption notices, Review interrupted work restores the original range after local source validation. Older notices require exact reselection. Review and confirm a new request in both cases. Native runtime acceptance remains pending.
 
 ### Repair one stale section with Codex
 
@@ -40,7 +40,11 @@ Claude Agent is a separate required automatic backend; its PR operations remain 
 
 ### Interrupted requests
 
-**Review interrupted work** restores a recorded Codex file, selected-source overview or exact section repair into Codex. It reloads recorded source paths and the accepted section/base identity, then requires fresh review and consent. It does not resume a runtime thread or automatically send anything. Old records without request-scope metadata require you to reselect the original evidence. Range and Git-change records also require their original range/comparison to be selected again; they never become whole-file generation requests. Navigating away abandons a pending recovery lookup. Native recovery acceptance remains pending.
+**Review interrupted work** restores recorded Codex file, selected-source overview and exact section repairs into Codex. For newer range/Git notices it also restores the exact source range or comparison, selected path pairs and original hunk index. Native local recovery rereads the journal, validates the original snapshot/range or requested refs, comparison identity and patch hashes, and checks that the notice still exists after those reads. Moved refs, changed/missing evidence and older notices without exact targets require deliberate reselection; they never become whole-file requests.
+
+Range recovery opens the fixed range in Codex. Git recovery opens Changes with the original refs and comparison, then **Review original scope with Codex** opens its fixed guide/hunk request. Before another guide request, check this comparison's saved PR Guide history and acknowledge that check: a late or lost reply may already have saved an unaccepted draft. Choose current supported model settings, review and consent again. Recovery starts no model turn and resumes no runtime thread, settings authorization or previous consent.
+
+Closing a Codex review before generation, cancelling or receiving a failed result retains the original interruption notice. A successfully adopted validated result clears the old notice; a separately persisted pending preview or saved PR Guide remains recoverable. Navigating away abandons a pending lookup. Claude's automatic recovery UI remains missing; it preserves its backend/scope notice instead of opening an API. Native lifecycle/recovery acceptance remains pending.
 
 ## Check Claude installation
 

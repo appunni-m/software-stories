@@ -31,7 +31,7 @@ Remaining work, with every acceptance criterion still open:
 - [ ] Qualify account availability and model selection independently of the runtime catalog; bind/revalidate account and runtime identity in reviews and exercise expiry, refresh, logout and executable changes.
 - [ ] Exercise actual filesystem, command, write, `.git`, instruction/plugin/MCP and tool-egress restrictions; account/provider control traffic must remain possible without granting arbitrary agent egress. Add an OS boundary or keep the route unqualified if runtime controls cannot satisfy the contract.
 - [ ] Record real file/overview generation, structured-output rejection, local citation validation, draft save/accept, quota/error recovery, cancellation/crash/restart and process cleanup on the packaged app.
-- [ ] Implement or explicitly scope persistent resume, complete exact range/Git-scope recovery and qualify every implemented chapter/section/range/PR route. Current ephemeral runs and source wiring do not satisfy native lifecycle/workflow acceptance.
+- [ ] Implement or explicitly scope persistent resume, qualify exact range/Git-scope recovery and every implemented chapter/section/range/PR route. Current ephemeral runs and source wiring do not satisfy native lifecycle/workflow acceptance.
 
 No tests, builds, login, app-server launch, model request or runtime probes ran for this implementation. The selectable source UI does not establish supported-backend acceptance.
 
@@ -78,3 +78,16 @@ The PR Guide screen now defaults to Codex, keeps Claude Agent visibly pending an
 - Progress, cancellation and late-result handling reuse the Codex dialog. A late cancellation or lost reply may follow a saved guide; the UI reloads PR Guide history and tells the user to inspect it before regenerating. A worker panic preserves recovery state and shuts down the manager rather than clearing the notice.
 
 Remaining: automatic repository narrative planning, permitted pinned runtime/account/distribution qualification, effective boundary checks, persistent resume or its explicit scope, exact Git/range interruption recovery, packaged acceptance and all deferred cases in `xymb`. The journal still requires deliberate comparison/hunk reselection. No tests, builds, launches, logins, runtime probes or model calls ran.
+
+
+## Source progress — exact range and Git interruption recovery
+
+New interruption records retain the exact Code Lens target (snapshot path, full-file hash, inclusive lines and optional UTF-8 byte bounds), or original Git refs/comparison ID, ordered selected base/head path pairs, optional original hunk index and ordered patch SHA-256 values. They contain no patches/source, credentials, effective settings or reusable consent. Optional fields keep older records readable; records without exact targets require reselection.
+
+A registered local-only `load_interrupted_generation_scope` command loads the record natively by ID, binds repository ownership through the current native project session, and revalidates evidence on the blocking pool. It reuses the transport-independent range/PR builders and their size, UTF-8, secret-like and scope rules without API/model admission. Requested refs must still resolve to the original comparison, and source/patch hashes must match. A second journal lookup rejects discard/replacement during blocking reads. The command creates no pending provider request and starts no model/agent; Git recovery may run the existing local read-only Git comparison.
+
+The app restores newer Codex ranges directly into the fixed range dialog. Guide/hunk recovery opens Changes on the original comparison and presents an explicit original-scope recovery action. Guide recovery first requires the user to check saved PR Guide history; an already persisted draft must be considered before another generation. Recovery keeps Codex selected, restores the original change set or hunk, and requires current supported settings, fresh exact review and fresh consent. Navigation/new lookup guards reject abandoned completion; Git comparison IDs are no longer used as snapshot IDs.
+
+Building a Codex review no longer clears its old interruption notice. Failed/cancelled generation and abandoned review preserve it. Successful result adoption clears it; a saved PR Guide received after late cancellation is still shown as an unaccepted saved draft and can clear the resolved original notice. Accepted history remains untouched. Existing notices/worker cleanup do not become thread resume. All runtime/package/account/isolation/native acceptance criteria remain open; no test, build, app launch, CLI/SDK probe, login or model call ran.
+
+PR Guide history now shares a latest-request sequence between initial/event loads and manual refresh, keeps loading state during refresh, and drops abandoned replies. This supports the recovery history check; native race acceptance remains deferred. A currently open transient API hunk panel blocks opening the recovery dialog rather than stacking active explanation flows.

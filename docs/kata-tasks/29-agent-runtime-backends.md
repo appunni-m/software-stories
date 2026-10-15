@@ -114,3 +114,8 @@ Candidate Claude range, guide and hunk reviews now share immutable evidence/prom
 ## Claude native lifecycle source delta
 
 Internal Claude senders now reserve one revocable operation lease bound to the native connection, review and fingerprint, share cancellation with the worker, and guard review consumption and result publication against disconnect/refresh. Ordinary review expiry rejects a new request without invalidating an already consented bounded run. Dropping the async owner revokes blocking access; uncertain cleanup retains recovery state. An already-published unaccepted preview/guide remains discoverable after a late disconnect. See `8gqw` for the exact lifecycle contract and deferred cases. No qualified account/runtime/isolation owner, registered Claude generation command or app inference flow was added. Claude automatic operation cells and this parent remain open; APIs and manual exchange do not complete them. No tests, builds or runtime/model requests ran.
+
+
+## Exact agent recovery source delta
+
+The shared interruption journal now retains bounded range/Git selection identities and patch digests without source or consent. A native local-only command revalidates journal-owned evidence and repository ownership; newer Codex records now reopen the exact range or original comparison/change set/hunk through the app, with fresh configuration/review/consent. Guide recovery requires checking saved history; a review alone no longer removes the old Codex notice. See `z3an` and deferred `xymb` cases. The internal Claude sender records the same metadata, but its automatic app/recovery flow, qualified runtime/account/isolation route and packaged acceptance remain open. No tests, builds or runtime/model requests ran; this parent remains open.

@@ -34,6 +34,7 @@ export type CodexChapterDialogMode = 'settings' | {
   projectId: string;
   snapshotId: string;
   target: CodeLensExplanationTarget;
+  recoveryOperationId?: string;
 } | {
   kind: 'pr-guide';
   projectId: string;
@@ -41,11 +42,18 @@ export type CodexChapterDialogMode = 'settings' | {
   headRef: string;
   comparisonId: string;
   selectedChanges: SelectedGitChangeIdentity[];
+  recoveryOperationId?: string;
 } | {
   kind: 'pr-change';
   projectId: string;
   target: PrChangeExplanationTarget;
+  recoveryOperationId?: string;
 };
+
+export interface CodexGitRecovery {
+  operationId: string;
+  mode: Extract<CodexChapterDialogMode, { kind: 'pr-guide' | 'pr-change' }>;
+}
 
 export interface CodexChapterDialogProps {
   mode: CodexChapterDialogMode;
@@ -407,7 +415,6 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       if (lifetime.current !== epoch) { await discardProviderRequestReview(value.data.reviewId).catch(() => {}); return; }
       resources.current.review = value.data.reviewId;
       setReview(value.data);
-      if (mode !== 'settings' && 'recoveryOperationId' in mode && mode.recoveryOperationId) onRecoveryReviewReady?.(mode.recoveryOperationId);
     } catch { if (lifetime.current === epoch) setError('The local review could not be created. No generation was requested. Check the selected source and settings.'); }
     finally { finish(epoch); }
   };
@@ -423,6 +430,9 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     setCancelling(false);
     setProgress({ runId, phase: 'preparing', message: 'Preparing the reviewed Codex request.', threadId: null, turnId: null });
     let unlisten: UnlistenFn | null = null;
+    const finishRecovery = () => {
+      if (mode !== 'settings' && 'recoveryOperationId' in mode && mode.recoveryOperationId) onRecoveryReviewReady?.(mode.recoveryOperationId);
+    };
     try {
       unlisten = await listen<CodexProgress>('codex-agent-progress', ({ payload }) => {
         if (lifetime.current !== epoch || payload.runId !== runId) return;
@@ -442,6 +452,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           // Native validation saves a PR draft independently of this dialog.
           // A late cancellation cannot erase or silently accept that revision.
           setPrGuideResult(result.data);
+          finishRecovery();
           onPrGuideReady?.(result.data);
           if (cancelRequested.current) setNote('Cancellation arrived after a validated PR Guide draft was saved. Review it in PR Guide history before generating again.');
         }
@@ -454,7 +465,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           return;
         }
         if (result.status === 'error') setError(safeFailure(result.error));
-        else setPrChangeResult(result.data);
+        else { setPrChangeResult(result.data); finishRecovery(); }
         return;
       }
       if (codeLensTarget) {
@@ -464,7 +475,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           return;
         }
         if (result.status === 'error') setError(safeFailure(result.error));
-        else setCodeLensResult(result.data);
+        else { setCodeLensResult(result.data); finishRecovery(); }
         return;
       }
       const result = await sendCodexChapterRequest(review.reviewId, review.fingerprint, true);
@@ -482,6 +493,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       }
       resources.current.draft = result.data.generationId;
       setPreview(result.data);
+      finishRecovery();
     } catch {
       if (lifetime.current === epoch) {
         if (gitGuide) setError('The PR Guide result could not be confirmed. Check PR Guide history before generating again; a validated response may already be saved as an unaccepted draft.');

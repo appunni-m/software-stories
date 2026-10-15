@@ -29,7 +29,23 @@ export interface InterruptedOperation {
     purpose: 'fileChapter' | 'repositoryOverview' | 'sectionUpdate' | 'codeLensExplanation' | 'prGuide' | 'prChangeExplanation';
     selectedPaths: string[];
     sectionUpdate: SectionUpdateReviewTarget | null;
+    codeLens?: CodeLensExplanationTarget | null;
+    git?: InterruptedGitScope | null;
   } | null;
+}
+
+export interface InterruptedGitScope {
+  baseRef: string;
+  headRef: string;
+  comparisonId: string;
+  selectedChanges: SelectedGitChangeIdentity[];
+  hunkIndex: number | null;
+  patchSha256: string[];
+}
+
+export interface RecoveredGenerationScope {
+  operation: InterruptedOperation;
+  comparison: GitComparisonResult | null;
 }
 
 export type ProjectOpenStatus =
@@ -953,6 +969,11 @@ export async function listRecentProjects(): Promise<RecentProject[]> {
 export async function listInterruptedOperations(): Promise<InterruptedOperation[]> {
   if (!isNativeRuntime()) return [];
   return invoke<InterruptedOperation[]>('list_interrupted_operations');
+}
+
+/** Local journal-owned evidence validation only; never resumes consent or a model turn. */
+export async function loadInterruptedGenerationScope(operationId: string): Promise<RecoveredGenerationScope> {
+  return invoke('load_interrupted_generation_scope', { operationId });
 }
 
 export async function discardInterruptedOperation(operationId: string): Promise<void> {
