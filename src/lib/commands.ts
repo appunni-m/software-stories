@@ -1387,7 +1387,7 @@ export interface ClaudeModelDiscoveryObservation {
       displayName: string;
       aliases: string[];
       effortSupportAdvertised: boolean;
-      supportedEfforts: string[];
+      supportedEfforts: ClaudeReasoningEffort[];
     }[];
     omittedRows: number;
   };
@@ -1408,9 +1408,10 @@ export async function cancelClaudeAgentOperation(runId: string): Promise<boolean
 export async function forgetClaudeAgentConnection(connectionId: string): Promise<boolean> {
   return invoke('forget_claude_agent_connection', { connectionId });
 }
+export type ClaudeReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 export interface ClaudeGenerationSettings {
   modelId: string;
-  effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | null;
+  effort: ClaudeReasoningEffort | null;
   approvalPolicy: 'dontAsk';
   maxTurns: number;
 }

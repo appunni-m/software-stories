@@ -62,3 +62,7 @@ Documented auth integration, versioned adapter/configuration, complete source-gr
 - https://developers.openai.com/siwc/token-sharing-open-source/models-and-inference
 - https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations
 - https://developers.openai.com/codex/app-server
+
+## Source scope correction — no implicit truncation
+
+Codex chapter initialization and context reset now retain the complete supplied source selection instead of silently taking its first 12 paths. A selection above the supported limit remains visible and cannot prepare a review until supporting files are deliberately removed. A fixed section-repair scope cannot be truncated or edited to bypass preservation checks; an oversized declared scope requires correction at its owner. Matching silent truncation was removed from manual handoff initialization and direct API file-chapter initialization. Native source/byte/path limits and independent validation remain authoritative. This is a source correction, not accepted workflow evidence; no tests, builds or runtime requests ran.

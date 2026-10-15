@@ -111,7 +111,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   const [manifest, setManifest] = useState<SnapshotManifest | null>(null);
   const [manifestLoading, setManifestLoading] = useState(false);
   const [manifestError, setManifestError] = useState<string | null>(null);
-  const [paths, setPaths] = useState<string[]>(() => [...new Set([...(targetPath ? [targetPath] : []), ...(initialSelectedPaths ?? [])])].slice(0, 12));
+  const [paths, setPaths] = useState<string[]>(() => [...new Set([...(targetPath ? [targetPath] : []), ...(initialSelectedPaths ?? [])])]);
   const [query, setQuery] = useState('');
   const [review, setReview] = useState<ProviderRequestReview | null>(null);
   const [preview, setPreview] = useState<ChapterDraftPreview | null>(null);
@@ -188,7 +188,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     setModels([]);
     setManifest(null);
     setManifestError(null);
-    setPaths([...new Set([...(targetPath ? [targetPath] : []), ...(initialSelectedPaths ?? [])])].slice(0, 12));
+    setPaths([...new Set([...(targetPath ? [targetPath] : []), ...(initialSelectedPaths ?? [])])]);
     setReview(null);
     setPreview(null);
     setCodeLensResult(null);
@@ -560,7 +560,9 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                     return <label key={file.path} className={checked ? 'selected' : ''}><input type="checkbox" checked={checked} disabled={locked || Boolean(sectionUpdate) || file.path === targetPath || (!checked && paths.length >= 12)} onChange={(event) => changePath(file.path, event.target.checked)} /><code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} B{file.path === targetPath ? ' · target' : ''}</small></label>;
                   })}{!filteredFiles.length && <p>No eligible captured files match this filter.</p>}</div>
                   <details><summary>Selected paths ({paths.length})</summary><ul>{paths.map((path) => <li key={path}><code>{path}</code></li>)}</ul></details>
-                  {!sourceReady && paths.length > 0 && <p className="provider-error-text">The target or a selected file is unavailable for this request. Use an eligible captured text file.</p>}
+                  {!sourceReady && paths.length > 0 && <p className="provider-error-text">{paths.length > 12
+                    ? sectionUpdate ? 'This fixed repair scope exceeds 12 files. Reopen the section to correct its declared source scope.' : 'This selection exceeds 12 files. Remove supporting files before reviewing.'
+                    : 'The target or a selected file is unavailable for this request. Use an eligible captured text file.'}</p>}
                 </>}
                 <p className="provider-small-note">Captured text only, up to 250 KB per file. The native review enforces the total request limit and blocks secret-like context.</p>
               </div>}

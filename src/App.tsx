@@ -1727,7 +1727,9 @@ function ProviderDialog(props: ProviderDialogProps) {
   }, [backend, props.onClose]);
   const choose = (next: 'codex' | 'claude-setup' | 'handoff' | 'api') => setBackend(next);
   if (backend === 'api') return <DirectApiDialog {...props} onChooseBackend={() => setBackend('choose')} />;
-  if (backend === 'claude-setup') return <ClaudeConnectionDialog native={props.native} onClose={props.onClose} onChooseBackend={() => setBackend('choose')} />;
+  if (backend === 'claude-setup') return <ClaudeConnectionDialog native={props.native}
+    reviewMode={props.mode.kind === 'settings' ? 'settings' : props.mode.kind === 'review' || props.mode.kind === 'overview' || props.mode.kind === 'section-update' ? props.mode : null}
+    onClose={props.onClose} onChooseBackend={() => setBackend('choose')} />;
   if (backend === 'handoff' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview')) {
     return <AgentHandoffDialog mode={props.mode.kind === 'settings' ? 'settings' : props.mode} native={props.native}
       initialAgent={handoffAgent} onClose={props.onClose} onChooseBackend={() => setBackend('choose')} />;
@@ -1756,7 +1758,7 @@ function ProviderDialog(props: ProviderDialogProps) {
           {!agentOperation && <p role="status">Codex support for this operation is pending. The current source adapter covers file chapters, overviews, one-section repairs and exact code selections.</p>}
         </section>
         <section className="provider-review-card"><h3>Claude Agent · setup in progress</h3>
-          <p>Check an installed Claude CLI and its reported account route, with an advanced SDK model-catalog check. Automatic generation is still being implemented.</p>
+          <p>Check an installed Claude CLI and its catalog, configure supported settings, and preview file, overview or section requests locally. Automatic generation is still being implemented.</p>
           <button className="secondary-button" onClick={() => choose('claude-setup')}>Check Claude installation</button>
           <h4>Manual Claude Code handoff</h4>
           <p>Copy a reviewed task into Claude Code, then import its JSON explanation for local source validation. Configure model, reasoning and approvals in Claude Code. Code Atlas needs no API key for this workflow.</p>
@@ -1793,7 +1795,7 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
   const [snapshotManifestError, setSnapshotManifestError] = useState<string | null>(null);
   const [snapshotManifestLoading, setSnapshotManifestLoading] = useState(false);
   const [selectedPaths, setSelectedPaths] = useState<string[]>(mode.kind === 'review'
-    ? [...new Set([mode.targetPath, ...(mode.selectedPaths ?? [])])].slice(0, 12)
+    ? [...new Set([mode.targetPath, ...(mode.selectedPaths ?? [])])]
     : mode.kind === 'section-update' ? mode.selectedPaths : mode.kind === 'overview' ? mode.selectedPaths ?? [] : []);
   const [contextQuery, setContextQuery] = useState('');
   const [requestBuilding, setRequestBuilding] = useState(false);
@@ -2340,6 +2342,7 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
                   <p className="provider-small-note">The structured result will cite exact quotes inside this range and remain a temporary source-range explanation. It is not added to chapter coverage or revision history.</p>
                 </div> : <div className="provider-context-picker">
                   <div className="provider-context-heading"><strong>Choose source files</strong><span>{selectedPaths.length} of 12 selected</span></div>
+                  {selectedPaths.length > 12 && <p className="provider-error-text" role="status">This selection exceeds 12 files. Remove supporting files before preparing the request; the app keeps the full requested selection.</p>}
                   <p>{overviewMode ? 'Choose the files that should ground this optional repository map. Changing the selection rebuilds the preview and clears consent.' : 'The target stays selected. Add up to eleven supporting files from this snapshot; changing the selection rebuilds the preview and clears consent.'}</p>
                   {overviewMode && selectedPaths.length === 0 && <p className="provider-small-note" role="status">Select at least one captured text file to build the overview request preview.</p>}
                   {snapshotManifestLoading && <div className="provider-loading" role="status"><HardDrive size={15} /> Loading captured file names locally…</div>}

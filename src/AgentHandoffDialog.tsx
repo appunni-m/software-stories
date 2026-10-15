@@ -78,7 +78,7 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onClose, onChoo
     const epoch = ++lifetime.current;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dialogRef.current?.focus();
-    setManifest(null); setPaths([...new Set([...(targetPath ? [targetPath] : []), ...(initialPaths ?? [])])].slice(0, 12));
+    setManifest(null); setPaths([...new Set([...(targetPath ? [targetPath] : []), ...(initialPaths ?? [])])]);
     setReview(null); setPreview(null); setSaved(null); setConsent(false); setTaskText(''); setResponse(''); setError(null); setNote(null);
     activeBusy.current = Boolean(native && projectId && snapshotId);
     setBusy(activeBusy.current ? 'Loading captured files…' : null);
@@ -189,7 +189,7 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onClose, onChoo
             <input type="checkbox" checked={paths.includes(file.path)} disabled={locked || file.path === targetPath || !paths.includes(file.path) && (paths.length >= 12 || sourceBytes + file.sizeBytes > 250_000)}
               onChange={() => { releaseReview(); setPaths((values) => values.includes(file.path) ? values.filter((value) => value !== file.path) : [...values, file.path]); }} /><code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} bytes</small></label>)}{!visibleFiles.length && manifest && <p>No eligible files match this search.</p>}</div>
           <p className="provider-small-note">Showing up to 100 matching files. Search to narrow the list. Selected paths: {paths.join(', ') || 'none'}.</p>
-          {paths.length > 0 && !sourceReady && manifest && <p className="provider-error-text">The target or a selected file is unavailable, or the total exceeds 250,000 bytes. Remove supporting files, or choose an eligible captured target.</p>}
+          {paths.length > 0 && !sourceReady && manifest && <p className="provider-error-text">The target or a selected file is unavailable, or the selection exceeds 12 files or 250,000 bytes. Remove supporting files, or choose an eligible captured target.</p>}
           <button className="secondary-button" disabled={locked || !sourceReady} onClick={() => { void build(); }}>{review ? 'Rebuild local task' : 'Prepare local task'}</button>
           {review && <><p>Review expires at {new Date(review.expiresAtUnixMs).toLocaleTimeString()}. Keep this dialog open while using the agent. Restarting the app requires a new task.</p>
             {review.selectedFiles.map((file) => <details className="provider-source-file" key={file.path}><summary><code>{file.path}</code><span>SHA-256 {file.sha256}</span></summary><pre><code>{file.contents}</code></pre></details>)}

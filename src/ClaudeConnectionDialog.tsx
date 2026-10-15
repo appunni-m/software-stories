@@ -5,6 +5,7 @@ import {
   type ClaudeConnectionObservation, type ClaudeInspectionFailureKind, type ClaudeModelDiscoveryObservation,
 } from './lib/commands';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
+import { ClaudeChapterReview, type ClaudeChapterReviewMode } from './ClaudeChapterReview';
 
 const preferenceKey = 'code-atlas:claude-agent-executable';
 const nodePreferenceKey = 'code-atlas:claude-agent-node-executable';
@@ -33,8 +34,9 @@ function inspectionError(error: unknown): string {
   return 'The native CLI check could not be completed. Existing repository data was preserved.';
 }
 
-export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
-  native: boolean; onClose: () => void; onChooseBackend: () => void;
+export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBackend }: {
+  native: boolean; reviewMode: ClaudeChapterReviewMode | 'settings' | null;
+  onClose: () => void; onChooseBackend: () => void;
 }) {
   const [path, setPath] = useState(() => savedPath(preferenceKey));
   const [nodePath, setNodePath] = useState(() => savedPath(nodePreferenceKey));
@@ -146,13 +148,17 @@ export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
     if (native && connectionId) void forgetClaudeAgentConnection(connectionId).catch(() => {});
     setObservation(null); setCatalogObservation(null); setError(null); setNote(null);
   };
+  const reviewScopeKey = JSON.stringify(reviewMode && typeof reviewMode === 'object'
+    ? [reviewMode.kind, reviewMode.projectId, reviewMode.snapshotId, reviewMode.kind === 'overview' ? null : reviewMode.targetPath,
+      reviewMode.selectedPaths ?? [], reviewMode.kind === 'section-update' ? reviewMode.sectionUpdate : null]
+    : [reviewMode]);
 
   return <div className="provider-overlay">
     <section className="provider-dialog" ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="claude-setup-title">
       <header className="provider-dialog-header">
         <div><div className="step-pill"><span>CLAUDE AGENT</span> SETUP CHECK</div>
           <h2 id="claude-setup-title">Check Claude installation</h2>
-          <p>Inspect the installed CLI and its reported sign-in metadata. An optional SDK check can show its model catalog. Repository source is excluded.</p></div>
+          <p>Check the installed CLI, inspect its catalog, then preview a chapter request locally. Installation and catalog checks exclude repository source.</p></div>
         <button className="icon-button" aria-label="Close Claude setup" onClick={onClose}><X size={17} /></button>
       </header>
       <div className="provider-dialog-content">
@@ -191,6 +197,9 @@ export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
           </dl>
           <details><summary>Installation fingerprint</summary><code>{observation.executablePath}</code><p>SHA-256 {observation.executableSha256}</p></details>
         </section>}
+        {catalogObservation?.reviewConnection && <ClaudeChapterReview
+          key={`${catalogObservation.reviewConnection.connectionId}:${reviewScopeKey}`}
+          native={native} mode={reviewMode} discovery={catalogObservation} />}
         {catalogObservation && <section className="provider-review-card" aria-labelledby="claude-models-title">
           <h3 id="claude-models-title">Candidate model catalog</h3>
           <p role="status">{catalogObservation.catalog.models.length} exact model IDs observed. Account entitlement and automatic generation remain unqualified.</p>
@@ -208,7 +217,7 @@ export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
         </section>}
         {error && <p className="provider-error-text" role="alert">{error}</p>}
         {note && <p className="provider-status-note" role="status">{note}</p>}
-        <p className="provider-small-note">Automatic generation still needs a qualified runtime and permitted account integration, effective settings, source review and dispatch. This metadata check cannot enable it. API authentication is a separate choice.</p>
+        <p className="provider-small-note">Automatic generation still needs a qualified runtime, permitted account integration and connected sender. Catalog inspection and local previews cannot enable it. API authentication is a separate choice.</p>
       </div>
       <footer className="provider-dialog-footer"><div className="provider-draft-actions">
         <button className="secondary-button" onClick={onClose}>Close</button>
