@@ -51,6 +51,18 @@ function readTokens(block) {
   );
 }
 
+function cssBlockAt(source, start) {
+  const opening = source.indexOf('{', start);
+  if (opening < 0) return undefined;
+  let depth = 1;
+  for (let index = opening + 1; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1;
+    if (source[index] === '}') depth -= 1;
+    if (depth === 0) return source.slice(opening + 1, index);
+  }
+  return undefined;
+}
+
 function relativeLuminance(hex) {
   const channels = [1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16) / 255);
   const linear = channels.map((value) => value <= 0.04045
@@ -138,6 +150,19 @@ test('Reduce Motion selects instant navigation and disables app animations and t
   assert.match(reducedMotionBlock, /scroll-behavior:\s*auto\s*!important;/);
   assert.match(reducedMotionBlock, /animation:\s*none\s*!important;/);
   assert.match(reducedMotionBlock, /transition:\s*none\s*!important;/);
+});
+
+test('Code Lens source wraps long lines at narrow effective widths', () => {
+  const narrowLayouts = [...css.matchAll(/@media\s*\(max-width:\s*900px\)\s*\{/g)]
+    .map((match) => cssBlockAt(css, match.index));
+  const narrowSourceLayout = narrowLayouts.find((block) => block.includes('.snapshot-source-code'));
+  assert.ok(narrowSourceLayout, 'Code Lens has a narrow effective viewport rule');
+  assert.match(narrowSourceLayout, /\.snapshot-source-code\s*\{[^}]*white-space:\s*pre-wrap;/);
+  assert.match(narrowSourceLayout, /\.snapshot-source-code\s*\{[^}]*overflow-wrap:\s*anywhere;/);
+  assert.match(narrowSourceLayout, /\.snapshot-source-code\s+code\s*\{[^}]*min-width:\s*0;/);
+  assert.match(narrowSourceLayout, /\.snapshot-source-line\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*4em\s+minmax\(0,\s*1fr\);[^}]*overflow-wrap:\s*anywhere;/);
+  assert.match(narrowSourceLayout, /\.snapshot-source-line-number\s*\{[^}]*width:\s*auto;[^}]*margin-right:\s*0;/);
+  assert.match(narrowSourceLayout, /\.snapshot-source-line\s*>\s*span:last-child\s*\{[^}]*min-width:\s*0;/);
 });
 
 test('ARIA labels on generic containers have an explicit nameable role', async () => {

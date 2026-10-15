@@ -13,6 +13,10 @@ contrast, zoom, or native-app usability pass.
 - The page no longer enforces a 760 CSS-pixel minimum width. Existing
   responsive layouts can take effect between 761 and 900 pixels as well as at
   the narrow-window breakpoint.
+- Code Lens source wraps long lines when the effective viewport is narrow.
+  The line-number gutter stays separate and continuation text aligns with the
+  code column. A source regression check covers the layout; the packaged 200%
+  Code Lens result is recorded below.
 - Reduced-motion rules remain active for application animations, transitions,
   and smooth scrolling. A source-level regression check now verifies the global
   CSS override and the instant-scroll preference helper in
@@ -131,8 +135,10 @@ run recorded below:
 
 - Spoken VoiceOver announcements for project, snapshot, file, section,
   validation errors, and asynchronous progress/results.
-- Narrow effective viewport at 200% zoom; long source lines were clipped in
-  the viewport and horizontal source navigation was not verified.
+- Full 200% acceptance across the app and actual window resizing. The packaged
+  Code Lens source now wraps long lines and aligns continuation text at 200%;
+  Atlas, Walkthrough, Chapter Studio, dialogs, and a separately resized app
+  window still need review.
 - Reduced-motion animation and scrolling behavior across a populated chapter
   and its citations.
 - Keyboard focus through a populated repository-to-walkthrough journey,
@@ -230,4 +236,21 @@ Unresolved controls or announcements: no accepted chapters; no spoken
   recovery flow; no narrow-window 200% check; source-line horizontal navigation
   not verified. VoiceOver, Increase Contrast, Reduce Motion, Reduce
   Transparency, and page zoom were returned to their original off/100% state.
+```
+
+### Packaged Code Lens reflow follow-up — 2026-10-15
+
+```text
+Tester: Codex via native computer use; unsigned Code Atlas 0.1.0 package built
+  from the working tree based on commit f28652a.
+Repository / snapshot ID: fontdone / snap-1792025678232575000-74046-0
+Zoom: started at 100%; pressed ⌘= five times to reach the app's 200% setting.
+Result: pass for Code Lens source reflow. The packaged app displayed long Rust
+  source lines wrapped inside the code panel. Line numbers remained in their
+  own gutter, and continuation text aligned with the code column. The lines
+  were fully visible without horizontal source scrolling. Pressed ⌘− five
+  times and visually confirmed the normal 100% source and relationship layout.
+Scope: this verifies Code Lens source reflow at the 200% page-zoom setting only.
+  The app window was not resized, and Atlas, Walkthrough, Chapter Studio,
+  dialogs, VoiceOver, Increase Contrast, and Reduce Motion were not retested.
 ```

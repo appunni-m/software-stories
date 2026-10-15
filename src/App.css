@@ -1116,6 +1116,11 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 }
 
 @media (max-width: 900px) {
+  .snapshot-source-code { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .snapshot-source-code code { min-width: 0; }
+  .snapshot-source-line { display: grid; grid-template-columns: 4em minmax(0, 1fr); column-gap: 1.5em; overflow-wrap: anywhere; }
+  .snapshot-source-line-number { width: auto; margin-right: 0; }
+  .snapshot-source-line > span:last-child { min-width: 0; }
   .snapshot-ready-heading { grid-template-columns: 42px minmax(0, 1fr); }
   .snapshot-ready-heading .secondary-button { grid-column: 2; justify-self: start; }
   .snapshot-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
