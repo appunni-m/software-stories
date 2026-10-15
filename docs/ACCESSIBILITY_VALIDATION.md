@@ -126,23 +126,26 @@ reader in bounds. This viewport override does not enlarge text and is not a
 
 ## Manual checks still required
 
-The following are **not verified**:
+The following acceptance areas remain **incomplete** after the partial native
+run recorded below:
 
-- VoiceOver announcements for project, snapshot, file, section, validation
-  errors, and asynchronous progress/results.
-- Text zoom at 200%, narrow effective viewport reflow, and rendered contrast
-  behavior (including whether macOS Increase Contrast reaches the packaged
-  WebView).
-- Reduced-motion behavior in the rendered app.
+- Spoken VoiceOver announcements for project, snapshot, file, section,
+  validation errors, and asynchronous progress/results.
+- Narrow effective viewport at 200% zoom; long source lines were clipped in
+  the viewport and horizontal source navigation was not verified.
+- Reduced-motion animation and scrolling behavior across a populated chapter
+  and its citations.
 - Keyboard focus through a populated repository-to-walkthrough journey,
-  including PR Guide citation-to-hunk links and the provider/recovery dialogs.
-  The synthetic visual fixture covers section-heading focus and source-link
-  return only.
+  including section navigation, citation return, PR Guide citation-to-hunk
+  links, and provider/recovery dialogs. The native run reached a selected file
+  and its read-only Code Lens source, but this snapshot has no accepted
+  chapters. The synthetic visual fixture covers section-heading focus and
+  source-link return only.
 
-Run and record those checks on the native app before treating the accessibility
-acceptance criteria as complete. The Rust and frontend tests and the preview
-pass remain implementation evidence, but cannot substitute for VoiceOver or
-native zoom testing.
+Complete the remaining checks on the native app before treating the
+accessibility acceptance criteria as complete. The Rust and frontend tests and
+the preview pass remain implementation evidence, but cannot substitute for
+spoken VoiceOver announcements or a populated native journey.
 
 ## Native acceptance run sheet
 
@@ -193,4 +196,38 @@ Keyboard-only journey: pass | fail — notes:
 Increase Contrast: pass | fail — notes:
 Reduce Motion: pass | fail — notes:
 Unresolved controls or announcements:
+```
+
+### Packaged native run — 2026-10-15
+
+```text
+Date/time and tester: 2026-10-15 06:45 IST; Codex via native computer use
+macOS version / app version+commit: macOS 15.7.7 (24G720); Code Atlas 0.1.0,
+  unsigned packaged debug app, commit e44f002
+Repository / snapshot ID: fontdone / snap-1792025678232575000-74046-0
+VoiceOver: inconclusive — enabled from System Settings. The accessibility
+  tree exposed the selected heading and the CUA could inspect the VoiceOver
+  setting, but it did not expose spoken announcements. The attempted
+  Control-Option-Right traversal did not produce a verifiable focus change.
+Keyboard-only journey: partial pass — visible focus was observed on Chapter
+  Studio. Tab/Return opened Atlas inventory, Tab reached the selected
+  src/lib.rs row, and Return opened Code Lens. The packaged app showed the
+  verified, read-only snapshot source and hash. No accepted guide exists, so
+  section, citation-return, validation, and dialog flows were unavailable.
+200% zoom / effective width: incomplete — ⌘= five times enlarged the packaged
+  app and ⌘− five times restored it. Navigation wrapped and project context
+  reflowed; long source lines extended past the visible viewport. The app
+  window was not resized and horizontal source navigation was not verified.
+Increase Contrast: partial pass — baseline was off; enabling it reached the
+  packaged WebView and made its boundaries/focus treatment visibly stronger.
+  A populated guide and status/dialog states were unavailable. Restored off.
+Reduce Motion: partial pass — baseline was off; with it enabled, navigation
+  reached the Walkthrough empty state. There were no accepted sections or
+  citations with which to verify section movement or scroll animation.
+  Restored off.
+Unresolved controls or announcements: no accepted chapters; no spoken
+  announcement stream; no populated citation, validation, provider, or
+  recovery flow; no narrow-window 200% check; source-line horizontal navigation
+  not verified. VoiceOver, Increase Contrast, Reduce Motion, Reduce
+  Transparency, and page zoom were returned to their original off/100% state.
 ```
