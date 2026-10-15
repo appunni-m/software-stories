@@ -20,6 +20,7 @@ mod claude_agent;
 mod claude_commands;
 mod claude_connection;
 mod claude_discovery;
+mod claude_generation;
 mod claude_models;
 mod claude_worker;
 mod codex_agent;

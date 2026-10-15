@@ -46,6 +46,7 @@ pub(crate) enum ClaudeWorkerFailureKind {
     Cancelled,
     TimedOut,
     RuntimeChanged,
+    ReviewChanged,
     PreparationFailed,
     ProcessFailed,
     ProtocolRejected,
@@ -91,12 +92,15 @@ struct ActiveRun {
 
 impl ClaudeWorkerManager {
     /// Blocking: run on the native blocking pool after fresh review/account
-    /// qualification. No public/native command currently calls this method.
+    /// qualification. The internal chapter pipeline calls this; no registered
+    /// generation command currently exposes it. Preflight revalidates the
+    /// immutable review under this manager's operation lock before launch.
     pub(crate) fn run(
         &self,
         storage_dir: &Path,
         runtime: &ClaudeReviewRuntime,
         input: &ClaudeWorkerInput,
+        preflight: impl FnOnce() -> Result<(), ClaudeWorkerFailure>,
         mut progress: impl FnMut(ClaudeWorkerProgress),
     ) -> Result<ClaudeStructuredResult, ClaudeWorkerFailure> {
         self.with_operation(&input.run_id, |cancelled| {
@@ -105,10 +109,10 @@ impl ClaudeWorkerManager {
                 message: "Preparing the reviewed Claude request in private temporary storage.",
             });
             #[cfg(unix)]
-            { native::run(&self.0, storage_dir, runtime, input, cancelled, &mut progress) }
+            { native::run(&self.0, storage_dir, runtime, input, cancelled, preflight, &mut progress) }
             #[cfg(not(unix))]
             {
-                let _ = (storage_dir, runtime, input, progress, cancelled);
+                let _ = (storage_dir, runtime, input, preflight, progress, cancelled);
                 Err(failure(ClaudeWorkerFailureKind::UnsupportedPlatform,
                     "This Claude worker requires the reviewed Unix process and pipe controls. No process was started."))
             }
@@ -334,13 +338,41 @@ mod native {
     const IO_BURST: usize = 128 * 1024;
     const INSPECTION_TIMEOUT: Duration = Duration::from_secs(45);
 
+    /// One metadata deadline, optionally bounded by an enclosing generation.
+    /// Pre/post account checks must not reset the ten-minute run allowance.
+    #[derive(Clone, Copy)]
+    struct InspectionBudget {
+        started: Instant,
+        run_started: Option<Instant>,
+    }
+    impl InspectionBudget {
+        fn new() -> Self {
+            Self {
+                started: Instant::now(),
+                run_started: None,
+            }
+        }
+        fn within_run(run_started: Instant) -> Self {
+            Self {
+                started: Instant::now(),
+                run_started: Some(run_started),
+            }
+        }
+    }
+
     pub(super) fn inspect_connection(
         manager: &Arc<ManagerInner>,
         storage_dir: &Path,
         executable: &Path,
         cancelled: &AtomicBool,
     ) -> Result<crate::claude_connection::ClaudeConnectionObservation, ClaudeWorkerFailure> {
-        inspect_connection_at(manager, storage_dir, executable, cancelled, Instant::now())
+        inspect_connection_at(
+            manager,
+            storage_dir,
+            executable,
+            cancelled,
+            InspectionBudget::new(),
+        )
     }
 
     fn inspect_connection_at(
@@ -348,12 +380,12 @@ mod native {
         storage_dir: &Path,
         executable: &Path,
         cancelled: &AtomicBool,
-        started: Instant,
+        budget: InspectionBudget,
     ) -> Result<crate::claude_connection::ClaudeConnectionObservation, ClaudeWorkerFailure> {
         use crate::claude_agent::ClaudeInspectionCommand as Inspection;
         use crate::claude_connection::{self, ClaudeAuthMethod, ClaudeConnectionObservation};
         use ClaudeWorkerFailureKind as Kind;
-        let check = || inspection_deadline(manager, cancelled, started);
+        let check = || inspection_deadline(manager, cancelled, budget);
         check()?;
         let (path, digest) = inspect_executable(executable, check)?;
         let stage = PrivateStage::create(storage_dir, &manager.cleanup_failed)?;
@@ -373,7 +405,7 @@ mod native {
             &stage,
             &account_home,
             cancelled,
-            started,
+            budget,
             128,
         )?;
         if !version_exit.success() {
@@ -401,7 +433,7 @@ mod native {
                 &stage,
                 &account_home,
                 cancelled,
-                started,
+                budget,
                 64 * 1024,
             )?;
             let observed = claude_connection::parse_account_status(&bytes, status.code())
@@ -462,8 +494,8 @@ mod native {
         cancelled: &AtomicBool,
     ) -> Result<crate::claude_discovery::ClaudeModelDiscoveryObservation, ClaudeWorkerFailure> {
         use crate::claude_discovery::{ClaudeDiscoveryRuntime, valid_path};
-        let started = Instant::now();
-        let check = || inspection_deadline(manager, cancelled, started);
+        let budget = InspectionBudget::new();
+        let check = || inspection_deadline(manager, cancelled, budget);
         if ![executable, node_executable, sdk_module]
             .iter()
             .all(|path| valid_path(path))
@@ -501,7 +533,7 @@ mod native {
                 sdk_module,
             },
             cancelled,
-            started,
+            budget,
         )
     }
 
@@ -510,18 +542,18 @@ mod native {
         storage_dir: &Path,
         runtime: &crate::claude_discovery::ClaudeDiscoveryRuntime,
         cancelled: &AtomicBool,
-        started: Instant,
+        budget: InspectionBudget,
     ) -> Result<crate::claude_discovery::ClaudeModelDiscoveryObservation, ClaudeWorkerFailure> {
         use crate::{claude_discovery as discovery, claude_models};
         use ClaudeWorkerFailureKind as Kind;
-        let check = || inspection_deadline(manager, cancelled, started);
+        let check = || inspection_deadline(manager, cancelled, budget);
         verify_discovery_executables(runtime, check)?;
         let before = inspect_connection_at(
             manager,
             storage_dir,
             &runtime.claude_executable,
             cancelled,
-            started,
+            budget,
         )?;
         let account_identity = discovery_account(&before)?.to_owned();
         if Path::new(&before.executable_path) != runtime.claude_executable
@@ -559,7 +591,7 @@ mod native {
             .map_err(|message| failure(Kind::PreparationFailed, message))?;
             host.arg("--version");
             let (host_bytes, host_exit) =
-                run_metadata_command(manager, &mut host, &[], cancelled, started, 128)?;
+                run_metadata_command(manager, &mut host, &[], cancelled, budget, 128)?;
             if !host_exit.success() {
                 return Err(failure(
                     Kind::ProcessFailed,
@@ -575,7 +607,7 @@ mod native {
                 &mut command,
                 &input,
                 cancelled,
-                started,
+                budget,
                 claude_models::MAX_CATALOG_BYTES,
             )?;
             if !status.success() {
@@ -618,7 +650,7 @@ mod native {
                 storage_dir,
                 &runtime.claude_executable,
                 cancelled,
-                started,
+                budget,
             )?;
             if discovery_account(&after)? != account_identity
                 || after.executable_path != before.executable_path
@@ -685,7 +717,7 @@ mod native {
             })
             .and_then(|account| account.account_identity_sha256.as_deref());
         identity.ok_or_else(|| failure(ClaudeWorkerFailureKind::PreparationFailed,
-            "An unchanged candidate runtime and reported first-party Claude account are required for this catalog check. No API fallback was used."))
+            "An unchanged candidate runtime and reported first-party Claude account are required. No API fallback was used."))
     }
 
     fn verify_discovery_executables(
@@ -771,13 +803,17 @@ mod native {
     fn inspection_deadline(
         manager: &ManagerInner,
         cancelled: &AtomicBool,
-        started: Instant,
+        budget: InspectionBudget,
     ) -> Result<(), ClaudeWorkerFailure> {
-        check_cancelled(manager, cancelled)?;
-        if started.elapsed() >= INSPECTION_TIMEOUT {
+        if let Some(started) = budget.run_started {
+            check_deadline(manager, cancelled, started)?;
+        } else {
+            check_cancelled(manager, cancelled)?;
+        }
+        if budget.started.elapsed() >= INSPECTION_TIMEOUT {
             Err(failure(
                 ClaudeWorkerFailureKind::TimedOut,
-                "Claude installation/account inspection exceeded 45 seconds. No prompt was sent.",
+                "Claude metadata inspection exceeded 45 seconds. No result was accepted.",
             ))
         } else {
             Ok(())
@@ -791,11 +827,11 @@ mod native {
         stage: &PrivateStage<'_>,
         account_home: &Path,
         cancelled: &AtomicBool,
-        started: Instant,
+        budget: InspectionBudget,
         output_limit: usize,
     ) -> Result<(Vec<u8>, ExitStatus), ClaudeWorkerFailure> {
         use ClaudeWorkerFailureKind as Kind;
-        inspection_deadline(manager, cancelled, started)?;
+        inspection_deadline(manager, cancelled, budget)?;
         let mut command = claude_agent::prepare_inspection_command(
             executable,
             operation,
@@ -804,7 +840,7 @@ mod native {
             account_home,
         )
         .map_err(|message| failure(Kind::PreparationFailed, message))?;
-        run_metadata_command(manager, &mut command, &[], cancelled, started, output_limit)
+        run_metadata_command(manager, &mut command, &[], cancelled, budget, output_limit)
     }
 
     fn run_metadata_command(
@@ -812,7 +848,7 @@ mod native {
         command: &mut Command,
         input: &[u8],
         cancelled: &AtomicBool,
-        started: Instant,
+        budget: InspectionBudget,
         output_limit: usize,
     ) -> Result<(Vec<u8>, ExitStatus), ClaudeWorkerFailure> {
         use ClaudeWorkerFailureKind as Kind;
@@ -822,7 +858,7 @@ mod native {
                 "Claude metadata configuration exceeded its local limit.",
             ));
         }
-        inspection_deadline(manager, cancelled, started)?;
+        inspection_deadline(manager, cancelled, budget)?;
         let mut child = OwnedChild::spawn(manager, command, cancelled)?;
         // Metadata commands have empty input. SDK discovery receives only
         // native paths; no source, prompt or vendor RPC is sent by this owner.
@@ -838,7 +874,7 @@ mod native {
         let mut drain_started = None;
         let result = (|| {
             loop {
-                inspection_deadline(manager, cancelled, started)?;
+                inspection_deadline(manager, cancelled, budget)?;
                 if !stdout_eof {
                     stdout_eof =
                         drain_inspection_output(child.stdout()?, &mut output, output_limit)?;
@@ -846,7 +882,7 @@ mod native {
                 if !stderr_eof {
                     stderr_eof = drain_stderr(child.stderr()?, &mut diagnostics)?;
                 }
-                inspection_deadline(manager, cancelled, started)?;
+                inspection_deadline(manager, cancelled, budget)?;
                 if written < input.len() {
                     let end = written.saturating_add(IO_CHUNK).min(input.len());
                     let stdin = child.stdin.as_mut().ok_or_else(|| {
@@ -972,6 +1008,7 @@ mod native {
         runtime: &ClaudeReviewRuntime,
         input: &ClaudeWorkerInput,
         cancelled: &AtomicBool,
+        preflight: impl FnOnce() -> Result<(), ClaudeWorkerFailure>,
         progress: &mut impl FnMut(ClaudeWorkerProgress),
     ) -> Result<ClaudeStructuredResult, ClaudeWorkerFailure> {
         use ClaudeWorkerFailureKind as Kind;
@@ -980,6 +1017,14 @@ mod native {
             .validate_settings(&input.settings)
             .map_err(|message| failure(Kind::PreparationFailed, message))?;
         verify_executable(manager, runtime, cancelled, started)?;
+        progress(ClaudeWorkerProgress {
+            run_id: input.run_id.clone(),
+            phase: "checkingAccount",
+            message: "Checking that the installed Claude account still matches this review.",
+        });
+        verify_runtime_account(manager, storage_dir, runtime, cancelled, started)?;
+        preflight()?;
+        check_deadline(manager, cancelled, started)?;
         let stage = PrivateStage::create(storage_dir, &manager.cleanup_failed)?;
         let invocation = claude_agent::prepare_invocation(
             runtime,
@@ -1008,6 +1053,7 @@ mod native {
             &account_home,
         )
         .map_err(|message| failure(Kind::PreparationFailed, message))?;
+        verify_executable(manager, runtime, cancelled, started)?;
         check_deadline(manager, cancelled, started)?;
         let mut child = OwnedChild::spawn(manager, &mut command, cancelled)?;
         let mut stream = ClaudeOutputStream::new(&input.settings)
@@ -1124,8 +1170,54 @@ mod native {
         // threads are spawned, so inherited pipes cannot strand a worker thread.
         drop(child);
         stage.cleanup()?;
+        if result
+            .as_ref()
+            .err()
+            .is_some_and(|error| matches!(error.kind, Kind::CleanupFailed))
+        {
+            return result;
+        }
+        if result.is_ok() {
+            progress(ClaudeWorkerProgress {
+                run_id: input.run_id.clone(),
+                phase: "checkingAccount",
+                message: "Rechecking the reviewed Claude account before accepting the response.",
+            });
+            verify_runtime_account(manager, storage_dir, runtime, cancelled, started)?;
+        }
         check_deadline(manager, cancelled, started)?;
         result
+    }
+
+    fn verify_runtime_account(
+        manager: &Arc<ManagerInner>,
+        storage_dir: &Path,
+        runtime: &ClaudeReviewRuntime,
+        cancelled: &AtomicBool,
+        started: Instant,
+    ) -> Result<(), ClaudeWorkerFailure> {
+        check_deadline(manager, cancelled, started)?;
+        let observed = inspect_connection_at(
+            manager,
+            storage_dir,
+            &runtime.executable_path,
+            cancelled,
+            InspectionBudget::within_run(started),
+        )?;
+        if Path::new(&observed.executable_path) != runtime.executable_path
+            || observed.executable_sha256 != runtime.executable_sha256
+            || observed.runtime_version != runtime.runtime_version
+            || discovery_account(&observed)? != runtime.account_identity_sha256
+        {
+            return Err(failure(
+                ClaudeWorkerFailureKind::RuntimeChanged,
+                "The reviewed Claude account or executable changed. No response was accepted; prepare a fresh connection and review.",
+            ));
+        }
+        // Reported metadata is neither proof of the effective model account nor
+        // entitlement/isolation. The native qualification owner still supplies
+        // the permitted runtime route; this check cannot manufacture one.
+        check_deadline(manager, cancelled, started)
     }
 
     fn phase_message(phase: ClaudeProgressPhase) -> (&'static str, &'static str) {

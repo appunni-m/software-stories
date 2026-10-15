@@ -2784,7 +2784,60 @@ pub(crate) fn revalidate_claude_chapter_review(
             "Build a fresh Claude Agent review before generating.",
         ));
     }
+    let settings = claude_settings_from_review(review)?;
+    let input = BuildClaudeReviewInput {
+        project_id: review.project_id.clone(),
+        snapshot_id: review.snapshot_id.clone(),
+        target_path: review.target_path.clone(),
+        selected_paths: review
+            .selected_files
+            .iter()
+            .map(|file| file.path.clone())
+            .collect(),
+        settings,
+        section_update: review.section_update_context.clone(),
+    };
+    let rebuilt = build_claude_chapter_review(storage_dir, &input, runtime)?;
+    if rebuilt.review.fingerprint != review.fingerprint
+        || rebuilt.review.request_body_preview != review.request_body_preview
+        || rebuilt.review.purpose != review.purpose
+        || rebuilt.review.section_update_context != review.section_update_context
+        || rebuilt.review.generation_config != review.generation_config
+    {
+        return Err(failure(
+            ProviderFailureKind::ReviewChanged,
+            "The source, Claude executable/account, settings or chapter contract changed. Prepare a new review.",
+        ));
+    }
+    Ok(())
+}
+
+/// Decode effective settings from a native pending review, never a new
+/// renderer override at dispatch. Full rebuilding still validates the runtime
+/// capabilities, immutable evidence, fingerprint and generated schema.
+pub(crate) fn claude_settings_from_review(
+    review: &ProviderRequestReview,
+) -> Result<crate::claude_agent::ClaudeGenerationSettings, ProviderFailure> {
     let config = &review.generation_config;
+    let valid_scope = match review.purpose.as_str() {
+        "fileChapter" => review.target_path.is_some() && review.section_update_context.is_none(),
+        "repositoryOverview" => review.target_path.is_none() && review.section_update_context.is_none(),
+        "sectionUpdate" => review.target_path.is_some() && review.section_update_context.is_some(),
+        _ => false,
+    };
+    if review.provider_id != "claude-agent"
+        || review.endpoint_url != "claude-agent-cli://stdio"
+        || config["contractVersion"] != "claude-chapter-v1"
+        || review.pr_guide_context.is_some()
+        || review.pr_change_context.is_some()
+        || review.code_lens_context.is_some()
+        || !valid_scope
+    {
+        return Err(failure(
+            ProviderFailureKind::InvalidReview,
+            "Prepare a native Claude chapter review for this operation.",
+        ));
+    }
     let effort = match config.get("effort") {
         Some(Value::Null) => None,
         Some(Value::String(value)) => Some(value.clone()),
@@ -2804,36 +2857,12 @@ pub(crate) fn revalidate_claude_chapter_review(
                 "The reviewed Claude turn limit is invalid.",
             )
         })?;
-    let input = BuildClaudeReviewInput {
-        project_id: review.project_id.clone(),
-        snapshot_id: review.snapshot_id.clone(),
-        target_path: review.target_path.clone(),
-        selected_paths: review
-            .selected_files
-            .iter()
-            .map(|file| file.path.clone())
-            .collect(),
-        settings: crate::claude_agent::ClaudeGenerationSettings {
-            model_id: review.model_id.clone(),
-            effort,
-            approval_policy: config["approvalPolicy"].as_str().unwrap_or("").to_owned(),
-            max_turns,
-        },
-        section_update: review.section_update_context.clone(),
-    };
-    let rebuilt = build_claude_chapter_review(storage_dir, &input, runtime)?;
-    if rebuilt.review.fingerprint != review.fingerprint
-        || rebuilt.review.request_body_preview != review.request_body_preview
-        || rebuilt.review.purpose != review.purpose
-        || rebuilt.review.section_update_context != review.section_update_context
-        || rebuilt.review.generation_config != review.generation_config
-    {
-        return Err(failure(
-            ProviderFailureKind::ReviewChanged,
-            "The source, Claude executable/account, settings or chapter contract changed. Prepare a new review.",
-        ));
-    }
-    Ok(())
+    Ok(crate::claude_agent::ClaudeGenerationSettings {
+        model_id: review.model_id.clone(),
+        effort,
+        approval_policy: config["approvalPolicy"].as_str().unwrap_or("").to_owned(),
+        max_turns,
+    })
 }
 
 pub fn build_code_lens_request_review_for_provider(

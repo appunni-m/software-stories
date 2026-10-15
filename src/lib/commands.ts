@@ -1354,7 +1354,7 @@ export async function cancelCodexChapterRequest(runId: string): Promise<boolean>
   return invoke('cancel_codex_chapter_request', { runId });
 }
 
-export type ClaudeInspectionFailureKind = 'busy' | 'cancelled' | 'timedOut' | 'runtimeChanged'
+export type ClaudeInspectionFailureKind = 'busy' | 'cancelled' | 'timedOut' | 'runtimeChanged' | 'reviewChanged'
   | 'preparationFailed' | 'processFailed' | 'protocolRejected' | 'outputLimit' | 'cleanupFailed' | 'unsupportedPlatform';
 export interface ClaudeConnectionObservation {
   executablePath: string;

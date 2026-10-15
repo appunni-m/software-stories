@@ -231,7 +231,7 @@ fn validate_operation(operation: &InterruptedOperation) -> Result<(), String> {
     if let Some(request) = &operation.provider_request {
         if !matches!(
             request.provider_id.as_str(),
-            "codex" | "gemini" | "openai" | "anthropic"
+            "codex" | "claude-agent" | "gemini" | "openai" | "anthropic"
         ) || !matches!(
             request.purpose.as_str(),
             "fileChapter"

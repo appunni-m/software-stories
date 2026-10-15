@@ -426,6 +426,7 @@ function App() {
     try {
       const request = operation.providerRequest;
       if (!request) throw new Error('This older interruption record does not identify the request scope. Reopen the project and select the original file, section, source range or change before preparing a new request. The app will not assume it was a whole-file explanation.');
+      if (!['codex', 'gemini', 'openai', 'anthropic'].includes(request.providerId)) throw new Error('The original agent is not connected to interruption recovery yet. Its backend and exact source scope are preserved in this notice. Complete that agent setup before retrying; no API request was opened.');
       const opened = await openRecentProject(operation.projectId);
       if (!current()) return;
       if (!opened.project || (opened.status !== 'opened' && opened.status !== 'storageError')) {

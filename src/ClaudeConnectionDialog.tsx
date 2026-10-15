@@ -19,6 +19,7 @@ const failures: Record<ClaudeInspectionFailureKind, string> = {
   cancelled: 'The check was cancelled. No repository source was included.',
   timedOut: 'The metadata check timed out. Check the selected installation and account setup before trying again.',
   runtimeChanged: 'A selected executable or SDK module changed or is incompatible. The catalog check requires the inspected SDK 0.3.300 module; refresh the installation paths.',
+  reviewChanged: 'The reviewed context or settings changed. Prepare a fresh request review before generating.',
   preparationFailed: 'The check could not be prepared. Check absolute installation paths, local storage and the existing first-party Claude account. API-key and alternate-provider routes cannot supply this account catalog check.',
   processFailed: 'A metadata process could not finish. Check the installed Claude CLI and, for catalog inspection, the selected Node host and SDK module.',
   protocolRejected: 'Metadata was incomplete or incompatible. Catalog inspection requires the candidate CLI 2.1.300, inspected SDK 0.3.300 and Node 18 or later. This does not establish a qualified generation connection.',
