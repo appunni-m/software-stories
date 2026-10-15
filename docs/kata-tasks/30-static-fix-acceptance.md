@@ -269,3 +269,15 @@ All runtime/IPC/keyboard/native cases remain deferred. No tests, builds, app lau
 - Review each source/hash/prompt/schema/settings/fingerprint disclosure, error/status message and summary focus with keyboard, VoiceOver and 200% reflow later. No consent, send, draft-save or automatic fallback control may be implied by an offline preview. Accepted chapter/guide history and transient results remain untouched by preview/discard.
 
 All cases remain pending. This source change ran no tests, builds, app launches, Node/SDK/CLI probes, logins or agent/model requests. Actual Claude automatic dispatch, renderer inference cancellation/late results and scope-preserving recovery remain required by the priority-zero agent gate.
+
+## Shared Git nonblocking pipe supervisor — pending acceptance
+
+This runner prepares immutable Git evidence for both API and agent PR workflows, as well as repository metadata and capture. Its source now removes pipe worker threads; no new tests were added or run.
+
+- Exercise empty and partial stdin, a child that never reads, and a child that exits while a descendant holds stdin open. Timeouts/cancellation must still stop parent-side IO without joining or detaching workers. A full successful input closes immediately so a child awaiting EOF can finish.
+- Exercise stdout/stderr separately and concurrently at zero, exact cap and cap plus one; output must not silently truncate or retain bytes above its cap. A continuously noisy pipe cannot starve the other pipe, stdin or control checks. Verify partial writes, Interrupted/WouldBlock, output EOF before child exit, child exit before output EOF and nonzero exits.
+- Retain an inherited output pipe after the direct child exits, then reach the original deadline or cancel during draining. The runner must reject rather than wait indefinitely. Keep OS startup/kill/reap and descendant cleanup evidence separate from bounded parent pipe handling; current source does not claim an escaped-descendant boundary.
+- Inject pipe setup/read/write/status failures and review owned-child cleanup. An ECHILD observation cannot lead to signaling a reused PID. A non-Unix host must reject before spawn. Confirm no pipe workers exist and no source/secret output is placed in errors.
+- Through project inspection, snapshot status/ignore phases, Git comparison, agent range/Git review/revalidation and interruption recovery, record unchanged bounds, error classification and prior repository/snapshot/accepted-history state. Comparison currently has no user-facing cancel token; do not claim that missing propagation is complete.
+
+Existing focused tests and previous passing results do not qualify this replacement. Runtime evidence remains pending until testing is authorized.

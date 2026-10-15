@@ -1,12 +1,20 @@
+//! Bounded Git child IO on Unix, including pipe draining after child exit.
+//!
+//! One supervisor owns all three nonblocking pipes. No pipe worker can remain
+//! blocked or detached when cancellation, a deadline or an IO error wins.
+//! Child startup and OS kill/reap are still OS operations, not hard real-time
+//! guarantees. This runner does not provide an escaped-descendant boundary.
+
 use std::io::{self, Read, Write};
+#[cfg(unix)]
+use std::os::fd::{AsFd, AsRawFd};
 use std::process::{Child, Command, Output, Stdio};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
-const DRAIN_BUFFER_BYTES: usize = 16 * 1024;
+const PIPE_CHUNK_BYTES: usize = 16 * 1024;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Limits {
@@ -23,8 +31,6 @@ pub(crate) enum RunError {
     Wait(io::Error),
     Read(io::Error),
     Write(io::Error),
-    ReaderPanicked,
-    WriterPanicked,
     Cancelled,
     TimedOut,
     OutputLimit,
@@ -47,8 +53,6 @@ impl std::fmt::Display for RunError {
             Self::Wait(error) => write!(formatter, "Git process state could not be read: {error}"),
             Self::Read(error) => write!(formatter, "Git output could not be read: {error}"),
             Self::Write(error) => write!(formatter, "Git input could not be written: {error}"),
-            Self::ReaderPanicked => formatter.write_str("Git output reader stopped unexpectedly."),
-            Self::WriterPanicked => formatter.write_str("Git input writer stopped unexpectedly."),
             Self::Cancelled => formatter.write_str("Git operation was cancelled."),
             Self::TimedOut => formatter.write_str("Git operation reached its time limit."),
             Self::OutputLimit => formatter.write_str("Git output exceeded its size limit."),
@@ -57,14 +61,10 @@ impl std::fmt::Display for RunError {
     }
 }
 
-struct DrainedOutput {
-    bytes: Vec<u8>,
-    exceeded_limit: bool,
-}
-
-/// Runs one child with bounded time, pipe storage, and optional cancellation.
-/// Reader threads keep draining after a limit is crossed so a full pipe cannot
-/// deadlock the child; the supervising thread then kills and reaps it.
+/// Run one child until its exit and both output EOFs, under the same deadline.
+/// A finite read/write per pipe keeps a noisy stream from starving the other
+/// pipes, cancellation or time checks. Complete stdin is closed immediately.
+#[cfg(unix)]
 pub(crate) fn run(
     command: &mut Command,
     input: Option<Vec<u8>>,
@@ -77,18 +77,12 @@ pub(crate) fn run(
     {
         return Err(RunError::InputLimit);
     }
-    if cancel.is_some_and(|flag| flag.load(Ordering::Acquire)) {
-        return Err(RunError::Cancelled);
-    }
-
     let now = Instant::now();
-    let command_deadline = now
+    let deadline = now
         .checked_add(limits.command_timeout)
         .unwrap_or(limits.operation_deadline)
         .min(limits.operation_deadline);
-    if command_deadline <= now {
-        return Err(RunError::TimedOut);
-    }
+    check_control(cancel, deadline)?;
 
     command
         .stdin(if input.is_some() {
@@ -98,174 +92,233 @@ pub(crate) fn run(
         })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    let mut child = command.spawn().map_err(RunError::Start)?;
-    let stdout = match child.stdout.take() {
-        Some(stdout) => stdout,
-        None => {
-            terminate_and_reap(&mut child);
-            return Err(RunError::Read(io::Error::other(
-                "stdout pipe was unavailable",
-            )));
-        }
+    let mut child = RunningChild {
+        child: command.spawn().map_err(RunError::Start)?,
+        reaped: false,
     };
-    let stderr = match child.stderr.take() {
-        Some(stderr) => stderr,
-        None => {
-            terminate_and_reap(&mut child);
-            return Err(RunError::Read(io::Error::other(
-                "stderr pipe was unavailable",
-            )));
-        }
-    };
-    let stdin = if input.is_some() {
-        match child.stdin.take() {
-            Some(stdin) => Some(stdin),
-            None => {
-                terminate_and_reap(&mut child);
-                return Err(RunError::Write(io::Error::other(
-                    "stdin pipe was unavailable",
-                )));
-            }
-        }
-    } else {
-        None
-    };
+    let mut stdout = child
+        .child
+        .stdout
+        .take()
+        .ok_or_else(|| RunError::Read(io::Error::other("stdout pipe was unavailable")))?;
+    let mut stderr = child
+        .child
+        .stderr
+        .take()
+        .ok_or_else(|| RunError::Read(io::Error::other("stderr pipe was unavailable")))?;
+    let mut stdin =
+        if input.is_some() {
+            Some(
+                child.child.stdin.take().ok_or_else(|| {
+                    RunError::Write(io::Error::other("stdin pipe was unavailable"))
+                })?,
+            )
+        } else {
+            None
+        };
+    nonblocking(&stdout).map_err(RunError::Read)?;
+    nonblocking(&stderr).map_err(RunError::Read)?;
+    if let Some(pipe) = &stdin {
+        nonblocking(pipe).map_err(RunError::Write)?;
+    }
+    let input = input.unwrap_or_default();
+    if input.is_empty() {
+        stdin = None;
+    }
+    let mut written = 0_usize;
+    let mut stdout_bytes = Vec::with_capacity(limits.stdout_bytes.min(PIPE_CHUNK_BYTES));
+    let mut stderr_bytes = Vec::with_capacity(limits.stderr_bytes.min(PIPE_CHUNK_BYTES));
+    let mut stdout_eof = false;
+    let mut stderr_eof = false;
+    let mut status = None;
 
-    let output_limit_hit = Arc::new(AtomicBool::new(false));
-    let stdout_hit = Arc::clone(&output_limit_hit);
-    let stdout_limit = limits.stdout_bytes;
-    let stdout_reader = thread::spawn(move || drain_output(stdout, stdout_limit, stdout_hit));
-    let stderr_hit = Arc::clone(&output_limit_hit);
-    let stderr_limit = limits.stderr_bytes;
-    let stderr_reader = thread::spawn(move || drain_output(stderr, stderr_limit, stderr_hit));
-    let input_writer = match (input, stdin) {
-        (Some(bytes), Some(stdin)) => Some(thread::spawn(move || {
-            let mut stdin = stdin;
-            stdin.write_all(&bytes)
-        })),
-        (None, None) => None,
-        _ => unreachable!("stdin is piped exactly when input is present"),
-    };
-
-    let mut failure = None;
     loop {
-        if cancel.is_some_and(|flag| flag.load(Ordering::Acquire)) {
-            failure = Some(RunError::Cancelled);
-            break;
-        }
-        if output_limit_hit.load(Ordering::Acquire) {
-            failure = Some(RunError::OutputLimit);
-            break;
-        }
-        let remaining = command_deadline.saturating_duration_since(Instant::now());
-        if remaining.is_zero() {
-            failure = Some(RunError::TimedOut);
-            break;
-        }
-        match child.try_wait() {
-            Ok(Some(_)) => break,
-            Ok(None) => thread::sleep(POLL_INTERVAL.min(remaining)),
-            Err(error) => {
-                failure = Some(RunError::Wait(error));
-                break;
+        check_control(cancel, deadline)?;
+        let mut progressed = false;
+        if status.is_none() {
+            if let Some(exit) = child.poll()? {
+                status = Some(exit);
+                progressed = true;
             }
         }
-    }
-
-    let exit_status = if failure.is_some() {
-        terminate_and_reap(&mut child);
-        None
-    } else {
-        match child.wait() {
-            Ok(status) => Some(status),
-            Err(error) => {
-                failure = Some(RunError::Wait(error));
-                terminate_and_reap(&mut child);
-                None
+        progressed |= read_chunk(
+            &mut stdout,
+            &mut stdout_bytes,
+            &mut stdout_eof,
+            limits.stdout_bytes,
+        )?;
+        progressed |= read_chunk(
+            &mut stderr,
+            &mut stderr_bytes,
+            &mut stderr_eof,
+            limits.stderr_bytes,
+        )?;
+        if let Some(pipe) = stdin.as_mut() {
+            let end = written.saturating_add(PIPE_CHUNK_BYTES).min(input.len());
+            match pipe.write(&input[written..end]) {
+                Ok(0) => {
+                    return Err(RunError::Write(io::Error::new(
+                        io::ErrorKind::WriteZero,
+                        "Git stdin stopped accepting input",
+                    )));
+                }
+                Ok(count) => {
+                    written += count;
+                    progressed = true;
+                }
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                    ) => {}
+                Err(error) => return Err(RunError::Write(error)),
+            }
+            if written == input.len() {
+                stdin = None;
             }
         }
-    };
-
-    // Join every worker before propagating any worker error. An early `?`
-    // here would detach the remaining pipe threads on a read or panic error.
-    let stdout_result = join_reader(stdout_reader);
-    let stderr_result = join_reader(stderr_reader);
-    let input_error = input_writer.and_then(|writer| match writer.join() {
-        Ok(result) => result.err().map(RunError::Write),
-        Err(_) => Some(RunError::WriterPanicked),
-    });
-
-    if let Some(error) = failure {
-        return Err(error);
+        // Reaping the child is not enough: an inherited pipe can remain open.
+        // Never leave the bounded loop to join a reader or writer after exit.
+        check_control(cancel, deadline)?;
+        if stdout_eof && stderr_eof && stdin.is_none() {
+            if let Some(status) = status {
+                return Ok(Output {
+                    status,
+                    stdout: stdout_bytes,
+                    stderr: stderr_bytes,
+                });
+            }
+        }
+        if !progressed {
+            thread::sleep(POLL_INTERVAL.min(deadline.saturating_duration_since(Instant::now())));
+        }
     }
-    if stdout_result
-        .as_ref()
-        .is_ok_and(|output| output.exceeded_limit)
-        || stderr_result
-            .as_ref()
-            .is_ok_and(|output| output.exceeded_limit)
-    {
-        return Err(RunError::OutputLimit);
-    }
-    let stdout = stdout_result?;
-    let stderr = stderr_result?;
-    if let Some(error) = input_error {
-        return Err(error);
-    }
-
-    let status = exit_status
-        .ok_or_else(|| RunError::Wait(io::Error::other("Git exited without an exit status")))?;
-    Ok(Output {
-        status,
-        stdout: stdout.bytes,
-        stderr: stderr.bytes,
-    })
 }
 
-fn drain_output<R: Read>(
-    mut reader: R,
+/// Unsupported pipe APIs must fail before launch instead of substituting a
+/// blocking implementation that cannot enforce this runner's IO deadline.
+#[cfg(not(unix))]
+pub(crate) fn run(
+    _command: &mut Command,
+    _input: Option<Vec<u8>>,
+    _limits: Limits,
+    _cancel: Option<&AtomicBool>,
+) -> Result<Output, RunError> {
+    Err(RunError::Start(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "Bounded Git subprocess IO requires a supported Unix host.",
+    )))
+}
+
+#[cfg(unix)]
+fn check_control(cancel: Option<&AtomicBool>, deadline: Instant) -> Result<(), RunError> {
+    if cancel.is_some_and(|flag| flag.load(Ordering::Acquire)) {
+        return Err(RunError::Cancelled);
+    }
+    if Instant::now() >= deadline {
+        return Err(RunError::TimedOut);
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn read_chunk(
+    reader: &mut impl Read,
+    retained: &mut Vec<u8>,
+    eof: &mut bool,
     limit: usize,
-    limit_hit: Arc<AtomicBool>,
-) -> io::Result<DrainedOutput> {
-    let mut bytes = Vec::with_capacity(limit.min(DRAIN_BUFFER_BYTES));
-    let mut buffer = [0_u8; DRAIN_BUFFER_BYTES];
-    let mut exceeded_limit = false;
-    loop {
-        let read = reader.read(&mut buffer)?;
-        if read == 0 {
-            break;
+) -> Result<bool, RunError> {
+    if *eof {
+        return Ok(false);
+    }
+    let mut buffer = [0_u8; PIPE_CHUNK_BYTES];
+    match reader.read(&mut buffer) {
+        Ok(0) => {
+            *eof = true;
+            Ok(true)
         }
-        let remaining = limit.saturating_sub(bytes.len());
-        let retained = remaining.min(read);
-        bytes.extend_from_slice(&buffer[..retained]);
-        if retained < read {
-            exceeded_limit = true;
-            limit_hit.store(true, Ordering::Release);
+        Ok(count) => {
+            if count > limit.saturating_sub(retained.len()) {
+                return Err(RunError::OutputLimit);
+            }
+            retained.extend_from_slice(&buffer[..count]);
+            Ok(true)
+        }
+        Err(error)
+            if matches!(
+                error.kind(),
+                io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+            ) =>
+        {
+            Ok(false)
+        }
+        Err(error) => Err(RunError::Read(error)),
+    }
+}
+
+#[cfg(unix)]
+fn nonblocking(pipe: &impl AsFd) -> io::Result<()> {
+    let fd = pipe.as_fd().as_raw_fd();
+    // SAFETY: the descriptor is borrowed from a live owned child pipe for both
+    // calls. F_GETFL takes no variadic argument or pointer; failure is checked.
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    // SAFETY: the same borrowed descriptor remains live. F_SETFL takes the
+    // integer flags returned above plus O_NONBLOCK, preserving existing flags.
+    if unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+struct RunningChild {
+    child: Child,
+    reaped: bool,
+}
+
+#[cfg(unix)]
+impl RunningChild {
+    fn poll(&mut self) -> Result<Option<std::process::ExitStatus>, RunError> {
+        match self.child.try_wait() {
+            Ok(status) => {
+                self.reaped |= status.is_some();
+                Ok(status)
+            }
+            Err(error) => {
+                // ECHILD means the identity is no longer owned by this wait
+                // handle. Do not signal a PID that another waiter may have
+                // released and the OS may already have reused.
+                if error.raw_os_error() == Some(libc::ECHILD) {
+                    self.reaped = true;
+                }
+                Err(RunError::Wait(error))
+            }
         }
     }
-    Ok(DrainedOutput {
-        bytes,
-        exceeded_limit,
-    })
 }
 
-fn join_reader(
-    reader: thread::JoinHandle<io::Result<DrainedOutput>>,
-) -> Result<DrainedOutput, RunError> {
-    reader
-        .join()
-        .map_err(|_| RunError::ReaderPanicked)?
-        .map_err(RunError::Read)
-}
-
-fn terminate_and_reap(child: &mut Child) {
-    let _ = child.kill();
-    let _ = child.wait();
+#[cfg(unix)]
+impl Drop for RunningChild {
+    fn drop(&mut self) {
+        if !self.reaped {
+            if self.poll().is_ok_and(|status| status.is_some()) || self.reaped {
+                return;
+            }
+            // Child owns the process identity until wait/try_wait reaps it.
+            // No naked PID or group signal is retained after that point.
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
     use std::sync::atomic::AtomicBool;
 
     fn limits(timeout: Duration) -> Limits {

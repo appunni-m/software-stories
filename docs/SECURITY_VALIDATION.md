@@ -22,11 +22,14 @@ limits.
 ## Git subprocess bounds
 
 Repository metadata, snapshot capture and local revision comparison use one
-bounded child runner. It keeps stdout/stderr storage within each command's cap
-while continuing to drain the pipes, kills and reaps a child on timeout or
-cancellation, and joins the pipe workers before returning. Capture passes its
-cancellation flag into every Git phase. These limits fail the operation with a
-visible error; they do not silently truncate evidence.
+bounded child runner. The Unix source now supervises nonblocking stdin, stdout
+and stderr in one loop, keeps the original deadline through child exit and both
+output EOFs, and stores no output beyond the command cap. It owns child cleanup
+and releases parent pipe handles on errors; there are no pipe worker threads.
+Non-Unix hosts fail before launch. Capture passes its cancellation flag into
+every Git phase. This replacement has source/formatting review only; historical
+passing tests do not qualify it, OS cleanup or descendant behavior. These limits
+fail the operation with a visible error; they do not silently truncate evidence.
 
 | Operation | Per-command / total deadline | stdout | stderr | stdin |
 | --- | --- | ---: | ---: | ---: |
