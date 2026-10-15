@@ -33,9 +33,12 @@ Confirm that a snapshot was created for the selected project. The app does not r
 The browser preview cannot read local snapshots. Open Code Atlas in the Mac app to view captured source; this browser limitation does not indicate that the file or snapshot is corrupt.
 
 - **Skipped, excluded, binary, oversized, or invalid encoding** means source text was not captured for that path. The stated reason is the evidence available; Code Atlas does not substitute the current working-tree file.
-- **Unsupported parser** means the path remains in inventory but is outside the supported indexing subset. If readable source was captured, it can still be opened in Code Lens.
+- **Text-only support** means the path remains in inventory without local symbol or relationship analysis. If readable source was captured, it can still be opened in Files and cited in an explanation.
+- **Partial structural support** means a local parser is available, but its syntax and relationship coverage is bounded; framework behavior and generated explanation quality are not thereby qualified.
 - **Partial index or parse error** means some structural relationships may be absent. A missing edge is not proof that two files are unrelated.
 - A **partial snapshot** remains partial. Capture again to make a new snapshot; prior snapshots remain separate.
+
+See the [language capability matrix](LANGUAGE_CAPABILITIES.md) for the current per-language and per-operation limits.
 
 ## Opening a file in Code Lens shows an error
 

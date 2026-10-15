@@ -2,6 +2,7 @@ import type { SnapshotManifest } from './commands';
 
 export type CaptureDisposition = 'captured' | 'skipped' | 'excluded';
 export type ParserReadiness = 'notReady' | 'unsupported' | 'notApplicable';
+export type LanguageSupportTier = 'partialStructural' | 'textOnly' | 'unavailable';
 export type InventoryCategory = 'config' | 'test' | 'generated' | 'secret';
 
 export interface InventoryRow {
@@ -38,7 +39,9 @@ export interface InventoryPage {
   lastVisible: number;
 }
 
-const parserLanguages = new Set([
+// Parser availability is only partial structural capability, not end-to-end
+// semantic or generated-narrative qualification.
+const partialStructuralParserLanguages = new Set([
   'TypeScript', 'JavaScript', 'Rust',
 ]);
 
@@ -128,7 +131,37 @@ export function inventoryReasonLabel(reason: string): string {
 
 function capturedReadiness(contentKind: InventoryRow['contentKind'], language: string): ParserReadiness {
   if (contentKind !== 'text') return 'notApplicable';
-  return parserLanguages.has(language) ? 'notReady' : 'unsupported';
+  return partialStructuralParserLanguages.has(language) ? 'notReady' : 'unsupported';
+}
+
+export function languageSupportTier(
+  row: Pick<InventoryRow, 'disposition' | 'contentKind' | 'parserReadiness'>,
+): LanguageSupportTier {
+  if (row.disposition !== 'captured' || row.contentKind !== 'text') return 'unavailable';
+  switch (row.parserReadiness) {
+    case 'notReady': return 'partialStructural';
+    case 'unsupported': return 'textOnly';
+    case 'notApplicable': return 'unavailable';
+  }
+}
+
+export function languageSupportLabel(tier: LanguageSupportTier): string {
+  switch (tier) {
+    case 'partialStructural': return 'Partial structural';
+    case 'textOnly': return 'Text only';
+    case 'unavailable': return 'Not analyzed';
+  }
+}
+
+export function languageSupportNote(tier: LanguageSupportTier, language: string): string {
+  switch (tier) {
+    case 'partialStructural':
+      return `${language} has a local syntax parser. Relationships are conservative, and framework behavior and generated explanation quality are not language-qualified.`;
+    case 'textOnly':
+      return `Captured ${language} text and exact citations remain available; the local indexer does not extract symbols or relationships for this language.`;
+    case 'unavailable':
+      return 'This entry was not structurally analyzed. Check its capture disposition and content type before assuming source text is available.';
+  }
 }
 
 export function buildInventory(manifest: SnapshotManifest): InventoryRow[] {

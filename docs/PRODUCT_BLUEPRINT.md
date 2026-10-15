@@ -88,7 +88,7 @@ No transition silently switches repository snapshots. A snapshot change is an ex
 |---|---|---|
 | Folder access denied | Repo path and permission error; no capture progress | Choose another folder or grant macOS access, then retry explicitly. Existing project snapshots remain available. |
 | Capture cancelled or bounded | Cancelled/partial label, captured/skipped counts, exact reasons | Resume only as a new capture, change the selected scope, or inspect captured files. Never treat partial as complete. |
-| Parser unsupported or fails | File stays in inventory; parser state and reason are shown | Read captured text when possible. No relationship edges or chapter facts are fabricated from parse failure. |
+| Structure is unavailable, partial, or fails | File stays in inventory; its language-support tier and current local-index status are shown separately, with the capture/parse reason available | Read captured text when available. Do not treat a parser tier as semantic or narrative qualification, and do not fabricate relationship edges or chapter facts from parse failure. See the [language capability matrix](LANGUAGE_CAPABILITIES.md). |
 | No selected API key or Keychain unavailable | Provider setup state; local features remain active | Choose a provider, add/remove its key, or grant Keychain access. No request is sent during setup. |
 | Network, quota, billing, region, or model error | Named provider error; saved content remains available | A retry requires a fresh exact manifest and consent; otherwise continue using local content. No paid fallback. |
 | Invalid model response or citation | Validation issues next to the draft; Accept disabled | Edit/remove unsupported claim, request a repaired draft after new review, or reject it. Existing accepted revision is unchanged. |
@@ -104,7 +104,7 @@ No transition silently switches repository snapshots. A snapshot change is an ex
 4. **The reader controls time.** Sections are skimmable, pausable, replayable, and manually advanced.
 5. **Edits are local and reversible.** Accepted guide revisions are immutable; selective edits create new revisions and preserve history.
 6. **AI is optional.** Local repository browsing and previously accepted guides work without an account, API key, network, or model.
-7. **No confidence theater.** Static relationships are not presented as runtime behavior; unsupported parsers and incomplete evidence are named.
+7. **No confidence theater.** Static relationships are not presented as runtime behavior; partial-structural and text-only capabilities, parse uncertainty, and incomplete evidence are named.
 
 ## First-use journey
 

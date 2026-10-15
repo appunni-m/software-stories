@@ -20,6 +20,12 @@ Task 129x added and passed a lexical-resolution matrix across Rust, TypeScript, 
 
 This evidence closes the targeted shadowing/export defect only. It does not establish complete semantics, framework entry-point coverage, mixed-language behavior, or human-reviewed explanation quality. All language-tier acceptance criteria remain open.
 
+## Source implementation progress — 2026-10-15
+
+Added `docs/LANGUAGE_CAPABILITIES.md` with a dated operation matrix that separates text capture/citations, partial structural parsing, framework and mixed-language coverage, and generated explanation quality. It lists no language as fully qualified. The Guide inventory and Files detail UI now call parser-backed support **Partial structural**, uncatalogued captured text **Text only**, and non-text/unavailable entries **Not analyzed**; they explain that parser availability does not qualify framework behavior or narrative quality. README, blueprint, interaction contract, technical plan, chapter-quality gate, troubleshooting, and getting-started docs link to or clarify the matrix. The tier mapping now treats parser `notApplicable` as **Not analyzed**, rather than inferring text-only capability.
+
+This is documentation and UI progress, not language acceptance. Rust, TypeScript, TSX, and JavaScript still need representative source fixtures and human-reviewed file explanations and behavior journeys; framework and cross-language boundaries remain unqualified. No tests or builds were run.
+
 ## Contract
 Publish capability tiers by language and operation: text capture/citations, declarations, imports, calls/tests, framework entry points, cross-language links and generated explanation quality. Separate grammar availability from semantic resolution and narrative quality. Repair the existing parser set first. Add maintained Tree-sitter/LSP/compiler integrations where they fit; do not build a custom parser framework. Choose expansion languages from representative target repos, with Python and Go as initial candidates rather than promises of finished support.
 

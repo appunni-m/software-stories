@@ -172,7 +172,7 @@ export function buildCoverageRows(
       status = revision.snapshotId !== plan.snapshotId ? 'stale' : revision.lifecycle;
     } else if (row.parserReadiness === 'unsupported') {
       status = 'unsupported';
-      reason = `No structural parser is available for ${row.language}; the captured text can still be opened locally.`;
+      reason = `Text-only support for ${row.language}: captured source and exact citations remain available, but the local indexer does not extract symbols or relationships.`;
     } else {
       status = 'missing';
     }

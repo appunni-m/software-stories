@@ -10,7 +10,7 @@ The current design direction has three primary destinations: Guide, Files, and C
 
 ## What the current source contains
 
-- A Tauri desktop shell with Guide / Files / Changes navigation, local repository selection, bounded snapshot capture, immutable source browsing in Files, an optional relationship map, and a Rust index for a defined Rust, TypeScript, TSX, and JavaScript subset.
+- A Tauri desktop shell with Guide / Files / Changes navigation, local repository selection, bounded snapshot capture, immutable source browsing in Files, an optional relationship map, and a Rust index for a bounded Rust, TypeScript/TSX, and JavaScript subset. These are partial structural capabilities, not language qualification; see the [language capability matrix](docs/LANGUAGE_CAPABILITIES.md).
 - Local file-by-file coverage, Chapter Studio editing and review, immutable JSON chapter revisions, and a manually paced Walkthrough with source-linked citations and typed visual hotspots.
 - A **Compare local revisions** project tool for bounded, read-only comparisons of commits already present in a local Git repository. It shows file classifications, exact changed-line ranges, diff hunks, parser-backed declarations where all available source revisions parse cleanly, and distinct base/head commit and blob identities. A separate PR Guide panel can send selected diff evidence through an explicitly selected Gemini, OpenAI, or Anthropic API after exact request review and consent; generated claims must cite the correct base/head hunk, and accepting or rejecting appends separate local PR Guide history. Each eligible text hunk also has a transient **Explain hunk** flow: it reviews and sends only that hunk, returns locally validated base/head citations, and writes neither PR Guide history nor Git state. These local comparison flows never fetch, check out, or write Git state.
 - The Guide reader can export one self-contained HTML file from selected accepted revisions. Its preview reports audio availability per section and pairs included cached tracks with their reviewed transcript; it also previews paths and excerpts and supports section navigation and supported typed diagrams. Live local Files destinations are unavailable offline.
@@ -25,6 +25,7 @@ These are source-level capabilities, not a claim of a finished or released produ
 - [Getting started](docs/GETTING_STARTED.md) — run the current Mac app from source and complete a local first session.
 - [0.1.0 release readiness draft](docs/releases/0.1.0-draft.md) — unreleased status, parser coverage, capture limits, and open gates.
 - [Troubleshooting](docs/TROUBLESHOOTING.md) — diagnose repository, snapshot, chapter, provider, and narration issues.
+- [Language capability matrix](docs/LANGUAGE_CAPABILITIES.md) — see which source and structure operations are available and which still need qualification.
 - [Local data and permissions](docs/LOCAL_DATA.md) — find local snapshots, understand Keychain access, exports, and deletion.
 - [Product blueprint](docs/PRODUCT_BLUEPRINT.md) — intended user journey, file coverage, trust rules, and release gates.
 - [Interaction contract](docs/INTERACTION_CONTRACT.md) — controls, navigation destinations, side effects, and acceptance walkthrough.

@@ -67,7 +67,7 @@ Code Atlas cannot determine account billing, region, eligibility, quota, or rete
 
 ## Current boundaries
 
-- The indexer recognizes a defined Rust, TypeScript, TSX, and JavaScript subset. Other files remain visible in inventory, with parser or capture limitations shown.
+- The local structural parser covers a bounded Rust, TypeScript, TSX, and JavaScript subset. These are **partial structural** capabilities, not fully qualified language support. Other captured text remains citeable but is **text only**; no language has passed the full structural and narrative qualification gate. See the [language capability matrix](LANGUAGE_CAPABILITIES.md).
 - Each selected file is generated and reviewed individually. There is no generate-all action.
 - Generated prose and source identity validation are different checks: a valid citation does not prove that the explanation is semantically correct.
 - Gemini, OpenAI, and Anthropic are selectable for file chapters, optional orientation, selective section updates, PR Guides, transient one-hunk PR change explanations, and transient source-range explanations grounded in a verified file range. Offline mock fixtures cover every wired provider/operation pair; full capability and acceptance evidence remains open for live provider behavior, eligibility, production transport, response parsing, and manual disclosure review. Coding-agent backends are separate planned integrations and are not selectable.

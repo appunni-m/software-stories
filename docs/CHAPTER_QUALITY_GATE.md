@@ -14,7 +14,7 @@ Run the structural corpus check with:
 npm run quality:corpus
 ```
 
-The check is deterministic and local. It enforces all six role families and at least two distinct synthetic repositories, checks that supported/unsupported language labels match the current Atlas parser-language set, checks canonical fixture paths and hashes, and requires each expected quote to occupy its exact declared line and UTF-8 byte range. It never contacts a model.
+The check is deterministic and local. It enforces all six role families and at least two distinct synthetic repositories, checks that fixture parser-dispatch tags match the current Atlas parser-language set, checks canonical fixture paths and hashes, and requires each expected quote to occupy its exact declared line and UTF-8 byte range. The parser-dispatch check does not qualify language semantics or generated explanation quality; see the [language capability matrix](LANGUAGE_CAPABILITIES.md). It never contacts a model.
 
 Before filling a report, get the current corpus hash, prompt/schema fingerprints, and model allowlist with:
 
