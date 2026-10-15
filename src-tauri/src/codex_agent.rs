@@ -4,7 +4,7 @@
 //! process is shared by this application; calls never use a shell or read a
 //! user's existing Codex credentials. The runtime owns its browser login,
 //! Keychain credential storage and refresh in an application-specific home.
-//! This initial adapter exposes bounded chapter generation with command and web
+//! This initial adapter exposes bounded explanation generation with command and web
 //! tools disabled, restricted read access, and unexpected tool events rejected.
 
 use serde::{Deserialize, Serialize};
@@ -826,7 +826,7 @@ impl ServerProcess {
             "starting",
             Some(&thread_id),
             None,
-            "Starting the reviewed chapter request.",
+            "Starting the reviewed explanation request.",
         ));
         let request_id = self.send_request("turn/start", json!({
             "threadId": thread_id, "input": [{"type": "text", "text": input.user_prompt}],
@@ -858,7 +858,7 @@ impl ServerProcess {
                     "cancelling",
                     Some(&thread_id),
                     turn_id.as_deref(),
-                    "Stopping Codex. No generated chapter will be accepted.",
+                    "Stopping Codex. No generated response will be accepted.",
                 ));
             }
             if cancel_at.is_some_and(|at| at.elapsed() >= CANCEL_GRACE) {
@@ -913,7 +913,7 @@ impl ServerProcess {
                     let item = params.get("item").ok_or("Codex returned an invalid item event.")?;
                     let kind = item.get("type").and_then(Value::as_str).unwrap_or("");
                     if !matches!(kind, "userMessage" | "agentMessage" | "plan" | "reasoning" | "contextCompaction") {
-                        return Err("Codex attempted a tool outside this chapter's permitted explanation scope. The run was stopped.".to_owned());
+                        return Err("Codex attempted a tool outside this request's permitted explanation scope. The run was stopped.".to_owned());
                     }
                     if method == "item/completed" && kind == "agentMessage" {
                         let id = bounded_string(item, "id", 256)?;
@@ -945,7 +945,7 @@ impl ServerProcess {
                         for item in items {
                             let kind = item.get("type").and_then(Value::as_str).unwrap_or("");
                             if !matches!(kind, "userMessage" | "agentMessage" | "plan" | "reasoning" | "contextCompaction") {
-                                return Err("Codex returned a tool action outside this chapter's permitted explanation scope. No chapter was accepted.".to_owned());
+                                return Err("Codex returned a tool action outside this request's permitted explanation scope. No response was accepted.".to_owned());
                             }
                             if kind != "agentMessage" { continue; }
                             let id = bounded_string(item, "id", 256)?;
@@ -957,10 +957,10 @@ impl ServerProcess {
                     }
                     let response_text = final_order.last().and_then(|id| messages.get(id))
                         .filter(|text| serde_json::from_str::<Value>(text).is_ok()).cloned()
-                        .ok_or("Codex completed without a complete JSON chapter. No draft was created.")?;
+                        .ok_or("Codex completed without a complete JSON response. No response was accepted.")?;
                     self.request("thread/unsubscribe", json!({"threadId": thread_id}), RPC_TIMEOUT)?;
                     if cancelled.load(Ordering::Acquire) { return Err(cancelled_message()); }
-                    progress(progress_event(&input.run_id, "validating", Some(&thread_id), Some(&completed_id), "Codex completed. Checking the chapter against its exact source evidence."));
+                    progress(progress_event(&input.run_id, "validating", Some(&thread_id), Some(&completed_id), "Codex completed. Checking the explanation against its exact source evidence."));
                     return Ok(CodexRunResult { thread_id, turn_id: completed_id, model: input.model.clone(), effort: input.effort.clone(), response_text });
                 }
                 _ => {}
@@ -1233,15 +1233,17 @@ fn validate_run(input: &CodexRunInput) -> Result<(), String> {
         || input.user_prompt.is_empty()
         || input.user_prompt.len() > 768 * 1024
     {
-        return Err("The Codex chapter prompt is empty or exceeds the supported limit.".to_owned());
+        return Err(
+            "The Codex explanation prompt is empty or exceeds the supported limit.".to_owned(),
+        );
     }
     if !input.output_schema.is_object()
         || serde_json::to_vec(&input.output_schema)
-            .map_err(|_| "Invalid chapter output schema.")?
+            .map_err(|_| "Invalid explanation output schema.")?
             .len()
             > 128 * 1024
     {
-        return Err("The chapter output schema is invalid or too large.".to_owned());
+        return Err("The explanation output schema is invalid or too large.".to_owned());
     }
     if input.sources.is_empty() || input.sources.len() > MAX_SOURCE_FILES {
         return Err("Choose between 1 and 24 reviewed source files for Codex.".to_owned());
@@ -1741,7 +1743,7 @@ fn progress_event(
 }
 
 fn cancelled_message() -> String {
-    "The Codex run was cancelled locally. No chapter was accepted; the provider may already have processed some reviewed context.".to_owned()
+    "The Codex run was cancelled locally. No response was accepted; the provider may already have processed some reviewed context.".to_owned()
 }
 
 fn hex_digest(bytes: &[u8]) -> String {

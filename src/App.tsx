@@ -1739,7 +1739,7 @@ interface ProviderDialogProps {
 }
 
 function ProviderDialog(props: ProviderDialogProps) {
-  const agentOperation = props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview' || props.mode.kind === 'section-update';
+  const agentOperation = props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview' || props.mode.kind === 'section-update' || props.mode.kind === 'code-lens-range';
   const handoffOperation = props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview';
   const [backend, setBackend] = useState<'choose' | 'codex' | 'handoff' | 'api'>(() => {
     if (props.mode.recoveryBackend === 'codex' && agentOperation) return 'codex';
@@ -1764,14 +1764,14 @@ function ProviderDialog(props: ProviderDialogProps) {
     return <AgentHandoffDialog mode={props.mode.kind === 'settings' ? 'settings' : props.mode} native={props.native}
       initialAgent={handoffAgent} onClose={props.onClose} onChooseBackend={() => setBackend('choose')} />;
   }
-  if (backend === 'codex' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview' || props.mode.kind === 'section-update')) {
+  if (backend === 'codex' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview' || props.mode.kind === 'section-update' || props.mode.kind === 'code-lens-range')) {
     const selectedMode = props.mode;
     const mode: CodexChapterDialogMode = selectedMode.kind === 'settings' ? 'settings' : selectedMode.kind === 'section-update'
       ? { ...selectedMode, sectionTitle: selectedMode.baseRevision.sections.find((section) => section.sectionId === selectedMode.sectionUpdate.sectionId)?.title }
       : selectedMode;
     return <CodexChapterDialog mode={mode}
       native={props.native} onClose={props.onClose} onChooseBackend={() => setBackend('choose')}
-      onRecoveryReviewReady={props.onRecoveryReviewReady} />;
+      onRecoveryReviewReady={props.onRecoveryReviewReady} onOpenCodeLensCitation={props.onOpenCodeLensCitation} />;
   }
   return <div className="provider-overlay">
     <section className="provider-dialog" ref={chooserRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="backend-choice-title">
@@ -1783,9 +1783,9 @@ function ProviderDialog(props: ProviderDialogProps) {
       </header>
       <div className="provider-dialog-content">
         <section className="provider-review-card"><h3>Codex · ChatGPT account</h3>
-          <p>File chapters, selected-source overviews and one-section repairs using the official Codex runtime. Choose a model and reasoning level from its catalog. Your plan limits apply; this path needs no API key.</p>
+          <p>File chapters, selected-source overviews, one-section repairs and exact code selections using the official Codex runtime. Choose a model and reasoning level from its catalog. Your plan limits apply; this path needs no API key.</p>
           <button className="primary-button" disabled={!agentOperation} onClick={() => choose('codex')}>Use Codex</button>
-          {!agentOperation && <p role="status">Codex support for this operation is pending. The current source adapter covers file chapters, overviews and one-section repairs.</p>}
+          {!agentOperation && <p role="status">Codex support for this operation is pending. The current source adapter covers file chapters, overviews, one-section repairs and exact code selections.</p>}
         </section>
         <section className="provider-review-card"><h3>Claude Code · manual handoff</h3>
           <p>Copy a reviewed task into Claude Code, then import its JSON explanation for local source validation. Configure model, reasoning and approvals in Claude Code. Code Atlas needs no API key for this workflow.</p>

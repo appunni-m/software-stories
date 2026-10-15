@@ -20,7 +20,7 @@ Claude now has invocation/stream-consumer, shared chapter/section review helpers
 | Generate a file chapter from selected captured files | Source | Missing | Missing |
 | Generate an optional overview of selected captured files | Source | Missing | Missing |
 | Regenerate one stale section while preserving eligible unchanged sections | Source | Missing | Missing |
-| Explain the exact selected source range in Files | Missing | Missing | Missing |
+| Explain the exact selected source range in Files | Source | Missing | Missing |
 | Generate a guide for a selected immutable Git comparison | Missing | Missing | Missing |
 | Explain one selected base/head diff hunk | Missing | Missing | Missing |
 
@@ -60,5 +60,7 @@ Keep operation context and validation independent of transport. Extend the exist
 2. **Codex completion (`z3an`, priority 0):** qualify the implemented routes and extend the shared context/dispatch to range and Git-change operations. Retain exact section identity and preservation semantics.
 3. **Coverage and UX gate (`2r6n`, priority 0):** require both agents for every required row above, real effective controls, cancellation and scope-preserving recovery. Update this matrix with exact runtime/adapter versions and dated acceptance evidence before promoting any cell to supported.
 4. **Antigravity (`m00g`):** qualify its supported integration and account route independently. An unresolved requested backend keeps M7 open.
+
+Codex range dispatch now shares immutable range context with direct APIs and uses the existing managed runtime and independent citation validator. It stages only the excerpt, returns a transient explanation and never prepares a chapter draft. The full captured-file identity remains in the review; staged-content integrity uses the excerpt digest. Native acceptance, runtime qualification and scope-preserving interruption recovery remain pending.
 
 Runtime qualification, login, real generation and native acceptance remain pending. This contract update ran no tests, builds, agent processes or provider requests.

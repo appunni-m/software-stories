@@ -1338,6 +1338,15 @@ export async function buildCodexChapterReview(input: {
 }): Promise<ProviderCommandResult<ProviderRequestReview>> {
   return invoke('build_codex_chapter_review', { input });
 }
+export async function buildCodexCodeLensReview(input: {
+  projectId: string; snapshotId: string; target: CodeLensExplanationTarget;
+  modelId: string; effort: string; approvalPolicy: 'never';
+}): Promise<ProviderCommandResult<ProviderRequestReview>> {
+  return invoke('build_codex_code_lens_review', { input });
+}
+export async function sendCodexCodeLensRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<CodeLensExplanationPreview>> {
+  return invoke('send_codex_code_lens_request', { reviewId, fingerprint, consent });
+}
 export async function sendCodexChapterRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<ChapterDraftPreview>> {
   return invoke('send_codex_chapter_request', { reviewId, fingerprint, consent });
 }

@@ -1844,7 +1844,7 @@ pub fn build_request_review_for_provider(
             "Choose a structured-output model listed for the selected provider. Model discovery and automatic substitution are disabled.",
         ));
     }
-    let ChapterRequestContext {
+    let ExplanationRequestContext {
         selected_files,
         selected_symbols,
         selected_relationships,
@@ -1933,7 +1933,7 @@ pub fn build_request_review_for_provider(
 }
 
 /// Transport-independent, immutable evidence and prompt shared by API and agent routes.
-struct ChapterRequestContext {
+struct ExplanationRequestContext {
     selected_files: Vec<ProviderRequestFile>,
     selected_symbols: Vec<ProviderSymbolEvidence>,
     selected_relationships: Vec<ProviderRelationshipEvidence>,
@@ -1949,7 +1949,7 @@ struct ChapterRequestContext {
 fn build_chapter_context(
     storage_dir: &Path,
     input: &BuildProviderReviewInput,
-) -> Result<ChapterRequestContext, ProviderFailure> {
+) -> Result<ExplanationRequestContext, ProviderFailure> {
     if input.section_update.is_some() {
         return build_section_update_context(storage_dir, input);
     }
@@ -2170,7 +2170,7 @@ SELECTED LOCAL INDEX EVIDENCE JSON:
             repository_overview_generation_config(),
         )
     };
-    Ok(ChapterRequestContext {
+    Ok(ExplanationRequestContext {
         selected_files,
         selected_symbols,
         selected_relationships,
@@ -2206,19 +2206,6 @@ pub(crate) fn build_codex_chapter_review(
     input: &BuildCodexReviewInput,
     executable_path: &str,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
-    if input.model_id.trim().is_empty()
-        || input.model_id.len() > 200
-        || input.effort.trim().is_empty()
-        || input.effort.len() > 32
-        || input.approval_policy != "never"
-        || executable_path.is_empty()
-        || executable_path.len() > 4096
-    {
-        return Err(failure(
-            ProviderFailureKind::InvalidReview,
-            "Configure Codex, choose an advertised model and reasoning level, and use the supported Never approval policy.",
-        ));
-    }
     build_agent_chapter_review(
         storage_dir,
         &BuildProviderReviewInput {
@@ -2229,20 +2216,96 @@ pub(crate) fn build_codex_chapter_review(
             model_id: input.model_id.clone(),
             section_update: input.section_update.clone(),
         },
-        AgentChapterTransport {
-            provider_id: "codex",
-            authentication: "chatgpt-account",
-            endpoint_url: "codex-app-server://stdio",
-            disclosure_version: "codex-account-2026-10-15-v1",
-            config: json!({
-                "contractVersion": "codex-chapter-v2", "effort": input.effort,
-                "approvalPolicy": "never", "executablePath": executable_path,
-                "shell": false, "webSearch": false,
-                "filesystem": "read-only staged selected source", "ephemeral": true,
-                "timeoutSeconds": 600,
-            }),
-        },
+        codex_transport(
+            &input.model_id,
+            &input.effort,
+            &input.approval_policy,
+            executable_path,
+            "codex-chapter-v2",
+        )?,
     )
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct BuildCodexCodeLensInput {
+    pub project_id: String,
+    pub snapshot_id: String,
+    pub target: CodeLensExplanationTarget,
+    pub model_id: String,
+    pub effort: String,
+    pub approval_policy: String,
+}
+
+pub(crate) fn build_codex_code_lens_review(
+    storage_dir: &Path,
+    input: &BuildCodexCodeLensInput,
+    executable_path: &str,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    let transport = codex_transport(
+        &input.model_id,
+        &input.effort,
+        &input.approval_policy,
+        executable_path,
+        "codex-code-lens-v1",
+    )?;
+    let context = build_code_lens_context(
+        storage_dir,
+        &BuildCodeLensReviewInput {
+            project_id: input.project_id.clone(),
+            snapshot_id: input.snapshot_id.clone(),
+            target: input.target.clone(),
+            model_id: input.model_id.clone(),
+        },
+    )?;
+    build_agent_context_review(
+        &BuildProviderReviewInput {
+            project_id: input.project_id.clone(),
+            snapshot_id: input.snapshot_id.clone(),
+            target_path: Some(input.target.path.clone()),
+            selected_paths: vec![input.target.path.clone()],
+            model_id: input.model_id.clone(),
+            section_update: None,
+        },
+        context,
+        Some(input.target.clone()),
+        transport,
+    )
+}
+
+fn codex_transport(
+    model_id: &str,
+    effort: &str,
+    approval_policy: &str,
+    executable_path: &str,
+    contract_version: &str,
+) -> Result<AgentTransport<'static>, ProviderFailure> {
+    if model_id.trim().is_empty()
+        || model_id.len() > 200
+        || effort.trim().is_empty()
+        || effort.len() > 32
+        || approval_policy != "never"
+        || executable_path.is_empty()
+        || executable_path.len() > 4096
+    {
+        return Err(failure(
+            ProviderFailureKind::InvalidReview,
+            "Configure Codex, choose an advertised model and reasoning level, and use the supported Never approval policy.",
+        ));
+    }
+    Ok(AgentTransport {
+        provider_id: "codex",
+        authentication: "chatgpt-account",
+        endpoint_url: "codex-app-server://stdio",
+        disclosure_version: "codex-account-2026-10-15-v1",
+        config: json!({
+            "contractVersion": contract_version, "effort": effort,
+            "approvalPolicy": "never", "executablePath": executable_path,
+            "shell": false, "webSearch": false,
+            "filesystem": "read-only staged selected source", "ephemeral": true,
+            "timeoutSeconds": 600,
+        }),
+    })
 }
 
 #[derive(Clone, Deserialize)]
@@ -2278,7 +2341,7 @@ pub(crate) fn build_claude_chapter_review(
             model_id: input.settings.model_id.clone(),
             section_update: input.section_update.clone(),
         },
-        AgentChapterTransport {
+        AgentTransport {
             provider_id: "claude-agent",
             authentication: "claude-plan",
             endpoint_url: "claude-agent-cli://stdio",
@@ -2299,7 +2362,7 @@ pub(crate) fn build_claude_chapter_review(
     )
 }
 
-struct AgentChapterTransport<'a> {
+struct AgentTransport<'a> {
     provider_id: &'a str,
     authentication: &'a str,
     endpoint_url: &'a str,
@@ -2313,9 +2376,23 @@ struct AgentChapterTransport<'a> {
 fn build_agent_chapter_review(
     storage_dir: &Path,
     input: &BuildProviderReviewInput,
-    transport: AgentChapterTransport<'_>,
+    transport: AgentTransport<'_>,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
-    let ChapterRequestContext {
+    build_agent_context_review(
+        input,
+        build_chapter_context(storage_dir, input)?,
+        None,
+        transport,
+    )
+}
+
+fn build_agent_context_review(
+    input: &BuildProviderReviewInput,
+    context: ExplanationRequestContext,
+    code_lens_context: Option<CodeLensExplanationTarget>,
+    transport: AgentTransport<'_>,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    let ExplanationRequestContext {
         selected_files,
         selected_symbols,
         selected_relationships,
@@ -2326,7 +2403,7 @@ fn build_agent_chapter_review(
         source_bytes,
         purpose,
         section_update_context,
-    } = build_chapter_context(storage_dir, input)?;
+    } = context;
     let mut output_schema = chapter_config
         .get("responseSchema")
         .cloned()
@@ -2338,7 +2415,7 @@ fn build_agent_chapter_review(
         })?;
     crate::provider_api::lowercase_schema_types(&mut output_schema);
     close_agent_schema_objects(&mut output_schema);
-    let AgentChapterTransport {
+    let AgentTransport {
         provider_id,
         authentication,
         endpoint_url,
@@ -2354,11 +2431,14 @@ fn build_agent_chapter_review(
             )
         })?
         .insert("outputSchema".to_owned(), output_schema);
-    let body = json!({
+    let mut body = json!({
         "provider": provider_id, "authentication": authentication, "model": input.model_id,
         "systemInstruction": system_instruction, "userPrompt": user_prompt,
         "settings": generation_config, "sectionUpdate": section_update_context,
     });
+    if let Some(target) = &code_lens_context {
+        body["codeLens"] = json!(target);
+    }
     let encoded = serde_json::to_vec(&body).map_err(|_| {
         failure(
             ProviderFailureKind::InvalidReview,
@@ -2401,7 +2481,7 @@ fn build_agent_chapter_review(
         index_evidence_truncated,
         pr_guide_context: None,
         section_update_context,
-        code_lens_context: None,
+        code_lens_context,
         pr_change_context: None,
         system_instruction,
         user_prompt,
@@ -2620,7 +2700,7 @@ fn close_agent_schema_objects(schema: &mut Value) {
     }
 }
 
-pub(crate) fn revalidate_codex_chapter_review(
+pub(crate) fn revalidate_codex_request_review(
     storage_dir: &Path,
     review: &ProviderRequestReview,
     executable_path: &str,
@@ -2655,15 +2735,37 @@ pub(crate) fn revalidate_codex_chapter_review(
             .to_owned(),
         section_update: review.section_update_context.clone(),
     };
-    let rebuilt = build_codex_chapter_review(storage_dir, &input, executable_path)?;
+    let rebuilt = if review.purpose == CODE_LENS_EXPLANATION_PURPOSE {
+        let target = review.code_lens_context.clone().ok_or_else(|| {
+            failure(
+                ProviderFailureKind::InvalidReview,
+                "The exact Codex source range is missing. Select it again.",
+            )
+        })?;
+        build_codex_code_lens_review(
+            storage_dir,
+            &BuildCodexCodeLensInput {
+                project_id: input.project_id,
+                snapshot_id: input.snapshot_id,
+                target,
+                model_id: input.model_id,
+                effort: input.effort,
+                approval_policy: input.approval_policy,
+            },
+            executable_path,
+        )?
+    } else {
+        build_codex_chapter_review(storage_dir, &input, executable_path)?
+    };
     if rebuilt.review.fingerprint != review.fingerprint
         || rebuilt.review.request_body_preview != review.request_body_preview
         || rebuilt.review.purpose != review.purpose
         || rebuilt.review.section_update_context != review.section_update_context
+        || rebuilt.review.code_lens_context != review.code_lens_context
     {
         return Err(failure(
             ProviderFailureKind::ReviewChanged,
-            "The source, runtime configuration or chapter contract changed. Review a new Codex request.",
+            "The source, runtime configuration or operation contract changed. Review a new Codex request.",
         ));
     }
     Ok(())
@@ -2751,6 +2853,94 @@ pub fn build_code_lens_request_review_for_provider(
             "Choose a structured-output model listed for the selected provider.",
         )
     })?;
+    let ExplanationRequestContext {
+        mut selected_files,
+        system_instruction,
+        user_prompt,
+        generation_config,
+        source_bytes,
+        ..
+    } = build_code_lens_context(storage_dir, input)?;
+    // The context builder always returns exactly the selected excerpt.
+    let selected_file = selected_files.pop().ok_or_else(|| {
+        failure(
+            ProviderFailureKind::InvalidReview,
+            "The selected source range is unavailable.",
+        )
+    })?;
+    let encoded = crate::provider_api::encode_request_preview(
+        provider_id,
+        &input.model_id,
+        &system_instruction,
+        &user_prompt,
+        &generation_config,
+    )
+    .map_err(|_| {
+        failure(
+            ProviderFailureKind::InvalidReview,
+            "The exact Code Lens request could not be encoded for review.",
+        )
+    })?;
+    if encoded.body_bytes > MAX_REQUEST_BODY_BYTES {
+        return Err(failure(
+            ProviderFailureKind::ContextTooLarge,
+            "The exact Code Lens request exceeds the 512 KB review limit.",
+        ));
+    }
+    let fingerprint = request_fingerprint_for_provider(
+        provider_id,
+        CODE_LENS_EXPLANATION_PURPOSE,
+        &input.project_id,
+        &input.snapshot_id,
+        Some(&input.target.path),
+        &model.model_id,
+        &disclosure.version,
+        &system_instruction,
+        &user_prompt,
+        std::slice::from_ref(&selected_file),
+        generation_config.clone(),
+    )?;
+    let now = unix_time_ms();
+    let review = ProviderRequestReview {
+        review_id: Uuid::new_v4().to_string(),
+        project_id: input.project_id.clone(),
+        snapshot_id: input.snapshot_id.clone(),
+        purpose: CODE_LENS_EXPLANATION_PURPOSE.to_owned(),
+        target_path: Some(input.target.path.clone()),
+        provider_id: provider_id.to_owned(),
+        model_id: model.model_id,
+        endpoint_url: encoded.endpoint_url,
+        disclosure_version: disclosure.version,
+        selected_files: vec![selected_file],
+        selected_symbols: Vec::new(),
+        selected_relationships: Vec::new(),
+        index_evidence_truncated: false,
+        pr_guide_context: None,
+        section_update_context: None,
+        code_lens_context: Some(input.target.clone()),
+        pr_change_context: None,
+        system_instruction,
+        user_prompt,
+        generation_config,
+        source_bytes,
+        estimated_input_tokens: encoded.body_bytes.div_ceil(4),
+        request_body_bytes: encoded.body_bytes,
+        request_body_sha256: encoded.body_sha256,
+        request_body_preview: encoded.body.clone(),
+        fingerprint,
+        expires_at_unix_ms: now.saturating_add(REVIEW_LIFETIME_MS),
+    };
+    Ok(PendingProviderRequest {
+        review,
+        body: encoded.body,
+    })
+}
+
+/// Immutable range evidence shared by direct APIs and coding-agent transports.
+fn build_code_lens_context(
+    storage_dir: &Path,
+    input: &BuildCodeLensReviewInput,
+) -> Result<ExplanationRequestContext, ProviderFailure> {
     let manifest = snapshot::load_snapshot_manifest(
         storage_dir,
         &input.project_id,
@@ -2883,25 +3073,6 @@ PATH: {path}
         excerpt = excerpt,
     );
     let generation_config = code_lens_generation_config();
-    let encoded = crate::provider_api::encode_request_preview(
-        provider_id,
-        &input.model_id,
-        &system_instruction,
-        &user_prompt,
-        &generation_config,
-    )
-    .map_err(|_| {
-        failure(
-            ProviderFailureKind::InvalidReview,
-            "The exact Code Lens request could not be encoded for review.",
-        )
-    })?;
-    if encoded.body_bytes > MAX_REQUEST_BODY_BYTES {
-        return Err(failure(
-            ProviderFailureKind::ContextTooLarge,
-            "The exact Code Lens request exceeds the 512 KB review limit.",
-        ));
-    }
     let selected_file = ProviderRequestFile {
         path: input.target.path.clone(),
         sha256: source.sha256.clone(),
@@ -2909,52 +3080,17 @@ PATH: {path}
         contents: excerpt.to_owned(),
     };
     let source_bytes = excerpt.len();
-    let fingerprint = request_fingerprint_for_provider(
-        provider_id,
-        CODE_LENS_EXPLANATION_PURPOSE,
-        &input.project_id,
-        &input.snapshot_id,
-        Some(&input.target.path),
-        &model.model_id,
-        &disclosure.version,
-        &system_instruction,
-        &user_prompt,
-        std::slice::from_ref(&selected_file),
-        generation_config.clone(),
-    )?;
-    let now = unix_time_ms();
-    let review = ProviderRequestReview {
-        review_id: Uuid::new_v4().to_string(),
-        project_id: input.project_id.clone(),
-        snapshot_id: input.snapshot_id.clone(),
-        purpose: CODE_LENS_EXPLANATION_PURPOSE.to_owned(),
-        target_path: Some(input.target.path.clone()),
-        provider_id: provider_id.to_owned(),
-        model_id: model.model_id,
-        endpoint_url: encoded.endpoint_url,
-        disclosure_version: disclosure.version,
+    Ok(ExplanationRequestContext {
         selected_files: vec![selected_file],
         selected_symbols: Vec::new(),
         selected_relationships: Vec::new(),
         index_evidence_truncated: false,
-        pr_guide_context: None,
-        section_update_context: None,
-        code_lens_context: Some(input.target.clone()),
-        pr_change_context: None,
         system_instruction,
         user_prompt,
         generation_config,
         source_bytes,
-        estimated_input_tokens: encoded.body_bytes.div_ceil(4),
-        request_body_bytes: encoded.body_bytes,
-        request_body_sha256: encoded.body_sha256,
-        request_body_preview: encoded.body.clone(),
-        fingerprint,
-        expires_at_unix_ms: now.saturating_add(REVIEW_LIFETIME_MS),
-    };
-    Ok(PendingProviderRequest {
-        review,
-        body: encoded.body,
+        purpose: CODE_LENS_EXPLANATION_PURPOSE,
+        section_update_context: None,
     })
 }
 
@@ -3246,7 +3382,7 @@ fn code_lens_line_at_byte(bytes: &[u8], offset: usize) -> Option<u32> {
 fn build_section_update_context(
     storage_dir: &Path,
     input: &BuildProviderReviewInput,
-) -> Result<ChapterRequestContext, ProviderFailure> {
+) -> Result<ExplanationRequestContext, ProviderFailure> {
     let failure_review = |message: String| failure(ProviderFailureKind::InvalidReview, message);
     let update = input.section_update.as_ref().ok_or_else(|| {
         failure_review(

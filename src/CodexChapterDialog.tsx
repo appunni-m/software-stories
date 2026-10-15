@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { Check, FileCode2, HardDrive, Sparkles, X } from 'lucide-react';
 import {
-  buildCodexChapterReview, cancelCodexChapterRequest, cancelCodexLogin,
+  buildCodexChapterReview, buildCodexCodeLensReview, cancelCodexChapterRequest, cancelCodexLogin,
   configureCodexAgent, discardGeneratedChapterDraft, discardProviderRequestReview,
   getCodexAgentStatus, listChapterRevisions, listCodexModels, loadSnapshotManifest,
-  logoutCodexAgent, saveGeneratedChapterDraft, sendCodexChapterRequest, startCodexLogin,
+  logoutCodexAgent, saveGeneratedChapterDraft, sendCodexChapterRequest, sendCodexCodeLensRequest, startCodexLogin,
   type ChapterDraftPreview, type ChapterRevision, type CodexAgentStatus, type CodexModel, type CodexProgress,
   type ProviderFailure, type ProviderRequestReview, type SectionUpdateReviewTarget, type SnapshotManifest,
+  type CodeLensExplanationTarget, type CodeLensExplanationPreview, type CodeLensExplanationCitation,
 } from './lib/commands';
 
 export type CodexChapterDialogMode = 'settings' | {
@@ -26,6 +27,11 @@ export type CodexChapterDialogMode = 'settings' | {
   sectionUpdate: SectionUpdateReviewTarget;
   sectionTitle?: string;
   recoveryOperationId?: string;
+} | {
+  kind: 'code-lens-range';
+  projectId: string;
+  snapshotId: string;
+  target: CodeLensExplanationTarget;
 };
 
 export interface CodexChapterDialogProps {
@@ -35,6 +41,7 @@ export interface CodexChapterDialogProps {
   onChooseBackend: () => void;
   onSaved?: (revision: ChapterRevision) => void;
   onRecoveryReviewReady?: (operationId: string) => void;
+  onOpenCodeLensCitation?: (citation: CodeLensExplanationCitation) => void;
 }
 
 type Busy = 'status' | 'configure' | 'login' | 'cancel-login' | 'logout' | 'models' | 'build' | 'send' | 'save' | 'discard';
@@ -72,7 +79,7 @@ function safeFailure(failure: ProviderFailure): string {
     requestCancelled: 'Generation was cancelled. No response was accepted.',
     requestTimedOut: 'Codex did not finish in time. No draft was accepted; a new attempt needs a new review.',
     networkUnavailable: 'Codex could not complete the request. Check the connection and account, then build a new review.',
-    malformedProviderResponse: 'The response did not pass the chapter format or source evidence checks. No draft was accepted.',
+    malformedProviderResponse: 'The response did not pass the explanation format or source evidence checks. No response was accepted.',
     providerResponseTooLarge: 'The response exceeded the local size limit. Try a smaller source selection.',
     localStorageUnavailable: 'Local storage is unavailable. Existing chapter revisions were preserved.',
     invalidReview: 'The local request could not be validated. Check the snapshot selection and Codex setup.',
@@ -88,12 +95,14 @@ function loginHref(value: string): string | null {
   } catch { return null; }
 }
 
-export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onSaved, onRecoveryReviewReady }: CodexChapterDialogProps) {
+export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onSaved, onRecoveryReviewReady, onOpenCodeLensCitation }: CodexChapterDialogProps) {
   const projectId = mode === 'settings' ? null : mode.projectId;
   const snapshotId = mode === 'settings' ? null : mode.snapshotId;
-  const targetPath = mode !== 'settings' && mode.kind !== 'overview' ? mode.targetPath ?? null : null;
+  const codeLensTarget = mode !== 'settings' && mode.kind === 'code-lens-range' ? mode.target : null;
+  const targetPath = mode === 'settings' || mode.kind === 'overview' ? null
+    : mode.kind === 'code-lens-range' ? mode.target.path : mode.targetPath ?? null;
   const sectionUpdate = mode !== 'settings' && mode.kind === 'section-update' ? mode.sectionUpdate : undefined;
-  const initialSelectedPaths = mode === 'settings' ? undefined : mode.selectedPaths;
+  const initialSelectedPaths = mode === 'settings' || mode.kind === 'code-lens-range' ? undefined : mode.selectedPaths;
   const [status, setStatus] = useState<CodexAgentStatus | null>(null);
   const [executablePath, setExecutablePath] = useState('');
   const [login, setLogin] = useState<{ loginId: string; authUrl: string } | null>(null);
@@ -106,6 +115,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   const [query, setQuery] = useState('');
   const [review, setReview] = useState<ProviderRequestReview | null>(null);
   const [preview, setPreview] = useState<ChapterDraftPreview | null>(null);
+  const [codeLensResult, setCodeLensResult] = useState<CodeLensExplanationPreview | null>(null);
   const [saved, setSaved] = useState<ChapterRevision | null>(null);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState<Busy | null>(native ? 'status' : null);
@@ -124,8 +134,8 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   closeRef.current = onClose;
 
   const eligibleFiles = useMemo(() => (manifest?.files ?? []).filter((file) => file.kind === 'file'
-    && (file.contentKind === 'text' || file.contentKind === 'unknown') && !file.secretLike && file.sizeBytes <= 250_000)
-    .sort((left, right) => left.path.localeCompare(right.path)), [manifest]);
+    && (file.contentKind === 'text' || file.contentKind === 'unknown') && !file.secretLike && (Boolean(codeLensTarget) || file.sizeBytes <= 250_000))
+    .sort((left, right) => left.path.localeCompare(right.path)), [manifest, codeLensTarget]);
   const filteredFiles = eligibleFiles.filter((file) => (!sectionUpdate || paths.includes(file.path))
     && file.path.toLowerCase().includes(query.trim().toLowerCase()));
   const selectedModel = models.find((model) => model.modelId === selection.modelId);
@@ -133,7 +143,8 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   const sourceReady = Boolean(manifest && paths.length > 0 && paths.length <= 12
     && paths.every((path) => eligibleFiles.some((file) => file.path === path))
     && (mode === 'settings' || mode.kind === 'overview' || targetPath));
-  const locked = busy !== null || preview !== null;
+  const hasResult = preview !== null || codeLensResult !== null;
+  const locked = busy !== null || hasResult;
   const otherRun = Boolean(status?.activeRunId && status.activeRunId !== resources.current.run);
 
   const releaseReview = () => {
@@ -180,6 +191,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     setPaths([...new Set([...(targetPath ? [targetPath] : []), ...(initialSelectedPaths ?? [])])].slice(0, 12));
     setReview(null);
     setPreview(null);
+    setCodeLensResult(null);
     setSaved(null);
     setLogin(null);
     setConsent(false);
@@ -241,7 +253,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     };
     // These primitive identifiers define the request lifetime; callback identity does not.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [native, projectId, snapshotId, targetPath, initialSelectedPaths, sectionUpdate]);
+  }, [native, projectId, snapshotId, targetPath, initialSelectedPaths, sectionUpdate, codeLensTarget]);
 
   useEffect(() => { if (review) summaryRef.current?.focus(); }, [review]);
 
@@ -256,7 +268,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   };
 
   const configure = async () => {
-    if (!executablePath.trim() || preview || otherRun || resources.current.login) return;
+    if (!executablePath.trim() || hasResult || otherRun || resources.current.login) return;
     const epoch = begin('configure');
     if (epoch === null) return;
     releaseReview();
@@ -268,7 +280,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   };
 
   const connect = async () => {
-    if (preview || otherRun) return;
+    if (hasResult || otherRun) return;
     const epoch = begin('login');
     if (epoch === null) return;
     releaseReview();
@@ -297,7 +309,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   };
 
   const logout = async () => {
-    if (preview || otherRun) return;
+    if (hasResult || otherRun) return;
     const epoch = begin('logout');
     if (epoch === null) return;
     releaseReview();
@@ -315,7 +327,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   };
 
   const discoverModels = async () => {
-    if (preview || otherRun || resources.current.login) return;
+    if (hasResult || otherRun || resources.current.login) return;
     const epoch = begin('models');
     if (epoch === null) return;
     releaseReview();
@@ -343,7 +355,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   };
 
   const changePath = (path: string, checked: boolean) => {
-    if (locked || activeBusy.current || path === targetPath || sectionUpdate) return;
+    if (locked || activeBusy.current || path === targetPath || sectionUpdate || codeLensTarget) return;
     releaseReview();
     setPaths((current) => checked
       ? current.includes(path) || current.length >= 12 ? current : [...current, path]
@@ -351,25 +363,28 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   };
 
   const buildReview = async () => {
-    if (!projectId || !snapshotId || !sourceReady || !modelReady || preview || otherRun || resources.current.login) return;
+    if (!projectId || !snapshotId || !sourceReady || !modelReady || hasResult || otherRun || resources.current.login) return;
     const epoch = begin('build');
     if (epoch === null) return;
     releaseReview();
     setSaved(null);
     try {
-      const value = await buildCodexChapterReview({ projectId, snapshotId, targetPath, selectedPaths: paths,
-        modelId: selection.modelId, effort: selection.effort, approvalPolicy: 'never', sectionUpdate: sectionUpdate ?? null });
+      const value = codeLensTarget
+        ? await buildCodexCodeLensReview({ projectId, snapshotId, target: codeLensTarget,
+          modelId: selection.modelId, effort: selection.effort, approvalPolicy: 'never' })
+        : await buildCodexChapterReview({ projectId, snapshotId, targetPath, selectedPaths: paths,
+          modelId: selection.modelId, effort: selection.effort, approvalPolicy: 'never', sectionUpdate: sectionUpdate ?? null });
       if (value.status === 'error') { if (lifetime.current === epoch) setError(safeFailure(value.error)); return; }
       if (lifetime.current !== epoch) { await discardProviderRequestReview(value.data.reviewId).catch(() => {}); return; }
       resources.current.review = value.data.reviewId;
       setReview(value.data);
-      if (mode !== 'settings' && mode.recoveryOperationId) onRecoveryReviewReady?.(mode.recoveryOperationId);
+      if (mode !== 'settings' && 'recoveryOperationId' in mode && mode.recoveryOperationId) onRecoveryReviewReady?.(mode.recoveryOperationId);
     } catch { if (lifetime.current === epoch) setError('The local review could not be created. No generation was requested. Check the selected snapshot files and settings.'); }
     finally { finish(epoch); }
   };
 
   const generate = async () => {
-    if (!review || !consent || preview || !modelReady || !status?.authenticated || otherRun || resources.current.login) return;
+    if (!review || !consent || hasResult || !modelReady || !status?.authenticated || otherRun || resources.current.login) return;
     if (Date.now() >= review.expiresAtUnixMs) { releaseReview(); setError('This review expired. Build a new review and confirm it again.'); return; }
     const epoch = begin('send');
     if (epoch === null) return;
@@ -388,6 +403,16 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       });
       if (lifetime.current !== epoch || cancelRequested.current) return;
       unlistenRef.current = unlisten;
+      if (codeLensTarget) {
+        const result = await sendCodexCodeLensRequest(review.reviewId, review.fingerprint, true);
+        if (lifetime.current !== epoch || cancelRequested.current) {
+          if (lifetime.current === epoch) setNote('Generation was cancelled. The transient explanation was discarded. Account quota may already have been used.');
+          return;
+        }
+        if (result.status === 'error') setError(safeFailure(result.error));
+        else setCodeLensResult(result.data);
+        return;
+      }
       const result = await sendCodexChapterRequest(review.reviewId, review.fingerprint, true);
       if (result.status === 'error') {
         if (lifetime.current === epoch) {
@@ -421,7 +446,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       finish(epoch);
       // A saved preview may exist even after a failed reply or journal cleanup.
       // Refresh the app's recovery list even if this dialog has been closed.
-      window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
+      if (!codeLensTarget) window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
     }
   };
 
@@ -431,9 +456,9 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     const epoch = lifetime.current;
     cancelRequested.current = true;
     setCancelling(true);
-    setNote('Stopping generation. Any returned draft will be discarded. Source may already have been shared and account quota used.');
+    setNote('Stopping generation. Any returned response will be discarded. Source may already have been shared and account quota used.');
     try { await cancelCodexChapterRequest(runId); }
-    catch { if (lifetime.current === epoch) setNote('The stop could not be confirmed. Any returned draft will still be discarded; wait for the active operation to finish.'); }
+    catch { if (lifetime.current === epoch) setNote('The stop could not be confirmed. Any returned response will still be discarded; wait for the active operation to finish.'); }
   };
 
   const discard = async () => {
@@ -478,7 +503,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       <section ref={dialogRef} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="codex-dialog-title" tabIndex={-1}>
         <header className="provider-dialog-header">
           <div><div className="step-pill"><span>CODEX ACCOUNT</span> NO API KEY</div>
-            <h2 id="codex-dialog-title">{mode === 'settings' ? 'Connect Codex' : sectionUpdate ? 'Update this section with Codex' : targetPath ? 'Explain this file with Codex' : 'Map the repository with Codex'}</h2>
+            <h2 id="codex-dialog-title">{mode === 'settings' ? 'Connect Codex' : codeLensTarget ? 'Explain this selection with Codex' : sectionUpdate ? 'Update this section with Codex' : targetPath ? 'Explain this file with Codex' : 'Map the repository with Codex'}</h2>
             <p>Use your ChatGPT account through Codex. Generation shares only the reviewed snapshot context and uses your account’s plan quota.</p></div>
           <button className="icon-button" aria-label="Close Codex dialog" disabled={busy !== null} onClick={() => { if (!activeBusy.current) onClose(); }}><X size={17} /></button>
         </header>
@@ -514,8 +539,16 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
             </section>
             {otherRun && <p className="provider-status-note" role="status">Another Codex operation is active. Wait for it to finish, then refresh account status.</p>}
             {mode !== 'settings' && <section className="provider-review-card" aria-labelledby="codex-source-title">
-              <div className="provider-section-heading"><div><span>IMMUTABLE SNAPSHOT · {snapshotId}</span><h3 id="codex-source-title">Choose the code to explain</h3></div></div>
-              <div className="provider-context-picker">
+              <div className="provider-section-heading"><div><span>IMMUTABLE SNAPSHOT · {snapshotId}</span><h3 id="codex-source-title">{codeLensTarget ? 'Review the selected code' : 'Choose the code to explain'}</h3></div></div>
+              {codeLensTarget ? <div className="provider-context-picker">
+                <strong><code>{codeLensTarget.path}:{codeLensTarget.startLine}–{codeLensTarget.endLine}</code></strong>
+                <p>Only this exact selection is shared. Supporting files and code outside the range are excluded. The explanation is temporary and is not saved to chapter history.</p>
+                {codeLensTarget.startByte !== null && codeLensTarget.startByte !== undefined && <small>UTF-8 bytes [{codeLensTarget.startByte}, {codeLensTarget.endByteExclusive})</small>}
+                <small>Captured file SHA-256: {codeLensTarget.sourceSha256}</small>
+                {manifestLoading && <p role="status">Checking the captured source…</p>}
+                {manifestError && <p className="provider-error-text" role="alert">{manifestError}</p>}
+                {!manifestLoading && !manifestError && !sourceReady && <p className="provider-error-text" role="alert">This selection’s source is unavailable. Reopen the captured file and select the code again.</p>}
+              </div> : <div className="provider-context-picker">
                 <div className="provider-context-heading"><strong>{targetPath ?? 'Repository overview'}</strong><span>{paths.length} of 12 files selected</span></div>
                 <p>{sectionUpdate ? 'This repair uses the selected section’s declared evidence. Source selection is fixed; the native review rechecks that only this section is stale and the other sections can carry forward.' : targetPath ? 'The target file stays selected. Add supporting files to explain its real behavior.' : 'Choose 1–12 files that ground the repository overview.'}</p>
                 {mode.kind === 'section-update' && <p><strong>{mode.sectionTitle ?? 'Selected stale section'}</strong> · Older source and the previous section are included as context in the exact prompt below. Only current source is citable. The source byte limit counts both snapshots.</p>}
@@ -530,7 +563,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                   {!sourceReady && paths.length > 0 && <p className="provider-error-text">The target or a selected file is unavailable for this request. Use an eligible captured text file.</p>}
                 </>}
                 <p className="provider-small-note">Captured text only, up to 250 KB per file. The native review enforces the total request limit and blocks secret-like context.</p>
-              </div>
+              </div>}
               <button className="secondary-button" disabled={locked || otherRun || !sourceReady || !modelReady || Boolean(login)} onClick={() => { void buildReview(); }}>{busy === 'build' ? 'Building local review…' : review ? 'Rebuild exact request review' : 'Review exact request'}</button>
               <p className="provider-small-note">Reviewing prepares the exact request locally. Generation starts only after your consent below.</p>
               {review && <>
@@ -540,13 +573,23 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                   <div><span>Input estimate</span><strong>About {review.estimatedInputTokens.toLocaleString()} tokens</strong></div>
                   <div><span>Review expiry</span><strong>{new Date(review.expiresAtUnixMs).toLocaleTimeString()}</strong></div>
                 </div>
-                {review.selectedFiles.map((file) => <details className="provider-source-file" key={file.path}><summary><code>{file.path}</code><span>SHA-256 {file.sha256}</span></summary><pre><code>{file.contents}</code></pre></details>)}
+                {review.selectedFiles.map((file) => <details className="provider-source-file" key={file.path}><summary><code>{file.path}</code><span>{codeLensTarget ? 'Captured file SHA-256' : 'SHA-256'} {file.sha256}</span></summary><pre><code>{file.contents}</code></pre></details>)}
                 <details className="provider-index-preview"><summary>Exact declarations and relationships</summary><pre>{JSON.stringify({ symbols: review.selectedSymbols, relationships: review.selectedRelationships, truncated: review.indexEvidenceTruncated }, null, 2)}</pre></details>
                 <details className="provider-prompt-preview"><summary>Exact prompt, output schema and agent settings</summary><div><strong>System instruction</strong><pre>{review.systemInstruction}</pre><strong>User prompt</strong><pre>{review.userPrompt}</pre><strong>Settings and output schema</strong><pre>{JSON.stringify(review.generationConfig, null, 2)}</pre><strong>Effective agent request · SHA-256 {review.requestBodySha256}</strong><pre>{JSON.stringify(review.requestBodyPreview, null, 2)}</pre></div></details>
                 <div className="provider-fingerprint"><span>Consent applies to this fingerprint</span><code>{review.fingerprint}</code><small>Changing source, model, effort or executable clears this review and its consent.</small></div>
                 <div className="provider-consent-list"><label><input type="checkbox" checked={consent} disabled={busy !== null} onChange={(event) => setConsent(event.target.checked)} /><span><strong>Send this reviewed context through my Codex account</strong>I have reviewed the exact source, prompt and settings. This shares the selected code with OpenAI through Codex, under my account’s terms and plan quota. No API key is used; availability and remaining quota are not guaranteed.</span></label></div>
               </>}
-              {busy === 'send' && <div className="provider-loading" role="status" aria-live="polite"><Sparkles size={16} /><div><strong>{cancelling ? 'Cancelling Codex generation…' : progress?.message ?? 'Generating chapter…'}</strong><p>{progress?.phase ?? 'preparing'} · No draft is saved until you choose Save.</p></div></div>}
+              {busy === 'send' && <div className="provider-loading" role="status" aria-live="polite"><Sparkles size={16} /><div><strong>{cancelling ? 'Cancelling Codex generation…' : progress?.message ?? 'Generating explanation…'}</strong><p>{progress?.phase ?? 'preparing'} · {codeLensTarget ? 'This explanation will not be saved to chapter history.' : 'No draft is saved until you choose Save.'}</p></div></div>}
+              {codeLensResult && <section className="provider-response" aria-labelledby="codex-range-result-title">
+                <div><span>TRANSIENT · RANGE GROUNDED</span><h4 id="codex-range-result-title">What this code does</h4></div>
+                <p>Every claim cites an exact, unique quote inside your selection. Nothing was saved to chapter history.</p>
+                <ol className="code-lens-explanation-claims">{codeLensResult.claims.map((claim) => <li key={claim.claimId}>
+                  <p>{claim.prose}</p>
+                  {onOpenCodeLensCitation && <button className="text-button" onClick={() => onOpenCodeLensCitation(claim.citation)}><FileCode2 size={13} /> Open {claim.citation.path}:{claim.citation.startLine}–{claim.citation.endLine}</button>}
+                  <details className="chapter-evidence"><summary>Inspect cited code</summary><pre><code>{claim.citation.quote}</code></pre></details>
+                </li>)}</ol>
+                <small>{codeLensResult.modelVersion ?? codeLensResult.modelId}</small>
+              </section>}
               {preview && <section className="provider-response" aria-labelledby="codex-result-title">
                 <div><span>{saved ? 'SAVED · UNACCEPTED DRAFT' : preview.validation.status === 'valid' ? 'VALIDATED · UNSAVED PREVIEW' : 'VALIDATION FAILED'}</span><h4 id="codex-result-title">{preview.revision.title}</h4></div>
                 <p>{saved ? `Draft revision ${saved.revisionNumber} is saved locally. Acceptance is a separate review.` : 'Review the explanation and exact citations. Saving creates a local unaccepted draft. Closing or switching backends discards an unsaved preview.'}</p>
@@ -567,8 +610,9 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           <p className="provider-small-note">Choose Change backend for Claude Code or other manual agent handoffs, or a direct API. Switching discards an unsaved preview.</p>
         </div>
         <footer className="provider-dialog-footer">
-          <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { if (!activeBusy.current) onClose(); }} disabled={busy !== null}>{saved ? 'Done' : preview ? 'Close and discard preview' : 'Close'}</button><button className="secondary-button" onClick={() => { if (!activeBusy.current && !resources.current.login) onChooseBackend(); }} disabled={busy !== null || Boolean(login)}>Change backend{preview && !saved ? ' and discard preview' : ''}</button></div>
+          <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { if (!activeBusy.current) onClose(); }} disabled={busy !== null}>{saved || codeLensResult ? 'Done' : preview ? 'Close and discard preview' : 'Close'}</button><button className="secondary-button" onClick={() => { if (!activeBusy.current && !resources.current.login) onChooseBackend(); }} disabled={busy !== null || Boolean(login)}>Change backend{preview && !saved ? ' and discard preview' : ''}</button></div>
           {native && mode !== 'settings' && (busy === 'send' ? <button className="secondary-button" onClick={() => { void cancelRun(); }} disabled={cancelling}>{cancelling ? 'Cancelling…' : 'Cancel generation'}</button>
+            : codeLensResult ? <button className="secondary-button" disabled={busy !== null} onClick={() => { setCodeLensResult(null); setNote('Temporary explanation discarded. Review a new request to generate again.'); }}>Discard explanation</button>
             : preview ? saved ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { void discard(); }} disabled={busy !== null}>Discard preview</button><button className="primary-button" onClick={() => { void save(); }} disabled={busy !== null || preview.validation.status !== 'valid'}>{busy === 'save' ? 'Saving…' : 'Save unaccepted draft'}</button></div>
               : <button className="primary-button" onClick={() => { void generate(); }} disabled={busy !== null || otherRun || !review || !consent || !status?.authenticated || !modelReady || Boolean(login)}><Sparkles size={15} /> {sectionUpdate ? 'Regenerate section with Codex' : 'Generate with Codex'}</button>)}
         </footer>

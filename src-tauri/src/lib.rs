@@ -1772,6 +1772,8 @@ pub fn run() {
             codex_commands::logout_codex_agent,
             codex_commands::list_codex_models,
             codex_commands::build_codex_chapter_review,
+            codex_commands::build_codex_code_lens_review,
+            codex_commands::send_codex_code_lens_request,
             codex_commands::send_codex_chapter_request,
             codex_commands::cancel_codex_chapter_request,
             get_application_status,

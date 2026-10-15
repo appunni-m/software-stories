@@ -1,11 +1,12 @@
-//! Native account-backed Codex commands. Chapter evidence and local draft
-//! validation are shared with the API workflow; authentication is separate.
+//! Native account-backed Codex commands. Immutable explanation evidence and
+//! local validators are shared with API workflows; authentication is separate.
 
 use super::{
     ProjectSessions, app_data_directory, chapters, codex_agent, prepare_chapter_draft_preview,
     provider, recovery,
 };
-use std::path::Path;
+use sha2::{Digest, Sha256};
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Emitter, State};
 
 async fn on_runtime<T: Send + 'static>(
@@ -157,6 +158,35 @@ pub(crate) async fn build_codex_chapter_review(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn build_codex_code_lens_review(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    input: provider::BuildCodexCodeLensInput,
+) -> Result<provider::ProviderCommandResult<provider::ProviderRequestReview>, String> {
+    sessions.get(&input.project_id)?;
+    let storage = app_data_directory(&app)?;
+    let runtime = manager.inner().clone();
+    let pending = tauri::async_runtime::spawn_blocking(move || {
+        let status = runtime.status(&storage).map_err(|message| {
+            command_failure(provider::ProviderFailureKind::ReviewUnavailable, message)
+        })?;
+        provider::build_codex_code_lens_review(
+            &storage,
+            &input,
+            status.executable_path.as_deref().unwrap_or(""),
+        )
+    })
+    .await
+    .map_err(|_| "Codex source range review could not be prepared.".to_owned())?;
+    Ok(match pending.and_then(|pending| reviews.insert(pending)) {
+        Ok(review) => provider::ProviderCommandResult::ok(review),
+        Err(error) => provider::ProviderCommandResult::failed(error),
+    })
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub(crate) fn cancel_codex_chapter_request(
     manager: State<'_, codex_agent::CodexAgentManager>,
     run_id: String,
@@ -177,63 +207,207 @@ pub(crate) async fn send_codex_chapter_request(
     consent: bool,
 ) -> Result<provider::ProviderCommandResult<chapters::ChapterDraftPreview>, String> {
     use provider::{ProviderCommandResult as ResultEnvelope, ProviderFailureKind as Kind};
-    if !consent {
+    let completed = match execute_codex_operation(
+        app,
+        &sessions,
+        &manager,
+        &reviews,
+        &interruptions,
+        &review_id,
+        &fingerprint,
+        consent,
+        CodexOperation::Chapter,
+    )
+    .await
+    {
+        Ok(completed) => completed,
+        Err(error) => return Ok(ResultEnvelope::failed(error)),
+    };
+    let mut result = match completed.result {
+        Ok(response) => {
+            prepare_chapter_draft_preview(&completed.storage, &completed.review, response, &drafts)
+                .map(ResultEnvelope::ok)
+                .unwrap_or_else(ResultEnvelope::failed)
+        }
+        Err(error) => ResultEnvelope::failed(error),
+    };
+    if let Err(message) = interruptions.discard(&completed.storage, &review_id) {
+        match &mut result {
+            ResultEnvelope::Ok { data } => data.update_notes.push(format!(
+                "Your validated preview is available. Its interruption notice could not be cleared: {message} Save or discard this preview before generating again.")),
+            ResultEnvelope::Error { .. } => return Ok(ResultEnvelope::error(Kind::LocalStorageUnavailable,
+                format!("Codex stopped, but its recovery notice could not be cleared: {message} Check saved previews before generating again."))),
+        }
+    }
+    Ok(result)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn send_codex_code_lens_request(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    interruptions: State<'_, recovery::InterruptionJournal>,
+    review_id: String,
+    fingerprint: String,
+    consent: bool,
+) -> Result<provider::ProviderCommandResult<provider::CodeLensExplanationPreview>, String> {
+    use provider::{ProviderCommandResult as ResultEnvelope, ProviderFailureKind as Kind};
+    let completed = match execute_codex_operation(
+        app,
+        &sessions,
+        &manager,
+        &reviews,
+        &interruptions,
+        &review_id,
+        &fingerprint,
+        consent,
+        CodexOperation::CodeLens,
+    )
+    .await
+    {
+        Ok(completed) => completed,
+        Err(error) => return Ok(ResultEnvelope::failed(error)),
+    };
+    let result = completed.result.and_then(|response| {
+        provider::canonicalize_code_lens_explanation(
+            &completed.storage,
+            &completed.review,
+            &response,
+        )
+    });
+    if interruptions
+        .discard(&completed.storage, &review_id)
+        .is_err()
+    {
         return Ok(ResultEnvelope::error(
+            Kind::LocalStorageUnavailable,
+            "Codex stopped, but its interruption notice could not be cleared. Select the exact source range and review a new request before trying again.",
+        ));
+    }
+    Ok(match result {
+        Ok(preview) => ResultEnvelope::ok(preview),
+        Err(error) => ResultEnvelope::failed(error),
+    })
+}
+
+#[derive(Clone, Copy)]
+enum CodexOperation {
+    Chapter,
+    CodeLens,
+}
+impl CodexOperation {
+    fn accepts(self, review: &provider::ProviderRequestReview) -> bool {
+        if review.pr_guide_context.is_some() || review.pr_change_context.is_some() {
+            return false;
+        }
+        match self {
+            Self::Chapter => {
+                matches!(
+                    review.purpose.as_str(),
+                    "fileChapter" | "repositoryOverview" | "sectionUpdate"
+                ) && review.code_lens_context.is_none()
+            }
+            Self::CodeLens => {
+                review.purpose == "codeLensExplanation"
+                    && review.code_lens_context.is_some()
+                    && review.section_update_context.is_none()
+            }
+        }
+    }
+}
+
+struct CompletedCodexOperation {
+    storage: PathBuf,
+    review: provider::ProviderRequestReview,
+    result: Result<provider::ProviderSendResult, provider::ProviderFailure>,
+}
+
+fn command_failure(
+    kind: provider::ProviderFailureKind,
+    message: impl Into<String>,
+) -> provider::ProviderFailure {
+    provider::ProviderFailure {
+        kind,
+        message: message.into(),
+    }
+}
+
+/// One reviewed lifecycle for automatic Codex operations. The command-specific
+/// caller validates the response and clears recovery only after preparing its
+/// result; range results never enter chapter draft/history storage.
+async fn execute_codex_operation(
+    app: AppHandle,
+    sessions: &ProjectSessions,
+    manager: &codex_agent::CodexAgentManager,
+    reviews: &provider::PendingProviderReviews,
+    interruptions: &recovery::InterruptionJournal,
+    review_id: &str,
+    fingerprint: &str,
+    consent: bool,
+    operation: CodexOperation,
+) -> Result<CompletedCodexOperation, provider::ProviderFailure> {
+    use provider::ProviderFailureKind as Kind;
+    if !consent {
+        return Err(command_failure(
             Kind::ConsentRequired,
             "Review the selected source and confirm sharing it with your Codex account before generating. Plan limits apply.",
         ));
     }
-    let pending = match reviews.get(&review_id) {
-        Ok(pending)
-            if pending.review.provider_id == "codex"
-                && pending.review.fingerprint == fingerprint =>
-        {
-            pending
-        }
-        Ok(_) => {
-            return Ok(ResultEnvelope::error(
-                Kind::ReviewChanged,
-                "Build a fresh Codex review with the selected source and settings.",
-            ));
-        }
-        Err(error) => return Ok(ResultEnvelope::failed(error)),
-    };
-    sessions.get(&pending.review.project_id)?;
-    let storage = app_data_directory(&app)?;
-    let runtime = manager.inner().clone();
+    let pending = reviews.get(review_id)?;
+    if pending.review.provider_id != "codex"
+        || pending.review.fingerprint != fingerprint
+        || !operation.accepts(&pending.review)
+    {
+        return Err(command_failure(
+            Kind::ReviewChanged,
+            "Build a fresh Codex review for this operation with the selected source and settings.",
+        ));
+    }
+    sessions.get(&pending.review.project_id).map_err(|_| {
+        command_failure(
+            Kind::InvalidReview,
+            "Reopen the selected repository before reviewing this Codex operation again.",
+        )
+    })?;
+    let storage = app_data_directory(&app).map_err(|_| {
+        command_failure(
+            Kind::LocalStorageUnavailable,
+            "Local snapshot storage is unavailable. No Codex request was sent.",
+        )
+    })?;
+    let runtime = manager.clone();
     let reviewed = pending.review.clone();
     let storage_for_review = storage.clone();
     let validated = tauri::async_runtime::spawn_blocking(move || {
-        let status =
-            runtime
-                .status(&storage_for_review)
-                .map_err(|message| provider::ProviderFailure {
-                    kind: Kind::ReviewUnavailable,
-                    message,
-                })?;
-        provider::revalidate_codex_chapter_review(
+        let status = runtime
+            .status(&storage_for_review)
+            .map_err(|message| command_failure(Kind::ReviewUnavailable, message))?;
+        provider::revalidate_codex_request_review(
             &storage_for_review,
             &reviewed,
             status.executable_path.as_deref().unwrap_or(""),
         )
     })
     .await
-    .map_err(|_| "The Codex review could not be revalidated.".to_owned())?;
+    .map_err(|_| {
+        command_failure(
+            Kind::ReviewUnavailable,
+            "The Codex review could not be revalidated. Build a fresh review.",
+        )
+    })?;
     if let Err(error) = validated {
-        reviews.remove(&review_id);
-        return Ok(ResultEnvelope::failed(error));
+        reviews.remove(review_id);
+        return Err(error);
     }
-    let pending = match reviews.consume(&review_id, &fingerprint) {
-        Ok(pending) => pending,
-        Err(error) => return Ok(ResultEnvelope::failed(error)),
-    };
-    interruptions.record(
-        &storage,
-        recovery::new_reviewed_provider_operation(&pending.review),
-    )?;
+    let pending = reviews.consume(review_id, fingerprint)?;
+    interruptions.record(&storage, recovery::new_reviewed_provider_operation(&pending.review))
+        .map_err(|_| command_failure(Kind::LocalStorageUnavailable,
+            "Local interruption state could not be saved. No Codex request was sent; build a fresh review before retrying."))?;
     let review = pending.review;
     let input = codex_agent::CodexRunInput {
-        run_id: review_id.clone(),
+        run_id: review_id.to_owned(),
         model: review.model_id.clone(),
         expected_executable_path: review.generation_config["executablePath"]
             .as_str()
@@ -255,12 +429,14 @@ pub(crate) async fn send_codex_chapter_request(
             .iter()
             .map(|file| codex_agent::CodexSourceFile {
                 path: file.path.clone(),
-                sha256: file.sha256.clone(),
+                // Code Lens stages only the reviewed excerpt. Its integrity digest
+                // differs from the original file identity retained in the review.
+                sha256: format!("{:x}", Sha256::digest(file.contents.as_bytes())),
                 contents: file.contents.clone(),
             })
             .collect(),
     };
-    let runtime = manager.inner().clone();
+    let runtime = manager.clone();
     let storage_for_run = storage.clone();
     let run = tauri::async_runtime::spawn_blocking(move || {
         runtime.run(&storage_for_run, input, |event| {
@@ -268,41 +444,30 @@ pub(crate) async fn send_codex_chapter_request(
         })
     })
     .await;
-    let mut result = match run {
-        Ok(Ok(response)) => prepare_chapter_draft_preview(
-            &storage,
-            &review,
-            provider::ProviderSendResult {
-                review_id: review_id.clone(),
-                fingerprint,
-                model_id: response.model,
-                model_version: None,
-                response_text: response.response_text,
-                input_tokens: None,
-                output_tokens: None,
-            },
-            &drafts,
-        )
-        .map(ResultEnvelope::ok)
-        .unwrap_or_else(ResultEnvelope::failed),
-        Ok(Err(message)) => ResultEnvelope::error(codex_run_failure_kind(&message), message),
+    let result = match run {
+        Ok(Ok(response)) => Ok(provider::ProviderSendResult {
+            review_id: review_id.to_owned(),
+            fingerprint: fingerprint.to_owned(),
+            model_id: response.model,
+            model_version: None,
+            response_text: response.response_text,
+            input_tokens: None,
+            output_tokens: None,
+        }),
+        Ok(Err(message)) => Err(command_failure(codex_run_failure_kind(&message), message)),
         Err(_) => {
             manager.shutdown();
-            ResultEnvelope::error(
+            Err(command_failure(
                 Kind::ProviderRejectedRequest,
                 "The Codex worker stopped unexpectedly. Restart the app and review a new request before retrying.",
-            )
+            ))
         }
     };
-    if let Err(message) = interruptions.discard(&storage, &review_id) {
-        match &mut result {
-            ResultEnvelope::Ok { data } => data.update_notes.push(format!(
-                "Your validated preview is available. Its interruption notice could not be cleared: {message} Save or discard this preview before generating again.")),
-            ResultEnvelope::Error { .. } => return Ok(ResultEnvelope::error(Kind::LocalStorageUnavailable,
-                format!("Codex stopped, but its recovery notice could not be cleared: {message} Check saved previews before generating again."))),
-        }
-    }
-    Ok(result)
+    Ok(CompletedCodexOperation {
+        storage,
+        review,
+        result,
+    })
 }
 
 // These are fixed, sanitized adapter messages, never arbitrary model text.
