@@ -41,6 +41,7 @@ mod recovery;
 mod recovery_commands;
 mod repository_plan;
 mod repository_plan_commands;
+mod repository_plan_history;
 mod repository_plan_store;
 mod snapshot;
 
@@ -1836,6 +1837,10 @@ pub fn run() {
             repository_plan_commands::list_repository_plan_drafts,
             repository_plan_commands::load_repository_plan_draft,
             repository_plan_commands::discard_repository_plan_draft,
+            repository_plan_commands::list_repository_plan_revisions,
+            repository_plan_commands::load_repository_plan_revision,
+            repository_plan_commands::accept_repository_plan_draft,
+            repository_plan_commands::resolve_repository_plan_notice,
             get_application_status,
             get_capture_limits,
             pick_project_folder,

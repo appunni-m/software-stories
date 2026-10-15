@@ -134,6 +134,44 @@ export interface RepositoryPlanDraftDetail {
   scope: RepositoryPlanReviewScope;
   selectedPaths: string[];
   settings: SavedPlanAgentSettings;
+  /** Canonical record digest for explicit acceptance/resolution; not a signature. */
+  recordSha256: string;
+}
+
+export interface RepositoryPlanRevision {
+  revisionId: string;
+  historyId: string;
+  revisionNumber: number;
+  basedOnRevisionId: string | null;
+  acceptedAtUnixMs: number;
+  draftId: string;
+  recordSha256: string;
+  title: string;
+  question: string;
+  snapshotId: string;
+  providerId: 'codex' | 'claude-agent';
+  modelId: string;
+}
+
+/** Metadata and chain integrity only; load is required before source actions. */
+export interface RepositoryPlanRevisionSummary { revision: RepositoryPlanRevision; isHead: boolean }
+export interface RepositoryPlanRevisionDetail extends RepositoryPlanRevisionSummary { plan: RepositoryPlanDraftDetail }
+export type ReviewedPlanSource = { kind: 'draft'; draftId: string; recordSha256: string }
+  | { kind: 'revision'; revisionId: string; recordSha256: string };
+
+export function listRepositoryPlanRevisions(projectId: string): Promise<RepositoryPlanRevisionSummary[]> {
+  return invoke('list_repository_plan_revisions', { projectId });
+}
+export function loadRepositoryPlanRevision(projectId: string, revisionId: string): Promise<RepositoryPlanRevisionDetail> {
+  return invoke('load_repository_plan_revision', { projectId, revisionId });
+}
+export function acceptRepositoryPlanDraft(input: {
+  projectId: string; draftId: string; expectedRecordSha256: string; basedOnRevisionId: string | null;
+}): Promise<RepositoryPlanRevisionDetail> {
+  return invoke('accept_repository_plan_draft', { input });
+}
+export function resolveRepositoryPlanNotice(projectId: string, source: ReviewedPlanSource): Promise<boolean> {
+  return invoke('resolve_repository_plan_notice', { input: { projectId, source } });
 }
 
 export function listRepositoryPlanDrafts(projectId: string): Promise<RepositoryPlanDraftSummary[]> {

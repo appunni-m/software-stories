@@ -135,23 +135,54 @@ impl InterruptionJournal {
         journal
             .operations
             .retain(|operation| operation.operation_id != operation_id);
-        if journal.operations.is_empty() {
-            match fs::remove_file(journal_path(storage_dir)) {
-                Ok(()) => Ok(()),
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                Err(error) => Err(format!(
-                    "The interruption notice could not be cleared: {error}"
-                )),
-            }
-        } else {
-            write_journal(storage_dir, &journal)
+        save_remaining_operations(storage_dir, &journal)
+    }
+
+    /// Resolve only the native entry that was independently matched to a
+    /// reviewed saved result. A concurrent scope change cannot be erased.
+    pub(crate) fn discard_if_unchanged(
+        &self,
+        storage_dir: &Path,
+        expected: &InterruptedOperation,
+    ) -> Result<bool, String> {
+        validate_operation(expected)?;
+        let _guard = self.lock()?;
+        let mut journal = read_journal(storage_dir)?;
+        let Some(current) = journal
+            .operations
+            .iter()
+            .find(|operation| operation.operation_id == expected.operation_id)
+        else {
+            return Ok(false);
+        };
+        if current != expected {
+            return Err("The recovery notice changed during review. It was preserved; refresh local recovery before resolving it.".to_owned());
         }
+        journal
+            .operations
+            .retain(|operation| operation.operation_id != expected.operation_id);
+        save_remaining_operations(storage_dir, &journal)?;
+        Ok(true)
     }
 
     fn lock(&self) -> Result<std::sync::MutexGuard<'_, ()>, String> {
         self.0
             .lock()
             .map_err(|_| "Local recovery state is temporarily unavailable.".to_owned())
+    }
+}
+
+fn save_remaining_operations(storage_dir: &Path, journal: &JournalFile) -> Result<(), String> {
+    if journal.operations.is_empty() {
+        match fs::remove_file(journal_path(storage_dir)) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(format!(
+                "The interruption notice could not be cleared: {error}"
+            )),
+        }
+    } else {
+        write_journal(storage_dir, journal)
     }
 }
 

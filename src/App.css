@@ -1856,6 +1856,9 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .plan-reader pre { max-width: 100%; box-sizing: border-box; overflow: auto; padding: 12px; border: 1px solid #35434e; border-radius: 7px; color: #d4e2ed; background: #10171d; white-space: pre-wrap; overflow-wrap: anywhere; }
 .plan-citation .text-button { text-align: left; min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
 .plan-reader-actions { justify-content: start; }
+.plan-decision { display: grid; min-width: 0; gap: 12px; padding: 16px; border: 1px solid #52616c; border-radius: 8px; background: #10171d; }
+.plan-decision > label:not(.provider-consent) { display: grid; min-width: 0; gap: 8px; }
+.plan-parent-review { min-width: 0; border-top: 1px solid #35434e; padding-top: 12px; }
 .repository-plans .provider-context-files { max-height: 320px; }
 .repository-plans :focus-visible { outline: 2px solid #c3f278; outline-offset: 3px; }
 .journey-header { display: flex; align-items: start; justify-content: space-between; gap: 18px; }

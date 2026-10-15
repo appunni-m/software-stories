@@ -43,17 +43,17 @@ pub(crate) enum SavedPlanAgentSettings {
     },
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct SavedPlanRecord {
-    schema_version: u32,
-    preview: RepositoryPlanPreview,
-    scope: RepositoryPlanReviewScope,
-    selected_paths: Vec<String>,
-    settings: SavedPlanAgentSettings,
+pub(crate) struct SavedPlanRecord {
+    pub schema_version: u32,
+    pub preview: RepositoryPlanPreview,
+    pub scope: RepositoryPlanReviewScope,
+    pub selected_paths: Vec<String>,
+    pub settings: SavedPlanAgentSettings,
     // Retain the strict proposal because canonical claims intentionally omit
     // model-declared identifiers/aspects needed for independent replay.
-    response_text: String,
+    pub response_text: String,
 }
 
 /// Does not expose the original model proposal or any reusable authorization.
@@ -64,6 +64,7 @@ pub(crate) struct RepositoryPlanDraftDetail {
     scope: RepositoryPlanReviewScope,
     selected_paths: Vec<String>,
     settings: SavedPlanAgentSettings,
+    record_sha256: String,
 }
 
 /// Listing is metadata discovery only; load is required before using evidence.
@@ -87,6 +88,43 @@ pub(crate) struct RepositoryPlanDraftSummary {
 pub(crate) struct PreparedPlanSave {
     record: SavedPlanRecord,
     bytes: Vec<u8>,
+}
+
+/// Shared only with native accepted history and notice resolution. Callers
+/// must not acquire any agent ownership lock while holding this guard.
+pub(crate) fn lock_store() -> Result<std::sync::MutexGuard<'static, ()>, String> {
+    STORE_LOCK
+        .lock()
+        .map_err(|_| "Local plan storage is busy.".to_owned())
+}
+
+pub(crate) fn record_digest(record: &SavedPlanRecord) -> Result<String, String> {
+    let bytes = serde_json::to_vec(record)
+        .map_err(|_| "The local plan record could not be encoded.".to_owned())?;
+    Ok(format!("{:x}", Sha256::digest(bytes)))
+}
+
+pub(crate) fn record_detail(record: &SavedPlanRecord) -> Result<RepositoryPlanDraftDetail, String> {
+    Ok(RepositoryPlanDraftDetail {
+        preview: record.preview.clone(),
+        scope: record.scope.clone(),
+        selected_paths: record.selected_paths.clone(),
+        settings: record.settings.clone(),
+        record_sha256: record_digest(record)?,
+    })
+}
+
+/// The caller holds the shared store lock and independently revalidates this
+/// bounded record before acceptance, source actions or notice resolution.
+pub(crate) fn read_draft_record(
+    storage: &Path,
+    project_id: &str,
+    draft_id: &str,
+) -> Result<SavedPlanRecord, String> {
+    let filename = record_name(draft_id)?;
+    let directory =
+        plan_directory(storage, project_id, false)?.ok_or("The saved plan is unavailable.")?;
+    read_record(&directory.join(filename), project_id, draft_id)
 }
 
 pub(crate) fn prepare_save(
@@ -260,17 +298,9 @@ pub(crate) fn load(
     let _guard = STORE_LOCK
         .lock()
         .map_err(|_| "Local plan storage is busy.")?;
-    let filename = record_name(draft_id)?;
-    let directory =
-        plan_directory(storage, project_id, false)?.ok_or("The saved plan is unavailable.")?;
-    let record = read_record(&directory.join(filename), project_id, draft_id)?;
+    let record = read_draft_record(storage, project_id, draft_id)?;
     revalidate(storage, &record)?;
-    Ok(RepositoryPlanDraftDetail {
-        preview: record.preview,
-        scope: record.scope,
-        selected_paths: record.selected_paths,
-        settings: record.settings,
-    })
+    record_detail(&record)
 }
 
 /// Explicit deletion accepts a damaged regular record without trusting its JSON.
@@ -295,7 +325,7 @@ pub(crate) fn discard(storage: &Path, project_id: &str, draft_id: &str) -> Resul
     File::open(directory).and_then(|directory| directory.sync_all()).map_err(|_| "The plan was removed, but directory durability could not be confirmed. Refresh saved plans before trying again.".to_owned())
 }
 
-fn revalidate(storage: &Path, record: &SavedPlanRecord) -> Result<(), String> {
+pub(crate) fn revalidate(storage: &Path, record: &SavedPlanRecord) -> Result<(), String> {
     repository_plan::revalidate_saved(
         storage,
         PrepareRepositoryPlanInput {
@@ -310,7 +340,7 @@ fn revalidate(storage: &Path, record: &SavedPlanRecord) -> Result<(), String> {
     )
 }
 
-fn validate_record_shape(
+pub(crate) fn validate_record_shape(
     record: &SavedPlanRecord,
     project_id: &str,
     draft_id: &str,
@@ -400,19 +430,23 @@ fn read_record(path: &Path, project_id: &str, draft_id: &str) -> Result<SavedPla
 }
 
 fn read_bytes(path: &Path) -> Result<Vec<u8>, String> {
+    read_bounded_file(path, MAX_RECORD_BYTES)
+}
+
+pub(crate) fn read_bounded_file(path: &Path, max_bytes: usize) -> Result<Vec<u8>, String> {
     let file = open_without_following_symlinks(path)
         .map_err(|_| "The saved plan could not be opened as a regular local file.".to_owned())?;
     let metadata = file
         .metadata()
         .map_err(|_| "The saved plan could not be inspected.".to_owned())?;
-    if !metadata.is_file() || metadata.len() > MAX_RECORD_BYTES as u64 {
+    if !metadata.is_file() || metadata.len() > max_bytes as u64 {
         return Err("The saved plan is not a bounded regular file. It was preserved.".to_owned());
     }
     let mut bytes = Vec::with_capacity(metadata.len() as usize);
-    file.take((MAX_RECORD_BYTES + 1) as u64)
+    file.take(max_bytes.saturating_add(1) as u64)
         .read_to_end(&mut bytes)
         .map_err(|_| "The saved plan could not be read completely.".to_owned())?;
-    if bytes.len() != metadata.len() as usize || bytes.len() > MAX_RECORD_BYTES {
+    if bytes.len() != metadata.len() as usize || bytes.len() > max_bytes {
         return Err(
             "The saved plan changed while reading it. Its local copy was preserved.".to_owned(),
         );
@@ -469,10 +503,19 @@ fn plan_directory(
     project_id: &str,
     create: bool,
 ) -> Result<Option<PathBuf>, String> {
+    project_directory(storage, project_id, "repository-plans", create)
+}
+
+pub(crate) fn project_directory(
+    storage: &Path,
+    project_id: &str,
+    folder: &'static str,
+    create: bool,
+) -> Result<Option<PathBuf>, String> {
     if project_id.trim().is_empty() || project_id.len() > 512 {
         return Err("Reopen the repository before using saved plans.".to_owned());
     }
-    let root = storage.join("repository-plans");
+    let root = storage.join(folder);
     let project = root.join(format!("{:x}", Sha256::digest(project_id.as_bytes())));
     for directory in [storage, root.as_path(), project.as_path()] {
         match fs::symlink_metadata(directory) {
