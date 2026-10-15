@@ -117,9 +117,9 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onClose, onChoo
     releaseReview();
     try {
       const result = await buildAgentHandoffReview({ projectId, snapshotId, targetPath, selectedPaths: paths, agentId: agent });
-      if (epoch !== lifetime.current) { if (result.status === 'ok') void discardProviderRequestReview(result.value.reviewId).catch(() => {}); return; }
+      if (epoch !== lifetime.current) { if (result.status === 'ok') void discardProviderRequestReview(result.data.reviewId).catch(() => {}); return; }
       if (result.status === 'error') { setError(result.error.message); return; }
-      resources.current.review = result.value.reviewId; setReview(result.value);
+      resources.current.review = result.data.reviewId; setReview(result.data);
     } catch { if (epoch === lifetime.current) setError('The local task could not be prepared. No agent was started.'); }
     finally { finish(epoch); }
   };
@@ -130,9 +130,9 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onClose, onChoo
       const result = await exportAgentHandoff(review.reviewId, review.fingerprint, consent);
       if (epoch !== lifetime.current) return;
       if (result.status === 'error') { setError(result.error.message); return; }
-      setTaskText(result.value);
+      setTaskText(result.data);
       try {
-        await navigator.clipboard.writeText(result.value);
+        await navigator.clipboard.writeText(result.data);
         if (epoch === lifetime.current) setNote(`Copied. Paste into ${agentName}, then bring its complete JSON response back here.`);
       } catch { if (epoch === lifetime.current) setNote('Clipboard access was unavailable. Select and copy the task text below.'); }
     } catch { if (epoch === lifetime.current) setError('The task could not be exported. Rebuild the review and try again.'); }
@@ -143,10 +143,10 @@ export function AgentHandoffDialog({ mode, native, initialAgent, onClose, onChoo
     const epoch = begin('Validating imported evidence…'); if (epoch === null) return;
     try {
       const result = await importAgentHandoffResult(review.reviewId, review.fingerprint, response);
-      if (epoch !== lifetime.current) { if (result.status === 'ok') void discardGeneratedChapterDraft(result.value.generationId).catch(() => {}); return; }
+      if (epoch !== lifetime.current) { if (result.status === 'ok') void discardGeneratedChapterDraft(result.data.generationId).catch(() => {}); return; }
       if (result.status === 'error') { setError(result.error.message); return; }
-      resources.current.draft = result.value.generationId; resources.current.review = null;
-      setPreview(result.value); setTaskText(''); setResponse(''); setConsent(false);
+      resources.current.draft = result.data.generationId; resources.current.review = null;
+      setPreview(result.data); setTaskText(''); setResponse(''); setConsent(false);
       window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
     } catch { if (epoch === lifetime.current) setError('The import could not be confirmed. Check recovered previews before retrying; accepted chapters are unchanged.'); }
     finally { finish(epoch); }
