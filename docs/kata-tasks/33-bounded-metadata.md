@@ -36,3 +36,7 @@ Read-site inventory, selected bounds rationale, code changes, and focused bounda
 - Catalog, manifest, and Recents decode, count, and size errors leave their original files untouched. Capture cannot begin from a damaged catalog, and a corrupt content-addressed object is not replaced during a recapture.
 - Focused tests cover exact and over-limit reads, readable maximum supported histories, invalid persisted JSON, count overflow, oversized Recents, schema and identity compatibility, streaming object hash/size handling, and preservation of damaged snapshot data.
 - Verification: `cargo test --manifest-path src-tauri/Cargo.toml --lib` passed with 177 passed, 0 failed, and 1 ignored (manual large-repository performance report). The suite was rerun after adding the metadata boundary cases; the existing dead-code warning in `narration.rs` remains.
+
+## Scope of recorded validation — 2026-10-16 audit
+
+The dated validation counts above are historical records, not a new run against the current checkout. No tests or builds ran during this audit. They do not qualify the later chapter-version-4, agent-runtime, narration, packaged-app or complete language/narrative changes. Current release acceptance remains governed by the open parent/capability tasks and the deferred cases in `xymb`.

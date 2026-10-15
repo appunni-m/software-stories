@@ -40,6 +40,7 @@ The [required operation matrix and user flow](../AGENT_OPERATION_PARITY.md) defi
 
 ## Acceptance checklist
 
+- [ ] With no direct API credentials configured, open the same captured file, generate and save an unaccepted chapter through Codex, then deliberately choose Claude Agent and generate and save a separate chapter through the installed Claude Code-powered runtime. Both runs stay inside the app with their own supported settings, progress, cancellation and recovery. A Google/API setup prompt, manual prompt/result exchange or disabled Claude action fails this demonstration.
 - [ ] Codex and Claude Agent each complete a real native file chapter and selected-source overview without requiring a direct API key in Code Atlas, through a documented permitted account route.
 - [ ] Every required Codex/Claude pair in the linked operation matrix has automatic dispatch and dated acceptance evidence, including file, overview, section, range and both PR operations. Repository planning receives both agents when that feature is implemented. No direct API credential is a prerequisite; unsupported pairs cannot silently route to an API.
 - [ ] Per-agent model/reasoning/approval defaults and overrides reach the runtime and appear in the review. Unsupported controls cannot be selected or silently ignored.

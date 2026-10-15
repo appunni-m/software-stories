@@ -1,7 +1,8 @@
 # Kata backlog — Code Atlas rebuild
 
 Workspace project: **code-atlas-rebuild**. Product plan: [PRODUCT_BLUEPRINT.md](PRODUCT_BLUEPRINT.md).
-Technical plan: [TECHNICAL_PLAN.md](TECHNICAL_PLAN.md). Generated on 2026-10-14.
+Technical plan: [TECHNICAL_PLAN.md](TECHNICAL_PLAN.md). Original inventory generated on 2026-10-14; delivery order reconciled on 2026-10-16.
+Live-state snapshot: [all 54 tasks and their recorded status](KATA_STATUS.md).
 Kata issue bodies are synchronized from `docs/kata-tasks/*.md`; each issue states its user outcome, interaction contract, acceptance criteria, exclusions, and closure evidence.
 
 **Priority update — 2026-10-15:** [Agent-first generation](kata-tasks/45-agent-first-generation.md), Kata `2r6n`, is priority 0 under `tpta` and blocks `mfz2`. Complete integrated Codex and Claude Agent support without mandatory direct API keys before further visual/narrative polish. Manual agent handoffs are interim and do not satisfy that release gate. See [Agent generation](AGENT_GENERATION.md).
@@ -67,15 +68,15 @@ Kata issue bodies are synchronized from `docs/kata-tasks/*.md`; each issue state
 | 13yp | Make the packaged app follow the approved product designs | Parent `s0tj`; related to `48yv` | [43-design-implementation-parity.md](kata-tasks/43-design-implementation-parity.md) |
 | x21h | Record concrete UI gaps against the approved designs | Parent `s0tj`; related to `13yp` | [44-design-gap-audit.md](kata-tasks/44-design-gap-audit.md) |
 
-## Build order
+## Current delivery order
 
-1. Design the screen/state/navigation contract, then build the empty app shell.
-2. Capture local snapshots, account for every path, index supported relationships, and connect Atlas to exact Code Lens source.
-3. Make file-by-file coverage visible; add the exact-context Gemini boundary, structured chapters, generation, human review, and quality gate.
-4. Add manual section playback, typed linked visuals, and optional natural-speech narration.
-5. Add section-level freshness, selective revision, history, and offline export.
-6. Release the dependable Mac app. Build local PR explanation later; it does not block the first release.
-7. Add selectable direct model APIs and coding-agent runtimes through maintained libraries, ACP where supported, and each agent’s documented integration surface.
+1. Complete automatic Codex and Claude Agent generation without mandatory direct API keys, including trusted runtime setup, supported settings, exact review, progress, cancellation, recovery and all required scopes. Keep the agent gate open until real native account/runtime acceptance exists.
+2. Qualify the shared chapter-version-4, source/citation, history, visual and exact plan-step contracts used by those workflows. Reuse the existing local evidence and validators; older source or suite evidence cannot certify later changes.
+3. Complete substantive file explanations and whole-repository narrative orchestration, with explicit omissions, file drill-down and selective updates. Bounded plans and one generated chapter do not satisfy an entire repository guide.
+4. Qualify manual playback, generated clickable visuals, Pocket narration, selective revision/history and offline export using the required human/native quality evidence.
+5. Complete native accessibility, repository safety, responsiveness and recovery, then the signed/notarized Mac release with supported platforms, runtime provenance and clean-account installation evidence.
+6. Complete the full local PR Guide and remaining named backend requirements, including Antigravity's independently eligible runtime/account route. Direct APIs remain optional choices; none may silently replace an agent.
 
+The canonical dependency edges and every task's acceptance criteria still apply. This order prioritizes the requested agent-first work; it does not close earlier foundations, erase missing product work or waive release/PR/backend scope. The [status snapshot](KATA_STATUS.md) includes implementation and acceptance children omitted from the original table above.
 
 **Schema revalidation — 2026-10-16:** chapter version 4 adds original native agent request/settings and exact plan-step lineage to previews/history. The schema task `8bw6` is reopened because its version-3 completion evidence does not qualify this extension. Both agents' runtime/account acceptance and the nine additional deferred origin/legacy/history cases in `xymb` remain pending. See [generation records](CHAPTER_GENERATION_RECORDS.md).

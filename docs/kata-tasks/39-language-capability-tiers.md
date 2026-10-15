@@ -42,3 +42,7 @@ Advertising all languages from an LLM's general ability to read text, runtime gu
 
 ## Done evidence
 Dated capability matrix, source-linked fixture outputs and human-reviewed narratives; acceptance remains pending until authorized validation.
+
+## Scope of recorded validation — 2026-10-16 audit
+
+The dated validation counts above are historical records, not a new run against the current checkout. No tests or builds ran during this audit. They do not qualify the later chapter-version-4, agent-runtime, narration, packaged-app or complete language/narrative changes. Current release acceptance remains governed by the open parent/capability tasks and the deferred cases in `xymb`.

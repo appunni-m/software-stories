@@ -51,3 +51,7 @@ Runtime call graph inference and pretending to resolve dynamic dispatch.
 
 ## Done evidence
 Implementation diff, indexer version change, focused ambiguity matrix, base/head Git-index regression, full Rust library suite, and source-grounded UI/provider evidence review. Broader language qualification remains tracked in 7xx7.
+
+## Scope of recorded validation — 2026-10-16 audit
+
+The dated validation counts above are historical records, not a new run against the current checkout. No tests or builds ran during this audit. They do not qualify the later chapter-version-4, agent-runtime, narration, packaged-app or complete language/narrative changes. Current release acceptance remains governed by the open parent/capability tasks and the deferred cases in `xymb`.
