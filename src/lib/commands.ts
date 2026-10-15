@@ -1376,6 +1376,31 @@ export interface ClaudeConnectionObservation {
 export async function inspectClaudeAgentConnection(executablePath: string, runId: string): Promise<ClaudeConnectionObservation> {
   return invoke('inspect_claude_agent_connection', { executablePath, runId });
 }
+export interface ClaudeModelDiscoveryObservation {
+  connection: ClaudeConnectionObservation;
+  catalog: {
+    sdkVersion: string;
+    runtimeVersion: string;
+    models: {
+      modelId: string;
+      displayName: string;
+      aliases: string[];
+      effortSupportAdvertised: boolean;
+      supportedEfforts: string[];
+    }[];
+    omittedRows: number;
+  };
+  nodeExecutablePath: string;
+  nodeExecutableSha256: string;
+  nodeVersion: string;
+  sdkModulePath: string;
+  sdkModuleSha256: string;
+}
+export async function inspectClaudeAgentModelCatalog(
+  executablePath: string, nodeExecutablePath: string, sdkModulePath: string, runId: string,
+): Promise<ClaudeModelDiscoveryObservation> {
+  return invoke('inspect_claude_agent_model_catalog', { executablePath, nodeExecutablePath, sdkModulePath, runId });
+}
 export async function cancelClaudeAgentOperation(runId: string): Promise<boolean> {
   return invoke('cancel_claude_agent_operation', { runId });
 }

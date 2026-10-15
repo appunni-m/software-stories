@@ -1755,7 +1755,7 @@ function ProviderDialog(props: ProviderDialogProps) {
           {!agentOperation && <p role="status">Codex support for this operation is pending. The current source adapter covers file chapters, overviews, one-section repairs and exact code selections.</p>}
         </section>
         <section className="provider-review-card"><h3>Claude Agent · setup in progress</h3>
-          <p>Check an installed Claude CLI and its reported account route. Automatic generation and model discovery are still being implemented.</p>
+          <p>Check an installed Claude CLI and its reported account route, with an advanced SDK model-catalog check. Automatic generation is still being implemented.</p>
           <button className="secondary-button" onClick={() => choose('claude-setup')}>Check Claude installation</button>
           <h4>Manual Claude Code handoff</h4>
           <p>Copy a reviewed task into Claude Code, then import its JSON explanation for local source validation. Configure model, reasoning and approvals in Claude Code. Code Atlas needs no API key for this workflow.</p>

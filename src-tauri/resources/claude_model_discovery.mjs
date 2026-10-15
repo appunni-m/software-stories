@@ -2,7 +2,7 @@
 // This library does nothing on import. The native-owned worker must load
 // the integrity-verified SDK, clear its environment before import, own/reap its
 // process group and bind executable/account observations around this call.
-// No renderer command currently invokes this helper. Metadata is not entitlement.
+// The explicit native setup check invokes this helper. Metadata is not entitlement.
 import { isAbsolute } from 'node:path';
 
 export const candidateSdkVersion = '0.3.300';

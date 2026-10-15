@@ -1781,6 +1781,7 @@ pub fn run() {
             codex_commands::send_codex_chapter_request,
             codex_commands::cancel_codex_chapter_request,
             claude_commands::inspect_claude_agent_connection,
+            claude_commands::inspect_claude_agent_model_catalog,
             claude_commands::cancel_claude_agent_operation,
             get_application_status,
             get_capture_limits,

@@ -1,26 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
 import { HardDrive, X } from 'lucide-react';
 import {
-  cancelClaudeAgentOperation, inspectClaudeAgentConnection,
-  type ClaudeConnectionObservation, type ClaudeInspectionFailureKind,
+  cancelClaudeAgentOperation, inspectClaudeAgentConnection, inspectClaudeAgentModelCatalog,
+  type ClaudeConnectionObservation, type ClaudeInspectionFailureKind, type ClaudeModelDiscoveryObservation,
 } from './lib/commands';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 
 const preferenceKey = 'code-atlas:claude-agent-executable';
-function savedPath(): string {
-  try { const value = localStorage.getItem(preferenceKey) ?? ''; return value.length <= 4096 ? value : ''; }
+const nodePreferenceKey = 'code-atlas:claude-agent-node-executable';
+const sdkPreferenceKey = 'code-atlas:claude-agent-sdk-module';
+function savedPath(key: string): string {
+  try { const value = localStorage.getItem(key) ?? ''; return value.length <= 4096 ? value : ''; }
   catch { return ''; }
 }
 
 const failures: Record<ClaudeInspectionFailureKind, string> = {
   busy: 'Another Claude operation is active. Finish or cancel it before checking again.',
   cancelled: 'The check was cancelled. No repository source was included.',
-  timedOut: 'The CLI check timed out. Check installation and account setup in the vendor CLI before trying again.',
-  runtimeChanged: 'The selected executable changed or could not be read. Check its path and installation.',
-  preparationFailed: 'The check could not be prepared. Choose an absolute path to an installed executable and check local app storage.',
-  processFailed: 'The CLI metadata command could not finish. Check that the selected executable is Claude Code.',
-  protocolRejected: 'The CLI metadata was incomplete or unrecognized. This cannot establish a usable account connection.',
-  outputLimit: 'The CLI exceeded the local metadata output limit. No result was accepted.',
+  timedOut: 'The metadata check timed out. Check the selected installation and account setup before trying again.',
+  runtimeChanged: 'A selected executable or SDK module changed or is incompatible. The catalog check requires the inspected SDK 0.3.300 module; refresh the installation paths.',
+  preparationFailed: 'The check could not be prepared. Check absolute installation paths, local storage and the existing first-party Claude account. API-key and alternate-provider routes cannot supply this account catalog check.',
+  processFailed: 'A metadata process could not finish. Check the installed Claude CLI and, for catalog inspection, the selected Node host and SDK module.',
+  protocolRejected: 'Metadata was incomplete or incompatible. Catalog inspection requires the candidate CLI 2.1.300, inspected SDK 0.3.300 and Node 18 or later. This does not establish a qualified generation connection.',
+  outputLimit: 'Metadata exceeded a local output limit. No result was accepted.',
   cleanupFailed: 'Native process or temporary-storage cleanup could not be confirmed. Resolve that state before restarting the app.',
   unsupportedPlatform: 'This Claude CLI check is not available on this platform.',
 };
@@ -33,9 +35,13 @@ function inspectionError(error: unknown): string {
 export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
   native: boolean; onClose: () => void; onChooseBackend: () => void;
 }) {
-  const [path, setPath] = useState(savedPath);
+  const [path, setPath] = useState(() => savedPath(preferenceKey));
+  const [nodePath, setNodePath] = useState(() => savedPath(nodePreferenceKey));
+  const [sdkPath, setSdkPath] = useState(() => savedPath(sdkPreferenceKey));
   const [observation, setObservation] = useState<ClaudeConnectionObservation | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [catalogObservation, setCatalogObservation] = useState<ClaudeModelDiscoveryObservation | null>(null);
+  const [busyKind, setBusyKind] = useState<'connection' | 'catalog' | null>(null);
+  const busy = busyKind !== null;
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const dialog = useRef<HTMLElement>(null);
@@ -47,6 +53,7 @@ export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
 
   useEffect(() => {
     ++lifetime.current;
+    setBusyKind(null); setObservation(null); setCatalogObservation(null); setError(null); setNote(null);
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dialog.current?.focus();
     const escape = (event: KeyboardEvent) => {
@@ -63,23 +70,39 @@ export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
     };
   }, [native]);
 
-  const inspect = async () => {
-    if (!native || active.current || !path.trim()) return;
+  const inspect = async (kind: 'connection' | 'catalog') => {
+    if (!native || active.current || !path.trim() || (kind === 'catalog' && (!nodePath.trim() || !sdkPath.trim()))) return;
     const epoch = lifetime.current;
     let id: string;
     try { id = crypto.randomUUID(); }
     catch { setError('A secure operation identity is unavailable. Reopen the native app before trying again.'); return; }
     const run = { id, cancelled: false, cleanupFailed: false };
     active.current = run;
-    setBusy(true); setError(null); setNote(null); setObservation(null);
+    setBusyKind(kind); setError(null); setNote(null); setObservation(null); setCatalogObservation(null);
     try {
-      const value = await inspectClaudeAgentConnection(path.trim(), run.id);
+      let discovery: ClaudeModelDiscoveryObservation | null = null;
+      let value: ClaudeConnectionObservation;
+      if (kind === 'catalog') {
+        discovery = await inspectClaudeAgentModelCatalog(path.trim(), nodePath.trim(), sdkPath.trim(), run.id);
+        value = discovery.connection;
+      } else value = await inspectClaudeAgentConnection(path.trim(), run.id);
       if (lifetime.current !== epoch || run.cancelled) return;
       setObservation(value);
       setPath(value.executablePath);
-      // Only the non-secret executable preference is persisted. Account
-      // observations are short-lived and must be inspected again explicitly.
-      try { localStorage.setItem(preferenceKey, value.executablePath); } catch { /* Optional. */ }
+      if (discovery) {
+        setCatalogObservation(discovery);
+        setNodePath(discovery.nodeExecutablePath);
+        setSdkPath(discovery.sdkModulePath);
+      }
+      // Persist installation path hints only. Account/catalog metadata and
+      // fingerprints stay in memory and cannot authorize a later generation.
+      try {
+        localStorage.setItem(preferenceKey, value.executablePath);
+        if (discovery) {
+          localStorage.setItem(nodePreferenceKey, discovery.nodeExecutablePath);
+          localStorage.setItem(sdkPreferenceKey, discovery.sdkModulePath);
+        }
+      } catch { /* Optional. */ }
     } catch (error: unknown) {
       // Uncertain native cleanup takes priority over a concurrent cancel.
       // Suppressing abandoned metadata must not hide this actionable failure.
@@ -91,7 +114,7 @@ export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
     } finally {
       if (active.current?.id === run.id) active.current = null;
       if (lifetime.current === epoch) {
-        setBusy(false);
+        setBusyKind(null);
         if (run.cancelled && !run.cleanupFailed) setNote('Check cancelled. Its returned metadata was discarded.');
       }
     }
@@ -102,9 +125,13 @@ export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
     if (!native || !run || run.cancelled) return;
     run.cancelled = true;
     const epoch = lifetime.current;
-    setNote('Stopping the CLI check…');
+    setNote('Stopping the metadata check…');
     try { await cancelClaudeAgentOperation(run.id); }
     catch { if (lifetime.current === epoch && active.current?.id === run.id) setNote('The stop could not be confirmed. Any returned metadata will be discarded.'); }
+  };
+
+  const clearObservation = () => {
+    setObservation(null); setCatalogObservation(null); setError(null); setNote(null);
   };
 
   return <div className="provider-overlay">
@@ -112,20 +139,35 @@ export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
       <header className="provider-dialog-header">
         <div><div className="step-pill"><span>CLAUDE AGENT</span> SETUP CHECK</div>
           <h2 id="claude-setup-title">Check Claude installation</h2>
-          <p>Inspect the installed CLI version and its reported sign-in metadata. Repository source is excluded from this check.</p></div>
+          <p>Inspect the installed CLI and its reported sign-in metadata. An optional SDK check can show its model catalog. Repository source is excluded.</p></div>
         <button className="icon-button" aria-label="Close Claude setup" onClick={onClose}><X size={17} /></button>
       </header>
       <div className="provider-dialog-content">
         {!native && <div className="provider-preview-only" role="status"><HardDrive size={18} /><p>CLI inspection runs in the macOS app. This browser preview cannot launch it.</p></div>}
         <section className="provider-review-card">
-          <form onSubmit={(event) => { event.preventDefault(); void inspect(); }}>
+          <form onSubmit={(event) => { event.preventDefault(); void inspect('connection'); }}>
             <label className="provider-model-select">Claude CLI executable · absolute path
-              <input value={path} onChange={(event) => { if (!active.current) { setPath(event.target.value); setObservation(null); setError(null); setNote(null); } }} maxLength={4096} placeholder="/Users/you/.local/bin/claude" spellCheck={false} autoComplete="off" disabled={busy} />
+              <input value={path} onChange={(event) => { if (!active.current) { setPath(event.target.value); clearObservation(); } }} maxLength={4096} placeholder="/Users/you/.local/bin/claude" spellCheck={false} autoComplete="off" disabled={busy} />
             </label>
-            <div className="provider-key-actions"><button className="primary-button" type="submit" disabled={!native || busy || !path.trim()}>{busy ? 'Checking CLI…' : 'Check installation and account route'}</button>
+            <div className="provider-key-actions"><button className="primary-button" type="submit" disabled={!native || busy || !path.trim()}>{busyKind === 'connection' ? 'Checking CLI…' : 'Check installation and account route'}</button>
               <a href="https://code.claude.com/docs/en/setup" target="_blank" rel="noreferrer">Official installation guide ↗</a></div>
           </form>
           <p className="provider-small-note">The app runs the documented version and authentication-status commands in private temporary storage. Account/network metadata may be accessed by the vendor CLI. This check does not start a model turn or enable generation.</p>
+        </section>
+        <section className="provider-review-card">
+          <details><summary>Inspect the model catalog · advanced setup</summary>
+            <p>This candidate adapter requires an existing Node installation and the inspected Claude Agent SDK 0.3.300. They are not installed by Code Atlas. The native check verifies SDK bytes and observes executable identities; it does not qualify the installation for generation.</p>
+            <form onSubmit={(event) => { event.preventDefault(); void inspect('catalog'); }}>
+              <label className="provider-model-select">Node executable · absolute path
+                <input value={nodePath} onChange={(event) => { if (!active.current) { setNodePath(event.target.value); clearObservation(); } }} maxLength={4096} placeholder="/opt/homebrew/bin/node" spellCheck={false} autoComplete="off" disabled={busy} />
+              </label>
+              <label className="provider-model-select">Installed SDK module · absolute path to sdk.mjs
+                <input value={sdkPath} onChange={(event) => { if (!active.current) { setSdkPath(event.target.value); clearObservation(); } }} maxLength={4096} placeholder="/absolute/installation/node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs" spellCheck={false} autoComplete="off" disabled={busy} />
+              </label>
+              <p className="provider-small-note">Check catalog starts the selected executables and SDK in private temporary storage. It may contact the vendor using the existing account. The app supplies no repository source or user prompt. Only use installation paths you trust. No API fallback or login is offered.</p>
+              <button className="secondary-button" type="submit" disabled={!native || busy || !path.trim() || !nodePath.trim() || !sdkPath.trim()}>{busyKind === 'catalog' ? 'Checking catalog…' : 'Check catalog'}</button>
+            </form>
+          </details>
         </section>
         {observation && <section className="provider-review-card" aria-labelledby="claude-observation-title">
           <h3 id="claude-observation-title">CLI metadata observed</h3>
@@ -136,9 +178,23 @@ export function ClaudeConnectionDialog({ native, onClose, onChooseBackend }: {
           </dl>
           <details><summary>Installation fingerprint</summary><code>{observation.executablePath}</code><p>SHA-256 {observation.executableSha256}</p></details>
         </section>}
+        {catalogObservation && <section className="provider-review-card" aria-labelledby="claude-models-title">
+          <h3 id="claude-models-title">Candidate model catalog</h3>
+          <p role="status">{catalogObservation.catalog.models.length} exact model IDs observed. Account entitlement and automatic generation remain unqualified.</p>
+          <ul>{catalogObservation.catalog.models.map((model) => <li key={model.modelId}>
+            <strong>{model.displayName}</strong> · <code>{model.modelId}</code>
+            <p>Advertised effort: {model.supportedEfforts.length ? model.supportedEfforts.join(', ') : 'no explicit levels; runtime default only'}.</p>
+          </li>)}</ul>
+          {catalogObservation.catalog.omittedRows > 0 && <p>{catalogObservation.catalog.omittedRows} unresolved catalog rows omitted.</p>}
+          <details><summary>SDK and host observations</summary>
+            <p>SDK {catalogObservation.catalog.sdkVersion} · CLI {catalogObservation.catalog.runtimeVersion} · Node {catalogObservation.nodeVersion}</p>
+            <p><code>{catalogObservation.nodeExecutablePath}</code><br />SHA-256 {catalogObservation.nodeExecutableSha256}</p>
+            <p><code>{catalogObservation.sdkModulePath}</code><br />SHA-256 {catalogObservation.sdkModuleSha256}</p>
+          </details>
+        </section>}
         {error && <p className="provider-error-text" role="alert">{error}</p>}
         {note && <p className="provider-status-note" role="status">{note}</p>}
-        <p className="provider-small-note">Automatic generation still needs model discovery, the permitted account integration, source review and dispatch. API authentication is a separate choice. No login flow is offered by this setup check.</p>
+        <p className="provider-small-note">Automatic generation still needs a qualified runtime and permitted account integration, effective settings, source review and dispatch. This metadata check cannot enable it. API authentication is a separate choice.</p>
       </div>
       <footer className="provider-dialog-footer"><div className="provider-draft-actions">
         <button className="secondary-button" onClick={onClose}>Close</button>

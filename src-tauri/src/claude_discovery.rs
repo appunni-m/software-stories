@@ -1,7 +1,8 @@
 //! Native-owned inputs and fixed preparation for candidate SDK discovery.
 //!
-//! Runtime installation/provenance and account-route qualification belong to
-//! the native caller. No WebView command can deserialize this runtime record.
+//! The explicit metadata check accepts installation path hints only. Native
+//! inspection constructs this record; the WebView cannot supply its hashes.
+//! Neither those observations nor a catalog qualify a generation runtime.
 
 use crate::claude_agent;
 use serde::Serialize;
@@ -20,8 +21,8 @@ pub(crate) struct ClaudeDiscoveryRuntime {
     pub node_sha256: String,
     pub claude_executable: PathBuf,
     pub claude_sha256: String,
-    /// Exact inspected SDK module from a trusted native installation. The
-    /// worker verifies and copies its bytes into its private read-only stage.
+    /// Exact inspected SDK module. The worker verifies and copies its bytes
+    /// into its private read-only stage; installation qualification is separate.
     pub sdk_module: PathBuf,
 }
 
@@ -32,6 +33,8 @@ pub(crate) struct ClaudeModelDiscoveryObservation {
     pub catalog: crate::claude_models::ClaudeModelCatalog,
     pub node_executable_path: String,
     pub node_executable_sha256: String,
+    pub node_version: String,
+    pub sdk_module_path: String,
     pub sdk_module_sha256: &'static str,
 }
 
@@ -59,8 +62,16 @@ pub(crate) fn prepare(
                     .bytes()
                     .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
         })
-        || !valid_path(&runtime.claude_executable)
-        || !valid_path(&runtime.sdk_module)
+        || ![
+            runtime.node_executable.as_path(),
+            runtime.claude_executable.as_path(),
+            runtime.sdk_module.as_path(),
+            stage,
+            temporary,
+            account_home,
+        ]
+        .iter()
+        .all(|path| valid_path(path))
     {
         return Err("The native Claude discovery runtime identity is incomplete.".to_owned());
     }
@@ -83,11 +94,37 @@ pub(crate) fn prepare(
     Ok((command, input))
 }
 
-fn valid_path(path: &Path) -> bool {
+pub(crate) fn valid_path(path: &Path) -> bool {
     path.is_absolute()
-        && path.to_str().is_some()
+        && path
+            .to_str()
+            .is_some_and(|text| !text.chars().any(char::is_control))
         && path.as_os_str().len() <= 4096
         && !path
             .components()
             .any(|part| matches!(part, std::path::Component::ParentDir))
+}
+
+/// Compatibility with the inspected SDK's declared Node engine range only.
+/// A version string does not establish binary provenance or runtime acceptance.
+pub(crate) fn parse_node_version(bytes: &[u8]) -> Result<String, &'static str> {
+    const INVALID: &str = "The selected SDK host did not report a compatible Node version (18 or later). No model catalog was accepted.";
+    if bytes.len() > 128 {
+        return Err(INVALID);
+    }
+    let text = std::str::from_utf8(bytes).map_err(|_| INVALID)?.trim();
+    let version = text.strip_prefix('v').ok_or(INVALID)?;
+    let parts: Vec<_> = version.split('.').collect();
+    if parts.len() != 3
+        || parts.iter().any(|part| {
+            part.is_empty()
+                || part.len() > 5
+                || (part.len() > 1 && part.starts_with('0'))
+                || !part.bytes().all(|byte| byte.is_ascii_digit())
+        })
+        || parts[0].parse::<u32>().map_err(|_| INVALID)? < 18
+    {
+        return Err(INVALID);
+    }
+    Ok(text.to_owned())
 }

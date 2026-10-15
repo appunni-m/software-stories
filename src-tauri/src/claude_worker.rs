@@ -135,21 +135,23 @@ impl ClaudeWorkerManager {
         })
     }
 
-    /// Candidate discovery for a native-owned, verified runtime installation.
-    /// No renderer command currently calls this. Catalog metadata never
-    /// establishes account eligibility or enables explanation generation.
-    pub(crate) fn discover_models(
+    /// Explicit source-free inspection of an installed SDK/host/CLI. The
+    /// renderer supplies path hints, never trusted hashes, catalogs or account
+    /// qualification. Catalog metadata cannot enable explanation generation.
+    pub(crate) fn inspect_model_catalog(
         &self,
         storage_dir: &Path,
-        runtime: &crate::claude_discovery::ClaudeDiscoveryRuntime,
+        executable: &Path,
+        node_executable: &Path,
+        sdk_module: &Path,
         run_id: &str,
     ) -> Result<crate::claude_discovery::ClaudeModelDiscoveryObservation, ClaudeWorkerFailure> {
         self.with_operation(run_id, |cancelled| {
             #[cfg(unix)]
-            { native::discover_models(&self.0, storage_dir, runtime, cancelled) }
+            { native::inspect_model_catalog(&self.0, storage_dir, executable, node_executable, sdk_module, cancelled) }
             #[cfg(not(unix))]
             {
-                let _ = (storage_dir, runtime, cancelled);
+                let _ = (storage_dir, executable, node_executable, sdk_module, cancelled);
                 Err(failure(ClaudeWorkerFailureKind::UnsupportedPlatform,
                     "Claude model discovery requires the reviewed Unix process controls. No process was started."))
             }
@@ -414,7 +416,7 @@ mod native {
             ) {
                 "Claude reports API-key or alternate-provider authentication. This does not qualify the account-backed generation route. No prompt was sent."
             } else if observed.account_identity_sha256.is_some() {
-                "Claude reports an existing account login. Model discovery, product eligibility and automatic generation remain pending."
+                "Claude reports an existing account login. Account eligibility and automatic generation remain unqualified."
             } else {
                 "Claude reported incomplete or unsupported account metadata. Automatic generation remains unavailable."
             };
@@ -451,15 +453,67 @@ mod native {
         })
     }
 
-    pub(super) fn discover_models(
+    pub(super) fn inspect_model_catalog(
+        manager: &Arc<ManagerInner>,
+        storage_dir: &Path,
+        executable: &Path,
+        node_executable: &Path,
+        sdk_module: &Path,
+        cancelled: &AtomicBool,
+    ) -> Result<crate::claude_discovery::ClaudeModelDiscoveryObservation, ClaudeWorkerFailure> {
+        use crate::claude_discovery::{ClaudeDiscoveryRuntime, valid_path};
+        let started = Instant::now();
+        let check = || inspection_deadline(manager, cancelled, started);
+        if ![executable, node_executable, sdk_module]
+            .iter()
+            .all(|path| valid_path(path))
+        {
+            return Err(failure(
+                ClaudeWorkerFailureKind::PreparationFailed,
+                "Choose absolute paths to the installed Claude CLI, Node host and inspected SDK module.",
+            ));
+        }
+        // Canonical paths and identity come from native inspection in this
+        // operation, not from a renderer-supplied attestation or saved catalog.
+        let (claude_executable, claude_sha256) = inspect_executable(executable, check)?;
+        let (node_executable, node_sha256) = inspect_executable(node_executable, check)?;
+        check()?;
+        let sdk_module = fs::canonicalize(sdk_module).map_err(|_| failure(
+            ClaudeWorkerFailureKind::PreparationFailed,
+            "The inspected Claude SDK module is unavailable. Choose its installed sdk.mjs file."))?;
+        if ![&claude_executable, &node_executable, &sdk_module]
+            .iter()
+            .all(|path| valid_path(path))
+        {
+            return Err(failure(
+                ClaudeWorkerFailureKind::PreparationFailed,
+                "The canonical installation paths are incompatible with this metadata check.",
+            ));
+        }
+        discover_models_at(
+            manager,
+            storage_dir,
+            &ClaudeDiscoveryRuntime {
+                node_executable,
+                node_sha256,
+                claude_executable,
+                claude_sha256,
+                sdk_module,
+            },
+            cancelled,
+            started,
+        )
+    }
+
+    fn discover_models_at(
         manager: &Arc<ManagerInner>,
         storage_dir: &Path,
         runtime: &crate::claude_discovery::ClaudeDiscoveryRuntime,
         cancelled: &AtomicBool,
+        started: Instant,
     ) -> Result<crate::claude_discovery::ClaudeModelDiscoveryObservation, ClaudeWorkerFailure> {
         use crate::{claude_discovery as discovery, claude_models};
         use ClaudeWorkerFailureKind as Kind;
-        let started = Instant::now();
         let check = || inspection_deadline(manager, cancelled, started);
         verify_discovery_executables(runtime, check)?;
         let before = inspect_connection_at(
@@ -491,9 +545,31 @@ mod native {
                         "The native account home is unavailable. No SDK discovery was started.",
                     )
                 })?;
+            // Prepare and validate every host/wire path before either Node
+            // command starts. Only its fixed --version command runs first.
             let (mut command, input) =
                 discovery::prepare(runtime, &stage.path, &stage.temporary_path(), &account_home)
                     .map_err(|message| failure(Kind::PreparationFailed, message))?;
+            let mut host = claude_agent::isolated_command(
+                &runtime.node_executable,
+                &stage.path,
+                &stage.temporary_path(),
+                &account_home,
+            )
+            .map_err(|message| failure(Kind::PreparationFailed, message))?;
+            host.arg("--version");
+            let (host_bytes, host_exit) =
+                run_metadata_command(manager, &mut host, &[], cancelled, started, 128)?;
+            if !host_exit.success() {
+                return Err(failure(
+                    Kind::ProcessFailed,
+                    "The selected SDK host could not complete its Node version check.",
+                ));
+            }
+            let node_version = discovery::parse_node_version(&host_bytes)
+                .map_err(|message| failure(Kind::ProtocolRejected, message))?;
+            verify_discovery_executables(runtime, check)?;
+            read_discovery_sdk(&stage.path.join("sdk.mjs"), check)?;
             let (bytes, status) = run_metadata_command(
                 manager,
                 &mut command,
@@ -568,6 +644,17 @@ mod native {
                     })?
                     .to_owned(),
                 node_executable_sha256: runtime.node_sha256.clone(),
+                node_version,
+                sdk_module_path: runtime
+                    .sdk_module
+                    .to_str()
+                    .ok_or_else(|| {
+                        failure(
+                            Kind::PreparationFailed,
+                            "The inspected SDK module path is not valid UTF-8.",
+                        )
+                    })?
+                    .to_owned(),
                 sdk_module_sha256: discovery::SDK_MODULE_SHA256,
             })
         })();

@@ -1,4 +1,4 @@
-//! Explicit Claude CLI metadata inspection. Generation/login are not exposed.
+//! Explicit Claude CLI/SDK metadata inspection. Generation/login are not exposed.
 
 use crate::{app_data_directory, claude_connection, claude_worker};
 use std::path::Path;
@@ -39,4 +39,45 @@ pub(crate) fn cancel_claude_agent_operation(
     run_id: String,
 ) -> bool {
     manager.cancel(&run_id)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn inspect_claude_agent_model_catalog(
+    app: AppHandle,
+    manager: State<'_, claude_worker::ClaudeWorkerManager>,
+    executable_path: String,
+    node_executable_path: String,
+    sdk_module_path: String,
+    run_id: String,
+) -> Result<
+    crate::claude_discovery::ClaudeModelDiscoveryObservation,
+    claude_worker::ClaudeWorkerFailure,
+> {
+    use claude_worker::{ClaudeWorkerFailure as Failure, ClaudeWorkerFailureKind as Kind};
+    let storage = app_data_directory(&app).map_err(|_| Failure {
+        kind: Kind::PreparationFailed,
+        message: "Local app storage is unavailable. No Claude catalog check was started."
+            .to_owned(),
+    })?;
+    let worker = manager.inner().clone();
+    match tauri::async_runtime::spawn_blocking(move || {
+        worker.inspect_model_catalog(
+            &storage,
+            Path::new(&executable_path),
+            Path::new(&node_executable_path),
+            Path::new(&sdk_module_path),
+            &run_id,
+        )
+    })
+    .await
+    {
+        Ok(result) => result,
+        Err(_) => {
+            manager.shutdown();
+            Err(Failure {
+                kind: Kind::CleanupFailed,
+                message: "Claude catalog inspection stopped unexpectedly. Restart the app after checking native process/storage cleanup.".to_owned(),
+            })
+        }
+    }
 }
