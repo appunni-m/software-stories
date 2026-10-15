@@ -41,6 +41,7 @@ mod recovery;
 mod recovery_commands;
 mod repository_plan;
 mod repository_plan_commands;
+mod repository_plan_store;
 mod snapshot;
 
 use project::{ProjectOpenResult, RecentProject};
@@ -1832,6 +1833,9 @@ pub fn run() {
             claude_commands::send_claude_pr_guide_request,
             claude_commands::send_claude_pr_change_request,
             repository_plan_commands::prepare_repository_plan_context,
+            repository_plan_commands::list_repository_plan_drafts,
+            repository_plan_commands::load_repository_plan_draft,
+            repository_plan_commands::discard_repository_plan_draft,
             get_application_status,
             get_capture_limits,
             pick_project_folder,

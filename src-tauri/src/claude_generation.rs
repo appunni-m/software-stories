@@ -127,8 +127,8 @@ struct CompletedOperation {
 }
 
 /// Planning uses the same admitted runtime and revocable operation lease.
-/// Its result is transient unaccepted plan data; retain the exact journal
-/// notice until a separate explicit plan save/discard flow resolves it.
+/// Its result is saved as an unaccepted plan under the publication lock. Retain
+/// the exact journal notice until explicit app review/discard resolves it.
 pub(crate) async fn send_repository_plan(
     app: AppHandle,
     sessions: &ProjectSessions,
@@ -175,9 +175,11 @@ pub(crate) async fn send_repository_plan(
                 &review,
                 &validation_access,
             )?;
-            let plan =
-                provider::canonicalize_repository_plan_response(&storage, &review, &response)?;
-            validation_access.publish(&review, || Ok(plan))
+            let candidate =
+                crate::repository_plan_store::prepare_save(&storage, &review, &response)?;
+            validation_access.publish(&review, || {
+                crate::repository_plan_store::publish(&storage, candidate)
+            })
         },
     )
     .await;
@@ -185,7 +187,10 @@ pub(crate) async fn send_repository_plan(
         Ok(plan) => access
             .publish(&completed.review, || Ok(plan))
             .map(Envelope::ok)
-            .unwrap_or_else(Envelope::failed),
+            .unwrap_or_else(|mut error| {
+                error.message.push_str(" An unaccepted plan may already be saved. Inspect saved plans and recovery before generating again.");
+                Envelope::failed(error)
+            }),
         Err(error) => Envelope::failed(error),
     }
 }

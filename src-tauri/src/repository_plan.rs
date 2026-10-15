@@ -4,7 +4,7 @@
 //! Preparation is local. It does not connect an agent, authorize a request,
 //! persist a plan, generate chapters or mark any file explained. Automatic
 //! Codex/Claude dispatch lives in the existing native operation modules. The
-//! app's planning workflow and durable plan storage remain separate work.
+//! app's planning workflow and durable plan store live separately.
 
 use crate::{
     chapter_generation,
@@ -186,8 +186,8 @@ struct GeneratedPlanStep {
     claim: GeneratedChapterClaim,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct RepositoryPlanStep {
     step_id: String,
     question: String,
@@ -198,19 +198,19 @@ pub(crate) struct RepositoryPlanStep {
 
 /// Validated, unaccepted plan data only. No chapter coverage or accepted
 /// revision can be inferred from this DTO, and this module does not save it.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct RepositoryPlanDraft {
-    schema_version: u32,
-    draft_id: String,
-    project_id: String,
-    snapshot_id: String,
-    question: String,
-    title: String,
+    pub schema_version: u32,
+    pub draft_id: String,
+    pub project_id: String,
+    pub snapshot_id: String,
+    pub question: String,
+    pub title: String,
     capture_status: CaptureStatus,
     inventory_sha256: String,
     context_sha256: String,
-    created_at_unix_ms: u64,
+    pub created_at_unix_ms: u64,
     coverage: PlanSourceCoverage,
     planned_selected_paths: Vec<String>,
     cited_selected_paths: Vec<String>,
@@ -316,6 +316,15 @@ pub(crate) fn canonicalize(
     context: &PreparedRepositoryPlanContext,
     response: &[u8],
 ) -> Result<RepositoryPlanDraft, String> {
+    canonicalize_with_identity(storage, context, response, None)
+}
+
+fn canonicalize_with_identity(
+    storage: &Path,
+    context: &PreparedRepositoryPlanContext,
+    response: &[u8],
+    identity: Option<(&str, u64)>,
+) -> Result<RepositoryPlanDraft, String> {
     if response.is_empty() || response.len() > MAX_RESPONSE_BYTES {
         return Err(INVALID.to_owned());
     }
@@ -369,7 +378,9 @@ pub(crate) fn canonicalize(
         .iter()
         .map(|item| item.relationship_id.clone())
         .collect::<HashSet<_>>();
-    let draft_id = format!("plan:{}", Uuid::new_v4());
+    let draft_id = identity
+        .map(|(id, _)| id.to_owned())
+        .unwrap_or_else(|| format!("plan:{}", Uuid::new_v4()));
     let mut ids = HashMap::<String, String>::new();
     let mut planned = BTreeSet::new();
     let mut cited = BTreeSet::new();
@@ -447,12 +458,15 @@ pub(crate) fn canonicalize(
         capture_status: fresh.capture_status,
         inventory_sha256: fresh.inventory_sha256,
         context_sha256: fresh.context_sha256,
-        created_at_unix_ms: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|_| INVALID.to_owned())?
-            .as_millis()
-            .try_into()
-            .map_err(|_| INVALID.to_owned())?,
+        created_at_unix_ms: match identity {
+            Some((_, time)) => time,
+            None => SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_err(|_| INVALID.to_owned())?
+                .as_millis()
+                .try_into()
+                .map_err(|_| INVALID.to_owned())?,
+        },
         coverage: fresh.coverage,
         planned_selected_paths: planned.into_iter().collect(),
         cited_selected_paths: cited.into_iter().collect(),
@@ -460,6 +474,92 @@ pub(crate) fn canonicalize(
         steps,
         unknowns,
     })
+}
+
+/// Replay the original strict proposal against current immutable evidence.
+/// Only native IDs and creation time are retained; every semantic field must
+/// equal the independently rebuilt plan. This grants no new agent admission.
+pub(crate) fn revalidate_saved(
+    storage: &Path,
+    input: PrepareRepositoryPlanInput,
+    scope: &RepositoryPlanReviewScope,
+    response: &[u8],
+    saved: &RepositoryPlanDraft,
+) -> Result<(), String> {
+    if !canonical_uuid_id(&saved.draft_id, "plan")
+        || saved.schema_version != 1
+        || saved.created_at_unix_ms == 0
+        || saved.created_at_unix_ms > (1_u64 << 53) - 1
+    {
+        return Err("The saved plan has an invalid native identity or creation time. Its local copy was preserved.".to_owned());
+    }
+    let context = prepare(storage, input).map_err(|_| {
+        "The saved plan's original source or index is unavailable. Its local copy was preserved.".to_owned()
+    })?;
+    if context.review_scope() != *scope {
+        return Err("The saved plan's original question, inventory, source or index changed. Its local copy was preserved.".to_owned());
+    }
+    let mut checked = canonicalize_with_identity(
+        storage,
+        &context,
+        response,
+        Some((&saved.draft_id, saved.created_at_unix_ms)),
+    ).map_err(|_| "The saved plan's original proposal could not be validated against its source. Its local copy was preserved.".to_owned())?;
+    if checked.steps.len() != saved.steps.len() || checked.unknowns.len() != saved.unknowns.len() {
+        return Err(
+            "The saved plan's claim collection changed. Its local copy was preserved.".to_owned(),
+        );
+    }
+    let mut ids = HashSet::new();
+    for (current, original) in checked.steps.iter_mut().zip(&saved.steps) {
+        retain_claim_ids(&mut current.claim, &original.claim, &mut ids)?;
+    }
+    for (current, original) in checked.unknowns.iter_mut().zip(&saved.unknowns) {
+        retain_claim_ids(current, original, &mut ids)?;
+    }
+    if checked != *saved {
+        return Err("The saved plan differs from its independently validated proposal and source. Its local copy was preserved.".to_owned());
+    }
+    Ok(())
+}
+
+fn retain_claim_ids(
+    checked: &mut ChapterClaim,
+    original: &ChapterClaim,
+    ids: &mut HashSet<String>,
+) -> Result<(), String> {
+    if !canonical_uuid_id(&original.claim_id, "claim")
+        || !ids.insert(original.claim_id.clone())
+        || checked.anchors.len() != original.anchors.len()
+    {
+        return Err(
+            "The saved plan has an invalid claim identity. Its local copy was preserved."
+                .to_owned(),
+        );
+    }
+    checked.claim_id = original.claim_id.clone();
+    for (current, saved) in checked.anchors.iter_mut().zip(&original.anchors) {
+        if !canonical_uuid_id(&saved.anchor_id, "anchor") || !ids.insert(saved.anchor_id.clone()) {
+            return Err(
+                "The saved plan has an invalid citation identity. Its local copy was preserved."
+                    .to_owned(),
+            );
+        }
+        current.anchor_id = saved.anchor_id.clone();
+    }
+    Ok(())
+}
+
+pub(crate) fn canonical_uuid_id(value: &str, prefix: &str) -> bool {
+    value
+        .strip_prefix(prefix)
+        .and_then(|tail| tail.strip_prefix(':'))
+        .and_then(|tail| {
+            Uuid::parse_str(tail)
+                .ok()
+                .map(|uuid| uuid.to_string() == tail)
+        })
+        .unwrap_or(false)
 }
 
 fn load_evidence(

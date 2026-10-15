@@ -71,7 +71,7 @@ export interface ClaudeRepositoryPlanInput extends PrepareRepositoryPlanInput {
   settings: ClaudeGenerationSettings;
 }
 
-/** Native validated plan data. This type carries no plan/chapter acceptance or persistence. */
+/** Native validated plan data. This type alone carries no acceptance or persistence. */
 export interface RepositoryPlanDraft {
   schemaVersion: 1;
   draftId: string;
@@ -97,7 +97,7 @@ export interface RepositoryPlanDraft {
   unknowns: ChapterClaim[];
 }
 
-/** Transient native validated result. Its notice remains until explicit resolution. */
+/** Native validated draft. Persistence does not accept a plan or explain a file. */
 export interface RepositoryPlanPreview {
   reviewId: string;
   recoveryOperationId: string;
@@ -107,7 +107,46 @@ export interface RepositoryPlanPreview {
   modelVersion: string | null;
   inputTokens: number | null;
   outputTokens: number | null;
+  savedLocally: boolean;
   plan: RepositoryPlanDraft;
+}
+
+export type SavedPlanAgentSettings =
+  | { backend: 'codex'; effort: string; approvalPolicy: 'never' }
+  | { backend: 'claude-agent'; effort: ClaudeGenerationSettings['effort']; approvalPolicy: 'dontAsk'; maxTurns: number };
+
+/** Metadata only. A successful listing does not validate source evidence. */
+export interface RepositoryPlanDraftSummary {
+  draftId: string;
+  title: string;
+  question: string | null;
+  snapshotId: string | null;
+  reviewId: string | null;
+  providerId: 'codex' | 'claude-agent' | null;
+  modelId: string | null;
+  createdAtUnixMs: number | null;
+  unavailableReason: string | null;
+}
+
+/** Revalidated exact proposal; recorded settings do not prove account identity. */
+export interface RepositoryPlanDraftDetail {
+  preview: RepositoryPlanPreview;
+  scope: RepositoryPlanReviewScope;
+  selectedPaths: string[];
+  settings: SavedPlanAgentSettings;
+}
+
+export function listRepositoryPlanDrafts(projectId: string): Promise<RepositoryPlanDraftSummary[]> {
+  return invoke('list_repository_plan_drafts', { projectId });
+}
+
+export function loadRepositoryPlanDraft(projectId: string, draftId: string): Promise<RepositoryPlanDraftDetail> {
+  return invoke('load_repository_plan_draft', { projectId, draftId });
+}
+
+/** Discard does not resolve any separate interruption notice or accepted history. */
+export function discardRepositoryPlanDraft(projectId: string, draftId: string): Promise<void> {
+  return invoke('discard_repository_plan_draft', { projectId, draftId });
 }
 
 /** Local preparation only; installation identity comes from native Codex state. */

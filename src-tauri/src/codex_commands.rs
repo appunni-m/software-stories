@@ -452,7 +452,7 @@ pub(crate) async fn send_codex_repository_plan_request(
     let runtime = manager.inner().clone();
     let run = tauri::async_runtime::spawn_blocking(move || {
         let PreparedCodexOperation { storage, review, input, started_at, .. } = prepared;
-        runtime.run_with_result(
+        runtime.run_with_result_and_publish(
             &storage, input, &review.fingerprint, started_at,
             |event| { let _ = app.emit("codex-agent-progress", event); },
             |response, access| {
@@ -462,7 +462,7 @@ pub(crate) async fn send_codex_repository_plan_request(
                     message: "Checking the plan against the original learning question and captured source.".to_owned(),
                 });
                 provider::rebuild_active_codex_repository_plan_review(&storage, &review, access)?;
-                provider::canonicalize_repository_plan_response(
+                crate::repository_plan_store::prepare_save(
                     &storage, &review,
                     &provider::ProviderSendResult {
                         review_id: review.review_id.clone(),
@@ -475,6 +475,7 @@ pub(crate) async fn send_codex_repository_plan_request(
                     },
                 )
             },
+            |candidate| candidate.and_then(|candidate| crate::repository_plan_store::publish(&storage, candidate)),
         )
     }).await;
     owner.armed = false;

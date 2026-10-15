@@ -3393,23 +3393,25 @@ pub(crate) fn canonicalize_repository_plan_response(
         model_version: response.model_version.clone(),
         input_tokens: response.input_tokens,
         output_tokens: response.output_tokens,
+        saved_locally: false,
         plan,
     })
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct RepositoryPlanPreview {
-    review_id: String,
-    /// The sender retains this notice until a later explicit save/discard flow.
-    recovery_operation_id: String,
-    fingerprint: String,
-    provider_id: String,
-    model_id: String,
-    model_version: Option<String>,
-    input_tokens: Option<u64>,
-    output_tokens: Option<u64>,
-    plan: crate::repository_plan::RepositoryPlanDraft,
+    pub review_id: String,
+    /// Durable draft publication does not automatically resolve this notice.
+    pub recovery_operation_id: String,
+    pub fingerprint: String,
+    pub provider_id: String,
+    pub model_id: String,
+    pub model_version: Option<String>,
+    pub input_tokens: Option<u64>,
+    pub output_tokens: Option<u64>,
+    pub saved_locally: bool,
+    pub plan: crate::repository_plan::RepositoryPlanDraft,
 }
 
 /// One evidence/schema/fingerprint path for bounded coding-agent chapters.

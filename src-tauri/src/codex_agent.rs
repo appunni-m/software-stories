@@ -377,6 +377,33 @@ impl CodexAgentManager {
     where
         F: Fn(CodexProgress),
     {
+        self.run_with_result_and_publish(
+            storage_dir,
+            input,
+            fingerprint,
+            started_at,
+            progress,
+            validate,
+            |value| value,
+        )
+    }
+
+    /// Validate without side effects, then publish under the same native lock
+    /// used by cancel(). Once publication starts, a later cancel cannot retract
+    /// its durable unaccepted result. The publisher must not call this manager.
+    pub(crate) fn run_with_result_and_publish<T, U, F>(
+        &self,
+        storage_dir: &Path,
+        input: CodexRunInput,
+        fingerprint: &str,
+        started_at: Instant,
+        progress: F,
+        validate: impl FnOnce(CodexRunResult, &CodexResultAccess<'_>) -> T,
+        publish: impl FnOnce(T) -> U,
+    ) -> Result<U, String>
+    where
+        F: Fn(CodexProgress),
+    {
         validate_run(&input)?;
         let mut slot = self.lock_process()?;
         let cancelled = Arc::new(AtomicBool::new(false));
@@ -468,8 +495,9 @@ impl CodexAgentManager {
                         .to_owned(),
                 );
             }
+            let published = publish(validated);
             active.take();
-            Ok(validated)
+            Ok(published)
         })();
         // Runtime errors and cancellation/deadline failures during validation
         // leave no reusable process or stale event queue for the next request.

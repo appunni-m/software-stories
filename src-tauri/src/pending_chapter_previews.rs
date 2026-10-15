@@ -187,7 +187,7 @@ fn preview_directory(storage_dir: &Path) -> Result<PathBuf, String> {
     Ok(directory)
 }
 
-fn ensure_real_directory(path: &Path) -> Result<(), String> {
+pub(crate) fn ensure_real_directory(path: &Path) -> Result<(), String> {
     match fs::symlink_metadata(path) {
         Ok(metadata) if metadata.file_type().is_dir() && !metadata.file_type().is_symlink() => {
             Ok(())
@@ -292,13 +292,16 @@ fn checked_size(metadata: &Metadata) -> Result<usize, String> {
         .map_err(|_| "A generated preview has an unsupported size.".to_owned())
 }
 
-fn open_without_following_symlinks(path: &Path) -> std::io::Result<File> {
+pub(crate) fn open_without_following_symlinks(path: &Path) -> std::io::Result<File> {
     let mut options = OpenOptions::new();
     options.read(true);
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        options.custom_flags(libc::O_NOFOLLOW);
+        // A path swapped for a FIFO must not block open before the caller can
+        // inspect the handle and reject a nonregular file. Regular reads retain
+        // their existing behavior.
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
     }
     options.open(path)
 }
