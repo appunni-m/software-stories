@@ -972,6 +972,7 @@ pub fn canonicalize_repository_overview(
             claims.push(claim);
         }
         let mut hotspots = Vec::new();
+        add_overview_file_hotspots(&claims, &sources, &mut hotspots)?;
         let visual = canonicalize_visual_proposal(visual_proposal, &claims, &mut hotspots)?;
         let section = ChapterSection {
             section_id,
@@ -1009,6 +1010,55 @@ pub fn canonicalize_repository_overview(
         decision_note: None,
         sections,
     })
+}
+
+fn add_overview_file_hotspots(
+    claims: &[ChapterClaim],
+    sources: &HashMap<String, &SnapshotSource>,
+    hotspots: &mut Vec<chapters::ChapterHotspot>,
+) -> Result<(), String> {
+    let mut linked_paths = HashSet::new();
+    for path in claims
+        .iter()
+        .flat_map(|claim| &claim.anchors)
+        .map(|anchor| anchor.path.as_str())
+    {
+        if !linked_paths.insert(path) {
+            continue;
+        }
+        if !sources.contains_key(path) {
+            return Err("An overview file link points outside its selected source set.".to_owned());
+        }
+        hotspots.push(chapters::ChapterHotspot {
+            hotspot_id: generated_id("overviewfile"),
+            label: overview_file_hotspot_label(path),
+            destination: HotspotDestination::AtlasFile {
+                path: path.to_owned(),
+            },
+        });
+    }
+    Ok(())
+}
+
+fn overview_file_hotspot_label(path: &str) -> String {
+    let full_label = format!("Open file: {path}");
+    if full_label.len() <= 240 {
+        return full_label;
+    }
+
+    let prefix = "Open file: …/";
+    let suffix = format!(" · {}", &digest_hex(path.as_bytes())[..8]);
+    let basename = path.rsplit('/').next().unwrap_or(path);
+    let max_basename_bytes = 240usize.saturating_sub(prefix.len() + suffix.len());
+    let mut reversed_basename = String::new();
+    for character in basename.chars().rev() {
+        if reversed_basename.len() + character.len_utf8() > max_basename_bytes {
+            break;
+        }
+        reversed_basename.push(character);
+    }
+    let basename_tail = reversed_basename.chars().rev().collect::<String>();
+    format!("{prefix}{basename_tail}{suffix}")
 }
 
 fn validate_overview_proposal_shape(proposal: &GeneratedOverviewProposal) -> Result<(), String> {

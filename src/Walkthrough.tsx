@@ -393,6 +393,11 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
               <p className="walkthrough-section-prose">{selectedSection.prose}</p>
 
               <EvidencePanel section={selectedSection} onOpenAnchor={(anchor) => openAnchor(anchor)} />
+              <SectionFileLinks
+                section={selectedSection}
+                activeFocusTarget={route.focusTarget}
+                onFollowHotspot={followHotspot}
+              />
               <VisualPanel revision={selectedRevision} section={selectedSection} activeFocusTarget={route.focusTarget} onFollowHotspot={followHotspot} onOpenAnchor={openAnchor} />
 
               <NarrationPlayer
@@ -458,6 +463,40 @@ function EvidencePanel({ section, onOpenAnchor }: { section: ChapterSection; onO
           ))}
         </div>
       )}
+    </section>
+  );
+}
+
+function SectionFileLinks({
+  section,
+  activeFocusTarget,
+  onFollowHotspot,
+}: {
+  section: ChapterSection;
+  activeFocusTarget?: string;
+  onFollowHotspot: (hotspot: ChapterHotspot, focusTarget?: string) => void;
+}) {
+  const links = section.hotspots.filter((hotspot) => hotspot.destination.kind === 'atlasFile');
+  if (links.length === 0) return null;
+  return (
+    <section className="walkthrough-transcript-citations" aria-label="Explore cited files">
+      <span>EXPLORE CITED FILES</span>
+      {links.map((hotspot) => {
+        const focusTarget = `reader-hotspot:${hotspot.hotspotId}`;
+        return (
+          <button
+            className={activeFocusTarget === focusTarget ? 'is-return-focus' : undefined}
+            key={hotspot.hotspotId}
+            data-focus-key={focusTarget}
+            aria-label={hotspot.label}
+            onClick={() => onFollowHotspot(hotspot, focusTarget)}
+          >
+            <FileCode2 size={12} />
+            <code>{hotspot.label}</code>
+            <ArrowRight size={11} />
+          </button>
+        );
+      })}
     </section>
   );
 }

@@ -13,6 +13,13 @@ A newcomer can follow a real feature end to end, understand each relevant file, 
 ## Current evidence
 The implementation generates bounded file chapters and an optional orientation chapter from 1–12 selected files. The file quality gate does not qualify a complete repository narrative. There is no demonstrated whole-repository story planner or cross-language end-to-end quality report.
 
+## Source implementation progress (2026-10-15)
+The repository-overview request now frames the optional overview as a short learning path through the selected repository slice: explain prerequisites before using them, prioritize a supported behavior journey from an evidenced entry point, and stop at unknown module/protocol/language boundaries. It asks for question-form section titles and avoids one generic responsibility summary per file. The prompt version was advanced so reviewed requests bind to the new instructions.
+
+Overview canonicalization now creates app-owned `AtlasFile` hotspots from the exact paths attached to each section's validated claim anchors. This lets the reader move from a story section to one of the cited files without trusting model-invented destinations. The existing walkthrough already has one-step section navigation and clickable evidence citations; the generated file hotspots add the missing file-level drill-down. The selected-source bound and separate per-file coverage remain in place.
+
+This is source progress, not acceptance evidence. The overview is still generated from an explicit selection of at most twelve files; there is no repository-inventory story planner, persisted journey plan with explicit prerequisite metadata, progress/recovery workflow for a multi-request guide, representative complete guide, or human comprehension review. No tests or builds were run.
+
 ## Contract
 Create an explicit repository guide plan over the immutable inventory. Identify evidenced entry points and user-relevant behavior journeys, prerequisite concepts, files/relationships, success/failure paths and known unknowns. Plan distinct sections with a concrete learning question, source scope, script, optional visual and deeper source/file links. Keep the overview optional and preserve per-file coverage. Generate in bounded reviewed units through the chosen API or agent runtime; show coverage, omissions, progress and recoverable failures. Do not squeeze a whole repository into one model request.
 
