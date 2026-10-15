@@ -4,6 +4,8 @@ Reviewed October 15, 2026 from current official documentation and repository sou
 
 ## Current product gap
 
+**Priority clarification:** complete Codex and Claude Agent generation is required before the app can be called a complete explanation product. API keys remain optional. The source now exposes agents in every new generation chooser and adds a separately labeled manual task-copy/result-import route for user-operated agents, including Claude Code. This is useful interim transport, not automatic runtime support or evidence resolving product-login eligibility. See [the exact current gaps and release criteria](../kata-tasks/45-agent-first-generation.md). Native acceptance remains pending.
+
 Chapter generation previously exposed only direct APIs. The October 15 source implementation now adds a separate Codex account adapter and chapter dialog. It has not been built or exercised, and is not accepted production support. Claude Agent and Antigravity adapters remain pending in `8gqw` and `m00g`. Agent work no longer waits for completion of the direct API backlog.
 
 Provide two visible backend categories: **Coding agent** and **Direct API**. A connected agent stores its supported non-secret defaults: model, reasoning effort, approval behavior and run limits. Each run shows the effective settings and reviewed source scope. Unsupported settings are unavailable, never silently ignored. Every backend returns the same validated chapter draft to the existing revision workflow. Pocket TTS stays a separate local narration component.

@@ -3,7 +3,7 @@ kind: task
 key: t29
 parent: m7
 title: Add selectable read-only coding-agent backends
-priority: 1
+priority: 0
 labels: phase-7, agents, provider, safety
 ---
 
@@ -67,6 +67,10 @@ Attach the dated operation-to-runtime matrix and rationale for each evaluated in
 - [Antigravity SDK overview](https://www.antigravity.google/docs/sdk/overview), [SDK tools](https://www.antigravity.google/docs/sdk/tools), [SDK policies](https://www.antigravity.google/docs/sdk/policies), [CLI headless mode](https://www.antigravity.google/docs/cli/headless/), [FAQ on third-party login and headless embedding](https://www.antigravity.google/docs/faq/), [Additional Terms](https://www.antigravity.google/terms), and [ACP registry](https://agentclientprotocol.com/get-started/registry)
 
 ## Implementation update — 2026-10-15
+
+**User priority clarification:** Codex and Claude Agent are core generation options; direct APIs are optional. The [agent-first release gate](45-agent-first-generation.md) details every current mismatch and required workflow. Completing visual/narrative work or adding API providers cannot substitute for the two integrated agent paths.
+
+The source now always shows the generation backend chooser, except when the user explicitly opens direct API settings. Codex can return to that chooser. A separate manual task handoff supports copying bounded source into a user-operated Claude Code, Codex, Antigravity or another agent, then importing a task-bound JSON chapter through the native validator and saved unaccepted-draft flow. It requires no API key in Code Atlas. This is **manual transport**, without agent authentication, effective model/reasoning/approval control, progress/cancellation or runtime isolation. It cannot close this task or the automatic Claude/Antigravity tasks. Native acceptance is pending; no tests or builds ran.
 
 The initial Codex route is implemented in source: managed app-server over stdio, native managed ChatGPT login, explicit runtime model/reasoning choices, fixed `never` approval, bounded selected-file staging/review, progress/cancel and shared validation into an unaccepted file chapter or 1–12-file overview. The app exposes a distinct Codex picker/dialog. This is a local-app route; it does not implement direct SIWC registration/token sharing. Runtime `model/list` is not account-entitlement proof, and the source's explicit restrictions are not a universal no-tools guarantee. Threads are ephemeral with no persisted resume. See [the Codex child](40-codex-account-backend.md).
 

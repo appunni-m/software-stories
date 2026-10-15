@@ -52,9 +52,15 @@ When a complete comparison is ready, the **Build a PR Guide** panel lets you sel
 
 For an explanation of one change without creating a saved guide, select a direct API provider and model in the PR Guide panel, then choose **Explain hunk N** beside an eligible text hunk. The local review shows the exact hunk, prompt, encoded request, provider disclosures, and fingerprint. Sending requires the same three explicit acknowledgements and sends only that hunk. Returned claims are checked against exact base/head citations and remain transient; closing the panel returns to the comparison without adding PR Guide history or changing Git refs. This flow also requires the native Mac app.
 
+## Coding agents without a mandatory API key
+
+From **Explain** on a captured file or **Create repository tour** in Guide, choose a generation backend. The source includes a native **Codex** route and a **Claude Code · manual handoff** route. The latter prepares a source-bound task to copy into your agent and validates its complete JSON response on import; it does not run Claude or control its settings. The same manual exchange can be used with Antigravity or another agent. Read [Agent generation](AGENT_GENERATION.md) for exact steps and current limitations. Automatic Claude integration and native acceptance remain release requirements.
+
+The chooser appears for every new generation task. A remembered direct API choice no longer hides the agent choices. Within Codex or a direct API dialog, use **Change backend** to return to the chooser. Each backend still requires its own reviewed context; switching discards an unsaved preview.
+
 ## Optional direct API generation
 
-Local capture, Files, existing saved explanations, and chapter editing do not require an API key. To send a generation request:
+Local capture, Files, existing saved explanations, and chapter editing do not require an API key. To explicitly use a direct model API:
 
 1. Open the project-tools menu and choose **AI and narration setup**.
 2. Choose Gemini, OpenAI, or Anthropic, review its model and provider disclosures, then save that provider's API key to macOS Keychain.
@@ -70,7 +76,7 @@ Code Atlas cannot determine account billing, region, eligibility, quota, or rete
 - The local structural parser covers a bounded Rust, TypeScript, TSX, and JavaScript subset. These are **partial structural** capabilities, not fully qualified language support. Other captured text remains citeable but is **text only**; no language has passed the full structural and narrative qualification gate. See the [language capability matrix](LANGUAGE_CAPABILITIES.md).
 - Each selected file is generated and reviewed individually. There is no generate-all action.
 - Generated prose and source identity validation are different checks: a valid citation does not prove that the explanation is semantically correct.
-- Gemini, OpenAI, and Anthropic are selectable for file chapters, optional orientation, selective section updates, PR Guides, transient one-hunk PR change explanations, and transient source-range explanations grounded in a verified file range. Offline mock fixtures cover every wired provider/operation pair; full capability and acceptance evidence remains open for live provider behavior, eligibility, production transport, response parsing, and manual disclosure review. Coding-agent backends are separate planned integrations and are not selectable.
+- Gemini, OpenAI, and Anthropic are selectable for file chapters, optional orientation, selective section updates, PR Guides, transient one-hunk PR change explanations, and transient source-range explanations grounded in a verified file range. Offline mock fixtures cover every wired provider/operation pair; full capability and acceptance evidence remains open for live provider behavior, eligibility, production transport, response parsing, and manual disclosure review. Coding-agent routes for file chapters and selected-source overviews are implemented in source: native Codex and manual task handoffs. Automatic Claude/Antigravity, other agent operation pairs and native acceptance remain pending; see [Agent generation](AGENT_GENERATION.md).
 - Single-section stale-guide updates and user-facing revision compare/restore are implemented; updating several stale sections in one model request is not supported. Local Git comparisons now show bounded, revision-specific static references to changed files and declarations, with explicit partial results when analysis limits apply; they do not infer runtime impact. Polished onboarding, release signing, and the remaining PR Guide and offline-export acceptance evidence remain tracked; read the [Kata backlog](KATA_BACKLOG.md) for task contracts.
 - This checkout has no root license file. Reuse and redistribution terms are unspecified.
 

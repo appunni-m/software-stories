@@ -15,6 +15,7 @@ export type CodexChapterDialogMode = 'settings' | {
   projectId: string;
   snapshotId: string;
   targetPath?: string;
+  selectedPaths?: string[];
   recoveryOperationId?: string;
 };
 
@@ -22,7 +23,7 @@ export interface CodexChapterDialogProps {
   mode: CodexChapterDialogMode;
   native: boolean;
   onClose: () => void;
-  onUseDirectApi: () => void;
+  onChooseBackend: () => void;
   onSaved?: (revision: ChapterRevision) => void;
   onRecoveryReviewReady?: (operationId: string) => void;
 }
@@ -78,10 +79,11 @@ function loginHref(value: string): string | null {
   } catch { return null; }
 }
 
-export function CodexChapterDialog({ mode, native, onClose, onUseDirectApi, onSaved, onRecoveryReviewReady }: CodexChapterDialogProps) {
+export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onSaved, onRecoveryReviewReady }: CodexChapterDialogProps) {
   const projectId = mode === 'settings' ? null : mode.projectId;
   const snapshotId = mode === 'settings' ? null : mode.snapshotId;
   const targetPath = mode !== 'settings' && mode.kind === 'review' ? mode.targetPath ?? null : null;
+  const initialSelectedPaths = mode === 'settings' ? undefined : mode.selectedPaths;
   const [status, setStatus] = useState<CodexAgentStatus | null>(null);
   const [executablePath, setExecutablePath] = useState('');
   const [login, setLogin] = useState<{ loginId: string; authUrl: string } | null>(null);
@@ -90,7 +92,7 @@ export function CodexChapterDialog({ mode, native, onClose, onUseDirectApi, onSa
   const [manifest, setManifest] = useState<SnapshotManifest | null>(null);
   const [manifestLoading, setManifestLoading] = useState(false);
   const [manifestError, setManifestError] = useState<string | null>(null);
-  const [paths, setPaths] = useState<string[]>(targetPath ? [targetPath] : []);
+  const [paths, setPaths] = useState<string[]>(() => [...new Set([...(targetPath ? [targetPath] : []), ...(initialSelectedPaths ?? [])])].slice(0, 12));
   const [query, setQuery] = useState('');
   const [review, setReview] = useState<ProviderRequestReview | null>(null);
   const [preview, setPreview] = useState<ChapterDraftPreview | null>(null);
@@ -164,7 +166,7 @@ export function CodexChapterDialog({ mode, native, onClose, onUseDirectApi, onSa
     setModels([]);
     setManifest(null);
     setManifestError(null);
-    setPaths(targetPath ? [targetPath] : []);
+    setPaths([...new Set([...(targetPath ? [targetPath] : []), ...(initialSelectedPaths ?? [])])].slice(0, 12));
     setReview(null);
     setPreview(null);
     setSaved(null);
@@ -228,7 +230,7 @@ export function CodexChapterDialog({ mode, native, onClose, onUseDirectApi, onSa
     };
     // These primitive identifiers define the request lifetime; callback identity does not.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [native, projectId, snapshotId, targetPath]);
+  }, [native, projectId, snapshotId, targetPath, initialSelectedPaths]);
 
   useEffect(() => { if (review) summaryRef.current?.focus(); }, [review]);
 
@@ -549,10 +551,10 @@ export function CodexChapterDialog({ mode, native, onClose, onUseDirectApi, onSa
           </>}
           {error && <p className="provider-error-text" role="alert">{error}</p>}
           {note && <p className="provider-status-note" role="status">{note}</p>}
-          <p className="provider-small-note">Other agent backends: Claude Code and Google Antigravity are planned; they are not available in this adapter yet. Direct APIs remain available separately.</p>
+          <p className="provider-small-note">Choose Change backend for Claude Code or other manual agent handoffs, or a direct API. Switching discards an unsaved preview.</p>
         </div>
         <footer className="provider-dialog-footer">
-          <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { if (!activeBusy.current) onClose(); }} disabled={busy !== null}>{saved ? 'Done' : preview ? 'Close and discard preview' : 'Close'}</button><button className="secondary-button" onClick={() => { if (!activeBusy.current && !resources.current.login) onUseDirectApi(); }} disabled={busy !== null || Boolean(login)}>Use a direct API</button></div>
+          <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { if (!activeBusy.current) onClose(); }} disabled={busy !== null}>{saved ? 'Done' : preview ? 'Close and discard preview' : 'Close'}</button><button className="secondary-button" onClick={() => { if (!activeBusy.current && !resources.current.login) onChooseBackend(); }} disabled={busy !== null || Boolean(login)}>Change backend{preview && !saved ? ' and discard preview' : ''}</button></div>
           {native && mode !== 'settings' && (busy === 'send' ? <button className="secondary-button" onClick={() => { void cancelRun(); }} disabled={cancelling}>{cancelling ? 'Cancelling…' : 'Cancel generation'}</button>
             : preview ? saved ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { void discard(); }} disabled={busy !== null}>Discard preview</button><button className="primary-button" onClick={() => { void save(); }} disabled={busy !== null || preview.validation.status !== 'valid'}>{busy === 'save' ? 'Saving…' : 'Save unaccepted draft'}</button></div>
               : <button className="primary-button" onClick={() => { void generate(); }} disabled={busy !== null || otherRun || !review || !consent || !status?.authenticated || !modelReady || Boolean(login)}><Sparkles size={15} /> Generate with Codex</button>)}

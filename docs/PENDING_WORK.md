@@ -29,9 +29,17 @@ The working tree also contains the following in-progress source changes. They ar
 - **Git lifecycle (`kghr`):** bounded process execution for project inspection, snapshot capture, and local Git comparison is committed and pushed in `0a5e32e`. Rust unit evidence passes; the task remains open for native cancellation/no-orphan acceptance and the remaining call-site audit.
 - **Design parity (`13yp`, gap ledger `x21h`):** the Guide now offers an exact-context-reviewed optional tour when no accepted tour exists for the selected snapshot, keeps per-file explanation access beside that action, surfaces current-snapshot drafts for review, and labels older-snapshot guides as historical. This is source-only progress; packaged screenshots and native build identity are still missing.
 
+## Agent support takes priority — 2026-10-15
+
+The user has reaffirmed that Codex and Claude Agent generation are core requirements and direct API keys must be optional. The [agent-first release gate](kata-tasks/45-agent-first-generation.md) is priority 0 and blocks the backend milestone. Complete those integrated paths before further visual/narrative polish. Existing per-backend tasks remain open.
+
+Source progress in this change: every new generation task shows the backend chooser; Codex returns to it via Change backend. Manual task copy/import for Claude Code, Codex, Antigravity or another agent now shares bounded immutable-source review and native chapter/evidence validation. Imported agent/model provenance and runtime controls are unverified. This interim manual transport does **not** satisfy automatic multi-agent support. No test, build, agent process, login or provider request was run.
+
+The previously started repository reading planner is also preserved in source: bounded static-call steps, saved local reading progress, exact source/call links and one-file generation context through the same chooser. It does not qualify complete repository narratives and remains secondary to the agent work.
+
 ## Recommended implementation order
 
-1. Finish Codex runtime/version, account and distribution qualification (`z3an`) and implement generated visuals/narrative work (`j53m`, `6qk9`). Claude (`8gqw`) and Antigravity (`m00g`) still need their separately permitted adapters. Extend Codex beyond file/selected-file-overview chapters only after its initial boundary is qualified.
+1. Finish integrated Codex (`z3an`) and Claude Agent (`8gqw`) generation and the agent-first gate before further visual/narrative polish (`j53m`, `6qk9`). Resolve each runtime/version, account/distribution path, supported configuration and boundary qualification. Antigravity (`m00g`) needs its separately permitted adapter. Manual copy/import cannot close these gates; no agent-selected operation may silently use a direct API.
 2. Index-v2 targeted correctness (`129x`) is verified and closed. Qualify broader language support (`7xx7`) before advertising structural capabilities. Complete the remaining native Git lifecycle acceptance for `kghr`; metadata bounds (`k9yd`) are complete.
 3. Finish Pocket's packaged setup and whole-section scheduling (`q6g3`), setup/help/run-sheet documentation and player/cache/export qualification (`dbmd`). The app-managed adapter exists in source; earlier standalone CLI audio is not its acceptance evidence.
 4. Complete PR generation/navigation recovery `qjm3`. Keep the exact immutable comparison attached to every operation.
@@ -44,6 +52,7 @@ All items below remain open. “Waiting on” lists open dependency edges; child
 
 | Kata ID | Task specification | Waiting on |
 | --- | --- | --- |
+| `2r6n` | [Make Codex and Claude Agent complete generation choices without mandatory API keys](kata-tasks/45-agent-first-generation.md) | Parent `tpta`; blocks `mfz2`; acceptance pending |
 | `z3an` | [Implement Codex app-server chapter generation with account sign-in](kata-tasks/40-codex-account-backend.md) | No open dependency edge |
 | `j53m` | [Generate source-grounded visual explanations from real chapters](kata-tasks/37-generated-visuals.md) | No open dependency edge |
 | `6qk9` | [Build coherent repository narratives with file-level drill-down](kata-tasks/38-repository-narratives.md) | No open dependency edge |

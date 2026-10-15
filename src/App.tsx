@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { CodexChapterDialog } from './CodexChapterDialog';
+import { AgentHandoffDialog } from './AgentHandoffDialog';
 import {
   ArrowLeft,
   ArrowRight,
@@ -77,6 +78,7 @@ import { scrollBehaviorForMotionPreference } from './lib/motion';
 import { errorMessageOr } from './lib/errorMessage';
 const WalkthroughScreen = lazy(() => import('./Walkthrough').then(({ WalkthroughScreen }) => ({ default: WalkthroughScreen })));
 const GitChangesScreen = lazy(() => import('./GitChanges').then(({ GitChangesScreen }) => ({ default: GitChangesScreen })));
+const RepositoryJourneys = lazy(() => import('./RepositoryJourneys').then(({ RepositoryJourneys }) => ({ default: RepositoryJourneys })));
 import {
   buildCodeLensProviderRequestReview,
   buildProviderRequestReview,
@@ -166,7 +168,7 @@ import {
 type Notice = { title: string; message: string; actionLabel?: string; action?: () => void; tone?: 'info' | 'warning' | 'error' } | null;
 type ProviderDialogMode =
   | { kind: 'settings'; backend?: 'api'; recoveryOperationId?: string }
-  | { kind: 'review'; projectId: string; snapshotId: string; targetPath: string; recoveryOperationId?: string }
+  | { kind: 'review'; projectId: string; snapshotId: string; targetPath: string; selectedPaths?: string[]; recoveryOperationId?: string }
   | { kind: 'code-lens-range'; projectId: string; snapshotId: string; target: CodeLensExplanationTarget }
   | { kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string; selectedPaths: string[]; baseRevision: ChapterRevision; sectionUpdate: SectionUpdateReviewTarget }
   | { kind: 'overview'; projectId: string; snapshotId: string; recoveryOperationId?: string };
@@ -885,7 +887,7 @@ function App() {
     setProviderDialog({ kind: 'settings' });
   };
 
-  const reviewFileWithProvider = (targetPath: string) => {
+  const reviewFileWithProvider = (targetPath: string, selectedPaths?: string[]) => {
     if (!currentProject || !selectedSnapshot) {
       setNotice({ title: 'A snapshot is required', message: 'Capture a repository snapshot before preparing an exact-context request.' });
       return;
@@ -897,6 +899,7 @@ function App() {
       projectId: currentProject.projectId,
       snapshotId: selectedSnapshot.snapshotId,
       targetPath,
+      selectedPaths,
     });
   };
 
@@ -1070,20 +1073,35 @@ function App() {
   };
 
   const openGuideRevision = (revision: ChapterRevision) => {
-    setNavigation((state) => navigateToRoute(state, {
-      ...state.current,
-      workspace: 'walkthrough',
-      projectId: revision.projectId,
-      snapshotId: revision.snapshotId,
-      relativePath: undefined,
-      sourceRange: undefined,
-      chapterId: revision.chapterId,
-      chapterRevisionId: revision.revisionId,
-      sectionId: undefined,
-      playbackPosition: 0,
-      transcriptPosition: 0,
-      focusTarget: 'heading:walkthrough',
-    }));
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.focusKey : undefined;
+    setNavigation((state) => {
+      const origin = returnFocus ? replaceCurrentRoute(state, { ...state.current, focusTarget: returnFocus }) : state;
+      return navigateToRoute(origin, {
+        ...origin.current,
+        workspace: 'walkthrough',
+        projectId: revision.projectId,
+        snapshotId: revision.snapshotId,
+        relativePath: undefined,
+        sourceRange: undefined,
+        chapterId: revision.chapterId,
+        chapterRevisionId: revision.revisionId,
+        sectionId: undefined,
+        playbackPosition: 0,
+        transcriptPosition: 0,
+        focusTarget: 'heading:walkthrough',
+      });
+    });
+  };
+
+  const reviewGuideRevision = (revision: ChapterRevision) => {
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement.dataset.focusKey : undefined;
+    setNavigation((state) => {
+      const origin = returnFocus ? replaceCurrentRoute(state, { ...state.current, focusTarget: returnFocus }) : state;
+      return navigateToRoute(origin, {
+        ...origin.current, workspace: 'chapter-studio', projectId: revision.projectId, snapshotId: revision.snapshotId,
+        chapterId: revision.chapterId, chapterRevisionId: revision.revisionId, sectionId: undefined, focusTarget: 'heading:chapter-studio',
+      });
+    });
   };
 
   const clearStudioRevisionRoute = () => {
@@ -1536,25 +1554,18 @@ function App() {
                 projectName={currentProject.displayName}
                 manifest={snapshotManifest}
                 rows={buildInventory(snapshotManifest)}
+                returnFocusTarget={navigation.current.focusTarget}
                 onGoAtlas={() => chooseWorkspace('atlas')}
                 onGoChanges={() => chooseWorkspace('changes')}
                 onGoStudio={() => chooseWorkspace('chapter-studio')}
+                onGenerateFile={reviewFileWithProvider}
                 onGenerateOverview={() => setProviderDialog({
                   kind: 'overview',
                   projectId: currentProject.projectId,
                   snapshotId: selectedSnapshot.snapshotId,
                 })}
                 onReadRevision={openGuideRevision}
-                onReviewRevision={(revision) => setNavigation((state) => navigateToRoute(state, {
-                  ...state.current,
-                  workspace: 'chapter-studio',
-                  projectId: revision.projectId,
-                  snapshotId: revision.snapshotId,
-                  chapterId: revision.chapterId,
-                  chapterRevisionId: revision.revisionId,
-                  sectionId: undefined,
-                  focusTarget: 'heading:chapter-studio',
-                }))}
+                onReviewRevision={reviewGuideRevision}
                 onOpenFile={openCapturedFile}
               />
             ) : currentWorkspace === 'guide-plan' && selectedSnapshot ? (
@@ -1701,14 +1712,11 @@ interface ProviderDialogProps {
 
 function ProviderDialog(props: ProviderDialogProps) {
   const agentOperation = props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview';
-  const [backend, setBackend] = useState<'choose' | 'codex' | 'api'>(() => {
+  const [backend, setBackend] = useState<'choose' | 'codex' | 'handoff' | 'api'>(() => {
     if (props.mode.kind === 'settings' && props.mode.backend === 'api') return 'api';
-    try {
-      const saved = localStorage.getItem('code-atlas-generation-backend-v1');
-      if (saved === 'api' || (saved === 'codex' && agentOperation)) return saved;
-    } catch { /* An unavailable preference store leaves the explicit chooser. */ }
     return 'choose';
   });
+  const [handoffAgent, setHandoffAgent] = useState<'claude-code' | 'antigravity'>('claude-code');
   const chooserRef = useRef<HTMLElement>(null);
   useModalFocusTrap(chooserRef);
   useEffect(() => {
@@ -1720,14 +1728,15 @@ function ProviderDialog(props: ProviderDialogProps) {
     window.addEventListener('keydown', close);
     return () => window.removeEventListener('keydown', close);
   }, [backend, props.onClose]);
-  const choose = (next: 'codex' | 'api') => {
-    try { localStorage.setItem('code-atlas-generation-backend-v1', next); } catch { /* Optional preference. */ }
-    setBackend(next);
-  };
+  const choose = (next: 'codex' | 'handoff' | 'api') => setBackend(next);
   if (backend === 'api') return <DirectApiDialog {...props} onChooseBackend={() => setBackend('choose')} />;
+  if (backend === 'handoff' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview')) {
+    return <AgentHandoffDialog mode={props.mode.kind === 'settings' ? 'settings' : props.mode} native={props.native}
+      initialAgent={handoffAgent} onClose={props.onClose} onChooseBackend={() => setBackend('choose')} />;
+  }
   if (backend === 'codex' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview')) {
     return <CodexChapterDialog mode={props.mode.kind === 'settings' ? 'settings' : props.mode}
-      native={props.native} onClose={props.onClose} onUseDirectApi={() => choose('api')}
+      native={props.native} onClose={props.onClose} onChooseBackend={() => setBackend('choose')}
       onRecoveryReviewReady={props.onRecoveryReviewReady} />;
   }
   return <div className="provider-overlay">
@@ -1735,7 +1744,7 @@ function ProviderDialog(props: ProviderDialogProps) {
       <header className="provider-dialog-header">
         <div><div className="step-pill"><span>GENERATION</span> YOUR CHOICE</div>
           <h2 id="backend-choice-title">Choose how to generate</h2>
-          <p>Connect a coding agent with your account, or use a direct model API. Each request shows the source and settings before generation.</p></div>
+          <p>Use a coding agent you already have. Direct APIs are an optional alternative. Review the selected source before generation.</p></div>
         <button className="icon-button" onClick={props.onClose} aria-label="Close backend chooser"><X size={17} /></button>
       </header>
       <div className="provider-dialog-content">
@@ -1744,13 +1753,19 @@ function ProviderDialog(props: ProviderDialogProps) {
           <button className="primary-button" disabled={!agentOperation} onClick={() => choose('codex')}>Use Codex</button>
           {!agentOperation && <p role="status">Codex support for this operation is pending. File chapters and overviews are available through the current adapter.</p>}
         </section>
+        <section className="provider-review-card"><h3>Claude Code · manual handoff</h3>
+          <p>Copy a reviewed task into Claude Code, then import its JSON explanation for local source validation. Configure model, reasoning and approvals in Claude Code. Code Atlas needs no API key for this workflow.</p>
+          <button className="primary-button" disabled={!agentOperation} onClick={() => { setHandoffAgent('claude-code'); choose('handoff'); }}>Use Claude Code handoff</button>
+          <p className="provider-small-note">Automatic Claude Agent integration is a separate pending task; no Claude login or background run is offered here.</p>
+        </section>
+        <section className="provider-review-card"><h3>Antigravity or another agent · manual handoff</h3>
+          <p>Use the same reviewed task and validated import with your chosen agent. Its own account rules and permissions apply. Code Atlas does not manage or verify that external run.</p>
+          <button className="secondary-button" disabled={!agentOperation} onClick={() => { setHandoffAgent('antigravity'); choose('handoff'); }}>Choose a manual agent handoff</button>
+        </section>
+        {!agentOperation && <p role="status">Agent generation for this operation is pending. The current agent routes cover file chapters and selected-source overviews.</p>}
         <section className="provider-review-card"><h3>Direct API</h3>
           <p>Google Gemini, OpenAI or Anthropic with your own API key. Review the selected model’s terms and cost before sending.</p>
           <button className="secondary-button" onClick={() => choose('api')}>Choose a direct API</button>
-        </section>
-        <section className="provider-disclosure-card"><h3>More coding agents</h3>
-          <p><strong>Claude Agent / Claude Code:</strong> SDK adapter and subscription eligibility work remain pending.</p>
-          <p><strong>Antigravity:</strong> custom-app account integration is under qualification. It is not a working backend yet.</p>
         </section>
       </div>
     </section>
@@ -1773,7 +1788,7 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
   const [snapshotManifestError, setSnapshotManifestError] = useState<string | null>(null);
   const [snapshotManifestLoading, setSnapshotManifestLoading] = useState(false);
   const [selectedPaths, setSelectedPaths] = useState<string[]>(mode.kind === 'review'
-    ? [mode.targetPath]
+    ? [...new Set([mode.targetPath, ...(mode.selectedPaths ?? [])])].slice(0, 12)
     : mode.kind === 'section-update' ? mode.selectedPaths : []);
   const [contextQuery, setContextQuery] = useState('');
   const [requestBuilding, setRequestBuilding] = useState(false);
@@ -3498,18 +3513,20 @@ function inventoryFilterKey(row: Pick<InventoryRow, 'path' | 'kind' | 'reason'>)
   return `${row.path}\u0000${row.kind}\u0000${row.reason}`;
 }
 
-function GuidePlanScreen({ projectId, projectName, manifest, rows, onGoAtlas, onGoChanges, onGoStudio, onGenerateOverview, onReadRevision, onReviewRevision, onOpenFile }: {
+function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTarget, onGoAtlas, onGoChanges, onGoStudio, onGenerateOverview, onGenerateFile, onReadRevision, onReviewRevision, onOpenFile }: {
   projectId: string;
   projectName: string;
   manifest: SnapshotManifest;
   rows: InventoryRow[];
+  returnFocusTarget?: string;
   onGoAtlas: () => void;
   onGoChanges: () => void;
   onGoStudio: () => void;
   onGenerateOverview: () => void;
+  onGenerateFile: (path: string, selectedPaths: string[]) => void;
   onReadRevision: (revision: ChapterRevision) => void;
   onReviewRevision: (revision: ChapterRevision) => void;
-  onOpenFile: (path: string) => void;
+  onOpenFile: (path: string, snapshotId?: string, range?: SourceLineRange) => void;
 }) {
   const snapshotId = manifest.summary.snapshotId;
   const [plan, setPlan] = useState<CoveragePlan>(() => loadCoveragePlan(projectId, snapshotId));
@@ -3750,6 +3767,11 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, onGoAtlas, on
           {acceptedOverview && <span>Tour and per-file explanations are separate. Every source link opens its exact snapshot.</span>}
         </div>
       </section>
+
+      <Suspense fallback={<p className="journey-note" role="status">Loading repository journeys…</p>}>
+        <RepositoryJourneys manifest={manifest} revisions={revisions} revisionsReady={coverageReady} returnFocusTarget={returnFocusTarget}
+          onOpenFile={onOpenFile} onGenerateFile={onGenerateFile} onReadRevision={onReadRevision} onReviewRevision={onReviewRevision} />
+      </Suspense>
 
       <details className="guide-coverage-disclosure">
         <summary><span>File-by-file coverage</span><small>{totals.accepted} explained · {Math.max(0, guideEligibleTotal - totals.accepted)} remaining · {totals.total} inventory paths</small></summary>

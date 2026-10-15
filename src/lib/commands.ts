@@ -1337,3 +1337,17 @@ export async function sendCodexChapterRequest(reviewId: string, fingerprint: str
 export async function cancelCodexChapterRequest(runId: string): Promise<boolean> {
   return invoke('cancel_codex_chapter_request', { runId });
 }
+
+export type HandoffAgent = 'claude-code' | 'codex' | 'antigravity' | 'other';
+export async function buildAgentHandoffReview(input: {
+  projectId: string; snapshotId: string; targetPath: string | null;
+  selectedPaths: string[]; agentId: HandoffAgent;
+}): Promise<ProviderCommandResult<ProviderRequestReview>> {
+  return invoke('build_agent_handoff_review', { input });
+}
+export async function exportAgentHandoff(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<string>> {
+  return invoke('export_agent_handoff', { reviewId, fingerprint, consent });
+}
+export async function importAgentHandoffResult(reviewId: string, fingerprint: string, responseText: string): Promise<ProviderCommandResult<ChapterDraftPreview>> {
+  return invoke('import_agent_handoff_result', { reviewId, fingerprint, responseText });
+}

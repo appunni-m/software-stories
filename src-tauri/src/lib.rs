@@ -15,6 +15,7 @@ mod chapter_generation;
 mod chapter_review;
 mod chapter_store;
 mod chapters;
+mod agent_handoff;
 mod codex_agent;
 mod codex_commands;
 mod git_evidence;
@@ -1779,6 +1780,9 @@ pub fn run() {
         .manage(recovery::InterruptionJournal::default())
         .manage(ChapterStoreLock::default())
         .invoke_handler(tauri::generate_handler![
+            agent_handoff::build_agent_handoff_review,
+            agent_handoff::export_agent_handoff,
+            agent_handoff::import_agent_handoff_result,
             codex_commands::get_codex_agent_status,
             codex_commands::configure_codex_agent,
             codex_commands::start_codex_login,

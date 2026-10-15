@@ -2,9 +2,9 @@
 kind: milestone
 key: m7
 title: M7 — Selectable AI backends
-priority: 2
+priority: 0
 labels: phase-7, ai, providers, agents
-blocked_by: m6
+blocked_by: m6, agent-first-generation
 ---
 
 ## User outcome

@@ -3,7 +3,7 @@ kind: task
 key: claude-agent-backend
 parent: t29
 title: Implement Claude Agent chapter adapter and resolve account eligibility
-priority: 1
+priority: 0
 labels: agents, provider
 ---
 
@@ -18,6 +18,8 @@ Prefer the official Claude Agent SDK behind one managed worker; a documented cla
 The official pages remain distinct in their wording: the Help Center says third-party apps may use subscription limits, while the SDK overview's product-integration guidance says a third-party developer needs prior approval to offer claude.ai login or subscription limits. Because Code Atlas would expose that login/plan route from its own UI, keep **Claude plan login unavailable until Anthropic confirms this product is approved**. The Help Center confirms that Agent SDK calls signed in with a Claude plan consume plan limits; it does not state that a third-party product is exempt from the SDK overview's approval condition. API-key/Console billing is a separate explicit backend choice and must never be selected as a fallback. [Help Center plan usage](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan), [Agent SDK integration requirements](https://code.claude.com/docs/en/agent-sdk/overview).
 
 ## Contract
+
+This is a required automatic agent integration, not an optional API adapter. The separate manual Claude Code handoff now present in source provides reviewed task copy/import and local evidence validation without an API key in Code Atlas. It does not manage a Claude runtime or account, verify model/reasoning settings, enforce permissions, or provide cancellation. It does not satisfy this task. See the [agent-first release gate](45-agent-first-generation.md).
 Pin SDK/binary versions and use the documented auth store/flow with isolated app configuration. Separate account-backed usage from optional API-key usage. Strip inherited credential/provider/endpoint environment that could select API billing; ANTHROPIC_API_KEY overrides account auth in noninteractive mode. Do not assume --bare supports OAuth token behavior. Reuse chapter JSON schema, independent citation validation and explicit draft acceptance.
 
 Expose model-dependent effort, approval behavior and max turns; unsupported values are unavailable. Explicitly configure available tools, empty settingSources and strict app-owned MCP settings. allowedTools is an auto-approval list, not a tool-removal boundary. Remove write/command/web/subagent capabilities and enforce staged-file scope with per-call checks and appropriate sandboxing. Stream progress; interrupt then terminate/reap after a bounded grace period. Never retry through a direct API automatically.
