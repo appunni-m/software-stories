@@ -2,6 +2,8 @@
 
 **Reviewed:** 2026-10-15
 
+**Codex section-repair delta:** the native source path now supports one stale section through the shared transport-independent chapter context. Reviewed base/chapter/section revision identity, declared current files, old/current source limits and section-only output schema are revalidated before dispatch. Returned sections use the same preservation/citation canonicalizer as direct APIs. This is source implementation, not a supported/accepted operation pair; runtime, cancellation and native acceptance remain open. Manual handoffs still cover file chapters/overviews only.
+
 **Latest source delta:** generation now always presents the backend chooser, except explicit direct API settings. Codex is a native source implementation; Claude Code, Codex, Antigravity and other agents also have a separate **manual handoff** transport for file chapters and selected-source overviews. The manual transport copies an exact task and imports task-bound JSON through the native source validator. It has no app-managed authentication, effective runtime settings, permission enforcement, streamed progress or cancellation. Its agent/model provenance is unverified. Do not treat it as an integrated agent operation in the matrix below or as closing any runtime acceptance gate. See [Agent generation](../AGENT_GENERATION.md) and [the required integrated-agent gate](../kata-tasks/45-agent-first-generation.md). No tests or builds ran for this delta.
 
 **Purpose:** Keep direct model APIs, multi-step coding-agent runtimes, and speech synthesis as separate choices. This matrix distinguishes routes present in source from routes that have passed the full acceptance contract.

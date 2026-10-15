@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { CodexChapterDialog } from './CodexChapterDialog';
+import { CodexChapterDialog, type CodexChapterDialogMode } from './CodexChapterDialog';
 import { AgentHandoffDialog } from './AgentHandoffDialog';
 import {
   ArrowLeft,
@@ -166,12 +166,13 @@ import {
 } from './lib/navigation';
 
 type Notice = { title: string; message: string; actionLabel?: string; action?: () => void; tone?: 'info' | 'warning' | 'error' } | null;
-type ProviderDialogMode =
+type ProviderDialogMode = (
   | { kind: 'settings'; backend?: 'api'; recoveryOperationId?: string }
   | { kind: 'review'; projectId: string; snapshotId: string; targetPath: string; selectedPaths?: string[]; recoveryOperationId?: string }
   | { kind: 'code-lens-range'; projectId: string; snapshotId: string; target: CodeLensExplanationTarget }
-  | { kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string; selectedPaths: string[]; baseRevision: ChapterRevision; sectionUpdate: SectionUpdateReviewTarget }
-  | { kind: 'overview'; projectId: string; snapshotId: string; recoveryOperationId?: string };
+  | { kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string; selectedPaths: string[]; baseRevision: ChapterRevision; sectionUpdate: SectionUpdateReviewTarget; recoveryOperationId?: string }
+  | { kind: 'overview'; projectId: string; snapshotId: string; selectedPaths?: string[]; recoveryOperationId?: string }
+) & { recoveryBackend?: 'codex' };
 
 const workspaceIcons: Record<Workspace, typeof Network> = {
   atlas: FolderOpen,
@@ -233,6 +234,9 @@ function useModalFocusTrap(dialogRef: RefObject<HTMLElement | null>) {
 
 function App() {
   const [navigation, setNavigation] = useState<NavigationState>(initialNavigationState);
+  const navigationRef = useRef(navigation);
+  navigationRef.current = navigation;
+  const interruptedReviewToken = useRef(0);
   const [repositoryContextAnnouncement, setRepositoryContextAnnouncement] = useState('');
   const announcedRepositoryContextRef = useRef<string | null>(null);
   const [runtime, setRuntime] = useState<ApplicationStatus | null>(null);
@@ -449,42 +453,66 @@ function App() {
 
   const reviewInterruptedGeneration = async (operation: InterruptedOperation) => {
     if (operation.kind !== 'providerGeneration') return;
+    const token = ++interruptedReviewToken.current;
+    const originRoute = navigationRef.current.current;
+    const current = () => interruptedReviewToken.current === token && navigationRef.current.current === originRoute;
     setRecoveryBusyId(operation.operationId);
     try {
+      const request = operation.providerRequest;
+      if (!request) throw new Error('This older interruption record does not identify the request scope. Reopen the project and select the original file, section, source range or change before preparing a new request. The app will not assume it was a whole-file explanation.');
       const opened = await openRecentProject(operation.projectId);
+      if (!current()) return;
       if (!opened.project || (opened.status !== 'opened' && opened.status !== 'storageError')) {
         handleProjectOpenResult(opened);
         return;
       }
+      const sectionTarget = request.sectionUpdate;
+      let sectionBase: ChapterRevision | null = null;
+      if (request.purpose === 'sectionUpdate') {
+        if (!sectionTarget || !operation.targetPath) throw new Error('The interrupted section identity is incomplete. Select the original stale section in Edit and review it again.');
+        const revisions = await listChapterRevisions(operation.projectId);
+        if (!current()) return;
+        const base = revisions.find((revision) => revision.revisionId === sectionTarget.chapterRevisionId);
+        const section = base?.sections.find((item) => item.sectionId === sectionTarget.sectionId && item.sectionRevisionId === sectionTarget.sectionRevisionId);
+        if (!base || base.lifecycle !== 'accepted' || base.target.scope.kind !== 'file' || base.target.scope.path !== operation.targetPath || !section) {
+          throw new Error('The exact accepted chapter or section is unavailable. Reassess freshness in Edit and select the intended repair; no broader request was opened.');
+        }
+        sectionBase = base;
+      }
       handleProjectOpenResult(opened);
+      const chapterRequest = ['fileChapter', 'repositoryOverview', 'sectionUpdate'].includes(request.purpose);
       setNavigation((state) => navigateToRoute(state, {
-        workspace: 'chapter-studio',
+        workspace: chapterRequest ? 'chapter-studio' : request.purpose === 'codeLensExplanation' ? 'atlas' : 'changes',
         projectId: operation.projectId,
         snapshotId: operation.snapshotId,
-        focusTarget: 'heading:chapter-studio',
+        relativePath: request.purpose === 'codeLensExplanation' ? operation.targetPath ?? undefined : undefined,
+        focusTarget: chapterRequest ? 'heading:chapter-studio' : request.purpose === 'codeLensExplanation' ? 'heading:atlas' : 'heading:changes',
       }));
-      setProviderDialog(operation.targetPath
-        ? {
-          kind: 'review',
-          projectId: operation.projectId,
-          snapshotId: operation.snapshotId,
-          targetPath: operation.targetPath,
-          recoveryOperationId: operation.operationId,
-        }
-        : {
-          kind: 'overview',
-          projectId: operation.projectId,
-          snapshotId: operation.snapshotId,
-          recoveryOperationId: operation.operationId,
-        });
+      const recoveryBackend = request.providerId === 'codex' ? 'codex' as const : undefined;
+      if (request.purpose === 'sectionUpdate' && sectionBase && sectionTarget && operation.targetPath) {
+        setProviderDialog({ kind: 'section-update', projectId: operation.projectId, snapshotId: operation.snapshotId,
+          targetPath: operation.targetPath, selectedPaths: request.selectedPaths, baseRevision: sectionBase, sectionUpdate: sectionTarget,
+          recoveryOperationId: operation.operationId, recoveryBackend });
+      } else if (request.purpose === 'fileChapter' && operation.targetPath) {
+        setProviderDialog({ kind: 'review', projectId: operation.projectId, snapshotId: operation.snapshotId,
+          targetPath: operation.targetPath, selectedPaths: request.selectedPaths,
+          recoveryOperationId: operation.operationId, recoveryBackend });
+      } else if (request.purpose === 'repositoryOverview') {
+        setProviderDialog({ kind: 'overview', projectId: operation.projectId, snapshotId: operation.snapshotId,
+          selectedPaths: request.selectedPaths, recoveryOperationId: operation.operationId, recoveryBackend });
+      } else {
+        setNotice({ title: 'Select the original evidence again', message: request.purpose === 'codeLensExplanation'
+          ? 'This was a source-range explanation. Select its exact range in Files and review a fresh request; a whole-file request was not opened.'
+          : 'This was a Git change explanation. Reopen the original local comparison and selected files or hunk before reviewing a fresh request. No chapter request was opened.', tone: 'warning' });
+      }
     } catch (error) {
-      setNotice({
+      if (current()) setNotice({
         title: 'A fresh request review could not open',
         message: errorMessageOr(error, 'Reopen the repository and review a new exact-context request.'),
         tone: 'error',
       });
     } finally {
-      setRecoveryBusyId(null);
+      if (interruptedReviewToken.current === token) setRecoveryBusyId(null);
     }
   };
 
@@ -1422,16 +1450,16 @@ function App() {
             <div className="notice-banner notice-warning interrupted-work" role="status" key={operation.operationId}>
               <div className="notice-icon"><TriangleAlert size={15} /></div>
               <div>
-                <strong>{operation.kind === 'capture' ? 'A repository capture was interrupted' : 'Chapter generation was interrupted'}</strong>
+                <strong>{operation.kind === 'capture' ? 'A repository capture was interrupted' : operation.providerRequest?.purpose === 'sectionUpdate' ? 'Section repair was interrupted' : 'Explanation generation was interrupted'}</strong>
                 <span>{operation.kind === 'capture'
                   ? 'Retry starts a fresh capture; existing snapshots remain available.'
                   : 'No generated revision was accepted. Review a new exact-context request; prior consent is not reused.'}</span>
               </div>
               <div className="notice-actions">
                 {operation.kind === 'capture'
-                  ? <button disabled={recoveryBusyId === operation.operationId} onClick={() => { void retryInterruptedCapture(operation); }}>Retry capture</button>
-                  : <button disabled={recoveryBusyId === operation.operationId} onClick={() => { void reviewInterruptedGeneration(operation); }}>Review a new request</button>}
-                <button disabled={recoveryBusyId === operation.operationId} onClick={() => { void discardRecovery(operation); }}>Discard</button>
+                  ? <button disabled={recoveryBusyId !== null} onClick={() => { void retryInterruptedCapture(operation); }}>Retry capture</button>
+                  : <button disabled={recoveryBusyId !== null} onClick={() => { void reviewInterruptedGeneration(operation); }}>Review interrupted work</button>}
+                <button disabled={recoveryBusyId !== null} onClick={() => { void discardRecovery(operation); }}>Discard</button>
               </div>
             </div>
           ))}
@@ -1711,8 +1739,10 @@ interface ProviderDialogProps {
 }
 
 function ProviderDialog(props: ProviderDialogProps) {
-  const agentOperation = props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview';
+  const agentOperation = props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview' || props.mode.kind === 'section-update';
+  const handoffOperation = props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview';
   const [backend, setBackend] = useState<'choose' | 'codex' | 'handoff' | 'api'>(() => {
+    if (props.mode.recoveryBackend === 'codex' && agentOperation) return 'codex';
     if (props.mode.kind === 'settings' && props.mode.backend === 'api') return 'api';
     return 'choose';
   });
@@ -1734,8 +1764,12 @@ function ProviderDialog(props: ProviderDialogProps) {
     return <AgentHandoffDialog mode={props.mode.kind === 'settings' ? 'settings' : props.mode} native={props.native}
       initialAgent={handoffAgent} onClose={props.onClose} onChooseBackend={() => setBackend('choose')} />;
   }
-  if (backend === 'codex' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview')) {
-    return <CodexChapterDialog mode={props.mode.kind === 'settings' ? 'settings' : props.mode}
+  if (backend === 'codex' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview' || props.mode.kind === 'section-update')) {
+    const selectedMode = props.mode;
+    const mode: CodexChapterDialogMode = selectedMode.kind === 'settings' ? 'settings' : selectedMode.kind === 'section-update'
+      ? { ...selectedMode, sectionTitle: selectedMode.baseRevision.sections.find((section) => section.sectionId === selectedMode.sectionUpdate.sectionId)?.title }
+      : selectedMode;
+    return <CodexChapterDialog mode={mode}
       native={props.native} onClose={props.onClose} onChooseBackend={() => setBackend('choose')}
       onRecoveryReviewReady={props.onRecoveryReviewReady} />;
   }
@@ -1749,20 +1783,20 @@ function ProviderDialog(props: ProviderDialogProps) {
       </header>
       <div className="provider-dialog-content">
         <section className="provider-review-card"><h3>Codex · ChatGPT account</h3>
-          <p>File chapters and selected-source overviews using the official Codex runtime. Choose a model and reasoning level from its catalog. Your plan limits apply; this path needs no API key.</p>
+          <p>File chapters, selected-source overviews and one-section repairs using the official Codex runtime. Choose a model and reasoning level from its catalog. Your plan limits apply; this path needs no API key.</p>
           <button className="primary-button" disabled={!agentOperation} onClick={() => choose('codex')}>Use Codex</button>
-          {!agentOperation && <p role="status">Codex support for this operation is pending. File chapters and overviews are available through the current adapter.</p>}
+          {!agentOperation && <p role="status">Codex support for this operation is pending. The current source adapter covers file chapters, overviews and one-section repairs.</p>}
         </section>
         <section className="provider-review-card"><h3>Claude Code · manual handoff</h3>
           <p>Copy a reviewed task into Claude Code, then import its JSON explanation for local source validation. Configure model, reasoning and approvals in Claude Code. Code Atlas needs no API key for this workflow.</p>
-          <button className="primary-button" disabled={!agentOperation} onClick={() => { setHandoffAgent('claude-code'); choose('handoff'); }}>Use Claude Code handoff</button>
+          <button className="primary-button" disabled={!handoffOperation} onClick={() => { setHandoffAgent('claude-code'); choose('handoff'); }}>Use Claude Code handoff</button>
           <p className="provider-small-note">Automatic Claude Agent integration is a separate pending task; no Claude login or background run is offered here.</p>
         </section>
         <section className="provider-review-card"><h3>Antigravity or another agent · manual handoff</h3>
           <p>Use the same reviewed task and validated import with your chosen agent. Its own account rules and permissions apply. Code Atlas does not manage or verify that external run.</p>
-          <button className="secondary-button" disabled={!agentOperation} onClick={() => { setHandoffAgent('antigravity'); choose('handoff'); }}>Choose a manual agent handoff</button>
+          <button className="secondary-button" disabled={!handoffOperation} onClick={() => { setHandoffAgent('antigravity'); choose('handoff'); }}>Choose a manual agent handoff</button>
         </section>
-        {!agentOperation && <p role="status">Agent generation for this operation is pending. The current agent routes cover file chapters and selected-source overviews.</p>}
+        {!handoffOperation && <p role="status">Manual agent handoffs currently cover file chapters and selected-source overviews. Automatic Claude integration remains pending.</p>}
         <section className="provider-review-card"><h3>Direct API</h3>
           <p>Google Gemini, OpenAI or Anthropic with your own API key. Review the selected model’s terms and cost before sending.</p>
           <button className="secondary-button" onClick={() => choose('api')}>Choose a direct API</button>
@@ -1789,7 +1823,7 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
   const [snapshotManifestLoading, setSnapshotManifestLoading] = useState(false);
   const [selectedPaths, setSelectedPaths] = useState<string[]>(mode.kind === 'review'
     ? [...new Set([mode.targetPath, ...(mode.selectedPaths ?? [])])].slice(0, 12)
-    : mode.kind === 'section-update' ? mode.selectedPaths : []);
+    : mode.kind === 'section-update' ? mode.selectedPaths : mode.kind === 'overview' ? mode.selectedPaths ?? [] : []);
   const [contextQuery, setContextQuery] = useState('');
   const [requestBuilding, setRequestBuilding] = useState(false);
   const [requestBuildError, setRequestBuildError] = useState<ProviderFailure | null>(null);

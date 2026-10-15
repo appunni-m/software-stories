@@ -1118,12 +1118,7 @@ async fn send_provider_request(
         let result = match interruptions
             .begin_async(
                 &storage_dir,
-                recovery::new_provider_operation(
-                    pending.review.project_id.clone(),
-                    pending.review.snapshot_id.clone(),
-                    pending.review.target_path.clone(),
-                    pending.review.review_id.clone(),
-                ),
+                recovery::new_reviewed_provider_operation(&pending.review),
                 || {
                     provider::await_cancellable_request(
                         &mut cancellation,
@@ -1240,12 +1235,7 @@ async fn send_code_lens_provider_request(
         let dispatched = match interruptions
             .begin_async(
                 &storage_dir,
-                recovery::new_provider_operation(
-                    pending.review.project_id.clone(),
-                    pending.review.snapshot_id.clone(),
-                    pending.review.target_path.clone(),
-                    pending.review.review_id.clone(),
-                ),
+                recovery::new_reviewed_provider_operation(&pending.review),
                 || {
                     provider::await_cancellable_request(
                         &mut cancellation,
@@ -1361,16 +1351,10 @@ async fn send_provider_pr_change_explanation_request(
             Ok(cancellation) => cancellation,
             Err(error) => return provider::ProviderCommandResult::failed(error),
         };
-        let target_path = pending.review.target_path.clone();
         let dispatched = match interruptions
             .begin_async(
                 &storage_dir,
-                recovery::new_provider_operation(
-                    pending.review.project_id.clone(),
-                    pending.review.snapshot_id.clone(),
-                    target_path,
-                    pending.review.review_id.clone(),
-                ),
+                recovery::new_reviewed_provider_operation(&pending.review),
                 || {
                     provider::await_cancellable_request(
                         &mut cancellation,
@@ -1487,12 +1471,7 @@ async fn send_provider_pr_guide_request(
         let result = match interruptions
             .begin_async(
                 &storage_dir,
-                recovery::new_provider_operation(
-                    pending.review.project_id.clone(),
-                    pending.review.snapshot_id.clone(),
-                    None,
-                    pending.review.review_id.clone(),
-                ),
+                recovery::new_reviewed_provider_operation(&pending.review),
                 || {
                     provider::await_cancellable_request(
                         &mut cancellation,

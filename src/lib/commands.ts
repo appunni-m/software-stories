@@ -24,6 +24,12 @@ export interface InterruptedOperation {
   snapshotId: string;
   targetPath: string | null;
   startedAtUnixMs: number;
+  providerRequest?: {
+    providerId: string;
+    purpose: 'fileChapter' | 'repositoryOverview' | 'sectionUpdate' | 'codeLensExplanation' | 'prGuide' | 'prChangeExplanation';
+    selectedPaths: string[];
+    sectionUpdate: SectionUpdateReviewTarget | null;
+  } | null;
 }
 
 export type ProjectOpenStatus =
@@ -1328,6 +1334,7 @@ export async function listCodexModels(): Promise<CodexModel[]> {
 export async function buildCodexChapterReview(input: {
   projectId: string; snapshotId: string; targetPath: string | null; selectedPaths: string[];
   modelId: string; effort: string; approvalPolicy: 'never';
+  sectionUpdate?: SectionUpdateReviewTarget | null;
 }): Promise<ProviderCommandResult<ProviderRequestReview>> {
   return invoke('build_codex_chapter_review', { input });
 }

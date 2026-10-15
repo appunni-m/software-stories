@@ -4,7 +4,7 @@ Coding agents are primary generation options. Direct API keys are optional. The 
 
 | Choice | How the task runs | Configure model, reasoning and approvals | Current scope |
 | --- | --- | --- | --- |
-| Codex · ChatGPT account | Native managed official app-server | Select advertised model/reasoning in Code Atlas; approval currently fixed to `never` | File chapters and selected-source overviews; runtime/account/package qualification pending |
+| Codex · ChatGPT account | Native managed official app-server | Select advertised model/reasoning in Code Atlas; approval currently fixed to `never` | File chapters, selected-source overviews and one-section stale repairs; runtime/account/package qualification pending |
 | Claude Code · manual handoff | Copy task into your own agent, then import JSON | In Claude Code; Code Atlas cannot apply or verify them | File chapters and selected-source overviews; automatic Claude Agent adapter remains required |
 | Antigravity or another agent · manual handoff | Same user-operated text exchange | In the external agent; unverified here | Same bounded chapters; automatic vendor integrations remain pending |
 | Direct API | An explicitly selected API provider | In its Code Atlas request dialog | Existing API operation matrix; separate API key and billing |
@@ -17,7 +17,15 @@ Coding agents are primary generation options. Direct API keys are optional. The 
 4. Select and review the immutable source and effective request. Confirm sharing that context, then generate.
 5. Review the locally validated preview. **Save unaccepted draft**, then review and accept from the app's editing workflow.
 
-**Change backend** returns to all choices; it discards an unsaved preview. Requests never automatically switch to a paid API. The initial adapter does not yet cover Code Lens, section updates or PR generation. Its full account, permission, cancellation and packaged-runtime acceptance remains open in `z3an`.
+**Change backend** returns to all choices; it discards an unsaved preview. Requests never automatically switch to a paid API. The initial adapter does not yet cover Code Lens or PR generation. Its full account, permission, cancellation and packaged-runtime acceptance remains open in `z3an`.
+
+### Repair one stale section with Codex
+
+In Edit, assess an accepted older chapter against the selected current snapshot. When exactly one section is proven stale and every other section can carry forward, choose that section's regeneration action and **Use Codex**. The declared current source selection is fixed. Review the exact prompt: it includes the previous section and old source as context, plus current source as the only citable evidence. The 250,000-byte source limit counts old and current source together. Select model/reasoning, review and confirm, then **Regenerate section with Codex**. Local validation reconstructs a new unaccepted chapter revision and preserves eligible untouched section/asset identities. Saving and accepting remain separate. Multiple stale sections, a superseded base, changed source/section identity or invalid evidence stops the operation. This route is source-only and has not been run in the native app.
+
+### Interrupted requests
+
+**Review interrupted work** restores a recorded Codex file, selected-source overview or exact section repair into Codex. It reloads recorded source paths and the accepted section/base identity, then requires fresh review and consent. It does not resume a runtime thread or automatically send anything. Old records without request-scope metadata require you to reselect the original evidence. Range and Git-change records also require their original range/comparison to be selected again; they never become whole-file generation requests. Navigating away abandons a pending recovery lookup. Native recovery acceptance remains pending.
 
 ## Manual Claude Code or other agent handoff
 

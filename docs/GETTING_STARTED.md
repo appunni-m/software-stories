@@ -58,6 +58,8 @@ From **Explain** on a captured file or **Create repository tour** in Guide, choo
 
 The chooser appears for every new generation task. A remembered direct API choice no longer hides the agent choices. Within Codex or a direct API dialog, use **Change backend** to return to the chooser. Each backend still requires its own reviewed context; switching discards an unsaved preview.
 
+Codex is also wired in source for one-section stale repairs from Edit. That route fixes the selected section's declared evidence, reviews old/current source and uses the existing preservation validator. Manual handoffs remain limited to file chapters and selected-source overviews. See [the section-repair instructions](AGENT_GENERATION.md#repair-one-stale-section-with-codex); native acceptance remains pending.
+
 ## Optional direct API generation
 
 Local capture, Files, existing saved explanations, and chapter editing do not require an API key. To explicitly use a direct model API:

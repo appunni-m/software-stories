@@ -27,6 +27,17 @@ pub struct InterruptedOperation {
     pub snapshot_id: String,
     pub target_path: Option<String>,
     pub started_at_unix_ms: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_request: Option<InterruptedProviderRequest>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct InterruptedProviderRequest {
+    pub provider_id: String,
+    pub purpose: String,
+    pub selected_paths: Vec<String>,
+    pub section_update: Option<crate::provider::SectionUpdateReviewTarget>,
 }
 
 #[derive(Clone, Default)]
@@ -152,6 +163,31 @@ pub fn new_provider_operation(
     operation
 }
 
+/// Retain request scope, never prompts, source bytes, credentials or consent.
+pub fn new_reviewed_provider_operation(
+    review: &crate::provider::ProviderRequestReview,
+) -> InterruptedOperation {
+    let mut operation = new_provider_operation(
+        review.project_id.clone(),
+        review.snapshot_id.clone(),
+        review.target_path.clone(),
+        review.review_id.clone(),
+    );
+    operation.provider_request = Some(InterruptedProviderRequest {
+        provider_id: review.provider_id.clone(),
+        purpose: review.purpose.clone(),
+        selected_paths: review
+            .selected_files
+            .iter()
+            .map(|file| file.path.clone())
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect(),
+        section_update: review.section_update_context.clone(),
+    });
+    operation
+}
+
 fn operation(
     kind: InterruptedOperationKind,
     project_id: String,
@@ -169,6 +205,7 @@ fn operation(
         snapshot_id,
         target_path,
         started_at_unix_ms,
+        provider_request: None,
     }
 }
 
@@ -187,9 +224,59 @@ fn validate_operation(operation: &InterruptedOperation) -> Result<(), String> {
         return Err("The interrupted operation details are invalid.".to_owned());
     }
     if matches!(&operation.kind, InterruptedOperationKind::Capture)
-        && operation.target_path.is_some()
+        && (operation.target_path.is_some() || operation.provider_request.is_some())
     {
         return Err("A capture recovery record cannot include a provider target.".to_owned());
+    }
+    if let Some(request) = &operation.provider_request {
+        if !matches!(
+            request.provider_id.as_str(),
+            "codex" | "gemini" | "openai" | "anthropic"
+        ) || !matches!(
+            request.purpose.as_str(),
+            "fileChapter"
+                | "repositoryOverview"
+                | "sectionUpdate"
+                | "codeLensExplanation"
+                | "prGuide"
+                | "prChangeExplanation"
+        ) || request.selected_paths.len() > 24
+            || request
+                .selected_paths
+                .iter()
+                .any(|path| !valid_text(path, 4096))
+            || request
+                .selected_paths
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+                != request.selected_paths.len()
+            || (request.purpose == "sectionUpdate") != request.section_update.is_some()
+        {
+            return Err("The interrupted provider request scope is invalid.".to_owned());
+        }
+        if matches!(
+            request.purpose.as_str(),
+            "fileChapter" | "repositoryOverview" | "sectionUpdate"
+        ) {
+            if request.selected_paths.is_empty()
+                || request.selected_paths.len() > 12
+                || (request.purpose == "repositoryOverview") != operation.target_path.is_none()
+                || operation
+                    .target_path
+                    .as_ref()
+                    .is_some_and(|path| !request.selected_paths.contains(path))
+            {
+                return Err("The interrupted chapter's source scope is invalid.".to_owned());
+            }
+        }
+        if request.section_update.as_ref().is_some_and(|target| {
+            !valid_text(&target.chapter_revision_id, 256)
+                || !valid_text(&target.section_id, 256)
+                || !valid_text(&target.section_revision_id, 256)
+        }) {
+            return Err("The interrupted section identity is invalid.".to_owned());
+        }
     }
     Ok(())
 }

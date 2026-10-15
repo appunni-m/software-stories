@@ -14,10 +14,12 @@ A user who already uses Codex or Claude Code can explain a repository from insid
 ## Concrete current gaps — 2026-10-15
 
 - A remembered direct API preference previously bypassed the backend chooser, hiding agent alternatives. The source now opens the chooser for generation and lets Codex return to it using Change backend.
-- Codex has source wiring for file chapters and selected-source overviews, but no accepted pinned-runtime/native workflow evidence. Section regeneration, Code Lens and PR operations remain unwired.
+- Codex has source wiring for file chapters, selected-source overviews and one-section stale repairs, but no accepted pinned-runtime/native workflow evidence. Code Lens and PR operations remain unwired. Section repair freezes declared source, binds base/section revision identity in review, and shares the existing independent preservation/citation validator; native execution and lifecycle evidence are still required.
 - Claude Agent has no automatic runtime adapter. A manual Claude Code task handoff now exists in source: review bounded immutable source, copy the task, operate the agent independently, import its complete JSON, validate locally, then explicitly save an unaccepted draft. This is interim manual transport, not automatic Claude integration.
 - Antigravity and other agents can use that same manual text exchange. Their account/runtime integrations remain unimplemented or unqualified. A handoff does not prove which agent/model ran or enforce its permissions, cost, progress or cancellation.
 - UI entries, API provider choices, manual handoffs and this source implementation do not satisfy integrated multi-agent acceptance.
+
+Codex section repair now has scope-aware interruption recovery in source: the journal retains provider, purpose, selected paths and exact section revision metadata. It reopens the original Codex operation with a fresh review rather than widening to a file chapter. Legacy/range/PR records missing full evidence identity require reselection. Runtime thread resume, full PR/range recovery and native lifecycle acceptance remain pending.
 
 ## Required product flow
 

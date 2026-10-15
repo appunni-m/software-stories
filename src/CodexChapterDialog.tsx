@@ -7,7 +7,7 @@ import {
   getCodexAgentStatus, listChapterRevisions, listCodexModels, loadSnapshotManifest,
   logoutCodexAgent, saveGeneratedChapterDraft, sendCodexChapterRequest, startCodexLogin,
   type ChapterDraftPreview, type ChapterRevision, type CodexAgentStatus, type CodexModel, type CodexProgress,
-  type ProviderFailure, type ProviderRequestReview, type SnapshotManifest,
+  type ProviderFailure, type ProviderRequestReview, type SectionUpdateReviewTarget, type SnapshotManifest,
 } from './lib/commands';
 
 export type CodexChapterDialogMode = 'settings' | {
@@ -16,6 +16,15 @@ export type CodexChapterDialogMode = 'settings' | {
   snapshotId: string;
   targetPath?: string;
   selectedPaths?: string[];
+  recoveryOperationId?: string;
+} | {
+  kind: 'section-update';
+  projectId: string;
+  snapshotId: string;
+  targetPath: string;
+  selectedPaths: string[];
+  sectionUpdate: SectionUpdateReviewTarget;
+  sectionTitle?: string;
   recoveryOperationId?: string;
 };
 
@@ -82,7 +91,8 @@ function loginHref(value: string): string | null {
 export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onSaved, onRecoveryReviewReady }: CodexChapterDialogProps) {
   const projectId = mode === 'settings' ? null : mode.projectId;
   const snapshotId = mode === 'settings' ? null : mode.snapshotId;
-  const targetPath = mode !== 'settings' && mode.kind === 'review' ? mode.targetPath ?? null : null;
+  const targetPath = mode !== 'settings' && mode.kind !== 'overview' ? mode.targetPath ?? null : null;
+  const sectionUpdate = mode !== 'settings' && mode.kind === 'section-update' ? mode.sectionUpdate : undefined;
   const initialSelectedPaths = mode === 'settings' ? undefined : mode.selectedPaths;
   const [status, setStatus] = useState<CodexAgentStatus | null>(null);
   const [executablePath, setExecutablePath] = useState('');
@@ -116,12 +126,13 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   const eligibleFiles = useMemo(() => (manifest?.files ?? []).filter((file) => file.kind === 'file'
     && (file.contentKind === 'text' || file.contentKind === 'unknown') && !file.secretLike && file.sizeBytes <= 250_000)
     .sort((left, right) => left.path.localeCompare(right.path)), [manifest]);
-  const filteredFiles = eligibleFiles.filter((file) => file.path.toLowerCase().includes(query.trim().toLowerCase()));
+  const filteredFiles = eligibleFiles.filter((file) => (!sectionUpdate || paths.includes(file.path))
+    && file.path.toLowerCase().includes(query.trim().toLowerCase()));
   const selectedModel = models.find((model) => model.modelId === selection.modelId);
   const modelReady = Boolean(selectedModel?.supportedReasoningEfforts.includes(selection.effort));
   const sourceReady = Boolean(manifest && paths.length > 0 && paths.length <= 12
     && paths.every((path) => eligibleFiles.some((file) => file.path === path))
-    && (mode === 'settings' || mode.kind !== 'review' || targetPath));
+    && (mode === 'settings' || mode.kind === 'overview' || targetPath));
   const locked = busy !== null || preview !== null;
   const otherRun = Boolean(status?.activeRunId && status.activeRunId !== resources.current.run);
 
@@ -230,7 +241,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     };
     // These primitive identifiers define the request lifetime; callback identity does not.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [native, projectId, snapshotId, targetPath, initialSelectedPaths]);
+  }, [native, projectId, snapshotId, targetPath, initialSelectedPaths, sectionUpdate]);
 
   useEffect(() => { if (review) summaryRef.current?.focus(); }, [review]);
 
@@ -332,7 +343,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   };
 
   const changePath = (path: string, checked: boolean) => {
-    if (locked || activeBusy.current || path === targetPath) return;
+    if (locked || activeBusy.current || path === targetPath || sectionUpdate) return;
     releaseReview();
     setPaths((current) => checked
       ? current.includes(path) || current.length >= 12 ? current : [...current, path]
@@ -347,7 +358,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     setSaved(null);
     try {
       const value = await buildCodexChapterReview({ projectId, snapshotId, targetPath, selectedPaths: paths,
-        modelId: selection.modelId, effort: selection.effort, approvalPolicy: 'never' });
+        modelId: selection.modelId, effort: selection.effort, approvalPolicy: 'never', sectionUpdate: sectionUpdate ?? null });
       if (value.status === 'error') { if (lifetime.current === epoch) setError(safeFailure(value.error)); return; }
       if (lifetime.current !== epoch) { await discardProviderRequestReview(value.data.reviewId).catch(() => {}); return; }
       resources.current.review = value.data.reviewId;
@@ -467,7 +478,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       <section ref={dialogRef} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="codex-dialog-title" tabIndex={-1}>
         <header className="provider-dialog-header">
           <div><div className="step-pill"><span>CODEX ACCOUNT</span> NO API KEY</div>
-            <h2 id="codex-dialog-title">{mode === 'settings' ? 'Connect Codex' : targetPath ? 'Explain this file with Codex' : 'Map the repository with Codex'}</h2>
+            <h2 id="codex-dialog-title">{mode === 'settings' ? 'Connect Codex' : sectionUpdate ? 'Update this section with Codex' : targetPath ? 'Explain this file with Codex' : 'Map the repository with Codex'}</h2>
             <p>Use your ChatGPT account through Codex. Generation shares only the reviewed snapshot context and uses your account’s plan quota.</p></div>
           <button className="icon-button" aria-label="Close Codex dialog" disabled={busy !== null} onClick={() => { if (!activeBusy.current) onClose(); }}><X size={17} /></button>
         </header>
@@ -506,13 +517,14 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
               <div className="provider-section-heading"><div><span>IMMUTABLE SNAPSHOT · {snapshotId}</span><h3 id="codex-source-title">Choose the code to explain</h3></div></div>
               <div className="provider-context-picker">
                 <div className="provider-context-heading"><strong>{targetPath ?? 'Repository overview'}</strong><span>{paths.length} of 12 files selected</span></div>
-                <p>{targetPath ? 'The target file stays selected. Add supporting files to explain its real behavior.' : 'Choose 1–12 files that ground the repository overview.'}</p>
+                <p>{sectionUpdate ? 'This repair uses the selected section’s declared evidence. Source selection is fixed; the native review rechecks that only this section is stale and the other sections can carry forward.' : targetPath ? 'The target file stays selected. Add supporting files to explain its real behavior.' : 'Choose 1–12 files that ground the repository overview.'}</p>
+                {mode.kind === 'section-update' && <p><strong>{mode.sectionTitle ?? 'Selected stale section'}</strong> · Older source and the previous section are included as context in the exact prompt below. Only current source is citable. The source byte limit counts both snapshots.</p>}
                 {manifestLoading && <p role="status">Loading the captured file list…</p>}
                 {manifestError && <p className="provider-error-text" role="alert">{manifestError}</p>}
-                {manifest && <><label className="provider-context-search">Filter captured files<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search snapshot paths" /></label>
+                {manifest && <><label className="provider-context-search">{sectionUpdate ? 'Filter declared source files' : 'Filter captured files'}<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search snapshot paths" /></label>
                   <div className="provider-context-files">{filteredFiles.map((file) => {
                     const checked = paths.includes(file.path);
-                    return <label key={file.path} className={checked ? 'selected' : ''}><input type="checkbox" checked={checked} disabled={locked || file.path === targetPath || (!checked && paths.length >= 12)} onChange={(event) => changePath(file.path, event.target.checked)} /><code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} B{file.path === targetPath ? ' · target' : ''}</small></label>;
+                    return <label key={file.path} className={checked ? 'selected' : ''}><input type="checkbox" checked={checked} disabled={locked || Boolean(sectionUpdate) || file.path === targetPath || (!checked && paths.length >= 12)} onChange={(event) => changePath(file.path, event.target.checked)} /><code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} B{file.path === targetPath ? ' · target' : ''}</small></label>;
                   })}{!filteredFiles.length && <p>No eligible captured files match this filter.</p>}</div>
                   <details><summary>Selected paths ({paths.length})</summary><ul>{paths.map((path) => <li key={path}><code>{path}</code></li>)}</ul></details>
                   {!sourceReady && paths.length > 0 && <p className="provider-error-text">The target or a selected file is unavailable for this request. Use an eligible captured text file.</p>}
@@ -524,7 +536,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
               {review && <>
                 <div ref={summaryRef} className="provider-request-summary" role="group" aria-label="Exact Codex request" tabIndex={-1}>
                   <div><span>Source snapshot</span><code>{review.snapshotId}</code></div><div><span>Model</span><strong>{review.modelId}</strong></div>
-                  <div><span>Selected source</span><strong>{review.selectedFiles.length} files · {review.sourceBytes.toLocaleString()} bytes</strong></div>
+                  <div><span>{sectionUpdate ? 'Current files · source bytes across both snapshots' : 'Selected source'}</span><strong>{review.selectedFiles.length} files · {review.sourceBytes.toLocaleString()} bytes</strong></div>
                   <div><span>Input estimate</span><strong>About {review.estimatedInputTokens.toLocaleString()} tokens</strong></div>
                   <div><span>Review expiry</span><strong>{new Date(review.expiresAtUnixMs).toLocaleTimeString()}</strong></div>
                 </div>
@@ -541,6 +553,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 {preview.updateNotes.length > 0 && <div className="provider-status-note" role="status"><strong>Generation notes</strong><ul>{preview.updateNotes.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
                 {preview.validation.issues.length > 0 && <div className="provider-error-text" role="alert"><strong>Evidence validation issues</strong><ul>{preview.validation.issues.map((issue, index) => <li key={index}>{issue.code}{issue.path ? ` · ${issue.path}` : ''}{issue.sectionId ? ` · ${issue.sectionId}` : ''}</li>)}</ul></div>}
                 <div className="generated-chapter-sections">{preview.revision.sections.map((section) => <article className="generated-chapter-section" key={section.sectionId}>
+                  {sectionUpdate && <small>{section.sectionId === sectionUpdate.sectionId ? 'Updated section' : 'Preserved section'}</small>}
                   <h5>{section.order + 1}. {section.title}</h5><p>{section.prose}</p>
                   <ul>{section.claims.map((claim) => <li key={claim.claimId}><span className="chapter-claim-category">{claim.category.kind === 'inference' ? claim.category.visibleLabel : claim.category.kind === 'codeBehavior' ? 'Code behavior' : 'Repository context'}</span><p>{claim.prose}</p>{claim.category.kind === 'inference' && <p>Basis: {claim.category.basis}</p>}{claim.anchors.map((anchor) => <details className="chapter-evidence" key={anchor.anchorId}><summary><FileCode2 size={12} /><code>{anchor.path}:{anchor.startLine}–{anchor.endLine}</code></summary><pre><code>{anchor.excerpt}</code></pre><small>Snapshot {anchor.snapshotId} · SHA-256 {anchor.sourceSha256}</small></details>)}</li>)}</ul>
                   <details className="chapter-spoken-preview"><summary>Narration script</summary><p>{section.spokenText}</p></details>
@@ -557,7 +570,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { if (!activeBusy.current) onClose(); }} disabled={busy !== null}>{saved ? 'Done' : preview ? 'Close and discard preview' : 'Close'}</button><button className="secondary-button" onClick={() => { if (!activeBusy.current && !resources.current.login) onChooseBackend(); }} disabled={busy !== null || Boolean(login)}>Change backend{preview && !saved ? ' and discard preview' : ''}</button></div>
           {native && mode !== 'settings' && (busy === 'send' ? <button className="secondary-button" onClick={() => { void cancelRun(); }} disabled={cancelling}>{cancelling ? 'Cancelling…' : 'Cancel generation'}</button>
             : preview ? saved ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { void discard(); }} disabled={busy !== null}>Discard preview</button><button className="primary-button" onClick={() => { void save(); }} disabled={busy !== null || preview.validation.status !== 'valid'}>{busy === 'save' ? 'Saving…' : 'Save unaccepted draft'}</button></div>
-              : <button className="primary-button" onClick={() => { void generate(); }} disabled={busy !== null || otherRun || !review || !consent || !status?.authenticated || !modelReady || Boolean(login)}><Sparkles size={15} /> Generate with Codex</button>)}
+              : <button className="primary-button" onClick={() => { void generate(); }} disabled={busy !== null || otherRun || !review || !consent || !status?.authenticated || !modelReady || Boolean(login)}><Sparkles size={15} /> {sectionUpdate ? 'Regenerate section with Codex' : 'Generate with Codex'}</button>)}
         </footer>
       </section>
     </div>

@@ -9,7 +9,7 @@ import {
 import type { CodexChapterDialogMode } from './CodexChapterDialog';
 
 interface Props {
-  mode: CodexChapterDialogMode;
+  mode: Exclude<CodexChapterDialogMode, { kind: 'section-update' }>;
   native: boolean;
   initialAgent: HandoffAgent;
   onClose: () => void;

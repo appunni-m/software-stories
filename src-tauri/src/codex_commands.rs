@@ -229,12 +229,7 @@ pub(crate) async fn send_codex_chapter_request(
     };
     interruptions.record(
         &storage,
-        recovery::new_provider_operation(
-            pending.review.project_id.clone(),
-            pending.review.snapshot_id.clone(),
-            pending.review.target_path.clone(),
-            review_id.clone(),
-        ),
+        recovery::new_reviewed_provider_operation(&pending.review),
     )?;
     let review = pending.review;
     let input = codex_agent::CodexRunInput {

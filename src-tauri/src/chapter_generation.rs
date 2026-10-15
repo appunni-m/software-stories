@@ -232,7 +232,7 @@ pub fn canonicalize_section_update(
 ) -> Result<(ChapterRevision, Vec<String>), String> {
     if response_text.len() > chapters::MAX_GENERATED_RESPONSE_BYTES {
         return Err(
-            "Gemini's section response exceeds the 300 KB structured-draft limit.".to_owned(),
+            "The generated section exceeds the 300 KB structured-draft limit.".to_owned(),
         );
     }
     if base.lifecycle != RevisionLifecycle::Accepted
@@ -731,7 +731,7 @@ pub fn canonicalize_file_chapter(
 ) -> Result<ChapterRevision, String> {
     if response_text.len() > chapters::MAX_GENERATED_RESPONSE_BYTES {
         return Err(
-            "Gemini's chapter response exceeds the 300 KB structured-draft limit.".to_owned(),
+            "The generated chapter exceeds the 300 KB structured-draft limit.".to_owned(),
         );
     }
     if manifest.summary.project_id != project_id || target_path.trim().is_empty() {
@@ -907,7 +907,7 @@ pub fn canonicalize_repository_overview(
 ) -> Result<ChapterRevision, String> {
     if response_text.len() > chapters::MAX_GENERATED_RESPONSE_BYTES {
         return Err(
-            "Gemini's overview response exceeds the 300 KB structured-draft limit.".to_owned(),
+            "The generated overview exceeds the 300 KB structured-draft limit.".to_owned(),
         );
     }
     if manifest.summary.project_id != project_id {

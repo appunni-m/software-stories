@@ -1832,9 +1832,6 @@ pub fn build_request_review_for_provider(
     input: &BuildProviderReviewInput,
     provider_id: &str,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
-    if input.section_update.is_some() {
-        return build_section_update_request_review(storage_dir, input, provider_id);
-    }
     let disclosure = disclosure_for(provider_id).ok_or_else(|| {
         failure(
             ProviderFailureKind::UnavailableModel,
@@ -1857,6 +1854,7 @@ pub fn build_request_review_for_provider(
         generation_config,
         source_bytes,
         purpose,
+        section_update_context,
     } = build_chapter_context(storage_dir, input)?;
     let encoded = crate::provider_api::encode_request_preview(
         provider_id,
@@ -1917,7 +1915,7 @@ pub fn build_request_review_for_provider(
         selected_relationships,
         index_evidence_truncated,
         pr_guide_context: None,
-        section_update_context: None,
+        section_update_context,
         code_lens_context: None,
         pr_change_context: None,
         system_instruction,
@@ -1945,12 +1943,16 @@ struct ChapterRequestContext {
     generation_config: Value,
     source_bytes: usize,
     purpose: &'static str,
+    section_update_context: Option<SectionUpdateReviewTarget>,
 }
 
 fn build_chapter_context(
     storage_dir: &Path,
     input: &BuildProviderReviewInput,
 ) -> Result<ChapterRequestContext, ProviderFailure> {
+    if input.section_update.is_some() {
+        return build_section_update_context(storage_dir, input);
+    }
     if input.selected_paths.is_empty()
         || input.selected_paths.len() > MAX_SELECTED_FILES
         || input
@@ -2178,6 +2180,7 @@ SELECTED LOCAL INDEX EVIDENCE JSON:
         generation_config,
         source_bytes,
         purpose,
+        section_update_context: None,
     })
 }
 
@@ -2191,6 +2194,8 @@ pub(crate) struct BuildCodexReviewInput {
     pub model_id: String,
     pub effort: String,
     pub approval_policy: String,
+    #[serde(default)]
+    pub section_update: Option<SectionUpdateReviewTarget>,
 }
 
 /// Build a reviewed agent operation without starting a runtime or sending source.
@@ -2224,6 +2229,7 @@ pub(crate) fn build_codex_chapter_review(
         generation_config,
         source_bytes,
         purpose,
+        section_update_context,
     } = build_chapter_context(
         storage_dir,
         &BuildProviderReviewInput {
@@ -2232,7 +2238,7 @@ pub(crate) fn build_codex_chapter_review(
             target_path: input.target_path.clone(),
             selected_paths: input.selected_paths.clone(),
             model_id: input.model_id.clone(),
-            section_update: None,
+            section_update: input.section_update.clone(),
         },
     )?;
     let mut output_schema = generation_config
@@ -2247,7 +2253,7 @@ pub(crate) fn build_codex_chapter_review(
     crate::provider_api::lowercase_schema_types(&mut output_schema);
     close_agent_schema_objects(&mut output_schema);
     let generation_config = json!({
-        "contractVersion": "codex-chapter-v1", "effort": input.effort,
+        "contractVersion": "codex-chapter-v2", "effort": input.effort,
         "approvalPolicy": "never", "executablePath": executable_path,
         "outputSchema": output_schema, "shell": false, "webSearch": false,
         "filesystem": "read-only staged selected source", "ephemeral": true,
@@ -2257,6 +2263,7 @@ pub(crate) fn build_codex_chapter_review(
         "provider": "codex", "authentication": "chatgpt-account", "model": input.model_id,
         "systemInstruction": system_instruction, "userPrompt": user_prompt,
         "settings": generation_config,
+        "sectionUpdate": section_update_context,
     });
     let encoded = serde_json::to_vec(&body).map_err(|_| {
         failure(
@@ -2300,7 +2307,7 @@ pub(crate) fn build_codex_chapter_review(
         selected_relationships,
         index_evidence_truncated,
         pr_guide_context: None,
-        section_update_context: None,
+        section_update_context,
         code_lens_context: None,
         pr_change_context: None,
         system_instruction,
@@ -2553,11 +2560,13 @@ pub(crate) fn revalidate_codex_chapter_review(
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_owned(),
+        section_update: review.section_update_context.clone(),
     };
     let rebuilt = build_codex_chapter_review(storage_dir, &input, executable_path)?;
     if rebuilt.review.fingerprint != review.fingerprint
         || rebuilt.review.request_body_preview != review.request_body_preview
         || rebuilt.review.purpose != review.purpose
+        || rebuilt.review.section_update_context != review.section_update_context
     {
         return Err(failure(
             ProviderFailureKind::ReviewChanged,
@@ -3076,22 +3085,16 @@ fn code_lens_line_at_byte(bytes: &[u8], offset: usize) -> Option<u32> {
     Some(line)
 }
 
-fn build_section_update_request_review(
+fn build_section_update_context(
     storage_dir: &Path,
     input: &BuildProviderReviewInput,
-    provider_id: &str,
-) -> Result<PendingProviderRequest, ProviderFailure> {
+) -> Result<ChapterRequestContext, ProviderFailure> {
     let failure_review = |message: String| failure(ProviderFailureKind::InvalidReview, message);
-    if model_for(provider_id, &input.model_id).is_none() {
-        return Err(failure(
-            ProviderFailureKind::UnavailableModel,
-            "Choose a structured-output model listed for the selected provider.",
-        ));
-    }
-    let update = input
-        .section_update
-        .as_ref()
-        .expect("section update branch");
+    let update = input.section_update.as_ref().ok_or_else(|| {
+        failure_review(
+            "Choose an exact accepted chapter and stale section before regenerating.".to_owned(),
+        )
+    })?;
     let history = crate::chapter_store::list_for_project(storage_dir, &input.project_id)
         .map_err(failure_review)?;
     let base = history
@@ -3238,6 +3241,12 @@ fn build_section_update_request_review(
                     "A declared old source file is missing from its captured snapshot.".to_owned(),
                 )
             })?;
+        if captured.size_bytes > MAX_CONTEXT_BYTES as u64 {
+            return Err(failure(
+                ProviderFailureKind::ContextTooLarge,
+                "A previous section source exceeds the 250 KB context limit. No source was sent.",
+            ));
+        }
         if captured.secret_like || captured.content_kind != CapturedContentKind::Text {
             return Err(failure(
                 ProviderFailureKind::SecretLikeContext,
@@ -3251,7 +3260,19 @@ fn build_section_update_request_review(
                         "An old source blob failed its local integrity check.".to_owned(),
                     )
                 })?;
+        if snapshot::looks_secret_like(path, source.contents.as_bytes()) {
+            return Err(failure(
+                ProviderFailureKind::SecretLikeContext,
+                "The previous source contains secret-like content. Remove that evidence before preparing a section repair.",
+            ));
+        }
         old_bytes = old_bytes.saturating_add(source.contents.len());
+        if old_bytes > MAX_CONTEXT_BYTES {
+            return Err(failure(
+                ProviderFailureKind::ContextTooLarge,
+                "The previous section sources exceed 250 KB. No source was sent.",
+            ));
+        }
         old_files.push(ProviderRequestFile {
             path: source.path,
             sha256: source.sha256,
@@ -3261,9 +3282,8 @@ fn build_section_update_request_review(
     }
     old_files.sort_by(|left, right| left.path.cmp(&right.path));
 
-    // Preserve the selected provider through the common safety checks. The
-    // convenience builder defaults to Gemini; its whole-file prompt is replaced
-    // before this review can be displayed or sent.
+    // Build the same immutable evidence for API and account-agent transports.
+    // Clear section_update to assemble current source without recursing.
     let common = BuildProviderReviewInput {
         project_id: input.project_id.clone(),
         snapshot_id: input.snapshot_id.clone(),
@@ -3272,8 +3292,8 @@ fn build_section_update_request_review(
         model_id: input.model_id.clone(),
         section_update: None,
     };
-    let mut pending = build_request_review_for_provider(storage_dir, &common, provider_id)?;
-    let total_context_bytes = old_bytes.saturating_add(pending.review.source_bytes);
+    let mut context = build_chapter_context(storage_dir, &common)?;
+    let total_context_bytes = old_bytes.saturating_add(context.source_bytes);
     if total_context_bytes > MAX_CONTEXT_BYTES {
         return Err(failure(
             ProviderFailureKind::ContextTooLarge,
@@ -3304,16 +3324,14 @@ fn build_section_update_request_review(
             symbol_ids.insert(symbol_id);
         }
     }
-    pending
-        .review
+    context
         .selected_symbols
         .retain(|item| symbol_ids.contains(item.symbol_id.as_str()));
-    pending
-        .review
+    context
         .selected_relationships
         .retain(|item| relationship_ids.contains(item.relationship_id.as_str()));
     let current_files_json =
-        serde_json::to_string_pretty(&pending.review.selected_files).map_err(|_| {
+        serde_json::to_string_pretty(&context.selected_files).map_err(|_| {
             failure_review(
                 "The exact current section sources could not be assembled for review.".to_owned(),
             )
@@ -3326,14 +3344,14 @@ fn build_section_update_request_review(
     let section_json = serde_json::to_string_pretty(section).map_err(|_| {
         failure_review("The selected section could not be assembled for review.".to_owned())
     })?;
-    let selected_symbols_json = serde_json::to_string_pretty(&pending.review.selected_symbols)
-        .map_err(|_| {
+    let selected_symbols_json =
+        serde_json::to_string_pretty(&context.selected_symbols).map_err(|_| {
             failure_review(
                 "The selected section's declared symbol evidence could not be encoded.".to_owned(),
             )
         })?;
-    let selected_relationships_json =
-        serde_json::to_string_pretty(&pending.review.selected_relationships).map_err(|_| {
+    let selected_relationships_json = serde_json::to_string_pretty(&context.selected_relationships)
+        .map_err(|_| {
             failure_review(
                 "The selected section's declared relationship evidence could not be encoded."
                     .to_owned(),
@@ -3370,70 +3388,13 @@ SELECTED RELATIONSHIP EVIDENCE JSON:
         symbols_json = selected_symbols_json,
         relationships_json = selected_relationships_json,
     );
-    let generation_config = section_update_generation_config();
-    let encoded = crate::provider_api::encode_request_preview(
-        provider_id,
-        &input.model_id,
-        &system_instruction,
-        &user_prompt,
-        &generation_config,
-    )
-    .map_err(|_| {
-        failure(
-            ProviderFailureKind::InvalidReview,
-            "The exact one-section request could not be encoded for review.",
-        )
-    })?;
-    if encoded.body_bytes > MAX_REQUEST_BODY_BYTES {
-        return Err(failure(
-            ProviderFailureKind::ContextTooLarge,
-            "The exact section-only request exceeds the 512 KB review limit. No model request was sent.",
-        ));
-    }
-    let disclosure = disclosure_for(provider_id).ok_or_else(|| {
-        failure(
-            ProviderFailureKind::UnavailableModel,
-            "Choose a provider in the Code Atlas direct API catalog.",
-        )
-    })?;
-    let disclosure_model = disclosure
-        .models
-        .into_iter()
-        .find(|model| model.model_id == input.model_id)
-        .ok_or_else(|| {
-            failure(
-                ProviderFailureKind::UnavailableModel,
-                "This model is not in the current Code Atlas allowlist.",
-            )
-        })?;
-    let fingerprint = request_fingerprint_for_provider(
-        provider_id,
-        SECTION_UPDATE_PURPOSE,
-        &input.project_id,
-        &input.snapshot_id,
-        Some(&target_path),
-        &disclosure_model.model_id,
-        &disclosure.version,
-        &system_instruction,
-        &user_prompt,
-        &pending.review.selected_files,
-        generation_config.clone(),
-    )?;
-    pending.body = encoded.body.clone();
-    pending.review.purpose = SECTION_UPDATE_PURPOSE.to_owned();
-    pending.review.section_update_context = Some(update.clone());
-    pending.review.system_instruction = system_instruction;
-    pending.review.user_prompt = user_prompt;
-    pending.review.generation_config = generation_config;
-    pending.review.source_bytes = total_context_bytes;
-    pending.review.estimated_input_tokens = encoded.body_bytes.div_ceil(4);
-    pending.review.request_body_bytes = encoded.body_bytes;
-    pending.review.request_body_sha256 = encoded.body_sha256;
-    pending.review.request_body_preview = encoded.body;
-    pending.review.endpoint_url = encoded.endpoint_url;
-    pending.review.fingerprint = fingerprint;
-    pending.review.model_id = disclosure_model.model_id;
-    Ok(pending)
+    context.purpose = SECTION_UPDATE_PURPOSE;
+    context.section_update_context = Some(update.clone());
+    context.system_instruction = system_instruction;
+    context.user_prompt = user_prompt;
+    context.generation_config = section_update_generation_config();
+    context.source_bytes = total_context_bytes;
+    Ok(context)
 }
 
 fn section_declared_paths(section: &chapters::ChapterSection) -> BTreeSet<String> {

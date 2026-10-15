@@ -41,6 +41,13 @@ Static fixes are committed as `0494bd4` (Fix snapshot integrity and async explan
 
 ## Additional October 15 integration acceptance — pending
 
+Later source deltas also require the following checks when validation is authorized:
+
+- Manual handoff build/export/import reads successful native responses through the shared `data` envelope. A mismatched envelope must not orphan a review/preview. This static correction is `0d1160b`; the path has not been exercised.
+- Codex one-section repair uses the same scoped prompt/schema and declared evidence as the API route after shared-context extraction. Verify old/current source limits and secret-like screening, exact base/section revision binding, changed review rejection, fixed source selection, current-only citations and byte/identity preservation of eligible untouched sections/assets.
+- Exercise cancellation, quota, invalid output, save/recovery and backend switching on the Codex section route. Confirm Code Lens/PR remain explicitly unavailable for Codex and section repair remains unavailable for manual handoff; no direct API fallback occurs.
+- Interrupt each API/Codex operation. New journal records retain bounded provider/purpose/path/section identity without source or credentials. Restore a Codex file, overview and exact section repair into Codex with a new review; verify section/base changes reject recovery. Legacy scope-less and range/PR records must not reopen as whole-file chapters; range/PR evidence requires deliberate reselection. Navigate away or select newer recovery work during project/history reads: abandoned completion and errors cannot change the new route/dialog. No accepted history may change during recovery lookup.
+
 The subsequent source changes add Codex account-backed chapters, Pocket narration and lexical index v2. They were not built or exercised. In addition to the owning task contracts (`z3an`, `q6g3`, `dbmd`, `129x`), record these integration cases when authorized:
 
 - Cancel before a native command registers: the unique operation stays cancelled; it cannot start later after the originating view closes. Cover Pocket setup, narration synthesis and Codex generation; cancellation records remain bounded.
