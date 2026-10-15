@@ -3,7 +3,8 @@
 //! This is a bounded planning unit, not an overview chapter or a complete guide.
 //! Preparation is local. It does not connect an agent, authorize a request,
 //! persist a plan, generate chapters or mark any file explained. Automatic
-//! Codex/Claude dispatch and the app's planning workflow remain separate work.
+//! Codex/Claude dispatch lives in the existing native operation modules. The
+//! app's planning workflow and durable plan storage remain separate work.
 
 use crate::{
     chapter_generation,
@@ -105,7 +106,7 @@ pub(crate) struct RepositoryPlanRequestParts {
     pub output_schema: Value,
 }
 
-/// Exact local context for a future agent-specific request review. Neither
+/// Exact local context for a native agent-specific request review. Neither
 /// digest is consent, a connection ID, or proof of whole-repository coverage.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -308,7 +309,7 @@ fn valid_learning_question(question: &str) -> bool {
 }
 
 /// Accept only a response to the same re-opened immutable planning context.
-/// Agent/account/model provenance belongs to the future caller's dispatch
+/// Agent/account/model provenance belongs to the native caller's dispatch
 /// contract; this local validator cannot establish who produced the response.
 pub(crate) fn canonicalize(
     storage: &Path,

@@ -5,8 +5,10 @@ use super::{
     ProjectSessions, app_data_directory, chapters, codex_agent, pr_guide,
     prepare_chapter_draft_preview, prepare_pr_guide_preview, provider, recovery,
 };
+use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 use tauri::{AppHandle, Emitter, State};
 
 async fn on_runtime<T: Send + 'static>(
@@ -401,6 +403,97 @@ pub(crate) async fn send_codex_code_lens_request(
     })
 }
 
+/// A separate planning operation never enters chapter storage or an API
+/// credential path. Its journal notice remains until explicit resolution.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct SendCodexPlanningRequest {
+    review_id: String,
+    fingerprint: String,
+    consent: bool,
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn send_codex_repository_plan_request(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    interruptions: State<'_, recovery::InterruptionJournal>,
+    input: SendCodexPlanningRequest,
+) -> provider::ProviderCommandResult<provider::RepositoryPlanPreview> {
+    use provider::{ProviderCommandResult as Envelope, ProviderFailureKind as Kind};
+    let SendCodexPlanningRequest {
+        review_id,
+        fingerprint,
+        consent,
+    } = input;
+    let prepared = match prepare_codex_operation(
+        &app,
+        &sessions,
+        &manager,
+        &reviews,
+        &interruptions,
+        &review_id,
+        &fingerprint,
+        consent,
+        CodexOperation::RepositoryPlan,
+    )
+    .await
+    {
+        Ok(prepared) => prepared,
+        Err(error) => return Envelope::failed(error),
+    };
+    let mut owner = CodexPlanningOwner {
+        manager: manager.inner().clone(),
+        run_id: review_id,
+        armed: true,
+    };
+    let runtime = manager.inner().clone();
+    let run = tauri::async_runtime::spawn_blocking(move || {
+        let PreparedCodexOperation { storage, review, input, started_at, .. } = prepared;
+        runtime.run_with_result(
+            &storage, input, &review.fingerprint, started_at,
+            |event| { let _ = app.emit("codex-agent-progress", event); },
+            |response, access| {
+                let _ = app.emit("codex-agent-progress", codex_agent::CodexProgress {
+                    run_id: review.review_id.clone(), phase: "validating".to_owned(),
+                    thread_id: Some(response.thread_id.clone()), turn_id: Some(response.turn_id.clone()),
+                    message: "Checking the plan against the original learning question and captured source.".to_owned(),
+                });
+                provider::rebuild_active_codex_repository_plan_review(&storage, &review, access)?;
+                provider::canonicalize_repository_plan_response(
+                    &storage, &review,
+                    &provider::ProviderSendResult {
+                        review_id: review.review_id.clone(),
+                        fingerprint: review.fingerprint.clone(),
+                        model_id: response.model,
+                        model_version: None,
+                        response_text: response.response_text,
+                        input_tokens: None,
+                        output_tokens: None,
+                    },
+                )
+            },
+        )
+    }).await;
+    owner.armed = false;
+    match run {
+        Ok(Ok(Ok(plan))) => Envelope::ok(plan),
+        Ok(Ok(Err(error))) => Envelope::failed(error),
+        Ok(Err(message)) => {
+            Envelope::failed(command_failure(codex_run_failure_kind(&message), message))
+        }
+        Err(_) => {
+            manager.shutdown();
+            Envelope::error(
+                Kind::ProviderRejectedRequest,
+                "The Codex planning worker stopped unexpectedly. Its original question and source selection remain in recovery; restart the app before reviewing another request.",
+            )
+        }
+    }
+}
+
 #[tauri::command(rename_all = "camelCase")]
 pub(crate) async fn send_codex_pr_guide_request(
     app: AppHandle,
@@ -516,6 +609,7 @@ pub(crate) async fn send_codex_pr_change_request(
 #[derive(Clone, Copy)]
 enum CodexOperation {
     Chapter,
+    RepositoryPlan,
     CodeLens,
     PrGuide,
     PrChange,
@@ -524,6 +618,7 @@ impl CodexOperation {
     fn accepts(self, review: &provider::ProviderRequestReview) -> bool {
         let no_git = review.pr_guide_context.is_none() && review.pr_change_context.is_none();
         match self {
+            Self::RepositoryPlan => provider::repository_plan_review_scope(review).is_ok(),
             Self::Chapter => {
                 matches!(
                     review.purpose.as_str(),
@@ -557,6 +652,30 @@ impl CodexOperation {
     }
 }
 
+struct PreparedCodexOperation {
+    storage: PathBuf,
+    repository: PathBuf,
+    review: provider::ProviderRequestReview,
+    input: codex_agent::CodexRunInput,
+    started_at: Instant,
+}
+
+/// Dropping a planning command revokes its still-running blocking worker.
+/// The journal remains available even if the async caller disappears.
+struct CodexPlanningOwner {
+    manager: codex_agent::CodexAgentManager,
+    run_id: String,
+    armed: bool,
+}
+
+impl Drop for CodexPlanningOwner {
+    fn drop(&mut self) {
+        if self.armed {
+            self.manager.cancel(&self.run_id);
+        }
+    }
+}
+
 struct CompletedCodexOperation {
     storage: PathBuf,
     repository: PathBuf,
@@ -575,11 +694,11 @@ fn command_failure(
     }
 }
 
-/// One reviewed lifecycle for automatic Codex operations. The command-specific
-/// caller validates the response and clears recovery only after preparing its
-/// result; range results never enter chapter draft/history storage.
-async fn execute_codex_operation(
-    app: AppHandle,
+/// Shared native consent, scope, source/settings revalidation and journal
+/// admission. Planning keeps its own result lifecycle and never becomes a
+/// chapter. No worker starts until this preparation succeeds.
+async fn prepare_codex_operation(
+    app: &AppHandle,
     sessions: &ProjectSessions,
     manager: &codex_agent::CodexAgentManager,
     reviews: &provider::PendingProviderReviews,
@@ -588,7 +707,7 @@ async fn execute_codex_operation(
     fingerprint: &str,
     consent: bool,
     operation: CodexOperation,
-) -> Result<CompletedCodexOperation, provider::ProviderFailure> {
+) -> Result<PreparedCodexOperation, provider::ProviderFailure> {
     use provider::ProviderFailureKind as Kind;
     if !consent {
         return Err(command_failure(
@@ -613,7 +732,7 @@ async fn execute_codex_operation(
         )
     })?;
     let repository = PathBuf::from(project.repository_root);
-    let storage = app_data_directory(&app).map_err(|_| {
+    let storage = app_data_directory(app).map_err(|_| {
         command_failure(
             Kind::LocalStorageUnavailable,
             "Local snapshot storage is unavailable. No Codex request was sent.",
@@ -629,6 +748,12 @@ async fn execute_codex_operation(
             .map_err(|message| command_failure(Kind::ReviewUnavailable, message))?;
         let executable = status.executable_path.as_deref().unwrap_or("");
         match operation {
+            CodexOperation::RepositoryPlan => provider::rebuild_codex_repository_plan_review(
+                &storage_for_review,
+                &reviewed,
+                executable,
+            )
+            .map(|_| ()),
             CodexOperation::PrGuide | CodexOperation::PrChange => {
                 provider::revalidate_codex_git_review(&repository_for_review, &reviewed, executable)
                     .map(|_| ())
@@ -653,6 +778,7 @@ async fn execute_codex_operation(
         reviews.remove(review_id);
         return Err(error);
     }
+    let started_at = Instant::now();
     let pending = reviews.consume(review_id, fingerprint)?;
     interruptions.record(&storage, recovery::new_reviewed_provider_operation(&pending.review))
         .map_err(|_| command_failure(Kind::LocalStorageUnavailable,
@@ -696,6 +822,45 @@ async fn execute_codex_operation(
             })
             .collect(),
     };
+    Ok(PreparedCodexOperation {
+        storage,
+        repository,
+        review,
+        input,
+        started_at,
+    })
+}
+
+async fn execute_codex_operation(
+    app: AppHandle,
+    sessions: &ProjectSessions,
+    manager: &codex_agent::CodexAgentManager,
+    reviews: &provider::PendingProviderReviews,
+    interruptions: &recovery::InterruptionJournal,
+    review_id: &str,
+    fingerprint: &str,
+    consent: bool,
+    operation: CodexOperation,
+) -> Result<CompletedCodexOperation, provider::ProviderFailure> {
+    use provider::ProviderFailureKind as Kind;
+    let PreparedCodexOperation {
+        storage,
+        repository,
+        review,
+        input,
+        started_at: _,
+    } = prepare_codex_operation(
+        &app,
+        sessions,
+        manager,
+        reviews,
+        interruptions,
+        review_id,
+        fingerprint,
+        consent,
+        operation,
+    )
+    .await?;
     let runtime = manager.clone();
     let storage_for_run = storage.clone();
     let run = tauri::async_runtime::spawn_blocking(move || {

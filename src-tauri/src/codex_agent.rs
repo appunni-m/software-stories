@@ -126,6 +126,38 @@ pub(crate) struct CodexRunResult {
     pub response_text: String,
 }
 
+/// Available only inside the manager-owned result callback. It cannot start
+/// another run or renew review admission; cancellation/deadline still apply.
+pub(crate) struct CodexResultAccess<'a> {
+    run_id: &'a str,
+    fingerprint: &'a str,
+    executable_path: &'a str,
+    shutdown: &'a AtomicBool,
+    cancelled: &'a AtomicBool,
+    started_at: Instant,
+}
+
+impl CodexResultAccess<'_> {
+    pub(crate) fn check_review(
+        &self,
+        review_id: &str,
+        fingerprint: &str,
+        executable_path: &str,
+    ) -> Result<(), String> {
+        if review_id != self.run_id
+            || fingerprint != self.fingerprint
+            || executable_path != self.executable_path
+        {
+            return Err("The Codex result belongs to a different reviewed operation. Prepare a fresh review.".to_owned());
+        }
+        check_cancelled(self.shutdown, Some(self.cancelled))?;
+        if self.started_at.elapsed() >= RUN_TIMEOUT {
+            return Err("The Codex operation exceeded ten minutes, including result validation. No late response was published.".to_owned());
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Default)]
 pub(crate) struct CodexAgentManager(Arc<ManagerInner>);
 
@@ -319,6 +351,32 @@ impl CodexAgentManager {
     where
         F: Fn(CodexProgress),
     {
+        self.run_with_result(
+            storage_dir,
+            input,
+            "",
+            Instant::now(),
+            progress,
+            |response, _| response,
+        )
+    }
+
+    /// Retain native operation/process ownership through pure result
+    /// validation. The callback must not persist state or publish its result: a
+    /// cancellation or timeout can still reject its in-memory return value.
+    /// The native sender supplies the admission clock before blocking dispatch.
+    pub(crate) fn run_with_result<T, F>(
+        &self,
+        storage_dir: &Path,
+        input: CodexRunInput,
+        fingerprint: &str,
+        started_at: Instant,
+        progress: F,
+        validate: impl FnOnce(CodexRunResult, &CodexResultAccess<'_>) -> T,
+    ) -> Result<T, String>
+    where
+        F: Fn(CodexProgress),
+    {
         validate_run(&input)?;
         let mut slot = self.lock_process()?;
         let cancelled = Arc::new(AtomicBool::new(false));
@@ -339,7 +397,10 @@ impl CodexAgentManager {
                 cancelled: cancelled.clone(),
             });
         }
-        let _active_guard = ActiveGuard(self.0.clone());
+        let _active_guard = ActiveGuard {
+            inner: self.0.clone(),
+            run_id: input.run_id.clone(),
+        };
         progress(progress_event(
             &input.run_id,
             "preparing",
@@ -349,6 +410,9 @@ impl CodexAgentManager {
         ));
         let result = (|| {
             check_cancelled(&self.0.shutdown, Some(&cancelled))?;
+            if started_at.elapsed() >= RUN_TIMEOUT {
+                return Err("The Codex operation exceeded ten minutes before dispatch. Prepare a fresh review.".to_owned());
+            }
             let executable = configured_executable(storage_dir)?.ok_or(
                 "The reviewed Codex executable is no longer available. Review the request again.",
             )?;
@@ -374,14 +438,42 @@ impl CodexAgentManager {
             if cancelled.load(Ordering::Acquire) {
                 return Err(cancelled_message());
             }
-            process.generate(&input, &stage.path, &cancelled, &progress)
+            process.generate(&input, &stage.path, &cancelled, started_at, &progress)
         })();
-        // Error/cancellation leaves no running turn, hidden retry or stale event
-        // queue. A later user operation can start one fresh managed process.
+        // Clear per-turn transport cancellation before pure local validation.
         if let Some(process) = slot.as_mut() {
             process.cancelled = None;
         }
-        if result.is_err() {
+        let access = CodexResultAccess {
+            run_id: &input.run_id,
+            fingerprint,
+            executable_path: &input.expected_executable_path,
+            shutdown: &self.0.shutdown,
+            cancelled: &cancelled,
+            started_at,
+        };
+        let finalized = (|| {
+            access.check_review(&input.run_id, fingerprint, &input.expected_executable_path)?;
+            let response = result?;
+            let validated = validate(response, &access);
+            // Serialize final publication with cancel(). Work after this point is
+            // already published; a later cancel cannot retract a returned result.
+            let mut active = self.0.active.lock().map_err(|_| BUSY)?;
+            access.check_review(&input.run_id, fingerprint, &input.expected_executable_path)?;
+            if !active.as_ref().is_some_and(|run| {
+                run.id == input.run_id && Arc::ptr_eq(&run.cancelled, &cancelled)
+            }) {
+                return Err(
+                    "The native Codex operation owner changed. No late response was published."
+                        .to_owned(),
+                );
+            }
+            active.take();
+            Ok(validated)
+        })();
+        // Runtime errors and cancellation/deadline failures during validation
+        // leave no reusable process or stale event queue for the next request.
+        if finalized.is_err() {
             slot.take();
             self.update_status(|status| {
                 status.runtime_running = false;
@@ -390,11 +482,7 @@ impl CodexAgentManager {
                     "The Codex run stopped. Existing chapter history was preserved.".to_owned();
             });
         }
-        if cancelled.load(Ordering::Acquire) {
-            Err(cancelled_message())
-        } else {
-            result
-        }
+        finalized
     }
 
     pub(crate) fn cancel(&self, run_id: &str) -> bool {
@@ -528,11 +616,16 @@ impl CodexAgentManager {
     }
 }
 
-struct ActiveGuard(Arc<ManagerInner>);
+struct ActiveGuard {
+    inner: Arc<ManagerInner>,
+    run_id: String,
+}
 impl Drop for ActiveGuard {
     fn drop(&mut self) {
-        if let Ok(mut active) = self.0.active.lock() {
-            active.take();
+        if let Ok(mut active) = self.inner.active.lock() {
+            if active.as_ref().is_some_and(|run| run.id == self.run_id) {
+                active.take();
+            }
         }
     }
 }
@@ -781,11 +874,16 @@ impl ServerProcess {
         input: &CodexRunInput,
         stage: &Path,
         cancelled: &AtomicBool,
+        started_at: Instant,
         progress: &F,
     ) -> Result<CodexRunResult, String>
     where
         F: Fn(CodexProgress),
     {
+        check_cancelled(&self.shutdown, Some(cancelled))?;
+        if started_at.elapsed() >= RUN_TIMEOUT {
+            return Err("The Codex operation exceeded ten minutes before creating a thread. No generation was started.".to_owned());
+        }
         let started = self.request("thread/start", json!({
             "model": input.model, "cwd": stage, "approvalPolicy": "never", "sandbox": "readOnly",
             "ephemeral": true, "serviceName": "code_atlas", "developerInstructions": input.system_instruction,
@@ -821,6 +919,9 @@ impl ServerProcess {
         if cancelled.load(Ordering::Acquire) {
             return Err(cancelled_message());
         }
+        if started_at.elapsed() >= RUN_TIMEOUT {
+            return Err("The Codex operation exceeded ten minutes before starting the model turn. No generation was started.".to_owned());
+        }
         progress(progress_event(
             &input.run_id,
             "starting",
@@ -834,7 +935,6 @@ impl ServerProcess {
             "sandboxPolicy": {"type": "readOnly", "access": {"type": "restricted", "includePlatformDefaults": true, "readableRoots": [stage]}, "networkAccess": false},
             "outputSchema": input.output_schema,
         }))?;
-        let started_at = Instant::now();
         let mut cancel_at = None;
         let mut turn_id = None::<String>;
         let mut response_bytes = 0;

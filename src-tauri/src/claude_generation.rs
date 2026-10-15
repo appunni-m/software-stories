@@ -126,6 +126,70 @@ struct CompletedOperation {
     clear_interruption: bool,
 }
 
+/// Planning uses the same admitted runtime and revocable operation lease.
+/// Its result is transient unaccepted plan data; retain the exact journal
+/// notice until a separate explicit plan save/discard flow resolves it.
+pub(crate) async fn send_repository_plan(
+    app: AppHandle,
+    sessions: &ProjectSessions,
+    manager: &ClaudeWorkerManager,
+    connections: &ClaudeConnections,
+    runtime: ClaudeGenerationRuntime,
+    reviews: &provider::PendingProviderReviews,
+    interruptions: &recovery::InterruptionJournal,
+    review_id: &str,
+    fingerprint: &str,
+    consent: bool,
+) -> provider::ProviderCommandResult<provider::RepositoryPlanPreview> {
+    use provider::{ClaudeOperation, ProviderCommandResult as Envelope};
+    let completed = match execute(
+        app,
+        sessions,
+        manager,
+        connections,
+        runtime,
+        reviews,
+        interruptions,
+        review_id,
+        fingerprint,
+        consent,
+        ClaudeOperation::RepositoryPlan,
+    )
+    .await
+    {
+        Ok(completed) => completed,
+        Err(error) => return Envelope::failed(error),
+    };
+    let access = completed.lease.access();
+    let validation_access = access.clone();
+    let storage = completed.storage.clone();
+    let repository = completed.repository.clone();
+    let review = completed.review.clone();
+    let (result, _) = validate_result(
+        completed.result,
+        ClaudeOperation::RepositoryPlan,
+        move |response| {
+            provider::rebuild_active_claude_review(
+                &storage,
+                &repository,
+                &review,
+                &validation_access,
+            )?;
+            let plan =
+                provider::canonicalize_repository_plan_response(&storage, &review, &response)?;
+            validation_access.publish(&review, || Ok(plan))
+        },
+    )
+    .await;
+    match result {
+        Ok(plan) => access
+            .publish(&completed.review, || Ok(plan))
+            .map(Envelope::ok)
+            .unwrap_or_else(Envelope::failed),
+        Err(error) => Envelope::failed(error),
+    }
+}
+
 async fn execute(
     app: AppHandle,
     sessions: &ProjectSessions,
@@ -485,6 +549,9 @@ async fn validate_result<T: Send + 'static>(
             Err(failure(
                 provider::ProviderFailureKind::LocalStorageUnavailable,
                 match operation {
+                    provider::ClaudeOperation::RepositoryPlan => {
+                        "Claude plan validation stopped unexpectedly. The original planning question and source selection remain in recovery; no plan was saved."
+                    }
                     provider::ClaudeOperation::Chapter => {
                         "Claude chapter preparation stopped unexpectedly. Check pending previews and local recovery before generating again; an unaccepted preview may already exist."
                     }

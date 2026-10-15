@@ -3057,7 +3057,7 @@ pub(crate) struct BuildClaudeRepositoryPlanInput {
 }
 
 /// Local review preparation using native-selected Codex installation identity.
-/// This does not start an agent, grant consent or admit a planning sender.
+/// This does not start an agent, grant consent or send an inference request.
 pub(crate) fn build_codex_repository_plan_review(
     storage_dir: &Path,
     input: &BuildCodexRepositoryPlanInput,
@@ -3143,7 +3143,7 @@ fn build_agent_repository_plan_review(
     )
 }
 
-fn repository_plan_review_scope(
+pub(crate) fn repository_plan_review_scope(
     review: &ProviderRequestReview,
 ) -> Result<crate::repository_plan::RepositoryPlanReviewScope, ProviderFailure> {
     let expected_contract = match review.provider_id.as_str() {
@@ -3212,11 +3212,55 @@ pub(crate) fn rebuild_codex_repository_plan_review(
     review: &ProviderRequestReview,
     executable_path: &str,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
-    let scope = repository_plan_review_scope(review)?;
     if review.provider_id != "codex" || review.expires_at_unix_ms <= unix_time_ms() {
         return Err(failure(
             ProviderFailureKind::ReviewExpired,
             "Prepare a fresh Codex planning review before generating.",
+        ));
+    }
+    rebuild_codex_repository_plan_context(storage_dir, review, executable_path)
+}
+
+/// Only the same admitted native run may validate a result after review expiry.
+/// The manager holds its operation/process ownership through this callback.
+pub(crate) fn rebuild_active_codex_repository_plan_review(
+    storage_dir: &Path,
+    review: &ProviderRequestReview,
+    access: &crate::codex_agent::CodexResultAccess<'_>,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    let check = || {
+        access
+            .check_review(
+                &review.review_id,
+                &review.fingerprint,
+                review.generation_config["executablePath"]
+                    .as_str()
+                    .unwrap_or(""),
+            )
+            .map_err(|message| failure(ProviderFailureKind::ReviewChanged, message))
+    };
+    check()?;
+    let rebuilt = rebuild_codex_repository_plan_context(
+        storage_dir,
+        review,
+        review.generation_config["executablePath"]
+            .as_str()
+            .unwrap_or(""),
+    )?;
+    check()?;
+    Ok(rebuilt)
+}
+
+fn rebuild_codex_repository_plan_context(
+    storage_dir: &Path,
+    review: &ProviderRequestReview,
+    executable_path: &str,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    let scope = repository_plan_review_scope(review)?;
+    if review.provider_id != "codex" {
+        return Err(failure(
+            ProviderFailureKind::InvalidReview,
+            "Prepare this planning request with Codex.",
         ));
     }
     let rebuilt = build_codex_repository_plan_review(
@@ -3250,11 +3294,25 @@ pub(crate) fn rebuild_claude_repository_plan_review(
     review: &ProviderRequestReview,
     runtime: &crate::claude_agent::ClaudeReviewRuntime,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
-    let scope = repository_plan_review_scope(review)?;
     if review.provider_id != "claude-agent" || review.expires_at_unix_ms <= unix_time_ms() {
         return Err(failure(
             ProviderFailureKind::ReviewExpired,
             "Prepare a fresh Claude planning review before generating.",
+        ));
+    }
+    rebuild_claude_repository_plan_context(storage_dir, review, runtime)
+}
+
+fn rebuild_claude_repository_plan_context(
+    storage_dir: &Path,
+    review: &ProviderRequestReview,
+    runtime: &crate::claude_agent::ClaudeReviewRuntime,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    let scope = repository_plan_review_scope(review)?;
+    if review.provider_id != "claude-agent" {
+        return Err(failure(
+            ProviderFailureKind::InvalidReview,
+            "Prepare this planning request with Claude Agent.",
         ));
     }
     let rebuilt = build_claude_repository_plan_review(
@@ -3275,8 +3333,8 @@ pub(crate) fn rebuild_claude_repository_plan_review(
     match_repository_plan_review(review, rebuilt)
 }
 
-/// Result identity and independent source validation for either future native
-/// planning sender. Callers must first revalidate the full native agent review
+/// Result identity and independent source validation for native planning
+/// senders. Callers must first revalidate the full native agent review
 /// and own dispatch/cancellation. This helper grants no runtime admission and
 /// writes no plan, chapter, recovery notice or accepted history.
 pub(crate) fn canonicalize_repository_plan_response(
@@ -3328,6 +3386,7 @@ pub(crate) fn canonicalize_repository_plan_response(
     .map_err(|message| failure(ProviderFailureKind::MalformedProviderResponse, message))?;
     Ok(RepositoryPlanPreview {
         review_id: review.review_id.clone(),
+        recovery_operation_id: review.review_id.clone(),
         fingerprint: review.fingerprint.clone(),
         provider_id: review.provider_id.clone(),
         model_id: response.model_id.clone(),
@@ -3342,6 +3401,8 @@ pub(crate) fn canonicalize_repository_plan_response(
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RepositoryPlanPreview {
     review_id: String,
+    /// The sender retains this notice until a later explicit save/discard flow.
+    recovery_operation_id: String,
     fingerprint: String,
     provider_id: String,
     model_id: String,
@@ -3888,6 +3949,7 @@ pub(crate) fn revalidate_claude_chapter_review(
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub(crate) enum ClaudeOperation {
     Chapter,
+    RepositoryPlan,
     CodeLens,
     PrGuide,
     PrChange,
@@ -3902,6 +3964,9 @@ pub(crate) fn claude_review_operation(
     let no_range = review.code_lens_context.is_none();
     let no_section = review.section_update_context.is_none();
     let operation = match review.purpose.as_str() {
+        REPOSITORY_PLAN_PURPOSE if repository_plan_review_scope(review).is_ok() => {
+            Some((ClaudeOperation::RepositoryPlan, "claude-repository-plan-v1"))
+        }
         FILE_CHAPTER_PURPOSE
             if no_git && no_range && no_section && review.target_path.is_some() =>
         {
@@ -3980,7 +4045,11 @@ pub(crate) fn rebuild_claude_request_review(
             "Build a fresh Claude Agent review before generating.",
         ));
     }
-    rebuild_claude_context(storage_dir, repository, review, runtime)
+    if claude_review_operation(review)? == ClaudeOperation::RepositoryPlan {
+        rebuild_claude_repository_plan_review(storage_dir, review, runtime)
+    } else {
+        rebuild_claude_context(storage_dir, repository, review, runtime)
+    }
 }
 
 /// A consumed review cannot admit a new run after expiry. Its native owner
@@ -4007,6 +4076,9 @@ fn rebuild_claude_context(
     let operation = claude_review_operation(review)?;
     let settings = claude_settings_from_review(review)?;
     let rebuilt = match operation {
+        ClaudeOperation::RepositoryPlan => {
+            return rebuild_claude_repository_plan_context(storage_dir, review, runtime);
+        }
         ClaudeOperation::Chapter => build_claude_chapter_review(
             storage_dir,
             &BuildClaudeReviewInput {

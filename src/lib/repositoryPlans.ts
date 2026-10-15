@@ -97,9 +97,10 @@ export interface RepositoryPlanDraft {
   unknowns: ChapterClaim[];
 }
 
-/** Internal native sender result contract; no planning send command is registered yet. */
+/** Transient native validated result. Its notice remains until explicit resolution. */
 export interface RepositoryPlanPreview {
   reviewId: string;
+  recoveryOperationId: string;
   fingerprint: string;
   providerId: 'codex' | 'claude-agent';
   modelId: string;
@@ -117,4 +118,14 @@ export function buildCodexRepositoryPlanReview(input: CodexRepositoryPlanInput):
 /** Local preparation only; the opaque native connection supplies account/runtime identity. */
 export function buildClaudeRepositoryPlanReview(connectionId: string, input: ClaudeRepositoryPlanInput): Promise<ProviderCommandResult<ProviderRequestReview>> {
   return invoke('build_claude_repository_plan_review', { connectionId, input });
+}
+
+/** Native account-backed execution; model/settings/source stay bound to the review. */
+export function sendCodexRepositoryPlanRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<RepositoryPlanPreview>> {
+  return invoke('send_codex_repository_plan_request', { input: { reviewId, fingerprint, consent } });
+}
+
+/** Native release qualification and the original observed connection remain required. */
+export function sendClaudeRepositoryPlanRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<RepositoryPlanPreview>> {
+  return invoke('send_claude_repository_plan_request', { input: { reviewId, fingerprint, consent } });
 }

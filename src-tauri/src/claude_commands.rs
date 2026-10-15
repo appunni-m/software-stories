@@ -316,6 +316,44 @@ pub(crate) async fn send_claude_code_lens_request(
     .await
 }
 
+/// No renderer runtime/settings override can enter planning dispatch. Empty
+/// release qualification rejects this before consuming or sending the review.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn send_claude_repository_plan_request(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    manager: State<'_, claude_worker::ClaudeWorkerManager>,
+    connections: State<'_, claude_connections::ClaudeConnections>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    interruptions: State<'_, recovery::InterruptionJournal>,
+    input: SendClaudeRequest,
+) -> provider::ProviderCommandResult<provider::RepositoryPlanPreview> {
+    let runtime = match admit_generation_review(
+        &connections,
+        &reviews,
+        &input.review_id,
+        &input.fingerprint,
+        input.consent,
+        provider::ClaudeOperation::RepositoryPlan,
+    ) {
+        Ok(runtime) => runtime,
+        Err(error) => return provider::ProviderCommandResult::failed(error),
+    };
+    claude_generation::send_repository_plan(
+        app,
+        &sessions,
+        &manager,
+        &connections,
+        runtime,
+        &reviews,
+        &interruptions,
+        &input.review_id,
+        &input.fingerprint,
+        input.consent,
+    )
+    .await
+}
+
 #[tauri::command(rename_all = "camelCase")]
 pub(crate) async fn send_claude_pr_guide_request(
     app: AppHandle,
