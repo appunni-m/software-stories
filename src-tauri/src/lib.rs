@@ -39,6 +39,8 @@ mod provider;
 mod provider_api;
 mod recovery;
 mod recovery_commands;
+mod repository_plan;
+mod repository_plan_commands;
 mod snapshot;
 
 use project::{ProjectOpenResult, RecentProject};
@@ -1801,6 +1803,7 @@ pub fn run() {
             claude_commands::send_claude_code_lens_request,
             claude_commands::send_claude_pr_guide_request,
             claude_commands::send_claude_pr_change_request,
+            repository_plan_commands::prepare_repository_plan_context,
             get_application_status,
             get_capture_limits,
             pick_project_folder,

@@ -28,6 +28,8 @@ File chapters, overviews, section repair, source-range explanations and both Git
 
 Generation through either agent must retain the same language evidence limits and visual/chapter schema as other transports. Switching agent cannot turn a partial parser into full language support, establish runtime behavior from static evidence, or bypass source citations. Narrative and visual quality remain separate acceptance gates.
 
+The [repository planning contract](REPOSITORY_PLANNING.md) now has shared native context preparation and a separate source-grounded result validator. Its local command starts no model and is not an agent review or automatic planning workflow. Codex and Claude planning dispatch, app review/storage, exact recovery and acceptance remain missing; the planning row above is unchanged.
+
 ## User flow and configuration
 
 1. Choose a repository and capture its source. Browsing and setup require no API key.

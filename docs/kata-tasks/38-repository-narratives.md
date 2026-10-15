@@ -22,6 +22,14 @@ The Guide now also contains a bounded local reading planner: choose a learning q
 
 This remains source progress, not acceptance evidence. The call-based reading planner does not synthesize an AI narrative or prove runtime ordering, branches, state or cross-language dispatch. Overview generation still selects at most twelve files. Native durable journey storage, multi-request narrative orchestration, selective shared-evidence updates, a representative complete guide and human comprehension review remain pending. Integrated Codex and Claude support has priority under the [agent-first gate](45-agent-first-generation.md). No tests or builds were run.
 
+### AI planning contract — source groundwork, still incomplete
+
+A separate native [repository planning contract](../REPOSITORY_PLANNING.md) now prepares immutable selected source, a learning question, filtered local evidence, inventory/context/request digests and locally computed coverage gaps. It shares the chapter evidence loader without constructing an API request. The registered local preparation command and typed client start no agent and grant no consent.
+
+Its distinct result schema and validator support ordered learning questions, earlier-step prerequisites, primary files, grounded rationales and labeled unknowns. They reuse the chapter quote/identifier/relationship validator, compute planned/cited/omitted selected paths locally and assign native destination IDs. Supporting citations cannot count as dedicated file steps. The validator reopens context before accepting unaccepted data; no chapter history or reading progress changes. This is a bounded planning unit, not a twelve-file overview presented as a full guide.
+
+There is no AI planning app dialog, automatic Codex/Claude plan dispatch, durable AI plan storage, multi-request orchestration or native acceptance yet. Every agent planning cell remains Missing. These concrete integrations, exact question/scope recovery and human narrative review remain required; neither this local command nor a manual import can close them. No tests, builds, launches, runtime probes, logins or model requests ran.
+
 ## Contract
 Create an explicit repository guide plan over the immutable inventory. Identify evidenced entry points and user-relevant behavior journeys, prerequisite concepts, files/relationships, success/failure paths and known unknowns. Plan distinct sections with a concrete learning question, source scope, script, optional visual and deeper source/file links. Keep the overview optional and preserve per-file coverage. Generate in bounded reviewed units through the chosen API or agent runtime; show coverage, omissions, progress and recoverable failures. Do not squeeze a whole repository into one model request.
 

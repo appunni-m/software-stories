@@ -1221,6 +1221,30 @@ fn validate_proposal_shape(proposal: &GeneratedChapterProposal) -> Result<(), St
     Ok(())
 }
 
+/// Reuse exact quote/identifier/relationship checks for a planning rationale.
+/// A valid rationale is source evidence, not proof of narrative comprehension.
+pub(crate) fn canonicalize_repository_plan_claim(
+    proposed: &GeneratedChapterClaim,
+    step_id: &str,
+    manifest: &SnapshotManifest,
+    sources: &[SnapshotSource],
+    index: Option<&SnapshotIndex>,
+    allowed_relationship_ids: &HashSet<String>,
+) -> Result<ChapterClaim, String> {
+    let checked = checked_sources(manifest, sources)?;
+    let paths = checked.keys().cloned().collect();
+    build_claim(
+        proposed,
+        step_id,
+        None,
+        &paths,
+        &checked,
+        index,
+        allowed_relationship_ids,
+    )
+    .map(|(claim, _, _)| claim)
+}
+
 fn build_claim(
     proposed: &GeneratedChapterClaim,
     section_id: &str,

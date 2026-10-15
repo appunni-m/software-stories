@@ -41,6 +41,19 @@ Static fixes are committed as `0494bd4` (Fix snapshot integrity and async explan
 
 ## Additional October 15 integration acceptance — pending
 
+### Native repository planning contract — pending
+
+- Recheck chapter/overview source selection and exact prompts after extracting the shared evidence loader: file bounds/order, target inclusion, secret-like and encoding checks, filtered index evidence, section-update bypass, request fingerprints and draft validation retain their original behavior. Preparation constructs no direct API request.
+- Exercise the registered local preparation command and typed client: active-project/snapshot ownership, strict input properties, 8–300-character question, 1–12 distinct eligible captured files, actual source hashes, 250,000 source-byte and 512,000 encoded-byte limits. Reject binary/invalid/secret-like paths or content. No process, network request, agent login, consent, chapter/plan save or accepted-history mutation may follow.
+- Change captured/skipped/directory metadata, capture policy/status, source bytes, question, selected files, selected index evidence or truncation between preparation and validation. Reopening must reject changed context. Check deterministic inventory ordering, duplicate captured paths, partial capture, missing/unreadable/cancelled indexes and unknown content kinds. Counts and omitted paths come from native evidence; unselected contents stay unread and do not become explained coverage.
+- Reject empty/oversized/malformed responses, duplicate/unknown typed properties, wrong context digest, invalid/duplicate local IDs, absent/later/self/cyclic prerequisites, duplicate prerequisites, excessive steps/unknowns/claims, invalid questions and an unanchored primary file. Model paths/IDs never become global destinations. A learning-order prerequisite cannot be displayed as a proven call or runtime trace.
+- Exercise exact, absent, ambiguous and overlapping quotes, identifier boundaries, UTF-8 offsets, source/index hash mismatches and unreviewed/unresolved/cross-language relationships through the reused chapter validator. Every unknown needs anchored inference with a basis. Check native step/claim/anchor identities and computed planned/cited/omitted paths. A supporting or unknown citation alone cannot count a file as having a primary step. A valid plan remains unaccepted data with no file-explanation coverage or persistence side effect.
+- Complete separate Codex/Claude plan review/automatic dispatch, actual settings, source consent, progress/cancel, exact question/scope recovery, durable plan/history, app navigation and larger-repository orchestration before promoting any planning matrix cell. The current local preparer and internal validator cannot establish agent/model provenance, working generation, narrative quality or comprehension.
+
+All planning cases are deferred. No tests, builds, app launches, runtime probes, logins or model requests ran for this source change.
+
+### Existing integration cases — pending
+
 Later source deltas also require the following checks when validation is authorized:
 
 - Manual handoff build/export/import reads successful native responses through the shared `data` envelope. A mismatched envelope must not orphan a review/preview. This static correction is `0d1160b`; the path has not been exercised.
