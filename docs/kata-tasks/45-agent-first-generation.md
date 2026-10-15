@@ -22,7 +22,7 @@ A user who already uses Codex or Claude Code can explain a repository from insid
 
 Codex section repair now has scope-aware interruption recovery in source: the journal retains provider, purpose, selected paths and exact section revision metadata. It reopens the original Codex operation with a fresh review rather than widening to a file chapter. Legacy/range/PR records missing full evidence identity require reselection. Runtime thread resume, full PR/range recovery and native lifecycle acceptance remain pending.
 
-Claude catalog groundwork now also uses the maintained SDK's public model/init contract and an independent native normalizer; the inspected candidate artifact is `0.3.300` paired with CLI `2.1.300`. It resolves aliases to full selectors and preserves per-model effort limits without a direct API dependency. It has no managed launcher, packaged SDK/host runtime or catalog UI and does not enable generation. Every Claude automatic operation remains **Missing** in the matrix.
+Claude catalog groundwork now also uses the maintained SDK's public model/init contract, an independent native normalizer and a bounded native SDK discovery worker; the inspected candidate artifact is `0.3.300` paired with CLI `2.1.300`. It resolves aliases to full selectors and preserves per-model effort limits without a direct API dependency. The source supervisor checks SDK/executable identities and reported account metadata, stages verified scripts, bounds raw pipes and requires host/child completion. It has no registered app discovery command, qualified packaged SDK/host runtime or catalog UI and does not enable generation. Every Claude automatic operation remains **Missing** in the matrix.
 
 ## Required product flow
 

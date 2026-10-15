@@ -20,7 +20,8 @@
     "Query.initializationResult()",
     "Query.supportedModels()",
     "Query.close()",
-    "Query.return()"
+    "Query.return()",
+    "Options.spawnClaudeCodeProcess(SpawnOptions): SpawnedProcess"
   ],
   "modelFields": [
     "value",

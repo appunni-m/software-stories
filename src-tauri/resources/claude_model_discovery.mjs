@@ -1,5 +1,5 @@
 // Candidate orchestration for @anthropic-ai/claude-agent-sdk 0.3.300.
-// This library does nothing on import. A future native-owned worker must load
+// This library does nothing on import. The native-owned worker must load
 // the integrity-verified SDK, clear its environment before import, own/reap its
 // process group and bind executable/account observations around this call.
 // No renderer command currently invokes this helper. Metadata is not entitlement.

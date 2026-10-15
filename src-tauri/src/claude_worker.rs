@@ -135,6 +135,27 @@ impl ClaudeWorkerManager {
         })
     }
 
+    /// Candidate discovery for a native-owned, verified runtime installation.
+    /// No renderer command currently calls this. Catalog metadata never
+    /// establishes account eligibility or enables explanation generation.
+    pub(crate) fn discover_models(
+        &self,
+        storage_dir: &Path,
+        runtime: &crate::claude_discovery::ClaudeDiscoveryRuntime,
+        run_id: &str,
+    ) -> Result<crate::claude_discovery::ClaudeModelDiscoveryObservation, ClaudeWorkerFailure> {
+        self.with_operation(run_id, |cancelled| {
+            #[cfg(unix)]
+            { native::discover_models(&self.0, storage_dir, runtime, cancelled) }
+            #[cfg(not(unix))]
+            {
+                let _ = (storage_dir, runtime, cancelled);
+                Err(failure(ClaudeWorkerFailureKind::UnsupportedPlatform,
+                    "Claude model discovery requires the reviewed Unix process controls. No process was started."))
+            }
+        })
+    }
+
     fn with_operation<T>(
         &self,
         run_id: &str,
@@ -317,10 +338,19 @@ mod native {
         executable: &Path,
         cancelled: &AtomicBool,
     ) -> Result<crate::claude_connection::ClaudeConnectionObservation, ClaudeWorkerFailure> {
+        inspect_connection_at(manager, storage_dir, executable, cancelled, Instant::now())
+    }
+
+    fn inspect_connection_at(
+        manager: &Arc<ManagerInner>,
+        storage_dir: &Path,
+        executable: &Path,
+        cancelled: &AtomicBool,
+        started: Instant,
+    ) -> Result<crate::claude_connection::ClaudeConnectionObservation, ClaudeWorkerFailure> {
         use crate::claude_agent::ClaudeInspectionCommand as Inspection;
         use crate::claude_connection::{self, ClaudeAuthMethod, ClaudeConnectionObservation};
         use ClaudeWorkerFailureKind as Kind;
-        let started = Instant::now();
         let check = || inspection_deadline(manager, cancelled, started);
         check()?;
         let (path, digest) = inspect_executable(executable, check)?;
@@ -421,6 +451,236 @@ mod native {
         })
     }
 
+    pub(super) fn discover_models(
+        manager: &Arc<ManagerInner>,
+        storage_dir: &Path,
+        runtime: &crate::claude_discovery::ClaudeDiscoveryRuntime,
+        cancelled: &AtomicBool,
+    ) -> Result<crate::claude_discovery::ClaudeModelDiscoveryObservation, ClaudeWorkerFailure> {
+        use crate::{claude_discovery as discovery, claude_models};
+        use ClaudeWorkerFailureKind as Kind;
+        let started = Instant::now();
+        let check = || inspection_deadline(manager, cancelled, started);
+        verify_discovery_executables(runtime, check)?;
+        let before = inspect_connection_at(
+            manager,
+            storage_dir,
+            &runtime.claude_executable,
+            cancelled,
+            started,
+        )?;
+        let account_identity = discovery_account(&before)?.to_owned();
+        if Path::new(&before.executable_path) != runtime.claude_executable
+            || before.executable_sha256 != runtime.claude_sha256
+        {
+            return Err(failure(
+                Kind::RuntimeChanged,
+                "Claude changed before model discovery. Prepare fresh native observations.",
+            ));
+        }
+        let sdk = read_discovery_sdk(&runtime.sdk_module, check)?;
+        let stage = PrivateStage::create(storage_dir, &manager.cleanup_failed)?;
+        let result = (|| {
+            stage.write_discovery_files(&sdk, check)?;
+            let account_home = std::env::var_os("HOME")
+                .map(PathBuf::from)
+                .filter(|path| path.is_absolute())
+                .ok_or_else(|| {
+                    failure(
+                        Kind::PreparationFailed,
+                        "The native account home is unavailable. No SDK discovery was started.",
+                    )
+                })?;
+            let (mut command, input) =
+                discovery::prepare(runtime, &stage.path, &stage.temporary_path(), &account_home)
+                    .map_err(|message| failure(Kind::PreparationFailed, message))?;
+            let (bytes, status) = run_metadata_command(
+                manager,
+                &mut command,
+                &input,
+                cancelled,
+                started,
+                claude_models::MAX_CATALOG_BYTES,
+            )?;
+            if !status.success() {
+                let (kind, message) = match status.code() {
+                    Some(20) => (
+                        Kind::ProtocolRejected,
+                        "The Claude SDK discovery contract was incompatible. No catalog was accepted.",
+                    ),
+                    Some(21) => (
+                        Kind::Cancelled,
+                        "Claude model discovery was cancelled. No catalog was accepted.",
+                    ),
+                    Some(22) => (
+                        Kind::TimedOut,
+                        "Claude SDK model discovery timed out. No catalog was accepted.",
+                    ),
+                    Some(24) => (
+                        Kind::CleanupFailed,
+                        "Claude SDK child cleanup could not be confirmed. Further operations are disabled for this app session.",
+                    ),
+                    Some(25) => (
+                        Kind::OutputLimit,
+                        "Claude SDK metadata exceeded a raw pipe limit. No catalog was accepted.",
+                    ),
+                    _ => (
+                        Kind::ProcessFailed,
+                        "Claude SDK discovery did not complete successfully. No catalog was accepted.",
+                    ),
+                };
+                return Err(failure(kind, message));
+            }
+            let catalog = claude_models::parse_model_catalog(&bytes)
+                .map_err(|message| failure(Kind::ProtocolRejected, message))?;
+            // Staging is read-only, not an OS sandbox. Reject observed mutation
+            // and qualify pre-execution confinement separately before release.
+            read_discovery_sdk(&stage.path.join("sdk.mjs"), check)?;
+            verify_discovery_executables(runtime, check)?;
+            let after = inspect_connection_at(
+                manager,
+                storage_dir,
+                &runtime.claude_executable,
+                cancelled,
+                started,
+            )?;
+            if discovery_account(&after)? != account_identity
+                || after.executable_path != before.executable_path
+                || after.executable_sha256 != before.executable_sha256
+            {
+                return Err(failure(
+                    Kind::RuntimeChanged,
+                    "Claude account or executable metadata changed during discovery. Refresh the connection.",
+                ));
+            }
+            check()?;
+            Ok(discovery::ClaudeModelDiscoveryObservation {
+                connection: after,
+                catalog,
+                node_executable_path: runtime
+                    .node_executable
+                    .to_str()
+                    .ok_or_else(|| {
+                        failure(
+                            Kind::PreparationFailed,
+                            "The native SDK host path is not valid UTF-8.",
+                        )
+                    })?
+                    .to_owned(),
+                node_executable_sha256: runtime.node_sha256.clone(),
+                sdk_module_sha256: discovery::SDK_MODULE_SHA256,
+            })
+        })();
+        stage.cleanup()?;
+        if result
+            .as_ref()
+            .err()
+            .is_some_and(|error| matches!(error.kind, Kind::CleanupFailed))
+        {
+            return result;
+        }
+        check()?;
+        result
+    }
+
+    fn discovery_account(
+        observation: &crate::claude_connection::ClaudeConnectionObservation,
+    ) -> Result<&str, ClaudeWorkerFailure> {
+        use crate::claude_connection::ClaudeAuthMethod;
+        let identity = observation
+            .account
+            .as_ref()
+            .filter(|account| {
+                observation.candidate_version_matches
+                    && account.logged_in
+                    && account.auth_method == ClaudeAuthMethod::ClaudeAccount
+                    && account.first_party_provider
+            })
+            .and_then(|account| account.account_identity_sha256.as_deref());
+        identity.ok_or_else(|| failure(ClaudeWorkerFailureKind::PreparationFailed,
+            "An unchanged candidate runtime and reported first-party Claude account are required for this catalog check. No API fallback was used."))
+    }
+
+    fn verify_discovery_executables(
+        runtime: &crate::claude_discovery::ClaudeDiscoveryRuntime,
+        mut check: impl FnMut() -> Result<(), ClaudeWorkerFailure>,
+    ) -> Result<(), ClaudeWorkerFailure> {
+        for (path, expected) in [
+            (&runtime.node_executable, &runtime.node_sha256),
+            (&runtime.claude_executable, &runtime.claude_sha256),
+        ] {
+            let (canonical, digest) = inspect_executable(path, &mut check)?;
+            if canonical != *path || digest != *expected {
+                return Err(failure(
+                    ClaudeWorkerFailureKind::RuntimeChanged,
+                    "A native SDK host or Claude executable identity changed. Refresh the qualified installation.",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn read_discovery_sdk(
+        path: &Path,
+        mut check: impl FnMut() -> Result<(), ClaudeWorkerFailure>,
+    ) -> Result<Vec<u8>, ClaudeWorkerFailure> {
+        use crate::claude_discovery::{MAX_SDK_MODULE_BYTES, SDK_MODULE_SHA256};
+        let invalid = || {
+            failure(
+                ClaudeWorkerFailureKind::RuntimeChanged,
+                "The inspected Claude SDK module is missing, changed or incompatible. No SDK catalog was accepted.",
+            )
+        };
+        if !path.is_absolute()
+            || path.to_str().is_none()
+            || path.as_os_str().len() > 4096
+            || path
+                .components()
+                .any(|part| matches!(part, std::path::Component::ParentDir))
+        {
+            return Err(invalid());
+        }
+        check()?;
+        if fs::canonicalize(path).map_err(|_| invalid())? != path {
+            return Err(invalid());
+        }
+        let mut file = OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(path)
+            .map_err(|_| invalid())?;
+        let metadata = file.metadata().map_err(|_| invalid())?;
+        if !metadata.is_file()
+            || metadata.len() == 0
+            || metadata.len() > MAX_SDK_MODULE_BYTES as u64
+        {
+            return Err(invalid());
+        }
+        let mut bytes = Vec::new();
+        let mut chunk = [0_u8; IO_CHUNK];
+        loop {
+            check()?;
+            let limit = MAX_SDK_MODULE_BYTES
+                .saturating_sub(bytes.len())
+                .saturating_add(1)
+                .min(chunk.len());
+            let count = file.read(&mut chunk[..limit]).map_err(|_| invalid())?;
+            if count == 0 {
+                break;
+            }
+            if bytes.len().saturating_add(count) > MAX_SDK_MODULE_BYTES {
+                return Err(invalid());
+            }
+            bytes.extend_from_slice(&chunk[..count]);
+        }
+        if bytes.len() as u64 != metadata.len()
+            || format!("{:x}", Sha256::digest(&bytes)) != SDK_MODULE_SHA256
+        {
+            return Err(invalid());
+        }
+        Ok(bytes)
+    }
+
     fn inspection_deadline(
         manager: &ManagerInner,
         cancelled: &AtomicBool,
@@ -457,9 +717,32 @@ mod native {
             account_home,
         )
         .map_err(|message| failure(Kind::PreparationFailed, message))?;
-        let mut child = OwnedChild::spawn(manager, &mut command, cancelled)?;
-        // No source, prompt, user message or control-protocol request is sent.
-        child.stdin.take();
+        run_metadata_command(manager, &mut command, &[], cancelled, started, output_limit)
+    }
+
+    fn run_metadata_command(
+        manager: &ManagerInner,
+        command: &mut Command,
+        input: &[u8],
+        cancelled: &AtomicBool,
+        started: Instant,
+        output_limit: usize,
+    ) -> Result<(Vec<u8>, ExitStatus), ClaudeWorkerFailure> {
+        use ClaudeWorkerFailureKind as Kind;
+        if input.len() > crate::claude_discovery::MAX_DISCOVERY_INPUT_BYTES {
+            return Err(failure(
+                Kind::PreparationFailed,
+                "Claude metadata configuration exceeded its local limit.",
+            ));
+        }
+        inspection_deadline(manager, cancelled, started)?;
+        let mut child = OwnedChild::spawn(manager, command, cancelled)?;
+        // Metadata commands have empty input. SDK discovery receives only
+        // native paths; no source, prompt or vendor RPC is sent by this owner.
+        if input.is_empty() {
+            child.stdin.take();
+        }
+        let mut written = 0;
         let mut output = Vec::new();
         let mut diagnostics = 0;
         let mut stdout_eof = false;
@@ -475,6 +758,39 @@ mod native {
                 }
                 if !stderr_eof {
                     stderr_eof = drain_stderr(child.stderr()?, &mut diagnostics)?;
+                }
+                inspection_deadline(manager, cancelled, started)?;
+                if written < input.len() {
+                    let end = written.saturating_add(IO_CHUNK).min(input.len());
+                    let stdin = child.stdin.as_mut().ok_or_else(|| {
+                        failure(
+                            Kind::ProcessFailed,
+                            "The Claude metadata input pipe is unavailable.",
+                        )
+                    })?;
+                    match stdin.write(&input[written..end]) {
+                        Ok(0) => {
+                            return Err(failure(
+                                Kind::ProcessFailed,
+                                "Claude metadata input closed before configuration was delivered.",
+                            ));
+                        }
+                        Ok(count) => written += count,
+                        Err(error)
+                            if matches!(
+                                error.kind(),
+                                io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                            ) => {}
+                        Err(_) => {
+                            return Err(failure(
+                                Kind::ProcessFailed,
+                                "The native Claude metadata configuration could not be delivered.",
+                            ));
+                        }
+                    }
+                    if written == input.len() {
+                        child.stdin.take();
+                    }
                 }
                 if exit.is_none() {
                     if let Some(status) = child.try_finish()? {
@@ -499,6 +815,12 @@ mod native {
                     "The Claude inspection exit status is unavailable.",
                 )
             })?;
+            if written != input.len() {
+                return Err(failure(
+                    Kind::ProcessFailed,
+                    "Claude metadata inspection exited before configuration delivery completed.",
+                ));
+            }
             Ok((output, status))
         })();
         if result.is_err() && !child.reaped {
@@ -1298,6 +1620,56 @@ mod native {
                         "The staged Claude instructions could not be made read-only.",
                     )
                 })
+        }
+        fn write_discovery_files(
+            &self,
+            sdk: &[u8],
+            mut check: impl FnMut() -> Result<(), ClaudeWorkerFailure>,
+        ) -> Result<(), ClaudeWorkerFailure> {
+            use crate::claude_discovery::{DISCOVERY_LIBRARY, DISCOVERY_SCRIPT};
+            use ClaudeWorkerFailureKind as Kind;
+            for (name, bytes) in [
+                ("worker.mjs", DISCOVERY_SCRIPT.as_bytes()),
+                ("discovery.mjs", DISCOVERY_LIBRARY.as_bytes()),
+                ("sdk.mjs", sdk),
+            ] {
+                check()?;
+                let mut file = OpenOptions::new()
+                    .write(true)
+                    .create_new(true)
+                    .mode(0o600)
+                    .custom_flags(libc::O_NOFOLLOW)
+                    .open(self.path.join(name))
+                    .map_err(|_| {
+                        failure(
+                            Kind::PreparationFailed,
+                            "The private SDK discovery files could not be created.",
+                        )
+                    })?;
+                for chunk in bytes.chunks(IO_CHUNK) {
+                    check()?;
+                    file.write_all(chunk).map_err(|_| {
+                        failure(
+                            Kind::PreparationFailed,
+                            "The private SDK discovery files could not be written.",
+                        )
+                    })?;
+                }
+                file.sync_all()
+                    .and_then(|_| file.set_permissions(fs::Permissions::from_mode(0o400)))
+                    .map_err(|_| {
+                        failure(
+                            Kind::PreparationFailed,
+                            "The private SDK discovery files could not be made read-only.",
+                        )
+                    })?;
+            }
+            fs::set_permissions(&self.path, fs::Permissions::from_mode(0o500)).map_err(|_| {
+                failure(
+                    Kind::PreparationFailed,
+                    "The private SDK discovery directory could not be made read-only.",
+                )
+            })
         }
         fn cleanup(mut self) -> Result<(), ClaudeWorkerFailure> {
             self.remove()?;

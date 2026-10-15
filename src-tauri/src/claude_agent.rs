@@ -264,7 +264,7 @@ pub(crate) fn prepare_inspection_command(
     Ok(command)
 }
 
-fn isolated_command(
+pub(crate) fn isolated_command(
     executable: &Path,
     stage: &Path,
     temporary: &Path,
