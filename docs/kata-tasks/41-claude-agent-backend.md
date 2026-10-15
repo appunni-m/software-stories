@@ -13,6 +13,10 @@ The user can choose the Claude Code-powered agent loop, configure its supported 
 ## Research decision — 2026-10-15
 Prefer the official Claude Agent SDK behind one managed worker; a documented claude -p stream-json subprocess is an alternative. The October 7 Help Center explicitly permits subscription usage by SDK, -p and third-party apps, while the SDK overview still requires prior approval for third-party claude.ai login/subscription limits. Preserve both sources and resolve custom-product distribution eligibility before advertising approved subscription support. Do not state that subscription usage is technically impossible.
 
+### Eligibility recheck — 2026-10-15
+
+The official pages remain distinct in their wording: the Help Center says third-party apps may use subscription limits, while the SDK overview's product-integration guidance says a third-party developer needs prior approval to offer claude.ai login or subscription limits. Because Code Atlas would expose that login/plan route from its own UI, keep **Claude plan login unavailable until Anthropic confirms this product is approved**. The Help Center confirms that Agent SDK calls signed in with a Claude plan consume plan limits; it does not state that a third-party product is exempt from the SDK overview's approval condition. API-key/Console billing is a separate explicit backend choice and must never be selected as a fallback. [Help Center plan usage](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan), [Agent SDK integration requirements](https://code.claude.com/docs/en/agent-sdk/overview).
+
 ## Contract
 Pin SDK/binary versions and use the documented auth store/flow with isolated app configuration. Separate account-backed usage from optional API-key usage. Strip inherited credential/provider/endpoint environment that could select API billing; ANTHROPIC_API_KEY overrides account auth in noninteractive mode. Do not assume --bare supports OAuth token behavior. Reuse chapter JSON schema, independent citation validation and explicit draft acceptance.
 
