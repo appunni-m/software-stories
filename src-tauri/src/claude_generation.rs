@@ -1,8 +1,8 @@
-//! Internal reviewed chapter pipeline for a qualified native Claude runtime.
+//! Internal reviewed operation pipeline for a qualified native Claude runtime.
 //!
 //! This module neither qualifies nor constructs that runtime. A registered
 //! command calls offline review preparation with native-owned observations.
-//! The sender has no registered command or app caller: the permitted account,
+//! The senders have no registered command or app caller: the permitted account,
 //! installation/isolation owner and generation UI remain missing. A setup
 //! catalog cannot become generation authorization. No direct API is used here.
 
@@ -12,7 +12,7 @@ use crate::{
     claude_worker::{
         ClaudeWorkerFailure, ClaudeWorkerFailureKind, ClaudeWorkerInput, ClaudeWorkerManager,
     },
-    prepare_chapter_draft_preview, provider, recovery,
+    pr_guide, prepare_chapter_draft_preview, prepare_pr_guide_preview, provider, recovery,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -62,6 +62,7 @@ pub(crate) async fn send_chapter(
         review_id,
         fingerprint,
         consent,
+        provider::ClaudeOperation::Chapter,
     )
     .await
     {
@@ -93,6 +94,7 @@ pub(crate) async fn send_chapter(
 
 struct CompletedOperation {
     storage: PathBuf,
+    repository: PathBuf,
     review: provider::ProviderRequestReview,
     result: Result<provider::ProviderSendResult, provider::ProviderFailure>,
     clear_interruption: bool,
@@ -108,6 +110,7 @@ async fn execute(
     review_id: &str,
     fingerprint: &str,
     consent: bool,
+    operation: provider::ClaudeOperation,
 ) -> Result<CompletedOperation, provider::ProviderFailure> {
     use provider::ProviderFailureKind as Kind;
     if !consent {
@@ -117,18 +120,21 @@ async fn execute(
         ));
     }
     let pending = reviews.get(review_id)?;
-    if pending.review.fingerprint != fingerprint || !accepts_chapter(&pending.review) {
+    if pending.review.fingerprint != fingerprint
+        || provider::claude_review_operation(&pending.review)? != operation
+    {
         return Err(failure(
             Kind::ReviewChanged,
-            "Build a fresh Claude chapter, overview or one-section review with the selected source and settings.",
+            "Build a fresh Claude review for this exact operation with the selected source and settings.",
         ));
     }
-    sessions.get(&pending.review.project_id).map_err(|_| {
+    let project = sessions.get(&pending.review.project_id).map_err(|_| {
         failure(
             Kind::InvalidReview,
             "Reopen the selected repository before reviewing this Claude operation again.",
         )
     })?;
+    let repository = PathBuf::from(project.repository_root);
     let storage = app_data_directory(&app).map_err(|_| {
         failure(
             Kind::LocalStorageUnavailable,
@@ -138,12 +144,15 @@ async fn execute(
     let storage_for_check = storage.clone();
     let runtime_for_check = runtime.clone();
     let review_for_check = pending.review.clone();
+    let repository_for_check = repository.clone();
     let validated = tauri::async_runtime::spawn_blocking(move || {
-        provider::revalidate_claude_chapter_review(
+        provider::rebuild_claude_request_review(
             &storage_for_check,
+            &repository_for_check,
             &review_for_check,
             &runtime_for_check,
         )
+        .map(|_| ())
     })
     .await
     .map_err(|_| {
@@ -177,9 +186,11 @@ async fn execute(
     let worker = manager.clone();
     let storage_for_run = storage.clone();
     let review_for_run = review.clone();
+    let repository_for_run = repository.clone();
     let run = tauri::async_runtime::spawn_blocking(move || {
         worker.run(&storage_for_run, &runtime, &input, || {
-            provider::revalidate_claude_chapter_review(&storage_for_run, &review_for_run, &runtime)
+            provider::rebuild_claude_request_review(&storage_for_run, &repository_for_run, &review_for_run, &runtime)
+                .map(|_| ())
                 .map_err(|_| ClaudeWorkerFailure {
                     kind: ClaudeWorkerFailureKind::ReviewChanged,
                     message: "The reviewed Claude source, settings or operation changed before dispatch. Prepare a fresh review.".to_owned(),
@@ -216,29 +227,213 @@ async fn execute(
     };
     Ok(CompletedOperation {
         storage,
+        repository,
         review,
         result,
         clear_interruption,
     })
 }
 
-fn accepts_chapter(review: &provider::ProviderRequestReview) -> bool {
-    review.provider_id == "claude-agent"
-        && review.pr_guide_context.is_none()
-        && review.pr_change_context.is_none()
-        && review.code_lens_context.is_none()
-        && match review.purpose.as_str() {
-            "fileChapter" => {
-                review.target_path.is_some() && review.section_update_context.is_none()
-            }
-            "repositoryOverview" => {
-                review.target_path.is_none() && review.section_update_context.is_none()
-            }
-            "sectionUpdate" => {
-                review.target_path.is_some() && review.section_update_context.is_some()
-            }
-            _ => false,
-        }
+/// Candidate internal range sender. No registered command can reach it until
+/// the native connection/account/isolation owner is qualified.
+pub(crate) async fn send_code_lens(
+    app: AppHandle,
+    sessions: &ProjectSessions,
+    manager: &ClaudeWorkerManager,
+    runtime: Arc<ClaudeReviewRuntime>,
+    reviews: &provider::PendingProviderReviews,
+    interruptions: &recovery::InterruptionJournal,
+    review_id: &str,
+    fingerprint: &str,
+    consent: bool,
+) -> provider::ProviderCommandResult<provider::CodeLensExplanationPreview> {
+    use provider::{ClaudeOperation, ProviderCommandResult as Envelope};
+    let completed = match execute(
+        app,
+        sessions,
+        manager,
+        runtime.clone(),
+        reviews,
+        interruptions,
+        review_id,
+        fingerprint,
+        consent,
+        ClaudeOperation::CodeLens,
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(error) => return Envelope::failed(error),
+    };
+    let storage = completed.storage.clone();
+    let repository = completed.repository.clone();
+    let review = completed.review.clone();
+    let (result, clean_validation) = validate_result(completed.result, move |response| {
+        provider::rebuild_claude_request_review(&storage, &repository, &review, &runtime)?;
+        provider::canonicalize_code_lens_explanation(&storage, &review, &response)
+    })
+    .await;
+    // Range validation reads exact source but creates no chapter/PR history.
+    finish_result(
+        &completed.storage,
+        interruptions,
+        review_id,
+        completed.clear_interruption && clean_validation,
+        ClaudeOperation::CodeLens,
+        result,
+    )
+}
+
+pub(crate) async fn send_pr_guide(
+    app: AppHandle,
+    sessions: &ProjectSessions,
+    manager: &ClaudeWorkerManager,
+    runtime: Arc<ClaudeReviewRuntime>,
+    reviews: &provider::PendingProviderReviews,
+    interruptions: &recovery::InterruptionJournal,
+    review_id: &str,
+    fingerprint: &str,
+    consent: bool,
+) -> provider::ProviderCommandResult<pr_guide::PrGuidePreview> {
+    use provider::{ClaudeOperation, ProviderCommandResult as Envelope};
+    let completed = match execute(
+        app,
+        sessions,
+        manager,
+        runtime.clone(),
+        reviews,
+        interruptions,
+        review_id,
+        fingerprint,
+        consent,
+        ClaudeOperation::PrGuide,
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(error) => return Envelope::failed(error),
+    };
+    let storage = completed.storage.clone();
+    let repository = completed.repository.clone();
+    let review = completed.review.clone();
+    let (result, clean_validation) = validate_result(completed.result, move |response| {
+        provider::rebuild_claude_request_review(&storage, &repository, &review, &runtime)?;
+        // This saves only separate unaccepted PR Guide history, never an
+        // accepted guide or a file/overview chapter revision.
+        prepare_pr_guide_preview(&storage, &review, response)
+    })
+    .await;
+    finish_result(
+        &completed.storage,
+        interruptions,
+        review_id,
+        completed.clear_interruption && clean_validation,
+        ClaudeOperation::PrGuide,
+        result,
+    )
+}
+
+pub(crate) async fn send_pr_change(
+    app: AppHandle,
+    sessions: &ProjectSessions,
+    manager: &ClaudeWorkerManager,
+    runtime: Arc<ClaudeReviewRuntime>,
+    reviews: &provider::PendingProviderReviews,
+    interruptions: &recovery::InterruptionJournal,
+    review_id: &str,
+    fingerprint: &str,
+    consent: bool,
+) -> provider::ProviderCommandResult<provider::PrChangeExplanationPreview> {
+    use provider::{ClaudeOperation, ProviderCommandResult as Envelope};
+    let completed = match execute(
+        app,
+        sessions,
+        manager,
+        runtime.clone(),
+        reviews,
+        interruptions,
+        review_id,
+        fingerprint,
+        consent,
+        ClaudeOperation::PrChange,
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(error) => return Envelope::failed(error),
+    };
+    let storage = completed.storage.clone();
+    let repository = completed.repository.clone();
+    let review = completed.review.clone();
+    let (result, clean_validation) = validate_result(completed.result, move |response| {
+        provider::canonicalize_claude_pr_change_explanation(
+            &storage,
+            &repository,
+            &review,
+            &response,
+            &runtime,
+        )
+    })
+    .await;
+    // The common hunk canonicalizer writes no draft/history.
+    finish_result(
+        &completed.storage,
+        interruptions,
+        review_id,
+        completed.clear_interruption && clean_validation,
+        ClaudeOperation::PrChange,
+        result,
+    )
+}
+
+/// Keep blocking Git/source validation and any PR draft write off the async
+/// runtime. A panicked result preparation has uncertain persistence and keeps
+/// its original interruption notice; it must not trigger automatic generation.
+async fn validate_result<T: Send + 'static>(
+    response: Result<provider::ProviderSendResult, provider::ProviderFailure>,
+    validate: impl FnOnce(provider::ProviderSendResult) -> Result<T, provider::ProviderFailure>
+    + Send
+    + 'static,
+) -> (Result<T, provider::ProviderFailure>, bool) {
+    let response = match response {
+        Ok(response) => response,
+        Err(error) => return (Err(error), true),
+    };
+    match tauri::async_runtime::spawn_blocking(move || validate(response)).await {
+        Ok(result) => (result, true),
+        Err(_) => (
+            Err(failure(
+                provider::ProviderFailureKind::LocalStorageUnavailable,
+                "Claude result preparation stopped unexpectedly. Check local recovery and PR Guide history before generating again; a draft may already be saved.",
+            )),
+            false,
+        ),
+    }
+}
+
+fn finish_result<T>(
+    storage: &Path,
+    interruptions: &recovery::InterruptionJournal,
+    review_id: &str,
+    clear_interruption: bool,
+    operation: provider::ClaudeOperation,
+    result: Result<T, provider::ProviderFailure>,
+) -> provider::ProviderCommandResult<T> {
+    use provider::{ProviderCommandResult as Envelope, ProviderFailureKind as Kind};
+    if clear_interruption && interruptions.discard(storage, review_id).is_err() {
+        return Envelope::error(
+            Kind::LocalStorageUnavailable,
+            if operation == provider::ClaudeOperation::PrGuide && result.is_ok() {
+                "The validated PR Guide draft is saved in PR Guide history, but its interruption notice could not be cleared. Open that draft before considering another generation."
+            } else {
+                "Claude stopped, but its interruption notice could not be cleared. Check local recovery and reselect the exact source range or Git comparison before preparing another request."
+            },
+        );
+    }
+    match result {
+        Ok(preview) => Envelope::ok(preview),
+        Err(error) => Envelope::failed(error),
+    }
 }
 
 fn failure(

@@ -1,4 +1,4 @@
-//! Explicit Claude inspection and offline chapter review. Inference/login are
+//! Explicit Claude inspection and offline operation review. Inference/login are
 //! not exposed; native connection observations cannot authorize generation.
 
 use crate::{
@@ -141,6 +141,95 @@ pub(crate) async fn build_claude_chapter_review(
     connection_id: String,
     input: provider::BuildClaudeReviewInput,
 ) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
+    build_operation_review(
+        app,
+        &sessions,
+        &connections,
+        &reviews,
+        connection_id,
+        ReviewInput::Chapter(input),
+    )
+    .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn build_claude_code_lens_review(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    connections: State<'_, claude_connections::ClaudeConnections>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    connection_id: String,
+    input: provider::BuildClaudeCodeLensInput,
+) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
+    build_operation_review(
+        app,
+        &sessions,
+        &connections,
+        &reviews,
+        connection_id,
+        ReviewInput::CodeLens(input),
+    )
+    .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn build_claude_pr_guide_review(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    connections: State<'_, claude_connections::ClaudeConnections>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    connection_id: String,
+    input: provider::BuildClaudePrGuideInput,
+) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
+    build_operation_review(
+        app,
+        &sessions,
+        &connections,
+        &reviews,
+        connection_id,
+        ReviewInput::PrGuide(input),
+    )
+    .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn build_claude_pr_change_review(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    connections: State<'_, claude_connections::ClaudeConnections>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    connection_id: String,
+    input: provider::BuildClaudePrChangeInput,
+) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
+    build_operation_review(
+        app,
+        &sessions,
+        &connections,
+        &reviews,
+        connection_id,
+        ReviewInput::PrChange(input),
+    )
+    .await
+}
+
+enum ReviewInput {
+    Chapter(provider::BuildClaudeReviewInput),
+    CodeLens(provider::BuildClaudeCodeLensInput),
+    PrGuide(provider::BuildClaudePrGuideInput),
+    PrChange(provider::BuildClaudePrChangeInput),
+}
+
+/// Every offline operation uses one live native connection. The renderer
+/// cannot provide repository roots, runtime/account observations or approval
+/// evidence, and this function neither starts inference nor grants consent.
+async fn build_operation_review(
+    app: AppHandle,
+    sessions: &ProjectSessions,
+    connections: &claude_connections::ClaudeConnections,
+    reviews: &provider::PendingProviderReviews,
+    connection_id: String,
+    input: ReviewInput,
+) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
     use provider::{ProviderCommandResult as Envelope, ProviderFailureKind as Kind};
     let lease = match connections.review_lease(&connection_id) {
         Ok(lease) => lease,
@@ -148,6 +237,21 @@ pub(crate) async fn build_claude_chapter_review(
             return Envelope::error(
                 Kind::ReviewChanged,
                 "Check the Claude catalog and prepare a review using its current native connection.",
+            );
+        }
+    };
+    let project_id = match &input {
+        ReviewInput::Chapter(input) => &input.project_id,
+        ReviewInput::CodeLens(input) => &input.project_id,
+        ReviewInput::PrGuide(input) => &input.project_id,
+        ReviewInput::PrChange(input) => &input.project_id,
+    };
+    let project = match sessions.get(project_id) {
+        Ok(project) => project,
+        Err(_) => {
+            return Envelope::error(
+                Kind::InvalidReview,
+                "Reopen the selected repository before preparing a Claude review.",
             );
         }
     };
@@ -161,9 +265,24 @@ pub(crate) async fn build_claude_chapter_review(
         }
     };
     let runtime = lease.runtime.clone();
-    let projects = sessions.inner().clone();
-    let pending = match tauri::async_runtime::spawn_blocking(move || {
-        claude_generation::prepare_chapter_review(&storage, &projects, &runtime, &input)
+    let projects = sessions.clone();
+    let pending = match tauri::async_runtime::spawn_blocking(move || match input {
+        ReviewInput::Chapter(input) => {
+            claude_generation::prepare_chapter_review(&storage, &projects, &runtime, &input)
+        }
+        ReviewInput::CodeLens(input) => {
+            provider::build_claude_code_lens_review(&storage, &input, &runtime)
+        }
+        ReviewInput::PrGuide(input) => provider::build_claude_pr_guide_review(
+            Path::new(&project.repository_root),
+            &input,
+            &runtime,
+        ),
+        ReviewInput::PrChange(input) => provider::build_claude_pr_change_review(
+            Path::new(&project.repository_root),
+            &input,
+            &runtime,
+        ),
     })
     .await
     {
@@ -171,11 +290,11 @@ pub(crate) async fn build_claude_chapter_review(
         Err(_) => {
             return Envelope::error(
                 Kind::ReviewUnavailable,
-                "The Claude chapter review could not be prepared. No process was started.",
+                "The Claude source review could not be prepared. No agent process was started.",
             );
         }
     };
-    match pending.and_then(|pending| connections.insert_review(&lease, &reviews, pending)) {
+    match pending.and_then(|pending| connections.insert_review(&lease, reviews, pending)) {
         Ok(review) => Envelope::ok(review),
         Err(error) => Envelope::failed(error),
     }

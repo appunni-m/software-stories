@@ -1484,6 +1484,41 @@ pub fn canonicalize_pr_change_explanation(
     review: &ProviderRequestReview,
     result: &ProviderSendResult,
 ) -> Result<PrChangeExplanationPreview, ProviderFailure> {
+    canonicalize_pr_change_with_revalidation(repository, review, result, || {
+        if review.provider_id == "codex" {
+            revalidate_codex_git_review(
+                repository,
+                review,
+                review.generation_config["executablePath"]
+                    .as_str()
+                    .unwrap_or(""),
+            )
+        } else {
+            revalidate_pr_change_explanation_request(repository, review)
+        }
+    })
+}
+
+/// Native runtime observations remain native-owned when validating Claude
+/// hunk output. Never reconstruct a runtime from renderer/review fields.
+pub(crate) fn canonicalize_claude_pr_change_explanation(
+    storage_dir: &Path,
+    repository: &Path,
+    review: &ProviderRequestReview,
+    result: &ProviderSendResult,
+    runtime: &crate::claude_agent::ClaudeReviewRuntime,
+) -> Result<PrChangeExplanationPreview, ProviderFailure> {
+    canonicalize_pr_change_with_revalidation(repository, review, result, || {
+        rebuild_claude_request_review(storage_dir, repository, review, runtime)
+    })
+}
+
+fn canonicalize_pr_change_with_revalidation(
+    repository: &Path,
+    review: &ProviderRequestReview,
+    result: &ProviderSendResult,
+    rebuild: impl FnOnce() -> Result<PendingProviderRequest, ProviderFailure>,
+) -> Result<PrChangeExplanationPreview, ProviderFailure> {
     let invalid = |message: &str| failure(ProviderFailureKind::MalformedProviderResponse, message);
     let target = review.pr_change_context.as_ref().ok_or_else(|| {
         failure(
@@ -1505,19 +1540,7 @@ pub fn canonicalize_pr_change_explanation(
             "The PR change explanation exceeded the supported response size.",
         ));
     }
-    let refreshed = if review.provider_id == "codex" {
-        // The agent dispatch already compared the native runtime path. Rebuild
-        // immutable Git evidence again here without entering API admission.
-        revalidate_codex_git_review(
-            repository,
-            review,
-            review.generation_config["executablePath"]
-                .as_str()
-                .unwrap_or(""),
-        )?
-    } else {
-        revalidate_pr_change_explanation_request(repository, review)?
-    };
+    let refreshed = rebuild()?;
     let change = refreshed
         .review
         .selected_files
@@ -2457,26 +2480,31 @@ fn build_agent_git_review(
             "The reviewed Git evidence exceeds 250 KB. Select fewer changed files or a smaller hunk.",
         ));
     }
-    let manifest = context
-        .selected_files
-        .iter()
-        .enumerate()
-        .map(|(index, file)| {
-            json!({
-                "contextPath": agent_diff_source_name(index), "gitPathLabel": file.path,
-                "sha256": file.sha256,
+    // Codex stages physical reviewed patches; Claude receives context only on
+    // stdin and has no model file tools. Do not describe nonexistent staged
+    // patch files in a Claude review or runtime contract.
+    if transport.provider_id == "codex" {
+        let manifest = context
+            .selected_files
+            .iter()
+            .enumerate()
+            .map(|(index, file)| {
+                json!({
+                    "contextPath": agent_diff_source_name(index), "gitPathLabel": file.path,
+                    "sha256": file.sha256,
+                })
             })
-        })
-        .collect::<Vec<_>>();
-    let mapping = serde_json::to_string(&manifest).map_err(|_| {
-        failure(
-            ProviderFailureKind::InvalidReview,
-            "The staged Git evidence mapping could not be encoded.",
-        )
-    })?;
-    context.user_prompt.push_str("\n\nReviewed staged patch mapping (metadata only). Cite original Git paths, sides and hunks from the comparison, never these staging aliases:\n");
-    context.user_prompt.push_str(&mapping);
-    transport.config["stagedDiffManifest"] = json!(manifest);
+            .collect::<Vec<_>>();
+        let mapping = serde_json::to_string(&manifest).map_err(|_| {
+            failure(
+                ProviderFailureKind::InvalidReview,
+                "The staged Git evidence mapping could not be encoded.",
+            )
+        })?;
+        context.user_prompt.push_str("\n\nReviewed staged patch mapping (metadata only). Cite original Git paths, sides and hunks from the comparison, never these staging aliases:\n");
+        context.user_prompt.push_str(&mapping);
+        transport.config["stagedDiffManifest"] = json!(manifest);
+    }
     build_scoped_agent_context_review(
         &BuildProviderReviewInput {
             project_id: project_id.to_owned(),
@@ -2551,6 +2579,34 @@ pub(crate) struct BuildClaudeReviewInput {
     pub section_update: Option<SectionUpdateReviewTarget>,
 }
 
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct BuildClaudeCodeLensInput {
+    pub project_id: String,
+    pub snapshot_id: String,
+    pub target: CodeLensExplanationTarget,
+    pub settings: crate::claude_agent::ClaudeGenerationSettings,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct BuildClaudePrGuideInput {
+    pub project_id: String,
+    pub base_ref: String,
+    pub head_ref: String,
+    pub comparison_id: String,
+    pub selected_changes: Vec<pr_guide::SelectedChangeIdentity>,
+    pub settings: crate::claude_agent::ClaudeGenerationSettings,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct BuildClaudePrChangeInput {
+    pub project_id: String,
+    pub target: PrChangeExplanationTarget,
+    pub settings: crate::claude_agent::ClaudeGenerationSettings,
+}
+
 /// Offline operation preparation only. Native account/runtime qualification,
 /// dispatch and exact effective-setting verification remain separate work;
 /// creating this review cannot start a Claude process or grant consent.
@@ -2559,9 +2615,7 @@ pub(crate) fn build_claude_chapter_review(
     input: &BuildClaudeReviewInput,
     runtime: &crate::claude_agent::ClaudeReviewRuntime,
 ) -> Result<PendingProviderRequest, ProviderFailure> {
-    runtime
-        .validate_settings(&input.settings)
-        .map_err(|message| failure(ProviderFailureKind::InvalidReview, message))?;
+    let transport = claude_transport(runtime, &input.settings, "claude-chapter-v1")?;
     build_agent_chapter_review(
         storage_dir,
         &BuildProviderReviewInput {
@@ -2572,26 +2626,125 @@ pub(crate) fn build_claude_chapter_review(
             model_id: input.settings.model_id.clone(),
             section_update: input.section_update.clone(),
         },
-        AgentTransport {
-            provider_id: "claude-agent",
-            authentication: "claude-plan",
-            endpoint_url: "claude-agent-cli://stdio",
-            disclosure_version: "claude-agent-candidate-2026-10-15-v1",
-            config: json!({
-                "contractVersion": "claude-chapter-v1", "effort": input.settings.effort,
-                "approvalPolicy": "dontAsk", "maxTurns": input.settings.max_turns,
-                "connectionId": runtime.connection_id,
-                "executablePath": runtime.executable_path,
-                "executableSha256": runtime.executable_sha256,
-                "runtimeVersion": runtime.runtime_version,
-                "accountIdentitySha256": runtime.account_identity_sha256,
-                "shell": false, "webSearch": false, "externalTools": false,
-                "filesystem": "no model file tools; reviewed context over stdin",
-                "safeMode": true, "restricted": true, "ephemeral": true,
-                "timeoutSeconds": 600, "qualification": "pending",
-            }),
-        },
+        transport,
     )
+}
+
+/// Candidate review only: shares exact range context with other transports.
+pub(crate) fn build_claude_code_lens_review(
+    storage_dir: &Path,
+    input: &BuildClaudeCodeLensInput,
+    runtime: &crate::claude_agent::ClaudeReviewRuntime,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    let transport = claude_transport(runtime, &input.settings, "claude-code-lens-v1")?;
+    let context = build_code_lens_context(
+        storage_dir,
+        &BuildCodeLensReviewInput {
+            project_id: input.project_id.clone(),
+            snapshot_id: input.snapshot_id.clone(),
+            target: input.target.clone(),
+            model_id: input.settings.model_id.clone(),
+        },
+    )?;
+    build_agent_context_review(
+        &BuildProviderReviewInput {
+            project_id: input.project_id.clone(),
+            snapshot_id: input.snapshot_id.clone(),
+            target_path: Some(input.target.path.clone()),
+            selected_paths: vec![input.target.path.clone()],
+            model_id: input.settings.model_id.clone(),
+            section_update: None,
+        },
+        context,
+        Some(input.target.clone()),
+        transport,
+    )
+}
+
+pub(crate) fn build_claude_pr_guide_review(
+    repository: &Path,
+    input: &BuildClaudePrGuideInput,
+    runtime: &crate::claude_agent::ClaudeReviewRuntime,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    let transport = claude_transport(runtime, &input.settings, "claude-pr-guide-v1")?;
+    let (context, explanation) = build_pr_guide_context(
+        repository,
+        &BuildPrGuideReviewInput {
+            project_id: input.project_id.clone(),
+            base_ref: input.base_ref.clone(),
+            head_ref: input.head_ref.clone(),
+            comparison_id: input.comparison_id.clone(),
+            selected_changes: input.selected_changes.clone(),
+            model_id: input.settings.model_id.clone(),
+        },
+    )?;
+    build_agent_git_review(
+        &input.project_id,
+        &input.comparison_id,
+        &input.settings.model_id,
+        None,
+        explanation,
+        AgentGitContext::Guide(context),
+        transport,
+    )
+}
+
+pub(crate) fn build_claude_pr_change_review(
+    repository: &Path,
+    input: &BuildClaudePrChangeInput,
+    runtime: &crate::claude_agent::ClaudeReviewRuntime,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    let transport = claude_transport(runtime, &input.settings, "claude-pr-change-v1")?;
+    let explanation = build_pr_change_context(
+        repository,
+        &BuildPrChangeExplanationReviewInput {
+            project_id: input.project_id.clone(),
+            target: input.target.clone(),
+            model_id: input.settings.model_id.clone(),
+        },
+    )?;
+    let target_path = explanation
+        .selected_files
+        .first()
+        .map(|file| file.path.clone());
+    build_agent_git_review(
+        &input.project_id,
+        &input.target.comparison_id,
+        &input.settings.model_id,
+        target_path,
+        explanation,
+        AgentGitContext::Change(input.target.clone()),
+        transport,
+    )
+}
+
+fn claude_transport(
+    runtime: &crate::claude_agent::ClaudeReviewRuntime,
+    settings: &crate::claude_agent::ClaudeGenerationSettings,
+    contract_version: &str,
+) -> Result<AgentTransport<'static>, ProviderFailure> {
+    runtime
+        .validate_settings(settings)
+        .map_err(|message| failure(ProviderFailureKind::InvalidReview, message))?;
+    Ok(AgentTransport {
+        provider_id: "claude-agent",
+        authentication: "claude-plan",
+        endpoint_url: "claude-agent-cli://stdio",
+        disclosure_version: "claude-agent-candidate-2026-10-15-v1",
+        config: json!({
+            "contractVersion": contract_version, "effort": settings.effort,
+            "approvalPolicy": "dontAsk", "maxTurns": settings.max_turns,
+            "connectionId": runtime.connection_id,
+            "executablePath": runtime.executable_path,
+            "executableSha256": runtime.executable_sha256,
+            "runtimeVersion": runtime.runtime_version,
+            "accountIdentitySha256": runtime.account_identity_sha256,
+            "shell": false, "webSearch": false, "externalTools": false,
+            "filesystem": "no model file tools; reviewed context over stdin",
+            "safeMode": true, "restricted": true, "ephemeral": true,
+            "timeoutSeconds": 600, "qualification": "pending",
+        }),
+    })
 }
 
 struct AgentTransport<'a> {
@@ -3125,38 +3278,221 @@ pub(crate) fn revalidate_claude_chapter_review(
     review: &ProviderRequestReview,
     runtime: &crate::claude_agent::ClaudeReviewRuntime,
 ) -> Result<(), ProviderFailure> {
-    if review.provider_id != "claude-agent" || review.expires_at_unix_ms <= unix_time_ms() {
+    if claude_review_operation(review)? != ClaudeOperation::Chapter {
+        return Err(failure(
+            ProviderFailureKind::InvalidReview,
+            "A range or Git-change review cannot dispatch a Claude chapter operation.",
+        ));
+    }
+    // The chapter branch never reads repository state; Git requests use the
+    // generic rebuilder with the native session's actual repository root.
+    rebuild_claude_request_review(storage_dir, Path::new(""), review, runtime).map(|_| ())
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(crate) enum ClaudeOperation {
+    Chapter,
+    CodeLens,
+    PrGuide,
+    PrChange,
+}
+
+/// Admit exactly one operation family and its transport contract. This is a
+/// scope check, not inference authorization or account/runtime qualification.
+pub(crate) fn claude_review_operation(
+    review: &ProviderRequestReview,
+) -> Result<ClaudeOperation, ProviderFailure> {
+    let no_git = review.pr_guide_context.is_none() && review.pr_change_context.is_none();
+    let no_range = review.code_lens_context.is_none();
+    let no_section = review.section_update_context.is_none();
+    let operation = match review.purpose.as_str() {
+        FILE_CHAPTER_PURPOSE
+            if no_git && no_range && no_section && review.target_path.is_some() =>
+        {
+            Some((ClaudeOperation::Chapter, "claude-chapter-v1"))
+        }
+        REPOSITORY_OVERVIEW_PURPOSE
+            if no_git && no_range && no_section && review.target_path.is_none() =>
+        {
+            Some((ClaudeOperation::Chapter, "claude-chapter-v1"))
+        }
+        SECTION_UPDATE_PURPOSE
+            if no_git && no_range && !no_section && review.target_path.is_some() =>
+        {
+            Some((ClaudeOperation::Chapter, "claude-chapter-v1"))
+        }
+        CODE_LENS_EXPLANATION_PURPOSE
+            if no_git
+                && no_section
+                && review.code_lens_context.as_ref().is_some_and(|target| {
+                    review.target_path.as_deref() == Some(target.path.as_str())
+                }) =>
+        {
+            Some((ClaudeOperation::CodeLens, "claude-code-lens-v1"))
+        }
+        PR_GUIDE_PURPOSE
+            if no_range
+                && no_section
+                && review.pr_change_context.is_none()
+                && review.target_path.is_none()
+                && review
+                    .pr_guide_context
+                    .as_ref()
+                    .is_some_and(|context| context.comparison_id == review.snapshot_id) =>
+        {
+            Some((ClaudeOperation::PrGuide, "claude-pr-guide-v1"))
+        }
+        PR_CHANGE_EXPLANATION_PURPOSE
+            if no_range
+                && no_section
+                && review.pr_guide_context.is_none()
+                && review.target_path.is_some()
+                && review
+                    .pr_change_context
+                    .as_ref()
+                    .is_some_and(|target| target.comparison_id == review.snapshot_id) =>
+        {
+            Some((ClaudeOperation::PrChange, "claude-pr-change-v1"))
+        }
+        _ => None,
+    };
+    if let Some((operation, contract)) = operation {
+        if review.provider_id == "claude-agent"
+            && review.endpoint_url == "claude-agent-cli://stdio"
+            && review.generation_config["contractVersion"] == contract
+        {
+            return Ok(operation);
+        }
+    }
+    Err(failure(
+        ProviderFailureKind::InvalidReview,
+        "Prepare a native Claude review for this exact operation and source scope.",
+    ))
+}
+
+/// Rebuild every candidate Claude operation from native runtime observations
+/// and immutable evidence, without API model admission, encoding or billing.
+pub(crate) fn rebuild_claude_request_review(
+    storage_dir: &Path,
+    repository: &Path,
+    review: &ProviderRequestReview,
+    runtime: &crate::claude_agent::ClaudeReviewRuntime,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    if review.expires_at_unix_ms <= unix_time_ms() {
         return Err(failure(
             ProviderFailureKind::ReviewExpired,
             "Build a fresh Claude Agent review before generating.",
         ));
     }
+    let operation = claude_review_operation(review)?;
     let settings = claude_settings_from_review(review)?;
-    let input = BuildClaudeReviewInput {
-        project_id: review.project_id.clone(),
-        snapshot_id: review.snapshot_id.clone(),
-        target_path: review.target_path.clone(),
-        selected_paths: review
-            .selected_files
-            .iter()
-            .map(|file| file.path.clone())
-            .collect(),
-        settings,
-        section_update: review.section_update_context.clone(),
-    };
-    let rebuilt = build_claude_chapter_review(storage_dir, &input, runtime)?;
+    let rebuilt = match operation {
+        ClaudeOperation::Chapter => build_claude_chapter_review(
+            storage_dir,
+            &BuildClaudeReviewInput {
+                project_id: review.project_id.clone(),
+                snapshot_id: review.snapshot_id.clone(),
+                target_path: review.target_path.clone(),
+                selected_paths: review
+                    .selected_files
+                    .iter()
+                    .map(|file| file.path.clone())
+                    .collect(),
+                settings,
+                section_update: review.section_update_context.clone(),
+            },
+            runtime,
+        ),
+        ClaudeOperation::CodeLens => {
+            let target = review.code_lens_context.clone().ok_or_else(|| {
+                failure(
+                    ProviderFailureKind::ReviewChanged,
+                    "The exact Claude source range is missing. Select it again.",
+                )
+            })?;
+            build_claude_code_lens_review(
+                storage_dir,
+                &BuildClaudeCodeLensInput {
+                    project_id: review.project_id.clone(),
+                    snapshot_id: review.snapshot_id.clone(),
+                    target,
+                    settings,
+                },
+                runtime,
+            )
+        }
+        ClaudeOperation::PrGuide => {
+            let context = review.pr_guide_context.as_ref().ok_or_else(|| {
+                failure(
+                    ProviderFailureKind::ReviewChanged,
+                    "The exact Claude Git comparison is missing. Select it again.",
+                )
+            })?;
+            build_claude_pr_guide_review(
+                repository,
+                &BuildClaudePrGuideInput {
+                    project_id: review.project_id.clone(),
+                    base_ref: context.base_ref.clone(),
+                    head_ref: context.head_ref.clone(),
+                    comparison_id: context.comparison_id.clone(),
+                    selected_changes: context
+                        .selected_changes
+                        .iter()
+                        .map(|change| pr_guide::SelectedChangeIdentity {
+                            base_path: change.base_path.clone(),
+                            head_path: change.head_path.clone(),
+                        })
+                        .collect(),
+                    settings,
+                },
+                runtime,
+            )
+        }
+        ClaudeOperation::PrChange => {
+            let target = review.pr_change_context.clone().ok_or_else(|| {
+                failure(
+                    ProviderFailureKind::ReviewChanged,
+                    "The exact Claude diff hunk is missing. Select it again.",
+                )
+            })?;
+            build_claude_pr_change_review(
+                repository,
+                &BuildClaudePrChangeInput {
+                    project_id: review.project_id.clone(),
+                    target,
+                    settings,
+                },
+                runtime,
+            )
+        }
+    }?;
     if rebuilt.review.fingerprint != review.fingerprint
         || rebuilt.review.request_body_preview != review.request_body_preview
+        || rebuilt.review.request_body_sha256 != review.request_body_sha256
+        || rebuilt.review.request_body_bytes != review.request_body_bytes
+        || rebuilt.review.source_bytes != review.source_bytes
+        || rebuilt.review.estimated_input_tokens != review.estimated_input_tokens
+        || rebuilt.review.system_instruction != review.system_instruction
+        || rebuilt.review.user_prompt != review.user_prompt
         || rebuilt.review.purpose != review.purpose
+        || rebuilt.review.target_path != review.target_path
         || rebuilt.review.section_update_context != review.section_update_context
+        || rebuilt.review.code_lens_context != review.code_lens_context
+        || rebuilt.review.pr_guide_context != review.pr_guide_context
+        || rebuilt.review.pr_change_context != review.pr_change_context
         || rebuilt.review.generation_config != review.generation_config
+        || rebuilt.review.disclosure_version != review.disclosure_version
+        || rebuilt.review.selected_files != review.selected_files
+        || rebuilt.review.selected_symbols != review.selected_symbols
+        || rebuilt.review.selected_relationships != review.selected_relationships
+        || rebuilt.review.index_evidence_truncated != review.index_evidence_truncated
     {
         return Err(failure(
             ProviderFailureKind::ReviewChanged,
-            "The source, Claude executable/account, settings or chapter contract changed. Prepare a new review.",
+            "The source, Claude connection/account, settings or operation contract changed. Prepare a new review.",
         ));
     }
-    Ok(())
+    Ok(rebuilt)
 }
 
 /// Decode effective settings from a native pending review, never a new
@@ -3166,25 +3502,7 @@ pub(crate) fn claude_settings_from_review(
     review: &ProviderRequestReview,
 ) -> Result<crate::claude_agent::ClaudeGenerationSettings, ProviderFailure> {
     let config = &review.generation_config;
-    let valid_scope = match review.purpose.as_str() {
-        "fileChapter" => review.target_path.is_some() && review.section_update_context.is_none(),
-        "repositoryOverview" => review.target_path.is_none() && review.section_update_context.is_none(),
-        "sectionUpdate" => review.target_path.is_some() && review.section_update_context.is_some(),
-        _ => false,
-    };
-    if review.provider_id != "claude-agent"
-        || review.endpoint_url != "claude-agent-cli://stdio"
-        || config["contractVersion"] != "claude-chapter-v1"
-        || review.pr_guide_context.is_some()
-        || review.pr_change_context.is_some()
-        || review.code_lens_context.is_some()
-        || !valid_scope
-    {
-        return Err(failure(
-            ProviderFailureKind::InvalidReview,
-            "Prepare a native Claude chapter review for this operation.",
-        ));
-    }
+    claude_review_operation(review)?;
     let effort = match config.get("effort") {
         Some(Value::Null) => None,
         Some(Value::String(value)) => Some(value.clone()),

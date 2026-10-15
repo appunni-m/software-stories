@@ -78,3 +78,7 @@ The current FAQ expressly excludes consumer-plan headless wrapping inside third-
 4. Add Claude and Antigravity through their independently qualified auth/runtime paths. Retain direct APIs as optional alternatives, never automatic fallbacks.
 
 Runtime controls must be checked on the pinned packaged integration when validation is authorized. Start from documented runtime capabilities; do not require a VM merely because an earlier generic isolation experiment failed.
+
+## Claude operation implementation delta
+
+Candidate Claude range and Git reviews now use transport-independent native evidence builders and distinct operation contracts. Offline review commands resolve current connection identity natively and derive the repository root from the open project. Internal senders use the existing managed worker and independent validators: ranges/hunks stay transient; guides use separate unaccepted history. No direct API request is built to obtain agent context. Claude receives reviewed evidence through stdin rather than claiming Codex's physical patch staging. These are source changes only: new range/Git review helpers have no UI caller, no sender is registered, and product/account/runtime/isolation qualification remains unresolved. All automatic Claude cells remain Missing; no tests, builds or runtime/model calls ran.

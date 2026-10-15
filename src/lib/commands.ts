@@ -1444,6 +1444,26 @@ export async function buildClaudeChapterReview(connectionId: string, input: {
   return invoke('build_claude_chapter_review', { connectionId, input });
 }
 
+export async function buildClaudeCodeLensReview(connectionId: string, input: {
+  projectId: string; snapshotId: string; target: CodeLensExplanationTarget;
+  settings: ClaudeGenerationSettings;
+}): Promise<ProviderCommandResult<ProviderRequestReview>> {
+  return invoke('build_claude_code_lens_review', { connectionId, input });
+}
+
+export async function buildClaudePrGuideReview(connectionId: string, input: {
+  projectId: string; baseRef: string; headRef: string; comparisonId: string;
+  selectedChanges: SelectedGitChangeIdentity[]; settings: ClaudeGenerationSettings;
+}): Promise<ProviderCommandResult<ProviderRequestReview>> {
+  return invoke('build_claude_pr_guide_review', { connectionId, input });
+}
+
+export async function buildClaudePrChangeReview(connectionId: string, input: {
+  projectId: string; target: PrChangeExplanationTarget; settings: ClaudeGenerationSettings;
+}): Promise<ProviderCommandResult<ProviderRequestReview>> {
+  return invoke('build_claude_pr_change_review', { connectionId, input });
+}
+
 export type HandoffAgent = 'claude-code' | 'codex' | 'antigravity' | 'other';
 export async function buildAgentHandoffReview(input: {
   projectId: string; snapshotId: string; targetPath: string | null;
