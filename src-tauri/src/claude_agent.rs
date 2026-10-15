@@ -328,6 +328,7 @@ pub(crate) struct ClaudeStructuredResult {
 /// finish only after EOF. It must not publish a result before a successful exit.
 pub(crate) struct ClaudeOutputStream {
     expected_model: String,
+    expected_max_turns: u32,
     session_id: Option<String>,
     total_bytes: usize,
     event_count: usize,
@@ -341,6 +342,7 @@ impl ClaudeOutputStream {
         validate_settings_shape(settings)?;
         Ok(Self {
             expected_model: settings.model_id.clone(),
+            expected_max_turns: settings.max_turns,
             session_id: None,
             total_bytes: 0,
             event_count: 0,
@@ -380,8 +382,8 @@ impl ClaudeOutputStream {
                 "Claude sent output after its final result. No response was accepted.".to_owned(),
             );
         }
-        let event: Value = serde_json::from_slice(frame)
-            .map_err(|_| "Claude returned malformed protocol output.".to_owned())?;
+        let event = crate::strict_json::from_slice(frame)
+            .map_err(|_| "Claude returned malformed or duplicate-key protocol output.".to_owned())?;
         if !event.is_object()
             || event
                 .get("parent_tool_use_id")
@@ -500,6 +502,12 @@ impl ClaudeOutputStream {
         self.check_session(event)?;
         if event["subtype"] != "success" || event["is_error"] != false {
             return Err("Claude did not complete a successful structured response. Check the account, quota and turn limit before reviewing a new request.".to_owned());
+        }
+        if !event["num_turns"]
+            .as_u64()
+            .is_some_and(|turns| (1..=u64::from(self.expected_max_turns)).contains(&turns))
+        {
+            return Err("Claude returned a missing, invalid or over-limit turn count. No response was accepted; review the runtime and turn setting before retrying.".to_owned());
         }
         if event
             .get("permission_denials")

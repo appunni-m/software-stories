@@ -47,6 +47,16 @@ PR Guides use their existing immutable draft store through `try_save_draft`. Bus
 
 Chapter drafts remain unaccepted pending previews. Guides remain separate unaccepted PR revisions. Range/hunk explanations remain transient. Plans retain their separate draft/accepted history and explicit notice-resolution flow. None of these stages accepts chapters, marks files explained/read or completes repository coverage.
 
+## Protocol parsing and reported limits
+
+Both agent frame readers now use the chapter decoder's existing recursive duplicate-key rejection, extracted into `strict_json.rs`. Transport/storage byte limits remain at each caller and serde_json's recursion limit remains enabled. Duplicate decoded keys at any depth, including nested structured output, are malformed input; a later value cannot overwrite an earlier model, result, permission or schema field. Codex also rejects non-object RPC frames and validates its final JSON text with the same strict parser before the independent operation validator. Chapter versions 1–4 retain their existing duplicate-key error category; no storage schema changed.
+
+The Claude stream consumer now retains the reviewed maximum turns and requires a successful result's `num_turns` to be an integer from 1 through that limit. Missing, negative, fractional, zero or excessive counts fail the stream and discard its result. The [recorded SDK 0.3.300 declaration inventory](research/snapshots/2026-10-15-claude-sdk-0.3.300.json) identifies the inspected `num_turns` and `maxTurns` surfaces; its declaration checksum was rechecked against the cached source. No SDK or CLI ran for that inspection. Actual CLI/formatter/retry counting still needs native acceptance for every supported turn setting.
+
+These are result-admission checks. They cannot retract usage already incurred, prove provider-reported metadata, establish that a runtime prevented an action before emitting it, or qualify an account/runtime. Framing, initialization, model/session, permission/tool, exit, source-validation, cancellation and publication ownership checks still apply. Failed parser/limit results retain the existing interruption flow and cannot trigger an API/backend fallback.
+
+The changed readers, shared chapter decoding and turn-count contract are unbuilt/unexecuted source. Kata `xymb` contains the deferred nested-duplicate, scalar/malformed, count-boundary, chunk/EOF, limit/cancel and history-preservation cases. No tests were added or run. Codex native acceptance, Claude qualification and the complete multi-agent gate remain open.
+
 ## Discovery and remaining delivery limits
 
 Both app agent panels now refresh recovery after non-planning operations, including range/hunk errors and abandoned replies. Planning retains its own saved-plan/recovery event. The shell versions recovery lookups so a superseded response or initial startup read cannot replace a newer result; local notice removal starts a fresh authoritative lookup. This event only reads local state and cannot launch an agent or restore consent.

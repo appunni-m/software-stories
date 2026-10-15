@@ -47,6 +47,7 @@ mod repository_plan_commands;
 mod repository_plan_history;
 mod repository_plan_store;
 mod snapshot;
+mod strict_json;
 
 use project::{ProjectOpenResult, RecentProject};
 use serde::Serialize;

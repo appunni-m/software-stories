@@ -1161,8 +1161,14 @@ impl ServerProcess {
                             final_order.push(id);
                         }
                     }
-                    let response_text = final_order.last().and_then(|id| messages.get(id))
-                        .filter(|text| serde_json::from_str::<Value>(text).is_ok()).cloned()
+                    let response_text = final_order
+                        .last()
+                        .and_then(|id| messages.get(id))
+                        .filter(|text| {
+                            crate::strict_json::from_slice(text.as_bytes())
+                                .is_ok_and(|value| value.is_object())
+                        })
+                        .cloned()
                         .ok_or("Codex completed without a complete JSON response. No response was accepted.")?;
                     self.request("thread/unsubscribe", json!({"threadId": thread_id}), RPC_TIMEOUT)?;
                     if cancelled.load(Ordering::Acquire) { return Err(cancelled_message()); }
@@ -1410,10 +1416,16 @@ fn read_frame(reader: &mut impl BufRead) -> Result<Value, String> {
         bytes.extend_from_slice(&available[..count]);
         reader.consume(count);
         if complete {
-            return serde_json::from_slice(&bytes).map_err(|_| {
-                "Codex sent malformed protocol output. Reconnect with a supported runtime."
+            let value = crate::strict_json::from_slice(&bytes).map_err(|_| {
+                "Codex sent malformed or duplicate-key protocol output. Reconnect with a supported runtime."
                     .to_owned()
-            });
+            })?;
+            if !value.is_object() {
+                return Err(
+                    "Codex sent a non-object protocol frame. No response was accepted.".to_owned(),
+                );
+            }
+            return Ok(value);
         }
     }
 }

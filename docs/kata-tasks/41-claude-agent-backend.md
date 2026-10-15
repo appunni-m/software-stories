@@ -158,3 +158,9 @@ Strict legacy v1–v3 chapter reads and version-3 overview/pending-preview recov
 - [ ] Review pacing, source-grounded answer quality, navigability and comprehension across representative languages. Recorded metadata/citation validity cannot satisfy this. Multi-unit orchestration and selective updates remain separate pending work.
 
 No tests, builds, app launches, agent/SDK probes, login or model requests ran. Existing fixture constructors only received the required absent-metadata field; no tests were added or executed. Changed Rust regions were formatted and Git whitespace checks are separate from compilation/runtime acceptance. Codex remains Source, every automatic Claude cell remains Missing behind the empty registry, and the multi-agent release requirement remains open.
+
+### Agent JSON and reported-turn admission — source checkpoint, 2026-10-16
+
+Both native agent frame readers now reuse the existing chapter duplicate-key decoder, extracted into a shared module. Codex rejects non-object RPC frames and checks final JSON text strictly. Claude retains the reviewed turn limit and rejects successful results without an integer `num_turns` from 1 through that limit. Existing byte/depth limits, stream failure latching, independent source validation, clean exit, cancellation and publication ownership remain in place. Chapter storage/schema versions are unchanged.
+
+These unbuilt/unexecuted checks neither prevent nor refund reported usage and cannot qualify runtime/account behavior. Complete the new parser/count/EOF/lifecycle cases in `xymb`, including actual CLI formatter/retry count semantics for every supported turn setting. No tests, builds, app launches, runtime probes, logins or model requests ran. Both-agent native acceptance remains open; Claude stays behind the empty qualification registry. See [the lifecycle contract](../AGENT_RESULT_LIFECYCLE.md#protocol-parsing-and-reported-limits).
