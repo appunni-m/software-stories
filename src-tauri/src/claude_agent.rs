@@ -226,23 +226,70 @@ pub(crate) fn prepare_command(
     {
         return Err("The prepared Claude invocation belongs to a different executable, account or private stage. Prepare a new review.".to_owned());
     }
-    if [stage, temporary, account_home].iter().any(|path| {
-        !path.is_absolute()
-            || path
-                .components()
-                .any(|part| matches!(part, std::path::Component::ParentDir))
-    }) {
-        return Err("Claude requires absolute private staging and account paths.".to_owned());
+    let mut command = isolated_command(&runtime.executable_path, stage, temporary, account_home)?;
+    command.args(&invocation.args);
+    Ok(command)
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum ClaudeInspectionCommand {
+    Version,
+    AccountStatus,
+}
+
+/// Supported metadata commands only. There is no prompt, custom argv, login,
+/// install/update action or model request in this preparation path.
+pub(crate) fn prepare_inspection_command(
+    executable: &Path,
+    operation: ClaudeInspectionCommand,
+    stage: &Path,
+    temporary: &Path,
+    account_home: &Path,
+) -> Result<Command, String> {
+    let mut command = isolated_command(executable, stage, temporary, account_home)?;
+    match operation {
+        ClaudeInspectionCommand::Version => {
+            command.arg("--version");
+        }
+        ClaudeInspectionCommand::AccountStatus => {
+            command.args(["auth", "status"]);
+        }
     }
-    let mut command = Command::new(&runtime.executable_path);
+    Ok(command)
+}
+
+fn isolated_command(
+    executable: &Path,
+    stage: &Path,
+    temporary: &Path,
+    account_home: &Path,
+) -> Result<Command, String> {
+    if [executable, stage, temporary, account_home]
+        .iter()
+        .any(|path| {
+            !path.is_absolute()
+                || path.to_str().is_none()
+                || path.as_os_str().len() > 4096
+                || path
+                    .components()
+                    .any(|part| matches!(part, std::path::Component::ParentDir))
+        })
+    {
+        return Err(
+            "Claude requires absolute executable, private staging and account paths.".to_owned(),
+        );
+    }
+    let mut command = Command::new(executable);
     command
-        .args(&invocation.args)
         .current_dir(stage)
         .env_clear()
         .env("HOME", account_home)
         .env("TMPDIR", temporary)
         .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
-        .env("LANG", "en_US.UTF-8");
+        .env("LANG", "en_US.UTF-8")
+        // Inspection/generation must not start the vendor's background
+        // updater and replace the executable whose identity was reviewed.
+        .env("DISABLE_AUTOUPDATER", "1");
     #[cfg(unix)]
     {
         use std::os::unix::process::CommandExt;

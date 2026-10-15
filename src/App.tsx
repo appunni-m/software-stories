@@ -2,6 +2,8 @@ import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useR
 import { listen } from '@tauri-apps/api/event';
 import { CodexChapterDialog, type CodexChapterDialogMode } from './CodexChapterDialog';
 import { AgentHandoffDialog } from './AgentHandoffDialog';
+import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
+import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import {
   ArrowLeft,
   ArrowRight,
@@ -195,42 +197,6 @@ const projectResultTitles: Record<ProjectOpenStatus, string> = {
   recentProjectUnavailable: 'This recent project is unavailable',
 };
 
-function useModalFocusTrap(dialogRef: RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Tab') return;
-      const dialog = dialogRef.current;
-      if (!dialog) return;
-      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
-        'a[href], button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), textarea:not(:disabled), [contenteditable="true"], [tabindex]:not([tabindex="-1"])',
-      )).filter((element) => (
-        !element.hasAttribute('hidden')
-        && element.getAttribute('aria-hidden') !== 'true'
-        && element.getClientRects().length > 0
-      ));
-      if (focusable.length === 0) {
-        event.preventDefault();
-        dialog.focus();
-        return;
-      }
-
-      const active = document.activeElement;
-      const activeIndex = focusable.indexOf(active as HTMLElement);
-      if (!dialog.contains(active) || activeIndex < 0) {
-        event.preventDefault();
-        (event.shiftKey ? focusable[focusable.length - 1] : focusable[0]).focus();
-      } else if (event.shiftKey && activeIndex === 0) {
-        event.preventDefault();
-        focusable[focusable.length - 1].focus();
-      } else if (!event.shiftKey && activeIndex === focusable.length - 1) {
-        event.preventDefault();
-        focusable[0].focus();
-      }
-    };
-    document.addEventListener('keydown', onKeyDown, true);
-    return () => document.removeEventListener('keydown', onKeyDown, true);
-  }, [dialogRef]);
-}
 
 function App() {
   const [navigation, setNavigation] = useState<NavigationState>(initialNavigationState);
@@ -1741,7 +1707,7 @@ interface ProviderDialogProps {
 function ProviderDialog(props: ProviderDialogProps) {
   const agentOperation = props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview' || props.mode.kind === 'section-update' || props.mode.kind === 'code-lens-range';
   const handoffOperation = props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview';
-  const [backend, setBackend] = useState<'choose' | 'codex' | 'handoff' | 'api'>(() => {
+  const [backend, setBackend] = useState<'choose' | 'codex' | 'claude-setup' | 'handoff' | 'api'>(() => {
     if (props.mode.recoveryBackend === 'codex' && agentOperation) return 'codex';
     if (props.mode.kind === 'settings' && props.mode.backend === 'api') return 'api';
     return 'choose';
@@ -1758,8 +1724,9 @@ function ProviderDialog(props: ProviderDialogProps) {
     window.addEventListener('keydown', close);
     return () => window.removeEventListener('keydown', close);
   }, [backend, props.onClose]);
-  const choose = (next: 'codex' | 'handoff' | 'api') => setBackend(next);
+  const choose = (next: 'codex' | 'claude-setup' | 'handoff' | 'api') => setBackend(next);
   if (backend === 'api') return <DirectApiDialog {...props} onChooseBackend={() => setBackend('choose')} />;
+  if (backend === 'claude-setup') return <ClaudeConnectionDialog native={props.native} onClose={props.onClose} onChooseBackend={() => setBackend('choose')} />;
   if (backend === 'handoff' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview')) {
     return <AgentHandoffDialog mode={props.mode.kind === 'settings' ? 'settings' : props.mode} native={props.native}
       initialAgent={handoffAgent} onClose={props.onClose} onChooseBackend={() => setBackend('choose')} />;
@@ -1787,10 +1754,13 @@ function ProviderDialog(props: ProviderDialogProps) {
           <button className="primary-button" disabled={!agentOperation} onClick={() => choose('codex')}>Use Codex</button>
           {!agentOperation && <p role="status">Codex support for this operation is pending. The current source adapter covers file chapters, overviews, one-section repairs and exact code selections.</p>}
         </section>
-        <section className="provider-review-card"><h3>Claude Code · manual handoff</h3>
+        <section className="provider-review-card"><h3>Claude Agent · setup in progress</h3>
+          <p>Check an installed Claude CLI and its reported account route. Automatic generation and model discovery are still being implemented.</p>
+          <button className="secondary-button" onClick={() => choose('claude-setup')}>Check Claude installation</button>
+          <h4>Manual Claude Code handoff</h4>
           <p>Copy a reviewed task into Claude Code, then import its JSON explanation for local source validation. Configure model, reasoning and approvals in Claude Code. Code Atlas needs no API key for this workflow.</p>
           <button className="primary-button" disabled={!handoffOperation} onClick={() => { setHandoffAgent('claude-code'); choose('handoff'); }}>Use Claude Code handoff</button>
-          <p className="provider-small-note">Automatic Claude Agent integration is a separate pending task; no Claude login or background run is offered here.</p>
+          <p className="provider-small-note">Automatic Claude Agent integration is a separate pending task; no Claude login or automatic generation is offered here.</p>
         </section>
         <section className="provider-review-card"><h3>Antigravity or another agent · manual handoff</h3>
           <p>Use the same reviewed task and validated import with your chosen agent. Its own account rules and permissions apply. Code Atlas does not manage or verify that external run.</p>

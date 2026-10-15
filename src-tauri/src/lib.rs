@@ -17,6 +17,8 @@ mod chapter_store;
 mod chapters;
 mod agent_handoff;
 mod claude_agent;
+mod claude_commands;
+mod claude_connection;
 mod claude_worker;
 mod codex_agent;
 mod codex_commands;
@@ -1776,6 +1778,8 @@ pub fn run() {
             codex_commands::send_codex_code_lens_request,
             codex_commands::send_codex_chapter_request,
             codex_commands::cancel_codex_chapter_request,
+            claude_commands::inspect_claude_agent_connection,
+            claude_commands::cancel_claude_agent_operation,
             get_application_status,
             get_capture_limits,
             pick_project_folder,

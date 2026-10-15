@@ -1354,6 +1354,32 @@ export async function cancelCodexChapterRequest(runId: string): Promise<boolean>
   return invoke('cancel_codex_chapter_request', { runId });
 }
 
+export type ClaudeInspectionFailureKind = 'busy' | 'cancelled' | 'timedOut' | 'runtimeChanged'
+  | 'preparationFailed' | 'processFailed' | 'protocolRejected' | 'outputLimit' | 'cleanupFailed' | 'unsupportedPlatform';
+export interface ClaudeConnectionObservation {
+  executablePath: string;
+  executableSha256: string;
+  runtimeVersion: string;
+  candidateVersionMatches: boolean;
+  automaticGenerationAvailable: false;
+  account: {
+    loggedIn: boolean;
+    authMethod: 'none' | 'claudeAccount' | 'oauthToken' | 'apiKey' | 'apiKeyHelper' | 'thirdParty' | 'unrecognized';
+    firstPartyProvider: boolean;
+    accountEmail: string | null;
+    subscriptionType: string | null;
+    configDirectory: string | null;
+    accountIdentitySha256: string | null;
+  } | null;
+  message: string;
+}
+export async function inspectClaudeAgentConnection(executablePath: string, runId: string): Promise<ClaudeConnectionObservation> {
+  return invoke('inspect_claude_agent_connection', { executablePath, runId });
+}
+export async function cancelClaudeAgentOperation(runId: string): Promise<boolean> {
+  return invoke('cancel_claude_agent_operation', { runId });
+}
+
 export type HandoffAgent = 'claude-code' | 'codex' | 'antigravity' | 'other';
 export async function buildAgentHandoffReview(input: {
   projectId: string; snapshotId: string; targetPath: string | null;

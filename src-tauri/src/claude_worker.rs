@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 const CANCEL_TTL: Duration = Duration::from_secs(15 * 60);
 const MAX_CANCELLED_RUNS: usize = 256;
 const BUSY: &str =
-    "Claude Agent is busy. Finish or cancel the active generation before starting another run.";
+    "Claude Agent is busy. Finish or cancel the active operation before starting another.";
 
 pub(crate) struct ClaudeWorkerInput {
     pub run_id: String,
@@ -99,8 +99,49 @@ impl ClaudeWorkerManager {
         input: &ClaudeWorkerInput,
         mut progress: impl FnMut(ClaudeWorkerProgress),
     ) -> Result<ClaudeStructuredResult, ClaudeWorkerFailure> {
+        self.with_operation(&input.run_id, |cancelled| {
+            progress(ClaudeWorkerProgress {
+                run_id: input.run_id.clone(), phase: "preparing",
+                message: "Preparing the reviewed Claude request in private temporary storage.",
+            });
+            #[cfg(unix)]
+            { native::run(&self.0, storage_dir, runtime, input, cancelled, &mut progress) }
+            #[cfg(not(unix))]
+            {
+                let _ = (storage_dir, runtime, input, progress, cancelled);
+                Err(failure(ClaudeWorkerFailureKind::UnsupportedPlatform,
+                    "This Claude worker requires the reviewed Unix process and pipe controls. No process was started."))
+            }
+        })
+    }
+
+    /// Explicit, source-free metadata inspection. This does not authenticate,
+    /// discover models, establish eligibility or enable automatic generation.
+    pub(crate) fn inspect_connection(
+        &self,
+        storage_dir: &Path,
+        executable: &Path,
+        run_id: &str,
+    ) -> Result<crate::claude_connection::ClaudeConnectionObservation, ClaudeWorkerFailure> {
+        self.with_operation(run_id, |cancelled| {
+            #[cfg(unix)]
+            { native::inspect_connection(&self.0, storage_dir, executable, cancelled) }
+            #[cfg(not(unix))]
+            {
+                let _ = (storage_dir, executable, cancelled);
+                Err(failure(ClaudeWorkerFailureKind::UnsupportedPlatform,
+                    "Claude CLI inspection requires the reviewed Unix process controls. No process was started."))
+            }
+        })
+    }
+
+    fn with_operation<T>(
+        &self,
+        run_id: &str,
+        operation: impl FnOnce(&AtomicBool) -> Result<T, ClaudeWorkerFailure>,
+    ) -> Result<T, ClaudeWorkerFailure> {
         use ClaudeWorkerFailureKind as Kind;
-        if uuid::Uuid::parse_str(&input.run_id).is_err() {
+        if uuid::Uuid::parse_str(run_id).is_err() {
             return Err(failure(
                 Kind::PreparationFailed,
                 "The Claude run identity is invalid. Prepare a fresh review.",
@@ -132,41 +173,20 @@ impl ClaudeWorkerManager {
                 .lock()
                 .map_err(|_| failure(Kind::Busy, BUSY))?;
             tombstones.retain(|_, at| at.elapsed() < CANCEL_TTL);
-            if tombstones.remove(&input.run_id).is_some() {
+            if tombstones.remove(run_id).is_some() {
                 return Err(cancelled_failure());
             }
             if active.is_some() {
                 return Err(failure(Kind::Busy, BUSY));
             }
             *active = Some(ActiveRun {
-                id: input.run_id.clone(),
+                id: run_id.to_owned(),
                 cancelled: cancelled.clone(),
             });
         }
         let _active = ActiveGuard(self.0.clone());
         check_cancelled(&self.0, &cancelled)?;
-        progress(ClaudeWorkerProgress {
-            run_id: input.run_id.clone(),
-            phase: "preparing",
-            message: "Preparing the reviewed Claude request in private temporary storage.",
-        });
-        #[cfg(unix)]
-        let result = native::run(
-            &self.0,
-            storage_dir,
-            runtime,
-            input,
-            &cancelled,
-            &mut progress,
-        );
-        #[cfg(not(unix))]
-        let result = {
-            let _ = (storage_dir, runtime, input, progress);
-            Err(failure(
-                Kind::UnsupportedPlatform,
-                "This Claude worker requires the reviewed Unix process and pipe controls. No process was started.",
-            ))
-        };
+        let result = operation(&cancelled);
         if result
             .as_ref()
             .err()
@@ -289,6 +309,253 @@ mod native {
     const MAX_STDERR_BYTES: usize = 256 * 1024;
     const IO_CHUNK: usize = 16 * 1024;
     const IO_BURST: usize = 128 * 1024;
+    const INSPECTION_TIMEOUT: Duration = Duration::from_secs(45);
+
+    pub(super) fn inspect_connection(
+        manager: &Arc<ManagerInner>,
+        storage_dir: &Path,
+        executable: &Path,
+        cancelled: &AtomicBool,
+    ) -> Result<crate::claude_connection::ClaudeConnectionObservation, ClaudeWorkerFailure> {
+        use crate::claude_agent::ClaudeInspectionCommand as Inspection;
+        use crate::claude_connection::{self, ClaudeAuthMethod, ClaudeConnectionObservation};
+        use ClaudeWorkerFailureKind as Kind;
+        let started = Instant::now();
+        let check = || inspection_deadline(manager, cancelled, started);
+        check()?;
+        let (path, digest) = inspect_executable(executable, check)?;
+        let stage = PrivateStage::create(storage_dir, &manager.cleanup_failed)?;
+        let account_home = std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .filter(|path| path.is_absolute())
+            .ok_or_else(|| {
+                failure(
+                    Kind::PreparationFailed,
+                    "The native account home is unavailable. No Claude inspection was started.",
+                )
+            })?;
+        let (version_bytes, version_exit) = inspect_command(
+            manager,
+            &path,
+            Inspection::Version,
+            &stage,
+            &account_home,
+            cancelled,
+            started,
+            128,
+        )?;
+        if !version_exit.success() {
+            return Err(failure(
+                Kind::ProcessFailed,
+                "The selected Claude executable did not complete its version check.",
+            ));
+        }
+        let version = claude_connection::parse_version(&version_bytes)
+            .map_err(|message| failure(Kind::ProtocolRejected, message))?;
+        let matches = version == claude_agent::CANDIDATE_RUNTIME_VERSION;
+        let mut account = None;
+        let message = if matches {
+            let identity = inspect_executable(&path, check)?;
+            if identity.0 != path || identity.1 != digest {
+                return Err(failure(
+                    Kind::RuntimeChanged,
+                    "The Claude executable changed during inspection. Check installation again.",
+                ));
+            }
+            let (bytes, status) = inspect_command(
+                manager,
+                &path,
+                Inspection::AccountStatus,
+                &stage,
+                &account_home,
+                cancelled,
+                started,
+                64 * 1024,
+            )?;
+            let observed = claude_connection::parse_account_status(&bytes, status.code())
+                .map_err(|message| failure(Kind::ProtocolRejected, message))?;
+            let message = if !observed.logged_in {
+                "Claude reports no active account. Automatic generation is still unavailable."
+            } else if matches!(
+                observed.auth_method,
+                ClaudeAuthMethod::ApiKey
+                    | ClaudeAuthMethod::ApiKeyHelper
+                    | ClaudeAuthMethod::ThirdParty
+            ) {
+                "Claude reports API-key or alternate-provider authentication. This does not qualify the account-backed generation route. No prompt was sent."
+            } else if observed.account_identity_sha256.is_some() {
+                "Claude reports an existing account login. Model discovery, product eligibility and automatic generation remain pending."
+            } else {
+                "Claude reported incomplete or unsupported account metadata. Automatic generation remains unavailable."
+            };
+            account = Some(observed);
+            message
+        } else {
+            "This Claude version differs from the candidate adapter version. Account inspection was skipped. Automatic generation remains unavailable."
+        };
+        let identity = inspect_executable(&path, check)?;
+        if identity.0 != path || identity.1 != digest {
+            return Err(failure(
+                Kind::RuntimeChanged,
+                "The Claude executable changed during inspection. Check installation again.",
+            ));
+        }
+        stage.cleanup()?;
+        check()?;
+        Ok(ClaudeConnectionObservation {
+            executable_path: path
+                .to_str()
+                .ok_or_else(|| {
+                    failure(
+                        Kind::PreparationFailed,
+                        "The Claude executable path is not valid UTF-8.",
+                    )
+                })?
+                .to_owned(),
+            executable_sha256: digest,
+            runtime_version: version,
+            candidate_version_matches: matches,
+            account,
+            automatic_generation_available: false,
+            message,
+        })
+    }
+
+    fn inspection_deadline(
+        manager: &ManagerInner,
+        cancelled: &AtomicBool,
+        started: Instant,
+    ) -> Result<(), ClaudeWorkerFailure> {
+        check_cancelled(manager, cancelled)?;
+        if started.elapsed() >= INSPECTION_TIMEOUT {
+            Err(failure(
+                ClaudeWorkerFailureKind::TimedOut,
+                "Claude installation/account inspection exceeded 45 seconds. No prompt was sent.",
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
+    fn inspect_command(
+        manager: &ManagerInner,
+        executable: &Path,
+        operation: claude_agent::ClaudeInspectionCommand,
+        stage: &PrivateStage<'_>,
+        account_home: &Path,
+        cancelled: &AtomicBool,
+        started: Instant,
+        output_limit: usize,
+    ) -> Result<(Vec<u8>, ExitStatus), ClaudeWorkerFailure> {
+        use ClaudeWorkerFailureKind as Kind;
+        inspection_deadline(manager, cancelled, started)?;
+        let mut command = claude_agent::prepare_inspection_command(
+            executable,
+            operation,
+            &stage.path,
+            &stage.temporary_path(),
+            account_home,
+        )
+        .map_err(|message| failure(Kind::PreparationFailed, message))?;
+        let mut child = OwnedChild::spawn(manager, &mut command, cancelled)?;
+        // No source, prompt, user message or control-protocol request is sent.
+        child.stdin.take();
+        let mut output = Vec::new();
+        let mut diagnostics = 0;
+        let mut stdout_eof = false;
+        let mut stderr_eof = false;
+        let mut exit = None;
+        let mut drain_started = None;
+        let result = (|| {
+            loop {
+                inspection_deadline(manager, cancelled, started)?;
+                if !stdout_eof {
+                    stdout_eof =
+                        drain_inspection_output(child.stdout()?, &mut output, output_limit)?;
+                }
+                if !stderr_eof {
+                    stderr_eof = drain_stderr(child.stderr()?, &mut diagnostics)?;
+                }
+                if exit.is_none() {
+                    if let Some(status) = child.try_finish()? {
+                        exit = Some(status);
+                        drain_started = Some(Instant::now());
+                    }
+                }
+                if stdout_eof && stderr_eof && exit.is_some() {
+                    break;
+                }
+                if drain_started.is_some_and(|at: Instant| at.elapsed() >= PIPE_DRAIN_TIMEOUT) {
+                    return Err(failure(
+                        Kind::ProcessFailed,
+                        "Claude inspection exited but an output pipe did not close.",
+                    ));
+                }
+                thread::sleep(POLL_INTERVAL);
+            }
+            let status = exit.ok_or_else(|| {
+                failure(
+                    Kind::ProcessFailed,
+                    "The Claude inspection exit status is unavailable.",
+                )
+            })?;
+            Ok((output, status))
+        })();
+        if result.is_err() && !child.reaped {
+            let graceful = result
+                .as_ref()
+                .err()
+                .is_some_and(|error: &ClaudeWorkerFailure| {
+                    matches!(error.kind, Kind::Cancelled | Kind::TimedOut)
+                });
+            child.stop_and_reap(graceful)?;
+        }
+        drop(child);
+        result
+    }
+
+    fn drain_inspection_output(
+        stdout: &mut ChildStdout,
+        output: &mut Vec<u8>,
+        limit: usize,
+    ) -> Result<bool, ClaudeWorkerFailure> {
+        let mut bytes = [0_u8; IO_CHUNK];
+        let mut burst = 0;
+        while burst < IO_BURST {
+            let length = limit
+                .saturating_sub(output.len())
+                .saturating_add(1)
+                .min(bytes.len());
+            match stdout.read(&mut bytes[..length]) {
+                Ok(0) => return Ok(true),
+                Ok(count) => {
+                    if output.len().saturating_add(count) > limit {
+                        return Err(failure(
+                            ClaudeWorkerFailureKind::OutputLimit,
+                            "Claude inspection output exceeded its local metadata limit.",
+                        ));
+                    }
+                    output.extend_from_slice(&bytes[..count]);
+                    burst += count;
+                }
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                    ) =>
+                {
+                    return Ok(false);
+                }
+                Err(_) => {
+                    return Err(failure(
+                        ClaudeWorkerFailureKind::ProcessFailed,
+                        "Claude inspection output could not be read.",
+                    ));
+                }
+            }
+        }
+        Ok(false)
+    }
 
     pub(super) fn run(
         manager: &Arc<ManagerInner>,
@@ -494,17 +761,42 @@ mod native {
         cancelled: &AtomicBool,
         started: Instant,
     ) -> Result<(), ClaudeWorkerFailure> {
+        let (path, digest) = inspect_executable(&runtime.executable_path, || {
+            check_deadline(manager, cancelled, started)
+        })?;
+        if path != runtime.executable_path || digest != runtime.executable_sha256 {
+            return Err(failure(
+                ClaudeWorkerFailureKind::RuntimeChanged,
+                "The reviewed Claude executable changed. Prepare a fresh review.",
+            ));
+        }
+        Ok(())
+    }
+
+    fn inspect_executable(
+        executable: &Path,
+        mut check: impl FnMut() -> Result<(), ClaudeWorkerFailure>,
+    ) -> Result<(PathBuf, String), ClaudeWorkerFailure> {
         use ClaudeWorkerFailureKind as Kind;
+        if !executable.is_absolute()
+            || executable.to_str().is_none()
+            || executable.as_os_str().len() > 4096
+            || executable
+                .components()
+                .any(|part| matches!(part, std::path::Component::ParentDir))
+        {
+            return Err(failure(
+                Kind::PreparationFailed,
+                "Choose an absolute path to an installed Claude CLI executable.",
+            ));
+        }
         let changed = || {
             failure(
                 Kind::RuntimeChanged,
                 "The reviewed Claude executable changed or is unavailable. Prepare a fresh review with the qualified runtime.",
             )
         };
-        let canonical = fs::canonicalize(&runtime.executable_path).map_err(|_| changed())?;
-        if canonical != runtime.executable_path {
-            return Err(changed());
-        }
+        let canonical = fs::canonicalize(executable).map_err(|_| changed())?;
         let mut file = OpenOptions::new()
             .read(true)
             .custom_flags(libc::O_NOFOLLOW)
@@ -522,7 +814,7 @@ mod native {
         let mut total = 0_u64;
         let mut bytes = [0_u8; 64 * 1024];
         loop {
-            check_deadline(manager, cancelled, started)?;
+            check()?;
             let read_limit = MAX_EXECUTABLE_BYTES
                 .saturating_sub(total)
                 .saturating_add(1)
@@ -537,12 +829,10 @@ mod native {
             }
             digest.update(&bytes[..count]);
         }
-        if total != metadata.len()
-            || format!("{:x}", digest.finalize()) != runtime.executable_sha256
-        {
+        if total != metadata.len() {
             return Err(changed());
         }
-        Ok(())
+        Ok((canonical, format!("{:x}", digest.finalize())))
     }
 
     #[derive(Default)]

@@ -6,7 +6,8 @@ Coding agents are primary generation options. Direct API keys are optional. The 
 
 | Choice | How the task runs | Configure model, reasoning and approvals | Current scope |
 | --- | --- | --- | --- |
-| Codex · ChatGPT account | Native managed official app-server | Select advertised model/reasoning in Code Atlas; approval currently fixed to `never` | File chapters, selected-source overviews and one-section stale repairs; runtime/account/package qualification pending |
+| Codex · ChatGPT account | Native managed official app-server | Select advertised model/reasoning in Code Atlas; approval currently fixed to `never` | File chapters, selected-source overviews, one-section stale repairs and exact code selections; runtime/account/package qualification pending |
+| Claude Agent · setup check | Explicit native version/account-metadata inspection; no prompt | No generation settings yet | Setup only; automatic generation remains missing |
 | Claude Code · manual handoff | Copy task into your own agent, then import JSON | In Claude Code; Code Atlas cannot apply or verify them | File chapters and selected-source overviews; automatic Claude Agent adapter remains required |
 | Antigravity or another agent · manual handoff | Same user-operated text exchange | In the external agent; unverified here | Same bounded chapters; automatic vendor integrations remain pending |
 | Direct API | An explicitly selected API provider | In its Code Atlas request dialog | Existing API operation matrix; separate API key and billing |
@@ -19,7 +20,11 @@ Coding agents are primary generation options. Direct API keys are optional. The 
 4. Select and review the immutable source and effective request. Confirm sharing that context, then generate.
 5. Review the locally validated preview. **Save unaccepted draft**, then review and accept from the app's editing workflow.
 
-**Change backend** returns to all choices; it discards an unsaved preview. Requests never automatically switch to a paid API. The initial adapter does not yet cover Code Lens or PR generation. Its full account, permission, cancellation and packaged-runtime acceptance remains open in `z3an`.
+**Change backend** returns to all choices; it discards an unsaved preview. Requests never automatically switch to a paid API. The source adapter covers exact Code Lens selections; PR generation remains missing. Its full account, permission, cancellation and packaged-runtime acceptance remains open in `z3an`.
+
+### Explain a selected code range with Codex
+
+In Files, select the captured code range, choose its explanation action and **Use Codex**. The range stays fixed while you choose model/reasoning and review the excerpt. Confirm the reviewed source, then generate. Locally validated claims appear temporarily with actions that open their exact citations. Closing or discarding the explanation saves no chapter draft or history. After interruption, reselect the original range and review again. Native runtime acceptance remains pending.
 
 ### Repair one stale section with Codex
 
@@ -28,6 +33,12 @@ In Edit, assess an accepted older chapter against the selected current snapshot.
 ### Interrupted requests
 
 **Review interrupted work** restores a recorded Codex file, selected-source overview or exact section repair into Codex. It reloads recorded source paths and the accepted section/base identity, then requires fresh review and consent. It does not resume a runtime thread or automatically send anything. Old records without request-scope metadata require you to reselect the original evidence. Range and Git-change records also require their original range/comparison to be selected again; they never become whole-file generation requests. Navigating away abandons a pending recovery lookup. Native recovery acceptance remains pending.
+
+## Check Claude installation
+
+From the backend chooser, select **Check Claude installation** in the macOS app. Enter the absolute path to your installed CLI and explicitly start the check. It inspects version and, for the candidate adapter version, reported account metadata. The app remembers only the canonical executable path. Cancel or close to abandon the check; browser preview cannot run it.
+
+The result is an installation observation. It does not log in, discover models, prove plan eligibility or start generation. A reported API-key/helper route stays distinct from a reported Claude account. Automatic Claude generation remains required in `8gqw`; this setup screen does not complete it.
 
 ## Manual Claude Code or other agent handoff
 

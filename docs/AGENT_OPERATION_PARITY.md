@@ -12,7 +12,7 @@ Direct APIs remain separately selectable. Manual handoff remains separately labe
 
 **Source** means native dispatch and local validation are present in source, with runtime acceptance still pending. **Missing** means the automatic adapter/operation is not implemented. None of these entries means production support.
 
-Claude now has invocation/stream-consumer, shared chapter/section review helpers and a managed process supervisor in source. Native dispatch, UI, account/runtime qualification and lifecycle acceptance remain missing, so its automatic operation cells stay **Missing**. Constructing the manager starts no process; no generation command calls it.
+Claude now has invocation/stream-consumer, shared chapter/section review helpers, a managed process supervisor and an explicit installation/account-metadata check in source. The check has a native command and setup UI, but sends no prompt and never enables generation. Model discovery, generation dispatch/UI, account/runtime qualification and lifecycle acceptance remain missing, so its automatic operation cells stay **Missing**. Constructing the manager starts no process; no generation command calls it.
 
 | Operation and result | Codex | Claude Agent | Antigravity |
 | --- | --- | --- | --- |
@@ -49,7 +49,7 @@ Keep operation context and validation independent of transport. Extend the exist
 | --- | --- |
 | [provider.rs](../src-tauri/src/provider.rs) | Immutable chapter/section context, review fingerprints and operation-specific range/PR validators |
 | [codex_commands.rs](../src-tauri/src/codex_commands.rs), [codex_agent.rs](../src-tauri/src/codex_agent.rs) | Existing native Codex dispatch and managed runtime lifecycle |
-| [claude_agent.rs](../src-tauri/src/claude_agent.rs), [claude_worker.rs](../src-tauri/src/claude_worker.rs) | Candidate Claude CLI protocol and process supervision; native discovery/dispatch/UI and qualification remain open |
+| [claude_agent.rs](../src-tauri/src/claude_agent.rs), [claude_worker.rs](../src-tauri/src/claude_worker.rs), [claude_connection.rs](../src-tauri/src/claude_connection.rs), [claude_commands.rs](../src-tauri/src/claude_commands.rs) | Candidate Claude protocol/process supervision and explicit sanitized version/account inspection; model discovery, generation dispatch/UI and qualification remain open |
 | [chapter_generation.rs](../src-tauri/src/chapter_generation.rs), [lib.rs](../src-tauri/src/lib.rs) | Chapter/section preservation and draft preparation; separate PR Guide preparation |
 | [recovery.rs](../src-tauri/src/recovery.rs) | Bounded interruption metadata without source, credentials or reusable consent |
 | [App.tsx](../src/App.tsx), [CodexChapterDialog.tsx](../src/CodexChapterDialog.tsx) | Current backend chooser and supported Codex operation/settings flow |

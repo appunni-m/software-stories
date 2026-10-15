@@ -55,7 +55,24 @@ The bounded output consumer checks initialization, session/model identity, permi
 
 The Unix implementation observes child exit using `waitid(..., WNOWAIT)` before group cleanup and reaping, with signaling and PID publication under one mutex. `ECHILD` drops the stale identity and rejects the run instead of signaling a possibly reused PID. Pipe flag and wait-record FFI contracts were inspected against locked libc `0.2.190` and local macOS SDK headers. This is source review, not native lifecycle evidence. Hard app termination, child escape, platform behavior, blocking OS cleanup and executable replacement between hash inspection and launch remain unqualified.
 
-**Not delivered:** runtime/account discovery, qualified model catalog, account reinspection, Tauri dispatch, connection/generation UI, persisted recovery, range/PR operations or permitted account-route evidence. Automatic Claude generation is still unavailable. Native code must supply runtime identity; the WebView cannot deserialize it. Environment clearing and staged working directories do not prove managed-policy behavior, OS confinement, provider egress restrictions or absence of internal model fallback. Qualify those before enabling a route. No tests, builds, agent processes, logins or model requests ran. Process supervision and storage cleanup also require the deferred acceptance in `xymb`; source implementation does not close this task.
+**Not delivered:** qualified model catalog, account reinspection for generation, automatic generation dispatch/UI, persisted recovery, range/PR operations or permitted account-route evidence. Automatic Claude generation is still unavailable. Native code must supply runtime identity; the WebView cannot deserialize it. Environment clearing and staged working directories do not prove managed-policy behavior, OS confinement, provider egress restrictions or absence of internal model fallback. Qualify those before enabling a route. No tests, builds, agent processes, logins or model requests ran. Process supervision and storage cleanup also require the deferred acceptance in `xymb`; source implementation does not close this task.
+
+## Source progress — explicit installation/account inspection; generation remains missing
+
+The backend chooser now offers **Check Claude installation** independently of direct API setup. `ClaudeConnectionDialog.tsx` invokes a native inspection only after an explicit click in the macOS app. It remembers only the canonical executable path; account observations remain in memory. Browser preview and mounting the dialog start no process. Closing, returning to the chooser or cancelling abandons metadata and requests cancellation; the shared native manager handles early cancellation and one active operation.
+
+`claude_commands.rs` registers inspection and cancellation, not generation or login. The worker hashes the selected executable, runs only `--version`, and, for the candidate `2.1.300`, the documented `auth status` command. It uses the existing owned-process cleanup, bounded nonblocking pipes and private storage, with a 45-second cooperative inspection deadline. Version stdout is limited to 128 bytes; account JSON to 64 KiB; stderr to 256 KiB and discarded. It rechecks executable identity between commands and before returning. The shared cleared environment keeps real HOME for the vendor account store, does not set `CLAUDE_CONFIG_DIR`, and disables the vendor background updater with `DISABLE_AUTOUPDATER=1`. This does not prevent executable replacement by another process or qualify immutable execution.
+
+`claude_connection.rs` accepts a strict semantic version envelope and typed documented account fields, rejects duplicate known fields, malformed/oversized JSON and inconsistent login/exit metadata, and discards unknown fields. It reports account, API-key/helper, alternate-provider and unknown routes separately. A bounded hash of reported account/configuration metadata is neither a credential nor entitlement proof. Raw stdout, stderr and future credential fields never become UI messages, logs or saved preferences. Matching the candidate or reporting a login leaves `automaticGenerationAvailable` false; no model turn is started by inspection.
+
+### Remaining work in order
+
+1. Qualify a vendor-maintained model-discovery surface and its exact version/provenance. The current documented CLI command list does not establish a model-list command. Evaluate the maintained SDK's initialization/server-information capabilities before choosing an adapter; do not invent an undocumented control RPC, fabricate a catalog or call the direct model API as a hidden prerequisite. Resolve aliases to the exact requested/observed model and model-specific effort capabilities. A metadata list alone is not account entitlement.
+2. Resolve the exact permitted product/account route, then bind fresh native account/catalog/executable observations to review and recheck before dispatch. An API-backed route stays an explicit separate choice and cannot close the no-mandatory-API requirement.
+3. Connect file/overview generation through the existing shared review, worker, independent evidence validation, unaccepted draft and explicit acceptance flow. Add effective model/effort/approval controls, app-authored progress, cancellation and scope-preserving recovery. A successful setup check is not generation support.
+4. Complete section, exact range and both Git-change operations in the required parity matrix, then record the deferred native/runtime acceptance in `xymb`. Keep this task, `2r6n` and M7 open until their actual criteria are met.
+
+This delta also restricts the manual handoff dialog's mode type after Codex range support: it accepts chapters/overviews only. Shared modal focus handling includes the native disclosure's summary control. No tests, builds, app launches, CLI probes, logins or model requests ran.
 
 ## References
 - https://code.claude.com/docs/en/agent-sdk/overview
@@ -65,3 +82,5 @@ The Unix implementation observes child exit using `waitid(..., WNOWAIT)` before 
 - https://code.claude.com/docs/en/agent-sdk/permissions
 - https://code.claude.com/docs/en/agent-sdk/python
 - https://code.claude.com/docs/en/agent-sdk/structured-outputs
+- https://code.claude.com/docs/en/cli-reference
+- https://code.claude.com/docs/en/setup#disable-auto-updates
