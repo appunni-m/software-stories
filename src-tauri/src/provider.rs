@@ -1582,6 +1582,20 @@ pub(crate) fn canonicalize_claude_pr_change_explanation(
     })
 }
 
+/// Validate a hunk only while its original native Codex operation owns
+/// result access. Ordinary review expiry cannot admit or cancel this run.
+pub(crate) fn canonicalize_codex_pr_change_explanation(
+    storage_dir: &Path,
+    repository: &Path,
+    review: &ProviderRequestReview,
+    result: &ProviderSendResult,
+    access: &crate::codex_agent::CodexResultAccess<'_>,
+) -> Result<PrChangeExplanationPreview, ProviderFailure> {
+    canonicalize_pr_change_with_revalidation(repository, review, result, || {
+        rebuild_active_codex_review(storage_dir, repository, review, access)
+    })
+}
+
 fn canonicalize_pr_change_with_revalidation(
     repository: &Path,
     review: &ProviderRequestReview,
@@ -3799,6 +3813,14 @@ pub(crate) fn revalidate_codex_git_review(
             "Build a fresh Codex Git-change review before generating.",
         ));
     }
+    rebuild_codex_git_review_context(repository, review, executable_path)
+}
+
+fn rebuild_codex_git_review_context(
+    repository: &Path,
+    review: &ProviderRequestReview,
+    executable_path: &str,
+) -> Result<PendingProviderRequest, ProviderFailure> {
     if review.section_update_context.is_some() || review.code_lens_context.is_some() {
         return Err(failure(
             ProviderFailureKind::InvalidReview,
@@ -3870,6 +3892,14 @@ pub(crate) fn revalidate_codex_request_review(
             "Build a fresh Codex request review before generating.",
         ));
     }
+    rebuild_codex_request_review_context(storage_dir, review, executable_path).map(|_| ())
+}
+
+fn rebuild_codex_request_review_context(
+    storage_dir: &Path,
+    review: &ProviderRequestReview,
+    executable_path: &str,
+) -> Result<PendingProviderRequest, ProviderFailure> {
     let input = BuildCodexReviewInput {
         project_id: review.project_id.clone(),
         snapshot_id: review.snapshot_id.clone(),
@@ -3927,7 +3957,58 @@ pub(crate) fn revalidate_codex_request_review(
             "The source, runtime configuration or operation contract changed. Review a new Codex request.",
         ));
     }
-    Ok(())
+    Ok(rebuilt)
+}
+
+/// Only the same admitted native operation may rebuild after review expiry.
+/// No new run, connection or consent can be obtained with result access.
+pub(crate) fn rebuild_active_codex_review(
+    storage_dir: &Path,
+    repository: &Path,
+    review: &ProviderRequestReview,
+    access: &crate::codex_agent::CodexResultAccess<'_>,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    let executable = review.generation_config["executablePath"]
+        .as_str()
+        .unwrap_or("");
+    let check = || {
+        access
+            .check_review(&review.review_id, &review.fingerprint, executable)
+            .map_err(|message| failure(ProviderFailureKind::ReviewChanged, message))
+    };
+    check()?;
+    if review.provider_id != "codex" {
+        return Err(failure(
+            ProviderFailureKind::InvalidReview,
+            "This result requires its original native Codex operation.",
+        ));
+    }
+    let mut rebuilt = match review.purpose.as_str() {
+        PR_GUIDE_PURPOSE | PR_CHANGE_EXPLANATION_PURPOSE => {
+            rebuild_codex_git_review_context(repository, review, executable)?
+        }
+        "fileChapter" | "repositoryOverview" | "sectionUpdate" | CODE_LENS_EXPLANATION_PURPOSE => {
+            rebuild_codex_request_review_context(storage_dir, review, executable)?
+        }
+        _ => {
+            return Err(failure(
+                ProviderFailureKind::InvalidReview,
+                "The Codex result has a different operation contract.",
+            ));
+        }
+    };
+    // Rebuilding cannot renew admission. Every other source, settings and
+    // transport field must match, including exact Git/range/section identity.
+    rebuilt.review.review_id = review.review_id.clone();
+    rebuilt.review.expires_at_unix_ms = review.expires_at_unix_ms;
+    if &rebuilt.review != review {
+        return Err(failure(
+            ProviderFailureKind::ReviewChanged,
+            "The source, Git refs, index, runtime settings or operation contract changed during generation. Prepare a fresh Codex review.",
+        ));
+    }
+    check()?;
+    Ok(rebuilt)
 }
 
 /// Rebuild the exact offline Claude contract from native-owned runtime identity

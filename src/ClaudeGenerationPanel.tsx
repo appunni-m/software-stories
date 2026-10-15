@@ -97,6 +97,7 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
     unlisten: null as UnlistenFn | null });
 
   const notify = () => {
+    if (mode.kind !== 'repository-plan') window.dispatchEvent(new CustomEvent('code-atlas:agent-recovery-changed'));
     if (mode.kind === 'repository-plan') window.dispatchEvent(new CustomEvent('code-atlas:repository-plans-changed', { detail: { projectId: mode.projectId } }));
     else if (mode.kind === 'pr-guide') window.dispatchEvent(new CustomEvent('code-atlas:pr-guides-changed', {
       detail: { projectId: mode.projectId, comparisonId: mode.comparisonId },

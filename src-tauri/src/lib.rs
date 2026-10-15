@@ -1552,11 +1552,43 @@ async fn send_provider_pr_guide_request(
     Ok(result)
 }
 
+/// A validated in-memory candidate; publication remains a separate decision.
+struct PreparedPrGuidePreview {
+    preview: pr_guide::PrGuidePreview,
+}
+
 fn prepare_pr_guide_preview(
     storage_dir: &Path,
     review: &provider::ProviderRequestReview,
     result: provider::ProviderSendResult,
 ) -> Result<pr_guide::PrGuidePreview, provider::ProviderFailure> {
+    publish_pr_guide_candidate(
+        storage_dir,
+        validate_pr_guide_preview(review, result)?,
+        PreviewPublication::Ordinary,
+    )
+}
+
+fn publish_pr_guide_candidate(
+    storage_dir: &Path,
+    candidate: PreparedPrGuidePreview,
+    publication: PreviewPublication,
+) -> Result<pr_guide::PrGuidePreview, provider::ProviderFailure> {
+    let mut preview = candidate.preview;
+    preview.revision = match publication {
+        PreviewPublication::Ordinary => pr_guide_store::save_draft(storage_dir, preview.revision),
+        PreviewPublication::AgentOwned => pr_guide_store::try_save_draft(storage_dir, preview.revision),
+    }.map_err(|message| provider::ProviderFailure {
+        kind: provider::ProviderFailureKind::LocalStorageUnavailable,
+        message: format!("The PR Guide passed local evidence validation, but its separate history could not be saved: {message}"),
+    })?;
+    Ok(preview)
+}
+
+fn validate_pr_guide_preview(
+    review: &provider::ProviderRequestReview,
+    result: provider::ProviderSendResult,
+) -> Result<PreparedPrGuidePreview, provider::ProviderFailure> {
     let failure = |kind, message: String| provider::ProviderFailure { kind, message };
     if result.review_id != review.review_id
         || result.fingerprint != review.fingerprint
@@ -1582,18 +1614,14 @@ fn prepare_pr_guide_preview(
                     message,
                 )
             })?;
-    let revision = pr_guide_store::save_draft(storage_dir, revision).map_err(|message| {
-        failure(
-            provider::ProviderFailureKind::LocalStorageUnavailable,
-            format!("The PR Guide passed local evidence validation, but its separate history could not be saved: {message}"),
-        )
-    })?;
-    Ok(pr_guide::PrGuidePreview {
-        revision,
-        model_id: result.model_id,
-        model_version: result.model_version,
-        input_tokens: result.input_tokens,
-        output_tokens: result.output_tokens,
+    Ok(PreparedPrGuidePreview {
+        preview: pr_guide::PrGuidePreview {
+            revision,
+            model_id: result.model_id,
+            model_version: result.model_version,
+            input_tokens: result.input_tokens,
+            output_tokens: result.output_tokens,
+        },
     })
 }
 
@@ -1649,12 +1677,93 @@ fn reject_pr_guide_draft(
     )
 }
 
+/// Agent publication already holds its cancellation owner; never queue
+/// behind a local result-store lock while holding that ownership lock.
+#[derive(Clone, Copy)]
+enum PreviewPublication {
+    Ordinary,
+    AgentOwned,
+}
+
+struct PreparedChapterDraftPreview {
+    revision: chapters::ChapterRevision,
+    validation: chapters::ChapterValidationReport,
+    model_id: String,
+    model_version: Option<String>,
+    input_tokens: Option<u64>,
+    output_tokens: Option<u64>,
+    update_notes: Vec<String>,
+}
+
 fn prepare_chapter_draft_preview(
-    storage_dir: &std::path::Path,
+    storage_dir: &Path,
     review: &provider::ProviderRequestReview,
     result: provider::ProviderSendResult,
     drafts: &chapters::PendingChapterDrafts,
 ) -> Result<chapters::ChapterDraftPreview, provider::ProviderFailure> {
+    let candidate = validate_chapter_draft_preview(storage_dir, review, result)?;
+    publish_chapter_candidate(storage_dir, candidate, drafts, PreviewPublication::Ordinary)
+}
+
+fn publish_chapter_candidate(
+    storage_dir: &Path,
+    candidate: PreparedChapterDraftPreview,
+    drafts: &chapters::PendingChapterDrafts,
+    publication: PreviewPublication,
+) -> Result<chapters::ChapterDraftPreview, provider::ProviderFailure> {
+    let failure = |kind, message: String| provider::ProviderFailure { kind, message };
+    let PreparedChapterDraftPreview {
+        revision,
+        validation,
+        model_id,
+        model_version,
+        input_tokens,
+        output_tokens,
+        update_notes,
+    } = candidate;
+    let pending_revision = revision.clone();
+    let preview = |generation_id| chapters::ChapterDraftPreview {
+        generation_id,
+        revision,
+        validation,
+        model_id,
+        model_version,
+        input_tokens,
+        output_tokens,
+        update_notes,
+    };
+    if matches!(publication, PreviewPublication::AgentOwned) {
+        // No memory insertion or eviction occurs unless durable publication
+        // succeeds. Uncertain file publication remains discoverable on disk.
+        // Both local locks use try_lock under the agent cancellation owner.
+        return drafts.try_publish(pending_revision, |generation_id| {
+            let preview = preview(generation_id);
+            pending_chapter_previews::try_save(storage_dir, &preview)?;
+            Ok(preview)
+        }).map_err(|message| failure(provider::ProviderFailureKind::LocalStorageUnavailable,
+            format!("The generated chapter passed local validation, but preview publication could not be confirmed: {message} Inspect pending previews and recovery before another request; a recovery copy may already exist.")));
+    }
+    let generation_id = drafts
+        .insert(pending_revision)
+        .map_err(|message| failure(provider::ProviderFailureKind::ReviewUnavailable, message))?;
+    let preview = preview(generation_id);
+    if let Err(message) = pending_chapter_previews::save(storage_dir, &preview) {
+        drafts.remove(&preview.generation_id);
+        return Err(failure(
+            provider::ProviderFailureKind::LocalStorageUnavailable,
+            format!(
+                "The generated chapter passed local validation, but its recovery copy could not be persisted: {message}"
+            ),
+        ));
+    }
+    Ok(preview)
+}
+
+fn validate_chapter_draft_preview(
+    storage_dir: &std::path::Path,
+    review: &provider::ProviderRequestReview,
+    result: provider::ProviderSendResult,
+) -> Result<PreparedChapterDraftPreview, provider::ProviderFailure> {
     let failure = |kind, message: String| provider::ProviderFailure { kind, message };
     if result.review_id != review.review_id
         || result.fingerprint != review.fingerprint
@@ -1749,11 +1858,7 @@ fn prepare_chapter_draft_preview(
         ));
     }
     revision.validation_status = chapters::ValidationStatus::Valid;
-    let generation_id = drafts
-        .insert(revision.clone())
-        .map_err(|message| failure(provider::ProviderFailureKind::ReviewUnavailable, message))?;
-    let preview = chapters::ChapterDraftPreview {
-        generation_id,
+    Ok(PreparedChapterDraftPreview {
         revision,
         validation,
         model_id: result.model_id,
@@ -1761,17 +1866,7 @@ fn prepare_chapter_draft_preview(
         input_tokens: result.input_tokens,
         output_tokens: result.output_tokens,
         update_notes,
-    };
-    if let Err(message) = pending_chapter_previews::save(storage_dir, &preview) {
-        drafts.remove(&preview.generation_id);
-        return Err(failure(
-            provider::ProviderFailureKind::LocalStorageUnavailable,
-            format!(
-                "The generated chapter passed local validation, but its recovery copy could not be persisted: {message}"
-            ),
-        ));
-    }
-    Ok(preview)
+    })
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

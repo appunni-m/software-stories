@@ -553,6 +553,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       finish(epoch);
       // A saved preview may exist even after a failed reply or journal cleanup.
       // Refresh the app's recovery list even if this dialog has been closed.
+      if (!planning) window.dispatchEvent(new CustomEvent('code-atlas:agent-recovery-changed'));
       if (planning) window.dispatchEvent(new CustomEvent('code-atlas:repository-plans-changed', { detail: { projectId } }));
       else if (gitGuide) window.dispatchEvent(new CustomEvent('code-atlas:pr-guides-changed', { detail: { projectId, comparisonId } }));
       else if (!codeLensTarget && !gitChange) window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));

@@ -3,7 +3,8 @@
 
 use super::{
     ProjectSessions, app_data_directory, chapters, codex_agent, pr_guide,
-    prepare_chapter_draft_preview, prepare_pr_guide_preview, provider, recovery,
+    PreviewPublication, publish_chapter_candidate, publish_pr_guide_candidate,
+    validate_chapter_draft_preview, validate_pr_guide_preview, provider, recovery,
 };
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -315,6 +316,7 @@ pub(crate) async fn send_codex_chapter_request(
     consent: bool,
 ) -> Result<provider::ProviderCommandResult<chapters::ChapterDraftPreview>, String> {
     use provider::{ProviderCommandResult as ResultEnvelope, ProviderFailureKind as Kind};
+    let chapter_drafts = drafts.inner().clone();
     let completed = match execute_codex_operation(
         app,
         &sessions,
@@ -325,20 +327,25 @@ pub(crate) async fn send_codex_chapter_request(
         &fingerprint,
         consent,
         CodexOperation::Chapter,
+        |storage, _, review, response, _| validate_chapter_draft_preview(storage, review, response),
+        move |storage, candidate| {
+            publish_chapter_candidate(
+                storage,
+                candidate,
+                &chapter_drafts,
+                PreviewPublication::AgentOwned,
+            )
+        },
     )
     .await
     {
         Ok(completed) => completed,
         Err(error) => return Ok(ResultEnvelope::failed(error)),
     };
-    let mut result = match completed.result {
-        Ok(response) => {
-            prepare_chapter_draft_preview(&completed.storage, &completed.review, response, &drafts)
-                .map(ResultEnvelope::ok)
-                .unwrap_or_else(ResultEnvelope::failed)
-        }
-        Err(error) => ResultEnvelope::failed(error),
-    };
+    let mut result = completed
+        .result
+        .map(ResultEnvelope::ok)
+        .unwrap_or_else(ResultEnvelope::failed);
     if completed.clear_interruption {
         if let Err(message) = interruptions.discard(&completed.storage, &review_id) {
             match &mut result {
@@ -374,19 +381,17 @@ pub(crate) async fn send_codex_code_lens_request(
         &fingerprint,
         consent,
         CodexOperation::CodeLens,
+        |storage, _, review, response, _| {
+            provider::canonicalize_code_lens_explanation(storage, review, &response)
+        },
+        |_, preview| Ok(preview),
     )
     .await
     {
         Ok(completed) => completed,
         Err(error) => return Ok(ResultEnvelope::failed(error)),
     };
-    let result = completed.result.and_then(|response| {
-        provider::canonicalize_code_lens_explanation(
-            &completed.storage,
-            &completed.review,
-            &response,
-        )
-    });
+    let result = completed.result;
     if completed.clear_interruption
         && interruptions
             .discard(&completed.storage, &review_id)
@@ -444,7 +449,7 @@ pub(crate) async fn send_codex_repository_plan_request(
         Ok(prepared) => prepared,
         Err(error) => return Envelope::failed(error),
     };
-    let mut owner = CodexPlanningOwner {
+    let mut owner = CodexCommandOwner {
         manager: manager.inner().clone(),
         run_id: review_id,
         armed: true,
@@ -517,24 +522,18 @@ pub(crate) async fn send_codex_pr_guide_request(
         &fingerprint,
         consent,
         CodexOperation::PrGuide,
+        |_, _, review, response, _| validate_pr_guide_preview(review, response),
+        |storage, candidate| {
+            publish_pr_guide_candidate(storage, candidate, PreviewPublication::AgentOwned)
+        },
     )
     .await
     {
         Ok(completed) => completed,
         Err(error) => return Ok(Envelope::failed(error)),
     };
-    let result = completed.result.and_then(|response| {
-        provider::revalidate_codex_git_review(
-            &completed.repository,
-            &completed.review,
-            completed.review.generation_config["executablePath"]
-                .as_str()
-                .unwrap_or(""),
-        )?;
-        // PR Guides retain their separate unaccepted revision family. Never
-        // route this result through chapter history or accept it automatically.
-        prepare_pr_guide_preview(&completed.storage, &completed.review, response)
-    });
+    // A guide remains in its separate unaccepted revision family.
+    let result = completed.result;
     if completed.clear_interruption
         && interruptions
             .discard(&completed.storage, &review_id)
@@ -577,19 +576,19 @@ pub(crate) async fn send_codex_pr_change_request(
         &fingerprint,
         consent,
         CodexOperation::PrChange,
+        |storage, repository, review, response, access| {
+            provider::canonicalize_codex_pr_change_explanation(
+                storage, repository, review, &response, access,
+            )
+        },
+        |_, preview| Ok(preview),
     )
     .await
     {
         Ok(completed) => completed,
         Err(error) => return Ok(Envelope::failed(error)),
     };
-    let result = completed.result.and_then(|response| {
-        provider::canonicalize_pr_change_explanation(
-            &completed.repository,
-            &completed.review,
-            &response,
-        )
-    });
+    let result = completed.result;
     if completed.clear_interruption
         && interruptions
             .discard(&completed.storage, &review_id)
@@ -661,15 +660,15 @@ struct PreparedCodexOperation {
     started_at: Instant,
 }
 
-/// Dropping a planning command revokes its still-running blocking worker.
+/// Dropping any generation command revokes its queued/running blocking worker.
 /// The journal remains available even if the async caller disappears.
-struct CodexPlanningOwner {
+struct CodexCommandOwner {
     manager: codex_agent::CodexAgentManager,
     run_id: String,
     armed: bool,
 }
 
-impl Drop for CodexPlanningOwner {
+impl Drop for CodexCommandOwner {
     fn drop(&mut self) {
         if self.armed {
             self.manager.cancel(&self.run_id);
@@ -677,11 +676,9 @@ impl Drop for CodexPlanningOwner {
     }
 }
 
-struct CompletedCodexOperation {
+struct CompletedCodexOperation<T> {
     storage: PathBuf,
-    repository: PathBuf,
-    review: provider::ProviderRequestReview,
-    result: Result<provider::ProviderSendResult, provider::ProviderFailure>,
+    result: Result<T, provider::ProviderFailure>,
     clear_interruption: bool,
 }
 
@@ -832,7 +829,9 @@ async fn prepare_codex_operation(
     })
 }
 
-async fn execute_codex_operation(
+/// Retain process/run ownership through pure validation and serialize only
+/// the final publication with cancellation. No raw response escapes this worker.
+async fn execute_codex_operation<C: Send + 'static, T: Send + 'static>(
     app: AppHandle,
     sessions: &ProjectSessions,
     manager: &codex_agent::CodexAgentManager,
@@ -842,15 +841,19 @@ async fn execute_codex_operation(
     fingerprint: &str,
     consent: bool,
     operation: CodexOperation,
-) -> Result<CompletedCodexOperation, provider::ProviderFailure> {
+    validate: impl FnOnce(
+        &Path,
+        &Path,
+        &provider::ProviderRequestReview,
+        provider::ProviderSendResult,
+        &codex_agent::CodexResultAccess<'_>,
+    ) -> Result<C, provider::ProviderFailure>
+    + Send
+    + 'static,
+    publish: impl FnOnce(&Path, C) -> Result<T, provider::ProviderFailure> + Send + 'static,
+) -> Result<CompletedCodexOperation<T>, provider::ProviderFailure> {
     use provider::ProviderFailureKind as Kind;
-    let PreparedCodexOperation {
-        storage,
-        repository,
-        review,
-        input,
-        started_at: _,
-    } = prepare_codex_operation(
+    let prepared = prepare_codex_operation(
         &app,
         sessions,
         manager,
@@ -862,46 +865,80 @@ async fn execute_codex_operation(
         operation,
     )
     .await?;
+    let storage = prepared.storage.clone();
+    let mut owner = CodexCommandOwner {
+        manager: manager.clone(),
+        run_id: review_id.to_owned(),
+        armed: true,
+    };
     let runtime = manager.clone();
-    let storage_for_run = storage.clone();
     let run = tauri::async_runtime::spawn_blocking(move || {
-        runtime.run(&storage_for_run, input, |event| {
-            let _ = app.emit("codex-agent-progress", event);
-        })
+        let PreparedCodexOperation {
+            storage,
+            repository,
+            review,
+            input,
+            started_at,
+        } = prepared;
+        runtime.run_with_result_and_publish(
+            &storage,
+            input,
+            &review.fingerprint,
+            started_at,
+            |event| {
+                let _ = app.emit("codex-agent-progress", event);
+            },
+            |response, access| {
+                let _ = app.emit(
+                    "codex-agent-progress",
+                    codex_agent::CodexProgress {
+                        run_id: review.review_id.clone(),
+                        phase: "validating".to_owned(),
+                        thread_id: Some(response.thread_id.clone()),
+                        turn_id: Some(response.turn_id.clone()),
+                        message:
+                            "Checking the explanation against the original source and operation."
+                                .to_owned(),
+                    },
+                );
+                provider::rebuild_active_codex_review(&storage, &repository, &review, access)?;
+                validate(
+                    &storage,
+                    &repository,
+                    &review,
+                    provider::ProviderSendResult {
+                        review_id: review.review_id.clone(),
+                        fingerprint: review.fingerprint.clone(),
+                        model_id: response.model,
+                        model_version: None,
+                        response_text: response.response_text,
+                        input_tokens: None,
+                        output_tokens: None,
+                    },
+                    access,
+                )
+            },
+            |candidate| candidate.and_then(|candidate| publish(&storage, candidate)),
+        )
     })
     .await;
-    let (result, clear_interruption) = match run {
-        Ok(Ok(response)) => (
-            Ok(provider::ProviderSendResult {
-                review_id: review_id.to_owned(),
-                fingerprint: fingerprint.to_owned(),
-                model_id: response.model,
-                model_version: None,
-                response_text: response.response_text,
-                input_tokens: None,
-                output_tokens: None,
-            }),
-            true,
-        ),
-        Ok(Err(message)) => (
-            Err(command_failure(codex_run_failure_kind(&message), message)),
-            true,
-        ),
+    owner.armed = false;
+    let result = match run {
+        Ok(Ok(result)) => result,
+        Ok(Err(message)) => Err(command_failure(codex_run_failure_kind(&message), message)),
         Err(_) => {
             manager.shutdown();
-            (
-                Err(command_failure(
-                    Kind::ProviderRejectedRequest,
-                    "The Codex worker stopped unexpectedly. Restart the app and review a new request before retrying.",
-                )),
-                false,
-            )
+            Err(command_failure(
+                Kind::ProviderRejectedRequest,
+                "The Codex worker stopped unexpectedly. Its original operation remains in recovery; inspect saved previews and PR Guide history, then restart the app before reviewing another request.",
+            ))
         }
     };
+    // Failures (including validation/publication, cancel and timeout) retain
+    // exact recovery scope. Only a published success can resolve this notice.
+    let clear_interruption = result.is_ok();
     Ok(CompletedCodexOperation {
         storage,
-        repository,
-        review,
         result,
         clear_interruption,
     })

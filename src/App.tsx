@@ -208,6 +208,7 @@ function App() {
   const navigationRef = useRef(navigation);
   navigationRef.current = navigation;
   const interruptedReviewToken = useRef(0);
+  const interruptionLookupVersion = useRef(0);
   const [repositoryContextAnnouncement, setRepositoryContextAnnouncement] = useState('');
   const announcedRepositoryContextRef = useRef<string | null>(null);
   const [runtime, setRuntime] = useState<ApplicationStatus | null>(null);
@@ -343,10 +344,23 @@ function App() {
     }
   }
 
+  const refreshInterruptedOperations = useCallback(async () => {
+    const version = ++interruptionLookupVersion.current;
+    try {
+      const operations = await listInterruptedOperations();
+      if (version !== interruptionLookupVersion.current) return;
+      setInterruptedOperations(operations);
+      setInterruptedOperationsUnavailable(false);
+    } catch {
+      if (version === interruptionLookupVersion.current) setInterruptedOperationsUnavailable(true);
+    }
+  }, []);
+
   const completeRecoveredProviderReview = useCallback(async (operationId: string) => {
     try {
       await discardInterruptedOperation(operationId);
       setInterruptedOperations((current) => current.filter((operation) => operation.operationId !== operationId));
+      void refreshInterruptedOperations();
       setRecoveredGitRequest((current) => current?.operationId === operationId ? null : current);
     } catch (error) {
       setNotice({
@@ -355,16 +369,7 @@ function App() {
         tone: 'error',
       });
     }
-  }, []);
-
-  const refreshInterruptedOperations = async () => {
-    try {
-      setInterruptedOperations(await listInterruptedOperations());
-      setInterruptedOperationsUnavailable(false);
-    } catch {
-      setInterruptedOperationsUnavailable(true);
-    }
-  };
+  }, [refreshInterruptedOperations]);
 
   const refreshPendingChapterPreviews = useCallback(async () => {
     try {
@@ -394,6 +399,7 @@ function App() {
     try {
       await discardInterruptedOperation(operation.operationId);
       setInterruptedOperations((current) => current.filter((item) => item.operationId !== operation.operationId));
+      void refreshInterruptedOperations();
       setRecoveredGitRequest((current) => current?.operationId === operation.operationId ? null : current);
     } catch (error) {
       setNotice({
@@ -422,6 +428,7 @@ function App() {
       try {
         await discardInterruptedOperation(operation.operationId);
         setInterruptedOperations((current) => current.filter((item) => item.operationId !== operation.operationId));
+        void refreshInterruptedOperations();
         setNotice({
           title: 'A fresh capture has started',
           message: 'The interrupted capture was not resumed. Existing snapshots remain available while this new capture runs.',
@@ -769,13 +776,16 @@ function App() {
 
   useEffect(() => {
     let active = true;
+    const recoveryVersion = interruptionLookupVersion.current;
     void loadShellStartupData({ getApplicationStatus, getCaptureLimits, listRecentProjects, listInterruptedOperations, listPendingGeneratedChapterPreviews }).then((startup) => {
       if (!active) return;
       setRuntime(startup.applicationStatus);
       setRuntimeError(startup.applicationStatusUnavailable ? 'The desktop bridge did not respond. The workspace is still available.' : null);
       setCaptureLimits(startup.captureLimits);
-      setInterruptedOperations(startup.interruptedOperations ?? []);
-      setInterruptedOperationsUnavailable(startup.interruptedOperationsUnavailable);
+      if (recoveryVersion === interruptionLookupVersion.current) {
+        setInterruptedOperations(startup.interruptedOperations ?? []);
+        setInterruptedOperationsUnavailable(startup.interruptedOperationsUnavailable);
+      }
       setPendingChapterPreviews(startup.pendingChapterPreviews ?? []);
       setPendingChapterPreviewsUnavailable(startup.pendingChapterPreviewsUnavailable);
       if (startup.recentProjectsUnavailable || startup.recentProjects === null) {
@@ -799,11 +809,14 @@ function App() {
     const refreshPlans = () => { void refreshInterruptedOperations(); };
     window.addEventListener('code-atlas:pending-chapter-previews-changed', refresh);
     window.addEventListener('code-atlas:repository-plans-changed', refreshPlans);
+    window.addEventListener('code-atlas:agent-recovery-changed', refreshPlans);
     return () => {
       window.removeEventListener('code-atlas:pending-chapter-previews-changed', refresh);
       window.removeEventListener('code-atlas:repository-plans-changed', refreshPlans);
+      window.removeEventListener('code-atlas:agent-recovery-changed', refreshPlans);
+      ++interruptionLookupVersion.current;
     };
-  }, []);
+  }, [refreshInterruptedOperations, refreshPendingChapterPreviews]);
 
   useEffect(() => {
     if (!currentProject) {

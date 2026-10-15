@@ -193,6 +193,35 @@ impl PendingChapterDrafts {
         let mut pending = self.0.lock().map_err(|_| {
             "The generated draft preview store is temporarily unavailable.".to_owned()
         })?;
+        Ok(Self::insert_pending(
+            &mut pending,
+            revision,
+            format!("generation:{}", Uuid::new_v4()),
+        ))
+    }
+
+    /// Persist under a nonblocking memory-store guard before registering the
+    /// new preview or evicting any prior one. The callback cannot call this
+    /// store; its durable publisher must also acquire its lock nonblocking.
+    pub(crate) fn try_publish<T>(
+        &self,
+        revision: ChapterRevision,
+        publish: impl FnOnce(String) -> Result<T, String>,
+    ) -> Result<T, String> {
+        let mut pending = self.0.try_lock().map_err(|_| {
+            "The generated draft preview store is busy. No new preview was registered.".to_owned()
+        })?;
+        let generation_id = format!("generation:{}", Uuid::new_v4());
+        let published = publish(generation_id.clone())?;
+        Self::insert_pending(&mut pending, revision, generation_id);
+        Ok(published)
+    }
+
+    fn insert_pending(
+        pending: &mut HashMap<String, PendingChapterPreview>,
+        revision: ChapterRevision,
+        generation_id: String,
+    ) -> String {
         let now = unix_time_ms();
         pending.retain(|_, entry| entry.expires_at_unix_ms > now);
         while pending.len() >= 8 {
@@ -206,7 +235,6 @@ impl PendingChapterDrafts {
                 break;
             }
         }
-        let generation_id = format!("generation:{}", Uuid::new_v4());
         pending.insert(
             generation_id.clone(),
             PendingChapterPreview {
@@ -214,7 +242,7 @@ impl PendingChapterDrafts {
                 expires_at_unix_ms: now.saturating_add(15 * 60 * 1_000),
             },
         );
-        Ok(generation_id)
+        generation_id
     }
 
     pub fn restore(&self, generation_id: &str, revision: ChapterRevision) -> Result<(), String> {

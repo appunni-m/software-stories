@@ -39,9 +39,27 @@ pub fn list_for_comparison(
 /// Saves a newly generated and locally validated PR Guide as an immutable draft.
 pub fn save_draft(
     storage_dir: &Path,
-    mut revision: PrGuideRevision,
+    revision: PrGuideRevision,
 ) -> Result<PrGuideRevision, String> {
     let _guard = lock_store()?;
+    save_draft_locked(storage_dir, revision)
+}
+
+/// Never wait for a local history reader under agent publication ownership.
+pub(crate) fn try_save_draft(
+    storage_dir: &Path,
+    revision: PrGuideRevision,
+) -> Result<PrGuideRevision, String> {
+    let _guard = PR_GUIDE_STORE_LOCK.try_lock().map_err(|_| {
+        "PR Guide history is busy. No new guide was published; inspect existing drafts before a fresh request.".to_owned()
+    })?;
+    save_draft_locked(storage_dir, revision)
+}
+
+fn save_draft_locked(
+    storage_dir: &Path,
+    mut revision: PrGuideRevision,
+) -> Result<PrGuideRevision, String> {
     if revision.lifecycle != PrGuideLifecycle::Draft || revision.based_on_revision_id.is_some() {
         return Err("Only a new, unaccepted PR Guide draft can be saved by generation.".to_owned());
     }

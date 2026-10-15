@@ -39,6 +39,18 @@ struct PreviewFile {
 
 pub fn save(storage_dir: &Path, preview: &ChapterDraftPreview) -> Result<(), String> {
     let _guard = lock_store()?;
+    save_locked(storage_dir, preview)
+}
+
+/// Called only from an admitted agent's final publication callback.
+pub(crate) fn try_save(storage_dir: &Path, preview: &ChapterDraftPreview) -> Result<(), String> {
+    let _guard = PREVIEW_STORE_LOCK.try_lock().map_err(|_| {
+        "Generated preview recovery is busy. No recovery copy was published; inspect pending previews before a fresh request.".to_owned()
+    })?;
+    save_locked(storage_dir, preview)
+}
+
+fn save_locked(storage_dir: &Path, preview: &ChapterDraftPreview) -> Result<(), String> {
     validate_preview(preview)?;
     let bytes = serde_json::to_vec(&PreviewFile {
         schema_version: PREVIEW_SCHEMA_VERSION,

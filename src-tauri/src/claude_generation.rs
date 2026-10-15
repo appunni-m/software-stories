@@ -7,15 +7,17 @@
 //! setup/catalog observations cannot authorize inference. No direct API is used.
 
 use crate::{
-    ProjectSessions, app_data_directory, chapters,
+    PreviewPublication, ProjectSessions, app_data_directory, chapters,
     claude_agent::ClaudeReviewRuntime,
     claude_connections::{ClaudeConnections, ClaudeOperationAccess, ClaudeOperationLease},
     claude_runtime::ClaudeGenerationRuntime,
     claude_worker::{
         ClaudeWorkerFailure, ClaudeWorkerFailureKind, ClaudeWorkerInput, ClaudeWorkerManager,
     },
-    pr_guide, prepare_chapter_draft_preview, prepare_pr_guide_preview, provider, recovery,
+    pr_guide, provider, publish_chapter_candidate, publish_pr_guide_candidate, recovery,
+    validate_chapter_draft_preview, validate_pr_guide_preview,
 };
+
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Emitter};
 
@@ -38,8 +40,8 @@ pub(crate) fn prepare_chapter_review(
 }
 
 /// The native command supplies an admitted runtime, never the renderer. A
-/// consumed request produces an unaccepted in-memory preview only. Generic
-/// Save/Accept operations still own persistence and accepted history.
+/// consumed request can produce a recoverable unaccepted preview. Explicit
+/// Save/Accept operations still own chapter history and acceptance.
 pub(crate) async fn send_chapter(
     app: AppHandle,
     sessions: &ProjectSessions,
@@ -88,16 +90,28 @@ pub(crate) async fn send_chapter(
                 &review,
                 &validation_access,
             )?;
+            let candidate = validate_chapter_draft_preview(&storage, &review, response)?;
             validation_access.publish(&review, || {
-                prepare_chapter_draft_preview(&storage, &review, response, &drafts)
+                publish_chapter_candidate(
+                    &storage,
+                    candidate,
+                    &drafts,
+                    PreviewPublication::AgentOwned,
+                )
             })
         },
     )
     .await;
+    // Recheck wanted result ownership before any successful notice cleanup.
+    // A rejected late result may already have a recoverable published copy.
+    let result = result.and_then(|data| access.publish(&completed.review, || Ok(data))
+        .map_err(|mut error| {
+            error.message.push_str(" Check pending previews and local recovery before generating again; an unaccepted preview may already exist.");
+            error
+        }));
     let mut result = result.map(Envelope::ok).unwrap_or_else(Envelope::failed);
-    // A crash/uncertain native cleanup keeps its original backend/scope notice.
-    // Recovery must never reopen that notice as a direct API request.
-    if completed.clear_interruption && clean_validation {
+    // Failed, cancelled, invalid or unconfirmed results keep their exact scope.
+    if completed.clear_interruption && clean_validation && matches!(&result, Envelope::Ok { .. }) {
         if let Err(message) = interruptions.discard(&completed.storage, review_id) {
             match &mut result {
                 Envelope::Ok { data } => data.update_notes.push(format!(
@@ -107,14 +121,7 @@ pub(crate) async fn send_chapter(
             }
         }
     }
-    match result {
-        Envelope::Ok { data } => access.publish(&completed.review, || Ok(data))
-            .map(Envelope::ok).unwrap_or_else(|mut error| {
-                error.message.push_str(" Check pending previews and local recovery before generating again; an unaccepted preview may already exist.");
-                Envelope::failed(error)
-            }),
-        error => error,
-    }
+    result
 }
 
 struct CompletedOperation {
@@ -453,10 +460,11 @@ pub(crate) async fn send_pr_guide(
                 &review,
                 &validation_access,
             )?;
-            // This saves only separate unaccepted PR Guide history, never an
-            // accepted guide or a file/overview chapter revision.
+            let candidate = validate_pr_guide_preview(&review, response)?;
+            // Only publication holds revocation ownership. Pure evidence
+            // validation above remains cancellable and writes no guide.
             validation_access.publish(&review, || {
-                prepare_pr_guide_preview(&storage, &review, response)
+                publish_pr_guide_candidate(&storage, candidate, PreviewPublication::AgentOwned)
             })
         },
     )
@@ -583,7 +591,17 @@ fn finish_result<T>(
     result: Result<T, provider::ProviderFailure>,
 ) -> provider::ProviderCommandResult<T> {
     use provider::{ProviderCommandResult as Envelope, ProviderFailureKind as Kind};
-    if clear_interruption && interruptions.discard(storage, &review.review_id).is_err() {
+    let result = result.and_then(|preview| access.publish(review, || Ok(preview))
+        .map_err(|mut error| {
+            if operation == provider::ClaudeOperation::PrGuide {
+                error.message.push_str(" Check PR Guide history before generating again; an unaccepted draft may already be saved.");
+            }
+            error
+        }));
+    if clear_interruption
+        && result.is_ok()
+        && interruptions.discard(storage, &review.review_id).is_err()
+    {
         return Envelope::error(
             Kind::LocalStorageUnavailable,
             if operation == provider::ClaudeOperation::PrGuide && result.is_ok() {
@@ -594,13 +612,7 @@ fn finish_result<T>(
         );
     }
     match result {
-        Ok(preview) => access.publish(review, || Ok(preview))
-            .map(Envelope::ok).unwrap_or_else(|mut error| {
-                if operation == provider::ClaudeOperation::PrGuide {
-                    error.message.push_str(" Check PR Guide history before generating again; an unaccepted draft may already be saved.");
-                }
-                Envelope::failed(error)
-            }),
+        Ok(preview) => Envelope::ok(preview),
         Err(error) => Envelope::failed(error),
     }
 }
