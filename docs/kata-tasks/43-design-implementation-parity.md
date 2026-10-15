@@ -18,12 +18,18 @@ The task began from a real mismatch between the proposal and the installed Mac a
 The checkout already labeled the primary bar Guide, Files, and Changes, but its behavior still diverged from the proposals: Guide opened directly on the dense coverage manager, and selecting a file navigated to the separate Code Lens route. Source-only changes are now in progress:
 
 - The product blueprint, primary interaction contract, greenfield Kata contract, README, and design notes now identify Guide / Files / Changes as the current design authority. The previous PNG concepts and prompt are labeled historical.
-- Guide now has a repository home that uses a saved accepted overview when available, otherwise leads to a captured file. Coverage remains available under **File-by-file coverage**.
+- Guide now has a repository home that reads an accepted overview for the current snapshot. If none exists, it offers to create an optional tour through the exact-context review flow and keeps a per-file action visible beside it; a guide from another snapshot remains separately available. Coverage remains under **File-by-file coverage**.
 - Files source links now target the existing Files route. The tree, selected snapshot source, exact citations, and selected file's current accepted explanation are composed together; relationship exploration remains optional.
 - The source route keeps navigation history so citation and related-file links can return to the previous file or Guide reader context.
 - Changes has not yet been compared against the approved design in the packaged app.
 
 These edits have not been built, tested, launched, or inspected in the native app. The installed 0.1.0 bundle has not been replaced or confirmed to match the checkout. Source-level changes and updated docs are progress evidence, not packaged-app acceptance.
+
+## Source implementation follow-up — 2026-10-15
+
+The no-current-overview state now offers **Create repository tour**, which opens the existing reviewed overview request flow. The user selects the captured files and reviews the exact context before any request is sent. The same card keeps a direct action for the next file explanation, and its adjacent coverage card continues to track file chapters independently. When a current-snapshot tour draft exists, Guide offers **Review tour draft**; an accepted guide from an older snapshot remains explicitly reachable without being presented as current. If the snapshot has no captured text files, the tour action is omitted and file browsing remains available.
+
+This is source-only progress in `src/App.tsx` and `src/App.css`. No test, build, app launch, or packaged screenshot was run. Native hierarchy, keyboard/focus behavior, and provider-review usability remain unverified; `13yp` and `x21h` stay open.
 
 ## Concrete design-to-app mismatch record
 

@@ -1539,6 +1539,11 @@ function App() {
                 onGoAtlas={() => chooseWorkspace('atlas')}
                 onGoChanges={() => chooseWorkspace('changes')}
                 onGoStudio={() => chooseWorkspace('chapter-studio')}
+                onGenerateOverview={() => setProviderDialog({
+                  kind: 'overview',
+                  projectId: currentProject.projectId,
+                  snapshotId: selectedSnapshot.snapshotId,
+                })}
                 onReadRevision={openGuideRevision}
                 onReviewRevision={(revision) => setNavigation((state) => navigateToRoute(state, {
                   ...state.current,
@@ -3493,7 +3498,7 @@ function inventoryFilterKey(row: Pick<InventoryRow, 'path' | 'kind' | 'reason'>)
   return `${row.path}\u0000${row.kind}\u0000${row.reason}`;
 }
 
-function GuidePlanScreen({ projectId, projectName, manifest, rows, onGoAtlas, onGoChanges, onGoStudio, onReadRevision, onReviewRevision, onOpenFile }: {
+function GuidePlanScreen({ projectId, projectName, manifest, rows, onGoAtlas, onGoChanges, onGoStudio, onGenerateOverview, onReadRevision, onReviewRevision, onOpenFile }: {
   projectId: string;
   projectName: string;
   manifest: SnapshotManifest;
@@ -3501,6 +3506,7 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, onGoAtlas, on
   onGoAtlas: () => void;
   onGoChanges: () => void;
   onGoStudio: () => void;
+  onGenerateOverview: () => void;
   onReadRevision: (revision: ChapterRevision) => void;
   onReviewRevision: (revision: ChapterRevision) => void;
   onOpenFile: (path: string) => void;
@@ -3646,11 +3652,18 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, onGoAtlas, on
   const acceptedOverviews = revisions
     .filter((revision) => revision.lifecycle === 'accepted' && revision.target.scope.kind === 'overview')
     .sort((left, right) => right.createdAtUnixMs - left.createdAtUnixMs || right.revisionNumber - left.revisionNumber);
-  const acceptedOverview = acceptedOverviews.find((revision) => revision.snapshotId === snapshotId) ?? acceptedOverviews[0] ?? null;
-  const acceptedOverviewIsCurrent = acceptedOverview?.snapshotId === snapshotId;
+  const acceptedOverview = acceptedOverviews.find((revision) => revision.snapshotId === snapshotId) ?? null;
+  const earlierOverview = acceptedOverviews.find((revision) => revision.snapshotId !== snapshotId) ?? null;
+  const currentOverviewReview = revisions
+    .filter((revision) => revision.snapshotId === snapshotId && revision.target.scope.kind === 'overview')
+    .sort((left, right) => right.createdAtUnixMs - left.createdAtUnixMs || right.revisionNumber - left.revisionNumber)
+    .find((revision) => revision.lifecycle !== 'accepted') ?? null;
   const nextFiles = coverageRows.filter((row) => row.canOpenSource
     && ['missing', 'draft', 'rejected', 'stale', 'unsupported'].includes(row.status)).slice(0, 3);
   const explainedFiles = coverageRows.filter((row) => row.status === 'accepted').slice(0, 3);
+  const firstFileToOpen = nextFiles[0] ?? explainedFiles[0] ?? null;
+  const canBuildOverview = rows.some((row) => row.disposition === 'captured' && row.kind === 'file'
+    && (row.contentKind === 'text' || row.contentKind === 'unknown'));
   const guideEligibleTotal = coverageRows.filter((row) => row.canOpenSource && row.status !== 'excluded').length;
   const guideProgress = guideEligibleTotal > 0 ? Math.round((totals.accepted / guideEligibleTotal) * 100) : 0;
 
@@ -3666,14 +3679,15 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, onGoAtlas, on
             <div className="guide-tour-icon"><Play size={19} /></div>
             {acceptedOverview ? <>
               <div className="guide-tour-copy">
-                <span className="guide-home-kicker">{acceptedOverview.sections.length} SECTION{acceptedOverview.sections.length === 1 ? '' : 'S'} · ACCEPTED REPOSITORY GUIDE{acceptedOverviewIsCurrent ? '' : ' · OLDER SNAPSHOT'}</span>
+                <span className="guide-home-kicker">{acceptedOverview.sections.length} SECTION{acceptedOverview.sections.length === 1 ? '' : 'S'} · ACCEPTED REPOSITORY GUIDE</span>
                 <h2 id="guide-home-title">{acceptedOverview.title}</h2>
-                <p>{acceptedOverviewIsCurrent
-                  ? acceptedOverview.sections[0]?.prose || 'Follow the repository explanation one section at a time. Open its cited code whenever you want to inspect the evidence.'
-                  : `This guide is pinned to snapshot ${acceptedOverview.snapshotId.slice(-10)}. Its source links still open the exact version it describes.`}</p>
+                <p>{acceptedOverview.sections[0]?.prose || 'Follow the repository explanation one section at a time. Open its cited code whenever you want to inspect the evidence.'}</p>
                 <span className="guide-tour-pacing">Pause, skip, or open the exact source at any point.</span>
               </div>
-              <button className="primary-button" onClick={() => onReadRevision(acceptedOverview)}>{acceptedOverviewIsCurrent ? 'Read the guide' : 'Read earlier guide'} <ArrowRight size={15} /></button>
+              <div className="guide-tour-actions">
+                <button className="primary-button" onClick={() => onReadRevision(acceptedOverview)}>Read the guide <ArrowRight size={15} /></button>
+                {earlierOverview && <button className="text-button" onClick={() => onReadRevision(earlierOverview)}>Read guide for an earlier snapshot</button>}
+              </div>
             </> : revisionsLoading ? <>
               <div className="guide-tour-copy">
                 <span className="guide-home-kicker">CHECKING THIS SNAPSHOT</span>
@@ -3687,14 +3701,28 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, onGoAtlas, on
                 <p>{revisionsError}</p>
                 <button className="secondary-button" onClick={() => setRevisionRefresh((value) => value + 1)}>Retry</button>
               </div>
+            </> : currentOverviewReview ? <>
+              <div className="guide-tour-copy">
+                <span className="guide-home-kicker">REPOSITORY TOUR · {currentOverviewReview.lifecycle === 'rejected' ? 'NEEDS REVISION' : 'DRAFT SAVED'}</span>
+                <h2 id="guide-home-title">Review the repository tour draft.</h2>
+                <p>This draft is tied to the selected snapshot. Review its source links and accept it before it appears as the Guide tour.</p>
+              </div>
+              <div className="guide-tour-actions">
+                <button className="primary-button" onClick={() => onReviewRevision(currentOverviewReview)}>Review tour draft <ArrowRight size={15} /></button>
+                {canBuildOverview && <button className="secondary-button" onClick={onGenerateOverview}>Create another tour</button>}
+                {earlierOverview && <button className="text-button" onClick={() => onReadRevision(earlierOverview)}>Read guide for an earlier snapshot</button>}
+              </div>
             </> : <>
               <div className="guide-tour-copy">
-                <span className="guide-home-kicker">START WITH A REAL FILE</span>
-                <h2 id="guide-home-title">{nextFiles.length > 0 ? 'What does an important file do?' : 'Your file explanations are up to date.'}</h2>
-                <p>{nextFiles.length > 0
-                  ? 'Repository tours are optional. Start with a file explanation grounded in the captured source; each file can be understood on its own.'
-                  : 'There are no captured text files waiting for an explanation in this snapshot. Browse the files or read an explanation already saved.'}</p>
-                {nextFiles[0] && <button className="primary-button" onClick={() => onOpenFile(nextFiles[0].inventory.path)}><FileCode2 size={14} /> Open {nextFiles[0].inventory.path} <ArrowRight size={14} /></button>}
+                <span className="guide-home-kicker">OPTIONAL REPOSITORY TOUR</span>
+                <h2 id="guide-home-title">Build a short guide through this codebase.</h2>
+                <p>A tour connects a few evidenced steps. Every file still gets its own explanation and coverage status; review the selected source and request before anything is sent.</p>
+              </div>
+              <div className="guide-tour-actions">
+                {canBuildOverview && <button className="primary-button" onClick={onGenerateOverview}><Play size={14} /> Create repository tour <ArrowRight size={15} /></button>}
+                {firstFileToOpen && <button className={canBuildOverview ? 'secondary-button' : 'primary-button'} onClick={() => onOpenFile(firstFileToOpen.inventory.path)}><FileCode2 size={14} /> {firstFileToOpen.status === 'accepted' ? 'Read' : 'Explain'} {firstFileToOpen.inventory.path}</button>}
+                {earlierOverview && <button className="text-button" onClick={() => onReadRevision(earlierOverview)}>Read guide for an earlier snapshot</button>}
+                {!canBuildOverview && !firstFileToOpen && <button className="primary-button" onClick={onGoAtlas}><FileCode2 size={14} /> Browse captured files</button>}
               </div>
             </>}
           </section>

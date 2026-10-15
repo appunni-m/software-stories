@@ -1811,7 +1811,9 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .guide-tour-copy h2 { margin: 9px 0 7px; color: #edf1f4; font-size: 18px; line-height: 1.3; }
 .guide-tour-copy p { max-width: 72ch; margin: 0; color: #a3b0ba; font-size: 11px; line-height: 1.6; }
 .guide-tour-pacing { display: block; margin-top: 11px; color: #798894; font-size: 9px; }
-.guide-tour-card > .primary-button, .guide-tour-copy > .primary-button { align-self: center; min-height: 38px; white-space: nowrap; }
+.guide-tour-actions { display: grid; align-content: center; justify-items: stretch; gap: 7px; width: min(240px, 100%); }
+.guide-tour-actions > .primary-button, .guide-tour-actions > .secondary-button { min-height: 38px; white-space: normal; text-align: center; }
+.guide-tour-actions > .text-button { justify-self: center; line-height: 1.45; }
 .guide-home-coverage { padding: 17px; }
 .guide-home-coverage-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .guide-home-coverage-heading strong { color: #e2eaf0; font-size: 12px; }
@@ -1897,7 +1899,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .guide-home-context > p { text-align: left; }
   .guide-home-grid { grid-template-columns: 1fr; }
   .guide-tour-card { display: grid; }
-  .guide-tour-card > .primary-button { justify-self: start; }
+  .guide-tour-actions { justify-items: start; width: min(360px, 100%); }
+  .guide-tour-actions > .primary-button, .guide-tour-actions > .secondary-button { justify-self: stretch; }
   .guide-home-actions > span { flex-basis: 100%; margin-left: 0; }
   .atlas-columns { grid-template-columns: minmax(0, 1fr); min-height: 0; }
   .atlas-columns > .atlas-tree-panel, .atlas-columns > .source-view-inline, .atlas-columns > .source-inline-state, .atlas-columns > .file-explanation-panel, .atlas-columns > .atlas-relationship-details { grid-column: 1; grid-row: auto; min-height: 0; border-radius: 0; }

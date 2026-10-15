@@ -34,6 +34,10 @@ This baseline comes from reading the current checkout only. The app was not buil
 4. Separate true mismatches from intended complexity. Preserve exact source citations, snapshot identity, explicit provider consent, local-only Git safety, and optional relationship exploration while simplifying the visible path.
 5. Turn implementation changes into focused updates to `13yp` or a narrowly scoped follow-up Kata issue. Keep this issue as the complete, reviewable gap ledger.
 
+## Source follow-up tracked under `13yp` — 2026-10-15
+
+After this point-in-time baseline was recorded, the Guide no-overview source state changed: it now offers an optional repository-tour creation action through the existing exact-context review flow, keeps a per-file explanation action beside it, surfaces a saved current-snapshot draft for review, and offers an older accepted guide as an explicitly historical route. See the source implementation follow-up in `43-design-implementation-parity.md`. This updates source evidence only; it does not change the baseline's date or establish packaged-app parity. The five native screenshots and build/window metadata are still missing.
+
 ## Acceptance criteria
 - One screen-by-screen gap ledger covers all five approved SVG references and includes the app build identity, viewport, evidence screenshot, source component, observed deviation, impact, priority, and proposed fix for each non-matching screen.
 - The ledger confirms both what already matches and what does not. It explicitly records that the Guide / Files / Changes labels and the selected-file tree/source/explanation composition exist in source, while distinguishing that from verified packaged-app parity.
