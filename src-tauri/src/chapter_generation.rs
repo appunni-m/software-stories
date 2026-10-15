@@ -348,6 +348,10 @@ pub fn canonicalize_section_update(
         }
     }
     let mut revision = base.clone();
+    revision.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
+    // A new generation has its own native dispatch record. It must not claim
+    // the prior agent/request/plan origin inherited from the accepted base.
+    revision.generation_origin = None;
     revision.revision_id = generated_id("revision");
     revision.revision_number = base
         .revision_number
@@ -889,6 +893,7 @@ pub fn canonicalize_file_chapter(
         created_at_unix_ms: unix_time_ms(),
         based_on_revision_id: None,
         decision_note: None,
+        generation_origin: None,
         sections,
     };
     if target_source.snapshot_id != revision.snapshot_id {
@@ -1008,6 +1013,7 @@ pub fn canonicalize_repository_overview(
         created_at_unix_ms: unix_time_ms(),
         based_on_revision_id: None,
         decision_note: None,
+        generation_origin: None,
         sections,
     })
 }

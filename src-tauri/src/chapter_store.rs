@@ -91,7 +91,7 @@ fn append_revision(
 ) -> Result<ChapterRevision, String> {
     if !matches!(
         revision.schema_version,
-        1 | 2 | chapters::CHAPTER_SCHEMA_VERSION
+        1 | 2 | chapters::GROUNDED_CHAPTER_SCHEMA_VERSION | chapters::CHAPTER_SCHEMA_VERSION
     ) {
         return Err("The chapter revision uses an unsupported schema version.".to_owned());
     }
@@ -400,15 +400,18 @@ fn validate_revision_identity(revision: &ChapterRevision) -> Result<(), String> 
     if matches!(
         &revision.target.scope,
         crate::chapters::ChapterTargetScope::Overview
-    ) && (revision.schema_version != chapters::CHAPTER_SCHEMA_VERSION
-        || revision.target.target_id != "target:overview"
+    ) && (!matches!(
+        revision.schema_version,
+        chapters::GROUNDED_CHAPTER_SCHEMA_VERSION | chapters::CHAPTER_SCHEMA_VERSION
+    ) || revision.target.target_id != "target:overview"
         || revision.chapter_id != "chapter:overview")
     {
         return Err(
-            "An overview chapter must use schema version 3 and its stable overview identities."
+            "An overview chapter must use schema version 3 or 4 and its stable overview identities."
                 .to_owned(),
         );
     }
+    crate::chapter_origin::validate_revision_origin(revision)?;
     chapters::validate_overview_content(revision)?;
     if revision.schema_version >= 2 {
         if revision.lifecycle != RevisionLifecycle::Draft && revision.based_on_revision_id.is_none()
@@ -674,6 +677,7 @@ mod tests {
             created_at_unix_ms: 1,
             based_on_revision_id: None,
             decision_note: None,
+            generation_origin: None,
             sections: Vec::new(),
         }
     }

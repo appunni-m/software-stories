@@ -90,7 +90,8 @@ pub(crate) async fn send_chapter(
                 &review,
                 &validation_access,
             )?;
-            let candidate = validate_chapter_draft_preview(&storage, &review, response)?;
+            let mut candidate = validate_chapter_draft_preview(&storage, &review, response)?;
+            crate::attach_agent_generation_origin(&mut candidate, &review)?;
             validation_access.publish(&review, || {
                 publish_chapter_candidate(
                     &storage,

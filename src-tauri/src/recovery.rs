@@ -376,8 +376,7 @@ fn validate_operation(operation: &InterruptedOperation) -> Result<(), String> {
         if let Some(scope) = &request.planned_chapter {
             if !matches!(request.provider_id.as_str(), "codex" | "claude-agent")
                 || request.purpose != "fileChapter"
-                || scope.schema_version != 1
-                || !scope.target.valid_shape()
+                || !scope.valid_recorded_shape()
                 || request.repository_plan.is_some()
                 || request.section_update.is_some()
                 || request.code_lens.is_some()

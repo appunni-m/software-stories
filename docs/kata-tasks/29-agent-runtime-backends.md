@@ -178,8 +178,25 @@ The complete planned-step scope enters the encoded review/fingerprint before con
 
 **Remaining acceptance/work:**
 - [ ] Exercise accepted-step generation, settings, progress, cancellation, late/abandoned replies and recovery through **each** permitted native Codex and Claude account/runtime route. Complete the matching deferred cases in `xymb`; source code or an unavailable option cannot satisfy this.
-- [ ] Persist and expose durable chapter-to-plan-revision/step/request associations. Existing saved chapter/preview identities are project/snapshot/file candidates, not proof of the originating learning step. Do not mark a step complete or automatically attach a same-file chapter.
+- [ ] Qualify the version-4 durable chapter-to-plan-revision/step/request records now present in source. Legacy records remain project/snapshot/file candidates. Recorded lineage is not account attestation, answer quality or step completion; do not automatically attach older same-file chapters.
 - [ ] Review actual answer quality across representative languages: grounded concrete code behavior, prerequisite recaps, explicit unknowns and useful visuals. Schema/citation validity does not establish that the learning question was answered.
 - [ ] Complete deliberate multi-unit orchestration, omission/failure tracking and dependency-based selective updates before claiming an entire repository narrative.
 
 No tests, builds, app launches, native agent/SDK probes, login or model requests ran. Changed Rust regions were formatted; this does not establish compilation. Codex remains unaccepted source. The Claude qualification registry remains empty; all automatic Claude cells remain Missing. Official account guidance was rechecked October 16 and still does not resolve this product's subscription integration/distribution route. This task and the multi-agent release gate remain open.
+
+
+### Original agent generation and exact step links — source checkpoint, 2026-10-16
+
+Both native Codex/Claude chapter result closures now attach schema-4 `generationOrigin` metadata after independent source/claim validation and before guarded preview publication. It retains the original request/fingerprint/contract, agent-specific model/reasoning/fixed approval/turn settings, distinct source digests, optional section target and complete optional accepted-plan step scope. API/manual import paths do not call this creator. Previews and immutable chapter history persist the record together; no sidecar transaction or agent process was added. Original-content hashing uses bounded streaming serialization and excludes root decision metadata.
+
+The app exposes Original generation in native agent previews, recovered previews and chapter review. The accepted plan reader lists saved chapters for the exact accepted revision/digest/step, with explicit lifecycle/snapshot labels and separate read/review actions. Recovery distinguishes recorded request/step matches from older filename candidates. These are local recorded labels, not account attestation, complete-repository coverage, proof that a question was answered or step/read completion.
+
+Strict legacy v1–v3 chapter reads and version-3 overview/pending-preview recovery remain in source. New writes/review decisions use version 4 and preserve older immutable bytes. Missing origin is omitted; present null/invalid origin and future versions fail. Manual edits ignore renderer-supplied origin replacement and preserve native lineage. Restore retains the historical source origin; edited/remapped content can differ. New section generation clears inherited origin and receives its own record only from a native agent result, preserving earlier revisions/links. See [the record, compatibility and evolution contract](../CHAPTER_GENERATION_RECORDS.md).
+
+**Pending:**
+- [ ] Qualify schema-4/legacy decoding, preview restart/save and immutable decision/restore behavior; prior version-3 evidence is insufficient. The schema task `8bw6` requires reopening/revalidation for this change.
+- [ ] Complete actual native Codex and Claude planned/ordinary chapter and section flows with matching settings/records, cancellation ownership, interrupted-save recovery and correct step links. No API prerequisite or fallback is allowed.
+- [ ] Verify wrong request/backend/step, malformed/duplicate/oversized metadata, digest mismatch, forged renderer replacement, missing history, two same-file learning questions and cross-snapshot derived lineage. Use the detailed deferred cases in `xymb`.
+- [ ] Review pacing, source-grounded answer quality, navigability and comprehension across representative languages. Recorded metadata/citation validity cannot satisfy this. Multi-unit orchestration and selective updates remain separate pending work.
+
+No tests, builds, app launches, agent/SDK probes, login or model requests ran. Existing fixture constructors only received the required absent-metadata field; no tests were added or executed. Changed Rust regions were formatted and Git whitespace checks are separate from compilation/runtime acceptance. Codex remains Source, every automatic Claude cell remains Missing behind the empty registry, and the multi-agent release requirement remains open.

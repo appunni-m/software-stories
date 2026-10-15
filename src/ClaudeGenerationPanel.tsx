@@ -1,3 +1,4 @@
+import { GenerationRecord } from './GenerationRecord';
 import { useEffect, useRef, useState } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import {
@@ -284,6 +285,7 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
       <button className="secondary-button" disabled={cancelling} onClick={() => { void cancel(); }}>{cancelling ? 'Stopping…' : 'Cancel generation'}</button></>}
     <div ref={output} tabIndex={-1} role="group" aria-label="Claude generation result">
       {result?.kind === 'chapter' && <>
+        <GenerationRecord origin={result.value.revision.generationOrigin} />
         <h4>{result.value.revision.title}</h4><p>Validated chapter preview · {saved ? 'saved as an unaccepted draft' : 'not saved or accepted'}</p>
         {result.value.updateNotes.map((text, index) => <p key={index}>{text}</p>)}
         {result.value.revision.sections.map((section) => <article className="provider-chapter-section" key={section.sectionId}>

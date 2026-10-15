@@ -464,7 +464,7 @@ The complete planned-step scope enters the encoded review/fingerprint before con
 
 **Remaining acceptance/work:**
 - [ ] Exercise accepted-step generation, settings, progress, cancellation, late/abandoned replies and recovery through **each** permitted native Codex and Claude account/runtime route. Complete the matching deferred cases in `xymb`; source code or an unavailable option cannot satisfy this.
-- [ ] Persist and expose durable chapter-to-plan-revision/step/request associations. Existing saved chapter/preview identities are project/snapshot/file candidates, not proof of the originating learning step. Do not mark a step complete or automatically attach a same-file chapter.
+- [ ] Qualify the version-4 durable chapter-to-plan-revision/step/request records now present in source. Legacy records remain project/snapshot/file candidates. Recorded lineage is not account attestation, answer quality or step completion; do not automatically attach older same-file chapters.
 - [ ] Review actual answer quality across representative languages: grounded concrete code behavior, prerequisite recaps, explicit unknowns and useful visuals. Schema/citation validity does not establish that the learning question was answered.
 - [ ] Complete deliberate multi-unit orchestration, omission/failure tracking and dependency-based selective updates before claiming an entire repository narrative.
 
@@ -489,3 +489,35 @@ Record exact commit, package/runtime versions, permitted account route, supporte
 12. Review the produced answer with a newcomer for representative languages and repos. It must answer that step with real identifiers, grounded behavior/visuals, measured pacing, explicit uncertainty and navigable evidence. Reject shallow documentation paraphrases even when structurally valid. Record the separate pending work for durable chapter-step association and multi-unit orchestration.
 
 None of these cases has been executed.
+
+
+### Original agent generation and exact step links — source checkpoint, 2026-10-16
+
+Both native Codex/Claude chapter result closures now attach schema-4 `generationOrigin` metadata after independent source/claim validation and before guarded preview publication. It retains the original request/fingerprint/contract, agent-specific model/reasoning/fixed approval/turn settings, distinct source digests, optional section target and complete optional accepted-plan step scope. API/manual import paths do not call this creator. Previews and immutable chapter history persist the record together; no sidecar transaction or agent process was added. Original-content hashing uses bounded streaming serialization and excludes root decision metadata.
+
+The app exposes Original generation in native agent previews, recovered previews and chapter review. The accepted plan reader lists saved chapters for the exact accepted revision/digest/step, with explicit lifecycle/snapshot labels and separate read/review actions. Recovery distinguishes recorded request/step matches from older filename candidates. These are local recorded labels, not account attestation, complete-repository coverage, proof that a question was answered or step/read completion.
+
+Strict legacy v1–v3 chapter reads and version-3 overview/pending-preview recovery remain in source. New writes/review decisions use version 4 and preserve older immutable bytes. Missing origin is omitted; present null/invalid origin and future versions fail. Manual edits ignore renderer-supplied origin replacement and preserve native lineage. Restore retains the historical source origin; edited/remapped content can differ. New section generation clears inherited origin and receives its own record only from a native agent result, preserving earlier revisions/links. See [the record, compatibility and evolution contract](../CHAPTER_GENERATION_RECORDS.md).
+
+**Pending:**
+- [ ] Qualify schema-4/legacy decoding, preview restart/save and immutable decision/restore behavior; prior version-3 evidence is insufficient. The schema task `8bw6` requires reopening/revalidation for this change.
+- [ ] Complete actual native Codex and Claude planned/ordinary chapter and section flows with matching settings/records, cancellation ownership, interrupted-save recovery and correct step links. No API prerequisite or fallback is allowed.
+- [ ] Verify wrong request/backend/step, malformed/duplicate/oversized metadata, digest mismatch, forged renderer replacement, missing history, two same-file learning questions and cross-snapshot derived lineage. Use the detailed deferred cases in `xymb`.
+- [ ] Review pacing, source-grounded answer quality, navigability and comprehension across representative languages. Recorded metadata/citation validity cannot satisfy this. Multi-unit orchestration and selective updates remain separate pending work.
+
+No tests, builds, app launches, agent/SDK probes, login or model requests ran. Existing fixture constructors only received the required absent-metadata field; no tests were added or executed. Changed Rust regions were formatted and Git whitespace checks are separate from compilation/runtime acceptance. Codex remains Source, every automatic Claude cell remains Missing behind the empty registry, and the multi-agent release requirement remains open.
+
+
+### Schema-4 original generation and step-link acceptance — pending
+
+For each case record the exact source/package/runtime versions, sanitized artifact identities and the required outcome. Agent cases require both backends through qualified permitted routes. No case below has run.
+
+1. Generate ordinary file/overview, planned file and one-section chapters with each agent. Before guarded publication, record must equal native review request/fingerprint/body hash/contract and actual selected settings/source digests, without raw source contents, credentials or executable paths. API/manual imports have no fabricated agent origin.
+2. Restart and load/save an original pending preview. Its record/model/original-content digest must remain intact and no new agent work may start. Detect altered preview content/model/metadata; preserve the damaged bytes for explicit recovery. Exercise count/byte bounds, uncertain publication and cancelled/abandoned replies under existing ownership.
+3. Read/encode legacy v1/v2/v3 accepted chapters and v3 overviews without adding origin or rewriting payloads. Recover an existing v3 preview without invented provenance. Edit/review/restore append v4 while leaving prior bytes unchanged. Present origin on pre-v4, present null, malformed/unknown fields or future chapter/origin versions must reject.
+4. Accept/reject an unchanged v4 chapter and verify original content identity survives new root revision IDs/numbers/lifecycle/decision notes. Editing title/sections or remapping to another snapshot retains only historical origin and cannot be labeled the unchanged original content. Visual round trips must retain the digest for unchanged supported payloads.
+5. Submit an edited renderer proposal with forged/dropped origin fields. Native editing must retain the stored base's lineage. Restore must use the selected native historical source record, not arbitrary renderer provenance. New section generation gets its own native record and never claims an inherited plan scope absent from that request.
+6. Generate two different learning steps for one file, including different plan revisions or retries. The reader must link only full matching revision/digest/step identities and preserve separate immutable history. Read opens the chosen accepted revision, not another question's newest file chapter; draft/rejected results open review. Legacy same-file chapters stay unlinked.
+7. Recover wrong backend/request/step and same-step retry notices. Labels must distinguish recorded matches, same-step other requests, unrelated requests and legacy candidates. A matching label never resolves a notice, accepts a chapter, grants consent or implies account attestation/answer quality.
+8. Exercise missing/corrupt plan/history/snapshot, stale index, superseded async loads, history lookup failure and more than twenty linked revisions. Show actionable states and bounded lists; never substitute another plan, filename-only chapter or API backend.
+9. Check keyboard/VoiceOver, wrapping of long questions/IDs/settings, 200% reflow, contrast and motion in native previews, recovery, plan links and revision review. Review real answers for source-grounded teaching quality; metadata cannot substitute for comprehension evidence.

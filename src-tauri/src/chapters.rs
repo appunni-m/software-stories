@@ -12,7 +12,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
-pub const CHAPTER_SCHEMA_VERSION: u32 = 3;
+pub const CHAPTER_SCHEMA_VERSION: u32 = 4;
+pub(crate) const GROUNDED_CHAPTER_SCHEMA_VERSION: u32 = 3;
 const LEGACY_CHAPTER_SCHEMA_VERSION: u32 = 1;
 const REVIEW_CHAPTER_SCHEMA_VERSION: u32 = 2;
 pub(crate) const VISUAL_SCHEMA_VERSION: u32 = 2;
@@ -162,6 +163,12 @@ pub struct ChapterRevision {
     pub based_on_revision_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub decision_note: Option<String>,
+    #[serde(
+        default,
+        deserialize_with = "crate::chapter_origin::deserialize_origin",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub generation_origin: Option<crate::chapter_origin::ChapterGenerationOrigin>,
     pub sections: Vec<ChapterSection>,
 }
 
@@ -798,11 +805,23 @@ pub fn decode_chapter_revision(bytes: &[u8]) -> Result<ChapterRevision, String> 
         .ok_or_else(|| "The chapter revision has no supported schema version.".to_owned())?;
     if !matches!(
         schema_version,
-        LEGACY_CHAPTER_SCHEMA_VERSION | REVIEW_CHAPTER_SCHEMA_VERSION | CHAPTER_SCHEMA_VERSION
+        LEGACY_CHAPTER_SCHEMA_VERSION
+            | REVIEW_CHAPTER_SCHEMA_VERSION
+            | GROUNDED_CHAPTER_SCHEMA_VERSION
+            | CHAPTER_SCHEMA_VERSION
     ) {
         return Err(format!(
             "Chapter schema version {schema_version} is not supported by this app."
         ));
+    }
+    if schema_version < CHAPTER_SCHEMA_VERSION
+        && value
+            .as_object()
+            .is_some_and(|object| object.contains_key("generationOrigin"))
+    {
+        return Err(
+            "Chapter versions before 4 cannot contain agent generation metadata.".to_owned(),
+        );
     }
     if chapter_contains_executable_visual_fields(&value) {
         return Err("Chapter visuals cannot contain HTML or script fields.".to_owned());
@@ -827,6 +846,7 @@ pub fn decode_chapter_revision(bytes: &[u8]) -> Result<ChapterRevision, String> 
     {
         return Err("Version 1 chapter revisions cannot contain review metadata.".to_owned());
     }
+    crate::chapter_origin::validate_revision_origin(&revision)?;
     validate_overview_revision_identity(&revision)?;
     Ok(revision)
 }
@@ -887,12 +907,16 @@ fn legacy_visual_contains_v2_fields(value: &serde_json::Value) -> bool {
 pub fn encode_chapter_revision(revision: &ChapterRevision) -> Result<Vec<u8>, String> {
     if !matches!(
         revision.schema_version,
-        LEGACY_CHAPTER_SCHEMA_VERSION | REVIEW_CHAPTER_SCHEMA_VERSION | CHAPTER_SCHEMA_VERSION
+        LEGACY_CHAPTER_SCHEMA_VERSION
+            | REVIEW_CHAPTER_SCHEMA_VERSION
+            | GROUNDED_CHAPTER_SCHEMA_VERSION
+            | CHAPTER_SCHEMA_VERSION
     ) || (revision.schema_version == LEGACY_CHAPTER_SCHEMA_VERSION
         && (revision.based_on_revision_id.is_some() || revision.decision_note.is_some()))
     {
         return Err("The chapter revision uses an unsupported schema version.".to_owned());
     }
+    crate::chapter_origin::validate_revision_origin(revision)?;
     validate_overview_revision_identity(revision)?;
     let bytes = serde_json::to_vec(revision)
         .map_err(|_| "The chapter revision could not be serialized.".to_owned())?;
@@ -904,12 +928,14 @@ pub fn encode_chapter_revision(revision: &ChapterRevision) -> Result<Vec<u8>, St
 
 fn validate_overview_revision_identity(revision: &ChapterRevision) -> Result<(), String> {
     if matches!(&revision.target.scope, ChapterTargetScope::Overview)
-        && (revision.schema_version != CHAPTER_SCHEMA_VERSION
-            || revision.target.target_id != "target:overview"
+        && (!matches!(
+            revision.schema_version,
+            GROUNDED_CHAPTER_SCHEMA_VERSION | CHAPTER_SCHEMA_VERSION
+        ) || revision.target.target_id != "target:overview"
             || revision.chapter_id != "chapter:overview")
     {
         return Err(
-            "An overview chapter must use schema version 3 and its stable overview identities."
+            "An overview chapter must use schema version 3 or 4 and its stable overview identities."
                 .to_owned(),
         );
     }
@@ -1037,11 +1063,24 @@ pub fn validate_chapter_revision(
     };
     if !matches!(
         revision.schema_version,
-        LEGACY_CHAPTER_SCHEMA_VERSION | REVIEW_CHAPTER_SCHEMA_VERSION | CHAPTER_SCHEMA_VERSION
+        LEGACY_CHAPTER_SCHEMA_VERSION
+            | REVIEW_CHAPTER_SCHEMA_VERSION
+            | GROUNDED_CHAPTER_SCHEMA_VERSION
+            | CHAPTER_SCHEMA_VERSION
     ) {
         validator.issue(
             ChapterIssueCode::UnsupportedSchemaVersion,
             "This chapter schema version is not supported.",
+            None,
+            None,
+            None,
+            None,
+        );
+    }
+    if let Err(message) = crate::chapter_origin::validate_revision_origin(revision) {
+        validator.issue(
+            ChapterIssueCode::InvalidRevision,
+            &message,
             None,
             None,
             None,
@@ -1168,13 +1207,15 @@ pub fn validate_chapter_revision(
     }
     validate_target(&mut validator, &revision.target);
     if matches!(&revision.target.scope, ChapterTargetScope::Overview)
-        && (revision.schema_version != CHAPTER_SCHEMA_VERSION
-            || revision.target.target_id != "target:overview"
+        && (!matches!(
+            revision.schema_version,
+            GROUNDED_CHAPTER_SCHEMA_VERSION | CHAPTER_SCHEMA_VERSION
+        ) || revision.target.target_id != "target:overview"
             || revision.chapter_id != "chapter:overview")
     {
         validator.issue(
             ChapterIssueCode::InvalidTarget,
-            "An overview chapter must use schema version 3 and its stable overview identities.",
+            "An overview chapter must use schema version 3 or 4 and its stable overview identities.",
             None,
             None,
             None,
@@ -2866,6 +2907,7 @@ mod tests {
             created_at_unix_ms: 1_800_000_000_000,
             based_on_revision_id: None,
             decision_note: None,
+            generation_origin: None,
             sections: vec![
                 ChapterSection {
                     section_id: "section:entry".to_owned(),

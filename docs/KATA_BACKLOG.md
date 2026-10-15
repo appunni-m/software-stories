@@ -76,3 +76,6 @@ Kata issue bodies are synchronized from `docs/kata-tasks/*.md`; each issue state
 5. Add section-level freshness, selective revision, history, and offline export.
 6. Release the dependable Mac app. Build local PR explanation later; it does not block the first release.
 7. Add selectable direct model APIs and coding-agent runtimes through maintained libraries, ACP where supported, and each agent’s documented integration surface.
+
+
+**Schema revalidation — 2026-10-16:** chapter version 4 adds original native agent request/settings and exact plan-step lineage to previews/history. The schema task `8bw6` is reopened because its version-3 completion evidence does not qualify this extension. Both agents' runtime/account acceptance and the nine additional deferred origin/legacy/history cases in `xymb` remain pending. See [generation records](CHAPTER_GENERATION_RECORDS.md).

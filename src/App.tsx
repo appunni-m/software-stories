@@ -1,3 +1,4 @@
+import { GenerationRecord } from './GenerationRecord';
 import type { AgentGitRecovery } from './lib/agentRecovery';
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { listen } from '@tauri-apps/api/event';
@@ -2702,6 +2703,7 @@ function RecoveredGeneratedPreviewDialog({ generationId, onClose, onSaved, onDis
             <section className="provider-response" aria-label="Recovered generated chapter">
               <div><span>VALIDATED · UNSAVED PREVIEW</span><h4>{preview.revision.title}</h4></div>
               <p>This is saved local work. No provider request will be sent when you review or save it. Prior consent and request prompts were not stored; sending again requires a new exact-context review and fresh consent.</p>
+              <GenerationRecord origin={preview.revision.generationOrigin} />
               <GeneratedChapterPreview revision={preview.revision} />
               <small>{preview.modelVersion ?? preview.modelId} · {preview.inputTokens ?? '—'} input tokens · {preview.outputTokens ?? '—'} output tokens</small>
             </section>
@@ -3925,7 +3927,8 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
         </div>
       </section>
 
-      <RepositoryPlans manifest={manifest} onPlan={onPlan} onOpenFile={onOpenFile} onGenerateFile={onGenerateFile} onGeneratePlannedChapter={onGeneratePlannedChapter} />
+      <RepositoryPlans manifest={manifest} onPlan={onPlan} onOpenFile={onOpenFile} onGenerateFile={onGenerateFile} onGeneratePlannedChapter={onGeneratePlannedChapter}
+        chapters={revisions} chaptersLoading={revisionsLoading} chaptersError={revisionsError} onReadChapter={onReadRevision} onReviewChapter={onReviewRevision} />
       <details className="guide-coverage-disclosure" open={returnFocusTarget?.startsWith('journey:')}><summary>Build a static call reading order</summary>
       <Suspense fallback={<p className="journey-note" role="status">Loading repository journeys…</p>}>
         <RepositoryJourneys manifest={manifest} revisions={revisions} revisionsReady={coverageReady} returnFocusTarget={returnFocusTarget}
@@ -4707,6 +4710,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                   </div> : null}
                 </div>
 
+                <GenerationRecord origin={activeDocument?.generationOrigin} />
                 {history.length > 0 && <div className="chapter-revision-history" role="group" aria-label="Immutable chapter revision history">
                   <span>Revision history</span>
                   {history.map((revision) => <button

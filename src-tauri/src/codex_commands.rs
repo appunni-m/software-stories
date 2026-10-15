@@ -359,7 +359,11 @@ pub(crate) async fn send_codex_chapter_request(
         &fingerprint,
         consent,
         CodexOperation::Chapter,
-        |storage, _, review, response, _| validate_chapter_draft_preview(storage, review, response),
+        |storage, _, review, response, _| {
+            let mut candidate = validate_chapter_draft_preview(storage, review, response)?;
+            super::attach_agent_generation_origin(&mut candidate, review)?;
+            Ok(candidate)
+        },
         move |storage, candidate| {
             publish_chapter_candidate(
                 storage,

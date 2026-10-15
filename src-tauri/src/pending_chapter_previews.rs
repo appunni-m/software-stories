@@ -28,6 +28,8 @@ pub struct PendingChapterPreviewSummary {
     pub model_id: Option<String>,
     pub target_path: Option<String>,
     pub unavailable_reason: Option<String>,
+    pub generation_origin: Option<crate::chapter_origin::ChapterGenerationOrigin>,
+    pub origin_content_matches: Option<bool>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -126,6 +128,10 @@ pub fn list(storage_dir: &Path) -> Result<Vec<PendingChapterPreviewSummary>, Str
             |entry| match decode_preview(&entry.bytes_vec, &entry.path) {
                 Ok(preview) => {
                     let revision = preview.revision;
+                    let origin_content_matches = revision
+                        .generation_origin
+                        .as_ref()
+                        .map(|origin| origin.matches_content(&revision));
                     let target_path = match revision.target.scope {
                         ChapterTargetScope::File { path } => Some(path),
                         ChapterTargetScope::Group { paths } => paths.first().cloned(),
@@ -139,6 +145,8 @@ pub fn list(storage_dir: &Path) -> Result<Vec<PendingChapterPreviewSummary>, Str
                         model_id: Some(preview.model_id),
                         target_path,
                         unavailable_reason: None,
+                        generation_origin: revision.generation_origin,
+                        origin_content_matches,
                     })
                 }
                 Err(reason) => {
@@ -157,6 +165,8 @@ pub fn list(storage_dir: &Path) -> Result<Vec<PendingChapterPreviewSummary>, Str
                         model_id: None,
                         target_path: None,
                         unavailable_reason: Some(reason),
+                        generation_origin: None,
+                        origin_content_matches: None,
                     })
                 }
             },
@@ -393,12 +403,27 @@ fn decode_preview(bytes: &[u8], path: &Path) -> Result<ChapterDraftPreview, Stri
 
 fn validate_preview(preview: &ChapterDraftPreview) -> Result<(), String> {
     parse_generation_id(&preview.generation_id)?;
-    if preview.revision.schema_version != chapters::CHAPTER_SCHEMA_VERSION
-        || preview.revision.lifecycle != RevisionLifecycle::Draft
+    if preview
+        .revision
+        .generation_origin
+        .as_ref()
+        .is_some_and(|origin| {
+            !origin.matches_content(&preview.revision) || origin.model_id() != preview.model_id
+        })
+    {
+        return Err(
+            "The recoverable preview does not match its recorded original agent content/model."
+                .to_owned(),
+        );
+    }
+    if !matches!(
+        preview.revision.schema_version,
+        chapters::GROUNDED_CHAPTER_SCHEMA_VERSION | chapters::CHAPTER_SCHEMA_VERSION
+    ) || preview.revision.lifecycle != RevisionLifecycle::Draft
         || preview.revision.validation_status != ValidationStatus::Valid
     {
         return Err(
-            "Only current, locally validated, unaccepted chapter drafts can be recovered."
+            "Only supported, locally validated, unaccepted chapter drafts can be recovered."
                 .to_owned(),
         );
     }

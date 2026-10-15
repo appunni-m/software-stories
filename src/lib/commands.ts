@@ -537,6 +537,7 @@ export interface ChapterRevision {
   createdAtUnixMs: number;
   basedOnRevisionId?: string | null;
   decisionNote?: string | null;
+  generationOrigin?: import('./chapterOrigin').ChapterGenerationOrigin;
   sections: ChapterSection[];
 }
 
@@ -932,6 +933,8 @@ export interface PendingChapterPreviewSummary {
   modelId: string | null;
   targetPath: string | null;
   unavailableReason: string | null;
+  generationOrigin: import('./chapterOrigin').ChapterGenerationOrigin | null;
+  originContentMatches: boolean | null;
 }
 
 export interface ProjectSnapshots {

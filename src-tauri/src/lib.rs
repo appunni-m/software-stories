@@ -41,6 +41,7 @@ mod recovery;
 mod recovery_commands;
 mod repository_plan;
 mod planned_chapter;
+mod chapter_origin;
 mod repository_plan_commands;
 mod repository_plan_history;
 mod repository_plan_store;
@@ -1694,6 +1695,22 @@ struct PreparedChapterDraftPreview {
     input_tokens: Option<u64>,
     output_tokens: Option<u64>,
     update_notes: Vec<String>,
+}
+
+/// Only native agent result closures call this after independent chapter
+/// validation. Direct API and manual imports cannot create agent lineage.
+fn attach_agent_generation_origin(
+    candidate: &mut PreparedChapterDraftPreview,
+    review: &provider::ProviderRequestReview,
+) -> Result<(), provider::ProviderFailure> {
+    let origin =
+        chapter_origin::ChapterGenerationOrigin::from_agent_review(review, &candidate.revision)
+            .map_err(|message| provider::ProviderFailure {
+                kind: provider::ProviderFailureKind::InvalidReview,
+                message,
+            })?;
+    candidate.revision.generation_origin = Some(origin);
+    Ok(())
 }
 
 fn prepare_chapter_draft_preview(

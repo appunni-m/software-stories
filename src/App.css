@@ -1975,3 +1975,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .files-selected-header { align-items: flex-start; flex-direction: column; }
   .files-selected-header > small { text-align: left; }
 }
+
+/* Recorded generation metadata must reflow with long model/step identities. */
+.generation-record { min-width: 0; max-width: 100%; }
+.generation-record summary { cursor: pointer; }
+.generation-record code { white-space: normal; overflow-wrap: anywhere; }

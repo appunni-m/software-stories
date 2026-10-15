@@ -44,7 +44,7 @@ Successful recovery returns to Guide and opens the original agent-only step requ
 
 - Execute both agents' complete native workflows, account/runtime qualification, lifecycle and failure cases. An unavailable Claude option does not satisfy multi-agent support.
 - Qualify semantic answer quality across representative languages and real repositories. Prompt instructions are not proof of teaching quality.
-- Persist and expose chapter-to-plan-step associations in chapter history. The existing chapter format identifies project/snapshot/file but does not prove which learning step or originating request created a saved revision. Recovery matches are candidates; this flow does not mark step completion or automatically attach a saved chapter to a plan.
+- Qualify the new [version-4 generation records and step links](CHAPTER_GENERATION_RECORDS.md). Both native agent result paths now retain original request/settings/plan scope in previews and immutable chapters, and the plan reader exposes recorded links. Legacy same-file chapters remain unassociated; metadata does not establish account attestation, teaching quality or step completion.
 - Add deliberate multi-unit orchestration, omission/failure tracking and dependency-based selective updates. One generated step does not explain the entire repository.
 - Complete the deferred cases in Kata `xymb`; keep `6qk9`, `z3an`, `8gqw`, `tpta` and `2r6n` open until their actual acceptance requirements are met.
 

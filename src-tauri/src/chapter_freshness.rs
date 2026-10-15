@@ -2211,6 +2211,7 @@ mod tests {
             created_at_unix_ms: 1,
             based_on_revision_id: None,
             decision_note: None,
+            generation_origin: None,
             sections,
         }
     }

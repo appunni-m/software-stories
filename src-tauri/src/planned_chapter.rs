@@ -50,6 +50,40 @@ pub(crate) struct PlannedChapterScope {
     pub plan_context: repository_plan::RepositoryPlanReviewScope,
 }
 
+impl PlannedChapterScope {
+    /// Bounded metadata only. Accepted-record replay remains authoritative.
+    pub(crate) fn valid_recorded_shape(&self) -> bool {
+        let text = |value: &str, max: usize| {
+            !value.trim().is_empty() && value.len() <= max && !value.chars().any(char::is_control)
+        };
+        let paths = self.selected_paths.iter().collect::<BTreeSet<_>>();
+        let prerequisites = self
+            .prerequisites
+            .iter()
+            .map(|item| &item.step_id)
+            .collect::<BTreeSet<_>>();
+        self.schema_version == 1
+            && self.target.valid_shape()
+            && text(&self.snapshot_id, 256)
+            && text(&self.primary_path, 4096)
+            && text(&self.question, 720)
+            && self.plan_question == self.plan_context.question
+            && self.plan_context.valid_recorded_shape()
+            && !paths.is_empty()
+            && paths.len() <= 12
+            && paths.len() == self.selected_paths.len()
+            && paths.contains(&self.primary_path)
+            && self.selected_paths.iter().all(|path| text(path, 4096))
+            && self.prerequisites.len() <= 23
+            && prerequisites.len() == self.prerequisites.len()
+            && self.prerequisites.iter().all(|item| {
+                item.step_id != self.target.step_id
+                    && text(&item.step_id, 256)
+                    && text(&item.question, 720)
+            })
+    }
+}
+
 /// Replays the accepted original proposal and its immutable evidence. Current
 /// head changes do not silently substitute another revision or reading step.
 pub(crate) fn prepare(

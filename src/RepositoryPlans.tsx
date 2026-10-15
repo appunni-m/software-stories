@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, FileCode2, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
-import { isNativeRuntime, type ChapterClaim, type SnapshotManifest } from './lib/commands';
+import { isNativeRuntime, type ChapterClaim, type ChapterRevision, type SnapshotManifest } from './lib/commands';
+import { samePlannedTarget } from './lib/chapterOrigin';
+import { GenerationRecord } from './GenerationRecord';
 import { codeLensRangeFromChapterAnchor } from './lib/codeLens';
 import { errorMessageOr } from './lib/errorMessage';
 import type { SourceLineRange } from './lib/navigation';
@@ -18,11 +20,18 @@ interface Props {
   onOpenFile: (path: string, snapshotId?: string, range?: SourceLineRange) => void;
   onGenerateFile: (path: string, selectedPaths: string[]) => void;
   onGeneratePlannedChapter: (scope: PlannedChapterScope) => void;
+  chapters: ChapterRevision[];
+  chaptersLoading: boolean;
+  chaptersError: string | null;
+  onReadChapter: (chapter: ChapterRevision) => void;
+  onReviewChapter: (chapter: ChapterRevision) => void;
 }
 
 /** A saved plan never becomes chapter coverage or reading progress. Metadata
  * discovery is followed by a native evidence-revalidating load before display. */
-export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, onGeneratePlannedChapter }: Props) {
+export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, onGeneratePlannedChapter,
+  chapters, chaptersLoading, chaptersError, onReadChapter, onReviewChapter,
+}: Props) {
   const { projectId, snapshotId } = manifest.summary;
   const native = isNativeRuntime();
   const [question, setQuestion] = useState('');
@@ -63,6 +72,16 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
   const bytes = files.filter((file) => paths.includes(file.path)).reduce((sum, file) => sum + file.sizeBytes, 0);
   const matches = files.filter((file) => file.path.toLowerCase().includes(query.trim().toLowerCase()));
   const step = detail?.preview.plan.steps[position];
+  const linkedChapters = revision && detail && step ? chapters.filter((chapter) => {
+    const origin = chapter.generationOrigin;
+    const planned = origin?.plannedChapter;
+    if (!origin || !planned) return false;
+    return chapter.projectId === projectId && origin.projectId === projectId
+      && planned.snapshotId === detail.preview.plan.snapshotId && planned.primaryPath === step.primaryPath
+      && planned.question === step.question && samePlannedTarget(planned.target, {
+        revisionId: revision.revision.revisionId, recordSha256: detail.recordSha256, stepId: step.stepId,
+      });
+  }).sort((left, right) => right.createdAtUnixMs - left.createdAtUnixMs || right.revisionNumber - left.revisionNumber) : [];
   const locked = discarding || decisionBusy !== null;
   const alreadyAccepted = detail ? revisions.find((item) => item.revision.draftId === detail.preview.plan.draftId) : undefined;
   const availableParents = revisions.filter((item) => item.isHead && item.revision.question === detail?.preview.plan.question);
@@ -318,6 +337,18 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
         {revision ? <button className="primary-button" disabled={locked || detail.preview.plan.snapshotId !== snapshotId} onClick={() => { void explainStep(); }}><Sparkles size={14} /> {decisionBusy === 'prepare-step' ? 'Preparing step…' : 'Explain this step with an agent'}</button>
           : <button className="secondary-button" disabled={locked || detail.preview.plan.snapshotId !== snapshotId} onClick={() => onGenerateFile(step.primaryPath, [...new Set([step.primaryPath, ...step.claim.anchors.map((anchor) => anchor.path)])])}><Sparkles size={14} /> General file explanation</button>}</div>
       {!revision && <p>Accept and open this plan revision to generate chapters that answer its exact step questions. A general file explanation does not carry this reading plan.</p>}
+      {revision && <section aria-label="Saved chapters with this learning step origin"><h4>Chapters started from this step</h4>
+        {chaptersLoading ? <p role="status">Reading saved chapter history…</p> : chaptersError ? <p role="alert">{chaptersError}</p> : <>
+          {linkedChapters.length ? <ul>{linkedChapters.slice(0, 20).map((chapter) => <li key={chapter.revisionId}>
+            <strong>{chapter.title}</strong> · {chapter.lifecycle} · revision {chapter.revisionNumber} · {chapter.snapshotId === detail.preview.plan.snapshotId ? 'original snapshot' : 'another snapshot'}
+            <GenerationRecord origin={chapter.generationOrigin} />
+            {chapter.lifecycle === 'accepted' && <button className="secondary-button" disabled={locked} onClick={() => onReadChapter(chapter)}>Read this accepted revision</button>}
+            <button className="text-button" disabled={locked} onClick={() => onReviewChapter(chapter)}>Review revision</button>
+          </li>)}</ul> : <p>No saved chapters record this exact plan revision and step. Older same-file chapters are not automatically linked.</p>}
+          {linkedChapters.length > 20 && <p>Showing 20 of {linkedChapters.length} linked revisions. All remain in Edit.</p>}
+        </>}
+        <p className="provider-small-note">This is recorded origin, not step completion. Later edits and source changes may follow; chapter acceptance and reading progress remain separate.</p>
+      </section>}
       {detail.preview.plan.snapshotId !== snapshotId && <p>Open a citation to switch to this plan’s original snapshot before requesting a file explanation.</p>}
       <details><summary>Known unknowns and omitted selected files</summary>{detail.preview.plan.unknowns.map(claim)}<ul>{detail.preview.plan.omittedSelectedPaths.map((path) => <li key={path}><code>{path}</code></li>)}</ul></details>
       {!revision && alreadyAccepted && <section className="plan-decision"><h4>This draft already has an accepted revision</h4>

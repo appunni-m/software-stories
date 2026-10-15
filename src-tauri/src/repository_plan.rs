@@ -64,6 +64,10 @@ pub(crate) struct RepositoryPlanReviewScope {
 }
 
 impl RepositoryPlanReviewScope {
+    pub(crate) fn valid_recorded_shape(&self) -> bool {
+        self.valid_recovery_shape(self.coverage.selected_file_count)
+    }
+
     /// A journal retains descriptive planning context only. Reopening it must
     /// still reproduce this entire scope from native immutable evidence.
     pub(crate) fn valid_recovery_shape(&self, selected_count: usize) -> bool {

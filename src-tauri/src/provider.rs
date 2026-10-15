@@ -3163,8 +3163,7 @@ pub(crate) fn planned_chapter_review_scope(
         serde_json::from_value(review.generation_config["plannedChapter"].clone())
             .map_err(|_| invalid())?;
     let paths = scope.selected_paths.iter().collect::<BTreeSet<_>>();
-    if scope.schema_version != 1
-        || !scope.target.valid_shape()
+    if !scope.valid_recorded_shape()
         || review.purpose != FILE_CHAPTER_PURPOSE
         || review.generation_config["contractVersion"] != contract
         || review.snapshot_id != scope.snapshot_id

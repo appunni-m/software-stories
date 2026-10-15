@@ -174,7 +174,7 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
         {chapterRecovery && <ChapterRecoveryReview key={chapterRecovery.recoveryOperationId}
           native={native} projectId={chapterRecovery.projectId} snapshotId={chapterRecovery.snapshotId}
           targetPath={chapterRecovery.kind === 'overview' ? null : chapterRecovery.targetPath}
-          locked={busy} onReady={setRecoveryReady} onOpenPreview={onOpenPendingPreview} />}
+          locked={busy} backend="claude-agent" requestId={chapterRecovery.recoveryOperationId} plannedTarget={chapterRecovery.kind === 'review' ? chapterRecovery.plannedChapter?.target : undefined} onReady={setRecoveryReady} onOpenPreview={onOpenPendingPreview} />}
         <section className="provider-review-card">
           <form onSubmit={(event) => { event.preventDefault(); void inspect('connection'); }}>
             <label className="provider-model-select">Claude CLI executable · absolute path

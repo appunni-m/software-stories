@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { Check, FileCode2, HardDrive, Sparkles, X } from 'lucide-react';
+import { GenerationRecord } from './GenerationRecord';
 import { ChapterRecoveryReview } from './ChapterRecoveryReview';
 import { buildCodexPlannedChapterReview, matchesPlannedChapterReview, type PlannedChapterScope } from './lib/plannedChapters';
 import { buildCodexRepositoryPlanReview, sendCodexRepositoryPlanRequest, type PrepareRepositoryPlanInput, type RepositoryPlanPreview } from './lib/repositoryPlans';
@@ -637,7 +638,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           {chapterRecovery && <ChapterRecoveryReview key={chapterRecovery.recoveryOperationId}
             native={native} projectId={chapterRecovery.projectId} snapshotId={chapterRecovery.snapshotId}
             targetPath={chapterRecovery.kind === 'overview' ? null : chapterRecovery.targetPath ?? null}
-            locked={busy !== null || hasResult} onReady={setRecoveryReady} onOpenPreview={onOpenPendingPreview} />}
+            locked={busy !== null || hasResult} backend="codex" requestId={chapterRecovery.recoveryOperationId} plannedTarget={plannedChapter?.target} onReady={setRecoveryReady} onOpenPreview={onOpenPendingPreview} />}
           {!native ? <div className="provider-preview-only" role="status"><HardDrive size={18} /><div><strong>Codex runs in the macOS app.</strong><p>This browser preview cannot launch Codex, sign in, read snapshot files, or generate chapters.</p></div></div> : <>
             <details className="provider-key-card" open={mode === 'settings' || !status?.authenticated}>
               <summary>Codex setup · {status?.authenticated ? 'account connected' : 'connect your account'}</summary>
@@ -750,6 +751,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
               {planResult && <section className="provider-response" aria-label="Saved learning plan"><h4>{planResult.plan.title}</h4><p>Saved locally as an unaccepted plan with {planResult.plan.steps.length} steps. Close this dialog and open it in Learning plans to review each rationale and citation.</p><p>Files without a planned step: {planResult.plan.omittedSelectedPaths.length}. No chapter or file coverage was accepted.</p></section>}
               {preview && <section className="provider-response" aria-labelledby="codex-result-title">
                 <div><span>{saved ? 'SAVED · UNACCEPTED DRAFT' : preview.validation.status === 'valid' ? 'VALIDATED · UNSAVED PREVIEW' : 'VALIDATION FAILED'}</span><h4 id="codex-result-title">{preview.revision.title}</h4></div>
+                <GenerationRecord origin={preview.revision.generationOrigin} />
                 <p>{saved ? `Draft revision ${saved.revisionNumber} is saved locally. Acceptance is a separate review.` : 'Review the explanation and exact citations. Saving creates a local unaccepted draft. Closing or switching backends discards an unsaved preview.'}</p>
                 {preview.updateNotes.length > 0 && <div className="provider-status-note" role="status"><strong>Generation notes</strong><ul>{preview.updateNotes.map((message, index) => <li key={index}>{message}</li>)}</ul></div>}
                 {preview.validation.issues.length > 0 && <div className="provider-error-text" role="alert"><strong>Evidence validation issues</strong><ul>{preview.validation.issues.map((issue, index) => <li key={index}>{issue.code}{issue.path ? ` · ${issue.path}` : ''}{issue.sectionId ? ` · ${issue.sectionId}` : ''}</li>)}</ul></div>}

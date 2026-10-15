@@ -1,6 +1,6 @@
 # Chapter schema
 
-This document describes the current version 3 chapter payload used by Chapter Studio, validation, linked visuals, and the walkthrough player. The reader also supports strict legacy chapter payloads v1 and v2; future versions are rejected. Visuals have their own version number: v2 is current, while v1 visuals are preserved only on legacy accepted revisions. The Rust structs in `src-tauri/src/chapters.rs` are the serialization authority; the matching TypeScript interfaces are in `src/lib/commands.ts`.
+This document describes the current version 4 chapter payload used by Chapter Studio, validation, linked visuals, and the walkthrough player. The reader also supports strict legacy chapter payloads v1, v2 and v3; future versions are rejected. Visuals have their own version number: v2 is current, while v1 visuals are preserved only on legacy accepted revisions. The Rust structs in `src-tauri/src/chapters.rs` are the serialization authority; the matching TypeScript interfaces are in `src/lib/commands.ts`.
 
 ## Revision shape
 
@@ -8,7 +8,7 @@ A chapter revision is one immutable, snapshot-pinned value. Its JSON uses camelC
 
 ```json
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "chapterId": "chapter:request-flow",
   "revisionId": "revision:request-flow:1",
   "revisionNumber": 1,
@@ -195,4 +195,11 @@ No line-distance search, fuzzy match, nearest-symbol fallback, or automatic save
 
 ## Versioning and existing accepted revisions
 
-Readers dispatch on `schemaVersion`; versions 1, 2, and 3 are decoded strictly and future versions are rejected. Version 1 predates review metadata; v2 introduced `basedOnRevisionId` and `decisionNote`; v3 is the current write version. Reading, validating, or serializing an accepted revision never changes its lifecycle, status, sections, anchors, visual data, or payload values. Version 1 accepted JSON keeps its original shape because absent review metadata is omitted during serialization. Any future migration preserves the old accepted payload and appends a new draft/revision; accepted revisions are never rewritten in place.
+Readers dispatch on `schemaVersion`; versions 1, 2, 3, and 4 are decoded strictly and future versions are rejected. Version 1 predates review metadata; v2 introduced `basedOnRevisionId` and `decisionNote`; v3 introduced grounded overview content; v4 is the current write version and adds optional native agent generation lineage. Reading, validating, or serializing an accepted revision never changes its lifecycle, status, sections, anchors, visual data, or payload values. Version 1 accepted JSON keeps its original shape because absent review metadata is omitted during serialization. Any future migration preserves the old accepted payload and appends a new draft/revision; accepted revisions are never rewritten in place.
+
+
+## Version 4 agent generation record
+
+`generationOrigin` is optional and omitted when absent. Native Codex and Claude chapter senders create it after independent source/claim validation; API and manual handoff generation do not create agent provenance. It retains the exact original request, supported agent settings, source digests, optional accepted-plan step scope and a bounded original-content digest. Saved previews and immutable chapter revisions keep this record together. The app exposes original generation in previews/history and exact recorded plan-step chapter links. Manual edits and review decisions inherit native lineage; new generation gets its own record rather than claiming the old one. Later content can differ, and the record does not attest account identity or teaching quality.
+
+Versions 1–3 reject origin metadata, including a present null field. Version-3 overview revisions and pending previews remain readable/recoverable without fabricated lineage. New review/edit decisions append version 4, preserving the older accepted bytes. See [the complete record, digest, evolution and acceptance contract](CHAPTER_GENERATION_RECORDS.md). This source extension has not been built or exercised; old evidence must be rerun against version 4.
