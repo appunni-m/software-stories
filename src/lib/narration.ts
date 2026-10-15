@@ -1,12 +1,15 @@
+import type { NarrationBackend } from './commands';
+
 export interface NarrationPreferencesSnapshot {
+  backend: NarrationBackend;
   spokenText: string;
   voice: string;
   style: string;
   lexicon: Array<{ name: string; sayAs: string; include: boolean }>;
 }
 
-export const DEFAULT_NARRATION_VOICE = 'Kore';
-export const DEFAULT_NARRATION_STYLE = 'Clear, calm, conversational.';
+export const DEFAULT_NARRATION_VOICE = 'alba';
+export const DEFAULT_NARRATION_STYLE = '';
 
 /** Decode the saved per-section narration preferences without trusting storage data. */
 export function parseNarrationPreferences(
@@ -14,6 +17,7 @@ export function parseNarrationPreferences(
   fallbackText: string,
 ): NarrationPreferencesSnapshot {
   const fallback: NarrationPreferencesSnapshot = {
+    backend: 'pocket-tts',
     spokenText: fallbackText,
     voice: DEFAULT_NARRATION_VOICE,
     style: DEFAULT_NARRATION_STYLE,
@@ -22,10 +26,22 @@ export function parseNarrationPreferences(
   if (!serialized) return fallback;
   try {
     const parsed = JSON.parse(serialized) as Partial<NarrationPreferencesSnapshot>;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return fallback;
+    // Existing saved preferences predate local TTS and retain their explicit
+    // cloud voice. Invalid or future backend values must not select cloud TTS.
+    const legacyCloudPreferences = parsed.backend === undefined
+      && typeof parsed.spokenText === 'string'
+      && typeof parsed.voice === 'string'
+      && typeof parsed.style === 'string'
+      && Array.isArray(parsed.lexicon);
+    const backend: NarrationBackend = parsed.backend === 'gemini' || legacyCloudPreferences ? 'gemini' : 'pocket-tts';
     return {
+      backend,
       spokenText: typeof parsed.spokenText === 'string' ? parsed.spokenText : fallbackText,
-      voice: typeof parsed.voice === 'string' ? parsed.voice : DEFAULT_NARRATION_VOICE,
-      style: typeof parsed.style === 'string' ? parsed.style : DEFAULT_NARRATION_STYLE,
+      // Pocket supports one pinned voice and no style prompt. Normalize old or
+      // malformed values so hidden style settings cannot block a local review.
+      voice: backend === 'pocket-tts' ? DEFAULT_NARRATION_VOICE : typeof parsed.voice === 'string' ? parsed.voice : 'Kore',
+      style: backend === 'pocket-tts' ? DEFAULT_NARRATION_STYLE : typeof parsed.style === 'string' ? parsed.style : 'Clear, calm, conversational.',
       lexicon: Array.isArray(parsed.lexicon)
         ? parsed.lexicon.filter(isPronunciationEntry).slice(0, 12)
         : [],
@@ -35,7 +51,7 @@ export function parseNarrationPreferences(
   }
 }
 
-/** Apply the enabled, whole-identifier pronunciation substitutions sent to TTS. */
+/** Apply the enabled, whole-identifier pronunciation substitutions used by TTS. */
 export function applyPronunciationLexicon(
   spokenText: string,
   lexicon: NarrationPreferencesSnapshot['lexicon'],
@@ -72,7 +88,8 @@ export function narrationPreferencesMatch(
   left: NarrationPreferencesSnapshot,
   right: NarrationPreferencesSnapshot,
 ): boolean {
-  return applyPronunciationLexicon(left.spokenText.trim(), left.lexicon)
+  return (left.backend ?? 'gemini') === (right.backend ?? 'gemini')
+    && applyPronunciationLexicon(left.spokenText.trim(), left.lexicon)
       === applyPronunciationLexicon(right.spokenText.trim(), right.lexicon)
     && left.voice === right.voice
     && left.style.trim() === right.style.trim();

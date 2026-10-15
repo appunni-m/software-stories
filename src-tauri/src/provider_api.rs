@@ -693,7 +693,7 @@ fn sanitized_endpoint(provider_id: &str, encoded: &Encoded) -> Result<String, &'
     Ok(endpoint)
 }
 
-fn lowercase_schema_types(value: &mut Value) {
+pub(crate) fn lowercase_schema_types(value: &mut Value) {
     match value {
         Value::Object(object) => {
             if let Some(Value::String(schema_type)) = object.get_mut("type") {

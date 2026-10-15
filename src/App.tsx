@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { CodexChapterDialog } from './CodexChapterDialog';
 import {
   ArrowLeft,
   ArrowRight,
@@ -161,7 +162,7 @@ import {
 
 type Notice = { title: string; message: string; actionLabel?: string; action?: () => void; tone?: 'info' | 'warning' | 'error' } | null;
 type ProviderDialogMode =
-  | { kind: 'settings'; recoveryOperationId?: string }
+  | { kind: 'settings'; backend?: 'api'; recoveryOperationId?: string }
   | { kind: 'review'; projectId: string; snapshotId: string; targetPath: string; recoveryOperationId?: string }
   | { kind: 'code-lens-range'; projectId: string; snapshotId: string; target: CodeLensExplanationTarget }
   | { kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string; selectedPaths: string[]; baseRevision: ChapterRevision; sectionUpdate: SectionUpdateReviewTarget }
@@ -1564,7 +1565,7 @@ function App() {
                     [projectId]: { baseRef, headRef, result },
                   }))}
                   onOpenRepository={() => { void openLocalRepository(); }}
-                  onOpenProviderSettings={() => setProviderDialog({ kind: 'settings' })}
+                  onOpenProviderSettings={() => setProviderDialog({ kind: 'settings', backend: 'api' })}
                 />
               </Suspense>
             ) : (
@@ -1626,13 +1627,73 @@ const noProviderConsent: ProviderConsent = {
   adultSupportedRegionAcknowledged: false,
 };
 
-function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCodeLensCitation }: {
+interface ProviderDialogProps {
   mode: ProviderDialogMode;
   native: boolean;
   onClose: () => void;
   onRecoveryReviewReady: (operationId: string) => void;
   onOpenCodeLensCitation: (citation: CodeLensExplanationCitation) => void;
-}) {
+}
+
+function ProviderDialog(props: ProviderDialogProps) {
+  const agentOperation = props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview';
+  const [backend, setBackend] = useState<'choose' | 'codex' | 'api'>(() => {
+    if (props.mode.kind === 'settings' && props.mode.backend === 'api') return 'api';
+    try {
+      const saved = localStorage.getItem('code-atlas-generation-backend-v1');
+      if (saved === 'api' || (saved === 'codex' && agentOperation)) return saved;
+    } catch { /* An unavailable preference store leaves the explicit chooser. */ }
+    return 'choose';
+  });
+  const chooserRef = useRef<HTMLElement>(null);
+  useModalFocusTrap(chooserRef);
+  useEffect(() => {
+    if (backend !== 'choose') return;
+    chooserRef.current?.focus();
+    const close = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); props.onClose(); }
+    };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [backend, props.onClose]);
+  const choose = (next: 'codex' | 'api') => {
+    try { localStorage.setItem('code-atlas-generation-backend-v1', next); } catch { /* Optional preference. */ }
+    setBackend(next);
+  };
+  if (backend === 'api') return <DirectApiDialog {...props} onChooseBackend={() => setBackend('choose')} />;
+  if (backend === 'codex' && (props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview')) {
+    return <CodexChapterDialog mode={props.mode.kind === 'settings' ? 'settings' : props.mode}
+      native={props.native} onClose={props.onClose} onUseDirectApi={() => choose('api')}
+      onRecoveryReviewReady={props.onRecoveryReviewReady} />;
+  }
+  return <div className="provider-overlay">
+    <section className="provider-dialog" ref={chooserRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="backend-choice-title">
+      <header className="provider-dialog-header">
+        <div><div className="step-pill"><span>GENERATION</span> YOUR CHOICE</div>
+          <h2 id="backend-choice-title">Choose how to generate</h2>
+          <p>Connect a coding agent with your account, or use a direct model API. Each request shows the source and settings before generation.</p></div>
+        <button className="icon-button" onClick={props.onClose} aria-label="Close backend chooser"><X size={17} /></button>
+      </header>
+      <div className="provider-dialog-content">
+        <section className="provider-review-card"><h3>Codex · ChatGPT account</h3>
+          <p>File chapters and selected-source overviews using the official Codex runtime. Choose a model and reasoning level from its catalog. Your plan limits apply; this path needs no API key.</p>
+          <button className="primary-button" disabled={!agentOperation} onClick={() => choose('codex')}>Use Codex</button>
+          {!agentOperation && <p role="status">Codex support for this operation is pending. File chapters and overviews are available through the current adapter.</p>}
+        </section>
+        <section className="provider-review-card"><h3>Direct API</h3>
+          <p>Google Gemini, OpenAI or Anthropic with your own API key. Review the selected model’s terms and cost before sending.</p>
+          <button className="secondary-button" onClick={() => choose('api')}>Choose a direct API</button>
+        </section>
+        <section className="provider-disclosure-card"><h3>More coding agents</h3>
+          <p><strong>Claude Agent / Claude Code:</strong> SDK adapter and subscription eligibility work remain pending.</p>
+          <p><strong>Antigravity:</strong> custom-app account integration is under qualification. It is not a working backend yet.</p>
+        </section>
+      </div>
+    </section>
+  </div>;
+}
+
+function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCodeLensCitation, onChooseBackend }: ProviderDialogProps & { onChooseBackend: () => void }) {
   const [providerCatalog, setProviderCatalog] = useState<ProviderDisclosure[]>([]);
   const [providerId, setProviderId] = useState('');
   const [disclosure, setDisclosure] = useState<ProviderDisclosure | null>(null);
@@ -2078,6 +2139,13 @@ function ProviderDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCo
           </div>
           <button className="icon-button" onClick={handleClose} disabled={keyBusy || sending || saveBusy} aria-label="Close provider dialog"><X size={17} /></button>
         </header>
+
+        <div className="provider-key-actions">
+          <button className="secondary-button" disabled={keyBusy || sending || saveBusy || requestBuilding || Boolean(sendResult || codeLensResult)} onClick={() => {
+            if (requestReview) void discardProviderRequestReview(requestReview.reviewId);
+            onChooseBackend();
+          }}>Change generation backend</button>
+        </div>
 
         {!native ? (
           <div className="provider-preview-only" role="status">

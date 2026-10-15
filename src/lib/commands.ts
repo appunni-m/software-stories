@@ -1222,17 +1222,43 @@ export async function sendCodeLensProviderRequest(input: {
   return invoke<ProviderCommandResult<CodeLensExplanationPreview>>('send_code_lens_provider_request', input);
 }
 
-export async function getNarrationDisclosure(): Promise<NarrationDisclosure> {
-  return invoke<NarrationDisclosure>('get_narration_disclosure');
+export type NarrationBackend = 'pocket-tts' | 'gemini';
+
+export interface PocketTtsStatus {
+  phase: string;
+  ready: boolean;
+  busy: boolean;
+  setupAvailable: boolean;
+  supportedPlatform: boolean;
+  packageVersion: string;
+  pythonVersion: string;
+  modelId: string;
+  voice: string;
+  message: string;
+}
+
+export async function getPocketTtsStatus(): Promise<PocketTtsStatus> {
+  return invoke<PocketTtsStatus>('get_pocket_tts_status');
+}
+
+export async function setupPocketTts(requestId: string): Promise<ProviderCommandResult<PocketTtsStatus>> {
+  return invoke<ProviderCommandResult<PocketTtsStatus>>('setup_pocket_tts', { requestId });
+}
+
+export async function getNarrationDisclosure(backend: NarrationBackend = 'pocket-tts'): Promise<NarrationDisclosure> {
+  return invoke<NarrationDisclosure>(backend === 'pocket-tts' ? 'get_local_narration_disclosure' : 'get_narration_disclosure');
 }
 
 export async function buildNarrationRequestReview(input: {
+  backend?: NarrationBackend;
   spokenText: string;
   voice: string;
   style: string;
   lexicon: NarrationPronunciationEntry[];
 }): Promise<ProviderCommandResult<NarrationRequestReview>> {
-  return invoke<ProviderCommandResult<NarrationRequestReview>>('build_narration_request_review', { input });
+  const { backend = 'pocket-tts', ...request } = input;
+  return invoke<ProviderCommandResult<NarrationRequestReview>>(
+    backend === 'pocket-tts' ? 'build_local_narration_request_review' : 'build_narration_request_review', { input: request });
 }
 
 export async function discardNarrationRequestReview(reviewId: string): Promise<void> {
@@ -1252,4 +1278,62 @@ export async function synthesizeReviewedNarrationAudio(input: {
   consent: NarrationConsent;
 }): Promise<ProviderCommandResult<NarrationAudio>> {
   return invoke<ProviderCommandResult<NarrationAudio>>('synthesize_reviewed_narration_audio', input);
+}
+
+export interface CodexAgentStatus {
+  executablePath: string | null;
+  runtimeRunning: boolean;
+  authenticated: boolean;
+  accountEmail: string | null;
+  planType: string | null;
+  pendingLoginId: string | null;
+  activeRunId: string | null;
+  capabilityChecked: boolean;
+  message: string;
+}
+
+export interface CodexLoginStart { loginId: string; authUrl: string }
+export interface CodexModel {
+  modelId: string;
+  displayName: string;
+  defaultReasoningEffort: string | null;
+  supportedReasoningEfforts: string[];
+  isDefault: boolean;
+}
+export interface CodexProgress {
+  runId: string;
+  phase: string;
+  threadId: string | null;
+  turnId: string | null;
+  message: string;
+}
+export async function getCodexAgentStatus(): Promise<CodexAgentStatus> {
+  return invoke<CodexAgentStatus>('get_codex_agent_status');
+}
+export async function configureCodexAgent(executablePath: string): Promise<CodexAgentStatus> {
+  return invoke<CodexAgentStatus>('configure_codex_agent', { executablePath });
+}
+export async function startCodexLogin(): Promise<CodexLoginStart> {
+  return invoke<CodexLoginStart>('start_codex_login');
+}
+export async function cancelCodexLogin(loginId: string): Promise<void> {
+  return invoke('cancel_codex_login', { loginId });
+}
+export async function logoutCodexAgent(): Promise<void> {
+  return invoke('logout_codex_agent');
+}
+export async function listCodexModels(): Promise<CodexModel[]> {
+  return invoke<CodexModel[]>('list_codex_models');
+}
+export async function buildCodexChapterReview(input: {
+  projectId: string; snapshotId: string; targetPath: string | null; selectedPaths: string[];
+  modelId: string; effort: string; approvalPolicy: 'never';
+}): Promise<ProviderCommandResult<ProviderRequestReview>> {
+  return invoke('build_codex_chapter_review', { input });
+}
+export async function sendCodexChapterRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<ChapterDraftPreview>> {
+  return invoke('send_codex_chapter_request', { reviewId, fingerprint, consent });
+}
+export async function cancelCodexChapterRequest(runId: string): Promise<boolean> {
+  return invoke('cancel_codex_chapter_request', { runId });
 }

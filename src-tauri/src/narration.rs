@@ -1,8 +1,8 @@
-//! Explicitly reviewed, per-section Google Gemini text-to-speech requests.
+//! Reviewed per-section narration using local Pocket TTS or explicitly selected Gemini.
 //!
-//! Only the edited speech transcript and optional pronunciation substitutions
-//! leave the machine. Source files, evidence excerpts, and paths are never part
-//! of a narration request.
+//! Pocket synthesis keeps narration text on this machine. A confirmed Gemini
+//! request sends only the edited transcript and pronunciation substitutions;
+//! source files, evidence excerpts, and paths are not attached to either request.
 
 use crate::provider::{
     ProviderCommandResult, ProviderFailure, ProviderFailureKind, is_region_restriction_error,
@@ -26,6 +26,7 @@ const MODEL_ID: &str = "gemini-3.8-flash-lite-tts";
 const ENDPOINT: &str = "https://generativelanguage.googleapis.com/v1beta/interactions";
 const CACHE_VERSION: &str = "gemini-narration-cache-v1";
 const DISCLOSURE_VERSION: &str = "gemini-tts-disclosure-2026-10-13-v2";
+const LOCAL_DISCLOSURE_VERSION: &str = "pocket-narration-2026-10-15-v1";
 const REVIEW_LIFETIME_MS: u64 = 15 * 60 * 1_000;
 const MAX_PENDING_REVIEWS: usize = 16;
 const MAX_SPOKEN_TEXT_BYTES: usize = 16_000;
@@ -111,6 +112,30 @@ pub fn disclosure() -> NarrationDisclosure {
         api_key_url: "https://aistudio.google.com/app/apikey".to_owned(),
         request_scope: "One selected section's exact narration script, optional pronunciation substitutions, the selected prebuilt voice, delivery style, and WAV format. Scripts over 4,000 UTF-8 bytes are split at sentence boundaries where possible and otherwise at whole-word boundaries, then sent as sequential requests. No source excerpt or whole-chapter context is included.".to_owned(),
         voices: PREBUILT_VOICES.iter().map(|voice| (*voice).to_owned()).collect(),
+    }
+}
+
+/// Local narration has no cloud key, billing tier, or remote script disclosure.
+pub fn local_disclosure() -> NarrationDisclosure {
+    NarrationDisclosure {
+        version: LOCAL_DISCLOSURE_VERSION.to_owned(),
+        checked_date: "2026-10-15".to_owned(),
+        provider: "Pocket TTS · on this Mac".to_owned(),
+        model_id: crate::pocket_tts::MODEL_ID.to_owned(),
+        model_name: "Pocket TTS".to_owned(),
+        free_tier_terms: "Local synthesis has no provider usage fee.".to_owned(),
+        paid_tier_terms: String::new(),
+        data_use_terms: "Setup downloads the pinned runtime, model and voice. Once ready, narration uses local assets; your script is not sent to a cloud provider.".to_owned(),
+        paid_data_use_terms: String::new(),
+        regional_data_use_terms: String::new(),
+        eligibility_terms: "Pocket TTS code/model: MIT. Alba voice: Alba MacKenna, CC BY 4.0, distributed by Kyutai.".to_owned(),
+        billing_uncertainty: String::new(),
+        terms_url: "https://github.com/kyutai-labs/pocket-tts".to_owned(),
+        pricing_url: String::new(),
+        regions_url: String::new(),
+        api_key_url: String::new(),
+        request_scope: "Only this section's edited script and enabled pronunciations are synthesized locally. The Alba voice is fixed; style prompting is unsupported. No source files or cloud fallback are used.".to_owned(),
+        voices: vec![crate::pocket_tts::VOICE.to_owned()],
     }
 }
 
@@ -267,10 +292,29 @@ pub fn build_request_review(
     reviews: &PendingNarrationReviews,
     input: BuildNarrationReviewInput,
 ) -> ProviderCommandResult<NarrationRequestReview> {
-    let input = match validate_input(input) {
+    build_review_for_backend(storage_dir, reviews, input, false)
+}
+
+pub fn build_local_request_review(
+    storage_dir: &Path,
+    reviews: &PendingNarrationReviews,
+    input: BuildNarrationReviewInput,
+) -> ProviderCommandResult<NarrationRequestReview> {
+    build_review_for_backend(storage_dir, reviews, input, true)
+}
+
+fn build_review_for_backend(
+    storage_dir: &Path,
+    reviews: &PendingNarrationReviews,
+    input: BuildNarrationReviewInput,
+    local: bool,
+) -> ProviderCommandResult<NarrationRequestReview> {
+    let input = match validate_input_for_backend(input, local) {
         Ok(input) => input,
         Err(error) => return ProviderCommandResult::failed(error),
     };
+    let model_id = if local { crate::pocket_tts::MODEL_ID } else { MODEL_ID };
+    let disclosure_version = if local { LOCAL_DISCLOSURE_VERSION } else { DISCLOSURE_VERSION };
     let exact_text = apply_lexicon(&input.spoken_text, &input.lexicon);
     if exact_text.trim().is_empty() || exact_text.len() > MAX_SPOKEN_TEXT_BYTES {
         return ProviderCommandResult::error(
@@ -284,12 +328,12 @@ pub fn build_request_review(
     let cache_key = audio_cache_key(
         &spoken_text_sha256,
         &request_segments,
-        MODEL_ID,
+        model_id,
         &input.voice,
         &input.style,
         &format,
     );
-    let fingerprint = request_fingerprint(&cache_key, DISCLOSURE_VERSION, &request_segments);
+    let fingerprint = request_fingerprint(&cache_key, disclosure_version, &request_segments);
     let cached_audio_available = read_cached_audio(storage_dir, &cache_key).is_some();
     let expires_at_unix_ms = now_unix_ms().saturating_add(REVIEW_LIFETIME_MS);
     let review = NarrationRequestReview {
@@ -297,8 +341,8 @@ pub fn build_request_review(
         exact_text,
         request_segments,
         spoken_text_sha256,
-        disclosure_version: DISCLOSURE_VERSION.to_owned(),
-        model_id: MODEL_ID.to_owned(),
+        disclosure_version: disclosure_version.to_owned(),
+        model_id: model_id.to_owned(),
         voice: input.voice,
         style: input.style,
         format,
@@ -346,7 +390,11 @@ pub async fn synthesize_reviewed_audio(
     consent: &NarrationConsent,
     cancellation: &mut oneshot::Receiver<()>,
 ) -> ProviderCommandResult<NarrationAudio> {
-    if !consent.is_complete() {
+    let local = match reviews.get(review_id, fingerprint) {
+        Ok(pending) => pending.review.model_id == crate::pocket_tts::MODEL_ID,
+        Err(error) => return ProviderCommandResult::failed(error),
+    };
+    if !local && !consent.is_complete() {
         return ProviderCommandResult::error(
             ProviderFailureKind::ConsentRequired,
             "Confirm the project tier and billing status, Google's data-use and eligibility terms, and authorization to send this exact narration request.",
@@ -356,8 +404,53 @@ pub async fn synthesize_reviewed_audio(
         Ok(pending) => pending,
         Err(error) => return ProviderCommandResult::failed(error),
     };
+    if let Err(error) = check_audio_request_cancellation(cancellation) {
+        return ProviderCommandResult::failed(error);
+    }
     if let Some(bytes) = read_cached_audio(storage_dir, &pending.review.cache_key) {
+        if let Err(error) = check_audio_request_cancellation(cancellation) {
+            return ProviderCommandResult::failed(error);
+        }
         return ProviderCommandResult::ok(audio_result(&pending.review, bytes, true));
+    }
+    if pending.review.model_id == crate::pocket_tts::MODEL_ID {
+        let mut segments = Vec::new();
+        let mut total_pcm_bytes = 0_usize;
+        for text in &pending.review.request_segments {
+            let audio = match crate::pocket_tts::synthesize(storage_dir, text, cancellation).await {
+                Ok(audio) => audio,
+                Err(error) => return ProviderCommandResult::failed(error),
+            };
+            if !is_wav(&audio) {
+                return ProviderCommandResult::error(ProviderFailureKind::MalformedProviderResponse,
+                    "Local narration returned invalid WAV audio. Previous audio is preserved.");
+            }
+            let Some(pcm) = wav_pcm_data(&audio) else {
+                return ProviderCommandResult::error(ProviderFailureKind::MalformedProviderResponse,
+                    "Local narration returned WAV audio with no PCM data. Previous audio is preserved.");
+            };
+            total_pcm_bytes = total_pcm_bytes.saturating_add(pcm.len());
+            let total_bytes = 44_usize.saturating_add(total_pcm_bytes)
+                .saturating_add(9_600_usize.saturating_mul(segments.len()));
+            if audio.len() > MAX_RESPONSE_BYTES || total_bytes > MAX_RESPONSE_BYTES {
+                return ProviderCommandResult::error(ProviderFailureKind::ProviderResponseTooLarge,
+                    "Local narration exceeded the audio limit. Previous audio is preserved.");
+            }
+            segments.push(audio);
+        }
+        let bytes = match join_wav_segments(&segments) {
+            Ok(bytes) => bytes,
+            Err(error) => return ProviderCommandResult::failed(error),
+        };
+        if let Err(error) = check_audio_request_cancellation(cancellation) {
+            return ProviderCommandResult::failed(error);
+        }
+        let _ = write_cached_audio(storage_dir, &pending.review.cache_key, &bytes);
+        return ProviderCommandResult::ok(audio_result(&pending.review, bytes, false));
+    }
+    if pending.review.model_id != MODEL_ID {
+        return ProviderCommandResult::error(ProviderFailureKind::ReviewChanged,
+            "This narration backend is unavailable. Review the section again; no fallback was used.");
     }
     let api_key = match load_api_key() {
         Ok(key) => key,
@@ -407,10 +500,10 @@ where
 fn check_audio_request_cancellation(
     cancellation: &mut oneshot::Receiver<()>,
 ) -> Result<(), ProviderFailure> {
-    if cancellation.try_recv().is_ok() {
+    if !matches!(cancellation.try_recv(), Err(oneshot::error::TryRecvError::Empty)) {
         return Err(failure(
             ProviderFailureKind::RequestCancelled,
-            "The narration request was cancelled locally. Google may already have received the reviewed speech text; no response was accepted. Review and confirm again before another send.",
+            "The narration request was cancelled locally. No returned audio was accepted. Review again before generating more audio.",
         ));
     }
     Ok(())
@@ -444,13 +537,13 @@ where
         if !is_wav(&audio) {
             return Err(failure(
                 ProviderFailureKind::MalformedProviderResponse,
-                "Google returned an invalid WAV segment. The transcript and previous audio remain available.",
+                "The narration engine returned an invalid WAV segment. The transcript and previous audio remain available.",
             ));
         }
         let Some(pcm) = wav_pcm_data(&audio) else {
             return Err(failure(
                 ProviderFailureKind::MalformedProviderResponse,
-                "Google returned WAV audio with no PCM data. The transcript and previous audio remain available.",
+                "The narration engine returned WAV audio with no PCM data. The transcript and previous audio remain available.",
             ));
         };
         total_pcm_bytes = total_pcm_bytes.saturating_add(pcm.len());
@@ -490,8 +583,14 @@ fn audio_result(
     }
 }
 
-fn validate_input(
+#[cfg(test)]
+fn validate_input(input: BuildNarrationReviewInput) -> Result<BuildNarrationReviewInput, ProviderFailure> {
+    validate_input_for_backend(input, false)
+}
+
+fn validate_input_for_backend(
     mut input: BuildNarrationReviewInput,
+    local: bool,
 ) -> Result<BuildNarrationReviewInput, ProviderFailure> {
     input.spoken_text = input.spoken_text.trim().to_owned();
     input.style = input.style.trim().to_owned();
@@ -510,7 +609,11 @@ fn validate_input(
             "Delivery style must be one line of at most 160 UTF-8 bytes.",
         ));
     }
-    if !PREBUILT_VOICES.contains(&input.voice.as_str()) {
+    if local && (input.voice != crate::pocket_tts::VOICE || !input.style.is_empty()) {
+        return Err(failure(ProviderFailureKind::InvalidReview,
+            "Pocket TTS uses the Alba voice and does not support delivery-style prompts. Review local voice settings again."));
+    }
+    if !local && !PREBUILT_VOICES.contains(&input.voice.as_str()) {
         return Err(failure(
             ProviderFailureKind::InvalidReview,
             "Choose a currently listed prebuilt Gemini voice.",
@@ -608,7 +711,7 @@ fn join_wav_segments(segments: &[Vec<u8>]) -> Result<Vec<u8>, ProviderFailure> {
     if segments.is_empty() {
         return Err(failure(
             ProviderFailureKind::MalformedProviderResponse,
-            "Google returned no narration segments. The transcript and previous audio remain available.",
+            "The narration engine returned no narration segments. The transcript and previous audio remain available.",
         ));
     }
     if segments.len() == 1 {
@@ -616,7 +719,7 @@ fn join_wav_segments(segments: &[Vec<u8>]) -> Result<Vec<u8>, ProviderFailure> {
         if audio.len() > MAX_RESPONSE_BYTES || !is_wav(audio) {
             return Err(failure(
                 ProviderFailureKind::MalformedProviderResponse,
-                "Google returned invalid or oversized WAV audio. The transcript and previous audio remain available.",
+                "The narration engine returned invalid or oversized WAV audio. The transcript and previous audio remain available.",
             ));
         }
         return Ok(audio.clone());
@@ -630,13 +733,13 @@ fn join_wav_segments(segments: &[Vec<u8>]) -> Result<Vec<u8>, ProviderFailure> {
         if !is_wav(audio) || audio.len() > MAX_RESPONSE_BYTES {
             return Err(failure(
                 ProviderFailureKind::MalformedProviderResponse,
-                "Google returned an invalid WAV segment. The transcript and previous audio remain available.",
+                "The narration engine returned an invalid WAV segment. The transcript and previous audio remain available.",
             ));
         }
         let pcm = wav_pcm_data(audio).ok_or_else(|| {
             failure(
                 ProviderFailureKind::MalformedProviderResponse,
-                "Google returned WAV audio with no PCM data. The transcript and previous audio remain available.",
+                "The narration engine returned WAV audio with no PCM data. The transcript and previous audio remain available.",
             )
         })?;
         total_pcm_bytes = total_pcm_bytes.saturating_add(pcm.len());
@@ -757,6 +860,16 @@ fn audio_cache_key(
         "style": style,
         "format": format,
     });
+    if model == crate::pocket_tts::MODEL_ID {
+        contract["cacheVersion"] = json!("pocket-narration-cache-v1");
+        contract["provider"] = json!("pocket-tts");
+        contract["packageVersion"] = json!(crate::pocket_tts::PACKAGE_VERSION);
+        // Include the worker, asset revisions, Python and package pins. A new
+        // runtime contract also changes the exact review fingerprint below.
+        contract["runtimeFingerprint"] = json!(crate::pocket_tts::runtime_fingerprint());
+        contract["pcmFormat"] = json!("pcm16-mono-24000");
+        contract["segmentPolicy"] = json!("utf8-4000-sentence-word-v1-pause200ms");
+    }
     if request_segments.len() > 1 {
         contract["requestSegmentSha256"] = json!(
             request_segments
@@ -837,7 +950,7 @@ fn write_cached_audio(
     if bytes.len() > MAX_RESPONSE_BYTES || !is_wav(bytes) {
         return Err(failure(
             ProviderFailureKind::MalformedProviderResponse,
-            "Google returned invalid or oversized WAV audio. The prior audio cache was left untouched.",
+            "The narration engine returned invalid or oversized WAV audio. The prior audio cache was left untouched.",
         ));
     }
     let path = cache_path(storage_dir, fingerprint);

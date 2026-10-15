@@ -587,39 +587,80 @@ pub struct PendingProviderRequest {
 pub struct PendingProviderReviews(Mutex<HashMap<String, PendingProviderRequest>>);
 
 #[derive(Default)]
-pub struct ProviderRequestCancellations(Mutex<HashMap<String, oneshot::Sender<()>>>);
+pub struct ProviderRequestCancellations(Mutex<CancellationState>);
+
+#[derive(Default)]
+struct CancellationState {
+    pending: HashMap<String, oneshot::Sender<()>>,
+    // Remember bounded early cancellation so a queued native command cannot
+    // start work after its originating view has already been closed.
+    cancelled: HashMap<String, u64>,
+}
+
+impl CancellationState {
+    fn prune(&mut self) {
+        let now = unix_time_ms();
+        self.cancelled
+            .retain(|_, at| now.saturating_sub(*at) < 300_000);
+        while self.cancelled.len() >= 512 {
+            let oldest = self
+                .cancelled
+                .iter()
+                .min_by_key(|(_, at)| *at)
+                .map(|(id, _)| id.clone());
+            if let Some(id) = oldest {
+                self.cancelled.remove(&id);
+            } else {
+                break;
+            }
+        }
+    }
+}
 
 impl ProviderRequestCancellations {
     pub fn begin(&self, review_id: &str) -> Result<oneshot::Receiver<()>, ProviderFailure> {
-        let mut pending = self.0.lock().map_err(|_| {
+        let mut state = self.0.lock().map_err(|_| {
             failure(
                 ProviderFailureKind::ReviewUnavailable,
-                "The request cancellation state is unavailable. No provider request was started.",
+                "The request cancellation state is unavailable.",
             )
         })?;
-        if pending.contains_key(review_id) {
+        state.prune();
+        if state.cancelled.contains_key(review_id) {
+            return Err(failure(
+                ProviderFailureKind::RequestCancelled,
+                "This operation was cancelled before it started. Start a new operation when ready.",
+            ));
+        }
+        if state.pending.contains_key(review_id) {
             return Err(failure(
                 ProviderFailureKind::ReviewUnavailable,
                 "This reviewed request is already in flight.",
             ));
         }
         let (sender, receiver) = oneshot::channel();
-        pending.insert(review_id.to_owned(), sender);
+        state.pending.insert(review_id.to_owned(), sender);
         Ok(receiver)
     }
 
     pub fn cancel(&self, review_id: &str) -> bool {
-        let Ok(mut pending) = self.0.lock() else {
+        if review_id.is_empty() || review_id.len() > 256 {
+            return false;
+        }
+        let Ok(mut state) = self.0.lock() else {
             return false;
         };
-        pending
-            .remove(review_id)
-            .is_some_and(|sender| sender.send(()).is_ok())
+        state.prune();
+        state.cancelled.insert(review_id.to_owned(), unix_time_ms());
+        if let Some(sender) = state.pending.remove(review_id) {
+            let _ = sender.send(());
+        }
+        true
     }
 
     pub fn finish(&self, review_id: &str) {
-        if let Ok(mut pending) = self.0.lock() {
-            pending.remove(review_id);
+        if let Ok(mut state) = self.0.lock() {
+            state.pending.remove(review_id);
         }
     }
 }
@@ -1764,6 +1805,110 @@ pub fn build_request_review_for_provider(
             "Choose a structured-output model listed for the selected provider. Model discovery and automatic substitution are disabled.",
         ));
     }
+    let ChapterRequestContext {
+        selected_files,
+        selected_symbols,
+        selected_relationships,
+        index_evidence_truncated,
+        system_instruction,
+        user_prompt,
+        generation_config,
+        source_bytes,
+        purpose,
+    } = build_chapter_context(storage_dir, input)?;
+    let encoded = crate::provider_api::encode_request_preview(
+        provider_id,
+        &input.model_id,
+        &system_instruction,
+        &user_prompt,
+        &generation_config,
+    )
+    .map_err(|_| {
+        failure(
+            ProviderFailureKind::InvalidReview,
+            "The exact provider request could not be encoded for review.",
+        )
+    })?;
+    let body = encoded.body.clone();
+    if encoded.body_bytes > MAX_REQUEST_BODY_BYTES {
+        return Err(failure(
+            ProviderFailureKind::ContextTooLarge,
+            "The exact request body exceeds the 512 KB review limit. Reduce the file selection.",
+        ));
+    }
+    let model = disclosure
+        .models
+        .into_iter()
+        .find(|model| model.model_id == input.model_id)
+        .ok_or_else(|| {
+            failure(
+                ProviderFailureKind::UnavailableModel,
+                "This model is not in the current Code Atlas allowlist.",
+            )
+        })?;
+    let fingerprint = request_fingerprint_for_provider(
+        provider_id,
+        purpose,
+        &input.project_id,
+        &input.snapshot_id,
+        input.target_path.as_deref(),
+        &model.model_id,
+        &disclosure.version,
+        &system_instruction,
+        &user_prompt,
+        &selected_files,
+        generation_config.clone(),
+    )?;
+    let now = unix_time_ms();
+    let review = ProviderRequestReview {
+        review_id: Uuid::new_v4().to_string(),
+        project_id: input.project_id.clone(),
+        snapshot_id: input.snapshot_id.clone(),
+        purpose: purpose.to_owned(),
+        target_path: input.target_path.clone(),
+        provider_id: provider_id.to_owned(),
+        model_id: model.model_id,
+        endpoint_url: encoded.endpoint_url,
+        disclosure_version: disclosure.version,
+        selected_files,
+        selected_symbols,
+        selected_relationships,
+        index_evidence_truncated,
+        pr_guide_context: None,
+        section_update_context: None,
+        code_lens_context: None,
+        pr_change_context: None,
+        system_instruction,
+        user_prompt,
+        generation_config,
+        source_bytes,
+        estimated_input_tokens: encoded.body_bytes.div_ceil(4),
+        request_body_bytes: encoded.body_bytes,
+        request_body_sha256: encoded.body_sha256,
+        request_body_preview: body.clone(),
+        fingerprint,
+        expires_at_unix_ms: now.saturating_add(REVIEW_LIFETIME_MS),
+    };
+    Ok(PendingProviderRequest { review, body })
+}
+
+/// Transport-independent, immutable evidence and prompt shared by API and agent routes.
+struct ChapterRequestContext {
+    selected_files: Vec<ProviderRequestFile>,
+    selected_symbols: Vec<ProviderSymbolEvidence>,
+    selected_relationships: Vec<ProviderRelationshipEvidence>,
+    index_evidence_truncated: bool,
+    system_instruction: String,
+    user_prompt: String,
+    generation_config: Value,
+    source_bytes: usize,
+    purpose: &'static str,
+}
+
+fn build_chapter_context(
+    storage_dir: &Path,
+    input: &BuildProviderReviewInput,
+) -> Result<ChapterRequestContext, ProviderFailure> {
     if input.selected_paths.is_empty()
         || input.selected_paths.len() > MAX_SELECTED_FILES
         || input
@@ -1975,60 +2120,133 @@ SELECTED LOCAL INDEX EVIDENCE JSON:
             repository_overview_generation_config(),
         )
     };
-    let encoded = crate::provider_api::encode_request_preview(
-        provider_id,
-        &input.model_id,
-        &system_instruction,
-        &user_prompt,
-        &generation_config,
-    )
-    .map_err(|_| {
-        failure(
-            ProviderFailureKind::InvalidReview,
-            "The exact provider request could not be encoded for review.",
-        )
-    })?;
-    let body = encoded.body.clone();
-    if encoded.body_bytes > MAX_REQUEST_BODY_BYTES {
+    Ok(ChapterRequestContext {
+        selected_files,
+        selected_symbols,
+        selected_relationships,
+        index_evidence_truncated,
+        system_instruction,
+        user_prompt,
+        generation_config,
+        source_bytes,
+        purpose,
+    })
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct BuildCodexReviewInput {
+    pub project_id: String,
+    pub snapshot_id: String,
+    pub target_path: Option<String>,
+    pub selected_paths: Vec<String>,
+    pub model_id: String,
+    pub effort: String,
+    pub approval_policy: String,
+}
+
+/// Build a reviewed agent operation without starting a runtime or sending source.
+/// The preview binds the prompt, schema, selected bytes and effective controls;
+/// it is not an HTTP payload or a claim about vendor-added system instructions.
+pub(crate) fn build_codex_chapter_review(
+    storage_dir: &Path,
+    input: &BuildCodexReviewInput,
+    executable_path: &str,
+) -> Result<PendingProviderRequest, ProviderFailure> {
+    if input.model_id.trim().is_empty()
+        || input.model_id.len() > 200
+        || input.effort.trim().is_empty()
+        || input.effort.len() > 32
+        || input.approval_policy != "never"
+        || executable_path.is_empty()
+        || executable_path.len() > 4096
+    {
         return Err(failure(
-            ProviderFailureKind::ContextTooLarge,
-            "The exact request body exceeds the 512 KB review limit. Reduce the file selection.",
+            ProviderFailureKind::InvalidReview,
+            "Configure Codex, choose an advertised model and reasoning level, and use the supported Never approval policy.",
         ));
     }
-    let model = disclosure
-        .models
-        .into_iter()
-        .find(|model| model.model_id == input.model_id)
+    let ChapterRequestContext {
+        selected_files,
+        selected_symbols,
+        selected_relationships,
+        index_evidence_truncated,
+        system_instruction,
+        user_prompt,
+        generation_config,
+        source_bytes,
+        purpose,
+    } = build_chapter_context(
+        storage_dir,
+        &BuildProviderReviewInput {
+            project_id: input.project_id.clone(),
+            snapshot_id: input.snapshot_id.clone(),
+            target_path: input.target_path.clone(),
+            selected_paths: input.selected_paths.clone(),
+            model_id: input.model_id.clone(),
+            section_update: None,
+        },
+    )?;
+    let mut output_schema = generation_config
+        .get("responseSchema")
+        .cloned()
         .ok_or_else(|| {
             failure(
-                ProviderFailureKind::UnavailableModel,
-                "This model is not in the current Code Atlas allowlist.",
+                ProviderFailureKind::InvalidReview,
+                "The chapter output schema is unavailable.",
             )
         })?;
-    let fingerprint = request_fingerprint_for_provider(
-        provider_id,
-        purpose,
-        &input.project_id,
-        &input.snapshot_id,
-        input.target_path.as_deref(),
-        &model.model_id,
-        &disclosure.version,
-        &system_instruction,
-        &user_prompt,
-        &selected_files,
-        generation_config.clone(),
-    )?;
-    let now = unix_time_ms();
+    crate::provider_api::lowercase_schema_types(&mut output_schema);
+    close_agent_schema_objects(&mut output_schema);
+    let generation_config = json!({
+        "contractVersion": "codex-chapter-v1", "effort": input.effort,
+        "approvalPolicy": "never", "executablePath": executable_path,
+        "outputSchema": output_schema, "shell": false, "webSearch": false,
+        "filesystem": "read-only staged selected source", "ephemeral": true,
+        "timeoutSeconds": 600,
+    });
+    let body = json!({
+        "provider": "codex", "authentication": "chatgpt-account", "model": input.model_id,
+        "systemInstruction": system_instruction, "userPrompt": user_prompt,
+        "settings": generation_config,
+    });
+    let encoded = serde_json::to_vec(&body).map_err(|_| {
+        failure(
+            ProviderFailureKind::InvalidReview,
+            "The Codex request contract could not be encoded.",
+        )
+    })?;
+    if encoded.len() > MAX_REQUEST_BODY_BYTES {
+        return Err(failure(
+            ProviderFailureKind::ContextTooLarge,
+            "The reviewed Codex operation exceeds 512 KB. Select fewer source files.",
+        ));
+    }
+    let request_body_sha256 = format!("{:x}", Sha256::digest(&encoded));
+    let disclosure_version = "codex-account-2026-10-15-v1";
+    let fingerprint_input = json!({
+        "providerId": "codex", "projectId": input.project_id, "snapshotId": input.snapshot_id,
+        "purpose": purpose, "targetPath": input.target_path, "modelId": input.model_id,
+        "disclosureVersion": disclosure_version, "contractSha256": request_body_sha256,
+        "selectedFiles": selected_files,
+    });
+    let fingerprint = format!(
+        "{:x}",
+        Sha256::digest(serde_json::to_vec(&fingerprint_input).map_err(|_| failure(
+            ProviderFailureKind::InvalidReview,
+            "The Codex review fingerprint could not be encoded."
+        ))?)
+    );
     let review = ProviderRequestReview {
         review_id: Uuid::new_v4().to_string(),
         project_id: input.project_id.clone(),
         snapshot_id: input.snapshot_id.clone(),
         purpose: purpose.to_owned(),
         target_path: input.target_path.clone(),
-        provider_id: provider_id.to_owned(),
-        model_id: model.model_id,
-        endpoint_url: encoded.endpoint_url,
-        disclosure_version: disclosure.version,
+        provider_id: "codex".to_owned(),
+        model_id: input.model_id.clone(),
+        endpoint_url: "codex-app-server://stdio".to_owned(),
+        disclosure_version: disclosure_version.to_owned(),
         selected_files,
         selected_symbols,
         selected_relationships,
@@ -2041,14 +2259,80 @@ SELECTED LOCAL INDEX EVIDENCE JSON:
         user_prompt,
         generation_config,
         source_bytes,
-        estimated_input_tokens: encoded.body_bytes.div_ceil(4),
-        request_body_bytes: encoded.body_bytes,
-        request_body_sha256: encoded.body_sha256,
+        estimated_input_tokens: encoded.len().div_ceil(4),
+        request_body_bytes: encoded.len(),
+        request_body_sha256,
         request_body_preview: body.clone(),
         fingerprint,
-        expires_at_unix_ms: now.saturating_add(REVIEW_LIFETIME_MS),
+        expires_at_unix_ms: unix_time_ms().saturating_add(REVIEW_LIFETIME_MS),
     };
     Ok(PendingProviderRequest { review, body })
+}
+
+fn close_agent_schema_objects(schema: &mut Value) {
+    match schema {
+        Value::Object(object) => {
+            if object.get("type").and_then(Value::as_str) == Some("object") {
+                object.insert("additionalProperties".to_owned(), Value::Bool(false));
+            }
+            for value in object.values_mut() {
+                close_agent_schema_objects(value);
+            }
+        }
+        Value::Array(values) => {
+            for value in values {
+                close_agent_schema_objects(value);
+            }
+        }
+        _ => {}
+    }
+}
+
+pub(crate) fn revalidate_codex_chapter_review(
+    storage_dir: &Path,
+    review: &ProviderRequestReview,
+    executable_path: &str,
+) -> Result<(), ProviderFailure> {
+    if review.provider_id != "codex" || review.expires_at_unix_ms <= unix_time_ms() {
+        return Err(failure(
+            ProviderFailureKind::ReviewExpired,
+            "Build a fresh Codex request review before generating.",
+        ));
+    }
+    let input = BuildCodexReviewInput {
+        project_id: review.project_id.clone(),
+        snapshot_id: review.snapshot_id.clone(),
+        target_path: review.target_path.clone(),
+        selected_paths: review
+            .selected_files
+            .iter()
+            .map(|file| file.path.clone())
+            .collect(),
+        model_id: review.model_id.clone(),
+        effort: review
+            .generation_config
+            .get("effort")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_owned(),
+        approval_policy: review
+            .generation_config
+            .get("approvalPolicy")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_owned(),
+    };
+    let rebuilt = build_codex_chapter_review(storage_dir, &input, executable_path)?;
+    if rebuilt.review.fingerprint != review.fingerprint
+        || rebuilt.review.request_body_preview != review.request_body_preview
+        || rebuilt.review.purpose != review.purpose
+    {
+        return Err(failure(
+            ProviderFailureKind::ReviewChanged,
+            "The source, runtime configuration or chapter contract changed. Review a new Codex request.",
+        ));
+    }
+    Ok(())
 }
 
 pub fn build_code_lens_request_review_for_provider(

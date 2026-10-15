@@ -12,7 +12,7 @@ blocked_by: t10, t12, t16
 The reader can listen to an explanation without hearing punctuation, file paths, or code identifiers read aloud unnaturally.
 
 ## Contract
-Keep editable `spoken_text` separate from visible explanation, code, path labels, and citations. The user previews/edits speech text and explicitly requests synthesis. Pocket TTS is the selected local default to implement; any retained cloud option requires its own explicit selection and provider disclosure. The current app adapter is still Google-only. Default speech describes behavior in natural language; raw code is not sent to TTS. Provide a pronunciation lexicon for selected names when the user chooses to include them. Cache audio by spoken-text hash, provider/model, voice/style, and format. Accept up to 16,000 UTF-8 bytes per section; split requests into sequential chunks of at most 4,000 bytes, preferring sentence boundaries and falling back to whole-word boundaries when a sentence is longer. Show the exact synthesis chunks before generation (and before consent for a selected cloud provider) and assemble their audio into one cached WAV only after every request succeeds.
+Keep editable `spoken_text` separate from visible explanation, code, path labels, and citations. The user previews/edits speech text and explicitly requests synthesis. Pocket TTS is the selected local default; any retained cloud option requires its own explicit selection and provider disclosure. The source now contains distinct Pocket and Gemini adapters, awaiting local-runtime/player acceptance. Default speech describes behavior in natural language; raw code is not sent to TTS by default. Provide a pronunciation lexicon for selected names when the user chooses to include them. Cache audio by spoken-text hash, backend/runtime/model/voice identity, applicable style, segmentation/joining policy and format. Accept up to 16,000 UTF-8 bytes per section; split requests into sequential chunks of at most 4,000 bytes, preferring sentence boundaries and falling back to whole-word boundaries when a sentence is longer. Show the exact synthesis chunks before generation (and before consent for a selected cloud provider) and assemble their audio into one cached WAV only after every request succeeds.
 
 ## Acceptance criteria
 - A file chapter can be read and completed with audio disabled or unavailable.
@@ -29,11 +29,17 @@ Voice cloning, required narration, synthesizing code verbatim by default, and ge
 ## Done evidence
 Complete the [narration acceptance run sheet](../NARRATION_VALIDATION.md) on the packaged macOS app. Listen to natural and opt-in identifier scripts; verify the reviewed speech text is sent, raw source is absent by default, local synthesis uses no key/network after setup and any explicitly selected cloud cost/tier is checked before consent, cache reuse follows fingerprints, playback stays synchronized, and cached transcript/audio work offline. Do not close the task on a source inspection or generated fixture alone.
 
+## Implementation update — 2026-10-15
+
+New section preferences now default to Pocket/Alba; legacy Google settings and cache identity remain intact. App-managed setup/status/repair, local review without a key or Google consent, worker cancellation, runtime-aware cache identity and backend-aware export cache lookup are implemented in source. The worker is finite and reloads per segment, with no listener; the current target is Apple Silicon with an external `uv` prerequisite. This is not a self-contained runtime bundle or completed narration acceptance. Read the [runtime child](34-pocket-runtime.md), [player/cache child](35-pocket-player-cache.md) and [runtime contract](../research/pocket-tts-runtime.md).
+
+Every acceptance criterion remains open. No setup, synthesis, listening, packaged playback/export or lifecycle checks ran for these changes.
+
 ## Pending work — 2026-10-15
 
-- [ ] Current user choice is Pocket TTS. The app integration remains Google-only; the earlier local CLI sample is not completion.
-- [ ] Implement the Pocket runtime child, then the Pocket player/cache child. Make local synthesis the default with no API key and no cloud fallback.
-- [ ] Complete later narration lifecycle/cache/redirect acceptance on this static patch and human listening/pacing review on actual code explanations.
-- [ ] Update packaged setup, voice attribution, offline export and narration run sheet to match the local path.
+- [ ] Finish runtime packaging/version/hash/license and clean-account qualification; earlier standalone CLI audio does not validate the app-managed runtime.
+- [ ] Complete whole-section scheduling and qualify setup/repair/cancellation/exit behavior, including concurrent windows and no partial-audio acceptance.
+- [ ] Later exercise narration lifecycle/cache/legacy Google separation, no-network local synthesis, backend-aware offline export, and retained cloud redirect/consent behavior.
+- [ ] Update setup/help and the narration run sheet, then record human listening/pacing review of real code explanations and opt-in identifier pronunciation.
 
 No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.

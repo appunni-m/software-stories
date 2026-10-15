@@ -38,3 +38,18 @@ Attach results for each case above on the patched commit; all currently pending.
 ## Implementation revision
 
 Static fixes are committed as `0494bd4` (Fix snapshot integrity and async explanation lifecycle bugs). No tests or builds were run locally. The task remains open for the acceptance cases above.
+
+## Additional October 15 integration acceptance — pending
+
+The subsequent source changes add Codex account-backed chapters, Pocket narration and lexical index v2. They were not built or exercised. In addition to the owning task contracts (`z3an`, `q6g3`, `dbmd`, `129x`), record these integration cases when authorized:
+
+- Cancel before a native command registers: the unique operation stays cancelled; it cannot start later after the originating view closes. Cover Pocket setup, narration synthesis and Codex generation; cancellation records remain bounded.
+- Switch backend or close during model/status/login/review completion. No late result populates a different view, starts unexpected generation or leaves an unsaved accepted draft. A browser preview never invokes native agent commands.
+- Codex runtime/executable/model/effort/source changes invalidate the reviewed request. A missing or weaker runtime fails clearly without API fallback. Confirm exact supported runtime version and account eligibility separately.
+- A completed Codex preview remains accessible if interruption-journal cleanup fails. Cancellation, timeout, quota, unsupported model and runtime diagnostics remain distinct; no raw RPC or model output is shown as an error.
+- A lost save reply discovers the immutable revision already written rather than generating again. Normal close discards an unsaved preview; app termination/restart exposes persisted recovery previews.
+- New narration preferences choose Pocket; legacy complete Google preferences still identify their original cloud cache. Switching engines preserves each engine's delivery settings. Invalid preferences must not silently choose a cloud engine.
+- Pocket runtime fingerprint or final spoken text changes invalidate audio. Cached playback/export does not install a runtime or call a provider. Multi-segment failure accepts no partial section audio.
+- Check normal exit, cancellation during preparation, malformed protocol frames, stalled writers/readers and killed workers for owned-child cleanup. Verify packaged permissions and runtime boundaries under the separate acceptance contracts.
+
+No issue can be closed from the source implementation or formatting alone.

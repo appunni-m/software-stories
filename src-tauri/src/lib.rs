@@ -13,10 +13,13 @@ mod chapter_generation;
 mod chapter_review;
 mod chapter_store;
 mod chapters;
+mod codex_agent;
+mod codex_commands;
 mod git_evidence;
 mod index;
 mod narration;
 mod pending_chapter_previews;
+mod pocket_tts;
 mod pr_guide;
 mod pr_guide_store;
 mod project;
@@ -750,6 +753,50 @@ fn get_provider_catalog() -> Vec<provider::ProviderDisclosure> {
 #[tauri::command]
 fn get_narration_disclosure() -> narration::NarrationDisclosure {
     narration::disclosure()
+}
+
+#[tauri::command]
+fn get_local_narration_disclosure() -> narration::NarrationDisclosure {
+    narration::local_disclosure()
+}
+
+#[tauri::command]
+fn get_pocket_tts_status(app: AppHandle) -> Result<pocket_tts::PocketTtsStatus, String> {
+    Ok(pocket_tts::status(&app_data_directory(&app)?))
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn setup_pocket_tts(
+    app: AppHandle,
+    cancellations: State<'_, provider::ProviderRequestCancellations>,
+    request_id: String,
+) -> Result<provider::ProviderCommandResult<pocket_tts::PocketTtsStatus>, String> {
+    uuid::Uuid::parse_str(&request_id)
+        .map_err(|_| "The setup operation ID is invalid.".to_owned())?;
+    let storage_dir = app_data_directory(&app)?;
+    let mut cancellation = match cancellations.begin(&request_id) {
+        Ok(receiver) => receiver,
+        Err(error) => return Ok(provider::ProviderCommandResult::failed(error)),
+    };
+    let result = pocket_tts::setup(&storage_dir, &mut cancellation).await;
+    cancellations.finish(&request_id);
+    Ok(match result {
+        Ok(status) => provider::ProviderCommandResult::ok(status),
+        Err(error) => provider::ProviderCommandResult::failed(error),
+    })
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn build_local_narration_request_review(
+    app: AppHandle,
+    reviews: State<'_, narration::PendingNarrationReviews>,
+    input: narration::BuildNarrationReviewInput,
+) -> Result<provider::ProviderCommandResult<narration::NarrationRequestReview>, String> {
+    Ok(narration::build_local_request_review(
+        &app_data_directory(&app)?,
+        &reviews,
+        input,
+    ))
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -1720,6 +1767,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(ProjectSessions::default())
+        .manage(codex_agent::CodexAgentManager::default())
         .manage(SnapshotJobs::default())
         .manage(index::SnapshotIndexJobs::default())
         .manage(provider::PendingProviderReviews::default())
@@ -1729,6 +1777,15 @@ pub fn run() {
         .manage(recovery::InterruptionJournal::default())
         .manage(ChapterStoreLock::default())
         .invoke_handler(tauri::generate_handler![
+            codex_commands::get_codex_agent_status,
+            codex_commands::configure_codex_agent,
+            codex_commands::start_codex_login,
+            codex_commands::cancel_codex_login,
+            codex_commands::logout_codex_agent,
+            codex_commands::list_codex_models,
+            codex_commands::build_codex_chapter_review,
+            codex_commands::send_codex_chapter_request,
+            codex_commands::cancel_codex_chapter_request,
             get_application_status,
             get_capture_limits,
             pick_project_folder,
@@ -1766,6 +1823,10 @@ pub fn run() {
             reject_pr_guide_draft,
             get_provider_catalog,
             get_narration_disclosure,
+            get_local_narration_disclosure,
+            get_pocket_tts_status,
+            setup_pocket_tts,
+            build_local_narration_request_review,
             build_narration_request_review,
             discard_narration_request_review,
             load_reviewed_narration_audio,
@@ -1784,8 +1845,14 @@ pub fn run() {
             send_provider_pr_guide_request,
             send_provider_pr_change_explanation_request
         ])
-        .run(tauri::generate_context!())
-        .expect("failed to run Code Atlas");
+        .build(tauri::generate_context!())
+        .expect("failed to build Code Atlas")
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                app.state::<codex_agent::CodexAgentManager>().shutdown();
+                pocket_tts::shutdown();
+            }
+        });
 }
 
 #[cfg(test)]

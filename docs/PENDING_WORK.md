@@ -16,16 +16,25 @@ No tests, builds, app launches, or runtime probes were performed locally during 
 
 These are implemented changes in commit `0494bd4`, awaiting acceptance in `xymb`.
 
-The subsequent product review identified three core gaps: chapters currently contain no generated visuals; repository-wide narrative quality is unqualified; and structural language support is limited to Rust, TypeScript/TSX and JavaScript. Agent chapter backends are also still unimplemented. See [the current agent evaluation](research/2026-10-15-agent-backends.md).
+The subsequent product review identified three core gaps: chapters currently contain no generated visuals; repository-wide narrative quality is unqualified; and structural language support is limited to Rust, TypeScript/TSX and JavaScript. See [the current agent evaluation](research/2026-10-15-agent-backends.md).
+
+## Subsequent implementation update — 2026-10-15
+
+The working tree now contains the following additional source changes. They are not covered by the historical commit's acceptance evidence, and every linked task remains open.
+
+- **Codex (`z3an`):** native managed ChatGPT login, a Rust-managed app-server child over stdio, explicit runtime model/reasoning selection, reviewed file chapters or 1–12-file overviews, cancellation/progress, and shared validation into unaccepted drafts. This is a local-app integration, not direct Sign in with ChatGPT. Runtime `model/list` is a catalog, not entitlement proof. Runtime version pinning, account/distribution qualification, license, packaging, boundary verification, and real-run acceptance remain open; section, Code Lens and PR routes are not wired. Threads are ephemeral with no persisted resume.
+- **Pocket runtime (`q6g3`):** managed Python/venv/assets under app data, pinned model and Alba voice, setup/repair/status, bounded offline worker synthesis, and cancellation/exit cleanup are implemented in source. Apple Silicon only; `uv` is still an external prerequisite. Workers reload per segment. Installer packaging/signing, transitive artifact hashes, requirements, and clean-account/offline/process acceptance remain open.
+- **Pocket player/cache (`dbmd`):** new preferences default local; prior Google preferences/cache remain distinct. Exact script review, local setup without a key/cloud consent, runtime-aware cache identity, guarded async lifecycle, and backend-aware cache lookup for export are wired. Listening, playback/cache/navigation, corruption and offline-export acceptance remain open.
+- **Index v2 (`129x`):** lexical bindings, shadow/reassignment uncertainty, direct module export checks, duplicate declaration occurrences, and a new semantics/cache version are implemented. This is conservative source work in the existing language subset; no language support or regression gate has been qualified.
 
 ## Recommended implementation order
 
-1. Implement account-backed Codex chapter generation (`z3an`) and the core generated-visual/narrative work (`j53m`, `6qk9`); qualify language support (`7xx7`). Claude (`8gqw`) and Antigravity (`m00g`) have separate account eligibility and adapter tasks.
-2. Fix relationship correctness in `129x` before relying on high-confidence parser evidence. Bound/cancel Git work in `kghr` and complete metadata read limits in `k9yd`.
-3. Implement local Pocket TTS runtime `q6g3`, then default player/cache/export integration `dbmd`. The current app still uses Google TTS; the earlier Pocket CLI sample is not app integration.
+1. Finish Codex runtime/version, account and distribution qualification (`z3an`) and implement generated visuals/narrative work (`j53m`, `6qk9`). Claude (`8gqw`) and Antigravity (`m00g`) still need their separately permitted adapters. Extend Codex beyond file/selected-file-overview chapters only after its initial boundary is qualified.
+2. Review and later qualify index-v2 relationship behavior (`129x`) before relying on high-confidence evidence; qualify language support (`7xx7`). Bound/cancel Git work in `kghr` and complete metadata read limits in `k9yd`.
+3. Finish Pocket's packaged setup and whole-section scheduling (`q6g3`), setup/help/run-sheet documentation and player/cache/export qualification (`dbmd`). The app-managed adapter exists in source; earlier standalone CLI audio is not its acceptance evidence.
 4. Complete PR generation/navigation recovery `qjm3`. Keep the exact immutable comparison attached to every operation.
 5. When testing is authorized, execute `xymb`, then the existing quality, native accessibility, selective-update, revision and offline-export acceptance gates.
-6. Finish signing/notarization and clean-account release acceptance. Keep agent runtime integrations unavailable until their documented capability/configuration and permission boundaries are implemented and verified.
+6. Finish signing/notarization and clean-account release acceptance. The initial Codex controls are selectable in the source app; do not advertise qualified backend support until its exact version, account route, configuration and permission boundaries have the required evidence.
 
 ## Detailed task index
 

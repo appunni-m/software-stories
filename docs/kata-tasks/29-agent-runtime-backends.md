@@ -66,15 +66,22 @@ Attach the dated operation-to-runtime matrix and rationale for each evaluated in
 - [Claude Agent SDK overview, branding, and authentication requirements](https://code.claude.com/docs/en/agent-sdk/overview), [Claude Agent SDK permission controls](https://code.claude.com/docs/en/agent-sdk/permissions), [Claude plan usage for the Agent SDK](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan), and [Claude Code CLI reference](https://code.claude.com/docs/en/cli-usage)
 - [Antigravity SDK overview](https://www.antigravity.google/docs/sdk/overview), [SDK tools](https://www.antigravity.google/docs/sdk/tools), [SDK policies](https://www.antigravity.google/docs/sdk/policies), [CLI headless mode](https://www.antigravity.google/docs/cli/headless/), [FAQ on third-party login and headless embedding](https://www.antigravity.google/docs/faq/), [Additional Terms](https://www.antigravity.google/terms), and [ACP registry](https://agentclientprotocol.com/get-started/registry)
 
+## Implementation update — 2026-10-15
+
+The initial Codex route is implemented in source: managed app-server over stdio, native managed ChatGPT login, explicit runtime model/reasoning choices, fixed `never` approval, bounded selected-file staging/review, progress/cancel and shared validation into an unaccepted file chapter or 1–12-file overview. The app exposes a distinct Codex picker/dialog. This is a local-app route; it does not implement direct SIWC registration/token sharing. Runtime `model/list` is not account-entitlement proof, and the source's explicit restrictions are not a universal no-tools guarantee. Threads are ephemeral with no persisted resume. See [the Codex child](40-codex-account-backend.md).
+
+Every acceptance criterion remains open. No pinned packaged runtime, native login/distribution eligibility, complete process/filesystem/egress boundary or live draft workflow has been qualified. Codex section updates, Code Lens and PR workflows are not wired. Claude Agent, Gemini CLI and Antigravity adapters remain unimplemented. The new source path does not close M7 or satisfy its other requested backend choices.
+
 ## Pending work — 2026-10-15
 
-- [ ] Finish the dated runtime/adapter capability and terms matrix for Codex, Claude Agent and Antigravity; candidates remain unavailable until supported.
-- [ ] Implement the chosen maintained SDK/app-server/ACP adapters and persisted model/reasoning/approval settings with per-run effective config review.
-- [ ] Enforce reviewed immutable staging and verified filesystem/process/network boundaries using supported runtime controls or an OS sandbox.
-- [ ] Later exercise real pinned runtime auth, progress, permission, cancel, failure and validated draft acceptance. Do not count an unavailable option as requested backend support.
+- [ ] Complete Codex runtime pinning, packaging/license and native account/distribution qualification; distinguish implemented source from supported operation pairs in the matrix.
+- [ ] Implement the permitted Claude Agent and Antigravity routes, with their own authentication decisions and model/reasoning/approval capability records; evaluate Gemini CLI separately.
+- [ ] Complete Codex operation coverage and lifecycle decisions beyond its initial file/selected-file-overview and ephemeral-run scope. Persist only verified supported settings; do not invent approval modes.
+- [ ] Qualify reviewed immutable staging, restricted reads, command/write denial and provider-control versus tool-network boundaries using each real runtime or an OS sandbox.
+- [ ] Later exercise actual pinned runtime auth/refresh/logout, progress, permission, cancel, crash, failure and validated draft acceptance. Do not count an unavailable option or a selectable source UI as accepted backend support.
 
 No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.
 
 ## Implementation order — 2026-10-15
 
-Start the Codex account-backed app-server child first, independently of completing every direct API operation. Claude Agent and Antigravity have separate child tasks with explicit account eligibility decisions and runtime controls. Read [the current feasibility evaluation](../research/2026-10-15-agent-backends.md). A successful connection must be carried through generation, local validation and saved draft review; a catalog entry alone is not implementation.
+Finish qualifying the initial Codex account-backed app-server route independently of completing every direct API operation. Claude Agent and Antigravity have separate child tasks with explicit account eligibility decisions and runtime controls. Read [the current feasibility evaluation](../research/2026-10-15-agent-backends.md). Source wiring now reaches generation, local validation and saved draft review; an actual pinned-runtime account and packaged workflow must still be demonstrated before acceptance.

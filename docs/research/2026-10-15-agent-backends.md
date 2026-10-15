@@ -4,15 +4,27 @@ Reviewed October 15, 2026 from current official documentation and repository sou
 
 ## Current product gap
 
-Chapter generation exposes direct APIs. The runtime options requested by the user are documented in `tpta`, but there is no usable Codex, Claude Agent or Antigravity chapter adapter in the app. Model API coverage does not fulfill that requirement. Agent work no longer waits for completion of the direct API backlog.
+Chapter generation previously exposed only direct APIs. The October 15 source implementation now adds a separate Codex account adapter and chapter dialog. It has not been built or exercised, and is not accepted production support. Claude Agent and Antigravity adapters remain pending in `8gqw` and `m00g`. Agent work no longer waits for completion of the direct API backlog.
 
 Provide two visible backend categories: **Coding agent** and **Direct API**. A connected agent stores its supported non-secret defaults: model, reasoning effort, approval behavior and run limits. Each run shows the effective settings and reviewed source scope. Unsupported settings are unavailable, never silently ignored. Every backend returns the same validated chapter draft to the existing revision workflow. Pocket TTS stays a separate local narration component.
 
 | Backend | Recommended integration | Account usage | Next task |
 | --- | --- | --- | --- |
-| Codex | Official app-server over Rust-managed stdio | Documented ChatGPT plan route for eligible open-source applications; no direct API key needed for that route | `z3an`: implement first |
+| Codex | Official app-server over Rust-managed stdio | Documented ChatGPT plan route for eligible open-source applications; no direct API key needed for that route | `z3an`: source implementation present; acceptance and expanded operations pending |
 | Claude Agent, powered by Claude Code | Official Agent SDK worker; documented headless subprocess is an alternative | Subscription usage is documented, but current third-party product-login guidance conflicts between official pages | `8gqw`: implement adapter and resolve distribution/auth eligibility |
 | Antigravity | Official ACP for account-route evaluation; official Python SDK for explicitly selected API/Cloud route | Personal-account editor integrations exist; custom app eligibility is unconfirmed. Consumer headless wrapping is explicitly unsupported | `m00g`: qualify custom ACP eligibility; do not promise subscription support yet |
+
+## Codex source implementation and current limits
+
+The current adapter uses the official app-server's managed `account/login/start` ChatGPT browser flow in an app-specific home with Keychain storage. OpenAI permits this existing authentication path for local or open-source applications and recommends migration to Sign in with ChatGPT; it is not a route for commercial or hosted services. The app has **not** implemented separate SIWC public-client registration, host-managed OAuth tokens or account-entitled model discovery. Distribution/licensing and SIWC migration remain explicit release work. [Authentication guidance](https://learn.chatgpt.com/docs/app-server#authentication).
+
+The new backend picker, [`CodexChapterDialog`](../../src/CodexChapterDialog.tsx), [`codex_commands`](../../src-tauri/src/codex_commands.rs) and [`codex_agent`](../../src-tauri/src/codex_agent.rs) connect file chapters and selected-source overviews to the existing chapter validator and saved unaccepted drafts. The shared prompt/evidence builder accepts at most 12 immutable captured files and 250 KB total source. Review binds source, model, effort, executable path and effective generation controls. It is an agent-operation contract, not a byte-for-byte HTTP payload or a statement about runtime-added system instructions.
+
+Only user-triggered connection/model actions start the managed stdio process. The browser login may use the runtime's temporary OAuth callback listener; generation adds no Node server or application listener. Local status inspects installation and can poll an already-running server. The runtime catalog supplies model/effort choices, but catalog membership does not prove account entitlement or remaining quota. Approval is initially fixed to `never`; unsupported policies are rejected.
+
+The runtime capability/schema and effective-configuration checks refuse weaker versions/settings. The adapter requests restricted read-only staged source, disables documented command/web/image/subagent/plugin features, rejects permission requests and unexpected tool results, uses ephemeral threads, and independently validates output. There is no universal `tools=none` claim: rejecting tool events is defense in depth after an event, not pre-execution isolation evidence. Packaged runtime boundary acceptance remains required.
+
+Source includes progress, bounded protocol frames/timeouts, early-cancel tombstones, turn interruption, process-group cleanup, local recovery previews and no API fallback. Account/runtime failures remain visible without exposing raw model or RPC output. Whole-repo investigation, app-owned search/read tools, section regeneration, Code Lens, PR operations, persistent thread resume, formal version pinning, account-entitlement discovery and packaged/live acceptance are still pending. No tests, build, runtime login or model call ran during this implementation.
 
 ## Codex: clearest first implementation
 

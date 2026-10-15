@@ -1,10 +1,10 @@
-# Direct API and Gemini narration disclosures
+# AI backend and narration disclosures
 
-This document summarizes the versioned disclosures represented in Code Atlas source. It is not a live price, quota, eligibility, retention, or billing check. Direct text APIs and speech synthesis are separate request paths with separate provider/model records.
+This document summarizes the versioned disclosures represented in Code Atlas source. It is not a live price, quota, eligibility, retention, or billing check. Direct text APIs, the initial Codex account route, local Pocket narration and optional Gemini speech have separate contracts. The new October 15 runtime paths were inspected without tests, builds, app launches or live requests; their acceptance remains open.
 
 ## Direct text API providers
 
-The versioned Gemini, OpenAI, and Anthropic records are defined in `src-tauri/src/provider.rs`. The selected provider and model are explicit; the app does not discover models or switch providers after failure. Prices, model IDs, and provider terms are static release metadata checked on 13 October 2026 and must be verified against the linked first-party sources before release. The app cannot inspect the account, key tier, billing, quota, retention configuration, eligibility, or regional availability behind a user-supplied key.
+The versioned Gemini, OpenAI, and Anthropic records are defined in `src-tauri/src/provider.rs`. The selected provider and model are explicit; this direct API route does not discover models or switch providers after failure. Prices, model IDs, and provider terms are static release metadata checked on 13 October 2026 and must be verified against the linked first-party sources before release. The app cannot inspect the account, key tier, billing, quota, retention configuration, eligibility, or regional availability behind a user-supplied key.
 
 ### Data use and eligibility notices
 
@@ -30,7 +30,29 @@ For a file chapter, the reviewed request contains the target file and up to elev
 
 Cancellation drops the in-flight local request future when the user cancels. The provider may already have received or started processing the request, so cancellation cannot promise a refund, erase transmitted content, or revoke provider work. Any late response is discarded or kept only as an unaccepted draft according to the operation's recovery path.
 
+## Initial Codex account route
+
+The source contains a separate Codex app-server integration for file chapters and an overview of 1–12 selected captured files. It uses a Rust-managed stdio child with app-owned configuration and the runtime's native managed ChatGPT account login. The Connect action starts that flow and opens its allowlisted HTTPS login URL in the system browser. Code Atlas requests native keyring credential storage and does not ask for an API key. This initial local-app route does not implement direct Sign in with ChatGPT registration, PKCE or token sharing. Authentication eligibility, project licensing/distribution requirements, a packaged runtime/version and native credential acceptance remain unqualified; the existence of source code is not authorization to distribute every account flow.
+
+Connect and Load models can start Codex and contact its account services without sending repository context. The explicit `model/list` response supplies runtime model/reasoning choices, not proof of account entitlement, pricing or quota. Account/subscription usage and data terms are distinct from the direct OpenAI API notice above; the app does not promise free usage or remaining plan capacity. The reviewed operation can involve runtime-managed model calls, so the app does not claim an exact downstream request count or byte-for-byte vendor HTTP payload.
+
+Before generation, the user reviews selected immutable source, prompt/schema, model, reasoning effort, fixed `never` approval policy and effective adapter controls, then separately consents to sharing that context. The source requests restricted staged reads, tool-network denial and shell/web/plugin-related disabling and rejects unexpected tool events. Read-only mode does not prove a universal no-tools boundary. Pinned-runtime, account/refresh, filesystem/process/egress and packaged tests remain outstanding. Threads are ephemeral; persisted agent-session resume is not implemented. Cancellation interrupts the local turn and cleans up the child as needed, but cannot undo work already received by the account provider. Output must pass existing local chapter/evidence validation and user review before acceptance. There is no direct API fallback.
+
+Section regeneration, Code Lens, PR Guide and PR change explanations are not wired to Codex. Claude Agent, Gemini CLI and Antigravity remain separate candidates. See [the dated backend evaluation](research/2026-10-15-agent-backends.md) and [Codex task](kata-tasks/40-codex-account-backend.md) for remaining qualification.
+
 ## Optional section narration
+
+### Local Pocket TTS default
+
+New section preferences select Pocket TTS. Existing Google preferences and cache keys retain their provider identity; changing engines does not relabel previous recordings. The local disclosure is `pocket-narration-2026-10-15-v1`. The source pins Pocket TTS 3.3.0, Python 3.13.14, the English September 2026 model configuration and immutable Alba embedding. Full asset revisions and runtime dependencies are recorded in [Pocket runtime](research/pocket-tts-runtime.md).
+
+Explicit setup downloads the managed interpreter/dependencies and public fixed model/voice assets into app data. The present target is Apple Silicon macOS and requires an existing `uv` installer in a supported location; it is not a bundled offline runtime. Setup has no narration script. Synthesis uses app-managed local assets in offline mode, with the edited script supplied to a finite worker over stdin; there is no listening server, API key lookup or cloud fallback. Setup/download, offline, cancellation and packaging claims still require execution evidence.
+
+Local synthesis has no provider usage fee. Pocket code/model licensing and voice attribution are distinct: the implementation records MIT for Pocket code/model and Alba MacKenna's source recording under CC BY 4.0. Distribution must retain required notices and qualify the packaged dependency inventory. Alba is the only offered voice; delivery-style prompting and arbitrary voice/model URLs are unsupported.
+
+The review shows exact pronunciation-expanded text and every deterministic segment, up to 16,000 UTF-8 bytes per section and 4,000 bytes per segment. Each finite worker loads the model again. Only fully completed, validated PCM16 mono 24 kHz WAV sections enter the cache. The local key includes the runtime fingerprint, pinned model/voice, text, segmentation/joining policy and format. Local generation needs an explicit action after script review, without Google billing or remote-send consent. Export only reads a matching cache and never starts synthesis. Human listening, lifecycle and offline export acceptance remain open.
+
+### Explicit Gemini speech option
 
 Narration has a separate record: `gemini-tts-disclosure-2026-10-13-v2`, checked 13 October 2026. The source currently selects model ID `gemini-3.8-flash-lite-tts` (displayed as Gemini 3.8 Flash-Lite TTS) and the listed prebuilt voices. These are static app values, not a live capability check.
 
@@ -40,10 +62,12 @@ As checked in the source disclosure, Google lists this model's standard text and
 
 Gemini narration has its own Google data-use, regional, eligibility, and billing disclosure. The OpenAI and Anthropic text API disclosures do not apply to this speech request. For Paid Services, the shipped notice describes Google's stated product-improvement and limited logging terms. The app cannot inspect the key's billing project, region, age, or eligibility. The request is sent directly to Google's Gemini API over HTTPS, without a retry or paid/model fallback; local cancellation cannot establish whether Google received a request already in flight. The transcript and previous cached audio remain available on error.
 
-The speech disclosure and request behavior are defined in `src-tauri/src/narration.rs`; text-generation disclosures are defined in `src-tauri/src/provider.rs`. The dates and terms in this document are release metadata and must be reviewed before distribution.
+Speech review/cache and both backend disclosures are defined in `src-tauri/src/narration.rs`; the local worker is managed by `src-tauri/src/pocket_tts.rs`. Text-generation disclosures are defined in `src-tauri/src/provider.rs`, and Codex account lifecycle in `src-tauri/src/codex_agent.rs`. The dates and terms in this document are release metadata and must be reviewed before distribution.
 
 ## First-party sources
 
+- [Codex app-server](https://developers.openai.com/codex/app-server) and [Sign in with ChatGPT for open-source app-server clients](https://developers.openai.com/siwc/token-sharing-open-source/codex-app-server)
+- [Pocket TTS repository](https://github.com/kyutai-labs/pocket-tts), [model assets](https://huggingface.co/kyutai/pocket-tts-without-voice-cloning), [voice catalog](https://huggingface.co/kyutai/tts-voices), and [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 - [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing)
 - [Gemini API terms](https://ai.google.dev/gemini-api/terms)
 - [Gemini API available regions](https://ai.google.dev/gemini-api/docs/available-regions)
