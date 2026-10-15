@@ -154,7 +154,7 @@ Source-only; all command/UI/native acceptance remains deferred. No tests, builds
 
 ## Internal Claude chapter pipeline and account reinspection — pending
 
-- Qualify a permitted native runtime owner with fresh catalog/account/install/isolation evidence before exposing generation. There is no registered generation command or app caller today. A catalog response, renderer runtime/qualification DTO, manual handoff or API setup must not authorize the internal pipeline.
+- Qualify a permitted native runtime owner with fresh catalog/account/install/isolation evidence before exposing generation. Four native send commands are now registered, but the release qualification registry is empty and app generation controls are absent. A catalog response, renderer runtime/qualification DTO, manual handoff or API setup must not authorize the internal pipeline.
 - Review build checks the open project and immutable source. Sending requires explicit consent, exact stored fingerprint, Claude provider/endpoint/chapter contract and correct file/overview/section scope. Reject cross-provider/range/PR/mixed/missing contexts before consuming a review, recording recovery or delivering source. Validate missing/malformed model/effort/approval/turn settings and rejected capabilities; per-send overrides never enter the worker.
 - Rebuild the shared source/schema/section contract before consumption, then again under the single worker lock after account preinspection and before launch. Change source, freshness/base/section revision, effective settings, runtime identity or review expiry between these phases; no stale request may deliver source. Consumed/replayed/expired reviews need a new review and consent.
 - Before source delivery, inspect the candidate CLI version, canonical executable hash and bounded reported first-party account identity against the native review runtime. After clean successful structured output, recheck that identity before returning text. Signed-out/API/helper/alternate-provider/incomplete or changed metadata rejects on the chosen backend without fallback. Reported identity is not effective-account or entitlement proof; qualify actual vendor behavior separately.
@@ -217,7 +217,7 @@ These are deferred acceptance cases, not executed checks. No tests/builds were a
 
 ## Claude range/Git contracts and internal pipeline — pending
 
-No tests/builds were added or run. These cases remain deferred; registered offline reviews and unreachable internal senders are not native backend acceptance.
+No tests/builds were added or run. These cases remain deferred; offline reviews and qualification-gated native send commands without an eligible release profile or app generation controls are not native backend acceptance.
 
 - Recheck the existing Claude file/overview/section review after transport extraction and generic operation reconstruction. Effective settings, prompt/schema, source limits, section preservation metadata and fingerprint inputs must remain intact; a range or Git context cannot enter the chapter-only validator/sender.
 - Prepare each new native offline review with an opaque current connection ID and requested settings. The native project owns the root; renderer runtime/account/capability/qualification/root overrides and unknown DTO fields must be rejected. No agent process, model request, API credential or source consent is required. Git reviews may run bounded local read-only Git commands.
@@ -281,3 +281,17 @@ This runner prepares immutable Git evidence for both API and agent PR workflows,
 - Through project inspection, snapshot status/ignore phases, Git comparison, agent range/Git review/revalidation and interruption recovery, record unchanged bounds, error classification and prior repository/snapshot/accepted-history state. Comparison currently has no user-facing cancel token; do not claim that missing propagation is complete.
 
 Existing focused tests and previous passing results do not qualify this replacement. Runtime evidence remains pending until testing is authorized.
+
+
+## Claude native generation admission — pending acceptance
+
+Four native send commands now take one strict `input` containing review ID, fingerprint and explicit consent. The release-owned qualification registry is empty; every current send remains unavailable before review consumption, journaling or worker execution. Registered commands do not complete automatic Claude support. No new tests were added or run.
+
+- Confirm the empty, malformed, oversized, unknown-field, duplicate-ID, ambiguous and mismatched registry cases cannot start a request or consume a review. A local preview and installation/account/catalog metadata cannot enable generation. Preferences, environment and renderer flags cannot add a profile or select a different account/API route.
+- Reject missing consent, malformed identity, wrong fingerprint/provider/operation, mixed operation contexts, expired reviews and disconnected/replaced connections. The nested command DTO must reject model/settings/runtime/qualification/argv/root/account overrides. Race refresh, forget, cancel and async-owner drop between admission and lease acquisition.
+- Before a release profile is added, inspect its actual evidence artifacts and product/account permission; hash-shaped references are not proof. Match exact app/native fingerprint, macOS architecture and documented OS range, CLI identity/version, discovery host/SDK identity/version and allowed reported plan. Verify installation trust, effective runtime controls, filesystem/process/tool/egress boundaries and account usage separately. No dummy profile may ship to bypass those requirements.
+- When authorized, build with the lockfile and inspect reproducible native input fingerprints. A native source/configuration/dependency change must invalidate prior profiles. Registry receipt insertion must avoid self-reference. Symlink/nonregular inputs must reject. Record the exact controlled toolchain/package and OS evidence; an input hash is not a signed binary or a behavior result.
+- Through all six operation scopes, inspect effective model/effort/fixed approval/turns, progress, cancellation, independent validators and correct result handling. Chapter previews remain unaccepted, PR Guide drafts stay in separate history, range/hunk results remain transient, and accepted history is preserved. App generation controls, renderer lifetime handling and exact Claude recovery remain separate outstanding work.
+- Delay chapter validation on the blocking pool, cancel/disconnect during admission/publication, and lose the IPC reply after preview creation. Cloned pending-draft storage must share one synchronized map. Discover/discard a late preview without accepting history. Panic during chapter or guide preparation must retain the interruption notice and operation-specific recovery guidance; transient range/hunk failures must not claim a saved draft.
+
+See [the native admission contract](../CLAUDE_RUNTIME_QUALIFICATION.md). Builds, tests, probes, model requests and native app acceptance remain pending until authorized.

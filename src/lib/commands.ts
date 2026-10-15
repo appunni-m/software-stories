@@ -1417,7 +1417,11 @@ export async function inspectClaudeAgentConnection(executablePath: string, runId
   return invoke('inspect_claude_agent_connection', { executablePath, runId });
 }
 export interface ClaudeModelDiscoveryObservation {
-  reviewConnection: { connectionId: string; expiresAtUnixMs: number } | null;
+  reviewConnection: {
+    connectionId: string;
+    expiresAtUnixMs: number;
+    generation: { available: boolean; qualificationId: string | null; adapterSha256: string; message: string };
+  } | null;
   connection: ClaudeConnectionObservation;
   catalog: {
     sdkVersion: string;
@@ -1483,6 +1487,21 @@ export async function buildClaudePrChangeReview(connectionId: string, input: {
   projectId: string; target: PrChangeExplanationTarget; settings: ClaudeGenerationSettings;
 }): Promise<ProviderCommandResult<ProviderRequestReview>> {
   return invoke('build_claude_pr_change_review', { connectionId, input });
+}
+
+/** Native admission requires this build's release-owned qualification plus a
+ * live exact review and consent. No renderer runtime/model/account overrides. */
+export async function sendClaudeChapterRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<ChapterDraftPreview>> {
+  return invoke('send_claude_chapter_request', { input: { reviewId, fingerprint, consent } });
+}
+export async function sendClaudeCodeLensRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<CodeLensExplanationPreview>> {
+  return invoke('send_claude_code_lens_request', { input: { reviewId, fingerprint, consent } });
+}
+export async function sendClaudePrGuideRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<PrGuidePreview>> {
+  return invoke('send_claude_pr_guide_request', { input: { reviewId, fingerprint, consent } });
+}
+export async function sendClaudePrChangeRequest(reviewId: string, fingerprint: string, consent: boolean): Promise<ProviderCommandResult<PrChangeExplanationPreview>> {
+  return invoke('send_claude_pr_change_request', { input: { reviewId, fingerprint, consent } });
 }
 
 export type HandoffAgent = 'claude-code' | 'codex' | 'antigravity' | 'other';

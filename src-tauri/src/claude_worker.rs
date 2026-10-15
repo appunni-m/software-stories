@@ -1,8 +1,8 @@
 //! Managed execution for the official Claude programmatic CLI.
 //!
-//! There is no registered generation command for this worker yet. Its native
-//! caller must first qualify the account/runtime/isolation route, re-inspect
-//! the account and model catalog, and revalidate an explicitly consented review.
+//! Registered generation commands require native release-owned admission; the
+//! empty qualification registry currently rejects every inference attempt. A
+//! future admitted caller must still revalidate the consented review/account.
 //! This is process supervision, not an agent loop or a permission boundary.
 
 use crate::claude_agent::{
@@ -98,8 +98,8 @@ struct ActiveRun {
 
 impl ClaudeWorkerManager {
     /// Blocking: run on the native blocking pool after fresh review/account
-    /// qualification. The internal chapter pipeline calls this; no registered
-    /// generation command currently exposes it. Preflight revalidates the
+    /// qualification. Registered commands can reach the operation pipeline only
+    /// through its native admitted-runtime type. Preflight revalidates the
     /// immutable review under this manager's operation lock before launch.
     pub(crate) fn run(
         &self,

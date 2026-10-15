@@ -202,6 +202,12 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
           <h3 id="claude-models-title">Candidate model catalog</h3>
           <p role="status">{catalogObservation.catalog.models.length} exact model IDs observed. Account entitlement and automatic generation remain unqualified.</p>
           {catalogObservation.reviewConnection && <p className="provider-small-note">This native review connection expires at {new Date(catalogObservation.reviewConnection.expiresAtUnixMs).toLocaleTimeString()}. Changing installation paths or leaving setup discards it. It cannot authorize generation.</p>}
+          {catalogObservation.reviewConnection && <details><summary>Generation readiness</summary>
+            <p>{catalogObservation.reviewConnection.generation.message}</p>
+            <p>Native build identity <code>{catalogObservation.reviewConnection.generation.adapterSha256}</code></p>
+            {catalogObservation.reviewConnection.generation.qualificationId && <p>Release profile <code>{catalogObservation.reviewConnection.generation.qualificationId}</code></p>}
+            <p>The automatic generation controls are still under implementation. A request preview alone does not start an agent.</p>
+          </details>}
           <ul>{catalogObservation.catalog.models.map((model) => <li key={model.modelId}>
             <strong>{model.displayName}</strong> · <code>{model.modelId}</code>
             <p>Advertised effort: {model.supportedEfforts.length ? model.supportedEfforts.join(', ') : 'no explicit levels; runtime default only'}.</p>
@@ -215,7 +221,7 @@ export function ClaudeConnectionDialog({ native, reviewMode, onClose, onChooseBa
         </section>}
         {error && <p className="provider-error-text" role="alert">{error}</p>}
         {note && <p className="provider-status-note" role="status">{note}</p>}
-        <p className="provider-small-note">Automatic generation still needs a qualified runtime, permitted account integration and connected sender. Catalog inspection and local previews cannot enable it. API authentication is a separate choice.</p>
+        <p className="provider-small-note">Automatic generation still needs qualified release/runtime evidence and app generation controls. Catalog inspection and local previews cannot enable it. API authentication is a separate choice.</p>
       </div>
       <footer className="provider-dialog-footer"><div className="provider-draft-actions">
         <button className="secondary-button" onClick={onClose}>Close</button>

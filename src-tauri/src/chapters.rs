@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
@@ -185,8 +185,8 @@ struct PendingChapterPreview {
     expires_at_unix_ms: u64,
 }
 
-#[derive(Default)]
-pub struct PendingChapterDrafts(Mutex<HashMap<String, PendingChapterPreview>>);
+#[derive(Clone, Default)]
+pub struct PendingChapterDrafts(Arc<Mutex<HashMap<String, PendingChapterPreview>>>);
 
 impl PendingChapterDrafts {
     pub fn insert(&self, revision: ChapterRevision) -> Result<String, String> {

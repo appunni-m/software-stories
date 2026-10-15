@@ -23,6 +23,7 @@ mod claude_connections;
 mod claude_discovery;
 mod claude_generation;
 mod claude_models;
+mod claude_runtime;
 mod claude_worker;
 mod codex_agent;
 mod codex_commands;
@@ -1796,6 +1797,10 @@ pub fn run() {
             claude_commands::build_claude_code_lens_review,
             claude_commands::build_claude_pr_guide_review,
             claude_commands::build_claude_pr_change_review,
+            claude_commands::send_claude_chapter_request,
+            claude_commands::send_claude_code_lens_request,
+            claude_commands::send_claude_pr_guide_request,
+            claude_commands::send_claude_pr_change_request,
             get_application_status,
             get_capture_limits,
             pick_project_folder,

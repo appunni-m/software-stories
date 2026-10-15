@@ -8,6 +8,9 @@ use crate::{
     claude_agent::{ClaudeGenerationSettings, ClaudeReviewRuntime},
     claude_connection::ClaudeAuthMethod,
     claude_discovery::ClaudeModelDiscoveryObservation,
+    claude_runtime::{
+        self, ClaudeCatalogInstallation, ClaudeGenerationAvailability, ClaudeGenerationRuntime,
+    },
     claude_worker::{ClaudeWorkerFailure, ClaudeWorkerFailureKind, RUN_TIMEOUT},
     provider, recovery,
 };
@@ -43,6 +46,7 @@ struct Connection {
     created: Instant,
     expires_at_unix_ms: u64,
     runtime: Arc<ClaudeReviewRuntime>,
+    installation: ClaudeCatalogInstallation,
 }
 
 /// Display metadata only. ID possession cannot grant generation permission.
@@ -51,6 +55,7 @@ struct Connection {
 pub(crate) struct ClaudeReviewConnection {
     connection_id: String,
     expires_at_unix_ms: u64,
+    generation: ClaudeGenerationAvailability,
 }
 
 pub(crate) struct ClaudeReviewLease {
@@ -320,9 +325,11 @@ impl ClaudeConnections {
                 "The local clock could not date this connection. No chapter review is available."))?;
         let mut state = self.lock()?;
         require_ticket(&state, ticket)?;
+        let installation = ClaudeCatalogInstallation::observed(observation);
         let connection = ClaudeReviewConnection {
             connection_id: runtime.connection_id.clone(),
             expires_at_unix_ms,
+            generation: claude_runtime::availability(&runtime, &installation),
         };
         state.checking = None;
         state.current = Some(Connection {
@@ -330,6 +337,7 @@ impl ClaudeConnections {
             created: Instant::now(),
             expires_at_unix_ms,
             runtime,
+            installation,
         });
         Ok(connection)
     }
@@ -447,6 +455,25 @@ impl ClaudeConnections {
                 identity,
             },
         })
+    }
+
+    /// Resolve the current native observation and the release-owned admission
+    /// policy. Neither connection IDs nor observed metadata mint permission.
+    /// The pipeline rechecks this exact Arc under its revocable owner before
+    /// consuming the separately consented review.
+    pub(crate) fn generation_runtime(
+        &self,
+        review: &provider::ProviderRequestReview,
+    ) -> Result<ClaudeGenerationRuntime, provider::ProviderFailure> {
+        let mut state = self.lock().map_err(lifecycle_failure)?;
+        let current = current(&mut state).map_err(lifecycle_failure)?;
+        if review.provider_id != "claude-agent"
+            || review.generation_config["connectionId"] != current.runtime.connection_id
+            || review.expires_at_unix_ms <= unix_time_ms()
+        {
+            return Err(changed());
+        }
+        claude_runtime::admit(&current.runtime, &current.installation)
     }
 
     pub(crate) fn review_lease(

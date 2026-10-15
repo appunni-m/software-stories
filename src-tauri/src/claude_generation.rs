@@ -2,21 +2,21 @@
 //!
 //! This module neither qualifies nor constructs that runtime. A registered
 //! command calls offline review preparation with native-owned observations.
-//! The senders have no registered command or app caller: the permitted account,
-//! installation/isolation owner and generation UI remain missing. A setup
-//! catalog cannot become generation authorization. No direct API is used here.
+//! Registered send commands require the release-owned runtime admission type.
+//! The qualification registry is empty and the generation UI remains missing;
+//! setup/catalog observations cannot authorize inference. No direct API is used.
 
 use crate::{
     ProjectSessions, app_data_directory, chapters,
     claude_agent::ClaudeReviewRuntime,
     claude_connections::{ClaudeConnections, ClaudeOperationAccess, ClaudeOperationLease},
+    claude_runtime::ClaudeGenerationRuntime,
     claude_worker::{
         ClaudeWorkerFailure, ClaudeWorkerFailureKind, ClaudeWorkerInput, ClaudeWorkerManager,
     },
     pr_guide, prepare_chapter_draft_preview, prepare_pr_guide_preview, provider, recovery,
 };
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use tauri::{AppHandle, Emitter};
 
 /// Offline entry with a native-owned observed connection, never a WebView
@@ -37,7 +37,7 @@ pub(crate) fn prepare_chapter_review(
     provider::build_claude_chapter_review(storage, input, runtime)
 }
 
-/// Future qualified native caller supplies the runtime, not the renderer. A
+/// The native command supplies an admitted runtime, never the renderer. A
 /// consumed request produces an unaccepted in-memory preview only. Generic
 /// Save/Accept operations still own persistence and accepted history.
 pub(crate) async fn send_chapter(
@@ -45,7 +45,7 @@ pub(crate) async fn send_chapter(
     sessions: &ProjectSessions,
     manager: &ClaudeWorkerManager,
     connections: &ClaudeConnections,
-    runtime: Arc<ClaudeReviewRuntime>,
+    runtime: ClaudeGenerationRuntime,
     reviews: &provider::PendingProviderReviews,
     drafts: &chapters::PendingChapterDrafts,
     interruptions: &recovery::InterruptionJournal,
@@ -73,23 +73,31 @@ pub(crate) async fn send_chapter(
         Err(error) => return Envelope::failed(error),
     };
     let access = completed.lease.access();
-    let mut result = match completed.result {
-        Ok(response) => access
-            .publish(&completed.review, || {
-                prepare_chapter_draft_preview(
-                    &completed.storage,
-                    &completed.review,
-                    response,
-                    drafts,
-                )
+    let storage = completed.storage.clone();
+    let repository = completed.repository.clone();
+    let review = completed.review.clone();
+    let validation_access = access.clone();
+    let drafts = drafts.clone();
+    let (result, clean_validation) = validate_result(
+        completed.result,
+        provider::ClaudeOperation::Chapter,
+        move |response| {
+            provider::rebuild_active_claude_review(
+                &storage,
+                &repository,
+                &review,
+                &validation_access,
+            )?;
+            validation_access.publish(&review, || {
+                prepare_chapter_draft_preview(&storage, &review, response, &drafts)
             })
-            .map(Envelope::ok)
-            .unwrap_or_else(Envelope::failed),
-        Err(error) => Envelope::failed(error),
-    };
+        },
+    )
+    .await;
+    let mut result = result.map(Envelope::ok).unwrap_or_else(Envelope::failed);
     // A crash/uncertain native cleanup keeps its original backend/scope notice.
     // Recovery must never reopen that notice as a direct API request.
-    if completed.clear_interruption {
+    if completed.clear_interruption && clean_validation {
         if let Err(message) = interruptions.discard(&completed.storage, review_id) {
             match &mut result {
                 Envelope::Ok { data } => data.update_notes.push(format!(
@@ -123,7 +131,7 @@ async fn execute(
     sessions: &ProjectSessions,
     manager: &ClaudeWorkerManager,
     connections: &ClaudeConnections,
-    runtime: Arc<ClaudeReviewRuntime>,
+    runtime: ClaudeGenerationRuntime,
     reviews: &provider::PendingProviderReviews,
     interruptions: &recovery::InterruptionJournal,
     review_id: &str,
@@ -138,6 +146,7 @@ async fn execute(
             "Review the exact source, effective Claude settings and account usage before explicitly starting this request.",
         ));
     }
+    let runtime = runtime.into_review_runtime();
     let pending = reviews.get(review_id)?;
     if pending.review.fingerprint != fingerprint
         || provider::claude_review_operation(&pending.review)? != operation
@@ -160,8 +169,8 @@ async fn execute(
             "Local snapshot storage is unavailable. No Claude request was sent.",
         )
     })?;
-    // This reserves lifecycle only. The future command owner must separately
-    // establish account/runtime qualification before calling this pipeline.
+    // Release-owned runtime admission has already succeeded. This reservation
+    // additionally owns the revocable connection lifecycle and exact review.
     let lease = connections.begin_operation(&runtime, &pending.review)?;
     let access = lease.access();
     let storage_for_check = storage.clone();
@@ -265,14 +274,14 @@ async fn execute(
     })
 }
 
-/// Candidate internal range sender. No registered command can reach it until
-/// the native connection/account/isolation owner is qualified.
+/// Range sender reached only after native release-owned admission. The empty
+/// qualification registry currently keeps every app invocation unavailable.
 pub(crate) async fn send_code_lens(
     app: AppHandle,
     sessions: &ProjectSessions,
     manager: &ClaudeWorkerManager,
     connections: &ClaudeConnections,
-    runtime: Arc<ClaudeReviewRuntime>,
+    runtime: ClaudeGenerationRuntime,
     reviews: &provider::PendingProviderReviews,
     interruptions: &recovery::InterruptionJournal,
     review_id: &str,
@@ -285,7 +294,7 @@ pub(crate) async fn send_code_lens(
         sessions,
         manager,
         connections,
-        runtime.clone(),
+        runtime,
         reviews,
         interruptions,
         review_id,
@@ -303,10 +312,19 @@ pub(crate) async fn send_code_lens(
     let review = completed.review.clone();
     let access = completed.lease.access();
     let validation_access = access.clone();
-    let (result, clean_validation) = validate_result(completed.result, move |response| {
-        provider::rebuild_active_claude_review(&storage, &repository, &review, &validation_access)?;
-        provider::canonicalize_code_lens_explanation(&storage, &review, &response)
-    })
+    let (result, clean_validation) = validate_result(
+        completed.result,
+        provider::ClaudeOperation::CodeLens,
+        move |response| {
+            provider::rebuild_active_claude_review(
+                &storage,
+                &repository,
+                &review,
+                &validation_access,
+            )?;
+            provider::canonicalize_code_lens_explanation(&storage, &review, &response)
+        },
+    )
     .await;
     // Range validation reads exact source but creates no chapter/PR history.
     finish_result(
@@ -325,7 +343,7 @@ pub(crate) async fn send_pr_guide(
     sessions: &ProjectSessions,
     manager: &ClaudeWorkerManager,
     connections: &ClaudeConnections,
-    runtime: Arc<ClaudeReviewRuntime>,
+    runtime: ClaudeGenerationRuntime,
     reviews: &provider::PendingProviderReviews,
     interruptions: &recovery::InterruptionJournal,
     review_id: &str,
@@ -338,7 +356,7 @@ pub(crate) async fn send_pr_guide(
         sessions,
         manager,
         connections,
-        runtime.clone(),
+        runtime,
         reviews,
         interruptions,
         review_id,
@@ -356,14 +374,23 @@ pub(crate) async fn send_pr_guide(
     let review = completed.review.clone();
     let access = completed.lease.access();
     let validation_access = access.clone();
-    let (result, clean_validation) = validate_result(completed.result, move |response| {
-        provider::rebuild_active_claude_review(&storage, &repository, &review, &validation_access)?;
-        // This saves only separate unaccepted PR Guide history, never an
-        // accepted guide or a file/overview chapter revision.
-        validation_access.publish(&review, || {
-            prepare_pr_guide_preview(&storage, &review, response)
-        })
-    })
+    let (result, clean_validation) = validate_result(
+        completed.result,
+        provider::ClaudeOperation::PrGuide,
+        move |response| {
+            provider::rebuild_active_claude_review(
+                &storage,
+                &repository,
+                &review,
+                &validation_access,
+            )?;
+            // This saves only separate unaccepted PR Guide history, never an
+            // accepted guide or a file/overview chapter revision.
+            validation_access.publish(&review, || {
+                prepare_pr_guide_preview(&storage, &review, response)
+            })
+        },
+    )
     .await;
     finish_result(
         &completed.storage,
@@ -381,7 +408,7 @@ pub(crate) async fn send_pr_change(
     sessions: &ProjectSessions,
     manager: &ClaudeWorkerManager,
     connections: &ClaudeConnections,
-    runtime: Arc<ClaudeReviewRuntime>,
+    runtime: ClaudeGenerationRuntime,
     reviews: &provider::PendingProviderReviews,
     interruptions: &recovery::InterruptionJournal,
     review_id: &str,
@@ -394,7 +421,7 @@ pub(crate) async fn send_pr_change(
         sessions,
         manager,
         connections,
-        runtime.clone(),
+        runtime,
         reviews,
         interruptions,
         review_id,
@@ -412,15 +439,19 @@ pub(crate) async fn send_pr_change(
     let review = completed.review.clone();
     let access = completed.lease.access();
     let validation_access = access.clone();
-    let (result, clean_validation) = validate_result(completed.result, move |response| {
-        provider::canonicalize_claude_pr_change_explanation(
-            &storage,
-            &repository,
-            &review,
-            &response,
-            &validation_access,
-        )
-    })
+    let (result, clean_validation) = validate_result(
+        completed.result,
+        provider::ClaudeOperation::PrChange,
+        move |response| {
+            provider::canonicalize_claude_pr_change_explanation(
+                &storage,
+                &repository,
+                &review,
+                &response,
+                &validation_access,
+            )
+        },
+    )
     .await;
     // The common hunk canonicalizer writes no draft/history.
     finish_result(
@@ -434,11 +465,12 @@ pub(crate) async fn send_pr_change(
     )
 }
 
-/// Keep blocking Git/source validation and any PR draft write off the async
+/// Keep blocking Git/source validation and chapter/PR draft writes off the async
 /// runtime. A panicked result preparation has uncertain persistence and keeps
 /// its original interruption notice; it must not trigger automatic generation.
 async fn validate_result<T: Send + 'static>(
     response: Result<provider::ProviderSendResult, provider::ProviderFailure>,
+    operation: provider::ClaudeOperation,
     validate: impl FnOnce(provider::ProviderSendResult) -> Result<T, provider::ProviderFailure>
     + Send
     + 'static,
@@ -452,7 +484,17 @@ async fn validate_result<T: Send + 'static>(
         Err(_) => (
             Err(failure(
                 provider::ProviderFailureKind::LocalStorageUnavailable,
-                "Claude result preparation stopped unexpectedly. Check local recovery and PR Guide history before generating again; a draft may already be saved.",
+                match operation {
+                    provider::ClaudeOperation::Chapter => {
+                        "Claude chapter preparation stopped unexpectedly. Check pending previews and local recovery before generating again; an unaccepted preview may already exist."
+                    }
+                    provider::ClaudeOperation::PrGuide => {
+                        "Claude guide preparation stopped unexpectedly. Check PR Guide history and local recovery before generating again; an unaccepted draft may already be saved."
+                    }
+                    provider::ClaudeOperation::CodeLens | provider::ClaudeOperation::PrChange => {
+                        "Claude explanation validation stopped unexpectedly. Keep the original recovery notice and reselect its exact source range or Git hunk before a new request."
+                    }
+                },
             )),
             false,
         ),

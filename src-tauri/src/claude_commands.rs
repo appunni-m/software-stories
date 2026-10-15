@@ -1,9 +1,9 @@
-//! Explicit Claude inspection and offline operation review. Inference/login are
-//! not exposed; native connection observations cannot authorize generation.
+//! Claude inspection, offline reviews and qualification-gated send commands.
+//! Login is not exposed. Catalog observations cannot authorize generation.
 
 use crate::{
-    ProjectSessions, app_data_directory, claude_connection, claude_connections, claude_generation,
-    claude_worker, provider,
+    ProjectSessions, app_data_directory, chapters, claude_connection, claude_connections,
+    claude_generation, claude_runtime, claude_worker, pr_guide, provider, recovery,
 };
 use std::path::Path;
 use tauri::{AppHandle, State};
@@ -210,6 +210,203 @@ pub(crate) async fn build_claude_pr_change_review(
         ReviewInput::PrChange(input),
     )
     .await
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct SendClaudeRequest {
+    review_id: String,
+    fingerprint: String,
+    consent: bool,
+}
+
+/// The WebView supplies only a pending review identity and explicit consent.
+/// Runtime/account/catalog data and release qualification remain native-owned.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn send_claude_chapter_request(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    manager: State<'_, claude_worker::ClaudeWorkerManager>,
+    connections: State<'_, claude_connections::ClaudeConnections>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    drafts: State<'_, chapters::PendingChapterDrafts>,
+    interruptions: State<'_, recovery::InterruptionJournal>,
+    input: SendClaudeRequest,
+) -> provider::ProviderCommandResult<chapters::ChapterDraftPreview> {
+    let runtime = match admit_generation_review(
+        &connections,
+        &reviews,
+        &input.review_id,
+        &input.fingerprint,
+        input.consent,
+        provider::ClaudeOperation::Chapter,
+    ) {
+        Ok(runtime) => runtime,
+        Err(error) => return provider::ProviderCommandResult::failed(error),
+    };
+    claude_generation::send_chapter(
+        app,
+        &sessions,
+        &manager,
+        &connections,
+        runtime,
+        &reviews,
+        &drafts,
+        &interruptions,
+        &input.review_id,
+        &input.fingerprint,
+        input.consent,
+    )
+    .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn send_claude_code_lens_request(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    manager: State<'_, claude_worker::ClaudeWorkerManager>,
+    connections: State<'_, claude_connections::ClaudeConnections>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    interruptions: State<'_, recovery::InterruptionJournal>,
+    input: SendClaudeRequest,
+) -> provider::ProviderCommandResult<provider::CodeLensExplanationPreview> {
+    let runtime = match admit_generation_review(
+        &connections,
+        &reviews,
+        &input.review_id,
+        &input.fingerprint,
+        input.consent,
+        provider::ClaudeOperation::CodeLens,
+    ) {
+        Ok(runtime) => runtime,
+        Err(error) => return provider::ProviderCommandResult::failed(error),
+    };
+    claude_generation::send_code_lens(
+        app,
+        &sessions,
+        &manager,
+        &connections,
+        runtime,
+        &reviews,
+        &interruptions,
+        &input.review_id,
+        &input.fingerprint,
+        input.consent,
+    )
+    .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn send_claude_pr_guide_request(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    manager: State<'_, claude_worker::ClaudeWorkerManager>,
+    connections: State<'_, claude_connections::ClaudeConnections>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    interruptions: State<'_, recovery::InterruptionJournal>,
+    input: SendClaudeRequest,
+) -> provider::ProviderCommandResult<pr_guide::PrGuidePreview> {
+    let runtime = match admit_generation_review(
+        &connections,
+        &reviews,
+        &input.review_id,
+        &input.fingerprint,
+        input.consent,
+        provider::ClaudeOperation::PrGuide,
+    ) {
+        Ok(runtime) => runtime,
+        Err(error) => return provider::ProviderCommandResult::failed(error),
+    };
+    claude_generation::send_pr_guide(
+        app,
+        &sessions,
+        &manager,
+        &connections,
+        runtime,
+        &reviews,
+        &interruptions,
+        &input.review_id,
+        &input.fingerprint,
+        input.consent,
+    )
+    .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn send_claude_pr_change_request(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    manager: State<'_, claude_worker::ClaudeWorkerManager>,
+    connections: State<'_, claude_connections::ClaudeConnections>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    interruptions: State<'_, recovery::InterruptionJournal>,
+    input: SendClaudeRequest,
+) -> provider::ProviderCommandResult<provider::PrChangeExplanationPreview> {
+    let runtime = match admit_generation_review(
+        &connections,
+        &reviews,
+        &input.review_id,
+        &input.fingerprint,
+        input.consent,
+        provider::ClaudeOperation::PrChange,
+    ) {
+        Ok(runtime) => runtime,
+        Err(error) => return provider::ProviderCommandResult::failed(error),
+    };
+    claude_generation::send_pr_change(
+        app,
+        &sessions,
+        &manager,
+        &connections,
+        runtime,
+        &reviews,
+        &interruptions,
+        &input.review_id,
+        &input.fingerprint,
+        input.consent,
+    )
+    .await
+}
+
+fn admit_generation_review(
+    connections: &claude_connections::ClaudeConnections,
+    reviews: &provider::PendingProviderReviews,
+    review_id: &str,
+    fingerprint: &str,
+    consent: bool,
+    operation: provider::ClaudeOperation,
+) -> Result<claude_runtime::ClaudeGenerationRuntime, provider::ProviderFailure> {
+    use provider::ProviderFailureKind as Kind;
+    if !consent {
+        return Err(provider::ProviderFailure { kind: Kind::ConsentRequired,
+            message: "Review this exact Claude operation and account usage, then explicitly confirm sending its source.".to_owned() });
+    }
+    if uuid::Uuid::parse_str(review_id).is_err()
+        || fingerprint.len() != 64
+        || !fingerprint
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(provider::ProviderFailure {
+            kind: Kind::InvalidReview,
+            message: "The Claude review identity is invalid. Prepare a fresh exact review."
+                .to_owned(),
+        });
+    }
+    let pending = reviews.get(review_id)?;
+    if pending.review.fingerprint != fingerprint
+        || provider::claude_review_operation(&pending.review)? != operation
+    {
+        return Err(provider::ProviderFailure {
+            kind: Kind::ReviewChanged,
+            message:
+                "The Claude review does not match this operation. Prepare a fresh exact review."
+                    .to_owned(),
+        });
+    }
+    // This neither consumes the review nor journals/starts a run. An absent
+    // release qualification fails here, before worker execution/source delivery.
+    connections.generation_runtime(&pending.review)
 }
 
 enum ReviewInput {
