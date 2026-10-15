@@ -73,7 +73,7 @@ export function GitChangesScreen({
       if (sequence === requestSequence.current) onComparison(projectId, nextBaseRef, nextHeadRef, result);
     } catch {
       if (sequence === requestSequence.current) {
-        setError('Code Atlas could not compare those local refs. Check that the repository is available, then try again.');
+        setError('Code Atlas could not compare those versions. Check that the repository is available, then try again.');
       }
     } finally {
       if (sequence === requestSequence.current) setBusy(false);
@@ -92,8 +92,8 @@ export function GitChangesScreen({
     return (
       <div className="git-changes-empty empty-workspace">
         <GitBranch size={23} />
-        <h2>Open a local repository to compare revisions.</h2>
-        <p>The comparison uses commits already available in that repository. It will not fetch a remote or change your working copy.</p>
+        <h2>Open a repository to compare versions.</h2>
+        <p>The comparison uses versions already on this Mac. It will not switch branches, fetch from a remote, or change your working files.</p>
         <button className="primary-button" onClick={onOpenRepository}>Open repository</button>
       </div>
     );
@@ -105,14 +105,14 @@ export function GitChangesScreen({
         <div className="git-changes-section-heading">
           <div>
             <span className="git-changes-kicker">LOCAL COMPARISON</span>
-            <h2 id="git-ref-title">Choose the two revisions</h2>
+            <h2 id="git-ref-title">Choose the two versions</h2>
           </div>
           <span className="git-readonly-badge"><GitCommitHorizontal size={14} /> Read-only</span>
         </div>
-        <p className="git-ref-explainer">Use a local branch, tag, full commit ID, or an unambiguous short ref. Code Atlas resolves both to immutable commit IDs before it reads the diff.</p>
+        <p className="git-ref-explainer">Enter a starting and ending version already on this Mac. A branch, tag, or commit ID works. Code Atlas checks both before showing the changes.</p>
         <form className="git-ref-form" onSubmit={(event) => { void handleCompare(event); }}>
           <label>
-            Base revision
+            Starting version
             <input
               value={baseRef}
               disabled={busy}
@@ -124,15 +124,15 @@ export function GitChangesScreen({
               autoComplete="off"
               autoCapitalize="none"
               spellCheck={false}
-              placeholder="main or a full commit ID"
-              aria-label="Base Git revision"
+              placeholder="For example, main"
+              aria-label="Starting Git version"
             />
           </label>
-          <button type="button" className="git-swap-button" disabled={busy} onClick={swapRefs} aria-label="Swap base and head revisions" title="Swap revisions">
+          <button type="button" className="git-swap-button" disabled={busy} onClick={swapRefs} aria-label="Swap starting and ending versions" title="Swap versions">
             <ArrowDownUp size={16} />
           </button>
           <label>
-            Head revision
+            Ending version
             <input
               value={headRef}
               disabled={busy}
@@ -144,12 +144,12 @@ export function GitChangesScreen({
               autoComplete="off"
               autoCapitalize="none"
               spellCheck={false}
-              placeholder="feature branch or full commit ID"
-              aria-label="Head Git revision"
+              placeholder="For example, feature branch"
+              aria-label="Ending Git version"
             />
           </label>
           <button className="primary-button git-compare-button" type="submit" disabled={!canCompare || busy}>
-            <RefreshCw size={15} className={busy ? 'git-spin' : ''} /> {busy ? 'Comparing local refs…' : 'Compare revisions'}
+            <RefreshCw size={15} className={busy ? 'git-spin' : ''} /> {busy ? 'Comparing versions…' : 'Compare versions'}
           </button>
         </form>
         <p className="git-safety-note"><strong>No checkout, fetch, or Git write.</strong> Comparison reads existing local objects only. The result is bounded; skipped or uncertain evidence is labeled.</p>
@@ -157,7 +157,7 @@ export function GitChangesScreen({
           <p className="git-preview-note" role="status">Local Git comparison runs in the packaged Mac app. This browser preview does not access your repository or execute Git commands.</p>
         )}
         {!matchingComparison && comparison && baseRef.trim() && headRef.trim() && (
-          <p className="git-stale-result" role="status">The displayed refs changed. Run the comparison again to inspect the new pair.</p>
+          <p className="git-stale-result" role="status">The displayed versions changed. Compare again to inspect the new pair.</p>
         )}
         {error && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {error}</p>}
       </section>
@@ -198,7 +198,7 @@ function ComparisonResults({
   const resultLabel = comparison.status === 'ready'
     ? `${comparison.changes.length} changed ${comparison.changes.length === 1 ? 'file' : 'files'}`
     : comparison.status === 'chooseAgain'
-      ? 'Choose valid local refs'
+      ? 'Choose valid versions'
       : isPartial
         ? 'Partial comparison'
         : 'Comparison unavailable';
@@ -207,18 +207,19 @@ function ComparisonResults({
     <section className="git-comparison-results" aria-labelledby="git-results-title">
       <header className="git-results-header">
         <div>
-          <span className="git-changes-kicker">{isPartial ? 'BOUNDED RESULT' : 'RESOLVED COMMIT PAIR'}</span>
+          <span className="git-changes-kicker">{isPartial ? 'PARTIAL RESULT' : 'COMPARE RESULTS'}</span>
           <h2 id="git-results-title">{resultLabel}</h2>
         </div>
-        {comparison.comparisonId && <code className="git-comparison-id" title="Stable identity derived from both requested refs and resolved commits">{comparison.comparisonId.slice(0, 18)}</code>}
       </header>
-      {comparison.base && comparison.head && (
-        <div className="git-resolved-refs" role="group" aria-label="Resolved immutable commit IDs">
-          <CommitIdentity label="Base" ref={comparison.base} />
-          <CommitIdentity label="Head" ref={comparison.head} />
-        </div>
-      )}
-      {comparison.refProblem && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {comparison.refProblem.message} ({comparison.refProblem.side}: “{comparison.refProblem.requested}”)</p>}
+      {(comparison.comparisonId || (comparison.base && comparison.head)) && <details className="git-version-details">
+        <summary>Version details</summary>
+        {comparison.comparisonId && <code className="git-comparison-id" title="Stable identity derived from both requested versions and resolved commits">{comparison.comparisonId}</code>}
+        {comparison.base && comparison.head && <div className="git-resolved-refs" role="group" aria-label="Resolved commit IDs">
+          <CommitIdentity label="From" ref={comparison.base} />
+          <CommitIdentity label="To" ref={comparison.head} />
+        </div>}
+      </details>}
+      {comparison.refProblem && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {comparison.refProblem.message} ({comparison.refProblem.side === 'base' ? 'starting version' : 'ending version'}: “{comparison.refProblem.requested}”)</p>}
       {comparison.message && !comparison.refProblem && <p className={isPartial ? 'git-stale-result' : 'git-error-note'} role={comparison.status === 'error' ? 'alert' : 'status'}>{comparison.message}</p>}
       {comparison.omittedChangeCount > 0 && <p className="git-stale-result" role="status">{comparison.omittedChangeCount} more {comparison.omittedChangeCount === 1 ? 'change was' : 'changes were'} omitted. {comparison.omittedReason}</p>}
       {comparison.changes.length > 0 && comparison.relationshipImpact.status !== 'notNeeded' && (
@@ -305,8 +306,8 @@ function ChangeDisclosure({ change, relationshipImpact, expanded, focusedHunkInd
               <p>Parser-resolved source references to this changed file or its changed declarations. These do not establish runtime impact.</p>
             </div>
             <div className="git-relationship-groups">
-              <RelationshipList side="Base" relationships={change.baseRelationships} />
-              <RelationshipList side="Head" relationships={change.headRelationships} />
+              <RelationshipList side="From" relationships={change.baseRelationships} />
+              <RelationshipList side="To" relationships={change.headRelationships} />
             </div>
             {change.baseRelationships.length === 0 && change.headRelationships.length === 0 && (
               <p className="git-relationship-empty">
@@ -319,21 +320,21 @@ function ChangeDisclosure({ change, relationshipImpact, expanded, focusedHunkInd
           {change.hunks.length === 0 ? <p className="git-no-changes">No bounded text hunk is available for this path.</p> : change.hunks.map((hunk, index) => (
             <section className={`git-hunk${focusedHunkIndex === index ? ' is-focused' : ''}`} key={`${path}:${index}`} data-hunk-index={index} aria-label={`Diff hunk ${index + 1}`}>
               <div className="git-hunk-anchors">
-                <AnchorIdentity side="Base" anchor={hunk.baseAnchor} />
-                <AnchorIdentity side="Head" anchor={hunk.headAnchor} />
+                <AnchorIdentity side="From" anchor={hunk.baseAnchor} />
+                <AnchorIdentity side="To" anchor={hunk.headAnchor} />
               </div>
               {(hunk.baseChangedRanges.length > 0 || hunk.headChangedRanges.length > 0) && (
                 <div className="git-hunk-changed-ranges" role="group" aria-label="Exact changed line ranges">
                   <strong>Changed source lines</strong>
-                  <span><b>Base</b> {formatChangedRanges(hunk.baseChangedRanges)}</span>
-                  <span><b>Head</b> {formatChangedRanges(hunk.headChangedRanges)}</span>
+                  <span><b>From</b> {formatChangedRanges(hunk.baseChangedRanges)}</span>
+                  <span><b>To</b> {formatChangedRanges(hunk.headChangedRanges)}</span>
                 </div>
               )}
               {(hunk.baseSymbols.length > 0 || hunk.headSymbols.length > 0) && (
                 <div className="git-hunk-symbols">
                   <strong>Parsed declarations intersecting changed lines</strong>
                   <ul>
-                    {[...hunk.baseSymbols.map((symbol) => ({ ...symbol, side: 'Base' })), ...hunk.headSymbols.map((symbol) => ({ ...symbol, side: 'Head' }))].map((symbol) => (
+                    {[...hunk.baseSymbols.map((symbol) => ({ ...symbol, side: 'From' })), ...hunk.headSymbols.map((symbol) => ({ ...symbol, side: 'To' }))].map((symbol) => (
                       <li key={`${symbol.side}:${symbol.anchor.revisionId}:${symbol.anchor.path}:${symbol.anchor.startLine}:${symbol.name}`}>
                         <span>{symbol.side}</span><code>{symbol.kind} {symbol.name}</code>
                         <small>{symbol.anchor.path}:{symbol.anchor.startLine}–{symbol.anchor.endLine}</small>
@@ -352,11 +353,11 @@ function ChangeDisclosure({ change, relationshipImpact, expanded, focusedHunkInd
   );
 }
 
-function RelationshipList({ side, relationships }: { side: 'Base' | 'Head'; relationships: GitFileChange['baseRelationships'] }) {
+function RelationshipList({ side, relationships }: { side: 'From' | 'To'; relationships: GitFileChange['baseRelationships'] }) {
   if (relationships.length === 0) return null;
   return (
-    <section className="git-relationship-side" aria-label={`${side} revision relationships`}>
-      <h4>{side} revision</h4>
+    <section className="git-relationship-side" aria-label={`Relationships in the ${side.toLowerCase()} version`}>
+      <h4>{side} version</h4>
       <ul>
         {relationships.map((relationship) => (
           <li key={`${relationship.evidenceAnchor.revisionId}:${relationship.sourcePath}:${relationship.evidenceAnchor.startLine}:${relationship.kind}:${relationship.targetPath}:${relationship.targetName ?? ''}`}>

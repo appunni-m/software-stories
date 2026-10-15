@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Proposed Code Atlas Changes workspace</title>
+  <desc id="desc">A plain-language local revision comparison with affected files, a focused diff, and source-backed behavior explanations.</desc>
+  <defs>
+    <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#151c24"/><stop offset="1" stop-color="#10151b"/></linearGradient>
+    <style>
+      .ui{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#e9eef3}.muted{fill:#9aa8b5}.dim{fill:#72808d}.tiny{font-size:12px}.small{font-size:14px}.body{font-size:16px}.label{font-size:11px;font-weight:700;letter-spacing:1px}.title{font-size:25px;font-weight:650}.line{stroke:#2c3742}.green{fill:#c3f278}.blue{fill:#83c6ff}.code{font-family:Menlo,Monaco,monospace;font-size:13px}
+    </style>
+  </defs>
+  <rect width="1440" height="900" fill="url(#bg)"/><rect width="1440" height="76" fill="#11171e"/><path d="M0 75.5H1440" class="line"/>
+  <g class="ui">
+    <rect x="32" y="22" width="31" height="31" rx="9" fill="#263637"/><path d="M41 43V32h12v11M38 43h18" fill="none" stroke="#c3f278" stroke-width="2" stroke-linecap="round"/><text x="73" y="43" font-size="18" font-weight="700">Code Atlas</text>
+    <rect x="254" y="16" width="287" height="44" rx="10" fill="#1a222a" stroke="#303b46"/><circle cx="275" cy="38" r="5" fill="#c3f278"/><text x="291" y="35" class="small" font-weight="650">payments-service</text><text x="291" y="51" class="tiny muted">main · captured today</text><path d="M517 35l5 5 5-5" fill="none" stroke="#9aa8b5" stroke-width="1.7"/>
+    <g font-size="14" font-weight="600"><text x="638" y="43" text-anchor="middle" class="muted">Guide</text><text x="760" y="43" text-anchor="middle" class="muted">Files</text><rect x="818" y="13" width="106" height="48" rx="9" fill="#303027"/><text x="871" y="43" text-anchor="middle" fill="#e5c97b">Changes</text></g>
+    <rect x="1122" y="17" width="202" height="42" rx="9" fill="#1a222a" stroke="#303b46"/><circle cx="1143" cy="37" r="6" fill="none" stroke="#97a5b1" stroke-width="1.5"/><path d="M1147 42l5 5" stroke="#97a5b1" stroke-width="1.5"/><text x="1160" y="42" class="small muted">Find a file</text><text x="1303" y="42" class="tiny dim">⌘K</text><circle cx="1376" cy="38" r="18" fill="#202a32" stroke="#35414b"/><text x="1376" y="43" text-anchor="middle" class="small muted">⚙</text>
+  </g>
+  <rect x="0" y="76" width="292" height="824" fill="#131a21"/><path d="M292 76V900" class="line"/>
+  <g class="ui">
+    <text x="27" y="116" class="label muted">COMPARE LOCAL CHANGES</text><text x="27" y="149" class="title" font-size="21">Choose two versions</text>
+    <text x="27" y="188" class="tiny muted">FROM</text><rect x="24" y="201" width="244" height="46" rx="9" fill="#1b242d" stroke="#35414c"/><text x="42" y="230" class="small">main</text><path d="M247 219l5 5 5-5" fill="none" stroke="#8c9aa7" stroke-width="1.5"/>
+    <text x="27" y="275" class="tiny muted">TO</text><rect x="24" y="288" width="244" height="46" rx="9" fill="#1b242d" stroke="#35414c"/><text x="42" y="317" class="small">limit-retries</text><path d="M247 306l5 5 5-5" fill="none" stroke="#8c9aa7" stroke-width="1.5"/>
+    <rect x="24" y="352" width="244" height="42" rx="9" fill="#c3f278"/><text x="146" y="378" text-anchor="middle" class="small" fill="#172018" font-weight="650">Compare versions</text>
+    <text x="27" y="438" class="label muted">WHAT CHANGED</text><text x="27" y="469" class="small">6 files · 2 areas of behavior</text>
+    <rect x="20" y="488" width="252" height="60" rx="9" fill="#303027"/><rect x="20" y="488" width="3" height="60" fill="#e5c97b"/><text x="39" y="513" class="small" fill="#e5c97b">src/payments/retry.py</text><text x="39" y="534" class="tiny muted">Retry limit changed</text>
+    <text x="39" y="582" class="small muted">src/payments/processor.py</text><text x="39" y="603" class="tiny dim">Uses the same request key</text>
+    <text x="39" y="641" class="small muted">tests/test_retries.py</text><text x="39" y="662" class="tiny dim">New case for repeated failure</text>
+    <path d="M24 696H268" class="line"/><circle cx="42" cy="730" r="5" fill="#c3f278"/><text x="58" y="734" class="small">Local comparison</text><text x="58" y="755" class="tiny muted">No checkout or remote access</text>
+    <text x="27" y="833" class="tiny dim">The source remains on your Mac.</text>
+  </g>
+  <rect x="292" y="76" width="796" height="824" fill="#10151b"/><path d="M1088 76V900" class="line"/>
+  <g class="ui">
+    <text x="328" y="117" class="label" fill="#e5c97b">CHANGE EXPLANATION</text><text x="328" y="158" class="title">Retries now stop after three attempts</text><text x="328" y="188" class="small muted">The caller gets one clear failure instead of waiting through endless retries.</text>
+    <rect x="328" y="218" width="724" height="142" rx="14" fill="#1b242c" stroke="#303b46"/>
+    <text x="354" y="252" class="label muted">IN PLAIN LANGUAGE</text><text x="354" y="283" class="body">A retry budget is now part of RetryPolicy. The payment processor</text><text x="354" y="307" class="body">still reuses its idempotency key, so attempts cannot duplicate a charge.</text><text x="354" y="339" class="tiny blue">Why this is safe ↗</text>
+    <text x="328" y="408" class="label muted">THE CODE THAT CHANGED</text><rect x="328" y="427" width="724" height="237" rx="12" fill="#151c23" stroke="#303b46"/>
+    <rect x="329" y="494" width="721" height="37" fill="#392729"/><rect x="329" y="531" width="721" height="37" fill="#23342b"/>
+    <text x="349" y="477" class="code dim"> 24</text><text x="390" y="477" class="code muted">class RetryPolicy:</text><text x="349" y="515" class="code" fill="#db9a9a">-  def execute(self, operation):</text><text x="349" y="552" class="code green">+  def execute(self, operation, max_attempts=3):</text><text x="349" y="589" class="code muted">    for attempt in range(max_attempts):</text><text x="349" y="626" class="code muted">      … retry or return the result</text><text x="1024" y="647" text-anchor="end" class="tiny blue">Open exact file and lines ↗</text>
+    <rect x="328" y="694" width="724" height="74" rx="11" fill="#18222a"/><text x="352" y="724" class="small">Also affected: the processor call and the retry failure tests.</text><text x="352" y="747" class="tiny muted">All three links open the exact before/after source evidence.</text>
+    <rect x="328" y="798" width="724" height="60" rx="11" fill="#273229" stroke="#557143"/><text x="352" y="824" class="small green" font-weight="650">Want an AI-written explanation?</text><text x="352" y="845" class="tiny muted">Review the exact changed files before sending them for explanation.</text><rect x="875" y="811" width="153" height="36" rx="8" fill="#c3f278"/><text x="951" y="834" text-anchor="middle" class="small" fill="#172018" font-weight="650">Explain change</text>
+  </g>
+  <rect x="1088" y="76" width="352" height="824" fill="#151c24"/>
+  <g class="ui">
+    <text x="1118" y="117" class="label muted">WHY YOU MAY CARE</text><text x="1118" y="151" class="title" font-size="20">The behavior changed</text>
+    <rect x="1116" y="174" width="298" height="126" rx="12" fill="#1c252d" stroke="#33404a"/><circle cx="1140" cy="201" r="10" fill="#303027"/><text x="1140" y="205" text-anchor="middle" class="tiny" fill="#e5c97b">1</text><text x="1162" y="204" class="small">Attempts are capped</text><text x="1162" y="228" class="tiny muted">retry.py:24–38 ↗</text><circle cx="1140" cy="262" r="10" fill="#28352b"/><text x="1140" y="266" text-anchor="middle" class="tiny green">2</text><text x="1162" y="265" class="small">Duplicate charges stay blocked</text><text x="1162" y="285" class="tiny muted">processor.py:82–87 ↗</text>
+    <text x="1118" y="350" class="label muted">CHECKED WITH</text><rect x="1116" y="368" width="298" height="62" rx="10" fill="#19232b"/><text x="1135" y="394" class="small">Exact local diff</text><text x="1135" y="415" class="tiny muted">main → limit-retries</text><path d="M1386 392l5 5 5-5" fill="none" stroke="#8c9aa7" stroke-width="1.5"/>
+    <text x="1118" y="477" class="label muted">DETAILS</text><text x="1118" y="509" class="small muted">6 changed files</text><text x="1118" y="537" class="small muted">2 behavior areas</text><text x="1118" y="565" class="small muted">1 updated test</text>
+    <path d="M1118 599H1414" class="line"/><text x="1118" y="635" class="tiny muted">This is a local source explanation.</text><text x="1118" y="653" class="tiny muted">Nothing is posted to a pull request.</text>
+    <text x="1118" y="705" class="small blue">Open changed files in Files ↗</text>
+  </g>
+</svg>

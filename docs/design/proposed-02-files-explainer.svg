@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Proposed Code Atlas Files screen</title>
+  <desc id="desc">A single file browser combines exact source code, a short explanation, and clickable evidence.</desc>
+  <defs>
+    <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#151c24"/><stop offset="1" stop-color="#10151b"/></linearGradient>
+    <style>
+      .ui{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#e9eef3}.muted{fill:#9aa8b5}.dim{fill:#72808d}.tiny{font-size:12px}.small{font-size:14px}.body{font-size:16px}.label{font-size:11px;font-weight:700;letter-spacing:1px}.title{font-size:21px;font-weight:650}.code{font-family:Menlo,Monaco,monospace;font-size:14px}.line{stroke:#2c3742}.green{fill:#c3f278}.blue{fill:#83c6ff}
+    </style>
+  </defs>
+  <rect width="1440" height="900" fill="url(#bg)"/><rect width="1440" height="76" fill="#11171e"/><path d="M0 75.5H1440" class="line"/>
+  <g class="ui">
+    <rect x="32" y="22" width="31" height="31" rx="9" fill="#263637"/><path d="M41 43V32h12v11M38 43h18" fill="none" stroke="#c3f278" stroke-width="2" stroke-linecap="round"/><text x="73" y="43" font-size="18" font-weight="700">Code Atlas</text>
+    <rect x="254" y="16" width="287" height="44" rx="10" fill="#1a222a" stroke="#303b46"/><circle cx="275" cy="38" r="5" fill="#c3f278"/><text x="291" y="35" class="small" font-weight="650">payments-service</text><text x="291" y="51" class="tiny muted">main · captured today</text><path d="M517 35l5 5 5-5" fill="none" stroke="#9aa8b5" stroke-width="1.7"/>
+    <g font-size="14" font-weight="600"><text x="638" y="43" text-anchor="middle" class="muted">Guide</text><rect x="707" y="13" width="106" height="48" rx="9" fill="#28352b"/><text x="760" y="43" text-anchor="middle" class="green">Files</text><text x="871" y="43" text-anchor="middle" class="muted">Changes</text></g>
+    <rect x="1122" y="17" width="202" height="42" rx="9" fill="#1a222a" stroke="#303b46"/><circle cx="1143" cy="37" r="6" fill="none" stroke="#97a5b1" stroke-width="1.5"/><path d="M1147 42l5 5" stroke="#97a5b1" stroke-width="1.5"/><text x="1160" y="42" class="small muted">Find a file</text><text x="1303" y="42" class="tiny dim">⌘K</text><circle cx="1376" cy="38" r="18" fill="#202a32" stroke="#35414b"/><text x="1376" y="43" text-anchor="middle" class="small muted">⚙</text>
+  </g>
+  <rect x="0" y="76" width="282" height="824" fill="#131a21"/><path d="M282 76V900" class="line"/>
+  <g class="ui">
+    <text x="28" y="116" class="label muted">FILES</text><text x="253" y="116" text-anchor="end" class="tiny dim">183</text>
+    <rect x="24" y="132" width="234" height="38" rx="8" fill="#1b242d" stroke="#35414c"/><circle cx="43" cy="151" r="5" fill="none" stroke="#8b99a7" stroke-width="1.4"/><path d="M47 155l4 4" stroke="#8b99a7" stroke-width="1.4"/><text x="60" y="156" class="small muted">Search files…</text>
+    <text x="31" y="203" class="small muted">⌄ src</text><text x="52" y="233" class="small muted">⌄ payments</text>
+    <rect x="20" y="246" width="246" height="38" rx="7" fill="#28352b"/><rect x="20" y="246" width="3" height="38" rx="1.5" fill="#c3f278"/><text x="65" y="270" class="small green">processor.py</text>
+    <text x="65" y="306" class="small muted">models.py</text><text x="65" y="342" class="small muted">provider.py</text><text x="65" y="378" class="small muted">retry.py</text>
+    <text x="31" y="424" class="small muted">⌄ webhooks</text><text x="52" y="454" class="small dim">handler.py</text><text x="52" y="490" class="small dim">events.py</text>
+    <path d="M24 530H258" class="line"/><text x="28" y="565" class="label muted">AT A GLANCE</text><text x="28" y="596" class="small">63 files explained</text><rect x="28" y="610" width="226" height="6" rx="3" fill="#303a43"/><rect x="28" y="610" width="170" height="6" rx="3" fill="#c3f278"/><text x="28" y="642" class="tiny muted">Next: 120 captured files</text>
+    <rect x="20" y="812" width="242" height="62" rx="10" fill="#172028" stroke="#303b46"/><circle cx="42" cy="835" r="5" fill="#e5c97b"/><text x="57" y="839" class="tiny muted">SOURCE VERSION</text><text x="38" y="860" class="small">main · 183 files</text>
+  </g>
+  <rect x="282" y="76" width="768" height="824" fill="#10151b"/><path d="M1050 76V900" class="line"/>
+  <g class="ui">
+    <text x="312" y="112" class="tiny muted">src / payments / <tspan fill="#e9eef3">processor.py</tspan></text><text x="1018" y="112" text-anchor="end" class="tiny green">SOURCE VERIFIED · main</text><path d="M302 130H1030" class="line"/>
+    <text x="318" y="164" class="code dim"> 76</text><text x="363" y="164" class="code"><tspan fill="#93c8ff">class</tspan> PaymentProcessor:</text>
+    <text x="318" y="196" class="code dim"> 77</text><text x="363" y="196" class="code">    <tspan fill="#93c8ff">def</tspan> __init__(self, provider, retry):</text>
+    <text x="318" y="228" class="code dim"> 78</text><text x="363" y="228" class="code">        self.provider = provider</text>
+    <text x="318" y="260" class="code dim"> 79</text><text x="363" y="260" class="code">        self.retry = retry</text>
+    <text x="318" y="292" class="code dim"> 80</text><text x="363" y="292" class="code"> </text>
+    <text x="318" y="324" class="code dim"> 81</text><text x="363" y="324" class="code">    <tspan fill="#93c8ff">def</tspan> process(self, command):</text>
+    <text x="318" y="356" class="code dim"> 82</text><text x="363" y="356" class="code">        charge = self.retry.execute(</text>
+    <text x="318" y="388" class="code dim"> 83</text><text x="363" y="388" class="code">            <tspan fill="#93c8ff">lambda</tspan>: self.provider.charge(</text>
+    <text x="318" y="420" class="code dim"> 84</text><text x="363" y="420" class="code">                amount=command.amount,</text>
+    <text x="318" y="452" class="code dim"> 85</text><text x="363" y="452" class="code">                currency=command.currency,</text>
+    <text x="318" y="484" class="code dim"> 86</text><text x="363" y="484" class="code">                idempotency_key=command.key,</text>
+    <text x="318" y="516" class="code dim"> 87</text><text x="363" y="516" class="code">            )</text>
+    <rect x="307" y="529" width="729" height="96" rx="7" fill="#32422d" opacity=".62"/><rect x="307" y="529" width="3" height="96" fill="#c3f278"/>
+    <text x="318" y="552" class="code dim"> 88</text><text x="363" y="552" class="code green">        payment = Payment(</text>
+    <text x="318" y="584" class="code dim"> 89</text><text x="363" y="584" class="code">            id=charge.id, amount=charge.amount,</text>
+    <text x="318" y="616" class="code dim"> 90</text><text x="363" y="616" class="code">            status=charge.status, provider_ref=charge.ref,</text>
+    <text x="318" y="648" class="code dim"> 91</text><text x="363" y="648" class="code">        )</text>
+    <text x="318" y="680" class="code dim"> 92</text><text x="363" y="680" class="code">        self._emit_payment_succeeded(payment)</text>
+    <text x="318" y="712" class="code dim"> 93</text><text x="363" y="712" class="code">        <tspan fill="#93c8ff">return</tspan> payment</text>
+    <text x="318" y="776" class="small muted">Selected explanation: lines 88–93</text><text x="318" y="806" class="tiny dim">Click a sentence or line range to see why it matters.</text>
+  </g>
+  <rect x="1050" y="76" width="390" height="824" fill="#151c24"/>
+  <g class="ui">
+    <text x="1080" y="116" class="label green">THIS FILE</text><text x="1080" y="151" class="title">PaymentProcessor</text><text x="1080" y="178" class="small muted">src/payments/processor.py</text>
+    <rect x="1078" y="202" width="334" height="132" rx="12" fill="#1c252d" stroke="#33404a"/><text x="1098" y="232" class="label muted">IN ONE SENTENCE</text><text x="1098" y="261" class="body">Turns a payment request into a</text><text x="1098" y="283" class="body">provider charge, then records the</text><text x="1098" y="305" class="body">successful result.</text>
+    <text x="1080" y="373" class="label muted">HOW IT WORKS</text>
+    <circle cx="1091" cy="408" r="12" fill="#28352b"/><text x="1091" y="413" text-anchor="middle" class="tiny green">1</text><text x="1115" y="405" class="small">Retries the provider charge</text><text x="1115" y="426" class="tiny muted">Keeps one idempotency key</text><text x="1388" y="416" text-anchor="end" class="tiny blue">lines 82–87 ↗</text>
+    <circle cx="1091" cy="469" r="12" fill="#28352b"/><text x="1091" y="474" text-anchor="middle" class="tiny green">2</text><text x="1115" y="466" class="small">Creates the Payment record</text><text x="1115" y="487" class="tiny muted">Uses the returned charge</text><text x="1388" y="477" text-anchor="end" class="tiny blue">lines 88–91 ↗</text>
+    <circle cx="1091" cy="530" r="12" fill="#28352b"/><text x="1091" y="535" text-anchor="middle" class="tiny green">3</text><text x="1115" y="527" class="small">Emits success and returns</text><text x="1115" y="548" class="tiny muted">Only after the record exists</text><text x="1388" y="538" text-anchor="end" class="tiny blue">lines 92–93 ↗</text>
+    <path d="M1080 579H1410" class="line"/><text x="1080" y="613" class="label muted">CONNECTED FILES</text>
+    <rect x="1080" y="630" width="330" height="45" rx="8" fill="#1b242c"/><text x="1096" y="658" class="small blue">provider.py</text><text x="1389" y="658" text-anchor="end" class="tiny muted">charge() ↗</text>
+    <rect x="1080" y="685" width="330" height="45" rx="8" fill="#1b242c"/><text x="1096" y="713" class="small blue">retry.py</text><text x="1389" y="713" text-anchor="end" class="tiny muted">execute() ↗</text>
+    <text x="1080" y="777" class="tiny muted">Every link opens the exact source lines.</text>
+    <rect x="1080" y="812" width="330" height="48" rx="9" fill="#263238" stroke="#4d6c42"/><text x="1245" y="842" text-anchor="middle" class="small green" font-weight="650">Explain selected lines</text>
+  </g>
+</svg>

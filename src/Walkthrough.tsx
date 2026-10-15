@@ -301,12 +301,12 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
     }
   };
 
-  if (loading) return <div className="empty-workspace snapshot-loading" role="status"><Layers3 size={18} /><span>Loading accepted explanations from local storage…</span></div>;
+  if (loading) return <div className="empty-workspace snapshot-loading" role="status"><Layers3 size={18} /><span>Loading saved explanations…</span></div>;
   if (loadError) return (
     <div className="empty-workspace simple-empty walkthrough-empty" role="alert">
       <div className="empty-state-icon play-icon"><BookOpen size={22} /></div>
-      <div className="step-pill"><span>LOCAL CHAPTERS</span> UNAVAILABLE</div>
-      <h2>Saved explanations could not be loaded.</h2>
+      <div className="step-pill"><span>GUIDES</span> UNAVAILABLE</div>
+      <h2>Saved guides could not be loaded.</h2>
       <p>{loadError}</p>
       <button className="secondary-button" onClick={() => setRefreshKey((value) => value + 1)}>Retry <ArrowRight size={15} /></button>
     </div>
@@ -314,19 +314,19 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
   if (acceptedRevisions.length === 0) return (
     <div className="empty-workspace simple-empty walkthrough-empty">
       <div className="empty-state-icon play-icon"><Play size={22} /></div>
-      <div className="step-pill"><span>03</span> INTERACTIVE LEARNING</div>
+      <div className="step-pill"><span>GUIDE</span> READ</div>
       <h2>Explanations stay connected to code.</h2>
-      <p>Accepted chapters appear here as small, inspectable sections. Open a citation to read the exact captured lines, then return to the same point.</p>
-      <button className="secondary-button" data-focus-key="cta:walkthrough-plan" onClick={onGoPlan}>View Guide Plan <ArrowRight size={15} /></button>
-      <div className="state-note"><BookOpen size={14} /> No accepted chapters in this project.</div>
+      <p>Accepted explanations appear here one section at a time. Open a source link to see the captured lines, then return to the same place.</p>
+      <button className="secondary-button" data-focus-key="cta:walkthrough-plan" onClick={onGoPlan}>Back to Guide <ArrowRight size={15} /></button>
+      <div className="state-note"><BookOpen size={14} /> No accepted explanations in this project.</div>
     </div>
   );
 
   return (
     <div className="walkthrough-screen">
-      <aside className="walkthrough-rail" aria-label="Chapter and section navigation">
+      <aside className="walkthrough-rail" aria-label="Explanation and section navigation">
         <div className="walkthrough-rail-heading">
-          <div><span className="walkthrough-kicker">LIBRARY</span><h2>Chapters</h2></div>
+          <div><span className="walkthrough-kicker">LIBRARY</span><h2>Explanations</h2></div>
           <span className="walkthrough-count">{chapterList.length}</span>
         </div>
         <div className="walkthrough-chapter-list">
@@ -371,10 +371,10 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
         <main className="walkthrough-reader walkthrough-chapter-home">
           <div className="walkthrough-home-art" aria-hidden="true"><div className="walkthrough-home-orbit"><BookOpen size={28} /></div><span className="orbit-tag tag-source">SOURCE</span><span className="orbit-tag tag-section">SECTION</span><span className="orbit-tag tag-evidence">EVIDENCE</span></div>
           <span className="walkthrough-kicker">A CODE ATLAS READING ROOM</span>
-          <h2>Choose one chapter to begin.</h2>
-          <p>Each chapter is an accepted explanation pinned to the repository snapshot it describes. Move at your own pace, inspect its evidence, and return without losing your place.</p>
+          <h2>Choose an explanation to read.</h2>
+          <p>Each explanation is tied to the repository snapshot it describes. Move at your own pace, inspect its source, and return without losing your place.</p>
           <div className="walkthrough-home-facts"><span><FileCode2 size={14} /> Exact source references</span><span><ArrowRight size={14} /> One manual step at a time</span><span><VolumeX size={14} /> Readable with audio off</span></div>
-          <button className="text-button" onClick={onGoPlan}>Review chapter coverage <ArrowRight size={14} /></button>
+          <button className="text-button" onClick={onGoPlan}>Back to Guide <ArrowRight size={14} /></button>
         </main>
       ) : (
         <main className="walkthrough-reader" data-walkthrough-player onKeyDown={handleReaderKeyDown}>
@@ -419,7 +419,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
               <nav className="walkthrough-section-actions" aria-label="Section navigation">
                 <button className="secondary-button" disabled={selectedSectionIndex <= 0} onClick={() => setSection(selectedRevision, sections[selectedSectionIndex - 1]?.sectionId)}><ArrowLeft size={15} /> Previous</button>
                 {selectedSectionIndex === sections.length - 1
-                  ? <button className="primary-button" onClick={finishChapter}>Finish chapter <CheckCircle2 size={15} /></button>
+                  ? <button className="primary-button" onClick={finishChapter}>Finish explanation <CheckCircle2 size={15} /></button>
                   : <button className="primary-button" onClick={() => setSection(selectedRevision, sections[selectedSectionIndex + 1].sectionId)}>Continue <ArrowRight size={15} /></button>}
               </nav>
             </article>
@@ -440,7 +440,7 @@ function EvidencePanel({ section, onOpenAnchor }: { section: ChapterSection; onO
   return (
     <section className="walkthrough-evidence" aria-labelledby="walkthrough-evidence-title">
       <div className="walkthrough-panel-heading"><div><span className="walkthrough-kicker">SOURCE EVIDENCE</span><h3 id="walkthrough-evidence-title">What in the code supports this?</h3></div><span className="walkthrough-evidence-count">{section.claims.reduce((total, claim) => total + claim.anchors.length, 0)} REFERENCES</span></div>
-      {section.claims.length === 0 ? <p className="walkthrough-muted">This accepted section has no separate claims. Use its chapter source to inspect the explanation.</p> : (
+      {section.claims.length === 0 ? <p className="walkthrough-muted">This section has no separate claims. Open its linked source to inspect the explanation.</p> : (
         <div className="walkthrough-claims">
           {section.claims.map((claim) => (
             <article className="walkthrough-claim" key={claim.claimId}>
@@ -474,7 +474,7 @@ export function VisualPanel({ revision, section, activeFocusTarget, onFollowHots
     const message = inspection.status === 'none'
       ? 'No diagram is attached to this section. The explanation and source evidence remain available.'
       : inspection.reason === 'legacy'
-        ? 'This older diagram is retained with the accepted chapter, but it does not have interactive source links. The explanation and evidence remain available.'
+        ? 'This older diagram is retained with the accepted explanation, but it does not have interactive source links. The text and evidence remain available.'
         : 'This diagram does not match the safe interactive format, so it is unavailable. The explanation and source evidence remain available.';
     return (
     <section className="walkthrough-visual-slot" aria-label="Section visual">

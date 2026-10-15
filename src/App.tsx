@@ -169,10 +169,10 @@ type ProviderDialogMode =
   | { kind: 'overview'; projectId: string; snapshotId: string; recoveryOperationId?: string };
 
 const workspaceIcons: Record<Workspace, typeof Network> = {
-  atlas: Network,
+  atlas: FolderOpen,
   'code-lens': Code2,
   walkthrough: Play,
-  'guide-plan': ListChecks,
+  'guide-plan': BookOpen,
   'chapter-studio': BookOpen,
   changes: GitBranch,
 };
@@ -261,7 +261,6 @@ function App() {
   const [providerDialog, setProviderDialog] = useState<ProviderDialogMode | null>(null);
   const providerReturnFocusRef = useRef<HTMLElement | null>(null);
   const recoveredPreviewReturnFocusRef = useRef<HTMLButtonElement | null>(null);
-  const searchButtonRef = useRef<HTMLButtonElement>(null);
   const projectButtonRef = useRef<HTMLButtonElement>(null);
   const pickerReturnFocusRef = useRef<string | undefined>(undefined);
   const currentWorkspace = navigation.current.workspace;
@@ -843,13 +842,13 @@ function App() {
       const key = event.key.toLowerCase();
       if (key === '1') {
         event.preventDefault();
-        navigationActions.workspace('atlas');
+        navigationActions.workspace('guide-plan');
       } else if (key === '2') {
         event.preventDefault();
-        navigationActions.workspace('code-lens');
+        navigationActions.workspace('atlas');
       } else if (key === '3') {
         event.preventDefault();
-        navigationActions.workspace('walkthrough');
+        navigationActions.workspace('changes');
       } else if (key === '[') {
         event.preventDefault();
         navigationActions.back();
@@ -861,7 +860,7 @@ function App() {
         void openLocalRepository();
       } else if (key === 'k' && navigation.current.snapshotId) {
         event.preventDefault();
-        searchButtonRef.current?.focus();
+        setNavigation((state) => navigateToRoute(state, { ...state.current, workspace: 'atlas', focusTarget: 'atlas-tree-search' }));
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -1049,6 +1048,23 @@ function App() {
     }));
   };
 
+  const openGuideRevision = (revision: ChapterRevision) => {
+    setNavigation((state) => navigateToRoute(state, {
+      ...state.current,
+      workspace: 'walkthrough',
+      projectId: revision.projectId,
+      snapshotId: revision.snapshotId,
+      relativePath: undefined,
+      sourceRange: undefined,
+      chapterId: revision.chapterId,
+      chapterRevisionId: revision.revisionId,
+      sectionId: undefined,
+      playbackPosition: 0,
+      transcriptPosition: 0,
+      focusTarget: 'heading:walkthrough',
+    }));
+  };
+
   const clearStudioRevisionRoute = () => {
     setNavigation((state) => navigateToRoute(state, {
       ...state.current,
@@ -1193,15 +1209,16 @@ function App() {
         </div>
 
         <nav className="primary-nav" aria-label="Primary workspaces">
-          {PRIMARY_WORKSPACES.map(({ id, label }, index) => {
+          {PRIMARY_WORKSPACES.map(({ id, label, activeWorkspaces }, index) => {
             const Icon = workspaceIcons[id];
+            const active = activeWorkspaces.includes(currentWorkspace);
             return (
             <button
               key={id}
-              className={`nav-tab ${currentWorkspace === id ? 'active' : ''}`}
+              className={`nav-tab ${active ? 'active' : ''}`}
               onClick={() => chooseWorkspace(id)}
               data-focus-key={`nav:${id}`}
-              aria-current={currentWorkspace === id ? 'page' : undefined}
+              aria-current={active ? 'page' : undefined}
               aria-keyshortcuts={`Meta+${index + 1}`}
             >
               <Icon size={15} strokeWidth={1.9} />
@@ -1213,11 +1230,10 @@ function App() {
 
         <div className="topbar-actions">
           <button
-            ref={searchButtonRef}
             className="search-control"
             disabled={!navigation.current.snapshotId}
-            onClick={() => showComingSoon('Search needs a snapshot', 'Open and capture a repository to search its files and symbols.')}
-            aria-label="Search files and symbols, Command K"
+            onClick={() => setNavigation((state) => navigateToRoute(state, { ...state.current, workspace: 'atlas', focusTarget: 'atlas-tree-search' }))}
+            aria-label="Search repository files, Command K"
           >
             <Search size={15} />
             <span>Search repository</span>
@@ -1225,33 +1241,31 @@ function App() {
           </button>
           <div className="tools-wrap">
             <button
-              className={`icon-button ${toolsOpen ? 'selected' : ''}`}
+              className={`more-tools-button ${toolsOpen ? 'selected' : ''}`}
               onClick={() => { setProjectMenuOpen(false); setSnapshotMenuOpen(false); setToolsOpen((open) => !open); }}
               data-focus-key="tools-button"
-              aria-label="Open project tools"
+              aria-label="Open more tools"
+              title="More tools"
               aria-expanded={toolsOpen}
               aria-haspopup="menu"
             >
-              <Settings2 size={17} />
+              <Settings2 size={16} /><span>More</span>
             </button>
             {toolsOpen && (
-              <div className="tools-menu" role="menu" aria-label="Project tools">
-                <div className="menu-label">PROJECT WORKFLOWS</div>
-                <button role="menuitem" data-focus-key="tools-button" onClick={() => chooseWorkspace('guide-plan')}>
-                  <ListChecks size={16} /> <span>Guide Plan</span>
+              <div className="tools-menu" role="menu" aria-label="More tools">
+                <div className="menu-label">MORE TOOLS</div>
+                <button role="menuitem" data-focus-key="tools-button" onClick={() => chooseWorkspace('walkthrough')}>
+                  <Play size={16} /> <span>Browse accepted guides</span>
                 </button>
                 <button role="menuitem" data-focus-key="tools-button" onClick={() => chooseWorkspace('chapter-studio')}>
-                  <BookOpen size={16} /> <span>Chapter Studio</span>
-                </button>
-                <button role="menuitem" data-focus-key="tools-button" onClick={() => chooseWorkspace('changes')}>
-                  <GitBranch size={16} /> <span>Compare local revisions</span>
+                  <BookOpen size={16} /> <span>Review a draft</span>
                 </button>
               </div>
             )}
           </div>
           <button
             className="icon-button help-button"
-            onClick={() => showComingSoon('Code Atlas help', 'Shortcuts: ⌘1 Atlas · ⌘2 Code Lens · ⌘3 Walkthrough · ⌘[ Back · ⌘] Forward · ⌘= zoom in · ⌘− zoom out (20% steps).')}
+            onClick={() => showComingSoon('Code Atlas help', 'Shortcuts: ⌘1 Guide · ⌘2 Files · ⌘3 Changes · ⌘[ Back · ⌘] Forward · ⌘= zoom in · ⌘− zoom out (20% steps).')}
             aria-label="Help and keyboard shortcuts"
           >
             <CircleHelp size={17} />
@@ -1324,7 +1338,7 @@ function App() {
 
         <main className="workspace" id="main-content">
           <div className="workspace-toolbar">
-            <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{currentWorkspace === 'code-lens' ? 'Code Lens' : currentWorkspace === 'changes' ? 'Changes' : copy.title.split(' ')[0]}</strong></div>
+            <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{currentWorkspace === 'atlas' || currentWorkspace === 'code-lens' ? 'Files' : currentWorkspace === 'changes' ? 'Changes' : 'Guide'}</strong></div>
             <div className="toolbar-right">
               <button className="history-button" disabled={!canNavigateBack(navigation)} onClick={navigationActions.back} aria-label="Go back" title="Back · ⌘[">
                 <ArrowLeft size={15} />
@@ -1491,6 +1505,17 @@ function App() {
                 rows={buildInventory(snapshotManifest)}
                 onGoAtlas={() => chooseWorkspace('atlas')}
                 onGoStudio={() => chooseWorkspace('chapter-studio')}
+                onReadRevision={openGuideRevision}
+                onReviewRevision={(revision) => setNavigation((state) => navigateToRoute(state, {
+                  ...state.current,
+                  workspace: 'chapter-studio',
+                  projectId: revision.projectId,
+                  snapshotId: revision.snapshotId,
+                  chapterId: revision.chapterId,
+                  chapterRevisionId: revision.revisionId,
+                  sectionId: undefined,
+                  focusTarget: 'heading:chapter-studio',
+                }))}
                 onOpenFile={openCapturedFile}
               />
             ) : currentWorkspace === 'guide-plan' && selectedSnapshot ? (
@@ -2673,23 +2698,27 @@ function SnapshotReadyState({ manifest, atlasSelection, mapViewport, onCaptureAg
           <div className="snapshot-state-icon"><Check size={22} /></div>
           <div>
             <div className="step-pill"><span>{partial ? 'PARTIAL' : 'IMMUTABLE'}</span> SOURCE SNAPSHOT</div>
-            <h2 id="snapshot-ready-title">{partial ? 'Snapshot saved with visible gaps.' : 'Repository captured under policy.'}</h2>
-            <p>{formatSnapshotDate(summary.createdAtUnixMs)} · {summary.branch ?? 'Detached or unborn HEAD'} · {summary.head ?? 'No commit yet'}</p>
+            <h2 id="snapshot-ready-title">{partial ? 'Some files were skipped.' : 'Files are ready to explore.'}</h2>
+            <p>{summary.filesCaptured.toLocaleString()} files captured · {formatSnapshotDate(summary.createdAtUnixMs)} · {summary.branch ?? 'Detached HEAD'}</p>
           </div>
           <button className="secondary-button" onClick={onCaptureAgain}>Capture again</button>
         </div>
-        <div className="snapshot-metrics">
-          <div><strong>{inventory.length.toLocaleString()}</strong><span>inventory paths</span></div>
-          <div><strong>{summary.filesCaptured.toLocaleString()}</strong><span>files captured</span></div>
-          <div><strong>{formatBytes(summary.totalBytes)}</strong><span>source bytes</span></div>
-          <div><strong>{omittedRows.toLocaleString()}</strong><span>excluded or skipped rows</span></div>
-        </div>
-        <div className="snapshot-identity-row"><span>Snapshot ID</span><code>{summary.snapshotId}</code><span>Parent</span><code>{summary.parentSnapshotId ?? 'First capture'}</code></div>
-        <div className="snapshot-dirty-state"><GitBranch size={15} /><span>Git index: <strong>{summary.indexState}</strong></span><span>Working tree: <strong>{summary.worktreeState}</strong></span><span>HEAD: <code>{summary.head?.slice(0, 12) ?? 'unborn'}</code></span></div>
+        {partial && <div className="snapshot-partial-warning" role="status"><TriangleAlert size={15} /><span><strong>{summary.pathsSkipped.toLocaleString()} paths were skipped.</strong> They remain visible in the file list with a reason; no source was read for them.</span></div>}
+        <details className="snapshot-technical-details">
+          <summary>Snapshot details and capture limits</summary>
+          <div className="snapshot-metrics">
+            <div><strong>{inventory.length.toLocaleString()}</strong><span>inventory paths</span></div>
+            <div><strong>{summary.filesCaptured.toLocaleString()}</strong><span>files captured</span></div>
+            <div><strong>{formatBytes(summary.totalBytes)}</strong><span>source bytes</span></div>
+            <div><strong>{omittedRows.toLocaleString()}</strong><span>excluded or skipped rows</span></div>
+          </div>
+          <div className="snapshot-identity-row"><span>Snapshot ID</span><code>{summary.snapshotId}</code><span>Parent</span><code>{summary.parentSnapshotId ?? 'First capture'}</code></div>
+          <div className="snapshot-dirty-state"><GitBranch size={15} /><span>Git index: <strong>{summary.indexState}</strong></span><span>Working tree: <strong>{summary.worktreeState}</strong></span><span>HEAD: <code>{summary.head?.slice(0, 12) ?? 'unborn'}</code></span></div>
+          <CapturePolicy limits={manifest.captureLimits} />
+        </details>
         {atlasSelection && <AtlasDestinationCard refElement={destinationRef} manifest={manifest} selection={atlasSelection} onOpenFile={onOpenFile} />}
         <AtlasWorkbench key={`${summary.projectId}:${summary.snapshotId}`} manifest={manifest} rows={inventory} routeSelection={atlasSelection} routeViewport={mapViewport} onOpenFile={onOpenFile} onAtlasSelection={onAtlasSelection} onViewportChange={onAtlasViewportChange} />
-        <CapturePolicy limits={manifest.captureLimits} />
-        <div className="snapshot-next-step"><HardDrive size={15} /><span>{partial ? 'This capture is partial. Search and review skipped rows before using it as source evidence.' : 'Complete under the visible capture policy. Open any captured text file to inspect the exact snapshot bytes.'}</span></div>
+        <div className="snapshot-next-step"><HardDrive size={15} /><span>Choose a file to read its captured source and create an explanation linked to its exact lines.</span></div>
       </section>
     </div>
   );
@@ -2770,7 +2799,7 @@ function AtlasDestinationCard({ refElement, manifest, selection, onOpenFile }: {
             : indexLoading ? <p>Resolving relationship from the snapshot index…</p>
               : <p>The relationship is not present in this snapshot index.{indexError ? ` ${indexError}` : ''}</p>}
         </>}
-        {selectedPath && <button className="atlas-destination-open" data-focus-key="atlas-destination-open" onClick={() => onOpenFile(selectedPath, snapshotId, selectedRange)}><FileCode2 size={14} /> {selectedRange ? 'Open exact source evidence' : 'Open this file in Code Lens'} <ArrowRight size={13} /></button>}
+        {selectedPath && <button className="atlas-destination-open" data-focus-key="atlas-destination-open" onClick={() => onOpenFile(selectedPath, snapshotId, selectedRange)}><FileCode2 size={14} /> {selectedRange ? 'Open exact source evidence' : 'Open this file'} <ArrowRight size={13} /></button>}
       </div>
     </section>
   );
@@ -3129,11 +3158,11 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
   };
 
   return <section className="atlas-workbench" aria-label="Atlas repository explorer">
-    <div className="atlas-workbench-heading"><div><strong>Repository map</strong><span>Snapshot {snapshotId} · inventory paths and local index evidence</span></div><div className="atlas-map-scope">Scope: {view.selectedFolder ?? 'entire snapshot'} · Only resolved, hash-verified high-confidence edges are drawn.</div></div>
+    <div className="atlas-workbench-heading"><div><strong>Repository files</strong><span>Click a file to open its source. Expand a folder to browse inside it.</span></div></div>
     <div className="atlas-columns">
       <section className="atlas-tree-panel" aria-labelledby="atlas-tree-title">
-        <header><div><strong id="atlas-tree-title">Files</strong><small aria-live="polite">{rows.length.toLocaleString()} inventory paths · {flattened.length.toLocaleString()} shown</small></div></header>
-        <label className="atlas-filter-search"><Search size={13} /><input aria-label="Search snapshot tree" placeholder="Search paths or skip reasons" value={view.treeQuery} onChange={(event) => {
+        <header><div><strong id="atlas-tree-title">Files</strong><small aria-live="polite">{rows.length.toLocaleString()} paths · {flattened.length.toLocaleString()} shown</small></div></header>
+        <label className="atlas-filter-search"><Search size={13} /><input data-focus-key="atlas-tree-search" aria-label="Search repository files and paths" placeholder="Find a file or folder" value={view.treeQuery} onChange={(event) => {
           const query = event.target.value;
           treeTopRef.current = 0;
           if (treeRef.current) treeRef.current.scrollTop = 0;
@@ -3163,10 +3192,11 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
             const selected = row.path === view.selectedPath && !view.selectedRelationship;
             const openable = row.disposition === 'captured' && (row.contentKind === 'text' || row.contentKind === 'unknown');
             const rowIndexLabel = atlasRowIndexStatusLabel(atlasRowIndexStatus(row, index, indexState, stalePathSet.has(row.path)));
-            return <div className={`atlas-tree-row${selected ? ' selected' : ''}${row.disposition !== 'captured' ? ' omitted' : ''}`} role="treeitem" data-tree-index={rowOrdinal} tabIndex={rowOrdinal === activeTreeIndex ? 0 : -1} aria-label={`${row.path === '.' ? 'repository root' : row.path}, ${row.kind}, ${row.disposition}${rowIndexLabel ? `, ${rowIndexLabel}` : ''}`} aria-level={item.depth + 1} aria-posinset={item.positionInSet} aria-setsize={item.setSize} aria-selected={selected} aria-expanded={item.hasChildren ? item.expanded : undefined} key={`${row.path}:${row.reason}:${rowOrdinal}`} style={{ paddingLeft: `${7 + item.depth * 13}px` }} title={row.details} onFocus={() => setFocusedTreeIndex(rowOrdinal)} onClick={(event) => {
+            return <div className={`atlas-tree-row${selected ? ' selected' : ''}${row.disposition !== 'captured' ? ' omitted' : ''}`} role="treeitem" data-tree-index={rowOrdinal} data-focus-key={`atlas-tree:${row.path}`} tabIndex={rowOrdinal === activeTreeIndex ? 0 : -1} aria-label={`${row.path === '.' ? 'repository root' : row.path}, ${row.kind}, ${row.disposition}${rowIndexLabel ? `, ${rowIndexLabel}` : ''}`} aria-level={item.depth + 1} aria-posinset={item.positionInSet} aria-setsize={item.setSize} aria-selected={selected} aria-expanded={item.hasChildren ? item.expanded : undefined} key={`${row.path}:${row.reason}:${rowOrdinal}`} style={{ paddingLeft: `${7 + item.depth * 13}px` }} title={row.details} onFocus={() => setFocusedTreeIndex(rowOrdinal)} onClick={(event) => {
               if ((event.target as HTMLElement).closest('[data-tree-action]')) return;
               if (document.activeElement !== event.currentTarget) event.currentTarget.focus();
               choosePath(row);
+              if (row.kind === 'file' && openable) onOpenFile(row.path, snapshotId);
             }} onKeyDown={(event) => {
               const action = atlasTreeKeyboardAction(flattened, rowOrdinal, event.key);
               if (action.kind === 'none') return;
@@ -3180,16 +3210,19 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
               } else if (action.kind === 'select') choosePath(row);
             }}>
               {item.hasChildren ? <span className="atlas-tree-toggle" data-tree-action aria-hidden="true" onClick={() => setTreeFolderExpanded(item.path, !item.expanded)}><ChevronDown size={12} className={item.expanded ? '' : 'collapsed'} /></span> : <span className="atlas-tree-spacer" />}
-              <span className="atlas-tree-entry" aria-hidden="true"><span className={`atlas-state-mark ${row.disposition}`} />{row.kind === 'directory' ? <FolderOpen size={13} /> : <FileCode2 size={13} />}<code>{row.path === '.' ? 'repository root' : row.path.split('/').at(-1)}</code><small>{row.disposition}</small>{rowIndexLabel && <em>{rowIndexLabel}</em>}</span>
-              {openable && <span className="atlas-tree-open" data-tree-action aria-hidden="true" title="Open in Code Lens" onClick={() => { choosePath(row); onOpenFile(row.path, snapshotId); }}><ArrowRight size={12} /></span>}
+              <span className="atlas-tree-entry" aria-hidden="true"><span className={`atlas-state-mark ${row.disposition}`} />{row.kind === 'directory' ? <FolderOpen size={13} /> : <FileCode2 size={13} />}<code>{row.path === '.' ? 'repository root' : row.path.split('/').at(-1)}</code>{row.disposition !== 'captured' && <small>{row.disposition}</small>}</span>
+              {openable && <span className="atlas-tree-open" data-tree-action aria-hidden="true" title="Open source" onClick={() => { choosePath(row); onOpenFile(row.path, snapshotId); }}><ArrowRight size={12} /></span>}
             </div>;
             })}
             {treeWindow.bottomSpacerHeight > 0 && <div className="atlas-tree-window-spacer" aria-hidden="true" style={{ height: `${treeWindow.bottomSpacerHeight}px` }} />}
           </>}
         </div>
-        <footer>Captured, skipped, excluded, and directory rows remain visible in the snapshot tree.</footer>
+        <footer>Skipped paths stay visible here with a reason.</footer>
       </section>
 
+      <details className="atlas-relationship-details">
+        <summary>Explore code relationships <span>Optional · verified links from the snapshot index</span></summary>
+        <div className="atlas-map-columns">
       <section className="atlas-map-panel" aria-labelledby="atlas-map-title">
         <header><div><strong id="atlas-map-title">Relationships</strong><small>{shownEdges.length} shown · {provenEdges.length} proven for snapshot</small></div><span className="atlas-snapshot-badge">{index?.status ?? (indexState === 'loading' ? 'indexing' : indexState)}</span></header>
         <div className="atlas-map-filters"><label className="atlas-filter-search"><Search size={13} /><input aria-label="Search relationships" placeholder="Search symbol, path, or evidence" value={view.mapQuery} onChange={(event) => setView((s) => ({ ...s, mapQuery: event.target.value }))} /></label><label><span>Type</span><select aria-label="Filter relationships by type" value={view.kind} onChange={(event) => setView((s) => ({ ...s, kind: event.target.value as AtlasWorkbenchViewState['kind'] }))}><option value="all">All types</option><option value="calls">Calls</option><option value="imports">Imports</option><option value="testReference">Test references</option><option value="defines">Defines</option><option value="exports">Exports</option></select></label><label><span>Language</span><select aria-label="Filter relationships by language" value={view.language} onChange={(event) => setView((s) => ({ ...s, language: event.target.value }))}><option value="all">All languages</option>{languages.map((language) => <option key={language} value={language}>{language}</option>)}</select></label></div>
@@ -3237,8 +3270,9 @@ function AtlasWorkbench({ manifest, rows, routeSelection, routeViewport, onOpenF
                 : <div className="atlas-detail-empty"><Network size={18} /><strong>Select a folder, file, symbol, or edge.</strong><span>Details retain exact snapshot path and source hash evidence.</span></div>}
         <footer>Dynamic and unresolved relationships are never presented as proven.</footer>
       </aside>
+        </div>
+      </details>
     </div>
-    <p className="atlas-workbench-note">Tree and map search state is remembered for this snapshot in the current session.</p>
   </section>;
 }
 
@@ -3246,18 +3280,21 @@ function inventoryFilterKey(row: Pick<InventoryRow, 'path' | 'kind' | 'reason'>)
   return `${row.path}\u0000${row.kind}\u0000${row.reason}`;
 }
 
-function GuidePlanScreen({ projectId, manifest, rows, onGoAtlas, onGoStudio, onOpenFile }: {
+function GuidePlanScreen({ projectId, manifest, rows, onGoAtlas, onGoStudio, onReadRevision, onReviewRevision, onOpenFile }: {
   projectId: string;
   manifest: SnapshotManifest;
   rows: InventoryRow[];
   onGoAtlas: () => void;
   onGoStudio: () => void;
+  onReadRevision: (revision: ChapterRevision) => void;
+  onReviewRevision: (revision: ChapterRevision) => void;
   onOpenFile: (path: string) => void;
 }) {
   const snapshotId = manifest.summary.snapshotId;
   const [plan, setPlan] = useState<CoveragePlan>(() => loadCoveragePlan(projectId, snapshotId));
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | CoverageStatus>('all');
+  const [guideView, setGuideView] = useState<'needs-explanation' | 'explained' | 'all'>('needs-explanation');
   const [languageFilter, setLanguageFilter] = useState('all');
   const [captureFilter, setCaptureFilter] = useState<'all' | CaptureDisposition>('all');
   const [parserFilter, setParserFilter] = useState<'all' | ParserReadiness>('all');
@@ -3267,6 +3304,7 @@ function GuidePlanScreen({ projectId, manifest, rows, onGoAtlas, onGoStudio, onO
   const [pageSize, setPageSize] = useState(50);
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [groupFormOpen, setGroupFormOpen] = useState(false);
+  const [groupingOpen, setGroupingOpen] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupRationale, setGroupRationale] = useState('');
   const [excludePath, setExcludePath] = useState<string | null>(null);
@@ -3289,8 +3327,10 @@ function GuidePlanScreen({ projectId, manifest, rows, onGoAtlas, onGoStudio, onO
     content: contentFilter,
     category: categoryFilter,
   }).map(inventoryFilterKey)), [captureFilter, categoryFilter, contentFilter, languageFilter, parserFilter, rows]);
-  const filtered = useMemo(() => filterCoverageRows(coverageRows, query, statusFilter)
-    .filter((row) => inventoryMatches.has(inventoryFilterKey(row.inventory))), [coverageRows, inventoryMatches, query, statusFilter]);
+  const guideRows = useMemo(() => coverageRows.filter((row) => guideView === 'all'
+    || (guideView === 'explained' ? row.status === 'accepted' : ['missing', 'draft', 'rejected', 'stale'].includes(row.status) || (row.status === 'unsupported' && row.canOpenSource))), [coverageRows, guideView]);
+  const filtered = useMemo(() => filterCoverageRows(guideRows, query, statusFilter)
+    .filter((row) => inventoryMatches.has(inventoryFilterKey(row.inventory))), [guideRows, inventoryMatches, query, statusFilter]);
   const pageData = useMemo(() => paginateCoverage(filtered, page, pageSize), [filtered, page, pageSize]);
   const languages = useMemo(() => Array.from(new Set(rows.map((row) => row.language))).sort(), [rows]);
 
@@ -3317,7 +3357,18 @@ function GuidePlanScreen({ projectId, manifest, rows, onGoAtlas, onGoStudio, onO
   }, [projectId, snapshotId, revisionRefresh]);
 
   const setQueryFilter = (value: string) => { setQuery(value); setPage(0); };
-  const setStatus = (value: 'all' | CoverageStatus) => { setStatusFilter(value); setPage(0); };
+  const setStatus = (value: 'all' | CoverageStatus) => { setStatusFilter(value); setGuideView('all'); setPage(0); };
+  const chooseGuideView = (value: 'needs-explanation' | 'explained' | 'all') => {
+    setGuideView(value);
+    setStatusFilter('all');
+    setPage(0);
+  };
+  const openRevision = (revisionId: string, action: 'read' | 'review') => {
+    const revision = revisions.find((item) => item.revisionId === revisionId);
+    if (!revision) return;
+    if (action === 'read') onReadRevision(revision);
+    else onReviewRevision(revision);
+  };
   const visibleEligible = pageData.rows.filter((row) => row.canSelectForGroup).length;
   const allVisibleSelected = visibleEligible > 0 && pageData.rows
     .filter((row) => row.canSelectForGroup)
@@ -3374,7 +3425,7 @@ function GuidePlanScreen({ projectId, manifest, rows, onGoAtlas, onGoStudio, onO
     setFeedback(`“${name}” was removed. Its files are independent chapters again.`);
   };
   const statusLabel: Record<CoverageStatus, string> = {
-    missing: 'Needs chapter', draft: 'Draft', rejected: 'Rejected', stale: 'Older snapshot', accepted: 'Accepted',
+    missing: 'Needs explanation', draft: 'Draft', rejected: 'Rejected', stale: 'Older snapshot', accepted: 'Accepted',
     excluded: 'Excluded by you', unsupported: 'Parser unsupported', unavailable: 'Source unavailable',
   };
 
@@ -3383,44 +3434,56 @@ function GuidePlanScreen({ projectId, manifest, rows, onGoAtlas, onGoStudio, onO
       <section className="guide-plan-card" aria-labelledby="guide-plan-title">
         <div className="guide-plan-topline">
           <div>
-            <div className="step-pill"><span>SNAPSHOT COVERAGE</span> FILE BY FILE</div>
-            <h2 id="guide-plan-title">Every recorded path stays accounted for.</h2>
-            <p>Captured text files start as independent chapters. Group files only when you choose them and explain why they belong together.</p>
+            <div className="step-pill"><span>GUIDE</span> FILE BY FILE</div>
+            <h2 id="guide-plan-title">What still needs an explanation?</h2>
+            <p>Choose a file to explain it, or open an accepted explanation to read it with its source links.</p>
           </div>
-          <div className="chapter-studio-top-actions"><button className="secondary-button" onClick={onGoStudio}><BookOpen size={14} /> Chapter Studio</button><button className="secondary-button" onClick={onGoAtlas}><ArrowLeft size={14} /> Atlas inventory</button></div>
+          <div className="chapter-studio-top-actions"><button className="secondary-button" onClick={onGoAtlas}><FileCode2 size={14} /> Browse files</button><button className="secondary-button" onClick={onGoStudio}><BookOpen size={14} /> Edit explanations</button></div>
         </div>
 
-        <div className="guide-plan-identity">
-          <span>{manifest.summary.status === 'partial' ? 'Partial snapshot' : 'Immutable snapshot'}</span>
-          <code>{snapshotId}</code>
-          <span>{projectId}</span>
-        </div>
+        {manifest.summary.status === 'partial' && <p className="coverage-storage-warning" role="status">This snapshot is partial. {manifest.summary.pathsSkipped.toLocaleString()} paths were skipped; open “All paths” to review them and why they were skipped.</p>}
+        <details className="guide-source-details">
+          <summary>Source snapshot details</summary>
+          <div className="guide-plan-identity"><span>{manifest.summary.status === 'partial' ? 'Partial snapshot' : 'Immutable snapshot'}</span><code>{snapshotId}</code><span>{projectId}</span></div>
+        </details>
 
         {revisionsLoading && <p className="coverage-feedback" role="status">Loading saved chapter revisions across snapshots…</p>}
         {revisionsError && <p className="coverage-storage-warning" role="alert">{revisionsError}<button className="text-button" onClick={() => setRevisionRefresh((value) => value + 1)}>Retry</button></p>}
 
-        {coverageReady && <div className="coverage-total-strip">
-          <div className="coverage-total-main"><strong>{totals.total.toLocaleString()}</strong><span>inventory paths</span><small>Each row below has exactly one status.</small></div>
-          {COVERAGE_STATUSES.map((status) => (
-            <button
-              className={`coverage-total coverage-total-${status}${statusFilter === status ? ' is-active' : ''}`}
-              key={status}
-              onClick={() => setStatus(statusFilter === status ? 'all' : status)}
-              aria-pressed={statusFilter === status}
-            >
-              <strong>{totals[status].toLocaleString()}</strong><span>{statusLabel[status]}</span>
-            </button>
-          ))}
+        {coverageReady && <div className="coverage-total-strip" role="group" aria-label="Filter guide files">
+          <button className={`coverage-total${guideView === 'needs-explanation' ? ' is-active' : ''}`} onClick={() => chooseGuideView('needs-explanation')} aria-pressed={guideView === 'needs-explanation'}><strong>{(totals.missing + totals.draft + totals.rejected + totals.stale + totals.unsupported).toLocaleString()}</strong><span>Needs explanation</span></button>
+          <button className={`coverage-total${guideView === 'explained' ? ' is-active' : ''}`} onClick={() => chooseGuideView('explained')} aria-pressed={guideView === 'explained'}><strong>{totals.accepted.toLocaleString()}</strong><span>Explained</span></button>
+          <button className={`coverage-total${guideView === 'all' ? ' is-active' : ''}`} onClick={() => chooseGuideView('all')} aria-pressed={guideView === 'all'}><strong>{totals.total.toLocaleString()}</strong><span>All paths</span></button>
         </div>}
 
-        <div className="guide-plan-actions">
-          <div><strong>Make a group from selected files</strong><span>Grouping is always explicit. There is no generate-all action.</span></div>
-          <div className="guide-plan-action-buttons">
-            <span aria-live="polite">{selectedPaths.length} selected</span>
-            <button className="secondary-button" onClick={startGroup} disabled={selectedPaths.length < 2 || revisionsLoading || Boolean(revisionsError)}>Create group</button>
-            {selectedPaths.length > 0 && <button className="text-button" onClick={() => setSelectedPaths([])}>Clear selection</button>}
-          </div>
+        <div className="guide-list-toolbar">
+          <label className="inventory-search"><Search size={14} /><input aria-label="Search guide files" placeholder="Find a file by name or path" value={query} onChange={(event) => setQueryFilter(event.target.value)} /></label>
+          <button className={`secondary-button${groupingOpen ? ' selected' : ''}`} onClick={() => { if (groupingOpen) setGroupFormOpen(false); setGroupingOpen(!groupingOpen); setSelectedPaths([]); }} aria-expanded={groupingOpen}><Layers3 size={14} /> {groupingOpen ? 'Done grouping' : 'Organize files'}</button>
+          <details className="coverage-advanced-filters">
+            <summary>More filters</summary>
+            <div className="coverage-filter-bar">
+              <label><span>Status</span><select aria-label="Filter guide coverage by status" value={statusFilter} onChange={(event) => setStatus(event.target.value as 'all' | CoverageStatus)}><option value="all">All statuses ({totals.total})</option>{COVERAGE_STATUSES.map((status) => <option key={status} value={status}>{statusLabel[status]} ({totals[status]})</option>)}</select></label>
+              <label><span>Language</span><select aria-label="Filter guide coverage by language" value={languageFilter} onChange={(event) => { setLanguageFilter(event.target.value); setPage(0); }}><option value="all">All languages</option>{languages.map((language) => <option key={language} value={language}>{language}</option>)}</select></label>
+              <label><span>Capture outcome</span><select aria-label="Filter inventory by capture outcome" value={captureFilter} onChange={(event) => { setCaptureFilter(event.target.value as 'all' | CaptureDisposition); setPage(0); }}><option value="all">All capture outcomes</option><option value="captured">Captured</option><option value="skipped">Skipped</option><option value="excluded">Excluded</option></select></label>
+              <label><span>Parser readiness</span><select aria-label="Filter inventory by parser readiness" value={parserFilter} onChange={(event) => { setParserFilter(event.target.value as 'all' | ParserReadiness); setPage(0); }}><option value="all">All parser states</option><option value="notReady">Supported parser</option><option value="unsupported">Unsupported parser</option><option value="notApplicable">Not applicable</option></select></label>
+              <label><span>File category</span><select aria-label="Filter inventory by file category" value={categoryFilter} onChange={(event) => { setCategoryFilter(event.target.value as 'all' | InventoryCategory); setPage(0); }}><option value="all">All categories</option><option value="config">Configuration</option><option value="test">Test</option><option value="generated">Generated</option><option value="secret">Secret-like</option></select></label>
+              <label><span>Content</span><select aria-label="Filter inventory by content type" value={contentFilter} onChange={(event) => { setContentFilter(event.target.value as 'all' | InventoryRow['contentKind']); setPage(0); }}><option value="all">All content</option><option value="text">Text</option><option value="binary">Binary</option><option value="invalidEncoding">Invalid encoding</option><option value="unknown">Unknown</option><option value="notApplicable">Not applicable</option></select></label>
+              <button className="inventory-clear" onClick={() => { setQueryFilter(''); setStatus('all'); setLanguageFilter('all'); setCaptureFilter('all'); setParserFilter('all'); setContentFilter('all'); setCategoryFilter('all'); setPage(0); }}>Reset filters</button>
+            </div>
+          </details>
+          <span className="coverage-match-count" aria-live="polite">{pageData.total.toLocaleString()} files</span>
         </div>
+
+        {groupingOpen && <section className="guide-grouping-panel" aria-label="Organize files into optional groups">
+          <div className="guide-plan-actions">
+            <div><strong>Group related files (optional)</strong><span>Groups organize files; every file keeps its own explanation and source links.</span></div>
+            <div className="guide-plan-action-buttons"><span aria-live="polite">{selectedPaths.length} selected</span><button className="secondary-button" onClick={startGroup} disabled={selectedPaths.length < 2 || revisionsLoading || Boolean(revisionsError)}>Create group</button>{selectedPaths.length > 0 && <button className="text-button" onClick={() => setSelectedPaths([])}>Clear selection</button>}</div>
+          </div>
+          {plan.groups.length > 0 && <section className="coverage-groups" aria-labelledby="coverage-groups-heading">
+            <div className="coverage-subheading"><div><strong id="coverage-groups-heading">Your groups</strong><span>Each member still has its own explanation.</span></div><span>{plan.groups.length} group{plan.groups.length === 1 ? '' : 's'}</span></div>
+            {plan.groups.map((group) => <article className="coverage-group-card" key={group.groupId}><div><strong>{group.name}</strong><p>{group.rationale}</p><div className="coverage-group-members">{group.paths.map((path) => <button key={path} onClick={() => onOpenFile(path)}><FileCode2 size={12} /><code>{path}</code></button>)}</div></div><button className="text-button" onClick={() => dissolveGroup(group.groupId, group.name)}>Remove group</button></article>)}
+          </section>}
+        </section>}
 
         {groupFormOpen && (
           <form className="coverage-group-form" onSubmit={submitGroup}>
@@ -3431,33 +3494,10 @@ function GuidePlanScreen({ projectId, manifest, rows, onGoAtlas, onGoStudio, onO
           </form>
         )}
 
-        {plan.groups.length > 0 && (
-          <section className="coverage-groups" aria-labelledby="coverage-groups-heading">
-            <div className="coverage-subheading"><div><strong id="coverage-groups-heading">Groups you created</strong><span>Membership and rationale are attached to each listed path.</span></div><span>{plan.groups.length} group{plan.groups.length === 1 ? '' : 's'}</span></div>
-            {plan.groups.map((group) => (
-              <article className="coverage-group-card" key={group.groupId}>
-                <div><strong>{group.name}</strong><p>{group.rationale}</p><div className="coverage-group-members">{group.paths.map((path) => <button key={path} onClick={() => onOpenFile(path)}><FileCode2 size={12} /><code>{path}</code></button>)}</div></div>
-                <button className="text-button" onClick={() => dissolveGroup(group.groupId, group.name)}>Remove group</button>
-              </article>
-            ))}
-          </section>
-        )}
-
-        <div className="coverage-filter-bar">
-          <label className="inventory-search"><Search size={14} /><input aria-label="Search guide coverage paths, groups, and reasons" placeholder="Search every path, group, or reason" value={query} onChange={(event) => setQueryFilter(event.target.value)} /></label>
-          <label><span>Status</span><select aria-label="Filter guide coverage by status" value={statusFilter} onChange={(event) => setStatus(event.target.value as 'all' | CoverageStatus)}><option value="all">All statuses ({totals.total})</option>{COVERAGE_STATUSES.map((status) => <option key={status} value={status}>{statusLabel[status]} ({totals[status]})</option>)}</select></label>
-          <label><span>Language</span><select aria-label="Filter guide coverage by language" value={languageFilter} onChange={(event) => { setLanguageFilter(event.target.value); setPage(0); }}><option value="all">All languages</option>{languages.map((language) => <option key={language} value={language}>{language}</option>)}</select></label>
-          <label><span>Capture outcome</span><select aria-label="Filter inventory by capture outcome" value={captureFilter} onChange={(event) => { setCaptureFilter(event.target.value as 'all' | CaptureDisposition); setPage(0); }}><option value="all">All capture outcomes</option><option value="captured">Captured</option><option value="skipped">Skipped</option><option value="excluded">Excluded</option></select></label>
-          <label><span>Parser readiness</span><select aria-label="Filter inventory by parser readiness" value={parserFilter} onChange={(event) => { setParserFilter(event.target.value as 'all' | ParserReadiness); setPage(0); }}><option value="all">All parser states</option><option value="notReady">Supported parser</option><option value="unsupported">Unsupported parser</option><option value="notApplicable">Not applicable</option></select></label>
-          <label><span>File category</span><select aria-label="Filter inventory by file category" value={categoryFilter} onChange={(event) => { setCategoryFilter(event.target.value as 'all' | InventoryCategory); setPage(0); }}><option value="all">All categories</option><option value="config">Configuration</option><option value="test">Test</option><option value="generated">Generated</option><option value="secret">Secret-like</option></select></label>
-          <label><span>Content</span><select aria-label="Filter inventory by content type" value={contentFilter} onChange={(event) => { setContentFilter(event.target.value as 'all' | InventoryRow['contentKind']); setPage(0); }}><option value="all">All content</option><option value="text">Text</option><option value="binary">Binary</option><option value="invalidEncoding">Invalid encoding</option><option value="unknown">Unknown</option><option value="notApplicable">Not applicable</option></select></label>
-          <button className="inventory-clear" onClick={() => { setQueryFilter(''); setStatus('all'); setLanguageFilter('all'); setCaptureFilter('all'); setParserFilter('all'); setContentFilter('all'); setCategoryFilter('all'); setPage(0); }}>Reset filters</button>
-          <span className="coverage-match-count" aria-live="polite">{pageData.total.toLocaleString()} matches · {totals.total.toLocaleString()} total paths</span>
-        </div>
-
         {coverageReady && <CoverageTable
           rows={pageData.rows}
           statusLabel={statusLabel}
+          showGrouping={groupingOpen}
           selectedPaths={selectedPaths}
           allVisibleSelected={allVisibleSelected}
           visibleEligible={visibleEligible}
@@ -3468,6 +3508,8 @@ function GuidePlanScreen({ projectId, manifest, rows, onGoAtlas, onGoStudio, onO
           onToggleSelected={toggleSelected}
           onToggleVisible={toggleVisible}
           onOpenFile={onOpenFile}
+          onReadRevision={(revisionId) => openRevision(revisionId, 'read')}
+          onReviewRevision={(revisionId) => openRevision(revisionId, 'review')}
           onExclude={submitExclusion}
           onRestore={(path) => { setPlan((current) => restoreCoveragePath(current, path)); setFeedback(`${path} is back in the guide plan.`); }}
           onCancelExclude={() => setExcludePath(null)}
@@ -3881,7 +3923,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     : selectedRevision
       ? selectedRevision.snapshotId === snapshotId ? selectedRevision.lifecycle : 'stale'
       : selectedTarget.latestCurrent?.lifecycle ?? 'stale';
-  const statusLabel = status === 'missing' ? 'Needs chapter'
+  const statusLabel = status === 'missing' ? 'Needs explanation'
     : status === 'stale' ? 'Older snapshot'
       : status === 'draft' ? 'Draft'
         : status === 'rejected' ? 'Rejected'
@@ -4099,13 +4141,13 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       <section className="chapter-studio-card" aria-labelledby="chapter-studio-title">
         <div className="chapter-studio-topline">
           <div>
-            <div className="step-pill"><span>CHAPTER STUDIO</span> SOURCE FIRST · REVISIONED</div>
+            <div className="step-pill"><span>GUIDE EDITOR</span> SOURCE FIRST · VERSIONED</div>
             <h2 id="chapter-studio-title" data-focus-key="heading:chapter-studio">Inspect what each file actually does.</h2>
-            <p>Each file chapter explains its source directly. An optional repository overview is a separate chapter and never counts files as covered; edits and decisions are saved as local revisions.</p>
+            <p>Each file explanation stays separate. The optional repository overview never counts files as explained; changes are saved as local versions.</p>
           </div>
           <div className="chapter-studio-top-actions">
             <button className="primary-button" onClick={onGenerateOverview} disabled={editing} title={editing ? 'Save or cancel the current edit before creating an overview.' : 'Create a separate overview; this does not mark any file chapter complete.'}><Sparkles size={14} /> Optional overview</button>
-            <button className="secondary-button" onClick={onGoPlan}><ListChecks size={14} /> Guide Plan</button>
+            <button className="secondary-button" onClick={onGoPlan}><ListChecks size={14} /> Guide</button>
             <span className="chapter-studio-snapshot">Snapshot <code>{snapshotId.slice(-12)}</code></span>
           </div>
         </div>
@@ -4305,7 +4347,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                           {editing && candidate ? <textarea disabled={busy} rows={2} value={claim.prose} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, claims: item.claims.map((saved) => saved.claimId === claim.claimId ? { ...saved, prose: event.target.value } : saved) }))} aria-label={`Claim ${claim.claimId}`} /> : <p>{claim.prose}</p>}
                           {claim.category.kind === 'inference' && <p className="chapter-inference-basis"><strong>{claim.category.visibleLabel} basis:</strong> {claim.category.basis}</p>}
                           <div className="chapter-citations"><span>EXACT SOURCE</span>{claim.anchors.length === 0 ? <small>No source range is attached to this claim.</small> : claim.anchors.map((anchor) => <div className="chapter-citation" key={anchor.anchorId}>
-                            <div><code>{anchor.path}:{anchor.startLine}-{anchor.endLine}</code><button className="text-button" onClick={() => { onSelectRevision(selectedRevision, section.sectionId); onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor)); }}><FileCode2 size={12} /> Open in Code Lens</button></div>
+                            <div><code>{anchor.path}:{anchor.startLine}-{anchor.endLine}</code><button className="text-button" onClick={() => { onSelectRevision(selectedRevision, section.sectionId); onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor)); }}><FileCode2 size={12} /> Open source</button></div>
                             <pre>{anchor.excerpt}</pre>
                           </div>)}</div>
                         </div>)}
@@ -4320,9 +4362,10 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   );
 }
 
-function CoverageTable({ rows, statusLabel, selectedPaths, allVisibleSelected, visibleEligible, excludePath, excludeReason, setExcludePath, setExcludeReason, onToggleSelected, onToggleVisible, onOpenFile, onExclude, onRestore, onCancelExclude }: {
+function CoverageTable({ rows, statusLabel, showGrouping, selectedPaths, allVisibleSelected, visibleEligible, excludePath, excludeReason, setExcludePath, setExcludeReason, onToggleSelected, onToggleVisible, onOpenFile, onReadRevision, onReviewRevision, onExclude, onRestore, onCancelExclude }: {
   rows: CoverageRow[];
   statusLabel: Record<CoverageStatus, string>;
+  showGrouping: boolean;
   selectedPaths: string[];
   allVisibleSelected: boolean;
   visibleEligible: number;
@@ -4333,35 +4376,39 @@ function CoverageTable({ rows, statusLabel, selectedPaths, allVisibleSelected, v
   onToggleSelected: (path: string) => void;
   onToggleVisible: () => void;
   onOpenFile: (path: string) => void;
+  onReadRevision: (revisionId: string) => void;
+  onReviewRevision: (revisionId: string) => void;
   onExclude: (event: FormEvent<HTMLFormElement>, row: CoverageRow) => void;
   onRestore: (path: string) => void;
   onCancelExclude: () => void;
 }) {
   return (
     <div className="coverage-table-wrap">
-      <div className="coverage-table" role="table" aria-label="Chapter coverage for every snapshot path">
+      <div className={`coverage-table${showGrouping ? ' is-grouping' : ''}`} role="table" aria-label="Guide status for repository files">
         <div className="coverage-table-header" role="row">
-          <label className="coverage-select-all"><input type="checkbox" checked={allVisibleSelected} disabled={visibleEligible === 0} onChange={onToggleVisible} aria-label="Select all eligible files on this page" /><span>Group</span></label>
-          <span role="columnheader">Snapshot path</span><span role="columnheader">Chapter coverage</span><span role="columnheader">Source / action</span>
+          {showGrouping && <label className="coverage-select-all"><input type="checkbox" checked={allVisibleSelected} disabled={visibleEligible === 0} onChange={onToggleVisible} aria-label="Select all eligible files on this page" /><span>Group</span></label>}
+          <span role="columnheader">File</span><span role="columnheader">Status</span><span role="columnheader">Next step</span>
         </div>
-        {rows.length === 0 ? <div className="coverage-empty">No paths match. Clear the search or status filter to see the rest of the inventory.</div> : rows.map((row) => (
+        {rows.length === 0 ? <div className="coverage-empty">No files in this view. Choose “All paths” or adjust your search and filters.</div> : rows.map((row) => (
           <div className="coverage-row" role="row" key={`${row.inventory.path}:${row.inventory.kind}:${row.inventory.reason}`}>
-            <div className="coverage-select-cell" role="cell">{row.canSelectForGroup ? <input type="checkbox" checked={selectedPaths.includes(row.inventory.path)} onChange={() => onToggleSelected(row.inventory.path)} aria-label={`Select ${row.inventory.path} for an explicit group`} /> : <span aria-hidden="true">—</span>}</div>
+            {showGrouping && <div className="coverage-select-cell" role="cell">{row.canSelectForGroup ? <input type="checkbox" checked={selectedPaths.includes(row.inventory.path)} onChange={() => onToggleSelected(row.inventory.path)} aria-label={`Select ${row.inventory.path} for an explicit group`} /> : <span aria-hidden="true">—</span>}</div>}
             <div className="coverage-path-cell" role="cell">
               <code title={row.inventory.path}>{row.inventory.path}</code>
-              <span>{row.inventory.language} · {row.inventory.kind} · {row.inventory.disposition} · {row.inventory.contentKind} · {row.inventory.parserReadiness === 'notReady' ? 'supported parser' : row.inventory.parserReadiness === 'unsupported' ? 'unsupported parser' : 'parser not applicable'}</span>
-              {row.inventory.categories.length > 0 && <small>Category: {row.inventory.categories.join(' · ')}</small>}
-              {row.group && <div className="coverage-row-group"><strong>Group: {row.group.name}</strong><span>{row.group.rationale}</span></div>}
-              {(row.status === 'missing' || (row.status === 'unsupported' && row.canSelectForGroup)) && <small>Independent file chapter · generate from its captured source</small>}
-              {row.status === 'draft' && <small>Draft revision {row.revisionNumber} · <code>{row.revisionId}</code></small>}
-              {row.status === 'rejected' && <small>Rejected revision {row.revisionNumber} · <code>{row.revisionId}</code></small>}
-              {row.status === 'stale' && <small>Only an older snapshot chapter exists · <code>{row.revisionId}</code></small>}
-              {row.status === 'accepted' && <small>Accepted revision {row.revisionNumber} · <code>{row.revisionId}</code></small>}
-              {row.status === 'excluded' && row.userExclusion && <div className="coverage-row-reason"><span>Your reason: {row.userExclusion.reason}</span><button className="text-button" onClick={() => onRestore(row.inventory.path)}>Include again</button></div>}
-              {row.reason && row.status !== 'excluded' && <small className={`coverage-reason coverage-reason-${row.status}`}>{row.reason}</small>}
+              <span>{row.inventory.language}{row.group ? ` · ${row.group.name}` : ''}</span>
+              <details className="coverage-row-details">
+                <summary>File details</summary>
+                <div>{row.inventory.kind} · {row.inventory.disposition} · {row.inventory.contentKind} · {row.inventory.parserReadiness === 'notReady' ? 'supported parser' : row.inventory.parserReadiness === 'unsupported' ? 'unsupported parser' : 'parser not applicable'}</div>
+                {row.inventory.categories.length > 0 && <div>Category: {row.inventory.categories.join(' · ')}</div>}
+                {row.group && <div className="coverage-row-group"><strong>Group: {row.group.name}</strong><span>{row.group.rationale}</span></div>}
+                {row.reason && <div className={`coverage-reason coverage-reason-${row.status}`}>{row.reason}</div>}
+                {row.status === 'excluded' && row.userExclusion && <div className="coverage-row-reason"><span>Your reason: {row.userExclusion.reason}</span><button className="text-button" onClick={() => onRestore(row.inventory.path)}>Include again</button></div>}
+                {row.revisionId && <div>Revision {row.revisionNumber} · <code>{row.revisionId}</code></div>}
+              </details>
             </div>
             <div className="coverage-status-cell" role="cell"><span className={`coverage-status coverage-status-${row.status}`}>{statusLabel[row.status]}</span>{row.status === 'unsupported' && <small>{row.inventory.language} remains locally readable.</small>}{row.status === 'unavailable' && <small>Inventory is retained; no chapter is counted.</small>}</div>
             <div className="coverage-action-cell" role="cell">
+              {row.status === 'accepted' && row.revisionId && <button className="text-button" onClick={() => onReadRevision(row.revisionId!)}><Play size={13} /> Read explanation</button>}
+              {['draft', 'rejected', 'stale'].includes(row.status) && row.revisionId && <button className="text-button" onClick={() => onReviewRevision(row.revisionId!)}><Pencil size={13} /> Review explanation</button>}
               {row.canOpenSource && <button className="text-button" onClick={() => onOpenFile(row.inventory.path)}><FileCode2 size={13} /> Open source</button>}
               {row.canExclude && excludePath !== row.inventory.path && <button className="text-button" onClick={() => setExcludePath(row.inventory.path)}>Exclude with reason</button>}
               {excludePath === row.inventory.path && (
@@ -4475,6 +4522,7 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
   selectedPath: string | null;
 }) {
   const [showCompleteSource, setShowCompleteSource] = useState(false);
+  const [showAllRelationships, setShowAllRelationships] = useState(false);
   const [snapshotIndex, setSnapshotIndex] = useState<SnapshotIndex | null>(null);
   const [relationshipLoading, setRelationshipLoading] = useState(false);
   const [relationshipError, setRelationshipError] = useState<string | null>(null);
@@ -4535,6 +4583,12 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
         || left.evidence.startLine - right.evidence.startLine
         || left.relationshipId.localeCompare(right.relationshipId));
   }, [selectedPath, snapshotIndex]);
+  const resolvedRelationships = useMemo(() => relatedRelationships.filter((relationship) => (
+    relationship.confidence !== 'unresolved' && Boolean(relationship.targetId) && !relationship.unresolvedReason
+  )), [relatedRelationships]);
+  const unresolvedRelationships = useMemo(() => relatedRelationships.filter((relationship) => (
+    relationship.confidence === 'unresolved' || !relationship.targetId || Boolean(relationship.unresolvedReason)
+  )), [relatedRelationships]);
   const rangeStart = visibleSourceRange?.startLine ?? null;
   const rangeEnd = visibleSourceRange?.endLine ?? null;
   const contextBefore = 24;
@@ -4545,7 +4599,29 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
 
   useEffect(() => {
     setShowCompleteSource(false);
-  }, [source?.snapshotId, source?.path, sourceRange?.startLine, sourceRange?.endLine, sourceRange?.sourceSha256]);
+    setShowAllRelationships(false);
+  }, [selectedPath, source?.snapshotId, source?.path, sourceRange?.startLine, sourceRange?.endLine, sourceRange?.sourceSha256]);
+
+  const renderRelationshipRows = (relationships: typeof relatedRelationships) => relationships.map((relationship) => {
+    const sourceSymbol = snapshotIndex?.symbols.find((symbol) => symbol.symbolId === relationship.sourceId);
+    const targetSymbol = relationship.targetId
+      ? snapshotIndex?.symbols.find((symbol) => symbol.symbolId === relationship.targetId)
+      : null;
+    const targetName = targetSymbol?.qualifiedName ?? targetSymbol?.name ?? relationship.targetLabel ?? relationship.targetPath ?? 'unresolved target';
+    return <li key={relationship.relationshipId}>
+      <div><strong>{codeLensRelationshipLabel(relationship.kind, relationship.confidence)}</strong>
+        <span>{sourceSymbol?.qualifiedName ?? sourceSymbol?.name ?? relationship.sourceId} → {targetName}</span>
+        <small>{relationship.confidence === 'unresolved' || !relationship.targetId || Boolean(relationship.unresolvedReason)
+          ? relationship.unresolvedReason ?? 'The target could not be resolved in this snapshot.'
+          : `${relationship.evidence.path}:${relationship.evidence.startLine}-${relationship.evidence.endLine}`}</small>
+      </div>
+      <button className="text-button" onClick={() => onOpenFile(
+        relationship.evidence.path,
+        snapshotIndex?.snapshotId,
+        codeLensRangeFromIndexedAnchor(relationship.evidence),
+      )}>Open evidence</button>
+    </li>;
+  });
 
   useEffect(() => {
     if (!visibleSourceRange || !source) return;
@@ -4604,8 +4680,8 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
         <div className="step-pill"><span>SNAPSHOT</span> SOURCE UNAVAILABLE</div>
         <h2>{unavailableTitle}</h2>
         <p>{unavailableMessage} Code Atlas did not fall back to the live repository.</p>
-        {onGoWalkthrough && <button className="secondary-button" onClick={onGoWalkthrough}><ArrowLeft size={15} /> Return to walkthrough</button>}
-        <button className="secondary-button" onClick={onGoAtlas}>Back to inventory <ArrowRight size={15} /></button>
+        {onGoWalkthrough && <button className="secondary-button" onClick={onGoWalkthrough}><ArrowLeft size={15} /> Return to guide</button>}
+        <button className="secondary-button" onClick={onGoAtlas}>Back to files <ArrowRight size={15} /></button>
       </div>
     );
   }
@@ -4615,13 +4691,19 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
         <div className="source-view-toolbar">
           <div><span className="step-pill"><span>READ ONLY</span> SNAPSHOT SOURCE</span><h2>{source.path}</h2></div>
           <div className="source-view-actions">
-            {onGoWalkthrough && <button className="secondary-button" onClick={onGoWalkthrough}><ArrowLeft size={15} /> Return to walkthrough</button>}
+            {onGoWalkthrough && <button className="secondary-button" onClick={onGoWalkthrough}><ArrowLeft size={15} /> Return to guide</button>}
             {visibleSourceRange && <button className="secondary-button" onClick={() => onRequestRangeExplanation(source.path, visibleSourceRange)}><Sparkles size={15} /> Explain cited range</button>}
-            <button className="secondary-button" onClick={() => onRequestExplanation(source.path)}><Sparkles size={15} /> Create file chapter</button>
-            <button className="secondary-button" onClick={onGoAtlas}>Back to inventory <ArrowRight size={15} /></button>
+            <button className="secondary-button" onClick={() => onRequestExplanation(source.path)}><Sparkles size={15} /> Explain this file</button>
+            <button className="secondary-button" onClick={onGoAtlas}>Back to files <ArrowRight size={15} /></button>
           </div>
         </div>
-        <div className="source-provenance"><span>Snapshot <code>{source.snapshotId}</code></span><span>SHA-256 <code>{source.sha256}</code></span><span>{formatBytes(source.sizeBytes)}</span><span>{highlightedLines ? `${languageForPath(source.path)} syntax` : 'Plain text'}</span><strong>{citationHashMismatch ? 'Citation stale' : invalidAnchorReason ? 'Anchor unavailable' : sourceRange ? 'Citation verified' : 'No citation anchor'}</strong></div>
+        <div className="source-provenance">
+          <span>{highlightedLines ? `${languageForPath(source.path)} source` : 'Plain text source'} · {sourceLines.length.toLocaleString()} lines</span>
+          {visibleSourceRange && <strong>Citation verified · lines {visibleSourceRange.startLine}–{visibleSourceRange.endLine}</strong>}
+          {citationHashMismatch && <strong className="is-stale">Citation stale</strong>}
+          {invalidAnchorReason && <strong className="is-stale">Anchor unavailable</strong>}
+          <details className="source-metadata-details"><summary>Snapshot details</summary><span>Snapshot <code>{source.snapshotId}</code></span><span>SHA-256 <code>{source.sha256}</code></span><span>{formatBytes(source.sizeBytes)}</span></details>
+        </div>
         {citationHashMismatch && <div className="source-range-focus" role="alert">
           <span><strong>Stale citation</strong><small>The chapter expects source SHA-256 {sourceRange?.sourceSha256}, but this snapshot contains {source.sha256}. The line range was not highlighted and Code Atlas did not search for a nearby match.</small></span>
         </div>}
@@ -4681,28 +4763,20 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
         </pre>
         <p className="source-safety-note"><HardDrive size={13} /> Loaded from immutable local snapshot storage and checked against the manifest hash. The live working tree was not read.</p>
         <section className="code-lens-related" aria-labelledby="code-lens-related-title">
-          <div><span className="step-pill"><span>LOCAL INDEX</span> RELATED CODE</span><h3 id="code-lens-related-title">Callers, imports, and tests</h3></div>
-          <p>These links come from the selected snapshot index. Each row preserves the indexed relationship type and confidence.</p>
-          {relationshipLoading ? <p role="status">Loading relationships for this snapshot…</p>
-            : relationshipError ? <p role="status">{relationshipError}</p>
-              : relatedRelationships.length > 0 ? <ul>{relatedRelationships.map((relationship) => {
-                const sourceSymbol = snapshotIndex?.symbols.find((symbol) => symbol.symbolId === relationship.sourceId);
-                const targetSymbol = relationship.targetId
-                  ? snapshotIndex?.symbols.find((symbol) => symbol.symbolId === relationship.targetId)
-                  : null;
-                const targetName = targetSymbol?.qualifiedName ?? targetSymbol?.name ?? relationship.targetLabel ?? relationship.targetPath ?? 'unresolved target';
-                return <li key={relationship.relationshipId}>
-                  <div><strong>{codeLensRelationshipLabel(relationship.kind, relationship.confidence)}</strong>
-                    <span>{sourceSymbol?.qualifiedName ?? sourceSymbol?.name ?? relationship.sourceId} → {targetName}</span>
-                    <small>{relationship.confidence === 'unresolved' ? relationship.unresolvedReason ?? 'The target could not be resolved in this snapshot.' : `${relationship.evidence.path}:${relationship.evidence.startLine}-${relationship.evidence.endLine}`}</small>
-                  </div>
-                <button className="text-button" onClick={() => onOpenFile(
-                    relationship.evidence.path,
-                    snapshotIndex?.snapshotId,
-                  codeLensRangeFromIndexedAnchor(relationship.evidence),
-                  )}>Open evidence</button>
-                </li>;
-              })}</ul> : <p>{snapshotIndex ? 'No indexed caller, import, or test relationships point to or from this file.' : 'No matching local index is available for this snapshot.'}</p>}
+          <details>
+            <summary><span><strong id="code-lens-related-title">Related files and tests</strong><small>{relationshipLoading ? 'Loading the local index…' : `${resolvedRelationships.length} resolved · ${unresolvedRelationships.length} unresolved`}</small></span></summary>
+            <p>Open an indexed link to inspect its exact source lines. Unresolved links are kept separate because the snapshot cannot prove their destination.</p>
+            {relationshipError ? <p role="status">{relationshipError}</p>
+              : resolvedRelationships.length > 0 ? <>
+                <ul>{renderRelationshipRows(showAllRelationships ? resolvedRelationships : resolvedRelationships.slice(0, 8))}</ul>
+                {resolvedRelationships.length > 8 && <button className="text-button" onClick={() => setShowAllRelationships((value) => !value)}>{showAllRelationships ? 'Show fewer links' : `Show all ${resolvedRelationships.length} resolved links`}</button>}
+              </> : <p>{snapshotIndex ? 'No resolved caller, import, or test links point to or from this file.' : relationshipLoading ? 'The local snapshot index is loading.' : 'No matching local index is available for this snapshot.'}</p>}
+            {unresolvedRelationships.length > 0 && <details className="code-lens-unresolved-links">
+              <summary>Unresolved links ({unresolvedRelationships.length})</summary>
+              <p>These references are visible for investigation but are not treated as proven connections.</p>
+              <ul>{renderRelationshipRows(unresolvedRelationships)}</ul>
+            </details>}
+          </details>
         </section>
       </div>
     );
@@ -4710,10 +4784,10 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
   return (
     <div className="empty-workspace simple-empty">
       <div className="empty-state-icon code-icon"><Code2 size={24} /></div>
-      <div className="step-pill"><span>02</span> SOURCE INSPECTION</div>
-      <h2>Open a captured file from Atlas.</h2>
-      <p>Code Lens reads a verified blob from the selected immutable snapshot. It never quietly switches to the current working tree.</p>
-      <button className="secondary-button" data-focus-key="cta:code-lens-atlas" onClick={onGoAtlas}>Go to Atlas inventory <ArrowRight size={15} /></button>
+      <div className="step-pill"><span>FILES</span> SOURCE</div>
+      <h2>Choose a file to see its source.</h2>
+      <p>Source opens from the selected snapshot and is checked against its saved hash. The live working copy is not substituted.</p>
+      <button className="secondary-button" data-focus-key="cta:code-lens-atlas" onClick={onGoAtlas}>Browse files <ArrowRight size={15} /></button>
       <div className="state-note"><HardDrive size={14} /> No source file is selected.</div>
     </div>
   );
@@ -4723,11 +4797,11 @@ function WalkthroughEmptyState({ onGoPlan }: { onGoPlan: () => void }) {
   return (
     <div className="empty-workspace simple-empty walkthrough-empty">
       <div className="empty-state-icon play-icon"><Play size={22} /></div>
-      <div className="step-pill"><span>03</span> INTERACTIVE LEARNING</div>
+      <div className="step-pill"><span>GUIDE</span> READ</div>
       <h2>Explanations stay connected to code.</h2>
-      <p>Each accepted file chapter will be split into deliberate sections. Follow a hotspot to source, return to the same place, and continue when you are ready.</p>
-      <button className="secondary-button" data-focus-key="cta:walkthrough-plan" onClick={onGoPlan}>View Guide Plan <ArrowRight size={15} /></button>
-      <div className="state-note"><BookOpen size={14} /> No accepted chapters in this project.</div>
+      <p>Accepted explanations appear one section at a time. Follow a source link, return to the same place, and continue when you are ready.</p>
+      <button className="secondary-button" data-focus-key="cta:walkthrough-plan" onClick={onGoPlan}>Back to Guide <ArrowRight size={15} /></button>
+      <div className="state-note"><BookOpen size={14} /> No accepted explanations in this project.</div>
     </div>
   );
 }
@@ -4738,11 +4812,11 @@ function WorkflowEmptyState({ kind, onGoAtlas, onGoPlan }: { kind: 'plan' | 'stu
   return (
     <div className="empty-workspace simple-empty workflow-empty">
       <div className={`empty-state-icon ${isPlan ? 'plan-icon' : 'studio-icon'}`}><Icon size={23} /></div>
-      <div className="step-pill"><span>WORKFLOW</span> {isPlan ? 'COVERAGE' : 'CHAPTER REVIEW'}</div>
-      <h2>{isPlan ? 'Every path will have a clear status.' : 'Drafts are reviewed before they become guides.'}</h2>
-      <p>{isPlan ? 'Guide Plan will account for captured files individually and show accepted, draft, excluded, or unsupported status.' : 'Chapter Studio will show each explanation beside its source citations so you can edit and validate it.'}</p>
-      <button className="secondary-button" data-focus-key={`cta:${kind}`} onClick={isPlan ? onGoAtlas : onGoPlan}>{isPlan ? 'Go to Atlas' : 'Open Guide Plan'} <ArrowRight size={15} /></button>
-      <div className="state-note"><HardDrive size={14} /> {isPlan ? 'A snapshot is required before coverage exists.' : 'A file chapter is required before review.'}</div>
+      <div className="step-pill"><span>{isPlan ? 'GUIDE' : 'EDIT'}</span> {isPlan ? 'GET STARTED' : 'REVIEW'}</div>
+      <h2>{isPlan ? 'Capture a repository to start a guide.' : 'Choose an explanation to review.'}</h2>
+      <p>{isPlan ? 'Open a local repository and capture its files. The Guide will show what needs an explanation and what is ready to read.' : 'Open the Guide and choose a draft or accepted explanation. You can check its claims beside the source.'}</p>
+      <button className="secondary-button" data-focus-key={`cta:${kind}`} onClick={isPlan ? onGoAtlas : onGoPlan}>{isPlan ? 'Open Files' : 'Open Guide'} <ArrowRight size={15} /></button>
+      <div className="state-note"><HardDrive size={14} /> {isPlan ? 'Source is read only when you choose to capture a snapshot.' : 'Nothing is sent to an AI provider until you review a request.'}</div>
     </div>
   );
 }

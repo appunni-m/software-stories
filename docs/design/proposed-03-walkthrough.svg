@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Proposed Code Atlas Walkthrough</title>
+  <desc id="desc">A paced, clickable explanation with source-linked nodes, visible progress, optional narration, and deliberate next-section control.</desc>
+  <defs>
+    <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#151c24"/><stop offset="1" stop-color="#10151b"/></linearGradient>
+    <style>
+      .ui{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#e9eef3}.muted{fill:#9aa8b5}.dim{fill:#72808d}.tiny{font-size:12px}.small{font-size:14px}.body{font-size:16px}.label{font-size:11px;font-weight:700;letter-spacing:1px}.title{font-size:26px;font-weight:650}.line{stroke:#2c3742}.green{fill:#c3f278}.blue{fill:#83c6ff}.code{font-family:Menlo,Monaco,monospace;font-size:13px}
+    </style>
+  </defs>
+  <rect width="1440" height="900" fill="url(#bg)"/><rect width="1440" height="76" fill="#11171e"/><path d="M0 75.5H1440" class="line"/>
+  <g class="ui">
+    <rect x="32" y="22" width="31" height="31" rx="9" fill="#263637"/><path d="M41 43V32h12v11M38 43h18" fill="none" stroke="#c3f278" stroke-width="2" stroke-linecap="round"/><text x="73" y="43" font-size="18" font-weight="700">Code Atlas</text>
+    <rect x="254" y="16" width="287" height="44" rx="10" fill="#1a222a" stroke="#303b46"/><circle cx="275" cy="38" r="5" fill="#c3f278"/><text x="291" y="35" class="small" font-weight="650">payments-service</text><text x="291" y="51" class="tiny muted">main · captured today</text><path d="M517 35l5 5 5-5" fill="none" stroke="#9aa8b5" stroke-width="1.7"/>
+    <g font-size="14" font-weight="600"><rect x="585" y="13" width="106" height="48" rx="9" fill="#28352b"/><text x="638" y="43" text-anchor="middle" class="green">Guide</text><text x="760" y="43" text-anchor="middle" class="muted">Files</text><text x="871" y="43" text-anchor="middle" class="muted">Changes</text></g>
+    <text x="1284" y="43" text-anchor="end" class="small muted">Exit tour</text><circle cx="1376" cy="38" r="18" fill="#202a32" stroke="#35414b"/><text x="1376" y="43" text-anchor="middle" class="small muted">⚙</text>
+  </g>
+  <rect x="0" y="76" width="276" height="824" fill="#131a21"/><path d="M276 76V900" class="line"/>
+  <g class="ui">
+    <text x="26" y="116" class="label muted">PAYMENT REQUEST TOUR</text><text x="26" y="148" class="small">Five short stops</text>
+    <path d="M43 185v302" stroke="#34404a" stroke-width="2"/>
+    <circle cx="43" cy="191" r="12" fill="#26352d"/><path d="M38 191l3 3 6-7" fill="none" stroke="#c3f278" stroke-width="2"/><text x="67" y="196" class="small">A request enters</text><text x="67" y="216" class="tiny muted">API route</text>
+    <rect x="21" y="236" width="236" height="68" rx="10" fill="#28352b"/><circle cx="43" cy="259" r="12" fill="#c3f278"/><text x="43" y="264" text-anchor="middle" class="tiny" fill="#172018">2</text><text x="67" y="261" class="small green" font-weight="650">The processor handles it</text><text x="67" y="283" class="tiny muted">You are here · 45 sec</text>
+    <circle cx="43" cy="333" r="12" fill="#202a32" stroke="#47545f"/><text x="43" y="337" text-anchor="middle" class="tiny muted">3</text><text x="67" y="338" class="small">The provider charges</text><text x="67" y="358" class="tiny muted">External payment call</text>
+    <circle cx="43" cy="405" r="12" fill="#202a32" stroke="#47545f"/><text x="43" y="409" text-anchor="middle" class="tiny muted">4</text><text x="67" y="410" class="small">The result is recorded</text><text x="67" y="430" class="tiny muted">Payment model</text>
+    <circle cx="43" cy="477" r="12" fill="#202a32" stroke="#47545f"/><text x="43" y="481" text-anchor="middle" class="tiny muted">5</text><text x="67" y="482" class="small">Success is announced</text><text x="67" y="502" class="tiny muted">Webhook event</text>
+    <path d="M24 543H252" class="line"/><text x="26" y="578" class="label muted">TOUR PROGRESS</text><text x="26" y="606" class="small">2 of 5 sections</text><rect x="26" y="619" width="224" height="6" rx="3" fill="#303a43"/><rect x="26" y="619" width="90" height="6" rx="3" fill="#c3f278"/>
+    <text x="26" y="666" class="tiny muted">Move at your pace. Nothing advances</text><text x="26" y="684" class="tiny muted">until you choose Continue.</text>
+    <rect x="21" y="812" width="236" height="54" rx="10" fill="#19232b" stroke="#303b46"/><circle cx="44" cy="839" r="12" fill="#26352d"/><path d="M42 832v14l11-7z" fill="#c3f278"/><text x="68" y="844" class="small">Play this section</text>
+  </g>
+  <rect x="276" y="76" width="829" height="824" fill="#10151b"/><path d="M1105 76V900" class="line"/>
+  <g class="ui">
+    <text x="314" y="119" class="label green">SECTION 2 · 45 SECONDS</text><text x="314" y="160" class="title">The processor wraps the charge in retries</text><text x="314" y="189" class="small muted">It keeps the same request key, so a retry cannot create a second payment.</text>
+    <rect x="314" y="222" width="753" height="204" rx="15" fill="#171f27" stroke="#303b46"/>
+    <rect x="341" y="280" width="170" height="83" rx="11" fill="#1e2e38" stroke="#3c718e"/><text x="426" y="313" text-anchor="middle" class="small blue">API route</text><text x="426" y="338" text-anchor="middle" class="tiny muted">creates command</text>
+    <path d="M518 321h61" stroke="#82919e" stroke-width="2"/><path d="M573 315l8 6-8 6" fill="none" stroke="#82919e" stroke-width="2"/>
+    <rect x="590" y="266" width="202" height="111" rx="12" fill="#2a382c" stroke="#a5ce64" stroke-width="1.6"/><text x="691" y="304" text-anchor="middle" class="small green" font-weight="650">PaymentProcessor</text><text x="691" y="329" text-anchor="middle" class="tiny">process()</text><text x="691" y="352" text-anchor="middle" class="tiny muted">selected · open source ↗</text>
+    <path d="M799 321h63" stroke="#82919e" stroke-width="2"/><path d="M856 315l8 6-8 6" fill="none" stroke="#82919e" stroke-width="2"/>
+    <rect x="873" y="280" width="164" height="83" rx="11" fill="#29263b" stroke="#675a9a"/><text x="955" y="313" text-anchor="middle" class="small" fill="#b8a7f4">PaymentProvider</text><text x="955" y="338" text-anchor="middle" class="tiny muted">charge()</text>
+    <path d="M690 382v22h-81" fill="none" stroke="#c3f278" stroke-width="1.5" stroke-dasharray="5 5"/><text x="637" y="420" class="tiny green">RetryPolicy · same key</text>
+    <text x="314" y="465" class="label muted">THE SOURCE BEHIND THIS STEP</text>
+    <rect x="314" y="484" width="753" height="207" rx="12" fill="#151c23" stroke="#303b46"/>
+    <rect x="330" y="536" width="721" height="62" rx="6" fill="#32422d" opacity=".62"/><text x="345" y="519" class="code dim"> 86</text><text x="386" y="519" class="code muted">def process(self, command):</text>
+    <text x="345" y="555" class="code green"> 87  return self.retry.execute(</text><text x="345" y="581" class="code"> 88      lambda: self.provider.charge(…)</text><text x="345" y="625" class="code muted"> 89      idempotency_key=command.key,</text><text x="345" y="659" class="code muted"> 90  )</text>
+    <text x="1027" y="674" text-anchor="end" class="tiny blue">Open full file in Files ↗</text>
+    <rect x="314" y="716" width="753" height="66" rx="11" fill="#18222a"/><circle cx="338" cy="749" r="5" fill="#c3f278"/><text x="355" y="745" class="small">A failed response is retried with the same idempotency key.</text><text x="355" y="765" class="tiny muted">Evidence: processor.py:86–90 · verified in this snapshot</text><text x="1039" y="751" text-anchor="end" class="tiny blue">Why? ↗</text>
+  </g>
+  <rect x="1105" y="76" width="335" height="824" fill="#151c24"/>
+  <g class="ui">
+    <text x="1131" y="119" class="label muted">IN THIS SECTION</text><text x="1131" y="153" class="title" font-size="20">What to notice</text>
+    <rect x="1128" y="177" width="289" height="194" rx="12" fill="#1c252d" stroke="#33404a"/><text x="1150" y="210" class="label green">THE KEY IDEA</text><text x="1150" y="244" class="body">The processor delegates the</text><text x="1150" y="267" class="body">charge, but controls what</text><text x="1150" y="290" class="body">happens when it fails.</text><text x="1150" y="334" class="small blue">See RetryPolicy.execute() ↗</text>
+    <text x="1131" y="414" class="label muted">OPTIONAL NARRATION</text><text x="1131" y="441" class="small">Read along or listen. Start is yours.</text>
+    <rect x="1128" y="461" width="289" height="55" rx="10" fill="#19232b" stroke="#303b46"/><circle cx="1156" cy="488" r="16" fill="#c3f278"/><path d="M1153 480v16l12-8z" fill="#172018"/><text x="1182" y="485" class="small">Play audio</text><text x="1182" y="503" class="tiny muted">0:00 / 0:45</text>
+    <text x="1131" y="558" class="label muted">WORDS USED HERE</text><text x="1131" y="590" class="small"><tspan fill="#83c6ff">Idempotency key</tspan></text><text x="1131" y="612" class="tiny muted">A stable request ID that prevents</text><text x="1131" y="630" class="tiny muted">duplicate charges during retries.</text>
+    <path d="M1131 665H1417" class="line"/><text x="1131" y="700" class="tiny muted">Click a node, source link, or term</text><text x="1131" y="718" class="tiny muted">to inspect it; return here afterward.</text>
+    <rect x="1128" y="812" width="129" height="48" rx="9" fill="#1b242c" stroke="#38444e"/><text x="1192" y="841" text-anchor="middle" class="small">← Previous</text><rect x="1266" y="812" width="151" height="48" rx="9" fill="#c3f278"/><text x="1342" y="841" text-anchor="middle" class="small" fill="#172018" font-weight="650">Continue →</text>
+  </g>
+</svg>

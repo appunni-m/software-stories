@@ -1,42 +1,42 @@
 import type { ApplicationStatus, CaptureLimits, InterruptedOperation, PendingChapterPreviewSummary, RecentProject } from './commands.ts';
 import type { Workspace } from './navigation.ts';
 
-export const PRIMARY_WORKSPACES = [
-  { id: 'atlas', label: 'Atlas' },
-  { id: 'code-lens', label: 'Code Lens' },
-  { id: 'walkthrough', label: 'Walkthrough' },
-] as const satisfies ReadonlyArray<{ id: Workspace; label: string }>;
+export const PRIMARY_WORKSPACES: ReadonlyArray<{ id: Workspace; label: string; activeWorkspaces: readonly Workspace[] }> = [
+  { id: 'guide-plan', label: 'Guide', activeWorkspaces: ['guide-plan', 'walkthrough', 'chapter-studio'] },
+  { id: 'atlas', label: 'Files', activeWorkspaces: ['atlas', 'code-lens'] },
+  { id: 'changes', label: 'Changes', activeWorkspaces: ['changes'] },
+];
 
 export const WORKSPACE_COPY: Record<Workspace, { eyebrow: string; title: string; subtitle: string }> = {
   atlas: {
-    eyebrow: 'WORKSPACE 01 · ORIENT',
-    title: 'See how the repository fits together.',
-    subtitle: 'Browse its real files and follow relationships only where the source supports them.',
+    eyebrow: 'FILES · BROWSE',
+    title: 'Find the file you need to understand.',
+    subtitle: 'Browse captured source and open a file for its explanation. The relationship map is available when you need it.',
   },
   'code-lens': {
-    eyebrow: 'WORKSPACE 02 · INSPECT',
-    title: 'Open the code behind an explanation.',
-    subtitle: 'Every claim will point to the exact captured file and lines it describes.',
+    eyebrow: 'FILES · SOURCE',
+    title: 'Read the source behind this explanation.',
+    subtitle: 'Open the exact captured lines, inspect the whole file, or create an explanation for it.',
   },
   walkthrough: {
-    eyebrow: 'WORKSPACE 03 · UNDERSTAND',
-    title: 'Learn one file, one section at a time.',
-    subtitle: 'Pause, open a code reference, come back to the same point, and continue when ready.',
+    eyebrow: 'GUIDE · READ',
+    title: 'Follow an explanation at your own pace.',
+    subtitle: 'Move one section at a time. Open any source link, then return to where you were.',
   },
   'guide-plan': {
-    eyebrow: 'PROJECT WORKFLOW · COVERAGE',
-    title: 'Know what has and has not been explained.',
-    subtitle: 'Every repository path will have a visible chapter status or a clear reason it is not covered.',
+    eyebrow: 'GUIDE · FILE BY FILE',
+    title: 'Explain the files in your repository.',
+    subtitle: 'Start with a file that needs an explanation. Each explanation stays linked to the exact source it describes.',
   },
   'chapter-studio': {
-    eyebrow: 'PROJECT WORKFLOW · REVIEW',
-    title: 'Review every explanation before it becomes a guide.',
-    subtitle: 'Inspect claims beside source, make edits, validate, and accept a new revision explicitly.',
+    eyebrow: 'GUIDE · EDIT',
+    title: 'Review and edit an explanation.',
+    subtitle: 'Check each claim against its source, revise the section you choose, and save a new version for review.',
   },
   changes: {
-    eyebrow: 'PROJECT WORKFLOW · LOCAL GIT',
-    title: 'Inspect what changed between two revisions.',
-    subtitle: 'Compare local refs without checking them out, changing your working copy, or contacting a remote.',
+    eyebrow: 'CHANGES · COMPARE',
+    title: 'See what changed between two versions.',
+    subtitle: 'Compare local revisions, inspect the changed source, and follow the evidence behind each explanation.',
   },
 };
 
