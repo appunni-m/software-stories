@@ -46,3 +46,8 @@ The fingerprint is displayed in the advanced catalog readiness details. It is a 
 Chapter/guide validation now prepares candidates outside final publication ownership, uses nonblocking result-store publishers, and rechecks wanted result admission before any successful notice cleanup. Failed/rejected results retain their original recovery scope. See [the shared source lifecycle](AGENT_RESULT_LIFECYCLE.md); these controls have not been exercised.
 
 The registry remains empty while these requirements are unresolved. App generation controls and inference lifetime/late-reply handling now have source wiring but no runtime acceptance. Exact Claude interruption recovery UI now has source wiring; native acceptance remains pending. The deferred acceptance task `xymb`, Claude task `8gqw` and agent release gate `2r6n` remain open. No tests, builds, app launches, agent/SDK/CLI probes, logins or model requests ran for this source change.
+
+
+## Official account-route recheck — October 16, 2026
+
+The [Claude Help Center](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan), including its October 7 update, still describes subscription-limit usage for the SDK, headless CLI and third-party apps. The [Agent SDK overview](https://code.claude.com/docs/en/agent-sdk/overview) still says products offering claude.ai login/rate limits need prior approval. These pages do not resolve this product's exact integration/distribution eligibility. Subscription use is not technically impossible; the product route remains unqualified. Resolve that conflict and record applicable evidence before publishing a native qualification profile. No runtime, login, SDK probe or model request ran during this documentation recheck.

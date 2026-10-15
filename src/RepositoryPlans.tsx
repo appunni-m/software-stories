@@ -4,6 +4,7 @@ import { isNativeRuntime, type ChapterClaim, type SnapshotManifest } from './lib
 import { codeLensRangeFromChapterAnchor } from './lib/codeLens';
 import { errorMessageOr } from './lib/errorMessage';
 import type { SourceLineRange } from './lib/navigation';
+import { preparePlannedChapterScope, type PlannedChapterScope } from './lib/plannedChapters';
 import {
   acceptRepositoryPlanDraft, discardRepositoryPlanDraft, listRepositoryPlanDrafts, loadRepositoryPlanDraft,
   listRepositoryPlanRevisions, loadRepositoryPlanRevision, resolveRepositoryPlanNotice,
@@ -16,11 +17,12 @@ interface Props {
   onPlan: (input: PrepareRepositoryPlanInput) => void;
   onOpenFile: (path: string, snapshotId?: string, range?: SourceLineRange) => void;
   onGenerateFile: (path: string, selectedPaths: string[]) => void;
+  onGeneratePlannedChapter: (scope: PlannedChapterScope) => void;
 }
 
 /** A saved plan never becomes chapter coverage or reading progress. Metadata
  * discovery is followed by a native evidence-revalidating load before display. */
-export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile }: Props) {
+export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, onGeneratePlannedChapter }: Props) {
   const { projectId, snapshotId } = manifest.summary;
   const native = isNativeRuntime();
   const [question, setQuestion] = useState('');
@@ -35,7 +37,7 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile }
   const [parent, setParent] = useState<RepositoryPlanRevisionDetail | null>(null);
   const [parentLoading, setParentLoading] = useState(false);
   const [acceptConsent, setAcceptConsent] = useState(false);
-  const [decisionBusy, setDecisionBusy] = useState<'accept' | 'resolve' | null>(null);
+  const [decisionBusy, setDecisionBusy] = useState<'accept' | 'resolve' | 'prepare-step' | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [position, setPosition] = useState(0);
   const [loading, setLoading] = useState(native);
@@ -64,6 +66,30 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile }
   const locked = discarding || decisionBusy !== null;
   const alreadyAccepted = detail ? revisions.find((item) => item.revision.draftId === detail.preview.plan.draftId) : undefined;
   const availableParents = revisions.filter((item) => item.isHead && item.revision.question === detail?.preview.plan.question);
+  async function explainStep() {
+    if (!native || locked || mutating.current || !revision || !step || !detail || detail.preview.plan.snapshotId !== snapshotId) return;
+    mutating.current = true;
+    setDecisionBusy('prepare-step'); setError(null);
+    const version = readVersion.current;
+    const selected = selectionRef.current;
+    const target = { revisionId: revision.revision.revisionId, recordSha256: detail.recordSha256, stepId: step.stepId };
+    try {
+      const scope = await preparePlannedChapterScope(projectId, target);
+      if (!mounted.current || readVersion.current !== version || selectionRef.current !== selected) return;
+      const expectedPaths = new Set([step.primaryPath, ...step.claim.anchors.map((anchor) => anchor.path)]);
+      if (scope.target.revisionId !== target.revisionId || scope.target.recordSha256 !== target.recordSha256
+        || scope.target.stepId !== target.stepId || scope.snapshotId !== snapshotId || scope.primaryPath !== step.primaryPath
+        || scope.question !== step.question || scope.planQuestion !== detail.preview.plan.question
+        || scope.selectedPaths.length !== expectedPaths.size || new Set(scope.selectedPaths).size !== expectedPaths.size
+        || scope.selectedPaths.some((path) => !expectedPaths.has(path))) throw new Error('The prepared chapter does not match this accepted reading step. Open the original plan revision again.');
+      onGeneratePlannedChapter(scope);
+    } catch (failure) {
+      if (mounted.current && readVersion.current === version) setError(errorMessageOr(failure, 'This accepted reading step could not be prepared. No agent request was started.'));
+    } finally {
+      mutating.current = false;
+      if (mounted.current) setDecisionBusy(null);
+    }
+  }
   useEffect(() => {
     if (focusStep.current) { focusStep.current = false; heading.current?.focus(); }
   }, [position, detail]);
@@ -289,7 +315,9 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile }
       {claim(step.claim)}
       <div className="plan-reader-actions"><button className="secondary-button" disabled={locked || position === 0} onClick={() => { focusStep.current = true; setPosition(position - 1); }}><ArrowLeft size={14} /> Back</button>
         <button className="secondary-button" disabled={locked || position + 1 >= detail.preview.plan.steps.length} onClick={() => { focusStep.current = true; setPosition(position + 1); }}>Next <ArrowRight size={14} /></button>
-        <button className="primary-button" disabled={locked || detail.preview.plan.snapshotId !== snapshotId} onClick={() => onGenerateFile(step.primaryPath, [...new Set([step.primaryPath, ...step.claim.anchors.map((anchor) => anchor.path)])])}><Sparkles size={14} /> Explain this file</button></div>
+        {revision ? <button className="primary-button" disabled={locked || detail.preview.plan.snapshotId !== snapshotId} onClick={() => { void explainStep(); }}><Sparkles size={14} /> {decisionBusy === 'prepare-step' ? 'Preparing step…' : 'Explain this step with an agent'}</button>
+          : <button className="secondary-button" disabled={locked || detail.preview.plan.snapshotId !== snapshotId} onClick={() => onGenerateFile(step.primaryPath, [...new Set([step.primaryPath, ...step.claim.anchors.map((anchor) => anchor.path)])])}><Sparkles size={14} /> General file explanation</button>}</div>
+      {!revision && <p>Accept and open this plan revision to generate chapters that answer its exact step questions. A general file explanation does not carry this reading plan.</p>}
       {detail.preview.plan.snapshotId !== snapshotId && <p>Open a citation to switch to this plan’s original snapshot before requesting a file explanation.</p>}
       <details><summary>Known unknowns and omitted selected files</summary>{detail.preview.plan.unknowns.map(claim)}<ul>{detail.preview.plan.omittedSelectedPaths.map((path) => <li key={path}><code>{path}</code></li>)}</ul></details>
       {!revision && alreadyAccepted && <section className="plan-decision"><h4>This draft already has an accepted revision</h4>

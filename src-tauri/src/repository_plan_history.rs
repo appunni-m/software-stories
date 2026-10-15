@@ -124,6 +124,24 @@ pub(crate) fn load(
     revision_detail(record, is_head(&contents.records, &record.revision))
 }
 
+/// Native chapter preparation reads one exact immutable acceptance record.
+/// No raw proposal or record can be supplied by the renderer.
+pub(crate) fn load_accepted_record(
+    storage: &Path,
+    project_id: &str,
+    revision_id: &str,
+    expected_record_sha256: &str,
+) -> Result<SavedPlanRecord, String> {
+    let _guard = drafts::lock_store()?;
+    let contents = read_history(storage, project_id)?;
+    let record = find_revision(&contents.records, revision_id)?;
+    if record.revision.record_sha256 != expected_record_sha256 {
+        return Err("The accepted plan differs from the reviewed revision. Open it again before preparing a chapter.".to_owned());
+    }
+    drafts::revalidate(storage, &record.record)?;
+    Ok(record.record.clone())
+}
+
 /// Append one explicit decision. A deterministic family/number destination
 /// prevents two writers from publishing different children for one parent.
 /// The input digest binds the exact canonical record shown at review.

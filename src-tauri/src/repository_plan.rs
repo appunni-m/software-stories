@@ -189,11 +189,11 @@ struct GeneratedPlanStep {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct RepositoryPlanStep {
-    step_id: String,
-    question: String,
-    primary_path: String,
-    prerequisite_step_ids: Vec<String>,
-    claim: ChapterClaim,
+    pub step_id: String,
+    pub question: String,
+    pub primary_path: String,
+    pub prerequisite_step_ids: Vec<String>,
+    pub claim: ChapterClaim,
 }
 
 /// Validated, unaccepted plan data only. No chapter coverage or accepted
@@ -215,7 +215,7 @@ pub(crate) struct RepositoryPlanDraft {
     planned_selected_paths: Vec<String>,
     cited_selected_paths: Vec<String>,
     omitted_selected_paths: Vec<String>,
-    steps: Vec<RepositoryPlanStep>,
+    pub steps: Vec<RepositoryPlanStep>,
     unknowns: Vec<ChapterClaim>,
 }
 

@@ -32,6 +32,7 @@ export interface InterruptedOperation {
     codeLens?: CodeLensExplanationTarget | null;
     git?: InterruptedGitScope | null;
     repositoryPlan?: import('./repositoryPlans').RepositoryPlanReviewScope | null;
+    plannedChapter?: import('./plannedChapters').PlannedChapterScope | null;
   } | null;
 }
 

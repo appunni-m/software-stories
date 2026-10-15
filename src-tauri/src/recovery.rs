@@ -44,6 +44,20 @@ pub struct InterruptedProviderRequest {
     pub git: Option<InterruptedGitScope>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) repository_plan: Option<crate::repository_plan::RepositoryPlanReviewScope>,
+    #[serde(
+        default,
+        deserialize_with = "read_planned_chapter_scope",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub(crate) planned_chapter: Option<crate::planned_chapter::PlannedChapterScope>,
+}
+
+// Absence supports older ordinary notices. A present null/invalid scope is a
+// damaged planned request, never permission to reopen a generic file chapter.
+fn read_planned_chapter_scope<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<crate::planned_chapter::PlannedChapterScope>, D::Error> {
+    crate::planned_chapter::PlannedChapterScope::deserialize(deserializer).map(Some)
 }
 
 /// Immutable Git selection only: never patches, source, settings or consent.
@@ -236,6 +250,10 @@ pub fn new_reviewed_provider_operation(
             .collect(),
         section_update: review.section_update_context.clone(),
         code_lens: review.code_lens_context.clone(),
+        planned_chapter: review
+            .generation_config
+            .get("plannedChapter")
+            .and_then(|_| crate::provider::planned_chapter_review_scope(review).ok()),
         // An invalid or missing native planning scope cannot be journaled:
         // validate_operation below requires it exactly for repositoryPlan.
         repository_plan: (review.purpose == "repositoryPlan")
@@ -354,6 +372,29 @@ fn validate_operation(operation: &InterruptedOperation) -> Result<(), String> {
             || (request.purpose == "repositoryPlan") != request.repository_plan.is_some()
         {
             return Err("The interrupted provider request scope is invalid.".to_owned());
+        }
+        if let Some(scope) = &request.planned_chapter {
+            if !matches!(request.provider_id.as_str(), "codex" | "claude-agent")
+                || request.purpose != "fileChapter"
+                || scope.schema_version != 1
+                || !scope.target.valid_shape()
+                || request.repository_plan.is_some()
+                || request.section_update.is_some()
+                || request.code_lens.is_some()
+                || request.git.is_some()
+                || operation.snapshot_id != scope.snapshot_id
+                || operation.target_path.as_deref() != Some(scope.primary_path.as_str())
+                || request
+                    .selected_paths
+                    .iter()
+                    .collect::<std::collections::BTreeSet<_>>()
+                    != scope
+                        .selected_paths
+                        .iter()
+                        .collect::<std::collections::BTreeSet<_>>()
+            {
+                return Err("The interrupted accepted-step chapter scope is invalid.".to_owned());
+            }
         }
         if let Some(scope) = &request.repository_plan {
             if !matches!(request.provider_id.as_str(), "codex" | "claude-agent")

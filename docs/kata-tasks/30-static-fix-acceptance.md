@@ -454,3 +454,38 @@ All cases are deferred. Static review found and source-corrected ordinary Codex 
 - Run real packaged progress/cancel/error/recovery workflows with keyboard, VoiceOver, focus/status announcements, 200% reflow/zoom, contrast and reduced motion. Confirm no automatic acceptance, read/coverage completion, hidden bulk spend, backend fallback or source widening. Record the source commit, actual versions/account route and observed race/storage/delivery evidence before closing any agent or narrative task.
 
 See [agent result ownership](../AGENT_RESULT_LIFECYCLE.md). Source changes and deferred cases are not native acceptance. Keep the complete original scope of `tpta`, `z3an`, `8gqw`, `2r6n`, `6qk9` and this task intact and open.
+
+
+### Accepted reading step → both-agent chapter — source checkpoint, 2026-10-16
+
+The app now offers **Explain this step with an agent** on a replayed accepted plan revision. Native preparation derives the exact accepted revision/digest/step, original plan and step questions, learning prerequisite IDs/questions, original snapshot and fixed distinct cited source. Both Codex and Claude have separate strict native review inputs/registered commands and typed app callers, then reuse their existing file-chapter send/validation/publication lifecycle. The agent-only chooser requires no direct API credential and has no API/manual fallback. Supported model/reasoning settings remain agent-specific; Codex approval stays fixed to `never`, Claude to `dontAsk` with bounded turns. No new agent loop or interactive tool-approval mode is claimed.
+
+The complete planned-step scope enters the encoded review/fingerprint before consent. Native preflight and active result rebuilding replay accepted history rather than trusting renderer prose. New interruption notices retain the exact scope; native recovery requires the same accepted record/question/source, restores the original agent and requires a fresh review/consent. Missing/changed plan or evidence never widens into a general file request. Unaccepted plans retain a separately labeled general-file action. This creates one unaccepted chapter, not all steps, reading progress or accepted coverage. See [planned agent chapters](../PLANNED_AGENT_CHAPTERS.md).
+
+**Remaining acceptance/work:**
+- [ ] Exercise accepted-step generation, settings, progress, cancellation, late/abandoned replies and recovery through **each** permitted native Codex and Claude account/runtime route. Complete the matching deferred cases in `xymb`; source code or an unavailable option cannot satisfy this.
+- [ ] Persist and expose durable chapter-to-plan-revision/step/request associations. Existing saved chapter/preview identities are project/snapshot/file candidates, not proof of the originating learning step. Do not mark a step complete or automatically attach a same-file chapter.
+- [ ] Review actual answer quality across representative languages: grounded concrete code behavior, prerequisite recaps, explicit unknowns and useful visuals. Schema/citation validity does not establish that the learning question was answered.
+- [ ] Complete deliberate multi-unit orchestration, omission/failure tracking and dependency-based selective updates before claiming an entire repository narrative.
+
+No tests, builds, app launches, native agent/SDK probes, login or model requests ran. Changed Rust regions were formatted; this does not establish compilation. Codex remains unaccepted source. The Claude qualification registry remains empty; all automatic Claude cells remain Missing. Official account guidance was rechecked October 16 and still does not resolve this product's subscription integration/distribution route. This task and the multi-agent release gate remain open.
+
+
+### Accepted-step chapter acceptance — pending, both agents
+
+Record exact commit, package/runtime versions, permitted account route, supported settings, review/request/step identities and sanitized outcomes. Run every applicable case for both agents once validation and any model requests are authorized.
+
+1. Open an accepted revision, select a step and prepare its chapter. Review must show the exact step/overall questions, original prerequisite questions, snapshot, primary path and cited support; compare native encoded review/fingerprint. An unaccepted draft's general-file action must not claim this scope.
+2. Choose each agent without configuring an API key. Supported model/reasoning/turn settings reach the matching native integration; fixed approval/no-tools controls stay truthful. An unqualified runtime fails before source delivery and cannot fall back to an API or manual exchange.
+3. Select two steps for the same primary file but different questions. Their complete review contracts/fingerprints must differ; changing accepted revision/step/digest must dispose stale review/consent and remount the relevant app owner.
+4. Supply a missing, wrong-project, malformed, changed-digest or unknown-step selector. Native local preparation and each agent builder reject it. Renderer-authored question/path/settings/qualification substitutions cannot replace accepted metadata or native runtime identity.
+5. Advance plan history after opening an earlier revision. A deliberate earlier immutable step stays exact; it cannot silently use the current head or its question. Missing/corrupt history, unavailable snapshot or changed source/index prevents replay without altering records.
+6. Enforce 1–12 files, 250,000 source bytes and encoded request limits without truncation. Source is exactly the primary/cited support set; prerequisite prose is descriptive data and cannot add files/tools/authority. Journal size/count overflow must preserve existing notices.
+7. Attempt to mix a planned step with overview, section repair, range, PR Guide/hunk or another agent's contract. Reject before dispatch/result adoption. Invalid/null planned metadata must not become an ordinary chapter after recovery. Existing older ordinary notices remain explicitly ordinary requests.
+8. During a run, change/remove accepted plan/index/source or revoke its connection. Active rebuilding/cancel ownership must reject changed results and preserve recovery. Run past ordinary review expiry within the original operation deadline without renewing consent, changing identity or starting another run.
+9. Exercise pre-start cancel, active cancel, validation-time cancel, worker crash, timeout, quota failure, malformed output, failed storage and late/abandoned replies. Use existing guarded chapter publication; retain actionable notices, preserve accepted history and inspect any independently persisted preview before retry.
+10. Restart with an interrupted planned chapter. Native recovery must replay the original accepted record and compare the entire saved scope, then reopen the original agent in Guide. Review creation/close/failure must retain the old notice; fresh supported settings/source consent are required, and only wanted validated result adoption resolves it.
+11. Inspect candidate pending/saved results before retry. Same-file matches cannot claim exact agent/request/step provenance. Open a pending preview through the chooser callback, save/discard explicitly and confirm discovery refresh. Do not mark step/read/coverage completion from generation or plan acceptance.
+12. Review the produced answer with a newcomer for representative languages and repos. It must answer that step with real identifiers, grounded behavior/visuals, measured pacing, explicit uncertainty and navigable evidence. Reject shallow documentation paraphrases even when structurally valid. Record the separate pending work for durable chapter-step association and multi-unit orchestration.
+
+None of these cases has been executed.

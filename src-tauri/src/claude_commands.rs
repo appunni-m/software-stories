@@ -153,6 +153,26 @@ pub(crate) async fn build_claude_chapter_review(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn build_claude_planned_chapter_review(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    connections: State<'_, claude_connections::ClaudeConnections>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    connection_id: String,
+    input: provider::BuildClaudePlannedChapterInput,
+) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
+    build_operation_review(
+        app,
+        &sessions,
+        &connections,
+        &reviews,
+        connection_id,
+        ReviewInput::PlannedChapter(input),
+    )
+    .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub(crate) async fn build_claude_repository_plan_review(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
@@ -468,6 +488,7 @@ fn admit_generation_review(
 }
 
 enum ReviewInput {
+    PlannedChapter(provider::BuildClaudePlannedChapterInput),
     Chapter(provider::BuildClaudeReviewInput),
     RepositoryPlan(provider::BuildClaudeRepositoryPlanInput),
     CodeLens(provider::BuildClaudeCodeLensInput),
@@ -497,6 +518,7 @@ async fn build_operation_review(
         }
     };
     let project_id = match &input {
+        ReviewInput::PlannedChapter(input) => &input.project_id,
         ReviewInput::Chapter(input) => &input.project_id,
         ReviewInput::RepositoryPlan(input) => &input.project_id,
         ReviewInput::CodeLens(input) => &input.project_id,
@@ -524,6 +546,9 @@ async fn build_operation_review(
     let runtime = lease.runtime.clone();
     let projects = sessions.clone();
     let pending = match tauri::async_runtime::spawn_blocking(move || match input {
+        ReviewInput::PlannedChapter(input) => {
+            provider::build_claude_planned_chapter_review(&storage, &input, &runtime)
+        }
         ReviewInput::Chapter(input) => {
             claude_generation::prepare_chapter_review(&storage, &projects, &runtime, &input)
         }

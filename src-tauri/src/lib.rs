@@ -40,6 +40,7 @@ mod provider_api;
 mod recovery;
 mod recovery_commands;
 mod repository_plan;
+mod planned_chapter;
 mod repository_plan_commands;
 mod repository_plan_history;
 mod repository_plan_store;
@@ -1904,6 +1905,7 @@ pub fn run() {
             codex_commands::logout_codex_agent,
             codex_commands::list_codex_models,
             codex_commands::build_codex_chapter_review,
+            codex_commands::build_codex_planned_chapter_review,
             codex_commands::build_codex_repository_plan_review,
             codex_commands::build_codex_code_lens_review,
             codex_commands::build_codex_pr_guide_review,
@@ -1919,6 +1921,7 @@ pub fn run() {
             claude_commands::cancel_claude_agent_operation,
             claude_commands::forget_claude_agent_connection,
             claude_commands::build_claude_chapter_review,
+            claude_commands::build_claude_planned_chapter_review,
             claude_commands::build_claude_repository_plan_review,
             claude_commands::build_claude_code_lens_review,
             claude_commands::build_claude_pr_guide_review,
@@ -1929,6 +1932,7 @@ pub fn run() {
             claude_commands::send_claude_pr_guide_request,
             claude_commands::send_claude_pr_change_request,
             repository_plan_commands::prepare_repository_plan_context,
+            repository_plan_commands::prepare_planned_chapter_scope,
             repository_plan_commands::list_repository_plan_drafts,
             repository_plan_commands::load_repository_plan_draft,
             repository_plan_commands::discard_repository_plan_draft,

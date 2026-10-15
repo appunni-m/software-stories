@@ -109,8 +109,10 @@ The UI guards superseded reads and concurrent decisions, compares receipt identi
 
 ## Required next integration
 
+Accepted revisions now have a source-level **Explain this step with an agent** flow for Codex and Claude: native record replay derives the question, prerequisites and fixed captured source before each exact review. Its original scope is retained for interruption recovery. Read [planned agent chapters](PLANNED_AGENT_CHAPTERS.md) for dispatch, bounds, remaining chapter association/orchestration work and acceptance limits. This source change does not qualify either runtime or enable Claude generation.
+
 1. Accept the new app planning flow against the actual native Codex and Claude account/runtime surfaces, supported settings, expiry and fresh source consent. Existing agent components are reused. No mandatory API key, manual copy/import or silent provider fallback can satisfy this step.
 2. Qualify both app planning send paths, including progress/cancel, supported settings, result review and exact interruption recovery. Retain recoverable failures and late-result handling without widening scope. An unexecuted native command cannot satisfy an automatic app operation.
 3. Qualify the saved-draft reader, explicit acceptance, immutable revision history and exact own-notice resolution now present in source. Exercise independent plan/chapter/read/coverage decisions, manual step/source actions, parent conflicts, lost replies, filesystem durability and recovery.
-4. Generate chapters in reviewed bounded units, tracking omissions and recoverable failures across a larger repository. Add selective updates using actual source dependencies. One planning response or a twelve-file overview cannot qualify a complete repository guide.
+4. Qualify the new single-step chapter flow through both agents, persist explicit chapter-to-step associations, then orchestrate reviewed bounded units while tracking omissions and recoverable failures across a larger repository. Add selective updates using actual source dependencies. One planning response or a twelve-file overview cannot qualify a complete repository guide.
 5. Complete the deferred acceptance cases in `xymb`, all required agent operation cells and representative narrative/comprehension reviews before closing `6qk9` or the agent release gate.

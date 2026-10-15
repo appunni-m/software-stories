@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { Check, FileCode2, HardDrive, Sparkles, X } from 'lucide-react';
 import { ChapterRecoveryReview } from './ChapterRecoveryReview';
+import { buildCodexPlannedChapterReview, matchesPlannedChapterReview, type PlannedChapterScope } from './lib/plannedChapters';
 import { buildCodexRepositoryPlanReview, sendCodexRepositoryPlanRequest, type PrepareRepositoryPlanInput, type RepositoryPlanPreview } from './lib/repositoryPlans';
 import {
   buildCodexChapterReview, buildCodexCodeLensReview, buildCodexPrGuideReview, buildCodexPrChangeReview, cancelCodexChapterRequest, cancelCodexLogin,
@@ -19,6 +20,7 @@ export type CodexChapterDialogMode = 'settings' | (PrepareRepositoryPlanInput & 
   kind: 'repository-plan'; recoveryOperationId?: string;
 }) | {
   kind: 'review' | 'overview';
+  plannedChapter?: PlannedChapterScope;
   projectId: string;
   snapshotId: string;
   targetPath?: string;
@@ -121,6 +123,7 @@ function loginHref(value: string): string | null {
 export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onSaved, onRecoveryReviewReady, onOpenCodeLensCitation, onPrGuideReady, onOpenPrChangeCitation, onOpenPendingPreview }: CodexChapterDialogProps) {
   const projectId = mode === 'settings' ? null : mode.projectId;
   const planning = mode !== 'settings' && mode.kind === 'repository-plan' ? mode : null;
+  const plannedChapter = mode !== 'settings' && mode.kind === 'review' ? mode.plannedChapter : null;
   const snapshotId = mode !== 'settings' && 'snapshotId' in mode ? mode.snapshotId : null;
   const codeLensTarget = mode !== 'settings' && mode.kind === 'code-lens-range' ? mode.target : null;
   const gitGuide = mode !== 'settings' && mode.kind === 'pr-guide' ? mode : null;
@@ -393,7 +396,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   };
 
   const changePath = (path: string, checked: boolean) => {
-    if (locked || activeBusy.current || path === targetPath || sectionUpdate || codeLensTarget || gitOperation || planning) return;
+    if (locked || activeBusy.current || path === targetPath || sectionUpdate || codeLensTarget || gitOperation || planning || plannedChapter) return;
     releaseReview();
     setPaths((current) => checked
       ? current.includes(path) || current.length >= 12 ? current : [...current, path]
@@ -409,6 +412,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     try {
       const settings = { modelId: selection.modelId, effort: selection.effort, approvalPolicy: 'never' as const };
       const value = planning ? await buildCodexRepositoryPlanReview({ projectId, snapshotId: planning.snapshotId, question: planning.question, selectedPaths: planning.selectedPaths, ...settings })
+        : plannedChapter ? await buildCodexPlannedChapterReview({ projectId, target: plannedChapter.target, ...settings })
         : gitGuide ? await buildCodexPrGuideReview({ projectId, baseRef: gitGuide.baseRef, headRef: gitGuide.headRef,
           comparisonId: gitGuide.comparisonId, selectedChanges: gitGuide.selectedChanges, ...settings })
         : gitChange ? await buildCodexPrChangeReview({ projectId, target: gitChange, ...settings })
@@ -435,6 +439,14 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           if (lifetime.current === epoch) setError('The returned review did not match this question, source or settings. Return to the planner and review again.');
           return;
         }
+      }
+      if (plannedChapter && (!matchesPlannedChapterReview(value.data, plannedChapter)
+        || value.data.providerId !== 'codex' || value.data.endpointUrl !== 'codex-app-server://stdio'
+        || value.data.projectId !== projectId || value.data.modelId !== selection.modelId
+        || value.data.generationConfig.effort !== selection.effort || value.data.generationConfig.approvalPolicy !== 'never')) {
+        await discardProviderRequestReview(value.data.reviewId).catch(() => {});
+        if (lifetime.current === epoch) setError('The returned review did not match this accepted step, source or settings. Open the exact plan revision again.');
+        return;
       }
       resources.current.review = value.data.reviewId;
       setReview(value.data);
@@ -676,14 +688,15 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
               </div> : <div className="provider-context-picker">
                 <div className="provider-context-heading"><strong>{targetPath ?? (planning ? 'Learning plan source' : 'Repository overview')}</strong><span>{paths.length} of 12 files selected</span></div>
                 {planning && <><h4>Learning question</h4><p>{planning.question}</p><p>This fixed selection creates a reading plan, not chapters or completed file coverage. Return to the planner to change the question or source.</p></>}
-                <p>{sectionUpdate ? 'This repair uses the selected section’s declared evidence. Source selection is fixed; the native review rechecks that only this section is stale and the other sections can carry forward.' : targetPath ? 'The target file stays selected. Add supporting files to explain its real behavior.' : planning ? 'The original source selection stays fixed for this planning request.' : 'Choose 1–12 files that ground the repository overview.'}</p>
+                {plannedChapter && <><h4>Learning question</h4><p>{plannedChapter.question}</p><p>One accepted reading step · {plannedChapter.prerequisites.length} learning prerequisites. The original plan revision and source stay fixed. This creates one unaccepted chapter.</p><details><summary>Plan question and prerequisites</summary><p>{plannedChapter.planQuestion}</p><ul>{plannedChapter.prerequisites.map((item) => <li key={item.stepId}>{item.question}</li>)}</ul><p>Reading prerequisites do not prove runtime calls.</p></details></>}
+                <p>{plannedChapter ? 'The accepted step’s target and cited supporting files are fixed. Return to the plan to choose a different step.' : sectionUpdate ? 'This repair uses the selected section’s declared evidence. Source selection is fixed; the native review rechecks that only this section is stale and the other sections can carry forward.' : targetPath ? 'The target file stays selected. Add supporting files to explain its real behavior.' : planning ? 'The original source selection stays fixed for this planning request.' : 'Choose 1–12 files that ground the repository overview.'}</p>
                 {mode.kind === 'section-update' && <p><strong>{mode.sectionTitle ?? 'Selected stale section'}</strong> · Older source and the previous section are included as context in the exact prompt below. Only current source is citable. The source byte limit counts both snapshots.</p>}
                 {manifestLoading && <p role="status">Loading the captured file list…</p>}
                 {manifestError && <p className="provider-error-text" role="alert">{manifestError}</p>}
                 {manifest && <><label className="provider-context-search">{sectionUpdate ? 'Filter declared source files' : 'Filter captured files'}<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search snapshot paths" /></label>
                   <div className="provider-context-files">{filteredFiles.map((file) => {
                     const checked = paths.includes(file.path);
-                    return <label key={file.path} className={checked ? 'selected' : ''}><input type="checkbox" checked={checked} disabled={locked || Boolean(planning) || Boolean(sectionUpdate) || file.path === targetPath || (!checked && paths.length >= 12)} onChange={(event) => changePath(file.path, event.target.checked)} /><code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} B{file.path === targetPath ? ' · target' : ''}</small></label>;
+                    return <label key={file.path} className={checked ? 'selected' : ''}><input type="checkbox" checked={checked} disabled={locked || Boolean(planning) || Boolean(plannedChapter) || Boolean(sectionUpdate) || file.path === targetPath || (!checked && paths.length >= 12)} onChange={(event) => changePath(file.path, event.target.checked)} /><code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} B{file.path === targetPath ? ' · target' : ''}</small></label>;
                   })}{!filteredFiles.length && <p>No eligible captured files match this filter.</p>}</div>
                   <details><summary>Selected paths ({paths.length})</summary><ul>{paths.map((path) => <li key={path}><code>{path}</code></li>)}</ul></details>
                   {!sourceReady && paths.length > 0 && <p className="provider-error-text">{paths.length > 12

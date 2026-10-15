@@ -63,6 +63,7 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
   const scope = typeof mode === 'object' ? mode : null;
   const chapterScope = isClaudeChapterScope(scope) ? scope : null;
   const planningScope = scope?.kind === 'repository-plan' ? scope : null;
+  const plannedChapter = scope?.kind === 'review' ? scope.plannedChapter : null;
   const rangeScope = scope?.kind === 'code-lens-range' ? scope : null;
   const gitScope = scope?.kind === 'pr-guide' ? scope : scope?.kind === 'pr-change' ? scope.target : null;
   const gitChanges = scope?.kind === 'pr-guide' ? scope.selectedChanges : scope?.kind === 'pr-change' ? [scope.target.selectedChange] : [];
@@ -185,7 +186,7 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
     releaseReview(); setSelection(next); remember(next);
   };
   const changePath = (path: string, checked: boolean) => {
-    if (locked || resources.current.generationHeld || resources.current.active !== null || sectionUpdate || planningScope || path === targetPath) return;
+    if (locked || resources.current.generationHeld || resources.current.active !== null || sectionUpdate || planningScope || plannedChapter || path === targetPath) return;
     releaseReview();
     setPaths((previous) => checked
       ? previous.includes(path) || previous.length >= 12 ? previous : [...previous, path]
@@ -277,16 +278,17 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
         {!planningReady && !manifestLoading && !manifestError && <p role="alert">The original selection is unavailable or exceeds the request limits. Return to the planner to correct it.</p>}
       </section>}
       {chapterScope && <>
+        {plannedChapter && <section className="provider-review-card"><h4>Learning question</h4><p>{plannedChapter.question}</p><p>This one chapter answers an accepted reading step. Its original plan revision and cited source are fixed; review and chapter acceptance remain separate.</p><details><summary>Plan question and prerequisites</summary><p>{plannedChapter.planQuestion}</p><ul>{plannedChapter.prerequisites.map((item) => <li key={item.stepId}>{item.question}</li>)}</ul><p>These are learning prerequisites, not proven runtime calls.</p></details></section>}
         {manifestLoading && <p role="status">Loading the captured file list…</p>}
         {manifestError && <p className="provider-error-text" role="alert">{manifestError}</p>}
         <details open={chapterScope.kind === 'overview'}>
           <summary>{sectionUpdate ? 'Fixed section-repair source' : 'Selected captured source'} · {paths.length} files · {selectedBytes.toLocaleString()}/250,000 current source bytes</summary>
           {sectionUpdate && <p>Only the selected section will be requested. Its declared file scope is fixed for preservation checks. Previous source and section text are context only; current source is citable, and the native byte limit counts both snapshots.</p>}
           <ul className="provider-section-path-list">{paths.map((path) => <li key={path}><code>{path}</code>{path === targetPath ? ' · target' : ''}
-            {!sectionUpdate && path !== targetPath && <button className="text-button" disabled={locked} onClick={() => changePath(path, false)}>Remove</button>}</li>)}</ul>
+            {!sectionUpdate && !plannedChapter && path !== targetPath && <button className="text-button" disabled={locked} onClick={() => changePath(path, false)}>Remove</button>}</li>)}</ul>
           <label className="provider-context-search">Filter captured files<input value={query} onChange={(event) => setQuery(event.target.value)} disabled={locked} /></label>
           <div className="provider-context-files">{matches.slice(0, 100).map((file) => <label key={file.path} className={paths.includes(file.path) ? 'selected' : undefined}>
-            <input type="checkbox" checked={paths.includes(file.path)} disabled={locked || !!sectionUpdate || file.path === targetPath
+            <input type="checkbox" checked={paths.includes(file.path)} disabled={locked || !!sectionUpdate || !!plannedChapter || file.path === targetPath
               || !paths.includes(file.path) && (paths.length >= 12 || selectedBytes + file.sizeBytes > 250_000)} onChange={(event) => changePath(file.path, event.target.checked)} />
             <code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} bytes</small>
           </label>)}</div>

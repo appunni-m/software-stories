@@ -89,3 +89,8 @@ Candidate Claude range and Git reviews now use transport-independent native evid
 ## Local recovery implementation checkpoint
 
 Codex and Claude now both restore journal-owned chapter/section/range/Git scope through native local evidence validation. The frontend preserves the original backend, checks possible earlier chapter/guide results and requires a fresh review and consent. The old notice is retained through request preparation/failure/cancellation and resolves after wanted validated result adoption. This is source wiring, not a new vendor/account eligibility finding or accepted native behavior. Claude remains gated by an empty qualification registry. No runtime/model calls, builds or tests ran.
+
+
+## Official account-route recheck — October 16, 2026
+
+The [Claude Help Center](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan), including its October 7 update, still describes subscription-limit usage for the SDK, headless CLI and third-party apps. The [Agent SDK overview](https://code.claude.com/docs/en/agent-sdk/overview) still says products offering claude.ai login/rate limits need prior approval. These pages do not resolve this product's exact integration/distribution eligibility. Subscription use is not technically impossible; the product route remains unqualified. Resolve that conflict and record applicable evidence before publishing a native qualification profile. No runtime, login, SDK probe or model request ran during this documentation recheck.

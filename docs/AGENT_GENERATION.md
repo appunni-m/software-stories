@@ -42,7 +42,7 @@ Claude Agent is a separate required automatic backend; its PR operations remain 
 
 In Guide, choose **New learning plan**, write a learning question and select captured source. **Choose agent and review request** keeps Codex and Claude separate, with each agent's supported settings and a fresh exact source review. A request covers at most 12 files and 250,000 source bytes; it does not explain an entire repository. Codex planning dispatch is source-only, and Claude generation is currently unavailable behind qualification.
 
-A saved plan has manual Back/Next, source citations, known unknowns and explicit coverage limits. Explain a file through its own reviewed generation action. Plan acceptance, immutable revisions and matching-notice resolution are separate local decisions. See [the planning flow and exact limits](REPOSITORY_PLANNING.md).
+A saved plan has manual Back/Next, source citations, known unknowns and explicit coverage limits. An accepted revision now offers **Explain this step with an agent**: choose Codex or Claude, review the original question/prerequisites and fixed cited source, then request one unaccepted chapter through that agent. Exact step recovery is present in source; native acceptance remains pending and Claude cannot yet generate. Unaccepted plans offer a separately labeled general file explanation. Plan acceptance, chapter acceptance, immutable revisions and matching-notice resolution are separate decisions. See [the step chapter contract and limitations](PLANNED_AGENT_CHAPTERS.md) and [the planning flow](REPOSITORY_PLANNING.md).
 
 ### Interrupted requests
 

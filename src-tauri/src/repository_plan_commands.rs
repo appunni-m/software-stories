@@ -141,3 +141,22 @@ pub(crate) async fn resolve_repository_plan_notice(
     tauri::async_runtime::spawn_blocking(move || repository_plan_history::resolve_notice(&storage, &journal, &input.project_id, input.source))
         .await.map_err(|_| "Plan notice resolution stopped unexpectedly. Refresh recovery before retrying; accepted plans and chapters were preserved.".to_owned())?
 }
+
+/// Reconstruct one accepted reading step locally, without agent/model access.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn prepare_planned_chapter_scope(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    project_id: String,
+    target: crate::planned_chapter::PlannedChapterTarget,
+) -> Result<crate::planned_chapter::PlannedChapterScope, String> {
+    sessions.get(&project_id)?;
+    let storage = app_data_directory(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::planned_chapter::prepare(&storage, &project_id, &target)
+    })
+    .await
+    .map_err(|_| {
+        "The accepted reading step could not be prepared. Open the exact plan again.".to_owned()
+    })?
+}

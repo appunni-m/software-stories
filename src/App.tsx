@@ -7,6 +7,7 @@ import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import { RepositoryPlanningDialog, type RepositoryPlanningScope } from './RepositoryPlanningDialog';
 import { RepositoryPlans } from './RepositoryPlans';
 import type { PrepareRepositoryPlanInput } from './lib/repositoryPlans';
+import type { PlannedChapterScope } from './lib/plannedChapters';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import {
   ArrowLeft,
@@ -492,6 +493,18 @@ function App() {
           snapshotId: operation.snapshotId, focusTarget: 'heading:guide-plan' }));
         openPlanningDialog({ projectId: operation.projectId, snapshotId: operation.snapshotId,
           question: request.repositoryPlan.question, selectedPaths: request.selectedPaths,
+          recoveryOperationId: operation.operationId, recoveryBackend });
+        return;
+      }
+      if (request.plannedChapter) {
+        if (!recovered || !recoveryBackend || request.purpose !== 'fileChapter') throw new Error('The accepted reading step cannot be restored with this backend. Its recovery notice was preserved.');
+        const scope = request.plannedChapter;
+        if (scope.snapshotId !== operation.snapshotId || scope.primaryPath !== operation.targetPath) throw new Error('The accepted step differs from the interrupted chapter. No broader request was opened.');
+        handleProjectOpenResult(opened);
+        setNavigation((state) => navigateToRoute(state, { workspace: 'guide-plan', projectId: operation.projectId,
+          snapshotId: operation.snapshotId, focusTarget: 'heading:guide-plan' }));
+        openPlanningDialog({ kind: 'planned-chapter', projectId: operation.projectId, snapshotId: scope.snapshotId,
+          question: scope.question, selectedPaths: scope.selectedPaths, plannedChapter: scope,
           recoveryOperationId: operation.operationId, recoveryBackend });
         return;
       }
@@ -1667,6 +1680,9 @@ function App() {
                 rows={buildInventory(snapshotManifest)}
                 returnFocusTarget={navigation.current.focusTarget}
                 onPlan={openPlanningDialog}
+                onGeneratePlannedChapter={(scope) => openPlanningDialog({ kind: 'planned-chapter',
+                  projectId: currentProject.projectId, snapshotId: scope.snapshotId,
+                  question: scope.question, selectedPaths: scope.selectedPaths, plannedChapter: scope })}
                 onGoAtlas={() => chooseWorkspace('atlas')}
                 onGoChanges={() => chooseWorkspace('changes')}
                 onGoStudio={() => chooseWorkspace('chapter-studio')}
@@ -1769,8 +1785,10 @@ function App() {
         </main>
       </div>
       {planningDialog && <RepositoryPlanningDialog
-        key={JSON.stringify([planningDialog.projectId, planningDialog.snapshotId, planningDialog.question, planningDialog.selectedPaths, planningDialog.recoveryOperationId])}
-        scope={planningDialog} native={runtime?.native ?? isNativeRuntime()} onClose={closePlanningDialog} />}
+        key={JSON.stringify([planningDialog.kind, planningDialog.projectId, planningDialog.snapshotId, planningDialog.question, planningDialog.selectedPaths, planningDialog.kind === 'planned-chapter' ? planningDialog.plannedChapter.target : null, planningDialog.recoveryOperationId])}
+        scope={planningDialog} native={runtime?.native ?? isNativeRuntime()} onClose={closePlanningDialog}
+        onRecoveryResultReady={completeRecoveredProviderReview}
+        onOpenPendingPreview={(generationId) => { closePlanningDialog(); setRecoveredPreviewId(generationId); }} />}
       {providerDialog && (
         <ProviderDialog
           key={providerDialog.kind === 'settings' ? 'settings' : `${providerDialog.kind}:${providerDialog.projectId}:${providerDialog.snapshotId}:${providerDialog.kind === 'review' ? providerDialog.targetPath : providerDialog.kind === 'section-update' ? providerDialog.sectionUpdate.sectionId : providerDialog.kind === 'code-lens-range' ? `${providerDialog.target.path}:${providerDialog.target.startLine}:${providerDialog.target.endLine}:${providerDialog.target.startByte ?? ''}:${providerDialog.target.endByteExclusive ?? ''}` : ''}:${'recoveryOperationId' in providerDialog ? providerDialog.recoveryOperationId ?? '' : ''}`}
@@ -3650,7 +3668,7 @@ function inventoryFilterKey(row: Pick<InventoryRow, 'path' | 'kind' | 'reason'>)
   return `${row.path}\u0000${row.kind}\u0000${row.reason}`;
 }
 
-function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTarget, onPlan, onGoAtlas, onGoChanges, onGoStudio, onGenerateOverview, onGenerateFile, onReadRevision, onReviewRevision, onOpenFile }: {
+function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTarget, onPlan, onGoAtlas, onGoChanges, onGoStudio, onGenerateOverview, onGenerateFile, onGeneratePlannedChapter, onReadRevision, onReviewRevision, onOpenFile }: {
   projectId: string;
   projectName: string;
   manifest: SnapshotManifest;
@@ -3662,6 +3680,7 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
   onGoStudio: () => void;
   onGenerateOverview: () => void;
   onGenerateFile: (path: string, selectedPaths: string[]) => void;
+  onGeneratePlannedChapter: (scope: PlannedChapterScope) => void;
   onReadRevision: (revision: ChapterRevision) => void;
   onReviewRevision: (revision: ChapterRevision) => void;
   onOpenFile: (path: string, snapshotId?: string, range?: SourceLineRange) => void;
@@ -3906,7 +3925,7 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
         </div>
       </section>
 
-      <RepositoryPlans manifest={manifest} onPlan={onPlan} onOpenFile={onOpenFile} onGenerateFile={onGenerateFile} />
+      <RepositoryPlans manifest={manifest} onPlan={onPlan} onOpenFile={onOpenFile} onGenerateFile={onGenerateFile} onGeneratePlannedChapter={onGeneratePlannedChapter} />
       <details className="guide-coverage-disclosure" open={returnFocusTarget?.startsWith('journey:')}><summary>Build a static call reading order</summary>
       <Suspense fallback={<p className="journey-note" role="status">Loading repository journeys…</p>}>
         <RepositoryJourneys manifest={manifest} revisions={revisions} revisionsReady={coverageReady} returnFocusTarget={returnFocusTarget}
