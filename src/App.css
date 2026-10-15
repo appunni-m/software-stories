@@ -1628,3 +1628,67 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .pr-guide-decision-actions { align-items: stretch; }
   .pr-guide-decision-actions > .primary-button { flex: 1 1 100%; }
 }
+
+.app-error-fallback {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  color: #f3f6fb;
+  background: #080c12;
+}
+
+.app-error-card {
+  width: min(100%, 680px);
+  padding: 36px;
+  border: 1px solid #424b59;
+  border-radius: 16px;
+  background: #111821;
+  box-shadow: 0 24px 70px rgb(0 0 0 / 32%);
+}
+
+.app-error-eyebrow {
+  color: #a7bdd7;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.app-error-card h1 {
+  margin: 18px 0 10px;
+  font-size: clamp(24px, 4vw, 34px);
+  line-height: 1.2;
+}
+
+.app-error-card p {
+  max-width: 54ch;
+  margin: 0 0 24px;
+  color: #d5dbe5;
+  line-height: 1.55;
+}
+
+.app-error-card .primary-button {
+  min-height: 44px;
+}
+
+.app-error-details {
+  margin-top: 24px;
+  border-top: 1px solid #424b59;
+  padding-top: 16px;
+  color: #d5dbe5;
+}
+
+.app-error-details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.app-error-details pre {
+  max-height: 280px;
+  margin: 12px 0 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #d5dbe5;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+}

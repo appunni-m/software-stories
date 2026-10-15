@@ -4466,7 +4466,7 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
       </div>
     );
   }
-  if (selectedPath && loading) {
+  if (selectedPath && (loading || (!source && !error))) {
     return <div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Verifying and opening {selectedPath} from the selected snapshot…</span></div>;
   }
   if (selectedPath && error) {

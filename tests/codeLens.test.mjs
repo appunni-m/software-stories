@@ -41,6 +41,13 @@ describe('Code Lens source rendering helpers', () => {
     assert.ok(highlighted[1].some((token) => token.text === '3' && token.kind === 'number'));
   });
 
+  it('preserves leading plain text before the first highlighted token', () => {
+    const lines = ['#![forbid(unsafe_code)]', '  fn start() {}'];
+    const highlighted = highlightSourceLines('src/lib.rs', lines);
+    assert.ok(highlighted);
+    assert.deepEqual(highlighted.map((tokens) => tokens.map((token) => token.text).join('')), lines);
+  });
+
   it('returns no lexer output for unsupported extensions so callers show plain text', () => {
     const lines = splitCapturedSourceLines('plain source\n');
     assert.equal(highlightSourceLines('src/readme.weird', lines), null);

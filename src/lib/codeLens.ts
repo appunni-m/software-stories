@@ -235,7 +235,7 @@ export function highlightSourceLines(path: string, lines: readonly string[]): So
     const append = (text: string, kind?: SourceTokenKind) => {
       if (!text) return;
       const previous = tokens[tokens.length - 1];
-      if (previous?.kind === kind) previous.text += text;
+      if (previous && previous.kind === kind) previous.text += text;
       else tokens.push(kind ? { text, kind } : { text });
     };
 
