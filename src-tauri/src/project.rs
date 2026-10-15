@@ -1,10 +1,18 @@
+use crate::bounded_file::{self, ReadError};
+use crate::bounded_process::{self, Limits};
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::{Mutex, OnceLock};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+const GIT_INSPECTION_TIMEOUT: Duration = Duration::from_secs(5);
+const PROJECT_INSPECTION_DEADLINE: Duration = Duration::from_secs(20);
+const GIT_METADATA_OUTPUT_LIMIT: usize = 16 * 1024;
+const MAX_RECENT_PROJECTS_BYTES: usize = 16 * 1024 * 1024;
+const MAX_RECENT_PROJECTS_COUNT: usize = 10_000;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -145,10 +153,12 @@ fn inspect_project(selected_path: &str) -> Result<RecentProject, InspectionError
     // Opening the directory checks access without enumerating entries or reading source bytes.
     File::open(&canonical_selected_path)
         .map_err(|error| directory_error(&canonical_selected_path, error))?;
+    let operation_deadline = Instant::now() + PROJECT_INSPECTION_DEADLINE;
 
     let worktree_output = git_output(
         &canonical_selected_path,
         &["rev-parse", "--is-inside-work-tree"],
+        operation_deadline,
     )?;
     if !worktree_output.status.success() {
         let message = output_message(&worktree_output);
@@ -165,7 +175,11 @@ fn inspect_project(selected_path: &str) -> Result<RecentProject, InspectionError
         });
     }
 
-    let root_output = git_output(&canonical_selected_path, &["rev-parse", "--show-toplevel"])?;
+    let root_output = git_output(
+        &canonical_selected_path,
+        &["rev-parse", "--show-toplevel"],
+        operation_deadline,
+    )?;
     if !root_output.status.success() {
         let message = output_message(&root_output);
         if message.to_lowercase().contains("not a git repository")
@@ -192,8 +206,13 @@ fn inspect_project(selected_path: &str) -> Result<RecentProject, InspectionError
     let branch = git_optional(
         &canonical_root,
         &["symbolic-ref", "--quiet", "--short", "HEAD"],
+        operation_deadline,
     )?;
-    let head = git_optional(&canonical_root, &["rev-parse", "--verify", "HEAD"])?;
+    let head = git_optional(
+        &canonical_root,
+        &["rev-parse", "--verify", "HEAD"],
+        operation_deadline,
+    )?;
     let display_name = canonical_root
         .file_name()
         .and_then(|name| name.to_str())
@@ -229,23 +248,36 @@ fn directory_error(path: &Path, error: io::Error) -> InspectionError {
     }
 }
 
-fn git_output(path: &Path, args: &[&str]) -> Result<Output, InspectionError> {
-    git_command()
-        .args(args)
-        .current_dir(path)
-        .output()
-        .map_err(|error| {
-            if error.kind() == io::ErrorKind::NotFound {
-                InspectionError::GitUnavailable {
-                    message: "Git was not found. Install Git or the Xcode Command Line Tools, then try again.".to_owned(),
-                }
-            } else {
-                InspectionError::GitError {
-                    path: path.display().to_string(),
-                    message: format!("Git could not inspect this folder: {error}"),
-                }
-            }
-        })
+fn git_output(
+    path: &Path,
+    args: &[&str],
+    operation_deadline: Instant,
+) -> Result<Output, InspectionError> {
+    let mut command = git_command();
+    command.args(args).current_dir(path);
+    bounded_process::run(
+        &mut command,
+        None,
+        Limits {
+            command_timeout: GIT_INSPECTION_TIMEOUT,
+            operation_deadline,
+            stdout_bytes: GIT_METADATA_OUTPUT_LIMIT,
+            stderr_bytes: GIT_METADATA_OUTPUT_LIMIT,
+            stdin_bytes: 0,
+        },
+        None,
+    )
+    .map_err(|error| match error.start_error() {
+        Some(start) if start.kind() == io::ErrorKind::NotFound => InspectionError::GitUnavailable {
+            message:
+                "Git was not found. Install Git or the Xcode Command Line Tools, then try again."
+                    .to_owned(),
+        },
+        _ => InspectionError::GitError {
+            path: path.display().to_string(),
+            message: format!("Git could not inspect this folder: {error}"),
+        },
+    })
 }
 
 pub(crate) fn git_command() -> Command {
@@ -278,8 +310,12 @@ pub(crate) fn git_command() -> Command {
     command
 }
 
-fn git_optional(path: &Path, args: &[&str]) -> Result<Option<String>, InspectionError> {
-    let output = git_output(path, args)?;
+fn git_optional(
+    path: &Path,
+    args: &[&str],
+    operation_deadline: Instant,
+) -> Result<Option<String>, InspectionError> {
+    let output = git_output(path, args, operation_deadline)?;
     if !output.status.success() {
         return Ok(None);
     }
@@ -386,13 +422,25 @@ fn recent_projects_path(storage_dir: &Path) -> PathBuf {
 
 fn load_recent_projects(storage_dir: &Path) -> Result<Vec<RecentProject>, String> {
     let path = recent_projects_path(storage_dir);
-    let bytes = match fs::read(&path) {
+    let bytes = match bounded_file::read(&path, MAX_RECENT_PROJECTS_BYTES) {
         Ok(bytes) => bytes,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(error) => return Err(format!("Recent projects could not be read: {error}")),
+        Err(ReadError::Io(error)) if error.kind() == io::ErrorKind::NotFound => {
+            return Ok(Vec::new());
+        }
+        Err(ReadError::TooLarge) => {
+            return Err("Recent projects exceed the 16 MiB metadata limit. Existing data was preserved; inspect or back up this file before recovering it.".to_owned());
+        }
+        Err(ReadError::Io(error)) => {
+            return Err(format!("Recent projects could not be read: {error}"));
+        }
     };
     let mut projects: Vec<RecentProject> = serde_json::from_slice(&bytes)
         .map_err(|error| format!("Recent projects data is invalid: {error}"))?;
+    if projects.len() > MAX_RECENT_PROJECTS_COUNT {
+        return Err(format!(
+            "Recent projects contain more than the supported {MAX_RECENT_PROJECTS_COUNT} entries. Existing data was preserved."
+        ));
+    }
     projects.sort_by(|left, right| right.last_opened_unix_ms.cmp(&left.last_opened_unix_ms));
     Ok(projects)
 }
@@ -407,6 +455,11 @@ fn upsert_recent_project(storage_dir: &Path, project: RecentProject) -> Result<(
 }
 
 fn write_recent_projects(storage_dir: &Path, projects: &[RecentProject]) -> Result<(), String> {
+    if projects.len() > MAX_RECENT_PROJECTS_COUNT {
+        return Err(format!(
+            "Recent projects reached the supported limit of {MAX_RECENT_PROJECTS_COUNT} entries. Existing data was preserved."
+        ));
+    }
     fs::create_dir_all(storage_dir).map_err(|error| {
         format!("The local Code Atlas data folder could not be created: {error}")
     })?;
@@ -414,6 +467,12 @@ fn write_recent_projects(storage_dir: &Path, projects: &[RecentProject]) -> Resu
     let temporary_path = storage_dir.join(format!("recent-projects.{}.tmp", std::process::id()));
     let bytes = serde_json::to_vec_pretty(projects)
         .map_err(|error| format!("Recent projects could not be encoded: {error}"))?;
+    if bytes.len() > MAX_RECENT_PROJECTS_BYTES {
+        return Err(
+            "Recent projects exceed the 16 MiB metadata limit. Existing data was preserved."
+                .to_owned(),
+        );
+    }
 
     let write_result = (|| {
         let mut file = File::create(&temporary_path)
@@ -450,6 +509,7 @@ fn unix_time_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Read;
     use std::process::Command;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -605,6 +665,72 @@ mod tests {
         assert!(after_remove.is_empty());
         assert_eq!(fs::read(project_file).unwrap(), original_contents);
         assert!(!repository.join("recent-projects.json").exists());
+    }
+
+    #[test]
+    fn malformed_recent_projects_are_rejected_without_replacing_saved_bytes() {
+        let temporary = TestDirectory::new("recent-project-corrupt");
+        let storage = temporary.path().join("app-data");
+        fs::create_dir_all(&storage).unwrap();
+        let path = recent_projects_path(&storage);
+        let corrupt = b"{ truncated recent-project data";
+        fs::write(&path, corrupt).unwrap();
+
+        let error = load_recent_projects(&storage).unwrap_err();
+        assert!(error.contains("invalid"), "unexpected error: {error}");
+        assert_eq!(fs::read(&path).unwrap(), corrupt);
+    }
+
+    #[test]
+    fn recent_project_count_overflow_is_explicit_and_preserves_saved_bytes() {
+        let temporary = TestDirectory::new("recent-project-count-overflow");
+        let repository = temporary.path().join("repository");
+        let storage = temporary.path().join("app-data");
+        create_repository(&repository);
+        let project = inspect_project(repository.to_str().unwrap()).unwrap();
+        fs::create_dir_all(&storage).unwrap();
+        let path = recent_projects_path(&storage);
+
+        let projects = vec![project.clone(); MAX_RECENT_PROJECTS_COUNT];
+        let supported_bytes = serde_json::to_vec(&projects).unwrap();
+        fs::write(&path, &supported_bytes).unwrap();
+        assert_eq!(
+            load_recent_projects(&storage).unwrap().len(),
+            MAX_RECENT_PROJECTS_COUNT
+        );
+
+        let projects = vec![project; MAX_RECENT_PROJECTS_COUNT + 1];
+        let bytes = serde_json::to_vec(&projects).unwrap();
+        fs::write(&path, &bytes).unwrap();
+
+        let error = load_recent_projects(&storage).unwrap_err();
+        assert!(error.contains("more than the supported 10000 entries"));
+        assert_eq!(fs::read(&path).unwrap(), bytes);
+    }
+
+    #[test]
+    fn oversized_recent_project_metadata_is_rejected_without_truncating_the_file() {
+        let temporary = TestDirectory::new("recent-project-byte-overflow");
+        let storage = temporary.path().join("app-data");
+        fs::create_dir_all(&storage).unwrap();
+        let path = recent_projects_path(&storage);
+        let mut file = File::create(&path).unwrap();
+        file.write_all(b"preserve").unwrap();
+        file.set_len(MAX_RECENT_PROJECTS_BYTES as u64 + 1).unwrap();
+
+        let error = load_recent_projects(&storage).unwrap_err();
+        assert!(error.contains("16 MiB metadata limit"));
+        assert_eq!(
+            fs::metadata(&path).unwrap().len(),
+            MAX_RECENT_PROJECTS_BYTES as u64 + 1
+        );
+        let mut prefix = Vec::new();
+        File::open(&path)
+            .unwrap()
+            .take(8)
+            .read_to_end(&mut prefix)
+            .unwrap();
+        assert_eq!(prefix, b"preserve");
     }
 
     #[test]

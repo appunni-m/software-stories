@@ -3,6 +3,7 @@
 //! This module deliberately operates on immutable commit object IDs after ref
 //! resolution. It does not checkout either tree, touch the index, or update refs.
 
+use crate::bounded_process::{self, Limits, RunError};
 use crate::project::git_command;
 use crate::{
     index::{self, RelationshipConfidence, RelationshipKind, SnapshotIndex, SnapshotIndexStatus},
@@ -15,9 +16,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs;
-use std::io::{self, Read, Write};
 use std::path::Path;
-use std::process::{Output, Stdio};
+use std::process::Output;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -1076,7 +1076,7 @@ fn resolve_ref(
         return resolve_commit_expression(repository, requested, &expression, deadline);
     }
 
-    let candidates = match ref_candidates(requested) {
+    let candidates = match ref_candidates(requested, deadline) {
         Ok(candidates) => candidates,
         Err(message) => {
             return Err(RefResolutionError {
@@ -1128,8 +1128,9 @@ fn resolve_ref(
     }
 }
 
-fn ref_candidates(requested: &str) -> Result<Vec<String>, String> {
+fn ref_candidates(requested: &str, deadline: Instant) -> Result<Vec<String>, String> {
     if requested.is_empty()
+        || requested.len() > 1_024
         || requested.len() > 1024
         || requested.starts_with('-')
         || requested
@@ -1153,7 +1154,7 @@ fn ref_candidates(requested: &str) -> Result<Vec<String>, String> {
         if !(requested.starts_with("refs/heads/")
             || requested.starts_with("refs/tags/")
             || requested.starts_with("refs/remotes/"))
-            || !valid_git_ref(requested)
+            || !valid_git_ref(requested, deadline)
         {
             return Err(
                 "Only fully qualified local branch, tag, and remote-tracking refs are accepted."
@@ -1170,23 +1171,34 @@ fn ref_candidates(requested: &str) -> Result<Vec<String>, String> {
         format!("refs/tags/{requested}"),
         format!("refs/remotes/{requested}"),
     ];
-    if candidates.iter().any(|candidate| !valid_git_ref(candidate)) {
+    if candidates
+        .iter()
+        .any(|candidate| !valid_git_ref(candidate, deadline))
+    {
         return Err("The ref name is not a valid local Git ref.".to_owned());
     }
     Ok(candidates.into_iter().collect())
 }
 
-fn valid_git_ref(reference: &str) -> bool {
+fn valid_git_ref(reference: &str, deadline: Instant) -> bool {
     if reference.contains("//") || reference.ends_with(".lock") || reference.ends_with(".") {
         return false;
     }
-    let output = git_command()
-        .arg("check-ref-format")
-        .arg(reference)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
-    output.is_ok_and(|status| status.success())
+    let mut command = git_command();
+    command.args(["check-ref-format", reference]);
+    bounded_process::run(
+        &mut command,
+        None,
+        Limits {
+            command_timeout: deadline.saturating_duration_since(Instant::now()),
+            operation_deadline: deadline,
+            stdout_bytes: 0,
+            stderr_bytes: 0,
+            stdin_bytes: 0,
+        },
+        None,
+    )
+    .is_ok_and(|output| output.status.success())
 }
 
 fn resolve_commit_expression(
@@ -2090,6 +2102,13 @@ fn run_git_output(
     deadline: Instant,
     input: Option<&[u8]>,
 ) -> Result<Output, GitEvidenceError> {
+    let remaining = deadline.saturating_duration_since(Instant::now());
+    if remaining.is_zero() {
+        return Err(GitEvidenceError::TimedOut(
+            "The bounded local Git command reached its time limit; remaining evidence was omitted."
+                .to_owned(),
+        ));
+    }
     let mut command = git_command();
     command
         .args(args)
@@ -2100,118 +2119,32 @@ fn run_git_output(
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_PAGER", "cat")
         .env("GIT_CONFIG_NOSYSTEM", "1")
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
-        .stdin(if input.is_some() {
-            Stdio::piped()
-        } else {
-            Stdio::null()
-        })
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-    let mut child = command.spawn().map_err(|error| {
-        GitEvidenceError::Git(format!(
-            "Git could not start for the local comparison: {error}"
-        ))
-    })?;
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| GitEvidenceError::Git("Git stdout was unavailable.".to_owned()))?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or_else(|| GitEvidenceError::Git("Git stderr was unavailable.".to_owned()))?;
-    let stdout_reader = thread::spawn(move || read_limited(stdout, max_stdout_bytes));
-    let stderr_reader = thread::spawn(move || read_limited(stderr, MAX_GIT_STDERR_BYTES));
-    let input_writer = match input {
-        Some(input) => {
-            let stdin = child.stdin.take().ok_or_else(|| {
-                GitEvidenceError::Git(
-                    "Git stdin was unavailable for a bounded object read.".to_owned(),
-                )
-            })?;
-            let input = input.to_vec();
-            Some(thread::spawn(move || {
-                let mut stdin = stdin;
-                stdin.write_all(&input)
-            }))
-        }
-        None => None,
-    };
-
-    let mut timed_out = false;
-    loop {
-        match child.try_wait() {
-            Ok(Some(_)) => break,
-            Ok(None) if Instant::now() < deadline => thread::sleep(Duration::from_millis(10)),
-            Ok(None) => {
-                timed_out = true;
-                let _ = child.kill();
-                let _ = child.wait();
-                break;
-            }
-            Err(error) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                return Err(GitEvidenceError::Git(format!(
-                    "Git process state could not be read: {error}"
-                )));
-            }
-        }
-    }
-    let status = child.wait().map_err(|error| {
-        GitEvidenceError::Git(format!("Git process could not be joined: {error}"))
-    })?;
-    let stdout = stdout_reader
-        .join()
-        .map_err(|_| GitEvidenceError::Git("Git output reader stopped unexpectedly.".to_owned()))?
-        .map_err(|error| GitEvidenceError::Git(format!("Git output could not be read: {error}")))?;
-    let stderr = stderr_reader
-        .join()
-        .map_err(|_| GitEvidenceError::Git("Git error reader stopped unexpectedly.".to_owned()))?
-        .map_err(|error| {
-            GitEvidenceError::Git(format!("Git error output could not be read: {error}"))
-        })?;
-    let input_error = match input_writer {
-        Some(writer) => writer
-            .join()
-            .map_err(|_| {
-                GitEvidenceError::Git("Git input writer stopped unexpectedly.".to_owned())
-            })?
-            .err(),
-        None => None,
-    };
-    if timed_out {
-        return Err(GitEvidenceError::TimedOut(
+        .env("GIT_CONFIG_GLOBAL", "/dev/null");
+    let output = bounded_process::run(
+        &mut command,
+        input.map(<[u8]>::to_vec),
+        Limits {
+            command_timeout: remaining,
+            operation_deadline: deadline,
+            stdout_bytes: max_stdout_bytes,
+            stderr_bytes: MAX_GIT_STDERR_BYTES,
+            stdin_bytes: 1024 * 1024,
+        },
+        None,
+    )
+    .map_err(|error| match error {
+        RunError::TimedOut => GitEvidenceError::TimedOut(
             "The bounded local Git command reached its time limit; remaining evidence was omitted."
                 .to_owned(),
-        ));
-    }
-    if stdout.len() > max_stdout_bytes || stderr.len() > MAX_GIT_STDERR_BYTES {
-        return Err(GitEvidenceError::OutputLimit(
-            "Git output exceeded a local evidence size limit; remaining evidence was omitted."
+        ),
+        RunError::OutputLimit | RunError::InputLimit => GitEvidenceError::OutputLimit(
+            "Git input or output exceeded a local evidence size limit; remaining evidence was omitted."
                 .to_owned(),
-        ));
-    }
-    if status.success() {
-        if let Some(error) = input_error {
-            return Err(GitEvidenceError::Git(format!(
-                "Git could not receive the bounded object read request: {error}"
-            )));
-        }
-    }
-    Ok(Output {
-        status,
-        stdout,
-        stderr,
-    })
-}
-
-fn read_limited<R: Read>(reader: R, limit: usize) -> io::Result<Vec<u8>> {
-    let mut output = Vec::with_capacity(limit.min(64 * 1024));
-    reader
-        .take(limit.saturating_add(1) as u64)
-        .read_to_end(&mut output)?;
+        ),
+        other => GitEvidenceError::Git(format!(
+            "Git could not complete the local comparison: {other}"
+        )),
+    })?;
     Ok(output)
 }
 

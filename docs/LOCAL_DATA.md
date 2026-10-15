@@ -20,6 +20,13 @@ indexes, chapter and PR Guide revisions, recovery records, and cached narration
 audio under that application data directory. The original Git working copy
 stays where you chose it; capture creates a separate local snapshot.
 
+Recent-project metadata is limited to 16 MiB and 10,000 entries. A snapshot
+catalog is limited to 16 MiB and 20,000 entries per repository; each snapshot
+manifest is limited to 128 MiB. Captured source objects are limited to 2 MiB
+each and are checked against their content hash. If saved data is damaged or
+exceeds a bound, Code Atlas reports an error and keeps the original file for
+inspection or backup; it does not silently clear the history.
+
 ## First-run permissions and optional model APIs
 
 Opening a local repository uses the native macOS folder picker. Code Atlas checks

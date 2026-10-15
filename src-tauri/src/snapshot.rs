@@ -1,3 +1,5 @@
+use crate::bounded_file::{self, ReadError};
+use crate::bounded_process::{self, Limits, RunError};
 use crate::project::RecentProject;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -5,10 +7,9 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::{self, File, Metadata, OpenOptions};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const POLICY_VERSION: &str = "capture-policy-v1";
 const MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
@@ -18,6 +19,14 @@ const MAX_PATH_BYTES: usize = 1_024;
 const MAX_ENTRIES_PER_DIRECTORY: u64 = 1_000;
 const READ_CHUNK_BYTES: usize = 64 * 1024;
 const MAX_RETAINED_JOBS: usize = 32;
+const MAX_CAPTURE_DURATION: Duration = Duration::from_secs(5 * 60);
+const GIT_COMMAND_TIMEOUT: Duration = Duration::from_secs(15);
+const GIT_STDOUT_LIMIT: usize = 32 * 1024 * 1024;
+const GIT_STDERR_LIMIT: usize = 64 * 1024;
+const GIT_STDIN_LIMIT: usize = 2 * 1024 * 1024;
+const MAX_MANIFEST_METADATA_BYTES: usize = 128 * 1024 * 1024;
+const MAX_CATALOG_METADATA_BYTES: usize = 16 * 1024 * 1024;
+const MAX_SNAPSHOTS_PER_PROJECT: usize = 20_000;
 
 static SNAPSHOT_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
@@ -483,6 +492,36 @@ fn blob_absolute_path(storage_dir: &Path, hash: &str) -> PathBuf {
     storage_dir.join(blob_relative_path(hash))
 }
 
+fn existing_object_matches(path: &Path, expected_hash: &str) -> Result<bool, String> {
+    let file = File::open(path)
+        .map_err(|error| format!("Existing snapshot object could not be opened: {error}"))?;
+    let mut input = file.take(MAX_FILE_BYTES.saturating_add(1));
+    let mut hasher = Sha256::new();
+    let mut total_bytes = 0_u64;
+    let mut buffer = [0_u8; READ_CHUNK_BYTES];
+    loop {
+        let remaining = MAX_FILE_BYTES
+            .saturating_add(1)
+            .saturating_sub(total_bytes)
+            .min(buffer.len() as u64) as usize;
+        if remaining == 0 {
+            return Err("Existing snapshot object exceeds the 2 MiB file limit.".to_owned());
+        }
+        let count = input
+            .read(&mut buffer[..remaining])
+            .map_err(|error| format!("Existing snapshot object could not be read: {error}"))?;
+        if count == 0 {
+            break;
+        }
+        total_bytes = total_bytes.saturating_add(count as u64);
+        if total_bytes > MAX_FILE_BYTES {
+            return Err("Existing snapshot object exceeds the 2 MiB file limit.".to_owned());
+        }
+        hasher.update(&buffer[..count]);
+    }
+    Ok(format!("{:x}", hasher.finalize()) == expected_hash)
+}
+
 fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let parent = path
         .parent()
@@ -521,15 +560,20 @@ fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
 
 fn read_catalog(storage_dir: &Path, project_id: &str) -> Result<SnapshotCatalog, String> {
     let path = catalog_path(storage_dir, project_id);
-    let bytes = match fs::read(path) {
+    let bytes = match bounded_file::read(&path, MAX_CATALOG_METADATA_BYTES) {
         Ok(bytes) => bytes,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+        Err(ReadError::Io(error)) if error.kind() == io::ErrorKind::NotFound => {
             return Ok(SnapshotCatalog {
                 schema_version: 1,
                 snapshots: Vec::new(),
             });
         }
-        Err(error) => return Err(format!("Snapshot history could not be read: {error}")),
+        Err(ReadError::TooLarge) => {
+            return Err("Snapshot history exceeds the 16 MiB metadata limit. Existing data was preserved; inspect or back up this file before recovering it.".to_owned());
+        }
+        Err(ReadError::Io(error)) => {
+            return Err(format!("Snapshot history could not be read: {error}"));
+        }
     };
     let catalog: SnapshotCatalog = serde_json::from_slice(&bytes)
         .map_err(|error| format!("Snapshot history is invalid: {error}"))?;
@@ -537,6 +581,11 @@ fn read_catalog(storage_dir: &Path, project_id: &str) -> Result<SnapshotCatalog,
         return Err(format!(
             "Snapshot history schema {} is not supported by this app version.",
             catalog.schema_version
+        ));
+    }
+    if catalog.snapshots.len() > MAX_SNAPSHOTS_PER_PROJECT {
+        return Err(format!(
+            "Snapshot history contains more than the supported {MAX_SNAPSHOTS_PER_PROJECT} entries. Existing data was preserved."
         ));
     }
     Ok(catalog)
@@ -566,8 +615,13 @@ pub fn load_snapshot_manifest(
     {
         return Err("This snapshot does not belong to the selected repository.".to_owned());
     }
-    let bytes = fs::read(manifest_path(storage_dir, project_id, snapshot_id))
-        .map_err(|error| format!("Snapshot details could not be read: {error}"))?;
+    let path = manifest_path(storage_dir, project_id, snapshot_id);
+    let bytes = bounded_file::read(&path, MAX_MANIFEST_METADATA_BYTES).map_err(|error| {
+        match error {
+            ReadError::TooLarge => "Snapshot details exceed the 128 MiB metadata limit. Existing data was preserved; inspect or back up this file before recovering it.".to_owned(),
+            ReadError::Io(error) => format!("Snapshot details could not be read: {error}"),
+        }
+    })?;
     let manifest: SnapshotManifest = serde_json::from_slice(&bytes)
         .map_err(|error| format!("Snapshot details are invalid: {error}"))?;
     if manifest.schema_version != 1 && manifest.schema_version != 2 {
@@ -803,27 +857,48 @@ fn is_expected_exclusion(reason: &str) -> bool {
     )
 }
 
-fn git_output(root: &Path, args: &[&str]) -> Result<std::process::Output, String> {
-    crate::project::git_command()
+fn git_output(
+    root: &Path,
+    args: &[&str],
+    cancel: &AtomicBool,
+    operation_deadline: Instant,
+    input: Option<Vec<u8>>,
+) -> Result<std::process::Output, CaptureError> {
+    let mut command = crate::project::git_command();
+    command
         .arg("--no-optional-locks")
         .args(args)
         .current_dir(root)
-        .env("GIT_OPTIONAL_LOCKS", "0")
-        .output()
-        .map_err(|error| {
-            format!(
-                "Git could not inspect repository state{}: {error}",
-                if error.kind() == io::ErrorKind::NotFound {
-                    " (Git was not found)"
-                } else {
-                    ""
-                }
-            )
-        })
+        .env("GIT_OPTIONAL_LOCKS", "0");
+    bounded_process::run(
+        &mut command,
+        input,
+        Limits {
+            command_timeout: GIT_COMMAND_TIMEOUT,
+            operation_deadline,
+            stdout_bytes: GIT_STDOUT_LIMIT,
+            stderr_bytes: GIT_STDERR_LIMIT,
+            stdin_bytes: GIT_STDIN_LIMIT,
+        },
+        Some(cancel),
+    )
+    .map_err(|error| match error {
+        RunError::Cancelled => CaptureError::Cancelled,
+        RunError::Start(start) if start.kind() == io::ErrorKind::NotFound => CaptureError::Failed(
+            "Git was not found. Install Git or the Xcode Command Line Tools, then try again."
+                .to_owned(),
+        ),
+        error => CaptureError::Failed(format!("Git could not inspect repository state: {error}")),
+    })
 }
 
-fn git_optional(root: &Path, args: &[&str]) -> Result<Option<String>, String> {
-    let output = git_output(root, args)?;
+fn git_optional(
+    root: &Path,
+    args: &[&str],
+    cancel: &AtomicBool,
+    operation_deadline: Instant,
+) -> Result<Option<String>, CaptureError> {
+    let output = git_output(root, args, cancel, operation_deadline, None)?;
     if !output.status.success() {
         return Ok(None);
     }
@@ -833,6 +908,8 @@ fn git_optional(root: &Path, args: &[&str]) -> Result<Option<String>, String> {
 
 fn git_change_state(
     root: &Path,
+    cancel: &AtomicBool,
+    operation_deadline: Instant,
 ) -> Result<
     (
         Option<String>,
@@ -840,10 +917,20 @@ fn git_change_state(
         GitChangeState,
         GitChangeState,
     ),
-    String,
+    CaptureError,
 > {
-    let branch = git_optional(root, &["symbolic-ref", "--quiet", "--short", "HEAD"])?;
-    let head = git_optional(root, &["rev-parse", "--verify", "HEAD"])?;
+    let branch = git_optional(
+        root,
+        &["symbolic-ref", "--quiet", "--short", "HEAD"],
+        cancel,
+        operation_deadline,
+    )?;
+    let head = git_optional(
+        root,
+        &["rev-parse", "--verify", "HEAD"],
+        cancel,
+        operation_deadline,
+    )?;
     let output = git_output(
         root,
         &[
@@ -857,12 +944,15 @@ fn git_change_state(
             "--untracked-files=normal",
             "--ignore-submodules=all",
         ],
+        cancel,
+        operation_deadline,
+        None,
     )?;
     if !output.status.success() {
-        return Err(format!(
+        return Err(CaptureError::Failed(format!(
             "Git could not read the repository change state: {}",
             String::from_utf8_lossy(&output.stderr).trim()
-        ));
+        )));
     }
     let mut index_changed = false;
     let mut worktree_changed = false;
@@ -902,60 +992,42 @@ fn git_change_state(
     ))
 }
 
-fn ignored_paths(root: &Path, paths: &[String]) -> Result<HashSet<String>, String> {
+fn ignored_paths(
+    root: &Path,
+    paths: &[String],
+    cancel: &AtomicBool,
+    operation_deadline: Instant,
+) -> Result<HashSet<String>, CaptureError> {
     if paths.is_empty() {
         return Ok(HashSet::new());
     }
-    let mut child = crate::project::git_command()
-        .arg("--no-optional-locks")
-        .args(["check-ignore", "-z", "-v", "--stdin"])
-        .current_dir(root)
-        .env("GIT_OPTIONAL_LOCKS", "0")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|error| format!("Git could not check ignore rules: {error}"))?;
-    let mut stdout = child.stdout.take().expect("piped stdout");
-    let mut stderr = child.stderr.take().expect("piped stderr");
-    // Drain both output pipes while writing stdin. A repository with many
-    // ignored paths can otherwise fill stdout and deadlock the writer.
-    let stdout_reader = std::thread::spawn(move || {
-        let mut bytes = Vec::new();
-        let result = stdout.read_to_end(&mut bytes);
-        (bytes, result)
+    let input_length = paths.iter().try_fold(0_usize, |length, path| {
+        length.checked_add(path.len().saturating_add(1))
     });
-    let stderr_reader = std::thread::spawn(move || {
-        let mut bytes = Vec::new();
-        let result = stderr.read_to_end(&mut bytes);
-        (bytes, result)
-    });
-    let mut stdin = child.stdin.take().expect("piped stdin");
-    for path in paths {
-        stdin
-            .write_all(path.as_bytes())
-            .and_then(|_| stdin.write_all(&[0]))
-            .map_err(|error| format!("Git ignore rules could not be checked: {error}"))?;
-    }
-    drop(stdin);
-    let status = child
-        .wait()
-        .map_err(|error| format!("Git ignore check did not finish: {error}"))?;
-    let (bytes, stdout_result) = stdout_reader
-        .join()
-        .map_err(|_| "Git ignore check output could not be read.".to_owned())?;
-    let (stderr_bytes, stderr_result) = stderr_reader
-        .join()
-        .map_err(|_| "Git ignore check error output could not be read.".to_owned())?;
-    stdout_result.map_err(|error| format!("Git ignore check output failed: {error}"))?;
-    stderr_result.map_err(|error| format!("Git ignore check error output failed: {error}"))?;
-    if !status.success() && status.code() != Some(1) {
-        return Err(format!(
-            "Git could not check ignore rules: {}",
-            String::from_utf8_lossy(&stderr_bytes).trim()
+    let Some(input_length) = input_length.filter(|length| *length <= GIT_STDIN_LIMIT) else {
+        return Err(CaptureError::Failed(
+            "The repository path list exceeded the bounded Git input limit.".to_owned(),
         ));
+    };
+    let mut input = Vec::with_capacity(input_length);
+    for path in paths {
+        input.extend_from_slice(path.as_bytes());
+        input.push(0);
     }
-    let fields: Vec<&[u8]> = bytes.split(|byte| *byte == 0).collect();
+    let output = git_output(
+        root,
+        &["check-ignore", "-z", "-v", "--stdin"],
+        cancel,
+        operation_deadline,
+        Some(input),
+    )?;
+    if !output.status.success() && output.status.code() != Some(1) {
+        return Err(CaptureError::Failed(format!(
+            "Git could not check ignore rules: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+    let fields: Vec<&[u8]> = output.stdout.split(|byte| *byte == 0).collect();
     let mut ignored = HashSet::new();
     for record in fields.chunks_exact(4) {
         // Verbose check-ignore also reports matching negated patterns. Those
@@ -970,7 +1042,12 @@ fn ignored_paths(root: &Path, paths: &[String]) -> Result<HashSet<String>, Strin
     Ok(ignored)
 }
 
-fn directory_has_tracked_paths(root: &Path, relative_path: &str) -> Result<bool, String> {
+fn directory_has_tracked_paths(
+    root: &Path,
+    relative_path: &str,
+    cancel: &AtomicBool,
+    operation_deadline: Instant,
+) -> Result<bool, CaptureError> {
     // A directory can match an ignore rule even when it contains force-tracked
     // files. Keep walking only those ignored folders that Git's index says
     // contain tracked paths; untracked ignored descendants are still filtered
@@ -979,14 +1056,33 @@ fn directory_has_tracked_paths(root: &Path, relative_path: &str) -> Result<bool,
     let output = git_output(
         root,
         &["--literal-pathspecs", "ls-files", "-z", "--", &prefix],
+        cancel,
+        operation_deadline,
+        None,
     )?;
     if !output.status.success() {
-        return Err(format!(
+        return Err(CaptureError::Failed(format!(
             "Git could not check tracked files under {relative_path}: {}",
             String::from_utf8_lossy(&output.stderr).trim()
-        ));
+        )));
     }
     Ok(!output.stdout.is_empty())
+}
+
+fn ensure_capture_active(
+    cancel: &AtomicBool,
+    operation_deadline: Instant,
+) -> Result<(), CaptureError> {
+    if cancel.load(Ordering::Acquire) {
+        Err(CaptureError::Cancelled)
+    } else if Instant::now() >= operation_deadline {
+        Err(CaptureError::Failed(
+            "Repository capture exceeded its 5-minute operation limit. No snapshot was committed."
+                .to_owned(),
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 fn send_progress<F>(progress: &mut SnapshotProgress, callback: &mut F)
@@ -1003,6 +1099,7 @@ fn scan_repository<F>(
     parent_snapshot_id: Option<String>,
     limits: CaptureLimits,
     cancel: &AtomicBool,
+    operation_deadline: Instant,
     progress: &mut SnapshotProgress,
     callback: &mut F,
 ) -> Result<ScanResult, CaptureError>
@@ -1022,12 +1119,11 @@ where
     let mut stop = false;
 
     while !queue.is_empty() && !stop {
-        if cancel.load(Ordering::Acquire) {
-            return Err(CaptureError::Cancelled);
-        }
+        ensure_capture_active(cancel, operation_deadline)?;
         let level_count = queue.len();
         let mut level_candidates = Vec::new();
         for _ in 0..level_count {
+            ensure_capture_active(cancel, operation_deadline)?;
             if stop {
                 break;
             }
@@ -1098,6 +1194,7 @@ where
             let directory_allowance =
                 limits.max_entries_per_directory.min(remaining_paths) as usize;
             for _ in 0..directory_allowance {
+                ensure_capture_active(cancel, operation_deadline)?;
                 match iterator.next() {
                     Some(Ok(entry)) => entries.push(entry),
                     Some(Err(error)) if error.kind() == io::ErrorKind::PermissionDenied => {
@@ -1164,9 +1261,7 @@ where
             }
 
             for entry in entries {
-                if cancel.load(Ordering::Acquire) {
-                    return Err(CaptureError::Cancelled);
-                }
+                ensure_capture_active(cancel, operation_deadline)?;
                 paths_visited += 1;
                 progress.paths_visited = paths_visited;
                 let absolute = entry.path();
@@ -1300,12 +1395,17 @@ where
             .iter()
             .map(|candidate| candidate.relative_path.clone())
             .collect::<Vec<_>>();
-        let ignored = ignored_paths(root, &paths).map_err(CaptureError::Failed)?;
+        let ignored = ignored_paths(root, &paths, cancel, operation_deadline)?;
         for candidate in level_candidates {
+            ensure_capture_active(cancel, operation_deadline)?;
             if ignored.contains(&candidate.relative_path) {
                 if candidate.is_directory
-                    && directory_has_tracked_paths(root, &candidate.relative_path)
-                        .map_err(CaptureError::Failed)?
+                    && directory_has_tracked_paths(
+                        root,
+                        &candidate.relative_path,
+                        cancel,
+                        operation_deadline,
+                    )?
                 {
                     if stop {
                         skipped_paths.push(skipped_with_kind(
@@ -1455,11 +1555,13 @@ pub fn capture_snapshot_with_progress<F>(
 where
     F: FnMut(SnapshotProgress),
 {
+    let operation_deadline = Instant::now() + MAX_CAPTURE_DURATION;
     capture_snapshot_with_chunk_hook(
         storage_dir,
         project,
         progress,
         cancel,
+        operation_deadline,
         callback,
         &mut |_, _| {},
     )
@@ -1470,6 +1572,7 @@ fn capture_snapshot_with_chunk_hook<F, H>(
     project: &RecentProject,
     mut progress: SnapshotProgress,
     cancel: &AtomicBool,
+    operation_deadline: Instant,
     callback: &mut F,
     after_chunk: &mut H,
 ) -> Result<SnapshotManifest, CaptureError>
@@ -1479,7 +1582,8 @@ where
 {
     let snapshot_id = progress.snapshot_id.clone();
     let repository_root = PathBuf::from(&project.repository_root);
-    let initial_git = git_change_state(&repository_root).map_err(CaptureError::Failed)?;
+    ensure_capture_active(cancel, operation_deadline)?;
+    let initial_git = git_change_state(&repository_root, cancel, operation_deadline)?;
     let catalog = read_catalog(storage_dir, &project.project_id).map_err(CaptureError::Failed)?;
     let parent_snapshot_id = progress.parent_snapshot_id.clone();
     if catalog
@@ -1500,6 +1604,7 @@ where
         parent_snapshot_id.clone(),
         limits,
         cancel,
+        operation_deadline,
         &mut progress,
         callback,
     ) {
@@ -1528,11 +1633,10 @@ where
     let mut bytes_read = 0_u64;
 
     for (index, candidate) in scan.candidates.iter().enumerate() {
-        if cancel.load(Ordering::Acquire) {
-            let error = CaptureError::Cancelled;
+        if let Err(error) = ensure_capture_active(cancel, operation_deadline) {
             fail_progress(
                 &mut progress,
-                CaptureStatus::Cancelled,
+                status_from_error(&error),
                 format_capture_error(&error),
                 callback,
             );
@@ -1658,11 +1762,10 @@ where
         let mut file_contents = Vec::with_capacity(candidate.fingerprint.length as usize);
         let mut buffer = [0_u8; READ_CHUNK_BYTES];
         loop {
-            if cancel.load(Ordering::Acquire) {
-                let error = CaptureError::Cancelled;
+            if let Err(error) = ensure_capture_active(cancel, operation_deadline) {
                 fail_progress(
                     &mut progress,
-                    CaptureStatus::Cancelled,
+                    status_from_error(&error),
                     format_capture_error(&error),
                     callback,
                 );
@@ -1781,6 +1884,7 @@ where
         }
     }
     for (directory, fingerprint, relative) in &scan.directories {
+        ensure_capture_active(cancel, operation_deadline)?;
         let after = metadata_no_follow(directory).map(|metadata| file_fingerprint(&metadata));
         if after.as_ref().ok() != Some(fingerprint) {
             let error = CaptureError::Inconsistent { path: Some(if relative.is_empty() { ".".to_owned() } else { relative.clone() }), message: "A repository directory changed during snapshot capture; no snapshot was committed.".to_owned() };
@@ -1793,17 +1897,16 @@ where
             return Err(error);
         }
     }
-    if cancel.load(Ordering::Acquire) {
-        let error = CaptureError::Cancelled;
+    if let Err(error) = ensure_capture_active(cancel, operation_deadline) {
         fail_progress(
             &mut progress,
-            CaptureStatus::Cancelled,
+            status_from_error(&error),
             format_capture_error(&error),
             callback,
         );
         return Err(error);
     }
-    let final_git = git_change_state(&repository_root).map_err(CaptureError::Failed)?;
+    let final_git = git_change_state(&repository_root, cancel, operation_deadline)?;
     if initial_git != final_git {
         let error = CaptureError::Inconsistent { path: None, message: "Git HEAD, branch, index, or worktree state changed during capture; no snapshot was committed.".to_owned() };
         fail_progress(
@@ -1825,11 +1928,10 @@ where
         ))
     })?;
     for (staged_path, hash) in staged {
-        if cancel.load(Ordering::Acquire) {
-            let error = CaptureError::Cancelled;
+        if let Err(error) = ensure_capture_active(cancel, operation_deadline) {
             fail_progress(
                 &mut progress,
-                CaptureStatus::Cancelled,
+                status_from_error(&error),
                 format_capture_error(&error),
                 callback,
             );
@@ -1837,12 +1939,7 @@ where
         }
         let blob_path = blob_absolute_path(storage_dir, &hash);
         if blob_path.exists() {
-            let existing = fs::read(&blob_path).map_err(|error| {
-                CaptureError::Failed(format!(
-                    "An existing snapshot object could not be verified: {error}"
-                ))
-            })?;
-            if sha256(&existing) != hash {
+            if !existing_object_matches(&blob_path, &hash).map_err(CaptureError::Failed)? {
                 return Err(CaptureError::Failed(
                     "An existing content-addressed snapshot object did not match its hash."
                         .to_owned(),
@@ -1865,8 +1962,11 @@ where
             match fs::rename(&staged_path, &blob_path) {
                 Ok(()) => {}
                 Err(error) if blob_path.exists() => {
-                    let existing = fs::read(&blob_path).map_err(|read_error| CaptureError::Failed(format!("Snapshot object publication failed ({error}) and the existing object could not be read: {read_error}")))?;
-                    if sha256(&existing) != hash {
+                    if !existing_object_matches(&blob_path, &hash).map_err(|read_error| {
+                        CaptureError::Failed(format!(
+                            "Snapshot object publication failed ({error}); {read_error}"
+                        ))
+                    })? {
                         return Err(CaptureError::Failed(
                             "A concurrent snapshot object did not match its content hash."
                                 .to_owned(),
@@ -1937,6 +2037,11 @@ where
     let manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|error| {
         CaptureError::Failed(format!("Snapshot manifest could not be encoded: {error}"))
     })?;
+    if manifest_bytes.len() > MAX_MANIFEST_METADATA_BYTES {
+        return Err(CaptureError::Failed(
+            "Snapshot manifest exceeds the 128 MiB metadata limit. Existing snapshot history was preserved; reduce the selected repository scope and capture again.".to_owned(),
+        ));
+    }
     atomic_write(
         &manifest_path(storage_dir, &project.project_id, &snapshot_id),
         &manifest_bytes,
@@ -1946,9 +2051,20 @@ where
         read_catalog(storage_dir, &project.project_id).map_err(CaptureError::Failed)?;
     catalog.schema_version = 1;
     catalog.snapshots.push(summary.clone());
+    if catalog.snapshots.len() > MAX_SNAPSHOTS_PER_PROJECT {
+        return Err(CaptureError::Failed(format!(
+            "Snapshot history reached the supported limit of {MAX_SNAPSHOTS_PER_PROJECT} entries. Existing history was preserved."
+        )));
+    }
     let catalog_bytes = serde_json::to_vec_pretty(&catalog).map_err(|error| {
         CaptureError::Failed(format!("Snapshot history could not be encoded: {error}"))
     })?;
+    if catalog_bytes.len() > MAX_CATALOG_METADATA_BYTES {
+        return Err(CaptureError::Failed(
+            "Snapshot history exceeds the 16 MiB metadata limit. Existing history was preserved."
+                .to_owned(),
+        ));
+    }
     atomic_write(
         &catalog_path(storage_dir, &project.project_id),
         &catalog_bytes,
@@ -2077,6 +2193,222 @@ mod tests {
 
     fn default_capture(storage: &Path, project: &RecentProject) -> SnapshotManifest {
         capture_snapshot(storage, project, &AtomicBool::new(false), &mut |_| {}).unwrap()
+    }
+
+    #[test]
+    fn snapshot_catalog_limit_accepts_supported_history_and_preserves_count_overflow() {
+        let temporary = TestDirectory::new("catalog-count-overflow");
+        let storage = temporary.path().join("app-data");
+        let summary = SnapshotSummary {
+            snapshot_id: String::new(),
+            project_id: "fixture-project".to_owned(),
+            parent_snapshot_id: None,
+            created_at_unix_ms: 1,
+            branch: Some("main".to_owned()),
+            head: None,
+            index_state: GitChangeState::Clean,
+            worktree_state: GitChangeState::Clean,
+            status: CaptureStatus::Complete,
+            files_captured: 0,
+            paths_skipped: 0,
+            total_bytes: 0,
+            paths_visited: 0,
+            policy_version: POLICY_VERSION.to_owned(),
+        };
+        let mut snapshots: Vec<SnapshotSummary> = (0..MAX_SNAPSHOTS_PER_PROJECT)
+            .map(|index| SnapshotSummary {
+                snapshot_id: format!("snapshot-{index}"),
+                ..summary.clone()
+            })
+            .collect();
+        let catalog = SnapshotCatalog {
+            schema_version: 1,
+            snapshots: snapshots.clone(),
+        };
+        let path = catalog_path(&storage, "fixture-project");
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let supported_bytes = serde_json::to_vec(&catalog).unwrap();
+        fs::write(&path, &supported_bytes).unwrap();
+        assert_eq!(
+            read_catalog(&storage, "fixture-project")
+                .unwrap()
+                .snapshots
+                .len(),
+            MAX_SNAPSHOTS_PER_PROJECT
+        );
+
+        snapshots.push(SnapshotSummary {
+            snapshot_id: "snapshot-overflow".to_owned(),
+            ..summary
+        });
+        let bytes = serde_json::to_vec(&SnapshotCatalog {
+            schema_version: 1,
+            snapshots,
+        })
+        .unwrap();
+        fs::write(&path, &bytes).unwrap();
+
+        let error = read_catalog(&storage, "fixture-project").unwrap_err();
+        assert!(error.contains("more than the supported 20000 entries"));
+        assert_eq!(fs::read(path).unwrap(), bytes);
+    }
+
+    #[test]
+    fn corrupt_snapshot_catalog_does_not_reset_history_or_start_capture() {
+        let temporary = TestDirectory::new("catalog-corrupt");
+        let repository = temporary.path().join("repository");
+        let storage = temporary.path().join("app-data");
+        create_repository(&repository, &[("main.rs", b"fn main() {}\n")]);
+        let project = project(&repository);
+        let previous = default_capture(&storage, &project);
+        let path = catalog_path(&storage, &project.project_id);
+
+        let unsupported = serde_json::to_vec(&serde_json::json!({
+            "schemaVersion": 99,
+            "snapshots": []
+        }))
+        .unwrap();
+        fs::write(&path, &unsupported).unwrap();
+        assert!(
+            list_project_snapshots(&storage, &project.project_id)
+                .unwrap_err()
+                .contains("schema 99")
+        );
+        assert_eq!(fs::read(&path).unwrap(), unsupported);
+
+        let corrupt = b"{ truncated snapshot history";
+        fs::write(&path, corrupt).unwrap();
+
+        assert!(
+            list_project_snapshots(&storage, &project.project_id)
+                .unwrap_err()
+                .contains("invalid")
+        );
+        assert!(
+            new_capture_progress(&storage, &project, CaptureLimits::default())
+                .unwrap_err()
+                .contains("invalid")
+        );
+        assert_eq!(fs::read(&path).unwrap(), corrupt);
+        assert!(
+            manifest_path(&storage, &project.project_id, &previous.summary.snapshot_id).exists()
+        );
+    }
+
+    #[test]
+    fn snapshot_manifest_schema_identity_and_parse_errors_preserve_saved_bytes() {
+        let temporary = TestDirectory::new("manifest-corrupt");
+        let repository = temporary.path().join("repository");
+        let storage = temporary.path().join("app-data");
+        create_repository(&repository, &[("main.rs", b"fn main() {}\n")]);
+        let project = project(&repository);
+        let manifest = default_capture(&storage, &project);
+        let path = manifest_path(&storage, &project.project_id, &manifest.summary.snapshot_id);
+
+        let original = fs::read(&path).unwrap();
+        let mut legacy: serde_json::Value = serde_json::from_slice(&original).unwrap();
+        legacy["schemaVersion"] = serde_json::json!(1);
+        let legacy = serde_json::to_vec(&legacy).unwrap();
+        fs::write(&path, &legacy).unwrap();
+        assert_eq!(
+            load_snapshot_manifest(&storage, &project.project_id, &manifest.summary.snapshot_id)
+                .unwrap()
+                .schema_version,
+            1
+        );
+
+        let mut unsupported: serde_json::Value = serde_json::from_slice(&original).unwrap();
+        unsupported["schemaVersion"] = serde_json::json!(99);
+        let unsupported = serde_json::to_vec(&unsupported).unwrap();
+        fs::write(&path, &unsupported).unwrap();
+        assert!(
+            load_snapshot_manifest(&storage, &project.project_id, &manifest.summary.snapshot_id)
+                .unwrap_err()
+                .contains("schema 99")
+        );
+        assert_eq!(fs::read(&path).unwrap(), unsupported);
+
+        let mut wrong_identity: serde_json::Value = serde_json::from_slice(&original).unwrap();
+        wrong_identity["summary"]["projectId"] = serde_json::json!("another-project");
+        let wrong_identity = serde_json::to_vec(&wrong_identity).unwrap();
+        fs::write(&path, &wrong_identity).unwrap();
+        assert!(
+            load_snapshot_manifest(&storage, &project.project_id, &manifest.summary.snapshot_id)
+                .unwrap_err()
+                .contains("identity does not match")
+        );
+        assert_eq!(fs::read(&path).unwrap(), wrong_identity);
+
+        let corrupt = b"{ truncated snapshot details";
+        fs::write(&path, corrupt).unwrap();
+
+        let error =
+            load_snapshot_manifest(&storage, &project.project_id, &manifest.summary.snapshot_id)
+                .unwrap_err();
+        assert!(error.contains("invalid"));
+        assert_eq!(fs::read(path).unwrap(), corrupt);
+    }
+
+    #[test]
+    fn existing_snapshot_object_hash_is_streamed_and_object_size_is_bounded() {
+        let temporary = TestDirectory::new("existing-object-bounds");
+        let path = temporary.path().join("object");
+        let content = vec![b'a'; MAX_FILE_BYTES as usize];
+        let hash = sha256(&content);
+        fs::write(&path, &content).unwrap();
+        assert!(existing_object_matches(&path, &hash).unwrap());
+        assert!(!existing_object_matches(&path, &sha256(b"different")).unwrap());
+
+        let file = OpenOptions::new().write(true).open(&path).unwrap();
+        file.set_len(MAX_FILE_BYTES + 1).unwrap();
+        let error = existing_object_matches(&path, &hash).unwrap_err();
+        assert!(error.contains("2 MiB file limit"));
+        assert_eq!(fs::metadata(&path).unwrap().len(), MAX_FILE_BYTES + 1);
+    }
+
+    #[test]
+    fn recapture_does_not_replace_a_corrupt_object_or_previous_snapshot_history() {
+        let temporary = TestDirectory::new("corrupt-object-preservation");
+        let repository = temporary.path().join("repository");
+        let storage = temporary.path().join("app-data");
+        create_repository(&repository, &[("main.rs", b"fn main() {}\n")]);
+        let project = project(&repository);
+        let previous = default_capture(&storage, &project);
+        let original_catalog = fs::read(catalog_path(&storage, &project.project_id)).unwrap();
+        let file = previous
+            .files
+            .iter()
+            .find(|file| file.path == "main.rs")
+            .unwrap();
+        let object = blob_absolute_path(&storage, &file.sha256);
+        let damaged = b"damaged object bytes";
+        fs::write(&object, damaged).unwrap();
+
+        let error = capture_with_limits(
+            &storage,
+            &project,
+            CaptureLimits::default(),
+            &AtomicBool::new(false),
+        )
+        .unwrap_err();
+        assert!(
+            matches!(error, CaptureError::Failed(ref message) if message.contains("did not match its hash"))
+        );
+        assert_eq!(fs::read(&object).unwrap(), damaged);
+        assert_eq!(
+            fs::read(catalog_path(&storage, &project.project_id)).unwrap(),
+            original_catalog
+        );
+        assert_eq!(
+            list_project_snapshots(&storage, &project.project_id)
+                .unwrap()
+                .snapshots
+                .len(),
+            1
+        );
+        assert!(
+            manifest_path(&storage, &project.project_id, &previous.summary.snapshot_id).exists()
+        );
     }
 
     #[test]
@@ -2626,6 +2958,7 @@ mod tests {
             &project,
             progress,
             &AtomicBool::new(false),
+            Instant::now() + MAX_CAPTURE_DURATION,
             &mut |_| {},
             &mut |path, bytes_read| {
                 if !changed && bytes_read >= READ_CHUNK_BYTES as u64 {

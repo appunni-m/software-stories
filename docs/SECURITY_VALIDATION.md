@@ -19,6 +19,50 @@ limits.
 | Capture size | Defaults to 2 MiB per file, 100 MiB total, 25,000 paths, 1,024 UTF-8 bytes per path, and 1,000 entries per directory. Excluded or over-limit files remain visible as skipped inventory records. | [snapshot.rs](../src-tauri/src/snapshot.rs); snapshot::tests::all_capture_bounds_record_the_path_that_was_not_captured |
 | Cancellation and consistency | Checks cancellation while scanning and reading; a cancelled or inconsistent capture does not publish a partial snapshot. | [snapshot.rs](../src-tauri/src/snapshot.rs); snapshot::tests::cancellation_keeps_the_previous_manifest_and_history_entry; snapshot::tests::change_during_chunked_read_is_rejected_without_a_manifest |
 
+## Git subprocess bounds
+
+Repository metadata, snapshot capture and local revision comparison use one
+bounded child runner. It keeps stdout/stderr storage within each command's cap
+while continuing to drain the pipes, kills and reaps a child on timeout or
+cancellation, and joins the pipe workers before returning. Capture passes its
+cancellation flag into every Git phase. These limits fail the operation with a
+visible error; they do not silently truncate evidence.
+
+| Operation | Per-command / total deadline | stdout | stderr | stdin |
+| --- | --- | ---: | ---: | ---: |
+| Open repository and read branch/HEAD | 5 seconds / 20 seconds | 16 KiB | 16 KiB | none |
+| Capture status, ignore rules and tracked-path checks | 15 seconds / 5 minutes for the complete capture | 32 MiB | 64 KiB | 2 MiB |
+| Compare local revisions | Remaining time up to 30 seconds for the comparison | Caller-defined evidence cap (from 128 bytes to the bounded relationship-tree read) | 16 KiB | 1 MiB |
+
+The comparison workflow currently has a deadline but no user-facing cancel
+control. Snapshot capture is cancellable while its Git process is running.
+The runner's focused tests cover capped output/input, timeout, and cancellation;
+project, snapshot, and comparison fixture tests cover their callers and verify
+that capture/comparison do not mutate the repository. They do not prove
+behavior for every Git installation or filesystem.
+
+## Persisted metadata and source objects
+
+Persisted metadata is bounded before JSON decoding. A size/count overflow or
+damaged/unsupported record returns an error and preserves the existing file;
+the app does not replace it with an empty catalog or Recents list.
+
+| Data | Read/write bounds | Enforcement |
+| --- | --- | --- |
+| Recent-project records | 16 MiB and 10,000 entries | `project.rs` uses the shared bounded reader and checks the count before returning or writing. |
+| Snapshot catalog | 16 MiB and 20,000 snapshots per project | `snapshot.rs` checks byte size before decode and count before returning or publishing. |
+| Snapshot manifest | 128 MiB | `snapshot.rs` checks size before decode and before atomic publication. The limit is above the current capture path and byte ceilings, leaving room for inventory metadata. |
+| Existing content-addressed source object | 2 MiB | `snapshot.rs` hashes in fixed-size chunks and stops at the first byte beyond the captured-file limit; mismatches are not overwritten. |
+
+The shared bounded file reader is covered at the exact byte boundary and one
+byte above it. `bounded_file::tests`, `project::tests::recent_project_count_overflow_is_explicit_and_preserves_saved_bytes`,
+`project::tests::oversized_recent_project_metadata_is_rejected_without_truncating_the_file`,
+and the `snapshot::tests::snapshot_catalog_*`, `snapshot::tests::snapshot_manifest_*`,
+and `snapshot::tests::recapture_does_not_replace_a_corrupt_object_or_previous_snapshot_history`
+cases cover supported limits, malformed/unsupported metadata, identity mismatch,
+corrupt objects, and preservation. These local fixtures do not exercise
+recovery in a packaged macOS app or data stores from every historical release.
+
 ## Static indexing and saved chapters
 
 The indexer parses captured snapshot blobs, not the current checkout. It caps

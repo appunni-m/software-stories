@@ -651,6 +651,9 @@ impl ProviderRequestCancellations {
             return false;
         };
         state.prune();
+        if state.cancelled.contains_key(review_id) {
+            return false;
+        }
         state.cancelled.insert(review_id.to_owned(), unix_time_ms());
         if let Some(sender) = state.pending.remove(review_id) {
             let _ = sender.send(());
