@@ -4,6 +4,9 @@ import { listen } from '@tauri-apps/api/event';
 import { CodexChapterDialog, type CodexChapterDialogMode } from './CodexChapterDialog';
 import { AgentHandoffDialog } from './AgentHandoffDialog';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
+import { RepositoryPlanningDialog, type RepositoryPlanningScope } from './RepositoryPlanningDialog';
+import { RepositoryPlans } from './RepositoryPlans';
+import type { PrepareRepositoryPlanInput } from './lib/repositoryPlans';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import {
   ArrowLeft,
@@ -237,6 +240,25 @@ function App() {
   const [sourceLoading, setSourceLoading] = useState(false);
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [providerDialog, setProviderDialog] = useState<ProviderDialogMode | null>(null);
+  const [planningDialog, setPlanningDialog] = useState<RepositoryPlanningScope | null>(null);
+  const planningReturnFocus = useRef<HTMLElement | null>(null);
+  const closePlanningDialog = useCallback(() => {
+    setPlanningDialog(null);
+    const previous = planningReturnFocus.current;
+    if (previous?.isConnected) previous.focus();
+  }, []);
+  const openPlanningDialog = useCallback((scope: RepositoryPlanningScope) => {
+    planningReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setPlanningDialog(scope);
+  }, []);
+  useEffect(() => {
+    if (planningDialog && (navigation.current.workspace !== 'guide-plan'
+      || navigation.current.projectId !== planningDialog.projectId || navigation.current.snapshotId !== planningDialog.snapshotId)) {
+      // Unmount the existing agent owner; it cancels work and preserves any
+      // already published unaccepted result for later native discovery.
+      setPlanningDialog(null);
+    }
+  }, [planningDialog, navigation.current.workspace, navigation.current.projectId, navigation.current.snapshotId]);
   const providerReturnFocusRef = useRef<HTMLElement | null>(null);
   const recoveredPreviewReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const projectButtonRef = useRef<HTMLButtonElement>(null);
@@ -446,12 +468,6 @@ function App() {
       if (!current()) return;
       const request = recovered ? recovered.operation.providerRequest : recordedRequest;
       if (!request) throw new Error('The interrupted request scope is unavailable. Select the original evidence again.');
-      // A learning plan has its own original question and evidence contract.
-      // Until that dialog exists, retain this notice without navigating it to
-      // a chapter, Git comparison or API review.
-      if (request.purpose === 'repositoryPlan') {
-        throw new Error('Repository learning plan recovery is not available yet. This notice keeps your original question and source selection. No new request was opened.');
-      }
       if (recovered) {
         const original = recovered.operation;
         const exact = original.providerRequest;
@@ -461,6 +477,16 @@ function App() {
           || exact.providerId !== recoveryBackend || exact.purpose !== recordedRequest.purpose) {
           throw new Error('The interrupted request changed during recovery. Review the current notice again.');
         }
+      }
+      if (request.purpose === 'repositoryPlan') {
+        if (!recovered || !recoveryBackend || !request.repositoryPlan) throw new Error('The original planning question or native source scope is unavailable. The recovery notice was preserved.');
+        handleProjectOpenResult(opened);
+        setNavigation((state) => navigateToRoute(state, { workspace: 'guide-plan', projectId: operation.projectId,
+          snapshotId: operation.snapshotId, focusTarget: 'heading:guide-plan' }));
+        openPlanningDialog({ projectId: operation.projectId, snapshotId: operation.snapshotId,
+          question: request.repositoryPlan.question, selectedPaths: request.selectedPaths,
+          recoveryOperationId: operation.operationId, recoveryBackend });
+        return;
       }
       const sectionTarget = request.sectionUpdate;
       let sectionBase: ChapterRevision | null = null;
@@ -770,8 +796,13 @@ function App() {
 
   useEffect(() => {
     const refresh = () => { void refreshPendingChapterPreviews(); };
+    const refreshPlans = () => { void refreshInterruptedOperations(); };
     window.addEventListener('code-atlas:pending-chapter-previews-changed', refresh);
-    return () => window.removeEventListener('code-atlas:pending-chapter-previews-changed', refresh);
+    window.addEventListener('code-atlas:repository-plans-changed', refreshPlans);
+    return () => {
+      window.removeEventListener('code-atlas:pending-chapter-previews-changed', refresh);
+      window.removeEventListener('code-atlas:repository-plans-changed', refreshPlans);
+    };
   }, []);
 
   useEffect(() => {
@@ -869,7 +900,7 @@ function App() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        if (providerDialog) {
+        if (providerDialog || planningDialog) {
           event.preventDefault();
           return;
         } else if (snapshotMenuOpen) {
@@ -935,7 +966,7 @@ function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [navigation.current.snapshotId, navigationActions, notice, openLocalRepository, projectMenuOpen, providerDialog, snapshotMenuOpen, toolsOpen]);
+  }, [navigation.current.snapshotId, navigationActions, notice, openLocalRepository, projectMenuOpen, providerDialog, planningDialog, snapshotMenuOpen, toolsOpen]);
 
   const showComingSoon = (title: string, message: string) => {
     setNotice({ title, message });
@@ -1491,7 +1522,7 @@ function App() {
                 <span>{operation.kind === 'capture'
                   ? 'Retry starts a fresh capture; existing snapshots remain available.'
                   : operation.providerRequest?.purpose === 'repositoryPlan'
-                    ? `This notice keeps your source selection. Planning recovery is not available yet. Original question: ${operation.providerRequest.repositoryPlan?.question ?? 'Unavailable'}`
+                    ? `Check Learning plans before a new request. The original question and source selection are retained: ${operation.providerRequest.repositoryPlan?.question ?? 'Unavailable'}`
                     : 'Check saved previews and PR Guide history before a new request. Existing history is preserved; prior consent is not reused.'}</span>
               </div>
               <div className="notice-actions">
@@ -1622,6 +1653,7 @@ function App() {
                 manifest={snapshotManifest}
                 rows={buildInventory(snapshotManifest)}
                 returnFocusTarget={navigation.current.focusTarget}
+                onPlan={openPlanningDialog}
                 onGoAtlas={() => chooseWorkspace('atlas')}
                 onGoChanges={() => chooseWorkspace('changes')}
                 onGoStudio={() => chooseWorkspace('chapter-studio')}
@@ -1723,6 +1755,9 @@ function App() {
           </section>
         </main>
       </div>
+      {planningDialog && <RepositoryPlanningDialog
+        key={JSON.stringify([planningDialog.projectId, planningDialog.snapshotId, planningDialog.question, planningDialog.selectedPaths, planningDialog.recoveryOperationId])}
+        scope={planningDialog} native={runtime?.native ?? isNativeRuntime()} onClose={closePlanningDialog} />}
       {providerDialog && (
         <ProviderDialog
           key={providerDialog.kind === 'settings' ? 'settings' : `${providerDialog.kind}:${providerDialog.projectId}:${providerDialog.snapshotId}:${providerDialog.kind === 'review' ? providerDialog.targetPath : providerDialog.kind === 'section-update' ? providerDialog.sectionUpdate.sectionId : providerDialog.kind === 'code-lens-range' ? `${providerDialog.target.path}:${providerDialog.target.startLine}:${providerDialog.target.endLine}:${providerDialog.target.startByte ?? ''}:${providerDialog.target.endByteExclusive ?? ''}` : ''}:${'recoveryOperationId' in providerDialog ? providerDialog.recoveryOperationId ?? '' : ''}`}
@@ -3602,12 +3637,13 @@ function inventoryFilterKey(row: Pick<InventoryRow, 'path' | 'kind' | 'reason'>)
   return `${row.path}\u0000${row.kind}\u0000${row.reason}`;
 }
 
-function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTarget, onGoAtlas, onGoChanges, onGoStudio, onGenerateOverview, onGenerateFile, onReadRevision, onReviewRevision, onOpenFile }: {
+function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTarget, onPlan, onGoAtlas, onGoChanges, onGoStudio, onGenerateOverview, onGenerateFile, onReadRevision, onReviewRevision, onOpenFile }: {
   projectId: string;
   projectName: string;
   manifest: SnapshotManifest;
   rows: InventoryRow[];
   returnFocusTarget?: string;
+  onPlan: (input: PrepareRepositoryPlanInput) => void;
   onGoAtlas: () => void;
   onGoChanges: () => void;
   onGoStudio: () => void;
@@ -3857,10 +3893,13 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
         </div>
       </section>
 
+      <RepositoryPlans manifest={manifest} onPlan={onPlan} onOpenFile={onOpenFile} onGenerateFile={onGenerateFile} />
+      <details className="guide-coverage-disclosure" open={returnFocusTarget?.startsWith('journey:')}><summary>Build a static call reading order</summary>
       <Suspense fallback={<p className="journey-note" role="status">Loading repository journeys…</p>}>
         <RepositoryJourneys manifest={manifest} revisions={revisions} revisionsReady={coverageReady} returnFocusTarget={returnFocusTarget}
           onOpenFile={onOpenFile} onGenerateFile={onGenerateFile} onReadRevision={onReadRevision} onReviewRevision={onReviewRevision} />
       </Suspense>
+      </details>
 
       <details className="guide-coverage-disclosure">
         <summary><span>File-by-file coverage</span><small>{totals.accepted} explained · {Math.max(0, guideEligibleTotal - totals.accepted)} remaining · {totals.total} inventory paths</small></summary>

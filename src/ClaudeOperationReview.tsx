@@ -62,12 +62,13 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
 }) {
   const scope = typeof mode === 'object' ? mode : null;
   const chapterScope = isClaudeChapterScope(scope) ? scope : null;
+  const planningScope = scope?.kind === 'repository-plan' ? scope : null;
   const rangeScope = scope?.kind === 'code-lens-range' ? scope : null;
   const gitScope = scope?.kind === 'pr-guide' ? scope : scope?.kind === 'pr-change' ? scope.target : null;
   const gitChanges = scope?.kind === 'pr-guide' ? scope.selectedChanges : scope?.kind === 'pr-change' ? [scope.target.selectedChange] : [];
   const scopeKey = claudeReviewScopeKey(mode);
   const projectId = scope?.projectId ?? null;
-  const snapshotId = chapterScope?.snapshotId ?? null;
+  const snapshotId = chapterScope?.snapshotId ?? planningScope?.snapshotId ?? null;
   const targetPath = chapterScope && chapterScope.kind !== 'overview' ? chapterScope.targetPath : null;
   const sectionUpdate = scope?.kind === 'section-update' ? scope.sectionUpdate : null;
   const connection = discovery.reviewConnection;
@@ -77,7 +78,7 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
   // Preserve the full requested scope. Oversized selections must be corrected
   // explicitly; in particular, never truncate a frozen section-repair scope.
   const [paths, setPaths] = useState<string[]>(() => [...new Set([
-    ...(targetPath ? [targetPath] : []), ...(chapterScope?.selectedPaths ?? []),
+    ...(targetPath ? [targetPath] : []), ...(chapterScope?.selectedPaths ?? planningScope?.selectedPaths ?? []),
   ])]);
   const [manifest, setManifest] = useState<SnapshotManifest | null>(null);
   const [manifestLoading, setManifestLoading] = useState(false);
@@ -100,7 +101,7 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
     current.mounted = true;
     let abandoned = false;
     setManifest(null); setManifestError(null); setReview(null); setBusy(false);
-    setPaths([...new Set([...(targetPath ? [targetPath] : []), ...(chapterScope?.selectedPaths ?? [])])]);
+    setPaths([...new Set([...(targetPath ? [targetPath] : []), ...(chapterScope?.selectedPaths ?? planningScope?.selectedPaths ?? [])])]);
     setExpired(Date.now() >= connectionExpiry);
     const release = () => {
       ++current.version;
@@ -157,7 +158,10 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
   const chapterReady = !!chapterScope && !!manifest && paths.length > 0 && paths.length <= 12 && selectedBytes <= 250_000
     && paths.every((path) => eligibleFiles.some((file) => file.path === path))
     && (chapterScope.kind === 'overview' || !!targetPath && paths.includes(targetPath));
-  const sourceReady = chapterScope ? chapterReady : rangeScope ? rangeScope.target.startLine >= 1 && rangeScope.target.endLine >= rangeScope.target.startLine
+  const planningReady = !!planningScope && !!manifest && planningScope.selectedPaths.length > 0 && planningScope.selectedPaths.length <= 12
+    && paths.length === planningScope.selectedPaths.length && selectedBytes <= 250_000
+    && planningScope.selectedPaths.every((path) => eligibleFiles.some((file) => file.path === path));
+  const sourceReady = planningScope ? planningReady : chapterScope ? chapterReady : rangeScope ? rangeScope.target.startLine >= 1 && rangeScope.target.endLine >= rangeScope.target.startLine
     : scope?.kind === 'pr-guide' ? scope.selectedChanges.length > 0 && scope.selectedChanges.length <= 12
       : scope?.kind === 'pr-change' ? Number.isSafeInteger(scope.target.hunkIndex) && scope.target.hunkIndex >= 0 : false;
   const locked = busy || generationHeld || expired || !native;
@@ -181,7 +185,7 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
     releaseReview(); setSelection(next); remember(next);
   };
   const changePath = (path: string, checked: boolean) => {
-    if (locked || resources.current.generationHeld || resources.current.active !== null || sectionUpdate || path === targetPath) return;
+    if (locked || resources.current.generationHeld || resources.current.active !== null || sectionUpdate || planningScope || path === targetPath) return;
     releaseReview();
     setPaths((previous) => checked
       ? previous.includes(path) || previous.length >= 12 ? previous : [...previous, path]
@@ -264,6 +268,14 @@ export function ClaudeOperationReview({ native, mode, discovery, onHoldChange, r
     {!!selectedModel && !modelReady && <p role="status">The saved effort is unavailable for this model. Choose an advertised effort or Runtime default.</p>}
     {expired && <p className="provider-status-note" role="status">This review connection expired. Check the catalog again.</p>}
     {scope && <>
+      {planningScope && <section className="provider-review-card">
+        <h4>Learning question</h4><p>{planningScope.question}</p>
+        <p>Fixed selection · {planningScope.selectedPaths.length} files · {selectedBytes.toLocaleString()} source bytes. Return to the planner to change it. This creates a reading plan, not chapters or completed file coverage.</p>
+        <ul>{planningScope.selectedPaths.map((path) => <li key={path}><code>{path}</code></li>)}</ul>
+        {manifestLoading && <p role="status">Checking the original snapshot…</p>}
+        {manifestError && <p role="alert">{manifestError}</p>}
+        {!planningReady && !manifestLoading && !manifestError && <p role="alert">The original selection is unavailable or exceeds the request limits. Return to the planner to correct it.</p>}
+      </section>}
       {chapterScope && <>
         {manifestLoading && <p role="status">Loading the captured file list…</p>}
         {manifestError && <p className="provider-error-text" role="alert">{manifestError}</p>}

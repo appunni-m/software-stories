@@ -10,6 +10,7 @@ import {
   type ProviderFailure, type ProviderRequestReview,
 } from './lib/commands';
 import { type ClaudeOperationReviewMode } from './lib/claudeReview';
+import { sendClaudeRepositoryPlanRequest, type RepositoryPlanPreview } from './lib/repositoryPlans';
 
 export interface ClaudeResultCallbacks {
   onOpenCodeLensCitation?: (citation: CodeLensExplanationCitation) => void;
@@ -22,11 +23,16 @@ export interface ClaudeResultCallbacks {
 type Result = { kind: 'chapter'; value: ChapterDraftPreview }
   | { kind: 'range'; value: CodeLensExplanationPreview }
   | { kind: 'guide'; value: PrGuidePreview }
-  | { kind: 'hunk'; value: PrChangeExplanationPreview };
+  | { kind: 'hunk'; value: PrChangeExplanationPreview }
+  | { kind: 'plan'; value: RepositoryPlanPreview };
 type Progress = { runId: string; phase: string; message: string };
 
 async function send(mode: ClaudeOperationReviewMode, review: ProviderRequestReview): Promise<ProviderCommandResult<Result>> {
   switch (mode.kind) {
+    case 'repository-plan': {
+      const result = await sendClaudeRepositoryPlanRequest(review.reviewId, review.fingerprint, true);
+      return result.status === 'error' ? result : { status: 'ok', data: { kind: 'plan', value: result.data } };
+    }
     case 'review': case 'overview': case 'section-update': {
       const result = await sendClaudeChapterRequest(review.reviewId, review.fingerprint, true);
       return result.status === 'error' ? result : { status: 'ok', data: { kind: 'chapter', value: result.data } };
@@ -91,7 +97,8 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
     unlisten: null as UnlistenFn | null });
 
   const notify = () => {
-    if (mode.kind === 'pr-guide') window.dispatchEvent(new CustomEvent('code-atlas:pr-guides-changed', {
+    if (mode.kind === 'repository-plan') window.dispatchEvent(new CustomEvent('code-atlas:repository-plans-changed', { detail: { projectId: mode.projectId } }));
+    else if (mode.kind === 'pr-guide') window.dispatchEvent(new CustomEvent('code-atlas:pr-guides-changed', {
       detail: { projectId: mode.projectId, comparisonId: mode.comparisonId },
     }));
     else if (mode.kind === 'review' || mode.kind === 'overview' || mode.kind === 'section-update') {
@@ -143,7 +150,9 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
       invoked = true;
       const response = await send(mode, review);
       if (response.status === 'error') {
-        if (current.mounted && current.version === version) setError(failure(response.error));
+        if (current.mounted && current.version === version) setError(mode.kind === 'repository-plan'
+          ? `${failure(response.error)} Check Learning plans and recovery before another request; an unaccepted draft may already exist.`
+          : failure(response.error));
         return;
       }
       const value = response.data;
@@ -156,7 +165,7 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
         return;
       }
       if (!wanted) return;
-      if (value.kind !== 'guide' && current.cancelled) {
+      if (value.kind !== 'guide' && value.kind !== 'plan' && current.cancelled) {
         setNote('The temporary explanation was discarded after cancellation. Account usage may already have occurred.');
         return;
       }
@@ -175,11 +184,21 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
         callbacks.current.onPrGuideReady?.(value.value);
         if (current.cancelled) setNote('Cancellation arrived after an unaccepted PR Guide draft was saved. Review it in PR Guide history.');
       }
+      if (value.kind === 'plan') {
+        if (mode.kind !== 'repository-plan' || !value.value.savedLocally || value.value.providerId !== 'claude-agent'
+          || value.value.plan.question !== mode.question || value.value.reviewId !== review.reviewId || value.value.recoveryOperationId !== review.reviewId || value.value.fingerprint !== review.fingerprint
+          || value.value.plan.projectId !== review.projectId || value.value.plan.snapshotId !== review.snapshotId) {
+          throw new Error('Mismatched saved plan');
+        }
+        if (current.cancelled) setNote('Cancellation arrived after an unaccepted plan was saved. Review it in Learning plans before generating again.');
+      }
       setResult(value);
-      if (mode.recoveryOperationId) callbacks.current.onRecoveryResultReady?.(mode.recoveryOperationId);
+      // Plan recovery remains until the app's explicit notice resolution.
+      if (mode.kind !== 'repository-plan' && mode.recoveryOperationId) callbacks.current.onRecoveryResultReady?.(mode.recoveryOperationId);
     } catch {
       if (current.mounted && current.version === version) setError(!invoked
         ? 'Progress tracking could not be prepared. No agent request was started. Prepare a fresh review.'
+        : mode.kind === 'repository-plan' ? 'The plan reply could not be confirmed. Check Learning plans and recovery before generating again; an unaccepted plan may already be saved.'
         : mode.kind === 'pr-guide'
           ? 'The reply could not be confirmed. Check PR Guide history before generating again; an unaccepted draft may already be saved.'
           : 'The reply could not be confirmed. Check pending previews and local recovery before generating again. Source may already have been shared.');
@@ -200,7 +219,8 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
     const current = state.current;
     if (!native || !current.run || current.cancelled) return;
     current.cancelled = true; setCancelling(true);
-    setNote(mode.kind === 'pr-guide'
+    setNote(mode.kind === 'repository-plan' ? 'Stopping Claude. Any plan already saved remains an unaccepted draft in Learning plans. Account usage may already have occurred.'
+      : mode.kind === 'pr-guide'
       ? 'Stopping Claude. Any guide already saved remains unaccepted in PR Guide history. Account usage may already have occurred.'
       : 'Stopping Claude. Returned previews or temporary explanations will be discarded. Account usage may already have occurred.');
     try { await cancelClaudeAgentOperation(current.run); }
@@ -295,6 +315,10 @@ export function ClaudeGenerationPanel({ native, mode, review, available, unavail
         {result.value.revision.sections.map((section) => <article key={section.sectionId}><h5>{section.title}</h5>
           {section.claims.map((claim) => <div key={claim.claimId}><span className="chapter-claim-category">{claim.category}</span><p>{claim.prose}</p>
             {claim.inferenceBasis && <p>Inference basis: {claim.inferenceBasis}</p>}</div>)}</article>)}
+      </>}
+      {result?.kind === 'plan' && <><h4>{result.value.plan.title}</h4>
+        <p>Saved locally as an unaccepted learning plan with {result.value.plan.steps.length} steps. Close this dialog and open it in Learning plans to review each rationale and citation.</p>
+        <p>Files without a planned step: {result.value.plan.omittedSelectedPaths.length}. No chapter or file coverage was accepted.</p>
       </>}
       {error && <p className="provider-error-text" role="alert">{error}</p>}
       {note && <p role="status">{note}</p>}

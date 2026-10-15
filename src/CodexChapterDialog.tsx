@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { Check, FileCode2, HardDrive, Sparkles, X } from 'lucide-react';
 import { ChapterRecoveryReview } from './ChapterRecoveryReview';
+import { buildCodexRepositoryPlanReview, sendCodexRepositoryPlanRequest, type PrepareRepositoryPlanInput, type RepositoryPlanPreview } from './lib/repositoryPlans';
 import {
   buildCodexChapterReview, buildCodexCodeLensReview, buildCodexPrGuideReview, buildCodexPrChangeReview, cancelCodexChapterRequest, cancelCodexLogin,
   configureCodexAgent, discardGeneratedChapterDraft, discardProviderRequestReview,
@@ -14,7 +15,9 @@ import {
   type PrGuidePreview, type SelectedGitChangeIdentity,
 } from './lib/commands';
 
-export type CodexChapterDialogMode = 'settings' | {
+export type CodexChapterDialogMode = 'settings' | (PrepareRepositoryPlanInput & {
+  kind: 'repository-plan'; recoveryOperationId?: string;
+}) | {
   kind: 'review' | 'overview';
   projectId: string;
   snapshotId: string;
@@ -117,13 +120,14 @@ function loginHref(value: string): string | null {
 
 export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onSaved, onRecoveryReviewReady, onOpenCodeLensCitation, onPrGuideReady, onOpenPrChangeCitation, onOpenPendingPreview }: CodexChapterDialogProps) {
   const projectId = mode === 'settings' ? null : mode.projectId;
+  const planning = mode !== 'settings' && mode.kind === 'repository-plan' ? mode : null;
   const snapshotId = mode !== 'settings' && 'snapshotId' in mode ? mode.snapshotId : null;
   const codeLensTarget = mode !== 'settings' && mode.kind === 'code-lens-range' ? mode.target : null;
   const gitGuide = mode !== 'settings' && mode.kind === 'pr-guide' ? mode : null;
   const gitChange = mode !== 'settings' && mode.kind === 'pr-change' ? mode.target : null;
   const gitOperation = Boolean(gitGuide || gitChange);
   const comparisonId = gitGuide?.comparisonId ?? gitChange?.comparisonId;
-  const targetPath = mode === 'settings' || mode.kind === 'overview' || mode.kind === 'pr-guide' || mode.kind === 'pr-change' ? null
+  const targetPath = mode === 'settings' || mode.kind === 'overview' || mode.kind === 'pr-guide' || mode.kind === 'pr-change' || mode.kind === 'repository-plan' ? null
     : mode.kind === 'code-lens-range' ? mode.target.path : mode.targetPath ?? null;
   const sectionUpdate = mode !== 'settings' && mode.kind === 'section-update' ? mode.sectionUpdate : undefined;
   const initialSelectedPaths = mode !== 'settings' && 'selectedPaths' in mode ? mode.selectedPaths : undefined;
@@ -145,6 +149,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   const [codeLensResult, setCodeLensResult] = useState<CodeLensExplanationPreview | null>(null);
   const [prGuideResult, setPrGuideResult] = useState<PrGuidePreview | null>(null);
   const [prChangeResult, setPrChangeResult] = useState<PrChangeExplanationPreview | null>(null);
+  const [planResult, setPlanResult] = useState<RepositoryPlanPreview | null>(null);
   const [saved, setSaved] = useState<ChapterRevision | null>(null);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState<Busy | null>(native ? 'status' : null);
@@ -173,8 +178,8 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     : gitChange ? Boolean(gitChange.comparisonId && Number.isInteger(gitChange.hunkIndex) && gitChange.hunkIndex >= 0)
     : Boolean(manifest && paths.length > 0 && paths.length <= 12
     && paths.every((path) => eligibleFiles.some((file) => file.path === path))
-    && (mode === 'settings' || mode.kind === 'overview' || targetPath));
-  const hasResult = preview !== null || codeLensResult !== null || prGuideResult !== null || prChangeResult !== null;
+    && (mode === 'settings' || mode.kind === 'overview' || planning || targetPath));
+  const hasResult = preview !== null || codeLensResult !== null || prGuideResult !== null || prChangeResult !== null || planResult !== null;
   const locked = busy !== null || hasResult;
   const otherRun = Boolean(status?.activeRunId && status.activeRunId !== resources.current.run);
 
@@ -286,7 +291,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     };
     // These primitive identifiers define the request lifetime; callback identity does not.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [native, projectId, snapshotId, targetPath, initialSelectedPaths, sectionUpdate, codeLensTarget, gitGuide, gitChange]);
+  }, [native, projectId, snapshotId, targetPath, initialSelectedPaths, sectionUpdate, codeLensTarget, gitGuide, gitChange, planning]);
 
   useEffect(() => { if (review) summaryRef.current?.focus(); }, [review]);
 
@@ -388,7 +393,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   };
 
   const changePath = (path: string, checked: boolean) => {
-    if (locked || activeBusy.current || path === targetPath || sectionUpdate || codeLensTarget || gitOperation) return;
+    if (locked || activeBusy.current || path === targetPath || sectionUpdate || codeLensTarget || gitOperation || planning) return;
     releaseReview();
     setPaths((current) => checked
       ? current.includes(path) || current.length >= 12 ? current : [...current, path]
@@ -403,8 +408,8 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     setSaved(null);
     try {
       const settings = { modelId: selection.modelId, effort: selection.effort, approvalPolicy: 'never' as const };
-      const value = gitGuide
-        ? await buildCodexPrGuideReview({ projectId, baseRef: gitGuide.baseRef, headRef: gitGuide.headRef,
+      const value = planning ? await buildCodexRepositoryPlanReview({ projectId, snapshotId: planning.snapshotId, question: planning.question, selectedPaths: planning.selectedPaths, ...settings })
+        : gitGuide ? await buildCodexPrGuideReview({ projectId, baseRef: gitGuide.baseRef, headRef: gitGuide.headRef,
           comparisonId: gitGuide.comparisonId, selectedChanges: gitGuide.selectedChanges, ...settings })
         : gitChange ? await buildCodexPrChangeReview({ projectId, target: gitChange, ...settings })
         : codeLensTarget && snapshotId ? await buildCodexCodeLensReview({ projectId, snapshotId, target: codeLensTarget,
@@ -413,6 +418,24 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           modelId: selection.modelId, effort: selection.effort, approvalPolicy: 'never', sectionUpdate: sectionUpdate ?? null });
       if (value.status === 'error') { if (lifetime.current === epoch) setError(safeFailure(value.error)); return; }
       if (lifetime.current !== epoch) { await discardProviderRequestReview(value.data.reviewId).catch(() => {}); return; }
+      if (planning) {
+        const checked = value.data;
+        const context = checked.generationConfig.repositoryPlan;
+        const selected = new Set(planning.selectedPaths);
+        if (checked.providerId !== 'codex' || checked.endpointUrl !== 'codex-app-server://stdio' || checked.purpose !== 'repositoryPlan' || checked.projectId !== projectId
+          || checked.snapshotId !== snapshotId || checked.targetPath !== null || checked.modelId !== selection.modelId
+          || checked.prGuideContext !== null || checked.prChangeContext !== null || checked.codeLensContext !== null || checked.sectionUpdateContext !== null
+          || checked.generationConfig.contractVersion !== 'codex-repository-plan-v1' || !Number.isFinite(checked.expiresAtUnixMs) || checked.expiresAtUnixMs <= Date.now()
+          || checked.generationConfig.effort !== selection.effort || checked.generationConfig.approvalPolicy !== 'never'
+          || !context || typeof context !== 'object' || !('question' in context) || context.question !== planning.question || !('schemaVersion' in context) || context.schemaVersion !== 1
+          || selected.size !== planning.selectedPaths.length || checked.selectedFiles.length !== selected.size
+          || new Set(checked.selectedFiles.map((file) => file.path)).size !== selected.size
+          || checked.selectedFiles.some((file) => !selected.has(file.path))) {
+          await discardProviderRequestReview(checked.reviewId).catch(() => {});
+          if (lifetime.current === epoch) setError('The returned review did not match this question, source or settings. Return to the planner and review again.');
+          return;
+        }
+      }
       resources.current.review = value.data.reviewId;
       setReview(value.data);
     } catch { if (lifetime.current === epoch) setError('The local review could not be created. No generation was requested. Check the selected source and settings.'); }
@@ -442,6 +465,22 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       });
       if (lifetime.current !== epoch || cancelRequested.current) return;
       unlistenRef.current = unlisten;
+      if (planning) {
+        const result = await sendCodexRepositoryPlanRequest(review.reviewId, review.fingerprint, true);
+        if (lifetime.current !== epoch) return;
+        if (result.status === 'error') setError(result.error.kind === 'localStorageUnavailable'
+          ? 'The plan or its local storage state could not be confirmed. Check Learning plans and recovery before generating again; a saved draft may already exist.' : safeFailure(result.error));
+        else if (!result.data.savedLocally || result.data.reviewId !== review.reviewId || result.data.recoveryOperationId !== review.reviewId || result.data.fingerprint !== review.fingerprint
+          || result.data.providerId !== 'codex' || result.data.plan.question !== planning.question
+          || result.data.plan.projectId !== projectId || result.data.plan.snapshotId !== snapshotId || result.data.modelId !== review.modelId) {
+          setError('The saved plan reply did not match the request. Check Learning plans and recovery before generating again.');
+        } else {
+          setPlanResult(result.data);
+          if (cancelRequested.current) setNote('Cancellation arrived after an unaccepted plan was saved. Review it in Learning plans.');
+        }
+        // Resolving a recovery notice requires the app's explicit review flow.
+        return;
+      }
       if (gitGuide) {
         const result = await sendCodexPrGuideRequest(review.reviewId, review.fingerprint, true);
         if (lifetime.current !== epoch) return;
@@ -496,7 +535,8 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       finishRecovery();
     } catch {
       if (lifetime.current === epoch) {
-        if (gitGuide) setError('The PR Guide result could not be confirmed. Check PR Guide history before generating again; a validated response may already be saved as an unaccepted draft.');
+        if (planning) setError('The plan reply could not be confirmed. Check Learning plans and recovery before generating again; an unaccepted plan may already be saved.');
+        else if (gitGuide) setError('The PR Guide result could not be confirmed. Check PR Guide history before generating again; a validated response may already be saved as an unaccepted draft.');
         else if (cancelRequested.current) setNote('Cancellation was requested. No returned response was accepted. Source may already have been shared and account quota used.');
         else setError('The Codex run did not return a usable result. Source may already have been shared. Review a new request before retrying.');
       }
@@ -513,7 +553,8 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       finish(epoch);
       // A saved preview may exist even after a failed reply or journal cleanup.
       // Refresh the app's recovery list even if this dialog has been closed.
-      if (gitGuide) window.dispatchEvent(new CustomEvent('code-atlas:pr-guides-changed', { detail: { projectId, comparisonId } }));
+      if (planning) window.dispatchEvent(new CustomEvent('code-atlas:repository-plans-changed', { detail: { projectId } }));
+      else if (gitGuide) window.dispatchEvent(new CustomEvent('code-atlas:pr-guides-changed', { detail: { projectId, comparisonId } }));
       else if (!codeLensTarget && !gitChange) window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
     }
   };
@@ -575,7 +616,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       <section ref={dialogRef} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="codex-dialog-title" tabIndex={-1}>
         <header className="provider-dialog-header">
           <div><div className="step-pill"><span>CODEX ACCOUNT</span> NO API KEY</div>
-            <h2 id="codex-dialog-title">{mode === 'settings' ? 'Connect Codex' : gitGuide ? 'Explain this comparison with Codex' : gitChange ? 'Explain this hunk with Codex' : codeLensTarget ? 'Explain this selection with Codex' : sectionUpdate ? 'Update this section with Codex' : targetPath ? 'Explain this file with Codex' : 'Map the repository with Codex'}</h2>
+            <h2 id="codex-dialog-title">{mode === 'settings' ? 'Connect Codex' : gitGuide ? 'Explain this comparison with Codex' : gitChange ? 'Explain this hunk with Codex' : codeLensTarget ? 'Explain this selection with Codex' : sectionUpdate ? 'Update this section with Codex' : planning ? 'Plan your reading with Codex' : targetPath ? 'Explain this file with Codex' : 'Map the repository with Codex'}</h2>
             <p>Use your ChatGPT account through Codex. Generation shares only the reviewed source context and uses your account’s plan quota.</p></div>
           <button className="icon-button" aria-label="Close Codex dialog" disabled={busy !== null} onClick={() => { if (!activeBusy.current) onClose(); }}><X size={17} /></button>
         </header>
@@ -632,15 +673,16 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 {manifestError && <p className="provider-error-text" role="alert">{manifestError}</p>}
                 {!manifestLoading && !manifestError && !sourceReady && <p className="provider-error-text" role="alert">This selection’s source is unavailable. Reopen the captured file and select the code again.</p>}
               </div> : <div className="provider-context-picker">
-                <div className="provider-context-heading"><strong>{targetPath ?? 'Repository overview'}</strong><span>{paths.length} of 12 files selected</span></div>
-                <p>{sectionUpdate ? 'This repair uses the selected section’s declared evidence. Source selection is fixed; the native review rechecks that only this section is stale and the other sections can carry forward.' : targetPath ? 'The target file stays selected. Add supporting files to explain its real behavior.' : 'Choose 1–12 files that ground the repository overview.'}</p>
+                <div className="provider-context-heading"><strong>{targetPath ?? (planning ? 'Learning plan source' : 'Repository overview')}</strong><span>{paths.length} of 12 files selected</span></div>
+                {planning && <><h4>Learning question</h4><p>{planning.question}</p><p>This fixed selection creates a reading plan, not chapters or completed file coverage. Return to the planner to change the question or source.</p></>}
+                <p>{sectionUpdate ? 'This repair uses the selected section’s declared evidence. Source selection is fixed; the native review rechecks that only this section is stale and the other sections can carry forward.' : targetPath ? 'The target file stays selected. Add supporting files to explain its real behavior.' : planning ? 'The original source selection stays fixed for this planning request.' : 'Choose 1–12 files that ground the repository overview.'}</p>
                 {mode.kind === 'section-update' && <p><strong>{mode.sectionTitle ?? 'Selected stale section'}</strong> · Older source and the previous section are included as context in the exact prompt below. Only current source is citable. The source byte limit counts both snapshots.</p>}
                 {manifestLoading && <p role="status">Loading the captured file list…</p>}
                 {manifestError && <p className="provider-error-text" role="alert">{manifestError}</p>}
                 {manifest && <><label className="provider-context-search">{sectionUpdate ? 'Filter declared source files' : 'Filter captured files'}<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search snapshot paths" /></label>
                   <div className="provider-context-files">{filteredFiles.map((file) => {
                     const checked = paths.includes(file.path);
-                    return <label key={file.path} className={checked ? 'selected' : ''}><input type="checkbox" checked={checked} disabled={locked || Boolean(sectionUpdate) || file.path === targetPath || (!checked && paths.length >= 12)} onChange={(event) => changePath(file.path, event.target.checked)} /><code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} B{file.path === targetPath ? ' · target' : ''}</small></label>;
+                    return <label key={file.path} className={checked ? 'selected' : ''}><input type="checkbox" checked={checked} disabled={locked || Boolean(planning) || Boolean(sectionUpdate) || file.path === targetPath || (!checked && paths.length >= 12)} onChange={(event) => changePath(file.path, event.target.checked)} /><code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} B{file.path === targetPath ? ' · target' : ''}</small></label>;
                   })}{!filteredFiles.length && <p>No eligible captured files match this filter.</p>}</div>
                   <details><summary>Selected paths ({paths.length})</summary><ul>{paths.map((path) => <li key={path}><code>{path}</code></li>)}</ul></details>
                   {!sourceReady && paths.length > 0 && <p className="provider-error-text">{paths.length > 12
@@ -691,6 +733,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 </li>)}</ol>
                 <small>{codeLensResult.modelVersion ?? codeLensResult.modelId}</small>
               </section>}
+              {planResult && <section className="provider-response" aria-label="Saved learning plan"><h4>{planResult.plan.title}</h4><p>Saved locally as an unaccepted plan with {planResult.plan.steps.length} steps. Close this dialog and open it in Learning plans to review each rationale and citation.</p><p>Files without a planned step: {planResult.plan.omittedSelectedPaths.length}. No chapter or file coverage was accepted.</p></section>}
               {preview && <section className="provider-response" aria-labelledby="codex-result-title">
                 <div><span>{saved ? 'SAVED · UNACCEPTED DRAFT' : preview.validation.status === 'valid' ? 'VALIDATED · UNSAVED PREVIEW' : 'VALIDATION FAILED'}</span><h4 id="codex-result-title">{preview.revision.title}</h4></div>
                 <p>{saved ? `Draft revision ${saved.revisionNumber} is saved locally. Acceptance is a separate review.` : 'Review the explanation and exact citations. Saving creates a local unaccepted draft. Closing or switching backends discards an unsaved preview.'}</p>
@@ -708,15 +751,16 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           </>}
           {error && <p className="provider-error-text" role="alert">{error}</p>}
           {note && <p className="provider-status-note" role="status">{note}</p>}
-          <p className="provider-small-note">Change backend returns to the available generation options. A saved PR Guide remains in history; switching discards an unsaved chapter preview or temporary explanation.</p>
+          <p className="provider-small-note">Change backend returns to the available generation options. Saved plans and PR Guides remain local; switching discards an unsaved chapter preview or temporary explanation.</p>
         </div>
         <footer className="provider-dialog-footer">
-          <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { if (!activeBusy.current) onClose(); }} disabled={busy !== null}>{saved || codeLensResult || prGuideResult || prChangeResult ? 'Done' : preview ? 'Close and discard preview' : 'Close'}</button><button className="secondary-button" onClick={() => { if (!activeBusy.current && !resources.current.login) onChooseBackend(); }} disabled={busy !== null || Boolean(login)}>Change backend{preview && !saved ? ' and discard preview' : ''}</button></div>
+          <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { if (!activeBusy.current) onClose(); }} disabled={busy !== null}>{saved || codeLensResult || prGuideResult || prChangeResult || planResult ? 'Done' : preview ? 'Close and discard preview' : 'Close'}</button><button className="secondary-button" onClick={() => { if (!activeBusy.current && !resources.current.login) onChooseBackend(); }} disabled={busy !== null || Boolean(login)}>Change backend{preview && !saved ? ' and discard preview' : ''}</button></div>
           {native && mode !== 'settings' && (busy === 'send' ? <button className="secondary-button" onClick={() => { void cancelRun(); }} disabled={cancelling}>{cancelling ? 'Cancelling…' : 'Cancel generation'}</button>
             : prGuideResult ? <span className="provider-saved-status" role="status"><Check size={15} /> PR draft saved locally</span>
+            : planResult ? <span className="provider-saved-status" role="status"><Check size={15} /> Plan saved locally</span>
             : codeLensResult || prChangeResult ? <button className="secondary-button" disabled={busy !== null} onClick={() => { setCodeLensResult(null); setPrChangeResult(null); setNote('Temporary explanation discarded. Review a new request to generate again.'); }}>Discard explanation</button>
             : preview ? saved ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { void discard(); }} disabled={busy !== null}>Discard preview</button><button className="primary-button" onClick={() => { void save(); }} disabled={busy !== null || preview.validation.status !== 'valid'}>{busy === 'save' ? 'Saving…' : 'Save unaccepted draft'}</button></div>
-              : <button className="primary-button" onClick={() => { void generate(); }} disabled={busy !== null || otherRun || !review || !consent || !status?.authenticated || !modelReady || !recoveryReady || Boolean(login)}><Sparkles size={15} /> {sectionUpdate ? 'Regenerate section with Codex' : 'Generate with Codex'}</button>)}
+              : <button className="primary-button" onClick={() => { void generate(); }} disabled={busy !== null || otherRun || !review || !consent || !status?.authenticated || !modelReady || !recoveryReady || Boolean(login)}><Sparkles size={15} /> {planning ? 'Generate learning plan with Codex' : sectionUpdate ? 'Regenerate section with Codex' : 'Generate with Codex'}</button>)}
         </footer>
       </section>
     </div>

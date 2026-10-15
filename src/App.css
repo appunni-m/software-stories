@@ -1836,6 +1836,28 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .guide-home-actions .secondary-button { min-height: 34px; margin: 0; border-color: #394651; background: #1a242c; color: #c8d5df; box-shadow: none; }
 .guide-home-actions > span { margin-left: auto; color: #83919c; font-size: 9px; }
 .repository-journeys { min-width: 0; margin-bottom: 14px; padding: 20px; border: 1px solid #303c46; border-radius: 12px; background: #151d24; }
+.repository-plans { overflow-wrap: anywhere; }
+.plan-heading, .plan-saved-heading, .plan-reader-actions { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.plan-heading h2, .plan-saved-heading h3 { margin: 0 0 8px; }
+.plan-heading p, .repository-plans p { color: #b8c6d0; line-height: 1.65; }
+.plan-create-form, .plan-reader { display: grid; min-width: 0; gap: 14px; margin-top: 18px; padding-top: 18px; border-top: 1px solid #35434e; }
+.plan-create-form > label, .plan-create-form details > label, .plan-reader > label { display: grid; min-width: 0; gap: 8px; }
+.plan-create-form input:not([type="checkbox"]), .plan-reader select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: 10px; border: 1px solid #52616c; border-radius: 7px; color: #e7edf2; background: #10171d; font: inherit; }
+.plan-create-form details { min-width: 0; }
+.plan-saved-heading { margin-top: 24px; align-items: center; }
+.plan-saved-list { display: grid; gap: 10px; padding: 0; list-style: none; }
+.plan-saved-list > li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 12px; border: 1px solid #35434e; border-radius: 7px; }
+.plan-saved-list > li > small { flex: 1 1 180px; color: #b8c6d0; }
+.plan-saved-list .text-button { white-space: normal; overflow-wrap: anywhere; text-align: left; min-height: 40px; }
+.plan-saved-list [aria-current="true"] { color: #d6f4ba; text-decoration: underline; }
+.plan-reader h4 { margin: 10px 0 0; font-size: 1.1rem; line-height: 1.6; }
+.plan-rationale, .plan-citation { min-width: 0; }
+.plan-reader summary, .plan-create-form summary { cursor: pointer; min-height: 36px; line-height: 1.6; }
+.plan-reader pre { max-width: 100%; box-sizing: border-box; overflow: auto; padding: 12px; border: 1px solid #35434e; border-radius: 7px; color: #d4e2ed; background: #10171d; white-space: pre-wrap; overflow-wrap: anywhere; }
+.plan-citation .text-button { text-align: left; min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
+.plan-reader-actions { justify-content: start; }
+.repository-plans .provider-context-files { max-height: 320px; }
+.repository-plans :focus-visible { outline: 2px solid #c3f278; outline-offset: 3px; }
 .journey-header { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
 .journey-header h2 { margin: 8px 0; color: #edf1f4; font-size: 1.15rem; }
 .journey-header p, .journey-note, .journey-context p, .journey-boundaries { color: #a3b0ba; font-size: .8rem; line-height: 1.6; }

@@ -3,6 +3,7 @@ import {
   type ClaudeGenerationSettings, type CodeLensExplanationTarget, type PrChangeExplanationTarget,
   type ProviderRequestReview, type SectionUpdateReviewTarget, type SelectedGitChangeIdentity,
 } from './commands';
+import { buildClaudeRepositoryPlanReview, type PrepareRepositoryPlanInput } from './repositoryPlans';
 
 export type ClaudeChapterScope = {
   kind: 'review'; projectId: string; snapshotId: string; targetPath: string; selectedPaths?: string[];
@@ -13,7 +14,9 @@ export type ClaudeChapterScope = {
   selectedPaths: string[]; sectionUpdate: SectionUpdateReviewTarget;
 };
 
-export type ClaudeOperationReviewMode = (ClaudeChapterScope | {
+export type ClaudeOperationReviewMode = (ClaudeChapterScope | (PrepareRepositoryPlanInput & {
+  kind: 'repository-plan';
+}) | {
   kind: 'code-lens-range'; projectId: string; snapshotId: string; target: CodeLensExplanationTarget;
 } | {
   kind: 'pr-guide'; projectId: string; baseRef: string; headRef: string;
@@ -31,6 +34,7 @@ export function claudeReviewScopeKey(mode: ClaudeOperationReviewMode | 'settings
   if (mode === null) return 'none';
   if (mode === 'settings') return 'settings';
   switch (mode.kind) {
+    case 'repository-plan': return JSON.stringify([mode.kind, mode.projectId, mode.snapshotId, mode.question, mode.selectedPaths, mode.recoveryOperationId ?? null]);
     case 'review': case 'overview': case 'section-update':
       return JSON.stringify([mode.kind, mode.projectId, mode.snapshotId,
         mode.kind === 'overview' ? null : mode.targetPath, mode.selectedPaths ?? [],
@@ -43,6 +47,7 @@ export function claudeReviewScopeKey(mode: ClaudeOperationReviewMode | 'settings
 
 export function claudeOperationLabel(mode: ClaudeOperationReviewMode): string {
   switch (mode.kind) {
+    case 'repository-plan': return 'Repository learning plan';
     case 'review': return 'File chapter';
     case 'overview': return 'Selected-source overview';
     case 'section-update': return 'One-section repair';
@@ -58,6 +63,10 @@ export function prepareClaudeOperationReview(
   connectionId: string, mode: ClaudeOperationReviewMode, settings: ClaudeGenerationSettings, selectedPaths: string[],
 ) {
   switch (mode.kind) {
+    case 'repository-plan': return buildClaudeRepositoryPlanReview(connectionId, {
+      projectId: mode.projectId, snapshotId: mode.snapshotId, question: mode.question,
+      selectedPaths: mode.selectedPaths, settings,
+    });
     case 'review': case 'overview': case 'section-update':
       return buildClaudeChapterReview(connectionId, {
         projectId: mode.projectId, snapshotId: mode.snapshotId,
@@ -114,6 +123,18 @@ export function matchesClaudeOperationReview(
   const noSection = review.sectionUpdateContext === null;
   const noRange = review.codeLensContext === null;
   switch (mode.kind) {
+    case 'repository-plan': {
+      const planning = config.repositoryPlan;
+      const paths = new Set(mode.selectedPaths);
+      return noGit && noSection && noRange && review.targetPath === null
+        && review.purpose === 'repositoryPlan' && review.snapshotId === mode.snapshotId
+        && config.contractVersion === 'claude-repository-plan-v1'
+        && !!planning && typeof planning === 'object' && !Array.isArray(planning)
+        && 'question' in planning && planning.question === mode.question && 'schemaVersion' in planning && planning.schemaVersion === 1
+        && paths.size === mode.selectedPaths.length && review.selectedFiles.length === paths.size
+        && new Set(review.selectedFiles.map((file) => file.path)).size === paths.size
+        && review.selectedFiles.every((file) => paths.has(file.path));
+    }
     case 'review': case 'overview': case 'section-update': {
       const section = mode.kind === 'section-update' ? mode.sectionUpdate : null;
       const returned = review.sectionUpdateContext;
