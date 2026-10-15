@@ -28,7 +28,7 @@ File chapters, overviews, section repair, source-range explanations and both Git
 
 Generation through either agent must retain the same language evidence limits and visual/chapter schema as other transports. Switching agent cannot turn a partial parser into full language support, establish runtime behavior from static evidence, or bypass source citations. Narrative and visual quality remain separate acceptance gates.
 
-The [repository planning contract](REPOSITORY_PLANNING.md) now has shared native context preparation and a separate source-grounded result validator. Its local command starts no model and is not an agent review or automatic planning workflow. Codex and Claude planning dispatch, app review/storage, exact recovery and acceptance remain missing; the planning row above is unchanged.
+The [repository planning contract](REPOSITORY_PLANNING.md) now has shared native context preparation, distinct registered Codex/Claude plan review commands, full-contract rebuild helpers and a separate source-grounded result validator/response bridge. Preparation and reviews start no model or API request. No planning sender or app planning workflow is registered; dispatch, app review/storage, exact recovery and acceptance remain missing, so the planning row above is unchanged. Wrong direct API commands now check backend/purpose before removing a review or loading credentials; that source correction still needs native acceptance.
 
 ## User flow and configuration
 

@@ -153,6 +153,26 @@ pub(crate) async fn build_claude_chapter_review(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn build_claude_repository_plan_review(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    connections: State<'_, claude_connections::ClaudeConnections>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    connection_id: String,
+    input: provider::BuildClaudeRepositoryPlanInput,
+) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
+    build_operation_review(
+        app,
+        &sessions,
+        &connections,
+        &reviews,
+        connection_id,
+        ReviewInput::RepositoryPlan(input),
+    )
+    .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub(crate) async fn build_claude_code_lens_review(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
@@ -411,6 +431,7 @@ fn admit_generation_review(
 
 enum ReviewInput {
     Chapter(provider::BuildClaudeReviewInput),
+    RepositoryPlan(provider::BuildClaudeRepositoryPlanInput),
     CodeLens(provider::BuildClaudeCodeLensInput),
     PrGuide(provider::BuildClaudePrGuideInput),
     PrChange(provider::BuildClaudePrChangeInput),
@@ -439,6 +460,7 @@ async fn build_operation_review(
     };
     let project_id = match &input {
         ReviewInput::Chapter(input) => &input.project_id,
+        ReviewInput::RepositoryPlan(input) => &input.project_id,
         ReviewInput::CodeLens(input) => &input.project_id,
         ReviewInput::PrGuide(input) => &input.project_id,
         ReviewInput::PrChange(input) => &input.project_id,
@@ -466,6 +488,9 @@ async fn build_operation_review(
     let pending = match tauri::async_runtime::spawn_blocking(move || match input {
         ReviewInput::Chapter(input) => {
             claude_generation::prepare_chapter_review(&storage, &projects, &runtime, &input)
+        }
+        ReviewInput::RepositoryPlan(input) => {
+            provider::build_claude_repository_plan_review(&storage, &input, &runtime)
         }
         ReviewInput::CodeLens(input) => {
             provider::build_claude_code_lens_review(&storage, &input, &runtime)

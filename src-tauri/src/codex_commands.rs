@@ -158,6 +158,31 @@ pub(crate) async fn build_codex_chapter_review(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn build_codex_repository_plan_review(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    reviews: State<'_, provider::PendingProviderReviews>,
+    input: provider::BuildCodexRepositoryPlanInput,
+) -> Result<provider::ProviderCommandResult<provider::ProviderRequestReview>, String> {
+    sessions.get(&input.project_id)?;
+    let storage = app_data_directory(&app)?;
+    let runtime = manager.inner().clone();
+    let pending = tauri::async_runtime::spawn_blocking(move || {
+        let status = runtime.status(&storage).map_err(|message| {
+            command_failure(provider::ProviderFailureKind::ReviewUnavailable, message)
+        })?;
+        provider::build_codex_repository_plan_review(
+            &storage, &input, status.executable_path.as_deref().unwrap_or(""),
+        )
+    }).await.map_err(|_| "The Codex planning review could not be prepared. Existing plans and chapters were preserved.".to_owned())?;
+    Ok(match pending.and_then(|pending| reviews.insert(pending)) {
+        Ok(review) => provider::ProviderCommandResult::ok(review),
+        Err(error) => provider::ProviderCommandResult::failed(error),
+    })
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub(crate) async fn build_codex_code_lens_review(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,

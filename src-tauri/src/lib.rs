@@ -1089,6 +1089,12 @@ async fn send_provider_request(
             Ok(pending) => pending,
             Err(error) => return provider::ProviderCommandResult::failed(error),
         };
+        if let Err(error) = provider::require_direct_api_operation(
+            &pending.review,
+            provider::DirectApiOperation::Chapter,
+        ) {
+            return provider::ProviderCommandResult::failed(error);
+        }
         if pending.review.fingerprint != fingerprint {
             reviews.remove(&review_id);
             return provider::ProviderCommandResult::error(
@@ -1204,6 +1210,12 @@ async fn send_code_lens_provider_request(
             Ok(pending) => pending,
             Err(error) => return provider::ProviderCommandResult::failed(error),
         };
+        if let Err(error) = provider::require_direct_api_operation(
+            &pending.review,
+            provider::DirectApiOperation::CodeLens,
+        ) {
+            return provider::ProviderCommandResult::failed(error);
+        }
         if pending.review.purpose != "codeLensExplanation"
             || pending.review.fingerprint != fingerprint
         {
@@ -1317,6 +1329,12 @@ async fn send_provider_pr_change_explanation_request(
             Ok(pending) => pending,
             Err(error) => return provider::ProviderCommandResult::failed(error),
         };
+        if let Err(error) = provider::require_direct_api_operation(
+            &pending.review,
+            provider::DirectApiOperation::PrChange,
+        ) {
+            return provider::ProviderCommandResult::failed(error);
+        }
         if pending.review.purpose != "prChangeExplanation"
             || pending.review.fingerprint != fingerprint
         {
@@ -1436,6 +1454,12 @@ async fn send_provider_pr_guide_request(
             Ok(pending) => pending,
             Err(error) => return provider::ProviderCommandResult::failed(error),
         };
+        if let Err(error) = provider::require_direct_api_operation(
+            &pending.review,
+            provider::DirectApiOperation::PrGuide,
+        ) {
+            return provider::ProviderCommandResult::failed(error);
+        }
         if pending.review.fingerprint != fingerprint {
             reviews.remove(&review_id);
             return provider::ProviderCommandResult::error(
@@ -1783,6 +1807,7 @@ pub fn run() {
             codex_commands::logout_codex_agent,
             codex_commands::list_codex_models,
             codex_commands::build_codex_chapter_review,
+            codex_commands::build_codex_repository_plan_review,
             codex_commands::build_codex_code_lens_review,
             codex_commands::build_codex_pr_guide_review,
             codex_commands::build_codex_pr_change_review,
@@ -1796,6 +1821,7 @@ pub fn run() {
             claude_commands::cancel_claude_agent_operation,
             claude_commands::forget_claude_agent_connection,
             claude_commands::build_claude_chapter_review,
+            claude_commands::build_claude_repository_plan_review,
             claude_commands::build_claude_code_lens_review,
             claude_commands::build_claude_pr_guide_review,
             claude_commands::build_claude_pr_change_review,

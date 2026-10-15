@@ -35,6 +35,12 @@ Remaining work, with every acceptance criterion still open:
 
 No tests, builds, login, app-server launch, model request or runtime probes ran for this implementation. The selectable source UI does not establish supported-backend acceptance.
 
+## Repository planning reviews — source progress, 2026-10-16
+
+Codex now has a registered native `build_codex_repository_plan_review` command and typed client using the shared [planning contract](../REPOSITORY_PLANNING.md). Native installation status supplies its executable path; requested model/effort and fixed `never` approval stay explicit. The distinct `repositoryPlan` review binds the exact question, captured source, inventory/index/coverage identity, prompt/schema and settings. A native rebuild helper compares all contract fields while retaining the original ID/expiry; a shared result bridge checks review/fingerprint/model identity and validates plan evidence.
+
+No planning sender or app planning flow is registered. Durable plans, active-run lifecycle/revalidation, exact question/scope recovery and native acceptance remain missing; the planning matrix cell stays Missing. Direct API commands now check backend/operation before removing a foreign review or loading credentials. This does not add an API prerequisite or qualify Codex runtime/model/account behavior. No tests, builds, launches, runtime probes, logins or model requests ran.
+
 ## Contract
 Add an Agent runtime category alongside Direct API. Connect/disconnect with the documented browser OAuth flow, app attribution and native token storage/refresh. Read account-entitled models; combine with pinned runtime capability metadata for supported reasoning values. Show effective model, effort, approval policy and immutable source manifest before a run. Launch one managed app-server child, with app-owned configuration and no additional listener/Node daemon. Request the existing chapter output schema and route successful output through local source/citation validation to an unaccepted draft.
 

@@ -37,14 +37,45 @@ pub(crate) struct PrepareRepositoryPlanInput {
     pub selected_paths: Vec<String>,
 }
 
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct PlanSourceCoverage {
     selected_file_count: usize,
     eligible_captured_file_count: usize,
     unselected_eligible_file_count: usize,
     excluded_captured_path_count: usize,
     skipped_path_count: usize,
+}
+
+/// Native preparation identity included in an agent's stored review. It is
+/// descriptive context, never account/runtime qualification or source consent.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct RepositoryPlanReviewScope {
+    pub schema_version: u32,
+    pub question: String,
+    pub inventory_sha256: String,
+    pub context_sha256: String,
+    pub planning_contract_sha256: String,
+    pub capture_status: CaptureStatus,
+    pub coverage: PlanSourceCoverage,
+    pub index_status: String,
+}
+
+/// Owned native inputs for the existing transport-independent agent review
+/// builder. No renderer deserializer can supply prompt/schema/source parts.
+pub(crate) struct RepositoryPlanRequestParts {
+    pub project_id: String,
+    pub snapshot_id: String,
+    pub scope: RepositoryPlanReviewScope,
+    pub selected_files: Vec<ProviderRequestFile>,
+    pub selected_symbols: Vec<ProviderSymbolEvidence>,
+    pub selected_relationships: Vec<ProviderRelationshipEvidence>,
+    pub index_evidence_truncated: bool,
+    pub source_bytes: usize,
+    pub system_instruction: String,
+    pub user_prompt: String,
+    pub output_schema: Value,
 }
 
 /// Exact local context for a future agent-specific request review. Neither
@@ -74,6 +105,38 @@ pub(crate) struct PreparedRepositoryPlanContext {
     estimated_input_tokens: usize,
     #[serde(skip)]
     input: PrepareRepositoryPlanInput,
+}
+
+impl PreparedRepositoryPlanContext {
+    pub(crate) fn review_scope(&self) -> RepositoryPlanReviewScope {
+        RepositoryPlanReviewScope {
+            schema_version: 1,
+            question: self.question.clone(),
+            inventory_sha256: self.inventory_sha256.clone(),
+            context_sha256: self.context_sha256.clone(),
+            planning_contract_sha256: self.request_body_sha256.clone(),
+            capture_status: self.capture_status.clone(),
+            coverage: self.coverage.clone(),
+            index_status: self.index_status.to_owned(),
+        }
+    }
+
+    pub(crate) fn into_request_parts(self) -> RepositoryPlanRequestParts {
+        let scope = self.review_scope();
+        RepositoryPlanRequestParts {
+            project_id: self.project_id,
+            snapshot_id: self.snapshot_id,
+            scope,
+            selected_files: self.selected_files,
+            selected_symbols: self.selected_symbols,
+            selected_relationships: self.selected_relationships,
+            index_evidence_truncated: self.index_evidence_truncated,
+            source_bytes: self.source_bytes,
+            system_instruction: self.system_instruction.to_owned(),
+            user_prompt: self.user_prompt,
+            output_schema: self.output_schema,
+        }
+    }
 }
 
 #[derive(Deserialize)]
