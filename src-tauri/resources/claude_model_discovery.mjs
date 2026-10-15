@@ -136,7 +136,16 @@ export async function discoverClaudeModels(sdk, paths, signal) {
         settings: { disableAllHooks: true, fallbackModel: [] },
         persistSession: false,
         maxTurns: 1,
-        extraArgs: { safe: null, restricted: null, 'disable-slash-commands': null, 'no-chrome': null },
+        // Preserve the native account route. --bare skips subscription login;
+        // --safe-mode keeps authentication while suppressing customizations.
+        // Managed policy still applies and requires separate qualification.
+        extraArgs: {
+          'safe-mode': null,
+          restricted: null,
+          'disable-slash-commands': null,
+          'no-chrome': null,
+          'mcp-config': '{"mcpServers":{}}',
+        },
         stderr: () => {},
       },
     });

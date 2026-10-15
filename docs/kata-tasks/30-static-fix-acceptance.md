@@ -115,6 +115,16 @@ All cases remain deferred. Source inspection, Rust formatting and diff whitespac
 
 ## Candidate Claude SDK discovery and native catalog admission — pending
 
+### Corrected startup flags and SDK launch contract — pending
+
+- With the inspected SDK 0.3.300, capture its real spawn callback arguments in an authorized controlled run. Confirm the exact contract accepts both split and `--name=value` encodings, including empty values for tools/settings sources, explicit empty MCP, safe/restricted mode, no persistence, fixed approval and one-turn ceiling. No user message or repository source may be supplied by catalog discovery.
+- Omit or duplicate each required flag; change either encoding's value; append a positional argument, unknown flag, extra settings, tools/MCP, fallback model, endpoint or login/billing override. The wrapper must reject before child creation. In particular reject both `--safe` and `--bare`, including equals forms and duplicate alternate encodings. A parser/source review does not establish compatibility with the actual SDK.
+- Independently exercise managed hooks, status-line and file-suggestion commands. Safe mode and local `disableAllHooks` do not suppress every managed policy surface. Record the qualified control/OS boundary before startup; do not treat initialization or later event rejection as prevention evidence. Do not run untrusted commands as a side effect of a general metadata check.
+- Confirm the documented existing-account route is retained without inherited API keys/provider variables. Bare mode's skipped OAuth/keychain cannot be used to claim account support. Keep account/product approval and native runtime qualification separate from catalog observations.
+- Failure leaves no accepted catalog or reusable connection and uses bounded cleanup without an API retry. Qualify child/host ownership, cleanup failure and the empty generation registry after changing the embedded worker fingerprint. No tests, builds, CLI/SDK probes, logins or model requests ran for this source change; all cases remain deferred.
+
+### Catalog and initialization — pending
+
 - Verify the exact SDK 0.3.300 artifact, runtime 2.1.300 and trusted host-runtime provenance before import. A caller-supplied version string is insufficient. Record packaging, license/distribution and architecture evidence separately. The explicit advanced setup command now calls the candidate library through its native worker; this source wiring has no runtime acceptance.
 - Clear the entire SDK host environment before import; its env option is additive. Reject inherited API credentials, endpoints, alternate-provider switches, proxies and Node startup options. Prove the vendor initialization's actual network/configuration behavior and effective empty tool/MCP/settings/hook/session controls on the qualified integration. A zero-message request is not a claim of zero network activity or zero credential-store access.
 - Through the maintained SDK, confirm that the async input yields zero user messages and no model prompt, including on errors, timeout, cancellation and cleanup. No empty-string prompt, source, account/credential initialization object, raw diagnostics or unsupported SDK metadata may reach the catalog envelope. Only the public model/init methods are used; no hand-written vendor RPC or direct model API fallback is permitted.

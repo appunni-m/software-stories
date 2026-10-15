@@ -60,11 +60,44 @@ async function readConfiguration() {
   return value;
 }
 
+// This is the fixed launch contract of the inspected SDK, not a general CLI
+// parser. Accept the SDK's split or --name=value encoding and reject drift
+// before starting the CLI. In particular, --bare would change authentication.
+function hasDiscoveryArguments(args) {
+  const switches = new Set([
+    '--verbose', '--strict-mcp-config', '--no-session-persistence',
+    '--safe-mode', '--restricted', '--disable-slash-commands', '--no-chrome',
+  ]);
+  const values = new Map([
+    ['--output-format', 'stream-json'], ['--input-format', 'stream-json'],
+    ['--max-turns', '1'], ['--permission-prompts', 'none'],
+    ['--disallowedTools', 'mcp__*'], ['--tools', ''], ['--setting-sources', ''],
+    ['--permission-mode', 'dontAsk'], ['--mcp-config', '{"mcpServers":{}}'],
+    ['--settings', '{"disableAllHooks":true,"fallbackModel":[]}'],
+  ]);
+  const seen = new Set();
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    const separator = argument.indexOf('=');
+    const name = separator < 0 ? argument : argument.slice(0, separator);
+    if (seen.has(name)) return false;
+    seen.add(name);
+    if (switches.has(name)) {
+      if (separator >= 0) return false;
+    } else if (values.has(name)) {
+      const value = separator < 0 ? args[++index] : argument.slice(separator + 1);
+      if (value !== values.get(name)) return false;
+    } else return false;
+  }
+  return seen.size === switches.size + values.size;
+}
+
 function ownedSpawn(configuration, options) {
   if (spawnAttempted || options.command !== configuration.executable || options.cwd !== configuration.stage
     || !Array.isArray(options.args) || options.args.length > 128
     || options.args.some((value) => typeof value !== 'string' || Buffer.byteLength(value) > 8192)
-    || options.args.reduce((total, value) => total + Buffer.byteLength(value), 0) > 64 * 1024) {
+    || options.args.reduce((total, value) => total + Buffer.byteLength(value), 0) > 64 * 1024
+    || !hasDiscoveryArguments(options.args)) {
     throw new ClaudeDiscoveryFailure('incompatible');
   }
   spawnAttempted = true;
