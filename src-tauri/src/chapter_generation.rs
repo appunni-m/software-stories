@@ -12,6 +12,213 @@ use std::collections::{HashMap, HashSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum GeneratedVisualKind {
+    None,
+    DataFlow,
+    Sequence,
+    Hierarchy,
+}
+
+fn take_section_visual_proposals(
+    response: &mut serde_json::Value,
+) -> Result<Vec<GeneratedVisualProposal>, String> {
+    let sections = response
+        .get_mut("sections")
+        .and_then(serde_json::Value::as_array_mut)
+        .ok_or_else(|| "The generated response has no section list.".to_owned())?;
+    sections.iter_mut().map(take_visual_proposal).collect()
+}
+
+fn take_visual_proposal(section: &mut serde_json::Value) -> Result<GeneratedVisualProposal, String> {
+    let object = section
+        .as_object_mut()
+        .ok_or_else(|| "A generated section must be a JSON object.".to_owned())?;
+    let Some(value) = object.remove("visual") else {
+        return Ok(no_visual_proposal());
+    };
+    if value.is_null() {
+        return Ok(no_visual_proposal());
+    }
+    serde_json::from_value(value)
+        .map_err(|_| "The generated visual plan did not match its strict schema.".to_owned())
+}
+
+fn no_visual_proposal() -> GeneratedVisualProposal {
+    GeneratedVisualProposal {
+        kind: GeneratedVisualKind::None,
+        title: String::new(),
+        direction: chapters::VisualLayoutDirection::Auto,
+        nodes: Vec::new(),
+        edges: Vec::new(),
+    }
+}
+
+fn canonicalize_visual_proposal(
+    proposed: &GeneratedVisualProposal,
+    claims: &[ChapterClaim],
+    hotspots: &mut Vec<chapters::ChapterHotspot>,
+) -> Result<Option<chapters::VisualSpec>, String> {
+    if proposed.kind == GeneratedVisualKind::None {
+        if !proposed.title.is_empty()
+            || proposed.direction != chapters::VisualLayoutDirection::Auto
+            || !proposed.nodes.is_empty()
+            || !proposed.edges.is_empty()
+        {
+            return Err(
+                "A visual marked none must have no title, custom layout, nodes, or edges."
+                    .to_owned(),
+            );
+        }
+        return Ok(None);
+    }
+    if proposed.title.trim().is_empty()
+        || proposed.title.len() > 160
+        || !(2..=12).contains(&proposed.nodes.len())
+        || !(1..=20).contains(&proposed.edges.len())
+    {
+        return Err(
+            "A generated visual needs a specific title, two to twelve nodes, and one to twenty edges."
+                .to_owned(),
+        );
+    }
+
+    let mut nodes = Vec::with_capacity(proposed.nodes.len());
+    for node in &proposed.nodes {
+        if node.label.trim().is_empty()
+            || node.label.len() > 240
+            || node.detail.len() > 512
+        {
+            return Err("A generated visual node has an empty label or oversized text.".to_owned());
+        }
+        let evidence_anchor_ids = resolve_visual_evidence(&node.evidence, claims)?;
+        let node_id = generated_id("visualnode");
+        let hotspot_id = generated_id("visualhotspot");
+        hotspots.push(chapters::ChapterHotspot {
+            hotspot_id: hotspot_id.clone(),
+            label: "Open supporting code".to_owned(),
+            destination: HotspotDestination::CodeLens {
+                anchor_id: evidence_anchor_ids[0].clone(),
+            },
+        });
+        nodes.push(chapters::VisualNode {
+            node_id,
+            label: node.label.trim().to_owned(),
+            detail: (!node.detail.trim().is_empty()).then(|| node.detail.trim().to_owned()),
+            hotspot_id: Some(hotspot_id),
+            evidence_anchor_ids,
+        });
+    }
+
+    let mut edges = Vec::with_capacity(proposed.edges.len());
+    for edge in &proposed.edges {
+        let from = usize::try_from(edge.from_node_index)
+            .map_err(|_| "A visual edge source index is invalid.".to_owned())?;
+        let to = usize::try_from(edge.to_node_index)
+            .map_err(|_| "A visual edge destination index is invalid.".to_owned())?;
+        if from >= nodes.len() || to >= nodes.len() || from == to {
+            return Err("A visual edge must connect two distinct nodes in this visual.".to_owned());
+        }
+        if edge.label.trim().is_empty() || edge.label.len() > 240 {
+            return Err("A generated visual edge has an empty label or oversized text.".to_owned());
+        }
+        let evidence_anchor_ids = resolve_visual_evidence(&edge.evidence, claims)?;
+        edges.push(chapters::VisualEdge {
+            edge_id: generated_id("visualedge"),
+            from_node_id: nodes[from].node_id.clone(),
+            to_node_id: nodes[to].node_id.clone(),
+            label: edge.label.trim().to_owned(),
+            evidence_anchor_ids,
+        });
+    }
+
+    let kind = match proposed.kind {
+        GeneratedVisualKind::None => unreachable!("none visuals returned before conversion"),
+        GeneratedVisualKind::DataFlow => chapters::VisualKind::DataFlow,
+        GeneratedVisualKind::Sequence => chapters::VisualKind::Sequence,
+        GeneratedVisualKind::Hierarchy => chapters::VisualKind::Hierarchy,
+    };
+    Ok(Some(chapters::VisualSpec {
+        schema_version: chapters::VISUAL_SCHEMA_VERSION,
+        kind,
+        title: proposed.title.trim().to_owned(),
+        layout_hint: Some(chapters::VisualLayoutHint {
+            direction: proposed.direction.clone(),
+        }),
+        nodes,
+        edges,
+    }))
+}
+
+fn resolve_visual_evidence(
+    evidence: &[GeneratedChapterEvidence],
+    claims: &[ChapterClaim],
+) -> Result<Vec<String>, String> {
+    if evidence.is_empty() || evidence.len() > 8 {
+        return Err("Every visual node and edge needs one to eight cited claim quotes.".to_owned());
+    }
+    let mut seen_quotes = HashSet::new();
+    let mut anchor_ids = Vec::with_capacity(evidence.len());
+    for item in evidence {
+        if !seen_quotes.insert((item.path.as_str(), item.quote.as_str())) {
+            return Err("A visual item repeats the same source quote.".to_owned());
+        }
+        let matches = claims
+            .iter()
+            .flat_map(|claim| claim.anchors.iter())
+            .filter(|anchor| anchor.path == item.path && anchor.excerpt == item.quote)
+            .collect::<Vec<_>>();
+        let Some(first) = matches.first() else {
+            return Err(
+                "A visual node or edge cites a quote that is not attached to a validated claim."
+                    .to_owned(),
+            );
+        };
+        if matches.iter().skip(1).any(|anchor| {
+            anchor.source_sha256 != first.source_sha256
+                || anchor.start_byte != first.start_byte
+                || anchor.end_byte_inclusive != first.end_byte_inclusive
+        }) {
+            return Err("A visual quote maps to more than one source range.".to_owned());
+        }
+        if !anchor_ids.contains(&first.anchor_id) {
+            anchor_ids.push(first.anchor_id.clone());
+        }
+    }
+    if anchor_ids.is_empty() {
+        return Err("A visual item has no distinct source evidence.".to_owned());
+    }
+    Ok(anchor_ids)
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct GeneratedVisualProposal {
+    kind: GeneratedVisualKind,
+    title: String,
+    direction: chapters::VisualLayoutDirection,
+    nodes: Vec<GeneratedVisualNode>,
+    edges: Vec<GeneratedVisualEdge>,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct GeneratedVisualNode {
+    label: String,
+    detail: String,
+    evidence: Vec<GeneratedChapterEvidence>,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct GeneratedVisualEdge {
+    from_node_index: u32,
+    to_node_index: u32,
+    label: String,
+    evidence: Vec<GeneratedChapterEvidence>,
+}
+
 pub fn canonicalize_section_update(
     storage_dir: &std::path::Path,
     base: &ChapterRevision,
@@ -102,9 +309,14 @@ pub fn canonicalize_section_update(
         );
     }
     let selected_paths = sources.keys().cloned().collect::<HashSet<_>>();
+    let mut generated_value = serde_json::from_str::<serde_json::Value>(response_text)
+        .map_err(|_| "The provider response was not valid JSON. No draft was created.".to_owned())?;
+    let visual_proposal = take_visual_proposal(&mut generated_value)?;
+    let proposed_section = serde_json::from_value::<GeneratedChapterSection>(generated_value)
+        .map_err(|_| "The provider response did not match the strict single-section schema. No draft was created.".to_owned())?;
     let mut section = canonicalize_generated_section(
-        &serde_json::from_str::<GeneratedChapterSection>(response_text)
-            .map_err(|_| "Gemini's response did not match the strict single-section schema. No draft was created.".to_owned())?,
+        &proposed_section,
+        &visual_proposal,
         selected_section_id,
         target_path,
         &selected_paths,
@@ -153,6 +365,7 @@ pub fn canonicalize_section_update(
 
 fn canonicalize_generated_section(
     proposed: &GeneratedChapterSection,
+    visual_proposal: &GeneratedVisualProposal,
     section_id: &str,
     target_path: &str,
     selected_paths: &HashSet<String>,
@@ -195,6 +408,8 @@ fn canonicalize_generated_section(
             "The regenerated section must cite exact evidence from its target file.".to_owned(),
         );
     }
+    let mut hotspots = Vec::new();
+    let visual = canonicalize_visual_proposal(visual_proposal, &claims, &mut hotspots)?;
     Ok(ChapterSection {
         section_id: section_id.to_owned(),
         section_revision_id: generated_id("sectionrev"),
@@ -204,8 +419,8 @@ fn canonicalize_generated_section(
         spoken_text: proposed.spoken_text.trim().to_owned(),
         claims,
         dependencies,
-        visual: None,
-        hotspots: Vec::new(),
+        visual: visual.map(Into::into),
+        hotspots,
     })
 }
 
@@ -338,6 +553,7 @@ fn reuse_matching_anchor_ids(
         .collect::<Vec<_>>();
     let mut used = HashSet::<String>::new();
     let mut mapped = HashSet::<String>::new();
+    let mut anchor_id_mapping = HashMap::<String, String>::new();
     for anchor in next_anchors {
         let matches = old_anchors
             .iter()
@@ -352,10 +568,37 @@ fn reuse_matching_anchor_ids(
             let old = matches[0];
             used.insert(old.anchor_id.clone());
             mapped.insert(old.anchor_id.clone());
+            anchor_id_mapping.insert(anchor.anchor_id.clone(), old.anchor_id.clone());
             anchor.anchor_id = old.anchor_id.clone();
         }
     }
-    let mut required = previous
+
+    if let Some(visual) = next.visual.as_mut().and_then(ChapterVisualPayload::typed_visual_mut) {
+        for anchor_id in visual
+            .nodes
+            .iter_mut()
+            .flat_map(|node| &mut node.evidence_anchor_ids)
+            .chain(
+                visual
+                    .edges
+                    .iter_mut()
+                    .flat_map(|edge| &mut edge.evidence_anchor_ids),
+            )
+        {
+            if let Some(previous_id) = anchor_id_mapping.get(anchor_id) {
+                *anchor_id = previous_id.clone();
+            }
+        }
+    }
+    for hotspot in &mut next.hotspots {
+        if let HotspotDestination::CodeLens { anchor_id } = &mut hotspot.destination {
+            if let Some(previous_id) = anchor_id_mapping.get(anchor_id) {
+                *anchor_id = previous_id.clone();
+            }
+        }
+    }
+
+    let previous_visual_hotspot_ids = previous
         .visual
         .as_ref()
         .and_then(ChapterVisualPayload::typed_visual)
@@ -363,56 +606,111 @@ fn reuse_matching_anchor_ids(
             visual
                 .nodes
                 .iter()
-                .flat_map(|node| node.evidence_anchor_ids.iter())
-                .chain(
-                    visual
-                        .edges
-                        .iter()
-                        .flat_map(|edge| edge.evidence_anchor_ids.iter()),
-                )
-                .cloned()
+                .filter_map(|node| node.hotspot_id.clone())
                 .collect::<HashSet<_>>()
         })
         .unwrap_or_default();
-    for hotspot in &previous.hotspots {
-        if let HotspotDestination::CodeLens { anchor_id } = &hotspot.destination {
-            required.insert(anchor_id.clone());
-        }
-    }
-    if previous.visual.is_some() {
-        if required.iter().all(|anchor_id| mapped.contains(anchor_id)) {
-            next.visual = previous.visual.clone();
-            next.hotspots = previous.hotspots.clone();
-        } else {
-            notes.push(format!("The visual for '{}' cites evidence changed by this update, so the prior visual was not copied into the draft.", previous.title));
-            next.visual = None;
-            next.hotspots = previous
-                .hotspots
-                .iter()
-                .filter(|hotspot| match &hotspot.destination {
-                    HotspotDestination::CodeLens { anchor_id } => mapped.contains(anchor_id),
-                    _ => true,
-                })
-                .cloned()
-                .collect();
-        }
-    } else {
-        next.hotspots = previous
-            .hotspots
-            .iter()
-            .filter(|hotspot| match &hotspot.destination {
+
+    let same_visual_inputs = same_visual_inputs(previous, next);
+    let mut carried_hotspots = previous
+        .hotspots
+        .iter()
+        .filter(|hotspot| {
+            if previous_visual_hotspot_ids.contains(&hotspot.hotspot_id) {
+                return same_visual_inputs;
+            }
+            match &hotspot.destination {
                 HotspotDestination::CodeLens { anchor_id } => mapped.contains(anchor_id),
                 _ => true,
-            })
-            .cloned()
-            .collect();
-        if next.hotspots.len() != previous.hotspots.len() {
+            }
+        })
+        .cloned()
+        .collect::<Vec<_>>();
+
+    if same_visual_inputs {
+        next.visual = previous.visual.clone();
+        next.hotspots = carried_hotspots;
+    } else {
+        if previous.visual.is_some() && next.visual.is_none() {
             notes.push(format!(
-                "Code Lens hotspots for '{}' were removed because their cited ranges changed.",
+                "The visual for '{}' was removed because the regenerated section no longer supports it.",
                 previous.title
             ));
         }
+        carried_hotspots.append(&mut next.hotspots);
+        next.hotspots = carried_hotspots;
     }
+
+    if next.hotspots.len() != previous.hotspots.len()
+        && previous_visual_hotspot_ids.is_empty()
+    {
+        notes.push(format!(
+            "Code Lens hotspots for '{}' were removed because their cited ranges changed.",
+            previous.title
+        ));
+    }
+}
+
+fn same_visual_inputs(previous: &ChapterSection, next: &ChapterSection) -> bool {
+    let (Some(previous_visual), Some(next_visual)) = (
+        previous
+            .visual
+            .as_ref()
+            .and_then(ChapterVisualPayload::typed_visual),
+        next.visual
+            .as_ref()
+            .and_then(ChapterVisualPayload::typed_visual),
+    ) else {
+        return false;
+    };
+    if previous_visual.schema_version != next_visual.schema_version
+        || previous_visual.kind != next_visual.kind
+        || previous_visual.title != next_visual.title
+        || previous_visual.layout_hint != next_visual.layout_hint
+        || previous_visual.nodes.len() != next_visual.nodes.len()
+        || previous_visual.edges.len() != next_visual.edges.len()
+    {
+        return false;
+    }
+
+    for (previous_node, next_node) in previous_visual.nodes.iter().zip(&next_visual.nodes) {
+        if previous_node.label != next_node.label
+            || previous_node.detail != next_node.detail
+            || previous_node.evidence_anchor_ids != next_node.evidence_anchor_ids
+            || hotspot_destination(previous, previous_node.hotspot_id.as_deref())
+                != hotspot_destination(next, next_node.hotspot_id.as_deref())
+        {
+            return false;
+        }
+    }
+    let node_index = |visual: &chapters::VisualSpec, node_id: &str| {
+        visual.nodes.iter().position(|node| node.node_id == node_id)
+    };
+    previous_visual
+        .edges
+        .iter()
+        .zip(&next_visual.edges)
+        .all(|(previous_edge, next_edge)| {
+            previous_edge.label == next_edge.label
+                && previous_edge.evidence_anchor_ids == next_edge.evidence_anchor_ids
+                && node_index(previous_visual, &previous_edge.from_node_id)
+                    == node_index(next_visual, &next_edge.from_node_id)
+                && node_index(previous_visual, &previous_edge.to_node_id)
+                    == node_index(next_visual, &next_edge.to_node_id)
+        })
+}
+
+fn hotspot_destination<'a>(
+    section: &'a ChapterSection,
+    hotspot_id: Option<&str>,
+) -> Option<&'a HotspotDestination> {
+    hotspot_id.and_then(|hotspot_id| {
+        section
+            .hotspots
+            .iter()
+            .find(|hotspot| hotspot.hotspot_id == hotspot_id)
+            .map(|hotspot| &hotspot.destination)
+    })
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -448,8 +746,14 @@ pub fn canonicalize_file_chapter(
             );
         }
     }
-    let proposal: GeneratedChapterProposal = serde_json::from_str(response_text)
-        .map_err(|_| "Gemini's response did not match the strict chapter proposal schema. No draft was created.".to_owned())?;
+    let mut proposal_value = serde_json::from_str::<serde_json::Value>(response_text)
+        .map_err(|_| "The provider response was not valid JSON. No draft was created.".to_owned())?;
+    let visual_proposals = take_section_visual_proposals(&mut proposal_value)?;
+    let proposal: GeneratedChapterProposal = serde_json::from_value(proposal_value)
+        .map_err(|_| "The provider response did not match the strict chapter proposal schema. No draft was created.".to_owned())?;
+    if visual_proposals.len() != proposal.sections.len() {
+        return Err("The visual plan count did not match the generated section count.".to_owned());
+    }
     let sources = checked_sources(manifest, selected_sources)?;
     let target_source = sources.get(target_path).ok_or_else(|| {
         "The target source is not among the exact files selected for this request.".to_owned()
@@ -459,7 +763,12 @@ pub fn canonicalize_file_chapter(
     let selected_paths = sources.keys().cloned().collect::<HashSet<_>>();
     let mut has_responsibility = false;
     let mut sections = Vec::with_capacity(proposal.sections.len() + 1);
-    for (order, proposed_section) in proposal.sections.iter().enumerate() {
+    for (order, (proposed_section, visual_proposal)) in proposal
+        .sections
+        .iter()
+        .zip(&visual_proposals)
+        .enumerate()
+    {
         let section_id = generated_id("section");
         let mut claims = Vec::with_capacity(proposed_section.claims.len());
         let mut section_dependencies = Vec::new();
@@ -492,6 +801,8 @@ pub fn canonicalize_file_chapter(
                 proposed_section.title.trim()
             ));
         }
+        let mut hotspots = Vec::new();
+        let visual = canonicalize_visual_proposal(visual_proposal, &claims, &mut hotspots)?;
         let section = ChapterSection {
             section_id,
             section_revision_id: generated_id("sectionrev"),
@@ -501,8 +812,8 @@ pub fn canonicalize_file_chapter(
             spoken_text: proposed_section.spoken_text.trim().to_owned(),
             claims,
             dependencies: section_dependencies,
-            visual: None,
-            hotspots: Vec::new(),
+            visual: visual.map(Into::into),
+            hotspots,
         };
         sections.push(section);
     }
@@ -611,13 +922,24 @@ pub fn canonicalize_repository_overview(
             );
         }
     }
-    let proposal: GeneratedOverviewProposal = serde_json::from_str(response_text)
-        .map_err(|_| "Gemini's response did not match the strict repository overview schema. No draft was created.".to_owned())?;
+    let mut proposal_value = serde_json::from_str::<serde_json::Value>(response_text)
+        .map_err(|_| "The provider response was not valid JSON. No draft was created.".to_owned())?;
+    let visual_proposals = take_section_visual_proposals(&mut proposal_value)?;
+    let proposal: GeneratedOverviewProposal = serde_json::from_value(proposal_value)
+        .map_err(|_| "The provider response did not match the strict repository overview schema. No draft was created.".to_owned())?;
+    if visual_proposals.len() != proposal.sections.len() {
+        return Err("The visual plan count did not match the generated section count.".to_owned());
+    }
     let sources = checked_sources(manifest, selected_sources)?;
     validate_overview_proposal_shape(&proposal)?;
     let selected_paths = sources.keys().cloned().collect::<HashSet<_>>();
     let mut sections = Vec::with_capacity(proposal.sections.len());
-    for (order, proposed_section) in proposal.sections.iter().enumerate() {
+    for (order, (proposed_section, visual_proposal)) in proposal
+        .sections
+        .iter()
+        .zip(&visual_proposals)
+        .enumerate()
+    {
         let section_id = generated_id("section");
         let mut claims = Vec::with_capacity(proposed_section.claims.len());
         let mut dependencies = Vec::new();
@@ -649,6 +971,8 @@ pub fn canonicalize_repository_overview(
             }
             claims.push(claim);
         }
+        let mut hotspots = Vec::new();
+        let visual = canonicalize_visual_proposal(visual_proposal, &claims, &mut hotspots)?;
         let section = ChapterSection {
             section_id,
             section_revision_id: generated_id("sectionrev"),
@@ -658,8 +982,8 @@ pub fn canonicalize_repository_overview(
             spoken_text: proposed_section.spoken_text.trim().to_owned(),
             claims,
             dependencies,
-            visual: None,
-            hotspots: Vec::new(),
+            visual: visual.map(Into::into),
+            hotspots,
         };
         if !chapters::overview_section_copy_supported(&section) {
             return Err("Every repository overview prose and narration sentence must be copied from an anchored claim; inference sentences must keep their visible label.".to_owned());

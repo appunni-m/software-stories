@@ -12,7 +12,14 @@ blocked_by: parser-binding-resolution
 A freshly generated chapter contains a useful visual that explains actual behavior and lets the reader inspect the supporting code.
 
 ## Current evidence
-src-tauri/src/provider.rs excludes visual/hotspot output from chapter prompts and schemas. chapter_generation.rs constructs new sections with visual: None and empty hotspots. The existing visual renderer/validator accepts dataFlow, sequence and hierarchy records; renderer support does not implement generation. This is a missing core product capability.
+Before the source implementation recorded below, `src-tauri/src/provider.rs` excluded diagram proposals from chapter prompts and schemas, while `src-tauri/src/chapter_generation.rs` created new sections with no visual or hotspots. The existing visual renderer and validator could read `dataFlow`, `sequence`, and `hierarchy` records, but generation did not produce them.
+
+## Source implementation progress (2026-10-15)
+File chapters, repository overviews, and selective section updates now accept a bounded visual proposal alongside claims. A proposal may explicitly select `none`, preserving text-only explanations, or describe a small data-flow, sequence, or hierarchy graph. Each node and edge cites exact `{path, quote}` entries copied from its section's claims; local canonicalization resolves those quotes to the app's source anchors and creates Code Lens hotspots. The canonicalizer rejects malformed plans, dangling/self edges, out-of-range indexes, oversized labels, and citations that do not resolve to claim evidence. Visual schema version is independent of chapter revision schema version.
+
+Selective updates now preserve the prior graph's node, edge, and hotspot IDs only when the regenerated graph content, destinations, and remapped evidence are identical. A changed graph stays attached to the edited section; unchanged sections continue through the existing carry-forward path.
+
+This is partial source progress, not acceptance evidence. No tests or builds were run. There is not yet a generated example with a source-click walkthrough, visual accessibility/reflow review, offline-export evidence, or a human comprehension review. Generation is currently wired through the existing structured API-provider path; this task does not establish agent-backend support or production readiness.
 
 ## Contract
 Add a reviewed structured visual-planning step using the selected API or coding-agent backend. Choose an appropriate diagram from validated source claims: request/data flow, call sequence or component hierarchy. Resolve model-proposed references to app-owned exact anchors and typed destinations locally; validate every behavior node/edge. Use the existing app-owned renderer; never execute generated scripts/HTML. Plan bounded scenes and deliberate transitions so readers can follow one behavior at a time. Preserve text-only use when a diagram adds no explanatory value.
