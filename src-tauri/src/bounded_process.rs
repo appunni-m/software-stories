@@ -186,21 +186,31 @@ pub(crate) fn run(
         }
     };
 
-    let stdout = join_reader(stdout_reader)?;
-    let stderr = join_reader(stderr_reader)?;
-    let input_error = match input_writer {
-        Some(writer) => writer.join().map_err(|_| RunError::WriterPanicked)?.err(),
-        None => None,
-    };
+    // Join every worker before propagating any worker error. An early `?`
+    // here would detach the remaining pipe threads on a read or panic error.
+    let stdout_result = join_reader(stdout_reader);
+    let stderr_result = join_reader(stderr_reader);
+    let input_error = input_writer.and_then(|writer| match writer.join() {
+        Ok(result) => result.err().map(RunError::Write),
+        Err(_) => Some(RunError::WriterPanicked),
+    });
 
     if let Some(error) = failure {
         return Err(error);
     }
-    if stdout.exceeded_limit || stderr.exceeded_limit {
+    if stdout_result
+        .as_ref()
+        .is_ok_and(|output| output.exceeded_limit)
+        || stderr_result
+            .as_ref()
+            .is_ok_and(|output| output.exceeded_limit)
+    {
         return Err(RunError::OutputLimit);
     }
+    let stdout = stdout_result?;
+    let stderr = stderr_result?;
     if let Some(error) = input_error {
-        return Err(RunError::Write(error));
+        return Err(error);
     }
 
     let status = exit_status

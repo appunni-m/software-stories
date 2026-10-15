@@ -37,3 +37,7 @@ Code path audit plus later timeout/output/cancel acceptance on a disposable fixt
 - `bounded_process::tests` covers output overflow, input overflow, timeout and running-child cancellation. `snapshot::tests`, `project::tests` and `git_evidence::tests` pass, including cancellation/history preservation and repository non-mutation cases.
 
 Remaining acceptance: add a blocked-stdin fixture and explicit timeout/output-limit error assertions at the app-facing boundary; inspect cancellation/status propagation through the native command lifecycle; evaluate the remaining Git subprocess call sites; and record packaged-app cancellation/no-orphan evidence. Do not close this task until that evidence exists.
+
+## Static follow-up — 2026-10-16
+
+Review found that `bounded_process::run` used `?` while joining the stdout reader. A pipe read error or reader panic could return before the stderr reader and stdin writer were joined, detaching those workers. The runner now collects all worker results first, joins every worker, and only then returns the selected error. This is a source-level fix only; no test, build, or runtime acceptance was run. The remaining acceptance above still applies.
