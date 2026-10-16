@@ -97,3 +97,7 @@ Open blockers are recorded dependency edges, not a complete list of human/vendor
 - **Release:** supported macOS/architecture decisions, trusted runtime packaging, Developer ID/notarization credentials and clean-account installation remain required. Source code cannot manufacture those artifacts or credentials.
 
 Refresh this snapshot from live Kata when status changes. Canonical task bodies and checked-in definitions must be reconciled without losing independently edited requirements or relabeling historical observations as current execution evidence.
+
+## 16 October all-page UI migration
+
+Task `na54` ([definition](kata-tasks/64-workspace-ui-audit.md)) records the concrete Files, Guide, navigation, conversation, search, changes and secondary-tool inconsistencies. It remains open until packaged evidence is complete. The activity bar and repository-backed conversation workspace replace the old normal reading path; the sample preview remains clearly separate.

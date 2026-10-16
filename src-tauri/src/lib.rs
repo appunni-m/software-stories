@@ -50,6 +50,7 @@ mod repository_plan_store;
 mod snapshot;
 mod source_discovery;
 mod strict_json;
+mod workspace;
 
 use project::{ProjectOpenResult, RecentProject};
 use serde::Serialize;
@@ -1921,6 +1922,9 @@ pub fn run() {
             agent_handoff::build_agent_handoff_review,
             agent_handoff::export_agent_handoff,
             agent_handoff::import_agent_handoff_result,
+            workspace::authorize_workspace_exploration,
+            workspace::revoke_workspace_exploration,
+            workspace::list_workspace_commits,
             source_discovery::prepare_source_discovery,
             source_discovery::get_documentation_notices,
             source_discovery::discard_source_discovery,

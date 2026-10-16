@@ -18,3 +18,7 @@ The explorer stays mounted in Guide, Flow and history. Chat stays visible during
 
 ## Current status
 Interactive sample preview and reusable notification popover exist. Production shell migration is pending. No native layout parity is claimed.
+
+## 16 October workspace migration
+
+Production migration now consumes real immutable inventory/source in a shared activity-bar workspace; packaged acceptance is being recorded in the new UI audit task na54.

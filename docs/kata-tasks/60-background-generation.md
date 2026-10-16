@@ -18,3 +18,7 @@ Keep one connection in the header; model/reasoning/approval are configured once 
 
 ## Acceptance
 Installed GPT-6 Luna/max account path without mandatory API keys; no repeated backend/file selection. Close/change view/project during discovery, generation and save; restart, explicit Stop, quota failure at step two, bad evidence, lost save reply, changed account, revoked grant and wider question. Check bounded source, unchanged saved artifacts and no unexpected transmission/retry. All internal stages use one user intent and one result surface. Claude stays deferred; Pocket remains narration default.
+
+## 16 October workspace migration
+
+New question jobs have module ownership independent of views, explicit Stop, native interruption records, fingerprinted question/range context and revocable native snapshot/account/runtime sharing. A native persisted scheduler and complete restart/reconciliation qualification remain open.

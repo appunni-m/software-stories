@@ -20,3 +20,7 @@ Global runtime, workspace, interrupted-operation and pending-preview banners now
 
 ## Acceptance
 Check empty/multiple/project-scoped entries, live completion while typing/playing, Escape/outside close, action opens source/guide, disabled missing previews, retry failures, focus into opened dialog and back, restart persistence, resolved dedupe, 200% zoom, dark/light contrast and screen reader announcements. Verify no banner stack in the main reading surface and no implicit save/accept/retry.
+
+## 16 October workspace migration
+
+The bell receives workspace outcomes; legacy recovery remains reachable. New workspace jobs do not open stage modals. A durable notification history remains open.

@@ -1,6 +1,6 @@
 # Code, questions, and explanations in one workspace
 
-**Design contract: 16 October 2026, latest user direction.** This supersedes the primary navigation in the earlier Guide / Files / Changes proposals. The new workspace is an interactive design preview, not a replacement native application yet. The production change in this iteration moves global notices and recovered work into the notification bell. Existing generation dialogs still need the background execution work below.
+**Design contract: 16 October 2026, latest user direction.** This supersedes the old Guide / Files / Changes header navigation. The production migration uses a VS Code style activity bar for Explorer, Search, Changes and exploration history. Guide / Flow / Chat history are views of the same exploration. The browser preview remains an illustrative checkout sample; it is not the repository-backed app. See the acceptance record for exactly which packaged flows have been observed.
 
 Open the [interactive preview](http://127.0.0.1:4173/workspace-preview.html) while `npm run dev` is running on the existing port 4173. It uses a small illustrative checkout repository, local sample responses, and separate preview preferences. It reads no repository, invokes no AI, and does not synthesize audio. Its player demonstrates visual steps only.
 
@@ -20,10 +20,11 @@ These are screenshots of the interactive sample design, not the packaged app.
 
 ## What the reader sees
 
-- **Left:** a persistent, searchable file explorer. Opening a file shows actual code beside the explanation; closing code gives the explanation more space. The explorer remains available in every view.
+- **Left edge:** a compact activity bar for Explorer, Search, Changes and Explorations. Changes includes a bounded read-only commit list with real parent relationships and one-click comparison.
+- **Sidebar:** a persistent, searchable file explorer. Opening a file shows actual code beside the explanation; closing code gives the explanation more space. The explorer remains available in every view.
 - **Top:** one chat bar, with **Guide me** and **Show the flow** above it. This stays visible while content scrolls. A small project header contains search, connection status, appearance, and a notification bell. Settings do not occupy a workspace pane.
 - **Main area:** resizable code and explanation panes. The current exploration has **Guide**, **Flow**, and **Chat history** views. Implementation detail is an inline code component in Guide or Flow, never a third explanation mode or a detached destination.
-- **Guide:** the answer unfolds in readable, headed cards. A card can contain text, an interactive visual, source links, and an optional narrated sequence. The reader controls when to continue. Follow-up answers stack at the current level.
+- **Guide:** the answer unfolds in readable, headed cards. A card can contain text, an interactive visual, source links, and an optional narrated sequence. The reader controls when to continue. Every follow-up has a visible question heading and its own answer card at the current level. Branch links and real counts appear on the answer they came from. The hierarchical exploration list shows deeper levels before navigation; breadcrumbs alone do not establish visible nesting.
 - **Flow:** an understandable graph, initially at the current question's level. Select a node to inspect its implementation; explicitly explore it to descend. The graph can move from repository structure to modules and functions, only as supported by evidence.
 - **Navigation:** a breadcrumb and Back return one level; the first breadcrumb returns to the root. Each exploration reopens its last view, code selection, scroll position, graph viewport and player position. Deeper exploration creates a branch, not an ever-growing stack of nested modal components.
 
@@ -75,8 +76,16 @@ Reuse existing validated claim anchors, diagram specifications, Pocket TTS cache
 1. Record this contract and show the preview before replacing native navigation.
 2. Build the shared workspace shell and real source/explorer adapter.
 3. Add versioned explorations, current-level chat, search and exact context actions.
-4. Move generation ownership into background jobs and implement scoped authorization.
+4. Keep question generation outside view lifetimes and implement native snapshot/account/runtime scoped authorization. The initial migration uses a module-owned job with native interruption journals; it does not silently resume inference after an app restart.
 5. Compose Guide, Flow, inline details and optional narration from the same revisioned artifacts.
 6. Qualify the packaged app against these same screens and keyboard/accessibility/large-repository journeys. A design preview does not pass native acceptance.
 
 The detailed tasks are in `57`–`62` under [Kata definitions](../kata-tasks/). Existing Codex, narrative, visual, accessibility and release gates remain open. Claude remains deferred. The preview adds no model invocation and preserves the standing GPT-6 Luna/max preference.
+
+## Implementation scope
+
+The production workspace consumes native immutable snapshot inventory/source, native validated chapter revisions and the existing Codex account connection. New questions preserve the question and exact range in the native fingerprinted request, discover supporting implementation files, generate and save a separate draft, then render that revision as Guide/Flow content. Draft is not automatic acceptance. Existing revision review, editing, interactive visual rendering and Pocket narration remain contextual tools. Nothing in production imports sample repository contents.
+
+The one-time sharing decision is distinct from account connection: it names this snapshot, destination OpenAI through Codex, indexed metadata/documentation hints, automatically selected code, the 12-file/250-KB bounds and account quota. The native permission binds the manifest digest, account identity and executable hash. Discovery preparation/dispatch and chapter preparation/revalidation check it again. New snapshots/accounts/runtimes need a new decision. The shield revokes permission and stops current workspace questions. Legacy reviewed requests keep their existing per-request rules.
+
+Conversation UI state is versioned flat data in WebView local storage with native revision IDs; generated prose/assets remain native records. An interrupted question never restarts automatically. Native previews/recovery notices remain available when a save cannot be confirmed. This is not yet a native persisted job scheduler: a restart can require explicit recovery, and large-repository/VoiceOver qualification remains separate. Search currently covers captured paths, indexed symbol names and the open file's lines; it does not claim full repository text search.

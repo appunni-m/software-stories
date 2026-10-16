@@ -1888,7 +1888,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 
 /* A code workspace: one explorer, one source editor, one explanation tool pane. */
 .has-snapshot .view-atlas, .has-snapshot .view-walkthrough { padding: 0; overflow: hidden; }
-.has-snapshot:is(.view-atlas, .view-walkthrough) > .workspace-heading { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.has-snapshot :is(.view-atlas, .view-walkthrough) > .workspace-heading { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .workspace-footer { flex: 0 0 26px; min-height: 26px; padding: 0 16px; background: var(--surface); font-size: 9px; }
 .workspace-footer > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-button > span { overflow: hidden; text-overflow: ellipsis; }
@@ -2073,3 +2073,33 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .plan-history { margin-top: 20px; }
 .plan-history > summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 .plan-heading h2 { margin-top: 0; }
+
+/* The conversational workspace owns reading space; headings remain accessible. */
+.has-snapshot .workspace-content {padding:0;overflow:hidden;display:flex;flex-direction:column;min-height:0;}
+.has-snapshot .workspace-content > .workspace-heading {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
+.has-snapshot .workspace-toolbar {display:none;}
+.topbar {display:flex;flex:0 0 46px;min-height:46px;gap:16px;padding:0 14px;}
+.topbar .brand-mark {height:27px;width:27px;border:0;border-radius:6px;}
+.topbar .brand-name {font-size:14px;font-weight:650;letter-spacing:-.04em;}
+.topbar .project-controls {flex:1;}
+.topbar .topbar-actions {display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-left:auto;}
+.topbar .search-control,.topbar .tools-button {min-height:30px;height:30px;}
+.workspace-footer {font-size:10px;min-height:23px;flex-basis:23px;}
+.provider-dialog h2 {font-size:21px;line-height:1.4;}
+.provider-dialog p,.provider-dialog label,.provider-dialog .provider-small-note {font-size:13px;line-height:1.7;}
+.provider-dialog input,.provider-dialog select,.provider-dialog textarea {font-size:13px;min-height:34px;}
+.provider-dialog .primary-button,.provider-dialog .secondary-button {min-height:34px;font-size:12px;}
+.dw-tool-content .git-changes-kicker,.dw-tool-content .git-readonly-badge,.dw-tool-content .git-ref-explainer,.dw-tool-content .git-ref-form label {font-size:12px;}
+.dw-tool-content .git-ref-form input {font-size:13px;min-height:34px;}
+.dw-tool-content .git-comparison-id {display:none;}
+.dw-tool-content .file-flow p,.dw-tool-content .chapter-studio-card p {color:var(--muted);font-size:13px;line-height:1.8;}
+.developer-workspace .file-flow > p {color:var(--muted);font-size:13px;}
+.dw-tool-content .walkthrough-layout {min-height:0;}
+@media(max-width:800px){.topbar .brand-name,.topbar .header-divider,.topbar .snapshot-button {display:none;}.topbar{gap:8px;padding:0 8px;}.topbar .project-controls{min-width:70px;}.topbar .project-button{font-size:11px;max-width:150px;}.topbar .topbar-actions{gap:5px;}.topbar .theme-control{max-width:75px;}.topbar .connection-header{padding:0 6px;max-width:110px;}}
+/* Secondary tools inherit the same readable control scale as the workspace. */
+.dw-tool-content :is(.chapter-studio-card,.chapter-studio-section,.walkthrough-section-content,.git-file-change) {border-radius:8px;}
+.dw-tool-content :is(.chapter-studio-summary,.chapter-studio-kicker,.chapter-studio-field,.chapter-edit-field,.revision-history-list,.git-commit-identity,.git-diff-summary,.walkthrough-kicker,.walkthrough-step-status) {font-size:12px;line-height:1.65;}
+.dw-tool-content :is(.chapter-studio-section,.chapter-studio-card) :is(label,p,textarea,input,select) {font-size:13px;line-height:1.7;}
+.dw-tool-content :is(.chapter-studio-section,.chapter-studio-card) :is(h2,h3) {font-size:18px;line-height:1.5;color:var(--text);}
+.dw-tool-content :is(.primary-button,.secondary-button,.text-button) {font-size:12px;min-height:32px;}
+.dw-tool-content :is(.git-ref-card,.git-changes-list,.git-comparison-result) {border-radius:8px;}

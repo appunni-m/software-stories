@@ -39,6 +39,8 @@ export function WorkspacePreview() {
   const [composerResults, setComposerResults] = useState<ReturnType<typeof findExampleCode>>([]);
   const [fileFilter, setFileFilter] = useState('');
   const [closedFolders, setClosedFolders] = useState<string[]>([]);
+  const [activity, setActivity] = useState<'files'|'changes'|'history'>('files');
+  const [narrowPane, setNarrowPane] = useState<'explanation'|'source'|'explorer'>('explanation');
   const [codeOpen, setCodeOpen] = useState(true);
   const [reveal, setReveal] = useState<CodeContext | null>(null);
   const [slide, setSlide] = useState(0);
@@ -49,7 +51,7 @@ export function WorkspacePreview() {
   const scroll = useRef<HTMLDivElement>(null);
   const resultList = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { try { localStorage.setItem('code-atlas:workspace-design:v1', JSON.stringify(state)); } catch { /* Preview only. */ } }, [state]);
+  useEffect(() => { try { localStorage.setItem('code-atlas:workspace-design:v2', JSON.stringify(state)); } catch { /* Preview only. */ } }, [state]);
   useEffect(() => {
     const timer = window.setTimeout(() => setComposerResults(findExampleCode(query)), 150);
     return () => window.clearTimeout(timer);
@@ -58,7 +60,7 @@ export function WorkspacePreview() {
   useEffect(() => { setPlaying(false); setSlide(0); scroll.current?.scrollTo({ top: 0 }); }, [current.id]);
 
   function openFile(context: CodeContext) {
-    setState((s) => ({ ...s, file: context.path })); setCodeOpen(true); setReveal(context); setSearchOpen(false); setComposerFocused(false);
+    setState((s) => ({ ...s, file: context.path })); setCodeOpen(true); setNarrowPane('source'); setReveal(context); setSearchOpen(false); setComposerFocused(false);
   }
   function attach(context: CodeContext) {
     setAttachments((items) => items.some((i) => contextLabel(i) === contextLabel(context)) ? items : [...items, context]);
@@ -68,19 +70,19 @@ export function WorkspacePreview() {
     scroll.current?.scrollTo({ top: 0 });
     setState((s) => ({ ...s, explorations: s.explorations.map((e) => e.id === s.currentId ? { ...e, view } : e) }));
   }
-  function explore(question: string, view: 'guide' | 'flow' = current.view === 'flow' ? 'flow' : 'guide', context = attachments) {
+  function explore(question: string, view: 'guide' | 'flow' = current.view === 'flow' ? 'flow' : 'guide', context = attachments, originTurnId = 'main') {
     if (!question.trim()) { setView(view); composer.current?.focus(); return; }
     const kind = /negative|invalid|validat|reject|subtotal/i.test(question) ? 'validation' : /overflow|break|limit|safe/i.test(question) ? 'limits' : /tax|rate/i.test(question) ? 'tax' : 'overview';
-    const existing = state.explorations.find((e) => e.parentId === current.id && e.question === question && JSON.stringify(e.context) === JSON.stringify(context));
-    const next: Exploration = existing ?? { id: crypto.randomUUID(), parentId: current.id, question, view, context, kind };
+    const existing = state.explorations.find((e) => e.parentId === current.id && (e.originTurnId ?? 'main') === originTurnId && e.question === question && JSON.stringify(e.context) === JSON.stringify(context));
+    const next: Exploration = existing ?? { id: crypto.randomUUID(), parentId: current.id, originTurnId, question, view, context, kind };
     setState((s) => ({ ...s, currentId: next.id, explorations: existing ? s.explorations : [...s.explorations, next] }));
-    setQuery(''); setAttachments([]); setComposerFocused(false); setSearchOpen(false);
+    setQuery(''); setAttachments([]); setComposerFocused(false); setSearchOpen(false);setNarrowPane('explanation');
   }
   function ask(question: string, view: 'guide' | 'flow' = current.view === 'flow' ? 'flow' : 'guide', context = attachments) {
     if (!question.trim()) { setView(view); composer.current?.focus(); return; }
     const turn = { id: crypto.randomUUID(), question, context };
     setState((s) => ({ ...s, explorations: s.explorations.map((e) => e.id === s.currentId ? { ...e, view, turns: [...(e.turns ?? []), turn] } : e) }));
-    setQuery(''); setAttachments([]); setComposerFocused(false); setSearchOpen(false);
+    setQuery(''); setAttachments([]); setComposerFocused(false); setSearchOpen(false);setNarrowPane('explanation');
     window.requestAnimationFrame(() => scroll.current?.scrollTo({ top: scroll.current.scrollHeight }));
   }
   function explain(context: CodeContext) { ask(`Explain ${contextLabel(context)}`, current.view === 'flow' ? 'flow' : 'guide', [context]); }
@@ -99,6 +101,9 @@ export function WorkspacePreview() {
     { label: 'Dismiss', run: () => setNotifications([]) },
   ] }));
   const children = state.explorations.filter((e) => e.parentId === current.id);
+  const mainChildren = children.filter((e) => !e.originTurnId || e.originTurnId === 'main');
+  const renderTree = (parent: string | null, depth = 0): React.ReactNode => state.explorations.filter((e) => e.parentId === parent).map((e) => <li key={e.id}><button className={e.id === current.id ? 'active' : ''} style={{ paddingLeft: 7 + depth * 8 }} onClick={() => (setNarrowPane('explanation'),setState((s) => ({ ...s, currentId: e.id })))}><MessageSquare size={12} /><span>{e.id === 'root' ? 'Checkout' : e.question}</span><small>{1 + (e.turns?.length ?? 0)}</small></button><ul>{renderTree(e.id, depth + 1)}</ul></li>);
+  const childLinks = (items: Exploration[]) => <div className="preview-inline-branches">{items.map((e) => <button key={e.id} onClick={() => setState((s) => ({ ...s, currentId:e.id }))}><span>↳</span><span>{e.question}</span><small>{1 + (e.turns?.length ?? 0)} answers</small><ChevronRight size={12}/></button>)}</div>;
   const results = findExampleCode(searchQuery);
   const nodeSource = (index: number): CodeContext => index === 0 ? { path: 'src/checkout.ts', from: 3, to: 5 } : index === 2 ? { path: 'src/cart.ts', from: 1, to: 6 } : { path: 'src/cart.ts', from: 8, to: 13 };
   const detailFlow = /subtotal|negative|invalid/i.test(current.question);
@@ -112,10 +117,10 @@ export function WorkspacePreview() {
         <NotificationCenter items={updates} />
       </div>
     </header>
-    <Group orientation="horizontal" className="preview-body">
+    <div className={`preview-workspace-body preview-narrow-${narrowPane}`}><nav className="preview-activity" aria-label="Repository tools"><button aria-label="Explorer" aria-pressed={activity==='files'} onClick={()=>{setActivity('files');setNarrowPane('explorer');}}><Files size={21}/></button><button aria-label="Search" onClick={()=>setSearchOpen(true)}><Search size={21}/></button><button aria-label="Changes" aria-pressed={activity==='changes'} onClick={()=>{setActivity('changes');setNarrowPane('explorer');}}><GitBranch size={21}/></button><button aria-label="Explorations" aria-pressed={activity==='history'} onClick={()=>{setActivity('history');setNarrowPane('explorer');}}><History size={21}/></button></nav><Group orientation="horizontal" className="preview-body">
       <Panel id="explorer" defaultSize="205px" minSize="155px" maxSize="320px">
         <aside className="preview-explorer" aria-label="File explorer">
-          <div className="preview-explorer-heading"><Files size={14} /><strong>Explorer</strong></div>
+          <div className="preview-explorer-heading"><Files size={14} /><strong>{activity==='changes'?'Source control':activity==='history'?'Explorations':'Explorer'}</strong></div>{activity==='changes'?<div className="preview-sample-commits"><strong>Commit history</strong><p>Illustrative checkout history</p>{['Validate prices before calculating','Apply the tax rate at checkout','Add the subtotal function'].map((title,i)=><div key={title}><GitBranch size={14}/><span>{title}<small>{['a94f5c2','4d92b11','19bc7aa'][i]}</small></span></div>)}</div>:activity==='history'?<ul className="preview-exploration-tree">{renderTree(null)}</ul>:<>
           <TextField.Root size="1" value={fileFilter} onChange={(e) => setFileFilter(e.target.value)} placeholder="Find a file…" aria-label="Filter files"><TextField.Slot><Search size={13} /></TextField.Slot></TextField.Root>
           <div className="preview-repo-label"><ChevronDown size={13} />CHECKOUT-DEMO</div>
           <nav aria-label="Repository files" className="preview-file-list">{['src', 'tests', ''].map((folder) => <div key={folder}>
@@ -125,7 +130,7 @@ export function WorkspacePreview() {
               onClick={() => openFile({ path })} title={`${path} · drag into chat`}><FileCode2 size={14} /><span>{path.split('/').at(-1)}</span></button>)}
           </div>)}</nav>
           <div className="preview-explorer-bottom"><History size={13} /><strong>Explorations</strong></div>
-          <nav className="preview-recent" aria-label="Recent explorations">{state.explorations.slice(-6).reverse().map((e) => <button className={e.id === current.id ? 'active' : ''} key={e.id} onClick={() => setState((s) => ({ ...s, currentId: e.id }))}><MessageSquare size={13} /><span>{e.question}</span></button>)}</nav>
+          <nav className="preview-recent" aria-label="Explorations"><ul className="preview-exploration-tree">{renderTree(null)}</ul></nav></>}
         </aside>
       </Panel>
       <Separator className="preview-separator" aria-label="Resize explorer" />
@@ -134,12 +139,12 @@ export function WorkspacePreview() {
           <nav className="preview-breadcrumbs" aria-label="Exploration path">
             <Tooltip content="Back one exploration · ⌥ ←"><IconButton size="1" color="gray" variant="ghost" disabled={!current.parentId} aria-label="Back one exploration" onClick={() => setState((s) => ({ ...s, currentId: current.parentId! }))}><ArrowLeft size={15} /></IconButton></Tooltip>
             <button onClick={() => setState((s) => ({ ...s, currentId: 'root' }))}>Checkout</button>
-            {ancestors.slice(1).map((e) => <span key={e.id}><ChevronRight size={12} /><button aria-current={e.id === current.id ? 'page' : undefined} onClick={() => setState((s) => ({ ...s, currentId: e.id }))}>{e.question}</button></span>)}
+            {ancestors.slice(1).map((e) => <span key={e.id}><ChevronRight size={12} /><button aria-current={e.id === current.id ? 'page' : undefined} onClick={() => (setNarrowPane('explanation'),setState((s) => ({ ...s, currentId: e.id })))}>{e.question}</button></span>)}
           </nav>
           <div className={`preview-composer ${dragOver ? 'is-drag-over' : ''}`} onDragOver={(e) => { if (e.dataTransfer.types.includes('application/x-code-atlas-context')) { e.preventDefault(); setDragOver(true); } }} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as globalThis.Node | null)) setDragOver(false); }} onDrop={(e) => {
             e.preventDefault(); setDragOver(false); try { const context = JSON.parse(e.dataTransfer.getData('application/x-code-atlas-context')) as CodeContext; if (exampleFiles[context.path]) attach(context); } catch { /* Ignore unrelated drops. */ }
           }}>
-            <Flex gap="2" mb="2"><Button variant="soft" size="1" onClick={() => ask(query, 'guide')}><BookOpen size={14} />Guide me</Button><Button variant="soft" size="1" color="gray" onClick={() => ask(query, 'flow')}><Network size={14} />Show the flow</Button></Flex>
+            <Flex gap="2" mb="2"><Button variant="soft" size="1" onClick={() => ask(query, 'guide')}><BookOpen size={14} />Guide me</Button><Button variant="soft" size="1" color="gray" onClick={() => ask(query, 'flow')}><Network size={14} />Show the flow</Button><IconButton className="preview-narrow-toggle" size="1" variant="ghost" aria-label={narrowPane==='source'?'Show explanation':'Show source'} onClick={()=>setNarrowPane(narrowPane==='source'?'explanation':'source')}><Code2 size={15}/></IconButton></Flex>
             <div className="preview-chat-input">
               {attachments.length > 0 && <div className="preview-context-chips">{attachments.map((c) => <Badge variant="soft" color="gray" key={contextLabel(c)}><FileCode2 size={12} />{contextLabel(c)}<button aria-label={`Remove ${contextLabel(c)}`} onClick={() => setAttachments((all) => all.filter((i) => i !== c))}><X size={11} /></button></Badge>)}</div>}
               <textarea ref={composer} rows={1} value={query} aria-label="Ask about this codebase" placeholder={current.parentId ? 'Ask a follow-up about this…' : 'What would you like to understand?'} onFocus={() => setComposerFocused(true)} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') setComposerFocused(false); if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); ask(query); } }} />
@@ -152,30 +157,30 @@ export function WorkspacePreview() {
             </div>}
           </div>
           <Group orientation="horizontal" className="preview-content">
-            {codeOpen && <><Panel id="code" defaultSize="42%" minSize="220px"><CodePane path={state.file} theme={state.theme} reveal={reveal} onClose={() => setCodeOpen(false)} onAttach={attach} onExplain={explain} /></Panel><Separator className="preview-separator" aria-label="Resize code and explanation" /></>}
+            {codeOpen && <><Panel id="code" defaultSize="42%" minSize="220px"><CodePane path={state.file} contents={exampleFiles[state.file]} theme={state.theme} reveal={reveal} onClose={() => {setCodeOpen(false);setNarrowPane('explanation');}} onAttach={attach} onExplain={explain} /></Panel><Separator className="preview-separator" aria-label="Resize code and explanation" /></>}
             <Panel id="explanation" minSize="280px">
               <Tabs.Root value={current.view} onValueChange={(value) => setView(value as ExplorationView)} className="preview-explanation">
                 <Tabs.List aria-label="Exploration views"><Tabs.Trigger value="guide"><BookOpen size={13} />Guide</Tabs.Trigger><Tabs.Trigger value="flow"><Network size={13} />Flow</Tabs.Trigger><Tabs.Trigger value="history"><MessageSquare size={13} />Chat history</Tabs.Trigger></Tabs.List>
                 <div className="preview-answer-scroll" ref={scroll}>
-                  <div className="preview-question"><span>EXPLORING</span><h1>{current.question}</h1>{current.context.length > 0 && <div className="preview-question-context">{current.context.map((c) => <button key={contextLabel(c)} onClick={() => openFile(c)}><Code2 size={12} />{contextLabel(c)}</button>)}</div>}</div>
+                  <div className="preview-thread-summary"><span>{1 + (current.turns?.length ?? 0)} answers</span><span>{children.length} branch{children.length === 1 ? '' : 'es'}</span>{current.parentId && <span>Level {ancestors.length}</span>}</div><div className="preview-question"><span>EXPLORING</span><h1>{current.question}</h1>{current.context.length > 0 && <div className="preview-question-context">{current.context.map((c) => <button key={contextLabel(c)} onClick={() => openFile(c)}><Code2 size={12} />{contextLabel(c)}</button>)}</div>}</div>
                   <Tabs.Content value="guide">
-                    <article className="preview-answer-card">
+                    <article className="preview-answer-card" id="preview-answer-main">
                       <div className="preview-answer-number">01<span>{current.kind === 'validation' ? 'Input validation' : current.kind === 'limits' ? 'Edge cases' : 'Follow the calculation'}</span></div>
                       <h2>{current.kind === 'validation' ? 'Bad prices stop the calculation.' : current.kind === 'limits' ? 'Valid inputs can still produce an invalid total.' : 'Validate first. Sum next. Apply tax last.'}</h2>
                       <p>{current.kind === 'validation' ? 'subtotal checks every price before reducing the array. A negative value, NaN, or Infinity throws a RangeError. No partial total is returned.' : current.kind === 'limits' ? 'Checking each input is not enough to guarantee a finite result. Adding very large finite prices can overflow, and the final multiplication has no extra check.' : 'checkout calls totalWithTax with a 0.10 rate. The rate is checked first. subtotal then validates and adds the prices; the result is multiplied by 1 + taxRate.'}</p>
                       <button className="preview-source-link" onClick={() => openFile({ path: 'src/cart.ts', from: current.kind === 'validation' ? 1 : 8, to: current.kind === 'validation' ? 6 : 13 })}><Code2 size={13} />cart.ts:{current.kind === 'validation' ? '1–6' : '8–13'}<ArrowRight size={13} /></button>
-                      {current.kind === 'validation' ? <div className="preview-visual preview-validation-visual"><div className="preview-visual-label">BEFORE ADDING ANY PRICES</div><div><code>[-1, 8]</code><ArrowRight size={16} /><span>RangeError</span></div><div><code>[12, 8]</code><ArrowRight size={16} /><span>20</span></div><p>One invalid price stops the calculation. An empty array returns zero.</p></div> : <div className="preview-visual">
+                      <details className="preview-visual-disclosure"><summary><Play size={12}/>Walk through the calculation</summary>{current.kind === 'validation' ? <div className="preview-visual preview-validation-visual"><div className="preview-visual-label">BEFORE ADDING ANY PRICES</div><div><code>[-1, 8]</code><ArrowRight size={16} /><span>RangeError</span></div><div><code>[12, 8]</code><ArrowRight size={16} /><span>20</span></div><p>One invalid price stops the calculation. An empty array returns zero.</p></div> : <div className="preview-visual">
                         <div className="preview-visual-label">{['CHECK THE INPUTS', 'ADD THE PRICES', 'APPLY TAX'][slide]}</div>
                         <div className="preview-calculation"><div><small>{slide === 0 ? 'Prices' : slide === 1 ? 'First price' : 'Subtotal'}</small><strong>{slide === 0 ? '[12, 8]' : slide === 1 ? '$12' : '$20'}</strong></div><span>{slide === 0 ? '+' : slide === 1 ? '+' : '×'}</span><div><small>{slide === 0 ? 'Tax rate' : slide === 1 ? 'Second price' : 'Multiplier'}</small><strong>{slide === 0 ? '0.10' : slide === 1 ? '$8' : '1.10'}</strong></div><ArrowRight size={18} /><div className="preview-calculation-result"><small>{slide === 0 ? 'Both finite ≥ 0' : slide === 1 ? 'Subtotal' : 'Total'}</small><strong>{slide === 0 ? <Check size={23} /> : slide === 1 ? '$20' : '$22'}</strong></div></div>
                         <div className="preview-visual-caption">{['Invalid inputs throw a RangeError before a result is returned.', 'reduce starts at zero and adds each validated price.', 'A rate of 0.10 adds 10% to the subtotal.'][slide]}</div>
                         <div className="preview-player"><Tooltip content="Play this visual step"><IconButton size="1" variant="ghost" color="gray" aria-label={playing ? 'Pause visual preview' : 'Play visual preview'} onClick={() => { if (slide === 2) setSlide(0); setPlaying((p) => !p); }}>{playing ? <Pause size={14} /> : <Play size={14} />}</IconButton></Tooltip><span>{slide + 1} of 3</span><div className="preview-player-dots">{[0, 1, 2].map((n) => <button key={n} aria-label={`Visual step ${n + 1}`} aria-current={slide === n ? 'step' : undefined} onClick={() => { setSlide(n); setPlaying(false); }} />)}</div><Button size="1" variant="ghost" color="gray" disabled={slide === 2} onClick={() => { setSlide((n) => n + 1); setPlaying(false); }}>Next<ArrowRight size={13} /></Button></div>
-                      </div>}
-                      <h3>{current.kind === 'limits' ? 'What to watch for' : 'The detail that matters'}</h3>
+                      </div>}</details>
+                      <details className="preview-extra-detail"><summary>The detail that matters</summary><h3>{current.kind === 'limits' ? 'What to watch for' : 'The detail that matters'}</h3>
                       <p>{current.kind === 'limits' ? 'There is no rounding or currency type here. This example uses ordinary JavaScript numbers; callers must decide how monetary precision and overflow should be handled.' : 'The rate check runs first. If the rate is invalid, subtotal never runs. If a price is invalid, subtotal throws and the tax multiplication never happens.'}</p>
-                      <footer className="preview-card-footer"><button onClick={() => explore('Why reject negative prices?', 'guide')}><ArrowDown size={13} />Why reject negative prices?</button><span>{children.length ? `${children.length} exploration${children.length === 1 ? '' : 's'}` : 'Go deeper'}</span></footer>
-                    </article>
-                    <button className="preview-collapsed-answer" onClick={() => explore('What can break this calculation?', 'guide')}><span className="preview-answer-number">02</span><span><strong>What can break this calculation?</strong><small>Overflow, empty inputs, and monetary precision</small></span><ChevronRight size={15} /></button>
-                    {children.length > 0 && <div className="preview-child-explorations"><h3>Explored from here</h3>{children.map((e) => <button key={e.id} onClick={() => setState((s) => ({ ...s, currentId: e.id }))}><MessageSquare size={13} />{e.question}<ArrowRight size={13} /></button>)}</div>}
+                      </details><footer className="preview-card-footer"><button onClick={() => explore('Why reject negative prices?', 'guide')}><ArrowDown size={13} />Why reject negative prices?</button><span>{mainChildren.length ? `${mainChildren.length} exploration${mainChildren.length === 1 ? '' : 's'}` : 'Go deeper'}</span></footer>
+                    {childLinks(mainChildren)}</article>
+
+
                   </Tabs.Content>
                   <Tabs.Content value="flow">
                     <p className="preview-flow-intro">Follow the calculation. Select a step to see its code.</p>
@@ -188,7 +193,9 @@ export function WorkspacePreview() {
                     const context = turn.context[0] ?? { path: 'src/cart.ts', from: 1, to: 13 };
                     const isSubtotal = context.to !== undefined && context.to <= 6;
                     const limits = /overflow|break|limit/i.test(turn.question);
-                    return <article key={turn.id} className="preview-answer-card preview-follow-up"><div className="preview-answer-number">{String(index + 3).padStart(2, '0')}<span>{turn.context.length ? 'Selected code' : 'Follow-up'}</span></div><h2>{turn.question}</h2><p>{limits ? 'Each input is checked for finiteness, but the result is not. Large valid prices can overflow during addition or tax multiplication. The code also does not round monetary values.' : isSubtotal ? 'subtotal first checks whether any price is non-finite or negative. It throws a RangeError if so. Otherwise, reduce adds all prices starting at zero; an empty array returns zero.' : 'totalWithTax rejects an invalid tax rate before calling subtotal. subtotal checks the prices and sums them. Only if both checks succeed does the result get multiplied by 1 + taxRate.'}</p><button className="preview-source-link" onClick={() => openFile(context)}><Code2 size={13} />{contextLabel(context)}<ArrowRight size={13} /></button><footer className="preview-card-footer"><button onClick={() => explore(turn.question, current.view === 'flow' ? 'flow' : 'guide', turn.context)}><ArrowDown size={13} />Explore this further</button><span>Go deeper</span></footer></article>;
+                    const turnChildren = children.filter((e) => e.originTurnId === turn.id);
+                    const response = /empty/i.test(turn.question) ? 'An empty list returns zero. No element fails the validation check, and reduce starts with an initial total of zero. Tax is then applied to zero, so checkout also returns zero.' : /where.*tax|10%/i.test(turn.question) ? 'checkout supplies the literal 0.1 on line 4. totalWithTax does not choose a default rate; it receives the rate from its caller. The example returns USD, but there is no region or tax policy lookup.' : null;
+                    return <article key={turn.id} className="preview-answer-card preview-follow-up"><div className="preview-answer-number">{String(index + 3).padStart(2, '0')}<span>{turn.context.length ? 'Selected code' : 'Follow-up'}</span></div><h2>{turn.question}</h2><p>{response ?? (limits ? 'Each input is checked for finiteness, but the result is not. Large valid prices can overflow during addition or tax multiplication. The code also does not round monetary values.' : isSubtotal ? 'subtotal first checks whether any price is non-finite or negative. It throws a RangeError if so. Otherwise, reduce adds all prices starting at zero; an empty array returns zero.' : 'totalWithTax rejects an invalid tax rate before calling subtotal. subtotal checks the prices and sums them. Only if both checks succeed does the result get multiplied by 1 + taxRate.')}</p><button className="preview-source-link" onClick={() => openFile(context)}><Code2 size={13} />{contextLabel(context)}<ArrowRight size={13} /></button><footer className="preview-card-footer"><button onClick={() => explore(turn.question, current.view === 'flow' ? 'flow' : 'guide', turn.context, turn.id)}><ArrowDown size={13} />Explore this further</button><span>{turnChildren.length ? `${turnChildren.length} exploration${turnChildren.length===1?'':'s'}` : 'Go deeper'}</span></footer>{childLinks(turnChildren)}</article>;
                   })}
                 </div>
               </Tabs.Root>
@@ -196,7 +203,7 @@ export function WorkspacePreview() {
           </Group>
         </main>
       </Panel>
-    </Group>
+    </Group></div>
     <footer className="preview-statusbar"><span><GitBranch size={12} />main</span><span>Design preview · sample answers · no AI calls</span><span>⌘ L Ask<span className="preview-status-gap" />⌘ P Search</span></footer>
     <Dialog.Root open={searchOpen} onOpenChange={setSearchOpen}><Dialog.Content maxWidth="620px" className="preview-search-dialog"><Dialog.Title size="3">Search code</Dialog.Title><Dialog.Description size="2" color="gray" mb="3">Find a file, function, or phrase.</Dialog.Description><TextField.Root autoFocus placeholder="Search files and code…" aria-label="Search files and code" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'ArrowDown') { e.preventDefault(); resultList.current?.querySelector<HTMLButtonElement>('button')?.focus(); } }}><TextField.Slot><Search size={15} /></TextField.Slot></TextField.Root>
       <div className="preview-command-results" ref={resultList} onKeyDown={(e) => {

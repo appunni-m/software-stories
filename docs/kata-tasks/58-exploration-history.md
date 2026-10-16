@@ -18,3 +18,7 @@ Submitting chat or Explain this code appends a turn at the CURRENT level. Only e
 
 ## Acceptance
 Exercise at least five levels and sibling branches, repeated navigation, restart on each view, mixed source snapshots, removed source, deleted/corrupt preferences and content-version migration. Verify no duplicate generation, unchanged parent transcript, real counts, last tab restored and no chapter data loss. Keep revisioned answers separate so selective section edits preserve unrelated artifacts.
+
+## 16 October workspace migration
+
+Flat versioned current-level turns, originating-turn branches, per-exploration last view/source and parent/root navigation are implemented. Native durable conversation storage and the full viewport/player restore contract remain qualification work.

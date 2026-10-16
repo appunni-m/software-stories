@@ -1371,6 +1371,7 @@ export async function buildCodexChapterReview(input: {
   projectId: string; snapshotId: string; targetPath: string | null; selectedPaths: string[];
   modelId: string; effort: string; approvalPolicy: 'never';
   sectionUpdate?: SectionUpdateReviewTarget | null;
+  question?: string; focus?: CodeLensExplanationTarget[]; workspaceGrant?: string;
 }): Promise<ProviderCommandResult<ProviderRequestReview>> {
   return invoke('build_codex_chapter_review', { input });
 }

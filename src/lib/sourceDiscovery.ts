@@ -7,8 +7,8 @@ export interface SourceDiscoveryReview {
   documentation: DocumentationNotice[];
 }
 export interface SourceDiscoveryResult { selectedFiles: { path: string; reason: string }[]; limitation: string }
-export const prepareSourceDiscovery = (input: SourceDiscoveryScope & { modelId: string; effort: string }) =>
-  invoke<SourceDiscoveryReview>('prepare_source_discovery', { input: { projectId: input.projectId, snapshotId: input.snapshotId, question: input.question, targetPath: input.targetPath ?? null, modelId: input.modelId, effort: input.effort } });
+export const prepareSourceDiscovery = (input: SourceDiscoveryScope & { modelId: string; effort: string; workspaceGrant?: string }) =>
+  invoke<SourceDiscoveryReview>('prepare_source_discovery', { input: { projectId: input.projectId, snapshotId: input.snapshotId, question: input.question, targetPath: input.targetPath ?? null, modelId: input.modelId, effort: input.effort, workspaceGrant: input.workspaceGrant ?? null } });
 export const sendSourceDiscovery = (review: SourceDiscoveryReview) =>
   invoke<SourceDiscoveryResult>('send_source_discovery', { input: { reviewId: review.reviewId, fingerprint: review.fingerprint, consent: true } });
 export const discardSourceDiscovery = (reviewId: string) => invoke<void>('discard_source_discovery', { reviewId });

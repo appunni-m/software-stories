@@ -142,3 +142,34 @@ html, body, #root { height: 100%; }
 .preview-validation-visual > p { padding: 0 16px 8px; font-size: 12px; }
 .preview-breadcrumbs { height: 28px; }
 .preview-composer { padding-bottom: 12px; }
+.preview-workspace-body {display:flex;flex:1;min-height:0;}
+.preview-workspace-body > .preview-body {flex:1;min-width:0;}
+.preview-activity {display:flex;flex-direction:column;flex:0 0 45px;padding-top:8px;background:var(--surface);border-right:1px solid var(--border);}
+.preview-activity > button {display:grid;place-items:center;height:45px;border:0;border-left:2px solid transparent;background:transparent;color:var(--dim);cursor:pointer;}
+.preview-activity > button:hover,.preview-activity > button[aria-pressed='true'] {color:var(--text);background:var(--surface-hover);border-left-color:var(--accent);}
+.preview-exploration-tree,.preview-exploration-tree ul {list-style:none;padding:0;margin:0;}
+.preview-exploration-tree ul {margin-left:10px;border-left:1px solid var(--border);}
+.preview-exploration-tree button {display:flex;align-items:center;gap:6px;padding:7px 4px;width:100%;border:0;background:transparent;color:var(--muted);font-size:11px;line-height:1.4;text-align:left;cursor:pointer;}
+.preview-exploration-tree button.active {color:var(--text);background:var(--surface-hover);border-radius:4px;}
+.preview-exploration-tree button svg {flex-shrink:0;}
+.preview-exploration-tree button span {flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.preview-exploration-tree small {font-size:10px;color:var(--dim);}
+.preview-explorer-bottom {margin-top:18px;}
+.preview-thread-summary {display:flex;gap:12px;color:var(--dim);font-size:11px;margin-bottom:16px;}
+.preview-visual-disclosure,.preview-extra-detail {margin-top:14px;}
+.preview-visual-disclosure > summary,.preview-extra-detail > summary {display:flex;align-items:center;gap:7px;font-size:12px;color:var(--accent);cursor:pointer;}
+.preview-extra-detail > h3 {display:none;}
+.preview-inline-branches {margin-top:8px;}
+.preview-inline-branches > button {display:flex;align-items:center;gap:8px;width:100%;padding:9px 7px;border:0;border-radius:5px;background:var(--surface);color:var(--muted);cursor:pointer;text-align:left;font-size:11px;line-height:1.5;margin-top:5px;}
+.preview-inline-branches > button > span:first-child {color:var(--accent);}
+.preview-inline-branches > button > span:nth-child(2) {flex:1;}
+.preview-inline-branches small {color:var(--dim);font-size:9px;white-space:nowrap;}
+.preview-sample-commits {font-size:12px;padding:10px 6px;color:var(--text);}
+.preview-sample-commits p {color:var(--dim);font-size:10px;}
+.preview-sample-commits > div {display:flex;align-items:center;gap:8px;border-left:1px solid var(--border);padding:10px 0;}
+.preview-sample-commits small {display:block;color:var(--dim);font-size:10px;margin-top:4px;}
+.preview-narrow-toggle {display:none;}
+@media(max-width:850px){.preview-narrow-toggle{display:inline-flex;margin-left:auto;}.preview-content>#code{display:none;}.preview-content>#explanation{flex:1!important;}.preview-content>.preview-separator{display:none;}.preview-narrow-source .preview-content>#code{display:block;flex:1!important;}.preview-narrow-source .preview-content>#explanation{display:none;}}
+@media(max-width:680px){.preview-body>#explorer,.preview-body>.preview-separator{display:none;}.preview-body>#workspace{flex:1!important;}.preview-narrow-explorer .preview-body>#explorer{display:block;flex:1!important;max-width:none!important;}.preview-narrow-explorer .preview-body>#workspace{display:none;}.preview-thread-summary{margin-bottom:8px;}.preview-question{margin-bottom:14px;}.preview-question h1{font-size:19px;}.preview-answer-card{padding:14px;}.preview-answer-scroll{padding:16px 14px 32px;}}
+@media(max-width:850px){.preview-content>#code{display:none!important;}.preview-narrow-source .preview-content>#code{display:flex!important;}.preview-narrow-source .preview-content>#explanation{display:none!important;}}
+@media(max-width:680px){.preview-body>#explorer,.preview-body>.preview-separator{display:none!important;}.preview-narrow-explorer .preview-body>#explorer{display:flex!important;}.preview-narrow-explorer .preview-body>#workspace{display:none!important;}}

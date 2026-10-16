@@ -33,6 +33,8 @@ pub(crate) struct DiscoveryInput {
     target_path: Option<String>,
     model_id: String,
     effort: String,
+    #[serde(default)]
+    workspace_grant: Option<String>,
 }
 
 #[derive(Clone, Serialize)]
@@ -401,6 +403,7 @@ pub(crate) async fn prepare_source_discovery(
     let agent = manager.inner().clone();
     let built = tauri::async_runtime::spawn_blocking(move || -> Result<Pending, String> {
         let runtime = agent.review_runtime(&storage)?;
+        if let Some(grant) = &input.workspace_grant { crate::workspace::check_grant(&storage, grant, &input.project_id, &input.snapshot_id, &runtime)?; }
         let (metadata, sizes, total, index_available, documentation) = metadata(&storage, &input)?;
         let review = DiscoveryReview {
             review_id: Uuid::new_v4().to_string(),
@@ -484,6 +487,7 @@ pub(crate) async fn send_source_discovery(
     };
     tauri::async_runtime::spawn_blocking(move || {
         let observed = runtime.review_runtime(&storage)?;
+        if let Some(grant) = &prepared.input.workspace_grant { crate::workspace::check_grant(&storage, grant, &prepared.input.project_id, &prepared.input.snapshot_id, &observed)?; }
         let (fresh, _, _, _, _) = metadata(&storage, &prepared.input)?;
         if fingerprint(&prepared.input, &fresh, &observed)? != prepared.review.fingerprint {
             return Err("The code index or account changed. Prepare discovery again.".to_owned());
@@ -577,6 +581,7 @@ mod tests {
             target_path: Some("src/greeting.ts".to_owned()),
             model_id: "gpt-6-luna".to_owned(),
             effort: "max".to_owned(),
+            workspace_grant: None,
         };
         let (encoded, sizes, total, indexed, docs) = metadata(&fixture.storage, &input).unwrap();
         assert!(indexed && total > 0 && sizes.contains_key("src/greeting.ts"));

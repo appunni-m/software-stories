@@ -1,3 +1,5 @@
+import { updateWorkspace } from './workspace/store';
+import { WorkspaceFrame } from './workspace/Workspace';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
 import { GenerationRecord } from './GenerationRecord';
 import { FileFlow } from './FileFlow';
@@ -47,6 +49,7 @@ import {
   X,
 } from 'lucide-react';
 import {
+  compareLocalGitRevisions,
   getApplicationStatus,
   getCaptureLimits,
   assessChapterFreshness,
@@ -148,7 +151,7 @@ import {
 } from './lib/inventory';
 import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, atlasTreeKeyboardAction, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport, type AtlasViewport, type ProvenGraphEdge } from './lib/atlas';
 import { classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, sourceLineTextRanges, splitCapturedSourceLines, splitSourceTextAtRange } from './lib/codeLens';
-import { loadShellStartupData, PRIMARY_WORKSPACES, WORKSPACE_COPY } from './lib/shell';
+import { loadShellStartupData, WORKSPACE_COPY } from './lib/shell';
 import { compareChapterRevisions, type RevisionChange } from './lib/revisionHistory';
 import {
   addCoverageGroup,
@@ -183,21 +186,13 @@ import {
 
 type Notice = { title: string; message: string; actionLabel?: string; action?: () => void; tone?: 'info' | 'warning' | 'error' } | null;
 type ProviderDialogMode = (
-  | { kind: 'settings'; backend?: 'api'; recoveryOperationId?: string }
+  | { kind: 'settings'; backend?: 'api' | 'codex'; recoveryOperationId?: string }
   | { kind: 'review'; projectId: string; snapshotId: string; targetPath: string; selectedPaths?: string[]; recoveryOperationId?: string }
   | { kind: 'code-lens-range'; projectId: string; snapshotId: string; target: CodeLensExplanationTarget; recoveryOperationId?: string }
   | { kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string; selectedPaths: string[]; baseRevision: ChapterRevision; sectionUpdate: SectionUpdateReviewTarget; recoveryOperationId?: string }
   | { kind: 'overview'; projectId: string; snapshotId: string; selectedPaths?: string[]; recoveryOperationId?: string }
 ) & { recoveryBackend?: 'codex' | 'claude-agent' };
 
-const workspaceIcons: Record<Workspace, typeof Network> = {
-  atlas: FolderOpen,
-  'code-lens': Code2,
-  walkthrough: Play,
-  'guide-plan': BookOpen,
-  'chapter-studio': BookOpen,
-  changes: GitBranch,
-};
 
 const projectResultTitles: Record<ProjectOpenStatus, string> = {
   cancelled: 'Folder selection cancelled',
@@ -223,6 +218,14 @@ function App() {
   const [runtime, setRuntime] = useState<ApplicationStatus | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
+  useEffect(() => {
+    const notify = (event: Event) => { const detail=(event as CustomEvent<{title:string;message:string;projectId?:string;snapshotId?:string;explorationId?:string}>).detail;
+      if(detail) setNotice({...detail,...(detail.projectId&&detail.snapshotId&&detail.explorationId?{actionLabel:'Open explanation',action:()=>{
+        updateWorkspace(detail.projectId!,detail.snapshotId!,(s)=>({...s,currentId:s.explorations.some((e)=>e.id===detail.explorationId)?detail.explorationId!:'root'}));
+        setNavigation((s)=>navigateToRoute(s,{workspace:'guide-plan',projectId:detail.projectId!,snapshotId:detail.snapshotId!}));
+      }}:{})}); };
+    window.addEventListener('code-atlas:workspace-notice',notify);return()=>window.removeEventListener('code-atlas:workspace-notice',notify);
+  }, []);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
@@ -1035,7 +1038,7 @@ function App() {
     setToolsOpen(false);
     setProjectMenuOpen(false);
     setSnapshotMenuOpen(false);
-    setProviderDialog({ kind: 'settings' });
+    setProviderDialog({ kind: 'settings', backend: 'codex' });
   };
 
   const reviewFileWithProvider = (targetPath: string, selectedPaths?: string[]) => {
@@ -1426,25 +1429,6 @@ function App() {
           </div>
         </div>
 
-        <nav className="primary-nav" aria-label="Primary workspaces">
-          {PRIMARY_WORKSPACES.map(({ id, label, activeWorkspaces }, index) => {
-            const Icon = workspaceIcons[id];
-            const active = activeWorkspaces.includes(currentWorkspace);
-            return (
-            <button
-              key={id}
-              className={`nav-tab ${active ? 'active' : ''}`}
-              onClick={() => chooseWorkspace(id)}
-              data-focus-key={`nav:${id}`}
-              aria-current={active ? 'page' : undefined}
-              aria-keyshortcuts={`Meta+${index + 1}`}
-            >
-              <Icon size={15} strokeWidth={1.9} />
-              <span>{label}</span>
-            </button>
-            );
-          })}
-        </nav>
 
         <div className="topbar-actions">
           <ConnectionHeader onOpen={openProviderSettings} />
@@ -1453,7 +1437,7 @@ function App() {
           <button
             className="search-control"
             disabled={!navigation.current.snapshotId}
-            onClick={() => setNavigation((state) => navigateToRoute(state, { ...state.current, workspace: 'atlas', focusTarget: 'atlas-tree-search' }))}
+            onClick={() => window.dispatchEvent(new Event('code-atlas:search'))}
             aria-label="Search repository files, Command K"
           >
             <Search size={15} />
@@ -1516,6 +1500,15 @@ function App() {
               <p>{copy.subtitle}</p>
             </div>
 
+            <WorkspaceFrame manifest={snapshotManifest?.summary.snapshotId === selectedSnapshot?.snapshotId ? snapshotManifest : null}
+              projectName={currentProject?.displayName ?? 'Repository'} workspace={currentWorkspace}
+              routePath={navigation.current.relativePath} routeRange={navigation.current.sourceRange}
+              onWorkspace={chooseWorkspace} onSettings={openProviderSettings} onReview={reviewGuideRevision} onRead={openGuideRevision}
+              onRememberFile={(relativePath) => { if (currentProject && selectedSnapshot) rememberFileLocation(currentProject.projectId,{snapshotId:selectedSnapshot.snapshotId,path:relativePath}); }}
+              onCompare={(baseRef,headRef) => {
+                setNavigation((state)=>navigateToRoute(state,{...state.current,workspace:'changes',baseRef,headRef,selectedChangePath:undefined}));
+                if(currentProject){const projectId=currentProject.projectId;void compareLocalGitRevisions(projectId,baseRef,headRef).then((result)=>setGitComparisonsByProject((s)=>({...s,[projectId]:{baseRef,headRef,result}}))).catch(()=>setNotice({title:'Comparison unavailable',message:'Choose two local commits and try again.'}));}
+              }}>
             {currentWorkspace === 'atlas' && selectedSnapshot && snapshotManifest ? (
               <>
                 {currentCapture && currentCapture.snapshotId !== selectedSnapshot.snapshotId && (
@@ -1695,7 +1688,7 @@ function App() {
                     [projectId]: { baseRef, headRef, result },
                   }))}
                   onOpenRepository={() => { void openLocalRepository(); }}
-                  onOpenProviderSettings={() => setProviderDialog({ kind: 'settings', backend: 'api' })}
+                  onOpenProviderSettings={openProviderSettings}
                   recovery={recoveredGitRequest}
                   onRecoveryReviewReady={completeRecoveredProviderReview}
                 />
@@ -1704,6 +1697,7 @@ function App() {
               <WorkflowEmptyState kind="studio" onGoPlan={() => chooseWorkspace('guide-plan')} />
             )}
 
+            </WorkspaceFrame>
             <footer className="workspace-footer">
               <span>{currentProject?.displayName ?? 'Code Atlas'}</span>
               <span>{currentWorkspace === 'changes' ? 'Local changes' : selectedSnapshot?.branch ?? ''}</span>
@@ -1780,7 +1774,7 @@ function ProviderDialog(props: ProviderDialogProps) {
   const [backend, setBackend] = useState<'choose' | GenerationBackend>(() => {
     if (props.mode.recoveryBackend === 'codex' && agentOperation) return 'codex';
     if (props.mode.recoveryBackend === 'claude-agent' && agentOperation) return 'claude-setup';
-    if (props.mode.kind === 'settings' && props.mode.backend === 'api') return 'api';
+    if (props.mode.kind === 'settings' && props.mode.backend) return props.mode.backend;
     const saved = readGenerationBackend();
     return saved === 'api' || agentOperation && saved !== 'handoff' || handoffOperation ? saved : 'choose';
   });

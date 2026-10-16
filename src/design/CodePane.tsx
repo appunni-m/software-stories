@@ -7,7 +7,7 @@ import { defaultKeymap } from '@codemirror/commands';
 import { javascript } from '@codemirror/lang-javascript';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
-import { exampleFiles, type CodeContext } from './example';
+import type { Context as CodeContext } from '../workspace/model';
 
 const colors = HighlightStyle.define([
   { tag: tags.keyword, color: 'var(--code-keyword)' },
@@ -17,8 +17,8 @@ const colors = HighlightStyle.define([
   { tag: tags.number, color: 'var(--code-number)' },
 ]);
 
-export function CodePane({ path, theme, reveal, onExplain, onAttach, onClose }: {
-  path: string; theme: 'dark' | 'light'; reveal: CodeContext | null;
+export function CodePane({ path, contents, theme, reveal, onExplain, onAttach, onClose }: {
+  path: string; contents: string; theme: 'dark' | 'light'; reveal: CodeContext | null;
   onExplain: (context: CodeContext) => void; onAttach: (context: CodeContext) => void; onClose: () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
@@ -28,7 +28,7 @@ export function CodePane({ path, theme, reveal, onExplain, onAttach, onClose }: 
   useEffect(() => {
     if (!host.current) return;
     const view = new EditorView({ parent: host.current, state: EditorState.create({
-      doc: exampleFiles[path], extensions: [
+      doc: contents, extensions: [
         EditorState.readOnly.of(true), lineNumbers(), drawSelection(), highlightActiveLine(), EditorView.lineWrapping,
         ...(path.endsWith('.ts') ? [javascript({ typescript: true })] : []), syntaxHighlighting(colors),
         EditorView.theme({ '&': { height: '100%', backgroundColor: 'var(--editor-bg)', color: 'var(--text)' }, '.cm-scroller': { fontFamily: 'var(--mono)', fontSize: '13px', lineHeight: '1.9' }, '.cm-content': { padding: '16px 0' }, '.cm-gutters': { backgroundColor: 'var(--editor-bg)', color: 'var(--dim)', borderRight: 'none', paddingRight: '8px' }, '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'var(--active-line)' }, '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'var(--selection)' }, '&.cm-focused': { outline: 'none' } }, { dark: theme === 'dark' }),
@@ -43,7 +43,7 @@ export function CodePane({ path, theme, reveal, onExplain, onAttach, onClose }: 
     }) });
     editor.current = view; setSelection(null);
     return () => { editor.current = null; view.destroy(); };
-  }, [path, theme]);
+  }, [path, contents, theme]);
   useEffect(() => {
     const view = editor.current;
     if (!view || !reveal || reveal.path !== path) return;
@@ -51,7 +51,7 @@ export function CodePane({ path, theme, reveal, onExplain, onAttach, onClose }: 
     const from = view.state.doc.line(Math.min(reveal.from ?? 1, view.state.doc.lines)).from;
     const to = view.state.doc.line(Math.min(reveal.to ?? reveal.from ?? 1, view.state.doc.lines)).to;
     view.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: 'center' }) });
-  }, [reveal, path, theme]);
+  }, [reveal, path, contents, theme]);
   return <section className="preview-code-pane" aria-label="Code">
     <div className="preview-editor-tab"><Code2 size={14} /><span>{path.split('/').at(-1)}</span><Tooltip content="Close code pane"><IconButton size="1" variant="ghost" aria-label="Close code pane" onClick={onClose}><X size={14} /></IconButton></Tooltip></div>
     <div className="preview-code-path">{path.split('/').join('  /  ')}</div>

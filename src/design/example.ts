@@ -42,6 +42,7 @@ export interface CodeContext { path: string; from?: number; to?: number }
 export interface Exploration {
   id: string;
   parentId: string | null;
+  originTurnId?: string;
   question: string;
   view: ExplorationView;
   context: CodeContext[];
@@ -50,8 +51,18 @@ export interface Exploration {
 }
 export interface PreviewState { explorations: Exploration[]; currentId: string; file: string; theme: 'dark' | 'light' }
 export const initialPreview: PreviewState = {
-  explorations: [{ id: 'root', parentId: null, question: 'How does checkout calculate the total?', view: 'guide', context: [], kind: 'overview' }],
-  currentId: 'root', file: 'src/cart.ts', theme: 'dark',
+  explorations: [
+    { id: 'root', parentId: null, question: 'How does checkout calculate the total?', view: 'guide', context: [], kind: 'overview', turns: [
+      { id: 'sample-empty', question: 'What happens with an empty list of prices?', context: [{ path:'src/cart.ts',from:1,to:6 }] },
+      { id: 'sample-tax', question: 'Where does the 10% tax rate come from?', context: [{ path:'src/checkout.ts',from:3,to:5 }] },
+    ] },
+    { id:'sample-validation',parentId:'root',originTurnId:'main',question:'How does subtotal validate prices?',view:'guide',context:[{path:'src/cart.ts',from:1,to:6}],kind:'validation',turns:[
+      {id:'sample-invalid',question:'Why does one bad price stop everything?',context:[{path:'src/cart.ts',from:1,to:4}]},
+    ] },
+    { id:'sample-range-error',parentId:'sample-validation',originTurnId:'sample-invalid',question:'What happens when RangeError reaches checkout?',view:'guide',context:[{path:'src/checkout.ts',from:3,to:5}],kind:'validation' },
+    { id:'sample-limits',parentId:'root',originTurnId:'sample-empty',question:'Can a valid list still overflow?',view:'guide',context:[{path:'src/cart.ts',from:5,to:5}],kind:'limits' },
+  ],
+  currentId:'root',file:'src/cart.ts',theme:'dark',
 };
 
 /** Context and identity stay separate from the presentation selected for it. */
@@ -77,7 +88,7 @@ export function findExampleCode(query: string): { path: string; line?: number; t
 
 export function readPreview(): PreviewState {
   try {
-    const saved = JSON.parse(localStorage.getItem('code-atlas:workspace-design:v1') ?? 'null') as PreviewState | null;
+    const saved = JSON.parse(localStorage.getItem('code-atlas:workspace-design:v2') ?? 'null') as PreviewState | null;
     if (saved && saved.explorations?.length && saved.explorations.every((e) => typeof e.id === 'string' && typeof e.question === 'string' && ['guide', 'flow', 'history'].includes(e.view) && Array.isArray(e.context))
       && saved.explorations.some((e) => e.id === saved.currentId) && exampleFiles[saved.file] && ['dark', 'light'].includes(saved.theme)) return saved;
   } catch { /* A preview preference must never block opening the design. */ }
