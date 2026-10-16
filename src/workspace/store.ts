@@ -5,7 +5,7 @@ import { buildCodexChapterReview, cancelCodexChapterRequest, discardProviderRequ
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { discardSourceDiscovery, prepareSourceDiscovery, sendSourceDiscovery } from '../lib/sourceDiscovery';
 import { errorMessageOr } from '../lib/errorMessage';
-import { addTurn, learningQuestion, parseWorkspace, type Context, type Turn, type View, type WorkspaceState } from './model';
+import { addTurn, chapterTarget, learningQuestion, parseWorkspace, type Context, type Turn, type View, type WorkspaceState } from './model';
 
 const indexLoads = new Map<string, Promise<SnapshotIndex>>();
 /** One local index build per snapshot, shared by reading and questions. No model call. */
@@ -112,7 +112,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     if (!paths.length) throw new Error(result.limitation || 'There is not enough captured code to answer this question. Try a more specific question.');
     const focus = turn.context.filter((c) => c.from && c.to && c.sha256).map((c) => ({ path:c.path, sourceSha256:c.sha256!, startLine:c.from!, endLine:c.to!, startByte:null, endByteExclusive:null }));
     const reviewResult = await buildCodexChapterReview({ projectId:project, snapshotId:snapshot,
-      targetPath, selectedPaths:paths, ...selection, approvalPolicy:'never', workspaceGrant:grantId,
+      targetPath:chapterTarget(turn.context,paths), selectedPaths:paths, ...selection, approvalPolicy:'never', workspaceGrant:grantId,
       question:learningQuestion(getWorkspace(project,snapshot),owner.id,id,1200), focus });
     if (reviewResult.status === 'error') throw new Error(reviewResult.error.message || 'The explanation request could not be prepared.');
     const review = reviewResult.data; reviewId = review.reviewId; check(); job.runId = review.reviewId;

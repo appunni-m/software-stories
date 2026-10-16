@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addTurn, ancestors, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths } from '../src/workspace/model.ts';
+import { addTurn, ancestors, chapterTarget, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths } from '../src/workspace/model.ts';
 const turn = (id,question='Explain the subtotal implementation') => ({id,question,context:[{path:'src/cart.ts',from:1,to:6}],status:'queued'});
 test('follow-ups stack at the current level; only explicit exploration creates a branch',()=>{
   let s=createWorkspace('p','snap');s=addTurn(s,turn('one'),'guide');s=addTurn(s,turn('two'),'flow');
@@ -64,4 +64,12 @@ test('question queue serializes work and a stopped waiter does not start inferen
   await Promise.resolve();assert.equal(secondStarted,false);assert.equal(thirdStarted,false);
   cancelled=true;first();await Promise.all([second,third]);
   assert.equal(secondStarted,false);assert.equal(thirdStarted,true);
+});
+
+test('AI-selected single code files use the file contract without manual attachment',()=>{
+  assert.equal(chapterTarget([],['src/cart.ts']),'src/cart.ts');
+  assert.equal(chapterTarget([],['README.md']),null);
+  assert.equal(chapterTarget([],['src/cart.ts','src/tax.ts']),null);
+  assert.equal(chapterTarget([{path:'README.md'},{path:'src/tax.ts'}],['README.md','src/tax.ts']),'src/tax.ts');
+  assert.equal(chapterTarget([{path:'missing.ts'}],['src/cart.ts']),'src/cart.ts');
 });

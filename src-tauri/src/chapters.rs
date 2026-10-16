@@ -392,6 +392,7 @@ pub enum ClaimCategory {
     CodeBehavior,
     RepositoryContext,
     Inference {
+        #[serde(rename = "visibleLabel", alias = "visible_label")]
         visible_label: String,
         basis: String,
     },
@@ -404,8 +405,20 @@ pub fn overview_section_copy_supported(section: &ChapterSection) -> bool {
     if section.claims.is_empty() {
         return false;
     }
-    let mut supported_sentences = HashSet::new();
-    for claim in &section.claims {
+    let supported_sentences = overview_claim_sentences(&section.claims).into_iter().collect::<HashSet<_>>();
+    [&section.prose, &section.spoken_text]
+        .into_iter()
+        .filter(|text| !text.trim().is_empty())
+        .flat_map(|text| sentence_fragments(text))
+        .all(|sentence| supported_sentences.contains(&sentence))
+        && !sentence_fragments(&section.prose).is_empty()
+}
+
+/// Ordered, complete reader-visible sentences from anchored claims only.
+/// Used by both deterministic presentation and the independent storage validator.
+pub(crate) fn overview_claim_sentences(claims: &[ChapterClaim]) -> Vec<String> {
+    let mut sentences = Vec::new();
+    for claim in claims {
         if claim.anchors.is_empty() {
             continue;
         }
@@ -419,15 +432,10 @@ pub fn overview_section_copy_supported(section: &ChapterSection) -> bool {
                 }
                 ClaimCategory::CodeBehavior | ClaimCategory::RepositoryContext => sentence,
             };
-            supported_sentences.insert(visible);
+            if !sentences.contains(&visible) { sentences.push(visible); }
         }
     }
-    [&section.prose, &section.spoken_text]
-        .into_iter()
-        .filter(|text| !text.trim().is_empty())
-        .flat_map(|text| sentence_fragments(text))
-        .all(|sentence| supported_sentences.contains(&sentence))
-        && !sentence_fragments(&section.prose).is_empty()
+    sentences
 }
 
 /// Validate the content-only invariants that must hold at every storage
@@ -500,16 +508,21 @@ fn sentence_fragments(text: &str) -> Vec<String> {
 pub enum SectionDependency {
     SourceFile {
         path: String,
+        #[serde(rename = "sourceSha256", alias = "source_sha256")]
         source_sha256: String,
     },
     Symbol {
         path: String,
+        #[serde(rename = "sourceSha256", alias = "source_sha256")]
         source_sha256: String,
+        #[serde(rename = "symbolId", alias = "symbol_id")]
         symbol_id: String,
     },
     Relationship {
         path: String,
+        #[serde(rename = "sourceSha256", alias = "source_sha256")]
         source_sha256: String,
+        #[serde(rename = "relationshipId", alias = "relationship_id")]
         relationship_id: String,
     },
 }
@@ -543,11 +556,11 @@ pub struct ChapterHotspot {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum HotspotDestination {
-    Section { section_id: String },
-    CodeLens { anchor_id: String },
+    Section { #[serde(rename = "sectionId", alias = "section_id")] section_id: String },
+    CodeLens { #[serde(rename = "anchorId", alias = "anchor_id")] anchor_id: String },
     AtlasFile { path: String },
-    AtlasSymbol { path: String, symbol_id: String },
-    Relationship { relationship_id: String },
+    AtlasSymbol { path: String, #[serde(rename = "symbolId", alias = "symbol_id")] symbol_id: String },
+    Relationship { #[serde(rename = "relationshipId", alias = "relationship_id")] relationship_id: String },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -2913,6 +2926,35 @@ mod tests {
             .iter()
             .map(|issue| issue.code.clone())
             .collect()
+    }
+
+    #[test]
+    fn chapter_enum_fields_match_frontend_and_read_legacy_snake_case() {
+        let destinations = [
+            (HotspotDestination::Section { section_id: "section:one".to_owned() }, "sectionId", "section_id"),
+            (HotspotDestination::CodeLens { anchor_id: "anchor:one".to_owned() }, "anchorId", "anchor_id"),
+            (HotspotDestination::AtlasSymbol { path: "a.ts".to_owned(), symbol_id: "symbol:one".to_owned() }, "symbolId", "symbol_id"),
+            (HotspotDestination::Relationship { relationship_id: "relationship:one".to_owned() }, "relationshipId", "relationship_id"),
+        ];
+        for (destination, camel, legacy) in destinations {
+            let mut value = serde_json::to_value(&destination).unwrap();
+            assert!(value.get(camel).is_some());
+            assert!(value.get(legacy).is_none());
+            let id = value.as_object_mut().unwrap().remove(camel).unwrap();
+            value[legacy] = id;
+            assert_eq!(serde_json::from_value::<HotspotDestination>(value).unwrap(), destination);
+        }
+        let category = ClaimCategory::Inference { visible_label: "Inference".to_owned(), basis: "Selected source interpretation".to_owned() };
+        let value = serde_json::to_value(&category).unwrap();
+        assert_eq!(value["visibleLabel"], "Inference");
+        let legacy = serde_json::json!({"kind":"inference","visible_label":"Inference","basis":"Selected source interpretation"});
+        assert_eq!(serde_json::from_value::<ClaimCategory>(legacy).unwrap(), category);
+        let dependency = SectionDependency::Symbol { path: "a.ts".to_owned(), source_sha256: "hash".to_owned(), symbol_id: "symbol:one".to_owned() };
+        let value = serde_json::to_value(&dependency).unwrap();
+        assert_eq!(value["sourceSha256"], "hash");
+        assert_eq!(value["symbolId"], "symbol:one");
+        let legacy = serde_json::json!({"kind":"symbol","path":"a.ts","source_sha256":"hash","symbol_id":"symbol:one"});
+        assert_eq!(serde_json::from_value::<SectionDependency>(legacy).unwrap(), dependency);
     }
 
     #[test]

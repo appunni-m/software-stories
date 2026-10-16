@@ -464,7 +464,7 @@ export function PrGuideStudio({
       {!accountOnly && backend === 'codex' && <p className="pr-guide-muted">Use your Codex account without an API key. Choose model and reasoning, review the exact patches, then generate. Plan quota applies.</p>}
       {backend === 'claude-agent' && <div className="pr-guide-notice" role="status"><div><p>Preview a guide or hunk request with Claude’s supported settings and the exact local diff. Automatic Claude generation remains unfinished; this review sends no source to an agent.</p>
         <button className="secondary-button" onClick={() => setClaudeMode('settings')}>Claude installation and defaults</button></div></div>}
-      <details className="pr-guide-included-files" open={accountOnly?undefined:true}><summary>{selectedChanges.length} changed files included{eligibleChanges.length>12?' · selection limited to 12':''}</summary><fieldset className="pr-guide-file-picker" disabled={building || sending || decisionBusy || Boolean(changeExplanationSelection) || Boolean(codexMode) || Boolean(claudeMode)}>
+      <details className="pr-guide-included-files" open={accountOnly?undefined:true}><summary>{selectedChanges.length} changed {selectedChanges.length===1?'file':'files'} included{eligibleChanges.length>12?' · selection limited to 12':''}</summary><fieldset className="pr-guide-file-picker" disabled={building || sending || decisionBusy || Boolean(changeExplanationSelection) || Boolean(codexMode) || Boolean(claudeMode)}>
         <legend>Select changed files · {selectedChanges.length} of 12</legend>
         {eligibleChanges.length === 0 ? <p>No changed file has a complete bounded text diff to explain.</p> : eligibleChanges.map((change) => {
           const key = changeKey(change);

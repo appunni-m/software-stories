@@ -1824,6 +1824,15 @@ fn validate_chapter_draft_preview(
             &allowed_relationships,
             &result.response_text,
         ).map(|revision| (revision, Vec::new())),
+        ("repositoryOverview", None) if review.provider_id == "codex"
+            && review.generation_config.get("overviewPresentation").and_then(serde_json::Value::as_str) == Some("anchored-claims-v1") => chapter_generation::canonicalize_workspace_overview(
+            &review.project_id,
+            &manifest,
+            snapshot_index.as_ref(),
+            &sources,
+            &allowed_relationships,
+            &result.response_text,
+        ).map(|revision| (revision, Vec::new())),
         ("repositoryOverview", None) => chapter_generation::canonicalize_repository_overview(
             &review.project_id,
             &manifest,

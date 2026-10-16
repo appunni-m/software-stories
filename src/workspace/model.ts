@@ -70,3 +70,10 @@ export function learningQuestion(state: WorkspaceState, explorationId: string, t
   ])].filter((question) => question !== turn.question);
   return `${earlier.length ? `Earlier questions: ${earlier.join(' → ')}. ` : ''}Current question: ${turn.question}`.replace(/\s+/g, ' ').trim().slice(-limit).trim();
 }
+
+/** Route an AI-selected single code file through the file explanation contract. */
+export function chapterTarget(context: Context[], selectedPaths: string[]): string | null {
+  const isCode = (path: string) => !/\.(md|mdx|rst|txt|adoc)$/i.test(path);
+  const explicit = context.find((item) => selectedPaths.includes(item.path) && isCode(item.path));
+  return explicit?.path ?? (selectedPaths.length === 1 && isCode(selectedPaths[0]) ? selectedPaths[0] : null);
+}

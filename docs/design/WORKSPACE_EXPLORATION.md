@@ -92,3 +92,8 @@ Conversation UI state is versioned flat data in WebView local storage with nativ
 
 ### Follow-up context
 Workspace discovery and generation include the active branch topic and up to two preceding user questions at that level, bounded to the native operation's question limit. The current question remains last. This preserves recent intent; it is not an unbounded transcript or a guarantee of semantic answer quality. Source is independently selected from the snapshot and revalidated before transmission.
+
+## Evidence and presentation contract
+AI source discovery can select a single implementation file without a manual attachment; that question uses the file chapter contract. A workspace overview across files uses the fingerprinted `anchored-claims-v1` presentation recipe. Native code validates claim quotes, identifiers, relationships and visuals, then builds display/narration from complete anchored claim sentences. Separate generated overview prose/narration is discarded. Inference labels remain visible, storage independently checks exact-copy support, and API/legacy overview requests keep their strict original contract. Unsupported source evidence still fails without silently retrying.
+
+The native chapter wire contract uses camelCase for enum fields as well as variant names. Legacy snake_case hotspot, inference-label and dependency records remain readable; rendering a chapter does not rewrite its saved bytes.

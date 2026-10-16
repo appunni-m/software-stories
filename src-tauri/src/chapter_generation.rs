@@ -939,6 +939,32 @@ pub fn canonicalize_repository_overview(
     allowed_relationship_ids: &HashSet<String>,
     response_text: &str,
 ) -> Result<ChapterRevision, String> {
+    canonicalize_overview(project_id, manifest, index, selected_sources, allowed_relationship_ids, response_text, false)
+}
+
+/// Render workspace overview copy from exact validated claim sentences. The
+/// model's separate prose/narration are discarded, not certified or paraphrased.
+/// Evidence, relationship, visual and storage validators remain mandatory.
+pub(crate) fn canonicalize_workspace_overview(
+    project_id: &str,
+    manifest: &SnapshotManifest,
+    index: Option<&SnapshotIndex>,
+    selected_sources: &[SnapshotSource],
+    allowed_relationship_ids: &HashSet<String>,
+    response_text: &str,
+) -> Result<ChapterRevision, String> {
+    canonicalize_overview(project_id, manifest, index, selected_sources, allowed_relationship_ids, response_text, true)
+}
+
+fn canonicalize_overview(
+    project_id: &str,
+    manifest: &SnapshotManifest,
+    index: Option<&SnapshotIndex>,
+    selected_sources: &[SnapshotSource],
+    allowed_relationship_ids: &HashSet<String>,
+    response_text: &str,
+    claim_presentation: bool,
+) -> Result<ChapterRevision, String> {
     if response_text.len() > chapters::MAX_GENERATED_RESPONSE_BYTES {
         return Err(
             "The generated overview exceeds the 300 KB structured-draft limit.".to_owned(),
@@ -1008,7 +1034,7 @@ pub fn canonicalize_repository_overview(
         let mut hotspots = Vec::new();
         add_overview_file_hotspots(&claims, &sources, &mut hotspots)?;
         let visual = canonicalize_visual_proposal(visual_proposal, &claims, &mut hotspots)?;
-        let section = ChapterSection {
+        let mut section = ChapterSection {
             section_id,
             section_revision_id: generated_id("sectionrev"),
             order: order as u32,
@@ -1020,6 +1046,29 @@ pub fn canonicalize_repository_overview(
             visual: visual.map(Into::into),
             hotspots,
         };
+        if claim_presentation {
+            let sentences = chapters::overview_claim_sentences(&section.claims);
+            // Keep whole sentences; never truncate into an unsupported fragment.
+            let mut prose = String::new();
+            for sentence in &sentences {
+                if prose.len() + sentence.len() + usize::from(!prose.is_empty()) > 4_000 { break; }
+                if !prose.is_empty() { prose.push(' '); }
+                prose.push_str(sentence);
+            }
+            let natural = sentences.iter().filter(|sentence| !sentence.contains(['`', '_', '{', '}', '(', ')', '/', '\\']) && !sentence.contains("::")).collect::<Vec<_>>();
+            let candidates = if natural.is_empty() { sentences.iter().collect::<Vec<_>>() } else { natural };
+            let mut spoken = String::new();
+            for sentence in candidates.into_iter().take(3) {
+                if spoken.len() + sentence.len() + usize::from(!spoken.is_empty()) > 1_000 { break; }
+                if !spoken.is_empty() { spoken.push(' '); }
+                spoken.push_str(sentence);
+            }
+            if prose.len() < 20 || spoken.is_empty() {
+                return Err("The anchored claims need complete, bounded sentences for overview reading and narration.".to_owned());
+            }
+            section.prose = prose;
+            section.spoken_text = spoken;
+        }
         if !chapters::overview_section_copy_supported(&section) {
             return Err("Every repository overview prose and narration sentence must be copied from an anchored claim; inference sentences must keep their visible label.".to_owned());
         }
@@ -2599,6 +2648,41 @@ pub(crate) mod tests {
             .unwrap_err()
             .contains("strict repository overview schema")
         );
+    }
+
+    #[test]
+    fn workspace_overview_renders_only_validated_claims_and_keeps_inference_labels() {
+        let fixture = Fixture::new();
+        let mut file = simple_proposal();
+        file.sections[0].prose = "This invented independent summary must never reach the reader.".to_owned();
+        file.sections[0].spoken_text = "This invented narration must never be spoken.".to_owned();
+        file.sections[0].claims[0].category = "inference".to_owned();
+        file.sections[0].claims[0].inference_basis = "The selected implementation supports this structural interpretation.".to_owned();
+        let proposal = GeneratedOverviewProposal { title: file.title, sections: file.sections };
+        let response = serde_json::to_string(&proposal).unwrap();
+        let selected = fixture.sources(&[SIMPLE_PATH, SUPPORT_PATH]);
+        // The existing external/legacy schema continues to reject unsupported copy.
+        assert!(canonicalize_repository_overview(&fixture.manifest.summary.project_id, &fixture.manifest,
+            Some(&fixture.index), &selected, &HashSet::new(), &response).is_err());
+        let revision = canonicalize_workspace_overview(&fixture.manifest.summary.project_id, &fixture.manifest,
+            Some(&fixture.index), &selected, &HashSet::new(), &response).unwrap();
+        assert_eq!(revision.sections[0].prose, format!("Inference: {}", proposal.sections[0].claims[0].prose));
+        assert_eq!(revision.sections[0].spoken_text, revision.sections[0].prose);
+        assert!(!revision.sections[0].prose.contains("invented"));
+        assert!(chapters::overview_section_copy_supported(&revision.sections[0]));
+        chapters::validate_overview_content(&revision).unwrap();
+        fixture.assert_traceable(&revision, &[SIMPLE_PATH, SUPPORT_PATH]);
+    }
+
+    #[test]
+    fn workspace_claim_presentation_cannot_repair_missing_source_evidence() {
+        let fixture = Fixture::new();
+        let mut file = simple_proposal();
+        file.sections[0].claims[0].evidence[0].quote = "an invented source quote".to_owned();
+        let proposal = GeneratedOverviewProposal { title: file.title, sections: file.sections };
+        assert!(canonicalize_workspace_overview(&fixture.manifest.summary.project_id, &fixture.manifest,
+            Some(&fixture.index), &fixture.sources(&[SIMPLE_PATH]), &HashSet::new(),
+            &serde_json::to_string(&proposal).unwrap()).is_err());
     }
 
     #[test]
