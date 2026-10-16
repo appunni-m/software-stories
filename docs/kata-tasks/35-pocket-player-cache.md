@@ -13,7 +13,7 @@ The reader can review a section script, generate natural local audio and reuse i
 
 ## Native progress — 2026-10-16
 
-Managed Pocket setup now completed inside the release app. Setup option conflict and streaming-worker context failures were reproduced and fixed; full checks pass (98 frontend, 185 Rust passed, two ignored). Local Play now leads to a simple exact-text review, with editing/audio hashes and runtime metadata collapsed. There is no duplicate local request-review button or Google consent requirement. Packaged playback/cache and human listening acceptance remain separate; keep this task open.
+Managed Pocket setup now completed inside the release app. Setup option conflict and streaming-worker context failures were reproduced and fixed; full checks pass (98 frontend, 185 Rust passed, two ignored). Local Play now leads to a simple exact-text review, with editing/audio hashes and runtime metadata collapsed. There is no duplicate local request-review button or Google consent requirement. The final app at `~/Applications/Code Atlas.app` generated/played an 8.85-second accepted section, replayed it, paused at 3.4 seconds, reset to zero with Stop and reused Audio cached after switching sections and returning. It did not advance sections on audio completion. Human listening, invalidation, cancellation, concurrency and offline export acceptance remain open; keep this task open.
 
 ## Current evidence
 The player, commands, narration review/cache and preference parser now have distinct local Pocket and explicitly selected Gemini paths. This is implemented source awaiting acceptance; the previous Google-only description no longer applies.
