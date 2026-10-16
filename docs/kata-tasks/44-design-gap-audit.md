@@ -79,3 +79,22 @@ Do not implement UI changes in this audit task, regenerate the design images, ad
 
 ## Done evidence
 A dated gap ledger with five packaged-app screenshots, build/window metadata, corrections to the source baseline, prioritized specific fixes, and links from each fix to its implementation issue.
+
+## Latest contract gap ledger — later 16 October
+
+The current native shell is not the new workspace preview. The mismatch is behavioral, even where the old design was previously followed.
+
+| Latest user requirement | Current application gap | Delivery task |
+| --- | --- | --- |
+| Explorer remains left in every view; actual code beside explanation | Existing explorer/source composition belongs to Files; Guide is a separate destination. | nnsf |
+| One pinned chat captures intent in any view | Guide route questions, selected-code dialogs and independent generators are separate entry points. | nsfd |
+| Explain a selection at the current chat level | Exact-range explanation still enters the reviewed modal workflow; no persisted current-level chat turn. | nsfd, eapn |
+| Ask once; everything runs in background | Discovery, source review, route acceptance and chapter batch are visible process stages. Native work is still owned by dialog lifetimes. | nw1h |
+| Guide / Flow / history are views of one exploration | Main navigation is still Guide / Files / Changes; no shared persisted exploration tree. | eapn, nnsf |
+| Flow drills from project context into implementation; details work in both views | Existing focused file flow and separate player do not implement this abstraction/branch navigation contract. | mrpj |
+| Headed answer cards and real nested exploration counts | Saved routes/chapter revisions exist, but there is no stable originating-card/child-exploration relationship. | eapn, mrpj |
+| Open last explored view and return parent/root | Existing source/reader route state is not the requested per-exploration view/graph/player persistence. | eapn |
+| Standard components, consistent spacing and keyboard interactions | Preview uses Radix, CodeMirror, React Flow and resizable panels; production source/graph/forms still need migration. | nnsf |
+| Notifications stay behind a bell, with no settings taking reading space | Global notices moved to the bell and compact header controls are implemented; capture/generation modal migration and durable outcomes remain open. | hstr, nw1h |
+
+The preview demonstrates sample interactions and cannot close these native gaps. Do not replace actual generated narrative depth, source correctness, narration or accessibility with screenshots or source-level labels.
