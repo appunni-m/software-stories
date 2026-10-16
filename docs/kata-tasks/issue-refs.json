@@ -53,5 +53,13 @@
   "design-parity": "13yp",
   "current-design-gap-audit": "x21h",
   "agent-first-generation": "2r6n",
-  "question-to-source-discovery": "xvjk"
+  "question-to-source-discovery": "xvjk",
+  "persistent-code-workspace": "nnsf",
+  "exploration-history": "eapn",
+  "intent-context-search": "nsfd",
+  "background-generation": "nw1h",
+  "guide-flow-detail": "mrpj",
+  "notification-center": "hstr",
+  "workspace-design-acceptance": "3rcd",
+  "route-chapter-batch": "a1sm"
 }

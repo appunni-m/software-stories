@@ -1,6 +1,8 @@
 # Code Atlas simplification
 
-These five SVGs are the approved design references for the Code Atlas information architecture. They are proposals, not packaged-app screenshots. On 16 October the user refined the direction to a VS Code-style workspace: explorer, real code, explanation, focused flow, and a deliberate section player. The native implementation and remaining gaps are recorded in [the workspace review](../acceptance/2026-10-16-code-workspace.md). Kata `13yp` remains open for full design acceptance.
+**Historical proposals:** the latest [workspace exploration design](WORKSPACE_EXPLORATION.md) supersedes their primary navigation and staged generation flow.
+
+These five SVGs were the approved design references for the Code Atlas information architecture. They are proposals, not packaged-app screenshots. On 16 October the user refined the direction to a VS Code-style workspace: explorer, real code, explanation, focused flow, and a deliberate section player. The native implementation and remaining gaps are recorded in [the workspace review](../acceptance/2026-10-16-code-workspace.md). Kata `13yp` remains open for full design acceptance.
 
 ## The proposed shape
 

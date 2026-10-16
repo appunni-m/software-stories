@@ -89,20 +89,21 @@ describe('desktop shell acceptance contract', () => {
     assert.equal(degraded.pendingChapterPreviews, null);
   });
 
-  it('offers a local Retry action when recents fail and presents explicit recovery actions', async () => {
+  it('keeps recovery actions in the notification center without occupying the workspace', async () => {
     const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
     assert.match(source, /title: 'Recent projects could not be loaded'[\s\S]*?actionLabel: 'Retry'[\s\S]*?retryRecentProjectsLoad/);
-    assert.match(source, /Retry capture/);
-    assert.match(source, /reviewInterruptedGeneration\(operation\);[\s\S]*?>Review interrupted work<\/button>/);
-    assert.match(source, /Discard/);
-    assert.match(source, /prior consent is not reused/);
+    assert.match(source, /<NotificationCenter items=\{workspaceNotifications\}/);
+    assert.match(source, /Try update again/);
+    assert.match(source, /retryInterruptedCapture\(operation\) : reviewInterruptedGeneration\(operation\)/);
+    assert.match(source, /run: \(\) => \{ void discardRecovery\(operation\); \}/);
+    assert.doesNotMatch(source, /className="notice-banner notice-warning interrupted-work"/);
   });
 
   it('restores persisted previews for local review with only explicit save or discard actions', async () => {
     const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
     const commands = await readFile(new URL('../src/lib/commands.ts', import.meta.url), 'utf8');
     assert.match(source, /listPendingGeneratedChapterPreviews/);
-    assert.match(source, /Review saved preview/);
+    assert.match(source, /label: 'Open explanation'[\s\S]*?setRecoveredPreviewId\(preview.generationId\)/);
     assert.match(source, /Closing keeps this preview in local recovery/);
     assert.match(source, /Save unaccepted draft/);
     assert.match(source, /No provider request will be sent when you review or save it/);

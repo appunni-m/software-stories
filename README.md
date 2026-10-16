@@ -8,7 +8,7 @@ The project currently runs from a source checkout; this repository does not prov
 
 The native workspace now puts a file explorer, real source, and Explanation / Flow / Player controls together. The header shows the saved Codex connection, model and reasoning. AI chooses supporting code from the snapshot index; local source review and consent remain explicit. Light, dark and system themes are available in the header. See the [workspace review and remaining design work](docs/acceptance/2026-10-16-code-workspace.md).
 
-The current design direction has three primary destinations: Guide, Files, and Changes. The older Atlas / Code Lens / Walkthrough concept board is retained as a historical reference. These design images are proposals, not screenshots of the running app. Product behavior and release goals are described in the [blueprint](docs/PRODUCT_BLUEPRINT.md); they are not proof that every acceptance gate has passed.
+The latest design direction is a [persistent developer workspace](docs/design/WORKSPACE_EXPLORATION.md): files on the left, chat at the top, and Guide / Flow / Chat history inside each exploration. An [interactive design preview](http://127.0.0.1:4173/workspace-preview.html) is available with the existing dev server. It uses sample answers, not live generation. The native app still has Guide / Files / Changes navigation while this redesign is pending. The older Atlas / Code Lens / Walkthrough concept board is retained as a historical reference. These design images are proposals, not screenshots of the running app. Product behavior and release goals are described in the [blueprint](docs/PRODUCT_BLUEPRINT.md); they are not proof that every acceptance gate has passed.
 
 ## What the current source contains
 
@@ -41,7 +41,8 @@ These are capabilities under development, not a finished or released product. **
 - [Chapter quality gate](docs/CHAPTER_QUALITY_GATE.md) — synthetic corpus and human-reviewed release report workflow.
 - [Kata backlog](docs/KATA_BACKLOG.md) — milestone map and issue definitions.
 - [Current pending work](docs/PENDING_WORK.md) — October 15 static fixes, remaining bugs, Pocket TTS integration and acceptance tasks.
-- [Approved screen proposals](docs/design/PROPOSED_SIMPLIFICATION.md) — Guide, Files, Walkthrough, and Changes visual references; proposals are not implementation evidence.
+- [Current workspace design](docs/design/WORKSPACE_EXPLORATION.md) — interaction contract, standard components, preview and implementation tasks.
+- [Earlier screen proposals](docs/design/PROPOSED_SIMPLIFICATION.md) — historical Guide / Files / Changes references.
 
 ## Local development
 

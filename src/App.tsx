@@ -12,6 +12,7 @@ import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import { RepositoryPlanningDialog, type RepositoryPlanningScope } from './RepositoryPlanningDialog';
 import { RepositoryPlans } from './RepositoryPlans';
 import { ConnectionHeader } from './ConnectionHeader';
+import { NotificationCenter, type WorkspaceNotification } from './NotificationCenter';
 import { ThemeControl } from './ThemeControl';
 import type { PrepareRepositoryPlanInput } from './lib/repositoryPlans';
 import type { PlannedChapterScope } from './lib/plannedChapters';
@@ -222,6 +223,7 @@ function App() {
   const [runtime, setRuntime] = useState<ApplicationStatus | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [projectBusy, setProjectBusy] = useState(false);
@@ -1022,6 +1024,7 @@ function App() {
 
   const showComingSoon = (title: string, message: string) => {
     setNotice({ title, message });
+    setNotificationsOpen(true);
     setToolsOpen(false);
     setProjectMenuOpen(false);
     setSnapshotMenuOpen(false);
@@ -1287,6 +1290,34 @@ function App() {
     };
   }, [navigation.current.focusTarget, navigation.current.workspace, navigation.current.chapterRevisionId, navigation.current.sectionId]);
 
+  const workspaceNotifications: WorkspaceNotification[] = [
+    ...(runtimeError ? [{ id: 'runtime', title: 'Some app features are unavailable', message: 'Try connecting to the local app again.', tone: 'error' as const,
+      actions: [{ label: 'Retry', run: loadRuntime }] }] : []),
+    ...(notice ? [{ id: 'workspace-notice', title: notice.title, message: notice.message, tone: notice.tone,
+      actions: [...(notice.action ? [{ label: notice.actionLabel ?? 'Continue', run: notice.action }] : []), { label: 'Dismiss', run: () => setNotice(null) }] }] : []),
+    ...(interruptedOperationsUnavailable ? [{ id: 'recovery-unavailable', title: 'Recent work could not be loaded', message: 'Your saved explanations are still available.', tone: 'error' as const,
+      actions: [{ label: 'Try again', run: () => { void refreshInterruptedOperations(); } }] }] : []),
+    ...interruptedOperations.map((operation): WorkspaceNotification => ({
+      id: `interrupted:${operation.operationId}`, tone: 'warning',
+      title: operation.kind === 'capture' ? 'Repository update interrupted' : 'Explanation interrupted',
+      message: operation.kind === 'capture' ? 'You can keep reading the previous version or try the update again.'
+        : operation.providerRequest?.repositoryPlan?.question ?? 'Your saved work is preserved. Open it to continue.',
+      actions: [{ label: operation.kind === 'capture' ? 'Try update again' : 'Open work', disabled: recoveryBusyId !== null,
+        run: () => { void (operation.kind === 'capture' ? retryInterruptedCapture(operation) : reviewInterruptedGeneration(operation)); } },
+        { label: 'Dismiss', disabled: recoveryBusyId !== null, run: () => { void discardRecovery(operation); } }],
+    })),
+    ...(pendingChapterPreviewsUnavailable ? [{ id: 'previews-unavailable', title: 'Saved previews could not be loaded', message: 'Try again to find your unfinished explanations.', tone: 'error' as const,
+      actions: [{ label: 'Try again', run: () => { void refreshPendingChapterPreviews(); } }] }] : []),
+    ...pendingChapterPreviews.map((preview): WorkspaceNotification => ({
+      id: `preview:${preview.generationId}`, title: preview.unavailableReason ? 'An explanation needs attention' : 'An explanation is ready',
+      message: `${preview.title}${preview.targetPath ? ` · ${preview.targetPath}` : ''}`, tone: preview.unavailableReason ? 'warning' : 'info',
+      actions: [{ label: 'Open explanation', disabled: Boolean(preview.unavailableReason), run: () => {
+        recoveredPreviewReturnFocusRef.current = document.querySelector<HTMLButtonElement>('[data-focus-key="notifications"]');
+        setRecoveredPreviewId(preview.generationId);
+      } }, { label: 'Discard preview', run: () => { void discardPendingPreview(preview); } }],
+    })),
+  ];
+
   return (
     <div className={`app-window${selectedSnapshot ? ' has-snapshot' : ''}`}>
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
@@ -1418,6 +1449,7 @@ function App() {
         <div className="topbar-actions">
           <ConnectionHeader onOpen={openProviderSettings} />
           <ThemeControl />
+          <NotificationCenter items={workspaceNotifications} open={notificationsOpen} onOpenChange={setNotificationsOpen} />
           <button
             className="search-control"
             disabled={!navigation.current.snapshotId}
@@ -1482,76 +1514,6 @@ function App() {
               <span className="offline-indicator"><span /> Local</span>
             </div>
           </div>
-
-          {runtimeError && (
-            <div className="runtime-error" role="alert">
-              <span>{runtimeError}</span>
-              <button onClick={loadRuntime}>Retry</button>
-            </div>
-          )}
-
-          {notice && (
-            <div className={`notice-banner ${notice.tone ? `notice-${notice.tone}` : ''}`} role={notice.tone === 'error' ? 'alert' : 'status'}>
-              <div className="notice-icon">{notice.tone === 'error' ? <TriangleAlert size={15} /> : <Check size={15} />}</div>
-              <div><strong>{notice.title}</strong><span>{notice.message}</span></div>
-              <div className="notice-actions">
-                {notice.action && <button onClick={notice.action}>{notice.actionLabel ?? 'Continue'}</button>}
-                <button onClick={() => setNotice(null)} aria-label="Dismiss message">Dismiss</button>
-              </div>
-            </div>
-          )}
-
-          {interruptedOperationsUnavailable && (
-            <div className="notice-banner notice-error interrupted-work" role="alert">
-              <div className="notice-icon"><TriangleAlert size={15} /></div>
-              <div><strong>Recovery state could not be loaded</strong><span>Retry the local recovery lookup. Existing snapshots and accepted chapters are unchanged.</span></div>
-              <div className="notice-actions">
-                <button onClick={() => { void refreshInterruptedOperations(); }}>Retry</button>
-              </div>
-            </div>
-          )}
-
-          {interruptedOperations.map((operation) => (
-            <div className="notice-banner notice-warning interrupted-work" role="status" key={operation.operationId}>
-              <div className="notice-icon"><TriangleAlert size={15} /></div>
-              <div>
-                <strong>{operation.kind === 'capture' ? 'A repository capture was interrupted' : operation.providerRequest?.purpose === 'repositoryPlan' ? 'Repository planning was interrupted' : operation.providerRequest?.purpose === 'sectionUpdate' ? 'Section repair was interrupted' : 'Explanation generation was interrupted'}</strong>
-                <span>{operation.kind === 'capture'
-                  ? 'Retry starts a fresh capture; existing snapshots remain available.'
-                  : operation.providerRequest?.purpose === 'repositoryPlan'
-                    ? `Check Learning plans before a new request. The original question and source selection are retained: ${operation.providerRequest.repositoryPlan?.question ?? 'Unavailable'}`
-                    : 'Check saved previews and PR Guide history before a new request. Existing history is preserved; prior consent is not reused.'}</span>
-              </div>
-              <div className="notice-actions">
-                {operation.kind === 'capture'
-                  ? <button disabled={recoveryBusyId !== null} onClick={() => { void retryInterruptedCapture(operation); }}>Retry capture</button>
-                  : <button disabled={recoveryBusyId !== null} onClick={() => { void reviewInterruptedGeneration(operation); }}>Review interrupted work</button>}
-                <button disabled={recoveryBusyId !== null} onClick={() => { void discardRecovery(operation); }}>Discard</button>
-              </div>
-            </div>
-          ))}
-
-          {pendingChapterPreviewsUnavailable && (
-            <div className="notice-banner notice-error interrupted-work" role="alert">
-              <div className="notice-icon"><TriangleAlert size={15} /></div>
-              <div><strong>Saved chapter previews could not be loaded</strong><span>Retry the local recovery lookup. Accepted chapters remain unchanged.</span></div>
-              <div className="notice-actions"><button onClick={() => { void refreshPendingChapterPreviews(); }}>Retry</button></div>
-            </div>
-          )}
-
-          {pendingChapterPreviews.map((preview) => (
-            <div className="notice-banner notice-warning interrupted-work" role="status" key={preview.generationId}>
-              <div className="notice-icon"><BookOpen size={15} /></div>
-              <div>
-                <strong>{preview.unavailableReason ? 'A saved chapter preview needs attention' : 'An unaccepted chapter preview is saved locally'}</strong>
-                <span>{preview.unavailableReason ?? `${preview.title}${preview.targetPath ? ` · ${preview.targetPath}` : ' · repository overview'} · ${preview.modelId ?? 'saved provider'}. Review or discard it; saving creates only a draft revision.`}</span>
-              </div>
-              <div className="notice-actions">
-                <button disabled={Boolean(preview.unavailableReason)} onClick={(event) => { recoveredPreviewReturnFocusRef.current = event.currentTarget; setRecoveredPreviewId(preview.generationId); }}>Review saved preview</button>
-                <button onClick={() => { void discardPendingPreview(preview); }}>Discard</button>
-              </div>
-            </div>
-          ))}
 
           <section className={`workspace-content view-${currentWorkspace}`} aria-labelledby="workspace-title">
             <div className="workspace-heading">

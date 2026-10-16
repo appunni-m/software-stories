@@ -1,5 +1,7 @@
 # Pending work after the October 15 static review
 
+> **Latest workspace redesign — 16 October:** [contract and preview](design/WORKSPACE_EXPLORATION.md); Kata `nnsf`, `eapn`, `nsfd`, `nw1h`, `mrpj`, `hstr`, `3rcd`. The current-level chat/explorer/Guide/Flow/history design supersedes prior navigation proposals. The global notification bell is implemented in source; native shell migration and background generation remain pending.
+
 > **Current flow update — October 16:** Codex chooses implementation from the captured index; connection/model/reasoning live in the header. Route chapters can be built sequentially after one exact batch review. Code is the evidence and docs are hints, with explicit deprecated labels. Light/dark/system palettes replace the lime styling. See [AI guide flow](AI_GUIDE_FLOW.md), discovery task `xvjk` and batch qualification `a1sm`. Broad native/language/large-repo acceptance remains open. Older entries below are historical checkpoints.
 
 > **Connection reuse — October 16:** generation now restores the saved Codex account without entering sign-in on every request. Connected setup controls stay collapsed, model/reasoning remain shared, and explicit Disconnect pauses reuse across restarts. See [focused evidence](acceptance/2026-10-16-codex-connection.md); the wider Codex and product gates remain open.

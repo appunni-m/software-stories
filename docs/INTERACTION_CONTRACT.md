@@ -1,5 +1,7 @@
 # Code Atlas — screen and interaction contract
 
+> **Latest workspace direction — 16 October:** the [persistent code/chat/exploration workspace](design/WORKSPACE_EXPLORATION.md) supersedes earlier primary-navigation proposals. It keeps the explorer left, chat at the top, Guide / Flow / history within each exploration, inline code details, and background notifications. The new shell is a design preview; existing native behavior and prior observations below remain historical/implementation evidence, not proof of the new design.
+
 This document turns the current approved visual direction into the intended observable product behavior. Its three primary destinations are **Guide**, **Files**, and **Changes**; the section-by-section Walkthrough is a Guide reading mode, and the relationship map is an optional Files view. Atlas and Code Lens name capabilities inside Files, not separate primary destinations. The approved references are `docs/design/proposed-00-first-run.svg` through `proposed-04-changes.svg`; the earlier PNG concept board is historical and superseded. This is an interaction contract, not an implementation-status report. Check the [design parity task](kata-tasks/43-design-implementation-parity.md), [technical plan](TECHNICAL_PLAN.md), and [Kata backlog](KATA_BACKLOG.md) for source and packaged-app status.
 
 ## Shared identity and navigation

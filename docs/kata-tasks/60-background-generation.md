@@ -1,0 +1,20 @@
+---
+kind: task
+key: background-generation
+parent: design-parity
+title: Run code discovery and explanation as owned background jobs
+priority: 1
+labels: product, design, ux
+---
+
+## Outcome
+Ask once; the assistant selects code, plans and builds the explanation in the background using the saved Codex connection. The reader sees useful content and a quiet cancellable working state, without a discovery/review/route/batch wizard.
+
+## Native lifecycle
+Move job ownership out of generation dialog mount/unmount. Persist stable job IDs, project/snapshot, turn, exact source fingerprint, model/account/runtime, progress, completed artifacts and terminal outcome. UI view/project switching cannot cancel work. Stop is explicit; cancellation and late-result admission are race-safe. Saves are idempotent and independently preserve earlier chapters if a later step fails. Reconcile save uncertainty before a user retry. No silent inference retry, backend/model fallback or autoacceptance. Restart exposes recoverable state without secretly reissuing requests.
+
+## Sharing and connection
+Keep one connection in the header; model/reasoning/approval are configured once in settings. Establish a clear revocable project/snapshot/source-scope grant before automatic code sharing. Bind it to destination/account and permitted source classes, limits and exclusions, enforce it natively for each freshly built request, and invalidate it when trust scope changes. Do not reinterpret an old per-request fingerprint as this grant. The initial grant needs a meaningful scope disclosure; only an actual grant/scope/account problem interrupts normal intent. Preserve current exact-source admission until this replacement is implemented and qualified. No private-source validation without human authorization of source and destination.
+
+## Acceptance
+Installed GPT-6 Luna/max account path without mandatory API keys; no repeated backend/file selection. Close/change view/project during discovery, generation and save; restart, explicit Stop, quota failure at step two, bad evidence, lost save reply, changed account, revoked grant and wider question. Check bounded source, unchanged saved artifacts and no unexpected transmission/retry. All internal stages use one user intent and one result surface. Claude stays deferred; Pocket remains narration default.

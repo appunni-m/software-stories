@@ -8,11 +8,25 @@
 
 Project: **code-atlas-rebuild**. Recorded October 16, 2026, during Codex validation and [workspace refinement](acceptance/2026-10-16-code-workspace.md).
 
-**56 tasks: 35 open, 21 closed.** Every task title maps to exactly one checked-in definition. This is a dated Kata status snapshot; a closed historical task does not prove that the current app, new schema or agent runtime passed acceptance. No task was closed by this audit.
+**63 tasks: 42 open, 21 closed.** Every task title maps to exactly one checked-in definition. This is a dated Kata status snapshot; a closed historical task does not prove that the current app, new schema or agent runtime passed acceptance. No task was closed by this audit.
 
 The full requested scope remains in [the backlog](KATA_BACKLOG.md). Codex is the first delivery gate; APIs and manual handoffs cannot substitute. The user deferred Claude, which remains unavailable behind an empty qualification registry and still gates full M7. Building/testing and a small synthetic Codex account validation were authorized on October 16; dated results are recorded in the validation task. Complete operation/runtime and distribution evidence remains pending.
 
-## All tasks
+## Latest workspace tasks
+
+The latest user contract supersedes the earlier primary navigation. The [design and interactive preview](design/WORKSPACE_EXPLORATION.md) precede native shell migration. Global notices have moved to a bell in source; background job/authorization and the full workspace remain open.
+
+| Ref | Status | Definition |
+| --- | --- | --- |
+| `nnsf` | open | [Build the shared developer workspace with standard components](kata-tasks/57-persistent-code-workspace.md) |
+| `eapn` | open | [Persist exploration branches, answers and last-view state](kata-tasks/58-exploration-history.md) |
+| `nsfd` | open | [Unify chat, parallel code search and exact source context](kata-tasks/59-intent-context-search.md) |
+| `nw1h` | open | [Run code discovery and explanation as owned background jobs](kata-tasks/60-background-generation.md) |
+| `mrpj` | open | [Compose Guide and Flow from shared answers with inline code details](kata-tasks/61-guide-flow-detail.md) |
+| `hstr` | open | [Collect background outcomes and recovery behind a notification bell](kata-tasks/62-notification-center.md) |
+| `3rcd` | open | [Qualify the packaged conversation and code workspace against its design](kata-tasks/63-workspace-design-acceptance.md) |
+
+## All earlier tasks
 
 Open blockers are recorded dependency edges, not a complete list of human/vendor/runtime requirements. A historical closed record may have a reopened prerequisite; do not infer current readiness transitively. Consult the task definition and current acceptance evidence before release.
 

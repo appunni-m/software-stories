@@ -1,5 +1,7 @@
 # Code Atlas — product blueprint
 
+> **Latest workspace direction — 16 October:** the [persistent code/chat/exploration workspace](design/WORKSPACE_EXPLORATION.md) supersedes earlier primary-navigation proposals. It keeps the explorer left, chat at the top, Guide / Flow / history within each exploration, inline code details, and background notifications. The new shell is a design preview; existing native behavior and prior observations below remain historical/implementation evidence, not proof of the new design.
+
 **Status:** Product contract; implementation status is tracked separately  
 **Plan date:** 13 October 2026  
 **Product form:** Mac-first desktop app  

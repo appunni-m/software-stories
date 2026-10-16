@@ -16,10 +16,20 @@
     "check": "npm run quality:corpus && npm run test && npm run build && cargo test --manifest-path src-tauri/Cargo.toml --lib && cargo check --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.14",
+    "@lezer/highlight": "^1.2.5",
+    "@radix-ui/react-popover": "^1.3.1",
+    "@radix-ui/themes": "^3.3.0",
     "@tauri-apps/api": "^2.12.3",
+    "@xyflow/react": "^12.12.0",
     "lucide-react": "^0.468.0",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "react-resizable-panels": "^4.14.5"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.2",
