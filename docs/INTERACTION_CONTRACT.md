@@ -22,6 +22,8 @@ When leaving a screen, save a local navigation-return entry with the origin scre
 
 | Control | Activation | Result | Focus and side effects |
 |---|---|---|---|
+| Connection | Click backend/model/reasoning in the header | Open connection settings; reuse the saved choice for generation. Missing login opens setup when required. | Startup account restoration may contact Codex account services; source/metadata require their own reviewed request. |
+| Appearance | Choose System, Light or Dark in header | Apply and remember the theme. | No repository or provider side effect. |
 | Project picker | Click project name or `⌘O` | Show recent local projects and **Open repository**. Selecting a different project updates the shared project selection after confirmation when there is unsaved work. | Focus stays in picker until selection/cancel. No source bytes are read; selecting a project does not create a snapshot. |
 | Open repository | Choose from picker or `⌘O` | Open the native macOS folder picker, then show the canonical selected folder, detected Git root, branch/HEAD when available, folder access, and **Create snapshot**. A nested folder resolves to its containing working copy. | Cancel returns to the previous screen with focus on the invoking control. Non-Git folders, missing folders, permission denial, missing Git, and metadata-storage failures have distinct recovery actions. No source bytes are read. |
 | Recent project | Choose a row in the project picker | Recheck the saved path and Git metadata, then select the project for Guide, Files, and Changes. | Reopening never starts a snapshot. If the path moved or access changed, preserve the recent entry and offer **Choose a folder** or **Remove from Recents**. |

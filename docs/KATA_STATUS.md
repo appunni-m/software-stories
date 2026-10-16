@@ -1,12 +1,14 @@
 # Kata delivery status snapshot
 
+> **AI guide flow — October 16:** indexed Codex source discovery, header connection details, code-first evidence rules, light/dark themes and sequential route chapter drafts are implemented. Broader acceptance remains in `xvjk` and new task `a1sm`. See [the current flow](AI_GUIDE_FLOW.md).
+
 > **Connection reuse — October 16:** generation now restores the saved Codex account without entering sign-in on every request. Connected setup controls stay collapsed, model/reasoning remain shared, and explicit Disconnect pauses reuse across restarts. See [focused evidence](acceptance/2026-10-16-codex-connection.md); the wider Codex and product gates remain open.
 
 > **October 16 update:** installed-account Codex file generation now has a native baseline: automatic discovery, source review/consent, validated chapter, draft/acceptance, verified citation and manual section advance. [Evidence and remaining gates](acceptance/2026-10-16-codex-validation.md). Full operation/reliability/quality acceptance remains open; Claude is deferred. Historical source-only and protocol-blocker entries below describe earlier checkpoints.
 
 Project: **code-atlas-rebuild**. Recorded October 16, 2026, during Codex validation and [workspace refinement](acceptance/2026-10-16-code-workspace.md).
 
-**55 tasks: 34 open, 21 closed.** Every task title maps to exactly one checked-in definition. This is a dated Kata status snapshot; a closed historical task does not prove that the current app, new schema or agent runtime passed acceptance. No task was closed by this audit.
+**56 tasks: 35 open, 21 closed.** Every task title maps to exactly one checked-in definition. This is a dated Kata status snapshot; a closed historical task does not prove that the current app, new schema or agent runtime passed acceptance. No task was closed by this audit.
 
 The full requested scope remains in [the backlog](KATA_BACKLOG.md). Codex is the first delivery gate; APIs and manual handoffs cannot substitute. The user deferred Claude, which remains unavailable behind an empty qualification registry and still gates full M7. Building/testing and a small synthetic Codex account validation were authorized on October 16; dated results are recorded in the validation task. Complete operation/runtime and distribution evidence remains pending.
 
@@ -25,6 +27,7 @@ Open blockers are recorded dependency edges, not a complete list of human/vendor
 | `tbsh` | open | [Edit or regenerate one selected stale section and reuse unaffected assets](kata-tasks/20-selective-section-update.md) | `70x5` |
 | `tpta` | open | [Add selectable read-only coding-agent backends](kata-tasks/29-agent-runtime-backends.md) | — |
 | `z3an` | open | [Implement Codex app-server chapter generation with account sign-in](kata-tasks/40-codex-account-backend.md) | — |
+| `a1sm` | open | [Qualify automatic chapter building for an accepted learning route](kata-tasks/56-route-chapter-batch.md) | — |
 | `xvjk` | open | [Find relevant code from a question without manual context hunting](kata-tasks/55-question-to-source-discovery.md) | — |
 | `13yp` | open | [Make the packaged app follow the approved product designs](kata-tasks/43-design-implementation-parity.md) | — |
 | `7xx7` | open | [Define and qualify language support for code explanations](kata-tasks/39-language-capability-tiers.md) | — |

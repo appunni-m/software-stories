@@ -12,4 +12,5 @@ export function readGenerationBackend(): GenerationBackend {
 
 export function rememberGenerationBackend(backend: GenerationBackend): void {
   try { localStorage.setItem(key, backend); } catch { /* The current session still works. */ }
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('code-atlas:connection-changed'));
 }

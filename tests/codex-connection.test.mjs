@@ -77,7 +77,7 @@ describe('one-time Codex connection', () => {
   it('keeps setup hidden while checking and never starts login from dialog initialization', async () => {
     const source = await readFile(new URL('../src/CodexChapterDialog.tsx', import.meta.url), 'utf8');
     const initialization = source.slice(source.indexOf('    const epoch = ++lifetime.current;'), source.indexOf('  const refresh = async'));
-    assert.match(initialization, /restoreCodexConnection/);
+    assert.match(initialization, /ensureCodexConnection/);
     assert.doesNotMatch(initialization, /startCodexLogin|setConsent\(true\)/);
     assert.match(source, /checkingConnection \? <p/);
     assert.match(source, /open=\{mode === 'settings' \|\| !status\?\.authenticated\}/);

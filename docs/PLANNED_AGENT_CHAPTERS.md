@@ -1,5 +1,7 @@
 # Generate a chapter from an accepted learning step
 
+> **Current Codex flow — October 16:** connection/model/reasoning are reused from the header. AI selects relevant code using the captured index before exact source review. Accepted routes offer **Build all chapters**, a sequential batch that saves independent unaccepted drafts. See [AI guide flow](AI_GUIDE_FLOW.md) for current steps, disclosure, code-first documentation rules, scope limits and recovery. Older implementation checkpoints below retain their original acceptance qualifications.
+
 Source checkpoint: October 16, 2026. This flow has not been built, launched or exercised. Codex runtime acceptance remains pending. Automatic Claude generation remains unavailable behind the empty native qualification registry.
 
 ## User flow

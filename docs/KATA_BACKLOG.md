@@ -85,4 +85,4 @@ The canonical dependency edges and every task's acceptance criteria still apply.
 
 ## Question-first source navigation — October 16
 
-Kata `xvjk`: [find relevant code from a question](kata-tasks/55-question-to-source-discovery.md). This follows the native workspace refinement and addresses manual source hunting. Backend persistence and local draft retention are implemented separately in the workspace iteration; source ranking and automatic bounded proposal remain pending.
+Kata `xvjk`: [find relevant code from a question](kata-tasks/55-question-to-source-discovery.md). This follows the native workspace refinement and addresses manual source hunting. The source now includes Codex discovery over immutable indexed metadata, a global header connection, code-first claim rules and route chapter batching. Broad native/language/large-repository acceptance remains open. See [AI guide flow](AI_GUIDE_FLOW.md) and [route batch qualification](kata-tasks/56-route-chapter-batch.md).

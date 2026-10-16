@@ -1,5 +1,7 @@
 # Pending work after the October 15 static review
 
+> **Current flow update — October 16:** Codex chooses implementation from the captured index; connection/model/reasoning live in the header. Route chapters can be built sequentially after one exact batch review. Code is the evidence and docs are hints, with explicit deprecated labels. Light/dark/system palettes replace the lime styling. See [AI guide flow](AI_GUIDE_FLOW.md), discovery task `xvjk` and batch qualification `a1sm`. Broad native/language/large-repo acceptance remains open. Older entries below are historical checkpoints.
+
 > **Connection reuse — October 16:** generation now restores the saved Codex account without entering sign-in on every request. Connected setup controls stay collapsed, model/reasoning remain shared, and explicit Disconnect pauses reuse across restarts. See [focused evidence](acceptance/2026-10-16-codex-connection.md); the wider Codex and product gates remain open.
 
 > **Workspace update — October 16:** the native app now uses explorer / source / explanation panes, direct Codex entry with remembered settings, focused Flow and Player actions, and a pinned section-navigation row. See [native evidence and remaining design gaps](acceptance/2026-10-16-code-workspace.md). Full Changes composition, first-run polish, generated visual quality and accessibility remain open in `13yp`/`x21h`; question-to-source discovery is explicitly defined in `xvjk`.

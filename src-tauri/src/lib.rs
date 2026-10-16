@@ -48,6 +48,7 @@ mod repository_plan_commands;
 mod repository_plan_history;
 mod repository_plan_store;
 mod snapshot;
+mod source_discovery;
 mod strict_json;
 
 use project::{ProjectOpenResult, RecentProject};
@@ -1912,6 +1913,7 @@ pub fn run() {
         .manage(provider::ProviderRequestCancellations::default())
         .manage(narration::PendingNarrationReviews::default())
         .manage(chapters::PendingChapterDrafts::default())
+        .manage(source_discovery::DiscoveryReviews::default())
         .manage(recovery::InterruptionJournal::default())
         .manage(ChapterStoreLock::default())
         .invoke_handler(tauri::generate_handler![
@@ -1919,6 +1921,10 @@ pub fn run() {
             agent_handoff::build_agent_handoff_review,
             agent_handoff::export_agent_handoff,
             agent_handoff::import_agent_handoff_result,
+            source_discovery::prepare_source_discovery,
+            source_discovery::get_documentation_notices,
+            source_discovery::discard_source_discovery,
+            source_discovery::send_source_discovery,
             codex_commands::get_codex_agent_status,
             codex_commands::resume_codex_connection,
             codex_commands::configure_codex_agent,

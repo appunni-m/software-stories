@@ -1284,6 +1284,21 @@ fn build_claim(
     if category == ClaimCategory::CodeBehavior && anchors.is_empty() {
         return Err("A code-behavior claim requires an exact source quote.".to_owned());
     }
+    if category == ClaimCategory::CodeBehavior
+        && anchors.iter().all(|anchor| {
+            matches!(
+                anchor
+                    .path
+                    .rsplit('.')
+                    .next()
+                    .map(str::to_ascii_lowercase)
+                    .as_deref(),
+                Some("md" | "mdx" | "rst" | "adoc")
+            )
+        })
+    {
+        return Err("A code-behavior claim needs implementation evidence; documentation alone is not proof of behavior.".to_owned());
+    }
     let mut prose = proposed.prose.trim().to_owned();
     add_relationship_dependencies(
         &mut prose,
@@ -3132,4 +3147,45 @@ pub(crate) mod tests {
                 }
         }));
     }
+    #[test]
+    fn documentation_alone_cannot_prove_code_behavior() {
+        let mut fixture = Fixture::new();
+        fixture.recapture_with_source(
+            "README.md",
+            "# Greeting notes\nThe greet function returns a greeting.\n",
+        );
+        let sources = fixture.sources(&["README.md"]);
+        let source_map = checked_sources(&fixture.manifest, &sources).unwrap();
+        let paths = source_map.keys().cloned().collect();
+        let mut proposed = claim(
+            "responsibility",
+            "The greet function returns a greeting.",
+            &["greet"],
+            &[("README.md", "The greet function returns a greeting.")],
+        );
+        let checked = build_claim(
+            &proposed,
+            "section:test",
+            None,
+            &paths,
+            &source_map,
+            None,
+            &HashSet::new(),
+        );
+        assert!(checked.unwrap_err().contains("documentation alone"));
+        proposed.category = "repositoryContext".to_owned();
+        assert!(
+            build_claim(
+                &proposed,
+                "section:test",
+                None,
+                &paths,
+                &source_map,
+                None,
+                &HashSet::new()
+            )
+            .is_ok()
+        );
+    }
+
 }

@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, FileCode2, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
 import { isNativeRuntime, type ChapterClaim, type ChapterRevision, type SnapshotManifest } from './lib/commands';
 import { samePlannedTarget } from './lib/chapterOrigin';
 import { GenerationRecord } from './GenerationRecord';
+import { ChapterBatchDialog } from './ChapterBatchDialog';
+import { DocumentationNotices } from './DocumentationNotices';
 import { codeLensRangeFromChapterAnchor } from './lib/codeLens';
 import { errorMessageOr } from './lib/errorMessage';
 import type { SourceLineRange } from './lib/navigation';
@@ -46,12 +48,11 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
     return { question: '', paths: [] as string[] };
   });
   const [question, setQuestion] = useState(localDraft.question);
-  const [query, setQuery] = useState('');
-  const [paths, setPaths] = useState<string[]>(localDraft.paths);
   useEffect(() => {
-    try { localStorage.setItem(draftKey, JSON.stringify({ question, paths })); } catch { /* Optional unsent local draft. */ }
-  }, [draftKey, question, paths]);
-  const [creating, setCreating] = useState(false);
+    try { localStorage.setItem(draftKey, JSON.stringify({ question })); } catch { /* Optional unsent local draft. */ }
+  }, [draftKey, question]);
+  const [batchPlan, setBatchPlan] = useState<RepositoryPlanRevisionDetail | null>(null);
+  const closeBatch = useCallback(() => setBatchPlan(null), []);
   const [summaries, setSummaries] = useState<RepositoryPlanDraftSummary[]>([]);
   const [detail, setDetail] = useState<RepositoryPlanDraftDetail | null>(null);
   const [revisions, setRevisions] = useState<RepositoryPlanRevisionSummary[]>([]);
@@ -80,11 +81,6 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
   const heading = useRef<HTMLHeadingElement>(null);
   const focusStep = useRef(false);
   const selectionRef = useRef<string | null>(null);
-  const files = useMemo(() => manifest.files.filter((file) => file.kind === 'file'
-    && (file.contentKind === 'text' || file.contentKind === 'unknown') && !file.secretLike && file.sizeBytes <= 250_000)
-    .sort((a, b) => a.path.localeCompare(b.path)), [manifest]);
-  const bytes = files.filter((file) => paths.includes(file.path)).reduce((sum, file) => sum + file.sizeBytes, 0);
-  const matches = files.filter((file) => file.path.toLowerCase().includes(query.trim().toLowerCase()));
   const step = detail?.preview.plan.steps[position];
   const linkedChapters = revision && detail && step ? chapters.filter((chapter) => {
     const origin = chapter.generationOrigin;
@@ -96,7 +92,7 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
         revisionId: revision.revision.revisionId, recordSha256: detail.recordSha256, stepId: step.stepId,
       });
   }).sort((left, right) => right.createdAtUnixMs - left.createdAtUnixMs || right.revisionNumber - left.revisionNumber) : [];
-  const locked = discarding || decisionBusy !== null;
+  const locked = discarding || decisionBusy !== null || batchPlan !== null;
   const alreadyAccepted = detail ? revisions.find((item) => item.revision.draftId === detail.preview.plan.draftId) : undefined;
   const availableParents = revisions.filter((item) => item.isHead && item.revision.question === detail?.preview.plan.question);
   async function explainStep() {
@@ -277,9 +273,9 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
     setFormError(null);
     const clean = question.trim();
     if ([...clean].length < 8 || [...clean].length > 300 || /[\u0000-\u001f\u007f-\u009f]/u.test(clean)) { setFormError('Write a learning question using 8–300 characters without control characters.'); return; }
-    if (!paths.length || paths.length > 12 || bytes > 250_000 || paths.some((path) => !files.some((file) => file.path === path))) { setFormError('Select 1–12 captured text files within 250,000 source bytes.'); return; }
+
     setQuestion(clean);
-    onPlan({ projectId, snapshotId, question: clean, selectedPaths: [...paths] });
+    onPlan({ projectId, snapshotId, question: clean, selectedPaths: [] });
   }
 
   function claim(value: ChapterClaim) {
@@ -297,31 +293,20 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
   }
 
   return <section className="repository-journeys repository-plans" aria-labelledby="learning-plans-title">
-    <header className="plan-heading"><div><h2 id="learning-plans-title">Learning plans</h2><p>Ask a question, choose source, then use Codex or Claude to plan a reading sequence.</p></div>
-      <button className="primary-button" disabled={!native || locked} onClick={() => setCreating(!creating)}><Sparkles size={15} /> {creating ? 'Hide new plan' : 'New learning plan'}</button></header>
+    <header className="plan-heading"><div><h2 id="learning-plans-title">Ask the code</h2><p>AI finds the implementation and builds a route through the code.</p></div></header>
     {!native && <p role="status">Open the macOS app to generate and reopen native plans. No API key is required for the coding-agent routes.</p>}
-    {creating && <form className="plan-create-form" onSubmit={submit}>
+    {native && <DocumentationNotices projectId={projectId} snapshotId={snapshotId} onOpenFile={(path) => onOpenFile(path, snapshotId)} />}
+    <form className="plan-create-form" onSubmit={submit}>
       <label>What do you want to understand?<input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="How does a file become a generated chapter?" /></label>
-      <p>Select the captured files relevant to your question. Each request covers at most 12 files and 250,000 source bytes; other files remain outside this plan.</p>
-      <details open><summary>Source selection · {paths.length}/12 files · {bytes.toLocaleString()}/250,000 bytes</summary>
-        {paths.length > 0 && <ul>{paths.map((path) => <li key={path}><code>{path}</code> <button type="button" className="text-button" onClick={() => setPaths((current) => current.filter((value) => value !== path))}>Remove</button></li>)}</ul>}
-        <label>Find captured files<input value={query} onChange={(event) => setQuery(event.target.value)} /></label>
-        <div className="provider-context-files">{matches.slice(0, 100).map((file) => <label key={file.path}>
-          <input type="checkbox" checked={paths.includes(file.path)} disabled={!paths.includes(file.path) && (paths.length >= 12 || bytes + file.sizeBytes > 250_000)} onChange={(event) => {
-            const checked = event.target.checked;
-            setPaths((current) => checked ? current.includes(file.path) ? current : [...current, file.path] : current.filter((path) => path !== file.path));
-          }} /><code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} B</small>
-        </label>)}</div>
-        {matches.length > 100 && <p>Showing 100 of {matches.length} matches. Refine the filter to see other files.</p>}
-        {!matches.length && <p>No eligible captured files match.</p>}
-      </details>
+      <p>Codex follows the code index and flow to choose relevant implementation files. Documentation is treated as guidance and checked against code.</p>
       {formError && <p role="alert">{formError}</p>}
-      <button type="submit" className="primary-button" disabled={!native || locked || !paths.length || bytes > 250_000}>Choose agent and review request <ArrowRight size={14} /></button>
-    </form>}
+      <button type="submit" className="primary-button" disabled={!native || locked || question.trim().length < 8}>Find code and build route <ArrowRight size={14} /></button>
+    </form>
+    <details className="plan-history" open={summaries.length + revisions.length > 0}><summary>Saved routes · {summaries.length + revisions.length}</summary>
     <div className="plan-saved-heading"><h3>Saved drafts</h3><button className="text-button" disabled={!native || loading || locked} onClick={() => { setError(null); void refresh(); }}><RefreshCw size={14} /> Refresh</button></div>
     <p className="provider-small-note">This list is metadata only. Opening a draft rechecks its original proposal and captured evidence before showing citations.</p>
     {loading && <p role="status">Loading saved plan metadata…</p>}
-    {!loading && native && !summaries.length && !listError && <p>No saved plans yet. Start with one question and a small source selection.</p>}
+    {!loading && native && !summaries.length && !listError && <p>No saved plans yet. Start with a question; Codex chooses the code.</p>}
     <ul className="plan-saved-list">{summaries.map((item) => <li key={item.draftId}>
       <button className="text-button" aria-current={selectedId === item.draftId ? 'true' : undefined} disabled={locked || !!item.unavailableReason} onClick={() => { void open(item.draftId); }}>{item.title}</button>
       <small>{item.unavailableReason ?? `${item.providerId === 'codex' ? 'Codex' : 'Claude'} · ${item.modelId} · ${item.snapshotId === snapshotId ? 'current snapshot' : 'earlier snapshot'}`}</small>
@@ -334,9 +319,12 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
       <button className="text-button" disabled={locked} aria-current={revision?.revision.revisionId === item.revision.revisionId ? 'true' : undefined} onClick={() => { void openRevision(item.revision.revisionId); }}>{item.revision.title} · revision {item.revision.revisionNumber}</button>
       <small>{item.isHead ? 'Latest in this plan' : 'Earlier revision'} · {item.revision.snapshotId === snapshotId ? 'current snapshot' : 'earlier snapshot'} · {item.revision.providerId === 'codex' ? 'Codex' : 'Claude'}</small>
     </li>)}</ul>
+    </details>
     {reading && <p role="status">Revalidating the original question, proposal and captured source…</p>}
     {detail && step && <section className="plan-reader" aria-label="Saved learning plan review">
       <h3>{detail.preview.plan.title}</h3><p>{detail.preview.plan.question}</p>
+      {revision && <div className="plan-batch-action"><button className="primary-button" disabled={locked || detail.preview.plan.snapshotId !== snapshotId}
+        onClick={() => setBatchPlan(revision)}><Sparkles size={15} /> Build all chapters</button><p>One review, then Codex works through the route. Saved steps are skipped.</p></div>}
       <p className="provider-small-note">{revision ? `Accepted revision ${revision.revision.revisionNumber}` : 'Unaccepted plan'} · {detail.preview.plan.plannedSelectedPaths.length} primary files · {detail.preview.plan.citedSelectedPaths.length} cited files · {detail.preview.plan.omittedSelectedPaths.length} selected files without a step. {detail.scope.coverage.unselectedEligibleFileCount} other eligible captured files remain outside the selection.</p>
       <p className="provider-small-note">Capture: {detail.scope.captureStatus} · index: {detail.scope.indexStatus} · {detail.scope.coverage.skippedPathCount} skipped paths · {detail.scope.coverage.excludedCapturedPathCount} excluded captured paths. This is not a whole-repository explanation.</p>
       <details><summary>Snapshot and recorded agent settings</summary><p><code>{detail.preview.plan.snapshotId}</code> · {detail.preview.modelId}</p><pre>{JSON.stringify(detail.settings, null, 2)}</pre><p>These are recorded dispatch labels, not tamper-proof account proof or authorization for a new request. Capture: {detail.scope.captureStatus}; index: {detail.scope.indexStatus}.</p></details>
@@ -395,5 +383,6 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
     {historyError && <p className="provider-error-text" role="alert">{historyError}</p>}
     {error && <p className="provider-error-text" role="alert">{error}</p>}
     {notice && <p role="status">{notice}</p>}
+    {batchPlan && <ChapterBatchDialog projectId={projectId} plan={batchPlan} onClose={closeBatch} />}
   </section>;
 }

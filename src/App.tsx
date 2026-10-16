@@ -5,11 +5,14 @@ import { readGenerationBackend, rememberGenerationBackend, type GenerationBacken
 import type { AgentGitRecovery } from './lib/agentRecovery';
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { CodexChapterDialog, type CodexChapterDialogMode } from './CodexChapterDialog';
+import { type CodexChapterDialogMode } from './CodexChapterDialog';
+import { CodexContextDialog } from './CodexContextDialog';
 import { AgentHandoffDialog } from './AgentHandoffDialog';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import { RepositoryPlanningDialog, type RepositoryPlanningScope } from './RepositoryPlanningDialog';
 import { RepositoryPlans } from './RepositoryPlans';
+import { ConnectionHeader } from './ConnectionHeader';
+import { ThemeControl } from './ThemeControl';
 import type { PrepareRepositoryPlanInput } from './lib/repositoryPlans';
 import type { PlannedChapterScope } from './lib/plannedChapters';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
@@ -1413,6 +1416,8 @@ function App() {
         </nav>
 
         <div className="topbar-actions">
+          <ConnectionHeader onOpen={openProviderSettings} />
+          <ThemeControl />
           <button
             className="search-control"
             disabled={!navigation.current.snapshotId}
@@ -1438,7 +1443,7 @@ function App() {
             {toolsOpen && (
               <div className="tools-menu" role="menu" aria-label="More tools">
                 <div className="menu-label">WORKSPACE</div>
-                <button role="menuitem" onClick={openProviderSettings}><Settings2 size={16} /> <span>Generation backend</span></button>
+                <button role="menuitem" onClick={openProviderSettings}><Settings2 size={16} /> <span>Connection settings</span></button>
                 <button role="menuitem" data-focus-key="tools-button" onClick={() => chooseWorkspace('walkthrough')}>
                   <Play size={16} /> <span>Browse accepted guides</span>
                 </button>
@@ -1853,7 +1858,7 @@ function ProviderDialog(props: ProviderDialogProps) {
     const mode: CodexChapterDialogMode = selectedMode.kind === 'settings' ? 'settings' : selectedMode.kind === 'section-update'
       ? { ...selectedMode, sectionTitle: selectedMode.baseRevision.sections.find((section) => section.sectionId === selectedMode.sectionUpdate.sectionId)?.title }
       : selectedMode;
-    return <CodexChapterDialog mode={mode}
+    return <CodexContextDialog mode={mode}
       native={props.native} onClose={props.onClose} onChooseBackend={() => setBackend('choose')}
       onOpenPendingPreview={props.onOpenPendingPreview}
       onRecoveryReviewReady={props.onRecoveryReviewReady} onOpenCodeLensCitation={props.onOpenCodeLensCitation} />;
@@ -3829,6 +3834,11 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
 
   return (
     <div className="empty-workspace guide-plan-screen">
+      <section className="guide-question-panel" aria-label="Ask the code">
+      <RepositoryPlans key={`${projectId}:${snapshotId}`} manifest={manifest} onPlan={onPlan} onOpenFile={onOpenFile} onGenerateFile={onGenerateFile} onGeneratePlannedChapter={onGeneratePlannedChapter}
+        chapters={revisions} chaptersLoading={revisionsLoading} chaptersError={revisionsError} onReadChapter={onReadRevision} onReviewChapter={onReviewRevision} />
+      </section>
+
       <section className="guide-home-dashboard" aria-labelledby="guide-home-title">
         <div className="guide-home-context">
           <span className="step-pill"><span>YOUR REPOSITORY GUIDE</span> {projectName}</span>
@@ -3911,10 +3921,6 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
         </div>
       </section>
 
-      <details className="guide-coverage-disclosure"><summary>Plan a learning path</summary>
-      <RepositoryPlans key={`${projectId}:${snapshotId}`} manifest={manifest} onPlan={onPlan} onOpenFile={onOpenFile} onGenerateFile={onGenerateFile} onGeneratePlannedChapter={onGeneratePlannedChapter}
-        chapters={revisions} chaptersLoading={revisionsLoading} chaptersError={revisionsError} onReadChapter={onReadRevision} onReviewChapter={onReviewRevision} />
-      </details>
       <details className="guide-coverage-disclosure" open={returnFocusTarget?.startsWith('journey:')}><summary>Build a static call reading order</summary>
       <Suspense fallback={<p className="journey-note" role="status">Loading repository journeys…</p>}>
         <RepositoryJourneys manifest={manifest} revisions={revisions} revisionsReady={coverageReady} returnFocusTarget={returnFocusTarget}

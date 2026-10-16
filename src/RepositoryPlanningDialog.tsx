@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { readGenerationBackend, rememberGenerationBackend } from './lib/generationPreferences';
+import { SourceDiscoveryDialog } from './SourceDiscoveryDialog';
+import type { SourceDiscoveryResult } from './lib/sourceDiscovery';
 import { CodexChapterDialog } from './CodexChapterDialog';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
@@ -40,11 +42,17 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onRecoveryRes
     document.addEventListener('keydown', key);
     return () => { document.removeEventListener('keydown', key); if (previous?.isConnected) previous.focus(); };
   }, [backend, onClose]);
+  const [discovery, setDiscovery] = useState<SourceDiscoveryResult | null>(null);
+  const discoveredPaths = discovery?.selectedFiles.map((file) => file.path);
+  if (!scope.selectedPaths.length && !discoveredPaths && !scope.recoveryOperationId && scope.kind !== 'planned-chapter') {
+    return <SourceDiscoveryDialog scope={scope} onClose={onClose} onReady={setDiscovery} />;
+  }
+  const effectiveScope = discoveredPaths ? { ...scope, selectedPaths: discoveredPaths } : scope;
   const planned = scope.kind === 'planned-chapter' ? scope.plannedChapter : null;
   const mode = planned ? { kind: 'review' as const, projectId: scope.projectId, snapshotId: scope.snapshotId,
     targetPath: planned.primaryPath, selectedPaths: planned.selectedPaths, plannedChapter: planned,
-    recoveryOperationId: scope.recoveryOperationId } : { ...scope, kind: 'repository-plan' as const };
-  if (backend === 'codex') return <CodexChapterDialog mode={mode} native={native} onClose={onClose} onChooseBackend={() => setBackend(null)} onRecoveryReviewReady={onRecoveryResultReady} onOpenPendingPreview={onOpenPendingPreview} />;
+    recoveryOperationId: scope.recoveryOperationId } : { ...effectiveScope, kind: 'repository-plan' as const };
+  if (backend === 'codex') return <CodexChapterDialog mode={mode} discoveryResult={discovery ?? undefined} native={native} onClose={onClose} onChooseBackend={() => setBackend(null)} onRecoveryReviewReady={onRecoveryResultReady} onOpenPendingPreview={onOpenPendingPreview} />;
   if (backend === 'claude-agent') return <ClaudeConnectionDialog reviewMode={mode} native={native} onClose={onClose} onChooseBackend={() => setBackend(null)} onRecoveryResultReady={onRecoveryResultReady} onOpenPendingPreview={onOpenPendingPreview} />;
   return <div className="provider-overlay"><section ref={dialog} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="plan-agent-title" tabIndex={-1}>
     <header className="provider-dialog-header"><div><h2 id="plan-agent-title">{planned ? 'Choose a chapter agent' : 'Choose a planning agent'}</h2><p>{scope.question}</p></div>

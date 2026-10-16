@@ -6,8 +6,9 @@ import ts from 'typescript';
 import { scrollBehaviorForMotionPreference } from '../src/lib/motion.ts';
 
 const css = await readFile(new URL('../src/App.css', import.meta.url), 'utf8');
+const theme = await readFile(new URL('../src/theme.css', import.meta.url), 'utf8');
 const sourceRoot = new URL('../src/', import.meta.url);
-const surfaces = ['#0b0e12', '#10141a', '#141a21', '#1a222b'];
+const surfaces = ['#181b20', '#20242b', '#272d36', '#303846'];
 const nameableRoles = new Set([
   'alert', 'alertdialog', 'application', 'article', 'button', 'complementary', 'dialog',
   'figure', 'form', 'grid', 'group', 'list', 'listbox', 'main', 'menu', 'navigation',
@@ -84,8 +85,13 @@ function resolveSolidColor(value, tokens) {
   return color && /^#[\da-f]{6}$/.test(color) ? color : undefined;
 }
 
-const rootBlock = css.match(/:root\s*\{([\s\S]*?)\n\}/)?.[1];
-const highContrastBlock = css.match(/@media\s*\(prefers-contrast:\s*more\)\s*\{\s*:root\s*\{([\s\S]*?)\n\s{2}\}/)?.[1];
+const rootBlock = theme.match(/:root\s*\{([\s\S]*?)\n\}/)?.[1];
+const highContrastBlock = theme.match(/@media\s*\(prefers-contrast:\s*more\)\s*\{\s*:root\s*\{([^}]+)\}/)?.[1];
+function contrastTokensFor(base) {
+  const tokens = { ...base, ...readTokens(highContrastBlock ?? '') };
+  for (const [, name, source] of (highContrastBlock ?? '').matchAll(/--([\w-]+):\s*var\(--([\w-]+)\)/g)) tokens[name] = tokens[source];
+  return tokens;
+}
 
 test('default dim token remains readable against every application surface', () => {
   assert.ok(rootBlock, 'root design tokens are present');
@@ -100,7 +106,7 @@ test('default dim token remains readable against every application surface', () 
 
 test('Increase Contrast preference strengthens text, boundaries, and focus indicators', () => {
   assert.ok(highContrastBlock, 'a prefers-contrast: more token override is present');
-  const tokens = readTokens(highContrastBlock);
+  const tokens = contrastTokensFor(readTokens(rootBlock));
   for (const token of ['muted', 'dim', 'border', 'border-strong']) {
     assert.ok(tokens[token], `high contrast defines --${token}`);
   }
@@ -111,13 +117,14 @@ test('Increase Contrast preference strengthens text, boundaries, and focus indic
     assert.ok(contrastRatio(tokens['border-strong'], surface) >= 3, `--border-strong distinguishes components on ${surface}`);
   }
   assert.match(css, /@media\s*\(prefers-contrast:\s*more\)[\s\S]*?:where\(\*\)\s*\{\s*border-color:\s*var\(--border-strong\)\s*!important;/);
-  assert.match(css, /@media\s*\(prefers-contrast:\s*more\)[\s\S]*?outline:\s*3px solid #ffffff\s*!important;/);
+  assert.match(css, /@media\s*\(prefers-contrast:\s*more\)[\s\S]*?outline:\s*3px solid var\(--border-strong\)\s*!important;/);
 });
 
 test('solid text and surface colors in the same CSS rule meet normal-text contrast', () => {
   assert.ok(rootBlock, 'root design tokens are present');
   const defaultTokens = readTokens(rootBlock);
-  const contrastTokens = { ...defaultTokens, ...readTokens(highContrastBlock ?? '') };
+  const lightTokens = readTokens(theme.match(/:root\[data-theme='light'\]\s*\{([\s\S]*?)\n\}/)?.[1] ?? '');
+  const contrastTokens = contrastTokensFor(defaultTokens);
   const failingPairs = [];
 
   for (const [, selector, declarations] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
@@ -128,7 +135,7 @@ test('solid text and surface colors in the same CSS rule meet normal-text contra
     const pairs = foregroundValues.flatMap((foreground) => backgroundValues.map((background) => [foreground, background]));
 
     for (const [foregroundValue, backgroundValue] of pairs) {
-      for (const [mode, tokens] of [['default', defaultTokens], ['Increase Contrast', contrastTokens]]) {
+      for (const [mode, tokens] of [['dark', defaultTokens], ['light', lightTokens], ['Increase Contrast', contrastTokens]]) {
         const foreground = resolveSolidColor(foregroundValue, tokens);
         const background = resolveSolidColor(backgroundValue, tokens);
         if (foreground && background && contrastRatio(foreground, background) < 4.5) {

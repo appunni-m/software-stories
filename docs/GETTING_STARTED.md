@@ -38,7 +38,7 @@ folder or relying on an offline export as a backup.
 2. Review the selected project and choose **Create snapshot**. This starts a bounded local read into an immutable snapshot. The capture view reports progress and skipped paths, and a running capture can be cancelled. A partial capture remains labeled partial.
 3. Open **Files**. Browse the captured repository tree and select a text file to see its snapshot source and saved explanation together. Click a citation to open the exact cited range. Relationship exploration is optional; its links also return to exact snapshot source. Parser relationships are static evidence, not a complete runtime call graph.
 4. Open **Guide** for the repository overview and section-by-section reader. Use **File-by-file coverage** when you want to see which captured files have accepted explanations, drafts, or source limitations.
-5. Select **Explain this file → Codex**. The native app finds the installed desktop Codex, reuses its existing ChatGPT account and loads models; no API key or executable path is needed for the normal setup. Continue to source review, confirm the selected context/settings and generate. Inspect the validated preview, save an unaccepted draft and explicitly accept it when ready. Installation and model overrides are under advanced settings. Direct APIs remain optional choices.
+5. Check the **Codex** connection in the header. Setup is needed once; the existing installed account, model and reasoning are reused. Choose **Explain this file**: Codex selects relevant implementation from the captured index after metadata disclosure, then prepares the exact source review. Confirm and generate; inspect the validated preview, save an unaccepted draft and accept it when ready. In **Guide → Ask the code**, ask a question to build a route without selecting references, then accept it and choose **Build all chapters**. See [AI guide flow](AI_GUIDE_FLOW.md) for scope and recovery details.
 6. In the Guide reader, select a chapter and section, inspect its citations or visual hotspots, and use **Previous** or **Continue** when you are ready to move. Audio is optional; the transcript and manual controls remain available without it.
 7. To take a guide offline, choose **Offline export** in the Guide reader footer. Select accepted revisions, review each section's audio coverage and the transcript paired with any included cached track, source paths, and excerpts, acknowledge the privacy review, and download the single HTML file. Export never generates or sends narration. The package includes written sections, transcripts, navigation, and supported typed diagrams; live repository browsing is unavailable offline.
 
@@ -54,9 +54,9 @@ For an explanation of one change without creating a saved guide, select a direct
 
 ## Coding agents without a mandatory API key
 
-From **Explain** on a captured file or **Create repository tour** in Guide, choose a generation backend. The native **Codex** route completed one synthetic packaged-app file baseline. It discovers the installed desktop runtime and reuses its account; first-time sign-in may still require the browser. The chooser also offers a **Claude Code · manual handoff** route. The latter prepares a source-bound task to copy into your agent and validates its complete JSON response on import; it does not run Claude or control its settings. The same manual exchange can be used with Antigravity or another agent. Read [Agent generation](AGENT_GENERATION.md) for exact steps and current limitations. Automatic Claude integration and native acceptance remain release requirements.
+Codex is the default. The header shows the connection, model and reasoning and opens their settings. It reuses the installed account across generation requests and app restarts; missing login requires explicit sign-in. Ordinary file, tour and planning flows do not show a backend chooser each time. Use **Change backend** in header connection settings to choose direct APIs, deferred Claude setup or manual handoff. Each request still has a fresh source review; choosing a connection does not authorize source transmission.
 
-The chooser appears for every new generation task. A remembered direct API choice no longer hides the agent choices. Within Codex or a direct API dialog, use **Change backend** to return to the chooser. Each backend still requires its own reviewed context; switching discards an unsaved preview.
+The [AI guide flow](AI_GUIDE_FLOW.md) describes automatic code selection and route chapter batches. [Agent generation](AGENT_GENERATION.md) describes the other transports and their limits. Automatic Claude generation remains unavailable pending runtime qualification.
 
 Codex is also wired in source for one-section stale repairs from Edit. That route fixes the selected section's declared evidence, reviews old/current source and uses the existing preservation validator. Manual handoffs remain limited to file chapters and selected-source overviews. See [the section-repair instructions](AGENT_GENERATION.md#repair-one-stale-section-with-codex); native acceptance remains pending.
 
@@ -64,7 +64,7 @@ Codex is also wired in source for one-section stale repairs from Edit. That rout
 
 Local capture, Files, existing saved explanations, and chapter editing do not require an API key. To explicitly use a direct model API:
 
-1. Open the project-tools menu and choose **AI and narration setup**.
+1. Click the connection in the header, then choose **Change backend → Direct API**.
 2. Choose Gemini, OpenAI, or Anthropic, review its model and provider disclosures, then save that provider's API key to macOS Keychain.
 3. In Chapter Studio, select one file and choose **Generate current snapshot**.
 4. Inspect the exact selected source files, hashes, prompt, model, and estimate in the request review. The target file is included; up to eleven supporting files from the same snapshot can be selected.

@@ -1,5 +1,7 @@
 # Generate explanations with a coding agent
 
+> **Current Codex flow — October 16:** connection/model/reasoning are reused from the header. AI selects relevant code using the captured index before exact source review. Accepted routes offer **Build all chapters**, a sequential batch that saves independent unaccepted drafts. See [AI guide flow](AI_GUIDE_FLOW.md) for current steps, disclosure, code-first documentation rules, scope limits and recovery. Older implementation checkpoints below retain their original acceptance qualifications.
+
 > **Current sequencing — October 16:** Codex is the immediate delivery and validation target. The user deferred Claude to `8gqw` (priority 2); it no longer blocks the current Codex gate `2r6n`. The complete multi-backend milestone retains Claude and Antigravity requirements. Building/tests and a small synthetic Codex account generation are authorized. Historical source-only statements below describe earlier checkpoints. [Executed validation](acceptance/2026-10-16-codex-validation.md) identifies the correct desktop executable, successful synthetic account baseline and the native file-flow evidence.
 
 Coding agents are primary generation options. Direct API keys are optional. Codex file generation has one synthetic native baseline; the other routes and full runtime acceptance remain open. This page does not certify a production release.
@@ -46,7 +48,7 @@ Claude Agent is a separate required automatic backend; its PR operations remain 
 
 ### Plan a reading sequence with either agent
 
-In Guide, choose **New learning plan**, write a learning question and select captured source. **Choose agent and review request** keeps Codex and Claude separate, with each agent's supported settings and a fresh exact source review. A request covers at most 12 files and 250,000 source bytes; it does not explain an entire repository. Codex planning dispatch is source-only, and Claude generation is currently unavailable behind qualification.
+In Guide, use **Ask the code** and write a question. **Find code and build route** lets Codex choose implementation from the captured index, then prepares an exact source review using the header connection. Claude automatic discovery remains deferred. A request covers at most 12 files and 250,000 source bytes; it does not explain an entire repository. Codex planning dispatch is implemented, with broad native qualification still open, and Claude generation is currently unavailable behind qualification.
 
 A saved plan has manual Back/Next, source citations, known unknowns and explicit coverage limits. An accepted revision now offers **Explain this step with an agent**: choose Codex or Claude, review the original question/prerequisites and fixed cited source, then request one unaccepted chapter through that agent. Exact step recovery is present in source; native acceptance remains pending and Claude cannot yet generate. Unaccepted plans offer a separately labeled general file explanation. Plan acceptance, chapter acceptance, immutable revisions and matching-notice resolution are separate decisions. See [the step chapter contract and limitations](PLANNED_AGENT_CHAPTERS.md) and [the planning flow](REPOSITORY_PLANNING.md).
 

@@ -23,7 +23,12 @@ A reader asks a question such as “How does a font file become pixels?” and g
 Use a Rust multi-crate project, a TypeScript project, a missing-index case, and a question whose relevant source exceeds one request. Record the proposed files, reasons, omissions, consent scope and return-state behavior. Verify backend/model settings survive repeat file requests. User-visible controls must describe the question and code rather than internal request-schema concepts.
 
 ## Exclusions
-No paid service requirement, automatic private-source upload, runtime-trace claims, or automatic acceptance of generated narratives. This is pending product work, not a claim that the current file checklist already provides intelligent discovery.
+No paid service requirement, automatic private-source upload, runtime-trace claims, or automatic acceptance of generated narratives. This task remains open for the broader acceptance matrix; the source implementation below does not establish exhaustive discovery.
 
 ## Existing baseline to preserve
 The 16 October workspace iteration already remembers the backend/model, restores a saved source version and last file, and retains an unsent planning question and selected paths locally. These reduce repeated setup; they do not select the relevant source automatically. See the native workspace acceptance record before reimplementing those pieces.
+
+## October 16 implementation delta
+The Codex path now prepares a local index automatically, reviews metadata, asks Codex to select implementation, validates up to 12 code paths/250,000 bytes, then automatically prepares the exact source review. File and overview requests share this discovery path. The workspace header restores and displays the saved connection/model/reasoning. Code-behavior claims backed only by documentation are rejected; explicit deprecated/archive labels and unverified docs are visible in planning. Routes support one reviewed sequential chapter batch with saved-step skipping and independent drafts.
+
+Remaining: Rust multi-crate and large TypeScript native runs, missing/unreadable index and metadata/source overflow acceptance, persisted discovery scope/reasons across restart, multi-window coverage for large repositories, and deferred non-Codex agent discovery. See [current flow](../AI_GUIDE_FLOW.md) and [batch qualification](56-route-chapter-batch.md).
