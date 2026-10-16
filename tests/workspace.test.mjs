@@ -47,6 +47,9 @@ test('learning questions retain recent intent and branch topic within the native
   const q=learningQuestion(s,'branch','four',300);
   assert.match(q,/RangeError propagation/);
   assert.ok(q.endsWith('What receives that exception?'));
+  assert.doesNotMatch(q, /[\u0000-\u001f\u007f]/);
+  assert.ok(q.length >= 8 && q.length <= 300);
+  assert.equal(q, q.trim());
   assert.ok(learningQuestion(s,'branch','four',60).length<=60);
   assert.equal(learningQuestion(s,'missing','four',300),'');
 });

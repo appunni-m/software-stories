@@ -1,5 +1,6 @@
-/* Shared production workspace: one spacing scale and quiet editor surfaces. */
-.developer-workspace { --mono: ui-monospace, SFMono-Regular, Menlo, monospace; --editor-bg:var(--surface); --active-line:var(--surface-raised); --selection:var(--accent-soft); --code-keyword:#c6a8ef; --code-function:#a5cfff; --code-string:#b1d7b0; --code-type:#e5ce9d; --code-number:#f1bd9c; display:flex;flex:1;min-height:0;min-width:0;overflow:hidden;background:var(--canvas);color:var(--text);font:13px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+/* Shared production workspace: one spacing scale and quiet editor surfaces.
+   Outrank the Radix root theme viewport minimum: this theme lives below the app header. */
+.developer-workspace.radix-themes { --mono: ui-monospace, SFMono-Regular, Menlo, monospace; --editor-bg:var(--surface); --active-line:var(--surface-raised); --selection:var(--accent-soft); --code-keyword:#c6a8ef; --code-function:#a5cfff; --code-string:#b1d7b0; --code-type:#e5ce9d; --code-number:#f1bd9c; display:flex;flex:1;min-height:0;min-width:0;overflow:hidden;background:var(--canvas);color:var(--text);font:13px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
 .developer-workspace.light { --code-keyword:#7d469d;--code-function:#205fa1;--code-string:#376d3a;--code-type:#80601d;--code-number:#a14d26; }
 .dw-activity {display:flex;flex-direction:column;flex:0 0 48px;background:var(--surface);border-right:1px solid var(--border);padding:8px 0;gap:6px;}
 .dw-activity button {display:grid;place-items:center;width:47px;height:44px;background:transparent;border:0;border-left:2px solid transparent;color:var(--dim);cursor:pointer;}
@@ -135,11 +136,16 @@
 @media(max-width:950px){.dw-answer-scroll{padding:16px 12px 32px;}.dw-answer-card{padding:14px;}.dw-composer{padding-left:12px;padding-right:12px;}.dw-flow-canvas{height:300px;}}
 @media(max-width:680px){.dw-activity{flex-basis:40px;}.dw-activity button{width:39px;}.dw-panels>[data-panel]:first-child{display:none;}.dw-reading>[data-panel]:first-child:not(:last-child){display:none;}.dw-reading>.dw-separator{display:none;}.dw-answer-scroll{padding:12px 10px;}.dw-viewbar .rt-TabsTriggerInner{font-size:11px;}.dw-composer{padding:6px 10px 10px;}}
 @media(prefers-reduced-motion:reduce){.developer-workspace *{scroll-behavior:auto!important;animation:none!important;transition:none!important;}}
-.dw-narrow-toggle {display:none;}
+.developer-workspace .dw-narrow-toggle {display:none;}
 .dw-error-details {color:var(--muted);font-size:12px;margin:8px 0 14px;}
 .dw-error-details summary {cursor:pointer;}
 .dw-error-details p {line-height:1.7;overflow-wrap:anywhere;}
-@media(max-width:850px){.dw-narrow-toggle{display:inline-flex;margin-left:auto;}.dw-reading>#source{display:none;}.dw-reading>#explanations{flex:1!important;}.dw-reading>.dw-separator{display:none;}.dw-narrow-source .dw-reading>#source{display:flex!important;flex:1!important;}.dw-narrow-source .dw-reading>#explanations{display:none;}}
+@media(max-width:850px){.developer-workspace .dw-narrow-toggle{display:inline-flex;margin-left:auto;}.dw-reading>#source{display:none;}.dw-reading>#explanations{flex:1!important;}.dw-reading>.dw-separator{display:none;}.dw-narrow-source .dw-reading>#source{display:flex!important;flex:1!important;}.dw-narrow-source .dw-reading>#explanations{display:none;}}
 @media(max-width:680px){.dw-panels>#repository-sidebar,.dw-panels>.dw-separator{display:none;}.dw-panels>#reading-workspace{flex:1!important;}.dw-narrow-explorer .dw-panels>#repository-sidebar{display:block!important;flex:1!important;max-width:none!important;}.dw-narrow-explorer .dw-panels>#reading-workspace{display:none;}.dw-reading>#explanations{display:block!important;}.dw-narrow-source .dw-reading>#explanations{display:none!important;}}
 @media(max-width:850px){.dw-reading>#source{display:none!important;}.dw-narrow-source .dw-reading>#source{display:flex!important;}.dw-narrow-source .dw-reading>#explanations{display:none!important;}}
 @media(max-width:680px){.dw-panels>#repository-sidebar,.dw-panels>.dw-separator{display:none!important;}.dw-narrow-explorer .dw-panels>#repository-sidebar{display:flex!important;}.dw-narrow-explorer .dw-panels>#reading-workspace{display:none!important;}}
+
+.dw-tool-content .git-compare-options > summary {cursor:pointer;color:var(--muted);font-size:12px;padding:8px 0;}
+.dw-tool-content .git-commit-hint {margin:0 0 8px;color:var(--muted);font-size:13px;}
+.dw-tool-content .git-safety-note {display:none;}
+.dw-tool-content .git-ref-card {padding:12px 16px;}

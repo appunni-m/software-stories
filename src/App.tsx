@@ -1466,7 +1466,7 @@ function App() {
                 <button role="menuitem" data-focus-key="tools-button" onClick={() => chooseWorkspace('chapter-studio')}>
                   <BookOpen size={16} /> <span>Review a draft</span>
                 </button>
-                <button role="menuitem" onClick={() => { setToolsOpen(false); showComingSoon('Keyboard shortcuts', '⌘1 Guide · ⌘2 Files · ⌘3 Changes · ⌘K Search · ⌘[ Back · ⌘] Forward · ⌘= zoom in · ⌘− zoom out (20% steps)'); }}><CircleHelp size={16} /><span>Keyboard shortcuts</span></button>
+                <button role="menuitem" onClick={() => { setToolsOpen(false); showComingSoon('Keyboard shortcuts', '⌘1 Guide · ⌘2 Flow · ⌘3 Chat history · ⌘P / ⌘K Search · ⌘L Ask · ⌘I Explain selected code · ⌥← Parent exploration · ⌘= zoom in · ⌘− zoom out (20% steps)'); }}><CircleHelp size={16} /><span>Keyboard shortcuts</span></button>
               </div>
             )}
           </div>
@@ -1666,7 +1666,7 @@ function App() {
               <div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Opening the selected snapshot for Chapter Studio…</span></div>
             ) : currentWorkspace === 'changes' ? (
               <Suspense fallback={<div className="empty-workspace snapshot-loading" role="status"><HardDrive size={18} /><span>Loading Changes…</span></div>}>
-                <GitChangesScreen
+                <GitChangesScreen compact
                   projectId={currentProject?.projectId ?? null}
                   baseRef={navigation.current.baseRef ?? ''}
                   headRef={navigation.current.headRef ?? ''}

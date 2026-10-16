@@ -68,5 +68,5 @@ export function learningQuestion(state: WorkspaceState, explorationId: string, t
     ...ancestors(state, explorationId).slice(1).map((e) => e.title),
     ...owner!.turns.slice(Math.max(0, position - 2), position).map((t) => t.question),
   ])].filter((question) => question !== turn.question);
-  return `${earlier.length ? `Earlier questions: ${earlier.join(' → ')}\n` : ''}Current question: ${turn.question}`.slice(-limit);
+  return `${earlier.length ? `Earlier questions: ${earlier.join(' → ')}. ` : ''}Current question: ${turn.question}`.replace(/\s+/g, ' ').trim().slice(-limit).trim();
 }

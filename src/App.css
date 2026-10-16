@@ -2076,7 +2076,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 
 /* The conversational workspace owns reading space; headings remain accessible. */
 .has-snapshot .workspace-content {padding:0;overflow:hidden;display:flex;flex-direction:column;min-height:0;}
-.has-snapshot .workspace-content > .workspace-heading {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
+.workspace-content > .workspace-heading {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
 .has-snapshot .workspace-toolbar {display:none;}
 .topbar {display:flex;flex:0 0 46px;min-height:46px;gap:16px;padding:0 14px;}
 .topbar .brand-mark {height:27px;width:27px;border:0;border-radius:6px;}

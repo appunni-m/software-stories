@@ -413,7 +413,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
                 </div>}
 
               <div className="walkthrough-reader-footer">
-                <span>Accepted revision <code>{selectedRevision.revisionNumber}</code> · snapshot <code>{selectedRevision.snapshotId.slice(-10)}</code></span>
+                <span>{selectedRevision.lifecycle === 'accepted' ? 'Accepted revision' : 'Draft revision'} <code>{selectedRevision.revisionNumber}</code> · snapshot <code>{selectedRevision.snapshotId.slice(-10)}</code></span>
               </div>
 
             </article>

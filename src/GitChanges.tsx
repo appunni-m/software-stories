@@ -12,6 +12,7 @@ import {
 const PrGuideStudio = lazy(() => import('./PrGuideStudio').then((module) => ({ default: module.PrGuideStudio })));
 
 interface GitChangesScreenProps {
+  compact?: boolean;
   projectId: string | null;
   baseRef: string;
   headRef: string;
@@ -27,6 +28,7 @@ interface GitChangesScreenProps {
 }
 
 export function GitChangesScreen({
+  compact = false,
   projectId,
   baseRef: initialBaseRef,
   headRef: initialHeadRef,
@@ -107,6 +109,8 @@ export function GitChangesScreen({
   return (
     <div className="git-changes-workflow">
       <section className="git-ref-card" aria-labelledby="git-ref-title">
+        {compact && !matchingComparison && <p className="git-commit-hint">Select a commit on the left to inspect its changes.</p>}
+        <details className="git-compare-options" open={compact ? undefined : true}><summary>Compare branches or tags</summary>
         <div className="git-changes-section-heading">
           <div>
             <span className="git-changes-kicker">LOCAL COMPARISON</span>
@@ -165,6 +169,7 @@ export function GitChangesScreen({
           <p className="git-stale-result" role="status">The displayed versions changed. Compare again to inspect the new pair.</p>
         )}
         {error && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {error}</p>}
+        </details>
       </section>
 
       {matchingComparison && <ComparisonResults
