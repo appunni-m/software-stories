@@ -1920,6 +1920,7 @@ pub fn run() {
             agent_handoff::export_agent_handoff,
             agent_handoff::import_agent_handoff_result,
             codex_commands::get_codex_agent_status,
+            codex_commands::resume_codex_connection,
             codex_commands::configure_codex_agent,
             codex_commands::start_codex_login,
             codex_commands::cancel_codex_login,

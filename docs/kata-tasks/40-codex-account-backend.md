@@ -7,6 +7,12 @@ priority: 0
 labels: agents, provider
 ---
 
+## One-time connection requirement — 2026-10-16
+
+The user reported repeated connection setup. Every generation entry point must reuse the saved Codex connection, model and reasoning across files, repositories and app restarts. Checking a saved account must never display a disconnected setup form or initiate browser sign-in. Show connection/model controls on demand; show Connect only when the account needs attention. An explicit Disconnect must pause automatic reuse until a deliberate Connect. Source-specific review and consent remain separate for each generation; they do not authorize a different account, source, model or backend.
+
+The implementation separates silent account restoration from explicit OAuth, retains the native connection independently of request dialogs, and persists the disconnect preference without storing credentials in web storage. See [connection reuse evidence](../acceptance/2026-10-16-codex-connection.md). This focused fix does not close the wider backend reliability/operation gate.
+
 ## Current native evidence — 2026-10-16
 
 The packaged app automatically discovered the existing desktop Codex with no saved executable selection, reused the ChatGPT account and generated a synthetic file chapter using **GPT-6 Luna / max**, with no direct API key. Exact source review and consent preceded generation. A locally validated preview was saved as r1 Draft and explicitly accepted as r2; a citation opened verified source lines and the manually paced reader advanced sections. Named permission profiles replaced unsupported protocol fields without removing source/citation validation. See [dated evidence](../acceptance/2026-10-16-codex-validation.md).

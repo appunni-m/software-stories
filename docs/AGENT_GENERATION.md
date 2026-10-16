@@ -17,20 +17,20 @@ Coding agents are primary generation options. Direct API keys are optional. Code
 ## Codex
 
 1. Capture source, then choose **Explain** on a file or **Create repository tour** from Guide.
-2. Choose **Use Codex**. The app finds the desktop-bundled Codex before common standalone installations and connects to the account that Codex already manages. If needed, Codex opens browser sign-in. No direct API key is required.
-3. Models load automatically. Saved supported settings are retained; the initial preference is GPT-6 Luna with max reasoning when available. Expand **Model settings** to change them. Catalog membership is not proof of entitlement or remaining quota.
-4. Choose **Continue to source review**, inspect the selected source, confirm sharing it through Codex, then generate.
+2. Codex opens directly when it is your saved backend. The app silently reuses the account managed by the installed Codex, including after restarting Code Atlas. If there is no valid ChatGPT sign-in, select **Connect Codex** once to open browser sign-in. Opening an explanation never starts browser sign-in by itself. No direct API key is required.
+3. Models load automatically. Saved supported settings are retained; the initial preference is GPT-6 Luna with max reasoning when available. Expand **Connection settings → Model settings** to change them. These settings are shared across projects and generation entry points. Catalog membership is not proof of entitlement or remaining quota.
+4. Ordinary file explanations prepare their source review automatically. For other scopes, choose **Continue to source review**. Inspect the selected source, confirm sharing it through Codex, then generate. This per-request source confirmation is separate from connection setup.
 5. Review the locally validated preview. **Save unaccepted draft**, then review and accept from the app's editing workflow.
 
 **Change backend** returns to all choices; it discards an unsaved preview. Requests never automatically switch to a paid API. The source adapter covers exact Code Lens selections and Git comparisons/hunks. Its full account, permission, cancellation and packaged-runtime acceptance remains open in `z3an`.
 
-**Advanced · Codex installation** lets you override the discovered executable. Disconnect closes this app’s managed connection; it does not log out your CLI. Code Atlas never reads or copies authentication files. Codex uses its existing credential store. Application settings are process/thread overrides, not edits to your Codex configuration.
+**Advanced · Codex installation** lets you override the discovered executable. Disconnect closes this app’s managed connection and pauses automatic reuse across dialog opens and app restarts until you select Connect again; it does not log out your CLI. Code Atlas never reads or copies authentication files. Codex uses its existing credential store. Application settings are process/thread overrides, not edits to your Codex configuration.
 
 The current source binds a request to its running Codex connection, observed ChatGPT account and executable digest. Reconnecting or changing those observations requires a fresh review. This change detection and its limits still need native acceptance; see [Codex review identity](CODEX_REVIEW_IDENTITY.md).
 
 ### Explain a selected code range with Codex
 
-In Files, select the captured code range, choose its explanation action and **Use Codex**. The range stays fixed while you choose model/reasoning and review the excerpt. Confirm the reviewed source, then generate. Locally validated claims appear temporarily with actions that open their exact citations. Closing or discarding the explanation saves no chapter draft or history. For newer interruption notices, Review interrupted work restores the original range after local source validation. Older notices require exact reselection. Review and confirm a new request in both cases. Native runtime acceptance remains pending.
+In Files, select the captured code range, choose its explanation action and **Use Codex**. The range stays fixed while your saved connection and model are reused and you review the excerpt. Confirm the reviewed source, then generate. Locally validated claims appear temporarily with actions that open their exact citations. Closing or discarding the explanation saves no chapter draft or history. For newer interruption notices, Review interrupted work restores the original range after local source validation. Older notices require exact reselection. Review and confirm a new request in both cases. Native runtime acceptance remains pending.
 
 ### Repair one stale section with Codex
 
@@ -38,7 +38,7 @@ In Edit, assess an accepted older chapter against the selected current snapshot.
 
 ### Explain Git changes with Codex
 
-In **Compare local revisions**, resolve the base/head refs. The PR Guide panel defaults to **Codex · ChatGPT account**. Select 1–12 changed files and **Review with Codex**, or use **Explain hunk** for a single hunk. Configure the installed Codex runtime/account, load models, choose model/reasoning and build the exact request review. Inspect the patches, resolved comparison evidence and effective settings, then confirm sharing and generate. No API key is required.
+In **Compare local revisions**, resolve the base/head refs. The PR Guide panel defaults to **Codex · ChatGPT account**. Select 1–12 changed files and **Review with Codex**, or use **Explain hunk** for a single hunk. The saved Codex account/model are reused. Build the exact request review; open Connection settings only to change the connection or model. Inspect the patches, resolved comparison evidence and effective settings, then confirm sharing and generate. No API key is required.
 
 A validated guide is saved as an unaccepted PR Guide draft. Select **Done** to review its claims before accepting or rejecting. A single-hunk explanation appears temporarily; its citations open the selected base/head hunk. Closing it writes no chapter or guide revision. A late cancellation or lost reply can follow a saved guide, so check PR Guide history before regenerating. The source workflow has not been run or accepted in the packaged app.
 

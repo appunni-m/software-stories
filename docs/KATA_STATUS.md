@@ -1,5 +1,7 @@
 # Kata delivery status snapshot
 
+> **Connection reuse — October 16:** generation now restores the saved Codex account without entering sign-in on every request. Connected setup controls stay collapsed, model/reasoning remain shared, and explicit Disconnect pauses reuse across restarts. See [focused evidence](acceptance/2026-10-16-codex-connection.md); the wider Codex and product gates remain open.
+
 > **October 16 update:** installed-account Codex file generation now has a native baseline: automatic discovery, source review/consent, validated chapter, draft/acceptance, verified citation and manual section advance. [Evidence and remaining gates](acceptance/2026-10-16-codex-validation.md). Full operation/reliability/quality acceptance remains open; Claude is deferred. Historical source-only and protocol-blocker entries below describe earlier checkpoints.
 
 Project: **code-atlas-rebuild**. Recorded October 16, 2026, during Codex validation and [workspace refinement](acceptance/2026-10-16-code-workspace.md).

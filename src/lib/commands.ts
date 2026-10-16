@@ -1349,6 +1349,9 @@ export interface CodexProgress {
 export async function getCodexAgentStatus(): Promise<CodexAgentStatus> {
   return invoke<CodexAgentStatus>('get_codex_agent_status');
 }
+export async function resumeCodexConnection(): Promise<CodexAgentStatus> {
+  return invoke<CodexAgentStatus>('resume_codex_connection');
+}
 export async function configureCodexAgent(executablePath: string): Promise<CodexAgentStatus> {
   return invoke<CodexAgentStatus>('configure_codex_agent', { executablePath });
 }

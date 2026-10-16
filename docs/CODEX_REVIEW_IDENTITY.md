@@ -4,7 +4,7 @@
 
 ## User behavior
 
-Connect Codex and load models before preparing a request. The native review observes the already-running app-server and its ChatGPT account; it does not start a process, renew login, send repository source or request inference. Every Codex chapter, overview, section update, code selection, Git guide, hunk and repository/planned-step request includes that observation in its effective settings, encoded request and fingerprint.
+The app restores the existing Codex account and loads its models before preparing a request. This restoration cannot start OAuth or open a browser. Sign-in happens only after an explicit Connect action when no valid account is available; subsequent file, plan and Git requests reuse it. An explicit Disconnect pauses automatic reuse until Connect is selected again. The native review observes the already-running app-server and its ChatGPT account; it does not start a process, renew login, send repository source or request inference. Every Codex chapter, overview, section update, code selection, Git guide, hunk and repository/planned-step request includes that observation in its effective settings, encoded request and fingerprint.
 
 Reconnecting, restarting the process, signing out, observing an account change or replacing the configured executable requires a fresh review. Sending a stale request never silently restarts Codex, changes account, switches backend or selects an API. Saved chapters remain available independently of the connection.
 
@@ -16,7 +16,7 @@ The account digest contains the reported ChatGPT email and plan, without tokens 
 
 Native preflight rebuilds the complete reviewed contract with a fresh observation before consumption. The worker then retains its original process/run owner, refuses a missing/replaced connection, compares observations before model selection and source staging, and checks again after generation before local validation/publication. An observed `account/updated` event advances the native revision. If one arrives while preparing the thread, no model turn starts; if one arrives during generation, the run fails and its result is discarded. Result access compares the exact recorded runtime as well as the original review/fingerprint, cancellation and deadline. Existing interruption notices remain available after failures.
 
-Ordinary dispatch uses `account/read` without requesting token refresh. Explicit connection/model setup retains the existing account refresh path; the runtime owns credentials and normal token renewal. An account event seen during a run requires a new review even if its visible metadata later looks the same. This conservative behavior still needs real refresh/lifecycle acceptance.
+Ordinary dispatch uses `account/read` without requesting token refresh. Connection restoration and explicit model setup retain the existing account refresh path; the runtime owns credentials and normal token renewal. An account event seen during a run requires a new review even if its visible metadata later looks the same. This conservative behavior still needs real refresh/lifecycle acceptance.
 
 ## Executable observation and limits
 

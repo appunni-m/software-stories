@@ -48,6 +48,18 @@ pub(crate) async fn configure_codex_agent(
     .await
 }
 
+/// Reuse installed credentials without starting OAuth or opening a browser.
+#[tauri::command]
+pub(crate) async fn resume_codex_connection(
+    app: AppHandle,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+) -> Result<codex_agent::CodexAgentStatus, String> {
+    on_runtime(app, manager.inner().clone(), |manager, storage| {
+        manager.resume_connection(storage)
+    })
+    .await
+}
+
 #[tauri::command]
 pub(crate) async fn start_codex_login(
     app: AppHandle,

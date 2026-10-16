@@ -4,12 +4,13 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { Check, FileCode2, HardDrive, Sparkles, X } from 'lucide-react';
 import { GenerationRecord } from './GenerationRecord';
 import { ChapterRecoveryReview } from './ChapterRecoveryReview';
+import { restoreCodexConnection } from './lib/codexConnection';
 import { buildCodexPlannedChapterReview, matchesPlannedChapterReview, type PlannedChapterScope } from './lib/plannedChapters';
 import { buildCodexRepositoryPlanReview, sendCodexRepositoryPlanRequest, type PrepareRepositoryPlanInput, type RepositoryPlanPreview } from './lib/repositoryPlans';
 import {
   buildCodexChapterReview, buildCodexCodeLensReview, buildCodexPrGuideReview, buildCodexPrChangeReview, cancelCodexChapterRequest, cancelCodexLogin,
   configureCodexAgent, discardGeneratedChapterDraft, discardProviderRequestReview,
-  getCodexAgentStatus, listChapterRevisions, listCodexModels, loadSnapshotManifest,
+  getCodexAgentStatus, resumeCodexConnection, listChapterRevisions, listCodexModels, loadSnapshotManifest,
   logoutCodexAgent, pickAgentInstallationFile, saveGeneratedChapterDraft, sendCodexChapterRequest, sendCodexCodeLensRequest, sendCodexPrGuideRequest, sendCodexPrChangeRequest, startCodexLogin,
   type ChapterDraftPreview, type ChapterRevision, type CodexAgentStatus, type CodexModel, type CodexProgress,
   type ProviderFailure, type ProviderRequestReview, type SectionUpdateReviewTarget, type SnapshotManifest,
@@ -140,6 +141,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     && mode.recoveryOperationId ? mode : null;
   const [recoveryReady, setRecoveryReady] = useState(!chapterRecovery);
   const [status, setStatus] = useState<CodexAgentStatus | null>(null);
+  const [checkingConnection, setCheckingConnection] = useState(native);
   const [executablePath, setExecutablePath] = useState('');
   const [login, setLogin] = useState<{ loginId: string; authUrl: string } | null>(null);
   const [models, setModels] = useState<CodexModel[]>([]);
@@ -215,6 +217,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   const acceptModels = (value: CodexModel[]) => {
     setModels(value);
     setSelection((previous) => {
+      if (!value.length) return previous;
       if (value.some((model) => model.modelId === previous.modelId && model.supportedReasoningEfforts.includes(previous.effort))) return previous;
       const model = value.find((item) => item.modelId === 'gpt-6-luna') ?? value.find((item) => item.isDefault) ?? value[0];
       const next = { modelId: model?.modelId ?? '', effort: model?.supportedReasoningEfforts.includes('max') ? 'max' : model?.defaultReasoningEffort ?? model?.supportedReasoningEfforts[0] ?? '' };
@@ -239,6 +242,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     dialogRef.current?.focus();
     setStatus(null);
     setModels([]);
+    setCheckingConnection(native);
     setManifest(null);
     setManifestError(null);
     setPaths([...new Set([...(targetPath ? [targetPath] : []), ...(initialSelectedPaths ?? [])])]);
@@ -258,28 +262,13 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     setBusy(activeBusy.current);
     if (native) {
       void (async () => {
-        const value = await getCodexAgentStatus();
+        const connection = await restoreCodexConnection({ status: getCodexAgentStatus, resume: resumeCodexConnection, models: listCodexModels,
+          onStatus: (value) => { if (current()) acceptStatus(value); } });
         if (!current()) return;
-        acceptStatus(value);
-        if (!value.executablePath || value.activeRunId) return;
-        // Selecting Codex connects to its existing account; no model request is
-        // made until the user reviews the selected source and presses Generate.
-        const connection = await startCodexLogin();
-        if (!current()) {
-          if (connection.loginId) await cancelCodexLogin(connection.loginId).catch(() => {});
-          return;
-        }
-        if (connection.loginId && connection.authUrl) {
-          resources.current.login = connection.loginId;
-          setLogin({ loginId: connection.loginId, authUrl: connection.authUrl });
-        } else {
-          const catalog = await listCodexModels();
-          if (current()) acceptModels(catalog);
-        }
-        const account = await getCodexAgentStatus();
-        if (current()) acceptStatus(account);
-      })().catch((error) => { if (current()) setError(errorMessageOr(error, 'Could not connect to Codex. Try Connect again.')); })
-        .finally(() => { if (current()) finish(epoch); });
+        acceptStatus(connection.status);
+        acceptModels(connection.models);
+      })().catch((error) => { if (current()) setError(errorMessageOr(error, 'Could not restore your Codex connection. Open connection settings to reconnect.')); })
+        .finally(() => { if (current()) { setCheckingConnection(false); finish(epoch); } });
       if (projectId && snapshotId) {
         setManifestLoading(true);
         void loadSnapshotManifest(projectId, snapshotId).then((value) => {
@@ -336,7 +325,12 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     if (epoch === null) return;
     try {
       const value = await getCodexAgentStatus();
-      if (lifetime.current === epoch) { acceptStatus(value); if (value.authenticated) acceptModels(await listCodexModels()); }
+      if (lifetime.current !== epoch) return;
+      acceptStatus(value);
+      if (value.authenticated) {
+        const catalog = await listCodexModels();
+        if (lifetime.current === epoch) acceptModels(catalog);
+      }
     } catch { if (lifetime.current === epoch) setError('Account status is unavailable. Check that the selected Codex executable is installed and accessible.'); }
     finally { finish(epoch); }
   };
@@ -361,8 +355,13 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     if (epoch === null) return;
     releaseReview();
     try {
-      const value = await configureCodexAgent(executablePath.trim());
-      if (lifetime.current === epoch) { acceptStatus(value); setModels([]); setNote('Executable saved locally. Connect your account to start Codex.'); }
+      await configureCodexAgent(executablePath.trim());
+      const connection = await restoreCodexConnection({ status: getCodexAgentStatus, resume: resumeCodexConnection, models: listCodexModels });
+      if (lifetime.current === epoch) {
+        acceptStatus(connection.status);
+        acceptModels(connection.models);
+        setNote(connection.status.authenticated ? 'Installation saved. Your existing Codex account is ready.' : 'Installation saved. Sign in once to connect your account.');
+      }
     } catch { if (lifetime.current === epoch) setError('The executable could not be saved. Use an absolute path to an installed, executable Codex CLI binary.'); }
     finally { finish(epoch); }
   };
@@ -693,7 +692,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       <section ref={dialogRef} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="codex-dialog-title" tabIndex={-1}>
         <header className="provider-dialog-header">
           <div><div className="step-pill"><span>CODEX ACCOUNT</span> NO API KEY</div>
-            <h2 id="codex-dialog-title">{mode === 'settings' ? 'Connect Codex' : gitGuide ? 'Explain this comparison with Codex' : gitChange ? 'Explain this hunk with Codex' : codeLensTarget ? 'Explain this selection with Codex' : sectionUpdate ? 'Update this section with Codex' : planning ? 'Plan your reading with Codex' : targetPath ? 'Explain this file with Codex' : 'Map the repository with Codex'}</h2>
+            <h2 id="codex-dialog-title">{mode === 'settings' ? 'Codex settings' : gitGuide ? 'Explain this comparison with Codex' : gitChange ? 'Explain this hunk with Codex' : codeLensTarget ? 'Explain this selection with Codex' : sectionUpdate ? 'Update this section with Codex' : planning ? 'Plan your reading with Codex' : targetPath ? 'Explain this file with Codex' : 'Map the repository with Codex'}</h2>
             <p>Use your ChatGPT account through Codex. Generation shares only the reviewed source context and uses your account’s plan quota.</p></div>
           <button className="icon-button" aria-label="Close Codex dialog" disabled={busy !== null} onClick={() => { if (!activeBusy.current) onClose(); }}><X size={17} /></button>
         </header>
@@ -703,8 +702,8 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
             targetPath={chapterRecovery.kind === 'overview' ? null : chapterRecovery.targetPath ?? null}
             locked={busy !== null || hasResult} backend="codex" requestId={chapterRecovery.recoveryOperationId} plannedTarget={plannedChapter?.target} onReady={setRecoveryReady} onOpenPreview={onOpenPendingPreview} />}
           {!native ? <div className="provider-preview-only" role="status"><HardDrive size={18} /><div><strong>Codex runs in the macOS app.</strong><p>This browser preview cannot launch Codex, sign in, read snapshot files, or generate chapters.</p></div></div> : <>
-            <details className="provider-key-card" open={mode === 'settings' || !status?.authenticated}>
-              <summary>Codex · {status?.authenticated ? 'account connected' : 'connect your account'}</summary>
+            {checkingConnection ? <p className="provider-status-note" role="status">Reusing your saved Codex connection…</p> : <details className="provider-key-card" open={mode === 'settings' || !status?.authenticated}>
+              <summary>{status?.authenticated ? `Codex · ${selectedModel?.displayName ?? selection.modelId} · ${selection.effort} · Connection settings` : 'Connect Codex once'}</summary>
               <div className="provider-key-content">
                 <p role="status">{status?.message ?? 'Select an installed Codex CLI executable, then connect your ChatGPT account.'}</p>
                 {status?.authenticated && <p>{status.accountEmail ?? 'ChatGPT account'} · {status.planType ?? 'Account plan'} · {status.runtimeRunning ? 'Codex running' : 'Codex stopped'}</p>}
@@ -716,22 +715,22 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                     <a href="https://developers.openai.com/codex/cli" target="_blank" rel="noreferrer">Codex installation guide ↗</a></div>
                 </form></details>
                 <div className="provider-key-actions">
-                  <button className="primary-button" hidden={Boolean(status?.authenticated)} disabled={locked || otherRun || Boolean(login)} onClick={() => { void connect(); }}>{busy === 'login' ? 'Connecting…' : 'Connect Codex'}</button>
+                  {!status?.authenticated && <button className="primary-button" disabled={locked || otherRun || Boolean(login)} onClick={() => { void connect(); }}>{busy === 'login' ? 'Connecting…' : 'Connect Codex'}</button>}
                   <button className="secondary-button" disabled={busy !== null} onClick={() => { void refresh(); }}>{busy === 'status' ? 'Refreshing…' : 'Refresh account'}</button>
                   {status?.authenticated && <button className="secondary-button" disabled={locked || otherRun} onClick={() => { void logout(); }}>Disconnect account</button>}
                 </div>
                 {login && <div className="provider-status-note"><a href={loginHref(login.authUrl) ?? undefined} target="_blank" rel="noreferrer">Continue ChatGPT sign-in in your browser ↗</a><p>After sign-in, select Refresh account.</p><button className="secondary-button" disabled={busy !== null} onClick={() => { void cancelLogin(); }}>Cancel sign-in</button></div>}
-                <p className="provider-small-note">Uses your installed Codex and its account. No API key is needed. Disconnect stops this app’s connection and keeps Codex signed in.</p>
-              </div>
-            </details>
-            <details className="provider-disclosure-card"><summary>Model settings · {selectedModel?.displayName ?? 'Connecting…'} · {selection.effort}</summary><section aria-labelledby="codex-model-title">
+                <p className="provider-small-note">Your connection, model and reasoning are reused across files, projects and app restarts. Codex manages sign-in securely. Disconnect pauses automatic reuse until you connect again.</p>
+            <details className="provider-disclosure-card"><summary>Model settings · {selectedModel?.displayName ?? 'Sign in to load models'} · {selection.effort}</summary><section aria-labelledby="codex-model-title">
               <div className="provider-section-heading"><div><span>ACCOUNT MODELS</span><h3 id="codex-model-title">Model and reasoning</h3></div><button className="secondary-button" onClick={() => { void discoverModels(); }} disabled={locked || otherRun || Boolean(login)}>{busy === 'models' ? 'Loading…' : 'Load / refresh models'}</button></div>
               <p className="provider-small-note">Your account’s available models are loaded automatically. Usage follows your Codex plan.</p>
               <label className="provider-model-select">Model<select value={selectedModel ? selection.modelId : ''} onChange={(event) => changeModel(event.target.value)} disabled={locked || !models.length}><option value="">{models.length ? 'Choose a model…' : 'Load models first…'}</option>{models.map((model) => <option key={model.modelId} value={model.modelId}>{model.displayName} · {model.modelId}</option>)}</select></label>
               <label className="provider-model-select">Reasoning effort<select value={selectedModel?.supportedReasoningEfforts.includes(selection.effort) ? selection.effort : ''} onChange={(event) => { if (locked) return; releaseReview(); const next = { ...selection, effort: event.target.value }; setSelection(next); remember(next.modelId, next.effort); }} disabled={locked || !selectedModel}><option value="">Choose a supported effort…</option>{selectedModel?.supportedReasoningEfforts.map((effort) => <option key={effort} value={effort}>{effort}</option>)}</select></label>
               <p><strong>Approval: Never.</strong> This initial adapter disables command and web tools and uses a temporary, read-only copy of the reviewed {gitOperation ? 'patches' : 'files'}.</p>
-              <p className="provider-small-note">Only model and effort preferences are remembered here. Every generation requires a fresh source review and consent.</p>
+              <p className="provider-small-note">These settings are saved once. Source review and consent apply separately to each generation.</p>
             </section></details>
+              </div>
+            </details>}
             {otherRun && <p className="provider-status-note" role="status">Another Codex operation is active. Wait for it to finish, then refresh account status.</p>}
             {mode !== 'settings' && <section className="provider-review-card" aria-labelledby="codex-source-title">
               <div className="provider-section-heading"><div><span>{gitOperation ? 'GIT COMPARISON' : 'IMMUTABLE SNAPSHOT'} · {comparisonId ?? snapshotId}</span><h3 id="codex-source-title">{gitOperation ? 'Review the selected changes' : codeLensTarget ? 'Review the selected code' : 'Choose the code to explain'}</h3></div></div>

@@ -186,6 +186,12 @@ struct ActiveRun {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct RuntimeSettings {
     executable_path: String,
+    #[serde(default = "default_auto_connect")]
+    auto_connect: bool,
+}
+
+fn default_auto_connect() -> bool {
+    true
 }
 
 impl CodexAgentManager {
@@ -215,6 +221,10 @@ impl CodexAgentManager {
                 });
             }
         }
+        self.cached_status()
+    }
+
+    fn cached_status(&self) -> Result<CodexAgentStatus, String> {
         let mut status = self
             .0
             .status
@@ -229,6 +239,38 @@ impl CodexAgentManager {
             .as_ref()
             .map(|run| run.id.clone());
         Ok(status)
+    }
+
+    /// Restore the saved account without starting a login flow. Closing a
+    /// request dialog does not own this connection; the app manager does.
+    pub(crate) fn resume_connection(&self, storage_dir: &Path) -> Result<CodexAgentStatus, String> {
+        let status = self.status(storage_dir)?;
+        if status.active_run_id.is_some() {
+            return Ok(status);
+        }
+        if load_runtime_settings(storage_dir)?.is_some_and(|settings| !settings.auto_connect) {
+            self.update_status(|status| {
+                status.message =
+                    "Codex is disconnected. Connect once to enable automatic reuse.".to_owned();
+            });
+            return self.cached_status();
+        }
+        if status.executable_path.is_none() {
+            return Ok(status);
+        }
+        let mut slot = self.lock_process()?;
+        let process = self.ensure_started(storage_dir, &mut slot, None)?;
+        let account =
+            process.request("account/read", json!({"refreshToken": true}), RPC_TIMEOUT)?;
+        self.remember_account(&account);
+        if account.pointer("/account/type").and_then(Value::as_str) != Some("chatgpt") {
+            self.update_status(|status| {
+                status.message =
+                    "Sign in to your ChatGPT account once. Future requests reuse it automatically."
+                        .to_owned();
+            });
+        }
+        self.cached_status()
     }
 
     /// Observe an already-connected runtime. Preparing a review never starts a
@@ -275,6 +317,7 @@ impl CodexAgentManager {
         let root = runtime_root(storage_dir)?;
         let bytes = serde_json::to_vec(&RuntimeSettings {
             executable_path: path.to_string_lossy().into_owned(),
+            auto_connect: true,
         })
         .map_err(|_| "Codex setup could not be encoded.")?;
         atomic_private_write(&root.join("runtime.json"), &bytes)?;
@@ -292,6 +335,7 @@ impl CodexAgentManager {
     pub(crate) fn start_login(&self, storage_dir: &Path) -> Result<CodexLoginStart, String> {
         let mut slot = self.lock_process()?;
         let process = self.ensure_started(storage_dir, &mut slot, None)?;
+        save_connection_preference(storage_dir, &process.executable, true)?;
         let account =
             process.request("account/read", json!({"refreshToken": false}), RPC_TIMEOUT)?;
         self.remember_account(&account);
@@ -370,7 +414,9 @@ impl CodexAgentManager {
     pub(crate) fn logout(&self, storage_dir: &Path) -> Result<(), String> {
         let mut slot = self.lock_process()?;
         // Disconnect only this client. Logging out would also sign out the user’s CLI.
-        let _ = storage_dir;
+        if let Some(executable) = configured_executable(storage_dir)? {
+            save_connection_preference(storage_dir, &executable, false)?;
+        }
         slot.take();
         self.update_status(|status| {
             status.runtime_running = false;
@@ -1616,7 +1662,7 @@ fn runtime_root(storage_dir: &Path) -> Result<PathBuf, String> {
     Ok(root)
 }
 
-fn configured_executable(storage_dir: &Path) -> Result<Option<PathBuf>, String> {
+fn load_runtime_settings(storage_dir: &Path) -> Result<Option<RuntimeSettings>, String> {
     let settings = storage_dir.join("codex-agent/runtime.json");
     match fs::symlink_metadata(&settings) {
         Ok(metadata) => {
@@ -1639,11 +1685,32 @@ fn configured_executable(storage_dir: &Path) -> Result<Option<PathBuf>, String> 
             }
             let config: RuntimeSettings = serde_json::from_slice(&bytes)
                 .map_err(|_| "Codex setup is invalid. Select the executable again.")?;
-            Ok(Some(checked_executable(Path::new(
-                &config.executable_path,
-            ))?))
+            Ok(Some(config))
         }
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(_) => Err("Codex setup could not be inspected.".to_owned()),
+    }
+}
+
+fn save_connection_preference(
+    storage_dir: &Path,
+    executable: &Path,
+    auto_connect: bool,
+) -> Result<(), String> {
+    let bytes = serde_json::to_vec(&RuntimeSettings {
+        executable_path: executable.to_string_lossy().into_owned(),
+        auto_connect,
+    })
+    .map_err(|_| "Codex connection preference could not be encoded.")?;
+    atomic_private_write(&runtime_root(storage_dir)?.join("runtime.json"), &bytes)
+}
+
+fn configured_executable(storage_dir: &Path) -> Result<Option<PathBuf>, String> {
+    match load_runtime_settings(storage_dir)? {
+        Some(config) => Ok(Some(checked_executable(Path::new(
+            &config.executable_path,
+        ))?)),
+        None => {
             for candidate in [
                 "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
                 "/Applications/Codex.app/Contents/Resources/codex",
@@ -1656,7 +1723,6 @@ fn configured_executable(storage_dir: &Path) -> Result<Option<PathBuf>, String> 
             }
             Ok(None)
         }
-        Err(_) => Err("Codex setup could not be inspected.".to_owned()),
     }
 }
 
@@ -2206,6 +2272,41 @@ fn hex_digest(bytes: &[u8]) -> String {
 mod tests {
     use super::*;
 
+    #[test]
+    fn legacy_runtime_settings_keep_automatic_account_reuse() {
+        let settings: RuntimeSettings = serde_json::from_value(json!({
+            "executablePath": "/installed/codex"
+        }))
+        .unwrap();
+        assert!(settings.auto_connect);
+        let paused: RuntimeSettings = serde_json::from_value(json!({
+            "executablePath": "/installed/codex", "autoConnect": false
+        }))
+        .unwrap();
+        assert!(!paused.auto_connect);
+    }
+
+    #[test]
+    fn explicit_disconnect_stays_paused_in_a_new_app_manager() {
+        let root = std::env::temp_dir().join(format!("atlas-codex-paused-{}", Uuid::new_v4()));
+        fs::create_dir(&root).unwrap();
+        let _cleanup = TemporaryDirectory(root.clone());
+        let executable = std::env::current_exe().unwrap();
+        let manager = CodexAgentManager::default();
+        manager
+            .configure(&root, executable.to_str().unwrap())
+            .unwrap();
+        manager.logout(&root).unwrap();
+        assert!(!load_runtime_settings(&root).unwrap().unwrap().auto_connect);
+        let restarted = CodexAgentManager::default();
+        let status = restarted.resume_connection(&root).unwrap();
+        assert!(!status.runtime_running);
+        assert!(!status.authenticated);
+        assert!(status.message.contains("disconnected"));
+        assert!(restarted.0.process.lock().unwrap().is_none());
+        assert_eq!(configured_executable(&root).unwrap(), Some(executable));
+    }
+
     /// Explicit opt-in metadata check: starts the selected installed runtime,
     /// reuses its account, reads its catalog, and never requests model output.
     #[test]
@@ -2219,8 +2320,8 @@ mod tests {
         let manager = CodexAgentManager::default();
         manager.configure(&root, &executable).unwrap();
         let result = (|| -> Result<(), String> {
-            let login = manager.start_login(&root)?;
-            if login.login_id.is_some() {
+            let account = manager.resume_connection(&root)?;
+            if !account.authenticated {
                 return Err(
                     "An existing ChatGPT login is required; no browser was opened.".to_owned(),
                 );
@@ -2234,6 +2335,17 @@ mod tests {
                         .any(|effort| effort == "max")
             }));
             assert!(manager.status(&root)?.authenticated);
+            let identity = manager.review_runtime(&root)?;
+            assert!(manager.resume_connection(&root)?.authenticated);
+            assert_eq!(
+                identity.connection_id,
+                manager.review_runtime(&root)?.connection_id
+            );
+            manager.shutdown();
+            let restarted = CodexAgentManager::default();
+            let restored = restarted.resume_connection(&root);
+            restarted.shutdown();
+            assert!(restored?.authenticated);
             Ok(())
         })();
         manager.shutdown();
