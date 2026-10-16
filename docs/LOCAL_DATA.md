@@ -90,3 +90,5 @@ projects and their saved history.
 
 The exact install, supported macOS versions, signing, notarization, and clean
 account behavior remain release gates. See the [macOS packaging task](kata-tasks/25-macos-packaging.md).
+
+The WebView stores `code-atlas:last-project` as an optional recent-project ID. Launch restores it only if it still appears in native Recents, validates the repository through the existing open command, and does not dispatch inference. Unavailable metadata leaves the repository picker usable. Workspace questions wait in an in-memory serial queue; quitting interrupts them without an automatic resend.

@@ -172,7 +172,7 @@ export function GitChangesScreen({
         </details>
       </section>
 
-      {matchingComparison && <ComparisonResults
+      {matchingComparison && <ComparisonResults compact={compact}
         key={`${projectId}:${matchingComparison.result.comparisonId ?? `${matchingComparison.baseRef}:${matchingComparison.headRef}`}`}
         comparison={matchingComparison.result}
         projectId={projectId}
@@ -189,6 +189,7 @@ export function GitChangesScreen({
 }
 
 function ComparisonResults({
+  compact,
   comparison,
   projectId,
   baseRef,
@@ -199,6 +200,7 @@ function ComparisonResults({
   recovery,
   onRecoveryReviewReady,
 }: {
+  compact?: boolean;
   comparison: GitComparisonResult;
   projectId: string;
   baseRef: string;
@@ -263,7 +265,7 @@ function ComparisonResults({
         </div>
       )}
       <Suspense fallback={<p className="pr-guide-muted" role="status">Loading PR Guide review controls…</p>}>
-        <PrGuideStudio
+        <PrGuideStudio accountOnly={compact}
           key={JSON.stringify([projectId, baseRef, headRef, comparison.comparisonId])}
           projectId={projectId}
           baseRef={baseRef}

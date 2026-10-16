@@ -1,3 +1,4 @@
+import { createQuestionQueue } from './queue';
 import { useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { buildCodexChapterReview, cancelCodexChapterRequest, discardProviderRequestReview, getSnapshotIndexProgress, listChapterRevisions, loadSnapshotIndex, loadSnapshotManifest, saveGeneratedChapterDraft, sendCodexChapterRequest, startSnapshotIndexing, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
@@ -76,6 +77,7 @@ export function stopQuestion(project: string, snapshot: string, id: string) {
   if (job) { job.cancelled = true; if (job.runId) void cancelCodexChapterRequest(job.runId).catch(() => {}); }
   patchTurn(project,snapshot,id,{ status:'stopped', error: undefined });
 }
+const enterQuestionQueue = createQuestionQueue();
 /** Module-owned operation: changing tab, file, repository or opening settings does not cancel it. */
 export async function runQuestion(project: string, snapshot: string, id: string, grantId: string): Promise<ChapterRevision | null> {
   if (jobs.has(id)) return null;
@@ -85,8 +87,11 @@ export async function runQuestion(project: string, snapshot: string, id: string,
   const job = { cancelled: false, runId: null as string | null }; jobs.set(id, job);
   let discoveryId: string | null = null; let reviewId: string | null = null;
   const check = () => { if (job.cancelled) throw new Error('Stopped'); };
-  patchTurn(project,snapshot,id,{ status:'working', error: undefined });
+  patchTurn(project,snapshot,id,{ status:'queued', error: undefined });
+  const release = await enterQuestionQueue();
   try {
+    check();
+    patchTurn(project,snapshot,id,{ status:'working', error: undefined });
     await ensureCodexConnection(); check();
     const selection = readCodexSelection();
     if (selection.modelId !== 'gpt-6-luna' || selection.effort !== 'max') throw new Error('Choose GPT-6 Luna with max reasoning in the connection settings.');
@@ -137,6 +142,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     }
     return null;
   } finally {
+    release();
     jobs.delete(id);
     if (discoveryId) void discardSourceDiscovery(discoveryId).catch(() => {});
     if (reviewId) void discardProviderRequestReview(reviewId).catch(() => {});

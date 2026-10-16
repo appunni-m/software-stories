@@ -53,3 +53,15 @@ test('learning questions retain recent intent and branch topic within the native
   assert.ok(learningQuestion(s,'branch','four',60).length<=60);
   assert.equal(learningQuestion(s,'missing','four',300),'');
 });
+
+// The installed Codex adapter admits one model turn at a time.
+test('question queue serializes work and a stopped waiter does not start inference', async()=>{
+  const { createQuestionQueue } = await import('../src/workspace/queue.ts');
+  const enter=createQuestionQueue();
+  const first=await enter();let secondStarted=false;let thirdStarted=false;let cancelled=false;
+  const second=enter().then(release=>{try {if(!cancelled)secondStarted=true;} finally {release();}});
+  const third=enter().then(release=>{thirdStarted=true;release();});
+  await Promise.resolve();assert.equal(secondStarted,false);assert.equal(thirdStarted,false);
+  cancelled=true;first();await Promise.all([second,third]);
+  assert.equal(secondStarted,false);assert.equal(thirdStarted,true);
+});

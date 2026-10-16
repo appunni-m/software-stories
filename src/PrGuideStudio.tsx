@@ -39,6 +39,7 @@ const NO_CONSENT: ProviderConsent = {
 };
 
 interface PrGuideStudioProps {
+  accountOnly?: boolean;
   projectId: string;
   baseRef: string;
   headRef: string;
@@ -50,6 +51,7 @@ interface PrGuideStudioProps {
 }
 
 export function PrGuideStudio({
+  accountOnly = false,
   projectId,
   baseRef,
   headRef,
@@ -59,7 +61,7 @@ export function PrGuideStudio({
   recovery,
   onRecoveryReviewReady,
 }: PrGuideStudioProps) {
-  const [backend, setBackend] = useState<'codex' | 'claude-agent' | 'api'>(() => { const saved = readGenerationBackend(); return saved === 'api' ? 'api' : saved === 'claude-setup' ? 'claude-agent' : 'codex'; });
+  const [backend, setBackend] = useState<'codex' | 'claude-agent' | 'api'>(() => { const saved = accountOnly ? 'codex' : readGenerationBackend(); return saved === 'api' ? 'api' : saved === 'claude-setup' ? 'claude-agent' : 'codex'; });
   const [codexMode, setCodexMode] = useState<CodexChapterDialogMode | null>(null);
   const [claudeMode, setClaudeMode] = useState<ClaudeOperationReviewMode | 'settings' | null>(null);
   const [recoveryHistoryChecked, setRecoveryHistoryChecked] = useState(false);
@@ -70,7 +72,7 @@ export function PrGuideStudio({
   const [informationLoading, setInformationLoading] = useState(isNativeRuntime());
   const [informationError, setInformationError] = useState<string | null>(null);
   const [modelId, setModelId] = useState('');
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  const [selectedKeys, setSelectedKeys] = useState<string[]>(()=>accountOnly?comparison.changes.filter(isGuideEligible).slice(0,12).map(changeKey):[]);
   const [requestReview, setRequestReview] = useState<ProviderRequestReview | null>(null);
   const requestReviewRef = useRef<ProviderRequestReview | null>(null);
   const reviewLifecycle = useRef(0);
@@ -431,7 +433,7 @@ export function PrGuideStudio({
         <div><span className="git-changes-kicker">SEPARATE, REVIEWABLE HISTORY</span><h2 id="pr-guide-title">Build a PR Guide</h2></div>
         <span className="git-readonly-badge"><BookOpenCheck size={14} /> Local draft</span>
       </div>
-      <p className="pr-guide-muted">Choose a backend, select changed files, inspect the exact diff sent, then review every claim against its base/head hunk. Accepting or rejecting saves a PR Guide revision; it never changes Git refs or file chapter history.</p>
+      <p className="pr-guide-muted">{accountOnly?'Explain this commit using the connection in the header. Changed text files are included automatically; review the diff before sharing it.':'Choose a backend, select changed files, inspect the exact diff sent, then review every claim against its base/head hunk. Accepting or rejecting saves a PR Guide revision; it never changes Git refs or file chapter history.'}</p>
       {matchingRecovery && <section className="provider-review-card" aria-labelledby="recovered-git-title">
         <h3 id="recovered-git-title">Review interrupted {matchingRecovery.backend === 'codex' ? 'Codex' : 'Claude'} work</h3>
         <p>{matchingRecovery.mode.kind === 'pr-guide'
@@ -451,18 +453,18 @@ export function PrGuideStudio({
             else setClaudeMode(matchingRecovery.mode);
           }}>Review original scope with {matchingRecovery.backend === 'codex' ? 'Codex' : 'Claude'}</button>
       </section>}
-      <label className="pr-guide-model">Generate with
+      {!accountOnly&&<label className="pr-guide-model">Generate with
         <select value={backend} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection) || Boolean(codexMode) || Boolean(claudeMode)}
           onChange={(event) => { clearReview(); const selected = event.target.value as typeof backend; rememberGenerationBackend(selected === 'claude-agent' ? 'claude-setup' : selected); setBackend(selected); }}>
           <option value="codex">Codex · ChatGPT account</option>
           <option value="claude-agent">Claude Agent · local review (generation pending)</option>
           <option value="api">Direct API · optional</option>
         </select>
-      </label>
-      {backend === 'codex' && <p className="pr-guide-muted">Use your Codex account without an API key. Choose model and reasoning, review the exact patches, then generate. Plan quota applies.</p>}
+      </label>}
+      {!accountOnly && backend === 'codex' && <p className="pr-guide-muted">Use your Codex account without an API key. Choose model and reasoning, review the exact patches, then generate. Plan quota applies.</p>}
       {backend === 'claude-agent' && <div className="pr-guide-notice" role="status"><div><p>Preview a guide or hunk request with Claude’s supported settings and the exact local diff. Automatic Claude generation remains unfinished; this review sends no source to an agent.</p>
         <button className="secondary-button" onClick={() => setClaudeMode('settings')}>Claude installation and defaults</button></div></div>}
-      <fieldset className="pr-guide-file-picker" disabled={building || sending || decisionBusy || Boolean(changeExplanationSelection) || Boolean(codexMode) || Boolean(claudeMode)}>
+      <details className="pr-guide-included-files" open={accountOnly?undefined:true}><summary>{selectedChanges.length} changed files included{eligibleChanges.length>12?' · selection limited to 12':''}</summary><fieldset className="pr-guide-file-picker" disabled={building || sending || decisionBusy || Boolean(changeExplanationSelection) || Boolean(codexMode) || Boolean(claudeMode)}>
         <legend>Select changed files · {selectedChanges.length} of 12</legend>
         {eligibleChanges.length === 0 ? <p>No changed file has a complete bounded text diff to explain.</p> : eligibleChanges.map((change) => {
           const key = changeKey(change);
@@ -489,8 +491,8 @@ export function PrGuideStudio({
             </div>
           );
         })}
-      </fieldset>
-      {backend === 'codex' && <div className="pr-guide-actions"><button className="primary-button" onClick={reviewCodexGuide} disabled={!selectedChanges.length || selectedChanges.length > 12 || building || sending || decisionBusy || Boolean(codexMode)}><FileDiff size={15} /> Review with Codex</button></div>}
+      </fieldset></details>
+      {backend === 'codex' && <div className="pr-guide-actions"><button className="primary-button" onClick={reviewCodexGuide} disabled={!selectedChanges.length || selectedChanges.length > 12 || building || sending || decisionBusy || Boolean(codexMode)}><FileDiff size={15} /> {accountOnly?'Explain changes':'Review with Codex'}</button></div>}
       {backend === 'claude-agent' && <div className="pr-guide-actions"><button className="secondary-button" onClick={previewClaudeGuide} disabled={!selectedChanges.length || selectedChanges.length > 12 || building || sending || decisionBusy || Boolean(claudeMode)}><FileDiff size={15} /> Preview guide request with Claude</button></div>}
       {backend === 'api' && <><div className="pr-guide-actions">
         <label className="pr-guide-model">Direct API provider

@@ -22,3 +22,5 @@ Installed GPT-6 Luna/max account path without mandatory API keys; no repeated ba
 ## 16 October workspace migration
 
 New question jobs have module ownership independent of views, explicit Stop, native interruption records, fingerprinted question/range context and revocable native snapshot/account/runtime sharing. A native persisted scheduler and complete restart/reconciliation qualification remain open.
+
+Questions are now serialized before native inference, so follow-ups queued while another question runs do not collide with the installed Codex adapter. A stopped waiter releases its slot without inference. The adapter supplies explicit source-only base instructions instead of inheriting a coding-agent prompt, while retaining all tool-event rejection, permission, provenance, model and grant checks. Restart scheduling and the full cancellation/race matrix remain unqualified.

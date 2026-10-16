@@ -278,6 +278,7 @@ function App() {
   const projectButtonRef = useRef<HTMLButtonElement>(null);
   const pickerReturnFocusRef = useRef<string | undefined>(undefined);
   const currentWorkspace = navigation.current.workspace;
+  useEffect(()=>{if(navigation.current.projectId){try{localStorage.setItem('code-atlas:last-project',navigation.current.projectId);}catch{/* Optional preference. */}}},[navigation.current.projectId]);
   const copy = WORKSPACE_COPY[currentWorkspace];
   const currentProject = navigation.current.projectId
     ? knownProjects[navigation.current.projectId] ?? recentProjects.find((project) => project.projectId === navigation.current.projectId) ?? null
@@ -833,6 +834,10 @@ function App() {
       } else {
         setRecentProjects(startup.recentProjects);
         setKnownProjects(Object.fromEntries(startup.recentProjects.map((project) => [project.projectId, project])));
+        try {
+          const previous = localStorage.getItem('code-atlas:last-project');
+          if (previous && !navigationRef.current.current.projectId && startup.recentProjects.some((project)=>project.projectId===previous)) void openRecent(previous);
+        } catch { /* Starting without an optional preference remains usable. */ }
       }
     });
     return () => { active = false; };
