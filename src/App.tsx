@@ -1502,7 +1502,7 @@ function App() {
 
             <WorkspaceFrame manifest={snapshotManifest?.summary.snapshotId === selectedSnapshot?.snapshotId ? snapshotManifest : null}
               projectName={currentProject?.displayName ?? 'Repository'} workspace={currentWorkspace}
-              routePath={navigation.current.relativePath} routeRange={navigation.current.sourceRange}
+              routePath={navigation.current.relativePath} routeRange={navigation.current.sourceRange} routeSelection={navigation.current.atlasSelection}
               onWorkspace={chooseWorkspace} onSettings={openProviderSettings} onReview={reviewGuideRevision} onRead={openGuideRevision}
               onRememberFile={(relativePath) => { if (currentProject && selectedSnapshot) rememberFileLocation(currentProject.projectId,{snapshotId:selectedSnapshot.snapshotId,path:relativePath}); }}
               onCompare={(baseRef,headRef) => {

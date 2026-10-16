@@ -22,6 +22,15 @@ export function latestAcceptedRevisions(revisions: ChapterRevision[]): ChapterRe
   return [...latest.values()].sort((left, right) => left.title.localeCompare(right.title) || left.chapterId.localeCompare(right.chapterId));
 }
 
+/** Explicit draft previews never widen the accepted library used by exports. */
+export function readerSelection(revisions: ChapterRevision[], chapterId?: string | null, revisionId?: string | null) {
+  const exportable = latestAcceptedRevisions(revisions);
+  const exact = chapterId && revisionId ? revisions.find((r) => r.chapterId === chapterId && r.revisionId === revisionId && (r.lifecycle === 'draft' || r.lifecycle === 'accepted') && r.sections.length > 0) ?? null : null;
+  const selected = revisionId ? exact : exportable.find((r) => r.chapterId === chapterId) ?? null;
+  const library = exact?.lifecycle === 'draft' ? [exact, ...exportable.filter((r) => r.chapterId !== exact.chapterId)] : exportable;
+  return { selected, library, exportable };
+}
+
 export function chooseSectionId(
   sections: ChapterSection[],
   routeSectionId?: string | null,

@@ -1,5 +1,7 @@
 # From a question to code explanations
 
+> **Current workspace — October 16:** the production app now uses [pinned chat with Guide / Flow / history](design/WORKSPACE_EXPLORATION.md). Local indexing starts automatically; Codex source discovery and an exact-question chapter run in the background after a revocable snapshot/account/runtime permission. Questions stack at the active level; explicit exploration branches attach to answers. The staged Guide route wizard described below is retained as a historical implementation contract and is superseded in normal navigation. Its planner/batch source remains, with broader orchestration tracked in `a1sm`. Use [Getting started](GETTING_STARTED.md) for the current user journey.
+
 Code Atlas uses Codex to choose relevant implementation from an immutable snapshot. The connection belongs to the workspace header; a generation dialog does not ask you to choose it again. This is a bounded learning route, not a claim that every file or runtime path has been covered.
 
 ## Connect once

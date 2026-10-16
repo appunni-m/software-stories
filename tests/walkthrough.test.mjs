@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import {
   chooseSectionId,
   latestAcceptedRevisions,
+  readerSelection,
   orderedSections,
   parseRememberedProgress,
   parseRememberedSection,
@@ -65,4 +66,19 @@ describe('walkthrough resume record', () => {
       sectionId: 's', playbackPosition: 0, transcriptPosition: 0,
     });
   });
+});
+
+it('explicit draft playback preserves exact identity and never enters accepted exports',()=>{
+  const accepted=revision('accepted','one',1,'accepted',[section('a',1)]);
+  const draft=revision('draft','one',2,'draft',[section('b',1)]);
+  const rejected=revision('rejected','two',1,'rejected',[section('c',1)]);
+  const all=[accepted,draft,rejected];
+  const preview=readerSelection(all,'one','draft');
+  assert.equal(preview.selected,draft);
+  assert.deepEqual(preview.library,[draft]);
+  assert.deepEqual(preview.exportable,[accepted]);
+  assert.equal(readerSelection(all,'one','missing').selected,null);
+  assert.equal(readerSelection(all,'two','rejected').selected,null);
+  assert.equal(readerSelection(all,'one').selected,accepted);
+  assert.equal(readerSelection([draft],'one','draft').selected,draft);
 });

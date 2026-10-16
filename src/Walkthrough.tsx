@@ -20,7 +20,7 @@ import {
   type ChapterHotspot,
   type HotspotDestination,
 } from './lib/commands';
-import { orderedSections, latestAcceptedRevisions, parseRememberedProgress, rememberedSectionRecord, resumeStorageKey, chooseSectionId } from './lib/walkthrough';
+import { orderedSections, readerSelection, parseRememberedProgress, rememberedSectionRecord, resumeStorageKey, chooseSectionId } from './lib/walkthrough';
 import { inspectInteractiveVisual } from './lib/visuals';
 import type { WorkspaceRoute } from './lib/navigation';
 import { NarrationPlayer } from './NarrationPlayer';
@@ -69,7 +69,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
     setLoadError(null);
     void listProjectChapterRevisions(projectId)
       .then((loaded) => { if (active) setRevisions(loaded); })
-      .catch((error) => { if (active) setLoadError(errorMessageOr(error, 'Accepted chapter revisions could not be loaded.')); })
+      .catch((error) => { if (active) setLoadError(errorMessageOr(error, 'Saved explanations could not be loaded.')); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [projectId, refreshKey]);
@@ -79,16 +79,10 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
     return () => window.removeEventListener('code-atlas:chapters-changed', refresh);
   }, []);
 
-  const acceptedRevisions = useMemo(
-    () => revisions.filter((revision) => revision.lifecycle === 'accepted' && revision.sections.length > 0),
-    [revisions],
+  const {selected:selectedRevision,library:chapterList,exportable:acceptedLibrary} = useMemo(
+    () => readerSelection(revisions,route.chapterId,route.chapterRevisionId),
+    [revisions,route.chapterId,route.chapterRevisionId],
   );
-  const chapterList = useMemo(() => latestAcceptedRevisions(revisions), [revisions]);
-  const routedRevision = route.chapterId && route.chapterRevisionId
-    ? acceptedRevisions.find((revision) => revision.chapterId === route.chapterId && revision.revisionId === route.chapterRevisionId) ?? null
-    : null;
-  const selectedRevision = routedRevision
-    ?? (route.chapterId ? chapterList.find((revision) => revision.chapterId === route.chapterId) ?? null : null);
   const sections = selectedRevision ? orderedSections(selectedRevision) : [];
 
   const rememberedProgress = useMemo(() => {
@@ -109,8 +103,8 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
     : null;
   const selectedSectionIndex = selectedSectionId ? sections.findIndex((section) => section.sectionId === selectedSectionId) : -1;
   const selectedSection = selectedSectionIndex >= 0 ? sections[selectedSectionIndex] : null;
-  const latestRevision = selectedRevision ? chapterList.find((revision) => revision.chapterId === selectedRevision.chapterId) : null;
-  const isOlderRevision = Boolean(selectedRevision && latestRevision && latestRevision.revisionId !== selectedRevision.revisionId);
+  const latestRevision = selectedRevision ? acceptedLibrary.find((revision) => revision.chapterId === selectedRevision.chapterId) : null;
+  const isOlderRevision = Boolean(selectedRevision?.lifecycle === 'accepted' && latestRevision && latestRevision.revisionId !== selectedRevision.revisionId);
   const snapshotBaselineId = route.readerSnapshotBaselineId ?? selectedSnapshotId;
   const isOlderSnapshot = Boolean(selectedRevision && snapshotBaselineId && selectedRevision.snapshotId !== snapshotBaselineId);
 
@@ -310,7 +304,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
       <button className="secondary-button" onClick={() => setRefreshKey((value) => value + 1)}>Retry <ArrowRight size={15} /></button>
     </div>
   );
-  if (acceptedRevisions.length === 0) return (
+  if (acceptedLibrary.length === 0 && !selectedRevision) return (
     <div className="empty-workspace simple-empty walkthrough-empty">
       <div className="empty-state-icon play-icon"><Play size={22} /></div>
       <div className="step-pill"><span>GUIDE</span> READ</div>
@@ -339,7 +333,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
                   onClick={() => selectChapter(revision)}
                 >
                   <span className="walkthrough-chapter-icon"><BookOpen size={14} /></span>
-                  <span className="walkthrough-chapter-copy"><strong>{revision.title}</strong><small>{targetLabel(revision)} · {revision.sections.length} {revision.sections.length === 1 ? 'section' : 'sections'}</small></span>
+                  <span className="walkthrough-chapter-copy"><strong>{revision.title}{revision.lifecycle==='draft'?' · Draft preview':''}</strong><small>{targetLabel(revision)} · {revision.sections.length} {revision.sections.length === 1 ? 'section' : 'sections'}</small></span>
                   <ChevronDown size={13} className={isSelectedChapter ? '' : 'is-collapsed'} />
                 </button>
                 {isSelectedChapter && selectedRevision && (
@@ -363,7 +357,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
             );
           })}
         </div>
-        <div className="walkthrough-rail-footer"><span><CheckCircle2 size={13} /> Saved on this Mac</span><OfflineExport projectId={projectId} revisions={chapterList} /></div>
+        <div className="walkthrough-rail-footer"><span><CheckCircle2 size={13} /> Saved on this Mac</span><OfflineExport projectId={projectId} revisions={acceptedLibrary} /></div>
       </aside>
 
       {!selectedRevision || !selectedSection ? (
@@ -380,6 +374,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
           <div className="walkthrough-reader-topline">
             <div className="walkthrough-reader-breadcrumb"><span>{targetLabel(selectedRevision)}</span><span>/</span><strong>{selectedRevision.title}</strong></div>
             <div className="walkthrough-revision-labels">
+              {selectedRevision.lifecycle==='draft'&&<span className="walkthrough-revision-badge">DRAFT PREVIEW</span>}
               {isOlderRevision && <span className="walkthrough-revision-badge">OLDER ACCEPTED REVISION</span>}
               {isOlderSnapshot && <span className="walkthrough-revision-badge">PINNED TO EARLIER SNAPSHOT</span>}
             </div>

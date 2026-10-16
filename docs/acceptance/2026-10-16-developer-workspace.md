@@ -15,7 +15,7 @@ This record covers the production conversational workspace migration, not a prod
 
 | Check | Result |
 | --- | --- |
-| `npm test` | 126 passed, zero failed |
+| `npm test` | 127 passed, zero failed |
 | `RUSTC_WRAPPER= CARGO_BUILD_JOBS=4 CARGO_INCREMENTAL=0 cargo test --release --manifest-path src-tauri/Cargo.toml --lib` | 198 passed, zero failed, three ignored live checks |
 | `npm run build` | Passed; large frontend chunk warning remains |
 | `git diff --check` | Passed before source commit |
@@ -38,3 +38,6 @@ These are the separate design preview at the browser panel's current narrow widt
 ![Root answer and its attached child exploration](../design/workspace-stacked-preview-2026-10-16.png)
 
 ![Stacked follow-up answers with the composer pinned above](../design/workspace-followups-preview-2026-10-16.png)
+
+## Integration fixes before final packaging
+An explicit saved draft can now open the interactive player with a Draft preview badge. Rejected/unknown exact revisions cannot silently select a different accepted answer, and offline export still receives only accepted revisions. A focused reader-selection regression covers draft, accepted, missing and rejected cases. File, symbol and relationship visual destinations now resolve through captured source/index evidence in the shared workspace, including returns from the player. The Mac was unlocked after the initial packaging checks; final replacement walkthrough is in progress.
