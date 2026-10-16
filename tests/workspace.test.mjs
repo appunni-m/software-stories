@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addTurn, ancestors, createWorkspace, parseWorkspace, rankSourcePaths } from '../src/workspace/model.ts';
+import { addTurn, ancestors, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths } from '../src/workspace/model.ts';
 const turn = (id,question='Explain the subtotal implementation') => ({id,question,context:[{path:'src/cart.ts',from:1,to:6}],status:'queued'});
 test('follow-ups stack at the current level; only explicit exploration creates a branch',()=>{
   let s=createWorkspace('p','snap');s=addTurn(s,turn('one'),'guide');s=addTurn(s,turn('two'),'flow');
@@ -34,4 +34,19 @@ test('damaged, cyclic or path-traversing saved UI state falls back safely',()=>{
 test('implementation entry points rank before assistant settings and documentation',()=>{
   const paths=['.claude/agents/instructions.md','README.md','tests/cart.test.ts','src/lib.rs','Cargo.toml'];
   assert.equal(rankSourcePaths(paths)[0],'src/lib.rs');assert.equal(paths[0],'.claude/agents/instructions.md');
+});
+
+test('learning questions retain recent intent and branch topic within the native limit',()=>{
+  let s=createWorkspace('p','snap');
+  s=addTurn(s,turn('one','How are subtotal prices validated?'),'guide');
+  s=addTurn(s,turn('two','Why does it do that?'),'guide');
+  assert.match(learningQuestion(s,'root','two',300),/How are subtotal prices validated/);
+  assert.match(learningQuestion(s,'root','two',300),/Current question: Why does it do that/);
+  s=addTurn(s,turn('three','Explain the RangeError propagation'),'flow',{originTurnId:'two',id:'branch'});
+  s=addTurn(s,turn('four','What receives that exception?'),'flow');
+  const q=learningQuestion(s,'branch','four',300);
+  assert.match(q,/RangeError propagation/);
+  assert.ok(q.endsWith('What receives that exception?'));
+  assert.ok(learningQuestion(s,'branch','four',60).length<=60);
+  assert.equal(learningQuestion(s,'missing','four',300),'');
 });

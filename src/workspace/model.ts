@@ -57,3 +57,16 @@ export function addTurn(state: WorkspaceState, turn: Turn, view: View, branch?: 
   }
   return {...state,currentId,file:branch?turn.context[0]?.path??state.file:state.file,explorations:explorations.map((e)=>e.id===currentId?{...e,view,turns:[...e.turns,turn]}:e)};
 }
+
+/** Keep recent intent with a follow-up; code evidence is selected and validated separately. */
+export function learningQuestion(state: WorkspaceState, explorationId: string, turnId: string, limit: number): string {
+  const owner = state.explorations.find((e) => e.id === explorationId);
+  const position = owner?.turns.findIndex((t) => t.id === turnId) ?? -1;
+  const turn = owner?.turns[position];
+  if (!turn) return '';
+  const earlier = [...new Set([
+    ...ancestors(state, explorationId).slice(1).map((e) => e.title),
+    ...owner!.turns.slice(Math.max(0, position - 2), position).map((t) => t.question),
+  ])].filter((question) => question !== turn.question);
+  return `${earlier.length ? `Earlier questions: ${earlier.join(' → ')}\n` : ''}Current question: ${turn.question}`.slice(-limit);
+}
