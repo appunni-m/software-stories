@@ -98,7 +98,7 @@ impl ChapterGenerationOrigin {
             .map(|_| provider::planned_chapter_review_scope(review).map_err(|error| error.message))
             .transpose()?;
         let origin = Self {
-            schema_version: 1,
+            schema_version: 2,
             project_id: review.project_id.clone(),
             snapshot_id: review.snapshot_id.clone(),
             target_path: review.target_path.clone(),
@@ -191,7 +191,7 @@ impl ChapterGenerationOrigin {
         } else {
             "claude-chapter-v1".to_owned()
         };
-        if self.schema_version != 1
+        if !matches!(self.schema_version, 1 | 2)
             || revision.schema_version < 4
             || self.project_id != revision.project_id
             || !text(&self.project_id, 4096)
@@ -244,6 +244,8 @@ impl ChapterGenerationOrigin {
 
     pub(crate) fn matches_content(&self, revision: &ChapterRevision) -> bool {
         content_digest(revision).is_ok_and(|hash| hash == self.content_sha256)
+            || (self.schema_version == 1
+                && legacy_content_digest(revision).is_ok_and(|hash| hash == self.content_sha256))
     }
 
     pub(crate) fn model_id(&self) -> &str {
@@ -279,24 +281,127 @@ fn content_digest(revision: &ChapterRevision) -> Result<String, String> {
         title: &'a str,
         sections: &'a [crate::chapters::ChapterSection],
     }
-    let mut writer = ContentDigestWriter {
-        hasher: Sha256::new(),
-        bytes: 0,
-    };
-    serde_json::to_writer(
-        &mut writer,
-        &Content {
-            project_id: &revision.project_id,
-            snapshot_id: &revision.snapshot_id,
-            target: &revision.target,
-            title: &revision.title,
-            sections: &revision.sections,
-        },
-    )
-    .map_err(|_| {
+    digest_content(&Content {
+        project_id: &revision.project_id,
+        snapshot_id: &revision.snapshot_id,
+        target: &revision.target,
+        title: &revision.title,
+        sections: &revision.sections,
+    })
+}
+
+fn digest_content(content: &impl Serialize) -> Result<String, String> {
+    let mut writer = ContentDigestWriter { hasher: Sha256::new(), bytes: 0 };
+    serde_json::to_writer(&mut writer, content).map_err(|_| {
         "The generated chapter content could not be fingerprinted within its 4 MB limit.".to_owned()
     })?;
     Ok(format!("{:x}", writer.hasher.finalize()))
+}
+
+/// Origin v1 predates camelCase enum fields. Reconstruct that exact bounded
+/// serialization for digest verification only; never rewrite stored bytes or
+/// treat a mismatched digest as valid. New origins use v2 and the current wire.
+fn legacy_content_digest(revision: &ChapterRevision) -> Result<String, String> {
+    use crate::chapters::*;
+    #[derive(Serialize)]
+    #[serde(tag = "kind", rename_all = "camelCase")]
+    enum Category<'a> {
+        CodeBehavior,
+        RepositoryContext,
+        Inference { visible_label: &'a str, basis: &'a str },
+    }
+    #[derive(Serialize)]
+    #[serde(tag = "kind", rename_all = "camelCase")]
+    enum Dependency<'a> {
+        SourceFile { path: &'a str, source_sha256: &'a str },
+        Symbol { path: &'a str, source_sha256: &'a str, symbol_id: &'a str },
+        Relationship { path: &'a str, source_sha256: &'a str, relationship_id: &'a str },
+    }
+    #[derive(Serialize)]
+    #[serde(tag = "kind", rename_all = "camelCase")]
+    enum Destination<'a> {
+        Section { section_id: &'a str },
+        CodeLens { anchor_id: &'a str },
+        AtlasFile { path: &'a str },
+        AtlasSymbol { path: &'a str, symbol_id: &'a str },
+        Relationship { relationship_id: &'a str },
+    }
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Claim<'a> {
+        claim_id: &'a str,
+        category: Category<'a>,
+        prose: &'a str,
+        anchors: &'a [ChapterSourceAnchor],
+        dependencies: Vec<Dependency<'a>>,
+    }
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Hotspot<'a> { hotspot_id: &'a str, label: &'a str, destination: Destination<'a> }
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Section<'a> {
+        section_id: &'a str,
+        section_revision_id: &'a str,
+        order: u32,
+        title: &'a str,
+        prose: &'a str,
+        spoken_text: &'a str,
+        claims: Vec<Claim<'a>>,
+        dependencies: Vec<Dependency<'a>>,
+        visual: &'a Option<ChapterVisualPayload>,
+        hotspots: Vec<Hotspot<'a>>,
+    }
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Content<'a> {
+        project_id: &'a str,
+        snapshot_id: &'a str,
+        target: &'a ChapterTarget,
+        title: &'a str,
+        sections: Vec<Section<'a>>,
+    }
+    fn dependencies(values: &[SectionDependency]) -> Vec<Dependency<'_>> {
+        values.iter().map(|value| match value {
+        SectionDependency::SourceFile { path, source_sha256 } => Dependency::SourceFile { path, source_sha256 },
+        SectionDependency::Symbol { path, source_sha256, symbol_id } => Dependency::Symbol { path, source_sha256, symbol_id },
+        SectionDependency::Relationship { path, source_sha256, relationship_id } => Dependency::Relationship { path, source_sha256, relationship_id },
+        }).collect()
+    }
+    let sections = revision.sections.iter().map(|section| Section {
+        section_id: &section.section_id,
+        section_revision_id: &section.section_revision_id,
+        order: section.order,
+        title: &section.title,
+        prose: &section.prose,
+        spoken_text: &section.spoken_text,
+        claims: section.claims.iter().map(|claim| Claim {
+            claim_id: &claim.claim_id,
+            category: match &claim.category {
+                ClaimCategory::CodeBehavior => Category::CodeBehavior,
+                ClaimCategory::RepositoryContext => Category::RepositoryContext,
+                ClaimCategory::Inference { visible_label, basis } => Category::Inference { visible_label, basis },
+            },
+            prose: &claim.prose,
+            anchors: &claim.anchors,
+            dependencies: dependencies(&claim.dependencies),
+        }).collect(),
+        dependencies: dependencies(&section.dependencies),
+        visual: &section.visual,
+        hotspots: section.hotspots.iter().map(|hotspot| Hotspot {
+            hotspot_id: &hotspot.hotspot_id,
+            label: &hotspot.label,
+            destination: match &hotspot.destination {
+                HotspotDestination::Section { section_id } => Destination::Section { section_id },
+                HotspotDestination::CodeLens { anchor_id } => Destination::CodeLens { anchor_id },
+                HotspotDestination::AtlasFile { path } => Destination::AtlasFile { path },
+                HotspotDestination::AtlasSymbol { path, symbol_id } => Destination::AtlasSymbol { path, symbol_id },
+                HotspotDestination::Relationship { relationship_id } => Destination::Relationship { relationship_id },
+            },
+        }).collect(),
+    }).collect();
+    digest_content(&Content { project_id: &revision.project_id, snapshot_id: &revision.snapshot_id,
+        target: &revision.target, title: &revision.title, sections })
 }
 
 /// Stream bounded serialization into the digest without cloning the chapter or
@@ -334,4 +439,40 @@ fn digest(value: &str) -> bool {
         && value
             .bytes()
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn legacy_native_origin_remains_readable_without_rehashing_saved_content() {
+        // A real generated, synthetic-only v1 record from before the wire fix.
+        let revision: ChapterRevision = serde_json::from_str(include_str!("../tests/fixtures/legacy-agent-chapter.json")).unwrap();
+        let origin = revision.generation_origin.as_ref().unwrap();
+        assert_eq!(origin.schema_version, 1);
+        assert_ne!(content_digest(&revision).unwrap(), origin.content_sha256);
+        assert_eq!(legacy_content_digest(&revision).unwrap(), origin.content_sha256);
+        validate_revision_origin(&revision).unwrap();
+        let serialized = serde_json::to_string(&revision).unwrap();
+        assert!(serialized.contains("anchorId"));
+        assert!(!serialized.contains("anchor_id"));
+        let roundtrip: ChapterRevision = serde_json::from_str(&serialized).unwrap();
+        validate_revision_origin(&roundtrip).unwrap();
+        let mut changed = revision.clone();
+        changed.sections[0].prose.push_str(" An unsupported edit.");
+        assert!(validate_revision_origin(&changed).is_err());
+    }
+
+    #[test]
+    fn v2_origin_requires_current_content_digest() {
+        let mut revision: ChapterRevision = serde_json::from_str(include_str!("../tests/fixtures/legacy-agent-chapter.json")).unwrap();
+        let current = content_digest(&revision).unwrap();
+        revision.generation_origin.as_mut().unwrap().schema_version = 2;
+        assert!(validate_revision_origin(&revision).is_err());
+        revision.generation_origin.as_mut().unwrap().content_sha256 = current;
+        validate_revision_origin(&revision).unwrap();
+        revision.sections[0].spoken_text.push_str(" Changed narration.");
+        assert!(validate_revision_origin(&revision).is_err());
+    }
 }

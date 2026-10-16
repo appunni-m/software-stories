@@ -16,7 +16,7 @@ This record covers the production conversational workspace migration, not a prod
 | Check | Result |
 | --- | --- |
 | `npm test` | 129 passed, zero failed |
-| `RUSTC_WRAPPER= CARGO_BUILD_JOBS=4 CARGO_INCREMENTAL=0 cargo test --release --manifest-path src-tauri/Cargo.toml --lib` | 201 passed, zero failed, three ignored live checks |
+| `RUSTC_WRAPPER= CARGO_BUILD_JOBS=4 CARGO_INCREMENTAL=0 cargo test --release --manifest-path src-tauri/Cargo.toml --lib` | 203 passed, zero failed, three ignored live checks |
 | `npm run build` | Passed; large frontend chunk warning remains |
 | `git diff --check` | Passed before source commit |
 | Open Source documentation inventory | No broken-local-link findings; root license and three broad-claim review notes remain |
@@ -53,3 +53,6 @@ Protocol references checked: [official App Server documentation](https://learn.c
 The live child question saved with a generated visual, but a root follow-up failed the overview exact-copy contract. Single AI-selected code files now use the file chapter contract without requiring attachment. Workspace Codex overviews use a fingerprinted `anchored-claims-v1` presentation recipe: native validation checks claim evidence and visuals first, then composes reader/narration text from complete validated claim sentences. Independent model prose/narration fields are discarded, not treated as verified. Storage still enforces the exact-copy invariant and inference labels. Legacy/API overviews retain strict rejection. Focused regressions cover unsupported copy exclusion, inference labels and rejection of fabricated quotes. Native requalification of this change is pending.
 
 The live deeper answer also exposed a native/frontend enum-field mismatch (`anchor_id` vs `anchorId`), which made an otherwise validated saved diagram unavailable. The native wire format now matches frontend camelCase and accepts legacy snake_case on read for hotspot destinations, inference labels and dependency records. No saved chapter is rewritten on disk. A wire-contract regression covers legacy decode/current serialization. A later model response omitted a declared identifier from its claim text and was correctly rejected; prompt preflight instructions now explicitly require exact literal identifiers in both claim and quote. This strict evidence rejection is retained.
+
+## Saved-answer migration regression
+Restarting `07cda9b` restored the selected repository, level-2 exploration and Flow view without setup, but exposed a lineage digest compatibility defect introduced by camelCase enum fields. New agent origin records now use schema 2. Existing schema-1 origins are verified against exact bounded legacy serialization as well as the transitional current serialization; stored hashes are never rewritten. Retained visual JSON preserves object order. An independent, real synthetic v1 chapter fixture must survive current-wire round trip while prose/narration changes still fail. Two native regressions cover legacy recovery and strict schema-2 content matching. Installation/reopen requalification of this migration is pending.

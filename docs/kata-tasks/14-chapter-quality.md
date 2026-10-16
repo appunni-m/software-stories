@@ -37,3 +37,9 @@ Review a benchmark batch, identify and repair shallow failures, and show that sc
 - [ ] Do not close from schema validation, source inspection, polished prose or provider self-review.
 
 No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.
+
+## October 16 native workspace failures to qualify
+- [ ] Include same-level contextual follow-ups and two explicit nested levels in the representative account-backed benchmark; measure failure categories and completion time as well as semantic quality.
+- [ ] Cover a claim whose declared `Number.isFinite` or `prices` identifier is absent from prose. Keep strict source admission; preserve the failed attempt and a separately reviewed repair. Do not count a successful sibling answer as resolving this case.
+- [ ] Qualify the workspace overview's `anchored-claims-v1` presentation with at least two selected files. Check that discarded independent prose/narration never reaches the reader and inference labels remain visible. Single-file routing cannot substitute for this case.
+- [ ] Review code-aware speech for natural sentences, names that must be spoken, pacing and section comprehension. Local Pocket playback alone does not pass this rubric.
