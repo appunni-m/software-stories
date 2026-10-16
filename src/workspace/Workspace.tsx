@@ -8,12 +8,12 @@ import { CodePane } from '../design/CodePane';
 import { FileFlow } from '../FileFlow';
 import { NarrationPlayer } from '../NarrationPlayer';
 import { buildInventory } from '../lib/inventory';
-import { isNativeRuntime, listChapterRevisions, loadSnapshotIndex, readSnapshotSource, type ChapterRevision, type ChapterSourceAnchor, type SnapshotManifest, type SnapshotSource, type SnapshotIndex } from '../lib/commands';
+import { isNativeRuntime, listChapterRevisions, readSnapshotSource, type ChapterRevision, type ChapterSourceAnchor, type SnapshotManifest, type SnapshotSource, type SnapshotIndex } from '../lib/commands';
 import { projectProvenRelationshipGraph } from '../lib/atlas';
 import { inspectInteractiveVisual } from '../lib/visuals';
 import type { SourceLineRange, Workspace as WorkspaceId } from '../lib/navigation';
 import { ancestors, rankSourcePaths, type Context, type Exploration, type Turn, type View } from './model';
-import { appendQuestion, authorizeWorkspace, revokeWorkspace, runQuestion, stopQuestion, updateWorkspace, useWorkspace } from './store';
+import { appendQuestion, authorizeWorkspace, ensureWorkspaceIndex, revokeWorkspace, runQuestion, stopQuestion, updateWorkspace, useWorkspace } from './store';
 import { useConnectionState } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
 import './workspace.css';
@@ -58,6 +58,8 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
   const [chaptersLoading,setChaptersLoading] = useState(true);
   const [chapterError,setChapterError] = useState<string|null>(null);
   const [index,setIndex] = useState<SnapshotIndex|null>(null);
+  const [indexBusy,setIndexBusy] = useState(true);
+  const [indexError,setIndexError] = useState<string|null>(null);
   const [commits,setCommits] = useState<Commit[]>([]);
   const [gitError,setGitError] = useState<string|null>(null);
   const [gitBusy,setGitBusy] = useState(false);
@@ -89,7 +91,7 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
   useEffect(()=>{ void refreshChapters(); const changed=(event:Event)=>{const project=(event as CustomEvent<{projectId?:string}>).detail?.projectId;if(!project||project===projectId) void refreshChapters();};
     window.addEventListener('code-atlas:chapters-changed',changed);return()=>window.removeEventListener('code-atlas:chapters-changed',changed);
   },[projectId,snapshotId]);
-  useEffect(()=>{let active=true; if(isNativeRuntime()) void loadSnapshotIndex(projectId,snapshotId).then((value)=>{if(active)setIndex(value);}).catch(()=>{}); return()=>{active=false;};},[projectId,snapshotId,chapters.length]);
+  useEffect(()=>{let active=true; if(isNativeRuntime()) void ensureWorkspaceIndex(projectId,snapshotId).then((value)=>{if(active){setIndex(value);setIndexError(null);}}).catch((failure)=>{if(active)setIndexError(errorMessageOr(failure,'Code relationships could not be loaded.'));}).finally(()=>{if(active)setIndexBusy(false);}); return()=>{active=false;};},[projectId,snapshotId,chapters.length]);
   useEffect(()=>{if(!state.file && sourcePaths.length) update((s)=>({...s,file:routePath && sourcePaths.includes(routePath)?routePath:sourcePaths[0]}));},[state.file,sourcePaths]);
   useEffect(()=>{if(routePath && sourcePaths.includes(routePath)){update((s)=>({...s,file:routePath}));setCodeOpen(true);setReveal({path:routePath,from:routeRange?.startLine,to:routeRange?.endLine,sha256:routeRange?.sourceSha256});}},[routePath,routeRange]);
   useEffect(()=>{
@@ -107,7 +109,6 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
   function attach(context:Context) {setAttachments((all)=>all.some((c)=>c.path===context.path&&c.from===context.from&&c.to===context.to)?all:[...all,context]);composer.current?.focus();}
   function ask(question:string,view:View=current.view==='flow'?'flow':'guide',context=attachments,parentTurn?:string){
     const clean=question.replace(/[\r\n\t]+/g,' ').trim();if(!clean){setView(view);onWorkspace('guide-plan');composer.current?.focus();return;}
-    if(clean.length<8){composer.current?.setCustomValidity('Use at least 8 characters so the question has enough context.');composer.current?.reportValidity();return;}
     if(!connection.status?.authenticated){onSettings();return;}
     const id=appendQuestion(projectId,snapshotId,clean,context,view,parentTurn);setQuery('');setAttachments([]);setSearchFocused(false);setNarrowPane('explanation');onWorkspace('guide-plan');
     if(state.grantId) void runQuestion(projectId,snapshotId,id,state.grantId);else{setConsentError(null);setConsentTurn(id);}
@@ -188,7 +189,7 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
                   const id=crypto.randomUUID();update((s)=>({...s,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,turns:e.turns.some((t)=>t.revisionId===r.revisionId)?e.turns:[...e.turns,{id,question:r.title,context:[],status:'ready',revisionId:r.revisionId}]}:e)}));
                 }}><BookOpen size={13}/><span>{r.title}</span><small>{r.lifecycle}</small></button>)}</details>}
               </Tabs.Content>
-              <Tabs.Content value="flow">{latestRevision?<EvidenceFlow revision={latestRevision} theme={appearance} onOpen={(a)=>openFile(fromAnchor(a))}/>:source?<FileFlow index={index} edges={graph?.edges??[]} loading={false} path={source.path} onOpenFile={(p,_snapshot,range)=>openFile({path:p,from:range?.startLine,to:range?.endLine,sha256:range?.sourceSha256})}/>:<p>Open a file or ask a question to explore its flow.</p>}{current.turns.length>0&&<div className="dw-flow-conversation">{current.turns.map((turn)=><Answer key={turn.id} compact turn={turn} loading={chaptersLoading} revision={chapters.find((r)=>r.revisionId===turn.revisionId)} branches={state.explorations.filter((e)=>e.parentId===current.id&&e.originTurnId===turn.id)} onGo={go} onOpen={(a)=>openFile(fromAnchor(a))} onBranch={(question,context)=>branch(turn,question,context)} onStop={()=>stopQuestion(projectId,snapshotId,turn.id)} onRetry={()=>state.grantId?void runQuestion(projectId,snapshotId,turn.id,state.grantId):setConsentTurn(turn.id)} onReview={onReview} onRead={onRead} onSettings={onSettings}/>)}</div>}</Tabs.Content>
+              <Tabs.Content value="flow">{indexError&&!latestRevision&&<p role="status" className="dw-error">{indexError}</p>}{latestRevision?<EvidenceFlow revision={latestRevision} theme={appearance} onOpen={(a)=>openFile(fromAnchor(a))}/>:source?<FileFlow index={index} edges={graph?.edges??[]} loading={indexBusy} path={source.path} onOpenFile={(p,_snapshot,range)=>openFile({path:p,from:range?.startLine,to:range?.endLine,sha256:range?.sourceSha256})}/>:<p>Open a file or ask a question to explore its flow.</p>}{current.turns.length>0&&<div className="dw-flow-conversation">{current.turns.map((turn)=><Answer key={turn.id} compact turn={turn} loading={chaptersLoading} revision={chapters.find((r)=>r.revisionId===turn.revisionId)} branches={state.explorations.filter((e)=>e.parentId===current.id&&e.originTurnId===turn.id)} onGo={go} onOpen={(a)=>openFile(fromAnchor(a))} onBranch={(question,context)=>branch(turn,question,context)} onStop={()=>stopQuestion(projectId,snapshotId,turn.id)} onRetry={()=>state.grantId?void runQuestion(projectId,snapshotId,turn.id,state.grantId):setConsentTurn(turn.id)} onReview={onReview} onRead={onRead} onSettings={onSettings}/>)}</div>}</Tabs.Content>
               <Tabs.Content value="history"><div className="dw-history">{path.map((e)=><section key={e.id}><button className="dw-history-level" onClick={()=>go(e.id)}><MessageSquare size={13}/>{e.id==='root'?projectName:e.title}<small>Level {ancestors(state,e.id).length}</small></button>{e.turns.map((turn)=><article key={turn.id}><strong>{turn.question}</strong><p>{chapters.find((r)=>r.revisionId===turn.revisionId)?.sections[0]?.prose??(turn.status==='working'?'Working on this question…':turn.error??'Open the saved explanation.')}</p><button className="dw-text-action" onClick={()=>{go(e.id);update((s)=>({...s,explorations:s.explorations.map((x)=>x.id===e.id?{...x,view:'guide'}:x)}));}}>Open explanation<ArrowRight size={13}/></button></article>)}</section>)}{!current.turns.length&&<p>Your questions and explanations will appear here.</p>}</div></Tabs.Content>
             </div>
           </Tabs.Root></Panel>

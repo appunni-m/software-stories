@@ -6,7 +6,7 @@ This record covers the production conversational workspace migration, not a prod
 ## Implemented source surfaces
 - Production `WorkspaceFrame` / `DeveloperWorkspace`: left Explorer, Search, Changes and Explorations; one pinned composer; real immutable source and Guide / Flow / history. Shared Radix controls, CodeMirror and resizable panels; narrow windows switch readable panes.
 - Flat exploration records: follow-ups stack at the active level; explicit child links/counts attach to their originating turn; parent/root navigation and per-exploration last view. Versioned WebView metadata references native revisions.
-- Module-owned question operation: immutable indexing, automatic source discovery, exact-question generation, unaccepted native draft save, notification action and explicit stop. Branch topic and recent same-level questions inform follow-ups. Navigation does not own or cancel the operation. Restart interrupts without an automatic resend.
+- Module-owned question operation: automatic local indexing shared with reading, automatic source discovery, exact-question generation, unaccepted native draft save, notification action and explicit stop. Branch topic and recent same-level questions inform follow-ups. Navigation does not own or cancel the operation. Restart interrupts without an automatic resend.
 - Native revocable permission binds project/snapshot manifest/account/runtime; actual source-discovery and chapter dispatch recheck it. A changed question/focus changes the generation fingerprint. Advanced PR/editor flows retain explicit scoped reviews.
 - Captured-source search uses local bounded reads (24 MB, two seconds, 80 matches); typing never calls AI. Git history reads at most 80 local commits with bounded subprocesses and opens a first-parent comparison. It is a commit list, not a complete DAG; root commits currently compare with themselves.
 - Contextual revision editor, interactive player, typed evidence-linked visuals, exact citations and optional Pocket narration reuse existing native stores and validators. No sample checkout data enters production source.
@@ -31,3 +31,10 @@ The native unsigned app/DMG build is being prepared from the recorded source rev
 
 ## Work still open
 Kata `na54`, `3rcd`, `13yp`, `x21h` and the seven workspace tasks remain open. Required next evidence: replacement launch; real source and saved answers; synthetic-only GPT-6 Luna/max question through the new permission flow; nested live answers and restoration; Search/Changes/editor/player; keyboard/drag and packaged accessibility across themes/window sizes. Durable native job scheduling, complete section/playback/graph viewport persistence, root-commit diff and quality/language/release gates remain open. No production-readiness claim is made.
+
+## Illustrative browser proof
+These are the separate design preview at the browser panel's current narrow width, not native screenshots.
+
+![Root answer and its attached child exploration](../design/workspace-stacked-preview-2026-10-16.png)
+
+![Stacked follow-up answers with the composer pinned above](../design/workspace-followups-preview-2026-10-16.png)

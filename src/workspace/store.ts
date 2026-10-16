@@ -1,10 +1,37 @@
 import { useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { buildCodexChapterReview, cancelCodexChapterRequest, discardProviderRequestReview, getSnapshotIndexProgress, listChapterRevisions, loadSnapshotIndex, loadSnapshotManifest, saveGeneratedChapterDraft, sendCodexChapterRequest, startSnapshotIndexing, type ChapterRevision } from '../lib/commands';
+import { buildCodexChapterReview, cancelCodexChapterRequest, discardProviderRequestReview, getSnapshotIndexProgress, listChapterRevisions, loadSnapshotIndex, loadSnapshotManifest, saveGeneratedChapterDraft, sendCodexChapterRequest, startSnapshotIndexing, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { discardSourceDiscovery, prepareSourceDiscovery, sendSourceDiscovery } from '../lib/sourceDiscovery';
 import { errorMessageOr } from '../lib/errorMessage';
 import { addTurn, learningQuestion, parseWorkspace, type Context, type Turn, type View, type WorkspaceState } from './model';
+
+const indexLoads = new Map<string, Promise<SnapshotIndex>>();
+/** One local index build per snapshot, shared by reading and questions. No model call. */
+export function ensureWorkspaceIndex(project: string, snapshot: string): Promise<SnapshotIndex> {
+  const id = `${project}:${snapshot}`;
+  const existing = indexLoads.get(id);
+  if (existing) return existing;
+  const pending = (async () => {
+    const saved = await loadSnapshotIndex(project,snapshot);
+    if (saved) return saved;
+    const started = await startSnapshotIndexing(project,snapshot);
+    const deadline = Date.now() + 300000;
+    for (;;) {
+      const progress = await getSnapshotIndexProgress(started.jobId);
+      if (!progress) throw new Error('The local code index could not be read. Try again.');
+      if (progress.status !== 'running') {
+        const result = await loadSnapshotIndex(project,snapshot);
+        if (!result) throw new Error(progress.message || 'The local code index could not be built. Try again.');
+        return result;
+      }
+      if (Date.now() >= deadline) throw new Error('The local code index is still building. Try this question again when it finishes.');
+      await new Promise((resolve) => setTimeout(resolve,200));
+    }
+  })().finally(() => indexLoads.delete(id));
+  indexLoads.set(id,pending);
+  return pending;
+}
 
 const states = new Map<string, WorkspaceState>();
 const listeners = new Set<() => void>();
@@ -63,15 +90,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     await ensureCodexConnection(); check();
     const selection = readCodexSelection();
     if (selection.modelId !== 'gpt-6-luna' || selection.effort !== 'max') throw new Error('Choose GPT-6 Luna with max reasoning in the connection settings.');
-    // Reuse the existing bounded immutable symbol index; this is all local.
-    if (!await loadSnapshotIndex(project,snapshot)) {
-      check(); const indexJob = await startSnapshotIndexing(project,snapshot);
-      for (;;) {
-        check(); const progress = await getSnapshotIndexProgress(indexJob.jobId);
-        if (!progress || progress.status !== 'running') break;
-        await new Promise((resolve) => setTimeout(resolve,200));
-      }
-    }
+    await ensureWorkspaceIndex(project,snapshot);
     check();
     const targetPath=turn.context[0]?.path && !/\.(md|mdx|rst|txt|adoc)$/i.test(turn.context[0].path)?turn.context[0].path:null;
     const contextQuestion = learningQuestion(getWorkspace(project,snapshot),owner.id,id,300);
