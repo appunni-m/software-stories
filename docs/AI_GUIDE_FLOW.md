@@ -25,11 +25,12 @@ Generation instructions require implementation evidence for code behavior and a 
 
 ## Build the chapters together
 
-After reviewing and accepting a route, choose **Build all chapters**. Code Atlas prepares the exact request for each remaining step locally. Review the batch’s files/prompts/settings once, then start it. Codex generates the chapters sequentially using the header connection, and each validated result is saved as an independent **unaccepted draft** in Edit.
+After reviewing and accepting a route, choose **Build all chapters**. Code Atlas prepares the exact request for each remaining step locally. Review the batch’s files/prompts/settings once, then start it. Codex generates the chapters sequentially using the header connection, and each validated result is saved as an independent **unaccepted draft**. Choose **Review chapter** beside a saved result to open its editor directly.
 
 - Existing draft/accepted chapters with the exact plan revision, record digest and step are skipped. Rejected and unrelated chapters are not skipped.
 - Each request is rebuilt just before dispatch. Its fingerprint and body digest must still match the reviewed source, account, runtime, model and settings. A changed request stops the queue.
 - Closing stops the queue and requests cancellation of an active turn. A save already in progress may complete. Completed drafts remain saved.
+- Diagram nodes and edges refer to validated evidence in their own section; the app creates exact code anchors and source links locally. The model does not need to copy the same source quotes into the diagram again.
 - Errors stop generation without automatic inference retries. Check Edit, pending previews and recovery notices before trying again. A lost save reply is reconciled against the exact revision ID.
 - Reopening the action derives remaining work from saved chapter lineage. It does not persist or automatically resume an active queue across app restarts. Acceptance and playback remain deliberate actions.
 

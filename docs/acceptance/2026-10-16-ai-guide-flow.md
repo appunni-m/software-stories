@@ -21,3 +21,24 @@ The native checks use only `benchmarks/codex-account-smoke/cart.ts` in a synthet
 ## Remaining qualification
 
 The native publication and batch observations are recorded below when exercised. This is a synthetic baseline, not a production-readiness claim. Multi-crate and large repository discovery, missing/partial indexes, overflow windows, persisted discovery reasons, account changes, queue interruption/save boundaries, language narrative quality, visual quality and the complete accessibility matrix remain open in Kata. Claude and other agent discovery remain deferred.
+
+## Executed checks
+
+| Check | Result |
+| --- | --- |
+| `npm test` | 120 passed. |
+| `npm run build` | Passed; existing bundle-size warning remains. |
+| `CARGO_INCREMENTAL=0 cargo test --release --manifest-path src-tauri/Cargo.toml --lib` | 195 passed, three opt-in live checks ignored. |
+| Live synthetic Codex planning check | Corrected response passed native canonicalization unchanged with GPT-6 Luna/max. |
+| `npm run quality:corpus` | Six synthetic cases across three repositories passed earlier in this iteration; this does not measure real generated narrative quality. |
+| `CARGO_INCREMENTAL=0 npm run bundle:macos` | Unsigned app/DMG build and metadata/checksum verification passed. |
+
+Installed app: `/Users/lazytrot/Applications/Code Atlas.app`. Executable SHA-256: `3dc5026e7a39bd0c98195c36c7c5d92670c428e658a9f77e5126334274882a6f`.
+
+## Final packaged route observation
+
+The installed final build silently restored the account. From **Guide → Ask the code**, discovery selected `cart.ts` from the index and automatically opened the source review. Generation saved **Subtotal and taxed totals**, a two-step unaccepted route. Opening the draft revalidated it; both steps showed exact function quotes, and the second step showed the resolved `totalWithTax → subtotal` call as static index evidence. Back/Next stayed under reader control. The known unknown concerned the unstated tax-rate unit convention.
+
+After reviewing both steps, the route was explicitly accepted as revision `plan-revision:3be55a8a-1d3e-446f-958d-19766a2784f6`. **Build all chapters** prepared two exact requests locally. Both included only the same 501-byte synthetic `cart.ts`; the batch retained GPT-6 Luna/max and the header connection. A single start action began sequential generation.
+
+The first packaged batch stopped at chapter one: a diagram quote was not attached to a validated claim, and no chapter draft was saved. The generation contract was then changed to section-local claim/evidence references. Validated claim anchors remain the only source destinations; legacy quoted diagrams retain strict matching. New regressions cover correct source hotspots, malformed/out-of-range/duplicate references and rejection of invented legacy quotes. Batch results also gained a direct **Review chapter** action. The source changes passed 195 Rust tests and 120 frontend tests before rebuilding.

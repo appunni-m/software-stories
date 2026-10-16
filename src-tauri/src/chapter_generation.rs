@@ -152,23 +152,35 @@ fn canonicalize_visual_proposal(
 }
 
 fn resolve_visual_evidence(
-    evidence: &[GeneratedChapterEvidence],
+    evidence: &[GeneratedVisualEvidence],
     claims: &[ChapterClaim],
 ) -> Result<Vec<String>, String> {
     if evidence.is_empty() || evidence.len() > 8 {
         return Err("Every visual node and edge needs one to eight cited claim quotes.".to_owned());
     }
     let mut seen_quotes = HashSet::new();
+    let mut seen_references = HashSet::new();
     let mut anchor_ids = Vec::with_capacity(evidence.len());
     for item in evidence {
-        if !seen_quotes.insert((item.path.as_str(), item.quote.as_str())) {
-            return Err("A visual item repeats the same source quote.".to_owned());
-        }
-        let matches = claims
-            .iter()
-            .flat_map(|claim| claim.anchors.iter())
-            .filter(|anchor| anchor.path == item.path && anchor.excerpt == item.quote)
-            .collect::<Vec<_>>();
+        let matches = match item {
+            GeneratedVisualEvidence::Reference(reference) => {
+                if !seen_references.insert((reference.claim_index, reference.evidence_index)) {
+                    return Err("A visual item repeats the same claim evidence reference.".to_owned());
+                }
+                let anchor = claims.get(reference.claim_index as usize)
+                    .and_then(|claim| claim.anchors.get(reference.evidence_index as usize))
+                    .ok_or_else(|| "A visual evidence reference is outside this section's validated claim quotes.".to_owned())?;
+                vec![anchor]
+            }
+            GeneratedVisualEvidence::Quote(item) => {
+                if !seen_quotes.insert((item.path.as_str(), item.quote.as_str())) {
+                    return Err("A visual item repeats the same source quote.".to_owned());
+                }
+                claims.iter().flat_map(|claim| claim.anchors.iter())
+                    .filter(|anchor| anchor.path == item.path && anchor.excerpt == item.quote)
+                    .collect::<Vec<_>>()
+            }
+        };
         let Some(first) = matches.first() else {
             return Err(
                 "A visual node or edge cites a quote that is not attached to a validated claim."
@@ -207,7 +219,7 @@ struct GeneratedVisualProposal {
 struct GeneratedVisualNode {
     label: String,
     detail: String,
-    evidence: Vec<GeneratedChapterEvidence>,
+    evidence: Vec<GeneratedVisualEvidence>,
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -216,7 +228,24 @@ struct GeneratedVisualEdge {
     from_node_index: u32,
     to_node_index: u32,
     label: String,
-    evidence: Vec<GeneratedChapterEvidence>,
+    evidence: Vec<GeneratedVisualEvidence>,
+}
+
+/// New output references the section's validated claim evidence directly.
+/// Legacy quoted proposals remain readable under their original exact checks.
+/// Stored diagrams still contain native anchor IDs, so no saved-format changes.
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(untagged)]
+enum GeneratedVisualEvidence {
+    Reference(GeneratedVisualReference),
+    Quote(GeneratedChapterEvidence),
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct GeneratedVisualReference {
+    claim_index: u32,
+    evidence_index: u32,
 }
 
 pub fn canonicalize_section_update(
@@ -1765,6 +1794,77 @@ pub(crate) mod tests {
     const SIMPLE_FUNCTION: &str =
         "function greeting(name: string): string {\n    return `Hello, ${name}`;\n}";
     pub(crate) const SIMPLE_SOURCE: &str = "// greeting formats UTF-8 text such as café.\nexport function greeting(name: string): string {\n    return `Hello, ${name}`;\n}\n// marker repeats.\n// marker repeats.\nconst overlapping = \"aaaaaaaaa\";\n";
+
+    #[test]
+    fn visual_references_resolve_only_to_validated_section_claim_anchors() {
+        let fixture = Fixture::new();
+        let mut revision = canonicalize_file_chapter(
+            &fixture.manifest.summary.project_id, &fixture.manifest, Some(&fixture.index),
+            SIMPLE_PATH, &fixture.sources(&[SIMPLE_PATH]), &HashSet::new(),
+            &serde_json::to_string(&simple_proposal()).unwrap(),
+        ).unwrap();
+        let proposed: GeneratedVisualProposal = serde_json::from_value(serde_json::json!({
+            "kind":"dataFlow", "title":"Name to greeting", "direction":"leftToRight",
+            "nodes":[
+                {"label":"Name input", "detail":"", "evidence":[{"claimIndex":0,"evidenceIndex":0}]},
+                {"label":"Greeting output", "detail":"", "evidence":[{"claimIndex":0,"evidenceIndex":0}]}
+            ],
+            "edges":[{"fromNodeIndex":0,"toNodeIndex":1,"label":"Formats the name",
+                "evidence":[{"claimIndex":0,"evidenceIndex":0}]}]
+        })).unwrap();
+        let section = &mut revision.sections[0];
+        let anchor = section.claims[0].anchors[0].anchor_id.clone();
+        let visual = canonicalize_visual_proposal(&proposed, &section.claims, &mut section.hotspots).unwrap().unwrap();
+        assert_eq!(visual.nodes[0].evidence_anchor_ids, vec![anchor.clone()]);
+        assert_eq!(visual.edges[0].evidence_anchor_ids, vec![anchor.clone()]);
+        assert!(section.hotspots.iter().all(|hotspot| matches!(
+            &hotspot.destination, HotspotDestination::CodeLens { anchor_id } if anchor_id == &anchor
+        )));
+        section.visual = Some(visual.into());
+        let report = chapters::validate_chapter_revision(&fixture.storage, &fixture.manifest, Some(&fixture.index), &revision);
+        assert_eq!(report.status, ValidationReportStatus::Valid, "{report:#?}");
+    }
+
+    #[test]
+    fn visual_references_reject_missing_claims_evidence_duplicates_and_malformed_indexes() {
+        let fixture = Fixture::new();
+        let revision = canonicalize_file_chapter(
+            &fixture.manifest.summary.project_id, &fixture.manifest, Some(&fixture.index),
+            SIMPLE_PATH, &fixture.sources(&[SIMPLE_PATH]), &HashSet::new(),
+            &serde_json::to_string(&simple_proposal()).unwrap(),
+        ).unwrap();
+        let claims = &revision.sections[0].claims;
+        for value in [serde_json::json!([{"claimIndex":1,"evidenceIndex":0}]),
+            serde_json::json!([{"claimIndex":0,"evidenceIndex":1}]),
+            serde_json::json!([{"claimIndex":0,"evidenceIndex":0},{"claimIndex":0,"evidenceIndex":0}])] {
+            let evidence: Vec<GeneratedVisualEvidence> = serde_json::from_value(value).unwrap();
+            assert!(resolve_visual_evidence(&evidence, claims).is_err());
+        }
+        for value in [serde_json::json!({"claimIndex":-1,"evidenceIndex":0}),
+            serde_json::json!({"claimIndex":"0","evidenceIndex":0}),
+            serde_json::json!({"claimIndex":0,"evidenceIndex":0,"path":"outside.ts"})] {
+            assert!(serde_json::from_value::<GeneratedVisualEvidence>(value).is_err());
+        }
+    }
+
+    #[test]
+    fn legacy_visual_quotes_still_require_an_exact_validated_claim_quote() {
+        let fixture = Fixture::new();
+        let revision = canonicalize_file_chapter(
+            &fixture.manifest.summary.project_id, &fixture.manifest, Some(&fixture.index),
+            SIMPLE_PATH, &fixture.sources(&[SIMPLE_PATH]), &HashSet::new(),
+            &serde_json::to_string(&simple_proposal()).unwrap(),
+        ).unwrap();
+        let claims = &revision.sections[0].claims;
+        let evidence: Vec<GeneratedVisualEvidence> = serde_json::from_value(serde_json::json!([
+            {"path":SIMPLE_PATH,"quote":SIMPLE_FUNCTION}
+        ])).unwrap();
+        assert_eq!(resolve_visual_evidence(&evidence, claims).unwrap(), vec![claims[0].anchors[0].anchor_id.clone()]);
+        let invented: Vec<GeneratedVisualEvidence> = serde_json::from_value(serde_json::json!([
+            {"path":SIMPLE_PATH,"quote":"made up source quote"}
+        ])).unwrap();
+        assert!(resolve_visual_evidence(&invented, claims).is_err());
+    }
     const COMPLEX_SOURCE: &str = "import { normalizeName } from './names';\nexport function parseUser(input: string): string {\n    if (!input.trim()) {\n        throw new Error('user name is empty');\n    }\n    const normalized = normalizeName(input);\n    return normalized.toUpperCase();\n}\n";
     const SUPPORT_SOURCE: &str =
         "export function normalizeName(value: string): string { return value.trim(); }\n";

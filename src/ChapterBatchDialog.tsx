@@ -4,6 +4,7 @@ import {
   cancelCodexChapterRequest, discardGeneratedChapterDraft, discardProviderRequestReview,
   listChapterRevisions, saveGeneratedChapterDraft, sendCodexChapterRequest,
   type ProviderCommandResult,
+  type ChapterRevision,
 } from './lib/commands';
 import { ensureCodexConnection, readCodexSelection } from './lib/connectionStore';
 import { buildCodexPlannedChapterReview, matchesPlannedChapterReview, preparePlannedChapterScope } from './lib/plannedChapters';
@@ -18,8 +19,9 @@ function value<T>(result: ProviderCommandResult<T>): T {
 }
 
 /** One reviewed batch, sequential account usage, independently saved drafts. */
-export function ChapterBatchDialog({ projectId, plan, onClose }: {
+export function ChapterBatchDialog({ projectId, plan, onClose, onReviewChapter }: {
   projectId: string; plan: RepositoryPlanRevisionDetail; onClose: () => void;
+  onReviewChapter: (chapter: ChapterRevision) => void;
 }) {
   const [steps, setSteps] = useState<ReviewedBatchStep[]>([]);
   const [busy, setBusy] = useState(true);
@@ -27,6 +29,7 @@ export function ChapterBatchDialog({ projectId, plan, onClose }: {
   const [done, setDone] = useState(false);
   const [progress, setProgress] = useState('Preparing chapter requests locally…');
   const [states, setStates] = useState<Record<string, string>>({});
+  const [ready, setReady] = useState<Record<string, ChapterRevision>>({});
   const [error, setError] = useState<string | null>(null);
   const dialog = useRef<HTMLElement>(null);
   const mounted = useRef(false);
@@ -53,7 +56,12 @@ export function ChapterBatchDialog({ projectId, plan, onClose }: {
         const scope = await preparePlannedChapterScope(projectId, { revisionId: plan.revision.revisionId,
           recordSha256: plan.plan.recordSha256, stepId: step.stepId });
         if (!current) return;
-        if (chapterForStep(saved, scope, projectId)) { setStates((all) => ({ ...all, [step.stepId]: 'Already saved' })); continue; }
+        const existing = chapterForStep(saved, scope, projectId);
+        if (existing) {
+          setStates((all) => ({ ...all, [step.stepId]: 'Already saved' }));
+          setReady((all) => ({ ...all, [step.stepId]: existing }));
+          continue;
+        }
         const review = value(await buildCodexPlannedChapterReview({ projectId, target: scope.target, ...selection.current, approvalPolicy: 'never' }));
         try {
           if (!current) return;
@@ -93,11 +101,12 @@ export function ChapterBatchDialog({ projectId, plan, onClose }: {
             window.dispatchEvent(new CustomEvent('code-atlas:pending-chapter-previews-changed'));
           }
           if (!mounted.current) return;
+          if (revision) setReady((all) => ({ ...all, [steps[index].scope.target.stepId]: revision }));
           setStates((all) => ({ ...all, [steps[index].scope.target.stepId]: phase === 'generating' ? 'Generating…' : phase === 'saved' ? 'Draft saved' : 'Already saved' }));
           setProgress(`Chapter ${index + 1} of ${steps.length} · ${phase === 'generating' ? 'Codex is explaining the code' : 'Saved locally'}`);
         },
       });
-      if (mounted.current) { setDone(true); setProgress(cancelled.current ? 'Stopped. Completed drafts are saved in Edit.' : 'Chapters are ready for review in Edit.'); }
+      if (mounted.current) { setDone(true); setProgress(cancelled.current ? 'Stopped. Completed drafts are saved.' : 'Chapters are ready. Choose a saved chapter below to review it.'); }
     } catch (failure) {
       if (mounted.current) { setError(errorMessageOr(failure, 'Chapter generation stopped. Saved drafts are preserved.')); setDone(true); }
     } finally { if (mounted.current) { setBusy(false); setRunning(false); } }
@@ -107,7 +116,9 @@ export function ChapterBatchDialog({ projectId, plan, onClose }: {
     <header className="provider-dialog-header"><div><h2 id="batch-title">Build the route’s chapters</h2><p>{plan.revision.title}</p></div><button className="icon-button" aria-label="Close chapter batch" onClick={onClose}><X size={18} /></button></header>
     <div className="provider-dialog-content">
       <p className="discovery-progress" role="status">{busy ? <LoaderCircle size={18} /> : done ? <CheckCircle2 size={18} /> : null}{progress}</p>
-      <ol className="chapter-batch-list">{plan.plan.preview.plan.steps.map((step) => <li key={step.stepId}><span>{step.question}</span><small>{states[step.stepId] ?? 'Ready'}</small></li>)}</ol>
+      <ol className="chapter-batch-list">{plan.plan.preview.plan.steps.map((step) => <li key={step.stepId}><span>{step.question}</span><small>{states[step.stepId] ?? 'Ready'}</small>
+        {!busy && ready[step.stepId] && <button className="secondary-button" onClick={() => { onClose(); onReviewChapter(ready[step.stepId]); }}>Review chapter</button>}
+      </li>)}</ol>
       {!running && !done && steps.length > 0 && <>
         <p>Codex will generate {steps.length} chapters in order using <strong>{selection.current.modelId} · {selection.current.effort}</strong> and your header connection. Each chapter is saved as an unaccepted draft. Existing step chapters are skipped.</p>
         <p className="provider-small-note">Starting shares the reviewed code and prompts with OpenAI through Codex. Account quota applies for each chapter. Closing stops the queue and cancels an active run. A save already in progress can finish.</p>

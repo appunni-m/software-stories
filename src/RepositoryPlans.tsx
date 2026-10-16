@@ -383,6 +383,6 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
     {historyError && <p className="provider-error-text" role="alert">{historyError}</p>}
     {error && <p className="provider-error-text" role="alert">{error}</p>}
     {notice && <p role="status">{notice}</p>}
-    {batchPlan && <ChapterBatchDialog projectId={projectId} plan={batchPlan} onClose={closeBatch} />}
+    {batchPlan && <ChapterBatchDialog projectId={projectId} plan={batchPlan} onClose={closeBatch} onReviewChapter={onReviewChapter} />}
   </section>;
 }
