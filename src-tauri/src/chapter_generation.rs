@@ -1938,7 +1938,21 @@ pub(crate) mod tests {
             assert!(report.issues.is_empty());
             for section in &revision.sections {
                 assert!(section.visual.is_none());
-                assert!(section.hotspots.is_empty());
+                if revision.target.scope == chapters::ChapterTargetScope::Overview {
+                    let cited_paths = section.claims.iter().flat_map(|claim| &claim.anchors)
+                        .map(|anchor| anchor.path.as_str()).collect::<HashSet<_>>();
+                    assert_eq!(section.hotspots.len(), cited_paths.len());
+                    let mut linked_paths = HashSet::new();
+                    for hotspot in &section.hotspots {
+                        let HotspotDestination::AtlasFile { path } = &hotspot.destination else {
+                            panic!("overview source link must open its captured file");
+                        };
+                        assert!(cited_paths.contains(path.as_str()));
+                        assert!(linked_paths.insert(path));
+                    }
+                } else {
+                    assert!(section.hotspots.is_empty());
+                }
                 for claim in &section.claims {
                     assert!(!claim.anchors.is_empty());
                     for anchor in &claim.anchors {
@@ -2342,6 +2356,7 @@ pub(crate) mod tests {
         assert!(
             canonicalize_generated_section(
                 &regenerated,
+                &no_visual_proposal(),
                 "section:test",
                 SIMPLE_PATH,
                 &selected_paths,
@@ -2618,14 +2633,14 @@ pub(crate) mod tests {
             .as_object_mut()
             .unwrap()
             .remove("evidenceLimits");
-        for text in [
-            "not JSON".to_owned(),
-            format!(
+        for (text, expected_error) in [
+            ("not JSON".to_owned(), "not valid JSON"),
+            (format!(
                 "```json\n{}\n```",
                 serde_json::to_string(&proposal).unwrap()
-            ),
-            unknown_field.to_string(),
-            missing_field.to_string(),
+            ), "not valid JSON"),
+            (unknown_field.to_string(), "strict chapter proposal schema"),
+            (missing_field.to_string(), "strict chapter proposal schema"),
         ] {
             let result = canonicalize_file_chapter(
                 &fixture.manifest.summary.project_id,
@@ -2639,7 +2654,7 @@ pub(crate) mod tests {
             assert!(
                 result
                     .unwrap_err()
-                    .contains("strict chapter proposal schema")
+                    .contains(expected_error)
             );
         }
         let mut generic_title = simple_proposal();

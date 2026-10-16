@@ -140,8 +140,8 @@ pub(crate) async fn build_claude_chapter_review(
     reviews: State<'_, provider::PendingProviderReviews>,
     connection_id: String,
     input: provider::BuildClaudeReviewInput,
-) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
-    build_operation_review(
+) -> Result<provider::ProviderCommandResult<provider::ProviderRequestReview>, String> {
+    Ok(build_operation_review(
         app,
         &sessions,
         &connections,
@@ -149,7 +149,7 @@ pub(crate) async fn build_claude_chapter_review(
         connection_id,
         ReviewInput::Chapter(input),
     )
-    .await
+    .await)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -160,8 +160,8 @@ pub(crate) async fn build_claude_planned_chapter_review(
     reviews: State<'_, provider::PendingProviderReviews>,
     connection_id: String,
     input: provider::BuildClaudePlannedChapterInput,
-) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
-    build_operation_review(
+) -> Result<provider::ProviderCommandResult<provider::ProviderRequestReview>, String> {
+    Ok(build_operation_review(
         app,
         &sessions,
         &connections,
@@ -169,7 +169,7 @@ pub(crate) async fn build_claude_planned_chapter_review(
         connection_id,
         ReviewInput::PlannedChapter(input),
     )
-    .await
+    .await)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -180,8 +180,8 @@ pub(crate) async fn build_claude_repository_plan_review(
     reviews: State<'_, provider::PendingProviderReviews>,
     connection_id: String,
     input: provider::BuildClaudeRepositoryPlanInput,
-) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
-    build_operation_review(
+) -> Result<provider::ProviderCommandResult<provider::ProviderRequestReview>, String> {
+    Ok(build_operation_review(
         app,
         &sessions,
         &connections,
@@ -189,7 +189,7 @@ pub(crate) async fn build_claude_repository_plan_review(
         connection_id,
         ReviewInput::RepositoryPlan(input),
     )
-    .await
+    .await)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -200,8 +200,8 @@ pub(crate) async fn build_claude_code_lens_review(
     reviews: State<'_, provider::PendingProviderReviews>,
     connection_id: String,
     input: provider::BuildClaudeCodeLensInput,
-) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
-    build_operation_review(
+) -> Result<provider::ProviderCommandResult<provider::ProviderRequestReview>, String> {
+    Ok(build_operation_review(
         app,
         &sessions,
         &connections,
@@ -209,7 +209,7 @@ pub(crate) async fn build_claude_code_lens_review(
         connection_id,
         ReviewInput::CodeLens(input),
     )
-    .await
+    .await)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -220,8 +220,8 @@ pub(crate) async fn build_claude_pr_guide_review(
     reviews: State<'_, provider::PendingProviderReviews>,
     connection_id: String,
     input: provider::BuildClaudePrGuideInput,
-) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
-    build_operation_review(
+) -> Result<provider::ProviderCommandResult<provider::ProviderRequestReview>, String> {
+    Ok(build_operation_review(
         app,
         &sessions,
         &connections,
@@ -229,7 +229,7 @@ pub(crate) async fn build_claude_pr_guide_review(
         connection_id,
         ReviewInput::PrGuide(input),
     )
-    .await
+    .await)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -240,8 +240,8 @@ pub(crate) async fn build_claude_pr_change_review(
     reviews: State<'_, provider::PendingProviderReviews>,
     connection_id: String,
     input: provider::BuildClaudePrChangeInput,
-) -> provider::ProviderCommandResult<provider::ProviderRequestReview> {
-    build_operation_review(
+) -> Result<provider::ProviderCommandResult<provider::ProviderRequestReview>, String> {
+    Ok(build_operation_review(
         app,
         &sessions,
         &connections,
@@ -249,7 +249,7 @@ pub(crate) async fn build_claude_pr_change_review(
         connection_id,
         ReviewInput::PrChange(input),
     )
-    .await
+    .await)
 }
 
 #[derive(serde::Deserialize)]
@@ -272,7 +272,7 @@ pub(crate) async fn send_claude_chapter_request(
     drafts: State<'_, chapters::PendingChapterDrafts>,
     interruptions: State<'_, recovery::InterruptionJournal>,
     input: SendClaudeRequest,
-) -> provider::ProviderCommandResult<chapters::ChapterDraftPreview> {
+) -> Result<provider::ProviderCommandResult<chapters::ChapterDraftPreview>, String> {
     let runtime = match admit_generation_review(
         &connections,
         &reviews,
@@ -282,9 +282,9 @@ pub(crate) async fn send_claude_chapter_request(
         provider::ClaudeOperation::Chapter,
     ) {
         Ok(runtime) => runtime,
-        Err(error) => return provider::ProviderCommandResult::failed(error),
+        Err(error) => return Ok(provider::ProviderCommandResult::failed(error)),
     };
-    claude_generation::send_chapter(
+    Ok(claude_generation::send_chapter(
         app,
         &sessions,
         &manager,
@@ -297,7 +297,7 @@ pub(crate) async fn send_claude_chapter_request(
         &input.fingerprint,
         input.consent,
     )
-    .await
+    .await)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -309,7 +309,7 @@ pub(crate) async fn send_claude_code_lens_request(
     reviews: State<'_, provider::PendingProviderReviews>,
     interruptions: State<'_, recovery::InterruptionJournal>,
     input: SendClaudeRequest,
-) -> provider::ProviderCommandResult<provider::CodeLensExplanationPreview> {
+) -> Result<provider::ProviderCommandResult<provider::CodeLensExplanationPreview>, String> {
     let runtime = match admit_generation_review(
         &connections,
         &reviews,
@@ -319,9 +319,9 @@ pub(crate) async fn send_claude_code_lens_request(
         provider::ClaudeOperation::CodeLens,
     ) {
         Ok(runtime) => runtime,
-        Err(error) => return provider::ProviderCommandResult::failed(error),
+        Err(error) => return Ok(provider::ProviderCommandResult::failed(error)),
     };
-    claude_generation::send_code_lens(
+    Ok(claude_generation::send_code_lens(
         app,
         &sessions,
         &manager,
@@ -333,7 +333,7 @@ pub(crate) async fn send_claude_code_lens_request(
         &input.fingerprint,
         input.consent,
     )
-    .await
+    .await)
 }
 
 /// No renderer runtime/settings override can enter planning dispatch. Empty
@@ -347,7 +347,7 @@ pub(crate) async fn send_claude_repository_plan_request(
     reviews: State<'_, provider::PendingProviderReviews>,
     interruptions: State<'_, recovery::InterruptionJournal>,
     input: SendClaudeRequest,
-) -> provider::ProviderCommandResult<provider::RepositoryPlanPreview> {
+) -> Result<provider::ProviderCommandResult<provider::RepositoryPlanPreview>, String> {
     let runtime = match admit_generation_review(
         &connections,
         &reviews,
@@ -357,9 +357,9 @@ pub(crate) async fn send_claude_repository_plan_request(
         provider::ClaudeOperation::RepositoryPlan,
     ) {
         Ok(runtime) => runtime,
-        Err(error) => return provider::ProviderCommandResult::failed(error),
+        Err(error) => return Ok(provider::ProviderCommandResult::failed(error)),
     };
-    claude_generation::send_repository_plan(
+    Ok(claude_generation::send_repository_plan(
         app,
         &sessions,
         &manager,
@@ -371,7 +371,7 @@ pub(crate) async fn send_claude_repository_plan_request(
         &input.fingerprint,
         input.consent,
     )
-    .await
+    .await)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -383,7 +383,7 @@ pub(crate) async fn send_claude_pr_guide_request(
     reviews: State<'_, provider::PendingProviderReviews>,
     interruptions: State<'_, recovery::InterruptionJournal>,
     input: SendClaudeRequest,
-) -> provider::ProviderCommandResult<pr_guide::PrGuidePreview> {
+) -> Result<provider::ProviderCommandResult<pr_guide::PrGuidePreview>, String> {
     let runtime = match admit_generation_review(
         &connections,
         &reviews,
@@ -393,9 +393,9 @@ pub(crate) async fn send_claude_pr_guide_request(
         provider::ClaudeOperation::PrGuide,
     ) {
         Ok(runtime) => runtime,
-        Err(error) => return provider::ProviderCommandResult::failed(error),
+        Err(error) => return Ok(provider::ProviderCommandResult::failed(error)),
     };
-    claude_generation::send_pr_guide(
+    Ok(claude_generation::send_pr_guide(
         app,
         &sessions,
         &manager,
@@ -407,7 +407,7 @@ pub(crate) async fn send_claude_pr_guide_request(
         &input.fingerprint,
         input.consent,
     )
-    .await
+    .await)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -419,7 +419,7 @@ pub(crate) async fn send_claude_pr_change_request(
     reviews: State<'_, provider::PendingProviderReviews>,
     interruptions: State<'_, recovery::InterruptionJournal>,
     input: SendClaudeRequest,
-) -> provider::ProviderCommandResult<provider::PrChangeExplanationPreview> {
+) -> Result<provider::ProviderCommandResult<provider::PrChangeExplanationPreview>, String> {
     let runtime = match admit_generation_review(
         &connections,
         &reviews,
@@ -429,9 +429,9 @@ pub(crate) async fn send_claude_pr_change_request(
         provider::ClaudeOperation::PrChange,
     ) {
         Ok(runtime) => runtime,
-        Err(error) => return provider::ProviderCommandResult::failed(error),
+        Err(error) => return Ok(provider::ProviderCommandResult::failed(error)),
     };
-    claude_generation::send_pr_change(
+    Ok(claude_generation::send_pr_change(
         app,
         &sessions,
         &manager,
@@ -443,7 +443,7 @@ pub(crate) async fn send_claude_pr_change_request(
         &input.fingerprint,
         input.consent,
     )
-    .await
+    .await)
 }
 
 fn admit_generation_review(

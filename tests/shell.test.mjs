@@ -93,7 +93,7 @@ describe('desktop shell acceptance contract', () => {
     const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
     assert.match(source, /title: 'Recent projects could not be loaded'[\s\S]*?actionLabel: 'Retry'[\s\S]*?retryRecentProjectsLoad/);
     assert.match(source, /Retry capture/);
-    assert.match(source, /Review a new request/);
+    assert.match(source, /reviewInterruptedGeneration\(operation\);[\s\S]*?>Review interrupted work<\/button>/);
     assert.match(source, /Discard/);
     assert.match(source, /prior consent is not reused/);
   });

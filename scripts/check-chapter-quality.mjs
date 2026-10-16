@@ -181,7 +181,7 @@ function normalizeRole(role) {
 
 async function currentParserLanguages() {
   const inventorySource = await readFile(resolve(root, "src/lib/inventory.ts"), "utf8");
-  const declaration = inventorySource.match(/const parserLanguages = new Set\(\[([\s\S]*?)\]\);/)?.[1];
+  const declaration = inventorySource.match(/const partialStructuralParserLanguages = new Set\(\[([\s\S]*?)\]\);/)?.[1];
   if (!declaration) throw new Error("Could not read the current supported-language set from src/lib/inventory.ts");
   const languages = [...declaration.matchAll(/'((?:\\.|[^'\\])*)'/g)].map((match) => match[1]);
   if (languages.length === 0 || new Set(languages).size !== languages.length) {

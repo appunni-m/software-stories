@@ -451,7 +451,7 @@ pub(crate) async fn send_codex_repository_plan_request(
     reviews: State<'_, provider::PendingProviderReviews>,
     interruptions: State<'_, recovery::InterruptionJournal>,
     input: SendCodexPlanningRequest,
-) -> provider::ProviderCommandResult<provider::RepositoryPlanPreview> {
+) -> Result<provider::ProviderCommandResult<provider::RepositoryPlanPreview>, String> {
     use provider::{ProviderCommandResult as Envelope, ProviderFailureKind as Kind};
     let SendCodexPlanningRequest {
         review_id,
@@ -472,7 +472,7 @@ pub(crate) async fn send_codex_repository_plan_request(
     .await
     {
         Ok(prepared) => prepared,
-        Err(error) => return Envelope::failed(error),
+        Err(error) => return Ok(Envelope::failed(error)),
     };
     let mut owner = CodexCommandOwner {
         manager: manager.inner().clone(),
@@ -509,7 +509,7 @@ pub(crate) async fn send_codex_repository_plan_request(
         )
     }).await;
     owner.armed = false;
-    match run {
+    Ok(match run {
         Ok(Ok(Ok(plan))) => Envelope::ok(plan),
         Ok(Ok(Err(error))) => Envelope::failed(error),
         Ok(Err(message)) => {
@@ -522,7 +522,7 @@ pub(crate) async fn send_codex_repository_plan_request(
                 "The Codex planning worker stopped unexpectedly. Its original question and source selection remain in recovery; restart the app before reviewing another request.",
             )
         }
-    }
+    })
 }
 
 #[tauri::command(rename_all = "camelCase")]

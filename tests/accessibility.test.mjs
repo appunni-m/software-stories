@@ -11,7 +11,7 @@ const surfaces = ['#0b0e12', '#10141a', '#141a21', '#1a222b'];
 const nameableRoles = new Set([
   'alert', 'alertdialog', 'application', 'article', 'button', 'complementary', 'dialog',
   'figure', 'form', 'grid', 'group', 'list', 'listbox', 'main', 'menu', 'navigation',
-  'region', 'row', 'status', 'table', 'tablist', 'tabpanel', 'toolbar', 'tree', 'treegrid',
+  'progressbar', 'region', 'row', 'status', 'table', 'tablist', 'tabpanel', 'toolbar', 'tree', 'treegrid',
   'treeitem',
 ]);
 

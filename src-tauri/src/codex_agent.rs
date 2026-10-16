@@ -34,7 +34,7 @@ const CANCEL_TTL: Duration = Duration::from_secs(15 * 60);
 const MAX_CANCELLED_RUNS: usize = 256;
 const BUSY: &str =
     "Codex is busy with another operation. Wait for it to finish or cancel the active generation.";
-const UPGRADE: &str = "This Codex executable does not expose the required restricted-read, structured-output and ephemeral-thread protocol. Update Codex, then select the updated executable in Settings. Code Atlas will not run with weaker permissions.";
+const UPGRADE: &str = "Code Atlas could not verify the required explanation protocol in this Codex executable. Sign-in and generation have not started. Check compatibility with this adapter before retrying.";
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -986,10 +986,11 @@ impl ServerProcess {
         if started_at.elapsed() >= RUN_TIMEOUT {
             return Err("The Codex operation exceeded ten minutes before creating a thread. No generation was started.".to_owned());
         }
-        let started = self.request("thread/start", json!({
-            "model": input.model, "cwd": stage, "approvalPolicy": "never", "sandbox": "readOnly",
-            "ephemeral": true, "serviceName": "code_atlas", "developerInstructions": input.system_instruction,
-        }), RPC_TIMEOUT)?;
+        let started = self.request(
+            "thread/start",
+            thread_start_parameters(&input.model, stage, &input.system_instruction),
+            RPC_TIMEOUT,
+        )?;
         let thread_id = bounded_string(
             started
                 .get("thread")
@@ -1715,13 +1716,21 @@ fn verify_runtime_protocol(
     drop(registration);
     let mut inspection = SchemaInspection::default();
     inspect_schema_directory(&path, 0, &mut inspection, shutdown, cancelled)?;
-    if !(inspection.restricted_access
-        && inspection.read_only_access
-        && inspection.turn_output
-        && inspection.thread_ephemeral
-        && inspection.thread_instructions)
-    {
-        return Err(UPGRADE.to_owned());
+    let missing = [
+        (!inspection.restricted_access, "restricted read roots"),
+        (!inspection.read_only_access, "read-only access controls"),
+        (!inspection.turn_output, "structured turn output"),
+        (!inspection.thread_ephemeral, "ephemeral threads"),
+        (!inspection.thread_instructions, "thread instructions"),
+    ]
+    .into_iter()
+    .filter_map(|(missing, capability)| missing.then_some(capability))
+    .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        return Err(format!(
+            "Code Atlas requires protocol capabilities this Codex executable's published schema does not expose: {}. Sign-in and generation have not started. This adapter needs a compatible runtime integration before it can connect.",
+            missing.join(", ")
+        ));
     }
     Ok(())
 }
@@ -1779,6 +1788,15 @@ fn inspect_schema_directory(
         }
     }
     Ok(())
+}
+
+fn thread_start_parameters(model: &str, stage: &Path, instructions: &str) -> Value {
+    // ThreadStartParams uses kebab-case SandboxMode; TurnStartParams uses
+    // camelCase SandboxPolicy. They are different protocol types.
+    json!({
+        "model": model, "cwd": stage, "approvalPolicy": "never", "sandbox": "read-only",
+        "ephemeral": true, "serviceName": "code_atlas", "developerInstructions": instructions,
+    })
 }
 
 fn inspect_schema_value(value: &Value, inspection: &mut SchemaInspection) {
@@ -2019,4 +2037,45 @@ fn hex_digest(bytes: &[u8]) -> String {
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn thread_start_uses_sandbox_mode_spelling_and_preserves_reviewed_settings() {
+        let parameters = thread_start_parameters(
+            "gpt-6-luna",
+            Path::new("/synthetic/stage"),
+            "Use the reviewed evidence only.",
+        );
+        assert_eq!(parameters["sandbox"], "read-only");
+        assert_eq!(parameters["approvalPolicy"], "never");
+        assert_eq!(parameters["ephemeral"], true);
+        assert_eq!(parameters["model"], "gpt-6-luna");
+        assert_eq!(parameters["cwd"], "/synthetic/stage");
+        assert_eq!(parameters["developerInstructions"], "Use the reviewed evidence only.");
+    }
+
+    #[test]
+    fn ordinary_read_only_schema_does_not_qualify_restricted_reads() {
+        let mut inspection = SchemaInspection::default();
+        inspect_schema_value(&json!({
+            "properties": {
+                "type": {"enum": ["readOnly"]},
+                "networkAccess": {"type": "boolean"}
+            }
+        }), &mut inspection);
+        assert!(!inspection.read_only_access);
+        assert!(!inspection.restricted_access);
+        inspect_schema_value(&json!({
+            "oneOf": [
+                {"properties": {"type": {"enum": ["readOnly"]}, "access": {}}},
+                {"properties": {"type": {"enum": ["restricted"]}, "readableRoots": {}, "includePlatformDefaults": {}}}
+            ]
+        }), &mut inspection);
+        assert!(inspection.read_only_access);
+        assert!(inspection.restricted_access);
+    }
 }

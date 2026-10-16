@@ -1,5 +1,7 @@
 # Generate explanations with a coding agent
 
+> **Current sequencing — October 16:** Codex is the immediate delivery and validation target. The user deferred Claude to `8gqw` (priority 2); it no longer blocks the current Codex gate `2r6n`. The complete multi-backend milestone retains Claude and Antigravity requirements. Building/tests and a small synthetic Codex account generation are authorized. Historical source-only statements below describe earlier checkpoints. [Executed validation](acceptance/2026-10-16-codex-validation.md) identifies the correct desktop executable, successful synthetic account baseline and the remaining in-app protocol blocker.
+
 Coding agents are primary generation options. Direct API keys are optional. The following paths are implemented in source and still need native runtime acceptance; this page does not certify a production release.
 
 **Automatic multi-agent generation is incomplete:** Codex has automatic dispatch in source; Claude Agent dispatch remains unavailable behind runtime qualification, and Antigravity has no automatic route. The [required operation matrix](AGENT_OPERATION_PARITY.md) records the exact gaps and implementation order. Manual handoffs below do not meet that requirement.
@@ -86,4 +88,4 @@ This manual path needs no API credential in Code Atlas. Your external agent's no
 
 ## Required automatic agent support
 
-Automatic Codex and Claude Agent flows are release requirements, including supported model/reasoning/approval controls, progress, cancellation, recovery and operation coverage. A manual handoff does not complete that requirement. See [the precise agent-first gate](kata-tasks/45-agent-first-generation.md), [the runtime tasks](kata-tasks/29-agent-runtime-backends.md) and [dated integration research](research/2026-10-15-agent-backends.md).
+Codex is the current delivery gate, including supported model/reasoning/approval controls, progress, cancellation, recovery and operation coverage. Claude is deferred to later work and remains required for complete multi-backend M7. A manual handoff does not complete that requirement. See [the precise agent-first gate](kata-tasks/45-agent-first-generation.md), [the runtime tasks](kata-tasks/29-agent-runtime-backends.md) and [dated integration research](research/2026-10-15-agent-backends.md).

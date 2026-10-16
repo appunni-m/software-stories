@@ -4,8 +4,12 @@ key: m7
 title: M7 — Selectable AI backends
 priority: 0
 labels: phase-7, ai, providers, agents
-blocked_by: m6, agent-first-generation, antigravity-agent-backend
+blocked_by: m6, agent-first-generation, antigravity-agent-backend, claude-agent-backend
 ---
+
+## Current sequencing — 2026-10-16
+
+The immediate milestone is the Codex gate `2r6n`. Claude `8gqw` is deferred by the user and retained as a direct dependency of this full multi-backend milestone, alongside Antigravity. A working Codex route does not close all of M7.
 
 ## User outcome
 The user can choose the AI integration that fits the work: a direct model API for bounded text-generation requests, a coding-agent runtime for multi-step investigation, or a modality-specific backend for speech. Google Gemini is one provider choice, not the only AI path. The catalog can grow through verified adapters to established providers and agent runtimes.

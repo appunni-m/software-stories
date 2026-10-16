@@ -1,0 +1,28 @@
+{
+  "runtime": "0.162.0-alpha.17.2",
+  "model": "gpt-6-luna",
+  "effort": "max",
+  "auth": "chatgpt",
+  "turnStatus": "completed",
+  "source": "cart.ts",
+  "sourceQuotesValidated": true,
+  "sourceUnchanged": true,
+  "scope": "Direct official app-server baseline; not Code Atlas adapter acceptance",
+  "result": {
+    "title": "Synthetic cart total calculations",
+    "summary": "The module sums validated prices for the subtotal, then applies a validated tax rate to that subtotal.",
+    "functions": [
+      {
+        "name": "subtotal",
+        "explanation": "Rejects any price that is non-finite or negative with a RangeError. Otherwise, sums all prices, starting from zero.",
+        "quote": "if (prices.some((price) => !Number.isFinite(price) || price < 0)) {\n    throw new RangeError(\"Prices must be finite and non-negative\");\n  }\n  return prices.reduce((total, price) => total + price, 0);"
+      },
+      {
+        "name": "totalWithTax",
+        "explanation": "Rejects a non-finite or negative tax rate with a RangeError. If valid, calls subtotal(prices) and multiplies the result by 1 + taxRate.",
+        "quote": "if (!Number.isFinite(taxRate) || taxRate < 0) {\n    throw new RangeError(\"Tax rate must be finite and non-negative\");\n  }\n  return subtotal(prices) * (1 + taxRate);"
+      }
+    ]
+  },
+  "sourceSha256": "bd1859f143bc0f6eb5858ea58da490c7844b91602b5ca19e614e1d46c8f2680a"
+}

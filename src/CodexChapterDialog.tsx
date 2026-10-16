@@ -1,3 +1,4 @@
+import { errorMessageOr } from './lib/errorMessage';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { Check, FileCode2, HardDrive, Sparkles, X } from 'lucide-react';
@@ -348,7 +349,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
       setLogin(value);
       setModels([]);
       setNote('Codex opened sign-in in your browser. Complete ChatGPT sign-in, then select Refresh account. Use the link below if the browser did not open.');
-    } catch { if (lifetime.current === epoch) setError('Codex could not start sign-in. Check the executable path and update Codex if needed. This adapter requires the restricted app-server protocol.'); }
+    } catch (error) { if (lifetime.current === epoch) setError(errorMessageOr(error, 'Codex could not start sign-in. Check the selected executable and connection.')); }
     finally { finish(epoch); }
   };
 

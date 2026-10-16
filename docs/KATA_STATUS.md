@@ -1,10 +1,10 @@
 # Kata delivery status snapshot
 
-Project: **code-atlas-rebuild**. Recorded October 16, 2026, after source checkpoint `b91ae79`.
+Project: **code-atlas-rebuild**. Recorded October 16, 2026, during [Codex validation](acceptance/2026-10-16-codex-validation.md).
 
 **54 tasks: 33 open, 21 closed.** Every task title maps to exactly one checked-in definition. This is a dated Kata status snapshot; a closed historical task does not prove that the current app, new schema or agent runtime passed acceptance. No task was closed by this audit.
 
-The full requested scope remains in [the backlog](KATA_BACKLOG.md). Automatic Codex and Claude generation is the first delivery gate; APIs and manual handoffs cannot substitute. Claude remains unavailable behind an empty native qualification registry. Current source changes are unbuilt/unexecuted; validation authorization, applicable agent/account/runtime evidence and release credentials remain unresolved.
+The full requested scope remains in [the backlog](KATA_BACKLOG.md). Codex is the first delivery gate; APIs and manual handoffs cannot substitute. The user deferred Claude, which remains unavailable behind an empty qualification registry and still gates full M7. Building/testing and a small synthetic Codex account validation were authorized on October 16; dated results are recorded in the validation task. Complete operation/runtime and distribution evidence remains pending.
 
 ## All tasks
 
@@ -12,12 +12,12 @@ Open blockers are recorded dependency edges, not a complete list of human/vendor
 
 | Ref | Kata status | Task definition | Open recorded prerequisites |
 |---|---|---|---|
-| `2r6n` | open | [Make Codex and Claude Agent complete generation choices without mandatory API keys](kata-tasks/45-agent-first-generation.md) | `z3an`, `8gqw` |
+| `2r6n` | open | [Make Codex a complete generation choice without mandatory API keys](kata-tasks/45-agent-first-generation.md) | `z3an` |
 | `6qk9` | open | [Build coherent repository narratives with file-level drill-down](kata-tasks/38-repository-narratives.md) | — |
 | `8bw6` | open | [Define versioned chapter, section, claim, anchor, and hotspot records](kata-tasks/11-chapter-schema.md) | — |
 | `8gqw` | open | [Implement automatic Claude Agent generation across required operations](kata-tasks/41-claude-agent-backend.md) | — |
 | `j53m` | open | [Generate source-grounded visual explanations from real chapters](kata-tasks/37-generated-visuals.md) | — |
-| `mfz2` | open | [M7 — Selectable AI backends](kata-tasks/phase-7.md) | `hsn3`, `m00g`, `2r6n` |
+| `mfz2` | open | [M7 — Selectable AI backends](kata-tasks/phase-7.md) | `hsn3`, `m00g`, `2r6n`, `8gqw` |
 | `tbsh` | open | [Edit or regenerate one selected stale section and reuse unaffected assets](kata-tasks/20-selective-section-update.md) | `70x5` |
 | `tpta` | open | [Add selectable read-only coding-agent backends](kata-tasks/29-agent-runtime-backends.md) | — |
 | `z3an` | open | [Implement Codex app-server chapter generation with account sign-in](kata-tasks/40-codex-account-backend.md) | — |

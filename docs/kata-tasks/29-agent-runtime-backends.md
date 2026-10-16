@@ -7,6 +7,10 @@ priority: 0
 labels: phase-7, agents, provider, safety
 ---
 
+## Current sequencing — 2026-10-16
+
+Deliver and validate Codex (`z3an`, `2r6n`) first. The user deferred Claude (`8gqw`) to later work; it no longer blocks the current Codex gate. Full multi-backend completion still requires the separately tracked Claude and Antigravity work. Building/testing and a small synthetic account-backed Codex validation are now authorized.
+
 ## User outcome
 The user can choose a supported coding-agent backend—such as Codex, Claude Code, Gemini CLI, or Google Antigravity—to investigate a repository snapshot and produce a source-grounded draft, while Code Atlas keeps the working copy and the user in control. The catalog is extensible, but it lists a runtime only after the exact supported integration surface and safety boundary are verified.
 

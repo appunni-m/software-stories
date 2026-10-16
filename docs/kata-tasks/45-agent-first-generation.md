@@ -2,61 +2,60 @@
 kind: task
 key: agent-first-generation
 parent: t29
-title: Make Codex and Claude Agent complete generation choices without mandatory API keys
+title: Make Codex a complete generation choice without mandatory API keys
 priority: 0
 labels: agents, product-quality, release-gate
-blocked_by: codex-account-backend, claude-agent-backend
+blocked_by: codex-account-backend
 ---
 
+### Final automated validation — 2026-10-16
+
+`npm run check` passed: offline corpus validation, 98 frontend tests, production frontend build, 181 Rust tests (one ignored) and Cargo check. Two focused Codex protocol regressions are included. Eight native dead-code warnings and the frontend bundle-size warning remain. The official desktop Codex completed one synthetic GPT-6 Luna/max ChatGPT-account turn with locally checked exact quotes; this is a separate protocol/account baseline. The in-app connection is still blocked before source sending by the unsupported restricted-read schema requirement. Native full-operation, cancellation/recovery, accessibility, TTS/quality and release gates remain pending; no task is closed by this run.
+
+## Executed Codex validation — 2026-10-16
+
+The user authorized builds/tests and a synthetic installed-account generation. See [the dated evidence](../acceptance/2026-10-16-codex-validation.md) and [synthetic result](../../benchmarks/codex-account-smoke/2026-10-16-result.json). The correct desktop-bundled Codex `0.162.0-alpha.17.2` advertises and completed `gpt-6-luna` / `max` using ChatGPT account authentication, with exact synthetic quote/source checks. The first PATH executable was an older `0.149.1`; no model substitution was used.
+
+Packaged app reproduction captured/opened the synthetic source and saved the correct desktop executable. In-app Connect rejects the runtime before login because its published stable/experimental schema lacks the adapter's required restricted-read controls. The separate successful ordinary-read-only synthetic baseline is not app chapter/permission/operation acceptance. Fixed the independently reproduced ThreadStartParams sandbox spelling and hidden native connection error; the gate remains in place.
+
+**Next priority-0 work:** reconcile supported runtime protocol and an enforced reviewed-source boundary, improve installed executable discovery, then complete native exact review/consent, generation/validation, unaccepted save, cancellation/recovery and remaining operation coverage. Keep this task open. Claude is deferred separately in `8gqw`.
+
+## Current delivery decision — 2026-10-16
+
+The user explicitly deferred Claude and chose Codex for the current milestone. This task now gates a complete automatic Codex flow without a mandatory direct API key. Claude remains open in `8gqw` at priority 2 and is retained as a dependency of the full multi-backend milestone `mfz2`; it no longer blocks this Codex gate. Antigravity remains later work in `m00g`.
+
+The user authorized building, testing and one small synthetic validation through the installed Codex account on October 16. This supersedes the earlier no-testing instruction for this work. Use GPT-6 Luna with max reasoning only if advertised and available; do not silently substitute another model or direct API route. Account login can still require the human in the system browser.
+
 ## User outcome
-**Priority decision:** automatic Codex and Claude Agent generation is a prerequisite for this product. Complete their app flows before further API expansion or visual polish. A settings screen, connection check, offline preview, manual handoff or disabled option cannot count as delivery. The user must be able to choose either installed agent and finish the explanation in the app without configuring a direct API key.
 
-
-A user who already uses Codex or Claude Code can explain a repository from inside Code Atlas through a supported agent integration. A direct API key is optional. Agent support is a release requirement and must be delivered before visual polish or narrative quality is described as a complete product experience.
-
-## Concrete current gaps — 2026-10-15
-
-- A remembered direct API preference previously bypassed the backend chooser, hiding agent alternatives. The source now opens the chooser for generation and lets Codex return to it using Change backend.
-- Codex has source wiring for file chapters, selected-source overviews, one-section stale repairs and exact Code Lens selections, but no accepted pinned-runtime/native workflow evidence. PR Guide and hunk operations are now wired in source through a Codex-first backend chooser, shared immutable Git context/revalidation and the existing validators. Guides remain separate unaccepted drafts; hunk explanations stay transient. Newer Codex range/Git notices now have exact scope recovery in source; legacy records require explicit reselection. Native runtime/recovery acceptance remains pending. Code Lens uses the shared immutable range builder and exact citation validator, returns only a transient explanation, and requires deliberate source reselection after interruption. Section repair freezes declared source, binds base/section revision identity in review, and shares the existing independent preservation/citation validator; native execution and lifecycle evidence are still required.
-- Claude Agent has protocol/review helpers, an unqualified process supervisor and an explicit native installation/account-metadata check with setup UI in source. That check sends no prompt and always leaves generation unavailable. An advanced native SDK catalog check and metadata UI are now wired in source; qualified discovery, account/runtime qualification and automatic generation remains unavailable behind the empty release registry; app generation controls have source wiring but no runtime acceptance. A manual Claude Code task handoff exists: review bounded immutable source, copy the task, operate the agent independently, import its complete JSON, validate locally, then explicitly save an unaccepted draft. Neither the metadata check nor this manual transport satisfies automatic Claude integration.
-- Antigravity and other agents can use that same manual text exchange. Their account/runtime integrations remain unimplemented or unqualified. A handoff does not prove which agent/model ran or enforce its permissions, cost, progress or cancellation.
-- UI entries, API provider choices, manual handoffs and this source implementation do not satisfy integrated multi-agent acceptance.
-- Repository planning now has a shared native bounded context/schema, registered Codex/Claude planning reviews, full-contract rebuild helpers and local evidence/result validation, described in the [planning contract](../REPOSITORY_PLANNING.md). Native plan senders now use both agents' existing lifecycles, active result validation and retained exact interruption scope; Claude is still qualification-gated. Both native senders now save unaccepted local plan drafts with strict replay on load, but the app now has planning/review callers for both agents; accepted plan history and native workflow acceptance remain pending. Native request reviews, static reading order and overview results cannot complete this required operation. Wrong direct API commands now reject backend/purpose mismatches before deleting an agent review or loading credentials; native acceptance remains pending.
-
-Codex section repair now has scope-aware interruption recovery in source: the journal retains provider, purpose, selected paths and exact section revision metadata. It reopens the original Codex operation with a fresh review rather than widening to a file chapter. Legacy/range/PR records missing full evidence identity require reselection. Runtime thread resume and native lifecycle/recovery acceptance remain pending. Newer Codex range/Git scope restoration is described below.
-
-Claude catalog groundwork now also uses the maintained SDK's public model/init contract, an independent native normalizer and a bounded native SDK discovery worker; the inspected candidate artifact is `0.3.300` paired with CLI `2.1.300`. It resolves aliases to full selectors and preserves per-model effort limits without a direct API dependency. The source supervisor checks SDK/executable identities and reported account metadata, stages verified scripts, bounds raw pipes and requires host/child completion. A registered app command and advanced catalog UI now call it using explicitly selected installation paths and native-derived identities. The SDK/host runtime is not packaged or qualified, and this metadata check does not enable generation. An internal native chapter pipeline now connects review consumption, worker execution and shared draft validation, with reported-account pre/post checks and locked preflight revalidation. It now has five registered native send commands (including repository planning) and a release-owned admission factory, but the profile registry is empty and app generation controls now have source wiring but no runtime acceptance; every Claude automatic operation remains **Missing** in the matrix.
+Choose Codex, configure its supported model/reasoning settings, review the exact captured source, generate, inspect grounded claims/visuals and save an unaccepted draft inside Code Atlas. No API key, manual prompt exchange or fallback is required. Existing accepted chapters remain intact.
 
 ## Required product flow
 
-The [required operation matrix and user flow](../AGENT_OPERATION_PARITY.md) define exact coverage. File chapters, selected-source overviews, one-section repair, source-range explanation, PR Guides and single-hunk explanations must each work through both Codex and Claude Agent. Agent-backed repository planning is required alongside the future AI narrative planner. An API implementation cannot satisfy an agent cell; the static reading planner cannot satisfy AI narrative planning. Exact current gaps and source reuse points are recorded there.
-
-1. From Explain file, Create repository tour, journey step, Regenerate section, Explain selection, or Explain PR, choose Coding agent or Direct API. Never require an API credential before the agent choice.
-2. Choose Codex or Claude Agent. Show installation, connection and supported-operation status with one concrete recovery action. Evaluate Antigravity separately; clearly explain an unavailable operation.
-3. Configure supported model, reasoning and action-approval settings per agent. Remember non-secret defaults, allow deliberate run overrides and display actual effective settings. Unsupported settings are unavailable. A manual handoff delegates configuration to the agent and cannot claim these controls.
-4. Review the exact immutable context and settings, then explicitly start. Context consent is separate from action approvals. Use maintained official app-server/SDK/ACP surfaces appropriate to each vendor; do not reimplement an agent loop or credential system.
-5. Observe progress, handle any supported in-scope approval, cancel, recover from failure and review the resulting explanation. A rejected, crashed, expired or cancelled operation preserves accepted history and never falls back to a direct API.
-6. Validate returned claims and visuals against local evidence. Save an unaccepted draft, then explicitly accept it. Keep the selected agent in the operation/recovery metadata; label any unverified provenance accurately.
+1. Open a captured file, repository selection, accepted learning-plan step, section repair, code selection or Git-change scope; select Codex without an API setup gate.
+2. Select an installed official Codex executable, connect through its supported ChatGPT account route and show one concrete recovery action for setup failures.
+3. List supported models/reasoning from that runtime. Display effective settings in the request review. Approval stays fixed to `never` for the read-only explanation boundary; unsupported settings are unavailable.
+4. Review immutable source, learning question and settings, then explicitly start. Show progress and cancellation. Backend/source/settings/account changes invalidate the review and consent.
+5. Independently validate claims, citations and visuals; save a separate unaccepted draft, then allow deliberate acceptance. Failure/cancellation never switches backend or overwrites accepted history.
+6. Recover exact interrupted scope and pending previews without widening the request or automatically generating again.
 
 ## Acceptance checklist
 
-- [ ] With no direct API credentials configured, open the same captured file, generate and save an unaccepted chapter through Codex, then deliberately choose Claude Agent and generate and save a separate chapter through the installed Claude Code-powered runtime. Both runs stay inside the app with their own supported settings, progress, cancellation and recovery. A Google/API setup prompt, manual prompt/result exchange or disabled Claude action fails this demonstration.
-- [ ] Codex and Claude Agent each complete a real native file chapter and selected-source overview without requiring a direct API key in Code Atlas, through a documented permitted account route.
-- [ ] Every required Codex/Claude pair in the linked operation matrix has automatic dispatch and dated acceptance evidence, including file, overview, section, range and both PR operations. Repository planning receives both agents when that feature is implemented. No direct API credential is a prerequisite; unsupported pairs cannot silently route to an API.
-- [ ] Per-agent model/reasoning/approval defaults and overrides reach the runtime and appear in the review. Unsupported controls cannot be selected or silently ignored.
-- [ ] Connection, quota, expired login, unavailable model, runtime crash, invalid evidence, cancellation and interrupted-save recovery remain on the chosen backend and preserve history.
-- [ ] Exact supported versions, distribution/account eligibility, immutable source scope and runtime permission boundaries have recorded acceptance evidence.
-- [ ] The native interface keeps agent choices visible without an API setup gate; backend switching invalidates reviews/consent and handles unsaved previews explicitly.
-- [ ] Manual handoff separately handles malformed/oversized/cross-task output, changed/expired source, repeated import, failed save, clipboard refusal and restart. It stays labeled manual with unverified runtime settings/provenance.
-- [ ] A real user completes the integrated Codex and Claude flows without developer intervention. Manual copy/import, a disabled option or another vendor's API cannot close this requirement.
+- [ ] App production build and relevant frontend/native tests pass with dated command/results.
+- [ ] A small synthetic file chapter completes through the installed Codex account without a direct API key; record runtime, model, reasoning and source/result evidence without credentials.
+- [ ] Selectable model/reasoning settings reach the runtime and original-generation record; unsupported choices fail explicitly.
+- [ ] File, overview, section, range, planned chapter, bounded repository plan, PR Guide and single-hunk routes have dated native evidence before their matrix cells are promoted to supported.
+- [ ] Cancellation, expired login, unavailable model, quota/runtime/validation failures and interrupted-save recovery preserve source scope and accepted history.
+- [ ] Runtime permission/account/packaging qualification and native usability evidence are recorded. A successful small synthetic run alone cannot close the entire gate.
+- [ ] A real user can complete the Codex flow without developer intervention.
 
-## Owning tasks and order
+## Owning tasks and evidence
 
-Codex: `z3an`; automatic Claude Agent: `8gqw`; Antigravity: `m00g`; parent: `tpta`; backend release milestone: `mfz2`. Work on Codex and Claude integration before further visual/narrative polish. Account eligibility must be resolved honestly; if either required integration remains blocked, keep this task and the backend milestone open.
+Codex: `z3an`; current UX gate: `2r6n`; validation: `xymb`; parent: `tpta`. Full backend milestone: `mfz2`, with deferred Claude `8gqw` and Antigravity `m00g` retained. The [operation matrix](../AGENT_OPERATION_PARITY.md) distinguishes source implementation from actual acceptance. Keep tasks open until their own acceptance is met.
 
-## Done evidence
+## Historical implementation notes
 
-Record the exact commit, native package/runtime versions, permitted account routes, operation/configuration matrix, real generation/cancel/recovery results and user workflow review. No tests, builds, logins or runtime requests were executed during this source implementation. All acceptance remains pending.
+The earlier joint Codex/Claude sequencing below is superseded by the current decision above. Historical no-test/source-only statements describe those checkpoints; they do not prohibit the newly authorized validation. Deferred Claude work remains unqualified behind its empty runtime registry.
 
 ### Native review ownership delta
 

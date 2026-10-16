@@ -1,6 +1,8 @@
 # Required agent generation coverage
 
-This is the implementation contract for multi-agent generation, reviewed October 16, 2026. It describes required behavior and current source gaps. No agent/backend pair has completed native acceptance for this implementation.
+> **Current sequencing — October 16:** Codex is the immediate delivery and validation target. The user deferred Claude to `8gqw` (priority 2); it no longer blocks the current Codex gate `2r6n`. The complete multi-backend milestone retains Claude and Antigravity requirements. Building/tests and a small synthetic Codex account generation are authorized. Historical source-only statements below describe earlier checkpoints.
+
+This is the implementation contract for multi-agent generation, reviewed October 16, 2026. It describes required behavior and current source gaps. No agent/backend pair has completed native acceptance for this implementation. The separate GPT-6 Luna/max account baseline passed; the app connection still fails its protocol gate. See [executed validation](acceptance/2026-10-16-codex-validation.md).
 
 ## Product requirement
 
@@ -66,9 +68,9 @@ Keep operation context and validation independent of transport. Extend the exist
 
 ## Implementation order and owners
 
-1. **Automatic Claude Agent (`8gqw`, priority 0):** implement the maintained SDK/CLI adapter, effective settings, managed lifecycle and shared file/overview validation. Resolve the exact product/account eligibility in the same task; do not replace it with an API requirement or call manual handoff complete. Current official pages disagree on third-party subscription integration, so account-route qualification remains open. See [the recorded sources and decision](kata-tasks/41-claude-agent-backend.md).
-2. **Codex completion (`z3an`, priority 0):** qualify the implemented chapter, section, range and Git-change routes and qualify scope-preserving recovery. Retain exact section identity and preservation semantics.
-3. **Coverage and UX gate (`2r6n`, priority 0):** require both agents for every required row above, real effective controls, cancellation and scope-preserving recovery. Update this matrix with exact runtime/adapter versions and dated acceptance evidence before promoting any cell to supported.
+1. **Codex completion (`z3an`, priority 0):** qualify the implemented chapter, overview, section, range, planning and Git-change routes and exact-scope recovery. Preserve section identity and untouched content.
+2. **Current Codex coverage and UX gate (`2r6n`, priority 0):** require effective supported controls, cancellation and recovery for the Codex operations above. Record exact runtime/adapter versions and dated acceptance before promoting a matrix cell.
+3. **Deferred Claude Agent (`8gqw`, priority 2):** implement and qualify the maintained SDK/CLI adapter, settings, lifecycle, account route and all required operations in later work. A manual handoff or another vendor's API cannot close that task. See [the deferred scope](kata-tasks/41-claude-agent-backend.md).
 4. **Antigravity (`m00g`):** qualify its supported integration and account route independently. An unresolved requested backend keeps M7 open.
 
 Codex range dispatch now shares immutable range context with direct APIs and uses the existing managed runtime and independent citation validator. It stages only the excerpt, returns a transient explanation and never prepares a chapter draft. The full captured-file identity remains in the review; staged-content integrity uses the excerpt digest. Native acceptance, runtime qualification and scope-preserving interruption recovery remain pending.

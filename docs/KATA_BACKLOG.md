@@ -5,7 +5,7 @@ Technical plan: [TECHNICAL_PLAN.md](TECHNICAL_PLAN.md). Original inventory gener
 Live-state snapshot: [all 54 tasks and their recorded status](KATA_STATUS.md).
 Kata issue bodies are synchronized from `docs/kata-tasks/*.md`; each issue states its user outcome, interaction contract, acceptance criteria, exclusions, and closure evidence.
 
-**Priority update — 2026-10-15:** [Agent-first generation](kata-tasks/45-agent-first-generation.md), Kata `2r6n`, is priority 0 under `tpta` and blocks `mfz2`. Complete integrated Codex and Claude Agent support without mandatory direct API keys before further visual/narrative polish. Manual agent handoffs are interim and do not satisfy that release gate. See [Agent generation](AGENT_GENERATION.md).
+**Priority update — 2026-10-16:** Deliver Codex first through [agent-first generation](kata-tasks/45-agent-first-generation.md), Kata `2r6n` (priority 0). The user deferred Claude (`8gqw`, priority 2); it no longer blocks the current Codex gate, but remains a direct dependency of full M7. Building, testing and a small synthetic installed-account Codex validation are authorized. Manual handoffs and direct API results cannot qualify Codex. See [Agent generation](AGENT_GENERATION.md).
 
 ## Product contract
 
@@ -59,7 +59,7 @@ Kata issue bodies are synchronized from `docs/kata-tasks/*.md`; each issue state
 | M6 | a9v9 | Generate focused, reviewed explanations for a local change set | wmaj Add optional Gemini with exact-context consent and billing disclosure<br>8bw6 Define versioned chapter, section, claim, anchor, and hotspot records<br>a3xq Generate one substantive, source-grounded chapter per selected file<br>s4df Detect changed evidence and mark only dependent sections stale<br>tbng Build bounded read-only evidence for local Git base and head refs | [27-pr-guide.md](kata-tasks/27-pr-guide.md) |
 | M7 | c8nz | Add selectable direct model API providers | wmaj Add optional Gemini with exact-context consent and billing disclosure<br>a3xq Generate one substantive, source-grounded chapter per selected file<br>bwdx Add an optional repository orientation chapter<br>tbsh Edit or regenerate one selected stale section and reuse unaffected assets<br>a9v9 Generate focused, reviewed explanations for a local change set | [28-model-api-providers.md](kata-tasks/28-model-api-providers.md) |
 | M7 | tpta | Add selectable read-only coding-agent backends | No open dependency edge | [29-agent-runtime-backends.md](kata-tasks/29-agent-runtime-backends.md) |
-| M7 | 2r6n | Make Codex and Claude Agent complete generation choices without mandatory API keys | Blocked by z3an, 8gqw; parent tpta; blocks mfz2 | [45-agent-first-generation.md](kata-tasks/45-agent-first-generation.md) |
+| M7 | 2r6n | Make Codex a complete generation choice without mandatory API keys | Blocked by z3an; parent tpta; blocks mfz2 | [45-agent-first-generation.md](kata-tasks/45-agent-first-generation.md) |
 
 ## Additional design and acceptance tasks
 
@@ -70,7 +70,7 @@ Kata issue bodies are synchronized from `docs/kata-tasks/*.md`; each issue state
 
 ## Current delivery order
 
-1. Complete automatic Codex and Claude Agent generation without mandatory direct API keys, including trusted runtime setup, supported settings, exact review, progress, cancellation, recovery and all required scopes. Keep the agent gate open until real native account/runtime acceptance exists.
+1. Complete automatic Codex generation without mandatory direct API keys, including runtime setup, supported settings, exact review, progress, cancellation and recovery. Build/test and validate a small synthetic case now; qualify each scope separately. Claude is deferred in `8gqw`; full multi-backend completion remains open.
 2. Qualify the shared chapter-version-4, source/citation, history, visual and exact plan-step contracts used by those workflows. Reuse the existing local evidence and validators; older source or suite evidence cannot certify later changes.
 3. Complete substantive file explanations and whole-repository narrative orchestration, with explicit omissions, file drill-down and selective updates. Bounded plans and one generated chapter do not satisfy an entire repository guide.
 4. Qualify manual playback, generated clickable visuals, Pocket narration, selective revision/history and offline export using the required human/native quality evidence.

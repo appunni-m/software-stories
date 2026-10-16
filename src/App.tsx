@@ -3638,7 +3638,7 @@ function FileExplanationPanel({ projectId, snapshotId, selectedPath, onOpenFile,
                   return <article key={section.sectionId}>
                     <h3>{section.title}</h3>
                     <p>{section.prose}</p>
-                    {visibleAnchors.length > 0 && <div className="file-explanation-citations" aria-label={`Evidence for ${section.title}`}>
+                    {visibleAnchors.length > 0 && <div className="file-explanation-citations" role="group" aria-label={`Evidence for ${section.title}`}>
                       {visibleAnchors.map((anchor) => <button key={anchor.anchorId} onClick={() => onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor))}>
                         <FileCode2 size={12} /><span>{anchor.path}:{anchor.startLine}–{anchor.endLine}</span>
                       </button>)}

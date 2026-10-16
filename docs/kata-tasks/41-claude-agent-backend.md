@@ -3,9 +3,13 @@ kind: task
 key: claude-agent-backend
 parent: t29
 title: Implement automatic Claude Agent generation across required operations
-priority: 0
+priority: 2
 labels: agents, provider
 ---
+
+## Deferred sequencing — 2026-10-16
+
+The user chose Codex first and deferred Claude. Keep this task open at priority 2; it no longer blocks `2r6n`. It still gates the complete multi-backend milestone `mfz2`. The empty qualification registry remains in place. No Claude login, runtime generation or qualification is implied by permission to validate Codex.
 
 ## User outcome
 
