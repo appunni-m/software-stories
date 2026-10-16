@@ -318,17 +318,7 @@ fn setup_blocking(runtime: &Path, cancelled: &AtomicBool) -> Result<(), Provider
     let _ = fs::remove_file(runtime.join("ready.json"));
     write_worker(runtime)?;
     set_phase("python");
-    let mut venv = Command::new(&uv);
-    configure_environment(&mut venv, runtime, false);
-    venv.args([
-        "venv",
-        "--clear",
-        "--no-config",
-        "--managed-python",
-        "--python",
-        PYTHON_VERSION,
-    ])
-    .arg(runtime.join("venv"));
+    let mut venv = venv_command(&uv, runtime);
     run_child(
         &mut venv,
         None,
@@ -387,6 +377,17 @@ fn worker_command(runtime: &Path, mode: &str, offline: bool) -> Command {
         .arg(runtime.join("worker.py"))
         .arg(mode)
         .arg(runtime);
+    command
+}
+
+fn venv_command(uv: &Path, runtime: &Path) -> Command {
+    let mut command = Command::new(uv);
+    configure_environment(&mut command, runtime, false);
+    // UV_PYTHON_PREFERENCE=only-managed already enforces a managed interpreter.
+    // uv rejects --managed-python together with that environment setting.
+    command
+        .args(["venv", "--clear", "--no-config", "--python", PYTHON_VERSION])
+        .arg(runtime.join("venv"));
     command
 }
 
@@ -583,4 +584,35 @@ fn cancelled_failure() -> ProviderFailure {
         ProviderFailureKind::RequestCancelled,
         "Pocket TTS was stopped locally. The transcript and prior audio remain available.",
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn streaming_worker_uses_thread_compatible_no_grad_context() {
+        assert!(WORKER.contains("with torch.no_grad(), wave.open("));
+        assert!(!WORKER.contains("torch.inference_mode("));
+    }
+
+    #[test]
+    fn managed_python_setup_uses_one_non_conflicting_preference() {
+        let command = venv_command(Path::new("/test/uv"), Path::new("/test/runtime"));
+        let args: Vec<_> = command.get_args().collect();
+        assert!(!args.contains(&std::ffi::OsStr::new("--managed-python")));
+        assert_eq!(
+            args.last(),
+            Some(&std::ffi::OsStr::new("/test/runtime/venv"))
+        );
+        assert!(command.get_envs().any(|(key, value)| {
+            key == "UV_PYTHON_PREFERENCE" && value == Some(std::ffi::OsStr::new("only-managed"))
+        }));
+        assert!(args.windows(2).any(|pair| {
+            pair == [
+                std::ffi::OsStr::new("--python"),
+                std::ffi::OsStr::new(PYTHON_VERSION),
+            ]
+        }));
+    }
 }

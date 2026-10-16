@@ -1,6 +1,6 @@
 # Codex review account and runtime binding
 
-**Status:** source implementation, unbuilt and unexecuted. This does not qualify a Codex runtime, account route or production workflow. Claude qualification remains a separate open requirement.
+**Status:** built and exercised in the [synthetic native file-chapter flow](acceptance/2026-10-16-codex-validation.md). Account/runtime replacement, refresh, race and adversarial cases below remain unaccepted; one baseline does not qualify production support. Claude remains deferred.
 
 ## User behavior
 
@@ -26,4 +26,4 @@ These observations do not eliminate filesystem replacement races around process 
 
 ## Pending acceptance
 
-Kata `z3an`, `tpta`, `2r6n` and `xymb` retain the actual account/runtime and all-operation gates. Exercise fresh review/send, account refresh/logout/switch, absent metadata, reconnect/restart, executable replacement, model/effort changes, queued notifications, cancellation/deadline, result rejection and interruption recovery on the real packaged app when validation is authorized. No test, build, app launch, CLI/app-server probe, login or model request ran for this source change. Formatting and Git whitespace checks do not prove compilation or behavior.
+Kata `z3an`, `tpta`, `2r6n` and `xymb` retain the actual account/runtime and all-operation gates. Exercise fresh review/send, account refresh/logout/switch, absent metadata, reconnect/restart, executable replacement, model/effort changes, queued notifications, cancellation/deadline, result rejection and interruption recovery on the real packaged app when validation is authorized. Builds, automated checks and one native file-chapter baseline now passed; they do not establish the remaining lifecycle/change cases above.

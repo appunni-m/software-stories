@@ -122,7 +122,9 @@ def synthesize(root):
     destination = root / "active.wav"
     pcm_bytes = 0
     try:
-        with torch.inference_mode(), wave.open(str(destination), "wb") as audio:
+        # Pocket streams through background threads. Inference-mode tensors
+        # cannot be mutated by its no-grad cache workers across that boundary.
+        with torch.no_grad(), wave.open(str(destination), "wb") as audio:
             audio.setnchannels(1)
             audio.setsampwidth(2)
             audio.setframerate(24_000)

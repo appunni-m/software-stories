@@ -1,8 +1,8 @@
 # Generate explanations with a coding agent
 
-> **Current sequencing — October 16:** Codex is the immediate delivery and validation target. The user deferred Claude to `8gqw` (priority 2); it no longer blocks the current Codex gate `2r6n`. The complete multi-backend milestone retains Claude and Antigravity requirements. Building/tests and a small synthetic Codex account generation are authorized. Historical source-only statements below describe earlier checkpoints. [Executed validation](acceptance/2026-10-16-codex-validation.md) identifies the correct desktop executable, successful synthetic account baseline and the remaining in-app protocol blocker.
+> **Current sequencing — October 16:** Codex is the immediate delivery and validation target. The user deferred Claude to `8gqw` (priority 2); it no longer blocks the current Codex gate `2r6n`. The complete multi-backend milestone retains Claude and Antigravity requirements. Building/tests and a small synthetic Codex account generation are authorized. Historical source-only statements below describe earlier checkpoints. [Executed validation](acceptance/2026-10-16-codex-validation.md) identifies the correct desktop executable, successful synthetic account baseline and the native file-flow evidence.
 
-Coding agents are primary generation options. Direct API keys are optional. The following paths are implemented in source and still need native runtime acceptance; this page does not certify a production release.
+Coding agents are primary generation options. Direct API keys are optional. Codex file generation has one synthetic native baseline; the other routes and full runtime acceptance remain open. This page does not certify a production release.
 
 **Automatic multi-agent generation is incomplete:** Codex has automatic dispatch in source; Claude Agent dispatch remains unavailable behind runtime qualification, and Antigravity has no automatic route. The [required operation matrix](AGENT_OPERATION_PARITY.md) records the exact gaps and implementation order. Manual handoffs below do not meet that requirement.
 
@@ -17,12 +17,14 @@ Coding agents are primary generation options. Direct API keys are optional. The 
 ## Codex
 
 1. Capture source, then choose **Explain** on a file or **Create repository tour** from Guide.
-2. Choose **Use Codex**. Use **Choose executable…** or enter its absolute path, then **Save executable**. Connect your account through the native flow. No direct API key is required for this path.
-3. Load its model catalog and select model/reasoning. Catalog membership is not proof of account entitlement or remaining quota.
-4. Select and review the immutable source and effective request. Confirm sharing that context, then generate.
+2. Choose **Use Codex**. The app finds the desktop-bundled Codex before common standalone installations and connects to the account that Codex already manages. If needed, Codex opens browser sign-in. No direct API key is required.
+3. Models load automatically. Saved supported settings are retained; the initial preference is GPT-6 Luna with max reasoning when available. Expand **Model settings** to change them. Catalog membership is not proof of entitlement or remaining quota.
+4. Choose **Continue to source review**, inspect the selected source, confirm sharing it through Codex, then generate.
 5. Review the locally validated preview. **Save unaccepted draft**, then review and accept from the app's editing workflow.
 
 **Change backend** returns to all choices; it discards an unsaved preview. Requests never automatically switch to a paid API. The source adapter covers exact Code Lens selections and Git comparisons/hunks. Its full account, permission, cancellation and packaged-runtime acceptance remains open in `z3an`.
+
+**Advanced · Codex installation** lets you override the discovered executable. Disconnect closes this app’s managed connection; it does not log out your CLI. Code Atlas never reads or copies authentication files. Codex uses its existing credential store. Application settings are process/thread overrides, not edits to your Codex configuration.
 
 The current source binds a request to its running Codex connection, observed ChatGPT account and executable digest. Reconnecting or changing those observations requires a fresh review. This change detection and its limits still need native acceptance; see [Codex review identity](CODEX_REVIEW_IDENTITY.md).
 

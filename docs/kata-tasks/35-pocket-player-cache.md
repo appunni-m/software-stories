@@ -11,6 +11,10 @@ blocked_by: pocket-runtime
 ## User outcome
 The reader can review a section script, generate natural local audio and reuse it without configuring Google.
 
+## Native progress — 2026-10-16
+
+Managed Pocket setup now completed inside the release app. Setup option conflict and streaming-worker context failures were reproduced and fixed; full checks pass (98 frontend, 185 Rust passed, two ignored). Local Play now leads to a simple exact-text review, with editing/audio hashes and runtime metadata collapsed. There is no duplicate local request-review button or Google consent requirement. Packaged playback/cache and human listening acceptance remain separate; keep this task open.
+
 ## Current evidence
 The player, commands, narration review/cache and preference parser now have distinct local Pocket and explicitly selected Gemini paths. This is implemented source awaiting acceptance; the previous Google-only description no longer applies.
 
@@ -27,7 +31,7 @@ Remaining work, with every acceptance criterion still open:
 - [ ] Verify playback/seek/captions and cached transcript matching in the native app, then export and play the selected backend's matching audio while disconnected.
 - [ ] Record a human listening review of real code explanations, identifiers/acronyms, pronunciation substitutions and pacing.
 
-No tests, builds, app launches, synthesis or runtime probes ran for this integration.
+The October 15 implementation was source-only; the October 16 progress above supersedes that historical restriction.
 
 ## Contract
 Add provider-aware narration review/command contracts and select pocket-tts by default. Local setup states are not-installed/downloading/ready/unavailable/generating; explain recovery in product language. Show exact pronunciation-expanded script and deterministic segments before local generation. Remove Gemini key/billing/remote-consent controls from the local flow. Hide unsupported natural-language delivery style instead of silently ignoring it. Keep transcript, pause/resume/replay/seek and deliberate next-section navigation.

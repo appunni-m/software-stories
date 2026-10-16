@@ -1,9 +1,6 @@
 # Pocket TTS runtime
 
-Source review: 2026-10-15. The adapter is implemented in source; setup, synthesis,
-cancellation and packaged behavior have **not been executed or accepted** in this
-change because the user requested code review without testing. Earlier standalone
-CLI samples do not validate this app-managed runtime.
+October 16 native update: the release app completed managed Python/package/model setup and reported **Pocket TTS is ready**. The initial setup failure was reproduced as conflicting uv managed-Python options, then fixed and covered by a regression. A subsequent synthesis failure was traced to inference-mode tensors crossing Pocket’s background cache-worker boundary; synthesis now uses `torch.no_grad()` and the corrected offline worker produced a valid synthetic WAV. The app still requires an installed uv; this was an existing account with that prerequisite, not a clean-account installer qualification. Narration/playback, cancellation, packaging and listening qualification remain separate below. See [dated native evidence](../acceptance/2026-10-16-codex-validation.md).
 
 ## Runtime contract
 

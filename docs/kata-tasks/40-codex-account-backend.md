@@ -7,17 +7,21 @@ priority: 0
 labels: agents, provider
 ---
 
-### Final automated validation — 2026-10-16
+## Current native evidence — 2026-10-16
 
-`npm run check` passed: offline corpus validation, 98 frontend tests, production frontend build, 181 Rust tests (one ignored) and Cargo check. Two focused Codex protocol regressions are included. Eight native dead-code warnings and the frontend bundle-size warning remain. The official desktop Codex completed one synthetic GPT-6 Luna/max ChatGPT-account turn with locally checked exact quotes; this is a separate protocol/account baseline. The in-app connection is still blocked before source sending by the unsupported restricted-read schema requirement. Native full-operation, cancellation/recovery, accessibility, TTS/quality and release gates remain pending; no task is closed by this run.
+The packaged app automatically discovered the existing desktop Codex with no saved executable selection, reused the ChatGPT account and generated a synthetic file chapter using **GPT-6 Luna / max**, with no direct API key. Exact source review and consent preceded generation. A locally validated preview was saved as r1 Draft and explicitly accepted as r2; a citation opened verified source lines and the manually paced reader advanced sections. Named permission profiles replaced unsupported protocol fields without removing source/citation validation. See [dated evidence](../acceptance/2026-10-16-codex-validation.md).
 
-## Executed Codex validation — 2026-10-16
+`npm run check` passed: corpus, 98 frontend tests, 185 Rust tests passed/two ignored, frontend build and Cargo check. The opt-in installed-account metadata test passed separately. Local unsigned packaging and native file flow were exercised. The synthetic permission probe allowed staged reads and denied outside reads/writes; no network probe ran.
 
-The user authorized builds/tests and a synthetic installed-account generation. See [the dated evidence](../acceptance/2026-10-16-codex-validation.md) and [synthetic result](../../benchmarks/codex-account-smoke/2026-10-16-result.json). The correct desktop-bundled Codex `0.162.0-alpha.17.2` advertises and completed `gpt-6-luna` / `max` using ChatGPT account authentication, with exact synthetic quote/source checks. The first PATH executable was an older `0.149.1`; no model substitution was used.
+**Still required:** native evidence for every remaining operation; account/runtime/change/cancel/quota/crash/recovery boundaries; bounded repair and actionable diagnostics after invalid chapter output; usable real-repository narratives/visuals; narration, accessibility, clean-account packaging and distribution qualification. One prior native response failed validation; the later success did not prove automatic recovery. Keep this task open. Claude is deferred in `8gqw`.
 
-Packaged app reproduction captured/opened the synthetic source and saved the correct desktop executable. In-app Connect rejects the runtime before login because its published stable/experimental schema lacks the adapter's required restricted-read controls. The separate successful ordinary-read-only synthetic baseline is not app chapter/permission/operation acceptance. Fixed the independently reproduced ThreadStartParams sandbox spelling and hidden native connection error; the gate remains in place.
+## Next reliability requirement: recover an invalid generated chapter
 
-**Next priority-0 work:** reconcile supported runtime protocol and an enforced reviewed-source boundary, improve installed executable discovery, then complete native exact review/consent, generation/validation, unaccepted save, cancellation/recovery and remaining operation coverage. Keep this task open. Claude is deferred separately in `8gqw`.
+- Preserve the original backend, exact reviewed source, model/reasoning, active run owner, consent and overall deadline.
+- On a locally rejected proposal, allow at most one bounded repair with controlled validation diagnostics and the same source scope; include that possible request in the initial review disclosure.
+- Validate the repaired result independently. Never weaken quote/schema checks, switch providers/models, overwrite accepted history or retry after cancel/deadline/account changes.
+- If repair fails, show a plain-language reason and one retry action that obtains a fresh review; preserve source selection and saved work. Store only controlled diagnostic categories, never credentials/private raw responses in logs.
+- Add deterministic malformed/missing/ambiguous-quote fixtures, native cancellation/recovery checks and a real repository run before accepting this requirement.
 
 ## User outcome
 The user connects an eligible ChatGPT account once and generates chapters through Codex without configuring a direct API key for each workflow.
@@ -25,7 +29,9 @@ The user connects an eligible ChatGPT account once and generates chapters throug
 ## Research decision — 2026-10-15
 Use official Codex app-server over Rust-managed stdio. The initial local-app implementation uses the runtime's native managed ChatGPT login. OpenAI's separate direct Sign in with ChatGPT documentation remains relevant to a possible qualified distribution; Code Atlas has not implemented direct client registration, PKCE or token sharing. Establish this project's license, exact account/distribution eligibility and pinned runtime contract. An older installed runtime is not evidence that current app-server lacks required controls.
 
-## Implementation update — 2026-10-15
+## Historical implementation notes — 2026-10-15
+
+The current native evidence above supersedes earlier protocol, setup and no-test statements in this section.
 
 **Installation selection — source only, 2026-10-16:** the setup form now offers a native **Choose executable…** action alongside absolute-path entry. It uses the existing Tauri dialog library through one typed installation-file command and only fills an unsaved field; **Save executable** retains native validation and runtime change/review invalidation. Selection starts no process, account check or model request. Cancel leaves the previous field intact; superseded replies are ignored. Native dialog/accessibility/adapter acceptance remains pending in `xymb`; no tests or builds ran and this task remains open.
 
@@ -39,7 +45,7 @@ Interruption records now retain provider, purpose, selected paths and exact sect
 
 The source also connects **exact Code Lens selections**. The backend chooser keeps Codex available for range requests without an API prerequisite. The existing Codex dialog shows a fixed path/line/optional UTF-8-byte selection, native model/effort controls and a fresh exact review/consent. A shared API/agent range builder performs snapshot, full-file hash, UTF-8 bounds, 32 KiB excerpt and secret-like checks before transport encoding. The Codex review binds the exact target, prompt, schema and effective controls, and revalidation rebuilds that same range. One native execution helper owns the chapter/range lifecycle and refuses cross-operation review IDs. Only the excerpt is staged; its staged-content hash is distinct from the captured-file hash in the review. Returned range claims pass the existing independent exact/unique-quote and identifier validator, open their exact citations, and remain transient. No chapter draft or accepted history is written. Early cancel, stale dialogs and backend switching discard late range responses. Runtime qualification and packaged range acceptance remain pending; interruption recovery still requires deliberate reselection of the original range.
 
-Remaining work, with every acceptance criterion still open:
+Remaining broader qualification work (the current file baseline above is complete):
 
 - [ ] Pin and package a supported runtime/version, record its license/distribution inventory and confirm the exact native-login route is eligible for this app; separately decide whether a direct SIWC client is needed for distribution.
 - [ ] Qualify account availability and model selection independently of the runtime catalog; qualify the native account/runtime review binding now present in source, including expiry, refresh, logout, same-metadata workspaces, executable changes and restart behavior.

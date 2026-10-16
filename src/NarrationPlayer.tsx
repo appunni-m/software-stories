@@ -655,7 +655,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         <a href="https://huggingface.co/kyutai/tts-voices" target="_blank" rel="noreferrer">Voice source and license</a>
       </div>}
 
-      <details className="walkthrough-narration-editor" open>
+      <details className="walkthrough-narration-editor" open={!localNarration}>
         <summary><span>Edit spoken text</span><ChevronDown size={13} /></summary>
         <p>{localNarration ? 'Only this section’s edited script is synthesized locally.' : 'Only this section’s script is sent to Google for narration.'} Source code, file paths, and citations are left out.</p>
         <label className="walkthrough-narration-field">Spoken text
@@ -704,24 +704,27 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       </div>
       {track && !savedAudioMatchesDraft && <p className="walkthrough-narration-prior-audio" role="status">Previous audio is kept for its reviewed transcript. New edits do not change it unless you generate another recording.</p>}
 
-      <div className="walkthrough-narration-review-actions">
+      {!localNarration && <div className="walkthrough-narration-review-actions">
         <button type="button" className="secondary-button" onClick={() => { void makeReview(); }} disabled={reviewBusy || requestBusy || !disclosure || !draft.spokenText.trim() || spokenTextUtf8Bytes > 16000}>
           {reviewBusy ? 'Reviewing locally…' : 'Review exact speech request'}
         </button>
         {review && <span className="walkthrough-narration-fingerprint"><Check size={12} /> Request reviewed · {review.fingerprint.slice(0, 12)}</span>}
-      </div>
+      </div>}
 
       {showReview && review && disclosure && (
         <div className="walkthrough-narration-review" role="group" aria-label="Narration request review">
           <div className="walkthrough-narration-review-title"><div><span>{providerRequestBusy ? (localNarration ? 'GENERATING LOCALLY' : 'CLOUD REQUEST IN PROGRESS') : localNarration ? 'LOCAL SCRIPT REVIEW' : 'LOCAL REVIEW · NO MODEL REQUEST SENT'}</span><strong>{disclosure.modelName}</strong></div><span>{review.cachedAudioAvailable ? 'AUDIO CACHED' : 'NEW AUDIO'}</span></div>
-          <dl>
-            <div><dt>Provider/model</dt><dd>{disclosure.provider} · <code>{review.modelId}</code></dd></div>
-            <div><dt>Voice and style</dt><dd>{review.voice}{review.style ? ` · ${review.style}` : ' · default delivery'}</dd></div>
-            <div><dt>Format</dt><dd>{review.format} · {review.requestSegments.length} {localNarration ? 'local segment' : 'sequential request'}{review.requestSegments.length === 1 ? '' : 's'} for this section</dd></div>
-            <div><dt>Terms version</dt><dd><code>{review.disclosureVersion}</code></dd></div>
-            <div><dt>Text hash</dt><dd><code>{review.spokenTextSha256}</code></dd></div>
-          </dl>
-          <div className="walkthrough-narration-exact-text"><span>FULL EXACT NARRATION TEXT FOR THESE REQUESTS</span><p>{review.exactText}</p></div>
+          <details open={!localNarration}>
+            <summary>Audio details</summary>
+            <dl>
+              <div><dt>Provider/model</dt><dd>{disclosure.provider} · <code>{review.modelId}</code></dd></div>
+              <div><dt>Voice and style</dt><dd>{review.voice}{review.style ? ` · ${review.style}` : ' · default delivery'}</dd></div>
+              <div><dt>Format</dt><dd>{review.format} · {review.requestSegments.length} {localNarration ? 'local segment' : 'sequential request'}{review.requestSegments.length === 1 ? '' : 's'} for this section</dd></div>
+              <div><dt>Terms version</dt><dd><code>{review.disclosureVersion}</code></dd></div>
+              <div><dt>Text hash</dt><dd><code>{review.spokenTextSha256}</code></dd></div>
+            </dl>
+          </details>
+          <div className="walkthrough-narration-exact-text"><span>{localNarration ? 'WHAT YOU WILL HEAR' : 'FULL EXACT NARRATION TEXT FOR THESE REQUESTS'}</span><p>{review.exactText}</p></div>
           {review.requestSegments.length > 1 && <details className="walkthrough-narration-segments">
             <summary>Inspect the {review.requestSegments.length} exact request segments</summary>
             <ol>{review.requestSegments.map((segment, index) => <li key={`${review.reviewId}-${index}`}><span>Request {index + 1}</span><p>{segment}</p></li>)}</ol>

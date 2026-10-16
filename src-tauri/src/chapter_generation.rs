@@ -1757,6 +1757,50 @@ pub(crate) mod tests {
     const CONFIG_SOURCE: &str =
         "[release]\nchannel = \"stable\"\nretry_limit = 3\nartifact_name = \"atlas-desktop\"\n";
 
+    #[test]
+    fn recorded_luna_chapter_validates_without_an_index_and_rejects_invented_quotes() {
+        let mut fixture = Fixture::new();
+        fixture.recapture_with_source(
+            "cart.ts",
+            include_str!("../../benchmarks/codex-account-smoke/cart.ts"),
+        );
+        let response =
+            include_str!("../../benchmarks/codex-account-smoke/2026-10-16-native-proposal.json");
+        let sources = fixture.sources(&["cart.ts"]);
+        let revision = canonicalize_file_chapter(
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest,
+            None,
+            "cart.ts",
+            &sources,
+            &HashSet::new(),
+            response,
+        )
+        .unwrap();
+        let report = chapters::validate_chapter_revision(
+            &fixture.storage,
+            &fixture.manifest,
+            None,
+            &revision,
+        );
+        assert_eq!(report.status, chapters::ValidationReportStatus::Valid);
+        assert_eq!(revision.sections.len(), 3);
+        let mut changed: serde_json::Value = serde_json::from_str(response).unwrap();
+        changed["sections"][0]["claims"][0]["evidence"][0]["quote"] =
+            serde_json::json!("invented source that does not occur");
+        assert!(
+            canonicalize_file_chapter(
+                &fixture.manifest.summary.project_id,
+                &fixture.manifest,
+                None,
+                "cart.ts",
+                &sources,
+                &HashSet::new(),
+                &changed.to_string()
+            )
+            .is_err()
+        );
+    }
     pub(crate) struct Fixture {
         temporary: PathBuf,
         root: PathBuf,

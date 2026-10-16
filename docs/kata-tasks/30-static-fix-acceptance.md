@@ -7,17 +7,13 @@ priority: 1
 labels: reliability, validation
 ---
 
-### Final automated validation — 2026-10-16
+## Current native evidence — 2026-10-16
 
-`npm run check` passed: offline corpus validation, 98 frontend tests, production frontend build, 181 Rust tests (one ignored) and Cargo check. Two focused Codex protocol regressions are included. Eight native dead-code warnings and the frontend bundle-size warning remain. The official desktop Codex completed one synthetic GPT-6 Luna/max ChatGPT-account turn with locally checked exact quotes; this is a separate protocol/account baseline. The in-app connection is still blocked before source sending by the unsupported restricted-read schema requirement. Native full-operation, cancellation/recovery, accessibility, TTS/quality and release gates remain pending; no task is closed by this run.
+The packaged app automatically discovered the existing desktop Codex with no saved executable selection, reused the ChatGPT account and generated a synthetic file chapter using **GPT-6 Luna / max**, with no direct API key. Exact source review and consent preceded generation. A locally validated preview was saved as r1 Draft and explicitly accepted as r2; a citation opened verified source lines and the manually paced reader advanced sections. Named permission profiles replaced unsupported protocol fields without removing source/citation validation. See [dated evidence](../acceptance/2026-10-16-codex-validation.md).
 
-## Executed Codex validation — 2026-10-16
+`npm run check` passed: corpus, 98 frontend tests, 185 Rust tests passed/two ignored, frontend build and Cargo check. The opt-in installed-account metadata test passed separately. Local unsigned packaging and native file flow were exercised. The synthetic permission probe allowed staged reads and denied outside reads/writes; no network probe ran.
 
-The user authorized builds/tests and a synthetic installed-account generation. See [the dated evidence](../acceptance/2026-10-16-codex-validation.md) and [synthetic result](../../benchmarks/codex-account-smoke/2026-10-16-result.json). The correct desktop-bundled Codex `0.162.0-alpha.17.2` advertises and completed `gpt-6-luna` / `max` using ChatGPT account authentication, with exact synthetic quote/source checks. The first PATH executable was an older `0.149.1`; no model substitution was used.
-
-Packaged app reproduction captured/opened the synthetic source and saved the correct desktop executable. In-app Connect rejects the runtime before login because its published stable/experimental schema lacks the adapter's required restricted-read controls. The separate successful ordinary-read-only synthetic baseline is not app chapter/permission/operation acceptance. Fixed the independently reproduced ThreadStartParams sandbox spelling and hidden native connection error; the gate remains in place.
-
-**Next priority-0 work:** reconcile supported runtime protocol and an enforced reviewed-source boundary, improve installed executable discovery, then complete native exact review/consent, generation/validation, unaccepted save, cancellation/recovery and remaining operation coverage. Keep this task open. Claude is deferred separately in `8gqw`.
+**Still required:** native evidence for every remaining operation; account/runtime/change/cancel/quota/crash/recovery boundaries; bounded repair and actionable diagnostics after invalid chapter output; usable real-repository narratives/visuals; narration, accessibility, clean-account packaging and distribution qualification. One prior native response failed validation; the later success did not prove automatic recovery. Keep this task open. Claude is deferred in `8gqw`.
 
 ## Validation authorization — 2026-10-16
 
@@ -27,7 +23,7 @@ The user explicitly authorized building, testing and validating Codex with a sma
 The fixes from the October 15 code review have recorded behavioral evidence before release.
 
 ## Current evidence
-Source inspection and patches only. The user explicitly requested no tests, builds, or runtime probes during this pass. Keep this task open; prior passing runs do not cover these changes.
+The original October 15 pass was source-only. October 16 authorization and executed checks supersede that restriction. The baseline above does not complete the broader cases below; keep this task open.
 
 ## Contract
 Exercise the changed paths below when validation is authorized. Record commit, environment, exact trigger, expected/actual outcome, and evidence. Fix any regression before closing; do not run this acceptance merely because the task was created.
