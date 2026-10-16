@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
+import { readGenerationBackend, rememberGenerationBackend } from './lib/generationPreferences';
 import { CodexChapterDialog } from './CodexChapterDialog';
 import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
@@ -23,7 +24,7 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onRecoveryRes
   onRecoveryResultReady?: (operationId: string) => void;
   onOpenPendingPreview?: (generationId: string) => void;
 }) {
-  const [backend, setBackend] = useState<'codex' | 'claude-agent' | null>(null);
+  const [backend, setBackend] = useState<'codex' | 'claude-agent' | null>(() => scope.recoveryOperationId ? null : readGenerationBackend() === 'claude-setup' ? 'claude-agent' : 'codex');
   // Chapter recovery has the existing candidate-preview/history check inside
   // each agent. Planning has its separate saved-plan acknowledgement here.
   const [checkedEarlier, setCheckedEarlier] = useState(!scope.recoveryOperationId || scope.kind === 'planned-chapter');
@@ -55,9 +56,9 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onRecoveryRes
         <label className="provider-consent"><input type="checkbox" checked={checkedEarlier} onChange={(event) => setCheckedEarlier(event.target.checked)} />I checked earlier results and want to prepare a fresh request.</label>
       </section>}
       <section className="provider-review-card"><h3>Codex · existing ChatGPT account</h3><p>Use the managed Codex runtime, its supported models and reasoning settings. No API key is required. Account usage limits apply.</p>
-        <button className="primary-button" disabled={!native || !checkedEarlier || !!scope.recoveryBackend && scope.recoveryBackend !== 'codex'} onClick={() => setBackend('codex')}>Continue with Codex</button></section>
+        <button className="primary-button" disabled={!native || !checkedEarlier || !!scope.recoveryBackend && scope.recoveryBackend !== 'codex'} onClick={() => { rememberGenerationBackend('codex'); setBackend('codex'); }}>Continue with Codex</button></section>
       <section className="provider-review-card"><h3>Claude Agent · Claude Code runtime</h3><p>Use the existing Claude installation and account catalog with model, reasoning and turn controls. Automatic generation is unavailable until its native runtime is qualified; setup and local review remain available.</p>
-        <button className="secondary-button" disabled={!native || !checkedEarlier || !!scope.recoveryBackend && scope.recoveryBackend !== 'claude-agent'} onClick={() => setBackend('claude-agent')}>Continue with Claude</button></section>
+        <button className="secondary-button" disabled={!native || !checkedEarlier || !!scope.recoveryBackend && scope.recoveryBackend !== 'claude-agent'} onClick={() => { rememberGenerationBackend('claude-setup'); setBackend('claude-agent'); }}>Continue with Claude</button></section>
       {!native && <p role="status">Coding agents run in the macOS app. This browser preview cannot start an agent or read saved native plans.</p>}
       {scope.recoveryBackend && <p>The restored request stays with its original agent. Start a separate request to choose another backend.</p>}
     </div>

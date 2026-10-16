@@ -2,9 +2,9 @@
 
 > **October 16 update:** installed-account Codex file generation now has a native baseline: automatic discovery, source review/consent, validated chapter, draft/acceptance, verified citation and manual section advance. [Evidence and remaining gates](acceptance/2026-10-16-codex-validation.md). Full operation/reliability/quality acceptance remains open; Claude is deferred. Historical source-only and protocol-blocker entries below describe earlier checkpoints.
 
-Project: **code-atlas-rebuild**. Recorded October 16, 2026, during [Codex validation](acceptance/2026-10-16-codex-validation.md).
+Project: **code-atlas-rebuild**. Recorded October 16, 2026, during Codex validation and [workspace refinement](acceptance/2026-10-16-code-workspace.md).
 
-**54 tasks: 33 open, 21 closed.** Every task title maps to exactly one checked-in definition. This is a dated Kata status snapshot; a closed historical task does not prove that the current app, new schema or agent runtime passed acceptance. No task was closed by this audit.
+**55 tasks: 34 open, 21 closed.** Every task title maps to exactly one checked-in definition. This is a dated Kata status snapshot; a closed historical task does not prove that the current app, new schema or agent runtime passed acceptance. No task was closed by this audit.
 
 The full requested scope remains in [the backlog](KATA_BACKLOG.md). Codex is the first delivery gate; APIs and manual handoffs cannot substitute. The user deferred Claude, which remains unavailable behind an empty qualification registry and still gates full M7. Building/testing and a small synthetic Codex account validation were authorized on October 16; dated results are recorded in the validation task. Complete operation/runtime and distribution evidence remains pending.
 
@@ -23,6 +23,7 @@ Open blockers are recorded dependency edges, not a complete list of human/vendor
 | `tbsh` | open | [Edit or regenerate one selected stale section and reuse unaffected assets](kata-tasks/20-selective-section-update.md) | `70x5` |
 | `tpta` | open | [Add selectable read-only coding-agent backends](kata-tasks/29-agent-runtime-backends.md) | — |
 | `z3an` | open | [Implement Codex app-server chapter generation with account sign-in](kata-tasks/40-codex-account-backend.md) | — |
+| `xvjk` | open | [Find relevant code from a question without manual context hunting](kata-tasks/55-question-to-source-discovery.md) | — |
 | `13yp` | open | [Make the packaged app follow the approved product designs](kata-tasks/43-design-implementation-parity.md) | — |
 | `7xx7` | open | [Define and qualify language support for code explanations](kata-tasks/39-language-capability-tiers.md) | — |
 | `bcn2` | open | [Meet accessibility, responsiveness, and repository safety requirements](kata-tasks/24-accessibility-performance.md) | — |

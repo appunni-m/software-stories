@@ -166,6 +166,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   const summaryRef = useRef<HTMLDivElement>(null);
   const lifetime = useRef(0);
   const activeBusy = useRef<Busy | null>(null);
+  const automaticReviewKey = useRef<string | null>(null);
   const resources = useRef<{ login: string | null; review: string | null; draft: string | null; run: string | null }>({ login: null, review: null, draft: null, run: null });
   const unlistenRef = useRef<UnlistenFn | null>(null);
   const cancelRequested = useRef(false);
@@ -676,6 +677,17 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     } finally { finish(epoch); }
   };
 
+  // Prepare this one-file request locally as soon as the existing account is ready.
+  // This does not send source or reuse consent. An invalid review is not retried in a loop.
+  useEffect(() => {
+    if (mode === 'settings' || mode.kind !== 'review' || !targetPath || chapterRecovery || plannedChapter
+      || !native || busy || review || hasResult || error || !status?.authenticated || !sourceReady || !modelReady || !recoveryReady || otherRun || login) return;
+    const key = JSON.stringify([projectId, snapshotId, targetPath, paths, selection.modelId, selection.effort]);
+    if (automaticReviewKey.current === key) return;
+    automaticReviewKey.current = key;
+    void buildReview();
+  }, [mode, targetPath, chapterRecovery, plannedChapter, native, busy, review, hasResult, error, status?.authenticated, sourceReady, modelReady, recoveryReady, otherRun, login, projectId, snapshotId, paths, selection.modelId, selection.effort]);
+
   return (
     <div className="provider-overlay">
       <section ref={dialogRef} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="codex-dialog-title" tabIndex={-1}>
@@ -746,11 +758,11 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 {mode.kind === 'section-update' && <p><strong>{mode.sectionTitle ?? 'Selected stale section'}</strong> · Older source and the previous section are included as context in the exact prompt below. Only current source is citable. The source byte limit counts both snapshots.</p>}
                 {manifestLoading && <p role="status">Loading the captured file list…</p>}
                 {manifestError && <p className="provider-error-text" role="alert">{manifestError}</p>}
-                {manifest && <><label className="provider-context-search">{sectionUpdate ? 'Filter declared source files' : 'Filter captured files'}<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search snapshot paths" /></label>
+                {manifest && <><details className="codex-supporting-files" open={!targetPath || Boolean(sectionUpdate) || Boolean(planning) || Boolean(plannedChapter)}><summary>Supporting files ({Math.max(0, paths.length - (targetPath ? 1 : 0))})</summary><label className="provider-context-search">{sectionUpdate ? 'Filter declared source files' : 'Filter captured files'}<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search snapshot paths" /></label>
                   <div className="provider-context-files">{filteredFiles.map((file) => {
                     const checked = paths.includes(file.path);
                     return <label key={file.path} className={checked ? 'selected' : ''}><input type="checkbox" checked={checked} disabled={locked || Boolean(planning) || Boolean(plannedChapter) || Boolean(sectionUpdate) || file.path === targetPath || (!checked && paths.length >= 12)} onChange={(event) => changePath(file.path, event.target.checked)} /><code>{file.path}</code><small>{file.sizeBytes.toLocaleString()} B{file.path === targetPath ? ' · target' : ''}</small></label>;
-                  })}{!filteredFiles.length && <p>No eligible captured files match this filter.</p>}</div>
+                  })}{!filteredFiles.length && <p>No eligible captured files match this filter.</p>}</div></details>
                   <details><summary>Selected paths ({paths.length})</summary><ul>{paths.map((path) => <li key={path}><code>{path}</code></li>)}</ul></details>
                   {!sourceReady && paths.length > 0 && <p className="provider-error-text">{paths.length > 12
                     ? sectionUpdate ? 'This fixed repair scope exceeds 12 files. Reopen the section to correct its declared source scope.' : 'This selection exceeds 12 files. Remove supporting files before reviewing.'

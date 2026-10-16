@@ -4,7 +4,7 @@
 
 Workspace project: **code-atlas-rebuild**. Product plan: [PRODUCT_BLUEPRINT.md](PRODUCT_BLUEPRINT.md).
 Technical plan: [TECHNICAL_PLAN.md](TECHNICAL_PLAN.md). Original inventory generated on 2026-10-14; delivery order reconciled on 2026-10-16.
-Live-state snapshot: [all 54 tasks and their recorded status](KATA_STATUS.md).
+Live-state snapshot: [all 55 tasks and their recorded status](KATA_STATUS.md).
 Kata issue bodies are synchronized from `docs/kata-tasks/*.md`; each issue states its user outcome, interaction contract, acceptance criteria, exclusions, and closure evidence.
 
 **Priority update — 2026-10-16:** Deliver Codex first through [agent-first generation](kata-tasks/45-agent-first-generation.md), Kata `2r6n` (priority 0). The user deferred Claude (`8gqw`, priority 2); it no longer blocks the current Codex gate, but remains a direct dependency of full M7. Building, testing and a small synthetic installed-account Codex validation are authorized. Manual handoffs and direct API results cannot qualify Codex. See [Agent generation](AGENT_GENERATION.md).
@@ -82,3 +82,7 @@ Kata issue bodies are synchronized from `docs/kata-tasks/*.md`; each issue state
 The canonical dependency edges and every task's acceptance criteria still apply. This order prioritizes the requested agent-first work; it does not close earlier foundations, erase missing product work or waive release/PR/backend scope. The [status snapshot](KATA_STATUS.md) includes implementation and acceptance children omitted from the original table above.
 
 **Schema revalidation — 2026-10-16:** chapter version 4 adds original native agent request/settings and exact plan-step lineage to previews/history. The schema task `8bw6` is reopened because its version-3 completion evidence does not qualify this extension. Both agents' runtime/account acceptance and the nine additional deferred origin/legacy/history cases in `xymb` remain pending. See [generation records](CHAPTER_GENERATION_RECORDS.md).
+
+## Question-first source navigation — October 16
+
+Kata `xvjk`: [find relevant code from a question](kata-tasks/55-question-to-source-discovery.md). This follows the native workspace refinement and addresses manual source hunting. Backend persistence and local draft retention are implemented separately in the workspace iteration; source ranking and automatic bounded proposal remain pending.

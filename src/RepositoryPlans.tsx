@@ -34,9 +34,23 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
 }: Props) {
   const { projectId, snapshotId } = manifest.summary;
   const native = isNativeRuntime();
-  const [question, setQuestion] = useState('');
+  const draftKey = `code-atlas:plan-input:${projectId}:${snapshotId}`;
+  const [localDraft] = useState(() => {
+    try {
+      const value: unknown = JSON.parse(localStorage.getItem(draftKey) ?? 'null');
+      if (value && typeof value === 'object' && 'question' in value && typeof value.question === 'string') {
+        return { question: value.question, paths: 'paths' in value && Array.isArray(value.paths)
+          ? value.paths.filter((path): path is string => typeof path === 'string' && manifest.files.some((file) => file.path === path)).slice(0, 12) : [] };
+      }
+    } catch { /* Draft persistence is optional. */ }
+    return { question: '', paths: [] as string[] };
+  });
+  const [question, setQuestion] = useState(localDraft.question);
   const [query, setQuery] = useState('');
-  const [paths, setPaths] = useState<string[]>([]);
+  const [paths, setPaths] = useState<string[]>(localDraft.paths);
+  useEffect(() => {
+    try { localStorage.setItem(draftKey, JSON.stringify({ question, paths })); } catch { /* Optional unsent local draft. */ }
+  }, [draftKey, question, paths]);
   const [creating, setCreating] = useState(false);
   const [summaries, setSummaries] = useState<RepositoryPlanDraftSummary[]>([]);
   const [detail, setDetail] = useState<RepositoryPlanDraftDetail | null>(null);

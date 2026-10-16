@@ -1,4 +1,7 @@
+import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
 import { GenerationRecord } from './GenerationRecord';
+import { FileFlow } from './FileFlow';
+import { readGenerationBackend, rememberGenerationBackend, type GenerationBackend } from './lib/generationPreferences';
 import type { AgentGitRecovery } from './lib/agentRecovery';
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { listen } from '@tauri-apps/api/event';
@@ -777,6 +780,14 @@ function App() {
     }
   };
 
+  useEffect(() => {
+    if (navigation.current.projectId && navigation.current.snapshotId && currentWorkspace === 'atlas') {
+      rememberFileLocation(navigation.current.projectId, {
+        snapshotId: navigation.current.snapshotId, path: navigation.current.relativePath,
+      });
+    }
+  }, [navigation.current.projectId, navigation.current.snapshotId, navigation.current.relativePath, currentWorkspace]);
+
   const selectSnapshot = (summary: SnapshotSummary) => {
     if (!currentProject) return;
     setNavigation((state) => navigateToRoute(state, {
@@ -786,6 +797,7 @@ function App() {
       focusTarget: `heading:${state.current.workspace}`,
     }));
     setSnapshotMenuOpen(false);
+    setNotice((current) => current?.title === 'Repository selected' ? null : current);
   };
 
   useEffect(() => {
@@ -840,7 +852,17 @@ function App() {
     let active = true;
     void listProjectSnapshots(currentProject.projectId)
       .then(({ snapshots }) => {
-        if (active) setSnapshotsByProject((current) => ({ ...current, [currentProject.projectId]: newestSnapshotsFirst(snapshots) }));
+        if (!active) return;
+        const sorted = newestSnapshotsFirst(snapshots);
+        setSnapshotsByProject((current) => ({ ...current, [currentProject.projectId]: sorted }));
+        const saved = readFileLocation(currentProject.projectId);
+        const snapshot = sorted.find((item) => item.snapshotId === saved?.snapshotId) ?? sorted[0];
+        if (snapshot) {
+          setNavigation((state) => state.current.projectId !== currentProject.projectId || state.current.snapshotId
+            ? state : replaceCurrentRoute(state, { ...state.current, snapshotId: snapshot.snapshotId,
+              relativePath: saved?.snapshotId === snapshot.snapshotId ? saved.path : undefined }));
+          setNotice((current) => current?.title === 'Repository selected' ? null : current);
+        }
       })
       .catch((error) => {
         if (active && isNativeRuntime()) {
@@ -1263,7 +1285,7 @@ function App() {
   }, [navigation.current.focusTarget, navigation.current.workspace, navigation.current.chapterRevisionId, navigation.current.sectionId]);
 
   return (
-    <div className="app-window">
+    <div className={`app-window${selectedSnapshot ? ' has-snapshot' : ''}`}>
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {repositoryContextAnnouncement}
       </div>
@@ -1406,16 +1428,17 @@ function App() {
               className={`more-tools-button ${toolsOpen ? 'selected' : ''}`}
               onClick={() => { setProjectMenuOpen(false); setSnapshotMenuOpen(false); setToolsOpen((open) => !open); }}
               data-focus-key="tools-button"
-              aria-label="Open more tools"
-              title="More tools"
+              aria-label="Open workspace settings"
+              title="Workspace settings"
               aria-expanded={toolsOpen}
               aria-haspopup="menu"
             >
-              <Settings2 size={16} /><span>More</span>
+              <Settings2 size={16} /><span>Settings</span>
             </button>
             {toolsOpen && (
               <div className="tools-menu" role="menu" aria-label="More tools">
-                <div className="menu-label">MORE TOOLS</div>
+                <div className="menu-label">WORKSPACE</div>
+                <button role="menuitem" onClick={openProviderSettings}><Settings2 size={16} /> <span>Generation backend</span></button>
                 <button role="menuitem" data-focus-key="tools-button" onClick={() => chooseWorkspace('walkthrough')}>
                   <Play size={16} /> <span>Browse accepted guides</span>
                 </button>
@@ -1440,64 +1463,6 @@ function App() {
       {snapshotMenuOpen && <button className="menu-scrim" aria-label="Close snapshot history" onClick={() => { setSnapshotMenuOpen(false); document.querySelector<HTMLElement>('[data-focus-key="snapshot-button"]')?.focus(); }} />}
 
       <div className="app-body">
-        <aside className="sidebar" aria-label="Project context">
-          <div className="sidebar-section">
-            <div className="sidebar-heading">CURRENT PROJECT</div>
-            {currentProject ? (
-              <div className="project-active-card">
-                <div className="empty-folder"><FolderOpen size={18} /></div>
-                <div className="project-active-copy">
-                  <strong>{currentProject.displayName}</strong>
-                  <p title={currentProject.repositoryRoot}>{currentProject.repositoryRoot}</p>
-                  <small>{currentProject.branch ?? 'No branch'} · {currentProject.head?.slice(0, 10) ?? 'No commit'} · Access available</small>
-                </div>
-              </div>
-            ) : (
-              <div className="project-empty-card">
-                <div className="empty-folder"><FolderOpen size={18} /></div>
-                <div>
-                  <strong>No repository yet</strong>
-                  <p>Your code stays on this Mac.</p>
-                </div>
-              </div>
-            )}
-            <button
-              className="sidebar-open-button"
-              onClick={() => { void openLocalRepository(); }}
-              data-focus-key="action:sidebar-open-repository"
-            >
-              <FolderOpen size={15} /> {currentProject ? 'Choose another repository' : 'Open repository'}
-            </button>
-          </div>
-
-          <div className="sidebar-rule" />
-
-          <div className="sidebar-section snapshot-sidebar">
-            <div className="sidebar-heading">SNAPSHOT</div>
-            {selectedSnapshot ? (
-              <div className="snapshot-sidebar-summary">
-                <div className="snapshot-sidebar-title"><HardDrive size={15} /><strong>{selectedSnapshot.status === 'partial' ? 'Partial capture' : 'Complete under policy'}</strong></div>
-                <span>{selectedSnapshot.filesCaptured.toLocaleString()} files · {formatBytes(selectedSnapshot.totalBytes)}</span>
-                <span>{selectedSnapshot.pathsSkipped.toLocaleString()} paths skipped</span>
-                {currentSnapshots.length > 1 && <button onClick={() => setSnapshotMenuOpen(true)}>Switch snapshot</button>}
-              </div>
-            ) : (
-              <>
-                <div className="snapshot-empty"><HardDrive size={16} /><span>{currentProject ? 'No snapshot selected' : 'No captured source'}</span></div>
-                <p className="sidebar-help">{currentProject ? currentSnapshots.length ? 'Choose a saved capture or create a new immutable snapshot.' : 'The repository is selected. Source files stay unread until you create a snapshot.' : 'A snapshot gives every map, citation, and chapter the same source revision.'}</p>
-              </>
-            )}
-          </div>
-
-          <div className="sidebar-bottom">
-            <div className="local-status-dot" />
-            <div>
-              <strong>Local-first workspace</strong>
-              <span>No source loaded or sent</span>
-            </div>
-          </div>
-        </aside>
-
         <main className="workspace" id="main-content">
           <div className="workspace-toolbar">
             <div className="breadcrumb"><span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{currentWorkspace === 'atlas' || currentWorkspace === 'code-lens' ? 'Files' : currentWorkspace === 'changes' ? 'Changes' : 'Guide'}</strong></div>
@@ -1851,13 +1816,15 @@ interface ProviderDialogProps {
 function ProviderDialog(props: ProviderDialogProps) {
   const agentOperation = props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview' || props.mode.kind === 'section-update' || props.mode.kind === 'code-lens-range';
   const handoffOperation = props.mode.kind === 'settings' || props.mode.kind === 'review' || props.mode.kind === 'overview';
-  const [backend, setBackend] = useState<'choose' | 'codex' | 'claude-setup' | 'handoff' | 'api'>(() => {
+  const [backend, setBackend] = useState<'choose' | GenerationBackend>(() => {
     if (props.mode.recoveryBackend === 'codex' && agentOperation) return 'codex';
     if (props.mode.recoveryBackend === 'claude-agent' && agentOperation) return 'claude-setup';
     if (props.mode.kind === 'settings' && props.mode.backend === 'api') return 'api';
-    return 'choose';
+    const saved = readGenerationBackend();
+    return saved === 'api' || agentOperation && saved !== 'handoff' || handoffOperation ? saved : 'choose';
   });
-  const [handoffAgent, setHandoffAgent] = useState<'claude-code' | 'antigravity'>('claude-code');
+  const [handoffAgent, setHandoffAgent] = useState<'claude-code' | 'antigravity'>(() => { try { return localStorage.getItem('code-atlas:handoff-agent') === 'antigravity' ? 'antigravity' : 'claude-code'; } catch { return 'claude-code'; } });
+  useEffect(() => { try { localStorage.setItem('code-atlas:handoff-agent', handoffAgent); } catch { /* Optional. */ } }, [handoffAgent]);
   const chooserRef = useRef<HTMLElement>(null);
   useModalFocusTrap(chooserRef);
   useEffect(() => {
@@ -1869,7 +1836,7 @@ function ProviderDialog(props: ProviderDialogProps) {
     window.addEventListener('keydown', close);
     return () => window.removeEventListener('keydown', close);
   }, [backend, props.onClose]);
-  const choose = (next: 'codex' | 'claude-setup' | 'handoff' | 'api') => setBackend(next);
+  const choose = (next: GenerationBackend) => { rememberGenerationBackend(next); setBackend(next); };
   if (backend === 'api') return <DirectApiDialog {...props} onChooseBackend={() => setBackend('choose')} />;
   if (backend === 'claude-setup') return <ClaudeConnectionDialog native={props.native}
     reviewMode={props.mode.kind === 'settings' ? 'settings' : props.mode}
@@ -2923,21 +2890,9 @@ function SnapshotReadyState({ manifest, atlasSelection, mapViewport, selectedPat
   return (
     <div className="empty-workspace snapshot-ready-state">
       <section className="snapshot-ready-card" aria-label="Selected repository snapshot and files">
-        {selectedPath ? <div className="files-selected-header" data-focus-key="files-source" tabIndex={-1}>
-          <span>FILES <ChevronDown size={12} /> <code>{selectedPath}</code></span>
-          <small>Source and explanation from the selected immutable snapshot</small>
-        </div> : <div className="snapshot-ready-heading">
-          <div className="snapshot-state-icon"><Check size={22} /></div>
-          <div>
-            <div className="step-pill"><span>{partial ? 'PARTIAL' : 'IMMUTABLE'}</span> SOURCE SNAPSHOT</div>
-            <h2 id="snapshot-ready-title">{partial ? 'Some files were skipped.' : 'Files are ready to explore.'}</h2>
-            <p>{summary.filesCaptured.toLocaleString()} files captured · {formatSnapshotDate(summary.createdAtUnixMs)} · {summary.branch ?? 'Detached HEAD'}</p>
-          </div>
-          <button className="secondary-button" onClick={onCaptureAgain}>Capture again</button>
-        </div>}
-        {partial && <div className="snapshot-partial-warning" role="status"><TriangleAlert size={15} /><span><strong>{summary.pathsSkipped.toLocaleString()} paths were skipped.</strong> They remain visible in the file list with a reason; no source was read for them.</span></div>}
-        <details className="snapshot-technical-details">
-          <summary>Snapshot details and capture limits</summary>
+        <div className="files-capture-strip">
+          <details className="snapshot-technical-details">
+            <summary>{summary.filesCaptured.toLocaleString()} files · {partial ? `${summary.pathsSkipped} skipped` : 'snapshot saved'} <ChevronDown size={12} /></summary>
           <div className="snapshot-metrics">
             <div><strong>{inventory.length.toLocaleString()}</strong><span>inventory paths</span></div>
             <div><strong>{summary.filesCaptured.toLocaleString()}</strong><span>files captured</span></div>
@@ -2947,7 +2902,10 @@ function SnapshotReadyState({ manifest, atlasSelection, mapViewport, selectedPat
           <div className="snapshot-identity-row"><span>Snapshot ID</span><code>{summary.snapshotId}</code><span>Parent</span><code>{summary.parentSnapshotId ?? 'First capture'}</code></div>
           <div className="snapshot-dirty-state"><GitBranch size={15} /><span>Git index: <strong>{summary.indexState}</strong></span><span>Working tree: <strong>{summary.worktreeState}</strong></span><span>HEAD: <code>{summary.head?.slice(0, 12) ?? 'unborn'}</code></span></div>
           <CapturePolicy limits={manifest.captureLimits} />
-        </details>
+          <button className="secondary-button" onClick={onCaptureAgain}>Capture current code</button>
+          </details>
+          <span>Read-only source · saved on this Mac</span>
+        </div>
         {atlasSelection && atlasSelection.kind !== 'file' && <AtlasDestinationCard refElement={destinationRef} manifest={manifest} selection={atlasSelection} onOpenFile={onOpenFile} />}
         <AtlasWorkbench
           key={`${summary.projectId}:${summary.snapshotId}`}
@@ -2969,7 +2927,6 @@ function SnapshotReadyState({ manifest, atlasSelection, mapViewport, selectedPat
           onReviewRevision={onReviewRevision}
           onReadRevision={onReadRevision}
         />
-        {!selectedPath && <div className="snapshot-next-step"><HardDrive size={15} /><span>Choose a file to read its captured source and create an explanation linked to its exact lines.</span></div>}
       </section>
     </div>
   );
@@ -3118,6 +3075,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
     scrollTop: view.treeTop,
     height: ATLAS_TREE_DEFAULT_VIEWPORT_HEIGHT,
   }));
+  const [showSkipped, setShowSkipped] = useState(false);
   const [treeRowHeight, setTreeRowHeight] = useState(ATLAS_TREE_ROW_HEIGHT);
   const [focusedTreeIndex, setFocusedTreeIndex] = useState<number | null>(null);
   const [index, setIndex] = useState<SnapshotIndex | null>(null);
@@ -3233,9 +3191,19 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
   const stalePathSet = useMemo(() => new Set(stalePaths), [stalePaths]);
   const deferredTreeQuery = useDeferredValue(view.treeQuery);
   const treeFilterPending = deferredTreeQuery !== view.treeQuery;
+  const explorerRows = useMemo(() => {
+    if (showSkipped) return rows;
+    const parents = new Set<string>(['.']);
+    for (const row of rows) {
+      if (row.disposition !== 'captured') continue;
+      const parts = row.path.split('/');
+      for (let length = 1; length < parts.length; length += 1) parents.add(parts.slice(0, length).join('/'));
+    }
+    return rows.filter((row) => row.disposition === 'captured' || row.kind === 'directory' && parents.has(row.path));
+  }, [rows, showSkipped]);
   const matchingRows = useMemo(
-    () => filterInventoryTreeRows(rows, view.selectedFolder, deferredTreeQuery),
-    [rows, view.selectedFolder, deferredTreeQuery],
+    () => filterInventoryTreeRows(explorerRows, view.selectedFolder, deferredTreeQuery),
+    [explorerRows, view.selectedFolder, deferredTreeQuery],
   );
   const flattened = useMemo(() => flattenInventoryTree(buildInventoryTree(matchingRows), new Set(view.collapsed)), [matchingRows, view.collapsed]);
   const treeWindow = virtualRowWindow(flattened.length, treeViewport.scrollTop, treeViewport.height, treeRowHeight, ATLAS_TREE_OVERSCAN);
@@ -3424,7 +3392,6 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
   };
 
   return <section className="atlas-workbench" aria-label="Repository files and relationships">
-    <div className="atlas-workbench-heading"><div><strong>Repository files</strong><span>Select a captured file to read its exact source, explanation, and clickable evidence here.</span></div></div>
     <div className="atlas-columns">
       <section className="atlas-tree-panel" aria-labelledby="atlas-tree-title">
         <header><div><strong id="atlas-tree-title">Files</strong><small aria-live="polite">{rows.length.toLocaleString()} paths · {flattened.length.toLocaleString()} shown</small></div></header>
@@ -3458,7 +3425,7 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
             const selected = row.path === view.selectedPath && !view.selectedRelationship;
             const openable = row.disposition === 'captured' && (row.contentKind === 'text' || row.contentKind === 'unknown');
             const rowIndexLabel = atlasRowIndexStatusLabel(atlasRowIndexStatus(row, index, indexState, stalePathSet.has(row.path)));
-            return <div className={`atlas-tree-row${selected ? ' selected' : ''}${row.disposition !== 'captured' ? ' omitted' : ''}`} role="treeitem" data-tree-index={rowOrdinal} data-focus-key={`atlas-tree:${row.path}`} tabIndex={rowOrdinal === activeTreeIndex ? 0 : -1} aria-label={`${row.path === '.' ? 'repository root' : row.path}, ${row.kind}, ${row.disposition}${rowIndexLabel ? `, ${rowIndexLabel}` : ''}`} aria-level={item.depth + 1} aria-posinset={item.positionInSet} aria-setsize={item.setSize} aria-selected={selected} aria-expanded={item.hasChildren ? item.expanded : undefined} key={`${row.path}:${row.reason}:${rowOrdinal}`} style={{ paddingLeft: `${7 + item.depth * 13}px` }} title={row.details} onFocus={() => setFocusedTreeIndex(rowOrdinal)} onClick={(event) => {
+            return <div className={`atlas-tree-row${selected ? ' selected' : ''}${row.kind !== 'directory' && row.disposition !== 'captured' ? ' omitted' : ''}`} role="treeitem" data-tree-index={rowOrdinal} data-focus-key={`atlas-tree:${row.path}`} tabIndex={rowOrdinal === activeTreeIndex ? 0 : -1} aria-label={`${row.path === '.' ? 'repository root' : row.path}, ${row.kind}${row.kind === 'directory' ? '' : `, ${row.disposition}`}${rowIndexLabel ? `, ${rowIndexLabel}` : ''}`} aria-level={item.depth + 1} aria-posinset={item.positionInSet} aria-setsize={item.setSize} aria-selected={selected} aria-expanded={item.hasChildren ? item.expanded : undefined} key={`${row.path}:${row.reason}:${rowOrdinal}`} style={{ paddingLeft: `${7 + item.depth * 13}px` }} title={row.details} onFocus={() => setFocusedTreeIndex(rowOrdinal)} onClick={(event) => {
               if ((event.target as HTMLElement).closest('[data-tree-action]')) return;
               if (document.activeElement !== event.currentTarget) event.currentTarget.focus();
               choosePath(row);
@@ -3476,14 +3443,14 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
               } else if (action.kind === 'select') choosePath(row);
             }}>
               {item.hasChildren ? <span className="atlas-tree-toggle" data-tree-action aria-hidden="true" onClick={() => setTreeFolderExpanded(item.path, !item.expanded)}><ChevronDown size={12} className={item.expanded ? '' : 'collapsed'} /></span> : <span className="atlas-tree-spacer" />}
-              <span className="atlas-tree-entry" aria-hidden="true"><span className={`atlas-state-mark ${row.disposition}`} />{row.kind === 'directory' ? <FolderOpen size={13} /> : <FileCode2 size={13} />}<code>{row.path === '.' ? 'repository root' : row.path.split('/').at(-1)}</code>{row.disposition !== 'captured' && <small>{row.disposition}</small>}</span>
+              <span className="atlas-tree-entry" aria-hidden="true">{row.kind !== 'directory' && row.disposition !== 'captured' && <span className={`atlas-state-mark ${row.disposition}`} />}{row.kind === 'directory' ? <FolderOpen size={13} /> : <FileCode2 size={13} />}<code>{row.path === '.' ? 'repository root' : row.path.split('/').at(-1)}</code>{row.kind !== 'directory' && row.disposition !== 'captured' && <small>{row.disposition}</small>}</span>
               {openable && <span className="atlas-tree-open" data-tree-action aria-hidden="true" title="Open source" onClick={() => { choosePath(row); onOpenFile(row.path, snapshotId); }}><ArrowRight size={12} /></span>}
             </div>;
             })}
             {treeWindow.bottomSpacerHeight > 0 && <div className="atlas-tree-window-spacer" aria-hidden="true" style={{ height: `${treeWindow.bottomSpacerHeight}px` }} />}
           </>}
         </div>
-        <footer>Skipped paths stay visible here with a reason.</footer>
+        <footer><button className="text-button" aria-pressed={showSkipped} onClick={() => { setShowSkipped((value) => !value); setFocusedTreeIndex(null); }}>{showSkipped ? 'Hide skipped and excluded paths' : 'Show skipped and excluded paths'}</button></footer>
       </section>
 
       <CodeLensEmptyState
@@ -3502,6 +3469,8 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
         onRequestRangeExplanation={onRequestRangeExplanation}
       />
       <FileExplanationPanel
+        onEnsureIndex={() => { if (!index && !startingIndex && !indexJobId && indexState !== 'loading') void startIndex(); }}
+        index={index} edges={provenEdges} indexLoading={indexState === 'loading'}
         projectId={projectId}
         snapshotId={snapshotId}
         selectedPath={selectedPath}
@@ -3567,7 +3536,11 @@ function AtlasWorkbench({ manifest, rows, routeSelection, selectedPath, routeVie
   </section>;
 }
 
-function FileExplanationPanel({ projectId, snapshotId, selectedPath, onOpenFile, onRequestExplanation, onReviewRevision, onReadRevision }: {
+function FileExplanationPanel({ projectId, snapshotId, selectedPath, index, edges, indexLoading, onEnsureIndex, onOpenFile, onRequestExplanation, onReviewRevision, onReadRevision }: {
+  index: SnapshotIndex | null;
+  edges: ProvenGraphEdge[];
+  indexLoading: boolean;
+  onEnsureIndex: () => void;
   projectId: string;
   snapshotId: string;
   selectedPath: string | null;
@@ -3576,6 +3549,7 @@ function FileExplanationPanel({ projectId, snapshotId, selectedPath, onOpenFile,
   onReviewRevision: (revision: ChapterRevision) => void;
   onReadRevision: (revision: ChapterRevision) => void;
 }) {
+  const [panel, setPanel] = useState<'explanation' | 'flow'>('explanation');
   const [revisions, setRevisions] = useState<ChapterRevision[]>([]);
   const [loading, setLoading] = useState(isNativeRuntime());
   const [error, setError] = useState<string | null>(null);
@@ -3618,51 +3592,61 @@ function FileExplanationPanel({ projectId, snapshotId, selectedPath, onOpenFile,
     .sort((left, right) => right.revisionNumber - left.revisionNumber || right.createdAtUnixMs - left.createdAtUnixMs)[0] ?? null;
 
   return <aside className="file-explanation-panel" aria-labelledby="file-explanation-title">
+    <div className="file-tool-tabs" role="group" aria-label="File tools">
+      <button aria-pressed={panel === 'explanation'} onClick={() => setPanel('explanation')}><BookOpen size={14} /> Explanation</button>
+      <button aria-pressed={panel === 'flow'} onClick={() => { setPanel('flow'); onEnsureIndex(); }}><Workflow size={14} /> Flow</button>
+      <button disabled={!accepted} onClick={() => accepted && onReadRevision(accepted)} title={accepted ? 'Open the section player' : 'Accept an explanation to open its player'}><Play size={13} /> Player</button>
+    </div>
+    <div className="file-tool-content">
     <header>
-      <span className="file-explanation-kicker">THIS FILE</span>
-      <h2 id="file-explanation-title">{selectedPath ? selectedPath.split('/').at(-1) : 'File explanation'}</h2>
-      {selectedPath && <code>{selectedPath}</code>}
+      <span className="file-explanation-kicker">{panel === 'flow' ? 'CONNECTED CODE' : 'THIS FILE'}</span>
+      <h2 id="file-explanation-title">{selectedPath ? selectedPath.split('/').at(-1) : 'Understand your code'}</h2>
     </header>
-    {!selectedPath ? <div className="file-explanation-empty"><BookOpen size={20} /><strong>Select a file to see what it does.</strong><span>Explanations link back to the exact lines they describe.</span></div>
-      : !isNativeRuntime() ? <p className="file-explanation-message">Saved explanations and captured source are available in the Code Atlas Mac app.</p>
-        : loading ? <p className="file-explanation-message" role="status">Looking for an explanation saved for this snapshot…</p>
+    {panel === 'flow' ? <FileFlow key={selectedPath} path={selectedPath} index={index} edges={edges} loading={indexLoading} onOpenFile={onOpenFile} />
+      : !selectedPath ? <div className="file-explanation-empty"><BookOpen size={24} /><strong>Start with a file.</strong><span>Choose one in the explorer. Its source and explanation stay side by side.</span></div>
+      : !isNativeRuntime() ? <p className="file-explanation-message">Open the Mac app to browse your code and generate explanations.</p>
+        : loading ? <p className="file-explanation-message" role="status">Loading explanation…</p>
           : error ? <div className="file-explanation-message" role="alert"><span>{error}</span><button className="text-button" onClick={() => setRefreshKey((value) => value + 1)}>Retry</button></div>
             : accepted ? <>
-              <div className="file-explanation-status"><span>ACCEPTED · THIS SNAPSHOT</span><button className="text-button" onClick={() => onReadRevision(accepted)}>Read section by section <ArrowRight size={13} /></button></div>
+              <div className="file-explanation-status"><span><Check size={12} /> Source-linked · saved explanation</span></div>
               <div className="file-explanation-sections">
-                {accepted.sections.map((section) => {
+                {accepted.sections.map((section, sectionIndex) => {
                   const anchors = Array.from(new Map(section.claims.flatMap((claim) => claim.anchors)
                     .map((anchor) => [`${anchor.path}:${anchor.startLine}-${anchor.endLine}:${anchor.sourceSha256}`, anchor] as const)).values());
                   const visibleAnchors = anchors.slice(0, 4);
                   const additionalAnchors = anchors.slice(4);
+                  const citationLabel = (anchor: ChapterSourceAnchor) => anchor.path === selectedPath
+                    ? `Lines ${anchor.startLine}–${anchor.endLine}` : `${anchor.path}:${anchor.startLine}–${anchor.endLine}`;
                   return <article key={section.sectionId}>
-                    <h3>{section.title}</h3>
+                    <h3><span className="file-step-number">{sectionIndex + 1}</span>{section.title}</h3>
                     <p>{section.prose}</p>
                     {visibleAnchors.length > 0 && <div className="file-explanation-citations" role="group" aria-label={`Evidence for ${section.title}`}>
-                      {visibleAnchors.map((anchor) => <button key={anchor.anchorId} onClick={() => onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor))}>
-                        <FileCode2 size={12} /><span>{anchor.path}:{anchor.startLine}–{anchor.endLine}</span>
+                      {visibleAnchors.map((anchor) => <button key={anchor.anchorId} title={`${anchor.path}:${anchor.startLine}–${anchor.endLine}`} onClick={() => onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor))}>
+                        <FileCode2 size={12} /><span>{citationLabel(anchor)}</span><ArrowRight size={12} />
                       </button>)}
                     </div>}
                     {additionalAnchors.length > 0 && <details className="file-explanation-more-citations">
-                      <summary>Show {additionalAnchors.length} more source links</summary>
+                      <summary>{additionalAnchors.length} more source links</summary>
                       <div className="file-explanation-citations">
                         {additionalAnchors.map((anchor) => <button key={anchor.anchorId} onClick={() => onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor))}>
-                          <FileCode2 size={12} /><span>{anchor.path}:{anchor.startLine}–{anchor.endLine}</span>
+                          <FileCode2 size={12} /><span>{citationLabel(anchor)}</span>
                         </button>)}
                       </div>
                     </details>}
                   </article>;
                 })}
               </div>
-              <button className="file-explanation-review" onClick={() => onReviewRevision(accepted)}><Pencil size={13} /> Review this explanation</button>
+              <button className="file-explanation-review" onClick={() => onReviewRevision(accepted)}><Pencil size={13} /> Edit explanation</button>
             </> : currentDraft ? <>
-              <div className="file-explanation-empty"><span className="coverage-status coverage-status-draft">{currentDraft.lifecycle === 'rejected' ? 'Needs revision' : 'Draft saved'}</span><strong>This version is not an accepted explanation yet.</strong><span>Review it against the captured source before reading it as the guide for this file.</span></div>
-              <button className="file-explanation-review" onClick={() => onReviewRevision(currentDraft)}><Pencil size={13} /> Review saved draft</button>
+              <div className="file-explanation-empty"><span className="coverage-status coverage-status-draft">{currentDraft.lifecycle === 'rejected' ? 'Needs revision' : 'Draft ready'}</span><strong>Review the explanation.</strong><span>Check the draft against its source before accepting it.</span></div>
+              <button className="file-explanation-review" onClick={() => onReviewRevision(currentDraft)}><Pencil size={13} /> Review draft</button>
             </> : <>
-              {previousAccepted && <p className="file-explanation-message">An explanation exists for an older snapshot. Re-explain this file against the selected source version.</p>}
-              <div className="file-explanation-empty"><BookOpen size={20} /><strong>No accepted explanation for this snapshot.</strong><span>The source stays available, and you can request a grounded explanation for this one file.</span></div>
-              <button className="file-explanation-review" onClick={() => onRequestExplanation(selectedPath)}><Sparkles size={13} /> Explain this file</button>
+              {previousAccepted && <p className="file-explanation-message">The saved explanation describes an older snapshot. Generate one for this version.</p>}
+              <div className="file-explanation-empty"><Sparkles size={24} /><strong>What does this file do?</strong><span>Generate an explanation of its behavior, with links to the code that supports it.</span>
+              <button className="primary-button" onClick={() => onRequestExplanation(selectedPath)}><Sparkles size={14} /> Explain this file</button>
+              <small>Your backend and model are remembered. Review the source before sending.</small></div>
             </>}
+    </div>
   </aside>;
 }
 
@@ -3927,8 +3911,10 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
         </div>
       </section>
 
-      <RepositoryPlans manifest={manifest} onPlan={onPlan} onOpenFile={onOpenFile} onGenerateFile={onGenerateFile} onGeneratePlannedChapter={onGeneratePlannedChapter}
+      <details className="guide-coverage-disclosure"><summary>Plan a learning path</summary>
+      <RepositoryPlans key={`${projectId}:${snapshotId}`} manifest={manifest} onPlan={onPlan} onOpenFile={onOpenFile} onGenerateFile={onGenerateFile} onGeneratePlannedChapter={onGeneratePlannedChapter}
         chapters={revisions} chaptersLoading={revisionsLoading} chaptersError={revisionsError} onReadChapter={onReadRevision} onReviewChapter={onReviewRevision} />
+      </details>
       <details className="guide-coverage-disclosure" open={returnFocusTarget?.startsWith('journey:')}><summary>Build a static call reading order</summary>
       <Suspense fallback={<p className="journey-note" role="status">Loading repository journeys…</p>}>
         <RepositoryJourneys manifest={manifest} revisions={revisions} revisionsReady={coverageReady} returnFocusTarget={returnFocusTarget}
@@ -5204,7 +5190,7 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
           <div className="source-view-actions">
             {!inline && onGoWalkthrough && <button className="secondary-button" onClick={onGoWalkthrough}><ArrowLeft size={15} /> Return to guide</button>}
             {visibleSourceRange && <button className="secondary-button" onClick={() => onRequestRangeExplanation(source.path, visibleSourceRange)}><Sparkles size={15} /> Explain cited range</button>}
-            <button className="secondary-button" onClick={() => onRequestExplanation(source.path)}><Sparkles size={15} /> Explain this file</button>
+            {!inline && <button className="secondary-button" onClick={() => onRequestExplanation(source.path)}><Sparkles size={15} /> Explain this file</button>}
             {!inline && onGoAtlas && <button className="secondary-button" onClick={onGoAtlas}>Back to files <ArrowRight size={15} /></button>}
           </div>
         </div>
@@ -5221,7 +5207,7 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
         {!citationHashMismatch && invalidAnchorReason && <div className="source-range-focus is-invalid" role="alert">
           <span><strong>Invalid or unavailable anchor</strong><small>{invalidAnchorReason} No lines are highlighted; the captured source remains available for inspection.</small></span>
         </div>}
-        {!sourceRange && !sourceRangeIssue && <div className="source-range-focus is-unanchored" role="status">
+        {!inline && !sourceRange && !sourceRangeIssue && <div className="source-range-focus is-unanchored" role="status">
           <span><strong>No citation anchor</strong><small>No source range was supplied. Showing the complete captured file with its original line numbers.</small></span>
         </div>}
         {visibleSourceRange && <div className="source-range-focus" role="status">
@@ -5272,7 +5258,7 @@ function CodeLensEmptyState({ projectId, snapshotId, manifest, onGoAtlas, onGoWa
             {visibleSourceRange && !showCompleteSource && lastDisplayedLine < sourceLines.length && <span className="snapshot-source-omission">… {sourceLines.length - lastDisplayedLine} later lines …</span>}
           </code>
         </pre>
-        <p className="source-safety-note"><HardDrive size={13} /> Loaded from immutable local snapshot storage and checked against the manifest hash. The live working tree was not read.</p>
+        {!inline && <p className="source-safety-note"><HardDrive size={13} /> Loaded from immutable local snapshot storage and checked against the manifest hash. The live working tree was not read.</p>}
         <section className="code-lens-related" aria-labelledby="code-lens-related-title">
           <details>
             <summary><span><strong id="code-lens-related-title">Related files and tests</strong><small>{relationshipLoading ? 'Loading the local index…' : `${resolvedRelationships.length} resolved · ${unresolvedRelationships.length} unresolved`}</small></span></summary>

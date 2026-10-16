@@ -1,3 +1,4 @@
+import { readGenerationBackend, rememberGenerationBackend } from './lib/generationPreferences';
 import type { AgentGitRecovery } from './lib/agentRecovery';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, RotateCcw, Send, ShieldCheck, Sparkles } from 'lucide-react';
@@ -58,7 +59,7 @@ export function PrGuideStudio({
   recovery,
   onRecoveryReviewReady,
 }: PrGuideStudioProps) {
-  const [backend, setBackend] = useState<'codex' | 'claude-agent' | 'api'>('codex');
+  const [backend, setBackend] = useState<'codex' | 'claude-agent' | 'api'>(() => { const saved = readGenerationBackend(); return saved === 'api' ? 'api' : saved === 'claude-setup' ? 'claude-agent' : 'codex'; });
   const [codexMode, setCodexMode] = useState<CodexChapterDialogMode | null>(null);
   const [claudeMode, setClaudeMode] = useState<ClaudeOperationReviewMode | 'settings' | null>(null);
   const [recoveryHistoryChecked, setRecoveryHistoryChecked] = useState(false);
@@ -452,7 +453,7 @@ export function PrGuideStudio({
       </section>}
       <label className="pr-guide-model">Generate with
         <select value={backend} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection) || Boolean(codexMode) || Boolean(claudeMode)}
-          onChange={(event) => { clearReview(); setBackend(event.target.value as typeof backend); }}>
+          onChange={(event) => { clearReview(); const selected = event.target.value as typeof backend; rememberGenerationBackend(selected === 'claude-agent' ? 'claude-setup' : selected); setBackend(selected); }}>
           <option value="codex">Codex · ChatGPT account</option>
           <option value="claude-agent">Claude Agent · local review (generation pending)</option>
           <option value="api">Direct API · optional</option>

@@ -1,6 +1,6 @@
 # Code Atlas simplification
 
-These five SVGs are the approved design reference for the Code Atlas information architecture. They describe the target experience; they are not packaged-app screenshots. Source changes to align Guide and Files are in progress, and Kata task `13yp` remains open until the packaged Mac app is rebuilt and accepted against the references.
+These five SVGs are the approved design references for the Code Atlas information architecture. They are proposals, not packaged-app screenshots. On 16 October the user refined the direction to a VS Code-style workspace: explorer, real code, explanation, focused flow, and a deliberate section player. The native implementation and remaining gaps are recorded in [the workspace review](../acceptance/2026-10-16-code-workspace.md). Kata `13yp` remains open for full design acceptance.
 
 ## The proposed shape
 
@@ -49,7 +49,7 @@ source evidence, request consent, safe capture, or revision history exist.
 
 ![Proposed Changes screen with two revisions, a focused diff, and evidence-backed behavior explanation](proposed-04-changes.svg)
 
-## What the current app showed
+## Historical installed-app observation — before 16 October
 
 In the inspected installed Mac app (version 0.1.0), the primary tabs were Atlas,
 Code Lens, and Walkthrough; Guide Plan, Chapter Studio, and revision comparison
@@ -102,7 +102,7 @@ model. They use the existing dark graphite, warm-neutral, blue, and restrained
 lime design language. The SVGs remain design references; they are not screenshots
 of the current build.
 
-## Current source iteration — not yet packaged or accepted
+## Historical source iteration — 15 October, before the native workspace rebuild
 
 - Guide now has a repository home that reads a current accepted overview when
   one exists, otherwise points to a real captured file. The optional overview
@@ -118,7 +118,7 @@ of the current build.
 - The walkthrough still uses explicit Previous and Continue controls, and
   source navigation retains its return route.
 
-These are source edits only. No test, build, native app launch, screenshot, or
-accessibility acceptance was performed for this iteration. Kata task `13yp`
+For that 15 October iteration, these were source edits only. No test, build, native app launch, screenshot, or
+accessibility acceptance was performed then. The 16 October native workspace review supersedes this source-only status. Kata task `13yp`
 remains open for source review, packaged-app interaction checks, screenshots,
 and confirmation that the built app presents these screens as designed.

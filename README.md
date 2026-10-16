@@ -4,7 +4,9 @@ Code Atlas is an in-progress Mac-first desktop app for understanding a codebase 
 
 The project currently runs from a source checkout; this repository does not provide a signed and notarized installer or a user download. Start with the [first-session guide](docs/GETTING_STARTED.md) for the native app workflow and its limits.
 
-![Approved Guide home proposal; a design reference, not a packaged-app screenshot](docs/design/proposed-01-guide-home.svg)
+![Actual Mac app: explorer, captured TypeScript source, and its saved explanation](docs/design/native-files-2026-10-16.jpg)
+
+The native workspace now puts a file explorer, real source, and Explanation / Flow / Player controls together. Codex opens directly with remembered settings; local source review and consent remain explicit. See the [workspace review and remaining design work](docs/acceptance/2026-10-16-code-workspace.md).
 
 The current design direction has three primary destinations: Guide, Files, and Changes. The older Atlas / Code Lens / Walkthrough concept board is retained as a historical reference. These design images are proposals, not screenshots of the running app. Product behavior and release goals are described in the [blueprint](docs/PRODUCT_BLUEPRINT.md); they are not proof that every acceptance gate has passed.
 

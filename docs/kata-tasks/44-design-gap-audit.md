@@ -7,6 +7,33 @@ priority: 1
 labels: product, design, audit, ux
 ---
 
+## Native workspace refinement — 2026-10-16
+
+The user clarified that understanding code comes first, with navigation resembling VS Code, a dynamic player, an understandable code path, and no repeated backend selection. This supersedes any interpretation that matching three navigation labels alone establishes design parity.
+
+Implemented in this iteration:
+- Removed the permanent Project context sidebar and large Files hero from the populated workspace. The explorer, actual source and explanation tool pane use the window height with independent scrolling.
+- Added explicit Explanation / Flow / Player controls. Flow is focused on verified calls/imports/test references for the selected file, with clickable source/evidence nodes; it does not claim to be a runtime trace.
+- Reduced normal-state source metadata and duplicate explanation actions. Captured paths are the default; skipped/excluded paths remain accessible on demand. Folder rows are no longer misleadingly marked excluded.
+- Codex is the default generation entry; an explicit backend choice is remembered across file, planning and PR entry points. Existing Codex model/reasoning preferences remain in use. A one-file Codex action prepares local source review automatically without sending or reusing consent.
+- Kept Previous/Continue in a separate, always-visible player row. Removed generic side cards and empty “no diagram” placeholders; evidence quotes and audio controls remain available on demand.
+- Kept the learning-plan manager behind its relevant Guide disclosure.
+
+See [native observations, screenshots and remaining deviations](../acceptance/2026-10-16-code-workspace.md). Full Changes composition, first-run polish, generated visual quality, question-to-source discovery, and accessibility acceptance are not established by this iteration. The question-to-source work is separately defined in Kata `xvjk` and `55-question-to-source-discovery.md`.
+
+
+## Updated native gap ledger — 16 October
+
+| Approved reference | Classification | Observed result / remaining difference | Component / priority |
+| --- | --- | --- | --- |
+| First run | Partial | Outer project sidebar is removed. The welcome still shares a Files-oriented hero and shell controls rather than the dedicated welcome composition. | `AtlasEmptyState`, `App` / P1 |
+| Guide | Partial | Plan/coverage managers are now collapsed and the tour action is visible. Suggested files can still begin with configuration because the ranking follows inventory order. | `GuidePlanScreen`, `RepositoryPlans` / P1, `xvjk` |
+| Files | Partial, major layout gap repaired | Native source, explorer and numbered explanation are now visible together with one Explain action. Flow opens verified code links and Player opens accepted sections. Resizable panes, editor tabs and a reliable concise summary contract remain. | `AtlasWorkbench`, `FileExplanationPanel`, `FileFlow` / P1 |
+| Walkthrough | Partial, navigation gap repaired | Native Previous/Continue remain visible even with long expanded evidence. Generic help panels and empty diagram placeholders are removed. The synthetic chapter has no generated diagram, so visual-story quality and the approved section-specific concept panel remain unqualified. | `WalkthroughScreen`, `VisualPanel` / P1 |
+| Changes | Deviation in source; populated native state not inspected this pass | The stacked comparison/PR controls still need the reference’s persistent changed-file/diff/explanation composition. This pass does not establish native Changes parity. | `GitChangesScreen`, `PrGuideStudio` / P1 |
+
+The [dated native evidence](../acceptance/2026-10-16-code-workspace.md) records the window size, executable identity, native interactions, local captures and published synthetic screenshots. The historical source-only baseline below is retained for comparison.
+
 ## User outcome
 A newcomer can open Code Atlas and find the intended starting point, inspect what real files do, follow a section at their own pace, and understand a change without learning the app’s internal workflow names first.
 

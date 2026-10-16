@@ -5,7 +5,6 @@ import {
   BookOpen,
   CheckCircle2,
   ChevronDown,
-  Code2,
   FileCode2,
   Layers3,
   Play,
@@ -389,7 +388,6 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
             <article className="walkthrough-section-content" aria-label={`Section ${selectedSectionIndex + 1} of ${sections.length}`}>
               <div className="walkthrough-section-meta"><span>SECTION {String(selectedSectionIndex + 1).padStart(2, '0')} / {String(sections.length).padStart(2, '0')}</span><span>MANUAL PACE</span></div>
               <h2 ref={headingRef} tabIndex={-1} aria-label={`Section ${selectedSectionIndex + 1} of ${sections.length}: ${selectedSection.title}`} data-focus-key={`reader-section-heading:${selectedSection.sectionId}`}>{selectedSection.title}</h2>
-              <div className="walkthrough-boundary walkthrough-boundary-start"><span className="walkthrough-boundary-mark" /><span>Section start · Read and inspect at your own pace.</span></div>
               <p className="walkthrough-section-prose">{selectedSection.prose}</p>
 
               <EvidencePanel section={selectedSection} onOpenAnchor={(anchor) => openAnchor(anchor)} />
@@ -400,6 +398,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
               />
               <VisualPanel revision={selectedRevision} section={selectedSection} activeFocusTarget={route.focusTarget} onFollowHotspot={followHotspot} onOpenAnchor={openAnchor} />
 
+              <details className="walkthrough-optional-audio"><summary>Listen to this section</summary>
               <NarrationPlayer
                 key={`${selectedRevision.revisionId}:${selectedSection.sectionId}`}
                 projectId={projectId}
@@ -412,29 +411,26 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
                 onTranscriptPositionChange={rememberTranscriptPosition}
                 onOpenProviderSettings={onOpenProviderSettings}
               />
+              </details>
               {selectedSection.claims.some((claim) => claim.anchors.length > 0) && <div className="walkthrough-transcript-citations" role="group" aria-label="Source references for this section">
-                  <span>SECTION SOURCES · NOT MAPPED TO INDIVIDUAL TRANSCRIPT LINES</span>
+                  <span>SOURCE LINKS</span>
                   {[...new Map(selectedSection.claims.flatMap((claim) => claim.anchors).map((anchor) => [anchor.anchorId, anchor])).values()].map((anchor) => <button key={`transcript-${anchor.anchorId}`} data-focus-key={`reader-transcript-citation:${anchor.anchorId}`} onClick={() => openAnchor(anchor, `reader-transcript-citation:${anchor.anchorId}`)}><FileCode2 size={12} /><code>{anchor.path}:{anchor.startLine}-{anchor.endLine}</code><ArrowRight size={11} /></button>)}
                 </div>}
 
               <div className="walkthrough-reader-footer">
                 <span>Accepted revision <code>{selectedRevision.revisionNumber}</code> · snapshot <code>{selectedRevision.snapshotId.slice(-10)}</code></span>
               </div>
-              <div className="walkthrough-boundary walkthrough-boundary-end"><span className="walkthrough-boundary-mark" /><span>End of section · Continue when you are ready.</span></div>
+
+            </article>
+
+          </div>
               <nav className="walkthrough-section-actions" aria-label="Section navigation">
                 <button className="secondary-button" disabled={selectedSectionIndex <= 0} onClick={() => setSection(selectedRevision, sections[selectedSectionIndex - 1]?.sectionId)}><ArrowLeft size={15} /> Previous</button>
+                <span className="walkthrough-step-status">{selectedSectionIndex + 1} of {sections.length}</span>
                 {selectedSectionIndex === sections.length - 1
                   ? <button className="primary-button" onClick={finishChapter}>Finish explanation <CheckCircle2 size={15} /></button>
                   : <button className="primary-button" onClick={() => setSection(selectedRevision, sections[selectedSectionIndex + 1].sectionId)}>Continue <ArrowRight size={15} /></button>}
               </nav>
-            </article>
-            <aside className="walkthrough-side-notes" aria-label="Reader progress and controls">
-              <div className="walkthrough-progress-card"><span className="walkthrough-kicker">YOUR PLACE</span><div className="walkthrough-progress-value">{String(selectedSectionIndex + 1).padStart(2, '0')}<span> / {String(sections.length).padStart(2, '0')}</span></div><div className="walkthrough-progress-track"><span style={{ width: `${((selectedSectionIndex + 1) / sections.length) * 100}%` }} /></div><p>{selectedSectionIndex === sections.length - 1 ? 'Last section. Finish when this idea is clear.' : 'No timer. You choose when to continue.'}</p></div>
-              <div className="walkthrough-side-card"><div className="walkthrough-side-icon"><Code2 size={15} /></div><strong>Follow the evidence</strong><p>Open any cited file to inspect the exact captured lines. Return here to continue this section.</p></div>
-              <div className="walkthrough-side-card"><div className="walkthrough-side-icon"><VolumeX size={15} /></div><strong>Works without audio</strong><p>Every explanation and transcript stays available when narration is missing or turned off.</p></div>
-              <div className="walkthrough-key-hint"><kbd>←</kbd><kbd>→</kbd><span>Move between sections</span></div>
-            </aside>
-          </div>
         </main>
       )}
     </div>
@@ -443,7 +439,8 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
 
 function EvidencePanel({ section, onOpenAnchor }: { section: ChapterSection; onOpenAnchor: (anchor: ChapterSourceAnchor) => void }) {
   return (
-    <section className="walkthrough-evidence" aria-labelledby="walkthrough-evidence-title">
+    <details className="walkthrough-evidence"><summary>Inspect the evidence ({section.claims.reduce((total, claim) => total + claim.anchors.length, 0)} source links)</summary>
+    <section aria-labelledby="walkthrough-evidence-title">
       <div className="walkthrough-panel-heading"><div><span className="walkthrough-kicker">SOURCE EVIDENCE</span><h3 id="walkthrough-evidence-title">What in the code supports this?</h3></div><span className="walkthrough-evidence-count">{section.claims.reduce((total, claim) => total + claim.anchors.length, 0)} REFERENCES</span></div>
       {section.claims.length === 0 ? <p className="walkthrough-muted">This section has no separate claims. Open its linked source to inspect the explanation.</p> : (
         <div className="walkthrough-claims">
@@ -463,7 +460,7 @@ function EvidencePanel({ section, onOpenAnchor }: { section: ChapterSection; onO
           ))}
         </div>
       )}
-    </section>
+    </section></details>
   );
 }
 
@@ -509,16 +506,15 @@ export function VisualPanel({ revision, section, activeFocusTarget, onFollowHots
   onOpenAnchor: (anchor: ChapterSourceAnchor, focusTarget?: string) => void;
 }) {
   const inspection = inspectInteractiveVisual(revision, section);
+  if (inspection.status === 'none') return null;
   if (inspection.status !== 'available') {
-    const message = inspection.status === 'none'
-      ? 'No diagram is attached to this section. The explanation and source evidence remain available.'
-      : inspection.reason === 'legacy'
+    const message = inspection.reason === 'legacy'
         ? 'This older diagram is retained with the accepted explanation, but it does not have interactive source links. The text and evidence remain available.'
         : 'This diagram does not match the safe interactive format, so it is unavailable. The explanation and source evidence remain available.';
     return (
     <section className="walkthrough-visual-slot" aria-label="Section visual">
       <div className="walkthrough-panel-heading"><div><span className="walkthrough-kicker">VISUAL MAP</span><h3>Source stays in view</h3></div></div>
-      <div className="walkthrough-no-visual" role={inspection.status === 'none' ? undefined : 'status'}><Workflow size={17} /><span>{message}</span></div>
+      <div className="walkthrough-no-visual" role="status"><Workflow size={17} /><span>{message}</span></div>
     </section>
   );
   }

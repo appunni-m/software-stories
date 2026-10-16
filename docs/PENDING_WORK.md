@@ -1,5 +1,7 @@
 # Pending work after the October 15 static review
 
+> **Workspace update — October 16:** the native app now uses explorer / source / explanation panes, direct Codex entry with remembered settings, focused Flow and Player actions, and a pinned section-navigation row. See [native evidence and remaining design gaps](acceptance/2026-10-16-code-workspace.md). Full Changes composition, first-run polish, generated visual quality and accessibility remain open in `13yp`/`x21h`; question-to-source discovery is explicitly defined in `xvjk`.
+
 > **October 16 update:** installed-account Codex file generation now has a native baseline: automatic discovery, source review/consent, validated chapter, draft/acceptance, verified citation and manual section advance. [Evidence and remaining gates](acceptance/2026-10-16-codex-validation.md). Full operation/reliability/quality acceptance remains open; Claude is deferred. Historical source-only and protocol-blocker entries below describe earlier checkpoints.
 
 Kata project: `code-atlas-rebuild`. This list records **32 tracked issues: 18 open, 13 blocked, and 1 closed; 14 new detailed tasks and 18 existing tasks updated with remaining work**. Parser issue 129x closed after regression evidence on 2026-10-15. Each linked specification includes the intended behavior, acceptance criteria and closure evidence. Issue IDs are recorded in [issue-refs.json](kata-tasks/issue-refs.json). The bounded-metadata issue `k9yd` was closed after implementation and Rust-suite evidence on 2026-10-15.
