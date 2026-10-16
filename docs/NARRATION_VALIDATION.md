@@ -8,8 +8,7 @@ offline-export checks.
 ## Before generation
 
 - Record app version/commit, macOS version, selected chapter/section, model ID,
-  voice, delivery style, and whether the key's project is on Google's Free
-  Tier. Code Atlas cannot inspect project tier, quota, or remaining usage.
+  voice and delivery style from Connections → Voice. Only for explicitly selected Google speech, record the key's project tier; the app cannot inspect tier, quota or remaining usage.
 - Keep narration optional. The chapter prose, captured source, path names, and
   citations must remain visible/readable with audio unavailable.
 - Newly generated behavior sections should already contain a concise natural
@@ -19,7 +18,7 @@ offline-export checks.
 - Use only the synthetic speech text below for this pass. Do not put source
   code, private repository details, or credentials in the script.
 - Review the current model terms, quota, and pricing in the request dialog.
-  Do not enable Cloud Billing or proceed on a paid tier for this zero-cost
+  This requirement applies only to selected Google speech. Do not enable Cloud Billing or proceed on a paid tier for this zero-cost
   acceptance run. If the selected project/model is not confirmed Free Tier,
   stop before sending.
 
@@ -48,15 +47,9 @@ source identifiers remain unchanged.
 
 1. Edit the section's **spoken text**. Confirm the visible explanation, code,
    path, and citations remain separate and unchanged.
-2. Open the TTS review. Check the exact submitted text after the selected
-   pronunciation substitutions, provider/model, voice/style, current terms,
-   and whether the text is split into sequential request segments. Confirm no
-   source excerpt, repository path, or whole-chapter content is included by
-   default.
-3. Change a word or voice setting while reviewing. Confirm the previous
-   review/consent is invalidated and the displayed request is rebuilt. Consent
-   only after reviewing the new text and the applicable usage disclosure.
-4. Generate once, then listen to the complete result. Assess pronunciation,
+2. For local Pocket, choose Listen and check the resolved transcript after pronunciation substitutions. The native review/cache lookup runs in the background. Engine/setup/model/voice controls must be absent from the answer. For Google, inspect the exact text, provider terms and optional segment details in its send review before consent. Confirm no source excerpt, repository path or whole-chapter content is included by default.
+3. Edit a script word beside the section or change delivery in Connections → Voice. Confirm old review/cache matching is invalidated and obsolete audio cannot play. Google consent must reset and a fresh exact-text review is required before sending.
+4. Listen once, then hear the complete result. Local narration must not require another Generate click. Assess pronunciation,
    punctuation, pacing, voice quality, and whether sentences are easy to
    follow. Compare the audio against the exact displayed script; do not accept
    audio that omits, adds, or garbles a substantive phrase.

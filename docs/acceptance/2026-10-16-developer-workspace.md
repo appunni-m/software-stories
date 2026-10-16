@@ -15,7 +15,7 @@ This record covers the production conversational workspace migration, not a prod
 
 | Check | Result |
 | --- | --- |
-| `npm test` | 129 passed, zero failed |
+| `npm test` | 133 passed, zero failed (final Connections follow-through) |
 | `RUSTC_WRAPPER= CARGO_BUILD_JOBS=4 CARGO_INCREMENTAL=0 cargo test --release --manifest-path src-tauri/Cargo.toml --lib` | 203 passed, zero failed, three ignored live checks |
 | `npm run build` | Passed; large frontend chunk warning remains |
 | `git diff --check` | Passed before source commit |
@@ -56,3 +56,21 @@ The live deeper answer also exposed a native/frontend enum-field mismatch (`anch
 
 ## Saved-answer migration regression
 Restarting `07cda9b` restored the selected repository, level-2 exploration and Flow view without setup, but exposed a lineage digest compatibility defect introduced by camelCase enum fields. New agent origin records now use schema 2. Existing schema-1 origins are verified against exact bounded legacy serialization as well as the transitional current serialization; stored hashes are never rewritten. Retained visual JSON preserves object order. An independent, real synthetic v1 chapter fixture must survive current-wire round trip while prose/narration changes still fail. Two native regressions cover legacy recovery and strict schema-2 content matching. Installation/reopen requalification of this migration is pending.
+
+
+## Installed compatibility and Connections follow-through
+The later `e6bcf92` native package includes the saved-answer migration and shared Connections voice controls. All five existing synthetic explanations loaded; the saved generated diagram rendered and its Validation node opened captured lines 2–4. No revision files or hashes were rewritten. Native voice configuration/playback observations and exact installed executable identity are recorded in [the Connections acceptance record](2026-10-16-connections.md). Its frontend suite passes 133 tests; native source is unchanged from the 203-pass migration suite. The earlier pending checkpoints above are historical; broader quality/accessibility/release work remains open.
+
+![Installed generated diagram and captured source](../design/workspace-native-flow-2026-10-16.png)
+
+![Installed local commit history](../design/workspace-native-changes-2026-10-16.png)
+
+
+The explicit retry of “What happens with an empty list of prices?” succeeded with the existing GPT-6 Luna/max connection and snapshot grant. It automatically selected cart.ts, saved revision `revision:d1d44574-4f3a-4210-b8e3-2a938cbf80d4` with an origin-v2 record and generated a fresh evidence-linked flow. Clicking its subtotal node opened captured line 12. Both the existing origin-v1 visual and new origin-v2 visual rendered in the installed app. This closes the observed single-file/serialization reproduction; the multi-file native overview and wider quality matrix remain required in the open tasks.
+
+![Newly generated native flow](../design/workspace-native-new-flow-2026-10-16.png)
+
+![Native light appearance](../design/workspace-native-light-2026-10-16.png)
+
+
+Final installed code is `35aa23f`; see the Connections record for its verified executable identity. Reopening restored all six answers, the new origin-v2 diagram, root Flow and captured source line 12, and the saved Pocket connection. Existing account/voice settings did not need selection or sign-in. Cached local audio played again after restart. The app is left raised on a nested Guide with playback paused. This is native smoke evidence; durable scheduling, broad language/narrative quality, five-level/large-project qualification, full accessibility and signed distribution remain open.

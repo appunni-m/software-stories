@@ -22,7 +22,7 @@ If macOS denies folder access, choose an accessible local working copy and try a
 
 Keychain is needed only for optional direct API keys and Gemini narration.
 Follow the macOS prompt to unlock Keychain or approve Code Atlas access, then
-retry saving the selected provider's key in **AI and narration setup**. If you
+retry saving the key in its provider setup; Google voice keys are in **Connections → Voice**. If you
 deny access, the key is not saved and local browsing still works. Remove a
 saved key from that same setup screen.
 
@@ -71,7 +71,7 @@ If an unaccepted generated preview remains after restarting the app, use **Revie
 
 ## Direct API setup or request fails
 
-Direct API generation runs only in the native macOS app. Open **AI and narration setup** from the project-tools menu, choose the provider for this request, check that Keychain is available, and save a key created for that provider. Code Atlas does not read the saved key back into the UI. Gemini text-to-speech uses its separate Gemini key.
+Direct API generation runs only in the native macOS app. For a legacy direct API request, use its provider setup to check Keychain and save that provider's key. The normal workspace uses the Codex account in **Connections → Explanations**. Code Atlas does not read the saved key back into the UI. Gemini text-to-speech uses its separate Gemini key.
 
 Before sending, inspect the request review and all provider notices. A request can fail because of network access, model availability, quota, billing, eligibility, region, or provider limits. Code Atlas does not silently retry another model or switch to paid service. After failure, create and review a fresh request before retrying; prior consent is not reused.
 
@@ -91,7 +91,7 @@ reject the draft when the explanation overstates what the diff proves.
 
 ## Narration is missing or synthesis is rejected
 
-Audio is optional. The transcript and section navigation remain usable without narration. A narration request has its own review and confirmation; it sends the edited spoken script and speech settings, not source excerpts by default. A script can contain up to 16,000 UTF-8 bytes; longer scripts should be divided into separate sections. The review shows the exact sequential requests of at most 4,000 bytes each, split at sentence boundaries when possible and whole-word boundaries otherwise.
+Audio is optional. The transcript and section navigation remain usable without narration. Choose/prepare the voice once in **Connections → Voice**. Pocket Listen reviews/cache-checks locally and plays without another configuration form. An explicitly selected Google request has its own exact-text review and confirmation; it sends the edited spoken script and speech settings, not source excerpts by default. A script can contain up to 16,000 UTF-8 bytes; longer scripts should be divided into separate sections. The review shows the exact sequential requests of at most 4,000 bytes each, split at sentence boundaries when possible and whole-word boundaries otherwise.
 
 ## A capture or save fails while the Mac is low on disk space
 
