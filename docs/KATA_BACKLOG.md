@@ -9,6 +9,10 @@ Kata issue bodies are synchronized from `docs/kata-tasks/*.md`; each issue state
 
 **Priority update — 2026-10-16:** Deliver Codex first through [agent-first generation](kata-tasks/45-agent-first-generation.md), Kata `2r6n` (priority 0). The user deferred Claude (`8gqw`, priority 2); it no longer blocks the current Codex gate, but remains a direct dependency of full M7. Building, testing and a small synthetic installed-account Codex validation are authorized. Manual handoffs and direct API results cannot qualify Codex. See [Agent generation](AGENT_GENERATION.md).
 
+## Focused generation repair
+
+Kata `tmck` tracks [identifier correction](kata-tasks/65-claim-alignment-correction.md): one fingerprinted correction in the same Codex conversation, unchanged source validation and readable persisted failure messages. Parent quality `q0sm` remains open.
+
 ## Product contract
 
 | Ref | Issue | Definition |

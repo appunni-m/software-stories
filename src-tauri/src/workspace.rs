@@ -316,6 +316,11 @@ mod tests {
             crate::provider::revalidate_codex_request_review(&fixture.storage, &first, &runtime)
                 .is_ok()
         );
+        assert_eq!(first.generation_config["claimAlignmentCorrection"],
+            serde_json::json!({"policy": "identifier-alignment-v1", "maxAttempts": 1}));
+        let mut tampered = first.clone();
+        tampered.generation_config["claimAlignmentCorrection"]["maxAttempts"] = serde_json::json!(2);
+        assert!(crate::provider::revalidate_codex_request_review(&fixture.storage, &tampered, &runtime).is_err());
         input.question = Some("Which inputs reach this implementation?".to_owned());
         let second =
             crate::provider::build_codex_chapter_review(&fixture.storage, &input, &runtime)

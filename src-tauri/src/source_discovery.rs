@@ -497,7 +497,7 @@ pub(crate) async fn send_source_discovery(
         let source = codex_agent::CodexSourceFile { path:"repository-index.json".to_owned(), sha256:format!("{:x}",Sha256::digest(fresh.as_bytes())), contents:fresh.clone() };
         let run = codex_agent::CodexRunInput { run_id:input.review_id, expected_runtime:prepared.runtime,
             model:prepared.input.model_id, effort:prepared.input.effort, approval_policy:"never".to_owned(),
-            system_instruction:INSTRUCTION.to_owned(), user_prompt:fresh, output_schema:schema, sources:vec![source] };
+            system_instruction:INSTRUCTION.to_owned(), user_prompt:fresh, output_schema:schema, repair_claim_alignment:false, sources:vec![source] };
         runtime.run_with_result(&storage, run, &prepared.review.fingerprint, Instant::now(),
             |event| { let _=app.emit("codex-agent-progress",event); },
             |response, _| validate_selection(&response.response_text, &prepared.sizes, prepared.input.target_path.as_deref()))?

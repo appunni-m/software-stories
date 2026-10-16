@@ -69,6 +69,10 @@ A generated preview must be saved as a draft before it appears in chapter histor
 
 If an unaccepted generated preview remains after restarting the app, use **Review saved preview** or **Discard** in its recovery notice. That recovery applies to generated previews. Do not assume an unsaved Chapter Studio text edit survives closing or restarting the app.
 
+## An AI draft does not connect its explanation to the cited code
+
+This means the generated draft named a function or variable in its evidence metadata without connecting it to the explanation or exact source quote. It does not mean the repository is broken. Current workspace Codex questions attempt one correction within the original conversation, then apply the full source checks. If correction fails, no draft is saved and the question remains available with **Try this question again**. Existing failed questions are not sent again automatically. Older internal section IDs are hidden in the current workspace error display. A retry uses the existing snapshot sharing permission where still valid and may consume Codex account quota.
+
 ## Direct API setup or request fails
 
 Direct API generation runs only in the native macOS app. For a legacy direct API request, use its provider setup to check Keychain and save that provider's key. The normal workspace uses the Codex account in **Connections → Explanations**. Code Atlas does not read the saved key back into the UI. Gemini text-to-speech uses its separate Gemini key.

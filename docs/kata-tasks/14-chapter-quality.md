@@ -43,3 +43,7 @@ No tests or builds were run during the October 15 static bug-fix pass. Keep acce
 - [ ] Cover a claim whose declared `Number.isFinite` or `prices` identifier is absent from prose. Keep strict source admission; preserve the failed attempt and a separately reviewed repair. Do not count a successful sibling answer as resolving this case.
 - [ ] Qualify the workspace overview's `anchored-claims-v1` presentation with at least two selected files. Check that discarded independent prose/narration never reaches the reader and inference labels remain visible. Single-file routing cannot substitute for this case.
 - [ ] Review code-aware speech for natural sentences, names that must be spoken, pacing and section comprehension. Local Pocket playback alone does not pass this rubric.
+
+## Identifier alignment correction — October 16
+
+The reported `record_pipeline_operation_path` failure is the same class as the earlier identifier/prose mismatches. Workspace Codex questions now fingerprint a single correction policy and send bounded positional diagnostics in the same ephemeral thread. No local prose patch, fabricated quote, model fallback or new file selection is permitted. The correction still requires full source and storage validation. The narrow repair regression and packaged smoke evidence belong to [identifier correction acceptance](../acceptance/2026-10-16-claim-alignment.md). Keep this quality gate open: automated lexical correction does not establish semantic accuracy, narrative depth, benchmark coverage or natural speech.

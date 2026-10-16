@@ -11,6 +11,7 @@
 mod bounded_file;
 mod bounded_process;
 mod chapter_freshness;
+mod claim_alignment;
 mod chapter_generation;
 mod chapter_review;
 mod chapter_store;

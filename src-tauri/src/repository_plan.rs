@@ -359,6 +359,7 @@ mod live_tests {
                     system_instruction: context.system_instruction.to_owned(),
                     user_prompt: context.user_prompt.clone(),
                     output_schema: context.output_schema.clone(),
+                    repair_claim_alignment: false,
                     sources: context
                         .selected_files
                         .iter()
@@ -415,7 +416,7 @@ mod live_tests {
             .err()
             .unwrap();
         assert!(
-            error.contains("does not connect identifier 'subtotal' to the cited code"),
+            error.contains("does not connect source identifier 'subtotal' to its cited code"),
             "{error}"
         );
         // The same claims become reviewable with exact, complete evidence.

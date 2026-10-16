@@ -14,6 +14,10 @@ Kata project: `code-atlas-rebuild`. This list records **32 tracked issues: 18 op
 
 The initial static-review pass intentionally did not run tests, builds, app launches, or runtime probes, as requested. That statement applies only to that pass; later verification is recorded below and in the relevant issue specifications. Source inspection alone cannot establish that every bug is fixed.
 
+## Focused identifier correction — October 16
+
+Kata `tmck` tracks [the bounded correction contract](kata-tasks/65-claim-alignment-correction.md) for the reported claim/prose mismatch. See [acceptance evidence](acceptance/2026-10-16-claim-alignment.md); the parent semantic quality gate remains open.
+
 ## Changes made by code inspection
 
 - Snapshot capture now respects Git ignore negations and rechecks earlier captured file fingerprints before finalization.

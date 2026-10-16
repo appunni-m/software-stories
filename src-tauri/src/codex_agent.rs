@@ -104,6 +104,8 @@ pub(crate) struct CodexRunInput {
     pub system_instruction: String,
     pub user_prompt: String,
     pub output_schema: Value,
+    /// Fingerprinted workspace policy; at most one correction in the same thread.
+    pub repair_claim_alignment: bool,
     pub sources: Vec<CodexSourceFile>,
 }
 
@@ -1143,24 +1145,54 @@ impl ServerProcess {
         {
             return Err("Codex selected a different model than the reviewed request. No generation was started.".to_owned());
         }
-        if cancelled.load(Ordering::Acquire) {
-            return Err(cancelled_message());
-        }
+        let initial = self.generate_turn(
+            input, stage, &thread_id, &input.user_prompt, cancelled, started_at, progress,
+        )?;
+        let response = crate::claim_alignment::correct_once(
+            input.repair_claim_alignment,
+            initial,
+            |response| &response.response_text,
+            |prompt| {
+                progress(progress_event(
+                    &input.run_id, "validating", Some(&thread_id), None,
+                    "Refining the explanation against its cited code.",
+                ));
+                self.generate_turn(input, stage, &thread_id, prompt, cancelled, started_at, progress)
+            },
+        )?;
+        self.request("thread/unsubscribe", json!({"threadId": thread_id}), RPC_TIMEOUT)?;
+        check_cancelled(&self.shutdown, Some(cancelled))?;
+        Ok(response)
+    }
+
+    /// A correction uses the same ephemeral thread, model, schema, staged
+    /// evidence, cancellation owner and original ten-minute deadline.
+    fn generate_turn<F>(
+        &mut self,
+        input: &CodexRunInput,
+        stage: &Path,
+        thread_id: &str,
+        prompt: &str,
+        cancelled: &AtomicBool,
+        started_at: Instant,
+        progress: &F,
+    ) -> Result<CodexRunResult, String>
+    where
+        F: Fn(CodexProgress),
+    {
+        check_cancelled(&self.shutdown, Some(cancelled))?;
         if started_at.elapsed() >= RUN_TIMEOUT {
             return Err("The Codex operation exceeded ten minutes before starting the model turn. No generation was started.".to_owned());
         }
-        progress(progress_event(
-            &input.run_id,
-            "starting",
-            Some(&thread_id),
-            None,
-            "Starting the reviewed explanation request.",
-        ));
         if self.account_revision != input.expected_runtime.account_revision {
             return Err(codex_identity::changed());
         }
+        progress(progress_event(
+            &input.run_id, "starting", Some(thread_id), None,
+            "Starting the reviewed explanation request.",
+        ));
         let request_id = self.send_request("turn/start", json!({
-            "threadId": thread_id, "input": [{"type": "text", "text": input.user_prompt}],
+            "threadId": thread_id, "input": [{"type": "text", "text": prompt}],
             "cwd": stage, "model": input.model, "effort": input.effort, "approvalPolicy": "never",
             "permissions": PERMISSION_PROFILE,
             "outputSchema": input.output_schema,
@@ -1296,10 +1328,9 @@ impl ServerProcess {
                         })
                         .cloned()
                         .ok_or("Codex completed without a complete JSON response. No response was accepted.")?;
-                    self.request("thread/unsubscribe", json!({"threadId": thread_id}), RPC_TIMEOUT)?;
                     if cancelled.load(Ordering::Acquire) { return Err(cancelled_message()); }
                     progress(progress_event(&input.run_id, "validating", Some(&thread_id), Some(&completed_id), "Codex completed. Checking the explanation against its exact source evidence."));
-                    return Ok(CodexRunResult { thread_id, turn_id: completed_id, model: input.model.clone(), effort: input.effort.clone(), response_text });
+                    return Ok(CodexRunResult { thread_id: thread_id.to_owned(), turn_id: completed_id, model: input.model.clone(), effort: input.effort.clone(), response_text });
                 }
                 _ => {}
             }
