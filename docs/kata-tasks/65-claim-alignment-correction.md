@@ -28,3 +28,7 @@ This task does not establish semantic truth, universal generation success, broad
 
 ## Evidence
 See [identifier correction acceptance](../acceptance/2026-10-16-claim-alignment.md).
+
+## Verification checkpoint
+
+Code commit `a696b69`: 134 frontend tests, 210 native release tests (four opt-in tests ignored), TypeScript/Vite build and documentation audit pass. The explicitly run installed Codex synthetic fault injection passed in 17.91 seconds and observed one correction before full source/storage validation. The unsigned Mac package passed metadata/checksum checks and was installed. Native Guide and history both displayed the original persisted failure as readable copy without its section UUID; all three questions and the existing connection were preserved without resending repository code. See the linked acceptance record for exact installed identity. The narrow task is complete; broader quality and workspace acceptance remain open.

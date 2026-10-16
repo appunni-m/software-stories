@@ -74,3 +74,7 @@ The explicit retry of “What happens with an empty list of prices?” succeeded
 
 
 Final installed code is `35aa23f`; see the Connections record for its verified executable identity. Reopening restored all six answers, the new origin-v2 diagram, root Flow and captured source line 12, and the saved Pocket connection. Existing account/voice settings did not need selection or sign-in. Cached local audio played again after restart. The app is left raised on a nested Guide with playback paused. This is native smoke evidence; durable scheduling, broad language/narrative quality, five-level/large-project qualification, full accessibility and signed distribution remain open.
+
+## Identifier failure follow-through
+
+The reported claim/identifier mismatch now receives one bounded same-thread correction for new workspace Codex questions, with full source admission retained. [Focused acceptance](2026-10-16-claim-alignment.md) records the real synthetic two-turn test, 134 frontend/210 native checks, installed identity and preserved old-failure Guide/history observations. Existing failed questions are not automatically resent. This replaces the earlier prompt-only mitigation; semantic quality and broader workspace gates remain open.

@@ -17,6 +17,16 @@ Current and persisted legacy mismatch errors receive plain workspace copy withou
 - Native review rebuild rejects a modified correction policy even when the copied fingerprint/body still match the original review.
 - Open Source documentation audit: zero errors, four existing review notes.
 
-## Remaining focused validation
+## Real Codex correction
 
-Opt-in synthetic transport, packaging and installed-app observations will be recorded here before delivery. Broader narrative/visual/language quality and release qualification remain open.
+The opt-in native test `installed_codex_corrects_identifier_mismatch_in_same_operation` passed in 17.91 seconds using the existing official installed Codex executable, GPT-6 Luna and max reasoning. Only an isolated synthetic greeting fixture was shared. The test deliberately requested an inconsistent initial claim, observed exactly one correction turn, and validated the corrected full chapter against the captured source and the independent revision validator. It did not use an API key, another model, a replacement Codex installation or the user's repository. This exercises the actual same-thread transport; it does not establish a production success rate or semantic quality benchmark.
+
+Code commit: `a696b69`. Local logs: `/private/tmp/code-atlas-claim-repair-rust.log`, `/private/tmp/code-atlas-claim-repair-live.log`, `/private/tmp/code-atlas-claim-repair-ui-tests.log`, `/private/tmp/code-atlas-claim-repair-build.log`.
+
+## Packaged app observation
+
+`npm run bundle:macos` succeeded, including bundle metadata and DMG checksum verification. The unsigned app was installed at `/Users/lazytrot/Applications/Code Atlas.app` from code commit `a696b69` with executable SHA-256 `ac73ec0eed68e5e3d9897c36048b7f87d95211459274fbff11d21c8faccb0a53`. The previous build remains at `/Users/lazytrot/Applications/.Code Atlas.before-claim-repair-35aa23f.app`. Build log: `/private/tmp/code-atlas-claim-repair-native.log`; local install identity: `/private/tmp/code-atlas-workspace-installed.json`.
+
+Reopening restored the selected repository/snapshot, all three questions and selected source context. Codex returned to connected state without a sign-in or setup selection. Both existing identifier failures now show readable copy directly on their answer cards. Chat history uses the same readable copy. The reported section UUID was absent from both views. The native app is left on Guide with the retry action available. No question in the user's repository was resent and no existing chapter was accepted or rewritten.
+
+This completes the narrow correction task `tmck`. Parent quality `q0sm` and workspace `na54` remain open. The live result establishes a synthetic two-turn correction path and source admission, not a real-repository success rate, semantic truth, narrative/visual/language quality, full accessibility or signed distribution.
