@@ -669,16 +669,16 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     } finally { finish(epoch); }
   };
 
-  // Prepare this one-file request locally as soon as the existing account is ready.
+  // Prepare an AI-selected request locally as soon as the account is ready.
   // This does not send source or reuse consent. An invalid review is not retried in a loop.
   useEffect(() => {
-    if (mode === 'settings' || (mode.kind !== 'repository-plan' && (mode.kind !== 'review' || !targetPath)) || chapterRecovery || plannedChapter
+    if (mode === 'settings' || (mode.kind !== 'repository-plan' && !((mode.kind === 'review' && targetPath) || (mode.kind === 'overview' && discoveryResult))) || chapterRecovery || plannedChapter
       || !native || busy || review || hasResult || error || !status?.authenticated || !sourceReady || !modelReady || !recoveryReady || otherRun || login) return;
     const key = JSON.stringify([projectId, snapshotId, targetPath, planning?.question, paths, selection.modelId, selection.effort]);
     if (automaticReviewKey.current === key) return;
     automaticReviewKey.current = key;
     void buildReview();
-  }, [mode, targetPath, chapterRecovery, plannedChapter, native, busy, review, hasResult, error, status?.authenticated, sourceReady, modelReady, recoveryReady, otherRun, login, projectId, snapshotId, paths, selection.modelId, selection.effort]);
+  }, [mode, targetPath, discoveryResult, chapterRecovery, plannedChapter, native, busy, review, hasResult, error, status?.authenticated, sourceReady, modelReady, recoveryReady, otherRun, login, projectId, snapshotId, paths, selection.modelId, selection.effort]);
 
   return (
     <div className="provider-overlay">
@@ -743,10 +743,10 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
                 {manifestError && <p className="provider-error-text" role="alert">{manifestError}</p>}
                 {!manifestLoading && !manifestError && !sourceReady && <p className="provider-error-text" role="alert">This selection’s source is unavailable. Reopen the captured file and select the code again.</p>}
               </div> : <div className="provider-context-picker">
-                <div className="provider-context-heading"><strong>{targetPath ?? (planning ? 'Learning plan source' : 'Repository overview')}</strong><span>{paths.length} of 12 files selected</span></div>
-                {planning && <><h4>Learning question</h4><p>{planning.question}</p><p>This fixed selection creates a reading plan, not chapters or completed file coverage. Return to the planner to change the question or source.</p></>}
+                <div className="provider-context-heading"><strong>{targetPath ?? (planning ? 'Code for your route' : 'Repository overview')}</strong><span>{paths.length} code {paths.length === 1 ? 'file' : 'files'}</span></div>
+                {planning && <><h4>Learning question</h4><p>{planning.question}</p><p>Codex will propose a route through this code. You can review the route, then build its chapters together.</p></>}
                 {plannedChapter && <><h4>Learning question</h4><p>{plannedChapter.question}</p><p>One accepted reading step · {plannedChapter.prerequisites.length} learning prerequisites. The original plan revision and source stay fixed. This creates one unaccepted chapter.</p><details><summary>Plan question and prerequisites</summary><p>{plannedChapter.planQuestion}</p><ul>{plannedChapter.prerequisites.map((item) => <li key={item.stepId}>{item.question}</li>)}</ul><p>Reading prerequisites do not prove runtime calls.</p></details></>}
-                <p>{plannedChapter ? 'The accepted step’s target and cited supporting files are fixed. Return to the plan to choose a different step.' : sectionUpdate ? 'This repair uses the selected section’s declared evidence. Source selection is fixed; the native review rechecks that only this section is stale and the other sections can carry forward.' : targetPath ? 'AI selected the implementation and supporting code for this explanation.' : planning ? 'The original source selection stays fixed for this planning request.' : 'Choose 1–12 files that ground the repository overview.'}</p>
+                <p>{plannedChapter ? 'This chapter follows the accepted step and its cited implementation.' : sectionUpdate ? 'This repair uses the selected section’s declared evidence. The native review checks that the other sections can carry forward.' : discoveryResult ? 'AI chose the implementation and supporting code from the snapshot index. Expand the list below to see why.' : planning ? 'This review retains the code from your original request.' : targetPath ? 'The captured file grounds this explanation.' : 'Choose 1–12 files that ground the repository overview.'}</p>
                 {mode.kind === 'section-update' && <p><strong>{mode.sectionTitle ?? 'Selected stale section'}</strong> · Older source and the previous section are included as context in the exact prompt below. Only current source is citable. The source byte limit counts both snapshots.</p>}
                 {manifestLoading && <p role="status">Loading the captured file list…</p>}
                 {manifestError && <p className="provider-error-text" role="alert">{manifestError}</p>}

@@ -46,9 +46,10 @@ describe('generation backend preference', () => {
 
   it('prepares a local review automatically while retaining explicit consent before send', async () => {
     const source = await readFile(new URL('../src/CodexChapterDialog.tsx', import.meta.url), 'utf8');
-    const automatic = source.slice(source.indexOf('// Prepare this one-file'), source.indexOf('  return (\n    <div className="provider-overlay">'));
+    const automatic = source.slice(source.indexOf('// Prepare an AI-selected request'), source.indexOf('  return (\n    <div className="provider-overlay">'));
     assert.match(automatic, /automaticReviewKey.current === key/);
     assert.match(automatic, /void buildReview\(\)/);
+    assert.match(automatic, /mode.kind === 'overview' && discoveryResult/);
     assert.doesNotMatch(automatic, /sendCodex|setConsent\(true\)/);
     assert.match(source, /setConsent\(false\)/);
     assert.match(source, /!consent/);

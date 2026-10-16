@@ -275,7 +275,7 @@ pub(crate) fn prepare(
     });
     let context_sha256 = digest_json(&data)?;
     let user_prompt = format!(
-        "Produce one bounded repository reading plan with 1–24 steps and 1–8 source-grounded unknowns. Use short local IDs beginning with a lowercase ASCII letter and containing only lowercase letters, digits or underscores (at most 40 characters). Each step asks a specific learning question ending in '?'. Each prerequisite ID must name an earlier step; no cycles or forward references. Every primaryPath must be present in that step's cited evidence. Each rationale and unknown uses the claim schema: 1–8 concrete identifiers named in the prose and exact unique 8–1,000-byte quotes. Unknowns must use category inference with a specific inferenceBasis. A learning-order dependency is not evidence of a call. Do not declare unselected files explained or generate their contents.\n\nCopy contextSha256 exactly: {context_sha256}\n\nSOURCE AND INDEX DATA:\n{data}"
+        "Produce one bounded repository reading plan with 1–24 steps and 1–8 source-grounded unknowns. Use the fewest coherent steps that answer the question: a small file usually needs one or two steps, not separate chapters for every guard or expression. Use short local IDs beginning with a lowercase ASCII letter and containing only lowercase letters, digits or underscores (at most 40 characters). Each step asks a specific learning question ending in '?'. Each prerequisite ID must name an earlier step; no cycles or forward references. Every primaryPath must be present in that step's cited evidence. Each rationale and unknown uses the claim schema: 1–8 distinct concrete identifiers named as whole identifiers in BOTH its prose AND its cited quotes. EVERY listed identifier must occur in at least one quote; EVERY quote must contain at least one listed identifier. If prose names a function but the body excerpt omits that name, also quote its declaration, or extend the quote to include the declaration. Copy quotes exactly, including whitespace: each is a contiguous 8–1,000 UTF-8 byte substring occurring exactly once in its selected file. Do not use prose words or type names absent from the quotes as identifiers. Set inferenceBasis to an empty string for codeBehavior and repositoryContext; inference needs a specific 12–500-byte inferenceBasis. Unknowns must use category inference and the SAME identifier/quote requirements. Use relationshipIds only when the rationale discusses that indexed relationship; otherwise use an empty array. A learning-order dependency is not evidence of a call. All text must be trimmed with no leading/trailing whitespace. Check these requirements before returning JSON. Do not declare unselected files explained or generate their contents.\n\nCopy contextSha256 exactly: {context_sha256}\n\nSOURCE AND INDEX DATA:\n{data}"
     );
     let output_schema = output_schema();
     let request = json!({"systemInstruction": SYSTEM_INSTRUCTION, "userPrompt": user_prompt, "outputSchema": output_schema});
@@ -310,6 +310,139 @@ pub(crate) fn prepare(
 
 fn valid_learning_question(question: &str) -> bool {
     bounded_text(question, 8, 300) && question == question.trim()
+}
+
+#[cfg(test)]
+mod live_tests {
+    use super::*;
+    use crate::codex_agent::{CodexAgentManager, CodexRunInput, CodexSourceFile};
+
+    /// Explicitly opted-in account smoke check, using synthetic code only.
+    /// No plan is persisted or accepted. Diagnostic output stays at the path
+    /// explicitly supplied by the person running this ignored test.
+    #[test]
+    #[ignore = "uses an installed Codex account and its quota; synthetic evidence only"]
+    fn installed_codex_synthetic_plan() {
+        let executable = std::env::var("CODE_ATLAS_LIVE_CODEX").unwrap();
+        let output = std::env::var("CODE_ATLAS_LIVE_PLAN_OUTPUT").unwrap();
+        let mut fixture = chapter_generation::tests::Fixture::new();
+        fixture.recapture_with_source(
+            "cart.ts",
+            include_str!("../../benchmarks/codex-account-smoke/cart.ts"),
+        );
+        let context = prepare(
+            &fixture.storage,
+            PrepareRepositoryPlanInput {
+                project_id: fixture.manifest.summary.project_id.clone(),
+                snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                question:
+                    "How do subtotal and totalWithTax validate inputs and calculate a taxed total?"
+                        .to_owned(),
+                selected_paths: vec!["cart.ts".to_owned()],
+            },
+        )
+        .unwrap();
+        let manager = CodexAgentManager::default();
+        manager.configure(&fixture.storage, &executable).unwrap();
+        let result = (|| -> Result<(), String> {
+            if !manager.resume_connection(&fixture.storage)?.authenticated {
+                return Err("An existing Codex account is required.".to_owned());
+            }
+            let response = manager.run(
+                &fixture.storage,
+                CodexRunInput {
+                    run_id: format!("synthetic-plan-{}", Uuid::new_v4()),
+                    expected_runtime: manager.review_runtime(&fixture.storage)?,
+                    model: "gpt-6-luna".to_owned(),
+                    effort: "max".to_owned(),
+                    approval_policy: "never".to_owned(),
+                    system_instruction: context.system_instruction.to_owned(),
+                    user_prompt: context.user_prompt.clone(),
+                    output_schema: context.output_schema.clone(),
+                    sources: context
+                        .selected_files
+                        .iter()
+                        .map(|file| CodexSourceFile {
+                            path: file.path.clone(),
+                            sha256: file.sha256.clone(),
+                            contents: file.contents.clone(),
+                        })
+                        .collect(),
+                },
+                |_| {},
+            )?;
+            std::fs::write(&output, &response.response_text)
+                .map_err(|_| "Cannot save synthetic diagnostic.".to_owned())?;
+            let plan = canonicalize(
+                &fixture.storage,
+                &context,
+                response.response_text.as_bytes(),
+            )?;
+            assert!(!plan.steps.is_empty());
+            Ok(())
+        })();
+        manager.shutdown();
+        result.unwrap();
+    }
+
+    #[test]
+    fn a_named_function_needs_its_name_in_the_cited_code() {
+        let mut fixture = chapter_generation::tests::Fixture::new();
+        let source = include_str!("../../benchmarks/codex-account-smoke/cart.ts");
+        fixture.recapture_with_source("cart.ts", source);
+        let context = prepare(
+            &fixture.storage,
+            PrepareRepositoryPlanInput {
+                project_id: fixture.manifest.summary.project_id.clone(),
+                snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                question:
+                    "How do subtotal and totalWithTax validate inputs and calculate a taxed total?"
+                        .to_owned(),
+                selected_paths: vec!["cart.ts".to_owned()],
+            },
+        )
+        .unwrap();
+        let mut proposal: Value = serde_json::from_str(include_str!(
+            "../../benchmarks/codex-account-smoke/2026-10-16-rejected-plan.json"
+        ))
+        .unwrap();
+        // Fixture identities are fresh. Isolate quote admission from index IDs.
+        proposal["contextSha256"] = json!(context.context_sha256);
+        for step in proposal["steps"].as_array_mut().unwrap() {
+            step["claim"]["relationshipIds"] = json!([]);
+        }
+        let error = canonicalize(&fixture.storage, &context, proposal.to_string().as_bytes())
+            .err()
+            .unwrap();
+        assert!(
+            error.contains("does not connect identifier 'subtotal' to the cited code"),
+            "{error}"
+        );
+        // The same claims become reviewable with exact, complete evidence.
+        for step in proposal["steps"].as_array_mut().unwrap() {
+            step["claim"]["evidence"] = json!([{"path":"cart.ts","quote":source}]);
+            step["claim"]["identifiers"] = if step["localId"].as_str().unwrap().starts_with("tax") {
+                json!(["totalWithTax"])
+            } else {
+                json!(["subtotal"])
+            };
+        }
+        for claim in proposal["unknowns"].as_array_mut().unwrap() {
+            claim["evidence"] = json!([{"path":"cart.ts","quote":source}]);
+            claim["identifiers"] = json!(["RangeError"]);
+        }
+        canonicalize(&fixture.storage, &context, proposal.to_string().as_bytes()).unwrap();
+        assert!(
+            context
+                .user_prompt
+                .contains("EVERY listed identifier must occur in at least one quote")
+        );
+        assert!(
+            context
+                .user_prompt
+                .contains("inferenceBasis to an empty string")
+        );
+    }
 }
 
 /// Accept only a response to the same re-opened immutable planning context.
@@ -691,15 +824,17 @@ fn inventory_digest(manifest: &SnapshotManifest) -> Result<String, String> {
 
 fn output_schema() -> Value {
     let text = |min, max| json!({"type":"string", "minLength":min, "maxLength":max});
-    let identifier = text(1, 200);
+    let identifier = json!({"type":"string", "minLength":1, "maxLength":200,
+        "description":"Concrete whole identifier copied from both this claim's prose and at least one of its exact evidence quotes."});
     let evidence = json!({"type":"object", "additionalProperties":false,
-        "required":["path","quote"], "properties":{"path":text(1,4096),"quote":text(1,1000)}});
+        "required":["path","quote"], "properties":{"path":text(1,4096),"quote":text(8,1000)}});
     let claim = json!({"type":"object", "additionalProperties":false,
     "required":["category","aspect","prose","inferenceBasis","identifiers","evidence","relationshipIds"],
     "properties":{
         "category":{"type":"string","enum":["codeBehavior","repositoryContext","inference"]},
         "aspect":{"type":"string","enum":["responsibility","execution","inputOutput","stateEffect","failurePath","dependency","relationship"]},
-        "prose":text(24,2000), "inferenceBasis":text(0,500),
+        "prose":text(24,2000), "inferenceBasis":{"type":"string","minLength":0,"maxLength":500,
+            "description":"Empty string for codeBehavior and repositoryContext; a specific 12–500-byte basis for inference."},
         "identifiers":{"type":"array","minItems":1,"maxItems":8,"items":identifier},
         "evidence":{"type":"array","minItems":1,"maxItems":8,"items":evidence},
         "relationshipIds":{"type":"array","maxItems":8,"items":text(1,500)}
