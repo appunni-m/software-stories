@@ -8,7 +8,7 @@ export interface WorkspaceNotification {
   title: string;
   message: string;
   tone?: 'info' | 'warning' | 'error';
-  actions?: { label: string; run: () => void; disabled?: boolean }[];
+  actions?: { label: string; run: () => void; disabled?: boolean; opensDialog?: boolean }[];
 }
 
 /** Background work never opens this panel or moves the reader's focus. */
@@ -37,7 +37,7 @@ export function NotificationCenter({ items, open: controlledOpen, onOpenChange }
           <div className="notification-item-title">{item.tone === 'error' || item.tone === 'warning' ? <CircleAlert size={16} /> : <Info size={16} />}<strong>{item.title}</strong></div>
           <p>{item.message}</p>
           {item.actions?.length ? <div className="notification-item-actions">{item.actions.map((action) => <button type="button" key={action.label} disabled={action.disabled} onClick={() => {
-            actionOpened.current = true;
+            actionOpened.current = Boolean(action.opensDialog);
             setOpen(false);
             action.run();
           }}>{action.label}</button>)}</div> : null}

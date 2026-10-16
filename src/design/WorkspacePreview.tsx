@@ -7,14 +7,23 @@ import { NotificationCenter, type WorkspaceNotification } from '../NotificationC
 import { CodePane } from './CodePane';
 import { exampleFiles, explorationPath, findExampleCode, readPreview, type CodeContext, type Exploration, type ExplorationView } from './example';
 
-const nodeLabels = ['Receive prices + tax rate', 'Validate the tax rate', 'Validate prices and sum', 'Apply the tax multiplier'];
+const nodeLabels = ['Receive the prices', 'Validate rate and apply tax', 'Validate prices and sum'];
 const nodes: Node[] = nodeLabels.map((label, i) => ({
-  id: String(i), position: { x: i === 2 ? 0 : 60, y: i * 112 },
-  data: { label: <><small>{['checkout.ts', 'totalWithTax', 'subtotal', 'totalWithTax'][i]}</small><strong>{label}</strong><span>{['[12, 8] · 0.10', 'Finite and non-negative', '12 + 8 = 20', '20 × 1.10 = 22'][i]}</span></> },
-  style: { width: i === 2 ? 312 : 250 },
+  id: String(i), position: { x: 0, y: i * 112 },
+  data: { label: <><small>{['checkout', 'totalWithTax', 'subtotal'][i]}</small><strong>{label}</strong><span>{['Passes a 0.10 rate', 'Calls subtotal, then multiplies', 'Checks each price before adding'][i]}</span></> },
+  style: { width: 290 },
   ariaLabel: label,
 }));
 const edges = nodes.slice(1).map((node, i) => ({ id: `e${i}`, source: String(i), target: node.id, markerEnd: { type: MarkerType.ArrowClosed }, label: i === 1 ? 'calls subtotal(prices)' : undefined }));
+const subtotalNodes: Node[] = [
+  { id: '0', position: { x: 108, y: 0 }, data: { label: <><small>subtotal · lines 1–4</small><strong>Check every price</strong><span>Finite and non-negative?</span></> }, style: { width: 205 } },
+  { id: '1', position: { x: 0, y: 140 }, data: { label: <><small>line 3</small><strong>Reject bad input</strong><span>Throw a RangeError</span></> }, style: { width: 205 } },
+  { id: '2', position: { x: 216, y: 140 }, data: { label: <><small>line 5</small><strong>Add from zero</strong><span>Return the subtotal</span></> }, style: { width: 205 } },
+];
+const subtotalEdges = [
+  { id: 'bad', source: '0', target: '1', label: 'Invalid', markerEnd: { type: MarkerType.ArrowClosed } },
+  { id: 'good', source: '0', target: '2', label: 'Valid', markerEnd: { type: MarkerType.ArrowClosed } },
+];
 
 function contextLabel(context: CodeContext) { return `${context.path.split('/').at(-1)}${context.from ? `:${context.from}${context.to !== context.from ? `–${context.to}` : ''}` : ''}`; }
 
@@ -61,7 +70,7 @@ export function WorkspacePreview() {
   }
   function explore(question: string, view: 'guide' | 'flow' = current.view === 'flow' ? 'flow' : 'guide', context = attachments) {
     if (!question.trim()) { setView(view); composer.current?.focus(); return; }
-    const kind = /negative|invalid|validat|reject/i.test(question) ? 'validation' : /overflow|break|limit|safe/i.test(question) ? 'limits' : /tax|rate/i.test(question) ? 'tax' : 'overview';
+    const kind = /negative|invalid|validat|reject|subtotal/i.test(question) ? 'validation' : /overflow|break|limit|safe/i.test(question) ? 'limits' : /tax|rate/i.test(question) ? 'tax' : 'overview';
     const existing = state.explorations.find((e) => e.parentId === current.id && e.question === question && JSON.stringify(e.context) === JSON.stringify(context));
     const next: Exploration = existing ?? { id: crypto.randomUUID(), parentId: current.id, question, view, context, kind };
     setState((s) => ({ ...s, currentId: next.id, explorations: existing ? s.explorations : [...s.explorations, next] }));
@@ -91,7 +100,8 @@ export function WorkspacePreview() {
   ] }));
   const children = state.explorations.filter((e) => e.parentId === current.id);
   const results = findExampleCode(searchQuery);
-  const nodeSource = (index: number): CodeContext => index === 0 ? { path: 'src/checkout.ts', from: 3, to: 5 } : index === 2 ? { path: 'src/cart.ts', from: 1, to: 6 } : { path: 'src/cart.ts', from: index === 1 ? 8 : 12, to: index === 1 ? 11 : 12 };
+  const nodeSource = (index: number): CodeContext => index === 0 ? { path: 'src/checkout.ts', from: 3, to: 5 } : index === 2 ? { path: 'src/cart.ts', from: 1, to: 6 } : { path: 'src/cart.ts', from: 8, to: 13 };
+  const detailFlow = /subtotal|negative|invalid/i.test(current.question);
 
   return <Theme appearance={state.theme} accentColor="blue" grayColor="slate" radius="medium" scaling="100%" className={`workspace-preview ${state.theme}`}>
     <header className="preview-titlebar">
@@ -152,14 +162,14 @@ export function WorkspacePreview() {
                     <article className="preview-answer-card">
                       <div className="preview-answer-number">01<span>{current.kind === 'validation' ? 'Input validation' : current.kind === 'limits' ? 'Edge cases' : 'Follow the calculation'}</span></div>
                       <h2>{current.kind === 'validation' ? 'Bad prices stop the calculation.' : current.kind === 'limits' ? 'Valid inputs can still produce an invalid total.' : 'Validate first. Sum next. Apply tax last.'}</h2>
-                      <p>{current.kind === 'validation' ? 'subtotal checks every price before reducing the array. A negative value, NaN, or Infinity throws a RangeError. No partial total is returned.' : current.kind === 'limits' ? 'Checking each input is not enough to guarantee a finite result. Adding very large finite prices can overflow, and the final multiplication has no extra check.' : 'checkout passes the prices and a 0.10 rate to totalWithTax. That function checks the rate, calls subtotal to check and add the prices, then multiplies the result by 1 + taxRate.'}</p>
+                      <p>{current.kind === 'validation' ? 'subtotal checks every price before reducing the array. A negative value, NaN, or Infinity throws a RangeError. No partial total is returned.' : current.kind === 'limits' ? 'Checking each input is not enough to guarantee a finite result. Adding very large finite prices can overflow, and the final multiplication has no extra check.' : 'checkout calls totalWithTax with a 0.10 rate. The rate is checked first. subtotal then validates and adds the prices; the result is multiplied by 1 + taxRate.'}</p>
                       <button className="preview-source-link" onClick={() => openFile({ path: 'src/cart.ts', from: current.kind === 'validation' ? 1 : 8, to: current.kind === 'validation' ? 6 : 13 })}><Code2 size={13} />cart.ts:{current.kind === 'validation' ? '1–6' : '8–13'}<ArrowRight size={13} /></button>
-                      <div className="preview-visual">
+                      {current.kind === 'validation' ? <div className="preview-visual preview-validation-visual"><div className="preview-visual-label">BEFORE ADDING ANY PRICES</div><div><code>[-1, 8]</code><ArrowRight size={16} /><span>RangeError</span></div><div><code>[12, 8]</code><ArrowRight size={16} /><span>20</span></div><p>One invalid price stops the calculation. An empty array returns zero.</p></div> : <div className="preview-visual">
                         <div className="preview-visual-label">{['CHECK THE INPUTS', 'ADD THE PRICES', 'APPLY TAX'][slide]}</div>
                         <div className="preview-calculation"><div><small>{slide === 0 ? 'Prices' : slide === 1 ? 'First price' : 'Subtotal'}</small><strong>{slide === 0 ? '[12, 8]' : slide === 1 ? '$12' : '$20'}</strong></div><span>{slide === 0 ? '+' : slide === 1 ? '+' : '×'}</span><div><small>{slide === 0 ? 'Tax rate' : slide === 1 ? 'Second price' : 'Multiplier'}</small><strong>{slide === 0 ? '0.10' : slide === 1 ? '$8' : '1.10'}</strong></div><ArrowRight size={18} /><div className="preview-calculation-result"><small>{slide === 0 ? 'Both finite ≥ 0' : slide === 1 ? 'Subtotal' : 'Total'}</small><strong>{slide === 0 ? <Check size={23} /> : slide === 1 ? '$20' : '$22'}</strong></div></div>
                         <div className="preview-visual-caption">{['Invalid inputs throw a RangeError before a result is returned.', 'reduce starts at zero and adds each validated price.', 'A rate of 0.10 adds 10% to the subtotal.'][slide]}</div>
                         <div className="preview-player"><Tooltip content="Play this visual step"><IconButton size="1" variant="ghost" color="gray" aria-label={playing ? 'Pause visual preview' : 'Play visual preview'} onClick={() => { if (slide === 2) setSlide(0); setPlaying((p) => !p); }}>{playing ? <Pause size={14} /> : <Play size={14} />}</IconButton></Tooltip><span>{slide + 1} of 3</span><div className="preview-player-dots">{[0, 1, 2].map((n) => <button key={n} aria-label={`Visual step ${n + 1}`} aria-current={slide === n ? 'step' : undefined} onClick={() => { setSlide(n); setPlaying(false); }} />)}</div><Button size="1" variant="ghost" color="gray" disabled={slide === 2} onClick={() => { setSlide((n) => n + 1); setPlaying(false); }}>Next<ArrowRight size={13} /></Button></div>
-                      </div>
+                      </div>}
                       <h3>{current.kind === 'limits' ? 'What to watch for' : 'The detail that matters'}</h3>
                       <p>{current.kind === 'limits' ? 'There is no rounding or currency type here. This example uses ordinary JavaScript numbers; callers must decide how monetary precision and overflow should be handled.' : 'The rate check runs first. If the rate is invalid, subtotal never runs. If a price is invalid, subtotal throws and the tax multiplication never happens.'}</p>
                       <footer className="preview-card-footer"><button onClick={() => explore('Why reject negative prices?', 'guide')}><ArrowDown size={13} />Why reject negative prices?</button><span>{children.length ? `${children.length} exploration${children.length === 1 ? '' : 's'}` : 'Go deeper'}</span></footer>
@@ -169,9 +179,9 @@ export function WorkspacePreview() {
                   </Tabs.Content>
                   <Tabs.Content value="flow">
                     <p className="preview-flow-intro">Follow the calculation. Select a step to see its code.</p>
-                    <div className="preview-flow"><ReactFlow nodes={nodes} edges={edges} fitView fitViewOptions={{ padding: .2 }} nodesDraggable={false} nodesConnectable={false} colorMode={state.theme} onNodeClick={(_, node) => openFile(nodeSource(Number(node.id)))} minZoom={.4} maxZoom={1.5} aria-label="Checkout calculation flow"><Background gap={20} size={1} /><Controls showInteractive={false} /></ReactFlow></div>
-                    <div className="preview-flow-caption"><Code2 size={13} />Code paths from this example. Not a live execution.</div>
-                    <Button variant="soft" size="2" onClick={() => { openFile({ path: 'src/cart.ts', from: 1, to: 6 }); explore('How does subtotal work?', 'flow'); }}><Network size={14} />Explore subtotal<ChevronRight size={14} /></Button>
+                    <div className="preview-flow"><ReactFlow key={detailFlow ? 'subtotal' : 'project'} nodes={detailFlow ? subtotalNodes : nodes} edges={detailFlow ? subtotalEdges : edges} fitView fitViewOptions={{ padding: .06 }} nodesDraggable={false} nodesConnectable={false} colorMode={state.theme} onNodeClick={(_, node) => openFile(detailFlow ? { path: 'src/cart.ts', from: node.id === '0' ? 1 : node.id === '1' ? 3 : 5, to: node.id === '0' ? 4 : node.id === '1' ? 3 : 5 } : nodeSource(Number(node.id)))} minZoom={.4} maxZoom={1.5} aria-label={detailFlow ? 'Subtotal validation flow' : 'Checkout calculation flow'}><Background gap={20} size={1} /><Controls showInteractive={false} /></ReactFlow></div>
+                    <div className="preview-flow-caption"><Code2 size={13} />{detailFlow ? 'Validation and calculation inside subtotal.' : 'Function calls in this example.'}</div>
+                    <Button variant="soft" size="2" onClick={() => { openFile({ path: 'src/cart.ts', from: 1, to: 6 }); explore(detailFlow ? 'Why reject negative prices?' : 'How does subtotal work?', 'flow'); }}><Network size={14} />{detailFlow ? 'Explore input validation' : 'Explore subtotal'}<ChevronRight size={14} /></Button>
                   </Tabs.Content>
                   <Tabs.Content value="history"><div className="preview-chat-history">{ancestors.flatMap((e) => [{ id: e.id, question: e.question, owner: e.id }, ...(e.turns ?? []).map((t) => ({ ...t, owner: e.id }))]).map((turn) => <div key={turn.id}><div className="preview-history-question"><MessageSquare size={15} /><strong>{turn.question}</strong></div><p>The calculation validates its inputs, sums prices, and applies the tax multiplier.</p><button onClick={() => { setState((s) => ({ ...s, currentId: turn.owner })); setView('guide'); }}><BookOpen size={13} />Open explanation<ArrowRight size={13} /></button></div>)}</div></Tabs.Content>
                   {current.view !== 'history' && (current.turns ?? []).map((turn, index) => {

@@ -14,6 +14,10 @@ These are screenshots of the interactive sample design, not the packaged app.
 
 ![Background updates behind the notification bell](workspace-notifications-light.jpg)
 
+![Nested function-level Flow with inline source](workspace-nested-flow-light.jpg)
+
+![No-result search keeps an Explore with AI action](workspace-search-light.jpg)
+
 ## What the reader sees
 
 - **Left:** a persistent, searchable file explorer. Opening a file shows actual code beside the explanation; closing code gives the explanation more space. The explorer remains available in every view.

@@ -1311,7 +1311,7 @@ function App() {
     ...pendingChapterPreviews.map((preview): WorkspaceNotification => ({
       id: `preview:${preview.generationId}`, title: preview.unavailableReason ? 'An explanation needs attention' : 'An explanation is ready',
       message: `${preview.title}${preview.targetPath ? ` · ${preview.targetPath}` : ''}`, tone: preview.unavailableReason ? 'warning' : 'info',
-      actions: [{ label: 'Open explanation', disabled: Boolean(preview.unavailableReason), run: () => {
+      actions: [{ label: 'Open explanation', disabled: Boolean(preview.unavailableReason), opensDialog: true, run: () => {
         recoveredPreviewReturnFocusRef.current = document.querySelector<HTMLButtonElement>('[data-focus-key="notifications"]');
         setRecoveredPreviewId(preview.generationId);
       } }, { label: 'Discard preview', run: () => { void discardPendingPreview(preview); } }],
@@ -1470,7 +1470,7 @@ function App() {
               aria-expanded={toolsOpen}
               aria-haspopup="menu"
             >
-              <Settings2 size={16} /><span>Settings</span>
+              <Settings2 size={16} />
             </button>
             {toolsOpen && (
               <div className="tools-menu" role="menu" aria-label="More tools">
@@ -1482,16 +1482,10 @@ function App() {
                 <button role="menuitem" data-focus-key="tools-button" onClick={() => chooseWorkspace('chapter-studio')}>
                   <BookOpen size={16} /> <span>Review a draft</span>
                 </button>
+                <button role="menuitem" onClick={() => { setToolsOpen(false); showComingSoon('Keyboard shortcuts', '⌘1 Guide · ⌘2 Files · ⌘3 Changes · ⌘K Search · ⌘[ Back · ⌘] Forward · ⌘= zoom in · ⌘− zoom out (20% steps)'); }}><CircleHelp size={16} /><span>Keyboard shortcuts</span></button>
               </div>
             )}
           </div>
-          <button
-            className="icon-button help-button"
-            onClick={() => showComingSoon('Code Atlas help', 'Shortcuts: ⌘1 Guide · ⌘2 Files · ⌘3 Changes · ⌘[ Back · ⌘] Forward · ⌘= zoom in · ⌘− zoom out (20% steps).')}
-            aria-label="Help and keyboard shortcuts"
-          >
-            <CircleHelp size={17} />
-          </button>
         </div>
       </header>
 
@@ -1711,8 +1705,8 @@ function App() {
             )}
 
             <footer className="workspace-footer">
-              <span>{runtime?.native ? 'Mac app' : 'Desktop preview'} <span className="footer-dot">·</span> {runtime?.version ?? 'Checking shell…'}</span>
-              <span>{currentWorkspace === 'changes' ? 'Local Git comparison reads existing commit objects only. No checkout or remote request.' : selectedSnapshot ? `Immutable local snapshot ${selectedSnapshot.snapshotId.slice(-10)} · ${selectedSnapshot.status === 'partial' ? 'partial capture' : 'complete under policy'}` : currentCapture?.status === 'running' ? 'Capturing bounded repository bytes locally.' : currentProject ? 'No source bytes are read until you create a snapshot.' : 'No repository source is read until you choose a folder and create a snapshot.'}</span>
+              <span>{currentProject?.displayName ?? 'Code Atlas'}</span>
+              <span>{currentWorkspace === 'changes' ? 'Local changes' : selectedSnapshot?.branch ?? ''}</span>
             </footer>
           </section>
         </main>

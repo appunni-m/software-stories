@@ -4,7 +4,7 @@ Code Atlas uses Codex to choose relevant implementation from an immutable snapsh
 
 ## Connect once
 
-The header shows Codex, the chosen model and reasoning level. Click it to change connection settings. The app restores an existing installed Codex account at startup when Codex is selected, unless you explicitly disconnected. Account restoration and model discovery can contact Codex account services; they do not send repository source. Missing login opens setup when discovery needs it. Credentials remain managed by Codex.
+The header shows a compact Codex connection state. Click it to change connection settings, including the shared model and reasoning level. The app restores an existing installed Codex account at startup when Codex is selected, unless you explicitly disconnected. Account restoration and model discovery can contact Codex account services; they do not send repository source. Missing login opens setup when discovery needs it. Credentials remain managed by Codex.
 
 Appearance is also in the header: **System**, **Light**, or **Dark**. The choice persists locally. Both palettes use neutral editor surfaces, blue actions, readable secondary text and distinct warning/error colors.
 

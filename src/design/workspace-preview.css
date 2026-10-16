@@ -137,3 +137,8 @@ html, body, #root { height: 100%; }
 .preview-visual-caption { font-size: 11px; }
 /* Keep the current flow visible beside code in a normal desktop window. */
 .preview-flow { height: clamp(260px, calc(100dvh - 405px), 490px); }
+.preview-validation-visual > div:not(.preview-visual-label) { display: flex; justify-content: space-between; align-items: center; padding: 18px; gap: 12px; font-size: 14px; }
+.preview-validation-visual code { color: var(--accent); font-family: var(--mono); }
+.preview-validation-visual > p { padding: 0 16px 8px; font-size: 12px; }
+.preview-breadcrumbs { height: 28px; }
+.preview-composer { padding-bottom: 12px; }

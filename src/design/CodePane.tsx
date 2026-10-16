@@ -30,7 +30,7 @@ export function CodePane({ path, theme, reveal, onExplain, onAttach, onClose }: 
     const view = new EditorView({ parent: host.current, state: EditorState.create({
       doc: exampleFiles[path], extensions: [
         EditorState.readOnly.of(true), lineNumbers(), drawSelection(), highlightActiveLine(), EditorView.lineWrapping,
-        javascript({ typescript: path.endsWith('.ts') }), syntaxHighlighting(colors),
+        ...(path.endsWith('.ts') ? [javascript({ typescript: true })] : []), syntaxHighlighting(colors),
         EditorView.theme({ '&': { height: '100%', backgroundColor: 'var(--editor-bg)', color: 'var(--text)' }, '.cm-scroller': { fontFamily: 'var(--mono)', fontSize: '13px', lineHeight: '1.9' }, '.cm-content': { padding: '16px 0' }, '.cm-gutters': { backgroundColor: 'var(--editor-bg)', color: 'var(--dim)', borderRight: 'none', paddingRight: '8px' }, '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'var(--active-line)' }, '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': { backgroundColor: 'var(--selection)' }, '&.cm-focused': { outline: 'none' } }, { dark: theme === 'dark' }),
         EditorView.contentAttributes.of({ 'aria-label': `Source code, ${path}` }),
         keymap.of([{ key: 'Mod-i', run: (v) => { const r = v.state.selection.main; if (r.empty) return false; callback.current({ path, from: v.state.doc.lineAt(r.from).number, to: v.state.doc.lineAt(r.to).number }); return true; } }, ...defaultKeymap]),
@@ -47,6 +47,7 @@ export function CodePane({ path, theme, reveal, onExplain, onAttach, onClose }: 
   useEffect(() => {
     const view = editor.current;
     if (!view || !reveal || reveal.path !== path) return;
+    if (!reveal.from) { view.dispatch({ selection: { anchor: 0 } }); return; }
     const from = view.state.doc.line(Math.min(reveal.from ?? 1, view.state.doc.lines)).from;
     const to = view.state.doc.line(Math.min(reveal.to ?? reveal.from ?? 1, view.state.doc.lines)).to;
     view.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: 'center' }) });
@@ -59,6 +60,6 @@ export function CodePane({ path, theme, reveal, onExplain, onAttach, onClose }: 
       <Button size="1" onClick={() => onExplain(selection)}><MessageSquarePlus size={13} />Explain this code</Button>
       <Tooltip content="Add selected lines to your question"><IconButton size="1" variant="soft" aria-label="Add selection to chat" onClick={() => onAttach(selection)}>+</IconButton></Tooltip>
     </div>}
-    <footer className="preview-editor-footer"><span>TypeScript</span><span>{selection ? `Lines ${selection.from}–${selection.to}` : 'Select code to ask about it'}</span></footer>
+    <footer className="preview-editor-footer"><span>{path.endsWith('.ts') ? 'TypeScript' : path.endsWith('.json') ? 'JSON' : 'Markdown'}</span><span>{selection ? `Lines ${selection.from}–${selection.to}` : 'Select code to ask about it'}</span></footer>
   </section>;
 }
