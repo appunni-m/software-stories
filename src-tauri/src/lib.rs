@@ -1925,6 +1925,7 @@ pub fn run() {
             workspace::authorize_workspace_exploration,
             workspace::revoke_workspace_exploration,
             workspace::list_workspace_commits,
+            workspace::search_workspace_source,
             source_discovery::prepare_source_discovery,
             source_discovery::get_documentation_notices,
             source_discovery::discard_source_discovery,

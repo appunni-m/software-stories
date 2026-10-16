@@ -73,8 +73,9 @@ export async function runQuestion(project: string, snapshot: string, id: string,
       }
     }
     check();
+    const targetPath=turn.context[0]?.path && !/\.(md|mdx|rst|txt|adoc)$/i.test(turn.context[0].path)?turn.context[0].path:null;
     const contextQuestion = ancestors(getWorkspace(project,snapshot),owner.id).slice(1).map((e) => e.title).concat(turn.question).join(' → ').slice(-300);
-    const discovery = await prepareSourceDiscovery({ projectId:project, snapshotId:snapshot, question:contextQuestion.length >= 8 ? contextQuestion : `Explain ${contextQuestion}`, targetPath:turn.context[0]?.path, ...selection, workspaceGrant:grantId });
+    const discovery = await prepareSourceDiscovery({ projectId:project, snapshotId:snapshot, question:contextQuestion.length >= 8 ? contextQuestion : `Explain ${contextQuestion}`, targetPath, ...selection, workspaceGrant:grantId });
     discoveryId = discovery.reviewId; check(); job.runId = discovery.reviewId;
     const result = await sendSourceDiscovery(discovery); check(); job.runId = null;
     const manifest = await loadSnapshotManifest(project,snapshot); check();
@@ -87,7 +88,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     if (!paths.length) throw new Error(result.limitation || 'There is not enough captured code to answer this question. Try a more specific question.');
     const focus = turn.context.filter((c) => c.from && c.to && c.sha256).map((c) => ({ path:c.path, sourceSha256:c.sha256!, startLine:c.from!, endLine:c.to!, startByte:null, endByteExclusive:null }));
     const reviewResult = await buildCodexChapterReview({ projectId:project, snapshotId:snapshot,
-      targetPath:turn.context[0]?.path ?? null, selectedPaths:paths, ...selection, approvalPolicy:'never', workspaceGrant:grantId,
+      targetPath, selectedPaths:paths, ...selection, approvalPolicy:'never', workspaceGrant:grantId,
       question:ancestors(getWorkspace(project,snapshot),owner.id).slice(1).map((e) => e.title).concat(turn.question).join(' → ').slice(-1200), focus });
     if (reviewResult.status === 'error') throw new Error(reviewResult.error.message || 'The explanation request could not be prepared.');
     const review = reviewResult.data; reviewId = review.reviewId; check(); job.runId = review.reviewId;

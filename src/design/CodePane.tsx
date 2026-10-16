@@ -37,7 +37,7 @@ export function CodePane({ path, contents, theme, reveal, onExplain, onAttach, o
         EditorView.updateListener.of((update) => {
           if (!update.selectionSet) return;
           const range = update.state.selection.main;
-          setSelection(range.empty ? null : { path, from: update.state.doc.lineAt(range.from).number, to: update.state.doc.lineAt(range.to).number });
+          setSelection(range.empty ? null : { path, from: update.state.doc.lineAt(range.from).number, to: update.state.doc.lineAt(Math.max(range.from,range.to-1)).number });
         }),
       ],
     }) });
@@ -47,6 +47,7 @@ export function CodePane({ path, contents, theme, reveal, onExplain, onAttach, o
   useEffect(() => {
     const view = editor.current;
     if (!view || !reveal || reveal.path !== path) return;
+    if (reveal.from !== undefined && (!Number.isInteger(reveal.from) || reveal.from < 1 || (reveal.to !== undefined && (!Number.isInteger(reveal.to) || reveal.to < reveal.from)))) return;
     if (!reveal.from) { view.dispatch({ selection: { anchor: 0 } }); return; }
     const from = view.state.doc.line(Math.min(reveal.from ?? 1, view.state.doc.lines)).from;
     const to = view.state.doc.line(Math.min(reveal.to ?? reveal.from ?? 1, view.state.doc.lines)).to;

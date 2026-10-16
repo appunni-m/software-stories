@@ -8,13 +8,13 @@
 
 Project: **code-atlas-rebuild**. Recorded October 16, 2026, during Codex validation and [workspace refinement](acceptance/2026-10-16-code-workspace.md).
 
-**63 tasks: 42 open, 21 closed.** Every task title maps to exactly one checked-in definition. This is a dated Kata status snapshot; a closed historical task does not prove that the current app, new schema or agent runtime passed acceptance. No task was closed by this audit.
+**64 tasks: 43 open, 21 closed.** Every task title maps to exactly one checked-in definition. This is a dated Kata status snapshot; a closed historical task does not prove that the current app, new schema or agent runtime passed acceptance. No task was closed by this audit.
 
 The full requested scope remains in [the backlog](KATA_BACKLOG.md). Codex is the first delivery gate; APIs and manual handoffs cannot substitute. The user deferred Claude, which remains unavailable behind an empty qualification registry and still gates full M7. Building/testing and a small synthetic Codex account validation were authorized on October 16; dated results are recorded in the validation task. Complete operation/runtime and distribution evidence remains pending.
 
 ## Latest workspace tasks
 
-The latest user contract supersedes the earlier primary navigation. The [design and interactive preview](design/WORKSPACE_EXPLORATION.md) precede native shell migration. Global notices have moved to a bell in source; background job/authorization and the full workspace remain open.
+The latest user contract supersedes the earlier primary navigation. The [production workspace migration](design/WORKSPACE_EXPLORATION.md) now implements activity navigation, top chat, stacked answers, explicit branches, automatic Codex source discovery, native scoped permission, captured-source search and local commit comparison. A module-owned job continues across navigation; native durable scheduling, complete reading-position recovery and packaged visual/accessibility qualification remain open. Global outcomes stay behind the notification bell.
 
 | Ref | Status | Definition |
 | --- | --- | --- |
@@ -25,6 +25,7 @@ The latest user contract supersedes the earlier primary navigation. The [design 
 | `mrpj` | open | [Compose Guide and Flow from shared answers with inline code details](kata-tasks/61-guide-flow-detail.md) |
 | `hstr` | open | [Collect background outcomes and recovery behind a notification bell](kata-tasks/62-notification-center.md) |
 | `3rcd` | open | [Qualify the packaged conversation and code workspace against its design](kata-tasks/63-workspace-design-acceptance.md) |
+| `na54` | open | [Replace inconsistent pages with the conversational developer workspace](kata-tasks/64-workspace-ui-audit.md) |
 
 ## All earlier tasks
 

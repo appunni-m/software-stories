@@ -240,6 +240,34 @@ mod tests {
         id
     }
     #[test]
+    fn local_search_uses_captured_source_and_rejects_empty_queries() {
+        let fixture = Fixture::new();
+        let p = &fixture.manifest.summary.project_id;
+        let snapshot = &fixture.manifest.summary.snapshot_id;
+        let source = snapshot::read_snapshot_source_from_manifest(
+            &fixture.storage,
+            &fixture.manifest,
+            SIMPLE_PATH,
+        )
+        .unwrap();
+        let first = source
+            .contents
+            .lines()
+            .find(|line| line.trim().len() > 8)
+            .unwrap()
+            .trim();
+        let query = first.chars().take(12).collect::<String>();
+        let result = search_snapshot(&fixture.storage, p, snapshot, &query).unwrap();
+        assert!(
+            result
+                .matches
+                .iter()
+                .any(|hit| hit.path == SIMPLE_PATH && hit.line >= 1)
+        );
+        assert!(search_snapshot(&fixture.storage, p, snapshot, "").is_err());
+        assert!(search_snapshot(&fixture.storage, p, snapshot, "bad\nquery").is_err());
+    }
+    #[test]
     fn permissions_are_bound_to_snapshot_account_runtime_and_revocation() {
         let fixture = Fixture::new();
         let runtime = runtime();
@@ -300,4 +328,99 @@ mod tests {
                 .is_err()
         );
     }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SearchHit {
+    path: String,
+    line: usize,
+    text: String,
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SearchResult {
+    matches: Vec<SearchHit>,
+    limited: bool,
+}
+fn search_snapshot(
+    storage: &Path,
+    project: &str,
+    snapshot_id: &str,
+    query: &str,
+) -> Result<SearchResult, String> {
+    if !(2..=120).contains(&query.chars().count()) || query.chars().any(char::is_control) {
+        return Err("Search with 2–120 characters.".to_owned());
+    }
+    let manifest = snapshot::load_snapshot_manifest(storage, project, snapshot_id)?;
+    let needle = query.to_lowercase();
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let mut bytes = 0u64;
+    let mut matches = vec![];
+    let mut limited = false;
+    let mut files = manifest
+        .files
+        .iter()
+        .filter(|f| {
+            !f.secret_like
+                && matches!(
+                    f.content_kind,
+                    snapshot::CapturedContentKind::Text | snapshot::CapturedContentKind::Unknown
+                )
+        })
+        .collect::<Vec<_>>();
+    files.sort_by_key(|f| {
+        (
+            !crate::source_discovery::is_code_path(&f.path),
+            f.path.clone(),
+        )
+    });
+    for file in files {
+        if Instant::now() >= deadline
+            || matches.len() >= 80
+            || bytes.saturating_add(file.size_bytes) > 24_000_000
+        {
+            limited = true;
+            break;
+        }
+        bytes += file.size_bytes;
+        let source =
+            match snapshot::read_snapshot_source_from_manifest(storage, &manifest, &file.path) {
+                Ok(source) => source,
+                Err(_) => {
+                    limited = true;
+                    continue;
+                }
+            };
+        for (index, line) in source.contents.lines().enumerate() {
+            if line.to_lowercase().contains(&needle) {
+                matches.push(SearchHit {
+                    path: file.path.clone(),
+                    line: index + 1,
+                    text: line.trim().chars().take(220).collect(),
+                });
+                if matches.len() >= 80 {
+                    limited = true;
+                    break;
+                }
+            }
+        }
+    }
+    Ok(SearchResult { matches, limited })
+}
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn search_workspace_source(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    project_id: String,
+    snapshot_id: String,
+    query: String,
+) -> Result<SearchResult, String> {
+    sessions.get(&project_id)?;
+    let storage = app_data_directory(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        search_snapshot(&storage, &project_id, &snapshot_id, &query)
+    })
+    .await
+    .map_err(|_| "Source search stopped unexpectedly.".to_owned())?
 }

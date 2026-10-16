@@ -42,6 +42,14 @@ is denied, the app says the key was not saved; retry after unlocking Keychain
 or approving the access request. Local browsing remains available. You can
 remove a key from the same settings screen.
 
+## Workspace questions and conversation state
+
+The first workspace question asks to share relevant captured context with OpenAI through the connected Codex account. The native app stores a revocable permission file under `workspace-permissions/`. It binds the project, snapshot manifest, account identity and Codex executable hash, and checks these again at source-discovery and chapter dispatch. Questions, indexed names, documentation hints and selected captured source may be sent; this grant does not authorize repository writes or live working-copy source. Limits and excluded paths still apply. The shield in the activity bar revokes permission and requests cancellation of active questions. Revoking cannot retract context already sent or delete saved explanations.
+
+The WebView also stores versioned, snapshot-scoped conversation metadata under `code-atlas:workspace:v1:<project>:<snapshot>`. It includes questions, attached path/range references, branch relationships, view/file/scroll state and native chapter revision IDs. Generated prose and audio remain in the native chapter/cache stores. This WebView state is not a native conversation database or included in HTML exports; it can be lost if WebView storage is cleared. A storage error keeps native revisions and reports a notification. Saved explanations can be brought back into the conversation from its library.
+
+Question jobs continue while navigating files, views or repositories within the running app. Restarting marks in-flight questions interrupted and requires an explicit retry; there is no automatic resend or durable native job scheduler. Clearing a conversation's WebView state does not delete chapters or revoke its native permission file. Advanced editor and PR generation retain their separate reviewed request permissions.
+
 ## Exports and backups
 
 **Offline export** creates one HTML guide from the accepted revisions you

@@ -1,6 +1,6 @@
 # Code Atlas — product blueprint
 
-> **Latest workspace direction — 16 October:** the [persistent code/chat/exploration workspace](design/WORKSPACE_EXPLORATION.md) supersedes earlier primary-navigation proposals. It keeps the explorer left, chat at the top, Guide / Flow / history within each exploration, inline code details, and background notifications. The new shell is a design preview; existing native behavior and prior observations below remain historical/implementation evidence, not proof of the new design.
+> **Developer workspace migration — 16 October:** the [persistent code/chat/exploration workspace](design/WORKSPACE_EXPLORATION.md) is implemented in the production entry point. A left activity bar opens Explorer, Search, Changes and Explorations; pinned chat owns Guide / Flow / history at each level. Follow-ups stack and explicit branches attach to their originating answers. Native snapshot source, question-specific Codex generation, saved revisions, permission validation and local commit comparisons are wired. Packaged visual/accessibility and broader lifecycle qualification remain open in `na54` / `3rcd`; the separate preview uses sample data. Older navigation descriptions below are historical contracts superseded by this workspace.
 
 **Status:** Product contract; implementation status is tracked separately  
 **Plan date:** 13 October 2026  
@@ -11,13 +11,13 @@ This blueprint describes the intended experience, not the current release state.
 
 ## Product promise
 
-Open an unfamiliar local repository and quickly see how it is organized, what each eligible file actually does, and where every explanation comes from. Start in Guide, inspect exact captured source beside its explanation in Files, and compare local revisions in Changes. When code changes, update only the explanations and media that depend on it.
+Open an unfamiliar local repository and quickly see how it is organized, what each eligible file actually does, and where every explanation comes from. Ask in the shared workspace, inspect exact captured source beside Guide or Flow, and compare local revisions from the Changes activity. When code changes, update only the explanations and media that depend on it.
 
 The guide is file-first. An overview can introduce the repository, but it never substitutes for the individual file explanations.
 
 ## Product concept
 
-The current approved design references are `design/proposed-00-first-run.svg` through `design/proposed-04-changes.svg`, summarized in [PROPOSED_SIMPLIFICATION.md](design/PROPOSED_SIMPLIFICATION.md). They are vector proposals, not screenshots of the current packaged app. The older `platform-overview.png`, `atlas-concept.png`, `code-lens-concept.png`, and `walkthrough-concept.png` depict a superseded information architecture and are historical references only.
+The earlier design references are `design/proposed-00-first-run.svg` through `design/proposed-04-changes.svg`, summarized in [PROPOSED_SIMPLIFICATION.md](design/PROPOSED_SIMPLIFICATION.md). They are vector proposals, not screenshots of the current packaged app. The older `platform-overview.png`, `atlas-concept.png`, `code-lens-concept.png`, and `walkthrough-concept.png` depict a superseded information architecture and are historical references only.
 
 The app has three primary destinations, all bound to the same project and immutable snapshot:
 
