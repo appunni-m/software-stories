@@ -1331,7 +1331,7 @@ export interface CodexAgentStatus {
   message: string;
 }
 
-export interface CodexLoginStart { loginId: string; authUrl: string }
+export interface CodexLoginStart { loginId: string | null; authUrl: string | null }
 export interface CodexModel {
   modelId: string;
   displayName: string;

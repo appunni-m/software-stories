@@ -2,8 +2,8 @@
 //!
 //! All entry points are blocking and must run on Tauri's blocking pool. One
 //! process is shared by this application; calls never use a shell or read a
-//! user's existing Codex credentials. The runtime owns its browser login,
-//! Keychain credential storage and refresh in an application-specific home.
+//! user's existing Codex credentials. The installed runtime reuses its own account and manages browser login and
+//! credential refresh. Application overrides never modify the user configuration.
 //! This initial adapter exposes bounded explanation generation with command and web
 //! tools disabled, restricted read access, and unexpected tool events rejected.
 
@@ -32,6 +32,7 @@ const RUN_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const CANCEL_GRACE: Duration = Duration::from_secs(3);
 const CANCEL_TTL: Duration = Duration::from_secs(15 * 60);
 const MAX_CANCELLED_RUNS: usize = 256;
+const PERMISSION_PROFILE: &str = "code_atlas_explainer_v1";
 const BUSY: &str =
     "Codex is busy with another operation. Wait for it to finish or cancel the active generation.";
 const UPGRADE: &str = "Code Atlas could not verify the required explanation protocol in this Codex executable. Sign-in and generation have not started. Check compatibility with this adapter before retrying.";
@@ -71,8 +72,8 @@ impl Default for CodexAgentStatus {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct CodexLoginStart {
-    pub login_id: String,
-    pub auth_url: String,
+    pub login_id: Option<String>,
+    pub auth_url: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -251,7 +252,8 @@ impl CodexAgentManager {
         {
             return Err(codex_identity::changed());
         }
-        let account = process.request("account/read", json!({"refreshToken": false}), RPC_TIMEOUT)?;
+        let account =
+            process.request("account/read", json!({"refreshToken": false}), RPC_TIMEOUT)?;
         self.remember_account(&account);
         CodexReviewRuntime::from_observation(
             &process.connection_id,
@@ -293,6 +295,12 @@ impl CodexAgentManager {
         let account =
             process.request("account/read", json!({"refreshToken": false}), RPC_TIMEOUT)?;
         self.remember_account(&account);
+        if account.pointer("/account/type").and_then(Value::as_str) == Some("chatgpt") {
+            return Ok(CodexLoginStart {
+                login_id: None,
+                auth_url: None,
+            });
+        }
         if let Some(login_id) = self
             .0
             .status
@@ -337,7 +345,10 @@ impl CodexAgentManager {
                 "Complete ChatGPT sign-in in your browser, then refresh the account status."
                     .to_owned();
         });
-        Ok(CodexLoginStart { login_id, auth_url })
+        Ok(CodexLoginStart {
+            login_id: Some(login_id),
+            auth_url: Some(auth_url),
+        })
     }
 
     pub(crate) fn cancel_login(&self, _storage_dir: &Path, login_id: &str) -> Result<(), String> {
@@ -358,8 +369,8 @@ impl CodexAgentManager {
 
     pub(crate) fn logout(&self, storage_dir: &Path) -> Result<(), String> {
         let mut slot = self.lock_process()?;
-        let process = self.ensure_started(storage_dir, &mut slot, None)?;
-        process.request("account/logout", json!({}), RPC_TIMEOUT)?;
+        // Disconnect only this client. Logging out would also sign out the user’s CLI.
+        let _ = storage_dir;
         slot.take();
         self.update_status(|status| {
             status.runtime_running = false;
@@ -504,7 +515,8 @@ impl CodexAgentManager {
             if cancelled.load(Ordering::Acquire) {
                 return Err(cancelled_message());
             }
-            let response = process.generate(&input, &stage.path, &cancelled, started_at, &progress)?;
+            let response =
+                process.generate(&input, &stage.path, &cancelled, started_at, &progress)?;
             if self.observe_runtime(storage_dir, process)? != input.expected_runtime {
                 return Err(codex_identity::changed());
             }
@@ -538,10 +550,9 @@ impl CodexAgentManager {
                 fingerprint,
                 &input.expected_runtime.executable_path,
             )?;
-            if !active
-                .as_ref()
-                .is_some_and(|run| run.id == input.run_id && Arc::ptr_eq(&run.cancelled, &cancelled))
-            {
+            if !active.as_ref().is_some_and(|run| {
+                run.id == input.run_id && Arc::ptr_eq(&run.cancelled, &cancelled)
+            }) {
                 return Err(
                     "The native Codex operation owner changed. No late response was published."
                         .to_owned(),
@@ -735,6 +746,7 @@ struct ServerProcess {
     connection_id: String,
     account_revision: u64,
     reaped: bool,
+    disabled_mcp: Value,
 }
 
 struct WriteFrame {
@@ -759,15 +771,22 @@ impl ServerProcess {
         for setting in [
             "model_provider=\"openai\"",
             "forced_login_method=\"chatgpt\"",
-            "cli_auth_credentials_store=\"keyring\"",
             "approval_policy=\"never\"",
-            "sandbox_mode=\"read-only\"",
+            "default_permissions=\"code_atlas_explainer_v1\"",
+            "permissions.code_atlas_explainer_v1.filesystem={\":minimal\"=\"read\",\":workspace_roots\"=\"read\"}",
+            "permissions.code_atlas_explainer_v1.network.enabled=false",
             "features.shell_tool=false",
             "features.apps=false",
             "features.hooks=false",
             "features.multi_agent=false",
             "agents.enabled=false",
-            "tools.view_image=false",
+            "features.view_image=false",
+            "features.browser_use=false",
+            "features.computer_use=false",
+            "features.image_generation=false",
+            "features.skip_host_skill_discovery=true",
+            "features.skill_search=false",
+            "features.workspace_dependencies=false",
             "features.goals=false",
             "features.memories=false",
             "features.remote_plugin=false",
@@ -778,6 +797,7 @@ impl ServerProcess {
             "project_doc_max_bytes=0",
             "project_doc_fallback_filenames=[]",
             "allow_login_shell=false",
+            "notify=[]",
             "history.persistence=\"none\"",
             "analytics.enabled=false",
             "feedback.enabled=false",
@@ -842,7 +862,8 @@ impl ServerProcess {
                         .and_then(|_| stdin.write_all(b"\n"))
                         .and_then(|_| stdin.flush())
                         .map_err(|_| {
-                            "The Codex process disconnected. Reconnect before trying again.".to_owned()
+                            "The Codex process disconnected. Reconnect before trying again."
+                                .to_owned()
                         });
                     let failed = result.is_err();
                     let _ = frame.acknowledged.send(result);
@@ -875,43 +896,80 @@ impl ServerProcess {
             connection_id: Uuid::new_v4().to_string(),
             account_revision: 0,
             reaped: false,
+            disabled_mcp: json!({}),
         };
         registration.disarm();
         process.check_cancelled()?;
-        process.request("initialize", json!({"clientInfo": {"name": "code_atlas", "title": "Code Atlas", "version": env!("CARGO_PKG_VERSION")}, "capabilities": {"experimentalApi": false}}), RPC_TIMEOUT)?;
+        process.request("initialize", json!({"clientInfo": {"name": "code_atlas", "title": "Code Atlas", "version": env!("CARGO_PKG_VERSION")}, "capabilities": {"experimentalApi": true}}), RPC_TIMEOUT)?;
         process.write(&json!({"method": "initialized"}))?;
         let configuration =
             process.request("config/read", json!({"includeLayers": false}), RPC_TIMEOUT)?;
         let config = configuration
             .get("config")
             .ok_or("Codex did not return its effective configuration.")?;
-        if config
-            .pointer("/features/shell_tool")
-            .and_then(Value::as_bool)
-            != Some(false)
-            || config.pointer("/features/apps").and_then(Value::as_bool) != Some(false)
-            || config.pointer("/features/hooks").and_then(Value::as_bool) != Some(false)
-            || config
-                .pointer("/features/multi_agent")
+        for feature in [
+            "shell_tool",
+            "apps",
+            "hooks",
+            "multi_agent",
+            "plugins",
+            "goals",
+            "memories",
+            "view_image",
+            "browser_use",
+            "computer_use",
+            "image_generation",
+        ] {
+            if config
+                .pointer(&format!("/features/{feature}"))
                 .and_then(Value::as_bool)
                 != Some(false)
-            || config.pointer("/features/plugins").and_then(Value::as_bool) != Some(false)
-            || config.pointer("/features/goals").and_then(Value::as_bool) != Some(false)
-            || config
-                .pointer("/features/memories")
-                .and_then(Value::as_bool)
-                != Some(false)
-            || config.pointer("/agents/enabled").and_then(Value::as_bool) != Some(false)
-            || config.pointer("/tools/view_image").and_then(Value::as_bool) != Some(false)
-            || config.get("web_search").and_then(Value::as_str) != Some("disabled")
+            {
+                return Err(
+                    "Codex could not apply explanation-only settings. Reconnect to try again."
+                        .to_owned(),
+                );
+            }
+        }
+        let profile = config
+            .pointer(&format!("/permissions/{PERMISSION_PROFILE}"))
+            .ok_or("Codex did not apply the explanation permissions.")?;
+        let filesystem = profile
+            .get("filesystem")
+            .and_then(Value::as_object)
+            .ok_or("Codex did not return filesystem permissions.")?;
+        if config.get("web_search").and_then(Value::as_str) != Some("disabled")
             || config.get("approval_policy").and_then(Value::as_str) != Some("never")
-            || config.get("sandbox_mode").and_then(Value::as_str) != Some("read-only")
-            || config
-                .get("mcp_servers")
-                .and_then(Value::as_object)
-                .is_some_and(|servers| !servers.is_empty())
+            || profile.pointer("/network/enabled").and_then(Value::as_bool) != Some(false)
+            || filesystem.iter().any(|(key, value)| {
+                !value.is_null()
+                    && !([":minimal", ":workspace_roots"].contains(&key.as_str())
+                        && value.as_str() == Some("read"))
+            })
+            || filesystem.get(":minimal").and_then(Value::as_str) != Some("read")
+            || filesystem.get(":workspace_roots").and_then(Value::as_str) != Some("read")
+            || profile.get("extends").is_some_and(|v| !v.is_null())
+            || profile
+                .get("workspace_roots")
+                .is_some_and(|v| !v.is_null() && v.as_object().is_none_or(|m| !m.is_empty()))
         {
-            return Err("Codex did not apply the required read-only and disabled-tool settings. Remove conflicting configuration from this app's Codex runtime and reconnect.".to_owned());
+            return Err(
+                "Codex could not apply the source-only permissions. Reconnect to try again."
+                    .to_owned(),
+            );
+        }
+        // User account/config stay owned by Codex. Explicitly disable every
+        // inherited MCP server in this thread without writing their config.
+        if let Some(servers) = config.get("mcp_servers").and_then(Value::as_object) {
+            if servers.len() > 256 {
+                return Err("Too many configured Codex tools.".to_owned());
+            }
+            process.disabled_mcp = Value::Object(
+                servers
+                    .keys()
+                    .map(|name| (name.clone(), json!({"enabled": false})))
+                    .collect(),
+            );
         }
         Ok(process)
     }
@@ -988,9 +1046,29 @@ impl ServerProcess {
         }
         let started = self.request(
             "thread/start",
-            thread_start_parameters(&input.model, stage, &input.system_instruction),
+            thread_start_parameters(
+                &input.model,
+                stage,
+                &input.system_instruction,
+                &self.disabled_mcp,
+            ),
             RPC_TIMEOUT,
         )?;
+        if started
+            .pointer("/activePermissionProfile/id")
+            .and_then(Value::as_str)
+            != Some(PERMISSION_PROFILE)
+            || started.pointer("/sandbox/type").and_then(Value::as_str) != Some("readOnly")
+            || started
+                .pointer("/sandbox/networkAccess")
+                .and_then(Value::as_bool)
+                != Some(false)
+            || started.get("approvalPolicy").and_then(Value::as_str) != Some("never")
+        {
+            return Err(
+                "Codex did not apply source-only permissions to this explanation.".to_owned(),
+            );
+        }
         let thread_id = bounded_string(
             started
                 .get("thread")
@@ -1038,7 +1116,7 @@ impl ServerProcess {
         let request_id = self.send_request("turn/start", json!({
             "threadId": thread_id, "input": [{"type": "text", "text": input.user_prompt}],
             "cwd": stage, "model": input.model, "effort": input.effort, "approvalPolicy": "never",
-            "sandboxPolicy": {"type": "readOnly", "access": {"type": "restricted", "includePlatformDefaults": true, "readableRoots": [stage]}, "networkAccess": false},
+            "permissions": PERMISSION_PROFILE,
             "outputSchema": input.output_schema,
         }))?;
         let mut cancel_at = None;
@@ -1113,6 +1191,7 @@ impl ServerProcess {
                 }
             }
             match method {
+                "configWarning" | "warning" if benign_config_warning(&message) => {},
                 "configWarning" | "warning" => return Err("Codex reported a configuration or runtime warning. The run was stopped rather than using uncertain settings.".to_owned()),
                 "account/updated" => return Err(codex_identity::changed()),
                 "model/rerouted" => return Err("Codex changed the requested model. The response was discarded; choose and review a model again.".to_owned()),
@@ -1207,7 +1286,9 @@ impl ServerProcess {
             if self.reject_server_request(&message)? {
                 continue;
             }
-            if message.get("method").and_then(Value::as_str) == Some("configWarning") {
+            if message.get("method").and_then(Value::as_str) == Some("configWarning")
+                && !benign_config_warning(&message)
+            {
                 return Err("Codex reported a configuration warning. Update the runtime before using this integration.".to_owned());
             }
             if message.get("id").and_then(Value::as_u64) != Some(id) {
@@ -1563,7 +1644,12 @@ fn configured_executable(storage_dir: &Path) -> Result<Option<PathBuf>, String> 
             ))?))
         }
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            for candidate in ["/opt/homebrew/bin/codex", "/usr/local/bin/codex"] {
+            for candidate in [
+                "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+                "/Applications/Codex.app/Contents/Resources/codex",
+                "/opt/homebrew/bin/codex",
+                "/usr/local/bin/codex",
+            ] {
                 if let Ok(path) = checked_executable(Path::new(candidate)) {
                     return Ok(Some(path));
                 }
@@ -1646,9 +1732,16 @@ fn executable_digest(
 }
 
 fn isolated_command(executable: &Path, root: &Path) -> Result<Command, String> {
-    let home = root.join("home");
+    // Let the installed runtime reuse its supported account cache. Never read,
+    // copy or return auth files/tokens in Code Atlas.
+    let home = std::env::var_os("CODEX_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".codex")))
+        .ok_or("Your Codex account folder could not be located.")?;
     let temporary = root.join("tmp");
-    ensure_private_directory(&home)?;
+    if !home.is_dir() {
+        fs::create_dir_all(&home).map_err(|_| "Codex account folder is unavailable.")?;
+    }
     ensure_private_directory(&temporary)?;
     let mut command = Command::new(executable);
     command
@@ -1687,7 +1780,12 @@ fn verify_runtime_protocol(
     let _cleanup = TemporaryDirectory(path.clone());
     let mut command = isolated_command(executable, root)?;
     let mut child = command
-        .args(["app-server", "generate-json-schema", "--out"])
+        .args([
+            "app-server",
+            "generate-json-schema",
+            "--experimental",
+            "--out",
+        ])
         .arg(&path)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -1717,8 +1815,10 @@ fn verify_runtime_protocol(
     let mut inspection = SchemaInspection::default();
     inspect_schema_directory(&path, 0, &mut inspection, shutdown, cancelled)?;
     let missing = [
-        (!inspection.restricted_access, "restricted read roots"),
-        (!inspection.read_only_access, "read-only access controls"),
+        (
+            !inspection.thread_permissions || !inspection.turn_permissions,
+            "named source permissions",
+        ),
         (!inspection.turn_output, "structured turn output"),
         (!inspection.thread_ephemeral, "ephemeral threads"),
         (!inspection.thread_instructions, "thread instructions"),
@@ -1741,6 +1841,8 @@ struct SchemaInspection {
     bytes: usize,
     restricted_access: bool,
     read_only_access: bool,
+    thread_permissions: bool,
+    turn_permissions: bool,
     turn_output: bool,
     thread_ephemeral: bool,
     thread_instructions: bool,
@@ -1790,11 +1892,66 @@ fn inspect_schema_directory(
     Ok(())
 }
 
-fn thread_start_parameters(model: &str, stage: &Path, instructions: &str) -> Value {
+/// Ignore diagnostics for unrelated unknown preferences only. Required app
+/// settings still fail closed and are independently checked in effective config.
+fn benign_config_warning(message: &Value) -> bool {
+    let Some(summary) = message
+        .pointer("/params/summary")
+        .or_else(|| message.pointer("/params/message"))
+        .and_then(Value::as_str)
+    else {
+        return false;
+    };
+    // This app deliberately disables host skill discovery. The installed
+    // runtime marks that switch experimental; its notice is not a failed policy.
+    if summary.starts_with("Under-development features enabled: skip_host_skill_discovery.") {
+        return true;
+    }
+    if !summary.starts_with("Codex is ignoring ")
+        || !summary.contains("unrecognized configuration setting")
+    {
+        return false;
+    }
+    let keys = summary.split('`').skip(1).step_by(2).collect::<Vec<_>>();
+    !keys.is_empty()
+        && keys.iter().all(|key| {
+            ![
+                "permissions",
+                "default_permissions",
+                "features",
+                "agents",
+                "tools",
+                "mcp_servers",
+                "approval_policy",
+                "sandbox",
+                "model_provider",
+                "web_search",
+                "project_doc",
+                "notify",
+                "allow_login_shell",
+                "shell_environment_policy",
+                "forced_login_method",
+                "history",
+                "analytics",
+                "feedback",
+                "otel",
+            ]
+            .iter()
+            .any(|prefix| key.starts_with(prefix))
+        })
+}
+
+fn thread_start_parameters(
+    model: &str,
+    stage: &Path,
+    instructions: &str,
+    disabled_mcp: &Value,
+) -> Value {
     // ThreadStartParams uses kebab-case SandboxMode; TurnStartParams uses
     // camelCase SandboxPolicy. They are different protocol types.
     json!({
-        "model": model, "cwd": stage, "approvalPolicy": "never", "sandbox": "read-only",
+        "model": model, "cwd": stage, "approvalPolicy": "never", "permissions": PERMISSION_PROFILE,
+        "config": {"mcp_servers": disabled_mcp},
         "ephemeral": true, "serviceName": "code_atlas", "developerInstructions": instructions,
     })
 }
@@ -1819,6 +1976,12 @@ fn inspect_schema_value(value: &Value, inspection: &mut SchemaInspection) {
         }
         if is_variant("readOnly") && properties.contains_key("access") {
             inspection.read_only_access = true;
+        }
+        if properties.contains_key("permissions") && properties.contains_key("outputSchema") {
+            inspection.turn_permissions = true;
+        }
+        if properties.contains_key("permissions") && properties.contains_key("ephemeral") {
+            inspection.thread_permissions = true;
         }
         if properties.contains_key("threadId")
             && properties.contains_key("input")
@@ -2043,38 +2206,115 @@ fn hex_digest(bytes: &[u8]) -> String {
 mod tests {
     use super::*;
 
+    /// Explicit opt-in metadata check: starts the selected installed runtime,
+    /// reuses its account, reads its catalog, and never requests model output.
     #[test]
-    fn thread_start_uses_sandbox_mode_spelling_and_preserves_reviewed_settings() {
+    #[ignore = "requires an explicitly selected installed Codex and existing ChatGPT login"]
+    fn installed_codex_connection_metadata() {
+        let executable = std::env::var("CODE_ATLAS_LIVE_CODEX")
+            .expect("set CODE_ATLAS_LIVE_CODEX to the installed executable");
+        let root = std::env::temp_dir().join(format!("atlas-codex-metadata-{}", Uuid::new_v4()));
+        fs::create_dir(&root).unwrap();
+        let _cleanup = TemporaryDirectory(root.clone());
+        let manager = CodexAgentManager::default();
+        manager.configure(&root, &executable).unwrap();
+        let result = (|| -> Result<(), String> {
+            let login = manager.start_login(&root)?;
+            if login.login_id.is_some() {
+                return Err(
+                    "An existing ChatGPT login is required; no browser was opened.".to_owned(),
+                );
+            }
+            let models = manager.models(&root)?;
+            assert!(models.iter().any(|model| {
+                model.model_id == "gpt-6-luna"
+                    && model
+                        .supported_reasoning_efforts
+                        .iter()
+                        .any(|effort| effort == "max")
+            }));
+            assert!(manager.status(&root)?.authenticated);
+            Ok(())
+        })();
+        manager.shutdown();
+        result.unwrap();
+    }
+
+    #[test]
+    fn thread_start_uses_named_permissions_and_disables_inherited_mcp() {
         let parameters = thread_start_parameters(
             "gpt-6-luna",
             Path::new("/synthetic/stage"),
             "Use the reviewed evidence only.",
+            &json!({"example": {"enabled": false}}),
         );
-        assert_eq!(parameters["sandbox"], "read-only");
+        assert!(parameters.get("sandbox").is_none());
+        assert_eq!(parameters["permissions"], PERMISSION_PROFILE);
+        assert_eq!(
+            parameters["config"]["mcp_servers"]["example"]["enabled"],
+            false
+        );
         assert_eq!(parameters["approvalPolicy"], "never");
         assert_eq!(parameters["ephemeral"], true);
         assert_eq!(parameters["model"], "gpt-6-luna");
         assert_eq!(parameters["cwd"], "/synthetic/stage");
-        assert_eq!(parameters["developerInstructions"], "Use the reviewed evidence only.");
+        assert_eq!(
+            parameters["developerInstructions"],
+            "Use the reviewed evidence only."
+        );
+    }
+
+    #[test]
+    fn unrelated_unknown_preferences_do_not_mask_required_config_warnings() {
+        let warning = |key: &str| json!({"params": {"summary": format!("Codex is ignoring 1 unrecognized configuration setting.\n  user: `{key}` is ignored.")}});
+        assert!(benign_config_warning(&warning("logging")));
+        assert!(benign_config_warning(
+            &json!({"params": {"message": "Codex is ignoring 1 unrecognized configuration setting. `logging` is ignored."}})
+        ));
+        assert!(benign_config_warning(
+            &json!({"params": {"message": "Under-development features enabled: skip_host_skill_discovery. Under-development features are incomplete."}})
+        ));
+        assert!(!benign_config_warning(
+            &json!({"params": {"message": "Under-development features enabled: other_feature."}})
+        ));
+
+        for key in [
+            "permissions.custom",
+            "features.shell_tool",
+            "mcp_servers.foo",
+            "project_doc_max_bytes",
+            "notify",
+        ] {
+            assert!(!benign_config_warning(&warning(key)));
+        }
+        assert!(!benign_config_warning(
+            &json!({"params": {"summary": "Sandbox could not be enforced"}})
+        ));
     }
 
     #[test]
     fn ordinary_read_only_schema_does_not_qualify_restricted_reads() {
         let mut inspection = SchemaInspection::default();
-        inspect_schema_value(&json!({
-            "properties": {
-                "type": {"enum": ["readOnly"]},
-                "networkAccess": {"type": "boolean"}
-            }
-        }), &mut inspection);
+        inspect_schema_value(
+            &json!({
+                "properties": {
+                    "type": {"enum": ["readOnly"]},
+                    "networkAccess": {"type": "boolean"}
+                }
+            }),
+            &mut inspection,
+        );
         assert!(!inspection.read_only_access);
         assert!(!inspection.restricted_access);
-        inspect_schema_value(&json!({
-            "oneOf": [
-                {"properties": {"type": {"enum": ["readOnly"]}, "access": {}}},
-                {"properties": {"type": {"enum": ["restricted"]}, "readableRoots": {}, "includePlatformDefaults": {}}}
-            ]
-        }), &mut inspection);
+        inspect_schema_value(
+            &json!({
+                "oneOf": [
+                    {"properties": {"type": {"enum": ["readOnly"]}, "access": {}}},
+                    {"properties": {"type": {"enum": ["restricted"]}, "readableRoots": {}, "includePlatformDefaults": {}}}
+                ]
+            }),
+            &mut inspection,
+        );
         assert!(inspection.read_only_access);
         assert!(inspection.restricted_access);
     }

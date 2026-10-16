@@ -2,9 +2,9 @@
 //! local validators are shared with API workflows; authentication is separate.
 
 use super::{
-    ProjectSessions, app_data_directory, chapters, codex_agent, pr_guide,
-    PreviewPublication, publish_chapter_candidate, publish_pr_guide_candidate,
-    validate_chapter_draft_preview, validate_pr_guide_preview, provider, recovery,
+    PreviewPublication, ProjectSessions, app_data_directory, chapters, codex_agent, pr_guide,
+    provider, publish_chapter_candidate, publish_pr_guide_candidate, recovery,
+    validate_chapter_draft_preview, validate_pr_guide_preview,
 };
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -58,10 +58,10 @@ pub(crate) async fn start_codex_login(
         // The runtime validates the OAuth destination. Open only that returned
         // URL in the system browser, never in the repository WebView.
         #[cfg(target_os = "macos")]
-        {
-            let result = open_login_browser(&login.auth_url);
+        if let (Some(auth_url), Some(login_id)) = (&login.auth_url, &login.login_id) {
+            let result = open_login_browser(auth_url);
             if result.is_err() {
-                let _ = manager.cancel_login(storage, &login.login_id);
+                let _ = manager.cancel_login(storage, login_id);
                 return Err("The system browser could not open Codex sign-in. Retry Connect after choosing a default browser.".to_owned());
             }
         }
