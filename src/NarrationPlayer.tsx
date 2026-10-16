@@ -223,7 +223,8 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     if (running) { cancelRequested.current = true; void cancelProviderRequest(running).catch(() => {}); }
     audioRef.current?.pause();
     setDraft((value) => applyVoiceConnection(value, voiceConnection));
-    setTrack(null); setReview(null); setReviewBusy(false); setConsent(false); setShowReview(false); setError(null);
+    setTrack(null); setCurrentTime(0); setDuration(0); setIsPlaying(false);
+    setReview(null); setReviewBusy(false); setConsent(false); setShowReview(false); setError(null);
   }, [voiceConnection.backend, voiceConnection.googleVoice, voiceConnection.googleStyle]);
 
   const savedAudioMatchesDraft = Boolean(track
@@ -628,7 +629,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
           <button type="button" className="walkthrough-play-control" disabled={reviewBusy || requestBusy || !draft.spokenText.trim()} onClick={() => { void playOrPause(); }} aria-label={isPlaying ? 'Pause narration' : 'Play narration'}>
             {isPlaying ? <Pause size={14} /> : <Play size={14} />} {requestBusy || reviewBusy ? 'Preparing audio…' : isPlaying ? 'Pause' : 'Play'}
           </button>
-          <button type="button" disabled={!track && !review} onClick={stop} aria-label="Stop narration"><Square size={12} /></button>
+          <button type="button" disabled={reviewBusy || requestBusy || (!track && !review)} onClick={stop} aria-label="Stop narration"><Square size={12} /></button>
           <span className="walkthrough-duration">{formatTime(currentTime)} / {formatTime(duration)}</span>
         </div>
         <label className="walkthrough-seek-label">

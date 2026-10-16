@@ -10,6 +10,6 @@ export function ConnectionHeader({ onOpen }: { onOpen: () => void }) {
   const Icon = connection.checking ? LoaderCircle : ready ? CheckCircle2 : connection.error ? CircleAlert : PlugZap;
   return <button className={`connection-header ${ready ? 'ready' : ''}`} onClick={onOpen}
     aria-label={`${label}. Open Connections`} title={ready ? `Connected${connection.status?.accountEmail ? ` as ${connection.status.accountEmail}` : ''}. Open Connections for AI and voice.` : 'Set up your generation connection once'}>
-    <Icon size={15} /><span>{label}</span>
+    <Icon size={15} /><span>Connections</span><span className="connection-header-value">{label}</span>
   </button>;
 }

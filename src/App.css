@@ -2122,3 +2122,5 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .connections-voice details > summary { cursor: pointer; color: var(--muted); }
 .connections-voice details .secondary-button { display: block; margin-top: 12px; }
 .connections-voice form input { width: 100%; }
+
+.connection-header-value { color: var(--muted); font-size: 11px; padding-left: 7px; border-left: 1px solid var(--border); }
