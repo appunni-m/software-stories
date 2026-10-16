@@ -91,3 +91,11 @@ Provider-error recovery / no paid fallback: pass | fail | not observed — notes
 Unresolved issues:
 ```
 
+
+
+## Current Connections workflow (October 16 workspace)
+Open the header's connection button, then **Voice**. Pocket/Alba is the default. Prepare the voice once if needed; repair and license attribution are in Voice details and troubleshooting. Google is optional and explicitly selected here, with its key saved in Keychain. Voice and style apply across answers and repositories, including export cache matching. Existing per-section text and pronunciation edits remain local; legacy cloud settings do not override the global choice.
+
+On an answer choose **Listen**. Local review/cache lookup and synthesis run behind playback controls. Captions show the final pronunciation-expanded script. Pause, replay, seek and Next stay deliberate. The engine, runtime setup, voice and style no longer appear on each section. Optional transcript/pronunciation editing remains beside the section. For Google, inspect the exact text and provider terms and consent before sending; choosing the engine alone never authorizes a request. No cloud fallback is used.
+
+Validate across two answers and app restart. Changing Connections during a request must invalidate its review and prevent a stale result from playing. Export must scan the selected connection's matching audio without generating speech. Setup/key updates must refresh the open player when Connections closes. Human speech quality and code-name pronunciation still require listening review.

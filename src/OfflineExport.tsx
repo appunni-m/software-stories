@@ -8,6 +8,8 @@ import {
   type ChapterRevision,
 } from './lib/commands';
 import { parseNarrationPreferences } from './lib/narration';
+import { applyVoiceConnection } from './lib/voiceConnection';
+import { useVoiceConnection } from './lib/voiceConnectionStore';
 import { errorMessageOr } from './lib/errorMessage';
 import {
   buildOfflineExportPreview,
@@ -32,6 +34,7 @@ interface CachedNarrationPreview extends OfflineNarrationAudio {
 }
 
 export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
+  const voiceConnection = useVoiceConnection();
   const [open, setOpen] = useState(false);
   const [selectedRevisionIds, setSelectedRevisionIds] = useState<string[]>([]);
   const [includeExcerpts, setIncludeExcerpts] = useState(true);
@@ -118,7 +121,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
             unavailable = true;
             continue;
           }
-          const preferences = parseNarrationPreferences(serialized, section.spokenText);
+          const preferences = applyVoiceConnection(parseNarrationPreferences(serialized, section.spokenText), voiceConnection);
           if (!preferences.spokenText.trim()) continue;
           let reviewId: string | null = null;
           try {
@@ -184,7 +187,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
       setNarrationCacheScan(unavailable ? 'unavailable' : 'ready');
     })();
     return () => { active = false; };
-  }, [open, includeNarrationAudio, projectId, selectedRevisionKey]);
+  }, [voiceConnection, open, includeNarrationAudio, projectId, selectedRevisionKey]);
 
   useEffect(() => {
     if (!open) return;

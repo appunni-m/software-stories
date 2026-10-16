@@ -14,6 +14,7 @@ import { ClaudeConnectionDialog } from './ClaudeConnectionDialog';
 import { RepositoryPlanningDialog, type RepositoryPlanningScope } from './RepositoryPlanningDialog';
 import { RepositoryPlans } from './RepositoryPlans';
 import { ConnectionHeader } from './ConnectionHeader';
+import { ConnectionsDialog } from './ConnectionsDialog';
 import { NotificationCenter, type WorkspaceNotification } from './NotificationCenter';
 import { ThemeControl } from './ThemeControl';
 import type { PrepareRepositoryPlanInput } from './lib/repositoryPlans';
@@ -186,7 +187,7 @@ import {
 
 type Notice = { title: string; message: string; actionLabel?: string; action?: () => void; tone?: 'info' | 'warning' | 'error' } | null;
 type ProviderDialogMode = (
-  | { kind: 'settings'; backend?: 'api' | 'codex'; recoveryOperationId?: string }
+  | { kind: 'settings'; backend?: 'api' | 'codex'; section?: 'explanations' | 'voice'; recoveryOperationId?: string }
   | { kind: 'review'; projectId: string; snapshotId: string; targetPath: string; selectedPaths?: string[]; recoveryOperationId?: string }
   | { kind: 'code-lens-range'; projectId: string; snapshotId: string; target: CodeLensExplanationTarget; recoveryOperationId?: string }
   | { kind: 'section-update'; projectId: string; snapshotId: string; targetPath: string; selectedPaths: string[]; baseRevision: ChapterRevision; sectionUpdate: SectionUpdateReviewTarget; recoveryOperationId?: string }
@@ -1038,6 +1039,16 @@ function App() {
     setSnapshotMenuOpen(false);
   };
 
+  useEffect(() => {
+    const open = () => {
+      providerReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setToolsOpen(false); setProjectMenuOpen(false); setSnapshotMenuOpen(false);
+      setProviderDialog({ kind: 'settings', section: 'voice' });
+    };
+    window.addEventListener('code-atlas:voice-connections', open);
+    return () => window.removeEventListener('code-atlas:voice-connections', open);
+  }, []);
+
   const openProviderSettings = () => {
     providerReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setToolsOpen(false);
@@ -1464,7 +1475,7 @@ function App() {
             {toolsOpen && (
               <div className="tools-menu" role="menu" aria-label="More tools">
                 <div className="menu-label">WORKSPACE</div>
-                <button role="menuitem" onClick={openProviderSettings}><Settings2 size={16} /> <span>Connection settings</span></button>
+                <button role="menuitem" onClick={openProviderSettings}><Settings2 size={16} /> <span>Connections</span></button>
                 <button role="menuitem" data-focus-key="tools-button" onClick={() => chooseWorkspace('walkthrough')}>
                   <Play size={16} /> <span>Browse accepted guides</span>
                 </button>
@@ -1797,6 +1808,7 @@ function ProviderDialog(props: ProviderDialogProps) {
     return () => window.removeEventListener('keydown', close);
   }, [backend, props.onClose]);
   const choose = (next: GenerationBackend) => { rememberGenerationBackend(next); setBackend(next); };
+  if (props.mode.kind === 'settings' && props.mode.backend !== 'api') return <ConnectionsDialog native={props.native} initialSection={props.mode.section} onClose={props.onClose}/>;
   if (backend === 'api') return <DirectApiDialog {...props} onChooseBackend={() => setBackend('choose')} />;
   if (backend === 'claude-setup') return <ClaudeConnectionDialog native={props.native}
     reviewMode={props.mode.kind === 'settings' ? 'settings' : props.mode}

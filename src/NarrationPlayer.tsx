@@ -16,7 +16,6 @@ import {
   discardNarrationRequestReview,
   getNarrationDisclosure,
   getPocketTtsStatus,
-  setupPocketTts,
   type PocketTtsStatus,
   type NarrationBackend,
   getProviderCredentialStatus,
@@ -34,6 +33,8 @@ import {
   narrationPreferencesMatch,
   type NarrationPreferencesSnapshot,
 } from './lib/narration';
+import { applyVoiceConnection } from './lib/voiceConnection';
+import { openVoiceConnections, readVoiceConnection, useVoiceConnection } from './lib/voiceConnectionStore';
 import type { ChapterSection } from './lib/commands';
 
 interface NarrationPlayerProps {
@@ -46,6 +47,7 @@ interface NarrationPlayerProps {
   onPlaybackPositionChange: (position: number) => void;
   onTranscriptPositionChange: (position: number) => void;
   onOpenProviderSettings: () => void;
+  autoPlay?: boolean;
 }
 
 type NarrationPreferences = NarrationPreferencesSnapshot;
@@ -62,19 +64,24 @@ interface LoadedTrack {
   cacheHit: boolean;
 }
 
-export function NarrationPlayer({ projectId, chapterId, revisionId, section, restorePosition, transcriptPosition, onPlaybackPositionChange, onTranscriptPositionChange, onOpenProviderSettings }: NarrationPlayerProps) {
+export function NarrationPlayer({ projectId, chapterId, revisionId, section, restorePosition, transcriptPosition, onPlaybackPositionChange, onTranscriptPositionChange, autoPlay = false }: NarrationPlayerProps) {
   const storageKey = `code-atlas:narration:${projectId}:${chapterId}:${revisionId}:${section.sectionId}`;
   const preferences = useMemo(() => readPreferences(storageKey, section.spokenText), [storageKey, section.spokenText]);
   const [draft, setDraft] = useState<NarrationPreferences>(preferences);
+  const voiceConnection = useVoiceConnection();
   const localNarration = draft.backend === 'pocket-tts';
   const [pocketStatus, setPocketStatus] = useState<PocketTtsStatus | null>(null);
-  const [setupBusy, setSetupBusy] = useState(false);
-  const [setupCancelBusy, setSetupCancelBusy] = useState(false);
-  const setupRequestIdRef = useRef<string | null>(null);
   const pocketStatusGenerationRef = useRef(0);
   const spokenTextUtf8Bytes = useMemo(() => new TextEncoder().encode(draft.spokenText).length, [draft.spokenText]);
   const draftRef = useRef(draft);
   draftRef.current = draft;
+  const [connectionVersion, setConnectionVersion] = useState(0);
+  const pendingListen = useRef(false);
+  useEffect(() => {
+    const refresh = () => setConnectionVersion((value) => value + 1);
+    window.addEventListener('code-atlas:connections-changed', refresh);
+    return () => window.removeEventListener('code-atlas:connections-changed', refresh);
+  }, []);
   const [disclosure, setDisclosure] = useState<NarrationDisclosure | null>(null);
   const [credential, setCredential] = useState<ProviderCredentialStatus | null>(null);
   const [informationError, setInformationError] = useState<string | null>(null);
@@ -139,7 +146,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       if (active) setInformationError('Narration setup could not be loaded. The transcript remains available.');
     });
     return () => { active = false; };
-  }, [draft.backend, localNarration]);
+  }, [draft.backend, localNarration, connectionVersion]);
 
   useEffect(() => {
     if (!isNativeRuntime() || !localNarration) return;
@@ -151,7 +158,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         const status = await getPocketTtsStatus();
         if (!active) return;
         if (generation === pocketStatusGenerationRef.current) setPocketStatus(status);
-        if (status.busy || setupRequestIdRef.current || synthesisReviewIdRef.current) {
+        if (status.busy || synthesisReviewIdRef.current) {
           timer = setTimeout(() => { void poll(); }, 1_000);
         }
       } catch {
@@ -165,7 +172,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       active = false;
       if (timer !== undefined) clearTimeout(timer);
     };
-  }, [localNarration, setupBusy, providerRequestBusy]);
+  }, [localNarration, providerRequestBusy, connectionVersion]);
 
   useEffect(() => {
     const player = audioRef.current;
@@ -194,8 +201,6 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       mountedRef.current = false;
       reviewGenerationRef.current += 1;
       autoPlayRef.current = false;
-      const setupRequestId = setupRequestIdRef.current;
-      if (setupRequestId) void cancelProviderRequest(setupRequestId).catch(() => {});
       audioRef.current?.pause();
       // A section change also ends its in-flight request. Discarding its review
       // covers a command which has not consumed it yet; cancellation covers one
@@ -209,6 +214,17 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       if (reviewRef.current?.reviewId) void discardNarrationRequestReview(reviewRef.current.reviewId).catch(() => {});
     };
   }, []);
+
+  useEffect(() => {
+    reviewGenerationRef.current += 1;
+    const currentReview = reviewRef.current;
+    if (currentReview) void discardNarrationRequestReview(currentReview.reviewId).catch(() => {});
+    const running = synthesisReviewIdRef.current;
+    if (running) { cancelRequested.current = true; void cancelProviderRequest(running).catch(() => {}); }
+    audioRef.current?.pause();
+    setDraft((value) => applyVoiceConnection(value, voiceConnection));
+    setTrack(null); setReview(null); setReviewBusy(false); setConsent(false); setShowReview(false); setError(null);
+  }, [voiceConnection.backend, voiceConnection.googleVoice, voiceConnection.googleStyle]);
 
   const savedAudioMatchesDraft = Boolean(track
     && narrationPreferencesMatch({
@@ -272,7 +288,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       if (review && review.reviewId !== result.data.reviewId) void discardNarrationRequestReview(review.reviewId).catch(() => {});
       setReview(result.data);
       setConsent(false);
-      setShowReview(true);
+      setShowReview(requestedDraft.backend !== 'pocket-tts');
       if (restoreCache && result.data.cachedAudioAvailable) {
         const cached = await loadReviewedNarrationAudio({ reviewId: result.data.reviewId, fingerprint: result.data.fingerprint });
         if (!isCurrent()) {
@@ -354,66 +370,8 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     }
   };
 
-  const refreshPocketStatus = async () => {
-    const generation = ++pocketStatusGenerationRef.current;
-    const isCurrent = () => mountedRef.current && draftRef.current.backend === 'pocket-tts'
-      && generation === pocketStatusGenerationRef.current;
-    try {
-      const status = await getPocketTtsStatus();
-      if (isCurrent()) {
-        setPocketStatus(status);
-        setInformationError(null);
-      }
-    } catch {
-      if (isCurrent()) setInformationError('Local runtime status could not be read.');
-    }
-  };
-
-  const installPocket = async () => {
-    if (setupRequestIdRef.current || synthesisReviewIdRef.current || pocketStatus?.busy) return;
-    const requestId = crypto.randomUUID();
-    setupRequestIdRef.current = requestId;
-    setSetupBusy(true);
-    setSetupCancelBusy(false);
-    setInformationError(null);
-    try {
-      const result = await setupPocketTts(requestId);
-      if (!mountedRef.current) return;
-      if (result.status === 'ok') {
-        pocketStatusGenerationRef.current += 1;
-        setPocketStatus(result.data);
-      }
-      else setInformationError(result.error.message);
-    } catch {
-      if (mountedRef.current) setInformationError('Pocket TTS setup could not finish. Check the runtime requirements and retry.');
-    } finally {
-      if (setupRequestIdRef.current === requestId) setupRequestIdRef.current = null;
-      if (mountedRef.current) {
-        setSetupBusy(false);
-        setSetupCancelBusy(false);
-      }
-    }
-  };
-
-  const cancelPocketSetup = async () => {
-    const requestId = setupRequestIdRef.current;
-    if (!requestId || setupCancelBusy) return;
-    setSetupCancelBusy(true);
-    try {
-      await cancelProviderRequest(requestId);
-      if (mountedRef.current && setupRequestIdRef.current === requestId) {
-        setInformationError('Setup cancellation requested. Waiting for the local process to stop.');
-      }
-    } catch {
-      if (mountedRef.current && setupRequestIdRef.current === requestId) {
-        setInformationError('Setup cancellation could not be confirmed.');
-        setSetupCancelBusy(false);
-      }
-    }
-  };
-
-  const synthesize = async () => {
-    if (!review || synthesisReviewIdRef.current || setupRequestIdRef.current) return;
+  const synthesize = async (currentReview: NarrationRequestReview | null = review) => {
+    if (!currentReview || synthesisReviewIdRef.current) return;
     if (localNarration && pocketStatus?.busy) {
       setError('Pocket TTS is finishing another local operation. Wait for it to finish before generating audio.');
       return;
@@ -424,7 +382,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     }
     setRequestBusy(true);
     setProviderRequestBusy(true);
-    synthesisReviewIdRef.current = review.reviewId;
+    synthesisReviewIdRef.current = currentReview.reviewId;
     cancelRequested.current = false;
     setCancelConfirmation(false);
     setCancelBusy(false);
@@ -433,8 +391,8 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     audioRef.current?.pause();
     try {
       const result = await synthesizeReviewedNarrationAudio({
-        reviewId: review.reviewId,
-        fingerprint: review.fingerprint,
+        reviewId: currentReview.reviewId,
+        fingerprint: currentReview.fingerprint,
         consent: { termsAndRequestAcknowledged: !localNarration && consent },
       });
       if (!mountedRef.current) return;
@@ -463,7 +421,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         setShowReview(false);
         return;
       }
-      setLoadedTrack(result.data, review, true, draft);
+      setLoadedTrack(result.data, currentReview, true, draft);
       setConsent(false);
       setReview(null);
       setShowReview(false);
@@ -509,16 +467,28 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       player?.pause();
       return;
     }
-    if (track && player?.src) {
+    if (track && savedAudioMatchesDraft && player?.src) {
       try { await player.play(); } catch { if (mountedRef.current) setError('Audio playback could not start on this device. The transcript remains available.'); }
       return;
     }
+    if (localNarration && !pocketStatus?.ready) { pendingListen.current = true; openVoiceConnections(); return; }
     const currentReview = review ?? await makeReview();
     if (currentReview?.cachedAudioAvailable) await loadCache(currentReview, true);
-    else if (currentReview && mountedRef.current) setError(localNarration
-      ? 'Review the exact script below, then choose Generate locally and play.'
-      : 'Review the exact text and provider terms below, then confirm before generating audio.');
+    else if (currentReview && mountedRef.current && localNarration) await synthesize(currentReview);
   };
+
+  const listenStarted = useRef(false);
+  useEffect(() => {
+    if (!autoPlay || listenStarted.current || !disclosure || (localNarration && !pocketStatus)) return;
+    listenStarted.current = true;
+    void playOrPause();
+  }, [autoPlay, disclosure, localNarration, pocketStatus]);
+
+  useEffect(() => {
+    if (!pendingListen.current || !disclosure || (localNarration && !pocketStatus?.ready)) return;
+    pendingListen.current = false;
+    void playOrPause();
+  }, [connectionVersion, disclosure, localNarration, pocketStatus]);
 
   const stop = () => {
     const player = audioRef.current;
@@ -585,7 +555,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     }
   }, [restorePosition, track?.audioUrl]);
 
-  const captionText = track?.exactText ?? draft.spokenText;
+  const captionText = track?.exactText ?? review?.exactText ?? draft.spokenText;
 
   return (
     <section className="walkthrough-transcript walkthrough-narration" aria-labelledby="walkthrough-transcript-title">
@@ -630,49 +600,13 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         </div>
       </div>
 
-      <label className="walkthrough-narration-field">Narration engine
-        <select value={draft.backend} disabled={reviewBusy || requestBusy || setupBusy} onChange={(event) => {
-          const backend = event.target.value as NarrationBackend;
-          updateDraft((value) => {
-            const saved = readPreferences(`${storageKey}:${backend}`, value.spokenText);
-            return { ...value, backend,
-              voice: saved.backend === backend ? saved.voice : backend === 'pocket-tts' ? 'alba' : 'Kore',
-              style: saved.backend === backend ? saved.style : '',
-            };
-          });
-        }}>
-          <option value="pocket-tts">Pocket TTS · local · no API key</option>
-          <option value="gemini">Google Gemini · cloud API</option>
-        </select>
-      </label>
-      {localNarration && <div className="walkthrough-narration-disclosure" role="group" aria-label="Local narration setup">
-        <p role="status"><strong>{setupBusy ? 'Setting up Pocket TTS…' : pocketStatus?.busy ? 'Pocket TTS is working…' : pocketStatus?.ready ? 'Pocket TTS is ready' : 'Pocket TTS setup'}</strong> {pocketStatus?.message ?? (isNativeRuntime() ? 'Checking local runtime…' : 'Local narration needs the Code Atlas desktop app.')}</p>
-        <p>Setup downloads the runtime, model and Alba voice. After setup, your narration text stays on this Mac. Pocket TTS has no provider usage fee. Alba voice: Alba MacKenna, CC BY 4.0.</p>
-        {informationError && <p role="alert">{informationError}</p>}
-        <button type="button" className="secondary-button" disabled={!isNativeRuntime() || setupBusy || requestBusy || pocketStatus?.busy || !pocketStatus?.setupAvailable} onClick={() => { void installPocket(); }}>{setupBusy ? 'Downloading and preparing…' : pocketStatus?.ready ? 'Repair local narration setup' : 'Set up local narration'}</button>
-        {setupBusy && <button type="button" className="text-button" disabled={setupCancelBusy} onClick={() => { void cancelPocketSetup(); }}>{setupCancelBusy ? 'Stopping setup…' : 'Cancel setup'}</button>}
-        {!setupBusy && <button type="button" className="text-button" disabled={!isNativeRuntime()} onClick={() => { void refreshPocketStatus(); }}>Refresh setup status</button>}
-        <a href="https://huggingface.co/kyutai/tts-voices" target="_blank" rel="noreferrer">Voice source and license</a>
-      </div>}
-
-      <details className="walkthrough-narration-editor" open={!localNarration}>
+      <details className="walkthrough-narration-editor">
         <summary><span>Edit spoken text</span><ChevronDown size={13} /></summary>
-        <p>{localNarration ? 'Only this section’s edited script is synthesized locally.' : 'Only this section’s script is sent to Google for narration.'} Source code, file paths, and citations are left out.</p>
+
         <label className="walkthrough-narration-field">Spoken text
           <textarea value={draft.spokenText} disabled={reviewBusy || requestBusy} maxLength={16000} rows={4} onChange={(event) => updateDraft((value) => ({ ...value, spokenText: event.target.value }))} placeholder="Write what you want the reader to say in natural language." />
-          <small>{spokenTextUtf8Bytes.toLocaleString()} / 16,000 UTF-8 bytes. Scripts over 16,000 bytes must be divided into sections; this script is {localNarration ? 'processed locally' : 'sent'} in reviewed segments of at most 4,000 bytes.</small>
+          {spokenTextUtf8Bytes > 16000 && <small role="alert">Shorten this script before listening.</small>}
         </label>
-        <div className="walkthrough-narration-settings">
-          <label className="walkthrough-narration-field">Voice
-            <select value={draft.voice} disabled={!disclosure || reviewBusy || requestBusy} onChange={(event) => updateDraft((value) => ({ ...value, voice: event.target.value }))}>
-              {(disclosure?.voices ?? (localNarration ? ['alba'] : ['Kore', 'Charon', 'Puck', 'Aoede'])).map((voice) => <option value={voice} key={voice}>{voice}</option>)}
-            </select>
-          </label>
-          {!localNarration && <label className="walkthrough-narration-field">Delivery style
-            <input value={draft.style} disabled={reviewBusy || requestBusy} maxLength={160} onChange={(event) => updateDraft((value) => ({ ...value, style: event.target.value }))} placeholder="Optional, e.g. clear and conversational" />
-          </label>}
-        </div>
-
         <details className="walkthrough-pronunciation">
           <summary>Pronunciation lexicon <span>Optional · off by default</span></summary>
           <p>Add a code name and how it should sound. Include it only when you want matching text in the script replaced for speech.</p>
@@ -691,8 +625,8 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       <div className="walkthrough-playback">
         <div className="walkthrough-playback-buttons">
           <button type="button" disabled={reviewBusy || requestBusy || !draft.spokenText.trim()} onClick={() => { void replay(); }} aria-label="Replay narration"><RotateCcw size={14} /></button>
-          <button type="button" className="walkthrough-play-control" disabled={reviewBusy || requestBusy || !draft.spokenText.trim()} onClick={() => { void playOrPause(); }} aria-label={isPlaying ? 'Pause narration' : track ? 'Resume narration' : 'Review and play narration'}>
-            {isPlaying ? <Pause size={14} /> : <Play size={14} />} {isPlaying ? 'Pause' : track ? 'Play' : 'Play'}
+          <button type="button" className="walkthrough-play-control" disabled={reviewBusy || requestBusy || !draft.spokenText.trim()} onClick={() => { void playOrPause(); }} aria-label={isPlaying ? 'Pause narration' : 'Play narration'}>
+            {isPlaying ? <Pause size={14} /> : <Play size={14} />} {requestBusy || reviewBusy ? 'Preparing audio…' : isPlaying ? 'Pause' : 'Play'}
           </button>
           <button type="button" disabled={!track && !review} onClick={stop} aria-label="Stop narration"><Square size={12} /></button>
           <span className="walkthrough-duration">{formatTime(currentTime)} / {formatTime(duration)}</span>
@@ -702,6 +636,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
           <input type="range" min={0} max={duration || 0} step={0.05} value={Math.min(currentTime, duration || 0)} disabled={!track || !duration} onChange={(event) => seek(Number(event.target.value))} />
         </label>
       </div>
+      {localNarration && providerRequestBusy && <button type="button" className="text-button" disabled={cancelBusy} onClick={() => { void confirmCancelSynthesis(); }}>{cancelBusy ? 'Stopping…' : 'Cancel audio'}</button>}
       {track && !savedAudioMatchesDraft && <p className="walkthrough-narration-prior-audio" role="status">Previous audio is kept for its reviewed transcript. New edits do not change it unless you generate another recording.</p>}
 
       {!localNarration && <div className="walkthrough-narration-review-actions">
@@ -714,7 +649,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       {showReview && review && disclosure && (
         <div className="walkthrough-narration-review" role="group" aria-label="Narration request review">
           <div className="walkthrough-narration-review-title"><div><span>{providerRequestBusy ? (localNarration ? 'GENERATING LOCALLY' : 'CLOUD REQUEST IN PROGRESS') : localNarration ? 'LOCAL SCRIPT REVIEW' : 'LOCAL REVIEW · NO MODEL REQUEST SENT'}</span><strong>{disclosure.modelName}</strong></div><span>{review.cachedAudioAvailable ? 'AUDIO CACHED' : 'NEW AUDIO'}</span></div>
-          <details open={!localNarration}>
+          <details>
             <summary>Audio details</summary>
             <dl>
               <div><dt>Provider/model</dt><dd>{disclosure.provider} · <code>{review.modelId}</code></dd></div>
@@ -752,10 +687,10 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
               {!localNarration && <><label className="walkthrough-narration-consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /> I checked this key's project tier and billing status in Google AI Studio, reviewed Google's data-use and eligibility terms, meet those requirements, and authorize sending this exact text to Gemini.</label>
               <div className="walkthrough-narration-key-status" role="status">
                 <span>{informationError ?? (credential?.apiKeyConfigured ? 'Gemini key is stored in macOS Keychain.' : 'No Gemini API key is saved.')} Code Atlas cannot verify the key's project tier or quota.</span>
-                <button type="button" className="text-button" onClick={onOpenProviderSettings}>{credential?.apiKeyConfigured ? 'Manage Gemini key' : 'Set up Gemini for narration'}</button>
+                <button type="button" className="text-button" onClick={openVoiceConnections}>{credential?.apiKeyConfigured ? 'Manage Gemini key' : 'Set up Gemini for narration'}</button>
               </div>
               </>}
-              <button type="button" className="primary-button" disabled={(localNarration ? !pocketStatus?.ready || pocketStatus?.busy : !consent || !credential?.apiKeyConfigured) || requestBusy || setupBusy} onClick={() => { void synthesize(); }}>
+              <button type="button" className="primary-button" disabled={(localNarration ? !pocketStatus?.ready || pocketStatus?.busy : !consent || !credential?.apiKeyConfigured) || requestBusy} onClick={() => { void synthesize(); }}>
                 <Play size={14} /> {requestBusy ? 'Generating audio…' : localNarration ? 'Generate locally and play' : 'Synthesize and play this section'}
               </button>
               {providerRequestBusy && (
@@ -780,16 +715,15 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       )}
       {!disclosure && informationError && <p className="walkthrough-narration-note" role="status">{informationError}</p>}
       {error && <p className="walkthrough-narration-error" role="alert"><AlertCircle size={14} /> {error}</p>}
-      <p className="walkthrough-narration-offline"><Volume2 size={13} /> Audio is optional. The visible explanation, editable transcript, and source references remain available offline.</p>
     </section>
   );
 }
 
 function readPreferences(storageKey: string, fallbackText: string): NarrationPreferences {
   try {
-    return parseNarrationPreferences(window.localStorage.getItem(storageKey), fallbackText);
+    return applyVoiceConnection(parseNarrationPreferences(window.localStorage.getItem(storageKey), fallbackText), readVoiceConnection());
   } catch { /* Default to the accepted chapter script when storage is unavailable. */ }
-  return parseNarrationPreferences(null, fallbackText);
+  return applyVoiceConnection(parseNarrationPreferences(null, fallbackText), readVoiceConnection());
 }
 
 function replaceLexiconEntry(entries: NarrationPronunciationEntry[], index: number, entry: NarrationPronunciationEntry) {

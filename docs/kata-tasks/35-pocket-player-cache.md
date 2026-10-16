@@ -52,3 +52,11 @@ Removing transcript-only use, automatic whole-guide synthesis, automatic cloud f
 
 ## Done evidence
 Packaged-app local narration and export walkthrough with recorded cache/cancellation/listening results after runtime integration; no tests run this pass.
+
+
+## Connections simplification — October 16
+Voice is an application connection, configured once in the header's Connections → Voice. Default Pocket/Alba stays local and free; Google is an explicit alternative with Keychain key, voice and optional style. Answer/player surfaces must not contain an engine selector, runtime download/repair controls, delivery settings or setup metadata. Keep transcript editing and optional pronunciation beside the owning section. Pressing Listen performs native local review, reuses matching audio or generates and plays it; Google still needs exact-text consent before transmission. The visible local transcript reflects pronunciation expansion. No cloud fallback or whole-guide synthesis.
+
+One versioned global preference controls all answers and offline cache scans. Preserve saved section text/lexicon edits and legacy engine preferences without silently selecting their cloud backend; do not rewrite saved audio identities. Changing delivery invalidates current reviews, stops obsolete playback, cancels/discards an in-flight result and causes export to rescan only matching cached audio. Global Google delivery choices survive a round trip to Pocket. Failed preference storage must report failure instead of claiming persistence.
+
+Required final native qualification: open Voice from the header; verify ready state and repair tucked away; reopen Connections and restart the app; press Listen on two different answers without backend/voice selection; verify play/pause/seek, edited pronunciation, cancellation and audio cache reuse. Setup should recover a pending Listen intent after the Connections window closes. Cloud selection must expose consent before any outbound text, and legacy sections must default to the global local connection until the user explicitly changes it. Keep listening quality and broader cancellation/export acceptance open until observed.

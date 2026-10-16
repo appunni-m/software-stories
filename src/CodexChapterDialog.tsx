@@ -74,6 +74,8 @@ export interface CodexChapterDialogProps {
   onOpenPrChangeCitation?: (citation: PrChangeExplanationCitation) => void;
   onOpenPendingPreview?: (generationId: string) => void;
   discoveryResult?: SourceDiscoveryResult;
+  embeddedSettings?: boolean;
+  onSettingsBusyChange?: (busy: boolean) => void;
 }
 
 type Busy = 'status' | 'choose-file' | 'configure' | 'login' | 'cancel-login' | 'logout' | 'models' | 'build' | 'send' | 'save' | 'discard';
@@ -113,7 +115,7 @@ function loginHref(value: string): string | null {
   } catch { return null; }
 }
 
-export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onSaved, onRecoveryReviewReady, onOpenCodeLensCitation, onPrGuideReady, onOpenPrChangeCitation, onOpenPendingPreview, discoveryResult }: CodexChapterDialogProps) {
+export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onSaved, onRecoveryReviewReady, onOpenCodeLensCitation, onPrGuideReady, onOpenPrChangeCitation, onOpenPendingPreview, discoveryResult, embeddedSettings = false, onSettingsBusyChange }: CodexChapterDialogProps) {
   const scopeIdentity = requestScopeKey(mode);
   const projectId = mode === 'settings' ? null : mode.projectId;
   const planning = mode !== 'settings' && mode.kind === 'repository-plan' ? mode : null;
@@ -232,7 +234,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     const epoch = ++lifetime.current;
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const current = () => lifetime.current === epoch;
-    dialogRef.current?.focus();
+    if (!embeddedSettings) dialogRef.current?.focus();
     setStatus(null);
     setModels([]);
     setCheckingConnection(native);
@@ -272,7 +274,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
     }
     const keydown = (event: KeyboardEvent) => {
       const dialog = dialogRef.current;
-      if (!dialog) return;
+      if (!dialog || embeddedSettings) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
@@ -312,6 +314,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   }, [native, scopeIdentity]);
 
   useEffect(() => { if (review) summaryRef.current?.focus(); }, [review]);
+  useEffect(() => { onSettingsBusyChange?.(busy !== null); }, [busy, onSettingsBusyChange]);
 
   const refresh = async () => {
     const epoch = begin('status');
@@ -681,14 +684,14 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
   }, [mode, targetPath, discoveryResult, chapterRecovery, plannedChapter, native, busy, review, hasResult, error, status?.authenticated, sourceReady, modelReady, recoveryReady, otherRun, login, projectId, snapshotId, paths, selection.modelId, selection.effort]);
 
   return (
-    <div className="provider-overlay">
-      <section ref={dialogRef} className="provider-dialog" role="dialog" aria-modal="true" aria-labelledby="codex-dialog-title" tabIndex={-1}>
-        <header className="provider-dialog-header">
+    <div className={embeddedSettings ? "connections-embedded" : "provider-overlay"}>
+      <section ref={dialogRef} className={embeddedSettings ? "connections-account" : "provider-dialog"} role={embeddedSettings ? undefined : "dialog"} aria-modal={embeddedSettings ? undefined : true} aria-labelledby={embeddedSettings ? undefined : "codex-dialog-title"} tabIndex={-1}>
+        {!embeddedSettings && <header className="provider-dialog-header">
           <div><div className="step-pill"><span>CODEX ACCOUNT</span> NO API KEY</div>
             <h2 id="codex-dialog-title">{mode === 'settings' ? 'Codex settings' : gitGuide ? 'Explain this comparison with Codex' : gitChange ? 'Explain this hunk with Codex' : codeLensTarget ? 'Explain this selection with Codex' : sectionUpdate ? 'Update this section with Codex' : planning ? 'Plan your reading with Codex' : targetPath ? 'Explain this file with Codex' : 'Map the repository with Codex'}</h2>
             <p>Use your ChatGPT account through Codex. Generation shares only the reviewed source context and uses your account’s plan quota.</p></div>
           <button className="icon-button" aria-label="Close Codex dialog" disabled={busy !== null} onClick={() => { if (!activeBusy.current) onClose(); }}><X size={17} /></button>
-        </header>
+        </header>}
         <div className="provider-dialog-content">
           {chapterRecovery && <ChapterRecoveryReview key={chapterRecovery.recoveryOperationId}
             native={native} projectId={chapterRecovery.projectId} snapshotId={chapterRecovery.snapshotId}
@@ -827,7 +830,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
           {note && <p className="provider-status-note" role="status">{note}</p>}
           {mode === 'settings' && onChooseBackend && <p className="provider-small-note">Change backend returns to the available generation options. Saved plans and PR Guides remain local; switching discards an unsaved chapter preview or temporary explanation.</p>}
         </div>
-        <footer className="provider-dialog-footer">
+        {!embeddedSettings && <footer className="provider-dialog-footer">
           <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { if (!activeBusy.current) onClose(); }} disabled={busy !== null}>{saved || codeLensResult || prGuideResult || prChangeResult || planResult ? 'Done' : preview ? 'Close and discard preview' : 'Close'}</button>{mode === 'settings' && onChooseBackend && <button className="secondary-button" onClick={() => { if (!activeBusy.current && !resources.current.login) onChooseBackend(); }} disabled={busy !== null || Boolean(login)}>Change backend{preview && !saved ? ' and discard preview' : ''}</button>}</div>
           {native && mode !== 'settings' && (busy === 'send' ? <button className="secondary-button" onClick={() => { void cancelRun(); }} disabled={cancelling}>{cancelling ? 'Cancelling…' : 'Cancel generation'}</button>
             : prGuideResult ? <span className="provider-saved-status" role="status"><Check size={15} /> PR draft saved locally</span>
@@ -835,7 +838,7 @@ export function CodexChapterDialog({ mode, native, onClose, onChooseBackend, onS
             : codeLensResult || prChangeResult ? <button className="secondary-button" disabled={busy !== null} onClick={() => { setCodeLensResult(null); setPrChangeResult(null); setNote('Temporary explanation discarded. Review a new request to generate again.'); }}>Discard explanation</button>
             : preview ? saved ? <span className="provider-saved-status" role="status"><Check size={15} /> Draft saved locally</span> : <div className="provider-draft-actions"><button className="secondary-button" onClick={() => { void discard(); }} disabled={busy !== null}>Discard preview</button><button className="primary-button" onClick={() => { void save(); }} disabled={busy !== null || preview.validation.status !== 'valid'}>{busy === 'save' ? 'Saving…' : 'Save unaccepted draft'}</button></div>
               : <button className="primary-button" onClick={() => { void generate(); }} disabled={busy !== null || otherRun || !review || !consent || !status?.authenticated || !modelReady || !recoveryReady || Boolean(login)}><Sparkles size={15} /> {planning ? 'Generate learning plan with Codex' : sectionUpdate ? 'Regenerate section with Codex' : 'Generate with Codex'}</button>)}
-        </footer>
+        </footer>}
       </section>
     </div>
   );
