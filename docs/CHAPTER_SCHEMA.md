@@ -97,8 +97,8 @@ A section can propose a bounded `visual` (`none`, `dataFlow`, `sequence`, or `hi
 Fresh file chapters, repository overviews and single-section repairs request
 `presentation`, either `null` for no composition or a version-2
 [visual scene composition](VISUAL_SCENES.md). The prompt identities are
-`structured-file-chapter-v4`, `structured-repository-overview-v4` and
-`structured-single-section-update-v2`. The shared context builder supplies this
+`structured-file-chapter-v5`, `structured-repository-overview-v5` and
+`structured-single-section-update-v3`. The shared context builder supplies this
 contract to account-agent and direct-provider chapter requests. Existing
 five-tool retrieval schemas and progressive tool catalogs retain their pinned
 historical identities.

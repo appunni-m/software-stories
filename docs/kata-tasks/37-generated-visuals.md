@@ -145,3 +145,28 @@ example; represent each branch outcome distinctly; favor meaning over copied
 syntax; qualify fresh representation quality, real Pocket listening, native
 source navigation, selective repair/cache preservation and language coverage.
 Do not count this narrow source pass as a full repository or comprehension pass.
+
+## Teaching-policy rejection and repair work — 17 October 2026
+
+An isolated follow-up on the same Fontdone file/question returned in 182.906 s
+but failed native composition validation. Five parent links nest content inside
+leaf cards. The candidate uses seventeen cards rather than a useful visual
+story, and still opens with a record definition. All original output and
+thirteen exact source quotes are retained; no valid/accepted revision or audio
+exists. [Evidence and exact scope](../acceptance/2026-10-17-shared-chapter-scenes.md#teaching-policy-follow-up-rejected-layout).
+
+- [ ] Extend the owned ordinary Codex chapter correction to bounded positional
+  scene-structure findings alongside lexical findings. Apply it across supported
+  file/overview/selected-repair paths, using the saved connection and no API
+  prerequisite or new source request.
+- [ ] Use the existing single correction opportunity and original thread,
+  question, model, settings, source, permission, Stop owner and deadline. Do not
+  add independent retry loops, patch generated indices or remove claims locally.
+- [ ] Independently validate the whole corrected candidate. Cover persistent
+  invalid layout, unknown/oversized payloads, one-based/forward/leaf parents,
+  Stop before correction, failures and unchanged saved history.
+- [ ] Share the meaning-first teaching policy with progressive chat while
+  preserving stored receipt replay and original source/attempt bounds.
+- [ ] Qualify actual example-led visuals and natural narrated meaning after
+  structural admission. Fewer code elements, schema validity and the passing
+  394-native regression suite cannot establish this quality. Keep open.

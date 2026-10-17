@@ -103,3 +103,43 @@ Representation quality, correct examples and branch meanings, natural Pocket
 narration, comprehension, native source navigation, selective repair with real
 cached audio, and full language/repository coverage remain acceptance gates.
 Keep `j53m`, `q0sm`, `6qk9` and `tbsh` open until their complete criteria pass.
+
+## Teaching-policy follow-up: rejected layout
+
+The next instructions explicitly ask for an example-led opening, plain-language
+outcomes, at most one code element per scene unless syntax is requested, and
+distinct branch labels. File/overview prompts advance to v5 and selected repair
+to v3; presentation, storage and retrieval schemas are unchanged. These new
+instructions are on ordinary chapter requests. The progressive chat instruction
+text is unchanged by this follow-up and needs its own qualified integration.
+
+A fresh isolated run uses the same captured file, question, existing account,
+GPT-6 Luna/max and original deadline. It returned after **182.906 s**, but normal
+native canonicalization rejects it with **“Composition elements need one root
+and an earlier container parentIndex.”** The opt-in qualification exits 101
+after 185.86 s. No valid revision, accepted guide or audio was produced.
+
+[Unchanged rejected result](artifacts/2026-10-17-fontdone-file-teaching-v2-rejected.json),
+SHA-256 `7d20fa0f9f686e7ea6bd8e94b879144c570b371649002e66b97b62d127f029ef`,
+and [independent review](artifacts/2026-10-17-fontdone-file-teaching-v2-review.json)
+retain the exact request and compiled-source hashes. Thirteen quoted passages
+match the captured source uniquely. Five parent links use content cards as
+containers. Replacing code blocks with seventeen mostly empty cards is not a
+teaching-quality pass. The introduction still defines a record, and narration
+still contains raw identifiers and optional-result syntax. The layout rejection
+prevents treating these source observations as complete native admission.
+
+The existing ordinary Codex correction handles identifier problems only. Next:
+return bounded, source-free positional layout findings in that same owned
+correction opportunity; let the agent repair its entire output; then run the
+unchanged source, visual and storage validators. Preserve all supported claims,
+the original model/context/deadline, cancellation and one-correction bound.
+Never fix parent indices locally or delete content to obtain acceptance.
+Integrate the teaching policy into progressive requests with historical receipt
+replay preserved, then qualify actual visual meaning and narration again.
+
+The follow-up native suite passes **394 tests**, with 14 ignored, in 32.76 s.
+Its unsigned debug app bundle also builds; this does not qualify the rejected
+generation or native interaction. Local logs are
+`/private/tmp/code-atlas-fontdone-chapter-teaching-v2.log` and
+`/private/tmp/code-atlas-chapter-teaching-{native,app-build}.log`.

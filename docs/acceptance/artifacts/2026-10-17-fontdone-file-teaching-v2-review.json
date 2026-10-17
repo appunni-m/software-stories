@@ -1,0 +1,48 @@
+{
+  "reviewKind": "Independent agent structural and quote check of a rejected candidate; not source admission or human acceptance",
+  "artifactSha256": "7d20fa0f9f686e7ea6bd8e94b879144c570b371649002e66b97b62d127f029ef",
+  "implementationHashes": {
+    "src-tauri/src/lib.rs": "af92da4342054385094e437152788bfd25827d53470bd9611e50aa984d6638dc",
+    "src-tauri/src/provider.rs": "9bdb9307ca454be095df128a19c20c766385e52a35fbff741716c6ede9137a1e",
+    "src-tauri/src/provider/visual_scenes.rs": "5f8626ef1ab350cb79836904fb76af795e490298fba3241754875fe95db18878",
+    "src-tauri/src/chapter_generation.rs": "a429a2ada354a39c34c4e03df14b79fdf455e623ecc8568ffb71356a41a41139",
+    "src-tauri/src/chapters.rs": "c8b136b9043c87cad4cb397e9ac2076f1d79d9357afbadde4f4d75e14de25490",
+    "src-tauri/src/scene_presentation.rs": "1735654cb29fd477073b949793ae9a01aace5c11a173d2e6a61e5d4d175e61cc",
+    "src-tauri/src/codex_agent.rs": "c086f43d75ba90c8ad4e0cc4c3ed48b318cb59374ca1cf97ee529fdb4b4b22d7"
+  },
+  "implementationHashesMatch": true,
+  "exactUniqueQuotes": 13,
+  "invalidParents": [
+    {
+      "location": "/sections/0/visual/presentation/scenes/1/elements/2/parentIndex",
+      "parentKind": "card"
+    },
+    {
+      "location": "/sections/0/visual/presentation/scenes/1/elements/4/parentIndex",
+      "parentKind": "card"
+    },
+    {
+      "location": "/sections/2/visual/presentation/scenes/2/elements/2/parentIndex",
+      "parentKind": "card"
+    },
+    {
+      "location": "/sections/2/visual/presentation/scenes/2/elements/4/parentIndex",
+      "parentKind": "card"
+    },
+    {
+      "location": "/sections/2/visual/presentation/scenes/2/elements/5/parentIndex",
+      "parentKind": "card"
+    }
+  ],
+  "contentKinds": {
+    "card": 17,
+    "metric": 4,
+    "token": 3
+  },
+  "validationError": "Composition elements need one root and an earlier container parentIndex.",
+  "elapsedMs": 182906,
+  "accepted": false,
+  "completeNativeValidationPassed": false,
+  "humanQualityOrListeningPass": false,
+  "nextAction": "Return bounded positional structural findings to the same owned Codex operation, alongside existing identifier diagnostics, then independently validate the entire corrected candidate. Never patch generated parents locally or remove supported claims."
+}

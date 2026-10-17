@@ -33,10 +33,10 @@ const OPENAI_DISCLOSURE_VERSION: &str = "openai-disclosure-2026-10-13-v1";
 const ANTHROPIC_DISCLOSURE_VERSION: &str = "anthropic-disclosure-2026-10-13-v1";
 #[cfg(test)]
 const DISCLOSURE_VERSION: &str = GEMINI_DISCLOSURE_VERSION;
-const PROMPT_VERSION: &str = "structured-file-chapter-v4";
+const PROMPT_VERSION: &str = "structured-file-chapter-v5";
 const FILE_PROMPT_VERSION: &str = PROMPT_VERSION;
-const OVERVIEW_PROMPT_VERSION: &str = "structured-repository-overview-v4";
-const SECTION_UPDATE_PROMPT_VERSION: &str = "structured-single-section-update-v2";
+const OVERVIEW_PROMPT_VERSION: &str = "structured-repository-overview-v5";
+const SECTION_UPDATE_PROMPT_VERSION: &str = "structured-single-section-update-v3";
 const FILE_CHAPTER_PURPOSE: &str = "fileChapter";
 const REPOSITORY_OVERVIEW_PURPOSE: &str = "repositoryOverview";
 const REPOSITORY_PLAN_PURPOSE: &str = "repositoryPlan";

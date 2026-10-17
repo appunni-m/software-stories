@@ -41,6 +41,15 @@ and edited chapter validation apply the same composition checks. There is no
 separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
+Teaching policy v2 asks behavior answers to open with a useful input/result
+example, then explain the guards and consequences. Signatures and type lists
+stay in source details. Narration describes an absent or empty result in plain
+language rather than reading constructors and punctuation. Unless the question
+asks for syntax, instructions limit each scene to one code element and favor
+meaningful values, alternatives or changed state. Distinct branches need
+distinct outcome labels. These instructions are evaluated against fresh
+generations; they are not mechanical proof of teaching quality.
+
 This is a compositional HTML contract, not permission to run model-produced
 programs. React owns the tags, CSS, keyboard handlers and source actions. Model
 strings become text. Unknown elements/fields, raw markup fields, scripts, styles,
