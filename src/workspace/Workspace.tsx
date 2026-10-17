@@ -334,7 +334,12 @@ function EvidenceFlow({revision,saved,onSection,theme,onOpen}:{revision:ChapterR
   if(result?.status!=='available')return null;
   const {visual,anchorsById}=result;
   const horizontal=visual.layoutHint.direction==='leftToRight';
-  const nodes=visual.nodes.map((n,i)=>({id:n.nodeId,position:{x:horizontal?i*290:0,y:horizontal?0:i*130},data:{label:<><strong>{n.label}</strong>{n.detail&&<small>{n.detail}</small>}</>},style:{width:250}}));
+  const nodes=visual.nodes.map((n,i)=>{
+    const anchor=n.evidenceAnchorIds[0]?anchorsById.get(n.evidenceAnchorIds[0]):undefined;
+    const label=<><strong>{n.label}</strong>{n.detail&&<small>{n.detail}</small>}</>;
+    return {id:n.nodeId,position:{x:horizontal?i*290:0,y:horizontal?0:i*130},
+      data:{label:anchor?<button type="button" className="dw-flow-source nodrag nopan" aria-label={`Open source for ${n.label}`} onClick={()=>onOpen(anchor)}>{label}</button>:label},style:{width:250}};
+  });
   const edges=visual.edges.map((e)=>({id:e.edgeId,source:e.fromNodeId,target:e.toNodeId,label:e.label??undefined,markerEnd:{type:MarkerType.ArrowClosed}}));
-  return <section className="dw-flow-panel"><div className="dw-flow-heading"><h2>{visual.title}</h2><select aria-label="Diagram section" value={selected} onChange={(e)=>{const section=revision.sections[Number(e.target.value)];if(section)onSection(section.sectionId);}}>{diagrams.map((d,i)=>d.status==='available'?<option key={i} value={i}>{revision.sections[i].title}</option>:null)}</select></div><p>Select a step to open its source.</p><div className="dw-flow-canvas"><ReactFlow key={`${revision.revisionId}:${selected}`} nodes={nodes} edges={edges} fitView nodesDraggable={false} nodesConnectable={false} colorMode={theme} onNodeClick={(_,node)=>{const n=visual.nodes.find((n)=>n.nodeId===node.id);const a=n?.evidenceAnchorIds[0]?anchorsById.get(n.evidenceAnchorIds[0]):undefined;if(a)onOpen(a);}}><Background gap={20}/><Controls showInteractive={false}/></ReactFlow></div></section>;
+  return <section className="dw-flow-panel"><div className="dw-flow-heading"><h2>{visual.title}</h2><select aria-label="Diagram section" value={selected} onChange={(e)=>{const section=revision.sections[Number(e.target.value)];if(section)onSection(section.sectionId);}}>{diagrams.map((d,i)=>d.status==='available'?<option key={i} value={i}>{revision.sections[i].title}</option>:null)}</select></div><p>Select a step to open its source.</p><div className="dw-flow-canvas"><ReactFlow key={`${revision.revisionId}:${selected}`} nodes={nodes} edges={edges} fitView nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false} elementsSelectable={false} deleteKeyCode={null} colorMode={theme}><Background gap={20}/><Controls showInteractive={false}/></ReactFlow></div></section>;
 }

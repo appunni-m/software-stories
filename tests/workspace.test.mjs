@@ -33,6 +33,14 @@ test('repository search and explorer filters have independent inputs and branche
   assert.doesNotMatch(source,/<small>\{e\.turns\.length\} answer/);
   assert.match(source,/<small>\{e\.turns\.length\} question/);
 });
+test('reading graphs use real source buttons without canvas editing or deletion shortcuts',()=>{
+  const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
+  assert.match(source,/<button type="button" className="dw-flow-source nodrag nopan" aria-label=\{`Open source for \$\{n.label\}`\} onClick=\{\(\)=>onOpen\(anchor\)\}/);
+  for(const path of ['../src/workspace/Workspace.tsx','../src/VisualStory.tsx']) {
+    const component=readFileSync(new URL(path,import.meta.url),'utf8');
+    assert.match(component,/nodesFocusable=\{false\} edgesFocusable=\{false\} elementsSelectable=\{false\} deleteKeyCode=\{null\}/);
+  }
+});
 test('follow-ups stack at the current level; only explicit exploration creates a branch',()=>{
   let s=createWorkspace('p','snap');s=addTurn(s,turn('one'),'guide');s=addTurn(s,turn('two'),'flow');
   assert.equal(s.explorations.length,1);assert.equal(s.currentId,'root');assert.equal(s.explorations[0].turns.length,2);

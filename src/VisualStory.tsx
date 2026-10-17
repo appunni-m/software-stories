@@ -112,7 +112,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
       {htmlScenes.map((item) => <HtmlScene key={item.claimIndex} scene={item} visual={visual} onOpenNode={chooseNode} focusedNode={focusedNode}/>)}
     </div> : visual ? <div className="story-stage" role="group" aria-label={visual.title}>
       <ReactFlow key={`${section.sectionRevisionId}:${index}:${fullMap}`} nodes={nodes} edges={edges} fitView fitViewOptions={{ padding: .12, maxZoom: 1.1 }}
-        minZoom={.18} maxZoom={1.8} nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false} zoomOnScroll={false} preventScrolling={false} colorMode="system">
+        minZoom={.18} maxZoom={1.8} nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false} elementsSelectable={false} deleteKeyCode={null} zoomOnScroll={false} preventScrolling={false} colorMode="system">
         <Background gap={24} /><Controls showInteractive={false} />
       </ReactFlow>
     </div> : <div className="story-source-stage">
