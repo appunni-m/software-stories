@@ -168,6 +168,118 @@ fn publish(
 }
 
 #[test]
+fn source_replay_uses_immutable_record_bytes_without_the_publication_lock() {
+    use std::{sync::mpsc, time::Duration};
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancel) = setup(&f);
+    let evidence = read(&mut ledger, &f, &runtime, &cancel);
+    let mut answer = start(&ledger, &f, &runtime, &cancel);
+    publish(
+        &mut answer,
+        &ledger,
+        &proposal(&evidence, "entry", 0),
+        &f,
+        &runtime,
+        &cancel,
+    );
+    let run = ledger.record.binding.operation_id.clone();
+    let bytes = read_record_bytes(&f.storage, &run).unwrap();
+    let original = bytes.clone();
+    let storage = f.storage.clone();
+    let (done, observed) = mpsc::channel();
+    let guard = STORE.lock().unwrap();
+    let replay = std::thread::spawn(move || {
+        let checked = replay_answer(&storage, &run, &bytes);
+        done.send(checked.map(|answer| answer.sections.len()))
+            .unwrap();
+    });
+    let result = observed.recv_timeout(Duration::from_secs(2));
+    // Release even on regression, so the test cannot leave a blocked worker.
+    drop(guard);
+    replay.join().unwrap();
+    assert_eq!(result.unwrap().unwrap(), 1);
+    assert_eq!(fs::read(&answer.path).unwrap(), original);
+}
+
+#[test]
+fn recovery_observations_cannot_overwrite_a_new_section_or_stopped_result() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancel) = setup(&f);
+    let evidence = read(&mut ledger, &f, &runtime, &cancel);
+    let mut answer = start(&ledger, &f, &runtime, &cancel);
+    publish(
+        &mut answer,
+        &ledger,
+        &proposal(&evidence, "entry", 0),
+        &f,
+        &runtime,
+        &cancel,
+    );
+    let run = &ledger.record.binding.operation_id;
+    let project = &f.manifest.summary.project_id;
+    let snapshot = &f.manifest.summary.snapshot_id;
+    let before_append = reading::observe(&f.storage, run, project, snapshot).unwrap();
+    publish(
+        &mut answer,
+        &ledger,
+        &proposal(&evidence, "output", 1),
+        &f,
+        &runtime,
+        &cancel,
+    );
+    let appended = fs::read(&answer.path).unwrap();
+    assert!(
+        reading::reconcile_observed(&f.storage, before_append, false)
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(fs::read(&answer.path).unwrap(), appended);
+    let before_stop = reading::observe(&f.storage, run, project, snapshot).unwrap();
+    reading::interrupt(&f.storage, run, Outcome::Stopped).unwrap();
+    let stopped = fs::read(&answer.path).unwrap();
+    assert!(reading::reconcile_observed(&f.storage, before_stop, false)
+        .unwrap()
+        .is_none());
+    assert_eq!(fs::read(&answer.path).unwrap(), stopped);
+    let current = reading::observe(&f.storage, run, project, snapshot).unwrap();
+    assert_eq!(
+        reading::reconcile_observed(&f.storage, current, false)
+            .unwrap()
+            .unwrap()
+            .outcome,
+        Outcome::Stopped
+    );
+    assert_eq!(fs::read(&answer.path).unwrap(), stopped);
+}
+
+#[test]
+fn recovery_observations_preserve_valid_noncanonical_terminal_bytes() {
+    let f = Fixture::new();
+    let (ledger, runtime, cancel) = setup(&f);
+    let answer = start(&ledger, &f, &runtime, &cancel);
+    let run = &ledger.record.binding.operation_id;
+    reading::interrupt(&f.storage, run, Outcome::Stopped).unwrap();
+    let value: Value = serde_json::from_slice(&fs::read(&answer.path).unwrap()).unwrap();
+    let pretty = serde_json::to_vec_pretty(&value).unwrap();
+    fs::write(&answer.path, &pretty).unwrap();
+    let observed = reading::observe(
+        &f.storage,
+        run,
+        &f.manifest.summary.project_id,
+        &f.manifest.summary.snapshot_id,
+    )
+    .unwrap();
+    assert_eq!(
+        reading::reconcile_observed(&f.storage, observed, false)
+            .unwrap()
+            .unwrap()
+            .outcome,
+        Outcome::Stopped
+    );
+    assert_eq!(fs::read(&answer.path).unwrap(), pretty);
+}
+
+#[test]
 fn duplicate_visual_evidence_names_the_exact_item_and_repairs_without_losing_claims() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancel) = setup(&f);
@@ -914,6 +1026,7 @@ fn six_unique_sections_are_allowed_and_an_existing_key_needs_an_explicit_revisio
     let id = read(&mut l, &f, &r, &c);
     let mut a = start(&l, &f, &r, &c);
     for order in 0..MAX_SECTIONS {
+        assert_eq!(a.next_new_section_order(), Some(order));
         publish(
             &mut a,
             &l,
@@ -923,10 +1036,12 @@ fn six_unique_sections_are_allowed_and_an_existing_key_needs_an_explicit_revisio
             &c,
         );
     }
+    assert_eq!(a.next_new_section_order(), None);
     let raw = proposal(&id, "seventh", 0);
     let rejected = a.prepare(&l, &raw, &f.manifest, &r, &c).unwrap();
     assert_eq!(rejected.findings, finding("sectionLimit"));
     a.commit(&l, rejected, &f.manifest, &r, &c).unwrap();
+    assert_eq!(a.next_new_section_order(), None);
     a.finish(
         Outcome::Partial,
         vec!["The remaining topic needs further exploration.".into()],

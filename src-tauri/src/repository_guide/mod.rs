@@ -354,7 +354,7 @@ fn continuation(storage: &Path, record: &Record, index: usize) -> Result<String,
             .and_then(|a| a.summary.as_ref())
             .map(|s| s.incomplete_topics.join(" "))
             .unwrap_or_default();
-        question.push_str(&format!("\nExplicit continuation: preserve the already saved sections; do not repeat them. Published headings (navigation hints, not source evidence): {}. Investigate the remaining behavior: {}. Reread necessary captured code with the owned tools. State uninvestigated boundaries honestly.",headings.join("; "),missing));
+        question.push_str(&format!("\nExplicit continuation: preserve the already saved sections; do not repeat them. This is a NEW isolated investigation with its own publication ledger. Its first new section MUST use order:0 and previousGenerationId:null. Earlier saved sections are outside this investigation: do not count them, revise them, cite their generation IDs or include them in this investigation's final manifest. After a rejection, use nextNewSectionOrder from the native reply; a rejection never advances publication order. Published headings (navigation hints, not source evidence): {}. Investigate the remaining behavior: {}. Reread necessary captured code with the owned tools. State uninvestigated boundaries honestly.",headings.join("; "),missing));
     }
     if question.len() > 12000 {
         return Err("The guide continuation exceeds its intent limit.".into());

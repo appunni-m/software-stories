@@ -8232,7 +8232,10 @@ mod tests {
         let legacy = workspace_retrieval_schema();
         let tools = crate::context_mcp::tools_for(true);
         assert_eq!(crate::repository_context::digest(&serde_json::to_vec(&legacy).unwrap()), "fd962326147fe3732af0c0e5c2d4d1535879a314d297b3996b72a14b6abf7689");
-        assert_eq!(crate::repository_context::digest(&serde_json::to_vec(&tools).unwrap()), "13ab96766a249d298fe8f0d93a321deb9b88dfdd8fafe774dbc1f7eb9e4fbde3");
+        // The progressive catalog explicitly versions current-investigation
+        // order feedback and separate scene speech. The legacy retrieval
+        // schema above remains byte-identical.
+        assert_eq!(crate::repository_context::digest(&serde_json::to_vec(&tools).unwrap()), "f53102ebadc9dbb607d06ae30ec585f68f1541efbeb54fbe1c28483c3268bf3e");
         let file = file_chapter_response_schema();
         let overview = repository_overview_response_schema();
         let repair = section_update_generation_config();

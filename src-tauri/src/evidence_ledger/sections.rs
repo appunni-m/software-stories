@@ -769,6 +769,11 @@ impl ActiveAnswer {
         MAX_ATTEMPTS.saturating_sub(self.value.attempts.len())
     }
 
+    pub(crate) fn next_new_section_order(&self) -> Option<usize> {
+        let next = self.value.latest_identities().len();
+        (next < MAX_SECTIONS).then_some(next)
+    }
+
     pub(crate) fn notice(&self, generation: &str) -> Option<SectionNotice> {
         self.value
             .sections
@@ -1146,9 +1151,19 @@ fn normalized_revision(revision: &chapters::ChapterRevision) -> Result<Value, St
 /// or current sharing grant. Exact immutable checkpoints are self-contained;
 /// later ledger appends, revocation or cleanup do not alter their delivered code.
 pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String> {
+    replay_answer(storage, operation, &read_record_bytes(storage, operation)?)
+}
+
+fn read_record_bytes(storage: &Path, operation: &str) -> Result<Vec<u8>, String> {
+    // Take one durable point-in-time record. Source/checkpoint replay is
+    // read-only and must not stall another answer's native publication.
     let _guard = STORE.lock().map_err(|_| "Answer storage is unavailable.")?;
+    read_bytes(&record_path(storage, operation)?)
+}
+
+fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer, String> {
     let value: Answer =
-        crate::strict_json::from_slice(&read_bytes(&record_path(storage, operation)?)?)
+        crate::strict_json::from_slice(bytes)
             .map_err(|_| "Invalid saved answer".to_owned())
             .and_then(|v| serde_json::from_value(v).map_err(|_| "Invalid saved answer".to_owned()))
             .map_err(|_| "The saved answer is damaged; it was preserved.")?;

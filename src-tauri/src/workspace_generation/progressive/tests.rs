@@ -51,12 +51,9 @@ fn native_worker_registration_prevents_false_restart_interruption() {
     assert!(!manager.with_operation_state(&run, Ok).unwrap());
 }
 
-#[test]
-fn saved_answer_loading_keeps_active_workers_and_recovers_without_connecting_or_replaying() {
+fn empty_saved_answer(f: &Fixture, input: &Input) -> std::path::PathBuf {
     use crate::{codex_identity::CodexReviewRuntime, evidence_ledger::Ledger};
     use std::sync::atomic::AtomicBool;
-    let f = Fixture::new();
-    let input = input(&f);
     let runtime = CodexReviewRuntime {
         connection_id: Uuid::new_v4().to_string(),
         executable_path: "/usr/local/bin/codex".into(),
@@ -82,10 +79,16 @@ fn saved_answer_loading_keeps_active_workers_and_recovers_without_connecting_or_
             &AtomicBool::new(false),
         )
         .unwrap();
-    let record_path = f
-        .storage
+    f.storage
         .join("answer-sections")
-        .join(format!("{}.json", input.run_id));
+        .join(format!("{}.json", input.run_id))
+}
+
+#[test]
+fn saved_answer_loading_keeps_active_workers_and_recovers_without_connecting_or_replaying() {
+    let f = Fixture::new();
+    let input = input(&f);
+    let record_path = empty_saved_answer(&f, &input);
     let original = std::fs::read(&record_path).unwrap();
     let manager = codex_agent::CodexAgentManager::default();
     let worker = manager.hold_answer_worker(&input.run_id).unwrap();
@@ -156,6 +159,80 @@ fn final_manifest_schema_preserves_the_entire_native_generation_identity() {
         .unwrap();
     assert_eq!(generation_id.len(), 47);
     assert_eq!(bound, generation_id.len() as u64);
+}
+
+#[test]
+fn slow_saved_answer_validation_does_not_block_stop_ownership() {
+    use std::sync::mpsc;
+    use std::time::Duration;
+    let manager = codex_agent::CodexAgentManager::default();
+    let run = Uuid::new_v4().to_string();
+    let (release, wait) = mpsc::channel();
+    let (cancelled, observed) = mpsc::channel();
+    let stopping = manager.clone();
+    let stop_run = run.clone();
+    let stop = std::thread::spawn(move || {
+        wait.recv_timeout(Duration::from_secs(3)).unwrap();
+        cancelled.send(stopping.cancel(&stop_run)).unwrap();
+    });
+    let mut stopped_during_read = false;
+    let result = load_saved_answer_with_reader(Path::new("unused"), &run, &manager, || {
+        release.send(()).unwrap();
+        stopped_during_read = observed
+            .recv_timeout(Duration::from_secs(1))
+            .unwrap_or(false);
+        Err("A controlled slow read failed without changing saved data.".into())
+    });
+    stop.join().unwrap();
+    assert!(result.is_err());
+    assert!(
+        stopped_during_read,
+        "Stop must acquire ownership while source validation is pending"
+    );
+}
+
+#[test]
+fn saved_answer_rereads_changed_receipts_locally_with_a_fixed_retry_bound() {
+    let f = Fixture::new();
+    let input = input(&f);
+    let path = empty_saved_answer(&f, &input);
+    let old = reading::observe(
+        &f.storage,
+        &input.run_id,
+        &input.project_id,
+        &input.snapshot_id,
+    )
+    .unwrap();
+    reading::interrupt(&f.storage, &input.run_id, Outcome::Stopped).unwrap();
+    let stopped = std::fs::read(&path).unwrap();
+    let manager = codex_agent::CodexAgentManager::default();
+    let mut reads = 0;
+    let stale = load_saved_answer_with_reader(&f.storage, &input.run_id, &manager, || {
+        reads += 1;
+        Ok(old.clone())
+    });
+    assert_eq!(reads, 3);
+    assert!(matches!(stale, Err(message) if message.contains("nothing was regenerated")));
+    assert_eq!(std::fs::read(&path).unwrap(), stopped);
+    let mut reads = 0;
+    let current = load_saved_answer_with_reader(&f.storage, &input.run_id, &manager, || {
+        reads += 1;
+        if reads == 1 {
+            Ok(old.clone())
+        } else {
+            reading::observe(
+                &f.storage,
+                &input.run_id,
+                &input.project_id,
+                &input.snapshot_id,
+            )
+        }
+    })
+    .unwrap();
+    assert_eq!(reads, 2);
+    assert_eq!(current.outcome, Outcome::Stopped);
+    assert_eq!(std::fs::read(&path).unwrap(), stopped);
+    assert!(!f.storage.join("codex-agent/runtime.json").exists());
 }
 
 #[test]
@@ -410,6 +487,9 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert_eq!(contract["sectionAttempts"], 8);
     assert_eq!(contract["uniqueSections"], 6);
     assert_eq!(contract["checkpointVersion"], 4);
+    assert_eq!(contract["publicationOrderPolicy"], "investigation-local-next-order-v1");
+    assert!(system_instructions().contains("Start its first new key at order:0"));
+    assert!(system_instructions().contains("nextNewSectionOrder"));
     assert_eq!(
         contract["contractVersion"],
         crate::evidence_ledger::PROGRESSIVE_CONTRACT

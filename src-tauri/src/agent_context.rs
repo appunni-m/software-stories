@@ -584,6 +584,7 @@ impl Session {
                     generation_id: generation.as_deref(),
                     findings: &findings,
                     remaining_attempts: mode.answer.remaining_attempts(),
+                    next_new_section_order: mode.answer.next_new_section_order(),
                 },
                 &[],
                 &fresh,

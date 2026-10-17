@@ -817,6 +817,40 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
     let reference = read_reply["added"][0]["referenceId"].as_str().unwrap();
     let raw = sections::tests::proposal(reference, "entry", 0);
     let args: Value = serde_json::from_str(&raw).unwrap();
+    let mut wrong_order = args.clone();
+    wrong_order["order"] = json!(5);
+    let (_, rejected) = exchange_owned_ordered(
+        &mut s,
+        mcp::PROPOSAL_TOOL,
+        wrong_order,
+        false,
+        Arc::clone(&cancel),
+    );
+    let rejected: Value = serde_json::from_str(&rejected).unwrap();
+    assert_eq!(
+        rejected["context"]["result"]["findings"][0]["code"],
+        "sectionOrder"
+    );
+    assert_eq!(rejected["context"]["result"]["nextNewSectionOrder"], 0);
+    assert_eq!(rejected["context"]["result"]["remainingAttempts"], 7);
+    assert!(notices.lock().unwrap().is_empty());
+    let mut out_of_bounds = args.clone();
+    out_of_bounds["order"] = json!(6);
+    let (_, rejected) = exchange_owned_ordered(
+        &mut s,
+        mcp::PROPOSAL_TOOL,
+        out_of_bounds,
+        false,
+        Arc::clone(&cancel),
+    );
+    let rejected: Value = serde_json::from_str(&rejected).unwrap();
+    assert_eq!(
+        rejected["context"]["result"]["findings"][0]["code"],
+        "proposalShape"
+    );
+    assert_eq!(rejected["context"]["result"]["nextNewSectionOrder"], 0);
+    assert_eq!(rejected["context"]["result"]["remainingAttempts"], 6);
+    assert!(notices.lock().unwrap().is_empty());
     let (_, text) = exchange_owned_ordered(
         &mut s,
         mcp::PROPOSAL_TOOL,
@@ -835,7 +869,8 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
             .unwrap()
             .is_empty()
     );
-    assert_eq!(response["context"]["result"]["remainingAttempts"], 7);
+    assert_eq!(response["context"]["result"]["remainingAttempts"], 5);
+    assert_eq!(response["context"]["result"]["nextNewSectionOrder"], 1);
     assert_eq!(notices.lock().unwrap()[0].generation_id, generation);
     assert!(notices.lock().unwrap()[0].run_elapsed_ms.is_some());
     // Same owned proposal after a lost/ignored reply reuses the durable identity.
@@ -872,7 +907,7 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
         .unwrap(),
     )
     .unwrap();
-    assert_eq!(ledger["calls"].as_array().unwrap().len(), 4);
+    assert_eq!(ledger["calls"].as_array().unwrap().len(), 6);
     // Simulate an observed scope change after durable commit, before notice or
     // reply. The section is inspectable, but no successful callback or reply
     // may escape and no automatic inference/tool replay is started.

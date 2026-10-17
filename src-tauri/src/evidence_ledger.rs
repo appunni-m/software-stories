@@ -112,6 +112,8 @@ pub(crate) enum Context<'a> {
         findings: &'a [serde_json::Value],
         #[serde(rename = "remainingAttempts")]
         remaining_attempts: usize,
+        #[serde(rename = "nextNewSectionOrder")]
+        next_new_section_order: Option<usize>,
     },
     Definitions(&'a structure::Page<structure::Symbol>),
     Relationships(&'a structure::Page<structure::Relationship>),

@@ -72,11 +72,29 @@ pub(crate) fn scoped(
     project: &str,
     snapshot: &str,
 ) -> Result<Answer, String> {
-    let answer = inspect(storage, run)?;
+    Ok(observe(storage, run, project, snapshot)?.answer)
+}
+
+/// Exact durable bytes paired with their independently replayed source view.
+/// Only this module can construct a recovery observation.
+#[derive(Clone)]
+pub(crate) struct Observation {
+    answer: Answer,
+    bytes: Vec<u8>,
+}
+
+pub(crate) fn observe(
+    storage: &Path,
+    run: &str,
+    project: &str,
+    snapshot: &str,
+) -> Result<Observation, String> {
+    let bytes = read_record_bytes(storage, run)?;
+    let answer = replay_answer(storage, run, &bytes)?;
     if answer.binding.project_id != project || answer.binding.snapshot_id != snapshot {
         return Err("This answer belongs to another repository or snapshot.".into());
     }
-    Ok(answer)
+    Ok(Observation { answer, bytes })
 }
 
 /// Cached guide metadata may cover an explicitly removed receipt, never a
@@ -87,6 +105,28 @@ pub(crate) fn exists(storage: &Path, run: &str) -> Result<bool, String> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
         Err(_) => Err("The saved answer record could not be inspected.".into()),
     }
+}
+
+/// Reconcile an already source-validated observation under the manager's
+/// ownership lock. No source replay occurs while Stop/publication is held.
+/// A changed record returns None so the caller can validate it outside locks;
+/// it never overwrites a concurrent publication, completion or Stop outcome.
+pub(crate) fn reconcile_observed(
+    storage: &Path,
+    observed: Observation,
+    active: bool,
+) -> Result<Option<Summary>, String> {
+    let Observation { mut answer, bytes } = observed;
+    let _guard = STORE.lock().map_err(|_| "Answer storage is unavailable.")?;
+    let path = record_path(storage, &answer.binding.operation_id)?;
+    if read_bytes(&path)? != bytes {
+        return Ok(None);
+    }
+    if !active && answer.outcome == Outcome::Working {
+        answer.outcome = Outcome::Interrupted;
+        codex_agent::atomic_private_write(&path, &encode_answer(&answer)?)?;
+    }
+    Ok(Some(answer.summary()))
 }
 
 /// Caller holds the manager's active-operation lock, or has joined the worker.

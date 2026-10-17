@@ -172,6 +172,9 @@ fn restart_recovers_only_metadata_and_explicit_continuation_uses_saved_progress(
     let question = continuation(&f.storage, &recovered, 1).unwrap();
     assert!(question.contains("Explicit continuation"));
     assert!(question.contains("do not repeat"));
+    assert!(question.contains("first new section MUST use order:0 and previousGenerationId:null"));
+    assert!(question.contains("Earlier saved sections are outside this investigation"));
+    assert!(question.contains("nextNewSectionOrder"));
     assert_eq!(recovered.units[0].attempts.len(), 1);
     assert_eq!(recovered.units[1].attempts.len(), 1);
 }

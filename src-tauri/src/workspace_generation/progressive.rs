@@ -31,7 +31,7 @@ Answer the requested scope; missing unrequested callers or downstream systems is
 
 fn system_instructions() -> String {
     format!(
-        "{INSTRUCTIONS}\n\n{}\n\nAuthor claim prose first, then declare only the exact identifiers that prose actually spells out and its cited fragments support. Do not add an extra discovered constant, type or helper to identifiers without describing it in the same claim. Preserve all source-backed conditions and outcomes. Each node or edge's evidence list must contain unique claimIndex/evidenceIndex pairs; different visual items may cite the same pair. visualEvidenceDuplicate identifies the redundant entry at its exact /section/visual/nodes or edges evidence position. Remove only that duplicate entry, preserving the claim, supported behavior and chosen representation; it is not a reason to discard a composition or replace it with a graph.",
+        "{INSTRUCTIONS}\n\n{}\n\nPublication order belongs only to this investigation. Start its first new key at order:0 with previousGenerationId:null, including explicit repository-guide continuations. Earlier saved-library headings are not publications in this ledger. A rejected proposal publishes nothing and does not advance order. Every proposal reply supplies nextNewSectionOrder for the next new key; use that exact value rather than guessing. Null means no new key fits; an existing key can still be identified or explicitly revised.\n\nAuthor claim prose first, then declare only the exact identifiers that prose actually spells out and its cited fragments support. Do not add an extra discovered constant, type or helper to identifiers without describing it in the same claim. Preserve all source-backed conditions and outcomes. Each node or edge's evidence list must contain unique claimIndex/evidenceIndex pairs; different visual items may cite the same pair. visualEvidenceDuplicate identifies the redundant entry at its exact /section/visual/nodes or edges evidence position. Remove only that duplicate entry, preserving the claim, supported behavior and chosen representation; it is not a reason to discard a composition or replace it with a graph.",
         provider::visual_scenes::teaching_instructions()
     )
 }
@@ -62,6 +62,7 @@ fn generation_contract(input: &Input, prompt: &str, schema: &Value) -> Result<Va
         "systemInstructions":system_instructions(),"prompt":prompt,"outputSchema":schema,"tools":tools,
         "policy":crate::evidence_ledger::POLICY,"sectionAttempts":8,"uniqueSections":6,
         "claimAlignmentPolicy":"whole-section-validation-no-final-rewrite-v1",
+        "publicationOrderPolicy":"investigation-local-next-order-v1",
         "citationPolicy":"native-short-references-v2","proposalVersion":sections::PROPOSAL_VERSION,
         "presentationPolicy":"complete-claims-and-scene-narration-v3","storyPolicy":"ai-html-compositions-v3","teachingPolicy":provider::visual_scenes::TEACHING_POLICY_VERSION,"checkpointVersion":4
     }))
@@ -304,14 +305,29 @@ fn load_saved_answer(
     snapshot_id: &str,
     manager: &codex_agent::CodexAgentManager,
 ) -> Result<Summary, String> {
-    manager.with_operation_state(run_id, |active| {
-        let answer = reading::scoped(storage, run_id, project_id, snapshot_id)?;
-        if !active && answer.outcome == Outcome::Working {
-            reading::interrupt(storage, run_id, Outcome::Interrupted)
-        } else {
-            Ok(answer.summary())
-        }
+    load_saved_answer_with_reader(storage, run_id, manager, || {
+        reading::observe(storage, run_id, project_id, snapshot_id)
     })
+}
+
+fn load_saved_answer_with_reader(
+    storage: &Path,
+    run_id: &str,
+    manager: &codex_agent::CodexAgentManager,
+    mut read: impl FnMut() -> Result<reading::Observation, String>,
+) -> Result<Summary, String> {
+    // Validate captured source before acquiring the same ordering as Stop and
+    // publication. Recheck only the exact bounded receipt while holding it.
+    // Concurrent append/finalization requires fresh local validation, never AI.
+    for _ in 0..3 {
+        let answer = read()?;
+        if let Some(summary) = manager.with_operation_state(run_id, |active| {
+            reading::reconcile_observed(storage, answer, active)
+        })? {
+            return Ok(summary);
+        }
+    }
+    Err("The saved answer changed while loading. Open it again; nothing was regenerated.".into())
 }
 
 #[tauri::command(rename_all = "camelCase")]
