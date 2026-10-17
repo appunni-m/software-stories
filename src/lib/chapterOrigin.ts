@@ -6,7 +6,7 @@ export type RecordedAgentSettings = { backend: 'codex'; modelId: string; effort:
 
 /** Local dispatch lineage. This is not a cryptographic account attestation. */
 export interface ChapterGenerationOrigin {
-  schemaVersion: 1 | 2;
+  schemaVersion: 1 | 2 | 3;
   projectId: string;
   snapshotId: string;
   targetPath: string | null;
@@ -19,6 +19,10 @@ export interface ChapterGenerationOrigin {
   sourceFiles: { path: string; sha256: string; sizeBytes: number }[];
   sectionUpdate: SectionUpdateReviewTarget | null;
   plannedChapter: PlannedChapterScope | null;
+  retrieval?: { policy: string; ledgerSha256: string; ranges: {
+    snapshotId: string; path: string; sourceSha256: string; startByte: number; endByte: number;
+    startLine: number; endLine: number; chunkSha256: string;
+  }[] };
   contentSha256: string;
 }
 

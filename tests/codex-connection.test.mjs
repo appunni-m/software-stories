@@ -49,12 +49,15 @@ describe('one-time Codex connection', () => {
     assert.deepEqual(calls, ['status', 'models', 'status', 'resume', 'models']);
   });
 
-  it('observes the runtime after dequeuing and before preparing a new source review', async () => {
+  it('observes the runtime after dequeuing and starts one agent-led investigation', async () => {
     const source = await readFile(new URL('../src/workspace/store.ts', import.meta.url), 'utf8');
     const dispatch = source.slice(source.indexOf('const release = await enterQuestionQueue()'));
     assert.match(dispatch, /await ensureCodexConnection\(true\); check\(\);/);
-    assert.ok(dispatch.indexOf('await ensureCodexConnection(true)') < dispatch.indexOf('await prepareSourceDiscovery('));
-    assert.equal((dispatch.match(/await sendCodexChapterRequest\(/g) ?? []).length, 1);
+    assert.ok(dispatch.indexOf('await ensureCodexConnection(true)') < dispatch.indexOf("'generate_workspace_answer'"));
+    assert.equal((dispatch.match(/'generate_workspace_answer'/g) ?? []).length, 1);
+    assert.doesNotMatch(dispatch, /prepareSourceDiscovery|sendSourceDiscovery|buildCodexChapterReview|sendCodexChapterRequest/);
+    assert.doesNotMatch(dispatch, /selectedFiles|250000|sizes\.get/);
+    assert.match(dispatch, /job\.runId = runId; check\(\);/);
   });
 
   it('leaves explicit disconnect and missing or expired login for one deliberate connect action', async () => {

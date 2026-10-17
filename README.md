@@ -34,7 +34,7 @@ These are capabilities under development, not a finished or released product. **
 - [Product blueprint](docs/PRODUCT_BLUEPRINT.md) — intended user journey, file coverage, trust rules, and release gates.
 - [Interaction contract](docs/INTERACTION_CONTRACT.md) — controls, navigation destinations, side effects, and acceptance walkthrough.
 - [Technical plan](docs/TECHNICAL_PLAN.md) — implemented architecture notes and clearly marked future boundaries.
-- [Repository indexing and context research](docs/research/2026-10-17-repository-context-and-indexing.md) — twelve product/toolkit approaches, reusable indexing options and the proposed retrieval architecture; native range retrieval is measured, while agent retrieval and complete guides remain pending.
+- [Repository indexing and context research](docs/research/2026-10-17-repository-context-and-indexing.md) — twelve product/toolkit approaches, reusable indexing options and the proposed retrieval architecture; native range retrieval is measured, with a synthetic account-backed tool-loop baseline; large-repository and complete-guide acceptance remain pending.
 - [Chapter schema](docs/CHAPTER_SCHEMA.md) — persisted chapter format, evidence validation, visuals, and revisions.
 - [Provider disclosures](docs/PROVIDER_DISCLOSURES.md) — direct APIs, the initial Codex account route, local Pocket narration, and optional Gemini speech.
 - [Chapter quality gate](docs/CHAPTER_QUALITY_GATE.md) — synthetic corpus and human-reviewed release report workflow.
@@ -43,7 +43,7 @@ These are capabilities under development, not a finished or released product. **
 - [Current workspace design](docs/design/WORKSPACE_EXPLORATION.md) — interaction contract, standard components, preview and implementation tasks.
 - [Earlier screen proposals](docs/design/PROPOSED_SIMPLIFICATION.md) — historical Guide / Files / Changes references.
 
-The [repository retrieval checkpoint](docs/acceptance/2026-10-17-range-retrieval.md) records native range-search implementation and its measured limits. Important large files are searchable, but broad single-query recall is 2/12 expected spans; Codex generation still needs the planned retrieval tool loop.
+The [local retrieval checkpoint](docs/acceptance/2026-10-17-range-retrieval.md) records native range search and its limits. The [owned Codex investigation checkpoint](docs/acceptance/2026-10-17-codex-owned-retrieval.md) adds one live GPT-6 Luna/max synthetic answer using iterative tools: five calls and 197 distinct source bytes. Workspace chat now uses that route in source. Fontdone broad/focused explanations, speed and packaged-app acceptance remain open.
 
 ## Local development
 
@@ -69,7 +69,7 @@ npm run check
 
 ## Data and provider behavior
 
-Local browsing, capture, indexing, and opening saved chapters do not need an API key or provider call. Building a review sends no source. A confirmed direct text request sends the reviewed context to the selected API. When Codex is selected, the header restores the saved connection at startup and generation reuses it. Restoration, Connect and model loading can start the managed runtime and contact its account services; discovery metadata is sent only after confirmation, and source contents are supplied only for a confirmed reviewed generation run or chapter batch. Sign-in is an explicit one-time setup when needed; model/reasoning preferences are shared across projects. Disconnect pauses automatic reuse until you connect again. This initial route uses the runtime's native managed ChatGPT login, not a Code Atlas implementation of direct Sign in with ChatGPT. Runtime model listings do not prove account entitlement or remaining quota.
+Local browsing, capture, indexing, and opening saved chapters do not need an API key or provider call. Building a review sends no source. A confirmed direct text request sends the reviewed context to the selected API. When Codex is selected, the header restores the saved connection at startup and generation reuses it. Restoration, Connect and model loading can start the managed runtime and contact its account services; workspace question/metadata and agent-selected captured ranges are shared under the versioned snapshot permission; legacy reviewed runs/batches retain their exact source confirmations. Sign-in is an explicit one-time setup when needed; model/reasoning preferences are shared across projects. Disconnect pauses automatic reuse until you connect again. This initial route uses the runtime's native managed ChatGPT login, not a Code Atlas implementation of direct Sign in with ChatGPT. Runtime model listings do not prove account entitlement or remaining quota.
 
 Pocket setup downloads dependencies and fixed assets; subsequent synthesis is configured to use local files and keep the script on this Mac. A separately selected and confirmed Gemini speech request sends the reviewed script and voice/style settings to Google. Read the [provider disclosures](docs/PROVIDER_DISCLOSURES.md) and [Pocket runtime limits](docs/research/pocket-tts-runtime.md) before using these paths. The October 16 native Pocket baseline completed setup, synthetic section synthesis, playback/replay/pause and cache reuse. Listening quality, clean-account installation, cancellation and export qualification remain open.
 

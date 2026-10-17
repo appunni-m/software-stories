@@ -1257,6 +1257,13 @@ fn repository_overview_generation_config() -> Value {
     })
 }
 
+pub(crate) fn workspace_retrieval_schema()->Value {
+    let mut schema=repository_overview_response_schema();
+    crate::provider_api::lowercase_schema_types(&mut schema);
+    close_agent_schema_objects(&mut schema);
+    schema
+}
+
 fn pr_guide_generation_config() -> Value {
     json!({
         "temperature": 0.2,

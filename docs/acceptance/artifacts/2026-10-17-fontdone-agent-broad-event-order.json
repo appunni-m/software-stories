@@ -1,0 +1,48 @@
+{
+  "case": "broad",
+  "question": "How does Fontdone turn font bytes into a rendered glyph bitmap? Trace the real entry points, parsing, outline loading, hinting, and rasterization. Explain the important branches and show a flow with source links.",
+  "projectId": "/Users/lazytrot/work/fontdone",
+  "snapshotId": "snap-1792140879637485000-11155-0",
+  "runId": "8d32b78f-dbe2-4d6a-aa9b-89188dc540e8",
+  "model": "gpt-6-luna",
+  "effort": "max",
+  "elapsedMs": 96887,
+  "phases": [
+    {
+      "phase": "preparing",
+      "elapsedMs": 9652
+    },
+    {
+      "phase": "starting",
+      "elapsedMs": 34868
+    }
+  ],
+  "status": "interrupted",
+  "calls": [
+    {
+      "id": "19333015-07df-4546-8c7c-24e7fa69e0c7",
+      "tool": "map",
+      "argumentsSha256": "9560b4152d1e1a5dacabfa3833a9ac2a3b6d5b9971a44509b2eee5ec98cb463f",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 4906,
+      "wireBytes": 4906,
+      "payloadSha256": "f0856698b55ef4bf34078765b8e6558e15e26ecccce690a3cd3bc863a17d17d2"
+    },
+    {
+      "id": "0bf1654c-9b20-4f56-8d61-761115a60a0e",
+      "tool": "map",
+      "argumentsSha256": "ad0002353e3e72353cd3b10555b3de6b376058ba02ca16e0d627f82224bb0e5e",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 3180,
+      "wireBytes": 3180,
+      "payloadSha256": "46d92adcc6f9fb2324dc19dc99c7ac0831c5c93e197b8de7229608064d3dd26a"
+    }
+  ],
+  "evidence": [],
+  "preview": null,
+  "error": "The context call does not own an active Codex tool event."
+}

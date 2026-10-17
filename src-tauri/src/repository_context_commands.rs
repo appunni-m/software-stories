@@ -67,6 +67,14 @@ impl Drop for Request {
 
 impl RepositoryContextJobs {
     pub(crate) fn begin(&self, id: &str) -> Result<Request, String> {
+        self.begin_with_cancel(id, Arc::new(AtomicBool::new(false)))
+    }
+
+    pub(crate) fn begin_with_cancel(
+        &self,
+        id: &str,
+        cancelled: Arc<AtomicBool>,
+    ) -> Result<Request, String> {
         if Uuid::parse_str(id).is_err() {
             return Err("A valid code-search request ID is required.".to_owned());
         }
@@ -87,7 +95,6 @@ impl RepositoryContextJobs {
         if requests.values().filter(|entry| entry.owned).count() >= 8 || !make_room(&mut requests) {
             return Err("Wait for a local code search to finish.".to_owned());
         }
-        let cancelled = Arc::new(AtomicBool::new(false));
         requests.insert(
             id.to_owned(),
             RequestEntry {
@@ -139,15 +146,15 @@ impl Request {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct SearchInput {
-    request_id: String,
-    project_id: String,
-    snapshot_id: String,
-    query: String,
-    path: Option<String>,
-    limit: usize,
+    pub(crate) request_id: String,
+    pub(crate) project_id: String,
+    pub(crate) snapshot_id: String,
+    pub(crate) query: String,
+    pub(crate) path: Option<String>,
+    pub(crate) limit: usize,
 }
 
-fn search_snapshot(
+pub(crate) fn search_snapshot(
     storage: &Path,
     input: &SearchInput,
     request: &Request,

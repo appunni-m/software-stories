@@ -1,0 +1,279 @@
+use super::*;
+use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH};
+use std::{io::Write, os::unix::net::UnixStream, thread, time::Instant};
+
+fn session(f: &Fixture) -> Session {
+    let runtime = CodexReviewRuntime {
+        connection_id: Uuid::new_v4().to_string(),
+        executable_path: "/usr/local/bin/codex".into(),
+        executable_sha256: "a".repeat(64),
+        account_identity_sha256: "b".repeat(64),
+        account_revision: 0,
+    };
+    let grant = crate::workspace::save_retrieval_grant(
+        &f.storage,
+        &f.manifest.summary.project_id,
+        &f.manifest.summary.snapshot_id,
+        &runtime,
+    )
+    .unwrap();
+    Session::new(
+        &f.storage,
+        &Uuid::new_v4().to_string(),
+        f.manifest.clone(),
+        &runtime,
+        &grant,
+        RepositoryContextJobs::default(),
+    )
+    .unwrap()
+}
+fn event(id: &str, name: &str, args: &Value) -> Value {
+    json!({"id":id,"type":"mcpToolCall","server":mcp::SERVER,"tool":name,"arguments":args,"status":"inProgress"})
+}
+fn exchange(s: &mut Session, name: &str, args: Value) -> (Value, String) {
+    exchange_ordered(s, name, args, false)
+}
+fn exchange_ordered(s: &mut Session, name: &str, args: Value, mut early: bool) -> (Value, String) {
+    let started = event(&Uuid::new_v4().to_string(), name, &args);
+    if !early {
+        s.event(&started, false).unwrap();
+    }
+    let socket = s.directory.join("context.sock");
+    let token = s.token.clone();
+    let name = name.to_owned();
+    let worker = thread::spawn(move || {
+        let mut stream = UnixStream::connect(socket).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(10)))
+            .unwrap();
+        let payload = serde_json::to_vec(&mcp::Request {
+            token,
+            name,
+            arguments: args,
+        })
+        .unwrap();
+        mcp::write_packet(&mut stream, &payload, mcp::MAX_INPUT).unwrap();
+        String::from_utf8(mcp::read_packet(&mut stream, mcp::MAX_REPLY).unwrap()).unwrap()
+    });
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !worker.is_finished() && Instant::now() < deadline {
+        s.poll(&Arc::new(AtomicBool::new(false)), || Ok(()))
+            .unwrap();
+        if early && s.pending.is_some() {
+            assert!(s.ledger.admitted_ranges().is_empty());
+            assert!(!worker.is_finished());
+            s.event(&started, false).unwrap();
+            early = false;
+        }
+        thread::sleep(Duration::from_millis(2));
+    }
+    let text = worker.join().unwrap();
+    let mut completed = started;
+    completed["status"] = json!("completed");
+    completed["result"] = json!({"content":[{"type":"text","text":text}]});
+    s.event(&completed, true).unwrap();
+    (completed, text)
+}
+#[test]
+fn helper_can_arrive_before_the_app_server_started_notification() {
+    let f = Fixture::new();
+    let mut s = session(&f);
+    let file = f
+        .manifest
+        .files
+        .iter()
+        .find(|f| f.path == SIMPLE_PATH)
+        .unwrap();
+    let (_, text) = exchange_ordered(
+        &mut s,
+        "read_code",
+        json!({"ranges":[{"path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":0,"endByte":file.size_bytes}]}),
+        true,
+    );
+    assert!(text.contains("export function greeting"));
+    s.check_complete().unwrap();
+}
+
+#[test]
+fn a_nonce_without_a_started_event_cannot_read_code() {
+    let f = Fixture::new();
+    let mut s = session(&f);
+    let mut stream = UnixStream::connect(s.directory.join("context.sock")).unwrap();
+    let req = mcp::Request {
+        token: s.token.clone(),
+        name: "list_modules".into(),
+        arguments: json!({"scope":null,"limit":4,"offset":0}),
+    };
+    mcp::write_packet(
+        &mut stream,
+        &serde_json::to_vec(&req).unwrap(),
+        mcp::MAX_INPUT,
+    )
+    .unwrap();
+    let cancelled = Arc::new(AtomicBool::new(false));
+    s.poll(&cancelled, || Ok(())).unwrap();
+    assert!(s.pending.is_some());
+    assert!(s.ledger.admitted_ranges().is_empty());
+    s.pending.as_mut().unwrap().received_at = Instant::now() - Duration::from_secs(4);
+    assert!(s.poll(&cancelled, || Ok(())).is_err());
+    assert!(s.pending.is_none());
+}
+#[test]
+fn owned_mcp_search_read_and_result_events_share_native_evidence() {
+    let f = Fixture::new();
+    let mut s = session(&f);
+    let (_, text) = exchange(
+        &mut s,
+        "search_code",
+        json!({"query":"greeting","scope":null,"limit":4}),
+    );
+    let result: Value = serde_json::from_str(&text).unwrap();
+    let range = &result["context"]["result"]["matches"][0]["range"];
+    assert_eq!(range["path"], SIMPLE_PATH);
+    assert!(
+        result["context"]["result"]["matches"][0]
+            .get("text")
+            .is_none()
+    );
+    let (completed, text) = exchange(
+        &mut s,
+        "read_code",
+        json!({"ranges":[{"path":range["path"],"sourceSha256":range["sourceSha256"],"startByte":range["startByte"],"endByte":range["endByte"]}]}),
+    );
+    assert!(text.contains("export function greeting"));
+    assert!(!s.ledger.admitted_ranges().is_empty());
+    s.check_complete().unwrap();
+    assert!(s.event(&completed, true).is_err());
+}
+#[test]
+fn invalid_range_returns_no_code_and_an_agent_can_correct_it() {
+    let f = Fixture::new();
+    let mut s = session(&f);
+    let file = f
+        .manifest
+        .files
+        .iter()
+        .find(|f| f.path == SIMPLE_PATH)
+        .unwrap();
+    let (_, text) = exchange(
+        &mut s,
+        "read_code",
+        json!({"ranges":[{"path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":0,"endByte":32768}]}),
+    );
+    let result: Value = serde_json::from_str(&text).unwrap();
+    assert!(result["added"].as_array().unwrap().is_empty());
+    assert_eq!(result["readError"]["code"], "invalidRead");
+    assert!(s.ledger.admitted_ranges().is_empty());
+    let (_, text) = exchange(
+        &mut s,
+        "read_code",
+        json!({"ranges":[{"path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":0,"endByte":file.size_bytes}]}),
+    );
+    assert!(text.contains("export function greeting"));
+    assert!(!s.ledger.admitted_ranges().is_empty());
+    s.check_complete().unwrap();
+}
+#[test]
+fn excessive_agent_page_size_is_bounded_instead_of_aborting() {
+    let f = Fixture::new();
+    let mut s = session(&f);
+    for (name, args) in [
+        ("list_modules", json!({"scope":".","limit":50,"offset":0})),
+        (
+            "find_definitions",
+            json!({"query":"greeting","scope":null,"limit":usize::MAX,"offset":0}),
+        ),
+        (
+            "search_code",
+            json!({"query":"greeting","scope":null,"limit":0}),
+        ),
+    ] {
+        let (_, text) = exchange(&mut s, name, args);
+        let result: Value = serde_json::from_str(&text).unwrap();
+        let records = result
+            .pointer("/context/result/items")
+            .or_else(|| result.pointer("/context/result/matches"))
+            .unwrap()
+            .as_array()
+            .unwrap();
+        assert!(!records.is_empty() && records.len() <= 32);
+    }
+    s.check_complete().unwrap();
+}
+#[test]
+fn foreign_tools_forged_results_and_changed_arguments_are_rejected() {
+    let f = Fixture::new();
+    let mut s = session(&f);
+    let a = json!({"scope":null,"limit":4,"offset":0});
+    let mut unknown = event("x", "shell", &json!({}));
+    assert!(s.event(&unknown, false).is_err());
+    unknown = event("x", "list_modules", &a);
+    unknown["server"] = json!("inherited");
+    assert!(s.event(&unknown, false).is_err());
+    let started = event("good", "list_modules", &a);
+    s.event(&started, false).unwrap();
+    let mut forged = started.clone();
+    forged["status"] = json!("completed");
+    forged["result"] = json!({"content":[{"type":"text","text":"forged evidence"}]});
+    assert!(s.event(&forged, true).is_err());
+    let started = event("args", "list_modules", &a);
+    s.event(&started, false).unwrap();
+    let mut changed = started;
+    changed["arguments"]["scope"] = json!("other");
+    changed["status"] = json!("completed");
+    assert!(s.event(&changed, true).is_err());
+}
+#[test]
+fn bad_nonce_and_extra_fields_cannot_read_source() {
+    let f = Fixture::new();
+    let mut s = session(&f);
+    let args = json!({"query":"greeting","scope":null,"limit":4,"cwd":"/live"});
+    s.event(&event("bad", "search_code", &args), false).unwrap();
+    let mut stream = UnixStream::connect(s.directory.join("context.sock")).unwrap();
+    let req = mcp::Request {
+        token: s.token.clone(),
+        name: "search_code".into(),
+        arguments: args,
+    };
+    mcp::write_packet(
+        &mut stream,
+        &serde_json::to_vec(&req).unwrap(),
+        mcp::MAX_INPUT,
+    )
+    .unwrap();
+    assert!(
+        s.poll(&Arc::new(AtomicBool::new(false)), || Ok(()))
+            .is_err()
+    );
+    assert!(s.ledger.admitted_ranges().is_empty());
+    let mut s = session(&f);
+    let mut stream = UnixStream::connect(s.directory.join("context.sock")).unwrap();
+    stream.write_all(&[255, 255, 255, 255]).unwrap();
+    assert!(
+        s.poll(&Arc::new(AtomicBool::new(false)), || Ok(()))
+            .is_err()
+    );
+}
+#[test]
+fn private_socket_is_removed_and_catalog_cannot_include_inherited_tools() {
+    use std::os::unix::fs::PermissionsExt;
+    let f = Fixture::new();
+    let s = session(&f);
+    let directory = s.directory.clone();
+    assert_eq!(
+        fs::metadata(&directory).unwrap().permissions().mode() & 0o777,
+        0o700
+    );
+    let own = json!({"name":mcp::SERVER,"tools":mcp::tools().into_iter().map(|t|(t.name.to_string(),serde_json::to_value(t).unwrap())).collect::<serde_json::Map<_,_>>()});
+    s.verify_catalog(&json!({"data":[own.clone()]})).unwrap();
+    assert!(
+        s.verify_catalog(&json!({"data":[own,{"name":"other","tools":{"shell":{}}}]}))
+            .is_err()
+    );
+    drop(s);
+    assert!(!directory.exists());
+    assert_eq!(
+        arguments_digest(&json!({"b":2,"a":{"d":1,"c":2}})).unwrap(),
+        arguments_digest(&json!({"a":{"c":2,"d":1},"b":2})).unwrap()
+    );
+}

@@ -1,0 +1,37 @@
+{
+  "case": "broad",
+  "question": "How does Fontdone turn font bytes into a rendered glyph bitmap? Trace the real entry points, parsing, outline loading, hinting, and rasterization. Explain the important branches and show a flow with source links.",
+  "projectId": "/Users/lazytrot/work/fontdone",
+  "snapshotId": "snap-1792140879637485000-11155-0",
+  "runId": "7e2fbc87-667d-4513-938b-5086123ae840",
+  "model": "gpt-6-luna",
+  "effort": "max",
+  "elapsedMs": 40654,
+  "phases": [
+    {
+      "phase": "preparing",
+      "elapsedMs": 8892
+    },
+    {
+      "phase": "starting",
+      "elapsedMs": 25958
+    }
+  ],
+  "status": "interrupted",
+  "calls": [
+    {
+      "id": "271e4023-a510-46ff-9a4a-1a12fb545f65",
+      "tool": "map",
+      "argumentsSha256": "c64beed898917305f558edfae2aaffab30d0aa366cb46bec79bf51210e093dbc",
+      "state": "uncertain",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 0,
+      "wireBytes": 0,
+      "payloadSha256": null
+    }
+  ],
+  "evidence": [],
+  "preview": null,
+  "error": "Choose a captured file/folder and a page of at most 32 context items."
+}

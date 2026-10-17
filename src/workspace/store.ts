@@ -1,11 +1,10 @@
 import { createQuestionQueue } from './queue';
 import { useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { buildCodexChapterReview, cancelCodexChapterRequest, discardProviderRequestReview, getSnapshotIndexProgress, listChapterRevisions, loadSnapshotIndex, loadSnapshotManifest, saveGeneratedChapterDraft, sendCodexChapterRequest, startSnapshotIndexing, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
+import { cancelCodexChapterRequest, getSnapshotIndexProgress, listChapterRevisions, loadSnapshotIndex, saveGeneratedChapterDraft, startSnapshotIndexing, type ChapterDraftPreview, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
-import { discardSourceDiscovery, prepareSourceDiscovery, sendSourceDiscovery } from '../lib/sourceDiscovery';
 import { errorMessageOr } from '../lib/errorMessage';
-import { addTurn, chapterTarget, learningQuestion, parseWorkspace, type Context, type Turn, type View, type WorkspaceState } from './model';
+import { addTurn, learningQuestion, parseWorkspace, type Context, type Turn, type View, type WorkspaceState } from './model';
 
 const indexLoads = new Map<string, Promise<SnapshotIndex>>();
 /** One local index build per snapshot, shared by reading and questions. No model call. */
@@ -85,7 +84,6 @@ export async function runQuestion(project: string, snapshot: string, id: string,
   const turn = owner?.turns.find((t) => t.id === id);
   if (!turn || !owner) return null;
   const job = { cancelled: false, runId: null as string | null }; jobs.set(id, job);
-  let discoveryId: string | null = null; let reviewId: string | null = null;
   const check = () => { if (job.cancelled) throw new Error('Stopped'); };
   patchTurn(project,snapshot,id,{ status:'queued', error: undefined });
   const release = await enterQuestionQueue();
@@ -98,30 +96,15 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     await ensureCodexConnection(true); check();
     const selection = readCodexSelection();
     if (selection.modelId !== 'gpt-6-luna' || selection.effort !== 'max') throw new Error('Choose GPT-6 Luna with max reasoning in the connection settings.');
-    await ensureWorkspaceIndex(project,snapshot);
-    check();
-    const targetPath=turn.context[0]?.path && !/\.(md|mdx|rst|txt|adoc)$/i.test(turn.context[0].path)?turn.context[0].path:null;
-    const contextQuestion = learningQuestion(getWorkspace(project,snapshot),owner.id,id,300);
-    const discovery = await prepareSourceDiscovery({ projectId:project, snapshotId:snapshot, question:contextQuestion.length >= 8 ? contextQuestion : `Explain ${contextQuestion}`, targetPath, ...selection, workspaceGrant:grantId });
-    discoveryId = discovery.reviewId; check(); job.runId = discovery.reviewId;
-    const result = await sendSourceDiscovery(discovery); check(); job.runId = null;
-    const manifest = await loadSnapshotManifest(project,snapshot); check();
-    const sizes = new Map(manifest.files.map((f) => [f.path,f.sizeBytes]));
-    const explicit = [...new Set(turn.context.map((c) => c.path))];
-    let bytes = explicit.reduce((n,p) => n + (sizes.get(p) ?? 250001),0);
-    if (explicit.length > 12 || bytes > 250000) throw new Error('The attached code is too large for one question. Remove an attachment or ask about a smaller file.');
-    const paths = [...explicit];
-    for (const f of result.selectedFiles) { const size=sizes.get(f.path); if (!paths.includes(f.path) && size !== undefined && paths.length < 12 && bytes+size <= 250000) {paths.push(f.path);bytes+=size;} }
-    if (!paths.length) throw new Error(result.limitation || 'There is not enough captured code to answer this question. Try a more specific question.');
-    const focus = turn.context.filter((c) => c.from && c.to && c.sha256).map((c) => ({ path:c.path, sourceSha256:c.sha256!, startLine:c.from!, endLine:c.to!, startByte:null, endByteExclusive:null }));
-    const reviewResult = await buildCodexChapterReview({ projectId:project, snapshotId:snapshot,
-      targetPath:chapterTarget(turn.context,paths), selectedPaths:paths, ...selection, approvalPolicy:'never', workspaceGrant:grantId,
-      question:learningQuestion(getWorkspace(project,snapshot),owner.id,id,1200), focus });
-    if (reviewResult.status === 'error') throw new Error(reviewResult.error.message || 'The explanation request could not be prepared.');
-    const review = reviewResult.data; reviewId = review.reviewId; check(); job.runId = review.reviewId;
-    const generated = await sendCodexChapterRequest(review.reviewId,review.fingerprint,true); check(); job.runId = null;
-    if (generated.status === 'error') throw new Error(generated.error.message || 'The explanation did not pass its source checks. Try a smaller question.');
-    const preview = generated.data;
+    const runId = crypto.randomUUID();
+    job.runId = runId; check();
+    const preview = await invoke<ChapterDraftPreview>('generate_workspace_answer', { input: {
+      runId, projectId: project, snapshotId: snapshot, grantId,
+      question: learningQuestion(getWorkspace(project,snapshot),owner.id,id,1200),
+      references: turn.context.map((c) => ({ path:c.path, sha256:c.sha256 ?? null, from:c.from ?? null, to:c.to ?? null })),
+      ...selection,
+    } });
+    check(); job.runId = null;
     patchTurn(project,snapshot,id,{ generationId:preview.generationId });
     let revision: ChapterRevision;
     try { revision = await saveGeneratedChapterDraft(preview.generationId); }
@@ -147,7 +130,5 @@ export async function runQuestion(project: string, snapshot: string, id: string,
   } finally {
     release();
     jobs.delete(id);
-    if (discoveryId) void discardSourceDiscovery(discoveryId).catch(() => {});
-    if (reviewId) void discardProviderRequestReview(reviewId).catch(() => {});
   }
 }

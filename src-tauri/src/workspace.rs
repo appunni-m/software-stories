@@ -23,6 +23,8 @@ struct Grant {
     manifest_sha256: String,
     account_sha256: String,
     executable_sha256: String,
+    #[serde(default)]
+    retrieval_policy: Option<String>,
 }
 
 fn grant_path(storage: &Path, id: &str) -> Result<PathBuf, String> {
@@ -51,16 +53,25 @@ pub(crate) fn check_grant(
     snapshot: &str,
     runtime: &CodexReviewRuntime,
 ) -> Result<(), String> {
+    checked_grant(storage, id, project, snapshot, runtime).map(|_| ())
+}
+
+fn checked_grant(
+    storage: &Path,
+    id: &str,
+    project: &str,
+    snapshot: &str,
+    runtime: &CodexReviewRuntime,
+) -> Result<Grant, String> {
     let path = grant_path(storage, id)?;
-    if fs::metadata(&path)
-        .map_err(|_| "Allow Codex to explore this snapshot first.".to_owned())?
-        .len()
-        > 8192
-    {
+    let metadata = fs::symlink_metadata(&path)
+        .map_err(|_| "Allow Codex to explore this snapshot first.".to_owned())?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() > 8192 {
         return Err("The exploration permission is invalid.".to_owned());
     }
     let grant: Grant = serde_json::from_slice(
-        &fs::read(path).map_err(|_| "The exploration permission is unavailable.".to_owned())?,
+        &crate::bounded_file::read(&path, 8192)
+            .map_err(|_| "The exploration permission is unavailable.".to_owned())?,
     )
     .map_err(|_| "The exploration permission is invalid.".to_owned())?;
     if grant.id != id
@@ -71,6 +82,21 @@ pub(crate) fn check_grant(
         || grant.manifest_sha256 != manifest_digest(storage, project, snapshot)?
     {
         return Err("The snapshot or Codex account changed. Allow exploration again.".to_owned());
+    }
+    Ok(grant)
+}
+
+/// A previous whole-file grant must not silently acquire tool permissions.
+pub(crate) fn check_retrieval_grant(
+    storage: &Path,
+    id: &str,
+    project: &str,
+    snapshot: &str,
+    runtime: &CodexReviewRuntime,
+) -> Result<(), String> {
+    let grant = checked_grant(storage, id, project, snapshot, runtime)?;
+    if grant.retrieval_policy.as_deref() != Some(crate::evidence_ledger::POLICY) {
+        return Err("This snapshot uses an older sharing permission. Allow bounded code exploration before using retrieval tools.".to_owned());
     }
     Ok(())
 }
@@ -94,34 +120,40 @@ pub(crate) async fn authorize_workspace_exploration(
     let agent = manager.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
         let runtime = agent.review_runtime(&storage)?;
-        let id = Uuid::new_v4().to_string();
-        let grant = Grant {
-            id: id.clone(),
-            project_id: project_id.clone(),
-            snapshot_id: snapshot_id.clone(),
-            manifest_sha256: manifest_digest(&storage, &project_id, &snapshot_id)?,
-            account_sha256: runtime.account_identity_sha256,
-            executable_sha256: runtime.executable_sha256,
-        };
-        let path = grant_path(&storage, &id)?;
-        fs::create_dir_all(path.parent().ok_or("Permission storage is unavailable.")?)
-            .map_err(|_| "Permission storage is unavailable.".to_owned())?;
-        let bytes =
-            serde_json::to_vec(&grant).map_err(|_| "Permission could not be saved.".to_owned())?;
-        // A fresh UUID and create_new ensure an existing permission is never overwritten.
-        use std::io::Write;
-        let mut file = fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(path)
-            .map_err(|_| "Permission could not be saved.".to_owned())?;
-        file.write_all(&bytes)
-            .and_then(|_| file.sync_all())
-            .map_err(|_| "Permission could not be saved.".to_owned())?;
-        Ok(id)
+        save_retrieval_grant(&storage, &project_id, &snapshot_id, &runtime)
     })
     .await
     .map_err(|_| "Permission setup stopped unexpectedly.".to_owned())?
+}
+
+pub(crate) fn save_retrieval_grant(
+    storage: &Path,
+    project_id: &str,
+    snapshot_id: &str,
+    runtime: &CodexReviewRuntime,
+) -> Result<String, String> {
+    if !runtime.valid_shape() {
+        return Err(crate::codex_identity::changed());
+    }
+    let id = Uuid::new_v4().to_string();
+    let grant = Grant {
+        id: id.clone(),
+        project_id: project_id.to_owned(),
+        snapshot_id: snapshot_id.to_owned(),
+        manifest_sha256: manifest_digest(&storage, &project_id, &snapshot_id)?,
+        account_sha256: runtime.account_identity_sha256.clone(),
+        executable_sha256: runtime.executable_sha256.clone(),
+        retrieval_policy: Some(crate::evidence_ledger::POLICY.to_owned()),
+    };
+    let path = grant_path(&storage, &id)?;
+    codex_agent::ensure_private_directory(
+        path.parent().ok_or("Permission storage is unavailable.")?,
+    )?;
+    let bytes =
+        serde_json::to_vec(&grant).map_err(|_| "Permission could not be saved.".to_owned())?;
+    codex_agent::create_private_file(&path, &bytes)
+        .map_err(|_| "Permission could not be saved.".to_owned())?;
+    Ok(id)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -235,6 +267,7 @@ mod tests {
             .unwrap(),
             account_sha256: runtime.account_identity_sha256.clone(),
             executable_sha256: runtime.executable_sha256.clone(),
+            retrieval_policy: None,
         };
         fs::write(path, serde_json::to_vec(&grant).unwrap()).unwrap();
         id
@@ -287,6 +320,28 @@ mod tests {
         assert!(check_grant(&fixture.storage, &id, p, s, &runtime).is_err());
     }
     #[test]
+    fn legacy_permission_does_not_silently_enable_retrieval_tools() {
+        let fixture = Fixture::new();
+        let runtime = runtime();
+        let p = &fixture.manifest.summary.project_id;
+        let s = &fixture.manifest.summary.snapshot_id;
+        let old = save_grant(&fixture, &runtime);
+        let path = grant_path(&fixture.storage, &old).unwrap();
+        let mut legacy: serde_json::Value =
+            serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        legacy.as_object_mut().unwrap().remove("retrievalPolicy");
+        fs::write(&path, serde_json::to_vec(&legacy).unwrap()).unwrap();
+        check_grant(&fixture.storage, &old, p, s, &runtime).unwrap();
+        assert!(
+            check_retrieval_grant(&fixture.storage, &old, p, s, &runtime)
+                .unwrap_err()
+                .contains("older sharing permission")
+        );
+        let new = save_retrieval_grant(&fixture.storage, p, s, &runtime).unwrap();
+        check_retrieval_grant(&fixture.storage, &new, p, s, &runtime).unwrap();
+        assert!(check_retrieval_grant(&fixture.storage, &old, p, s, &runtime).is_err());
+    }
+    #[test]
     fn question_and_permission_are_fingerprinted_and_rechecked_before_send() {
         let fixture = Fixture::new();
         let runtime = runtime();
@@ -316,11 +371,17 @@ mod tests {
             crate::provider::revalidate_codex_request_review(&fixture.storage, &first, &runtime)
                 .is_ok()
         );
-        assert_eq!(first.generation_config["claimAlignmentCorrection"],
-            serde_json::json!({"policy": "identifier-alignment-v1", "maxAttempts": 1}));
+        assert_eq!(
+            first.generation_config["claimAlignmentCorrection"],
+            serde_json::json!({"policy": "identifier-alignment-v1", "maxAttempts": 1})
+        );
         let mut tampered = first.clone();
-        tampered.generation_config["claimAlignmentCorrection"]["maxAttempts"] = serde_json::json!(2);
-        assert!(crate::provider::revalidate_codex_request_review(&fixture.storage, &tampered, &runtime).is_err());
+        tampered.generation_config["claimAlignmentCorrection"]["maxAttempts"] =
+            serde_json::json!(2);
+        assert!(
+            crate::provider::revalidate_codex_request_review(&fixture.storage, &tampered, &runtime)
+                .is_err()
+        );
         input.question = Some("Which inputs reach this implementation?".to_owned());
         let second =
             crate::provider::build_codex_chapter_review(&fixture.storage, &input, &runtime)
@@ -336,7 +397,12 @@ mod tests {
 }
 
 #[cfg(test)]
-fn search_snapshot(storage: &Path, project: &str, snapshot_id: &str, query: &str) -> Result<crate::repository_context::SearchResult, String> {
+fn search_snapshot(
+    storage: &Path,
+    project: &str,
+    snapshot_id: &str,
+    query: &str,
+) -> Result<crate::repository_context::SearchResult, String> {
     let manifest = snapshot::load_snapshot_manifest(storage, project, snapshot_id)?;
     let syntax = crate::index::load_snapshot_index(storage, project, snapshot_id)?;
     let cancelled = std::sync::atomic::AtomicBool::new(false);

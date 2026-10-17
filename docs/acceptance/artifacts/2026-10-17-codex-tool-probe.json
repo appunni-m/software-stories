@@ -1,0 +1,206 @@
+{
+  "date": "2026-10-17",
+  "fixture": "synthetic generated-chapter TypeScript",
+  "test": "workspace_generation::tests::codex_account_retrieval_probe",
+  "status": "passed",
+  "model": "gpt-6-luna",
+  "effort": "max",
+  "elapsedSecondsIncludingFixtureAndConnection": 173.83,
+  "calls": [
+    {
+      "id": "b37f379e-75da-45ae-a672-4ec6493c289f",
+      "tool": "definitions",
+      "argumentsSha256": "f6187f328702b4a5e86423d2ebf0253b8c1cd5fc2c50be0a5b19f2367fc4abdf",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 1394,
+      "wireBytes": 1394,
+      "payloadSha256": "414f9c69a67939f1f845ac3a3e43dc480188a4d5c545a47cfb41af109bd81694"
+    },
+    {
+      "id": "e973bc9d-1608-48f4-84ba-5ee98a6c4b7f",
+      "tool": "read",
+      "argumentsSha256": "df7f56dc514f368fe7cd20df3e4dd51b72804c5092b95ae555469fa9d177d005",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 576,
+      "wireBytes": 576,
+      "payloadSha256": "78de6803f03f5114e8aa70e36592a0b54ff278642e40c4ecf7f11705d05ecba0"
+    },
+    {
+      "id": "bd7b4a0a-1b95-43cd-9faa-5e144fcaf6a2",
+      "tool": "read",
+      "argumentsSha256": "5b73ac54bb0aafe2fdc77365fdfa5421f7a0685a9f4c83d6256712aca62d4ff0",
+      "state": "delivered",
+      "evidenceIds": [
+        "evidence:ed8e231262dba1beab6022a56381b46f235ca65e0932184150868eca1d9dd0bc"
+      ],
+      "sourceBytes": 72,
+      "metadataBytes": 619,
+      "wireBytes": 693,
+      "payloadSha256": "6f47ff41d1702052238f716c582ee630e5ad6bf1b3c6802b4ea79cdaa53b90da"
+    },
+    {
+      "id": "85b6d981-340b-48b4-9c99-c8be3db07127",
+      "tool": "search",
+      "argumentsSha256": "e4e06ab95168830fbe460943de36b04d125300e1497550e0bbcdd527c1db4967",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 898,
+      "wireBytes": 898,
+      "payloadSha256": "0c9ba93f8c336a8ec45865cc91853184a0920aad65f22cc3ca1b77bfd599ec0d"
+    },
+    {
+      "id": "8fcf9376-386f-4526-8cda-24cff0948507",
+      "tool": "read",
+      "argumentsSha256": "51699020b5b19cbcdc1ef529e4a8da12dff1bf199821f7fed3022752468cc6d6",
+      "state": "delivered",
+      "evidenceIds": [
+        "evidence:37d94e2cfe2d239d8df7ae7822458fb9517b7a7d3414fff9018d9ca45273d298",
+        "evidence:8ccc14728198c0bd8493d0fc044ec28121b408350ef8e03630c9391da50cb604",
+        "evidence:ed8e231262dba1beab6022a56381b46f235ca65e0932184150868eca1d9dd0bc"
+      ],
+      "sourceBytes": 125,
+      "metadataBytes": 1136,
+      "wireBytes": 1268,
+      "payloadSha256": "0991eeaeb9793436454475bbb15eb1f274ff4d2fed296fe95f2f20a985105812"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "evidence:ed8e231262dba1beab6022a56381b46f235ca65e0932184150868eca1d9dd0bc",
+      "range": {
+        "snapshotId": "snap-1792212849399230000-77449-0",
+        "path": "src/greeting.ts",
+        "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+        "startByte": 53,
+        "endByte": 125,
+        "startLine": 2,
+        "endLine": 4,
+        "chunkSha256": "8a8d3cbfdf0742125de2e4b8f444f83e017092c93ce81f4c65bf144d6f6e8496",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:8ccc14728198c0bd8493d0fc044ec28121b408350ef8e03630c9391da50cb604",
+      "range": {
+        "snapshotId": "snap-1792212849399230000-77449-0",
+        "path": "src/greeting.ts",
+        "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+        "startByte": 0,
+        "endByte": 53,
+        "startLine": 1,
+        "endLine": 2,
+        "chunkSha256": "39d85d3317754dfa4fdcca7fea5decfb0a97166217ae8a8a6c1a0fc388ea8ef3",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:37d94e2cfe2d239d8df7ae7822458fb9517b7a7d3414fff9018d9ca45273d298",
+      "range": {
+        "snapshotId": "snap-1792212849399230000-77449-0",
+        "path": "src/greeting.ts",
+        "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+        "startByte": 125,
+        "endByte": 197,
+        "startLine": 4,
+        "endLine": 7,
+        "chunkSha256": "edf0328e13beb98610444dc51865ab5a8d91de1480b297a8d96c3406cfc6c992",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    }
+  ],
+  "result": {
+    "model": "gpt-6-luna",
+    "sections": 1,
+    "elapsedScope": "synthetic",
+    "origin": {
+      "schemaVersion": 3,
+      "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-77449-ea6f7898-2d0b-4490-a89c-1d58ce775449/repository",
+      "snapshotId": "snap-1792212849399230000-77449-0",
+      "targetPath": null,
+      "purpose": "repositoryOverview",
+      "requestId": "d8c83c33-9cac-45e8-924b-75af40031791",
+      "requestFingerprint": "78a739a20f6251e8c288131beff1147e4c28f2e25dc2113bf0bfd4eef042f4b1",
+      "requestBodySha256": "74811be1c7a1f924fc832acf80f88c40a1260de890dc0d297b6445cc59406640",
+      "contractVersion": "codex-retrieval-v1",
+      "settings": {
+        "backend": "codex",
+        "modelId": "gpt-6-luna",
+        "effort": "max",
+        "approvalPolicy": "never"
+      },
+      "sourceFiles": [
+        {
+          "path": "src/greeting.ts",
+          "sha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+          "sizeBytes": 197
+        }
+      ],
+      "sectionUpdate": null,
+      "plannedChapter": null,
+      "retrieval": {
+        "policy": "atlas-captured-ranges-v1-files12-source250000",
+        "ledgerSha256": "9db9f9cb49acd9ce63897f5ffbdbb53be5d4f8027deb202f066e908daa376e0e",
+        "ranges": [
+          {
+            "snapshotId": "snap-1792212849399230000-77449-0",
+            "path": "src/greeting.ts",
+            "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+            "startByte": 53,
+            "endByte": 125,
+            "startLine": 2,
+            "endLine": 4,
+            "chunkSha256": "8a8d3cbfdf0742125de2e4b8f444f83e017092c93ce81f4c65bf144d6f6e8496",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          },
+          {
+            "snapshotId": "snap-1792212849399230000-77449-0",
+            "path": "src/greeting.ts",
+            "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+            "startByte": 0,
+            "endByte": 53,
+            "startLine": 1,
+            "endLine": 2,
+            "chunkSha256": "39d85d3317754dfa4fdcca7fea5decfb0a97166217ae8a8a6c1a0fc388ea8ef3",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          },
+          {
+            "snapshotId": "snap-1792212849399230000-77449-0",
+            "path": "src/greeting.ts",
+            "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+            "startByte": 125,
+            "endByte": 197,
+            "startLine": 4,
+            "endLine": 7,
+            "chunkSha256": "edf0328e13beb98610444dc51865ab5a8d91de1480b297a8d96c3406cfc6c992",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          }
+        ]
+      },
+      "contentSha256": "c1c6ec5c178f66040108b8f76b33919517864eda1bb6d1331c685fcfd8fe1596"
+    }
+  },
+  "totals": {
+    "calls": 5,
+    "sourceBytes": 197,
+    "metadataBytes": 4623,
+    "wireBytes": 4829
+  },
+  "scope": "Native test owner plus a debug application MCP bridge; not a packaged UI acceptance or narrative-quality review."
+}

@@ -1,0 +1,936 @@
+//! Native admission for source transmitted through owned context tools.
+//! This records possible delivery before transport; it never resumes inference.
+
+use crate::{
+    bounded_file, chapters, codex_agent, codex_identity::CodexReviewRuntime,
+    repository_context as context, repository_structure as structure, snapshot, workspace,
+};
+use serde::{Deserialize, Serialize};
+use std::{
+    collections::{BTreeSet, HashMap},
+    fs,
+    path::{Path, PathBuf},
+    sync::atomic::{AtomicBool, Ordering},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
+};
+use uuid::Uuid;
+
+pub(crate) const POLICY: &str = "atlas-captured-ranges-v1-files12-source250000";
+const MAX_CALLS: usize = 64;
+const MAX_FILES: usize = 12;
+const MAX_SOURCE: usize = 250_000;
+const MAX_METADATA: usize = 256_000;
+const MAX_WIRE: usize = 1_000_000;
+const MAX_RESPONSE: usize = 128_000;
+const MAX_FRAGMENTS: usize = 512;
+const MAX_JOURNAL: usize = 1_000_000;
+const DEADLINE: Duration = Duration::from_secs(600);
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Binding {
+    operation_id: String,
+    project_id: String,
+    snapshot_id: String,
+    manifest_sha256: String,
+    grant_id: String,
+    runtime: CodexReviewRuntime,
+    model: String,
+    effort: String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum Tool {
+    Search,
+    Read,
+    Definitions,
+    Relationships,
+    Map,
+}
+
+/// Owned, typed context only. Search snippets are deliberately excluded: code
+/// enters the model through the range reader and its common byte accounting.
+#[derive(Serialize)]
+#[serde(tag = "kind", content = "result", rename_all = "camelCase")]
+pub(crate) enum Context<'a> {
+    Search(SearchMetadata<'a>),
+    Read {},
+    Definitions(&'a structure::Page<structure::Symbol>),
+    Relationships(&'a structure::Page<structure::Relationship>),
+    Map(&'a structure::Page<structure::Module>),
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SearchMetadata<'a> {
+    matches: Vec<SearchCandidate<'a>>,
+    limited: bool,
+    coverage: &'a context::Coverage,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SearchCandidate<'a> {
+    range: &'a context::CodeRange,
+    line: usize,
+    exact_identifier: bool,
+    declaration_match: bool,
+}
+
+impl<'a> From<&'a context::SearchResult> for SearchMetadata<'a> {
+    fn from(result: &'a context::SearchResult) -> Self {
+        Self {
+            matches: result
+                .matches
+                .iter()
+                .map(|hit| SearchCandidate {
+                    range: &hit.range,
+                    line: hit.line,
+                    exact_identifier: hit.exact_identifier,
+                    declaration_match: hit.declaration_match,
+                })
+                .collect(),
+            limited: result.limited,
+            coverage: &result.coverage,
+        }
+    }
+}
+
+impl Context<'_> {
+    fn tool(&self) -> Tool {
+        match self {
+            Self::Search(_) => Tool::Search,
+            Self::Read {} => Tool::Read,
+            Self::Definitions(_) => Tool::Definitions,
+            Self::Relationships(_) => Tool::Relationships,
+            Self::Map(_) => Tool::Map,
+        }
+    }
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct RangeRequest {
+    pub(crate) path: String,
+    pub(crate) source_sha256: String,
+    pub(crate) start_byte: usize,
+    pub(crate) end_byte: usize,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+enum CallState {
+    Started,
+    Prepared,
+    Delivered,
+    Rejected,
+    Uncertain,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Evidence {
+    id: String,
+    range: context::CodeRange,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Call {
+    id: String,
+    tool: Tool,
+    arguments_sha256: String,
+    state: CallState,
+    evidence_ids: Vec<String>,
+    source_bytes: usize,
+    metadata_bytes: usize,
+    wire_bytes: usize,
+    payload_sha256: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+enum Status {
+    Active,
+    Complete,
+    Interrupted,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct Record {
+    schema_version: u32,
+    policy: String,
+    binding: Binding,
+    started_at_unix_ms: u64,
+    status: Status,
+    calls: Vec<Call>,
+    evidence: Vec<Evidence>,
+}
+
+/// A token owns exactly one started attempt; callers cannot forge an ordinal.
+pub(crate) struct CallToken {
+    id: String,
+}
+
+pub(crate) struct Ledger {
+    storage: PathBuf,
+    path: PathBuf,
+    record: Record,
+    deadline: Instant,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Fragment {
+    id: String,
+    range: context::CodeRange,
+    contents: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Response<'a> {
+    policy: &'static str,
+    call_id: &'a str,
+    context: &'a Context<'a>,
+    added: Vec<Fragment>,
+    already_available: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    read_error: Option<ReadError>,
+}
+
+/// A correctable request error is metadata, never source evidence. It travels
+/// through the same durable reservation, byte budgets and final scope check.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReadError {
+    code: &'static str,
+    message: &'static str,
+    path: String,
+    source_sha256: String,
+    size_bytes: usize,
+}
+
+fn canonical_uuid(value: &str) -> bool {
+    Uuid::parse_str(value).is_ok_and(|id| id.to_string() == value)
+}
+fn hash(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+fn manifest_hash(manifest: &snapshot::SnapshotManifest) -> Result<String, String> {
+    serde_json::to_vec(manifest)
+        .map(|b| context::digest(&b))
+        .map_err(|_| "The captured evidence identity is unavailable.".to_owned())
+}
+fn path(storage: &Path, id: &str) -> Result<PathBuf, String> {
+    if !canonical_uuid(id) {
+        return Err("The evidence operation ID is invalid.".to_owned());
+    }
+    Ok(storage.join("evidence-ledgers").join(format!("{id}.json")))
+}
+fn encode(record: &Record) -> Result<Vec<u8>, String> {
+    let bytes = serde_json::to_vec(record)
+        .map_err(|_| "Evidence accounting could not be encoded.".to_owned())?;
+    if bytes.len() > MAX_JOURNAL {
+        return Err("Evidence accounting reached its local storage limit.".to_owned());
+    }
+    Ok(bytes)
+}
+
+impl Ledger {
+    pub(crate) fn new(
+        storage: &Path,
+        operation_id: &str,
+        manifest: &snapshot::SnapshotManifest,
+        grant_id: &str,
+        runtime: &CodexReviewRuntime,
+        model: &str,
+        effort: &str,
+    ) -> Result<Self, String> {
+        let path = path(storage, operation_id)?;
+        if !runtime.valid_shape() || model != "gpt-6-luna" || effort != "max" {
+            return Err(
+                "Use the connected Codex account with GPT-6 Luna and max reasoning.".to_owned(),
+            );
+        }
+        workspace::check_retrieval_grant(
+            storage,
+            grant_id,
+            &manifest.summary.project_id,
+            &manifest.summary.snapshot_id,
+            runtime,
+        )?;
+        let record = Record {
+            schema_version: 1,
+            policy: POLICY.to_owned(),
+            binding: Binding {
+                operation_id: operation_id.to_owned(),
+                project_id: manifest.summary.project_id.clone(),
+                snapshot_id: manifest.summary.snapshot_id.clone(),
+                manifest_sha256: manifest_hash(manifest)?,
+                grant_id: grant_id.to_owned(),
+                runtime: runtime.clone(),
+                model: model.to_owned(),
+                effort: effort.to_owned(),
+            },
+            started_at_unix_ms: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_err(|_| "The local clock is unavailable.")?
+                .as_millis()
+                .try_into()
+                .map_err(|_| "The local clock is out of range.")?,
+            status: Status::Active,
+            calls: vec![],
+            evidence: vec![],
+        };
+        codex_agent::ensure_private_directory(
+            path.parent().ok_or("Evidence storage is unavailable.")?,
+        )?;
+        codex_agent::create_private_file(&path, &encode(&record)?).map_err(|_| {
+            "A fresh evidence record could not be created. No context was sent.".to_owned()
+        })?;
+        Ok(Self {
+            storage: storage.to_owned(),
+            path,
+            record,
+            deadline: Instant::now() + DEADLINE,
+        })
+    }
+
+    pub(crate) fn check(
+        &self,
+        manifest: &snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        cancelled: &AtomicBool,
+    ) -> Result<(), String> {
+        if cancelled.load(Ordering::Acquire) || self.record.status != Status::Active {
+            return Err("This evidence operation has stopped.".to_owned());
+        }
+        if Instant::now() >= self.deadline {
+            return Err("This evidence operation reached its time limit.".to_owned());
+        }
+        if runtime != &self.record.binding.runtime
+            || manifest_hash(manifest)? != self.record.binding.manifest_sha256
+        {
+            return Err("The evidence snapshot or Codex runtime changed.".to_owned());
+        }
+        workspace::check_retrieval_grant(
+            &self.storage,
+            &self.record.binding.grant_id,
+            &self.record.binding.project_id,
+            &self.record.binding.snapshot_id,
+            runtime,
+        )
+    }
+
+    fn save(&mut self, next: Record) -> Result<(), String> {
+        codex_agent::atomic_private_write(&self.path, &encode(&next)?).map_err(|_| {
+            "Evidence accounting could not be saved. The operation must stop.".to_owned()
+        })?;
+        self.record = next;
+        Ok(())
+    }
+
+    pub(crate) fn begin_call(
+        &mut self,
+        tool: Tool,
+        arguments_sha256: &str,
+        manifest: &snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        cancelled: &AtomicBool,
+    ) -> Result<CallToken, String> {
+        self.check(manifest, runtime, cancelled)?;
+        if !hash(arguments_sha256)
+            || self.record.calls.len() >= MAX_CALLS
+            || self
+                .record
+                .calls
+                .last()
+                .is_some_and(|c| matches!(c.state, CallState::Started | CallState::Prepared))
+        {
+            return Err(
+                "The context call limit was reached or a prior delivery is incomplete.".to_owned(),
+            );
+        }
+        let id = Uuid::new_v4().to_string();
+        let mut next = self.record.clone();
+        next.calls.push(Call {
+            id: id.clone(),
+            tool,
+            arguments_sha256: arguments_sha256.to_owned(),
+            state: CallState::Started,
+            evidence_ids: vec![],
+            source_bytes: 0,
+            metadata_bytes: 0,
+            wire_bytes: 0,
+            payload_sha256: None,
+        });
+        self.save(next)?;
+        Ok(CallToken { id })
+    }
+
+    fn pending(&self, token: &CallToken, tool: Tool) -> Result<(), String> {
+        if !self
+            .record
+            .calls
+            .last()
+            .is_some_and(|c| c.id == token.id && c.tool == tool && c.state == CallState::Started)
+        {
+            return Err("This context response does not own its pending call.".to_owned());
+        }
+        Ok(())
+    }
+
+    fn response<'a>(
+        &self,
+        token: &'a CallToken,
+        context: &'a Context<'a>,
+        requests: &[RangeRequest],
+        manifest: &snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        cancelled: &AtomicBool,
+    ) -> Result<Response<'a>, String> {
+        self.pending(token, context.tool())?;
+        if requests.len() > 8 || (context.tool() == Tool::Read) != !requests.is_empty() {
+            return Err(
+                "Only a range-read response may include one to eight source ranges.".to_owned(),
+            );
+        }
+        let mut response = Response {
+            policy: POLICY,
+            call_id: &token.id,
+            context,
+            added: vec![],
+            already_available: vec![],
+            read_error: None,
+        };
+        let mut sources = HashMap::new();
+        let mut verified_bytes = 0u64;
+        for request in requests {
+            self.check(manifest, runtime, cancelled)?;
+            if !context::safe_path(&request.path) || !hash(&request.source_sha256) {
+                return Err("The requested evidence range is invalid or too large.".to_owned());
+            }
+            if !sources.contains_key(&request.path) {
+                let file = manifest
+                    .files
+                    .iter()
+                    .find(|f| f.path == request.path)
+                    .ok_or("The evidence path was not captured.")?;
+                verified_bytes = verified_bytes
+                    .checked_add(file.size_bytes)
+                    .filter(|b| *b <= 100 * 1024 * 1024)
+                    .ok_or("Source verification exceeded its local byte limit.")?;
+                sources.insert(
+                    request.path.clone(),
+                    context::source(&self.storage, manifest, &request.path)?,
+                );
+            }
+            let source = sources
+                .get(&request.path)
+                .ok_or("Captured evidence is unavailable.")?;
+            if source.sha256 != request.source_sha256
+                || request.start_byte >= request.end_byte
+                || request.end_byte.saturating_sub(request.start_byte) > context::MAX_RANGE_BYTES
+                || source
+                    .contents
+                    .get(request.start_byte..request.end_byte)
+                    .is_none()
+            {
+                // Do not clamp or substitute code for an invalid request. The
+                // agent can correct its own request within the original budget.
+                response.added.clear();
+                response.already_available.clear();
+                response.read_error = Some(ReadError {
+                    code: "invalidRead",
+                    message: "No code was returned. Copy sourceSha256 and exact startByte/endByte from search_code or find_definitions. End is exclusive, inside sizeBytes, on UTF-8 boundaries, and at most 32768 bytes after start. Refine the search if needed.",
+                    path: request.path.clone(),
+                    source_sha256: source.sha256.clone(),
+                    size_bytes: source.contents.len(),
+                });
+                return Ok(response);
+            }
+            let previous = self
+                .record
+                .evidence
+                .iter()
+                .map(|e| (&e.id, &e.range))
+                .chain(response.added.iter().map(|e| (&e.id, &e.range)))
+                .filter(|(_, r)| r.path == request.path && r.source_sha256 == request.source_sha256)
+                .collect::<Vec<_>>();
+            let mut intervals = vec![];
+            for (id, range) in previous {
+                if range.start_byte < request.end_byte && range.end_byte > request.start_byte {
+                    intervals.push((range.start_byte, range.end_byte));
+                    if !response.already_available.contains(id) {
+                        response.already_available.push(id.clone());
+                    }
+                }
+            }
+            for (start, end) in gaps(request.start_byte, request.end_byte, intervals) {
+                let read = context::range_from_source(source, start, end)?;
+                let identity = serde_json::to_vec(&(&self.record.binding.project_id, &read.range))
+                    .map_err(|_| "Evidence identity could not be encoded.")?;
+                response.added.push(Fragment {
+                    id: format!("evidence:{}", context::digest(&identity)),
+                    range: read.range,
+                    contents: read.contents,
+                });
+            }
+        }
+        response.already_available.sort();
+        Ok(response)
+    }
+
+    /// The payload is exposed only inside the transport callback, after durable
+    /// reservation and a final grant/identity/cancellation check. Callback errors
+    /// mean delivery is uncertain and terminate this ledger permanently.
+    pub(crate) fn deliver(
+        &mut self,
+        token: CallToken,
+        context: Context<'_>,
+        requests: &[RangeRequest],
+        manifest: &snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        cancelled: &AtomicBool,
+        send: impl FnOnce(&[u8]) -> Result<(), String>,
+    ) -> Result<(), String> {
+        self.check(manifest, runtime, cancelled)?;
+        let prepared = (|| {
+            let response =
+                self.response(&token, &context, requests, manifest, runtime, cancelled)?;
+            let bytes = serde_json::to_vec(&response)
+                .map_err(|_| "Context response encoding failed.".to_owned())?;
+            let source_bytes = response
+                .added
+                .iter()
+                .map(|e| e.contents.len())
+                .sum::<usize>();
+            let encoded_source = response
+                .added
+                .iter()
+                .map(|e| serde_json::to_vec(&e.contents).map(|b| b.len() - 2))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| "Source encoding failed.")?
+                .into_iter()
+                .sum::<usize>();
+            let metadata_bytes = bytes
+                .len()
+                .checked_sub(encoded_source)
+                .ok_or("Context accounting is invalid.")?;
+            let prior_source = self
+                .record
+                .calls
+                .iter()
+                .map(|c| c.source_bytes)
+                .sum::<usize>();
+            let prior_metadata = self
+                .record
+                .calls
+                .iter()
+                .map(|c| c.metadata_bytes)
+                .sum::<usize>();
+            let prior_wire = self
+                .record
+                .calls
+                .iter()
+                .map(|c| c.wire_bytes)
+                .sum::<usize>();
+            let files = self
+                .record
+                .evidence
+                .iter()
+                .map(|e| e.range.path.as_str())
+                .chain(response.added.iter().map(|e| e.range.path.as_str()))
+                .collect::<BTreeSet<_>>();
+            if bytes.len() > MAX_RESPONSE
+                || prior_source + source_bytes > MAX_SOURCE
+                || prior_metadata + metadata_bytes > MAX_METADATA
+                || prior_wire + bytes.len() > MAX_WIRE
+                || files.len() > MAX_FILES
+                || self.record.evidence.len() + response.added.len() > MAX_FRAGMENTS
+            {
+                return Err(
+                    "The context response exceeds this operation's evidence budget.".to_owned(),
+                );
+            }
+            let mut next = self.record.clone();
+            let call = next
+                .calls
+                .last_mut()
+                .ok_or("The context call is unavailable.")?;
+            call.state = CallState::Prepared;
+            call.evidence_ids = response.already_available.clone();
+            for fragment in response.added {
+                call.evidence_ids.push(fragment.id.clone());
+                next.evidence.push(Evidence {
+                    id: fragment.id,
+                    range: fragment.range,
+                });
+            }
+            call.evidence_ids.sort();
+            call.evidence_ids.dedup();
+            call.source_bytes = source_bytes;
+            call.metadata_bytes = metadata_bytes;
+            call.wire_bytes = bytes.len();
+            call.payload_sha256 = Some(context::digest(&bytes));
+            self.check(manifest, runtime, cancelled)?;
+            Ok((next, bytes))
+        })();
+        let (next, bytes) = match prepared {
+            Ok(value) => value,
+            Err(error) => {
+                if self.pending(&token, context.tool()).is_ok() {
+                    let mut next = self.record.clone();
+                    if let Some(call) = next.calls.last_mut() {
+                        call.state = CallState::Rejected;
+                    }
+                    self.save(next)?;
+                }
+                return Err(error);
+            }
+        };
+        self.save(next)?;
+        if let Err(error) = self.check(manifest, runtime, cancelled) {
+            self.interrupt();
+            return Err(error);
+        }
+        if send(&bytes).is_err() {
+            self.interrupt();
+            return Err("Context delivery is uncertain. This operation stopped; no automatic retry is allowed.".to_owned());
+        }
+        let mut delivered = self.record.clone();
+        if let Some(call) = delivered.calls.last_mut() {
+            call.state = CallState::Delivered;
+        }
+        if let Err(error) = self.save(delivered) {
+            self.interrupt();
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    fn interrupt(&mut self) {
+        self.record.status = Status::Interrupted;
+        if let Some(call) = self.record.calls.last_mut() {
+            if matches!(call.state, CallState::Started | CallState::Prepared) {
+                call.state = CallState::Uncertain;
+            }
+        }
+        // A durable Prepared record is already enough to prevent replay on restart.
+        let _ = self.save(self.record.clone());
+    }
+
+    pub(crate) fn verify_revision(
+        &self,
+        revision: &chapters::ChapterRevision,
+        manifest: &snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        cancelled: &AtomicBool,
+    ) -> Result<(), String> {
+        self.check(manifest, runtime, cancelled)?;
+        if revision.sections.is_empty()
+            || revision
+                .sections
+                .iter()
+                .any(|s| s.claims.is_empty() || s.claims.iter().any(|c| c.anchors.is_empty()))
+            || revision.project_id != self.record.binding.project_id
+            || revision.snapshot_id != self.record.binding.snapshot_id
+        {
+            return Err(
+                "The explanation does not belong to this active evidence operation.".to_owned(),
+            );
+        }
+        let mut sources = HashMap::new();
+        for anchor in revision
+            .sections
+            .iter()
+            .flat_map(|s| &s.claims)
+            .flat_map(|c| &c.anchors)
+        {
+            self.check(manifest, runtime, cancelled)?;
+            let start: usize = anchor
+                .start_byte
+                .try_into()
+                .map_err(|_| "The cited range is out of bounds.")?;
+            let end: usize = anchor
+                .end_byte_inclusive
+                .checked_add(1)
+                .and_then(|v| v.try_into().ok())
+                .ok_or("The cited range is out of bounds.")?;
+            let intervals = self
+                .record
+                .evidence
+                .iter()
+                .filter(|e| {
+                    e.range.path == anchor.path
+                        && e.range.source_sha256 == anchor.source_sha256
+                        && e.range.snapshot_id == anchor.snapshot_id
+                        && self.record.calls.iter().any(|c| {
+                            c.state == CallState::Delivered && c.evidence_ids.contains(&e.id)
+                        })
+                })
+                .map(|e| (e.range.start_byte, e.range.end_byte))
+                .collect();
+            if start >= end
+                || anchor.snapshot_id != self.record.binding.snapshot_id
+                || !gaps(start, end, intervals).is_empty()
+            {
+                return Err(
+                    "An explanation cites captured code that was not admitted to this operation."
+                        .to_owned(),
+                );
+            }
+            if !sources.contains_key(&anchor.path) {
+                sources.insert(
+                    anchor.path.clone(),
+                    context::source(&self.storage, manifest, &anchor.path)?,
+                );
+            }
+            let source = sources
+                .get(&anchor.path)
+                .ok_or("The cited source is unavailable.")?;
+            let read = context::range_from_source(source, start, end)?;
+            let column = |offset| {
+                let before = &source.contents.as_bytes()[..offset];
+                before
+                    .iter()
+                    .rposition(|b| *b == b'\n')
+                    .map_or(before.len(), |i| before.len() - i - 1)
+                    + 1
+            };
+            if source.sha256 != anchor.source_sha256
+                || read.contents != anchor.excerpt
+                || read.range.start_line != anchor.start_line as usize
+                || read.range.end_line != anchor.end_line as usize
+                || column(start) != anchor.start_column as usize
+                || column(end - 1) != anchor.end_column as usize
+            {
+                return Err(
+                    "The cited excerpt or coordinates do not match admitted captured code."
+                        .to_owned(),
+                );
+            }
+        }
+        Ok(())
+    }
+
+    /// Full sources are loaded only for local canonical validation, never sent
+    /// to the model. Every resulting quote must also pass verify_revision.
+    pub(crate) fn validation_sources(
+        &self,
+        manifest: &snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        cancelled: &AtomicBool,
+    ) -> Result<Vec<snapshot::SnapshotSource>, String> {
+        self.check(manifest, runtime, cancelled)?;
+        self.record
+            .evidence
+            .iter()
+            .filter(|e| {
+                self.record
+                    .calls
+                    .iter()
+                    .any(|c| c.state == CallState::Delivered && c.evidence_ids.contains(&e.id))
+            })
+            .map(|e| e.range.path.as_str())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .map(|path| {
+                self.check(manifest, runtime, cancelled)?;
+                context::source(&self.storage, manifest, path)
+            })
+            .collect()
+    }
+
+    pub(crate) fn admitted_ranges(&self) -> Vec<context::CodeRange> {
+        self.record
+            .evidence
+            .iter()
+            .filter(|e| {
+                self.record
+                    .calls
+                    .iter()
+                    .any(|c| c.state == CallState::Delivered && c.evidence_ids.contains(&e.id))
+            })
+            .map(|e| e.range.clone())
+            .collect()
+    }
+
+    pub(crate) fn record_sha256(&self) -> Result<String, String> {
+        Ok(context::digest(&encode(&self.record)?))
+    }
+
+    pub(crate) fn delivered_call(
+        &self,
+        tool: Tool,
+        arguments_sha256: &str,
+        payload_sha256: &str,
+    ) -> Option<&str> {
+        self.record
+            .calls
+            .iter()
+            .find(|c| {
+                c.state == CallState::Delivered
+                    && c.tool == tool
+                    && c.arguments_sha256 == arguments_sha256
+                    && c.payload_sha256.as_deref() == Some(payload_sha256)
+            })
+            .map(|c| c.id.as_str())
+    }
+
+    pub(crate) fn complete(
+        &mut self,
+        manifest: &snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        cancelled: &AtomicBool,
+    ) -> Result<(), String> {
+        self.check(manifest, runtime, cancelled)?;
+        if self.record.calls.last().is_some_and(|c| {
+            matches!(
+                c.state,
+                CallState::Started | CallState::Prepared | CallState::Uncertain
+            )
+        }) {
+            return Err("An incomplete context delivery cannot complete its operation.".to_owned());
+        }
+        let mut next = self.record.clone();
+        next.status = Status::Complete;
+        self.save(next)
+    }
+}
+
+impl Drop for Ledger {
+    fn drop(&mut self) {
+        if self.record.status == Status::Active {
+            self.interrupt();
+        }
+    }
+}
+
+/// Sorted interval subtraction merges overlap/adjacency without altering evidence IDs.
+fn gaps(start: usize, end: usize, mut intervals: Vec<(usize, usize)>) -> Vec<(usize, usize)> {
+    intervals.sort_unstable();
+    let mut cursor = start;
+    let mut result = vec![];
+    for (from, to) in intervals {
+        if to <= cursor || from >= end {
+            continue;
+        }
+        if from > cursor {
+            result.push((cursor, from.min(end)));
+        }
+        cursor = cursor.max(to).min(end);
+        if cursor == end {
+            break;
+        }
+    }
+    if cursor < end {
+        result.push((cursor, end));
+    }
+    result
+}
+
+/// Reads metadata for inspection only. No constructor can resume this record.
+pub(crate) fn inspect(storage: &Path, operation_id: &str) -> Result<Record, String> {
+    let path = path(storage, operation_id)?;
+    let metadata =
+        fs::symlink_metadata(&path).map_err(|_| "Evidence accounting is unavailable.")?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Err("Evidence accounting is not a regular file.".to_owned());
+    }
+    let bytes = bounded_file::read(&path, MAX_JOURNAL)
+        .map_err(|_| "Evidence accounting is unreadable or exceeds its limit.".to_owned())?;
+    let record: Record = serde_json::from_slice(&bytes)
+        .map_err(|_| "Evidence accounting is damaged; the original record was preserved.")?;
+    if record.schema_version != 1
+        || record.policy != POLICY
+        || record.binding.operation_id != operation_id
+        || record.calls.len() > MAX_CALLS
+        || record.evidence.len() > MAX_FRAGMENTS
+        || !record.binding.runtime.valid_shape()
+        || record.binding.model != "gpt-6-luna"
+        || record.binding.effort != "max"
+        || !canonical_uuid(&record.binding.grant_id)
+        || !hash(&record.binding.manifest_sha256)
+        || record
+            .calls
+            .iter()
+            .map(|c| c.source_bytes as u128)
+            .sum::<u128>()
+            > MAX_SOURCE as u128
+        || record
+            .calls
+            .iter()
+            .map(|c| c.metadata_bytes as u128)
+            .sum::<u128>()
+            > MAX_METADATA as u128
+        || record
+            .calls
+            .iter()
+            .map(|c| c.wire_bytes as u128)
+            .sum::<u128>()
+            > MAX_WIRE as u128
+        || record
+            .calls
+            .iter()
+            .map(|c| &c.id)
+            .collect::<BTreeSet<_>>()
+            .len()
+            != record.calls.len()
+        || record.calls.iter().any(|c| {
+            !canonical_uuid(&c.id)
+                || !hash(&c.arguments_sha256)
+                || c.wire_bytes > MAX_RESPONSE
+                || c.evidence_ids.len() > MAX_FRAGMENTS
+                || c.payload_sha256.as_ref().is_some_and(|h| !hash(h))
+                || c.evidence_ids
+                    .iter()
+                    .any(|id| !record.evidence.iter().any(|e| &e.id == id))
+        })
+        || record
+            .evidence
+            .iter()
+            .map(|e| &e.id)
+            .collect::<BTreeSet<_>>()
+            .len()
+            != record.evidence.len()
+        || record
+            .evidence
+            .iter()
+            .map(|e| &e.range.path)
+            .collect::<BTreeSet<_>>()
+            .len()
+            > MAX_FILES
+        || record.evidence.iter().any(|e| {
+            !context::safe_path(&e.range.path)
+                || !hash(&e.range.source_sha256)
+                || !hash(&e.range.chunk_sha256)
+                || e.range.snapshot_id != record.binding.snapshot_id
+                || e.range.start_byte >= e.range.end_byte
+                || e.range.end_byte - e.range.start_byte > context::MAX_RANGE_BYTES
+                || e.id
+                    != format!(
+                        "evidence:{}",
+                        context::digest(
+                            &serde_json::to_vec(&(&record.binding.project_id, &e.range))
+                                .unwrap_or_default()
+                        )
+                    )
+        })
+    {
+        return Err(
+            "Evidence accounting has an unsupported identity, policy or bounds; it was preserved."
+                .to_owned(),
+        );
+    }
+    Ok(record)
+}
+
+#[cfg(test)]
+mod tests;

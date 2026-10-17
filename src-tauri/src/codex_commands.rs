@@ -833,6 +833,7 @@ async fn prepare_codex_operation(
             && review.generation_config["workspaceQuestion"].is_string()
             && review.generation_config["claimAlignmentCorrection"]
                 == serde_json::json!({"policy": "identifier-alignment-v1", "maxAttempts": 1}),
+        retrieval: None,
         sources: review
             .selected_files
             .iter()

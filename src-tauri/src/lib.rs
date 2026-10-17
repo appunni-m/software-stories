@@ -30,6 +30,9 @@ mod claude_worker;
 mod codex_agent;
 mod codex_identity;
 mod codex_commands;
+mod context_mcp;
+mod agent_context;
+mod evidence_ledger;
 mod git_evidence;
 mod index;
 mod narration;
@@ -56,6 +59,7 @@ mod snapshot;
 mod source_discovery;
 mod strict_json;
 mod workspace;
+mod workspace_generation;
 
 use project::{ProjectOpenResult, RecentProject};
 use serde::Serialize;
@@ -1906,6 +1910,10 @@ fn validate_chapter_draft_preview(
     })
 }
 
+/// Runs the private MCP stdio entry point when this process was launched as a
+/// context helper. Returns false for the ordinary desktop invocation.
+pub fn run_context_helper() -> bool { context_mcp::run_if_requested() }
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// Starts the Code Atlas Tauri application and its registered command layer.
 ///
@@ -1968,6 +1976,7 @@ pub fn run() {
             codex_commands::send_codex_pr_guide_request,
             codex_commands::send_codex_pr_change_request,
             codex_commands::cancel_codex_chapter_request,
+            workspace_generation::generate_workspace_answer,
             claude_commands::inspect_claude_agent_connection,
             claude_commands::inspect_claude_agent_model_catalog,
             claude_commands::cancel_claude_agent_operation,
