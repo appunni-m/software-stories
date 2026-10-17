@@ -4,13 +4,17 @@
 use crate::chapters::{self, ChapterRevision};
 use serde_json::{json, Value};
 
-pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v3";
+pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v4";
+
+/// One speech contract for file, overview and selected-section user prompts.
+/// Keep compatibility fields complete rather than imposing a summary shortcut.
+pub(super) const SECTION_NARRATION_INSTRUCTIONS: &str = "Complete scene narration: when a presentation is supplied, spokenText joins every scene narration in claim order, including visible inference labels. It must preserve the full behavior, guards, alternatives, errors and uncertainty of all claims, not a summary or a chosen subset. With no presentation, copy all complete claim sentences instead. Keep the complete transport script within 20–1,000 UTF-8 bytes and the declared section shape; organize focused claims without dropping behavior. Natural scene speech need not repeat exact code names, declarations or punctuation. The app retains exact claims separately and assembles speech from all scenes; no one-to-three-sentence limit applies.";
 
 const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v3
 Author a causal illustrated answer. Keep exact implementation claims as inspectable source-grounded details; every declared identifier still appears literally in its claim. Write separate natural narration on each scene to explain that claim's meaning, not its spelling. Usually use 2–5 short claims/scenes per section. Speech follows the input, why a choice or guard matters, and the consequence, including all alternative/error conditions. Refer to the short visual labels, introduce useful invented inputs as examples, and connect scenes causally. Do not read declarations, helper names, type constructors, paths, call syntax or punctuation by default. A user explicitly asking about a name or syntax may need that name spoken. Do not change or omit a claim's conditions, exceptions, inference or uncertainty when paraphrasing. The app prefixes inference narration with its visible label. Exact source links remain available. Narration is AI-authored, not automatic code-name removal or proof of semantic equivalence.
 The app assembles full details from all validated claims and speech from all ordered scene narrations; it never selects a convenient subset. Keep each complete section's details and speech within 4,000 UTF-8 bytes or split it without dropping behavior. Separate prose/spokenText transport fields remain required under their documented bounds: prose copies complete claim sentences, spokenText copies the complete scene narration. With no visual presentation, use complete claim sentences for both fields."#;
 
-const BEHAVIOR_TEACHING: &str = r#"Teaching policy v3: For a behavior question, open with the problem and a useful input-to-result example, then explain the decisions that make that outcome possible. Do not open with a function signature, argument-type list, or definition of result fields. A responsibility claim should explain the work accomplished, not recite its declaration. Narrate meaning: say that an unavailable record gives no location, or an invalid bound gives an empty range, rather than reading type constructors, angle brackets, field initializer syntax, question marks or call expressions. Keep necessary exact source identifiers in the inspectable claim; scene narration explains their work in ordinary words without being forced to repeat them. Source links retain the precise implementation. Do not shorten the answer by omitting a guard or alternative."#;
+const BEHAVIOR_TEACHING: &str = r#"Teaching policy v4: For a behavior question, open with the problem and a useful input-to-result example, then explain the decisions that make that outcome possible. Do not open with a function signature, argument-type list, or definition of result fields. A responsibility claim should explain the work accomplished, not recite its declaration. Narrate meaning: say that an unavailable record gives no location, or an invalid bound gives an empty range, rather than reading type constructors, angle brackets, field initializer syntax, question marks or call expressions. Keep necessary exact source identifiers in the inspectable claim; scene narration explains their work in ordinary words without being forced to repeat them. Source links retain the precise implementation. Do not shorten the answer by omitting a guard or alternative. For every conditional claim, state the general decision rule and every relevant alternative in the narration before using a worked example; an example alone cannot replace the rule. Explain which inputs select an encoding or branch, including zero versus any nonzero value when that is what the implementation tests. Explain whether an empty result retains its starting location or resets it. A reader should be able to predict an unshown input, not just repeat the illustrated numbers. These are general teaching requirements, not permission to infer a guard absent from the captured code."#;
 
 const REPRESENTATION_CHOICES: &str = r#"Choose the representation that teaches the behavior: byte strips for format signatures, before/after values for a transformation, comparisons or tables for alternatives, stacks for state, matrices for raster concepts, and graphs for genuine paths. Do not turn every scene into source-code cards. Show a meaningful example or change when the source supports it. Arrows must reflect the relationship actually described by the claim; different source tokens alone do not establish a transformation. Independent resources, such as two copied tables, belong beside each other in a comparison/grid, not across a conversion arrow. Show a conditional path with its guard; do not present a branch-specific helper as the unconditional result. Invented values must be defensible illustrative examples, introduced as examples in narration, never captured runtime observations."#;
 
@@ -137,10 +141,20 @@ pub(crate) mod tests {
     fn ordinary_prompt_binds_the_versioned_scene_narration_policy() {
         assert_eq!(
             crate::repository_context::digest(super::instructions().as_bytes()),
-            "4e7bd9b719df00409a15825b75c461aa836c627bd6a409390d03daac7e811f60"
+            "72e5ac916b7c7c908809ee59b52833e8038e7cb9ac7ad36585cf922f350ad9d4"
         );
         assert!(super::instructions().contains(super::BEHAVIOR_TEACHING));
         assert!(super::instructions().contains(super::OUTCOME_TEACHING));
+    }
+
+    #[test]
+    fn complete_transport_speech_and_general_rules_replace_summary_shortcuts() {
+        assert!(SECTION_NARRATION_INSTRUCTIONS.contains("joins every scene narration in claim order"));
+        assert!(SECTION_NARRATION_INSTRUCTIONS.contains("not a summary or a chosen subset"));
+        assert!(SECTION_NARRATION_INSTRUCTIONS.contains("20–1,000 UTF-8 bytes"));
+        assert!(BEHAVIOR_TEACHING.contains("state the general decision rule"));
+        assert!(BEHAVIOR_TEACHING.contains("an example alone cannot replace the rule"));
+        assert!(teaching_instructions().contains(BEHAVIOR_TEACHING));
     }
 
     #[test]

@@ -2111,6 +2111,7 @@ mod chapter_pipeline_tests {
                     model_id: "gemini-3.8-flash".to_owned(), section_update: None,
                 }).unwrap().review;
             assert!(review.system_instruction.contains("ai-html-compositions-v3"));
+            assert_current_narration_prompt(&review);
             let mut proposal = provider::visual_scenes::tests::composed_proposal(3);
             if overview { proposal.as_object_mut().unwrap().remove("evidenceLimits"); }
             let original = proposal["sections"][0]["claims"][0]["prose"].as_str().unwrap().to_owned();
@@ -2204,6 +2205,15 @@ mod chapter_pipeline_tests {
         assert!(validated.revision.sections.iter().any(|s| s.visual.as_ref()
             .and_then(|v|v.typed_visual()).and_then(|v|v.presentation.as_ref()).is_some()),
             "A scene-free answer does not qualify AI visual generation; retain the original result.");
+    }
+
+    fn assert_current_narration_prompt(review: &provider::ProviderRequestReview) {
+        assert!(review.user_prompt.contains("Complete scene narration:"));
+        assert!(review.user_prompt.contains("joins every scene narration in claim order"));
+        assert!(!review.user_prompt.contains("one to three"));
+        assert!(!review.user_prompt.contains("sentences copied verbatim from that section's anchored claims"));
+        assert!(review.system_instruction.contains("Teaching policy v4:"));
+        assert!(review.system_instruction.contains("an example alone cannot replace the rule"));
     }
 
     fn review(fixture: &Fixture) -> provider::ProviderRequestReview {
@@ -2522,6 +2532,7 @@ mod chapter_pipeline_tests {
                 section_update:Some(target.clone()), question:None, focus:vec![], workspace_grant:None,
             }, &codex_runtime).unwrap().review;
         assert_eq!(codex_review.purpose,"sectionUpdate");
+        assert_current_narration_prompt(&codex_review);
         assert_eq!(crate::claim_alignment::CorrectionPolicy::from_generation_config(&codex_review.generation_config),
             crate::claim_alignment::CorrectionPolicy::ChapterScenesV4);
         provider::revalidate_codex_request_review(&fixture.storage,&codex_review,&codex_runtime).unwrap();
@@ -2556,6 +2567,7 @@ mod chapter_pipeline_tests {
                 )
             });
             assert_eq!(provider_request.review.purpose, "sectionUpdate");
+            assert_current_narration_prompt(&provider_request.review);
             assert_eq!(provider_request.review.provider_id, disclosure.provider_id);
             assert_eq!(provider_request.review.model_id, model_id);
             let wire = crate::provider_api::encode_request_preview(
