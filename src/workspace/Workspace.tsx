@@ -16,6 +16,7 @@ import { ancestors, contextualGuideIntent, discardUnstartedGuide, historyEntry, 
 import { appendQuestion, appendRepositoryGuide, authorizeWorkspace, ensureWorkspaceIndex, revokeWorkspace, restoreWorkspaceAnswers, runQuestion, runRepositoryGuide, stopQuestion, updateWorkspace, useWorkspace, watchWorkspaceAnswers } from './store';
 import { useConnectionState } from '../lib/connectionStore';
 import { errorMessageOr, explanationErrorMessage } from '../lib/errorMessage';
+import { createRefreshQueue, type RefreshQueue } from './refreshQueue';
 import './workspace.css';
 
 interface Commit { oid:string; parents:string[]; subject:string; author:string; timestamp:string }
@@ -73,33 +74,41 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
   const composer = useRef<HTMLTextAreaElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const answerScroll = useRef<HTMLDivElement>(null);
+  const chapterRefresh = useRef<RefreshQueue|null>(null);
   const restoringScroll = useRef(true);
   const tool = ['changes','walkthrough','chapter-studio'].includes(workspace);
   const update = (fn:(s:typeof state)=>typeof state) => updateWorkspace(projectId,snapshotId,fn);
   const go = (id:string) => { update((s)=>({...s,currentId:id,file:s.explorations.find((e)=>e.id===id)?.file??s.file})); setNarrowPane('explanation');onWorkspace('guide-plan'); };
   const setView = (view:View) => update((s)=>({...s,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,view}:e)}));
   const saveSection = (turnId:string,view:'guide'|'flow',revisionId:string,sectionId:string) => update((s)=>rememberSection(s,current.id,turnId,view,{revisionId,sectionId}));
-  const refreshChapters = async () => {
-    if (!isNativeRuntime()) return;
-    try { const result=await listChapterRevisions(projectId,snapshotId); setChapters(result); setChapterError(null); }
-    catch (failure) { setChapterError(errorMessageOr(failure,'Saved explanations could not be loaded.')); }
-    finally { setChaptersLoading(false); }
-  };
+  const refreshChapters = () => chapterRefresh.current?.refresh();
   useEffect(()=>{
     const observer = new MutationObserver(()=>setAppearance(document.documentElement.dataset.theme==='light' || (!['light','dark'].includes(document.documentElement.dataset.theme??'') && matchMedia('(prefers-color-scheme: light)').matches) ? 'light':'dark'));
     observer.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
     const media=matchMedia('(prefers-color-scheme: light)'); const changed=()=>{if (!['light','dark'].includes(document.documentElement.dataset.theme??'')) setAppearance(media.matches?'light':'dark');};media.addEventListener('change',changed);
     return ()=>{observer.disconnect();media.removeEventListener('change',changed);};
   },[]);
-  useEffect(()=>{ void refreshChapters(); const changed=(event:Event)=>{const project=(event as CustomEvent<{projectId?:string}>).detail?.projectId;if(!project||project===projectId) void refreshChapters();};
-    window.addEventListener('code-atlas:chapters-changed',changed);return()=>window.removeEventListener('code-atlas:chapters-changed',changed);
+  useEffect(()=>{
+    if(!isNativeRuntime()){setChaptersLoading(false);return;}
+    setChaptersLoading(true);
+    const queue=createRefreshQueue<ChapterRevision[]>({
+      load:()=>listChapterRevisions(projectId,snapshotId),
+      onValue:(result)=>{setChapters(result);setChapterError(null);},
+      onError:(failure)=>setChapterError(errorMessageOr(failure,'Saved explanations could not be loaded.')),
+      onIdle:()=>setChaptersLoading(false),
+    });
+    chapterRefresh.current=queue;
+    void queue.refresh();
+    const changed=(event:Event)=>{const project=(event as CustomEvent<{projectId?:string}>).detail?.projectId;if(!project||project===projectId)void queue.refresh();};
+    window.addEventListener('code-atlas:chapters-changed',changed);
+    return()=>{queue.dispose();if(chapterRefresh.current===queue)chapterRefresh.current=null;window.removeEventListener('code-atlas:chapters-changed',changed);};
   },[projectId,snapshotId]);
   useEffect(()=>{
     let closed=false;let unlisten:(()=>void)|undefined;
     if(isNativeRuntime())void watchWorkspaceAnswers(projectId,snapshotId).then((stop)=>{if(closed){stop();return;}unlisten=stop;return restoreWorkspaceAnswers(projectId,snapshotId);}).catch((failure)=>{if(!closed)setChapterError(errorMessageOr(failure,'Saved answers could not be restored.'));});
     return()=>{closed=true;unlisten?.();};
   },[projectId,snapshotId]);
-  useEffect(()=>{let active=true; if(isNativeRuntime()) void ensureWorkspaceIndex(projectId,snapshotId).then((value)=>{if(active){setIndex(value);setIndexError(null);}}).catch((failure)=>{if(active)setIndexError(errorMessageOr(failure,'Code relationships could not be loaded.'));}).finally(()=>{if(active)setIndexBusy(false);}); return()=>{active=false;};},[projectId,snapshotId,chapters.length]);
+  useEffect(()=>{let active=true; if(isNativeRuntime()) void ensureWorkspaceIndex(projectId,snapshotId).then((value)=>{if(active){setIndex(value);setIndexError(null);}}).catch((failure)=>{if(active)setIndexError(errorMessageOr(failure,'Code relationships could not be loaded.'));}).finally(()=>{if(active)setIndexBusy(false);}); return()=>{active=false;};},[projectId,snapshotId]);
   useEffect(()=>{if(!state.file && sourcePaths.length) update((s)=>({...s,file:routePath && sourcePaths.includes(routePath)?routePath:sourcePaths[0]}));},[state.file,sourcePaths]);
   useEffect(()=>{if(routePath && sourcePaths.includes(routePath)){update((s)=>({...s,file:routePath}));setCodeOpen(true);setReveal({path:routePath,from:routeRange?.startLine,to:routeRange?.endLine,sha256:routeRange?.sourceSha256});}},[routePath,routeRange]);
   useEffect(()=>{

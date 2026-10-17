@@ -35,6 +35,7 @@ mod context_mcp;
 mod chapter_quality;
 mod generation_timing;
 mod local_export;
+mod local_read;
 mod agent_context;
 mod evidence_ledger;
 mod native_citations;
@@ -193,28 +194,31 @@ fn remove_recent_project(app: AppHandle, project_id: String) -> Result<Vec<Recen
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn list_project_snapshots(
+async fn list_project_snapshots(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
     project_id: String,
 ) -> Result<ProjectSnapshots, String> {
     let _project = sessions.get(&project_id)?;
-    snapshot::list_project_snapshots(&app_data_directory(&app)?, &project_id)
+    let storage = app_data_directory(&app)?;
+    local_read::run(move || snapshot::list_project_snapshots(&storage, &project_id)).await
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn load_snapshot_manifest(
+async fn load_snapshot_manifest(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
     project_id: String,
     snapshot_id: String,
 ) -> Result<SnapshotManifest, String> {
     let _project = sessions.get(&project_id)?;
-    snapshot::load_snapshot_manifest(&app_data_directory(&app)?, &project_id, &snapshot_id)
+    let storage = app_data_directory(&app)?;
+    local_read::run(move || snapshot::load_snapshot_manifest(&storage, &project_id, &snapshot_id))
+        .await
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn read_snapshot_source(
+async fn read_snapshot_source(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
     project_id: String,
@@ -222,12 +226,11 @@ fn read_snapshot_source(
     relative_path: String,
 ) -> Result<SnapshotSource, String> {
     let _project = sessions.get(&project_id)?;
-    snapshot::read_snapshot_source(
-        &app_data_directory(&app)?,
-        &project_id,
-        &snapshot_id,
-        &relative_path,
-    )
+    let storage = app_data_directory(&app)?;
+    local_read::run(move || {
+        snapshot::read_snapshot_source(&storage, &project_id, &snapshot_id, &relative_path)
+    })
+    .await
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -460,7 +463,7 @@ fn get_snapshot_index_progress(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn load_snapshot_index(
+async fn load_snapshot_index(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
     project_id: String,
@@ -468,34 +471,40 @@ fn load_snapshot_index(
 ) -> Result<Option<index::SnapshotIndex>, String> {
     let _project = sessions.get(&project_id)?;
     let storage_dir = app_data_directory(&app)?;
-    snapshot::load_snapshot_manifest(&storage_dir, &project_id, &snapshot_id)?;
-    index::load_snapshot_index(&storage_dir, &project_id, &snapshot_id)
+    local_read::run(move || {
+        snapshot::load_snapshot_manifest(&storage_dir, &project_id, &snapshot_id)?;
+        index::load_snapshot_index(&storage_dir, &project_id, &snapshot_id)
+    })
+    .await
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn validate_chapter_revision(
+async fn validate_chapter_revision(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
     project_id: String,
     revision_json: String,
 ) -> Result<chapters::ChapterValidationReport, String> {
     let _project = sessions.get(&project_id)?;
-    let revision = chapters::decode_chapter_revision(revision_json.as_bytes())?;
     let storage_dir = app_data_directory(&app)?;
-    let manifest =
-        snapshot::load_snapshot_manifest(&storage_dir, &project_id, &revision.snapshot_id)?;
-    let snapshot_index =
-        index::load_snapshot_index(&storage_dir, &project_id, &revision.snapshot_id)?;
-    Ok(chapters::validate_chapter_revision(
-        &storage_dir,
-        &manifest,
-        snapshot_index.as_ref(),
-        &revision,
-    ))
+    local_read::run(move || {
+        let revision = chapters::decode_chapter_revision(revision_json.as_bytes())?;
+        let manifest =
+            snapshot::load_snapshot_manifest(&storage_dir, &project_id, &revision.snapshot_id)?;
+        let snapshot_index =
+            index::load_snapshot_index(&storage_dir, &project_id, &revision.snapshot_id)?;
+        Ok(chapters::validate_chapter_revision(
+            &storage_dir,
+            &manifest,
+            snapshot_index.as_ref(),
+            &revision,
+        ))
+    })
+    .await
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn list_chapter_revisions(
+async fn list_chapter_revisions(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
     project_id: String,
@@ -503,18 +512,22 @@ fn list_chapter_revisions(
 ) -> Result<Vec<chapters::ChapterRevision>, String> {
     let _project = sessions.get(&project_id)?;
     let storage_dir = app_data_directory(&app)?;
-    snapshot::load_snapshot_manifest(&storage_dir, &project_id, &snapshot_id)?;
-    chapter_store::list_for_snapshot(&storage_dir, &project_id, &snapshot_id)
+    local_read::run(move || {
+        snapshot::load_snapshot_manifest(&storage_dir, &project_id, &snapshot_id)?;
+        chapter_store::list_for_snapshot(&storage_dir, &project_id, &snapshot_id)
+    })
+    .await
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn list_project_chapter_revisions(
+async fn list_project_chapter_revisions(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
     project_id: String,
 ) -> Result<Vec<chapters::ChapterRevision>, String> {
     let _project = sessions.get(&project_id)?;
-    chapter_store::list_for_project(&app_data_directory(&app)?, &project_id)
+    let storage = app_data_directory(&app)?;
+    local_read::run(move || chapter_store::list_for_project(&storage, &project_id)).await
 }
 
 #[tauri::command(rename_all = "camelCase")]
