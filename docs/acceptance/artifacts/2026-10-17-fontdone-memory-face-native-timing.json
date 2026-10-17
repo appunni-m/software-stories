@@ -1,0 +1,496 @@
+{
+  "schemaVersion": 1,
+  "kind": "nativeToolTimingReview",
+  "operationId": "d15f0817-79a6-4455-9f66-53e41768d336",
+  "contextClock": "capturedCodeSessionV1",
+  "clockOrigin": "after ledger creation; before syntax loading; excludes earlier queue/account preparation",
+  "status": "interrupted",
+  "nativeCallTotalMs": 12568,
+  "calls": [
+    {
+      "id": "30328c5d-8a41-493e-9d3d-016bed6c0572",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1624,
+      "wireBytes": 1624,
+      "timing": {
+        "startedMs": 8375,
+        "preparedMs": 8449,
+        "finishedMs": 8682
+      }
+    },
+    {
+      "id": "a8540c49-3e25-40e5-8e5a-ad8bfaf85094",
+      "tool": "read",
+      "state": "delivered",
+      "sourceBytes": 2897,
+      "metadataBytes": 818,
+      "wireBytes": 3783,
+      "timing": {
+        "startedMs": 12110,
+        "preparedMs": 12239,
+        "finishedMs": 12483
+      }
+    },
+    {
+      "id": "5fae53cf-691c-434c-8e90-3fa0fe84e41b",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1612,
+      "wireBytes": 1612,
+      "timing": {
+        "startedMs": 16798,
+        "preparedMs": 16868,
+        "finishedMs": 17104
+      }
+    },
+    {
+      "id": "4bca4173-86cd-4de8-9f40-d5737217da25",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1668,
+      "wireBytes": 1668,
+      "timing": {
+        "startedMs": 17555,
+        "preparedMs": 17617,
+        "finishedMs": 17839
+      }
+    },
+    {
+      "id": "c191234a-a170-405f-b842-397ca4aa8b27",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 3650,
+      "wireBytes": 3650,
+      "timing": {
+        "startedMs": 18327,
+        "preparedMs": 18430,
+        "finishedMs": 18670
+      }
+    },
+    {
+      "id": "915ceddd-0318-4de9-bf37-53021f9af98c",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1624,
+      "wireBytes": 1624,
+      "timing": {
+        "startedMs": 19170,
+        "preparedMs": 19246,
+        "finishedMs": 19481
+      }
+    },
+    {
+      "id": "45989411-2f97-4fc9-957d-470d2bd0cb79",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1624,
+      "wireBytes": 1624,
+      "timing": {
+        "startedMs": 19963,
+        "preparedMs": 20030,
+        "finishedMs": 20276
+      }
+    },
+    {
+      "id": "c0fad1a6-8060-4cda-af2e-856d3af25daf",
+      "tool": "read",
+      "state": "delivered",
+      "sourceBytes": 3908,
+      "metadataBytes": 2174,
+      "wireBytes": 6176,
+      "timing": {
+        "startedMs": 25672,
+        "preparedMs": 26014,
+        "finishedMs": 26248
+      }
+    },
+    {
+      "id": "ed4c2ec0-9107-4ac8-b330-97951dbb0b07",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1624,
+      "wireBytes": 1624,
+      "timing": {
+        "startedMs": 29258,
+        "preparedMs": 29317,
+        "finishedMs": 29532
+      }
+    },
+    {
+      "id": "6cde4a89-d829-48ee-b052-f5b527ab78f8",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 3447,
+      "wireBytes": 3447,
+      "timing": {
+        "startedMs": 29999,
+        "preparedMs": 30075,
+        "finishedMs": 30288
+      }
+    },
+    {
+      "id": "7f08b8b7-3242-47bb-a6a3-8a13a2f4aebe",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1612,
+      "wireBytes": 1612,
+      "timing": {
+        "startedMs": 30724,
+        "preparedMs": 30783,
+        "finishedMs": 30997
+      }
+    },
+    {
+      "id": "a6086a4b-296c-4503-97ca-6f32c3feb808",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1624,
+      "wireBytes": 1624,
+      "timing": {
+        "startedMs": 31445,
+        "preparedMs": 31503,
+        "finishedMs": 31717
+      }
+    },
+    {
+      "id": "124f1fc8-0f9c-40a9-bb3b-7cc140c78777",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1612,
+      "wireBytes": 1612,
+      "timing": {
+        "startedMs": 32153,
+        "preparedMs": 32213,
+        "finishedMs": 32433
+      }
+    },
+    {
+      "id": "da086ce3-7825-42be-a7c3-6475f807311a",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 2589,
+      "wireBytes": 2589,
+      "timing": {
+        "startedMs": 32869,
+        "preparedMs": 32938,
+        "finishedMs": 33152
+      }
+    },
+    {
+      "id": "a58d86e9-f240-4db8-a91c-9d025b8e7edc",
+      "tool": "read",
+      "state": "delivered",
+      "sourceBytes": 11720,
+      "metadataBytes": 3151,
+      "wireBytes": 15186,
+      "timing": {
+        "startedMs": 37092,
+        "preparedMs": 37413,
+        "finishedMs": 37632
+      }
+    },
+    {
+      "id": "e61d9b9f-07ef-4b0c-b1e4-3d416687326a",
+      "tool": "read",
+      "state": "delivered",
+      "sourceBytes": 8515,
+      "metadataBytes": 818,
+      "wireBytes": 9587,
+      "timing": {
+        "startedMs": 41634,
+        "preparedMs": 41741,
+        "finishedMs": 41953
+      }
+    },
+    {
+      "id": "6f1ec991-b381-426d-be23-0ac55b704801",
+      "tool": "read",
+      "state": "delivered",
+      "sourceBytes": 5565,
+      "metadataBytes": 818,
+      "wireBytes": 6540,
+      "timing": {
+        "startedMs": 46715,
+        "preparedMs": 46823,
+        "finishedMs": 47040
+      }
+    },
+    {
+      "id": "d9c0da64-3485-4196-93d9-05f64bf9d589",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 5113,
+      "wireBytes": 5113,
+      "timing": {
+        "startedMs": 51951,
+        "preparedMs": 52022,
+        "finishedMs": 52269
+      }
+    },
+    {
+      "id": "664055d5-4ad4-4ff0-9637-a511d404cf9e",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1635,
+      "wireBytes": 1635,
+      "timing": {
+        "startedMs": 53163,
+        "preparedMs": 53231,
+        "finishedMs": 53469
+      }
+    },
+    {
+      "id": "88bf7dbd-e41f-4bd1-98ea-14fafad38265",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1622,
+      "wireBytes": 1622,
+      "timing": {
+        "startedMs": 53948,
+        "preparedMs": 54009,
+        "finishedMs": 54229
+      }
+    },
+    {
+      "id": "dc5372a8-81c9-4087-a846-d8ed7f225e01",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1627,
+      "wireBytes": 1627,
+      "timing": {
+        "startedMs": 54686,
+        "preparedMs": 54751,
+        "finishedMs": 54975
+      }
+    },
+    {
+      "id": "57ff6920-9fc9-4d21-98fa-8b7cf478aa83",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1627,
+      "wireBytes": 1627,
+      "timing": {
+        "startedMs": 55445,
+        "preparedMs": 55507,
+        "finishedMs": 55733
+      }
+    },
+    {
+      "id": "da69f9b7-9d85-4a57-a2a5-f0679040caba",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 2579,
+      "wireBytes": 2579,
+      "timing": {
+        "startedMs": 56196,
+        "preparedMs": 56265,
+        "finishedMs": 56494
+      }
+    },
+    {
+      "id": "4678754e-5b2e-48f7-b419-23b95f5d8557",
+      "tool": "read",
+      "state": "delivered",
+      "sourceBytes": 8060,
+      "metadataBytes": 1707,
+      "wireBytes": 10027,
+      "timing": {
+        "startedMs": 61176,
+        "preparedMs": 61679,
+        "finishedMs": 62140
+      }
+    },
+    {
+      "id": "86ee810b-fc20-4757-a640-51e8e7c65455",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 721,
+      "wireBytes": 721,
+      "timing": {
+        "startedMs": 68840,
+        "preparedMs": 68891,
+        "finishedMs": 69104
+      }
+    },
+    {
+      "id": "645b7bbd-434a-42be-81b0-761549137abe",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 721,
+      "wireBytes": 721,
+      "timing": {
+        "startedMs": 69537,
+        "preparedMs": 69587,
+        "finishedMs": 69799
+      }
+    },
+    {
+      "id": "be85407d-61ae-482a-8f36-23187a3be5b8",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 721,
+      "wireBytes": 721,
+      "timing": {
+        "startedMs": 70233,
+        "preparedMs": 70285,
+        "finishedMs": 70498
+      }
+    },
+    {
+      "id": "0f53020e-7968-4eac-999e-2ac011a3bba5",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 721,
+      "wireBytes": 721,
+      "timing": {
+        "startedMs": 70924,
+        "preparedMs": 70973,
+        "finishedMs": 71184
+      }
+    },
+    {
+      "id": "278b5b38-b113-433f-88e4-9abf22a1b95e",
+      "tool": "search",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 3876,
+      "wireBytes": 3876,
+      "timing": {
+        "startedMs": 77450,
+        "preparedMs": 78260,
+        "finishedMs": 78472
+      }
+    },
+    {
+      "id": "876e7eef-2ea0-4463-a0e1-2d7eaa34d7ec",
+      "tool": "search",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 3342,
+      "wireBytes": 3342,
+      "timing": {
+        "startedMs": 81375,
+        "preparedMs": 81485,
+        "finishedMs": 81699
+      }
+    },
+    {
+      "id": "a02f81f3-899b-49eb-9728-190a758f92c8",
+      "tool": "search",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 3334,
+      "wireBytes": 3334,
+      "timing": {
+        "startedMs": 85602,
+        "preparedMs": 85726,
+        "finishedMs": 85955
+      }
+    },
+    {
+      "id": "8d6dc826-64aa-4449-a0b0-24f3cbf10048",
+      "tool": "read",
+      "state": "delivered",
+      "sourceBytes": 8033,
+      "metadataBytes": 817,
+      "wireBytes": 9071,
+      "timing": {
+        "startedMs": 90324,
+        "preparedMs": 90426,
+        "finishedMs": 90639
+      }
+    },
+    {
+      "id": "53b1027a-0600-4f94-80b8-225199b6b6ec",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1611,
+      "wireBytes": 1611,
+      "timing": {
+        "startedMs": 110921,
+        "preparedMs": 110982,
+        "finishedMs": 111193
+      }
+    },
+    {
+      "id": "864e78e9-5fd3-4270-bbfb-65001460fd46",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1668,
+      "wireBytes": 1668,
+      "timing": {
+        "startedMs": 111621,
+        "preparedMs": 111680,
+        "finishedMs": 111890
+      }
+    },
+    {
+      "id": "37651135-cd3d-4505-9b3f-667aade8ad84",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1624,
+      "wireBytes": 1624,
+      "timing": {
+        "startedMs": 112322,
+        "preparedMs": 112382,
+        "finishedMs": 112595
+      }
+    },
+    {
+      "id": "10d7309a-c891-4f2d-983e-83635ecce4cc",
+      "tool": "definitions",
+      "state": "delivered",
+      "sourceBytes": 0,
+      "metadataBytes": 1622,
+      "wireBytes": 1622,
+      "timing": {
+        "startedMs": 113024,
+        "preparedMs": 113083,
+        "finishedMs": 113301
+      }
+    }
+  ],
+  "limits": [
+    "Call boundaries precede corresponding journal writes; terminal fsync and outer MCP/event work are not fully included.",
+    "Gaps are not model-reasoning or provider-time measurements.",
+    "Usage/token counts were unavailable. This is one failed sample, not a latency distribution."
+  ],
+  "reviewedQuoteProblems": [
+    {
+      "candidateOrdinal": 1,
+      "location": "/sections/0/claims/3/evidence/0",
+      "code": "quoteNotExact"
+    },
+    {
+      "candidateOrdinal": 2,
+      "location": "/sections/0/claims/3/evidence/0",
+      "code": "quoteNotExact"
+    }
+  ]
+}

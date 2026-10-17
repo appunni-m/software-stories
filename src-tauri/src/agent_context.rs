@@ -583,12 +583,21 @@ impl Session {
         {
             return Err("The candidate does not own this investigation step.".into());
         }
-        let invalid = self
-            .candidate_diagnostics(response, cancelled)?
-            .is_some_and(|issues| !issues.is_empty());
+        let issues = self.candidate_diagnostics(response, cancelled)?;
+        let invalid = issues.as_ref().is_some_and(|issues| !issues.is_empty());
+        // This rejection occurs before the final publication callback. Keep
+        // its fixed problem codes/positions with the exact second candidate so
+        // a source-only failure does not lose its reason when the run stops.
+        let rejection = (invalid && ordinal == 2).then(|| {
+            let positions = issues.as_ref().unwrap().iter().take(8).map(|issue|json!({
+                "location":issue["location"],
+                "problem":issue.get("quoteProblem").and_then(Value::as_str).unwrap_or("identifierAlignment"),
+            })).collect::<Vec<_>>();
+            format!("Local preflight rejected the sole correction: {}", json!(positions))
+        });
         if invalid || ordinal == 2 {
             self.ledger
-                .save_candidate(fingerprint, response, ordinal, None)?;
+                .save_candidate(fingerprint, response, ordinal, rejection.as_deref())?;
         }
         self.candidate = Some((ordinal, response.clone(), Arc::clone(cancelled)));
         Ok(())

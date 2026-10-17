@@ -46,3 +46,9 @@ References: [Tauri macOS bundle configuration](https://v2.tauri.app/reference/co
 - [ ] Install on a clean supported account; exercise offline browsing/audio/export, Keychain, permission denial and disk failure recovery.
 
 No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.
+
+## Executable integrity checkpoint — 2026-10-17
+
+A local disk-full failure left a truncated Mach-O in a bundle that a later standalone Tauri command reported as successful. It failed to launch; the previous working app was restored. Package-command success and plist identity alone are insufficient. The packaging verifier now uses `codesign --verify --strict --ignore-resources` on the named bundled executable before metadata/DMG acceptance. Missing and truncated executables are rejected by deterministic regressions; this verifies embedded executable integrity without claiming resource sealing, Developer ID identity or notarization.
+
+After clearing generated build caches and restoring complete compiler output, the final unsigned debug bundle independently matched the full executable length and SHA-256 and launched through computer use. The saved Codex connection, Fontdone source and a child Guide at section 2/3 were observed. Native tests: 295 passed, 11 explicit probes ignored. Frontend tests: 145 passed. [Failure, rollback and final artifact details](../acceptance/2026-10-17-fontdone-quotes-and-tool-timing.md#packaging-recovery-and-installed-follow-up). This does not close the signed release or clean-account gates. Disk-full behavior still needs to be qualified in the supported release pipeline and clean install journey.

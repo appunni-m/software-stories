@@ -12,6 +12,7 @@ const STILL_INVALID: &str = "The explanation still did not match its cited code 
 /// Execute at most one correction, without resending source or changing provider.
 /// The returned candidate still needs the complete independent source validator.
 /// An FnOnce callback makes a second correction impossible here.
+#[cfg(test)]
 pub(crate) fn correct_once<T>(
     enabled: bool,
     initial: T,

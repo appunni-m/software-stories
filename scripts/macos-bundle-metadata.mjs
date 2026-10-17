@@ -2,6 +2,7 @@ import { readFile, writeFile, access } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyMacExecutableIntegrity } from './macos-executable-integrity.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const tauriDir = join(root, 'src-tauri');
@@ -55,6 +56,9 @@ if (process.argv[2] === 'write') {
     if (result.status !== 0) throw new Error(`Could not read ${key} from ${infoPlist}: ${result.stderr.trim()}`);
     return result.stdout.trim();
   };
+  const executableName = plistValue('CFBundleExecutable');
+  if (!/^[A-Za-z0-9._-]+$/.test(executableName)) throw new Error('Invalid bundled executable name.');
+  verifyMacExecutableIntegrity(join(appPath, 'Contents', 'MacOS', executableName));
   const bundledContents = await readFile(bundledManifest, 'utf8');
   if (bundledContents !== manifest) throw new Error('Bundled schema metadata does not match the current Rust schema constants.');
   for (const [key, expected] of [

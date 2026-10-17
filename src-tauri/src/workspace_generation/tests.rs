@@ -359,7 +359,7 @@ fn fontdone_codex_retrieval_probe() {
     let rejected = crate::evidence_ledger::attempts::inspect(&storage, &input.run_id)
         .ok()
         .map(|saved| saved.candidates);
-    let artifact = json!({"case":case,"question":question,"projectId":input.project_id,"snapshotId":input.snapshot_id,"runId":input.run_id,"model":"gpt-6-luna","effort":"max","elapsedMs":started.elapsed().as_millis(),"phases":phases.into_inner().unwrap(),"status":ledger["status"],"calls":ledger["calls"],"evidence":ledger["evidence"],"rejectedCandidates":rejected,"preview":result.as_ref().ok(),"error":result.as_ref().err()});
+    let artifact = json!({"case":case,"question":question,"projectId":input.project_id,"snapshotId":input.snapshot_id,"runId":input.run_id,"model":"gpt-6-luna","effort":"max","elapsedMs":started.elapsed().as_millis(),"phases":phases.into_inner().unwrap(),"status":ledger["status"],"contextClock":ledger["contextClock"],"calls":ledger["calls"],"evidence":ledger["evidence"],"rejectedCandidates":rejected,"preview":result.as_ref().ok(),"error":result.as_ref().err()});
     artifact_file
         .write_all(&serde_json::to_vec_pretty(&artifact).unwrap())
         .unwrap();

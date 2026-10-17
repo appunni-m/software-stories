@@ -122,3 +122,12 @@ The first attached `Font::memory_face` investigation delivered 29 calls and 69,6
 - [ ] Qualify the changed policy with the deliberate frozen Fontdone attached-function retest, then independently review its actual implementation facts, visuals and spoken script. The first failed sample is not a quality pass or a latency comparison.
 
 [Failure, timing boundaries and package evidence](../acceptance/2026-10-17-fontdone-quotes-and-tool-timing.md). This advances preflight recovery only; broad explanation quality, packaged generation, retention controls, persistent exploration conversations and the complete ownership/Stop/restart matrices remain open.
+
+
+### Attached-function retest outcome
+
+The [exact-quote-policy retest](../acceptance/artifacts/2026-10-17-fontdone-agent-memory-face-exact-quotes.json) also failed: 380.156 seconds, 36 delivered calls, 48,698 source bytes and no preview. The initial output removed a comment from one quote; its sole correction restored a reflowed comment. Native preflight correctly rejected it, despite empty corrected identifier findings. Native calls totalled 12.568 seconds; the remaining time is not separately attributed. Both exact candidates are preserved. No third inference attempt was started.
+
+- [ ] Implement and qualify [native evidence references, Kata yk6c](72-agent-evidence-references.md), replacing model-copied source quotes for this agent path while retaining byte/digest/coordinate, claim and visual admission. This is a reliability prerequisite for attached-function acceptance; another wording tweak is not a completed fix.
+
+Failed second-candidate preflight now retains bounded fixed codes and positions in private recovery; final deterministic suite: 295 passed, 11 ignored. The live failure predates that diagnostic-only addition and is preserved unchanged. All broader parent gates remain open.

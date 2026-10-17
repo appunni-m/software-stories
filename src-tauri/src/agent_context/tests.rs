@@ -142,6 +142,43 @@ fn quote_only_failure_gets_the_same_single_correction_and_no_new_context() {
 }
 
 #[test]
+fn failed_quote_correction_retains_its_reason_without_source_in_the_diagnostic() {
+    let f = Fixture::new();
+    let mut s = investigated(&f);
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let mut initial = candidate(true);
+    initial.turn_id = "first".into();
+    initial.response_text = initial
+        .response_text
+        .replace("export function", "export  function");
+    s.capture_candidate(&"d".repeat(64), &initial, 1, &cancelled)
+        .unwrap();
+    s.begin_correction(&cancelled).unwrap();
+    let mut corrected = initial;
+    corrected.turn_id = "second".into();
+    s.capture_candidate(&"d".repeat(64), &corrected, 2, &cancelled)
+        .unwrap();
+    let path = fs::read_dir(f.storage.join("rejected-explanations"))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let saved: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    assert_eq!(
+        saved["candidates"][1]["responseText"],
+        corrected.response_text
+    );
+    let rejection = saved["candidates"][1]["rejection"].as_str().unwrap();
+    assert!(rejection.contains("/sections/0/claims/0/evidence/0"));
+    assert!(rejection.contains("quoteNotExact"));
+    assert!(!rejection.contains("export"));
+    assert!(!rejection.contains(SIMPLE_PATH));
+    assert!(rejection.len() <= 2000);
+    assert!(s.begin_correction(&cancelled).is_err());
+}
+
+#[test]
 fn correction_reuses_only_admitted_evidence_and_preserves_both_candidates() {
     let f = Fixture::new();
     let mut s = investigated(&f);
