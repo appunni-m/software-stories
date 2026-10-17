@@ -315,6 +315,9 @@ impl Drop for RunningChild {
     }
 }
 
+#[cfg(all(test, unix))]
+mod edge_tests;
+
 #[cfg(test)]
 mod tests {
     use super::*;

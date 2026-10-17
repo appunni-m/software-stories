@@ -582,6 +582,73 @@ mod tests {
     }
 
     #[test]
+    fn inspection_deadline_returns_a_bounded_app_result_before_launch() {
+        let directory = TestDirectory::new("inspection-expired");
+        let result = git_output(directory.path(), &["--version"], Instant::now())
+            .unwrap_err()
+            .into_result();
+        assert_eq!(result.status, ProjectOpenStatus::GitError);
+        assert!(result.project.is_none());
+        assert_eq!(
+            result.message.as_deref(),
+            Some("Git could not inspect this folder: Git operation reached its time limit.")
+        );
+    }
+
+    #[test]
+    fn inspection_output_limit_hides_fixture_contents_and_preserves_repository_and_recents() {
+        let directory = TestDirectory::new("inspection-output-limit");
+        let storage = TestDirectory::new("inspection-output-recents");
+        create_repository(directory.path());
+        let source = "DO_NOT_REFLECT_SYNTHETIC_CONTENT\n".repeat(2048);
+        fs::write(directory.path().join("large.txt"), &source).unwrap();
+        let object = git(directory.path(), &["hash-object", "-w", "large.txt"]);
+        assert!(object.status.success());
+        let object = String::from_utf8(object.stdout).unwrap();
+        let opened = inspect_and_record_project(storage.path(), directory.path().to_str().unwrap());
+        assert_eq!(opened.status, ProjectOpenStatus::Opened);
+        let recents = fs::read(recent_projects_path(storage.path())).unwrap();
+        let index = fs::read(directory.path().join(".git/index")).unwrap();
+        let config = fs::read(directory.path().join(".git/config")).unwrap();
+        let refs = git(directory.path(), &["show-ref"]).stdout;
+        let result = git_output(
+            directory.path(),
+            &["cat-file", "-p", object.trim()],
+            Instant::now() + Duration::from_secs(5),
+        )
+        .unwrap_err()
+        .into_result();
+        assert_eq!(result.status, ProjectOpenStatus::GitError);
+        assert!(result.project.is_none());
+        assert_eq!(
+            result.message.as_deref(),
+            Some("Git could not inspect this folder: Git output exceeded its size limit.")
+        );
+        assert!(
+            !serde_json::to_string(&result)
+                .unwrap()
+                .contains("DO_NOT_REFLECT")
+        );
+        assert_eq!(
+            fs::read(recent_projects_path(storage.path())).unwrap(),
+            recents
+        );
+        assert_eq!(
+            fs::read(directory.path().join(".git/index")).unwrap(),
+            index
+        );
+        assert_eq!(
+            fs::read(directory.path().join(".git/config")).unwrap(),
+            config
+        );
+        assert_eq!(git(directory.path(), &["show-ref"]).stdout, refs);
+        assert_eq!(
+            fs::read_to_string(directory.path().join("large.txt")).unwrap(),
+            source
+        );
+    }
+
+    #[test]
     fn nested_folder_resolves_root_and_reads_no_repository_bytes() {
         let temporary = TestDirectory::new("nested-repo");
         let repository = temporary.path().join("repository");
