@@ -16,14 +16,12 @@ fn setup(f: &Fixture) -> (Ledger, CodexReviewRuntime, AtomicBool) {
         &runtime,
     )
     .unwrap();
-    let ledger = Ledger::new(
+    let ledger = Ledger::new_progressive(
         &f.storage,
         &Uuid::new_v4().to_string(),
         &f.manifest,
         &grant,
         &runtime,
-        "gpt-6-luna",
-        "max",
     )
     .unwrap();
     (ledger, runtime, AtomicBool::new(false))
@@ -76,7 +74,7 @@ fn read(
         .unwrap()
 }
 
-fn proposal(id: &str, key: &str, order: usize) -> String {
+pub(crate) fn proposal(id: &str, key: &str, order: usize) -> String {
     json!({"proposalVersion":PROPOSAL_VERSION,"sectionKey":key,"order":order,"previousGenerationId":null,
         "section":{"title":"Formatting a greeting","claims":[{
             "category":"codeBehavior","aspect":"inputOutput",
@@ -481,7 +479,7 @@ fn a_proposal_in_progress_is_excluded_from_its_immutable_delivery_checkpoint() {
     let id = read(&mut l, &f, &r, &c);
     let mut a = start(&l, &f, &r, &c);
     let _pending = l
-        .begin_call(Tool::Map, &"f".repeat(64), &f.manifest, &r, &c)
+        .begin_call(Tool::ProposeSection, &"f".repeat(64), &f.manifest, &r, &c)
         .unwrap();
     publish(&mut a, &l, &proposal(&id, "entry", 0), &f, &r, &c);
     let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
@@ -582,4 +580,85 @@ fn saved_answer_bounds_and_proposal_versions_fail_without_inference_or_replaceme
     );
     assert_eq!(fs::read(&a.path).unwrap(), original);
     inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+}
+
+#[test]
+fn progressive_evidence_ids_and_receipts_cannot_reinterpret_historical_versions() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    let id = read(&mut l, &f, &r, &c);
+    assert_eq!(l.record.schema_version, 3);
+    let range = &l.record.evidence[0].range;
+    let expected = context::digest(
+        &serde_json::to_vec(&(
+            "codex-retrieval-v3-answer-sections",
+            &l.record.binding,
+            range,
+        ))
+        .unwrap(),
+    );
+    assert_eq!(id, format!("evidence:{expected}"));
+    let mut historical = l.record.clone();
+    historical.schema_version = 2;
+    let old = context::digest(
+        &serde_json::to_vec(&(
+            "codex-retrieval-v2-native-citations",
+            &historical.binding,
+            range,
+        ))
+        .unwrap(),
+    );
+    assert_eq!(
+        evidence_id(&historical, range).unwrap(),
+        format!("evidence:{old}")
+    );
+    assert_ne!(old, expected);
+    historical.schema_version = 1;
+    let oldest =
+        context::digest(&serde_json::to_vec(&(&historical.binding.project_id, range)).unwrap());
+    assert_eq!(
+        evidence_id(&historical, range).unwrap(),
+        format!("evidence:{oldest}")
+    );
+    let mut a = start(&l, &f, &r, &c);
+    publish(&mut a, &l, &proposal(&id, "entry", 0), &f, &r, &c);
+    let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+    let origin = saved.sections[0]
+        .preview
+        .revision
+        .generation_origin
+        .as_ref()
+        .unwrap();
+    assert_eq!(origin.schema_version, 5);
+    assert_eq!(
+        origin.contract_version,
+        "codex-retrieval-v3-answer-sections"
+    );
+    // A historical active session cannot acquire the new write tool or receipt.
+    let grant = workspace::save_retrieval_grant(
+        &f.storage,
+        &f.manifest.summary.project_id,
+        &f.manifest.summary.snapshot_id,
+        &r,
+    )
+    .unwrap();
+    let mut old = Ledger::new(
+        &f.storage,
+        &Uuid::new_v4().to_string(),
+        &f.manifest,
+        &grant,
+        &r,
+        "gpt-6-luna",
+        "max",
+    )
+    .unwrap();
+    assert!(
+        old.begin_call(Tool::ProposeSection, &"f".repeat(64), &f.manifest, &r, &c)
+            .is_err()
+    );
+    assert!(
+        old.start_answer_sections("Another question", &"e".repeat(64), &f.manifest, &r, &c)
+            .is_err()
+    );
+    assert!(old.record.calls.is_empty());
 }

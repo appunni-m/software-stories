@@ -72,7 +72,12 @@ fn candidate(s: &Session, corrected: bool) -> crate::codex_agent::CodexRunResult
 }
 
 fn reference_id(s: &Session) -> String {
-    let file = fs::read_dir(s.storage.join("evidence-ledgers")).unwrap().next().unwrap().unwrap().path();
+    let file = fs::read_dir(s.storage.join("evidence-ledgers"))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
     let ledger: Value = serde_json::from_slice(&fs::read(file).unwrap()).unwrap();
     ledger["evidence"][0]["id"].as_str().unwrap().to_owned()
 }
@@ -85,18 +90,43 @@ fn unavailable_reference_gets_one_correction_without_new_context() {
     let fingerprint = "d".repeat(64);
     let mut initial = candidate(&s, true);
     initial.turn_id = "first".into();
-    initial.response_text = initial.response_text.replace(&reference_id(&s), &format!("evidence:{}", "f".repeat(64)));
-    let issues = s.candidate_diagnostics(&initial, &cancelled).unwrap().unwrap();
+    initial.response_text = initial
+        .response_text
+        .replace(&reference_id(&s), &format!("evidence:{}", "f".repeat(64)));
+    let issues = s
+        .candidate_diagnostics(&initial, &cancelled)
+        .unwrap()
+        .unwrap();
     assert_eq!(issues, json!([{"location":"/sections/0/claims/0/evidence/0","citationProblem":"referenceUnavailable"}]).as_array().unwrap().to_vec());
-    s.capture_candidate(&fingerprint, &initial, 1, &cancelled).unwrap();
+    s.capture_candidate(&fingerprint, &initial, 1, &cancelled)
+        .unwrap();
     let before = serde_json::to_value(s.ledger.admitted_ranges()).unwrap();
     s.begin_correction(&cancelled).unwrap();
     let corrected = candidate(&s, true);
-    s.capture_candidate(&fingerprint, &corrected, 2, &cancelled).unwrap();
-    assert!(s.candidate_diagnostics(&corrected, &cancelled).unwrap().unwrap().is_empty());
-    assert_eq!(before, serde_json::to_value(s.ledger.admitted_ranges()).unwrap());
+    s.capture_candidate(&fingerprint, &corrected, 2, &cancelled)
+        .unwrap();
+    assert!(
+        s.candidate_diagnostics(&corrected, &cancelled)
+            .unwrap()
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        before,
+        serde_json::to_value(s.ledger.admitted_ranges()).unwrap()
+    );
     assert!(s.begin_correction(&cancelled).is_err());
-    assert!(s.event(&event("extra", "list_modules", &json!({"scope":null,"limit":4,"offset":0})),false).is_err());
+    assert!(
+        s.event(
+            &event(
+                "extra",
+                "list_modules",
+                &json!({"scope":null,"limit":4,"offset":0})
+            ),
+            false
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -106,15 +136,27 @@ fn failed_reference_correction_retains_its_reason_without_source() {
     let cancelled = Arc::new(AtomicBool::new(false));
     let mut initial = candidate(&s, true);
     initial.turn_id = "first".into();
-    initial.response_text = initial.response_text.replace(&reference_id(&s), &format!("evidence:{}", "f".repeat(64)));
-    s.capture_candidate(&"d".repeat(64), &initial, 1, &cancelled).unwrap();
+    initial.response_text = initial
+        .response_text
+        .replace(&reference_id(&s), &format!("evidence:{}", "f".repeat(64)));
+    s.capture_candidate(&"d".repeat(64), &initial, 1, &cancelled)
+        .unwrap();
     s.begin_correction(&cancelled).unwrap();
     let mut corrected = initial;
     corrected.turn_id = "second".into();
-    s.capture_candidate(&"d".repeat(64), &corrected, 2, &cancelled).unwrap();
-    let path = fs::read_dir(f.storage.join("rejected-explanations")).unwrap().next().unwrap().unwrap().path();
+    s.capture_candidate(&"d".repeat(64), &corrected, 2, &cancelled)
+        .unwrap();
+    let path = fs::read_dir(f.storage.join("rejected-explanations"))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
     let saved: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
-    assert_eq!(saved["candidates"][1]["responseText"], corrected.response_text);
+    assert_eq!(
+        saved["candidates"][1]["responseText"],
+        corrected.response_text
+    );
     let rejection = saved["candidates"][1]["rejection"].as_str().unwrap();
     assert!(rejection.contains("/sections/0/claims/0/evidence/0"));
     assert!(rejection.contains("referenceUnavailable"));
@@ -255,9 +297,13 @@ fn stopped_revoked_or_changed_owners_cannot_capture_or_begin_correction() {
                 _ => unreachable!(),
             }
             let result = match stage {
-                "capture" => s.capture_candidate(&fingerprint, &candidate(&s, false), 1, &cancelled),
+                "capture" => {
+                    s.capture_candidate(&fingerprint, &candidate(&s, false), 1, &cancelled)
+                }
                 "correction" => s.begin_correction(&cancelled),
-                "corrected" => s.capture_candidate(&fingerprint, &candidate(&s, true), 2, &cancelled),
+                "corrected" => {
+                    s.capture_candidate(&fingerprint, &candidate(&s, true), 2, &cancelled)
+                }
                 "reject" => s.preserve_rejection(&fingerprint, "Rejected candidate."),
                 _ => unreachable!(),
             };
@@ -271,7 +317,16 @@ fn event(id: &str, name: &str, args: &Value) -> Value {
 fn exchange(s: &mut Session, name: &str, args: Value) -> (Value, String) {
     exchange_ordered(s, name, args, false)
 }
-fn exchange_ordered(s: &mut Session, name: &str, args: Value, mut early: bool) -> (Value, String) {
+fn exchange_ordered(s: &mut Session, name: &str, args: Value, early: bool) -> (Value, String) {
+    exchange_owned_ordered(s, name, args, early, Arc::new(AtomicBool::new(false)))
+}
+fn exchange_owned_ordered(
+    s: &mut Session,
+    name: &str,
+    args: Value,
+    mut early: bool,
+    cancelled: Arc<AtomicBool>,
+) -> (Value, String) {
     let started = event(&Uuid::new_v4().to_string(), name, &args);
     if !early {
         s.event(&started, false).unwrap();
@@ -304,8 +359,7 @@ fn exchange_ordered(s: &mut Session, name: &str, args: Value, mut early: bool) -
     });
     let deadline = Instant::now() + Duration::from_secs(10);
     while !worker.is_finished() && Instant::now() < deadline {
-        s.poll(&Arc::new(AtomicBool::new(false)), || Ok(()))
-            .unwrap();
+        s.poll(&cancelled, || Ok(())).unwrap();
         if early && s.pending.is_some() {
             assert!(s.ledger.admitted_ranges().is_empty());
             assert!(!worker.is_finished());
@@ -615,4 +669,199 @@ fn private_socket_is_removed_and_catalog_cannot_include_inherited_tools() {
         arguments_digest(&json!({"b":2,"a":{"d":1,"c":2}})).unwrap(),
         arguments_digest(&json!({"a":{"c":2,"d":1},"b":2})).unwrap()
     );
+}
+
+#[test]
+fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_later_rejection() {
+    use crate::evidence_ledger::sections;
+    use std::sync::Mutex;
+    let f = Fixture::new();
+    let legacy = session(&f);
+    let runtime = legacy.runtime.clone();
+    let grant = crate::workspace::save_retrieval_grant(
+        &f.storage,
+        &f.manifest.summary.project_id,
+        &f.manifest.summary.snapshot_id,
+        &runtime,
+    )
+    .unwrap();
+    let run_id = Uuid::new_v4().to_string();
+    let fingerprint = "d".repeat(64);
+    let notices = Arc::new(Mutex::new(Vec::new()));
+    let output = Arc::clone(&notices);
+    let storage = f.storage.clone();
+    let mut s = Session::new_progressive(
+        &f.storage,
+        &run_id,
+        f.manifest.clone(),
+        &runtime,
+        &grant,
+        RepositoryContextJobs::default(),
+        "How is the greeting created?",
+        &fingerprint,
+        Arc::new(move |notice| {
+            // The callback can independently inspect an already durable section;
+            // it is never given an uncommitted preview or raw source payload.
+            let saved = sections::inspect(&storage, &notice.run_id).unwrap();
+            assert!(
+                saved
+                    .sections
+                    .iter()
+                    .any(|p| p.preview.generation_id == notice.generation_id)
+            );
+            output.lock().unwrap().push(notice);
+        }),
+    )
+    .unwrap();
+    assert!(
+        s.poll(&Arc::new(AtomicBool::new(false)), || Ok(()))
+            .is_err()
+    );
+    let (manager, owner, cancel) =
+        crate::codex_agent::section_owner_for_test(&run_id, &fingerprint, &runtime);
+    let mut changed_runtime = runtime.clone();
+    changed_runtime.account_revision += 1;
+    let (_, foreign, _) =
+        crate::codex_agent::section_owner_for_test(&run_id, &fingerprint, &changed_runtime);
+    assert!(s.bind_section_owner(foreign).is_err());
+    s.bind_section_owner(owner.clone()).unwrap();
+    assert!(s.bind_section_owner(owner).is_err());
+    assert!(
+        s.poll(&Arc::new(AtomicBool::new(false)), || Ok(()))
+            .is_err()
+    );
+    let file = f
+        .manifest
+        .files
+        .iter()
+        .find(|f| f.path == SIMPLE_PATH)
+        .unwrap();
+    let (_, read_reply) = exchange_owned_ordered(
+        &mut s,
+        "read_code",
+        json!({"ranges":[{"path":SIMPLE_PATH,
+        "sourceSha256":file.sha256,"startByte":0,"endByte":file.size_bytes}]}),
+        false,
+        Arc::clone(&cancel),
+    );
+    let read_reply: Value = serde_json::from_str(&read_reply).unwrap();
+    let reference = read_reply["added"][0]["id"].as_str().unwrap();
+    let raw = sections::tests::proposal(reference, "entry", 0);
+    let args: Value = serde_json::from_str(&raw).unwrap();
+    let (_, text) = exchange_owned_ordered(
+        &mut s,
+        mcp::PROPOSAL_TOOL,
+        args.clone(),
+        false,
+        Arc::clone(&cancel),
+    );
+    let response: Value = serde_json::from_str(&text).unwrap();
+    let generation = response["context"]["result"]["generationId"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    assert!(
+        response["context"]["result"]["findings"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(response["context"]["result"]["remainingAttempts"], 7);
+    assert_eq!(notices.lock().unwrap()[0].generation_id, generation);
+    assert!(notices.lock().unwrap()[0].run_elapsed_ms.is_some());
+    // Same owned proposal after a lost/ignored reply reuses the durable identity.
+    let (_, text) =
+        exchange_owned_ordered(&mut s, mcp::PROPOSAL_TOOL, args, false, Arc::clone(&cancel));
+    assert_eq!(
+        serde_json::from_str::<Value>(&text).unwrap()["context"]["result"]["generationId"],
+        generation
+    );
+    let mut bad: Value =
+        serde_json::from_str(&sections::tests::proposal(reference, "deeper", 1)).unwrap();
+    bad["section"]["claims"][0]["evidence"][0]["referenceId"] =
+        json!(format!("evidence:{}", "f".repeat(64)));
+    let (_, text) =
+        exchange_owned_ordered(&mut s, mcp::PROPOSAL_TOOL, bad, false, Arc::clone(&cancel));
+    assert!(
+        serde_json::from_str::<Value>(&text).unwrap()["context"]["result"]["generationId"]
+            .is_null()
+    );
+    s.check_complete().unwrap();
+    assert_eq!(
+        sections::inspect(&f.storage, &run_id)
+            .unwrap()
+            .sections
+            .len(),
+        1
+    );
+    let ledger: Value = serde_json::from_slice(
+        &fs::read(
+            f.storage
+                .join("evidence-ledgers")
+                .join(format!("{run_id}.json")),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(ledger["calls"].as_array().unwrap().len(), 4);
+    // Simulate an observed scope change after durable commit, before notice or
+    // reply. The section is inspectable, but no successful callback or reply
+    // may escape and no automatic inference/tool replay is started.
+    let late: Value =
+        serde_json::from_str(&sections::tests::proposal(reference, "late", 1)).unwrap();
+    let started = event(&Uuid::new_v4().to_string(), mcp::PROPOSAL_TOOL, &late);
+    s.event(&started, false).unwrap();
+    let mut peer = UnixStream::connect(s.directory.join("context.sock")).unwrap();
+    peer.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+    mcp::write_packet(
+        &mut peer,
+        &serde_json::to_vec(&mcp::Request {
+            token: s.token.clone(),
+            name: mcp::PROPOSAL_TOOL.into(),
+            arguments: late,
+        })
+        .unwrap(),
+        mcp::MAX_PROGRESSIVE_INPUT,
+    )
+    .unwrap();
+    let before_notices = notices.lock().unwrap().len();
+    assert!(
+        s.poll(&cancel, || {
+            if sections::inspect(&f.storage, &run_id)?.sections.len() > 1 {
+                Err("Synthetic scope change after persistence".into())
+            } else {
+                Ok(())
+            }
+        })
+        .is_err()
+    );
+    assert!(mcp::read_packet(&mut peer, mcp::MAX_REPLY).is_err());
+    assert_eq!(notices.lock().unwrap().len(), before_notices);
+    assert_eq!(
+        sections::inspect(&f.storage, &run_id)
+            .unwrap()
+            .sections
+            .len(),
+        2
+    );
+    assert!(manager.cancel(&run_id));
+    assert!(s.poll(&cancel, || Ok(())).is_err());
+    assert_eq!(
+        sections::inspect(&f.storage, &run_id).unwrap().sections[0]
+            .preview
+            .generation_id,
+        generation
+    );
+}
+
+#[test]
+fn progressive_catalog_is_explicit_and_legacy_requests_cannot_gain_a_proposal_tool() {
+    let f = Fixture::new();
+    let s = session(&f);
+    assert!(s.checked_tool(mcp::PROPOSAL_TOOL).is_err());
+    let mut catalog = json!({"data":[{"name":mcp::SERVER,"tools":mcp::tool_names(false).iter().map(|name|
+        (name.to_string(),json!({"name":name}))).collect::<serde_json::Map<_,_>>()}],"nextCursor":null});
+    s.verify_catalog(&catalog).unwrap();
+    catalog["data"][0]["tools"][mcp::PROPOSAL_TOOL] = json!({"name":mcp::PROPOSAL_TOOL});
+    assert!(s.verify_catalog(&catalog).is_err());
 }

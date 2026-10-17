@@ -157,13 +157,17 @@ pub(crate) fn save_retrieval_grant(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub(crate) fn revoke_workspace_exploration(app: AppHandle, grant_id: String) -> Result<(), String> {
+pub(crate) fn revoke_workspace_exploration(
+    app: AppHandle,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    grant_id: String,
+) -> Result<(), String> {
     let path = grant_path(&app_data_directory(&app)?, &grant_id)?;
-    match fs::remove_file(path) {
+    manager.serialize_permission_change(|| match fs::remove_file(path) {
         Ok(()) => Ok(()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
         Err(_) => Err("Permission could not be revoked. Try again.".to_owned()),
-    }
+    })
 }
 
 #[derive(Serialize)]

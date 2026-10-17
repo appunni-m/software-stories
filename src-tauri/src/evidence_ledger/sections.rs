@@ -88,6 +88,24 @@ pub(crate) struct PreparedSection {
     pub(crate) findings: Vec<Value>,
 }
 
+/// Source-free event identity. Draft contents stay behind native inspection.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SectionNotice {
+    pub(crate) run_id: String,
+    pub(crate) project_id: String,
+    pub(crate) snapshot_id: String,
+    pub(crate) key: String,
+    pub(crate) order: usize,
+    pub(crate) generation_id: String,
+    pub(crate) revision_id: String,
+    pub(crate) supersedes: Option<String>,
+    /// Preparation checkpoint on the captured-code clock; excludes earlier setup.
+    pub(crate) context_elapsed_ms: u64,
+    /// Observed after durable commit on the owning run's original clock.
+    pub(crate) run_elapsed_ms: Option<u64>,
+}
+
 fn valid_key(key: &str) -> bool {
     !key.is_empty()
         && key.len() <= 80
@@ -163,7 +181,7 @@ fn checkpoint(ledger: &Ledger) -> Result<Record, String> {
     if record
         .calls
         .last()
-        .is_some_and(|c| c.state == CallState::Started)
+        .is_some_and(|c| c.state == CallState::Started && c.tool == Tool::ProposeSection)
     {
         record.calls.pop();
     }
@@ -264,7 +282,11 @@ impl Ledger {
         cancelled: &AtomicBool,
     ) -> Result<ActiveAnswer, String> {
         self.check(manifest, runtime, cancelled)?;
-        if !hash(request_sha256) || question.trim().is_empty() || question.len() > 12_000 {
+        if self.record.schema_version != 3
+            || !hash(request_sha256)
+            || question.trim().is_empty()
+            || question.len() > 12_000
+        {
             return Err("The answer intent or request identity is invalid.".into());
         }
         let path = record_path(&self.storage, &self.record.binding.operation_id)?;
@@ -287,6 +309,33 @@ impl Ledger {
 }
 
 impl ActiveAnswer {
+    pub(crate) fn identity(&self) -> (&str, &str) {
+        (&self.value.binding.operation_id, &self.value.request_sha256)
+    }
+
+    pub(crate) fn remaining_attempts(&self) -> usize {
+        MAX_ATTEMPTS.saturating_sub(self.value.attempts.len())
+    }
+
+    pub(crate) fn notice(&self, generation: &str) -> Option<SectionNotice> {
+        self.value
+            .sections
+            .iter()
+            .find(|s| s.preview.generation_id == generation)
+            .map(|s| SectionNotice {
+                run_id: self.value.binding.operation_id.clone(),
+                project_id: self.value.binding.project_id.clone(),
+                snapshot_id: self.value.binding.snapshot_id.clone(),
+                key: s.key.clone(),
+                order: s.order,
+                generation_id: s.preview.generation_id.clone(),
+                revision_id: s.preview.revision.revision_id.clone(),
+                supersedes: s.supersedes.clone(),
+                context_elapsed_ms: s.published_elapsed_ms,
+                run_elapsed_ms: None,
+            })
+    }
+
     pub(crate) fn prepare(
         &self,
         ledger: &Ledger,
@@ -392,7 +441,7 @@ impl ActiveAnswer {
                                             let checkpoint = checkpoint(ledger)?;
                                             let checkpoint_sha256 =
                                                 context::digest(&encode(&checkpoint)?);
-                                            revision.generation_origin = Some(chapter_origin::ChapterGenerationOrigin::from_retrieval(
+                                            revision.generation_origin = Some(chapter_origin::ChapterGenerationOrigin::from_answer_checkpoint(
                                                 &self.value.binding.operation_id, &self.value.request_sha256,
                                                 &checkpoint_sha256, record_ranges(&checkpoint), &sources, &revision,
                                             )?);
@@ -665,6 +714,7 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
             .collect::<BTreeSet<_>>()
             .len();
         if section.checkpoint_version != 1
+            || checkpoint.schema_version != 3
             || !same_binding(&value.binding, &checkpoint.binding)?
             || checkpoint.status != Status::Active
             || checkpoint
@@ -789,7 +839,9 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
             .ok_or("The section lacks its native origin.")?;
         let origin_json =
             serde_json::to_value(origin).map_err(|_| "The section origin is unavailable.")?;
-        if !origin.matches_content(&section.preview.revision)
+        if origin.schema_version != 5
+            || origin.contract_version != PROGRESSIVE_CONTRACT
+            || !origin.matches_content(&section.preview.revision)
             || origin.request_id != operation
             || origin.request_body_sha256 != value.request_sha256
             || origin_json["retrieval"]["ledgerSha256"] != section.checkpoint_sha256
@@ -804,4 +856,4 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
 }
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

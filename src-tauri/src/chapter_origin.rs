@@ -196,6 +196,20 @@ impl ChapterGenerationOrigin {
         Ok(origin)
     }
 
+    /// A progressive receipt names an immutable delivered prefix, independently
+    /// of the mutable operation ledger or its later terminal state.
+    pub(crate) fn from_answer_checkpoint(
+        operation_id: &str, request_sha256: &str, checkpoint_sha256: &str,
+        ranges: Vec<crate::repository_context::CodeRange>,
+        sources: &[crate::snapshot::SnapshotSource], revision: &ChapterRevision,
+    ) -> Result<Self, String> {
+        let mut origin = Self::from_retrieval(operation_id, request_sha256, checkpoint_sha256, ranges, sources, revision)?;
+        origin.schema_version = 5;
+        origin.contract_version = crate::evidence_ledger::PROGRESSIVE_CONTRACT.into();
+        origin.validate(revision)?;
+        Ok(origin)
+    }
+
     pub(crate) fn validate(&self, revision: &ChapterRevision) -> Result<(), String> {
         let invalid = || "The chapter's recorded agent generation metadata is invalid.".to_owned();
         let paths = self
@@ -246,7 +260,7 @@ impl ChapterGenerationOrigin {
         let retrieval_ok = if let Some(retrieval) = &self.retrieval {
             let mut ordered = retrieval.ranges.iter().collect::<Vec<_>>();
             ordered.sort_by_key(|r| (&r.path, r.start_byte));
-            matches!(self.schema_version, 3 | 4)
+            matches!(self.schema_version, 3 | 4 | 5)
                 && backend == "codex"
                 && self.planned_chapter.is_none()
                 && self.section_update.is_none()
@@ -295,11 +309,12 @@ impl ChapterGenerationOrigin {
                     .iter()
                     .all(|s| retrieval.ranges.iter().any(|r| r.path == s.path))
         } else {
-            !matches!(self.schema_version, 3 | 4)
+            !matches!(self.schema_version, 3 | 4 | 5)
         };
         let expected_contract = if self.retrieval.is_some() {
             if self.schema_version == 3 { "codex-retrieval-v1".to_owned() }
-            else { crate::evidence_ledger::RETRIEVAL_CONTRACT.to_owned() }
+            else if self.schema_version == 4 { crate::evidence_ledger::RETRIEVAL_CONTRACT.to_owned() }
+            else { crate::evidence_ledger::PROGRESSIVE_CONTRACT.to_owned() }
         } else if self.planned_chapter.is_some() {
             format!("{backend}-planned-chapter-v1")
         } else if backend == "codex" {
@@ -307,7 +322,7 @@ impl ChapterGenerationOrigin {
         } else {
             "claude-chapter-v1".to_owned()
         };
-        if !matches!(self.schema_version, 1 | 2 | 3 | 4)
+        if !matches!(self.schema_version, 1 | 2 | 3 | 4 | 5)
             || !retrieval_ok
             || revision.schema_version < 4
             || self.project_id != revision.project_id

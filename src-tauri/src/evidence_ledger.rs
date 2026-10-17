@@ -20,6 +20,7 @@ use uuid::Uuid;
 
 pub(crate) const POLICY: &str = "atlas-captured-ranges-v1-files12-source250000";
 pub(crate) const RETRIEVAL_CONTRACT: &str = "codex-retrieval-v2-native-citations";
+pub(crate) const PROGRESSIVE_CONTRACT: &str = "codex-retrieval-v3-answer-sections";
 const MAX_CALLS: usize = 64;
 const MAX_FILES: usize = 12;
 const MAX_SOURCE: usize = 250_000;
@@ -91,6 +92,7 @@ pub(crate) enum Tool {
     Definitions,
     Relationships,
     Map,
+    ProposeSection,
 }
 
 /// Owned, typed context only. Search snippets are deliberately excluded: code
@@ -104,6 +106,13 @@ pub(crate) enum Context<'a> {
         message: &'static str,
     },
     Read {},
+    SectionProposal {
+        #[serde(rename = "generationId")]
+        generation_id: Option<&'a str>,
+        findings: &'a [serde_json::Value],
+        #[serde(rename = "remainingAttempts")]
+        remaining_attempts: usize,
+    },
     Definitions(&'a structure::Page<structure::Symbol>),
     Relationships(&'a structure::Page<structure::Relationship>),
     Map(&'a structure::Page<structure::Module>),
@@ -153,6 +162,7 @@ impl Context<'_> {
             Self::Definitions(_) => Tool::Definitions,
             Self::Relationships(_) => Tool::Relationships,
             Self::Map(_) => Tool::Map,
+            Self::SectionProposal { .. } => Tool::ProposeSection,
         }
     }
 }
@@ -325,7 +335,15 @@ fn evidence_id(record: &Record, range: &context::CodeRange) -> Result<String, St
     let identity = if record.schema_version == 1 {
         serde_json::to_vec(&(&record.binding.project_id, range))
     } else {
-        serde_json::to_vec(&(RETRIEVAL_CONTRACT, &record.binding, range))
+        serde_json::to_vec(&(
+            if record.schema_version == 2 {
+                RETRIEVAL_CONTRACT
+            } else {
+                PROGRESSIVE_CONTRACT
+            },
+            &record.binding,
+            range,
+        ))
     }
     .map_err(|_| "Evidence identity could not be encoded.")?;
     Ok(format!("evidence:{}", context::digest(&identity)))
@@ -341,6 +359,47 @@ impl Ledger {
         model: &str,
         effort: &str,
     ) -> Result<Self, String> {
+        Self::new_version(
+            storage,
+            operation_id,
+            manifest,
+            grant_id,
+            runtime,
+            model,
+            effort,
+            2,
+        )
+    }
+
+    pub(crate) fn new_progressive(
+        storage: &Path,
+        operation_id: &str,
+        manifest: &snapshot::SnapshotManifest,
+        grant_id: &str,
+        runtime: &CodexReviewRuntime,
+    ) -> Result<Self, String> {
+        Self::new_version(
+            storage,
+            operation_id,
+            manifest,
+            grant_id,
+            runtime,
+            "gpt-6-luna",
+            "max",
+            3,
+        )
+    }
+
+    fn new_version(
+        storage: &Path,
+        operation_id: &str,
+        manifest: &snapshot::SnapshotManifest,
+        grant_id: &str,
+        runtime: &CodexReviewRuntime,
+        model: &str,
+        effort: &str,
+        version: u32,
+    ) -> Result<Self, String> {
         let path = path(storage, operation_id)?;
         if !runtime.valid_shape() || model != "gpt-6-luna" || effort != "max" {
             return Err(
@@ -355,7 +414,7 @@ impl Ledger {
             runtime,
         )?;
         let record = Record {
-            schema_version: 2,
+            schema_version: version,
             policy: POLICY.to_owned(),
             binding: Binding {
                 operation_id: operation_id.to_owned(),
@@ -437,7 +496,8 @@ impl Ledger {
         cancelled: &AtomicBool,
     ) -> Result<CallToken, String> {
         self.check(manifest, runtime, cancelled)?;
-        if !hash(arguments_sha256)
+        if (tool == Tool::ProposeSection && self.record.schema_version != 3)
+            || !hash(arguments_sha256)
             || self.record.calls.len() >= MAX_CALLS
             || self
                 .record
@@ -976,7 +1036,7 @@ impl Ledger {
         cancelled: &AtomicBool,
     ) -> Result<crate::native_citations::Resolution, String> {
         self.check(manifest, runtime, cancelled)?;
-        if self.record.schema_version != 2 {
+        if !matches!(self.record.schema_version, 2 | 3) {
             return Err(
                 "Historical evidence records cannot resume native citation generation.".into(),
             );
@@ -1265,7 +1325,7 @@ pub(crate) fn inspect(storage: &Path, operation_id: &str) -> Result<Record, Stri
 
 fn validate_record(record: &Record, operation_id: &str) -> Result<(), String> {
     if !canonical_uuid(operation_id)
-        || !matches!(record.schema_version, 1 | 2)
+        || !matches!(record.schema_version, 1 | 2 | 3)
         || !valid_context_timings(&record)
         || record.policy != POLICY
         || record.binding.operation_id != operation_id
@@ -1303,6 +1363,7 @@ fn validate_record(record: &Record, operation_id: &str) -> Result<(), String> {
             != record.calls.len()
         || record.calls.iter().any(|c| {
             !canonical_uuid(&c.id)
+                || (c.tool == Tool::ProposeSection && record.schema_version != 3)
                 || !hash(&c.arguments_sha256)
                 || c.wire_bytes > MAX_RESPONSE
                 || c.source_bytes as u128 + c.metadata_bytes as u128 > c.wire_bytes as u128
@@ -1356,7 +1417,7 @@ fn validate_record(record: &Record, operation_id: &str) -> Result<(), String> {
                 || e.range.snapshot_id != record.binding.snapshot_id
                 || e.range.start_byte >= e.range.end_byte
                 || e.range.end_byte - e.range.start_byte > context::MAX_RANGE_BYTES
-                || (record.schema_version == 2
+                || (matches!(record.schema_version, 2 | 3)
                     && e.range.end_byte - e.range.start_byte > crate::native_citations::MAX_SPAN)
                 || !evidence_id(&record, &e.range).is_ok_and(|id| id == e.id)
         })

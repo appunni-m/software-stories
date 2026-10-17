@@ -2,6 +2,8 @@
 
 Status: native foundation implemented; progressive generation and reader integration remain open in Kata `3bz5`. This checkpoint does not replace the installed app or qualify an end-to-end partial answer.
 
+This report records commit `00325e6`. The subsequent [native protocol checkpoint](2026-10-17-progressive-section-protocol.md) adds versioned tool dispatch and shared native publication ownership; its later verification supersedes the storage-only integration status below.
+
 ## What this change establishes
 
 `evidence_ledger::sections` admits one complete draft section using the existing native citation resolver, claim alignment checks, chapter canonicalizer, exact delivered-range verifier and full chapter/diagram validator. A rejected claim or visual rejects the section. The caller's original proposal is retained with bounded fixed findings; the implementation does not delete an offending claim, rewrite identifiers or substitute source.

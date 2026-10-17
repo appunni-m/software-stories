@@ -6,7 +6,7 @@ export type RecordedAgentSettings = { backend: 'codex'; modelId: string; effort:
 
 /** Local dispatch lineage. This is not a cryptographic account attestation. */
 export interface ChapterGenerationOrigin {
-  schemaVersion: 1 | 2 | 3 | 4;
+  schemaVersion: 1 | 2 | 3 | 4 | 5;
   projectId: string;
   snapshotId: string;
   targetPath: string | null;

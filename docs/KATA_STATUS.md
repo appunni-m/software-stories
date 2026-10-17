@@ -4,13 +4,13 @@ Snapshot: **17 October 2026**, read from live project `code-atlas-rebuild` after
 
 ## Current generation gate
 
-The updated unsigned debug app builds and opens, retaining its saved Codex connection and nested reading position. The native suite passes **304 tests** (11 explicit probes ignored); frontend **145** and production build pass. Native citations resolve exact delivered captured spans without asking the model to copy source quotes.
+The installed unsigned native-citation debug app builds and opens, retaining its saved Codex connection and nested reading position. Its qualification passed **304 native tests** (11 explicit probes ignored), **145 frontend tests** and the production build. Native citations resolve exact delivered captured spans without asking the model to copy source quotes.
 
 The correctly configured frozen Fontdone GPT-6 Luna/max investigation still **failed after 358.714 seconds**, with no answer published. One identifier/evidence finding remained after correction; a separate source review found a required-versus-optional table error. [Exact evidence, limitations and timing](acceptance/2026-10-17-native-citation-references.md). This is not a quality, narration or two-minute latency pass.
 
 The next defined implementation gate is **`3bz5` [progressive answer sections](kata-tasks/73-progressive-answer-sections.md)**. It covers native section admission/checkpoints, agent proposals, partial outcomes, reader behavior and installed qualification. Citation reliability `yk6c`, retrieval `gk46`, quality `q0sm` and timing `ps02` remain open. Claude stays deferred; the existing account-backed Codex path and Pocket voice remain the current choices.
 
-The [progressive storage foundation](acceptance/2026-10-17-progressive-section-storage.md) is now implemented in the checkout; its full native suite passes 318 tests (11 live probes ignored), including 14 new storage regressions. It remains separate from the installed app: agent proposals, cancellation-lock integration, section events, reader/restart/retention UI and live qualification are pending. No task was closed by this implementation checkpoint.
+The latest checkout adds [progressive storage and the native proposal protocol](acceptance/2026-10-17-progressive-section-protocol.md), including shared Stop/permission ordering and immutable evidence checkpoints. Its full native suite passes **326 tests** (11 live probes ignored); frontend **145**, production frontend build and native library check pass. The workspace command and installed app still use the legacy final-chapter path. Background/final-manifest integration, section events, draft adoption, reader/restart/retention UI and live qualification remain pending. No task was closed by these implementation checkpoints.
 
 ## All task records
 
