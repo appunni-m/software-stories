@@ -116,11 +116,14 @@ path. Older direct-provider and non-progressive prompts still request diagrams;
 their existing output remains readable. Broad representation selection across
 languages and generation operations remains task `j53m` scope.
 
-The offline exporter currently retains typed presentation data and source links,
-but its visible visual fallback is the existing node/edge list. It does not yet
-reproduce these HTML compositions or assemble scene audio clips into an offline
-story. Export preview and the generated guide disclose this source-outline
-fallback. Do not describe that export as scene-faithful. Human visual quality,
+The schema-4 offline exporter renders HTML compositions and attaches verified
+cached audio to individual scenes, with matching transcripts and independent
+hashes. Source-backed visual values are omitted when cited excerpts are omitted.
+Graph scenes retain a source-outline fallback. Navigation and playback remain
+manual in the script-free export; it does not reproduce the app's automatic
+scene advancement or graph canvas. See [offline use and limits](OFFLINE_EXPORT.md).
+Native cache/export and actual browser playback qualification remain tracked.
+Human visual quality,
 pronunciation, pacing, comprehension and native accessibility still require
 their acceptance evidence. A schema pass or a screenshot cannot close those
 gates. See [Kata task](kata-tasks/37-generated-visuals.md) and

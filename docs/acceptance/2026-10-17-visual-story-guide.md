@@ -120,3 +120,11 @@ The prior installed app is retained at
 `/Users/lazytrot/Applications/Code Atlas.pre-visual-feedback-9c661e1.app`.
 The final fingerprint above qualifies the replacement/readback, not another
 inference or human listening run.
+
+## Later offline implementation checkpoint
+
+The earlier export limitation above describes this report's original build.
+The [subsequent offline-scenes checkpoint](2026-10-17-offline-visual-scenes.md)
+implements HTML composition export and scene-scoped cached audio, with synthetic
+package qualification. Actual accepted-chapter/cache and browser playback
+acceptance remain pending; the original generation evidence is unchanged.

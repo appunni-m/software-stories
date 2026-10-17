@@ -7,8 +7,10 @@ import type {
   NarrationAudio,
 } from './commands';
 import { inspectInteractiveVisual } from './visuals.ts';
+import { storyScenes } from './visualStory.ts';
+import { OFFLINE_SCENE_CSS, renderOfflineScene } from './offlineScene.ts';
 
-export const OFFLINE_PACKAGE_SCHEMA_VERSION = 3;
+export const OFFLINE_PACKAGE_SCHEMA_VERSION = 4;
 export const MAX_OFFLINE_HTML_BYTES = 25 * 1024 * 1024;
 const MAX_NARRATION_AUDIO_BYTES = 12 * 1024 * 1024;
 const MAX_NARRATION_TRANSCRIPT_BYTES = 16_000;
@@ -24,6 +26,7 @@ export interface OfflineExportOptions {
 export interface OfflineNarrationAudio {
   chapterRevisionId: string;
   sectionId: string;
+  sceneId?: string;
   exactText: string;
   audio: NarrationAudio;
 }
@@ -33,12 +36,13 @@ export type OfflineNarrationCacheScanState = 'idle' | 'loading' | 'ready' | 'des
 export interface OfflineNarrationOmission {
   chapterRevisionId: string;
   sectionId: string;
+  sceneId?: string;
   status: 'omitted' | 'unavailable';
   message: string;
 }
 
 export interface OfflineNarrationCoverage {
-  status: 'included' | 'not-selected' | 'checking' | 'transcript-only' | 'unavailable' | 'no-transcript';
+  status: 'included' | 'partial' | 'not-selected' | 'checking' | 'transcript-only' | 'unavailable' | 'no-transcript';
   message: string;
 }
 
@@ -72,7 +76,16 @@ export function buildOfflineNarrationCoverage(
           ? { status: 'not-selected', message: 'Cached audio was not selected; this section will be transcript-only.' }
           : { status: 'no-transcript', message: 'No chapter transcript is saved for this section; no audio will be included.' };
       } else if (cachedKeys.has(key)) {
-        entry = { status: 'included', message: 'Cached audio and its matching reviewed transcript will be included.' };
+        const tracks = cachedNarration.filter(track => sectionKey(track.chapterRevisionId, track.sectionId) === key);
+        const expected = storyScenes(section);
+        const expectedIds = new Set(expected.length > 1 ? expected.map(scene => scene.id) : []);
+        const sceneCount = new Set(tracks.flatMap(track => track.sceneId && expectedIds.has(track.sceneId) ? [track.sceneId] : [])).size;
+        const wholeTrack = tracks.some(track => track.sceneId === undefined);
+        entry = !wholeTrack && sceneCount === 0
+          ? { status: 'unavailable', message: 'Cached scene audio does not match this section; no audio will be included.' }
+          : !wholeTrack && sceneCount < expected.length
+          ? { status: 'partial', message: `${sceneCount} of ${expected.length} scenes have cached audio; the remaining scenes include their transcript.` }
+          : { status: 'included', message: 'Cached audio and its matching reviewed transcript will be included.' };
       } else if (scanState === 'loading' || scanState === 'idle') {
         entry = { status: 'checking', message: 'Checking this section for locally cached audio.' };
       } else if (scanState === 'desktop-only') {
@@ -112,6 +125,7 @@ export interface OfflineExportSectionPreview {
   narrationTranscript: string | null;
   typedVisual: 'included' | 'unavailable' | 'none';
   visualNote?: string;
+  sceneNarration: Array<{ sceneId: string; label: string; transcript: string; cached: boolean }>;
   references: OfflineExportReference[];
 }
 
@@ -153,6 +167,7 @@ export interface OfflinePackageManifest {
     snapshotId: string;
     anchorId?: string;
     sectionId?: string;
+    sceneId?: string;
     cacheFingerprint?: string;
     path?: string;
     startLine?: number;
@@ -164,6 +179,7 @@ export interface OfflinePackageManifest {
     sectionNavigation: 'included';
     citedExcerpts: 'included' | 'omitted';
     typedVisuals: 'included-when-supported';
+    visualScenes: 'included-when-supported';
     narrationAudio: 'included' | 'omitted' | 'none-cached';
   };
 }
@@ -195,6 +211,8 @@ interface SafeSection {
   visualUnavailable: boolean;
   hotspots: ChapterSection['hotspots'];
   narrationAudio: NarrationAudio | null;
+  sceneNarration: Array<{ sceneId: string; label: string; transcript: string; audio: NarrationAudio | null }>;
+  visualSourceValuesOmitted: boolean;
 }
 
 interface PreparedNarrationAudio extends OfflineNarrationAudio {
@@ -251,12 +269,12 @@ export function buildOfflineExportPreview(
 ): OfflineExportPreview {
   const selected = selectExportableRevisions(revisions, selectedRevisionIds);
   const selectedKeys = new Set(selected.flatMap((revision) => revision.sections.map((section) => sectionKey(revision.revisionId, section.sectionId))));
-  const narrationBySection = new Map<string, Pick<OfflineNarrationAudio, 'exactText'>>();
+  const narrationBySection = new Map<string, OfflineNarrationAudio>();
   for (const narration of narrationAudio) {
     const key = sectionKey(narration.chapterRevisionId, narration.sectionId);
-    if (selectedKeys.has(key)) narrationBySection.set(key, narration);
+    if (selectedKeys.has(key)) narrationBySection.set(narrationKey(narration.chapterRevisionId, narration.sectionId, narration.sceneId), narration);
   }
-  const chapters = selected.map((revision) => createSafeChapter(revision, narrationBySection));
+  const chapters = selected.map((revision) => createSafeChapter(revision, narrationBySection, includeExcerpts));
   const sourcePaths = [...new Set(chapters.flatMap((chapter) => chapter.references.map((reference) => reference.path)))].sort();
   const references = chapters.flatMap((chapter) => chapter.references);
   return {
@@ -275,8 +293,9 @@ export function buildOfflineExportPreview(
         typedVisual: section.visual
           ? 'included'
           : section.visualUnavailable ? 'unavailable' : 'none',
-        visualNote: section.visual?.presentation?.scenes.some((scene) => scene.mode === 'composition')
-          ? COMPOSITION_EXPORT_NOTE : undefined,
+        visualNote: section.visual?.presentation
+          ? `HTML scenes are included with manual scene navigation.${section.visualSourceValuesOmitted ? ' Source-backed visual values are omitted with the source excerpts.' : ''}` : undefined,
+        sceneNarration: section.sceneNarration.map(track => ({ sceneId: track.sceneId, label: track.label, transcript: track.transcript, cached: track.audio !== null })),
         references: section.references,
       })),
       sourcePaths: [...new Set(chapter.references.map((reference) => reference.path))].sort(),
@@ -306,7 +325,7 @@ export async function buildOfflineGuideHtml(
   const narrationAudio = options.includeNarrationAudio
     ? validateNarrationAudio(selected, options.narrationAudio ?? [])
     : new Map<string, PreparedNarrationAudio>();
-  const chapters = selected.map((revision) => createSafeChapter(revision, narrationAudio));
+  const chapters = selected.map((revision) => createSafeChapter(revision, narrationAudio, options.includeExcerpts));
   for (const chapter of chapters) {
     for (const section of chapter.sections) {
       section.narrationAudio = narrationAudio.get(sectionKey(chapter.revision.revisionId, section.section.sectionId))?.audio ?? null;
@@ -328,28 +347,36 @@ export async function buildOfflineGuideHtml(
           byteLength: bytes.byteLength,
         });
       }
-      const narration = narrationAudio.get(sectionKey(chapter.revision.revisionId, section.section.sectionId));
-      if (narration) {
-        const transcript = section.narrationTranscript ?? '';
+      const sectionTrack = narrationAudio.get(sectionKey(chapter.revision.revisionId, section.section.sectionId));
+      const tracks = sectionTrack
+        ? [{ narration: sectionTrack, transcript: section.narrationTranscript ?? '', sceneId: undefined }]
+        : section.sceneNarration.flatMap(scene => {
+          const narration = narrationAudio.get(narrationKey(chapter.revision.revisionId, section.section.sectionId, scene.sceneId));
+          return narration ? [{ narration, transcript: scene.transcript, sceneId: scene.sceneId }] : [];
+        });
+      for (const { narration, transcript, sceneId } of tracks) {
         const transcriptBytes = new TextEncoder().encode(transcript);
+        const suffix = sceneId ? `:scene:${sceneId}` : '';
         assets.push({
-          assetId: `narration-transcript:${chapter.revision.revisionId}:${section.section.sectionId}`,
+          assetId: `narration-transcript:${chapter.revision.revisionId}:${section.section.sectionId}${suffix}`,
           kind: 'narrationTranscript',
           mediaType: 'text/plain',
           chapterRevisionId: chapter.revision.revisionId,
           snapshotId: chapter.revision.snapshotId,
           sectionId: section.section.sectionId,
+          ...(sceneId ? { sceneId } : {}),
           cacheFingerprint: narration.audio.fingerprint,
           sha256: await sha256(transcriptBytes),
           byteLength: transcriptBytes.byteLength,
         });
         assets.push({
-          assetId: `narration:${chapter.revision.revisionId}:${section.section.sectionId}`,
+          assetId: `narration:${chapter.revision.revisionId}:${section.section.sectionId}${suffix}`,
           kind: 'narrationAudio',
           mediaType: 'audio/wav',
           chapterRevisionId: chapter.revision.revisionId,
           snapshotId: chapter.revision.snapshotId,
           sectionId: section.section.sectionId,
+          ...(sceneId ? { sceneId } : {}),
           cacheFingerprint: narration.audio.fingerprint,
           sha256: await sha256(narration.bytes),
           byteLength: narration.bytes.byteLength,
@@ -389,6 +416,7 @@ export async function buildOfflineGuideHtml(
       sectionNavigation: 'included',
       citedExcerpts: options.includeExcerpts ? 'included' : 'omitted',
       typedVisuals: 'included-when-supported',
+      visualScenes: 'included-when-supported',
       narrationAudio: narrationAudio.size > 0
         ? 'included'
         : options.includeNarrationAudio ? 'none-cached' : 'omitted',
@@ -419,7 +447,8 @@ function targetPaths(revision: ChapterRevision): string[] {
 
 function createSafeChapter(
   revision: ChapterRevision,
-  narrationBySection: ReadonlyMap<string, Pick<OfflineNarrationAudio, 'exactText'>> = new Map(),
+  narrationBySection: ReadonlyMap<string, OfflineNarrationAudio> = new Map(),
+  includeExcerpts = true,
 ): SafeChapter {
   const hiddenPaths = new Set<string>();
   for (const path of targetPaths(revision)) if (!isSafeOfflineSourcePath(path)) hiddenPaths.add(path);
@@ -469,7 +498,7 @@ function createSafeChapter(
       const visual = inspection.status === 'available'
         && inspection.visual.nodes.every((node) => node.evidenceAnchorIds.every((id) => safeAnchors.has(id)))
         && inspection.visual.edges.every((edge) => edge.evidenceAnchorIds.every((id) => safeAnchors.has(id)))
-        ? sanitizeVisual(inspection.visual, sanitizer.clean)
+        ? sanitizeVisual(inspection.visual, sanitizer.clean, includeExcerpts)
         : null;
       const visualAssetText = visual ? JSON.stringify(visual) : null;
       const hotspots = section.hotspots.map((hotspot) => ({
@@ -482,6 +511,11 @@ function createSafeChapter(
             : hotspot.destination,
       }));
       const narration = narrationBySection.get(sectionKey(revision.revisionId, section.sectionId));
+      const scenes = storyScenes(section);
+      const sceneNarration = !narration && scenes.length > 1 ? scenes.map((scene, index) => {
+        const track = narrationBySection.get(narrationKey(revision.revisionId, section.sectionId, scene.id));
+        return { sceneId: scene.id, label: `Scene ${index + 1}`, transcript: sanitizer.clean(track?.exactText ?? scene.narration).text, audio: track?.audio ?? null };
+      }) : [];
       return {
         section,
         title: sanitizer.clean(section.title).text,
@@ -495,6 +529,9 @@ function createSafeChapter(
         visualUnavailable: section.visual !== null && visual === null,
         hotspots,
         narrationAudio: null,
+        sceneNarration,
+        visualSourceValuesOmitted: !includeExcerpts && inspection.status === 'available'
+          && Boolean(inspection.visual.presentation?.scenes.some(scene => scene.elements.some(element => element.valueOrigin === 'source'))),
       };
     });
   const references = uniqueReferences(sections.flatMap((section) => section.references));
@@ -516,11 +553,24 @@ function validateNarrationAudio(
   candidates: readonly OfflineNarrationAudio[],
 ): Map<string, PreparedNarrationAudio> {
   const selectedKeys = new Set(revisions.flatMap((revision) => revision.sections.map((section) => sectionKey(revision.revisionId, section.sectionId))));
+  const allowedScenes = new Map(revisions.flatMap(revision => revision.sections.map(section => {
+    const scenes = storyScenes(section);
+    return [sectionKey(revision.revisionId, section.sectionId), new Set(scenes.length > 1 ? scenes.map(scene => scene.id) : [])] as const;
+  })));
   const prepared = new Map<string, PreparedNarrationAudio>();
+  let encodedBytes = 0;
   for (const candidate of candidates) {
-    const key = sectionKey(candidate.chapterRevisionId, candidate.sectionId);
-    if (!selectedKeys.has(key)) continue;
-    if (prepared.has(key)) throw new Error('Cached narration was supplied more than once for one chapter section.');
+    const sectionId = sectionKey(candidate.chapterRevisionId, candidate.sectionId);
+    if (!selectedKeys.has(sectionId)) continue;
+    const key = narrationKey(candidate.chapterRevisionId, candidate.sectionId, candidate.sceneId);
+    if (candidate.sceneId !== undefined && !allowedScenes.get(sectionId)?.has(candidate.sceneId)) {
+      throw new Error('A cached narration track does not match an authored scene in this section.');
+    }
+    if (prepared.has(key)) throw new Error('Cached narration was supplied more than once for one chapter section or scene.');
+    if ([...prepared.values()].some(track => sectionKey(track.chapterRevisionId, track.sectionId) === sectionId
+      && (track.sceneId === undefined || candidate.sceneId === undefined))) {
+      throw new Error('Choose either whole-section audio or scene audio for a section, without mixing their scripts.');
+    }
     if (typeof candidate.exactText !== 'string' || !candidate.exactText.trim()) {
       throw new Error('A cached narration asset is missing the exact reviewed transcript that produced it.');
     }
@@ -531,6 +581,8 @@ function validateNarrationAudio(
       throw new Error('A selected narration asset has an unsupported format or cache identity.');
     }
     const bytes = decodeAndValidateNarrationWav(candidate.audio.audioBase64);
+    encodedBytes += candidate.audio.audioBase64.length;
+    if (encodedBytes > MAX_OFFLINE_HTML_BYTES) throw new Error('The selected cached audio exceeds the 25 MB local export limit. Select fewer chapters or leave audio out.');
     prepared.set(key, { ...candidate, bytes });
   }
   return prepared;
@@ -591,7 +643,11 @@ function sectionKey(revisionId: string, sectionId: string): string {
   return `${revisionId}\u0000${sectionId}`;
 }
 
-function sanitizeVisual(visual: EvidenceLinkedVisualSpec, clean: (text: string) => SanitizedText): EvidenceLinkedVisualSpec {
+function narrationKey(revisionId: string, sectionId: string, sceneId?: string): string {
+  return sceneId === undefined ? sectionKey(revisionId, sectionId) : `${sectionKey(revisionId, sectionId)}\u0000${sceneId}`;
+}
+
+function sanitizeVisual(visual: EvidenceLinkedVisualSpec, clean: (text: string) => SanitizedText, includeExcerpts: boolean): EvidenceLinkedVisualSpec {
   return {
     ...visual,
     title: clean(visual.title).text,
@@ -601,6 +657,16 @@ function sanitizeVisual(visual: EvidenceLinkedVisualSpec, clean: (text: string) 
       detail: node.detail === null ? null : clean(node.detail).text,
     })),
     edges: visual.edges.map((edge) => ({ ...edge, label: clean(edge.label).text })),
+    ...(visual.presentation ? { presentation: {
+      ...visual.presentation,
+      scenes: visual.presentation.scenes.map(scene => ({
+        ...scene,
+        title: clean(scene.title).text,
+        elements: scene.elements.map(element => !includeExcerpts && element.valueOrigin === 'source'
+          ? { ...element, kind: 'card' as const, value: '', valueOrigin: 'none' as const }
+          : { ...element, value: clean(element.value).text }),
+      })),
+    } } : {}),
   };
 }
 
@@ -761,7 +827,9 @@ function renderPackage(
       const transcript = transcriptText.trim()
         ? `<details class="transcript"><summary>Narration transcript</summary><p class="prose">${escapeHtml(transcriptText)}</p></details>`
         : '<p class="muted">No narration transcript was saved for this section.</p>';
-      return `<section class="section" id="${sectionId}"><p class="eyebrow">SECTION ${sectionIndex + 1} OF ${chapter.sections.length}</p><h3>${escapeHtml(section.title)}</h3><p class="prose">${escapeHtml(section.prose)}</p>${transcript}${narration}${claims ? `<section class="evidence"><h4>What supports this explanation?</h4>${claims}</section>` : ''}${visual}${renderEvidenceAppendix(chapter, section, chapterIndex, evidenceIds, includeExcerpts)}<nav class="section-nav" aria-label="Section navigation">${previousLink}${nextLink}</nav></section>`;
+      const sceneTracks = !section.visual?.presentation && section.sceneNarration.length > 0
+        ? `<section aria-label="Scene narration">${section.sceneNarration.map(scene => renderSceneNarration(scene)).join('')}</section>` : '';
+      return `<section class="section" id="${sectionId}"><p class="eyebrow">SECTION ${sectionIndex + 1} OF ${chapter.sections.length}</p><h3>${escapeHtml(section.title)}</h3>${narration}${visual}${sceneTracks}<details class="section-notes"><summary>Read section notes</summary><p class="prose">${escapeHtml(section.prose)}</p>${transcript}${claims ? `<section class="evidence"><h4>What supports this explanation?</h4>${claims}</section>` : ''}</details>${renderEvidenceAppendix(chapter, section, chapterIndex, evidenceIds, includeExcerpts)}<nav class="section-nav" aria-label="Section navigation">${previousLink}${nextLink}</nav></section>`;
     }).join('');
     const omitted = chapter.hiddenReferencesOmitted > 0
       ? `<p class="notice">${chapter.hiddenReferencesOmitted} source reference${chapter.hiddenReferencesOmitted === 1 ? '' : 's'} to hidden or sensitive paths were omitted. Some claims may have less bundled evidence.</p>`
@@ -787,6 +855,7 @@ function renderPackage(
 <title>Code Atlas · Offline guide</title>
 <style>
 :root{color-scheme:light;--ink:#18231c;--muted:#56665b;--line:#d8e0d9;--paper:#f7f9f6;--panel:#fff;--green:#315e3e;--soft:#edf4ed}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}a{color:var(--green);text-underline-offset:3px}a:focus-visible{outline:3px solid #b36b00;outline-offset:3px}header.page{padding:42px max(22px,calc((100vw - 1080px)/2));background:#17251b;color:#f4f8f2}header.page h1{max-width:780px;margin:8px 0;font-size:clamp(28px,5vw,48px);line-height:1.1}header.page p{max-width:760px;color:#c8d4c9}.eyebrow{margin:0;color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}.page .eyebrow{color:#a8c5a9}.wrap{width:min(1080px,calc(100% - 36px));margin:0 auto}.notice{padding:12px 14px;border:1px solid #c28a35;border-radius:8px;background:#fff7e8;color:#614619}.guide-layout{display:grid;grid-template-columns:minmax(220px,280px) minmax(0,1fr);gap:26px;padding:28px 0 60px}.contents{align-self:start;position:sticky;top:16px;max-height:calc(100vh - 32px);overflow:auto;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}.contents h2{margin:0 0 10px;font-size:17px}.contents ol{padding-left:20px}.contents li{margin:6px 0}.contents span{display:block;color:var(--muted);font-size:12px;overflow-wrap:anywhere}.chapter{margin:0 0 30px;padding:24px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}.chapter>header{padding-bottom:15px;border-bottom:1px solid var(--line)}.chapter h2{margin:5px 0;font-size:clamp(23px,3vw,34px);line-height:1.2}.chapter h3{margin:8px 0 14px;font-size:clamp(20px,2.5vw,27px);line-height:1.25}.section{padding:22px 0 26px;border-bottom:1px solid var(--line);scroll-margin-top:16px}.section:last-child{border-bottom:0}.prose{font-size:17px}.evidence,.visual,.excerpt,.narration-audio{margin:18px 0;padding:16px;border:1px solid var(--line);border-radius:10px;background:#fbfcfa}.evidence h4,.visual h4,.excerpt h4,.narration-audio h4{margin:0 0 12px;font-size:16px}.narration-audio audio{display:block;width:min(100%,520px)}.claim{margin:10px 0;padding:12px;border-left:3px solid #8ca98e;background:var(--soft)}.claim p{margin:4px 0}.citations{margin:6px 0;padding-left:20px}.inference{color:#6a501e}.muted{color:var(--muted)}.diagram{display:grid;gap:10px;list-style:none;padding:0}.diagram-node{padding:13px;border:1px solid #bfd0c1;border-radius:8px;background:#f3f8f2}.diagram-node strong{display:block}.diagram-node small{display:block;color:var(--muted)}.diagram-edge{padding:8px 12px;color:var(--muted);border-left:2px solid #9ab39c}.diagram-links{margin:7px 0 0;padding-left:18px;font-size:14px}.hotspot{display:inline-block;margin:8px 5px 0 0;padding:3px 8px;border:1px solid #c7d5c8;border-radius:999px;background:#fff;font-size:13px}.excerpt pre,.manifest pre,.visual-source pre{max-width:100%;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}.reference-meta{color:var(--muted);font-size:13px}.visual-source{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}.visual-source summary{cursor:pointer;color:var(--muted);font-size:13px}.visual-source pre{max-height:360px;margin-top:8px;padding:10px;border-radius:6px;background:#f1f4f0}.section-nav{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}.section-nav a{display:inline-block;padding:8px 12px;border:1px solid var(--line);border-radius:8px;text-decoration:none}.section-nav .primary{background:var(--green);color:#fff;border-color:var(--green)}.manifest{margin:30px 0;padding:18px;border:1px solid var(--line);border-radius:10px;background:#fff}.manifest summary{cursor:pointer;font-weight:700}.manifest pre{max-height:480px}.page-footer{padding:22px 0;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+${OFFLINE_SCENE_CSS}
 @media(max-width:760px){.guide-layout{grid-template-columns:1fr}.contents{position:static;max-height:none}.chapter{padding:17px}.section-nav{align-items:stretch;flex-direction:column}.section-nav a{width:100%}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
@@ -798,9 +867,41 @@ function renderPackage(
 </html>`;
 }
 
-const COMPOSITION_EXPORT_NOTE = 'This export includes the scene’s source outline. The interactive visual layout is available in Code Atlas.';
-
 function renderVisual(
+  revision: ChapterRevision,
+  section: SafeSection,
+  sectionIds: Map<string, string>,
+  evidenceIds: Map<string, string>,
+): string {
+  if (section.visual?.presentation) {
+    const visual = section.visual;
+    const prefix = sectionIds.get(`${revision.revisionId}:${section.section.sectionId}`)!;
+    const scenes = visual.presentation!.scenes;
+    const frames = scenes.map((scene, index) => {
+      const href = (nodeIndex: number) => {
+        const anchorId = visual.nodes[nodeIndex].evidenceAnchorIds.find(id => evidenceIds.has(`${revision.revisionId}:${id}`));
+        return anchorId ? `#${evidenceIds.get(`${revision.revisionId}:${anchorId}`)}` : undefined;
+      };
+      const representation = scene.mode === 'composition' ? renderOfflineScene(scene, visual, href)
+        : `<p class="muted">${escapeHtml(scene.title)} · Graph relationships are available in the source outline below.</p>`;
+      const narration = section.sceneNarration.find(track => track.sceneId === section.section.claims[scene.claimIndex]?.claimId);
+      const previous = index > 0 ? `<a href="#${prefix}-scene-${index}">Previous scene</a>` : '<span></span>';
+      const next = index + 1 < scenes.length ? `<a href="#${prefix}-scene-${index + 2}">Next scene</a>` : '<span>End of section</span>';
+      return `<section class="offline-story-scene" id="${prefix}-scene-${index + 1}" aria-label="Scene ${index + 1}: ${escapeHtml(scene.title)}"><nav class="scene-nav" aria-label="Scene navigation">${previous}<span>Scene ${index + 1} of ${scenes.length}</span>${next}</nav>${narration ? renderSceneNarration(narration) : ''}${representation}</section>`;
+    }).join('');
+    const omitted = section.visualSourceValuesOmitted ? '<p class="notice">Source-backed visual values were omitted with the source excerpts. Their labels and citations remain.</p>' : '';
+    return `${omitted}${frames}<details class="visual-source"><summary>Source outline and diagram data</summary>${renderVisualOutline(revision, section, sectionIds, evidenceIds)}</details>`;
+  }
+  return renderVisualOutline(revision, section, sectionIds, evidenceIds);
+}
+
+function renderSceneNarration(scene: SafeSection['sceneNarration'][number]): string {
+  const audio = scene.audio ? `<audio controls preload="none" aria-label="Narration for ${escapeHtml(scene.label)}" src="data:audio/wav;base64,${scene.audio.audioBase64}">This browser cannot play the bundled narration audio.</audio>`
+    : '<p class="muted">No cached audio is included for this scene.</p>';
+  return `<div class="narration-audio"><h4>${escapeHtml(scene.label)}</h4>${audio}<details class="scene-transcript"><summary>Read narration</summary><p>${escapeHtml(scene.transcript)}</p></details></div>`;
+}
+
+function renderVisualOutline(
   revision: ChapterRevision,
   section: SafeSection,
   sectionIds: Map<string, string>,
@@ -832,9 +933,7 @@ function renderVisual(
   }).join('');
   const type = typedVisual.kind === 'dataFlow' ? 'Data flow' : typedVisual.kind === 'sequence' ? 'Sequence' : 'Hierarchy';
   const visualData = section.visualAssetText ? `<details class="visual-source"><summary>Typed diagram data · JSON</summary><pre>${escapeHtml(section.visualAssetText)}</pre></details>` : '';
-  const compositionNote = typedVisual.presentation?.scenes.some((scene) => scene.mode === 'composition')
-    ? `<p class="notice">${COMPOSITION_EXPORT_NOTE}</p>` : '';
-  return `<figure class="visual"><figcaption><p class="eyebrow">${type} diagram</p><h4>${escapeHtml(typedVisual.title)}</h4><p class="muted">App-rendered from the accepted typed diagram. No chapter HTML, script, or CSS is executed.</p>${compositionNote}</figcaption><ol class="diagram">${nodes}</ol>${visualData}</figure>`;
+  return `<figure class="visual"><figcaption><p class="eyebrow">${type} diagram</p><h4>${escapeHtml(typedVisual.title)}</h4><p class="muted">App-rendered from the accepted typed diagram. No chapter HTML, script, or CSS is executed.</p></figcaption><ol class="diagram">${nodes}</ol>${visualData}</figure>`;
 }
 
 function renderVisualWithDom(
@@ -857,9 +956,6 @@ function renderVisualWithDom(
   caption.append(element('p', 'eyebrow', `${type} diagram`));
   caption.append(element('h4', undefined, visual.title));
   caption.append(element('p', 'muted', 'App-rendered from the accepted typed diagram. No chapter HTML, script, or CSS is executed.'));
-  if (visual.presentation?.scenes.some((scene) => scene.mode === 'composition')) {
-    caption.append(element('p', 'notice', COMPOSITION_EXPORT_NOTE));
-  }
   figure.append(caption);
   const list = element('ol', 'diagram');
   for (const [nodeIndex, node] of visual.nodes.entries()) {

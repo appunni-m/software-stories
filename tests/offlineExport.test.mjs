@@ -100,6 +100,28 @@ const narrationWav = () => {
   return wav;
 };
 
+const sceneChapter = () => {
+  const first = section();
+  first.claims = [
+    { ...first.claims[0], claimId: 'claim:input', prose: 'main receives input.' },
+    { ...first.claims[0], claimId: 'claim:return', prose: 'run returns the result.', anchors: [sourceAnchor('anchor:return')] },
+  ];
+  first.visual.nodes[1].evidenceAnchorIds = ['anchor:return'];
+  first.prose = first.spokenText = first.claims.map(claim => claim.prose).join(' ');
+  first.visual.presentation = { schemaVersion: 1, scenes: first.claims.map((_claim, claimIndex) => ({
+    claimIndex, title: claimIndex === 0 ? 'Incoming call' : 'Returned result', mode: 'composition', elements: [
+      { kind: 'row', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
+      { kind: 'code', parentIndex: 0, nodeIndex: claimIndex, tone: 'accent', value: 'run()', valueOrigin: 'source' },
+    ],
+  })) };
+  return chapter({ sections: [first] });
+};
+
+const sceneTrack = (sceneId, exactText = `Reviewed ${sceneId}.`) => ({
+  chapterRevisionId: 'revision:one', sectionId: 'section:request', sceneId, exactText,
+  audio: { fingerprint: 'b'.repeat(64), mimeType: 'audio/wav', audioBase64: narrationWav().toString('base64'), cacheHit: true },
+});
+
 describe('offline chapter export', () => {
   it('includes only selected accepted revisions and records revision and snapshot identities', async () => {
     const accepted = chapter();
@@ -148,7 +170,7 @@ describe('offline chapter export', () => {
     assert.match(result.html, /Typed diagram data · JSON/);
   });
 
-  it('discloses the composition layout fallback in the preview and exported guide', async () => {
+  it('renders HTML compositions with local source links and manual scene navigation', async () => {
     const visual = typedVisual();
     visual.presentation = { schemaVersion: 1, scenes: [{
       claimIndex: 0, title: 'Request input', mode: 'composition', elements: [
@@ -159,17 +181,21 @@ describe('offline chapter export', () => {
     const revisions = [chapter({ sections: [section({ visual })] })];
     const preview = buildOfflineExportPreview(revisions, ['revision:one'], true);
     const notice = preview.chapters[0].sections[0].visualNote;
-    assert.match(notice, /source outline/);
+    assert.match(notice, /HTML scenes are included/);
     assert.equal(preview.chapters[0].sections[0].typedVisual, 'included');
     const result = await buildOfflineGuideHtml(revisions, {
       selectedRevisionIds: ['revision:one'], includeExcerpts: true, exportedAtUnixMs: 10,
     });
-    assert.ok(result.html.includes(notice));
+    assert.match(result.html, /class="offline-scene"/);
+    assert.match(result.html, /class="scene-element scene-code scene-tone-accent scene-content" href="#evidence-1-1"/);
+    assert.match(result.html, /<pre><code>run\(\)<\/code><\/pre>/);
+    assert.match(result.html, /id="section-1-1-scene-1"/);
+    assert.doesNotMatch(result.html, /interactive visual layout is available in Code Atlas/);
     const asset = result.manifest.assets.find((candidate) => candidate.kind === 'typedVisual');
     assert.equal(asset.sha256, createHash('sha256').update(JSON.stringify(visual)).digest('hex'));
   });
 
-  it('embeds selected cached WAV tracks with their exact sanitized reviewed transcript and hashes in schema 3', async () => {
+  it('embeds selected cached WAV tracks with their exact sanitized reviewed transcript and hashes in schema 4', async () => {
     const wav = narrationWav();
     const persistedScript = 'Outdated accepted script must not appear beside different audio.';
     const exactReviewedText = 'Read the cached voice script. Token ghp_0123456789abcdefghijklmnopqrstuvwx at /Users/alice/private-project.';
@@ -198,7 +224,7 @@ describe('offline chapter export', () => {
     });
     const bundled = result.manifest.assets.find((asset) => asset.kind === 'narrationAudio');
     const transcript = result.manifest.assets.find((asset) => asset.kind === 'narrationTranscript');
-    assert.equal(result.manifest.schemaVersion, 3);
+    assert.equal(result.manifest.schemaVersion, 4);
     assert.equal(result.manifest.features.narrationAudio, 'included');
     assert.deepEqual(bundled, {
       assetId: 'narration:revision:one:section:request',
@@ -427,6 +453,80 @@ describe('offline chapter export', () => {
     await assert.rejects(buildOfflineGuideHtml([chapter()], {
       selectedRevisionIds: ['revision:one', 'revision:one'], includeExcerpts: true,
     }), /selected more than once/);
+  });
+
+  it('attaches each cached scene to its exact reviewed transcript and records independent hashes', async () => {
+    const accepted = sceneChapter();
+    const tracks = [sceneTrack('claim:input', 'Reviewed incoming narration.'), sceneTrack('claim:return', 'Reviewed return narration.')];
+    const before = structuredClone(accepted);
+    const preview = buildOfflineExportPreview([accepted], [accepted.revisionId], true, tracks);
+    assert.deepEqual(preview.chapters[0].sections[0].sceneNarration.map(track => [track.sceneId, track.cached, track.transcript]), [
+      ['claim:input', true, 'Reviewed incoming narration.'], ['claim:return', true, 'Reviewed return narration.'],
+    ]);
+    const result = await buildOfflineGuideHtml([accepted], { selectedRevisionIds: [accepted.revisionId], includeExcerpts: true,
+      includeNarrationAudio: true, narrationAudio: tracks, exportedAtUnixMs: 10 });
+    const audio = result.manifest.assets.filter(asset => asset.kind === 'narrationAudio');
+    assert.deepEqual(audio.map(asset => asset.sceneId), ['claim:input', 'claim:return']);
+    assert.equal(new Set(audio.map(asset => asset.assetId)).size, 2);
+    assert.ok(audio.every(asset => asset.sha256 === createHash('sha256').update(narrationWav()).digest('hex')));
+    assert.equal((result.html.match(/<audio controls/g) ?? []).length, 2);
+    const frames = result.html.split('class="offline-story-scene"');
+    assert.match(frames[1], /Reviewed incoming narration\./);
+    assert.doesNotMatch(frames[1], /Reviewed return narration\./);
+    assert.match(frames[2], /Reviewed return narration\./);
+    assert.match(result.html, /href="#section-1-1-scene-2"/);
+    assert.match(result.html, /href="#section-1-1-scene-1"/);
+    assert.equal(result.manifest.features.visualScenes, 'included-when-supported');
+    assert.deepEqual(accepted, before);
+  });
+
+  it('reports partial scene audio and never substitutes a whole-section recording', async () => {
+    const accepted = sceneChapter(); const tracks = [sceneTrack('claim:input')];
+    const coverage = buildOfflineNarrationCoverage([accepted], [accepted.revisionId], true, 'ready', tracks, []);
+    const state = coverage.get(`revision:one\u0000section:request`);
+    assert.equal(state.status, 'partial');
+    assert.match(state.message, /1 of 2 scenes/);
+    assert.equal(buildOfflineNarrationCoverage([accepted], [accepted.revisionId], true, 'ready', [sceneTrack('claim:foreign')], [])
+      .get(`revision:one\u0000section:request`).status, 'unavailable');
+    const result = await buildOfflineGuideHtml([accepted], { selectedRevisionIds: [accepted.revisionId], includeExcerpts: true,
+      includeNarrationAudio: true, narrationAudio: tracks });
+    assert.equal(result.manifest.assets.filter(asset => asset.kind === 'narrationAudio').length, 1);
+    assert.match(result.html, /No cached audio is included for this scene/);
+    assert.match(result.html, /run returns the result/);
+    const invalid = [
+      [sceneTrack('claim:foreign')],
+      [tracks[0], tracks[0]],
+      [tracks[0], { ...tracks[0], sceneId: undefined }],
+    ];
+    for (const narrationAudio of invalid) await assert.rejects(buildOfflineGuideHtml([accepted], {
+      selectedRevisionIds: [accepted.revisionId], includeExcerpts: true, includeNarrationAudio: true, narrationAudio,
+    }), /authored scene|more than once|without mixing/);
+    const omitted = await buildOfflineGuideHtml([accepted], { selectedRevisionIds: [accepted.revisionId], includeExcerpts: true,
+      includeNarrationAudio: false, narrationAudio: tracks });
+    assert.equal(omitted.manifest.features.narrationAudio, 'omitted');
+    assert.doesNotMatch(omitted.html, /Reviewed claim:input/);
+  });
+
+  it('filters scene titles and values from visible HTML and typed assets, and omits source-backed values on request', async () => {
+    const accepted = sceneChapter();
+    const secret = 'ghp_0123456789abcdefghijklmnopqrstuvwx';
+    for (const claim of accepted.sections[0].claims) claim.anchors[0].excerpt = `const example = "${secret}";`;
+    for (const scene of accepted.sections[0].visual.presentation.scenes) {
+      scene.title = `At /Users/alice/private-project ${secret}`;
+      scene.elements[1].value = secret;
+    }
+    const result = await buildOfflineGuideHtml([accepted], { selectedRevisionIds: [accepted.revisionId], includeExcerpts: true });
+    assert.doesNotMatch(result.html, new RegExp(secret));
+    assert.doesNotMatch(result.html, /\/Users\/alice/);
+    assert.match(result.html, /\[redacted credential\]/);
+    assert.match(result.html, /\[local path omitted\]/);
+    const ordinary = sceneChapter();
+    const preview = buildOfflineExportPreview([ordinary], [ordinary.revisionId], false);
+    assert.match(preview.chapters[0].sections[0].visualNote, /Source-backed visual values are omitted/);
+    const omitted = await buildOfflineGuideHtml([ordinary], { selectedRevisionIds: [ordinary.revisionId], includeExcerpts: false });
+    assert.doesNotMatch(omitted.html, /run\(\)/);
+    assert.match(omitted.html, /Source-backed visual values were omitted/);
+    assert.match(omitted.html, /class="offline-scene"/);
   });
 
   it('shows a clear message for unsupported visuals and invalid selection', async () => {

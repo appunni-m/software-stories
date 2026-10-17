@@ -36,3 +36,33 @@ Export selected accepted chapters with/without excerpts and audio, review the pe
 - [ ] Record unchanged source history and clear unsupported/malformed-package errors.
 
 No tests or builds were run during the October 15 static bug-fix pass. Keep acceptance open until its required evidence is recorded.
+
+## October 17 HTML scenes and scene audio implementation
+
+Export now renders validated HTML compositions with manual scene/source links,
+collapsed notes and independently scoped cached scene audio. Graphs retain a
+disclosed source outline. Shared player/export preferences preserve custom
+whole-section scripts; missing scene clips show partial coverage. Schema 4
+hashes every included transcript/audio asset. Omitting excerpts also removes
+declared source-backed visual values, while common credential/path filtering
+now covers presentation titles and values. Audio is not rewritten by filtering.
+
+The synthetic two-scene Pocket fixture passed all four excerpt/audio package
+combinations, local-link/asset-hash checks and input-immutability assertions.
+Frontend 179 tests and native 346 tests passed (12 explicit live probes ignored),
+and the unsigned app built. These are not actual accepted-chapter/cache or
+browser playback acceptance. The native Fontdone export dialog has no accepted
+revision; saved drafts were not changed to create a pass. Computer-use policy
+blocked opening the local HTML; manual review remains unreported.
+See [scoped evidence](../acceptance/2026-10-17-offline-visual-scenes.md).
+
+- [ ] Export genuine accepted chapters through the native preview, covering
+  scene-scoped clips, custom whole scripts and partial/missing cached audio.
+- [ ] Open all four source/audio combinations with network disconnected;
+  exercise every section, scene/source link, native audio control, keyboard
+  focus and narrow layout, recording exact browser/build versions.
+- [ ] Match preview text, native fingerprints and package hashes; inspect source
+  omissions and confirm source history is unchanged.
+- [ ] Record human listening/comprehension independently of worker success.
+
+Keep this task open until the required installed/browser evidence is recorded.

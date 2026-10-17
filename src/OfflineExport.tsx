@@ -7,7 +7,7 @@ import {
   loadReviewedNarrationAudio,
   type ChapterRevision,
 } from './lib/commands';
-import { defaultNarrationText, parseNarrationPreferences } from './lib/narration';
+import { sectionNarrationScopes, type NarrationScope } from './lib/narrationScope';
 import { applyVoiceConnection } from './lib/voiceConnection';
 import { useVoiceConnection } from './lib/voiceConnectionStore';
 import { errorMessageOr } from './lib/errorMessage';
@@ -78,7 +78,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
     [selected, selectedRevisionIds, includeNarrationAudio, narrationCacheScan, cachedNarration, narrationOmissions],
   );
   const sectionsWithoutUsableAudio = [...narrationCoverage.values()].filter((entry) =>
-    entry.status === 'transcript-only' || entry.status === 'unavailable' || entry.status === 'no-transcript',
+    entry.status === 'partial' || entry.status === 'transcript-only' || entry.status === 'unavailable' || entry.status === 'no-transcript',
   ).length;
   const hiddenTargetCount = acceptedRevisions.length - exportableRevisions.length;
 
@@ -109,75 +109,51 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
       for (const revision of revisionsToScan) {
         for (const section of revision.sections) {
           if (!active) return;
-          const storageKey = `code-atlas:narration:${projectId}:${revision.chapterId}:${revision.revisionId}:${section.sectionId}`;
-          let serialized: string | null = null;
-          try { serialized = window.localStorage.getItem(storageKey); } catch {
-            omissions.push({
-              chapterRevisionId: revision.revisionId,
-              sectionId: section.sectionId,
-              status: 'unavailable',
-              message: 'Saved narration settings could not be read; cached audio cannot be safely matched.',
-            });
+          let scopes: NarrationScope[];
+          try {
+            scopes = sectionNarrationScopes(revision, section, key => window.localStorage.getItem(key));
+          } catch {
+            omissions.push({ chapterRevisionId: revision.revisionId, sectionId: section.sectionId,
+              status: 'unavailable', message: 'Saved narration settings could not be read; cached audio cannot be safely matched.' });
             unavailable = true;
             continue;
           }
-          const preferences = applyVoiceConnection(parseNarrationPreferences(serialized, defaultNarrationText(section.spokenText)), voiceConnection);
-          if (!preferences.spokenText.trim()) continue;
-          let reviewId: string | null = null;
-          try {
-            const reviewResult = await buildNarrationRequestReview(preferences);
-            if (reviewResult.status !== 'ok') {
-              omissions.push({
-                chapterRevisionId: revision.revisionId,
-                sectionId: section.sectionId,
-                status: 'unavailable',
-                message: 'Audio cache could not be checked; this section will remain transcript-only.',
-              });
+          for (const scope of scopes) {
+            if (!active) return;
+            const identity = { chapterRevisionId: revision.revisionId, sectionId: section.sectionId,
+              ...(scope.sceneId ? { sceneId: scope.sceneId } : {}) };
+            const preferences = applyVoiceConnection(scope.preferences, voiceConnection);
+            if (!preferences.spokenText.trim()) continue;
+            let reviewId: string | null = null;
+            try {
+              const reviewResult = await buildNarrationRequestReview(preferences);
+              if (reviewResult.status !== 'ok') {
+                omissions.push({ ...identity, status: 'unavailable', message: 'Audio cache could not be checked; this track will remain transcript-only.' });
+                unavailable = true;
+                continue;
+              }
+              const review = reviewResult.data;
+              reviewId = review.reviewId;
+              if (!active) continue;
+              if (!review.cachedAudioAvailable) {
+                omissions.push({ ...identity, status: 'omitted', message: 'No matching cached audio was found; this track will remain transcript-only.' });
+                continue;
+              }
+              const audioResult = await loadReviewedNarrationAudio({ reviewId: review.reviewId, fingerprint: review.fingerprint });
+              if (!active) continue;
+              if (audioResult.status === 'ok' && audioResult.data.fingerprint === review.fingerprint) {
+                found.push({ ...identity, exactText: review.exactText, audio: audioResult.data,
+                  chapterTitle: revision.title, sectionTitle: scope.sceneId ? `${section.title} · ${scope.label}` : section.title });
+              } else {
+                omissions.push({ ...identity, status: 'unavailable', message: 'Saved audio could not be verified; it will be omitted and the transcript retained.' });
+                unavailable = true;
+              }
+            } catch {
+              omissions.push({ ...identity, status: 'unavailable', message: 'Audio cache could not be read; audio is omitted and the transcript retained.' });
               unavailable = true;
-              continue;
+            } finally {
+              if (reviewId) await discardNarrationRequestReview(reviewId).catch(() => {});
             }
-            const review = reviewResult.data;
-            reviewId = review.reviewId;
-            if (!active) continue;
-            if (!review.cachedAudioAvailable) {
-              omissions.push({
-                chapterRevisionId: revision.revisionId,
-                sectionId: section.sectionId,
-                status: 'omitted',
-                message: 'No matching cached audio was found; this section will remain transcript-only.',
-              });
-              continue;
-            }
-            const audioResult = await loadReviewedNarrationAudio({ reviewId: review.reviewId, fingerprint: review.fingerprint });
-            if (!active) continue;
-            if (audioResult.status === 'ok' && audioResult.data.fingerprint === review.fingerprint) {
-              found.push({
-                chapterRevisionId: revision.revisionId,
-                sectionId: section.sectionId,
-                exactText: review.exactText,
-                audio: audioResult.data,
-                chapterTitle: revision.title,
-                sectionTitle: section.title,
-              });
-            } else {
-              omissions.push({
-                chapterRevisionId: revision.revisionId,
-                sectionId: section.sectionId,
-                status: 'unavailable',
-                message: 'Saved audio could not be verified; it will be omitted and the transcript retained.',
-              });
-              unavailable = true;
-            }
-          } catch {
-            omissions.push({
-              chapterRevisionId: revision.revisionId,
-              sectionId: section.sectionId,
-              status: 'unavailable',
-              message: 'Audio cache could not be read; audio is omitted and the transcript retained.',
-            });
-            unavailable = true;
-          } finally {
-            if (reviewId) await discardNarrationRequestReview(reviewId).catch(() => {});
           }
         }
       }
@@ -307,7 +283,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
             <div className="provider-dialog-content offline-export-content">
               <section className="offline-export-callout" aria-label="Offline feature limits">
                 <FileCode2 size={16} />
-                <p><strong>What works offline:</strong> written sections, cited source excerpts when included, section navigation, supported typed diagrams, and cached narration when selected. <strong>Not included:</strong> live Atlas or Code Lens destinations. Legacy or malformed diagrams show a message instead of running chapter-provided markup.</p>
+                <p><strong>What works offline:</strong> written sections, cited source excerpts when included, section navigation, HTML visual scenes, source outlines for graphs, manual scene navigation, and cached narration when selected. <strong>Not included:</strong> live Atlas or Code Lens destinations. Legacy or malformed diagrams show a message instead of running chapter-provided markup.</p>
               </section>
 
               <section className="offline-export-chapters" aria-labelledby="offline-export-chapters-title">
@@ -331,7 +307,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
 
               <section className="offline-export-excerpts" aria-labelledby="offline-export-excerpts-title">
                 <div className="offline-export-section-heading"><div><span className="provider-kicker">SOURCE EVIDENCE</span><h3 id="offline-export-excerpts-title">Cited excerpts</h3></div><span>{preview.includedExcerptCount} included</span></div>
-                <label className="offline-export-include-option"><input type="checkbox" checked={includeExcerpts} onChange={(event) => { setIncludeExcerpts(event.target.checked); setPrivacyReviewed(false); }} /><span><strong>Bundle cited source excerpts</strong><small>On by default. Turn this off to include only citation paths and line ranges.</small></span></label>
+                <label className="offline-export-include-option"><input type="checkbox" checked={includeExcerpts} onChange={(event) => { setIncludeExcerpts(event.target.checked); setPrivacyReviewed(false); }} /><span><strong>Bundle cited source excerpts</strong><small>Turn off to omit source quotes and source-backed visual values. Citation paths and line ranges remain.</small></span></label>
                 {selected.length === 0 ? <p className="offline-export-empty">Select at least one accepted chapter to preview its names, paths, and cited excerpts.</p> : (
                   <div className="offline-export-preview-list">
                     {preview.chapters.map((chapter) => (
@@ -346,6 +322,10 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
                               <strong>{section.title}</strong>
                               <p className="offline-export-muted">Typed diagram asset: {section.typedVisual === 'included' ? 'included' : section.typedVisual === 'unavailable' ? 'unsupported diagram omitted with an explanation' : 'none attached'}.</p>
                               {section.visualNote && <p className="offline-export-muted">{section.visualNote}</p>}
+                              {section.sceneNarration.map(scene => <details key={scene.sceneId}>
+                                <summary>{scene.label} · {scene.cached ? 'cached audio and matching transcript' : 'transcript only'}</summary>
+                                <pre>{scene.transcript}</pre>
+                              </details>)}
                               {audioCoverage !== undefined && <p className="offline-export-muted">
                                 Narration: {audioCoverage.message}
                               </p>}
@@ -384,10 +364,10 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
                 {includeNarrationAudio && narrationCacheScan === 'ready' && cachedNarration.length === 0 && <p className="offline-export-muted" role="status">No cached narration was found. The guide will remain text-only.</p>}
                 {includeNarrationAudio && narrationCacheScan === 'unavailable' && <p className="offline-export-muted" role="status">Some saved audio could not be read. Only verified cached tracks will be included; no new narration request was sent.</p>}
                 {includeNarrationAudio && narrationCacheScan === 'desktop-only' && <p className="offline-export-muted" role="status">No desktop audio cache is available in this browser preview.</p>}
-                {includeNarrationAudio && narrationCacheScan !== 'loading' && narrationCacheScan !== 'idle' && sectionsWithoutUsableAudio > 0 && <p className="offline-export-muted">{sectionsWithoutUsableAudio} selected section{sectionsWithoutUsableAudio === 1 ? ' has' : 's have'} no usable audio; each section shows whether its audio is omitted or unavailable.</p>}
+                {includeNarrationAudio && narrationCacheScan !== 'loading' && narrationCacheScan !== 'idle' && sectionsWithoutUsableAudio > 0 && <p className="offline-export-muted">{sectionsWithoutUsableAudio} selected section{sectionsWithoutUsableAudio === 1 ? ' has' : 's have'} missing or incomplete audio; each section shows its coverage.</p>}
                 {includeNarrationAudio && cachedNarration.length > 0 && (
                   <div className="offline-export-audio-list" role="group" aria-label="Cached narration selected for export">
-                    {cachedNarration.map((entry) => <p key={`${entry.chapterRevisionId}:${entry.sectionId}`}><strong>{entry.chapterTitle}</strong><span>{entry.sectionTitle}</span></p>)}
+                    {cachedNarration.map((entry) => <p key={`${entry.chapterRevisionId}:${entry.sectionId}:${entry.sceneId ?? "whole"}`}><strong>{entry.chapterTitle}</strong><span>{entry.sectionTitle}</span></p>)}
                   </div>
                 )}
               </section>

@@ -57,3 +57,16 @@ The same narrated claim scenes can render as AI-authored HTML compositions or gr
 ## October 17 HTML scene qualification
 
 Pocket completed the narrow Fontdone HTML scene’s 17.25-second clip, and paused-end restoration was observed without advancing. This is mechanical evidence, not a listening pass. The app continues to pin Pocket 3.3.0, english_2026-09 and Alba. Upstream also documents english_2026-09_2 and english_drifting_26-09; no code-specialized model or comparative code-pronunciation evidence was found. Any model evaluation must use the same reviewed technical narration samples, measure pronunciation/pacing/latency, retain exact model/cache identity, and keep voice configuration in Connections. No model was changed from this research. Sources: [official model options](https://github.com/kyutai-labs/pocket-tts), [CLI default model](https://github.com/kyutai-labs/pocket-tts/blob/main/pocket_tts/main.py). See [results, preserved failures and remaining gates](../acceptance/2026-10-17-visual-story-guide.md). This task remains open.
+
+## October 17 offline scene-audio checkpoint
+
+Player/export now share exact narration scopes and inherited delivery settings;
+the exporter assembles matching cached scene clips, reviewed transcripts and
+independent hashes, retaining custom whole scripts and explicit missing/partial
+coverage. Two fresh Pocket/Alba fixture clips and all four source/audio package
+combinations passed mechanical checks. The model is unchanged. This used the
+existing worker with isolated outputs, not native cache injection or an actual
+accepted chapter. Native cache-preview matching, actual browser playback and
+human technical-pronunciation/pacing review remain pending. See [scoped evidence
+and remaining export checks](../acceptance/2026-10-17-offline-visual-scenes.md).
+Keep this task open.

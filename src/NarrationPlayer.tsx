@@ -34,6 +34,7 @@ import {
   narrationPreferencesMatch,
   type NarrationPreferencesSnapshot,
 } from './lib/narration';
+import { narrationStorageKey, scopedNarrationPreferences } from './lib/narrationScope';
 import { applyVoiceConnection } from './lib/voiceConnection';
 import { openVoiceConnections, readVoiceConnection, useVoiceConnection } from './lib/voiceConnectionStore';
 import type { ChapterSection } from './lib/commands';
@@ -70,7 +71,7 @@ interface LoadedTrack {
 
 export function NarrationPlayer({ projectId, chapterId, revisionId, section, restorePosition, transcriptPosition, onPlaybackPositionChange, onTranscriptPositionChange, autoPlay = false, clip, onEnded, compact = false }: NarrationPlayerProps) {
   const titleId = useId();
-  const baseStorageKey = `code-atlas:narration:${projectId}:${chapterId}:${revisionId}:${section.sectionId}`;
+  const baseStorageKey = narrationStorageKey(projectId, chapterId, revisionId, section.sectionId);
   const storageKey = clip ? `${baseStorageKey}:scene:${clip.id}` : baseStorageKey;
   const fallbackScript = useMemo(() => defaultNarrationText(clip?.text ?? section.spokenText), [clip?.text, section.spokenText]);
   const preferences = useMemo(() => readPreferences(storageKey, fallbackScript, clip ? baseStorageKey : undefined), [storageKey, fallbackScript, baseStorageKey, !!clip]);
@@ -746,9 +747,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
 
 function readPreferences(storageKey: string, fallbackText: string, parentKey?: string): NarrationPreferences {
   try {
-    const saved = window.localStorage.getItem(storageKey);
-    const parent = parentKey ? parseNarrationPreferences(window.localStorage.getItem(parentKey), fallbackText) : null;
-    return applyVoiceConnection(saved ? parseNarrationPreferences(saved, fallbackText) : parent ? { ...parent, spokenText: fallbackText } : parseNarrationPreferences(null, fallbackText), readVoiceConnection());
+    return applyVoiceConnection(scopedNarrationPreferences(key => window.localStorage.getItem(key), storageKey, fallbackText, parentKey), readVoiceConnection());
   } catch { /* Default to the accepted chapter script when storage is unavailable. */ }
   return applyVoiceConnection(parseNarrationPreferences(null, fallbackText), readVoiceConnection());
 }

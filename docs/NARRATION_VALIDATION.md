@@ -147,10 +147,16 @@ Record these additional checks before closing the task:
 - Scene script/lexicon edits change that clip's cache identity. Global voice and
   delivery remain in Connections. A prior whole-section edited script stays
   authoritative; scene splitting never rewrites it.
-- Offline export currently scans full-section narration caches, not composed
-  scene clips. A missing matching full-section track remains transcript-only;
-  do not record scene audio export as passed. HTML scene fidelity in the static
-  export also remains pending.
+- Offline export now scans the same section/scene preference scopes as the
+  player, including inherited pronunciations and custom whole-section scripts.
+  Verify each exported scene's actual cached audio against its displayed exact
+  reviewed transcript and manifest hashes. Missing clips must remain visibly
+  transcript-only; partial coverage must never appear complete. The script-free
+  export uses manual scene navigation and browser-native audio controls, without
+  automatic scene advancement or global playback exclusion. HTML compositions
+  are rendered; graph scenes use a source outline. Native cache/export and real
+  browser playback still need their qualification evidence; see
+  [offline guide](OFFLINE_EXPORT.md).
 
 Automated bounds, native validation and playback-state observations are not a
 human listening/comprehension pass. Record the listener and actual notes above.

@@ -7,6 +7,13 @@ Technical plan: [TECHNICAL_PLAN.md](TECHNICAL_PLAN.md). Original inventory gener
 Live-state snapshot: [all task records and their recorded status](KATA_STATUS.md).
 Kata issue bodies are synchronized from `docs/kata-tasks/*.md`; each issue states its user outcome, interaction contract, acceptance criteria, exclusions, and closure evidence.
 
+**October 17 offline-story checkpoint:** `8r4j` now implements HTML compositions,
+manual scene/source navigation and separately scoped cached audio. All four
+synthetic source/audio packages pass link/hash checks; native accepted-revision
+cache export, actual browser playback and human listening remain pending.
+[Evidence and remaining work](acceptance/2026-10-17-offline-visual-scenes.md).
+No task is closed; live Kata remains 73 records, 50 open and 23 closed.
+
 **Priority update — 2026-10-16:** Deliver Codex first through [agent-first generation](kata-tasks/45-agent-first-generation.md), Kata `2r6n` (priority 0). The user deferred Claude (`8gqw`, priority 2); it no longer blocks the current Codex gate, but remains a direct dependency of full M7. Building, testing and a small synthetic installed-account Codex validation are authorized. Manual handoffs and direct API results cannot qualify Codex. See [Agent generation](AGENT_GENERATION.md).
 
 ## Focused generation repair

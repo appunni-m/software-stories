@@ -64,3 +64,15 @@ Closure still requires a fresh ordinary Codex-generated HTML composition and a j
 ## October 17 HTML scene qualification
 
 The progressive Codex path generated a complete synthetic HTML scene and a complete narrow Fontdone PFR0 scene. Native source clicks and Pocket playback were observed; graphs remain available where appropriate. The final mechanical suites pass 346 native tests (12 live probes ignored) and 171 frontend tests. Other generation operations, representation quality, human comprehension/accessibility and faithful offline scene export remain open. See [results, preserved failures and remaining gates](../acceptance/2026-10-17-visual-story-guide.md). This task remains open.
+
+## October 17 offline composition checkpoint
+
+The exporter now reproduces validated HTML composition primitives as inert
+markup with manual scene/source links and matching scene audio when cached.
+Graphs keep their explicitly disclosed source-outline fallback. Presentation
+titles/values are filtered and source-valued content follows the excerpts
+choice. All primitive/group combinations and four synthetic excerpt/audio
+packages pass mechanical tests. Actual accepted-chapter/browser/cache evidence,
+keyboard/reflow and human comprehension remain pending; the fixture is not an
+agent-generation or visual-quality pass. See [scoped qualification and remaining
+checks](../acceptance/2026-10-17-offline-visual-scenes.md). Keep this task open.

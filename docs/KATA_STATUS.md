@@ -117,3 +117,15 @@ An explicit installed retry retained prior cards and delivered two new sections 
 ## 17 October visual-story checkpoint
 
 The progressive Codex path now supports AI-authored HTML compositions alongside graphs, synchronized with complete scene narration and clickable captured source. A real synthetic scene and a narrow Fontdone PFR0 scene completed; earlier partial/failed runs remain preserved. Mechanical checks pass **346 native tests** (12 explicit live probes ignored) and **171 frontend tests**. [Evidence and remaining quality/export/accessibility gates](acceptance/2026-10-17-visual-story-guide.md). Live Kata still contains **73 tasks: 50 open, 23 closed**; no task is closed by this checkpoint.
+
+## 17 October offline-story checkpoint
+
+Offline export now preserves HTML compositions and separately scoped cached
+scene audio, with manual navigation and graph source outlines. The synthetic
+two-scene Pocket fixture passed all four excerpt/audio combinations and package
+link/hash checks; **179 frontend tests** and **346 native tests** passed (12 live
+probes ignored). The unsigned app built and restored Fontdone, its connection
+and paused narration. Actual accepted-chapter/cache export, browser playback and
+human listening remain unverified. [Exact scope and remaining checks](acceptance/2026-10-17-offline-visual-scenes.md).
+Live Kata remains **73 records: 50 open, 23 closed**; `8r4j`, `70x5` and `j53m`
+remain open.
