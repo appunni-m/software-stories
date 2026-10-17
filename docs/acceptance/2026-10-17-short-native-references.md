@@ -124,6 +124,98 @@ selection. Its output preserves all failed proposals and terminal outcomes
 before asserting broad completion. Exact source hashes for the citation,
 section, catalog, prompt and owner implementations are recorded with the run.
 
-Qualification is pending. Do not infer broad completion, useful-answer timing,
-visual/narrative quality, Pocket speech or native accessibility from the
-transport checks.
+### Result: partial; completion assertion failed
+
+The [fresh unchanged result](artifacts/2026-10-17-fontdone-short-references-partial.json)
+uses source `502e2c2acd71329b3f14441ba401d5759388be60` and operation
+`5ddb3d61-1e01-42e4-8250-0c266e5bf9fc`. It returned **Partial** in 160.010 s
+through the measured native run/inspection; the complete test took 162.35 s and
+exited 101. One independently adopted draft was durably published at 74.578 s
+and observed by the probe at 74.951 s. Neither is UI-visible useful-answer timing.
+
+The 33 calls comprise one map, nine searches, 13 definitions, eight reads and
+two proposals. Thirty-two delivered; the last read is **uncertain**, with no
+prepared payload and no source admitted. The run admitted 46,172 distinct source
+bytes from five paths (`api.rs`, `font.rs`, `render.rs`, `tables.rs`, `tt/glyf.rs`).
+The two proposals included one identifier/evidence/prose rejection and one
+published section. There is no final manifest; parsing, detailed outline/hinting
+and rasterization remain unfinished. No deadline, call or proposal limit was
+reset, and this failure was not followed by another account attempt.
+
+The last uncertain receipt does not identify its cause. Packet input was
+already admitted before that receipt began; the record does not prove a socket
+failure, malformed arguments, context exhaustion or model failure. A prior
+passing transport matrix cannot turn this into a pass. The original result
+has SHA-256 `d2fa901ddd2e363a81bef1c3856980d5c0b9ad047d89054050492574c76752fa`.
+All [nine captured metadata hashes](artifacts/2026-10-17-fontdone-short-references-inputs.json)
+remain unchanged, all recorded implementation/probe hashes match the tested
+source, and independent comparison verifies all eight published anchor byte
+ranges/hashes/line coordinates against the captured objects.
+
+### Independent source and representation review: failed
+
+The first transition now begins with font bytes and distinguishes opening a
+face from producing pixels. The remaining [agent source/structure review](artifacts/2026-10-17-fontdone-short-references-review.json)
+finds material gaps:
+
+- The dispatcher claim generalizes recognized BDF inputs to their constructor
+  and other inputs to TrueType. Captured code includes a BDF constructor-error
+  return and a separate early rejection for at least 17 bytes all below ASCII space. Those exceptions
+  are missing; exact citation admission does not make this generalization true.
+- Scene two uses `nodeIndex:2` on both sides of the arrow, with identical empty
+  values. “format probes → format probes” does not explain a transformation or
+  decision, despite valid HTML structure and the new instructions.
+- The complete reading/speech script still enumerates helper names, raw
+  underscored identifiers and technical format branches. It does not yet meet
+  the requested accessible, meaning-led visual story. No Pocket audio or human
+  listening assessment was produced for this run.
+
+These are agent findings, not the required human binary-rubric, visual,
+comprehension or accessibility review. The result remains unaccepted. Native
+short-reference mechanics worked for the published draft; broad completion,
+quality, timing and narration gates remain open.
+
+## Preserve the actual terminal failure in future records
+
+Source review confirms a separate observability defect: the progressive worker
+receives its terminal error but, once a draft exists, recovers a partial answer
+with a generic topic and discards the error. This explains why the saved
+answer cannot recover the original cause; it does not identify that cause.
+
+The follow-up retains an optional fixed `failureCode` in the **private answer
+record** when the actual worker failure is observed. It distinguishes known
+invalid tool arguments, tool-event mismatch, input timeout/EOF/transport,
+uncertain delivery, run timeout and changed runtime; unmapped text becomes
+`unknown`. Stop uses its own fixed code. Arbitrary OS/provider/model messages,
+paths and source are never stored in this field, and it is not added to the UI
+summary. It does not infer a cause from call counts, source size or a receipt.
+
+Original records without the field remain readable. Historical terminal
+records are not backfilled or overwritten. Null/unknown diagnostic values and
+diagnostics on working/complete records are rejected. Saved section bytes and
+all existing ownership, no-retry, scope and size checks remain unchanged.
+Four added regressions cover fixed classification, section preservation,
+terminal idempotence, absent legacy metadata, untrusted error text and damaged
+record metadata. The focused section suite passes 34 tests. Full final
+verification and the replacement-bundle identity are recorded below. The fresh
+account artifact predates this follow-up, so it is **not** live qualification
+of retaining the actual failure code.
+
+### Final follow-up verification
+
+- Full native suite: **363 passed**, zero failed, 13 explicit probes ignored,
+  33.36 s. The Stop/diagnostic consistency guard rejects an inconsistent write
+  before changing a saved answer.
+- Frontend: **179 passed**; production TypeScript/Vite build succeeds.
+- Unsigned debug app build succeeds; embedded executable integrity passes.
+  Executable: `119393744` bytes; SHA-256:
+  `e3460f3e4398c4f8914bc0514c748e41ba0754e7f0dede6ba2d41b985b91f52a`.
+- The Mac remains locked. The installed app is unchanged; native navigation,
+  accepted-guide export, playback/listening and accessibility remain pending.
+- All **73** checked-in task bodies/statuses/priorities match live Kata
+  (**50 open, 23 closed**). Three duplicate frontmatter blocks were removed
+  from live bodies without changing requirements/status. No task was closed.
+
+No new account request followed the failed broad run. The terminal-diagnostic
+follow-up has local regression/build evidence only. The original failed
+artifact and all earlier failed results are unchanged.

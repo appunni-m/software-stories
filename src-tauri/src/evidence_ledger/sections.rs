@@ -63,6 +63,52 @@ struct FinalResponse {
     sha256: String,
 }
 
+/// Private terminal diagnostics. Never retain arbitrary agent/OS error text.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum FailureCode {
+    Stopped,
+    InvalidToolArguments,
+    ToolEvent,
+    ContextTimeout,
+    ContextPeerClosed,
+    ContextTransport,
+    ContextDelivery,
+    RunTimeout,
+    RuntimeIdentity,
+    Unknown,
+}
+
+impl FailureCode {
+    pub(crate) fn from_error(error: &str) -> Self {
+        match error {
+            "The agent supplied invalid captured-code arguments." => Self::InvalidToolArguments,
+            "The captured-code tool did not complete safely."
+            | "Code tool reply was not admitted by this operation."
+            | "An unverified code tool appeared in the final turn."
+            | "Codex did not finish its captured-code investigation." => Self::ToolEvent,
+            "The code context packet timed out." => Self::ContextTimeout,
+            "The context peer closed an incomplete packet." => Self::ContextPeerClosed,
+            "The context transport disconnected."
+            | "The context transport could not use nonblocking I/O." => Self::ContextTransport,
+            "Context delivery is uncertain. This operation stopped; no automatic retry is allowed." => {
+                Self::ContextDelivery
+            }
+            "The Codex run exceeded ten minutes and was stopped. Review again before retrying." => {
+                Self::RunTimeout
+            }
+            error if error == crate::codex_identity::changed() => Self::RuntimeIdentity,
+            _ => Self::Unknown,
+        }
+    }
+}
+
+fn failure_code<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<FailureCode>, D::Error> {
+    FailureCode::deserialize(deserializer).map(Some)
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Answer {
@@ -76,6 +122,12 @@ pub(crate) struct Answer {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     final_responses: Vec<FinalResponse>,
     pub(crate) incomplete_topics: Vec<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "failure_code"
+    )]
+    failure_code: Option<FailureCode>,
 }
 
 #[derive(Deserialize)]
@@ -460,6 +512,7 @@ impl Ledger {
             attempts: vec![],
             final_responses: vec![],
             incomplete_topics: vec![],
+            failure_code: None,
         };
         self.check(manifest, runtime, cancelled)?;
         codex_agent::create_private_file(&path, &encode_answer(&value)?)?;
@@ -990,6 +1043,9 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
             .len()
             != value.sections.len()
         || (value.outcome == Outcome::Working && !value.incomplete_topics.is_empty())
+        || (matches!(value.outcome, Outcome::Working | Outcome::Complete)
+            && value.failure_code.is_some())
+        || (value.failure_code == Some(FailureCode::Stopped) && value.outcome != Outcome::Stopped)
         || value.incomplete_topics.len() > 6
         || value
             .incomplete_topics

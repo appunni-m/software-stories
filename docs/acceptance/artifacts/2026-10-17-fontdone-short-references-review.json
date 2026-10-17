@@ -1,0 +1,94 @@
+{
+  "reviewKind": "Agent independent captured-source/structure review; not a human quality/listening pass",
+  "operationId": "5ddb3d61-1e01-42e4-8250-0c266e5bf9fc",
+  "artifactSha256": "d2fa901ddd2e363a81bef1c3856980d5c0b9ad047d89054050492574c76752fa",
+  "inputMetadataHashesUnchanged": 9,
+  "checkedAnchors": [
+    {
+      "anchorId": "anchor:154352c3-3048-4022-95ac-52fa89fdda8d",
+      "path": "src/api.rs",
+      "startByte": 6302,
+      "endByteExclusive": 7226,
+      "sha256": "58b340be33830ce7f19d1ca8477be4c12e92017f2de8586f43b0c61fd775bb53"
+    },
+    {
+      "anchorId": "anchor:d73bdf08-332c-4122-bf4e-75322b897876",
+      "path": "src/font.rs",
+      "startByte": 147769,
+      "endByteExclusive": 148750,
+      "sha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3"
+    },
+    {
+      "anchorId": "anchor:eff0d2aa-e05e-4dfd-838f-97bb03295d74",
+      "path": "src/font.rs",
+      "startByte": 148750,
+      "endByteExclusive": 149723,
+      "sha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3"
+    },
+    {
+      "anchorId": "anchor:0d1fee6d-bf3b-461d-96d8-704af283d713",
+      "path": "src/font.rs",
+      "startByte": 149723,
+      "endByteExclusive": 150666,
+      "sha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda"
+    },
+    {
+      "anchorId": "anchor:875f358a-77db-4594-a0e8-74b7a0c7456a",
+      "path": "src/api.rs",
+      "startByte": 22294,
+      "endByteExclusive": 23235,
+      "sha256": "3f5981a782954e12811837317c50d50aea67e67cf6695207b11a17b5431cdd29"
+    },
+    {
+      "anchorId": "anchor:a81f06e9-e093-4341-975d-41c5cc766da0",
+      "path": "src/api.rs",
+      "startByte": 24522,
+      "endByteExclusive": 25466,
+      "sha256": "464ff146ad441aeb17ce9f6edb5d2f3238d85196b0eb293c01f27a6af18df89b"
+    },
+    {
+      "anchorId": "anchor:f4f15aed-911c-4541-b0c5-7133669ab483",
+      "path": "src/api.rs",
+      "startByte": 31317,
+      "endByteExclusive": 32316,
+      "sha256": "dfdc1161084ddd5a7a06ddc525a40c960c5b07a517d2d2dca5e961cf8462d204"
+    },
+    {
+      "anchorId": "anchor:14b26c71-8625-4dc2-94c1-b7897df26402",
+      "path": "src/api.rs",
+      "startByte": 32316,
+      "endByteExclusive": 32940,
+      "sha256": "7c41b075b80890fc00f618b8ffb8bd28ec0f722ba6007caf256bc8147749f41e"
+    }
+  ],
+  "implementationHashesMatch": true,
+  "status": "failed broad completion; failed visual/narrative review",
+  "findings": [
+    {
+      "sectionOrder": 0,
+      "claimIndex": 1,
+      "kind": "missingBranchException",
+      "sourcePath": "src/font.rs",
+      "sourceLines": [
+        4066,
+        4072,
+        4085,
+        4095
+      ],
+      "detail": "The broad recognized-BDF/other-input dispatch sentence omits the BDF constructor-error return and the early rejection for at least 17 bytes all below ASCII space; saying other inputs reach truetype_face overgeneralizes these captured guards."
+    },
+    {
+      "sectionOrder": 0,
+      "sceneIndex": 1,
+      "kind": "repeatedTransformation",
+      "detail": "Both cards around the arrow reference nodeIndex 2 (format probes), with identical empty values. This does not represent a transformation or a fallback decision."
+    },
+    {
+      "sectionOrder": 0,
+      "kind": "narrationDensity",
+      "detail": "Complete prose/speech still lists helper names, raw underscored identifiers and detailed format branches without enough plain-language explanation of their meaning."
+    }
+  ],
+  "humanListeningPass": false,
+  "nativeUiObserved": false
+}

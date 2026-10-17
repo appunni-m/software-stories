@@ -1082,3 +1082,155 @@ fn legacy_long_reference_answers_replay_without_becoming_short_reference_records
     fs::write(&a.path, serde_json::to_vec(&tampered).unwrap()).unwrap();
     assert!(inspect(&f.storage, &l.record.binding.operation_id).is_err());
 }
+
+#[test]
+fn partial_answer_retains_fixed_actual_failure_without_losing_its_published_section() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancelled) = setup(&f);
+    let id = read(&mut ledger, &f, &runtime, &cancelled);
+    let mut answer = start(&ledger, &f, &runtime, &cancelled);
+    publish(
+        &mut answer,
+        &ledger,
+        &proposal(&id, "entry", 0),
+        &f,
+        &runtime,
+        &cancelled,
+    );
+    let before = serde_json::to_value(&answer.value.sections).unwrap();
+    let run = &ledger.record.binding.operation_id;
+    let saved = reading::interrupt_with_failure(
+        &f.storage,
+        run,
+        Outcome::Partial,
+        Some(FailureCode::from_error(
+            "The agent supplied invalid captured-code arguments.",
+        )),
+    )
+    .unwrap();
+    assert_eq!(saved.outcome, Outcome::Partial);
+    assert_eq!(saved.sections.len(), 1);
+    // Technical diagnostics stay in the private record, outside the UI summary.
+    assert!(
+        serde_json::to_value(saved)
+            .unwrap()
+            .get("failureCode")
+            .is_none()
+    );
+    let replay = inspect(&f.storage, run).unwrap();
+    assert_eq!(replay.failure_code, Some(FailureCode::InvalidToolArguments));
+    assert_eq!(serde_json::to_value(&replay.sections).unwrap(), before);
+    let bytes = fs::read(&answer.path).unwrap();
+    reading::interrupt_with_failure(&f.storage, run, Outcome::Failed, Some(FailureCode::Unknown))
+        .unwrap();
+    assert_eq!(fs::read(&answer.path).unwrap(), bytes);
+}
+
+#[test]
+fn interrupted_answer_does_not_invent_historical_causes_or_retain_raw_error_text() {
+    let f = Fixture::new();
+    let (ledger, runtime, cancelled) = setup(&f);
+    let answer = start(&ledger, &f, &runtime, &cancelled);
+    let run = &ledger.record.binding.operation_id;
+    assert_eq!(
+        FailureCode::from_error("private path /user/repo/secret; arbitrary provider error"),
+        FailureCode::Unknown
+    );
+    assert_eq!(
+        FailureCode::from_error("prefix: The agent supplied invalid captured-code arguments."),
+        FailureCode::Unknown
+    );
+    let summary = reading::interrupt_with_failure(
+        &f.storage,
+        run,
+        Outcome::Partial,
+        Some(FailureCode::Unknown),
+    )
+    .unwrap();
+    assert_eq!(summary.outcome, Outcome::Failed);
+    let bytes = fs::read(&answer.path).unwrap();
+    assert_eq!(
+        inspect(&f.storage, run).unwrap().failure_code,
+        Some(FailureCode::Unknown)
+    );
+    assert!(!String::from_utf8_lossy(&bytes).contains("private path"));
+    // Original records lacking the optional diagnostic remain readable and
+    // terminal recovery cannot backfill an unobserved cause.
+    let mut historical: Value = serde_json::from_slice(&bytes).unwrap();
+    historical.as_object_mut().unwrap().remove("failureCode");
+    let original = serde_json::to_vec(&historical).unwrap();
+    fs::write(&answer.path, &original).unwrap();
+    assert_eq!(inspect(&f.storage, run).unwrap().failure_code, None);
+    reading::interrupt_with_failure(
+        &f.storage,
+        run,
+        Outcome::Failed,
+        Some(FailureCode::ContextDelivery),
+    )
+    .unwrap();
+    assert_eq!(fs::read(&answer.path).unwrap(), original);
+}
+
+#[test]
+fn failure_diagnostics_reject_unknown_null_and_nonterminal_metadata() {
+    let f = Fixture::new();
+    let (ledger, runtime, cancelled) = setup(&f);
+    let answer = start(&ledger, &f, &runtime, &cancelled);
+    let run = &ledger.record.binding.operation_id;
+    let original = fs::read(&answer.path).unwrap();
+    assert!(reading::interrupt_with_failure(
+        &f.storage, run, Outcome::Partial, Some(FailureCode::Stopped),
+    ).is_err());
+    assert_eq!(fs::read(&answer.path).unwrap(), original);
+    for value in [
+        json!(null),
+        json!("arbitraryErrorText"),
+        json!("contextDelivery"),
+        json!("stopped"),
+    ] {
+        let mut invalid: Value = serde_json::from_slice(&original).unwrap();
+        invalid["failureCode"] = value;
+        fs::write(&answer.path, serde_json::to_vec(&invalid).unwrap()).unwrap();
+        assert!(inspect(&f.storage, run).is_err());
+    }
+}
+
+#[test]
+fn known_terminal_failures_use_only_fixed_classifications() {
+    for (message, code) in [
+        (
+            "The code context packet timed out.",
+            FailureCode::ContextTimeout,
+        ),
+        (
+            "The context peer closed an incomplete packet.",
+            FailureCode::ContextPeerClosed,
+        ),
+        (
+            "The context transport disconnected.",
+            FailureCode::ContextTransport,
+        ),
+        (
+            "The context transport could not use nonblocking I/O.",
+            FailureCode::ContextTransport,
+        ),
+        (
+            "Context delivery is uncertain. This operation stopped; no automatic retry is allowed.",
+            FailureCode::ContextDelivery,
+        ),
+        (
+            "The captured-code tool did not complete safely.",
+            FailureCode::ToolEvent,
+        ),
+        (
+            "The Codex run exceeded ten minutes and was stopped. Review again before retrying.",
+            FailureCode::RunTimeout,
+        ),
+        (
+            crate::codex_identity::changed().as_str(),
+            FailureCode::RuntimeIdentity,
+        ),
+    ] {
+        assert_eq!(FailureCode::from_error(message), code);
+    }
+}

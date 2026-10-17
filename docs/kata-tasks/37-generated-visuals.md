@@ -82,3 +82,13 @@ checks](../acceptance/2026-10-17-offline-visual-scenes.md). Keep this task open.
 The [broad Fontdone artifact](../acceptance/2026-10-17-read-recovery-and-broad-answer.md) publishes three HTML-scene sections but remains partial. Its first scenes repeat the same node label on both sides of an arrow; admitted composition alone is not an effective transformation. Retain this as a real visual-quality counterexample. The second proposal also used a node cited only by a different claim, correctly rejected by native validation but reported generically. A reproducing regression now verifies fixed `sceneEvidence` feedback at the content `nodeIndex`, complete rejected-proposal retention, no publication before repair and successful correction. Native validation is unchanged. Source-free/unknown-shape checks also pass; full native suite: 351 passed, 13 explicit probes ignored, frontend: 179 passed.
 
 The account artifact precedes the feedback and prompt clarification; no fresh broad run qualifies those later changes. Meaningful examples/transformations, actual Pocket narration, installed source interaction/accessibility and complete broad repository visuals remain open. The dummy offline greeting export demonstrates packaging mechanics only; user clarification is not a playback or quality acceptance result.
+
+## Fresh visual counterexample — 17 October
+
+The fresh frozen broad Fontdone operation published one HTML-backed draft, but scene two uses the identical `nodeIndex:2` (`format probes`) card with empty values on both sides of an arrow. It is valid structure but communicates no transition or fallback decision. The source claim also omits relevant early-return exceptions and the complete narration remains too technical. [Preserved scene, source review and incomplete run](../acceptance/2026-10-17-short-native-references.md#independent-source-and-representation-review-failed).
+
+- [ ] Add a versioned, concrete proposal-quality check/feedback for identical empty content across a transformation arrow. Require distinct input/result roles or meaningful distinct values where a transformation is claimed; do not reject legitimate same-source comparisons with different states/values or graph loops.
+- [ ] Preserve old saved scene decoding/behavior; do not retroactively invalidate historical admitted compositions with a new proposal-quality policy.
+- [ ] Qualify AI-authored representations that teach actual changes/branches, then check narration and captured-source hotspots in the installed app. The existing generic “avoid identical labels” instruction did not prevent this sample.
+
+Keep this task open. The broad completion assertion remains failed; local mechanical tests or an HTML mode label do not establish visual quality.

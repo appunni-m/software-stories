@@ -1,0 +1,2899 @@
+{
+  "fixture": "Frozen user-selected Fontdone snapshot; isolated app storage, no accepted chapter decisions",
+  "sourceRevision": "502e2c2acd71329b3f14441ba401d5759388be60",
+  "operationId": "5ddb3d61-1e01-42e4-8250-0c266e5bf9fc",
+  "evidenceLedgerSourceSha256": "8f153be925820b999c84dd6058597d05facc891be381e0a0d2c35a1eba7dce34",
+  "probeSourceSha256": "1b139a45fadb870abe7496f00386e1d42c23254e6d577de7a3a28ebd85b01307",
+  "implementationSourceSha256": {
+    "nativeCitations": "9be3f24e1819fddfa9a895fad498a64b241ffa8d31f58591fee806957fd51c0f",
+    "answerSections": "21f6989a214472124c4eb0a86eeb69948b4c822415104f96483e2cc6c7b03a0d",
+    "contextCatalog": "9c8920cdabaf2d103c8b17441b8efb9ed5f3972bcde76eb352f779d94ac61a08",
+    "progressiveRequest": "ad0a562a7f1b9a263f276f1f72689b19ea38609c3be337061f44aa60817a29e3",
+    "ownedContext": "8b3362f0f0738e57759562476421f4440fbe75098644159f33fbd6bd3199df41"
+  },
+  "model": "gpt-6-luna",
+  "effort": "max",
+  "question": "How does Fontdone turn font bytes into a rendered glyph bitmap? Trace the real entry points, parsing, outline loading, hinting, and rasterization. Explain the important branches and show useful visual scenes with source links.",
+  "snapshotSummary": {
+    "snapshotId": "snap-1792140879637485000-11155-0",
+    "projectId": "/Users/lazytrot/work/fontdone",
+    "parentSnapshotId": "snap-1792025678232575000-74046-0",
+    "createdAtUnixMs": 1792140891585,
+    "branch": "main",
+    "head": "5249b723719445813b8771a602ea5b96891d4450",
+    "indexState": "clean",
+    "worktreeState": "clean",
+    "status": "partial",
+    "filesCaptured": 2768,
+    "pathsSkipped": 25,
+    "totalBytes": 32044550,
+    "pathsVisited": 2920,
+    "policyVersion": "capture-policy-v1"
+  },
+  "totalElapsedMs": 160010,
+  "result": {
+    "runId": "5ddb3d61-1e01-42e4-8250-0c266e5bf9fc",
+    "projectId": "/Users/lazytrot/work/fontdone",
+    "snapshotId": "snap-1792140879637485000-11155-0",
+    "question": "How does Fontdone turn font bytes into a rendered glyph bitmap? Trace the real entry points, parsing, outline loading, hinting, and rasterization. Explain the important branches and show useful visual scenes with source links.",
+    "outcome": "partial",
+    "sections": [
+      {
+        "runId": "5ddb3d61-1e01-42e4-8250-0c266e5bf9fc",
+        "projectId": "/Users/lazytrot/work/fontdone",
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "key": "font-bytes-entry",
+        "order": 0,
+        "generationId": "generation:15dbff22-0942-4bd3-9028-34422a17745f",
+        "revisionId": "revision:c4325891-0a59-4218-a7af-39e8c4d609d3",
+        "supersedes": null,
+        "contextElapsedMs": 73986,
+        "runElapsedMs": 74578
+      }
+    ],
+    "incompleteTopics": [
+      "The investigation ended before all requested details could be completed. Only the published sections are available."
+    ]
+  },
+  "error": null,
+  "answer": {
+    "schemaVersion": 2,
+    "binding": {
+      "operationId": "5ddb3d61-1e01-42e4-8250-0c266e5bf9fc",
+      "projectId": "/Users/lazytrot/work/fontdone",
+      "snapshotId": "snap-1792140879637485000-11155-0",
+      "manifestSha256": "25f5e44bfdd1dab6b31310f7307f165a9171a8b9fc55256ef599e9c8196ad3a2",
+      "grantId": "58fccdda-58b8-4ab1-b3ad-678c55e79541",
+      "runtime": {
+        "connectionId": "39b758ef-a11b-4d7c-adcf-be734c70f547",
+        "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+        "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+        "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+        "accountRevision": 1
+      },
+      "model": "gpt-6-luna",
+      "effort": "max"
+    },
+    "requestSha256": "70b78de61bd863792c60601480bcdff98cd050437505d124ad98375ac5dac873",
+    "question": "How does Fontdone turn font bytes into a rendered glyph bitmap? Trace the real entry points, parsing, outline loading, hinting, and rasterization. Explain the important branches and show useful visual scenes with source links.",
+    "outcome": "partial",
+    "sections": [
+      {
+        "checkpointVersion": 2,
+        "key": "font-bytes-entry",
+        "order": 0,
+        "supersedes": null,
+        "preview": {
+          "generationId": "generation:15dbff22-0942-4bd3-9028-34422a17745f",
+          "revision": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:c4325891-0a59-4218-a7af-39e8c4d609d3",
+            "revisionNumber": 1,
+            "projectId": "/Users/lazytrot/work/fontdone",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "target": {
+              "targetId": "target:overview",
+              "scope": {
+                "kind": "overview"
+              }
+            },
+            "title": "From font bytes to a glyph request",
+            "lifecycle": "draft",
+            "validationStatus": "valid",
+            "createdAtUnixMs": 1792237601729,
+            "generationOrigin": {
+              "schemaVersion": 5,
+              "projectId": "/Users/lazytrot/work/fontdone",
+              "snapshotId": "snap-1792140879637485000-11155-0",
+              "targetPath": null,
+              "purpose": "repositoryOverview",
+              "requestId": "5ddb3d61-1e01-42e4-8250-0c266e5bf9fc",
+              "requestFingerprint": "f203f1c3432b05c6b5417cce4eeed41211a2265a86fbc07cf2bc834ec7a1d6d5",
+              "requestBodySha256": "70b78de61bd863792c60601480bcdff98cd050437505d124ad98375ac5dac873",
+              "contractVersion": "codex-retrieval-v3-answer-sections",
+              "settings": {
+                "backend": "codex",
+                "modelId": "gpt-6-luna",
+                "effort": "max",
+                "approvalPolicy": "never"
+              },
+              "sourceFiles": [
+                {
+                  "path": "src/api.rs",
+                  "sha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                  "sizeBytes": 73592
+                },
+                {
+                  "path": "src/font.rs",
+                  "sha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                  "sizeBytes": 375700
+                },
+                {
+                  "path": "src/tables.rs",
+                  "sha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+                  "sizeBytes": 18213
+                }
+              ],
+              "sectionUpdate": null,
+              "plannedChapter": null,
+              "retrieval": {
+                "policy": "atlas-captured-ranges-v1-files12-source250000",
+                "ledgerSha256": "3b6d6f7d026e821e7fa3aad5f8bb24b8a7689a2b648f81fbf480fa9c766be363",
+                "ranges": [
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/api.rs",
+                    "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                    "startByte": 6302,
+                    "endByte": 7226,
+                    "startLine": 165,
+                    "endLine": 195,
+                    "chunkSha256": "58b340be33830ce7f19d1ca8477be4c12e92017f2de8586f43b0c61fd775bb53",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/api.rs",
+                    "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                    "startByte": 7226,
+                    "endByte": 7870,
+                    "startLine": 196,
+                    "endLine": 207,
+                    "chunkSha256": "0c9cb0714868be0ee362c38560b1ace5db6957d74e668a3b81a57fdac1832cb9",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/api.rs",
+                    "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                    "startByte": 22294,
+                    "endByte": 23235,
+                    "startLine": 649,
+                    "endLine": 673,
+                    "chunkSha256": "3f5981a782954e12811837317c50d50aea67e67cf6695207b11a17b5431cdd29",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/api.rs",
+                    "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                    "startByte": 23235,
+                    "endByte": 23632,
+                    "startLine": 674,
+                    "endLine": 685,
+                    "chunkSha256": "877d0bced7cadbf748ec4118e2aaf03bfc4387a57b2d1f9e87dd6aa977032677",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/api.rs",
+                    "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                    "startByte": 24522,
+                    "endByte": 25466,
+                    "startLine": 706,
+                    "endLine": 726,
+                    "chunkSha256": "464ff146ad441aeb17ce9f6edb5d2f3238d85196b0eb293c01f27a6af18df89b",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/api.rs",
+                    "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                    "startByte": 25466,
+                    "endByte": 26456,
+                    "startLine": 727,
+                    "endLine": 743,
+                    "chunkSha256": "e9df7a45b12003970c0d9f4f15dd02232a764cb7a8bf0bea20e6055a1ea29fa4",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/api.rs",
+                    "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                    "startByte": 26456,
+                    "endByte": 27453,
+                    "startLine": 744,
+                    "endLine": 763,
+                    "chunkSha256": "06d61453b49f243bf70fc63ef3d1584babd162ac8810bc2c9a150160df5f27f7",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/api.rs",
+                    "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                    "startByte": 27453,
+                    "endByte": 28424,
+                    "startLine": 764,
+                    "endLine": 780,
+                    "chunkSha256": "85967dc1e976201bba200c624b07352a78f5aa51542e77660015d5bc0ccf2b74",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/api.rs",
+                    "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                    "startByte": 28424,
+                    "endByte": 29421,
+                    "startLine": 781,
+                    "endLine": 803,
+                    "chunkSha256": "8d93816f6006540d94fe81f4bd1b553742a680ec3d974438980c514950611d88",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/api.rs",
+                    "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                    "startByte": 29421,
+                    "endByte": 30323,
+                    "startLine": 804,
+                    "endLine": 821,
+                    "chunkSha256": "7c61dabf6dab9a86556cc93c6214af34818df5f2886e966111107a5c6e3f6157",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/api.rs",
+                    "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                    "startByte": 30323,
+                    "endByte": 31317,
+                    "startLine": 822,
+                    "endLine": 844,
+                    "chunkSha256": "47600e014e55a4d3211bec3e6d2ebafa70ebbfa38034f9aebb483445d5b01519",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/api.rs",
+                    "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                    "startByte": 31317,
+                    "endByte": 32316,
+                    "startLine": 845,
+                    "endLine": 867,
+                    "chunkSha256": "dfdc1161084ddd5a7a06ddc525a40c960c5b07a517d2d2dca5e961cf8462d204",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/api.rs",
+                    "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                    "startByte": 32316,
+                    "endByte": 32940,
+                    "startLine": 868,
+                    "endLine": 887,
+                    "chunkSha256": "7c41b075b80890fc00f618b8ffb8bd28ec0f722ba6007caf256bc8147749f41e",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 147769,
+                    "endByte": 148750,
+                    "startLine": 4053,
+                    "endLine": 4078,
+                    "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 148750,
+                    "endByte": 149723,
+                    "startLine": 4079,
+                    "endLine": 4096,
+                    "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 149723,
+                    "endByte": 150666,
+                    "startLine": 4097,
+                    "endLine": 4115,
+                    "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/tables.rs",
+                    "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+                    "startByte": 7652,
+                    "endByte": 8647,
+                    "startLine": 191,
+                    "endLine": 212,
+                    "chunkSha256": "d5780a309729db8c246b4b08226fd345b2548a27bb67c370d5cf1c759f35ffa7",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/tables.rs",
+                    "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+                    "startByte": 8647,
+                    "endByte": 9615,
+                    "startLine": 213,
+                    "endLine": 239,
+                    "chunkSha256": "1f965d23bf110de7a7ed567004be2995d5accbc9d88629462f360a9aa414aabb",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/tables.rs",
+                    "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+                    "startByte": 9615,
+                    "endByte": 9949,
+                    "startLine": 240,
+                    "endLine": 251,
+                    "chunkSha256": "858453e030e610099b83335f4d9a88376df6e6a5e80a9cfc9d195784cf4dae16",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/tables.rs",
+                    "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+                    "startByte": 10291,
+                    "endByte": 11255,
+                    "startLine": 259,
+                    "endLine": 282,
+                    "chunkSha256": "19b2b40c6191d60f4222b9a41e4e6ebac641ebcd4e1676cb00cdda85d1f38f3d",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/tables.rs",
+                    "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+                    "startByte": 11255,
+                    "endByte": 11740,
+                    "startLine": 283,
+                    "endLine": 299,
+                    "chunkSha256": "dc87b90cc9965cea2ae962d67b28ce2def184c01e114441b509c2c45dcbe894f",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  }
+                ]
+              },
+              "contentSha256": "f2afe96042e43dc62490da3a1290cfc95a48feae2a34cfbc5df103db772a00a2"
+            },
+            "sections": [
+              {
+                "sectionId": "section:7e3b05f6-f979-484b-8460-493324747c83",
+                "sectionRevisionId": "sectionrev:972883db-e72c-4bb0-87f0-9e426f3e66ad",
+                "order": 0,
+                "title": "From font bytes to a glyph request",
+                "prose": "Font bytes enter through `new_memory_face`: it passes `data`, `face_index`, and `size_pt` to `Font::memory_face`, then wraps the parsed font in a `Face` with a fresh render-font cache. Opening therefore selects and initializes a face; it does not itself produce glyph pixels. Inside `memory_face`, format probes send recognized PCF, PFR, WinFNT, BDF, CID Type 1, Type 42 (`type42_face`), and Type 1 data to their respective constructors; other inputs reach `truetype_face`. If that parse fails and the bytes are at least 118 long, `winfnt_face` gets a fallback attempt, but the original error normally wins unless the fallback reports an unknown format for a WinFNT-shaped header. A glyph index and `LoadFlags` enter through `load_glyph`, which forwards to `load_glyph_with_transform` and then `load_glyph_from_font`; an unmatched `sbix` strike can fail early, and `NO_RECURSE` suppresses the transform. When `render_requested` is true and an outline is available, the code applies any transform and sends that outline to `render_loaded_outline`, then stores the resulting bitmap in the glyph slot.",
+                "spokenText": "Font bytes enter through `new_memory_face`: it passes `data`, `face_index`, and `size_pt` to `Font::memory_face`, then wraps the parsed font in a `Face` with a fresh render-font cache. Opening therefore selects and initializes a face; it does not itself produce glyph pixels. Inside `memory_face`, format probes send recognized PCF, PFR, WinFNT, BDF, CID Type 1, Type 42 (`type42_face`), and Type 1 data to their respective constructors; other inputs reach `truetype_face`. If that parse fails and the bytes are at least 118 long, `winfnt_face` gets a fallback attempt, but the original error normally wins unless the fallback reports an unknown format for a WinFNT-shaped header. A glyph index and `LoadFlags` enter through `load_glyph`, which forwards to `load_glyph_with_transform` and then `load_glyph_from_font`; an unmatched `sbix` strike can fail early, and `NO_RECURSE` suppresses the transform. When `render_requested` is true and an outline is available, the code applies any transform and sends that outline to `render_loaded_outline`, then stores the resulting bitmap in the glyph slot.",
+                "claims": [
+                  {
+                    "claimId": "claim:ecab3521-ecb5-4e09-9dbc-79cea4a202d3",
+                    "category": {
+                      "kind": "codeBehavior"
+                    },
+                    "prose": "Font bytes enter through `new_memory_face`: it passes `data`, `face_index`, and `size_pt` to `Font::memory_face`, then wraps the parsed font in a `Face` with a fresh render-font cache. Opening therefore selects and initializes a face; it does not itself produce glyph pixels.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:154352c3-3048-4022-95ac-52fa89fdda8d",
+                        "path": "src/api.rs",
+                        "symbolId": null,
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                        "startByte": 6302,
+                        "endByteInclusive": 7225,
+                        "startLine": 165,
+                        "endLine": 195,
+                        "startColumn": 5,
+                        "endColumn": 18,
+                        "excerpt": "pub fn new_memory_face(\n        self,\n        data: &[u8],\n        face_index: usize,\n        size_pt: f32,\n    ) -> Result<Face, FontError> {\n        let font = Font::memory_face(data, face_index, size_pt)?;\n        Ok(Face {\n            font,\n            render_fonts: RenderFontCache::default(),\n        })\n    }\n\n    /// Open a font face with the name-selection options normally carried by\n    /// `FT_Open_Face` parameters.\n    ///\n    /// # Errors\n    ///\n    /// Returns [`FontError`] under the same conditions as\n    /// [`Self::new_memory_face`].\n    pub fn new_memory_face_with_name_options(\n        self,\n        data: &[u8],\n        face_index: usize,\n        size_pt: f32,\n        ignore_typographic_family: bool,\n        ignore_typographic_subfamily: bool,\n        ignore_sbix: bool,\n    ) -> Result<Face, FontError> {\n        let mut face = self.new_memory_face(data, face_index, size_pt)?;\n        face.font\n"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/api.rs",
+                        "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54"
+                      }
+                    ]
+                  },
+                  {
+                    "claimId": "claim:b7fbb347-314b-4f44-8c4d-47c53ff9cbfc",
+                    "category": {
+                      "kind": "codeBehavior"
+                    },
+                    "prose": "Inside `memory_face`, format probes send recognized PCF, PFR, WinFNT, BDF, CID Type 1, Type 42 (`type42_face`), and Type 1 data to their respective constructors; other inputs reach `truetype_face`. If that parse fails and the bytes are at least 118 long, `winfnt_face` gets a fallback attempt, but the original error normally wins unless the fallback reports an unknown format for a WinFNT-shaped header.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:d73bdf08-332c-4122-bf4e-75322b897876",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 147769,
+                        "endByteInclusive": 148749,
+                        "startLine": 4053,
+                        "endLine": 4078,
+                        "startColumn": 5,
+                        "endColumn": 10,
+                        "excerpt": "pub(crate) fn memory_face(\n        data: &[u8],\n        face_index: usize,\n        size_pt: f32,\n    ) -> Result<Self, FontError> {\n        if read_u32_le(data, 0) == Some(PCF_FILE_VERSION) {\n            return Self::pcf_face(data, face_index, size_pt);\n        }\n        if data.starts_with(b\"PFR0\") {\n            return Self::pfr_face(data, face_index, size_pt);\n        }\n        if matches!(read_u16_le(data, 0), Some(0x0200) | Some(0x0300)) {\n            return Self::winfnt_face(data, face_index, size_pt);\n        }\n        if bdf_text(data)\n            .and_then(first_bdf_keyword)\n            .is_some_and(is_bdf_probe_keyword)\n        {\n            if let Some(error) = parse_bdf_constructor_error(data) {\n                return Err(error);\n            }\n            return Self::bdf_face(data, face_index, size_pt);\n        }\n        if data.starts_with(b\"%!PS-Adobe-3.0 Resource-CIDFont\") {\n            return Self::cid_type1_face(data, face_index, size_pt);\n        }\n"
+                      },
+                      {
+                        "anchorId": "anchor:eff0d2aa-e05e-4dfd-838f-97bb03295d74",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 148750,
+                        "endByteInclusive": 149722,
+                        "startLine": 4079,
+                        "endLine": 4096,
+                        "startColumn": 1,
+                        "endColumn": 10,
+                        "excerpt": "        if type42_sfnt_data(data).is_some() {\n            return Self::type42_face(data, face_index, size_pt);\n        }\n        if type1_cleartext(data).is_some() {\n            return Self::type1_face(data, face_index, size_pt);\n        }\n        if data.len() >= 17 && data.iter().all(|byte| *byte < b' ') {\n            // FreeType's final BDF driver probe (`bdf/bdflib.c`) skips every\n            // byte below ASCII space while looking for a line.  An all-\n            // control stream therefore reaches EOF with no `STARTFONT`\n            // line and returns Invalid_File_Format from `bdf_load_font`;\n            // `BDF_Face_Init` preserves that error for `FT_Open_Face`.\n            // Keep the length guard because earlier C driver probes use\n            // fixed-size frames and win the error race on shorter streams.\n            return Err(FontError::InvalidFileFormat(\n                \"BDF stream ended before a complete line\".into(),\n            ));\n        }\n"
+                      },
+                      {
+                        "anchorId": "anchor:0d1fee6d-bf3b-461d-96d8-704af283d713",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 149723,
+                        "endByteInclusive": 150665,
+                        "startLine": 4097,
+                        "endLine": 4115,
+                        "startColumn": 1,
+                        "endColumn": 5,
+                        "excerpt": "        match Self::truetype_face(data, face_index, size_pt) {\n            Ok(face) => Ok(face),\n            Err(error) if data.len() >= 118 => {\n                // FreeType's WinFNT driver tries a standalone FNT header\n                // after its MZ/NE probe fails. Its unknown-format result is\n                // the final face-open error for a structurally plausible FNT\n                // header with an unsupported version; unrelated malformed\n                // buffers retain the earlier SFNT parser error.\n                match Self::winfnt_face(data, face_index, size_pt) {\n                    Ok(face) => Ok(face),\n                    Err(FontError::UnknownFileFormat(message)) if has_winfnt_header_shape(data) => {\n                        Err(FontError::UnknownFileFormat(message))\n                    }\n                    Err(_) => Err(error),\n                }\n            }\n            Err(error) => Err(error),\n        }\n    }"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2"
+                      },
+                      {
+                        "kind": "symbol",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481"
+                      }
+                    ]
+                  },
+                  {
+                    "claimId": "claim:2d65c197-a20d-4f30-8312-9cc392adf3e7",
+                    "category": {
+                      "kind": "codeBehavior"
+                    },
+                    "prose": "A glyph index and `LoadFlags` enter through `load_glyph`, which forwards to `load_glyph_with_transform` and then `load_glyph_from_font`; an unmatched `sbix` strike can fail early, and `NO_RECURSE` suppresses the transform. When `render_requested` is true and an outline is available, the code applies any transform and sends that outline to `render_loaded_outline`, then stores the resulting bitmap in the glyph slot.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:875f358a-77db-4594-a0e8-74b7a0c7456a",
+                        "path": "src/api.rs",
+                        "symbolId": null,
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                        "startByte": 22294,
+                        "endByteInclusive": 23234,
+                        "startLine": 649,
+                        "endLine": 673,
+                        "startColumn": 5,
+                        "endColumn": 8,
+                        "excerpt": "pub fn load_glyph(&self, glyph_index: u16, flags: LoadFlags) -> Result<GlyphSlot, FontError> {\n        self.load_glyph_with_transform(glyph_index, flags, None)\n    }\n\n    pub(crate) fn incremental_glyph_data(&self, glyph_index: u16) -> Option<&[u8]> {\n        let data = &self.font.data;\n        let location = loca::get_glyph_location(\n            &data.loca_data,\n            glyph_index,\n            data.head.index_to_loc_format,\n            data.glyf_data.len(),\n        )?;\n        let start = usize::try_from(location.offset).ok()?;\n        let end = start.checked_add(usize::try_from(location.length).ok()?)?;\n        data.glyf_data.get(start..end)\n    }\n\n    /// Load a glyph index with an optional transform, equivalent to\n    /// `FT_Load_Glyph` + `FT_Set_Transform`.\n    ///\n    /// Matrix coefficients are signed 16.16, while the final two tuple values\n    /// are 26.6 translation coordinates.\n    ///\n    /// # Errors\n    ///\n"
+                      },
+                      {
+                        "anchorId": "anchor:a81f06e9-e093-4341-975d-41c5cc766da0",
+                        "path": "src/api.rs",
+                        "symbolId": "sym:dbd3500749707e0ae018fe5553110726894a619ba0fe0b57fadd5228a755b562",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                        "startByte": 24522,
+                        "endByteInclusive": 25465,
+                        "startLine": 706,
+                        "endLine": 726,
+                        "startColumn": 5,
+                        "endColumn": 57,
+                        "excerpt": "fn load_glyph_from_font(\n        font: &Font,\n        glyph_index: u16,\n        mut flags: LoadFlags,\n        transform: Option<(i32, i32, i32, i32, i32, i32)>,\n    ) -> Result<GlyphSlot, FontError> {\n        flags = Self::normalize_load_flags(font, flags);\n        if font.sbix_active_strike_is_unmatched() {\n            // `ttdriver.c:tt_size_request` retains Invalid_Pixel_Size when\n            // `set_sbit_strike` cannot select a fixed sbix strike.  Model the\n            // load-time result here because the public C sequence continues\n            // after that setup return; all ABI facades share this guard.\n            return Err(FontError::InvalidPixelSize);\n        }\n        let transform = if flags.contains(LoadFlags::NO_RECURSE) {\n            None\n        } else {\n            transform\n        };\n        let vertical_layout = flags.contains(LoadFlags::VERTICAL_LAYOUT);\n        let native_hint_mode = flags.native_hint_mode();\n"
+                      },
+                      {
+                        "anchorId": "anchor:f4f15aed-911c-4541-b0c5-7133669ab483",
+                        "path": "src/api.rs",
+                        "symbolId": "sym:dbd3500749707e0ae018fe5553110726894a619ba0fe0b57fadd5228a755b562",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                        "startByte": 31317,
+                        "endByteInclusive": 32315,
+                        "startLine": 845,
+                        "endLine": 867,
+                        "startColumn": 1,
+                        "endColumn": 48,
+                        "excerpt": "        // Only extract render outline when we're going to render.\n        // Otherwise leave it in `loaded` for potential later FT_Render_Glyph calls.\n        let mut render_lo = if render_requested {\n            loaded.render_outline.take()\n        } else {\n            None\n        };\n\n        // Build the slot (without render_outline — we handle rendering below).\n        let mut slot = GlyphSlot::new(glyph_index, loaded, None, vertical_layout, false);\n\n        // Apply transform to slot AND extracted outline before rendering.\n        if let Some((xx, xy, yx, yy, dx, dy)) = transform {\n            slot.apply_transform(xx, xy, yx, yy, dx, dy);\n            if let Some(lo) = render_lo.as_mut() {\n                transform_loaded_outline_for_render(lo, xx, xy, yx, yy, dx, dy);\n            }\n        }\n\n        // Render without cloning the outline — takes ownership.\n        if render_requested {\n            if let Some(lo) = render_lo {\n                let mode = flags.render_mode();\n"
+                      },
+                      {
+                        "anchorId": "anchor:14b26c71-8625-4dc2-94c1-b7897df26402",
+                        "path": "src/api.rs",
+                        "symbolId": "sym:dbd3500749707e0ae018fe5553110726894a619ba0fe0b57fadd5228a755b562",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                        "startByte": 32316,
+                        "endByteInclusive": 32939,
+                        "startLine": 868,
+                        "endLine": 887,
+                        "startColumn": 1,
+                        "endColumn": 5,
+                        "excerpt": "                let mut scratch = font.raster_scratch.borrow_mut();\n                let bmp = crate::render::render_loaded_outline(\n                    lo.outline,\n                    lo.left,\n                    lo.bottom,\n                    lo.top,\n                    mode,\n                    {\n                        let metrics = font.size_metrics();\n                        Some((metrics.x_ppem, metrics.y_ppem))\n                    },\n                    &mut scratch,\n                )?;\n                drop(scratch);\n                slot.set_rendered_bitmap(bmp);\n            }\n        }\n\n        Ok(slot)\n    }"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/api.rs",
+                        "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54"
+                      },
+                      {
+                        "kind": "symbol",
+                        "path": "src/api.rs",
+                        "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                        "symbolId": "sym:dbd3500749707e0ae018fe5553110726894a619ba0fe0b57fadd5228a755b562"
+                      }
+                    ]
+                  }
+                ],
+                "dependencies": [
+                  {
+                    "kind": "sourceFile",
+                    "path": "src/api.rs",
+                    "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54"
+                  },
+                  {
+                    "kind": "sourceFile",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2"
+                  },
+                  {
+                    "kind": "symbol",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481"
+                  },
+                  {
+                    "kind": "symbol",
+                    "path": "src/api.rs",
+                    "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                    "symbolId": "sym:dbd3500749707e0ae018fe5553110726894a619ba0fe0b57fadd5228a755b562"
+                  }
+                ],
+                "visual": {
+                  "presentation": {
+                    "schemaVersion": 1,
+                    "scenes": [
+                      {
+                        "claimIndex": 0,
+                        "title": "Open bytes into a face",
+                        "mode": "composition",
+                        "elements": [
+                          {
+                            "kind": "row",
+                            "parentIndex": null,
+                            "nodeIndex": null,
+                            "tone": "neutral",
+                            "value": "",
+                            "valueOrigin": "none"
+                          },
+                          {
+                            "kind": "card",
+                            "parentIndex": 0,
+                            "nodeIndex": 0,
+                            "tone": "accent",
+                            "value": "",
+                            "valueOrigin": "none"
+                          },
+                          {
+                            "kind": "arrow",
+                            "parentIndex": 0,
+                            "nodeIndex": null,
+                            "tone": "muted",
+                            "value": "",
+                            "valueOrigin": "none"
+                          },
+                          {
+                            "kind": "card",
+                            "parentIndex": 0,
+                            "nodeIndex": 1,
+                            "tone": "positive",
+                            "value": "",
+                            "valueOrigin": "none"
+                          }
+                        ]
+                      },
+                      {
+                        "claimIndex": 1,
+                        "title": "Probe, then fall back",
+                        "mode": "composition",
+                        "elements": [
+                          {
+                            "kind": "row",
+                            "parentIndex": null,
+                            "nodeIndex": null,
+                            "tone": "neutral",
+                            "value": "",
+                            "valueOrigin": "none"
+                          },
+                          {
+                            "kind": "card",
+                            "parentIndex": 0,
+                            "nodeIndex": 2,
+                            "tone": "accent",
+                            "value": "",
+                            "valueOrigin": "none"
+                          },
+                          {
+                            "kind": "arrow",
+                            "parentIndex": 0,
+                            "nodeIndex": null,
+                            "tone": "muted",
+                            "value": "",
+                            "valueOrigin": "none"
+                          },
+                          {
+                            "kind": "card",
+                            "parentIndex": 0,
+                            "nodeIndex": 2,
+                            "tone": "warning",
+                            "value": "",
+                            "valueOrigin": "none"
+                          }
+                        ]
+                      },
+                      {
+                        "claimIndex": 2,
+                        "title": "Load, then optionally rasterize",
+                        "mode": "composition",
+                        "elements": [
+                          {
+                            "kind": "row",
+                            "parentIndex": null,
+                            "nodeIndex": null,
+                            "tone": "neutral",
+                            "value": "",
+                            "valueOrigin": "none"
+                          },
+                          {
+                            "kind": "card",
+                            "parentIndex": 0,
+                            "nodeIndex": 3,
+                            "tone": "accent",
+                            "value": "",
+                            "valueOrigin": "none"
+                          },
+                          {
+                            "kind": "text",
+                            "parentIndex": 0,
+                            "nodeIndex": 3,
+                            "tone": "muted",
+                            "value": "Render only when requested and outline exists.",
+                            "valueOrigin": "illustration"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "schemaVersion": 2,
+                  "kind": "dataFlow",
+                  "title": "Bytes, face, glyph request",
+                  "layoutHint": {
+                    "direction": "leftToRight"
+                  },
+                  "nodes": [
+                    {
+                      "nodeId": "visualnode:27902be0-6b62-4371-a872-98540764b74e",
+                      "label": "font bytes",
+                      "detail": "Constructor input",
+                      "hotspotId": "visualhotspot:c4ceac33-1adb-40fa-bc1b-1eb1ee160890",
+                      "evidenceAnchorIds": [
+                        "anchor:154352c3-3048-4022-95ac-52fa89fdda8d"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:6a5fde8c-4c38-44df-ba74-8013b8a2fd51",
+                      "label": "Face",
+                      "detail": "Parsed font plus render cache",
+                      "hotspotId": "visualhotspot:ea1fd7e3-2666-4b01-a3fe-5921a356389f",
+                      "evidenceAnchorIds": [
+                        "anchor:154352c3-3048-4022-95ac-52fa89fdda8d"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:f5e524a3-16a7-4199-8b27-cf7341dbb02a",
+                      "label": "format probes",
+                      "detail": "Recognized constructors; TrueType fallback",
+                      "hotspotId": "visualhotspot:4efa9ae8-e43e-47f4-9731-62db14eb87c3",
+                      "evidenceAnchorIds": [
+                        "anchor:d73bdf08-332c-4122-bf4e-75322b897876",
+                        "anchor:0d1fee6d-bf3b-461d-96d8-704af283d713"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:83ded770-69a8-4df3-8061-fa01afa21922",
+                      "label": "glyph slot",
+                      "detail": "Optional outline-to-bitmap render",
+                      "hotspotId": "visualhotspot:f83b9c69-a4a9-4bed-a8f9-20abb0c67e36",
+                      "evidenceAnchorIds": [
+                        "anchor:f4f15aed-911c-4541-b0c5-7133669ab483",
+                        "anchor:14b26c71-8625-4dc2-94c1-b7897df26402"
+                      ]
+                    }
+                  ],
+                  "edges": []
+                },
+                "hotspots": [
+                  {
+                    "hotspotId": "overviewfile:8729d9ff-4350-4c80-b836-0e96ae00bc90",
+                    "label": "Open file: src/api.rs",
+                    "destination": {
+                      "kind": "atlasFile",
+                      "path": "src/api.rs"
+                    }
+                  },
+                  {
+                    "hotspotId": "overviewfile:86b29e90-a1cd-4e7c-bf00-4ae84c4419ec",
+                    "label": "Open file: src/font.rs",
+                    "destination": {
+                      "kind": "atlasFile",
+                      "path": "src/font.rs"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:c4ceac33-1adb-40fa-bc1b-1eb1ee160890",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:154352c3-3048-4022-95ac-52fa89fdda8d"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:ea1fd7e3-2666-4b01-a3fe-5921a356389f",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:154352c3-3048-4022-95ac-52fa89fdda8d"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:4efa9ae8-e43e-47f4-9731-62db14eb87c3",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:d73bdf08-332c-4122-bf4e-75322b897876"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:f83b9c69-a4a9-4bed-a8f9-20abb0c67e36",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:f4f15aed-911c-4541-b0c5-7133669ab483"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "validation": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:c4325891-0a59-4218-a7af-39e8c4d609d3",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "status": "valid",
+            "issues": []
+          },
+          "modelId": "gpt-6-luna",
+          "modelVersion": null,
+          "inputTokens": null,
+          "outputTokens": null,
+          "updateNotes": []
+        },
+        "publishedElapsedMs": 73986,
+        "publishedRunElapsedMs": 74578,
+        "proposalSha256": "e4944e9b760a5e7b70fa8bba823de73a05c3f9637fef967e1fcc6f1eb7c8e254",
+        "checkpointSha256": "3b6d6f7d026e821e7fa3aad5f8bb24b8a7689a2b648f81fbf480fa9c766be363",
+        "checkpoint": {
+          "schemaVersion": 3,
+          "policy": "atlas-captured-ranges-v1-files12-source250000",
+          "binding": {
+            "operationId": "5ddb3d61-1e01-42e4-8250-0c266e5bf9fc",
+            "projectId": "/Users/lazytrot/work/fontdone",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "manifestSha256": "25f5e44bfdd1dab6b31310f7307f165a9171a8b9fc55256ef599e9c8196ad3a2",
+            "grantId": "58fccdda-58b8-4ab1-b3ad-678c55e79541",
+            "runtime": {
+              "connectionId": "39b758ef-a11b-4d7c-adcf-be734c70f547",
+              "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+              "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+              "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+              "accountRevision": 1
+            },
+            "model": "gpt-6-luna",
+            "effort": "max"
+          },
+          "startedAtUnixMs": 1792237528265,
+          "status": "active",
+          "calls": [
+            {
+              "id": "cf3869d0-2728-4a66-8c9b-04526cc15806",
+              "tool": "map",
+              "argumentsSha256": "d7df3e11925ef5b75d65a38319258b721b9565fab9b3d180ac915ae5dd5e5213",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 1953,
+              "wireBytes": 1953,
+              "payloadSha256": "f160422adc4d4415f6b033ea6fe8edf5e0770dbfc6af088b99a0c496839b4e40",
+              "timing": {
+                "startedMs": 9229,
+                "preparedMs": 9825,
+                "finishedMs": 10035
+              }
+            },
+            {
+              "id": "40378d7a-d8ae-4622-bec8-3c70f19f4bd0",
+              "tool": "search",
+              "argumentsSha256": "7c6df0f187176b0d7fcc3ad9c448910b976fcc730889ee89b70db75cf3ebc72a",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 4999,
+              "wireBytes": 4999,
+              "payloadSha256": "ab4587f3e91d6f910d3ca7be15cfa123bcf2cff04904f671d25477a35a08fa0d",
+              "timing": {
+                "startedMs": 10459,
+                "preparedMs": 11202,
+                "finishedMs": 11412
+              }
+            },
+            {
+              "id": "e720164a-41a5-473e-b37b-5acc46a02432",
+              "tool": "search",
+              "argumentsSha256": "d3f522e08e4ad9b56d289f58f55d0144f5a11a1c87ade98ac884b0d243a17161",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 4674,
+              "wireBytes": 4674,
+              "payloadSha256": "792d095eebb1b849e56eda33ea33be93c6bc7ee80463e8c591dea440252f28e3",
+              "timing": {
+                "startedMs": 11836,
+                "preparedMs": 11921,
+                "finishedMs": 12131
+              }
+            },
+            {
+              "id": "ae465bf5-23e4-409a-a219-72371cf698be",
+              "tool": "search",
+              "argumentsSha256": "55cb95138284235f531ecfc49ec90848fff2304f6f8f2eaf25fb34b09f8666f2",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 5349,
+              "wireBytes": 5349,
+              "payloadSha256": "986014968b2eeb5f965a369ee0bece40a14320b2f2af00a5e9d98cdfdb38720d",
+              "timing": {
+                "startedMs": 12556,
+                "preparedMs": 12646,
+                "finishedMs": 12855
+              }
+            },
+            {
+              "id": "95987a3c-4a77-4cc3-9481-cf422d24a431",
+              "tool": "definitions",
+              "argumentsSha256": "56b69c88b790f9a3ddc88401523cfe7d31133fd9de946a94d9e7945e8407da3a",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 3556,
+              "wireBytes": 3556,
+              "payloadSha256": "8d9393f160216e747b341b30494b904fb12c3ab2320fedd594258382ea6da85b",
+              "timing": {
+                "startedMs": 15653,
+                "preparedMs": 15716,
+                "finishedMs": 15926
+              }
+            },
+            {
+              "id": "f796c1c6-02e8-4058-8f8d-014395982732",
+              "tool": "definitions",
+              "argumentsSha256": "03dcd6e95a65bc600a5d98c23b3c270e9e836dcaa604ca9551d2f9162f6227aa",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 11981,
+              "wireBytes": 11981,
+              "payloadSha256": "cfc144df4f40d5a1ede1ffa49119a7e20d30b08ff5f988d56385f41dafe6b90e",
+              "timing": {
+                "startedMs": 16349,
+                "preparedMs": 16418,
+                "finishedMs": 16668
+              }
+            },
+            {
+              "id": "3bec172a-2223-4145-ad83-eb545eb60887",
+              "tool": "definitions",
+              "argumentsSha256": "59e49cd93c5bc3dc2c91eb92d09be3f4c5f19eb0729aeda32ce75ad15b109fc5",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 1688,
+              "wireBytes": 1688,
+              "payloadSha256": "bae4d11427d573dd29ce2ca1866f1dd90aa62f2a9d800b7d9fb1fe29d4953f0a",
+              "timing": {
+                "startedMs": 17091,
+                "preparedMs": 17141,
+                "finishedMs": 17351
+              }
+            },
+            {
+              "id": "2afa6096-ffb9-4974-9882-0e8573094333",
+              "tool": "definitions",
+              "argumentsSha256": "4435cc9c2b173c3fadb48f22f1e5ba329294b4fb7d0eadc70ff40a59caef6eb5",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 754,
+              "wireBytes": 754,
+              "payloadSha256": "3c19680821bce7f4132fea7e20829f33b9f0243644ccbefac1f7d5a1c04d4484",
+              "timing": {
+                "startedMs": 17776,
+                "preparedMs": 17824,
+                "finishedMs": 18035
+              }
+            },
+            {
+              "id": "8a3037ee-2620-4461-8820-dcb55bad4cb4",
+              "tool": "read",
+              "argumentsSha256": "183f1bf35fda91e6c4dfaacd78b9fd8cb2010355b375562388a821544fa6d6a1",
+              "state": "delivered",
+              "evidenceIds": [
+                "evidence:02ccdccbab706f31c9517dc1ad4334dd7fff161da16ce41113571f999477a392",
+                "evidence:07f4af4236703cfaf100ab6feb850abd10f4bc285b8764c7b8c68a1acff18812",
+                "evidence:0ec956a837ad0e6865438b756f7279a0838c416fe7c927802e6f84374f432bb3",
+                "evidence:164e939830dc5c0d3e15d659afd23d51f2b921db82847edeeab77ed4f3e88a63",
+                "evidence:181a234d3b2d4bfe1393d796a563d9c8c3b375a17090fc63832ed427cdbe5c39",
+                "evidence:28633322d2381208e9b0c55baef75fc5c7cac6b76bc417c2dbc951ad3cb7718e",
+                "evidence:2cebad603abf2500ba6c00db0697792bba622bade5cb28a29483152be124255a",
+                "evidence:34b5be0c207f85d5d7a2cff3ff1a639963fa6c1fa35657b5c2a32c22e981962b",
+                "evidence:43f280e01a21534f4e8751a9ba68fdd3c52029a82c6e43e6c3e033fba815020f",
+                "evidence:56fcb88fded3b36b097026314c1a616cdbda270c355434e61ad6318cc62c44cd",
+                "evidence:6e56b74486ceac67697c2f9f8f6dccddd2b4f5b3193c0a79a3bccfe58076ce1a",
+                "evidence:804f1096fdd0a79e2be9d624510d27dfad241efb3d74ef01699bf20dddf32ca7",
+                "evidence:8a3ac88b8fba1b02af28878293ba77bea4d4026baba33ea91e0dee5f6c51e87b",
+                "evidence:8d1dd129afa7dc7986166b699c195812fc6b7560d6f8331548a3c0896defb65b",
+                "evidence:965184e0ba4f78269bb460c59eeb0040744b5acfc3c18a7814c4e13c0f436079",
+                "evidence:a615ffd9d7d0fc75a7ca5d36693680efe2ceda256f11da9cd1d93725c1dcc7a3",
+                "evidence:bd199066944192081b33af4b4e02c6195ebaa32aebb3f292ec53474e832f430b",
+                "evidence:cccaea79098127522605dc29b944e50a9eea7c262c7f3b32e4b291fbccc2c5b6",
+                "evidence:cf07f9c73692af344defb44661388315ae7a3324455057dec2f73714ef9537bb",
+                "evidence:d86418e7e3f08f717d80d5a59113ea663d3e93aa80b4a26945ee3f6367f57246",
+                "evidence:f1abc400a08bec148cc641b4f8878820bc25400e70e166bf17581fe2719ce74b"
+              ],
+              "sourceBytes": 17967,
+              "metadataBytes": 10640,
+              "wireBytes": 29044,
+              "payloadSha256": "5f1e1edfb6e89d59f14d2c825e99804fb055ac448a4d15b0346b62e584ad0b48",
+              "timing": {
+                "startedMs": 23896,
+                "preparedMs": 25199,
+                "finishedMs": 25512
+              }
+            },
+            {
+              "id": "1e081bb6-0656-4564-9ad6-843c1dcc2911",
+              "tool": "proposeSection",
+              "argumentsSha256": "ca88dcd242650bd8db08b08868372413560e687af4048f9b9125fb9adf7f74b5",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 612,
+              "wireBytes": 612,
+              "payloadSha256": "8ca3cabadc7e995101354c8c51bb1f5f11c70ab28864659835945f76948963f6",
+              "timing": {
+                "startedMs": 56740,
+                "preparedMs": 58405,
+                "finishedMs": 58616
+              }
+            }
+          ],
+          "evidence": [
+            {
+              "id": "evidence:f1abc400a08bec148cc641b4f8878820bc25400e70e166bf17581fe2719ce74b",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/api.rs",
+                "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                "startByte": 6302,
+                "endByte": 7226,
+                "startLine": 165,
+                "endLine": 195,
+                "chunkSha256": "58b340be33830ce7f19d1ca8477be4c12e92017f2de8586f43b0c61fd775bb53",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:56fcb88fded3b36b097026314c1a616cdbda270c355434e61ad6318cc62c44cd",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/api.rs",
+                "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                "startByte": 7226,
+                "endByte": 7870,
+                "startLine": 196,
+                "endLine": 207,
+                "chunkSha256": "0c9cb0714868be0ee362c38560b1ace5db6957d74e668a3b81a57fdac1832cb9",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:07f4af4236703cfaf100ab6feb850abd10f4bc285b8764c7b8c68a1acff18812",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/api.rs",
+                "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                "startByte": 22294,
+                "endByte": 23235,
+                "startLine": 649,
+                "endLine": 673,
+                "chunkSha256": "3f5981a782954e12811837317c50d50aea67e67cf6695207b11a17b5431cdd29",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:181a234d3b2d4bfe1393d796a563d9c8c3b375a17090fc63832ed427cdbe5c39",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/api.rs",
+                "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                "startByte": 23235,
+                "endByte": 23632,
+                "startLine": 674,
+                "endLine": 685,
+                "chunkSha256": "877d0bced7cadbf748ec4118e2aaf03bfc4387a57b2d1f9e87dd6aa977032677",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:43f280e01a21534f4e8751a9ba68fdd3c52029a82c6e43e6c3e033fba815020f",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/api.rs",
+                "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                "startByte": 24522,
+                "endByte": 25466,
+                "startLine": 706,
+                "endLine": 726,
+                "chunkSha256": "464ff146ad441aeb17ce9f6edb5d2f3238d85196b0eb293c01f27a6af18df89b",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:8a3ac88b8fba1b02af28878293ba77bea4d4026baba33ea91e0dee5f6c51e87b",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/api.rs",
+                "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                "startByte": 25466,
+                "endByte": 26456,
+                "startLine": 727,
+                "endLine": 743,
+                "chunkSha256": "e9df7a45b12003970c0d9f4f15dd02232a764cb7a8bf0bea20e6055a1ea29fa4",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:a615ffd9d7d0fc75a7ca5d36693680efe2ceda256f11da9cd1d93725c1dcc7a3",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/api.rs",
+                "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                "startByte": 26456,
+                "endByte": 27453,
+                "startLine": 744,
+                "endLine": 763,
+                "chunkSha256": "06d61453b49f243bf70fc63ef3d1584babd162ac8810bc2c9a150160df5f27f7",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:bd199066944192081b33af4b4e02c6195ebaa32aebb3f292ec53474e832f430b",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/api.rs",
+                "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                "startByte": 27453,
+                "endByte": 28424,
+                "startLine": 764,
+                "endLine": 780,
+                "chunkSha256": "85967dc1e976201bba200c624b07352a78f5aa51542e77660015d5bc0ccf2b74",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:8d1dd129afa7dc7986166b699c195812fc6b7560d6f8331548a3c0896defb65b",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/api.rs",
+                "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                "startByte": 28424,
+                "endByte": 29421,
+                "startLine": 781,
+                "endLine": 803,
+                "chunkSha256": "8d93816f6006540d94fe81f4bd1b553742a680ec3d974438980c514950611d88",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:34b5be0c207f85d5d7a2cff3ff1a639963fa6c1fa35657b5c2a32c22e981962b",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/api.rs",
+                "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                "startByte": 29421,
+                "endByte": 30323,
+                "startLine": 804,
+                "endLine": 821,
+                "chunkSha256": "7c61dabf6dab9a86556cc93c6214af34818df5f2886e966111107a5c6e3f6157",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:02ccdccbab706f31c9517dc1ad4334dd7fff161da16ce41113571f999477a392",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/api.rs",
+                "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                "startByte": 30323,
+                "endByte": 31317,
+                "startLine": 822,
+                "endLine": 844,
+                "chunkSha256": "47600e014e55a4d3211bec3e6d2ebafa70ebbfa38034f9aebb483445d5b01519",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:cf07f9c73692af344defb44661388315ae7a3324455057dec2f73714ef9537bb",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/api.rs",
+                "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                "startByte": 31317,
+                "endByte": 32316,
+                "startLine": 845,
+                "endLine": 867,
+                "chunkSha256": "dfdc1161084ddd5a7a06ddc525a40c960c5b07a517d2d2dca5e961cf8462d204",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:164e939830dc5c0d3e15d659afd23d51f2b921db82847edeeab77ed4f3e88a63",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/api.rs",
+                "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+                "startByte": 32316,
+                "endByte": 32940,
+                "startLine": 868,
+                "endLine": 887,
+                "chunkSha256": "7c41b075b80890fc00f618b8ffb8bd28ec0f722ba6007caf256bc8147749f41e",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:965184e0ba4f78269bb460c59eeb0040744b5acfc3c18a7814c4e13c0f436079",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 147769,
+                "endByte": 148750,
+                "startLine": 4053,
+                "endLine": 4078,
+                "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:28633322d2381208e9b0c55baef75fc5c7cac6b76bc417c2dbc951ad3cb7718e",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 148750,
+                "endByte": 149723,
+                "startLine": 4079,
+                "endLine": 4096,
+                "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:804f1096fdd0a79e2be9d624510d27dfad241efb3d74ef01699bf20dddf32ca7",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 149723,
+                "endByte": 150666,
+                "startLine": 4097,
+                "endLine": 4115,
+                "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:6e56b74486ceac67697c2f9f8f6dccddd2b4f5b3193c0a79a3bccfe58076ce1a",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/tables.rs",
+                "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+                "startByte": 7652,
+                "endByte": 8647,
+                "startLine": 191,
+                "endLine": 212,
+                "chunkSha256": "d5780a309729db8c246b4b08226fd345b2548a27bb67c370d5cf1c759f35ffa7",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:0ec956a837ad0e6865438b756f7279a0838c416fe7c927802e6f84374f432bb3",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/tables.rs",
+                "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+                "startByte": 8647,
+                "endByte": 9615,
+                "startLine": 213,
+                "endLine": 239,
+                "chunkSha256": "1f965d23bf110de7a7ed567004be2995d5accbc9d88629462f360a9aa414aabb",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:cccaea79098127522605dc29b944e50a9eea7c262c7f3b32e4b291fbccc2c5b6",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/tables.rs",
+                "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+                "startByte": 9615,
+                "endByte": 9949,
+                "startLine": 240,
+                "endLine": 251,
+                "chunkSha256": "858453e030e610099b83335f4d9a88376df6e6a5e80a9cfc9d195784cf4dae16",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:d86418e7e3f08f717d80d5a59113ea663d3e93aa80b4a26945ee3f6367f57246",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/tables.rs",
+                "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+                "startByte": 10291,
+                "endByte": 11255,
+                "startLine": 259,
+                "endLine": 282,
+                "chunkSha256": "19b2b40c6191d60f4222b9a41e4e6ebac641ebcd4e1676cb00cdda85d1f38f3d",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:2cebad603abf2500ba6c00db0697792bba622bade5cb28a29483152be124255a",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/tables.rs",
+                "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+                "startByte": 11255,
+                "endByte": 11740,
+                "startLine": 283,
+                "endLine": 299,
+                "chunkSha256": "dc87b90cc9965cea2ae962d67b28ce2def184c01e114441b509c2c45dcbe894f",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            }
+          ],
+          "contextClock": "capturedCodeSessionV1"
+        }
+      }
+    ],
+    "attempts": [
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV2\",\"sectionKey\":\"font-bytes-entry\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"From font bytes to a glyph request\",\"claims\":[{\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"identifiers\":[\"new_memory_face\",\"memory_face\",\"Face\"],\"relationshipIds\":[],\"inferenceBasis\":\"\",\"evidence\":[{\"referenceId\":\"code:1\"}],\"prose\":\"Font bytes enter through `new_memory_face`: it passes `data`, `face_index`, and `size_pt` to `Font::memory_face`, then wraps the parsed font in a `Face` with a fresh render-font cache. Opening therefore selects and initializes a face; it does not itself produce glyph pixels.\"},{\"category\":\"codeBehavior\",\"aspect\":\"inputOutput\",\"identifiers\":[\"memory_face\",\"truetype_face\",\"winfnt_face\"],\"relationshipIds\":[],\"inferenceBasis\":\"\",\"evidence\":[{\"referenceId\":\"code:14\"},{\"referenceId\":\"code:15\"},{\"referenceId\":\"code:16\"}],\"prose\":\"Inside `memory_face`, format probes send recognized PCF, PFR, WinFNT, BDF, CID Type 1, Type 42, and Type 1 data to their respective constructors; other inputs reach `truetype_face`. If that parse fails and the bytes are at least 118 long, `winfnt_face` gets a fallback attempt, but the original error normally wins unless the fallback reports an unknown format for a WinFNT-shaped header.\"},{\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"identifiers\":[\"load_glyph\",\"load_glyph_from_font\",\"NO_RECURSE\",\"render_requested\",\"render_loaded_outline\"],\"relationshipIds\":[],\"inferenceBasis\":\"\",\"evidence\":[{\"referenceId\":\"code:3\"},{\"referenceId\":\"code:5\"},{\"referenceId\":\"code:12\"},{\"referenceId\":\"code:13\"}],\"prose\":\"A glyph index and `LoadFlags` enter through `load_glyph`, which forwards to `load_glyph_with_transform` and then `load_glyph_from_font`; an unmatched `sbix` strike can fail early, and `NO_RECURSE` suppresses the transform. When rendering is requested and an outline is available, the code applies any transform and sends that outline to `render_loaded_outline`, then stores the resulting bitmap in the glyph slot.\"}],\"visual\":{\"kind\":\"dataFlow\",\"title\":\"Bytes, face, glyph request\",\"direction\":\"leftToRight\",\"nodes\":[{\"label\":\"font bytes\",\"detail\":\"Constructor input\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"Face\",\"detail\":\"Parsed font plus render cache\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"format probes\",\"detail\":\"Recognized constructors; TrueType fallback\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0},{\"claimIndex\":1,\"evidenceIndex\":2}]},{\"label\":\"glyph slot\",\"detail\":\"Optional outline-to-bitmap render\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":2},{\"claimIndex\":2,\"evidenceIndex\":3}]}],\"edges\":[],\"presentation\":{\"schemaVersion\":1,\"scenes\":[{\"claimIndex\":0,\"title\":\"Open bytes into a face\",\"mode\":\"composition\",\"elements\":[{\"kind\":\"row\",\"parentIndex\":null,\"nodeIndex\":null,\"tone\":\"neutral\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"card\",\"parentIndex\":0,\"nodeIndex\":0,\"tone\":\"accent\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"arrow\",\"parentIndex\":0,\"nodeIndex\":null,\"tone\":\"muted\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"card\",\"parentIndex\":0,\"nodeIndex\":1,\"tone\":\"positive\",\"value\":\"\",\"valueOrigin\":\"none\"}]},{\"claimIndex\":1,\"title\":\"Probe, then fall back\",\"mode\":\"composition\",\"elements\":[{\"kind\":\"row\",\"parentIndex\":null,\"nodeIndex\":null,\"tone\":\"neutral\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"card\",\"parentIndex\":0,\"nodeIndex\":2,\"tone\":\"accent\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"arrow\",\"parentIndex\":0,\"nodeIndex\":null,\"tone\":\"muted\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"card\",\"parentIndex\":0,\"nodeIndex\":2,\"tone\":\"warning\",\"value\":\"truetype_face → winfnt_face fallback\",\"valueOrigin\":\"source\"}]},{\"claimIndex\":2,\"title\":\"Load, then optionally rasterize\",\"mode\":\"composition\",\"elements\":[{\"kind\":\"row\",\"parentIndex\":null,\"nodeIndex\":null,\"tone\":\"neutral\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"card\",\"parentIndex\":0,\"nodeIndex\":3,\"tone\":\"accent\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"text\",\"parentIndex\":0,\"nodeIndex\":3,\"tone\":\"muted\",\"value\":\"Render only when requested and outline exists.\",\"valueOrigin\":\"illustration\"}]}]}}}}",
+        "argumentsSha256": "ca88dcd242650bd8db08b08868372413560e687af4048f9b9125fb9adf7f74b5",
+        "proposalSha256": "0ee5675a8451ef68227737bbf9235d32e46faaf13372fc4ea29e750271e7bf7a",
+        "findings": [
+          {
+            "location": "/section/claims/1/evidence/1",
+            "code": "evidenceIdentifier"
+          },
+          {
+            "location": "/section/claims/2/identifiers/3",
+            "code": "identifierProse"
+          }
+        ],
+        "generationId": null
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV2\",\"sectionKey\":\"font-bytes-entry\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"From font bytes to a glyph request\",\"claims\":[{\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"identifiers\":[\"new_memory_face\",\"memory_face\",\"Face\"],\"relationshipIds\":[],\"inferenceBasis\":\"\",\"evidence\":[{\"referenceId\":\"code:1\"}],\"prose\":\"Font bytes enter through `new_memory_face`: it passes `data`, `face_index`, and `size_pt` to `Font::memory_face`, then wraps the parsed font in a `Face` with a fresh render-font cache. Opening therefore selects and initializes a face; it does not itself produce glyph pixels.\"},{\"category\":\"codeBehavior\",\"aspect\":\"inputOutput\",\"identifiers\":[\"memory_face\",\"truetype_face\",\"winfnt_face\",\"type42_face\"],\"relationshipIds\":[],\"inferenceBasis\":\"\",\"evidence\":[{\"referenceId\":\"code:14\"},{\"referenceId\":\"code:15\"},{\"referenceId\":\"code:16\"}],\"prose\":\"Inside `memory_face`, format probes send recognized PCF, PFR, WinFNT, BDF, CID Type 1, Type 42 (`type42_face`), and Type 1 data to their respective constructors; other inputs reach `truetype_face`. If that parse fails and the bytes are at least 118 long, `winfnt_face` gets a fallback attempt, but the original error normally wins unless the fallback reports an unknown format for a WinFNT-shaped header.\"},{\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"identifiers\":[\"load_glyph\",\"load_glyph_from_font\",\"NO_RECURSE\",\"render_requested\",\"render_loaded_outline\"],\"relationshipIds\":[],\"inferenceBasis\":\"\",\"evidence\":[{\"referenceId\":\"code:3\"},{\"referenceId\":\"code:5\"},{\"referenceId\":\"code:12\"},{\"referenceId\":\"code:13\"}],\"prose\":\"A glyph index and `LoadFlags` enter through `load_glyph`, which forwards to `load_glyph_with_transform` and then `load_glyph_from_font`; an unmatched `sbix` strike can fail early, and `NO_RECURSE` suppresses the transform. When `render_requested` is true and an outline is available, the code applies any transform and sends that outline to `render_loaded_outline`, then stores the resulting bitmap in the glyph slot.\"}],\"visual\":{\"kind\":\"dataFlow\",\"title\":\"Bytes, face, glyph request\",\"direction\":\"leftToRight\",\"nodes\":[{\"label\":\"font bytes\",\"detail\":\"Constructor input\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"Face\",\"detail\":\"Parsed font plus render cache\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"format probes\",\"detail\":\"Recognized constructors; TrueType fallback\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0},{\"claimIndex\":1,\"evidenceIndex\":2}]},{\"label\":\"glyph slot\",\"detail\":\"Optional outline-to-bitmap render\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":2},{\"claimIndex\":2,\"evidenceIndex\":3}]}],\"edges\":[],\"presentation\":{\"schemaVersion\":1,\"scenes\":[{\"claimIndex\":0,\"title\":\"Open bytes into a face\",\"mode\":\"composition\",\"elements\":[{\"kind\":\"row\",\"parentIndex\":null,\"nodeIndex\":null,\"tone\":\"neutral\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"card\",\"parentIndex\":0,\"nodeIndex\":0,\"tone\":\"accent\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"arrow\",\"parentIndex\":0,\"nodeIndex\":null,\"tone\":\"muted\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"card\",\"parentIndex\":0,\"nodeIndex\":1,\"tone\":\"positive\",\"value\":\"\",\"valueOrigin\":\"none\"}]},{\"claimIndex\":1,\"title\":\"Probe, then fall back\",\"mode\":\"composition\",\"elements\":[{\"kind\":\"row\",\"parentIndex\":null,\"nodeIndex\":null,\"tone\":\"neutral\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"card\",\"parentIndex\":0,\"nodeIndex\":2,\"tone\":\"accent\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"arrow\",\"parentIndex\":0,\"nodeIndex\":null,\"tone\":\"muted\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"card\",\"parentIndex\":0,\"nodeIndex\":2,\"tone\":\"warning\",\"value\":\"\",\"valueOrigin\":\"none\"}]},{\"claimIndex\":2,\"title\":\"Load, then optionally rasterize\",\"mode\":\"composition\",\"elements\":[{\"kind\":\"row\",\"parentIndex\":null,\"nodeIndex\":null,\"tone\":\"neutral\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"card\",\"parentIndex\":0,\"nodeIndex\":3,\"tone\":\"accent\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"text\",\"parentIndex\":0,\"nodeIndex\":3,\"tone\":\"muted\",\"value\":\"Render only when requested and outline exists.\",\"valueOrigin\":\"illustration\"}]}]}}}}",
+        "argumentsSha256": "f0a0f7dcd813a976abd68ff8b955b7835f1ff7f4409119d7079f7f17123b3443",
+        "proposalSha256": "e4944e9b760a5e7b70fa8bba823de73a05c3f9637fef967e1fcc6f1eb7c8e254",
+        "findings": [],
+        "generationId": "generation:15dbff22-0942-4bd3-9028-34422a17745f"
+      }
+    ],
+    "incompleteTopics": [
+      "The investigation ended before all requested details could be completed. Only the published sections are available."
+    ]
+  },
+  "ledger": {
+    "schemaVersion": 3,
+    "policy": "atlas-captured-ranges-v1-files12-source250000",
+    "binding": {
+      "operationId": "5ddb3d61-1e01-42e4-8250-0c266e5bf9fc",
+      "projectId": "/Users/lazytrot/work/fontdone",
+      "snapshotId": "snap-1792140879637485000-11155-0",
+      "manifestSha256": "25f5e44bfdd1dab6b31310f7307f165a9171a8b9fc55256ef599e9c8196ad3a2",
+      "grantId": "58fccdda-58b8-4ab1-b3ad-678c55e79541",
+      "runtime": {
+        "connectionId": "39b758ef-a11b-4d7c-adcf-be734c70f547",
+        "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+        "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+        "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+        "accountRevision": 1
+      },
+      "model": "gpt-6-luna",
+      "effort": "max"
+    },
+    "startedAtUnixMs": 1792237528265,
+    "status": "interrupted",
+    "calls": [
+      {
+        "id": "cf3869d0-2728-4a66-8c9b-04526cc15806",
+        "tool": "map",
+        "argumentsSha256": "d7df3e11925ef5b75d65a38319258b721b9565fab9b3d180ac915ae5dd5e5213",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1953,
+        "wireBytes": 1953,
+        "payloadSha256": "f160422adc4d4415f6b033ea6fe8edf5e0770dbfc6af088b99a0c496839b4e40",
+        "timing": {
+          "startedMs": 9229,
+          "preparedMs": 9825,
+          "finishedMs": 10035
+        }
+      },
+      {
+        "id": "40378d7a-d8ae-4622-bec8-3c70f19f4bd0",
+        "tool": "search",
+        "argumentsSha256": "7c6df0f187176b0d7fcc3ad9c448910b976fcc730889ee89b70db75cf3ebc72a",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 4999,
+        "wireBytes": 4999,
+        "payloadSha256": "ab4587f3e91d6f910d3ca7be15cfa123bcf2cff04904f671d25477a35a08fa0d",
+        "timing": {
+          "startedMs": 10459,
+          "preparedMs": 11202,
+          "finishedMs": 11412
+        }
+      },
+      {
+        "id": "e720164a-41a5-473e-b37b-5acc46a02432",
+        "tool": "search",
+        "argumentsSha256": "d3f522e08e4ad9b56d289f58f55d0144f5a11a1c87ade98ac884b0d243a17161",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 4674,
+        "wireBytes": 4674,
+        "payloadSha256": "792d095eebb1b849e56eda33ea33be93c6bc7ee80463e8c591dea440252f28e3",
+        "timing": {
+          "startedMs": 11836,
+          "preparedMs": 11921,
+          "finishedMs": 12131
+        }
+      },
+      {
+        "id": "ae465bf5-23e4-409a-a219-72371cf698be",
+        "tool": "search",
+        "argumentsSha256": "55cb95138284235f531ecfc49ec90848fff2304f6f8f2eaf25fb34b09f8666f2",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 5349,
+        "wireBytes": 5349,
+        "payloadSha256": "986014968b2eeb5f965a369ee0bece40a14320b2f2af00a5e9d98cdfdb38720d",
+        "timing": {
+          "startedMs": 12556,
+          "preparedMs": 12646,
+          "finishedMs": 12855
+        }
+      },
+      {
+        "id": "95987a3c-4a77-4cc3-9481-cf422d24a431",
+        "tool": "definitions",
+        "argumentsSha256": "56b69c88b790f9a3ddc88401523cfe7d31133fd9de946a94d9e7945e8407da3a",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 3556,
+        "wireBytes": 3556,
+        "payloadSha256": "8d9393f160216e747b341b30494b904fb12c3ab2320fedd594258382ea6da85b",
+        "timing": {
+          "startedMs": 15653,
+          "preparedMs": 15716,
+          "finishedMs": 15926
+        }
+      },
+      {
+        "id": "f796c1c6-02e8-4058-8f8d-014395982732",
+        "tool": "definitions",
+        "argumentsSha256": "03dcd6e95a65bc600a5d98c23b3c270e9e836dcaa604ca9551d2f9162f6227aa",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 11981,
+        "wireBytes": 11981,
+        "payloadSha256": "cfc144df4f40d5a1ede1ffa49119a7e20d30b08ff5f988d56385f41dafe6b90e",
+        "timing": {
+          "startedMs": 16349,
+          "preparedMs": 16418,
+          "finishedMs": 16668
+        }
+      },
+      {
+        "id": "3bec172a-2223-4145-ad83-eb545eb60887",
+        "tool": "definitions",
+        "argumentsSha256": "59e49cd93c5bc3dc2c91eb92d09be3f4c5f19eb0729aeda32ce75ad15b109fc5",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1688,
+        "wireBytes": 1688,
+        "payloadSha256": "bae4d11427d573dd29ce2ca1866f1dd90aa62f2a9d800b7d9fb1fe29d4953f0a",
+        "timing": {
+          "startedMs": 17091,
+          "preparedMs": 17141,
+          "finishedMs": 17351
+        }
+      },
+      {
+        "id": "2afa6096-ffb9-4974-9882-0e8573094333",
+        "tool": "definitions",
+        "argumentsSha256": "4435cc9c2b173c3fadb48f22f1e5ba329294b4fb7d0eadc70ff40a59caef6eb5",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 754,
+        "wireBytes": 754,
+        "payloadSha256": "3c19680821bce7f4132fea7e20829f33b9f0243644ccbefac1f7d5a1c04d4484",
+        "timing": {
+          "startedMs": 17776,
+          "preparedMs": 17824,
+          "finishedMs": 18035
+        }
+      },
+      {
+        "id": "8a3037ee-2620-4461-8820-dcb55bad4cb4",
+        "tool": "read",
+        "argumentsSha256": "183f1bf35fda91e6c4dfaacd78b9fd8cb2010355b375562388a821544fa6d6a1",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:02ccdccbab706f31c9517dc1ad4334dd7fff161da16ce41113571f999477a392",
+          "evidence:07f4af4236703cfaf100ab6feb850abd10f4bc285b8764c7b8c68a1acff18812",
+          "evidence:0ec956a837ad0e6865438b756f7279a0838c416fe7c927802e6f84374f432bb3",
+          "evidence:164e939830dc5c0d3e15d659afd23d51f2b921db82847edeeab77ed4f3e88a63",
+          "evidence:181a234d3b2d4bfe1393d796a563d9c8c3b375a17090fc63832ed427cdbe5c39",
+          "evidence:28633322d2381208e9b0c55baef75fc5c7cac6b76bc417c2dbc951ad3cb7718e",
+          "evidence:2cebad603abf2500ba6c00db0697792bba622bade5cb28a29483152be124255a",
+          "evidence:34b5be0c207f85d5d7a2cff3ff1a639963fa6c1fa35657b5c2a32c22e981962b",
+          "evidence:43f280e01a21534f4e8751a9ba68fdd3c52029a82c6e43e6c3e033fba815020f",
+          "evidence:56fcb88fded3b36b097026314c1a616cdbda270c355434e61ad6318cc62c44cd",
+          "evidence:6e56b74486ceac67697c2f9f8f6dccddd2b4f5b3193c0a79a3bccfe58076ce1a",
+          "evidence:804f1096fdd0a79e2be9d624510d27dfad241efb3d74ef01699bf20dddf32ca7",
+          "evidence:8a3ac88b8fba1b02af28878293ba77bea4d4026baba33ea91e0dee5f6c51e87b",
+          "evidence:8d1dd129afa7dc7986166b699c195812fc6b7560d6f8331548a3c0896defb65b",
+          "evidence:965184e0ba4f78269bb460c59eeb0040744b5acfc3c18a7814c4e13c0f436079",
+          "evidence:a615ffd9d7d0fc75a7ca5d36693680efe2ceda256f11da9cd1d93725c1dcc7a3",
+          "evidence:bd199066944192081b33af4b4e02c6195ebaa32aebb3f292ec53474e832f430b",
+          "evidence:cccaea79098127522605dc29b944e50a9eea7c262c7f3b32e4b291fbccc2c5b6",
+          "evidence:cf07f9c73692af344defb44661388315ae7a3324455057dec2f73714ef9537bb",
+          "evidence:d86418e7e3f08f717d80d5a59113ea663d3e93aa80b4a26945ee3f6367f57246",
+          "evidence:f1abc400a08bec148cc641b4f8878820bc25400e70e166bf17581fe2719ce74b"
+        ],
+        "sourceBytes": 17967,
+        "metadataBytes": 10640,
+        "wireBytes": 29044,
+        "payloadSha256": "5f1e1edfb6e89d59f14d2c825e99804fb055ac448a4d15b0346b62e584ad0b48",
+        "timing": {
+          "startedMs": 23896,
+          "preparedMs": 25199,
+          "finishedMs": 25512
+        }
+      },
+      {
+        "id": "1e081bb6-0656-4564-9ad6-843c1dcc2911",
+        "tool": "proposeSection",
+        "argumentsSha256": "ca88dcd242650bd8db08b08868372413560e687af4048f9b9125fb9adf7f74b5",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 612,
+        "wireBytes": 612,
+        "payloadSha256": "8ca3cabadc7e995101354c8c51bb1f5f11c70ab28864659835945f76948963f6",
+        "timing": {
+          "startedMs": 56740,
+          "preparedMs": 58405,
+          "finishedMs": 58616
+        }
+      },
+      {
+        "id": "0f2af054-517a-4073-96d6-338e61fb8183",
+        "tool": "proposeSection",
+        "argumentsSha256": "f0a0f7dcd813a976abd68ff8b955b7835f1ff7f4409119d7079f7f17123b3443",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 514,
+        "wireBytes": 514,
+        "payloadSha256": "83bc2d1a604ec3a0c06526c3f08d3aaefc2f3582727a3c9ad021846a240f333a",
+        "timing": {
+          "startedMs": 71835,
+          "preparedMs": 74789,
+          "finishedMs": 74997
+        }
+      },
+      {
+        "id": "33e84d49-32e4-4309-afa0-f5c3bf7d7990",
+        "tool": "definitions",
+        "argumentsSha256": "efa3cf714e5a327adf1e73603d9eb3ae29f8dd6c988c161683e7194d2654fa02",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 3987,
+        "wireBytes": 3987,
+        "payloadSha256": "792d1d70e49dde00de10749d0ea285576be019036164352dead5a7e8acb7a792",
+        "timing": {
+          "startedMs": 78826,
+          "preparedMs": 78908,
+          "finishedMs": 79124
+        }
+      },
+      {
+        "id": "123141ff-42f0-4e6c-addd-7a43e6ee0f6b",
+        "tool": "definitions",
+        "argumentsSha256": "c57ebe266534196f07f136272229832d96898ff8a296609370f402f760f2807b",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 3487,
+        "wireBytes": 3487,
+        "payloadSha256": "2de8cf4c27bd60970aeb758d7588281027f6fb2b5bb274e7f07f11a23b15f041",
+        "timing": {
+          "startedMs": 79545,
+          "preparedMs": 79612,
+          "finishedMs": 79821
+        }
+      },
+      {
+        "id": "80e6eb80-1e81-4815-ad3a-bae261cb35f1",
+        "tool": "definitions",
+        "argumentsSha256": "b18a3f435421431bd5ea163f67dd6585e29aa192f23d0c201665772bbf23b19f",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1670,
+        "wireBytes": 1670,
+        "payloadSha256": "4752b8a47caa96daddb8381113901b81daea66208c32f16ee0e7ceaf98030f0e",
+        "timing": {
+          "startedMs": 80244,
+          "preparedMs": 80298,
+          "finishedMs": 80508
+        }
+      },
+      {
+        "id": "a1744c10-2a4e-46e2-9456-91f597a42522",
+        "tool": "definitions",
+        "argumentsSha256": "6cf901667f01d87e2b717d5c1fa82eb56706c35fcd621649b82e4a92e2b95063",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1656,
+        "wireBytes": 1656,
+        "payloadSha256": "3317bbbec0e559bd9411a68b6b43af0e16b44b35d6db36d84b19fa2ddbdb8758",
+        "timing": {
+          "startedMs": 80929,
+          "preparedMs": 80981,
+          "finishedMs": 81189
+        }
+      },
+      {
+        "id": "391bab25-d371-4b08-96de-7bbdc2d11c0e",
+        "tool": "search",
+        "argumentsSha256": "1919ebfb8c5297c85322c1b493e56c3c9cae8a8a511e18d6ad9e43f5b86e5505",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 4178,
+        "wireBytes": 4178,
+        "payloadSha256": "d6a7fe91661da619cb380a9d5b84c22711d322715fe95bfc8119e2dbeb3044a3",
+        "timing": {
+          "startedMs": 86509,
+          "preparedMs": 87263,
+          "finishedMs": 87470
+        }
+      },
+      {
+        "id": "9fd1439b-24fe-4aee-afed-c448b11869d7",
+        "tool": "search",
+        "argumentsSha256": "d43ea90d1f3b71686a45e7e0f0cf910ef92093e7c5cf4a7538c6d1fbe0d0bb88",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 3928,
+        "wireBytes": 3928,
+        "payloadSha256": "5a67ab46ba1a69e36292cdab7db8e3897ac8cdc188fa82647a4d16a9c57ecf1f",
+        "timing": {
+          "startedMs": 87890,
+          "preparedMs": 87977,
+          "finishedMs": 88188
+        }
+      },
+      {
+        "id": "fccbc831-0f26-4935-8147-66bde7f0eb8b",
+        "tool": "search",
+        "argumentsSha256": "46a8fe35256235503bda89cce42fc3f57f6e6144984676585a10f30d63781adf",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 3915,
+        "wireBytes": 3915,
+        "payloadSha256": "87daeccbd925dd83ff61a8e3ba758ab8729fc63312954f0f445cf9b378711f28",
+        "timing": {
+          "startedMs": 88608,
+          "preparedMs": 88696,
+          "finishedMs": 88903
+        }
+      },
+      {
+        "id": "a021e0bb-50bb-45e4-9fb3-7251591a1215",
+        "tool": "search",
+        "argumentsSha256": "36ae0fe4e535c135bce85db678ca37a5db030392ccc5d827efb343db9f018722",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 5031,
+        "wireBytes": 5031,
+        "payloadSha256": "20b567a8ab406e245c106641aed30fdcaece26b762107ae2e5f8a0462b31c53f",
+        "timing": {
+          "startedMs": 89322,
+          "preparedMs": 89410,
+          "finishedMs": 89618
+        }
+      },
+      {
+        "id": "6ebdcfe5-a7c1-4324-9147-b92493ab7137",
+        "tool": "definitions",
+        "argumentsSha256": "4c084c8df53c8f48c5002976c8a56ed4585918685be698460a26ce7d3041e623",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 758,
+        "wireBytes": 758,
+        "payloadSha256": "53edf935e3652a30fb268f79481d405c0565e026d7df8d7b3535ae7d042ab541",
+        "timing": {
+          "startedMs": 95752,
+          "preparedMs": 95802,
+          "finishedMs": 96011
+        }
+      },
+      {
+        "id": "4451349c-d64d-40b1-ae3a-f2584e08ced8",
+        "tool": "definitions",
+        "argumentsSha256": "cad4501e9e0d87b0c5399d7c99150f5afdbb2693229f05dbb0ae8145ecb8876f",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 753,
+        "wireBytes": 753,
+        "payloadSha256": "b390e1180b7aedf1e4bdc5807980cea96fe3667b3bd23d7cdeef63f77da7a0e1",
+        "timing": {
+          "startedMs": 96435,
+          "preparedMs": 96486,
+          "finishedMs": 96697
+        }
+      },
+      {
+        "id": "b5f3c076-5450-4ad7-bb2f-296488c8ecad",
+        "tool": "definitions",
+        "argumentsSha256": "7f497bf607bb1a534d25f784854def5ec181096daf8fe448d6a69b6c27f9331f",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 3686,
+        "wireBytes": 3686,
+        "payloadSha256": "bd55f508e2354e960b80b31f009ddca2b7f3fd44cf80d5d092374a75c50a8cf5",
+        "timing": {
+          "startedMs": 97159,
+          "preparedMs": 97233,
+          "finishedMs": 97440
+        }
+      },
+      {
+        "id": "36dd954f-478d-446c-b661-c3c24cb28ee0",
+        "tool": "definitions",
+        "argumentsSha256": "944eeee1983aaa8a874d9f870fdb59099c1847e9dbc203244e44ed52f77cf621",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 3722,
+        "wireBytes": 3722,
+        "payloadSha256": "44a5a41ed24410e78c5ff02d228de4098ec892f84e311c38ec1f622158be6870",
+        "timing": {
+          "startedMs": 97859,
+          "preparedMs": 97911,
+          "finishedMs": 98118
+        }
+      },
+      {
+        "id": "1012415d-e9cb-48d7-be1f-4e9e82728ef4",
+        "tool": "read",
+        "argumentsSha256": "bc2301b69eff088b2de60c867822f882dc69f0bef1d175acdde326808e3dbab9",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 809,
+        "wireBytes": 809,
+        "payloadSha256": "f353f196139a0fba9cd7ee001cd6ec0f3bef054e01fd16cd1765f19b2af02874",
+        "timing": {
+          "startedMs": 103956,
+          "preparedMs": 105253,
+          "finishedMs": 105464
+        }
+      },
+      {
+        "id": "b3876eea-98b1-4f68-bde3-4c8f8cff06b9",
+        "tool": "read",
+        "argumentsSha256": "4038d4c00bb6be44d4d1911c3da61c74553e6d486068a8af90ede43d8ed59dcb",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:041727a801807c56cf1c278c561a0f214b971640752d52861ab84c2868f1d0e2",
+          "evidence:0740b95682068bfac9bd72800acbba5f0b8ef6a706df0f82395af788922b9652",
+          "evidence:1e32625e3590022a251f1a9f51f67199d88a7d83f88e03d1c58619d42d486dff",
+          "evidence:204f6da046c4d9abf79e10a455b69f88e35dc776e7d43f45b5fdab8acad7c048",
+          "evidence:29f6dab27bee6c9fba64c3ec2ddd5a3d7660cf035ad31543056b01ae67e42fa5",
+          "evidence:2ef6538593d50eaa08bd6039037b51ad101344888eb4439b89bfb5389c5aeeb3",
+          "evidence:33a2f90ec80dbc275d0384f920aaea0bc6d54d950d979a40b95c276e9c072515",
+          "evidence:48a80c6c612bdfe0076af9acf2f403970c5d7c25e0dd67bf2ba661185e869c92",
+          "evidence:5a79bf61372c72c20592b5194d4685f06c3e0b8a56bd6ed6e1412a979e79f3bd",
+          "evidence:5b3d9fc3e7405cdbbac40743c59b4608fe950041bd77cd47b241fa76dadf86cb",
+          "evidence:6db851fa514719045a0c57deb3a2bb19c175ff2ad9bedae189aa59f0e011f30a",
+          "evidence:6fb491ea220c866374587f2127e4885cacc11866186ba479f2ebbf9deeb7f990",
+          "evidence:79f42d1004434258ca61699646eab22f1f0c8a89744a0836bbed481ad69617a8",
+          "evidence:9072df21e4f7c5428c23e46d7d3a081fa0b76fa9f021e138b84c060c41d5ee80",
+          "evidence:939a066db1c2609b35131e982accd306988bd91d4fcce8d0ea86556d6a6580ed",
+          "evidence:9dae4538e40538406880502ffe9fcc6ee7fc2afe5f3da5ed3c9b9594eeff5732",
+          "evidence:a43bd200322e54387cfeeaf5f8282465072dc656b19355ad38f6853df125d193",
+          "evidence:a6b9812d7381fd4605c75752c1364347bcd314c9a956aea25a03b96c5a1cbc7b",
+          "evidence:a93335508fc6a6724bf54d92824994fc20f181e6ed73240f239a5b15b7542380",
+          "evidence:aad53e78993327ff5af9d9e8e89d70b3acd0cbf9c35d9fd444a67347d1bfa162",
+          "evidence:bc1946253e1d72cfac56a04b50b4595c4d6132a997e3836c4006b7f08f3ac12c",
+          "evidence:bd985d209ea09f48bd9bdcc288d966d94d0cde6550d2830bb297d7879867fa03",
+          "evidence:c7f05aae9b2817b343ccecfc83fc814c67b400c099ecca7ee2595018f657854a",
+          "evidence:ce0aa00addfa8aefd63789605a3bcb949e284db2003fda09e63b14b3ffde22ec",
+          "evidence:d1244b1f87ce3f348897be5cd65ee4416a77368536fa7ad41a18c70e213fc730",
+          "evidence:d1c736ed941690e44c055c1280e3677983af9b9c615ff43419d3a975a6f2bdc4",
+          "evidence:d1ca3ac74c06656880641e89fbac5d43e49a4bdd16aec3de9e83b6751eae66ec",
+          "evidence:db517308d5c30d79d84bacaa88f0e00c0352884fe5ae9872bac7afd605b291b7",
+          "evidence:e3ec2478466ca11a3f56e14674bda5c83dd5f0a046546d76e4c7d16068e4c826",
+          "evidence:f69362e905bba57093f684f17b0d06a117f989259a59b9cd8ec5988926a5e85e",
+          "evidence:fc6d3b3e37a171827fdfabc8d5c3dbd55666dd505460764a285f3f6f1a7c4925"
+        ],
+        "sourceBytes": 28205,
+        "metadataBytes": 16039,
+        "wireBytes": 45024,
+        "payloadSha256": "64ead20bc9bc2acab5bb44905afca87a3192a13c2e85b52ecd5c99220da4b705",
+        "timing": {
+          "startedMs": 115694,
+          "preparedMs": 117390,
+          "finishedMs": 117751
+        }
+      },
+      {
+        "id": "c6ba9923-a26b-4f67-8ada-250f84ae269c",
+        "tool": "read",
+        "argumentsSha256": "bc460f22aec289aa449e33fe32fa356e95469afa9b344f9be7987875a009adf4",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 808,
+        "wireBytes": 808,
+        "payloadSha256": "b8a7ab2994453fe001d2fda2d85426dafe17b7e800d47aa7fbab61885caa2b76",
+        "timing": {
+          "startedMs": 126548,
+          "preparedMs": 126646,
+          "finishedMs": 126856
+        }
+      },
+      {
+        "id": "c8162753-69d1-46dd-969c-ddf4332696c7",
+        "tool": "read",
+        "argumentsSha256": "ab0678f8dce8edde9910f4e7bb26062559f3b848cccabfd4d1241af718b23a04",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 808,
+        "wireBytes": 808,
+        "payloadSha256": "1687cc9d8e39de2246e39cd0365f92bdb2e395e054616dc584a71353698f29d6",
+        "timing": {
+          "startedMs": 132596,
+          "preparedMs": 132692,
+          "finishedMs": 132901
+        }
+      },
+      {
+        "id": "57496275-0e39-4826-bad6-5eeec8d77158",
+        "tool": "definitions",
+        "argumentsSha256": "36b2d626c08e5866c360082a835e9fbfc7effbdbd77a82f81c3d51cfd95b597c",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1640,
+        "wireBytes": 1640,
+        "payloadSha256": "33d8453a8510418932bbb1c66a74807256cae24f962c70fbc524b37567a5f6d3",
+        "timing": {
+          "startedMs": 136937,
+          "preparedMs": 136986,
+          "finishedMs": 137194
+        }
+      },
+      {
+        "id": "ebb83ea2-d38c-4c22-8a3b-bb60f19f85ec",
+        "tool": "read",
+        "argumentsSha256": "d43b276d415fdb6884fc69d37c55f96a4a2a652db4802ea019626f7b8f374cbd",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 808,
+        "wireBytes": 808,
+        "payloadSha256": "245650ed121e62da4152928077a6c08dba5509fbf31206f1b976f25d776ab88b",
+        "timing": {
+          "startedMs": 141487,
+          "preparedMs": 141580,
+          "finishedMs": 141788
+        }
+      },
+      {
+        "id": "98fd6a4b-fe21-4281-89f9-3570d864e8d7",
+        "tool": "search",
+        "argumentsSha256": "c8d7a72ff4ba5b2f48bd372ef33baa28a75b33ffe1f9cc5213b655f16e3a796d",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 2426,
+        "wireBytes": 2426,
+        "payloadSha256": "8ee8068605c6091d5b2e3ed966f54ca90a22de48f764760ca547d7a009b85532",
+        "timing": {
+          "startedMs": 148001,
+          "preparedMs": 148721,
+          "finishedMs": 148931
+        }
+      },
+      {
+        "id": "b9d30735-5e87-4a91-9c34-d116168d8c8d",
+        "tool": "read",
+        "argumentsSha256": "4a30c78c11c03ad6fadefa572a900ec13521f227602206daf3f3e6527e55c62c",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 808,
+        "wireBytes": 808,
+        "payloadSha256": "85fb7c72e2a6fa13af1f28ce2075c5e7ca3ccc8e9a50793a55fec57045a08cf6",
+        "timing": {
+          "startedMs": 151985,
+          "preparedMs": 152078,
+          "finishedMs": 152285
+        }
+      },
+      {
+        "id": "9cfa31eb-e4b5-46a7-8e7c-0cb426819c03",
+        "tool": "search",
+        "argumentsSha256": "069ee1a4039495ba9475e4686986be317b9f4dd0c3d567c95bf3fd754bd98104",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1312,
+        "wireBytes": 1312,
+        "payloadSha256": "d34f685da24b250f18795597a93a3e41d032fb5f66d37c587806ac7ec5959eac",
+        "timing": {
+          "startedMs": 158304,
+          "preparedMs": 158385,
+          "finishedMs": 158592
+        }
+      },
+      {
+        "id": "ce8ede4c-3719-4818-bafb-1d860243dd43",
+        "tool": "read",
+        "argumentsSha256": "0adb704a4b29aede4a5fa05c291e742181c86312be6ea984c3491f1a81f7ecfb",
+        "state": "uncertain",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 0,
+        "wireBytes": 0,
+        "payloadSha256": null,
+        "timing": {
+          "startedMs": 159056,
+          "preparedMs": null,
+          "finishedMs": 159443
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "id": "evidence:f1abc400a08bec148cc641b4f8878820bc25400e70e166bf17581fe2719ce74b",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/api.rs",
+          "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+          "startByte": 6302,
+          "endByte": 7226,
+          "startLine": 165,
+          "endLine": 195,
+          "chunkSha256": "58b340be33830ce7f19d1ca8477be4c12e92017f2de8586f43b0c61fd775bb53",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:56fcb88fded3b36b097026314c1a616cdbda270c355434e61ad6318cc62c44cd",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/api.rs",
+          "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+          "startByte": 7226,
+          "endByte": 7870,
+          "startLine": 196,
+          "endLine": 207,
+          "chunkSha256": "0c9cb0714868be0ee362c38560b1ace5db6957d74e668a3b81a57fdac1832cb9",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:07f4af4236703cfaf100ab6feb850abd10f4bc285b8764c7b8c68a1acff18812",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/api.rs",
+          "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+          "startByte": 22294,
+          "endByte": 23235,
+          "startLine": 649,
+          "endLine": 673,
+          "chunkSha256": "3f5981a782954e12811837317c50d50aea67e67cf6695207b11a17b5431cdd29",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:181a234d3b2d4bfe1393d796a563d9c8c3b375a17090fc63832ed427cdbe5c39",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/api.rs",
+          "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+          "startByte": 23235,
+          "endByte": 23632,
+          "startLine": 674,
+          "endLine": 685,
+          "chunkSha256": "877d0bced7cadbf748ec4118e2aaf03bfc4387a57b2d1f9e87dd6aa977032677",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:43f280e01a21534f4e8751a9ba68fdd3c52029a82c6e43e6c3e033fba815020f",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/api.rs",
+          "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+          "startByte": 24522,
+          "endByte": 25466,
+          "startLine": 706,
+          "endLine": 726,
+          "chunkSha256": "464ff146ad441aeb17ce9f6edb5d2f3238d85196b0eb293c01f27a6af18df89b",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:8a3ac88b8fba1b02af28878293ba77bea4d4026baba33ea91e0dee5f6c51e87b",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/api.rs",
+          "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+          "startByte": 25466,
+          "endByte": 26456,
+          "startLine": 727,
+          "endLine": 743,
+          "chunkSha256": "e9df7a45b12003970c0d9f4f15dd02232a764cb7a8bf0bea20e6055a1ea29fa4",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:a615ffd9d7d0fc75a7ca5d36693680efe2ceda256f11da9cd1d93725c1dcc7a3",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/api.rs",
+          "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+          "startByte": 26456,
+          "endByte": 27453,
+          "startLine": 744,
+          "endLine": 763,
+          "chunkSha256": "06d61453b49f243bf70fc63ef3d1584babd162ac8810bc2c9a150160df5f27f7",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:bd199066944192081b33af4b4e02c6195ebaa32aebb3f292ec53474e832f430b",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/api.rs",
+          "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+          "startByte": 27453,
+          "endByte": 28424,
+          "startLine": 764,
+          "endLine": 780,
+          "chunkSha256": "85967dc1e976201bba200c624b07352a78f5aa51542e77660015d5bc0ccf2b74",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:8d1dd129afa7dc7986166b699c195812fc6b7560d6f8331548a3c0896defb65b",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/api.rs",
+          "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+          "startByte": 28424,
+          "endByte": 29421,
+          "startLine": 781,
+          "endLine": 803,
+          "chunkSha256": "8d93816f6006540d94fe81f4bd1b553742a680ec3d974438980c514950611d88",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:34b5be0c207f85d5d7a2cff3ff1a639963fa6c1fa35657b5c2a32c22e981962b",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/api.rs",
+          "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+          "startByte": 29421,
+          "endByte": 30323,
+          "startLine": 804,
+          "endLine": 821,
+          "chunkSha256": "7c61dabf6dab9a86556cc93c6214af34818df5f2886e966111107a5c6e3f6157",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:02ccdccbab706f31c9517dc1ad4334dd7fff161da16ce41113571f999477a392",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/api.rs",
+          "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+          "startByte": 30323,
+          "endByte": 31317,
+          "startLine": 822,
+          "endLine": 844,
+          "chunkSha256": "47600e014e55a4d3211bec3e6d2ebafa70ebbfa38034f9aebb483445d5b01519",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:cf07f9c73692af344defb44661388315ae7a3324455057dec2f73714ef9537bb",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/api.rs",
+          "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+          "startByte": 31317,
+          "endByte": 32316,
+          "startLine": 845,
+          "endLine": 867,
+          "chunkSha256": "dfdc1161084ddd5a7a06ddc525a40c960c5b07a517d2d2dca5e961cf8462d204",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:164e939830dc5c0d3e15d659afd23d51f2b921db82847edeeab77ed4f3e88a63",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/api.rs",
+          "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+          "startByte": 32316,
+          "endByte": 32940,
+          "startLine": 868,
+          "endLine": 887,
+          "chunkSha256": "7c41b075b80890fc00f618b8ffb8bd28ec0f722ba6007caf256bc8147749f41e",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:965184e0ba4f78269bb460c59eeb0040744b5acfc3c18a7814c4e13c0f436079",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 147769,
+          "endByte": 148750,
+          "startLine": 4053,
+          "endLine": 4078,
+          "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:28633322d2381208e9b0c55baef75fc5c7cac6b76bc417c2dbc951ad3cb7718e",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 148750,
+          "endByte": 149723,
+          "startLine": 4079,
+          "endLine": 4096,
+          "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:804f1096fdd0a79e2be9d624510d27dfad241efb3d74ef01699bf20dddf32ca7",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 149723,
+          "endByte": 150666,
+          "startLine": 4097,
+          "endLine": 4115,
+          "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:6e56b74486ceac67697c2f9f8f6dccddd2b4f5b3193c0a79a3bccfe58076ce1a",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tables.rs",
+          "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+          "startByte": 7652,
+          "endByte": 8647,
+          "startLine": 191,
+          "endLine": 212,
+          "chunkSha256": "d5780a309729db8c246b4b08226fd345b2548a27bb67c370d5cf1c759f35ffa7",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:0ec956a837ad0e6865438b756f7279a0838c416fe7c927802e6f84374f432bb3",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tables.rs",
+          "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+          "startByte": 8647,
+          "endByte": 9615,
+          "startLine": 213,
+          "endLine": 239,
+          "chunkSha256": "1f965d23bf110de7a7ed567004be2995d5accbc9d88629462f360a9aa414aabb",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:cccaea79098127522605dc29b944e50a9eea7c262c7f3b32e4b291fbccc2c5b6",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tables.rs",
+          "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+          "startByte": 9615,
+          "endByte": 9949,
+          "startLine": 240,
+          "endLine": 251,
+          "chunkSha256": "858453e030e610099b83335f4d9a88376df6e6a5e80a9cfc9d195784cf4dae16",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:d86418e7e3f08f717d80d5a59113ea663d3e93aa80b4a26945ee3f6367f57246",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tables.rs",
+          "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+          "startByte": 10291,
+          "endByte": 11255,
+          "startLine": 259,
+          "endLine": 282,
+          "chunkSha256": "19b2b40c6191d60f4222b9a41e4e6ebac641ebcd4e1676cb00cdda85d1f38f3d",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:2cebad603abf2500ba6c00db0697792bba622bade5cb28a29483152be124255a",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tables.rs",
+          "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+          "startByte": 11255,
+          "endByte": 11740,
+          "startLine": 283,
+          "endLine": 299,
+          "chunkSha256": "dc87b90cc9965cea2ae962d67b28ce2def184c01e114441b509c2c45dcbe894f",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:a6b9812d7381fd4605c75752c1364347bcd314c9a956aea25a03b96c5a1cbc7b",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 158045,
+          "endByte": 159045,
+          "startLine": 4300,
+          "endLine": 4317,
+          "chunkSha256": "a6e4d6fcb6da34a53e332959b79b613f2341f222ef3e8c238c49fd81ec838bdc",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:0740b95682068bfac9bd72800acbba5f0b8ef6a706df0f82395af788922b9652",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 159045,
+          "endByte": 160039,
+          "startLine": 4318,
+          "endLine": 4341,
+          "chunkSha256": "bcf746d96304816be70ac4869ce2c36c4b62bbe2e38c95127d40a7741f3bd166",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:d1c736ed941690e44c055c1280e3677983af9b9c615ff43419d3a975a6f2bdc4",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 160039,
+          "endByte": 160891,
+          "startLine": 4342,
+          "endLine": 4368,
+          "chunkSha256": "c29a237057673728e21ad7a4a7a40c09db17a96fa9a19db4bd81e338f76a74a1",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:d1244b1f87ce3f348897be5cd65ee4416a77368536fa7ad41a18c70e213fc730",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 172348,
+          "endByte": 173347,
+          "startLine": 4649,
+          "endLine": 4673,
+          "chunkSha256": "cce1659507117066c070965bdef760fac2f008c77ec19f519b0113db5f288819",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:bc1946253e1d72cfac56a04b50b4595c4d6132a997e3836c4006b7f08f3ac12c",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 173347,
+          "endByte": 174325,
+          "startLine": 4674,
+          "endLine": 4697,
+          "chunkSha256": "1b892104e5ec0eea5975382d7394bf3dec51b501457da005f7ce5381e32195ab",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:6fb491ea220c866374587f2127e4885cacc11866186ba479f2ebbf9deeb7f990",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 174325,
+          "endByte": 175257,
+          "startLine": 4698,
+          "endLine": 4713,
+          "chunkSha256": "4e59c7a89dc0e1e050d0fd131f3d97c06420578dc69e330e328a0bd8313bed35",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:9dae4538e40538406880502ffe9fcc6ee7fc2afe5f3da5ed3c9b9594eeff5732",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 175257,
+          "endByte": 176256,
+          "startLine": 4714,
+          "endLine": 4736,
+          "chunkSha256": "455413c4eeacd51b8c78034143230aaf29750e5898ca06001f736a05fde9e026",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:29f6dab27bee6c9fba64c3ec2ddd5a3d7660cf035ad31543056b01ae67e42fa5",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 176256,
+          "endByte": 177242,
+          "startLine": 4737,
+          "endLine": 4757,
+          "chunkSha256": "f882849621b3d71f23034787ebdf4f907080adf233880abacf83e7461ff58677",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:ce0aa00addfa8aefd63789605a3bcb949e284db2003fda09e63b14b3ffde22ec",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 177242,
+          "endByte": 178241,
+          "startLine": 4758,
+          "endLine": 4779,
+          "chunkSha256": "036881e7aa06f9d700106808a15e9032189c76a9c92f723bb0e0369691c21a20",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:d1ca3ac74c06656880641e89fbac5d43e49a4bdd16aec3de9e83b6751eae66ec",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 178241,
+          "endByte": 179232,
+          "startLine": 4780,
+          "endLine": 4801,
+          "chunkSha256": "91f82732221150675d05d473f92167854cb1dd13240de4da5f566ac550f7f24c",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:a93335508fc6a6724bf54d92824994fc20f181e6ed73240f239a5b15b7542380",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 179232,
+          "endByte": 180226,
+          "startLine": 4802,
+          "endLine": 4823,
+          "chunkSha256": "1259a69c05a0bf86c1bc79a9c75ecd2b13efa662b12a8395fd6d05247777d446",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:204f6da046c4d9abf79e10a455b69f88e35dc776e7d43f45b5fdab8acad7c048",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 180226,
+          "endByte": 180863,
+          "startLine": 4824,
+          "endLine": 4840,
+          "chunkSha256": "49e8c213b4e82dbc920bce438dfeb411d6001c712f8fab03bfa50b6b5a586247",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:c7f05aae9b2817b343ccecfc83fc814c67b400c099ecca7ee2595018f657854a",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 268867,
+          "endByte": 269851,
+          "startLine": 7037,
+          "endLine": 7063,
+          "chunkSha256": "d7ac12390b929477beb46b823055ea7243277e8dcecd1c40aa04ee4061936cd8",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:bd985d209ea09f48bd9bdcc288d966d94d0cde6550d2830bb297d7879867fa03",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 269851,
+          "endByte": 269948,
+          "startLine": 7064,
+          "endLine": 7065,
+          "chunkSha256": "b516c7a8ddb5f367e930ff383cd5e02660527f2f8a3dc15c909f7d1936fa9d79",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:e3ec2478466ca11a3f56e14674bda5c83dd5f0a046546d76e4c7d16068e4c826",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tt/glyf.rs",
+          "sourceSha256": "2d922a23275e0c77247350548d0f332e43ac7fe58c33ed2e9df2c86f9fac1131",
+          "startByte": 12821,
+          "endByte": 13761,
+          "startLine": 424,
+          "endLine": 451,
+          "chunkSha256": "91d86036cd656bb62a9d27c81b8523663c4b955db33bf0c44fe19b20bb0c246f",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:041727a801807c56cf1c278c561a0f214b971640752d52861ab84c2868f1d0e2",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tt/glyf.rs",
+          "sourceSha256": "2d922a23275e0c77247350548d0f332e43ac7fe58c33ed2e9df2c86f9fac1131",
+          "startByte": 13761,
+          "endByte": 14746,
+          "startLine": 452,
+          "endLine": 476,
+          "chunkSha256": "0fa9783b4f2ae2fffed136bcf8b0712c047cd8c7e6ce08794dc91b7d35bb3325",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:79f42d1004434258ca61699646eab22f1f0c8a89744a0836bbed481ad69617a8",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tt/glyf.rs",
+          "sourceSha256": "2d922a23275e0c77247350548d0f332e43ac7fe58c33ed2e9df2c86f9fac1131",
+          "startByte": 14746,
+          "endByte": 15673,
+          "startLine": 477,
+          "endLine": 495,
+          "chunkSha256": "41427463f209c94c9afa35504b6c1c5d2d9b3837785f1ee919ff37eebf877945",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:2ef6538593d50eaa08bd6039037b51ad101344888eb4439b89bfb5389c5aeeb3",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tt/glyf.rs",
+          "sourceSha256": "2d922a23275e0c77247350548d0f332e43ac7fe58c33ed2e9df2c86f9fac1131",
+          "startByte": 15673,
+          "endByte": 16606,
+          "startLine": 496,
+          "endLine": 514,
+          "chunkSha256": "f8dd9855b189707f6a59b45eb5fa168aabde95ecd3b15d672dfd94f2a2ef29c5",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:a43bd200322e54387cfeeaf5f8282465072dc656b19355ad38f6853df125d193",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tt/glyf.rs",
+          "sourceSha256": "2d922a23275e0c77247350548d0f332e43ac7fe58c33ed2e9df2c86f9fac1131",
+          "startByte": 16606,
+          "endByte": 17580,
+          "startLine": 515,
+          "endLine": 532,
+          "chunkSha256": "fa946a63490052d7515d8bf298e6cd311143fb27def56686d6069c1417a30aed",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:939a066db1c2609b35131e982accd306988bd91d4fcce8d0ea86556d6a6580ed",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tt/glyf.rs",
+          "sourceSha256": "2d922a23275e0c77247350548d0f332e43ac7fe58c33ed2e9df2c86f9fac1131",
+          "startByte": 17580,
+          "endByte": 18548,
+          "startLine": 533,
+          "endLine": 553,
+          "chunkSha256": "6c024638b399d331e528acdbb6acf79d8219a50a563bfc72bee5b6d11bdbe187",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:5b3d9fc3e7405cdbbac40743c59b4608fe950041bd77cd47b241fa76dadf86cb",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tt/glyf.rs",
+          "sourceSha256": "2d922a23275e0c77247350548d0f332e43ac7fe58c33ed2e9df2c86f9fac1131",
+          "startByte": 18548,
+          "endByte": 19548,
+          "startLine": 554,
+          "endLine": 574,
+          "chunkSha256": "9b5d9a73e51770ec387a366f164dc4d082d61279c02f864ee75a36624b3a3e4c",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:48a80c6c612bdfe0076af9acf2f403970c5d7c25e0dd67bf2ba661185e869c92",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tt/glyf.rs",
+          "sourceSha256": "2d922a23275e0c77247350548d0f332e43ac7fe58c33ed2e9df2c86f9fac1131",
+          "startByte": 19548,
+          "endByte": 20527,
+          "startLine": 575,
+          "endLine": 595,
+          "chunkSha256": "b5a3042f540e8221b77e54fa3408ec921fd98ecc483f175b4ce3167ecad4ef1c",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:9072df21e4f7c5428c23e46d7d3a081fa0b76fa9f021e138b84c060c41d5ee80",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tt/glyf.rs",
+          "sourceSha256": "2d922a23275e0c77247350548d0f332e43ac7fe58c33ed2e9df2c86f9fac1131",
+          "startByte": 20527,
+          "endByte": 21013,
+          "startLine": 596,
+          "endLine": 606,
+          "chunkSha256": "5b33483d31bb8117c89f2a2fd6b62e9c3f8b62a2509d6b92bbdc2249c1fac569",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:aad53e78993327ff5af9d9e8e89d70b3acd0cbf9c35d9fd444a67347d1bfa162",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/render.rs",
+          "sourceSha256": "4e94ae93c44d0c3a29f2671f5f08af2530cf48a37d2ebc3dc0bdeb211abff33e",
+          "startByte": 6910,
+          "endByte": 7904,
+          "startLine": 246,
+          "endLine": 272,
+          "chunkSha256": "213d3664ea3ea240389457f973fbc378ee231648c8e16de006fe95e5f935be07",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:5a79bf61372c72c20592b5194d4685f06c3e0b8a56bd6ed6e1412a979e79f3bd",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/render.rs",
+          "sourceSha256": "4e94ae93c44d0c3a29f2671f5f08af2530cf48a37d2ebc3dc0bdeb211abff33e",
+          "startByte": 7904,
+          "endByte": 8872,
+          "startLine": 273,
+          "endLine": 300,
+          "chunkSha256": "7b32a2af0558fff79758f9df93f3e93930b4900ac3c3a501a0ebbc31c251479b",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:db517308d5c30d79d84bacaa88f0e00c0352884fe5ae9872bac7afd605b291b7",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/render.rs",
+          "sourceSha256": "4e94ae93c44d0c3a29f2671f5f08af2530cf48a37d2ebc3dc0bdeb211abff33e",
+          "startByte": 8872,
+          "endByte": 9834,
+          "startLine": 301,
+          "endLine": 326,
+          "chunkSha256": "735f21900a7719fc842e848a8801bc5a5144b9a89636e88e2912edb87e73dba8",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:f69362e905bba57093f684f17b0d06a117f989259a59b9cd8ec5988926a5e85e",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/render.rs",
+          "sourceSha256": "4e94ae93c44d0c3a29f2671f5f08af2530cf48a37d2ebc3dc0bdeb211abff33e",
+          "startByte": 9834,
+          "endByte": 10792,
+          "startLine": 327,
+          "endLine": 358,
+          "chunkSha256": "65832f27fb14855f320c1dfe4ddbd46f9de4db103c48ebbb2087b2ce33c5afb0",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:6db851fa514719045a0c57deb3a2bb19c175ff2ad9bedae189aa59f0e011f30a",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/render.rs",
+          "sourceSha256": "4e94ae93c44d0c3a29f2671f5f08af2530cf48a37d2ebc3dc0bdeb211abff33e",
+          "startByte": 10792,
+          "endByte": 11735,
+          "startLine": 359,
+          "endLine": 392,
+          "chunkSha256": "c0bed87948d9d8746d7c50d720ccd648652f8d3df968b0657959dfe379b2dcab",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:1e32625e3590022a251f1a9f51f67199d88a7d83f88e03d1c58619d42d486dff",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/render.rs",
+          "sourceSha256": "4e94ae93c44d0c3a29f2671f5f08af2530cf48a37d2ebc3dc0bdeb211abff33e",
+          "startByte": 11735,
+          "endByte": 12724,
+          "startLine": 393,
+          "endLine": 424,
+          "chunkSha256": "bc6c39af36e0d4d2f009be632f106fbd11b080d3acdd2d26342b184c5ceaa58b",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:33a2f90ec80dbc275d0384f920aaea0bc6d54d950d979a40b95c276e9c072515",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/render.rs",
+          "sourceSha256": "4e94ae93c44d0c3a29f2671f5f08af2530cf48a37d2ebc3dc0bdeb211abff33e",
+          "startByte": 12724,
+          "endByte": 13688,
+          "startLine": 425,
+          "endLine": 446,
+          "chunkSha256": "25725b0bd1ad9ebbae3980ce308b8389ce2db8e084c701cc00410a4e61635117",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:fc6d3b3e37a171827fdfabc8d5c3dbd55666dd505460764a285f3f6f1a7c4925",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/render.rs",
+          "sourceSha256": "4e94ae93c44d0c3a29f2671f5f08af2530cf48a37d2ebc3dc0bdeb211abff33e",
+          "startByte": 13688,
+          "endByte": 14481,
+          "startLine": 447,
+          "endLine": 479,
+          "chunkSha256": "141f31866c8f9279e091500c748079d836480640df9b7bb03a15a1be1f9a9ca9",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      }
+    ],
+    "contextClock": "capturedCodeSessionV1"
+  },
+  "observations": [
+    {
+      "notice": {
+        "runId": "5ddb3d61-1e01-42e4-8250-0c266e5bf9fc",
+        "projectId": "/Users/lazytrot/work/fontdone",
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "key": "font-bytes-entry",
+        "order": 0,
+        "generationId": "generation:15dbff22-0942-4bd3-9028-34422a17745f",
+        "revisionId": "revision:c4325891-0a59-4218-a7af-39e8c4d609d3",
+        "supersedes": null,
+        "contextElapsedMs": 73986,
+        "runElapsedMs": 74578
+      },
+      "readyElapsedMs": 74951,
+      "savedRevisionId": "revision:c4325891-0a59-4218-a7af-39e8c4d609d3",
+      "error": null
+    }
+  ],
+  "humanQualityReview": false,
+  "humanListeningPass": false
+}

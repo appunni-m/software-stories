@@ -82,10 +82,21 @@ pub(crate) fn scoped(
 /// Caller holds the manager's active-operation lock, or has joined the worker.
 /// Terminal recovery updates only outcome metadata; it cannot publish content.
 pub(crate) fn interrupt(storage: &Path, run: &str, outcome: Outcome) -> Result<Summary, String> {
+    interrupt_with_failure(storage, run, outcome, None)
+}
+
+/// Called by the joined worker with a fixed classification of its actual error.
+/// A historical terminal record is preserved; its missing cause stays unknown.
+pub(crate) fn interrupt_with_failure(
+    storage: &Path,
+    run: &str,
+    outcome: Outcome,
+    failure: Option<FailureCode>,
+) -> Result<Summary, String> {
     if !matches!(
         outcome,
         Outcome::Stopped | Outcome::Interrupted | Outcome::Partial | Outcome::Failed
-    ) {
+    ) || (failure == Some(FailureCode::Stopped) && outcome != Outcome::Stopped) {
         return Err("The answer recovery outcome is invalid.".into());
     }
     let mut answer = inspect(storage, run)?;
@@ -102,6 +113,7 @@ pub(crate) fn interrupt(storage: &Path, run: &str, outcome: Outcome) -> Result<S
         Outcome::Failed | Outcome::Partial => Outcome::Partial,
         other => other,
     };
+    answer.failure_code = failure;
     if answer.outcome == Outcome::Partial {
         answer.incomplete_topics = vec!["The investigation ended before all requested details could be completed. Only the published sections are available.".into()];
     }

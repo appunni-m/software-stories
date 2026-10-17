@@ -24,6 +24,17 @@ No task is closed; live Kata remains 73 records, 50 open and 23 closed.
 
 **Priority update — 2026-10-16:** Deliver Codex first through [agent-first generation](kata-tasks/45-agent-first-generation.md), Kata `2r6n` (priority 0). The user deferred Claude (`8gqw`, priority 2); it no longer blocks the current Codex gate, but remains a direct dependency of full M7. Building, testing and a small synthetic installed-account Codex validation are authorized. Manual handoffs and direct API results cannot qualify Codex. See [Agent generation](AGENT_GENERATION.md).
 
+## Latest broad qualification — 17 October
+
+The fresh short-reference Fontdone run still fails broad completion: one draft,
+160.010 s and an uncertain final read. Independent review finds missing branch
+exceptions, an empty repeated-card visual and dense narration. The follow-up
+preserves fixed private terminal error classifications, with 363 native/179
+frontend tests; it does not infer the historical cause or qualify content.
+[Exact failed result, source checks and remaining work](acceptance/2026-10-17-short-native-references.md).
+`3bz5`, `yk6c`, `gk46`, `q0sm` and `j53m` retain the concrete pending work.
+All 73 task bodies/statuses/priorities match live Kata; 50 open, 23 closed.
+
 ## Focused generation repair
 
 Kata `tmck` tracks [identifier correction](kata-tasks/65-claim-alignment-correction.md): one fingerprinted correction in the same Codex conversation, unchanged source validation and readable persisted failure messages. Parent quality `q0sm` remains open.

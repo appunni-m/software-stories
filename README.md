@@ -45,6 +45,12 @@ These are capabilities under development, not a finished or released product. **
 
 The [local retrieval checkpoint](docs/acceptance/2026-10-17-range-retrieval.md) records native range search and its limits. The [owned Codex investigation checkpoint](docs/acceptance/2026-10-17-codex-owned-retrieval.md) adds one live GPT-6 Luna/max synthetic answer using iterative tools: five calls and 197 distinct source bytes. Workspace chat now uses that route in source. Fontdone broad/focused explanations, speed and packaged-app acceptance remain open.
 
+The [latest Fontdone qualification](docs/acceptance/2026-10-17-short-native-references.md)
+uses short native citation references and preserves one draft, but still ends
+partial. Source-exception, visual-story, narration and broad-completion gates
+remain open. Local packet/record checks are not production or content-quality
+acceptance.
+
 ## Local development
 
 The lockfile's Vite toolchain requires Node.js 20.19 or newer in the 20.x line, or 22.12 or newer. The Rust crate uses edition 2024 ([edition release](https://blog.rust-lang.org/2025/02/20/Rust-1.85.0.html)); locked Tantivy 0.26.2 declares Rust 1.86 as its minimum. The project does not set Cargo's `rust-version` or pin a toolchain, and the complete dependency graph has not been qualified at that floor. Use current stable Rust with Cargo for native commands (this checkpoint used rustc 1.98.1).

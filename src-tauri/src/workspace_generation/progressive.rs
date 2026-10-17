@@ -214,7 +214,15 @@ pub(crate) fn run(
                 .lock()
                 .map_err(|_| "The answer session is unavailable.")?
                 .answer_cancelled();
-            let saved = reading::interrupt(
+            let failure_code = if cancelled {
+                sections::FailureCode::Stopped
+            } else {
+                match &failure {
+                    Err(error) | Ok(Err(error)) => sections::FailureCode::from_error(error),
+                    _ => sections::FailureCode::Unknown,
+                }
+            };
+            let saved = reading::interrupt_with_failure(
                 storage,
                 &input.run_id,
                 if cancelled {
@@ -222,6 +230,7 @@ pub(crate) fn run(
                 } else {
                     Outcome::Partial
                 },
+                Some(failure_code),
             )?;
             // The durable answer record now owns recovery, including partial
             // and stopped work. Do not leave a legacy final-chapter retry notice.

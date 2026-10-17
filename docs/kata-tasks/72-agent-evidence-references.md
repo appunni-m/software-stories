@@ -60,3 +60,9 @@ Focused regressions cover strict canonical shape, exact source, unavailable IDs,
 - [ ] Complete native source/navigation/reader and narration gates from this task's original contract. No broad Fontdone, Pocket listening or accessibility pass is claimed.
 
 Keep this task open; unit reliability is not answer quality.
+
+## Fresh broad transport qualification — 17 October
+
+The separate frozen Fontdone short-reference run `5ddb3d61-1e01-42e4-8250-0c266e5bf9fc` published one draft at 74.578 s and returned Partial at 160.010 s. Its eight published anchors resolve exactly, with no malformed/unavailable short-reference finding in the two proposals, but an identifier alignment rejection and later uncertain read still prevent broad completion. All original budgets remain. [Preserved failed result and independent review](../acceptance/2026-10-17-short-native-references.md#result-partial-completion-assertion-failed).
+
+This is narrow positive reference-mechanism evidence, not a completed answer or content/voice/navigation acceptance. The separate follow-up preserves fixed private terminal classifications (363 native/179 frontend tests); it cannot retrospectively identify the uncertain read's cause. Complete the original fresh broad/native/narration gates before closure. Keep this task open.

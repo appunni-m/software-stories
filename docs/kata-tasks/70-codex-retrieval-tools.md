@@ -157,3 +157,9 @@ The intermittent progressive packet failure is now causal: `set_read_timeout` re
 New progressive read responses also supply operation-local short citation references, retaining native digest identities, exact delivered-source admission and historical answer compatibility. Legacy five-tool requests retain their original catalog. [Reproduction, transport contract and qualification limits](../acceptance/2026-10-17-short-native-references.md).
 
 The exact fresh frozen Fontdone account run, installed replacement/native navigation, quality, speech and useful-answer timing remain pending. This checkpoint neither explains every historical generic transport error nor certifies complete large-repository answers. Keep this task open.
+
+## Short-reference live failure and observability — 17 October
+
+A fresh frozen Fontdone run used the rebuilt `502e2c2` helper and existing GPT-6 Luna/max account. It saved one adopted section, then returned Partial in 160.010 s. Thirty-two of 33 calls delivered; the last read started but has no prepared payload and is uncertain. Native input had already been admitted before this call began. The receipt does not prove a socket, argument, budget or model cause; the worker discarded its actual error when retaining partial content. [Exact artifact and scope](../acceptance/2026-10-17-short-native-references.md#result-partial-completion-assertion-failed).
+
+The follow-up retains a fixed private terminal failure classification from the actual error; arbitrary messages become `unknown`, original terminal records are not backfilled, and no technical field is added to the reader summary. Full default suite: 363 native passed (13 explicit probes ignored), frontend 179. No new account run has qualified this later diagnostic. Reproduce/classify the actual uncertain-call failure and finish broad repository, native navigation, quality/voice and timing gates before closure. Keep this task open.

@@ -123,3 +123,13 @@ A deterministic macOS queued-packet regression also exposed the intermittent nat
 - [ ] Complete the existing installed reader, complete narrated story/Pocket and accessibility gates. Short-reference reliability and local packet tests do not satisfy these.
 
 Keep this task open. The fresh account run and current-bundle installation are pending.
+
+## Fresh short-reference Fontdone result — 17 October
+
+Source `502e2c2` returned Partial after 160.010 s (test 162.35 s, exit 101), with one draft published at 74.578 s and adopted at 74.951 s. Thirty-two of 33 calls delivered 46,172 source bytes across five paths; the last read is uncertain before payload preparation. Two proposals used the short-reference protocol: one identifier/evidence/prose rejection and one publication. All eight anchors independently match captured bytes and all nine input metadata hashes remain unchanged. There is no final manifest or broad completion. [Unchanged result, source review and limitations](../acceptance/2026-10-17-short-native-references.md#result-partial-completion-assertion-failed).
+
+The worker discarded its actual terminal error when preserving this partial answer. The follow-up now retains only a fixed private `failureCode`, with unknown text mapped to `unknown`, no implementation diagnostic added to the UI summary and no replay. Four regressions cover section preservation, exact classification, terminal idempotence, historical absence and damaged/nonterminal metadata. The full native suite passes 363 tests (13 explicit probes ignored), frontend 179. This account artifact predates the diagnostic follow-up; the historical cause remains unknown.
+
+- [ ] Reproduce the actual uncertain-call failure with retained native classification before attributing it to arguments, sockets, context size or a model. Preserve the failed completion; do not reset budgets or rerun automatically.
+- [ ] Correct the missing dispatcher exceptions and repeated empty-card scene through the existing quality/visual tasks; the source-valid draft is not an accepted narrative.
+- [ ] Complete the original broad answer, installed reader/Stop/restart, Pocket and accessibility gates. Keep this task open.

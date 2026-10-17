@@ -4,6 +4,16 @@ Snapshot: **17 October 2026**, read from live project `code-atlas-rebuild` after
 
 ## Current generation gate
 
+The latest frozen broad Fontdone run returned **Partial in 160.010 s**, with
+one draft at 74.578 s and an uncertain final read. The preserved output fails
+source-exception, meaningful-visual and narration review. The exact cause of
+that read remains unknown. Short references and the causal macOS queued-packet
+fix have mechanical evidence; a later follow-up retains fixed private terminal
+diagnostics. Broad completion, quality/voice, installed acceptance and release
+remain open. [Current evidence and limits](acceptance/2026-10-17-short-native-references.md).
+
+### Historical implementation checkpoints
+
 The earlier unsigned native-citation debug app built and opened, retaining its saved Codex connection and nested reading position. That historical qualification passed **304 native tests** (11 explicit probes ignored), **145 frontend tests** and the production build. Native citations resolve exact delivered captured spans without asking the model to copy source quotes.
 
 The correctly configured frozen Fontdone GPT-6 Luna/max investigation still **failed after 358.714 seconds**, with no answer published. One identifier/evidence finding remained after correction; a separate source review found a required-versus-optional table error. [Exact evidence, limitations and timing](acceptance/2026-10-17-native-citation-references.md). This is not a quality, narration or two-minute latency pass.
@@ -162,3 +172,18 @@ isolated broad Fontdone account qualification is still required; the earlier
 partial result remains failed. [Contract, causal evidence and limits](acceptance/2026-10-17-short-native-references.md).
 Live Kata remains **73 records: 50 open, 23 closed**. `3bz5`, `yk6c` and `gk46`
 remain open; no task is closed by this checkpoint.
+
+## 17 October fresh broad result and private failure diagnostics
+
+The `502e2c2` isolated account run saved one draft, then failed broad completion
+at 160.010 s. All eight anchors and nine captured metadata hashes match, but
+the missing dispatcher exceptions, repeated empty-card scene and dense
+technical narration still fail the requested experience. The later worker fix
+retains only fixed private failure codes, preserves original terminal records
+and leaves technical diagnostics out of the UI summary. The final suite passes
+**363 native tests** (13 explicit probes ignored) and **179 frontend tests**.
+No subsequent account run, Pocket listening or native replacement has qualified
+the follow-up. [Preserved failure and remaining work](acceptance/2026-10-17-short-native-references.md).
+All 73 checked-in task bodies/statuses/priorities match live Kata: **50 open,
+23 closed**. Duplicate YAML frontmatter was removed from three live issue
+bodies; requirements and statuses are unchanged. No task is closed by these checks.

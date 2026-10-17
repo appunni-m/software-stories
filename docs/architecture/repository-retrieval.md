@@ -141,6 +141,13 @@ Workspace reading and narration are built from validated claims; separate propos
 
 After native scene rejection, a known cross-claim content node returns fixed `sceneEvidence` at its `nodeIndex` position. The node must cite the scene’s own claim. Feedback contains no source or model labels and does not replace native scene validation.
 
+When a worker actually fails, its terminal answer record can retain a fixed
+private `failureCode`. Unknown error text becomes `unknown`; no arbitrary
+message/path or implementation diagnostic enters the UI summary. Working and
+complete records cannot carry a failure code; old terminal records without it
+remain unchanged. Partial drafts and uncertain-delivery no-retry rules are
+preserved. [Observed loss, regression scope and pending live qualification](../acceptance/2026-10-17-short-native-references.md#preserve-the-actual-terminal-failure-in-future-records).
+
 Progressive sections are independently admitted and atomically retained before reader events. A strict final manifest names current section identities; it cannot supply a replacement chapter. Draft adoption and restart reconciliation are local/idempotent. The reader appends stable cards without selecting newly arriving sections or starting narration. Native ownership, terminal outcomes, exact proposal/final-response retention and explicit bounded receipt management are described in the [reader integration checkpoint](../acceptance/2026-10-17-progressive-reader-integration.md).
 
 New section checkpoints use version 2 presentation: all distinct anchored claim

@@ -1,0 +1,35 @@
+{
+  "scope": "Local terminal-diagnostic regression/build checks; not a new account, native UI, content quality or speech qualification",
+  "nativeSuite": {
+    "passed": 363,
+    "failed": 0,
+    "ignoredExplicitProbes": 13,
+    "seconds": 33.36
+  },
+  "frontendSuite": {
+    "passed": 179,
+    "failed": 0
+  },
+  "debugApp": {
+    "path": "/private/tmp/software-stories-kata/src-tauri/target/debug/bundle/macos/Code Atlas.app/Contents/MacOS/code-atlas-desktop",
+    "bytes": 119393744,
+    "sha256": "e3460f3e4398c4f8914bc0514c748e41ba0754e7f0dede6ba2d41b985b91f52a",
+    "embeddedMacExecutableIntegrity": true,
+    "developerId": false,
+    "notarized": false,
+    "installed": false
+  },
+  "sourceSha256": {
+    "src-tauri/src/evidence_ledger/sections.rs": "67ce9386151e104c5de1a28cfa7cc9845920c074db9eac648c3ff7adee705bc8",
+    "src-tauri/src/evidence_ledger/sections/reading.rs": "7a703857be182e58a4e7eb32a3779ed3ae8e6cbf96dc4c07ca79a8db16012fc9",
+    "src-tauri/src/evidence_ledger/sections/tests.rs": "824cd21c2e5bb3e6ea788f4f5a5c5a762b2d92a0bd79130beceb52379d09f515",
+    "src-tauri/src/workspace_generation/progressive.rs": "be70172653a89de09c9458ceb9d7340ec688d061c6df9aaebdb5380e1cfaaf48"
+  },
+  "liveKata": {
+    "records": 73,
+    "open": 50,
+    "closed": 23,
+    "allBodyStatusPriorityMappingsVerified": true
+  },
+  "failedAccountArtifactSha256": "d2fa901ddd2e363a81bef1c3856980d5c0b9ad047d89054050492574c76752fa"
+}
