@@ -38,6 +38,25 @@ describe('one-time Codex connection', () => {
     assert.deepEqual(calls, ['status', 'resume', 'models']);
   });
 
+  it('restores a reaped runtime for the next queued question without signing in', async () => {
+    const { commands, calls } = runtime();
+    await restoreCodexConnection(commands);
+    commands.status = async () => {
+      calls.push('status');
+      return { ...ready, runtimeRunning: false, authenticated: false };
+    };
+    assert.deepEqual(await restoreCodexConnection(commands), { status: ready, models: catalog });
+    assert.deepEqual(calls, ['status', 'models', 'status', 'resume', 'models']);
+  });
+
+  it('observes the runtime after dequeuing and before preparing a new source review', async () => {
+    const source = await readFile(new URL('../src/workspace/store.ts', import.meta.url), 'utf8');
+    const dispatch = source.slice(source.indexOf('const release = await enterQuestionQueue()'));
+    assert.match(dispatch, /await ensureCodexConnection\(true\); check\(\);/);
+    assert.ok(dispatch.indexOf('await ensureCodexConnection(true)') < dispatch.indexOf('await prepareSourceDiscovery('));
+    assert.equal((dispatch.match(/await sendCodexChapterRequest\(/g) ?? []).length, 1);
+  });
+
   it('leaves explicit disconnect and missing or expired login for one deliberate connect action', async () => {
     for (const unavailable of [
       { ...ready, authenticated: false, runtimeRunning: false, message: 'Disconnected' },

@@ -92,7 +92,10 @@ export async function runQuestion(project: string, snapshot: string, id: string,
   try {
     check();
     patchTurn(project,snapshot,id,{ status:'working', error: undefined });
-    await ensureCodexConnection(); check();
+    // A previous queued operation may have cancelled and reaped the native
+    // runtime. Observe it after taking the queue, before preparing any review;
+    // cached header status is not proof that its process still exists.
+    await ensureCodexConnection(true); check();
     const selection = readCodexSelection();
     if (selection.modelId !== 'gpt-6-luna' || selection.effort !== 'max') throw new Error('Choose GPT-6 Luna with max reasoning in the connection settings.');
     await ensureWorkspaceIndex(project,snapshot);
