@@ -44,6 +44,8 @@ mod recovery;
 mod recovery_commands;
 mod repository_context;
 mod repository_context_commands;
+mod repository_structure;
+mod repository_structure_commands;
 mod repository_plan;
 mod planned_chapter;
 mod chapter_origin;
@@ -1942,6 +1944,7 @@ pub fn run() {
             repository_context_commands::search_repository_code,
             repository_context_commands::read_repository_range,
             repository_context_commands::cancel_repository_context,
+            repository_structure_commands::inspect_repository_structure,
             source_discovery::prepare_source_discovery,
             source_discovery::get_documentation_notices,
             source_discovery::discard_source_discovery,

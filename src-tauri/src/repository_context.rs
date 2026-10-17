@@ -24,8 +24,8 @@ use tantivy::{
 };
 use uuid::Uuid;
 
-const VERSION: &str = "atlas-ranges-v1-identifiers-v1-policy-v1";
-const CHUNK_BYTES: usize = 8192;
+const VERSION: &str = "atlas-ranges-v1-identifiers-v1-policy-v2";
+pub(crate) const CHUNK_BYTES: usize = 8192;
 const MAX_CHUNKS: usize = 50_000;
 const MAX_SOURCE_BYTES: u64 = 100 * 1024 * 1024;
 const MAX_METADATA_BYTES: usize = 32 * 1024 * 1024;
@@ -235,7 +235,7 @@ pub(crate) struct RangeRead {
     pub(crate) contents: String,
 }
 
-fn safe_path(path: &str) -> bool {
+pub(crate) fn safe_path(path: &str) -> bool {
     !path.is_empty()
         && path.len() <= 1024
         && !path.contains('\\')
@@ -245,7 +245,7 @@ fn safe_path(path: &str) -> bool {
             .all(|p| !matches!(p, "" | "." | "..") && !p.contains(':'))
 }
 
-fn exclusion(file: &snapshot::CapturedFile) -> Option<&'static str> {
+pub(crate) fn exclusion(file: &snapshot::CapturedFile) -> Option<&'static str> {
     if !safe_path(&file.path) {
         return Some("invalidPath");
     }
@@ -275,7 +275,7 @@ fn exclusion(file: &snapshot::CapturedFile) -> Option<&'static str> {
     if file.kind != snapshot::InventoryPathKind::File {
         return Some("notFile");
     }
-    if file.secret_like {
+    if file.secret_like || snapshot::looks_secret_like(&file.path, &[]) {
         return Some("secretLike");
     }
     if !matches!(
@@ -287,7 +287,7 @@ fn exclusion(file: &snapshot::CapturedFile) -> Option<&'static str> {
     None
 }
 
-fn source(
+pub(crate) fn source(
     storage: &Path,
     manifest: &snapshot::SnapshotManifest,
     path: &str,
@@ -861,7 +861,7 @@ pub(crate) fn read_range(
     range_from_source(&source, start_byte, end_byte)
 }
 
-fn range_from_source(
+pub(crate) fn range_from_source(
     source: &snapshot::SnapshotSource,
     start_byte: usize,
     end_byte: usize,

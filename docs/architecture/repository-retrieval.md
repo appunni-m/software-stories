@@ -7,6 +7,7 @@ Implementation checkpoint: 17 October 2026. This service powers workspace text s
 | Command | Contract |
 | --- | --- |
 | `search_repository_code` | Input object: request UUID, active project, captured snapshot, query, optional exact file/directory scope, result limit. Returns ranked range metadata, bounded snippets, coverage, truncation and local timing. |
+| `inspect_repository_structure` | Input object: request UUID, active project, captured snapshot, optional file/folder scope, page limit and offset, and one operation: `definitions` (query), `relationships` (captured endpoint ID and incoming/outgoing/both direction), or `map`. Returns verified declaration metadata, static links or immediate child modules, with syntax status and unavailable counts. |
 | `read_repository_range` | Input object: active project, captured snapshot, original path, expected full-file SHA-256, start/end byte offsets. Reads only eligible captured text; returns verified coordinates, range digest and text. |
 | `cancel_repository_context` | Cancels a request UUID, including a bounded tombstone when cancellation precedes dispatch. |
 | `search_workspace_source` | Adapts the same search service to the existing workspace search UI. Every debounced query has an ID; replacing it or leaving the view cancels that request. |
@@ -21,10 +22,21 @@ Ranges carry snapshot, original path, full-file digest, range digest, absolute U
 
 Chunking prefers existing Tree-sitter declaration boundaries in the second half of an 8 KiB window. It otherwise prefers line boundaries, splitting very long lines at UTF-8 boundaries. Ranges partition a file without overlap. Oversized enclosing declarations retain symbol context in the windows they contain. This does not implement the future agent's merging/deduplication of separately requested overlapping reads.
 
+## Structural context
+
+Definitions are ranked by qualified name, exact name, ASCII case-folded name, unqualified name and partial name, with path/offset/ID tie breaks. A declaration returns an at-most-8-KiB range and retains the full declaration extent; use a separately bounded range read for more source. Full-file hashes, UTF-8 boundaries and the original parser start/exclusive-end coordinates must match the captured blob. Invalid evidence is omitted and counted.
+
+Relationship lookup verifies the requested endpoint, each evidence anchor and both available endpoints. High-confidence parser links are labelled `staticCandidate`, never compiler or runtime proof. Unresolved links retain their uncertainty. Excluded or corrupt requested endpoints disclose no links; unavailable recorded targets have their metadata redacted. A link to a target outside the selected result scope remains possible: scope filters the evidence location, while the active snapshot remains the authorization boundary. None of these commands independently grants permission to transmit that snapshot to a model.
+
+The map groups eligible captured text into immediate child files/folders, with text/code counts, captured bytes, parser coverage and at most four verified exported declaration labels. Unsupported languages remain represented through text. Items sort by code-file count and path; this is not importance ranking. It is an orientation aid, not an inferred execution order or an architecture explanation. Maps currently verify in-scope blobs on every request; there is no persistent map cache.
+
+Structural pages contain at most 32 items; continuation offsets cannot exceed 100,000. A request verifies at most 100 MiB of distinct source, shares the existing eight-owned-request registry and checks the cooperative 90-second deadline. Missing/corrupt syntax permits text fallback; the response reports syntax availability, saved status/version, exact-file scoped syntax status (including `fileTooLarge`), capture skips and unavailable items. The unavailable count is not yet a reason-by-reason coverage ledger. Full agent transmission accounting remains a separate prerequisite.
+
 ## Search and publication
 
 - Tantivy indexes source tokens, original identifiers, snake/camel/acronym components, path terms and declarations where syntax metadata exists. Exact declarations rank before exact identifier mentions, then lexical candidates, with score/path/byte ordering. Candidate sets are capped; truncation is reported. Equal-score selection beyond the candidate cap still needs boundary qualification.
 - The ripgrep project's Rust libraries locate matching snippet lines inside retrieved ranges, including parser-unavailable files. A full repository regex/substr fallback when lexical search is unsuitable is still pending.
+- Native path-only secret filtering also runs before reads; the retrieval policy version is `atlas-ranges-v1-identifiers-v1-policy-v2`, invalidating older cache generations.
 - A generation fingerprint binds the complete manifest, saved syntax index, chunking/tokenizer version and schema. A bounded content-addressed chunk-layout cache can reuse unchanged source. A new generation currently rehashes all eligible blobs and reinserts all search documents; this is **not** an incremental Tantivy update implementation.
 - A staging directory receives the complete Tantivy commit and metadata. Publication renames it and atomically replaces a small current-generation pointer on the same filesystem. Failed/cancelled work does not replace that pointer. Metadata digests, schema, document count and Tantivy checksums are checked on disk load. The current and previous complete generations are retained during cleanup.
 - The native owner serializes search/build operations and retains one prepared index in memory. The cache binds manifest identity, syntax-file and publication-pointer metadata, with a 60-second checksum refresh interval. Evidence blobs are still hash-checked on every search; each distinct file is read once per search. A parser finishing during a build invalidates reuse on the following search. Search errors invalidate the in-memory index.
@@ -65,6 +77,8 @@ Run deterministic retrieval tests with:
 
 ```sh
 env RUSTC_WRAPPER= cargo test --manifest-path src-tauri/Cargo.toml --lib repository_context
+
+env RUSTC_WRAPPER= cargo test --manifest-path src-tauri/Cargo.toml --lib repository_structure
 ```
 
 The [Fontdone report](../acceptance/2026-10-17-range-retrieval.md) gives explicit local measurement commands and the frozen source-range set. Passing these tests does not establish broad-question recall or a completed explanation.

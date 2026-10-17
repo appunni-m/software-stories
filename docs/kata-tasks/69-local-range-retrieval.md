@@ -35,11 +35,11 @@ Implement the local retrieval layer recommended by the [industry review](../rese
 
 ## Evidence
 
-Partial implementation: native range indexing/search/read commands and workspace search wiring are implemented. See the [interface and limits](../architecture/repository-retrieval.md) and [Fontdone measurements](../acceptance/2026-10-17-range-retrieval.md). Captured text from the three previously problematic large files is retrievable. The 12-span corpus gives 8/12 named global, 12/12 named file-scoped, and 2/12 broad lexical retrieval recall. These observations do not pass broad repository understanding.
+Partial implementation: native range indexing/search/read commands, structural lookup and workspace search wiring are implemented. See the [interface and limits](../architecture/repository-retrieval.md) and [Fontdone measurements](../acceptance/2026-10-17-range-retrieval.md). Captured text from the three previously problematic large files is retrievable. The 12-span corpus gives 8/12 named global, 12/12 named file-scoped, and 2/12 broad lexical retrieval recall. These observations do not pass broad repository understanding.
 
 Remaining acceptance work:
 
-- Definition/reference/compact module-map commands and unresolved relationship labels.
+- Structural definition/relationship/module-map native commands are implemented; qualify their full cancellation/corruption and packaged invocation boundaries. Static relationship lookup is not a precise reference resolver. See the [structural checkpoint](../acceptance/2026-10-17-structural-context.md).
 - Broader bounded substring/regex fallback, deterministic tie qualification at the candidate cap, full mid-operation cancellation/corruption boundaries, and global disk eviction.
 - Deduplicated overlapping evidence reads and tested aggregate source/structural/tool-call budgets before enabling agent tools. No Codex tool path is enabled by this checkpoint.
 - Efficient incremental Tantivy updates and a Fontdone one-file update measurement. The current fixture proves chunk-layout reuse, while every new generation still rehashes source and reinserts search documents.

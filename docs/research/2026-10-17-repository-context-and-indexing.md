@@ -1,6 +1,6 @@
 # How code tools understand entire repositories
 
-Research date: 17 October 2026; expanded review against primary documentation on the same date. App observations distinguish the `be49e35` [Fontdone acceptance run](../acceptance/2026-10-17-fontdone.md) from the `94ff754` [native retrieval checkpoint](../acceptance/2026-10-17-range-retrieval.md). Uncommitted structural-tool work is not qualified by this report.
+Research date: 17 October 2026; expanded review against primary documentation on the same date. App observations distinguish the `be49e35` [Fontdone acceptance run](../acceptance/2026-10-17-fontdone.md) from the `94ff754` [native retrieval checkpoint](../acceptance/2026-10-17-range-retrieval.md). Native structural tools have a [separate checkpoint](../acceptance/2026-10-17-structural-context.md); this research does not qualify Codex tool use or broad generation.
 
 ## Recommendation
 
@@ -117,6 +117,8 @@ No price estimate, free-tier allowance or vendor speed claim is treated as an ap
 The native checkpoint indexed **1,621 eligible text files / 19,296,074 bytes / 3,422 ranges**. Its frozen twelve-declaration Fontdone set achieved **8/12** named global, **12/12** named file-scoped, and **2/12** broad lexical retrieval recall. A warm in-memory `memory_face` query took **256 ms** in the recorded native run. These are single-workload observations, with caps, truncation and parser gaps detailed in the [acceptance report](../acceptance/2026-10-17-range-retrieval.md).
 
 This supports retaining the local foundation while improving question investigation. A single broad query misses too much; names and file scopes help materially. The next comparison must measure map-guided and relationship-guided agent retrieval. It must not assume that either a vector store or more top-k results will fix the missing evidence. Native search availability has improved; the broad narrated explanation still fails its acceptance gate.
+
+The subsequent [structural checkpoint](../acceptance/2026-10-17-structural-context.md) finds all eight syntax-backed expected declarations, while the four oversized FFI/C adapter cases remain text fallback. Its first 32 outgoing `memory_face` links are all unresolved. Reusing precise language intelligence warrants evaluation; a saved parser graph must not be advertised as a complete execution flow. No agent-generated answer is established by that checkpoint.
 
 ## Proposed architecture
 

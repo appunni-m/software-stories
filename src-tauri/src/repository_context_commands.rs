@@ -51,7 +51,7 @@ struct IndexCache {
 #[derive(Clone, Default)]
 pub(crate) struct RepositoryContextJobs(Arc<Jobs>);
 
-struct Request {
+pub(crate) struct Request {
     id: String,
     cancelled: Arc<AtomicBool>,
     jobs: RepositoryContextJobs,
@@ -66,7 +66,7 @@ impl Drop for Request {
 }
 
 impl RepositoryContextJobs {
-    fn begin(&self, id: &str) -> Result<Request, String> {
+    pub(crate) fn begin(&self, id: &str) -> Result<Request, String> {
         if Uuid::parse_str(id).is_err() {
             return Err("A valid code-search request ID is required.".to_owned());
         }
@@ -127,6 +127,12 @@ impl RepositoryContextJobs {
             );
         }
         Ok(())
+    }
+}
+
+impl Request {
+    pub(crate) fn budget(&self) -> context::Budget<'_> {
+        context::Budget::new(&self.cancelled)
     }
 }
 

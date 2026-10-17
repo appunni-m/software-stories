@@ -1,0 +1,455 @@
+{
+  "schemaVersion": 1,
+  "measuredAtUtc": "2026-10-17T04:19:59.896699+00:00",
+  "baseRevision": "42b3aa1d8c93614e6ae15e23a73d81a30f4dfbd7",
+  "implementationSha256": {
+    "src-tauri/src/repository_structure.rs": "24b3ad465ec700ea7b4e7533644853f79b215869c9c7709c8075f3fad7367c56",
+    "src-tauri/src/repository_structure/tests.rs": "1a49eb3216e0f3523fd0d415ca1652848377526d1414075813f3870b6fdd32a9",
+    "src-tauri/src/repository_structure_commands.rs": "ecd1175c14543ba91d8bf19f0b060653ba7aa779eeec34d8c2409545c394eb54",
+    "src-tauri/src/repository_context.rs": "067157335620ba6d0a3e994daa7b4d4823c79240243f0de16528305d74928f16",
+    "src-tauri/src/repository_context_commands.rs": "f5dc23b6956e32fcc4458b7cb4dc47fae14f56554ecf6b49b756beb6fe29266c",
+    "src-tauri/src/lib.rs": "89baacd85d013409f5b0dfe049ef414b13a08a6a32b3c3168fd888f90b025766"
+  },
+  "projectId": "/Users/lazytrot/work/fontdone",
+  "commit": "5249b723719445813b8771a602ea5b96891d4450",
+  "snapshotId": "snap-1792140879637485000-11155-0",
+  "fixture": "docs/acceptance/fixtures/fontdone-retrieval-ranges.json",
+  "measurement": "Single native debug run against saved captured source. No AI call, execution of Fontdone, packaged IPC or OS cache flush.",
+  "definitions": [
+    {
+      "id": "entry",
+      "found": true,
+      "elapsedMs": 7,
+      "returned": 2,
+      "serializedBytes": 2247,
+      "syntaxStatus": "indexed"
+    },
+    {
+      "id": "format-branch",
+      "found": true,
+      "elapsedMs": 28,
+      "returned": 1,
+      "serializedBytes": 1252,
+      "syntaxStatus": "indexed"
+    },
+    {
+      "id": "glyph-dispatch",
+      "found": true,
+      "elapsedMs": 6,
+      "returned": 1,
+      "serializedBytes": 1280,
+      "syntaxStatus": "indexed"
+    },
+    {
+      "id": "truetype-outline",
+      "found": true,
+      "elapsedMs": 11,
+      "returned": 11,
+      "serializedBytes": 10971,
+      "syntaxStatus": "indexed"
+    },
+    {
+      "id": "bytecode-hint",
+      "found": true,
+      "elapsedMs": 2,
+      "returned": 1,
+      "serializedBytes": 1233,
+      "syntaxStatus": "indexed"
+    },
+    {
+      "id": "render-dispatch",
+      "found": true,
+      "elapsedMs": 5,
+      "returned": 1,
+      "serializedBytes": 1276,
+      "syntaxStatus": "indexed"
+    },
+    {
+      "id": "outline-render",
+      "found": true,
+      "elapsedMs": 7,
+      "returned": 1,
+      "serializedBytes": 1267,
+      "syntaxStatus": "indexed"
+    },
+    {
+      "id": "normal-raster",
+      "found": true,
+      "elapsedMs": 11,
+      "returned": 4,
+      "serializedBytes": 3988,
+      "syntaxStatus": "indexed"
+    },
+    {
+      "id": "ffi-load",
+      "found": false,
+      "elapsedMs": 0,
+      "returned": 0,
+      "serializedBytes": 355,
+      "syntaxStatus": "fileTooLarge"
+    },
+    {
+      "id": "ffi-render",
+      "found": false,
+      "elapsedMs": 0,
+      "returned": 0,
+      "serializedBytes": 355,
+      "syntaxStatus": "fileTooLarge"
+    },
+    {
+      "id": "abi-load",
+      "found": false,
+      "elapsedMs": 0,
+      "returned": 0,
+      "serializedBytes": 355,
+      "syntaxStatus": "fileTooLarge"
+    },
+    {
+      "id": "abi-render",
+      "found": false,
+      "elapsedMs": 0,
+      "returned": 0,
+      "serializedBytes": 355,
+      "syntaxStatus": "fileTooLarge"
+    }
+  ],
+  "relationships": {
+    "symbol": "memory_face",
+    "returned": 32,
+    "staticCandidates": 0,
+    "unresolved": 32,
+    "unavailable": 0,
+    "nextOffset": 32,
+    "elapsedMs": 508,
+    "serializedBytes": 27392
+  },
+  "moduleMap": {
+    "elapsedMs": 1238,
+    "serializedBytes": 4732,
+    "map": {
+      "snapshotId": "snap-1792140879637485000-11155-0",
+      "items": [
+        {
+          "path": "tests",
+          "directory": true,
+          "capturedTextFiles": 1352,
+          "codeFiles": 1130,
+          "capturedBytes": 11137220,
+          "syntaxFiles": 2,
+          "publicSymbols": []
+        },
+        {
+          "path": "scripts",
+          "directory": true,
+          "capturedTextFiles": 77,
+          "codeFiles": 76,
+          "capturedBytes": 3598305,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "src",
+          "directory": true,
+          "capturedTextFiles": 58,
+          "codeFiles": 58,
+          "capturedBytes": 2343306,
+          "syntaxFiles": 57,
+          "publicSymbols": [
+            "Face",
+            "GlyphFormat",
+            "GlyphSlot",
+            "Library"
+          ]
+        },
+        {
+          "path": "fontdone-c-abi",
+          "directory": true,
+          "capturedTextFiles": 60,
+          "codeFiles": 54,
+          "capturedBytes": 1192142,
+          "syntaxFiles": 3,
+          "publicSymbols": []
+        },
+        {
+          "path": "fontdone-wasm",
+          "directory": true,
+          "capturedTextFiles": 24,
+          "codeFiles": 16,
+          "capturedBytes": 600273,
+          "syntaxFiles": 12,
+          "publicSymbols": [
+            "FontdoneWasmExports",
+            "Fontdone",
+            "FontdoneFace",
+            "FontdoneWasmSource"
+          ]
+        },
+        {
+          "path": "examples",
+          "directory": true,
+          "capturedTextFiles": 6,
+          "codeFiles": 6,
+          "capturedBytes": 27158,
+          "syntaxFiles": 6,
+          "publicSymbols": []
+        },
+        {
+          "path": ".github",
+          "directory": true,
+          "capturedTextFiles": 4,
+          "codeFiles": 4,
+          "capturedBytes": 51294,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "site-assets",
+          "directory": true,
+          "capturedTextFiles": 3,
+          "codeFiles": 3,
+          "capturedBytes": 28798,
+          "syntaxFiles": 1,
+          "publicSymbols": []
+        },
+        {
+          "path": "doc",
+          "directory": true,
+          "capturedTextFiles": 12,
+          "codeFiles": 2,
+          "capturedBytes": 165922,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": ".cargo",
+          "directory": true,
+          "capturedTextFiles": 1,
+          "codeFiles": 1,
+          "capturedBytes": 360,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": ".codex",
+          "directory": true,
+          "capturedTextFiles": 1,
+          "codeFiles": 1,
+          "capturedBytes": 130,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "Cargo.toml",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 1,
+          "capturedBytes": 2412,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "Makefile",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 1,
+          "capturedBytes": 50828,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "deny.toml",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 1,
+          "capturedBytes": 341,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "documentation.json",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 1,
+          "capturedBytes": 2772,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "mkdocs.yml",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 1,
+          "capturedBytes": 2052,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "rust-toolchain.toml",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 1,
+          "capturedBytes": 66,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "rustfmt.toml",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 1,
+          "capturedBytes": 453,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": ".gitattributes",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 0,
+          "capturedBytes": 199,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": ".gitignore",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 0,
+          "capturedBytes": 459,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "AGENTS.md",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 0,
+          "capturedBytes": 3332,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "CHANGELOG.md",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 0,
+          "capturedBytes": 8829,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "CODE_OF_CONDUCT.md",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 0,
+          "capturedBytes": 834,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "CONTRIBUTING.md",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 0,
+          "capturedBytes": 3622,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "Cargo.lock",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 0,
+          "capturedBytes": 13737,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "FTL.TXT",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 0,
+          "capturedBytes": 6743,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "LICENSE",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 0,
+          "capturedBytes": 6743,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "NOTICE.md",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 0,
+          "capturedBytes": 1275,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "README.md",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 0,
+          "capturedBytes": 4718,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "SECURITY.md",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 0,
+          "capturedBytes": 1570,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "docs.mk",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 0,
+          "capturedBytes": 2826,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        },
+        {
+          "path": "requirements-docs.in",
+          "directory": false,
+          "capturedTextFiles": 1,
+          "codeFiles": 0,
+          "capturedBytes": 124,
+          "syntaxFiles": 0,
+          "publicSymbols": []
+        }
+      ],
+      "nextOffset": 32,
+      "unavailable": 1147,
+      "syntaxAvailable": true,
+      "syntaxStatus": "partial",
+      "indexerVersion": "atlas-symbol-index-v2",
+      "scopedSyntaxStatus": null,
+      "snapshotPathsSkipped": 25,
+      "interpretation": "Hash-verified captured text inventory and static parser metadata; not module execution order or complete architecture."
+    },
+    "definitionsRecovered": 8,
+    "expectedCount": 12
+  },
+  "nativeSuite": {
+    "passed": 238,
+    "failed": 0,
+    "ignored": 7
+  },
+  "limitations": [
+    "Scoped named definitions do not measure broad-question recall.",
+    "Relationships are parser candidates; all 32 first-page memory_face links were unresolved.",
+    "Module-map ordering by code-file count is not architectural importance.",
+    "The map is one page, with explicit continuation; per-request source verification is repeated.",
+    "No Codex retrieval tools are enabled. Broad answer and installed-package acceptance remain open."
+  ]
+}
