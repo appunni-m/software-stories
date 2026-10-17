@@ -468,7 +468,7 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.contains("state the general decision rule"));
     assert!(instructions.contains("an example alone cannot replace the rule"));
     assert!(!instructions.contains("The separate prose/spokenText fields remain required"));
-    assert!(instructions.contains("visualEvidenceDuplicate identifies the redundant entry"));
+    assert!(instructions.contains("sceneAuthoringReference identifies a duplicate, absent or ambiguous reference"));
     assert!(instructions.contains("preserving the claim, supported behavior and chosen representation"));
 }
 
@@ -486,7 +486,9 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     );
     assert_eq!(contract["sectionAttempts"], 8);
     assert_eq!(contract["uniqueSections"], 6);
-    assert_eq!(contract["checkpointVersion"], 4);
+    assert_eq!(contract["checkpointVersion"], 5);
+    assert_eq!(contract["proposalVersion"], "answerSectionV3");
+    assert_eq!(contract["sceneAuthoringPolicy"], "claim-owned-scene-local-identities-v1");
     assert_eq!(contract["publicationOrderPolicy"], "investigation-local-next-order-v1");
     assert!(system_instructions().contains("Start its first new key at order:0"));
     assert!(system_instructions().contains("nextNewSectionOrder"));

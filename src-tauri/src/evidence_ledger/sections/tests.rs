@@ -1,6 +1,8 @@
 use super::*;
 use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE};
 
+mod scene_authoring;
+
 #[test]
 fn timing_export_keeps_scope_and_legacy_unknowns_without_source_or_inference() {
     let f = Fixture::new();
@@ -305,7 +307,7 @@ fn duplicate_visual_evidence_names_the_exact_item_and_repairs_without_losing_cla
             json!({"location":"/section/visual/edges/0/evidence/1","code":"visualEvidenceDuplicate"}),
         ]
     );
-    assert!(valid_findings(&prepared.findings));
+    assert!(valid_findings(&prepared.findings, 2));
     answer
         .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
         .unwrap();
@@ -475,7 +477,7 @@ fn missing_scene_speech_is_rejected_positionally_without_modifying_claims_or_res
     let rejected_raw = raw.to_string();
     let prepared = a.prepare(&l, &rejected_raw, &f.manifest, &r, &c).unwrap();
     assert_eq!(prepared.findings, vec![json!({"location":"/section/visual/presentation/scenes/0/narration","code":"sceneNarration"})]);
-    assert!(valid_findings(&prepared.findings));
+    assert!(valid_findings(&prepared.findings, 2));
     a.commit(&l, prepared, &f.manifest, &r, &c).unwrap();
     assert!(inspect(&f.storage, &l.record.binding.operation_id).unwrap().sections.is_empty());
     raw["section"]["visual"]["presentation"]["scenes"][0]["narration"] = json!("The incoming name becomes part of the greeting, even when it is empty.");
@@ -542,7 +544,7 @@ fn proposal_feedback_locates_identifier_counts_prose_and_evidence_without_copyin
             json!({"location":"/section/claims/0/evidence/1","code":"evidenceIdentifier"}),
         ]
     );
-    assert!(valid_findings(&findings));
+    assert!(valid_findings(&findings, 2));
     let encoded = serde_json::to_string(&findings).unwrap();
     for forbidden in [
         "greeting",
@@ -590,7 +592,7 @@ fn invalid_section_key_reports_its_exact_field_and_preserves_the_original_propos
     let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
     assert_eq!(saved.attempts[0].arguments, original);
     assert!(saved.sections.is_empty());
-    assert!(valid_findings(&saved.attempts[0].findings));
+    assert!(valid_findings(&saved.attempts[0].findings, 2));
     publish(
         &mut answer,
         &ledger,
@@ -1331,7 +1333,7 @@ fn visual_required_field_feedback_names_only_the_fixed_wire_position() {
     let malformed = json!({"visual":{"kind":23,"title":"private model text","direction":"auto","nodes":"bad","edges":[]}});
     let findings = visual_shape_findings(&malformed);
     assert_eq!(findings.len(), 2);
-    assert!(valid_findings(&findings));
+    assert!(valid_findings(&findings, 2));
     assert!(
         !serde_json::to_string(&findings)
             .unwrap()
@@ -1368,7 +1370,7 @@ fn scene_evidence_feedback_locates_the_wrong_claim_and_preserves_the_rejected_pr
             json!({"location":"/section/visual/presentation/scenes/1/elements/0/nodeIndex","code":"sceneEvidence"})
         ]
     );
-    assert!(valid_findings(&rejected.findings));
+    assert!(valid_findings(&rejected.findings, 2));
     assert!(rejected.generation_id.is_none());
     a.commit(&l, rejected, &f.manifest, &r, &c).unwrap();
     let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
@@ -1411,7 +1413,7 @@ fn scene_source_value_feedback_retains_the_proposal_and_repairs_the_exact_value(
         ]
     );
     assert!(rejected.generation_id.is_none());
-    assert!(valid_findings(&rejected.findings));
+    assert!(valid_findings(&rejected.findings, 2));
     assert!(
         !serde_json::to_string(&rejected.findings)
             .unwrap()
@@ -1491,7 +1493,7 @@ fn real_fontdone_source_value_rejections_report_the_exact_failed_value() {
                 json!({"location":format!("/section/visual/presentation/scenes/{scene}/elements/1/value"),"code":"sceneSourceValue"})
             ]
         );
-        assert!(valid_findings(&findings));
+        assert!(valid_findings(&findings, 2));
     }
 }
 
@@ -1535,7 +1537,7 @@ fn scene_source_value_diagnostics_are_bounded_and_cannot_borrow_another_claim() 
     ]);
     let findings = scene_source_value_findings(&section, &resolved.to_string());
     assert_eq!(findings.len(), 64);
-    assert!(valid_findings(&findings));
+    assert!(valid_findings(&findings, 2));
     assert!(
         !serde_json::to_string(&findings)
             .unwrap()
@@ -1564,7 +1566,7 @@ fn fresh_scene_policy_retains_rejection_and_allows_full_correction_without_reset
             json!({"location":"/section/visual/presentation/scenes/0/elements/2","code":"sceneRepetition"})
         ]
     );
-    assert!(valid_findings(&rejected.findings));
+    assert!(valid_findings(&rejected.findings, 2));
     assert!(rejected.generation_id.is_none());
     a.commit(&l, rejected, &f.manifest, &r, &c).unwrap();
     let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
@@ -1631,7 +1633,7 @@ fn new_scene_findings_are_source_free_bounded_and_do_not_interpret_unknown_trees
     let mut section = json!({"visual":{"nodes":[{"label":"private source marker"}],"presentation":self_transforming_presentation()}});
     let findings = scene_repetition_findings(&section);
     assert_eq!(findings.len(), 1);
-    assert!(valid_findings(&findings));
+    assert!(valid_findings(&findings, 2));
     assert!(
         !serde_json::to_string(&findings)
             .unwrap()
@@ -1645,7 +1647,7 @@ fn new_scene_findings_are_source_free_bounded_and_do_not_interpret_unknown_trees
     section["visual"]["presentation"]["scenes"] = json!((0..20).map(|i| json!({"claimIndex":i,"title":"private scene","mode":"composition","elements":elements})).collect::<Vec<_>>());
     let findings = scene_repetition_findings(&section);
     assert_eq!(findings.len(), 64);
-    assert!(valid_findings(&findings));
+    assert!(valid_findings(&findings, 2));
     section["visual"]["presentation"]["scenes"][0]["elements"][0]["parentIndex"] = json!(999);
     section["visual"]["presentation"]["scenes"]
         .as_array_mut()
@@ -1672,7 +1674,7 @@ fn scene_evidence_diagnostics_are_bounded_source_free_and_skip_unknown_shapes() 
             {"kind":"code","parentIndex":null,"nodeIndex":0,"tone":"accent","value":"private source","valueOrigin":"source"}]}]}}});
     let findings = scene_evidence_findings(&section);
     assert_eq!(findings.len(), 1);
-    assert!(valid_findings(&findings));
+    assert!(valid_findings(&findings, 2));
     assert!(
         !serde_json::to_string(&findings)
             .unwrap()
@@ -1694,7 +1696,7 @@ fn scene_evidence_diagnostics_are_bounded_source_free_and_skip_unknown_shapes() 
     section["visual"]["presentation"]["scenes"] = json!(scenes);
     let bounded = scene_evidence_findings(&section);
     assert_eq!(bounded.len(), 64);
-    assert!(valid_findings(&bounded));
+    assert!(valid_findings(&bounded, 2));
 }
 
 #[test]

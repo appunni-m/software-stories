@@ -134,6 +134,7 @@ fn canonical_positions_remap_to_authored_positions_and_never_copy_values_into_fi
         json!({"location":"/section/visual/nodes/1/evidence/0","code":"citation"}),
         json!({"location":"/section/visual/presentation/scenes/0/elements/1/value","code":"sceneSourceValue"}),
         json!({"location":"/section/visual/edges/0/toNodeIndex","code":"sectionValidation"}),
+        json!({"location":"/section/visual/presentation/scenes","code":"sceneNarration"}),
     ];
     compiled.remap(&mut findings);
     assert_eq!(
@@ -148,6 +149,7 @@ fn canonical_positions_remap_to_authored_positions_and_never_copy_values_into_fi
         findings[2]["location"],
         "/section/claims/0/scene/edges/0/toKey"
     );
+    assert_eq!(findings[3]["location"], "/section/claims");
     assert!(!serde_json::to_string(&findings).unwrap().contains("Name"));
 }
 
@@ -170,4 +172,73 @@ fn compiler_preserves_section_wide_limits_and_explicit_no_visual_fallback() {
         json!({"kind":"none","title":"","direction":"auto","nodes":[],"edges":[]})
     );
     assert!(compiled.section["claims"][0].get("scene").is_none());
+}
+
+#[test]
+fn advertised_schema_matches_authored_objects_and_forbids_shared_numeric_pointers() {
+    let schema = section_schema();
+    let validator = jsonschema::validator_for(&schema).unwrap();
+    let original = section("code:1");
+    assert!(validator.is_valid(&original));
+    for case in [
+        "globalNodes",
+        "claimIndex",
+        "nodeIndex",
+        "missingScene",
+        "missingParentKey",
+        "unknownField",
+    ] {
+        let mut raw = original.clone();
+        match case {
+            "globalNodes" => raw["visual"]["nodes"] = json!([]),
+            "claimIndex" => raw["claims"][0]["scene"]["claimIndex"] = json!(0),
+            "nodeIndex" => raw["claims"][0]["scene"]["elements"][1]["nodeIndex"] = json!(0),
+            "missingScene" => {
+                raw["claims"][0].as_object_mut().unwrap().remove("scene");
+            }
+            "missingParentKey" => {
+                raw["claims"][0]["scene"]["elements"][0]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("parentKey");
+            }
+            "unknownField" => {
+                raw["claims"][0]["scene"]["nodes"][0]["url"] = json!("https://example.com")
+            }
+            _ => unreachable!(),
+        }
+        assert!(!validator.is_valid(&raw), "{case}");
+        assert!(compile(&raw).is_err(), "{case}");
+    }
+    let mut fallback = original;
+    fallback["claims"][0]["scene"] = Value::Null;
+    fallback["visual"] = json!({"kind":"none","title":"","direction":"auto"});
+    assert!(validator.is_valid(&fallback));
+}
+
+#[test]
+fn compilation_is_deterministic_and_preserves_unicode_and_authored_examples_exactly() {
+    let mut raw = section("code:1");
+    raw["title"] = json!("名前をメッセージへ");
+    raw["claims"][0]["scene"]["narration"] = json!(
+        "For example, the name José remains in the greeting. An empty name still keeps the greeting prefix."
+    );
+    raw["claims"][0]["scene"]["elements"][3]["value"] = json!("Hello, José 👋");
+    raw["claims"][0]["scene"]["elements"][3]["valueOrigin"] = json!("illustration");
+    let first = compile(&raw).unwrap_or_else(|f| panic!("{f:?}"));
+    for _ in 0..16 {
+        assert_eq!(
+            compile(&raw).unwrap_or_else(|f| panic!("{f:?}")).section,
+            first.section
+        );
+    }
+    assert_eq!(first.section["title"], raw["title"]);
+    assert_eq!(
+        first.section["visual"]["presentation"]["scenes"][0]["elements"][3]["value"],
+        "Hello, José 👋"
+    );
+    assert_eq!(
+        first.section["visual"]["presentation"]["scenes"][0]["narration"],
+        raw["claims"][0]["scene"]["narration"]
+    );
 }

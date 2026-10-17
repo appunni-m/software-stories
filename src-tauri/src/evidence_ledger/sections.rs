@@ -11,6 +11,7 @@ pub(crate) const PROPOSAL_VERSION: &str = "answerSectionV2";
 pub(crate) const SCENE_PROPOSAL_VERSION: &str = "answerSectionV3";
 const LEGACY_PROPOSAL_VERSION: &str = "answerSectionV1";
 const CURRENT_CHECKPOINT_VERSION: u32 = 4;
+const SCENE_CHECKPOINT_VERSION: u32 = 5;
 const MAX_SECTIONS: usize = 6;
 const MAX_ATTEMPTS: usize = 8;
 const MAX_ANSWERS: usize = 8;
@@ -309,7 +310,10 @@ fn wrapped(proposal: &Proposal) -> Result<String, String> {
         "spokenText".into(),
         json!("Presentation is derived from the anchored claims."),
     );
-    let citation_version = if proposal.proposal_version == PROPOSAL_VERSION {
+    let citation_version = if matches!(
+        proposal.proposal_version.as_str(),
+        PROPOSAL_VERSION | SCENE_PROPOSAL_VERSION
+    ) {
         native_citations::SHORT_VERSION
     } else {
         native_citations::VERSION
@@ -322,6 +326,25 @@ fn wrapped(proposal: &Proposal) -> Result<String, String> {
 
 fn finding(code: &str) -> Vec<Value> {
     vec![json!({"location":"/section","code":code})]
+}
+
+/// Resolve local identities only for the explicitly versioned authoring shape.
+/// Raw proposal bytes remain the durable ownership/idempotence identity.
+fn wrapped_authored(
+    proposal: &mut Proposal,
+) -> Result<(String, Option<authoring::Compiled>), Vec<Value>> {
+    let compiled = if proposal.proposal_version == SCENE_PROPOSAL_VERSION {
+        Some(authoring::compile(&proposal.section)?)
+    } else {
+        None
+    };
+    if let Some(compiled) = &compiled {
+        proposal.section = compiled.section.clone();
+    }
+    Ok((
+        wrapped(proposal).map_err(|_| finding("proposalShape"))?,
+        compiled,
+    ))
 }
 
 fn section_location(issue: &Value) -> String {
@@ -456,7 +479,7 @@ fn scene_version_findings(section: &Value, checkpoint_version: u32) -> Vec<Value
     let supported = match checkpoint_version {
         1 | 2 => presentation.is_null() || matches!(presentation["schemaVersion"].as_u64(), Some(1 | 2)),
         3 => presentation["schemaVersion"].as_u64() == Some(2),
-        4 => presentation["schemaVersion"].as_u64() == Some(3),
+        4 | 5 => presentation["schemaVersion"].as_u64() == Some(3),
         _ => false,
     };
     if !supported {
@@ -582,7 +605,7 @@ fn scene_evidence_findings(section: &Value) -> Vec<Value> {
         .collect()
 }
 
-fn valid_findings(findings: &[Value]) -> bool {
+fn valid_findings(findings: &[Value], schema_version: u32) -> bool {
     findings.len() <= 64
         && findings.iter().all(|v| {
             v.as_object().is_some_and(|o| o.len() == 2)
@@ -590,34 +613,43 @@ fn valid_findings(findings: &[Value]) -> bool {
                     s.len() <= 160 && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'/')
                 })
                 && v["code"].as_str().is_some_and(|s| {
-                    matches!(
-                        s,
-                        "proposalShape"
-                            | "sectionKeyFormat"
-                            | "sectionOrder"
-                            | "sectionConflict"
-                            | "sectionLimit"
-                            | "citation"
-                            | "identifierAlignment"
-                            | "identifierCount"
-                            | "identifierProse"
-                            | "identifierEvidence"
-                            | "evidenceIdentifier"
-                            | "presentationLimit"
-                            | "visualField"
-                            | "visualEvidenceDuplicate"
-                            | "sceneEvidence"
-                            | "sceneVersion"
-                            | "sceneNarration"
-                            | "sceneRepetition"
-                            | "sceneSourceValue"
-                            | "sectionValidation"
-                    )
+                    (schema_version == 3
+                        && matches!(
+                            s,
+                            "sceneAuthoringShape"
+                                | "sceneAuthoringKey"
+                                | "sceneAuthoringReference"
+                                | "sceneAuthoringLimit"
+                        ))
+                        || matches!(
+                            s,
+                            "proposalShape"
+                                | "sectionKeyFormat"
+                                | "sectionOrder"
+                                | "sectionConflict"
+                                | "sectionLimit"
+                                | "citation"
+                                | "identifierAlignment"
+                                | "identifierCount"
+                                | "identifierProse"
+                                | "identifierEvidence"
+                                | "evidenceIdentifier"
+                                | "presentationLimit"
+                                | "visualField"
+                                | "visualEvidenceDuplicate"
+                                | "sceneEvidence"
+                                | "sceneVersion"
+                                | "sceneNarration"
+                                | "sceneRepetition"
+                                | "sceneSourceValue"
+                                | "sectionValidation"
+                        )
                 })
         })
 }
 
 impl Ledger {
+    #[cfg(test)]
     pub(crate) fn start_answer_sections(
         &self,
         question: &str,
@@ -625,6 +657,43 @@ impl Ledger {
         manifest: &snapshot::SnapshotManifest,
         runtime: &CodexReviewRuntime,
         cancelled: &AtomicBool,
+    ) -> Result<ActiveAnswer, String> {
+        self.start_versioned_answer_sections(
+            question,
+            request_sha256,
+            manifest,
+            runtime,
+            cancelled,
+            2,
+        )
+    }
+
+    pub(crate) fn start_scene_answer_sections(
+        &self,
+        question: &str,
+        request_sha256: &str,
+        manifest: &snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        cancelled: &AtomicBool,
+    ) -> Result<ActiveAnswer, String> {
+        self.start_versioned_answer_sections(
+            question,
+            request_sha256,
+            manifest,
+            runtime,
+            cancelled,
+            3,
+        )
+    }
+
+    fn start_versioned_answer_sections(
+        &self,
+        question: &str,
+        request_sha256: &str,
+        manifest: &snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        cancelled: &AtomicBool,
+        schema_version: u32,
     ) -> Result<ActiveAnswer, String> {
         self.check(manifest, runtime, cancelled)?;
         if self.record.schema_version != 3
@@ -638,7 +707,7 @@ impl Ledger {
         let _guard = STORE.lock().map_err(|_| "Answer storage is unavailable.")?;
         check_capacity(path.parent().ok_or("Answer storage is unavailable.")?)?;
         let value = Answer {
-            schema_version: 2,
+            schema_version,
             binding: self.record.binding.clone(),
             request_sha256: request_sha256.into(),
             question: question.into(),
@@ -657,10 +726,10 @@ impl Ledger {
 
 impl Answer {
     fn proposal_version(&self) -> &'static str {
-        if self.schema_version == 2 {
-            PROPOSAL_VERSION
-        } else {
-            LEGACY_PROPOSAL_VERSION
+        match self.schema_version {
+            3 => SCENE_PROPOSAL_VERSION,
+            2 => PROPOSAL_VERSION,
+            _ => LEGACY_PROPOSAL_VERSION,
         }
     }
 
@@ -809,7 +878,11 @@ impl ActiveAnswer {
             manifest,
             runtime,
             cancelled,
-            CURRENT_CHECKPOINT_VERSION,
+            if self.value.schema_version == 3 {
+                SCENE_CHECKPOINT_VERSION
+            } else {
+                CURRENT_CHECKPOINT_VERSION
+            },
         )
     }
 
@@ -822,7 +895,9 @@ impl ActiveAnswer {
         cancelled: &AtomicBool,
         checkpoint_version: u32,
     ) -> Result<PreparedSection, String> {
-        if !matches!(checkpoint_version, 1 | 2 | 3 | 4) {
+        if !matches!(checkpoint_version, 1 | 2 | 3 | 4 | 5)
+            || (checkpoint_version == SCENE_CHECKPOINT_VERSION) != (self.value.schema_version == 3)
+        {
             return Err("Unsupported answer presentation version.".into());
         }
         ledger.check(manifest, runtime, cancelled)?;
@@ -845,7 +920,8 @@ impl ActiveAnswer {
         let mut next = self.value.clone();
         let mut generation_id = None;
         let mut findings = finding("proposalShape");
-        if let Some(proposal) = parsed.and_then(|v| serde_json::from_value::<Proposal>(v).ok()) {
+        if let Some(mut proposal) = parsed.and_then(|v| serde_json::from_value::<Proposal>(v).ok())
+        {
             if !valid_key(&proposal.section_key) {
                 findings = vec![json!({"location":"/sectionKey","code":"sectionKeyFormat"})];
             } else if proposal.proposal_version == self.value.proposal_version()
@@ -880,102 +956,110 @@ impl ActiveAnswer {
                     findings = finding("sectionLimit");
                 } else if prior.is_none() && proposal.order != unique {
                     findings = finding("sectionOrder");
-                } else if let Ok(response) = wrapped(&proposal) {
-                    match ledger.resolve_citations(&response, manifest, runtime, cancelled)? {
-                        native_citations::Resolution::Invalid(issues) => findings = issues.iter().take(64).map(|issue| json!({"location":section_location(issue),"code":"citation"})).collect(),
-                        native_citations::Resolution::Ready(resolved) => {
-                            let mut alignment = alignment_findings(&proposal.section, resolved.text());
-                            alignment.extend(visual_shape_findings(&proposal.section));
-                            alignment.extend(scene_version_findings(&proposal.section, checkpoint_version));
-                            if checkpoint_version >= 4 { alignment.extend(scene_narration_findings(&proposal.section)); }
-                            alignment.truncate(64);
-                            if !alignment.is_empty() {
-                                findings = alignment;
-                            } else {
-                                let sources =
-                                    ledger.validation_sources(manifest, runtime, cancelled)?;
-                                let syntax = crate::index::load_snapshot_index(
-                                    &ledger.storage,
-                                    &manifest.summary.project_id,
-                                    &manifest.summary.snapshot_id,
-                                )
-                                .unwrap_or(None);
-                                let canonicalize = if checkpoint_version == 1 {
-                                    chapter_generation::canonicalize_cited_workspace_overview
-                                } else if checkpoint_version >= 4 {
-                                    chapter_generation::canonicalize_narrated_answer_section
-                                } else {
-                                    chapter_generation::canonicalize_complete_answer_section
-                                };
-                                match canonicalize(
-                                    &manifest.summary.project_id,
-                                    manifest,
-                                    syntax.as_ref(),
-                                    &sources,
-                                    &resolved,
-                                ) {
-                                    Err(error) if error == chapter_generation::COMPLETE_CLAIMS_LIMIT_ERROR => findings = finding("presentationLimit"),
-                                    Err(_) => {
-                                        findings = visual_evidence_findings(&proposal.section);
-                                        findings.extend(scene_evidence_findings(&proposal.section));
-                                        findings.extend(scene_repetition_findings(&proposal.section));
-                                        findings.extend(scene_source_value_findings(&proposal.section, resolved.text()));
-                                        findings.truncate(64);
-                                        if findings.is_empty() {
-                                            findings = finding("sectionValidation");
-                                        }
-                                    },
-                                    Ok(mut revision) => {
-                                        ledger.verify_revision(
-                                            &revision, manifest, runtime, cancelled,
-                                        )?;
-                                        let validation = chapters::validate_chapter_revision(
+                } else {
+                    match wrapped_authored(&mut proposal) {
+                        Err(issues) => findings = issues,
+                        Ok((response, compiled)) => {
+                            match ledger.resolve_citations(&response, manifest, runtime, cancelled)? {
+                                native_citations::Resolution::Invalid(issues) => findings = issues.iter().take(64).map(|issue| json!({"location":section_location(issue),"code":"citation"})).collect(),
+                                native_citations::Resolution::Ready(resolved) => {
+                                    let mut alignment = alignment_findings(&proposal.section, resolved.text());
+                                    alignment.extend(visual_shape_findings(&proposal.section));
+                                    alignment.extend(scene_version_findings(&proposal.section, checkpoint_version));
+                                    if checkpoint_version >= 4 { alignment.extend(scene_narration_findings(&proposal.section)); }
+                                    alignment.truncate(64);
+                                    if !alignment.is_empty() {
+                                        findings = alignment;
+                                    } else {
+                                        let sources =
+                                            ledger.validation_sources(manifest, runtime, cancelled)?;
+                                        let syntax = crate::index::load_snapshot_index(
                                             &ledger.storage,
+                                            &manifest.summary.project_id,
+                                            &manifest.summary.snapshot_id,
+                                        )
+                                        .unwrap_or(None);
+                                        let canonicalize = if checkpoint_version == 1 {
+                                            chapter_generation::canonicalize_cited_workspace_overview
+                                        } else if checkpoint_version >= 4 {
+                                            chapter_generation::canonicalize_narrated_answer_section
+                                        } else {
+                                            chapter_generation::canonicalize_complete_answer_section
+                                        };
+                                        match canonicalize(
+                                            &manifest.summary.project_id,
                                             manifest,
                                             syntax.as_ref(),
-                                            &revision,
-                                        );
-                                        if validation.status
-                                            != chapters::ValidationReportStatus::Valid
-                                        {
-                                            findings = finding("sectionValidation");
-                                        } else {
-                                            let checkpoint = checkpoint(ledger)?;
-                                            let checkpoint_sha256 =
-                                                context::digest(&encode(&checkpoint)?);
-                                            revision.generation_origin = Some(chapter_origin::ChapterGenerationOrigin::from_answer_checkpoint(
-                                                &self.value.binding.operation_id, &self.value.request_sha256,
-                                                &checkpoint_sha256, record_ranges(&checkpoint), &sources, &revision,
-                                            )?);
-                                            revision.validation_status =
-                                                chapters::ValidationStatus::Valid;
-                                            let id = format!("generation:{}", Uuid::new_v4());
-                                            next.sections.push(PublishedSection {
-                                                checkpoint_version,
-                                                key: proposal.section_key,
-                                                order: proposal.order,
-                                                supersedes: proposal.previous_generation_id,
-                                                published_elapsed_ms: ledger.context_elapsed_ms(),
-                                                published_run_elapsed_ms: None,
-                                                proposal_sha256: proposal_sha256.clone(),
-                                                checkpoint_sha256,
-                                                checkpoint,
-                                                preview: chapters::ChapterDraftPreview {
-                                                    generation_id: id.clone(),
-                                                    revision,
-                                                    validation,
-                                                    model_id: ledger.record.binding.model.clone(),
-                                                    model_version: None,
-                                                    input_tokens: None,
-                                                    output_tokens: None,
-                                                    update_notes: vec![],
-                                                },
-                                            });
-                                            generation_id = Some(id);
-                                            findings.clear();
+                                            &sources,
+                                            &resolved,
+                                        ) {
+                                            Err(error) if error == chapter_generation::COMPLETE_CLAIMS_LIMIT_ERROR => findings = finding("presentationLimit"),
+                                            Err(_) => {
+                                                findings = visual_evidence_findings(&proposal.section);
+                                                findings.extend(scene_evidence_findings(&proposal.section));
+                                                findings.extend(scene_repetition_findings(&proposal.section));
+                                                findings.extend(scene_source_value_findings(&proposal.section, resolved.text()));
+                                                findings.truncate(64);
+                                                if findings.is_empty() {
+                                                    findings = finding("sectionValidation");
+                                                }
+                                            },
+                                            Ok(mut revision) => {
+                                                ledger.verify_revision(
+                                                    &revision, manifest, runtime, cancelled,
+                                                )?;
+                                                let validation = chapters::validate_chapter_revision(
+                                                    &ledger.storage,
+                                                    manifest,
+                                                    syntax.as_ref(),
+                                                    &revision,
+                                                );
+                                                if validation.status
+                                                    != chapters::ValidationReportStatus::Valid
+                                                {
+                                                    findings = finding("sectionValidation");
+                                                } else {
+                                                    let checkpoint = checkpoint(ledger)?;
+                                                    let checkpoint_sha256 =
+                                                        context::digest(&encode(&checkpoint)?);
+                                                    revision.generation_origin = Some(chapter_origin::ChapterGenerationOrigin::from_answer_checkpoint(
+                                                        &self.value.binding.operation_id, &self.value.request_sha256,
+                                                        &checkpoint_sha256, record_ranges(&checkpoint), &sources, &revision,
+                                                    )?);
+                                                    revision.validation_status =
+                                                        chapters::ValidationStatus::Valid;
+                                                    let id = format!("generation:{}", Uuid::new_v4());
+                                                    next.sections.push(PublishedSection {
+                                                        checkpoint_version,
+                                                        key: proposal.section_key,
+                                                        order: proposal.order,
+                                                        supersedes: proposal.previous_generation_id,
+                                                        published_elapsed_ms: ledger.context_elapsed_ms(),
+                                                        published_run_elapsed_ms: None,
+                                                        proposal_sha256: proposal_sha256.clone(),
+                                                        checkpoint_sha256,
+                                                        checkpoint,
+                                                        preview: chapters::ChapterDraftPreview {
+                                                            generation_id: id.clone(),
+                                                            revision,
+                                                            validation,
+                                                            model_id: ledger.record.binding.model.clone(),
+                                                            model_version: None,
+                                                            input_tokens: None,
+                                                            output_tokens: None,
+                                                            update_notes: vec![],
+                                                        },
+                                                    });
+                                                    generation_id = Some(id);
+                                                    findings.clear();
+                                                }
+                                            }
                                         }
                                     }
                                 }
+                            }
+                            if let Some(compiled) = compiled {
+                                compiled.remap(&mut findings);
                             }
                         }
                     }
@@ -1169,7 +1253,7 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
             .map_err(|_| "Invalid saved answer".to_owned())
             .and_then(|v| serde_json::from_value(v).map_err(|_| "Invalid saved answer".to_owned()))
             .map_err(|_| "The saved answer is damaged; it was preserved.")?;
-    if !matches!(value.schema_version, 1 | 2)
+    if !matches!(value.schema_version, 1 | 2 | 3)
         || value.binding.operation_id != operation
         || !value.binding.runtime.valid_shape()
         || value.binding.model != "gpt-6-luna"
@@ -1228,7 +1312,7 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
         if attempt.arguments.len() > MAX_PROPOSAL_BYTES
             || attempt.arguments_sha256 != expected
             || attempt.proposal_sha256 != context::digest(attempt.arguments.as_bytes())
-            || !valid_findings(&attempt.findings)
+            || !valid_findings(&attempt.findings, value.schema_version)
             || attempt.generation_id.as_ref().is_some_and(|id| {
                 !attempt.findings.is_empty()
                     || !value.sections.iter().any(|s| {
@@ -1267,7 +1351,8 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
             .map(|s| &s.key)
             .collect::<BTreeSet<_>>()
             .len();
-        if !matches!(section.checkpoint_version, 1 | 2 | 3 | 4)
+        if !matches!(section.checkpoint_version, 1 | 2 | 3 | 4 | 5)
+            || (section.checkpoint_version == SCENE_CHECKPOINT_VERSION) != (value.schema_version == 3)
             || checkpoint.schema_version != 3
             || !same_binding(&value.binding, &checkpoint.binding)?
             || checkpoint.status != Status::Active
@@ -1312,7 +1397,7 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
                     && a.generation_id.as_deref() == Some(section.preview.generation_id.as_str())
             })
             .ok_or("The section has no owned proposal.")?;
-        let proposal: Proposal = serde_json::from_str(&attempt.arguments)
+        let mut proposal: Proposal = serde_json::from_str(&attempt.arguments)
             .map_err(|_| "The published proposal is damaged.")?;
         if proposal.proposal_version != value.proposal_version()
             || proposal.section_key != section.key
@@ -1321,6 +1406,8 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
         {
             return Err("The section differs from its owned proposal.".into());
         }
+        let (response, _) = wrapped_authored(&mut proposal)
+            .map_err(|_| "The published scene identities are inconsistent.")?;
         let sources = record_ranges(checkpoint)
             .iter()
             .map(|r| r.path.clone())
@@ -1348,12 +1435,12 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
             {
                 let citation = native_citations::Citation::checked(&evidence.range, source)?;
                 citations.insert(evidence.id.clone(), citation.clone());
-                if value.schema_version == 2 {
+                if value.schema_version >= 2 {
                     citations.insert(native_citations::short_reference(index), citation);
                 }
             }
         }
-        let resolved = match native_citations::resolve(&wrapped(&proposal)?, |id| {
+        let resolved = match native_citations::resolve(&response, |id| {
             citations.get(id).cloned().ok_or("referenceUnavailable")
         }) {
             native_citations::Resolution::Ready(value) => value,

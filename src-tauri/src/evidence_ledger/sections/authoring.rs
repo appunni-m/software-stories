@@ -249,6 +249,13 @@ pub(super) fn compile(section: &Value) -> Result<Compiled, Vec<Value>> {
     let mut visual = json!({"kind":settings.kind,"title":settings.title,"direction":settings.direction,"nodes":nodes,"edges":edges});
     if !scenes.is_empty() {
         visual["presentation"] = json!({"schemaVersion":3,"scenes":scenes});
+        // Aggregate script findings refer to all claims, not to a canonical
+        // presentation property that the agent never authored. Keep this after
+        // the more specific per-scene prefixes above.
+        locations.push((
+            "/section/visual/presentation/scenes".into(),
+            "/section/claims".into(),
+        ));
     }
     Ok(Compiled {
         section: json!({"title":object["title"],"claims":canonical_claims,"visual":visual}),
