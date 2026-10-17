@@ -83,6 +83,12 @@ pub(crate) struct Observation {
     bytes: Vec<u8>,
 }
 
+impl Observation {
+    pub(crate) fn question(&self) -> &str {
+        &self.answer.question
+    }
+}
+
 pub(crate) fn observe(
     storage: &Path,
     run: &str,

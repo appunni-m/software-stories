@@ -21,8 +21,10 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use uuid::Uuid;
 
 mod plan;
+mod recovering;
 mod store;
 use plan::Plan;
+use recovering::reconcile;
 
 const CONTRACT: &str = "repository-guide-v2-short-reference-planning";
 const LEGACY_CONTRACT: &str = "repository-guide-v1-owned-range-planning";
@@ -269,52 +271,6 @@ fn summary(storage: &Path, record: &Record) -> Result<GuideSummary, String> {
                 .collect::<std::collections::HashSet<_>>()
                 .len()
         }),
-    })
-}
-fn reconcile(
-    storage: &Path,
-    record: &Record,
-    manager: &codex_agent::CodexAgentManager,
-) -> Result<Record, String> {
-    let mut next = record.clone();
-    for attempt in next.units.iter_mut().flat_map(|u| &mut u.attempts) {
-        if attempt
-            .summary
-            .as_ref()
-            .is_some_and(|s| s.outcome != Outcome::Working)
-        {
-            continue;
-        }
-        let recovered=manager.with_operation_state(&attempt.run_id,|active|{
-            if !reading::exists(storage,&attempt.run_id)? { return Ok(None); }
-            let answer=reading::scoped(storage,&attempt.run_id,&record.project_id,&record.snapshot_id)?;
-            if answer.question!=attempt.question{return Err("A guide investigation question changed.".into());}
-            if active{return Err("This guide still has an owned Codex investigation. Wait for it to finish or stop it.".into());}
-            if answer.outcome==Outcome::Working {Ok(Some(reading::interrupt(storage,&attempt.run_id,Outcome::Interrupted)?))}
-            else {Ok(Some(answer.summary()))}
-        })?;
-        attempt.summary = Some(recovered.unwrap_or_else(|| Summary {
-            run_id: attempt.run_id.clone(),
-            project_id: record.project_id.clone(),
-            snapshot_id: record.snapshot_id.clone(),
-            question: attempt.question.clone(),
-            outcome: Outcome::Interrupted,
-            sections: vec![],
-            incomplete_topics: vec![
-                "The investigation stopped before a saved answer was available.".into(),
-            ],
-        }));
-    }
-    next.active_run_id = None;
-    if matches!(next.status, Status::Planning | Status::Building) {
-        next.status = Status::Interrupted;
-    }
-    store::update(storage, &record.id, |current| {
-        if current.status == Status::Stopped {
-            next.status = Status::Stopped;
-        }
-        *current = next.clone();
-        Ok(())
     })
 }
 fn continuation(storage: &Path, record: &Record, index: usize) -> Result<String, String> {
