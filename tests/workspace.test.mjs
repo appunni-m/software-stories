@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { addTurn, ancestors, chapterTarget, cleanAnswerNotes, cleanPublishedSections, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
 const turn = (id,question='Explain the subtotal implementation') => ({id,question,context:[{path:'src/cart.ts',from:1,to:6}],status:'queued'});
 test('follow-ups stack at the current level; only explicit exploration creates a branch',()=>{
@@ -165,7 +166,7 @@ test('legacy scroll position migrates only to its previously selected view',()=>
 
 const runOne='11111111-1111-4111-8111-111111111111';
 const runTwo='22222222-2222-4222-8222-222222222222';
-const sectionRef=(order=0,runId=runOne)=>({runId,key:`section-${order}`,order,generationId:`aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa${order}`,revisionId:`revision-${order}`,supersedes:null,contextElapsedMs:40,runElapsedMs:80});
+const sectionRef=(order=0,runId=runOne)=>({runId,key:`section-${order}`,order,generationId:`generation:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa${order}`,revisionId:`revision-${order}`,supersedes:null,contextElapsedMs:40,runElapsedMs:80});
 test('progressive cards append once and preserve reading, drafts, and status after restart',()=>{
   let t={...turn('one'),status:'working',runIds:[runOne]};
   t=mergePublishedSections(t,[sectionRef()]);
@@ -193,7 +194,21 @@ test('progressive section identities and timing are bounded and unknown runs can
   assert.deepEqual(cleanPublishedSections([{...sectionRef(),order:6}]),[]);
   assert.deepEqual(cleanPublishedSections([{...sectionRef(),runElapsedMs:Infinity}]),[]);
   assert.deepEqual(cleanPublishedSections([{...sectionRef(),generationId:'forged'}]),[]);
+  assert.deepEqual(cleanPublishedSections([{...sectionRef(),generationId:runOne}]),[]);
+  assert.equal(cleanPublishedSections([{...sectionRef(1),supersedes:sectionRef().generationId}]).length,1);
+  assert.deepEqual(cleanPublishedSections([{...sectionRef(1),supersedes:runOne}]),[]);
   assert.equal(cleanPublishedSections([sectionRef(),sectionRef()]).length,1);
   const state=addTurn(createWorkspace('p','snap'),{...turn('one'),runIds:[runOne],publishedSections:[sectionRef(0,runTwo)]},'guide');
   assert.equal(parseWorkspace(JSON.stringify(state),'p','snap').explorations[0].turns[0].publishedSections.length,0);
+});
+
+test('real native section notices survive Guide state and local restart without changing their IDs',()=>{
+  const {result}=JSON.parse(readFileSync(new URL('../docs/acceptance/artifacts/2026-10-17-progressive-synthetic-complete.json',import.meta.url),'utf8'));
+  const t=mergePublishedSections({...turn('native'),status:'stopped',runIds:[result.runId]},result.sections);
+  assert.equal(t.publishedSections.length,2);
+  assert.deepEqual(t.publishedSections.map(s=>s.generationId),result.sections.map(s=>s.generationId));
+  const saved=addTurn(createWorkspace(result.projectId,result.snapshotId),t,'guide');
+  const restored=parseWorkspace(JSON.stringify(saved),result.projectId,result.snapshotId).explorations[0].turns[0];
+  assert.equal(restored.status,'stopped');
+  assert.deepEqual(restored.publishedSections,t.publishedSections);
 });

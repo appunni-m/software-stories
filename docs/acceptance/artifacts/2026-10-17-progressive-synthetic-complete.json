@@ -1,0 +1,944 @@
+{
+  "fixture": "public synthetic greeting; not user source",
+  "operationId": "6c01f170-b06d-4e0d-900e-a5ecb3d4e8b0",
+  "model": "gpt-6-luna",
+  "effort": "max",
+  "totalElapsedMs": 51671,
+  "result": {
+    "runId": "6c01f170-b06d-4e0d-900e-a5ecb3d4e8b0",
+    "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-98733-3894c03a-b09b-4777-b112-eed4920ff747/repository",
+    "snapshotId": "snap-1792227397141760000-98733-0",
+    "question": "How does greeting create its result?",
+    "outcome": "complete",
+    "sections": [
+      {
+        "runId": "6c01f170-b06d-4e0d-900e-a5ecb3d4e8b0",
+        "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-98733-3894c03a-b09b-4777-b112-eed4920ff747/repository",
+        "snapshotId": "snap-1792227397141760000-98733-0",
+        "key": "greeting-result",
+        "order": 0,
+        "generationId": "generation:3a735a72-7ad0-4db7-93d1-8c21d1a06464",
+        "revisionId": "revision:18d5cc83-7fa1-4c45-aab5-695bcebadc98",
+        "supersedes": null,
+        "contextElapsedMs": 18440,
+        "runElapsedMs": 18895
+      },
+      {
+        "runId": "6c01f170-b06d-4e0d-900e-a5ecb3d4e8b0",
+        "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-98733-3894c03a-b09b-4777-b112-eed4920ff747/repository",
+        "snapshotId": "snap-1792227397141760000-98733-0",
+        "key": "direct-substitution",
+        "order": 1,
+        "generationId": "generation:7b3d24af-7912-4869-964d-cfd8887c1255",
+        "revisionId": "revision:ad9f4527-c9a8-43a2-881a-472761fea3c4",
+        "supersedes": null,
+        "contextElapsedMs": 47886,
+        "runElapsedMs": 48323
+      }
+    ],
+    "incompleteTopics": []
+  },
+  "error": null,
+  "observations": [
+    {
+      "notice": {
+        "runId": "6c01f170-b06d-4e0d-900e-a5ecb3d4e8b0",
+        "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-98733-3894c03a-b09b-4777-b112-eed4920ff747/repository",
+        "snapshotId": "snap-1792227397141760000-98733-0",
+        "key": "greeting-result",
+        "order": 0,
+        "generationId": "generation:3a735a72-7ad0-4db7-93d1-8c21d1a06464",
+        "revisionId": "revision:18d5cc83-7fa1-4c45-aab5-695bcebadc98",
+        "supersedes": null,
+        "contextElapsedMs": 18440,
+        "runElapsedMs": 18895
+      },
+      "readyElapsedMs": 18913,
+      "savedRevisionId": "revision:18d5cc83-7fa1-4c45-aab5-695bcebadc98",
+      "error": null
+    },
+    {
+      "notice": {
+        "runId": "6c01f170-b06d-4e0d-900e-a5ecb3d4e8b0",
+        "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-98733-3894c03a-b09b-4777-b112-eed4920ff747/repository",
+        "snapshotId": "snap-1792227397141760000-98733-0",
+        "key": "direct-substitution",
+        "order": 1,
+        "generationId": "generation:7b3d24af-7912-4869-964d-cfd8887c1255",
+        "revisionId": "revision:ad9f4527-c9a8-43a2-881a-472761fea3c4",
+        "supersedes": null,
+        "contextElapsedMs": 47886,
+        "runElapsedMs": 48323
+      },
+      "readyElapsedMs": 48343,
+      "savedRevisionId": "revision:ad9f4527-c9a8-43a2-881a-472761fea3c4",
+      "error": null
+    }
+  ],
+  "answer": {
+    "schemaVersion": 1,
+    "binding": {
+      "operationId": "6c01f170-b06d-4e0d-900e-a5ecb3d4e8b0",
+      "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-98733-3894c03a-b09b-4777-b112-eed4920ff747/repository",
+      "snapshotId": "snap-1792227397141760000-98733-0",
+      "manifestSha256": "1baeb9297fc86760f40ccf9583b5b5c55e1dce436921125dc1fa8e4a97cddd2b",
+      "grantId": "fd829c13-1262-437f-87b9-08adaeb5b224",
+      "runtime": {
+        "connectionId": "3d577645-2b4d-4a04-a7c2-1ab43e60d13d",
+        "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+        "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+        "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+        "accountRevision": 1
+      },
+      "model": "gpt-6-luna",
+      "effort": "max"
+    },
+    "requestSha256": "5e556d4034055df4e05bab922d34e581f3b89c959d0ba78ee6bc59943563cd87",
+    "question": "How does greeting create its result?",
+    "outcome": "complete",
+    "sections": [
+      {
+        "checkpointVersion": 1,
+        "key": "greeting-result",
+        "order": 0,
+        "supersedes": null,
+        "preview": {
+          "generationId": "generation:3a735a72-7ad0-4db7-93d1-8c21d1a06464",
+          "revision": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:18d5cc83-7fa1-4c45-aab5-695bcebadc98",
+            "revisionNumber": 1,
+            "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-98733-3894c03a-b09b-4777-b112-eed4920ff747/repository",
+            "snapshotId": "snap-1792227397141760000-98733-0",
+            "target": {
+              "targetId": "target:overview",
+              "scope": {
+                "kind": "overview"
+              }
+            },
+            "title": "How greeting builds its result",
+            "lifecycle": "draft",
+            "validationStatus": "valid",
+            "createdAtUnixMs": 1792227418432,
+            "generationOrigin": {
+              "schemaVersion": 5,
+              "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-98733-3894c03a-b09b-4777-b112-eed4920ff747/repository",
+              "snapshotId": "snap-1792227397141760000-98733-0",
+              "targetPath": null,
+              "purpose": "repositoryOverview",
+              "requestId": "6c01f170-b06d-4e0d-900e-a5ecb3d4e8b0",
+              "requestFingerprint": "939c9e5d424650559749b1e9beabf7fabcb394ef4fb389440d04b18d62f709a9",
+              "requestBodySha256": "5e556d4034055df4e05bab922d34e581f3b89c959d0ba78ee6bc59943563cd87",
+              "contractVersion": "codex-retrieval-v3-answer-sections",
+              "settings": {
+                "backend": "codex",
+                "modelId": "gpt-6-luna",
+                "effort": "max",
+                "approvalPolicy": "never"
+              },
+              "sourceFiles": [
+                {
+                  "path": "src/greeting.ts",
+                  "sha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                  "sizeBytes": 197
+                }
+              ],
+              "sectionUpdate": null,
+              "plannedChapter": null,
+              "retrieval": {
+                "policy": "atlas-captured-ranges-v1-files12-source250000",
+                "ledgerSha256": "d6a2b1a92bce48531d57ee7d444f4fdebbd71d735e3b2bcccf977d2c56b361d0",
+                "ranges": [
+                  {
+                    "snapshotId": "snap-1792227397141760000-98733-0",
+                    "path": "src/greeting.ts",
+                    "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                    "startByte": 0,
+                    "endByte": 197,
+                    "startLine": 1,
+                    "endLine": 7,
+                    "chunkSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  }
+                ]
+              },
+              "contentSha256": "a58351bbd4b420377b580e473a4f5902365b1e24ba79bb7e3b2bdd7610a988e5"
+            },
+            "sections": [
+              {
+                "sectionId": "section:090f6497-ee7d-41f4-9210-1b77583f3e3d",
+                "sectionRevisionId": "sectionrev:cbace1c3-c8fc-4487-9464-0bd068c34a4d",
+                "order": 0,
+                "title": "How greeting builds its result",
+                "prose": "The greeting function creates its result by inserting the supplied name after the fixed text “Hello, ” and returning that completed string.",
+                "spokenText": "The greeting function creates its result by inserting the supplied name after the fixed text “Hello, ” and returning that completed string.",
+                "claims": [
+                  {
+                    "claimId": "claim:2f6d0f44-45b5-4a01-b27a-528ef59e8abf",
+                    "category": {
+                      "kind": "codeBehavior"
+                    },
+                    "prose": "The greeting function creates its result by inserting the supplied name after the fixed text “Hello, ” and returning that completed string.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:47c30000-14b4-4cda-afbc-7fdaef719c9b",
+                        "path": "src/greeting.ts",
+                        "symbolId": null,
+                        "snapshotId": "snap-1792227397141760000-98733-0",
+                        "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                        "startByte": 0,
+                        "endByteInclusive": 196,
+                        "startLine": 1,
+                        "endLine": 7,
+                        "startColumn": 1,
+                        "endColumn": 33,
+                        "excerpt": "// greeting formats UTF-8 text such as café.\nexport function greeting(name: string): string {\n    return `Hello, ${name}`;\n}\n// marker repeats.\n// marker repeats.\nconst overlapping = \"aaaaaaaaa\";\n"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/greeting.ts",
+                        "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715"
+                      }
+                    ]
+                  }
+                ],
+                "dependencies": [
+                  {
+                    "kind": "sourceFile",
+                    "path": "src/greeting.ts",
+                    "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715"
+                  }
+                ],
+                "visual": {
+                  "schemaVersion": 2,
+                  "kind": "dataFlow",
+                  "title": "Name becomes greeting text",
+                  "layoutHint": {
+                    "direction": "leftToRight"
+                  },
+                  "nodes": [
+                    {
+                      "nodeId": "visualnode:5e8adb7e-b7f0-49c1-a578-dd43ac2db520",
+                      "label": "name input",
+                      "detail": "The function accepts a string name.",
+                      "hotspotId": "visualhotspot:b86aff39-174e-4976-9142-f72eed09ba7c",
+                      "evidenceAnchorIds": [
+                        "anchor:47c30000-14b4-4cda-afbc-7fdaef719c9b"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:501d46c5-9bc8-4bfb-95c6-5477e8f15c9f",
+                      "label": "template result",
+                      "detail": "The template combines “Hello, ” with the supplied name.",
+                      "hotspotId": "visualhotspot:b989dd41-0687-4765-867c-a608fbe7b10a",
+                      "evidenceAnchorIds": [
+                        "anchor:47c30000-14b4-4cda-afbc-7fdaef719c9b"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:37be8351-aabd-4622-be8e-7dcac0b81dda",
+                      "label": "returned string",
+                      "detail": "The combined template is returned.",
+                      "hotspotId": "visualhotspot:3cbcbf7d-7801-4323-aa88-949dd053fbf7",
+                      "evidenceAnchorIds": [
+                        "anchor:47c30000-14b4-4cda-afbc-7fdaef719c9b"
+                      ]
+                    }
+                  ],
+                  "edges": [
+                    {
+                      "edgeId": "visualedge:8e75d1c9-f5a6-4f1d-ba2f-ea774ffa8c6d",
+                      "fromNodeId": "visualnode:5e8adb7e-b7f0-49c1-a578-dd43ac2db520",
+                      "toNodeId": "visualnode:501d46c5-9bc8-4bfb-95c6-5477e8f15c9f",
+                      "label": "interpolate",
+                      "evidenceAnchorIds": [
+                        "anchor:47c30000-14b4-4cda-afbc-7fdaef719c9b"
+                      ]
+                    },
+                    {
+                      "edgeId": "visualedge:d534dfa5-5816-445c-ba4d-87de9419eeac",
+                      "fromNodeId": "visualnode:501d46c5-9bc8-4bfb-95c6-5477e8f15c9f",
+                      "toNodeId": "visualnode:37be8351-aabd-4622-be8e-7dcac0b81dda",
+                      "label": "return",
+                      "evidenceAnchorIds": [
+                        "anchor:47c30000-14b4-4cda-afbc-7fdaef719c9b"
+                      ]
+                    }
+                  ]
+                },
+                "hotspots": [
+                  {
+                    "hotspotId": "overviewfile:e4dcfe3c-1b17-408b-acca-acebed920baf",
+                    "label": "Open file: src/greeting.ts",
+                    "destination": {
+                      "kind": "atlasFile",
+                      "path": "src/greeting.ts"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:b86aff39-174e-4976-9142-f72eed09ba7c",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:47c30000-14b4-4cda-afbc-7fdaef719c9b"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:b989dd41-0687-4765-867c-a608fbe7b10a",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:47c30000-14b4-4cda-afbc-7fdaef719c9b"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:3cbcbf7d-7801-4323-aa88-949dd053fbf7",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:47c30000-14b4-4cda-afbc-7fdaef719c9b"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "validation": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:18d5cc83-7fa1-4c45-aab5-695bcebadc98",
+            "snapshotId": "snap-1792227397141760000-98733-0",
+            "status": "valid",
+            "issues": []
+          },
+          "modelId": "gpt-6-luna",
+          "modelVersion": null,
+          "inputTokens": null,
+          "outputTokens": null,
+          "updateNotes": []
+        },
+        "publishedElapsedMs": 18440,
+        "publishedRunElapsedMs": 18895,
+        "proposalSha256": "403c39c23463ea4f35cf28251783fa7b12d3abdea328ef219706c87327be96f5",
+        "checkpointSha256": "d6a2b1a92bce48531d57ee7d444f4fdebbd71d735e3b2bcccf977d2c56b361d0",
+        "checkpoint": {
+          "schemaVersion": 3,
+          "policy": "atlas-captured-ranges-v1-files12-source250000",
+          "binding": {
+            "operationId": "6c01f170-b06d-4e0d-900e-a5ecb3d4e8b0",
+            "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-98733-3894c03a-b09b-4777-b112-eed4920ff747/repository",
+            "snapshotId": "snap-1792227397141760000-98733-0",
+            "manifestSha256": "1baeb9297fc86760f40ccf9583b5b5c55e1dce436921125dc1fa8e4a97cddd2b",
+            "grantId": "fd829c13-1262-437f-87b9-08adaeb5b224",
+            "runtime": {
+              "connectionId": "3d577645-2b4d-4a04-a7c2-1ab43e60d13d",
+              "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+              "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+              "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+              "accountRevision": 1
+            },
+            "model": "gpt-6-luna",
+            "effort": "max"
+          },
+          "startedAtUnixMs": 1792227399990,
+          "status": "active",
+          "calls": [
+            {
+              "id": "523bf101-d417-466e-9098-96362403afc4",
+              "tool": "search",
+              "argumentsSha256": "8a0bce4413f319636a9e21a32f454448e873917dc0d3a15a895ec7266b5916c6",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 1125,
+              "wireBytes": 1125,
+              "payloadSha256": "a4e960ab8c45445079ba2680704108e8865e3ada55d1ff6605357d2c321986b8",
+              "timing": {
+                "startedMs": 8841,
+                "preparedMs": 8960,
+                "finishedMs": 9087
+              }
+            },
+            {
+              "id": "72f64a53-99b9-4d9f-a597-831c8c0b4d03",
+              "tool": "read",
+              "argumentsSha256": "51699020b5b19cbcdc1ef529e4a8da12dff1bf199821f7fed3022752468cc6d6",
+              "state": "delivered",
+              "evidenceIds": [
+                "evidence:db75a52f4e40bd8ed1a8548e854e45549cf42c7cac120d8767e34cd5f6cfabb2"
+              ],
+              "sourceBytes": 197,
+              "metadataBytes": 861,
+              "wireBytes": 1067,
+              "payloadSha256": "379996b70d9ee045355baf44c2bcfe23c947614803b86d7f2679444cea96976c",
+              "timing": {
+                "startedMs": 12051,
+                "preparedMs": 12062,
+                "finishedMs": 12203
+              }
+            }
+          ],
+          "evidence": [
+            {
+              "id": "evidence:db75a52f4e40bd8ed1a8548e854e45549cf42c7cac120d8767e34cd5f6cfabb2",
+              "range": {
+                "snapshotId": "snap-1792227397141760000-98733-0",
+                "path": "src/greeting.ts",
+                "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                "startByte": 0,
+                "endByte": 197,
+                "startLine": 1,
+                "endLine": 7,
+                "chunkSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            }
+          ],
+          "contextClock": "capturedCodeSessionV1"
+        }
+      },
+      {
+        "checkpointVersion": 1,
+        "key": "direct-substitution",
+        "order": 1,
+        "supersedes": null,
+        "preview": {
+          "generationId": "generation:7b3d24af-7912-4869-964d-cfd8887c1255",
+          "revision": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:ad9f4527-c9a8-43a2-881a-472761fea3c4",
+            "revisionNumber": 1,
+            "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-98733-3894c03a-b09b-4777-b112-eed4920ff747/repository",
+            "snapshotId": "snap-1792227397141760000-98733-0",
+            "target": {
+              "targetId": "target:overview",
+              "scope": {
+                "kind": "overview"
+              }
+            },
+            "title": "The name is inserted directly",
+            "lifecycle": "draft",
+            "validationStatus": "valid",
+            "createdAtUnixMs": 1792227447879,
+            "generationOrigin": {
+              "schemaVersion": 5,
+              "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-98733-3894c03a-b09b-4777-b112-eed4920ff747/repository",
+              "snapshotId": "snap-1792227397141760000-98733-0",
+              "targetPath": null,
+              "purpose": "repositoryOverview",
+              "requestId": "6c01f170-b06d-4e0d-900e-a5ecb3d4e8b0",
+              "requestFingerprint": "a1a98cabc3e628371ccabd8d9d36db564a220f4efdb7b33cbf80a353b02468c1",
+              "requestBodySha256": "5e556d4034055df4e05bab922d34e581f3b89c959d0ba78ee6bc59943563cd87",
+              "contractVersion": "codex-retrieval-v3-answer-sections",
+              "settings": {
+                "backend": "codex",
+                "modelId": "gpt-6-luna",
+                "effort": "max",
+                "approvalPolicy": "never"
+              },
+              "sourceFiles": [
+                {
+                  "path": "src/greeting.ts",
+                  "sha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                  "sizeBytes": 197
+                }
+              ],
+              "sectionUpdate": null,
+              "plannedChapter": null,
+              "retrieval": {
+                "policy": "atlas-captured-ranges-v1-files12-source250000",
+                "ledgerSha256": "b06dbc40019be95edabe79095db510aa0accd75a00cef60d6ab728bdcf8ec43c",
+                "ranges": [
+                  {
+                    "snapshotId": "snap-1792227397141760000-98733-0",
+                    "path": "src/greeting.ts",
+                    "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                    "startByte": 0,
+                    "endByte": 197,
+                    "startLine": 1,
+                    "endLine": 7,
+                    "chunkSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  }
+                ]
+              },
+              "contentSha256": "f174e708583031ba38a5c6181c34aaa02a5c3fa20837ee5d8ddb2a806c096325"
+            },
+            "sections": [
+              {
+                "sectionId": "section:c70a92fa-d0ee-4a94-a3f2-471b7b6ad862",
+                "sectionRevisionId": "sectionrev:8fb391ea-44ae-4f5e-b70c-37fbf7eca8b3",
+                "order": 0,
+                "title": "The name is inserted directly",
+                "prose": "The declared greeting contract accepts a string and returns a string; its body uses one template expression that inserts the supplied name directly rather than routing it through another formatter. Inference: With Ada as the supplied name, greeting yields Hello, Ada because the function places that name after its fixed Hello prefix; this example is inferred from the single interpolation expression.",
+                "spokenText": "The declared greeting contract accepts a string and returns a string; its body uses one template expression that inserts the supplied name directly rather than routing it through another formatter. Inference: With Ada as the supplied name, greeting yields Hello, Ada because the function places that name after its fixed Hello prefix; this example is inferred from the single interpolation expression.",
+                "claims": [
+                  {
+                    "claimId": "claim:651102c1-68a9-4595-b34c-45b54eff08da",
+                    "category": {
+                      "kind": "codeBehavior"
+                    },
+                    "prose": "The declared greeting contract accepts a string and returns a string; its body uses one template expression that inserts the supplied name directly rather than routing it through another formatter.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:3a20d460-0692-4224-9dbe-2c47a8fb1c41",
+                        "path": "src/greeting.ts",
+                        "symbolId": null,
+                        "snapshotId": "snap-1792227397141760000-98733-0",
+                        "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                        "startByte": 0,
+                        "endByteInclusive": 196,
+                        "startLine": 1,
+                        "endLine": 7,
+                        "startColumn": 1,
+                        "endColumn": 33,
+                        "excerpt": "// greeting formats UTF-8 text such as café.\nexport function greeting(name: string): string {\n    return `Hello, ${name}`;\n}\n// marker repeats.\n// marker repeats.\nconst overlapping = \"aaaaaaaaa\";\n"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/greeting.ts",
+                        "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715"
+                      }
+                    ]
+                  },
+                  {
+                    "claimId": "claim:b9e8474a-8682-47b9-b3d6-d5dd51d36b13",
+                    "category": {
+                      "kind": "inference",
+                      "visibleLabel": "Inference",
+                      "basis": "The source returns a template with fixed Hello text followed by one interpolation of the supplied name."
+                    },
+                    "prose": "With Ada as the supplied name, greeting yields Hello, Ada because the function places that name after its fixed Hello prefix; this example is inferred from the single interpolation expression.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:d5905bcf-4bc7-402d-99d2-d6eebc757c23",
+                        "path": "src/greeting.ts",
+                        "symbolId": null,
+                        "snapshotId": "snap-1792227397141760000-98733-0",
+                        "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                        "startByte": 0,
+                        "endByteInclusive": 196,
+                        "startLine": 1,
+                        "endLine": 7,
+                        "startColumn": 1,
+                        "endColumn": 33,
+                        "excerpt": "// greeting formats UTF-8 text such as café.\nexport function greeting(name: string): string {\n    return `Hello, ${name}`;\n}\n// marker repeats.\n// marker repeats.\nconst overlapping = \"aaaaaaaaa\";\n"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/greeting.ts",
+                        "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715"
+                      }
+                    ]
+                  }
+                ],
+                "dependencies": [
+                  {
+                    "kind": "sourceFile",
+                    "path": "src/greeting.ts",
+                    "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715"
+                  }
+                ],
+                "visual": null,
+                "hotspots": [
+                  {
+                    "hotspotId": "overviewfile:cd67d007-ff3f-4298-bb3c-1f4fca77f7f1",
+                    "label": "Open file: src/greeting.ts",
+                    "destination": {
+                      "kind": "atlasFile",
+                      "path": "src/greeting.ts"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "validation": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:ad9f4527-c9a8-43a2-881a-472761fea3c4",
+            "snapshotId": "snap-1792227397141760000-98733-0",
+            "status": "valid",
+            "issues": []
+          },
+          "modelId": "gpt-6-luna",
+          "modelVersion": null,
+          "inputTokens": null,
+          "outputTokens": null,
+          "updateNotes": []
+        },
+        "publishedElapsedMs": 47886,
+        "publishedRunElapsedMs": 48323,
+        "proposalSha256": "211d1cf57b810a7990e9423f970de5eff21d2375bf64655e859d145e2b935e8c",
+        "checkpointSha256": "b06dbc40019be95edabe79095db510aa0accd75a00cef60d6ab728bdcf8ec43c",
+        "checkpoint": {
+          "schemaVersion": 3,
+          "policy": "atlas-captured-ranges-v1-files12-source250000",
+          "binding": {
+            "operationId": "6c01f170-b06d-4e0d-900e-a5ecb3d4e8b0",
+            "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-98733-3894c03a-b09b-4777-b112-eed4920ff747/repository",
+            "snapshotId": "snap-1792227397141760000-98733-0",
+            "manifestSha256": "1baeb9297fc86760f40ccf9583b5b5c55e1dce436921125dc1fa8e4a97cddd2b",
+            "grantId": "fd829c13-1262-437f-87b9-08adaeb5b224",
+            "runtime": {
+              "connectionId": "3d577645-2b4d-4a04-a7c2-1ab43e60d13d",
+              "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+              "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+              "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+              "accountRevision": 1
+            },
+            "model": "gpt-6-luna",
+            "effort": "max"
+          },
+          "startedAtUnixMs": 1792227399990,
+          "status": "active",
+          "calls": [
+            {
+              "id": "523bf101-d417-466e-9098-96362403afc4",
+              "tool": "search",
+              "argumentsSha256": "8a0bce4413f319636a9e21a32f454448e873917dc0d3a15a895ec7266b5916c6",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 1125,
+              "wireBytes": 1125,
+              "payloadSha256": "a4e960ab8c45445079ba2680704108e8865e3ada55d1ff6605357d2c321986b8",
+              "timing": {
+                "startedMs": 8841,
+                "preparedMs": 8960,
+                "finishedMs": 9087
+              }
+            },
+            {
+              "id": "72f64a53-99b9-4d9f-a597-831c8c0b4d03",
+              "tool": "read",
+              "argumentsSha256": "51699020b5b19cbcdc1ef529e4a8da12dff1bf199821f7fed3022752468cc6d6",
+              "state": "delivered",
+              "evidenceIds": [
+                "evidence:db75a52f4e40bd8ed1a8548e854e45549cf42c7cac120d8767e34cd5f6cfabb2"
+              ],
+              "sourceBytes": 197,
+              "metadataBytes": 861,
+              "wireBytes": 1067,
+              "payloadSha256": "379996b70d9ee045355baf44c2bcfe23c947614803b86d7f2679444cea96976c",
+              "timing": {
+                "startedMs": 12051,
+                "preparedMs": 12062,
+                "finishedMs": 12203
+              }
+            },
+            {
+              "id": "bb51eaa0-9d56-4b01-ab86-2ee794398239",
+              "tool": "proposeSection",
+              "argumentsSha256": "53c0c1afa3e57e988b24f367b91230b1b6ca606f6b25bfe84c5246a6b532f4be",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 515,
+              "wireBytes": 515,
+              "payloadSha256": "762bab15c1ffa8b96279edf2b04e30e4d150d73620d7359f1fb5d350f32c41ce",
+              "timing": {
+                "startedMs": 18421,
+                "preparedMs": 18763,
+                "finishedMs": 18894
+              }
+            },
+            {
+              "id": "73fc6b56-383d-486f-a9db-150987c722b8",
+              "tool": "map",
+              "argumentsSha256": "d7df3e11925ef5b75d65a38319258b721b9565fab9b3d180ac915ae5dd5e5213",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 1198,
+              "wireBytes": 1198,
+              "payloadSha256": "a7a50d2838e09283ef7b378faa3aefcd1832e6d94e38d3704900da8e274570d4",
+              "timing": {
+                "startedMs": 21887,
+                "preparedMs": 21902,
+                "finishedMs": 22084
+              }
+            },
+            {
+              "id": "82bb054b-40df-48fc-b0ae-34f8c5063f24",
+              "tool": "search",
+              "argumentsSha256": "2d62a8d404722405776c2208cf9bf0219c3b89f99fb897a486f09838fa863bf2",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 578,
+              "wireBytes": 578,
+              "payloadSha256": "a2e8bafdc7c09bf45ab540b576309f3f9deaaa2a898697eb927e741d85d9d943",
+              "timing": {
+                "startedMs": 24000,
+                "preparedMs": 24013,
+                "finishedMs": 24165
+              }
+            },
+            {
+              "id": "f6bc47b4-c1bc-412c-a6ac-cb5c41e7a37c",
+              "tool": "map",
+              "argumentsSha256": "fae0c20962b4841270bb94851e4d8c35afb1390b51c7d3eafe5c5a62ec931bff",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 1359,
+              "wireBytes": 1359,
+              "payloadSha256": "9932b4b7ab52cb96b057fe0dcdc5fe607b28590ffd12de6d0379d4533fc6174b",
+              "timing": {
+                "startedMs": 26771,
+                "preparedMs": 26781,
+                "finishedMs": 26926
+              }
+            },
+            {
+              "id": "0c377646-e978-4abc-b810-5f983c727283",
+              "tool": "search",
+              "argumentsSha256": "db1f3f21d16b6993f8311db3aafc2f3ee81e9c32f78e7ad092fb131dc7fb9d15",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 1127,
+              "wireBytes": 1127,
+              "payloadSha256": "07c12c09a76553dec073f4590b4f5b2e599e7c318981fa4d50244b9127e6e56a",
+              "timing": {
+                "startedMs": 34582,
+                "preparedMs": 34601,
+                "finishedMs": 34756
+              }
+            }
+          ],
+          "evidence": [
+            {
+              "id": "evidence:db75a52f4e40bd8ed1a8548e854e45549cf42c7cac120d8767e34cd5f6cfabb2",
+              "range": {
+                "snapshotId": "snap-1792227397141760000-98733-0",
+                "path": "src/greeting.ts",
+                "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                "startByte": 0,
+                "endByte": 197,
+                "startLine": 1,
+                "endLine": 7,
+                "chunkSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            }
+          ],
+          "contextClock": "capturedCodeSessionV1"
+        }
+      }
+    ],
+    "attempts": [
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"greeting-result\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"How greeting builds its result\",\"claims\":[{\"category\":\"codeBehavior\",\"aspect\":\"inputOutput\",\"identifiers\":[\"greeting\"],\"evidence\":[{\"referenceId\":\"evidence:db75a52f4e40bd8ed1a8548e854e45549cf42c7cac120d8767e34cd5f6cfabb2\"}],\"inferenceBasis\":\"\",\"relationshipIds\":[],\"prose\":\"The greeting function creates its result by inserting the supplied name after the fixed text “Hello, ” and returning that completed string.\"}],\"visual\":{\"kind\":\"dataFlow\",\"title\":\"Name becomes greeting text\",\"direction\":\"leftToRight\",\"nodes\":[{\"label\":\"name input\",\"detail\":\"The function accepts a string name.\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"template result\",\"detail\":\"The template combines “Hello, ” with the supplied name.\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"returned string\",\"detail\":\"The combined template is returned.\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]}],\"edges\":[{\"fromNodeIndex\":0,\"toNodeIndex\":1,\"label\":\"interpolate\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":1,\"toNodeIndex\":2,\"label\":\"return\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]}]}}}",
+        "argumentsSha256": "53c0c1afa3e57e988b24f367b91230b1b6ca606f6b25bfe84c5246a6b532f4be",
+        "proposalSha256": "403c39c23463ea4f35cf28251783fa7b12d3abdea328ef219706c87327be96f5",
+        "findings": [],
+        "generationId": "generation:3a735a72-7ad0-4db7-93d1-8c21d1a06464"
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"direct-substitution\",\"order\":1,\"previousGenerationId\":null,\"section\":{\"title\":\"The name is inserted directly\",\"claims\":[{\"category\":\"codeBehavior\",\"aspect\":\"inputOutput\",\"identifiers\":[\"greeting\",\"name\"],\"evidence\":[{\"referenceId\":\"evidence:db75a52f4e40bd8ed1a8548e854e45549cf42c7cac120d8767e34cd5f6cfabb2\"}],\"inferenceBasis\":\"\",\"relationshipIds\":[],\"prose\":\"The declared greeting contract accepts a string and returns a string; its body uses one template expression that inserts the supplied name directly rather than routing it through another formatter.\"},{\"category\":\"inference\",\"aspect\":\"inputOutput\",\"identifiers\":[\"greeting\"],\"evidence\":[{\"referenceId\":\"evidence:db75a52f4e40bd8ed1a8548e854e45549cf42c7cac120d8767e34cd5f6cfabb2\"}],\"inferenceBasis\":\"The source returns a template with fixed Hello text followed by one interpolation of the supplied name.\",\"relationshipIds\":[],\"prose\":\"With Ada as the supplied name, greeting yields Hello, Ada because the function places that name after its fixed Hello prefix; this example is inferred from the single interpolation expression.\"}],\"visual\":{\"kind\":\"none\",\"title\":\"\",\"direction\":\"auto\",\"nodes\":[],\"edges\":[]}}}",
+        "argumentsSha256": "208f83eb198f367ae84acd24db89af535f1cf3dff70834b8e34268066b21f744",
+        "proposalSha256": "211d1cf57b810a7990e9423f970de5eff21d2375bf64655e859d145e2b935e8c",
+        "findings": [],
+        "generationId": "generation:7b3d24af-7912-4869-964d-cfd8887c1255"
+      }
+    ],
+    "finalResponses": [
+      {
+        "text": "{\"manifestVersion\":\"answerManifestV1\",\"sections\":[{\"sectionKey\":\"greeting-result\",\"generationId\":\"generation:3a735a72-7ad0-4db7-93d1-8c21d1a06464\"},{\"sectionKey\":\"direct-substitution\",\"generationId\":\"generation:7b3d24af-7912-4869-964d-cfd8887c1255\"}],\"incompleteTopics\":[]}",
+        "sha256": "96a44c5574ef1c6f346a7126b0272da9e5c794f7605df40e5e0c28fb18121cb3"
+      }
+    ],
+    "incompleteTopics": []
+  },
+  "ledger": {
+    "schemaVersion": 3,
+    "policy": "atlas-captured-ranges-v1-files12-source250000",
+    "binding": {
+      "operationId": "6c01f170-b06d-4e0d-900e-a5ecb3d4e8b0",
+      "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-98733-3894c03a-b09b-4777-b112-eed4920ff747/repository",
+      "snapshotId": "snap-1792227397141760000-98733-0",
+      "manifestSha256": "1baeb9297fc86760f40ccf9583b5b5c55e1dce436921125dc1fa8e4a97cddd2b",
+      "grantId": "fd829c13-1262-437f-87b9-08adaeb5b224",
+      "runtime": {
+        "connectionId": "3d577645-2b4d-4a04-a7c2-1ab43e60d13d",
+        "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+        "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+        "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+        "accountRevision": 1
+      },
+      "model": "gpt-6-luna",
+      "effort": "max"
+    },
+    "startedAtUnixMs": 1792227399990,
+    "status": "complete",
+    "calls": [
+      {
+        "id": "523bf101-d417-466e-9098-96362403afc4",
+        "tool": "search",
+        "argumentsSha256": "8a0bce4413f319636a9e21a32f454448e873917dc0d3a15a895ec7266b5916c6",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1125,
+        "wireBytes": 1125,
+        "payloadSha256": "a4e960ab8c45445079ba2680704108e8865e3ada55d1ff6605357d2c321986b8",
+        "timing": {
+          "startedMs": 8841,
+          "preparedMs": 8960,
+          "finishedMs": 9087
+        }
+      },
+      {
+        "id": "72f64a53-99b9-4d9f-a597-831c8c0b4d03",
+        "tool": "read",
+        "argumentsSha256": "51699020b5b19cbcdc1ef529e4a8da12dff1bf199821f7fed3022752468cc6d6",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:db75a52f4e40bd8ed1a8548e854e45549cf42c7cac120d8767e34cd5f6cfabb2"
+        ],
+        "sourceBytes": 197,
+        "metadataBytes": 861,
+        "wireBytes": 1067,
+        "payloadSha256": "379996b70d9ee045355baf44c2bcfe23c947614803b86d7f2679444cea96976c",
+        "timing": {
+          "startedMs": 12051,
+          "preparedMs": 12062,
+          "finishedMs": 12203
+        }
+      },
+      {
+        "id": "bb51eaa0-9d56-4b01-ab86-2ee794398239",
+        "tool": "proposeSection",
+        "argumentsSha256": "53c0c1afa3e57e988b24f367b91230b1b6ca606f6b25bfe84c5246a6b532f4be",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 515,
+        "wireBytes": 515,
+        "payloadSha256": "762bab15c1ffa8b96279edf2b04e30e4d150d73620d7359f1fb5d350f32c41ce",
+        "timing": {
+          "startedMs": 18421,
+          "preparedMs": 18763,
+          "finishedMs": 18894
+        }
+      },
+      {
+        "id": "73fc6b56-383d-486f-a9db-150987c722b8",
+        "tool": "map",
+        "argumentsSha256": "d7df3e11925ef5b75d65a38319258b721b9565fab9b3d180ac915ae5dd5e5213",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1198,
+        "wireBytes": 1198,
+        "payloadSha256": "a7a50d2838e09283ef7b378faa3aefcd1832e6d94e38d3704900da8e274570d4",
+        "timing": {
+          "startedMs": 21887,
+          "preparedMs": 21902,
+          "finishedMs": 22084
+        }
+      },
+      {
+        "id": "82bb054b-40df-48fc-b0ae-34f8c5063f24",
+        "tool": "search",
+        "argumentsSha256": "2d62a8d404722405776c2208cf9bf0219c3b89f99fb897a486f09838fa863bf2",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 578,
+        "wireBytes": 578,
+        "payloadSha256": "a2e8bafdc7c09bf45ab540b576309f3f9deaaa2a898697eb927e741d85d9d943",
+        "timing": {
+          "startedMs": 24000,
+          "preparedMs": 24013,
+          "finishedMs": 24165
+        }
+      },
+      {
+        "id": "f6bc47b4-c1bc-412c-a6ac-cb5c41e7a37c",
+        "tool": "map",
+        "argumentsSha256": "fae0c20962b4841270bb94851e4d8c35afb1390b51c7d3eafe5c5a62ec931bff",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1359,
+        "wireBytes": 1359,
+        "payloadSha256": "9932b4b7ab52cb96b057fe0dcdc5fe607b28590ffd12de6d0379d4533fc6174b",
+        "timing": {
+          "startedMs": 26771,
+          "preparedMs": 26781,
+          "finishedMs": 26926
+        }
+      },
+      {
+        "id": "0c377646-e978-4abc-b810-5f983c727283",
+        "tool": "search",
+        "argumentsSha256": "db1f3f21d16b6993f8311db3aafc2f3ee81e9c32f78e7ad092fb131dc7fb9d15",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1127,
+        "wireBytes": 1127,
+        "payloadSha256": "07c12c09a76553dec073f4590b4f5b2e599e7c318981fa4d50244b9127e6e56a",
+        "timing": {
+          "startedMs": 34582,
+          "preparedMs": 34601,
+          "finishedMs": 34756
+        }
+      },
+      {
+        "id": "85dc2145-4967-4715-a720-7d9886bdcded",
+        "tool": "proposeSection",
+        "argumentsSha256": "208f83eb198f367ae84acd24db89af535f1cf3dff70834b8e34268066b21f744",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 515,
+        "wireBytes": 515,
+        "payloadSha256": "f2d630387d366201b0dcf887d690991c28e2112dc4b556fda04ff407d9d1989e",
+        "timing": {
+          "startedMs": 47865,
+          "preparedMs": 48192,
+          "finishedMs": 48339
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "id": "evidence:db75a52f4e40bd8ed1a8548e854e45549cf42c7cac120d8767e34cd5f6cfabb2",
+        "range": {
+          "snapshotId": "snap-1792227397141760000-98733-0",
+          "path": "src/greeting.ts",
+          "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+          "startByte": 0,
+          "endByte": 197,
+          "startLine": 1,
+          "endLine": 7,
+          "chunkSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      }
+    ],
+    "contextClock": "capturedCodeSessionV1"
+  }
+}

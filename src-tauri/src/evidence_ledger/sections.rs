@@ -274,6 +274,7 @@ fn valid_findings(findings: &[Value]) -> bool {
                     matches!(
                         s,
                         "proposalShape"
+                            | "sectionKeyFormat"
                             | "sectionOrder"
                             | "sectionConflict"
                             | "sectionLimit"
@@ -478,8 +479,9 @@ impl ActiveAnswer {
         let mut generation_id = None;
         let mut findings = finding("proposalShape");
         if let Some(proposal) = parsed.and_then(|v| serde_json::from_value::<Proposal>(v).ok()) {
-            if proposal.proposal_version == PROPOSAL_VERSION
-                && valid_key(&proposal.section_key)
+            if !valid_key(&proposal.section_key) {
+                findings = vec![json!({"location":"/sectionKey","code":"sectionKeyFormat"})];
+            } else if proposal.proposal_version == PROPOSAL_VERSION
                 && proposal.order < MAX_SECTIONS
             {
                 let prior = self

@@ -1,0 +1,715 @@
+{
+  "sourceRevision": "f1dca7f",
+  "installedExecutableSha256": "282d58972c54ea8b58c650ea9e16e82633d58968d7d24c473feb7c38a5b23184",
+  "operationId": "43d21471-83c1-45a0-8d36-2781396b3bb3",
+  "fixture": "Authorized frozen public Fontdone snapshot; attached src/font.rs",
+  "submissionAtUtc": "2026-10-17T08:57:54.223Z",
+  "stopObservedAfterSubmissionMs": 103143,
+  "uiAfterStopObservedAfterSubmissionMs": 119917,
+  "uiAfterStop": "Stopped. No section was published for this attempt. Earlier saved explanations are still in the library.",
+  "uiOutcomeAccepted": false,
+  "reason": "Native generation:-prefixed identity rejected by reader bare-UUID validator; four rejected underscore keys had generic /section proposalShape findings. One reduced section committed at run elapsed 92556 ms before Stop but did not render. No complete answer, diagram or audio qualification.",
+  "answer": {
+    "schemaVersion": 1,
+    "binding": {
+      "operationId": "43d21471-83c1-45a0-8d36-2781396b3bb3",
+      "projectId": "/Users/lazytrot/work/fontdone",
+      "snapshotId": "snap-1792140879637485000-11155-0",
+      "manifestSha256": "25f5e44bfdd1dab6b31310f7307f165a9171a8b9fc55256ef599e9c8196ad3a2",
+      "grantId": "f956dbe2-fb2e-43d2-b70a-d2c9b882523b",
+      "runtime": {
+        "connectionId": "01c95d4b-ab08-4c47-9fa5-b8b92582ee5e",
+        "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+        "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+        "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+        "accountRevision": 1
+      },
+      "model": "gpt-6-luna",
+      "effort": "max"
+    },
+    "requestSha256": "bc3104f8e628b7cfd78eeb811d1cca0abed42c7622965a53247bf3c6ce1866e8",
+    "question": "Earlier questions: Using only src/outline.rs, when does Outline::is_empty return true? Explain both conditions and what happens if the fields disagree. \u2192 Explain what outline.rs:1\u201346 does and how it works.. Current question: How does Font::memory_face choose a format and create a usable face? Start with its ordered dispatch and invalid input or face-index branches. Then explain which SFNT tables are required, how missing tables differ from malformed table contents, and where errors propagate. Show the real code paths and useful diagrams.",
+    "outcome": "stopped",
+    "sections": [
+      {
+        "checkpointVersion": 1,
+        "key": "format-dispatch",
+        "order": 0,
+        "supersedes": null,
+        "preview": {
+          "generationId": "generation:e4b7935e-d812-4326-b9a0-92d5c8dbd34b",
+          "revision": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:0033d358-7811-4a3f-8dd7-eef667ed23f2",
+            "revisionNumber": 1,
+            "projectId": "/Users/lazytrot/work/fontdone",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "target": {
+              "targetId": "target:overview",
+              "scope": {
+                "kind": "overview"
+              }
+            },
+            "title": "Format selection",
+            "lifecycle": "draft",
+            "validationStatus": "valid",
+            "createdAtUnixMs": 1792227567986,
+            "generationOrigin": {
+              "schemaVersion": 5,
+              "projectId": "/Users/lazytrot/work/fontdone",
+              "snapshotId": "snap-1792140879637485000-11155-0",
+              "targetPath": null,
+              "purpose": "repositoryOverview",
+              "requestId": "43d21471-83c1-45a0-8d36-2781396b3bb3",
+              "requestFingerprint": "c7ccfca07f8f4efad8ec17821e2beb926c3417b85fda1d78440a2633fb1655e9",
+              "requestBodySha256": "bc3104f8e628b7cfd78eeb811d1cca0abed42c7622965a53247bf3c6ce1866e8",
+              "contractVersion": "codex-retrieval-v3-answer-sections",
+              "settings": {
+                "backend": "codex",
+                "modelId": "gpt-6-luna",
+                "effort": "max",
+                "approvalPolicy": "never"
+              },
+              "sourceFiles": [
+                {
+                  "path": "src/font.rs",
+                  "sha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                  "sizeBytes": 375700
+                }
+              ],
+              "sectionUpdate": null,
+              "plannedChapter": null,
+              "retrieval": {
+                "policy": "atlas-captured-ranges-v1-files12-source250000",
+                "ledgerSha256": "5078ca702f9ce7efa08c0ccf30f13ee3190d3faf96510533c362782f43cedc44",
+                "ranges": [
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 147769,
+                    "endByte": 148750,
+                    "startLine": 4053,
+                    "endLine": 4078,
+                    "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 148750,
+                    "endByte": 149723,
+                    "startLine": 4079,
+                    "endLine": 4096,
+                    "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 149723,
+                    "endByte": 150666,
+                    "startLine": 4097,
+                    "endLine": 4115,
+                    "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  }
+                ]
+              },
+              "contentSha256": "4560baf974d8a6e0a58afe3aa5161e7e3b1e9a5513b3dda547ec44a16810adf1"
+            },
+            "sections": [
+              {
+                "sectionId": "section:14f92f78-3b01-4d3d-abd3-ce57bae9dff4",
+                "sectionRevisionId": "sectionrev:7678889c-a8c4-4c34-b07c-382f0f9f078b",
+                "order": 0,
+                "title": "Format selection",
+                "prose": "memory_face checks PCF, PFR, WINFNT, BDF, and CID in that order. The first recognized format immediately dispatches to its face constructor; the BDF path first returns a constructor error if one is found.",
+                "spokenText": "The first recognized format immediately dispatches to its face constructor; the BDF path first returns a constructor error if one is found.",
+                "claims": [
+                  {
+                    "claimId": "claim:aa7af5ee-fcd6-4617-8ac4-03301fff1c71",
+                    "category": {
+                      "kind": "codeBehavior"
+                    },
+                    "prose": "memory_face checks PCF, PFR, WINFNT, BDF, and CID in that order. The first recognized format immediately dispatches to its face constructor; the BDF path first returns a constructor error if one is found.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:347e79de-5d2c-44c5-b573-658b81c7fd18",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 147769,
+                        "endByteInclusive": 148749,
+                        "startLine": 4053,
+                        "endLine": 4078,
+                        "startColumn": 5,
+                        "endColumn": 10,
+                        "excerpt": "pub(crate) fn memory_face(\n        data: &[u8],\n        face_index: usize,\n        size_pt: f32,\n    ) -> Result<Self, FontError> {\n        if read_u32_le(data, 0) == Some(PCF_FILE_VERSION) {\n            return Self::pcf_face(data, face_index, size_pt);\n        }\n        if data.starts_with(b\"PFR0\") {\n            return Self::pfr_face(data, face_index, size_pt);\n        }\n        if matches!(read_u16_le(data, 0), Some(0x0200) | Some(0x0300)) {\n            return Self::winfnt_face(data, face_index, size_pt);\n        }\n        if bdf_text(data)\n            .and_then(first_bdf_keyword)\n            .is_some_and(is_bdf_probe_keyword)\n        {\n            if let Some(error) = parse_bdf_constructor_error(data) {\n                return Err(error);\n            }\n            return Self::bdf_face(data, face_index, size_pt);\n        }\n        if data.starts_with(b\"%!PS-Adobe-3.0 Resource-CIDFont\") {\n            return Self::cid_type1_face(data, face_index, size_pt);\n        }\n"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2"
+                      },
+                      {
+                        "kind": "symbol",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481"
+                      }
+                    ]
+                  }
+                ],
+                "dependencies": [
+                  {
+                    "kind": "sourceFile",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2"
+                  },
+                  {
+                    "kind": "symbol",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481"
+                  }
+                ],
+                "visual": null,
+                "hotspots": [
+                  {
+                    "hotspotId": "overviewfile:479ca70f-183a-4bd1-a8c5-3d369258000f",
+                    "label": "Open file: src/font.rs",
+                    "destination": {
+                      "kind": "atlasFile",
+                      "path": "src/font.rs"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "validation": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:0033d358-7811-4a3f-8dd7-eef667ed23f2",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "status": "valid",
+            "issues": []
+          },
+          "modelId": "gpt-6-luna",
+          "modelVersion": null,
+          "inputTokens": null,
+          "outputTokens": null,
+          "updateNotes": []
+        },
+        "publishedElapsedMs": 91881,
+        "publishedRunElapsedMs": 92556,
+        "proposalSha256": "7f5e01c770f0046057851b1d8d2f92504aead0edfe76abfac893222e8c06ed57",
+        "checkpointSha256": "5078ca702f9ce7efa08c0ccf30f13ee3190d3faf96510533c362782f43cedc44",
+        "checkpoint": {
+          "schemaVersion": 3,
+          "policy": "atlas-captured-ranges-v1-files12-source250000",
+          "binding": {
+            "operationId": "43d21471-83c1-45a0-8d36-2781396b3bb3",
+            "projectId": "/Users/lazytrot/work/fontdone",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "manifestSha256": "25f5e44bfdd1dab6b31310f7307f165a9171a8b9fc55256ef599e9c8196ad3a2",
+            "grantId": "f956dbe2-fb2e-43d2-b70a-d2c9b882523b",
+            "runtime": {
+              "connectionId": "01c95d4b-ab08-4c47-9fa5-b8b92582ee5e",
+              "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+              "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+              "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+              "accountRevision": 1
+            },
+            "model": "gpt-6-luna",
+            "effort": "max"
+          },
+          "startedAtUnixMs": 1792227476419,
+          "status": "active",
+          "calls": [
+            {
+              "id": "e81c94be-cbe0-4d21-b5cf-55cdc8ca7a73",
+              "tool": "definitions",
+              "argumentsSha256": "711faee91bf7ef228148b951d8ad4986ae5a051049f27d6e3a518bfd2ff21428",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 1661,
+              "wireBytes": 1661,
+              "payloadSha256": "0cf5e3971031915d075b7520d8d56cbaa1da1e7f4013474bb2f84550d5476689",
+              "timing": {
+                "startedMs": 6898,
+                "preparedMs": 6996,
+                "finishedMs": 7263
+              }
+            },
+            {
+              "id": "678b193e-8234-404a-87f1-075ea218ebe9",
+              "tool": "read",
+              "argumentsSha256": "75858092792d59456f890f0fd5552bc5fbdf67a0a65b98fd6b1a818c88ef52fb",
+              "state": "delivered",
+              "evidenceIds": [
+                "evidence:86285de09bca8a1b8b28a8d7298d00857ae82ef293b39d923d4893b6cea910c7",
+                "evidence:98e0c6d9a4a169ecbe1a9658a70ba4973ee229be4d2b40e03dded4e72f24b829",
+                "evidence:9cb50acc68ca2d4d3d58ab43e8d6e48cd0356d9946bf14d2a1a472e7667d4bb0"
+              ],
+              "sourceBytes": 2897,
+              "metadataBytes": 1807,
+              "wireBytes": 4772,
+              "payloadSha256": "db6adb1d60d1fa2003b8c093f7aac01c81f6b3d9f3fd4e1f368bfe7e99c422fd",
+              "timing": {
+                "startedMs": 9434,
+                "preparedMs": 9785,
+                "finishedMs": 10058
+              }
+            },
+            {
+              "id": "25a00d82-4a7f-4c20-ba7f-db61da02068e",
+              "tool": "proposeSection",
+              "argumentsSha256": "f8243c916d6348a33cf89d27d5b16ee46ae41e33f200619a57352631319bde30",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 516,
+              "wireBytes": 516,
+              "payloadSha256": "562027053e1a5abdeb4f4f71a640312fd65990a1fc0decaf9f4dcea54bee08c6",
+              "timing": {
+                "startedMs": 40093,
+                "preparedMs": 40689,
+                "finishedMs": 40950
+              }
+            },
+            {
+              "id": "9ddcb46e-9926-4dfd-b0a5-0ee8eae9acf0",
+              "tool": "proposeSection",
+              "argumentsSha256": "d10cd874641dbb0a819287e7be0e36535264ebe6c6c02a2c6a214321c1308bc6",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 516,
+              "wireBytes": 516,
+              "payloadSha256": "5f9e59a6636a88c3f8672780a97c08ebe4faa19b5f02a46350a2486e3fc12eeb",
+              "timing": {
+                "startedMs": 55566,
+                "preparedMs": 56180,
+                "finishedMs": 56474
+              }
+            },
+            {
+              "id": "f7a110f0-7d48-49b6-8a21-50c7dce45fa3",
+              "tool": "proposeSection",
+              "argumentsSha256": "e08aebdcc7cd6e4383c1d8108dda2b86aeeab0b7a0d47e943a9bb4a5e19649dd",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 516,
+              "wireBytes": 516,
+              "payloadSha256": "b4131e19da1f9641b8f89b42a5fc192aaadb9cee1bef3f442543b2a3aa79c828",
+              "timing": {
+                "startedMs": 72052,
+                "preparedMs": 72632,
+                "finishedMs": 72913
+              }
+            },
+            {
+              "id": "d38faa25-9e33-41c4-a5b1-ab6d7648da79",
+              "tool": "proposeSection",
+              "argumentsSha256": "822d33fbf19fbfa3fe3e3a6dda785b251ab662857e460684801c2ff8698f893f",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 516,
+              "wireBytes": 516,
+              "payloadSha256": "86c330e26bafcf28d031cafa55cb014f644020ac3df72e4d536595059f717780",
+              "timing": {
+                "startedMs": 83770,
+                "preparedMs": 84409,
+                "finishedMs": 84670
+              }
+            }
+          ],
+          "evidence": [
+            {
+              "id": "evidence:86285de09bca8a1b8b28a8d7298d00857ae82ef293b39d923d4893b6cea910c7",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 147769,
+                "endByte": 148750,
+                "startLine": 4053,
+                "endLine": 4078,
+                "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:98e0c6d9a4a169ecbe1a9658a70ba4973ee229be4d2b40e03dded4e72f24b829",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 148750,
+                "endByte": 149723,
+                "startLine": 4079,
+                "endLine": 4096,
+                "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:9cb50acc68ca2d4d3d58ab43e8d6e48cd0356d9946bf14d2a1a472e7667d4bb0",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 149723,
+                "endByte": 150666,
+                "startLine": 4097,
+                "endLine": 4115,
+                "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            }
+          ],
+          "contextClock": "capturedCodeSessionV1"
+        }
+      }
+    ],
+    "attempts": [
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"format_dispatch\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"Ordered format dispatch and fallback\",\"claims\":[{\"prose\":\"memory_face tests formats in priority order: read_u32_le with PCF_FILE_VERSION selects pcf_face; the PFR0 prefix selects pfr_face; 0x0200 or 0x0300 selects winfnt_face; then the BDF probe requires bdf_text, first_bdf_keyword, and is_bdf_probe_keyword, returns any error from parse_bdf_constructor_error, or calls bdf_face; finally the CID resource prefix selects cid_type1_face. A match returns from the dispatcher, so later probes are skipped.\",\"identifiers\":[\"memory_face\",\"read_u32_le\",\"PCF_FILE_VERSION\",\"pcf_face\",\"pfr_face\",\"winfnt_face\",\"bdf_text\",\"first_bdf_keyword\",\"is_bdf_probe_keyword\",\"parse_bdf_constructor_error\",\"bdf_face\",\"cid_type1_face\"],\"evidence\":[{\"referenceId\":\"evidence:86285de09bca8a1b8b28a8d7298d00857ae82ef293b39d923d4893b6cea910c7\"}],\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"inferenceBasis\":\"\",\"relationshipIds\":[]},{\"prose\":\"If earlier probes miss, type42_sfnt_data selects type42_face, followed by type1_cleartext selecting type1_face. Otherwise, an input of at least 17 bytes made entirely of control bytes returns FontError::InvalidFileFormat before the SFNT attempt.\",\"identifiers\":[\"type42_sfnt_data\",\"type42_face\",\"type1_cleartext\",\"type1_face\",\"FontError::InvalidFileFormat\"],\"evidence\":[{\"referenceId\":\"evidence:98e0c6d9a4a169ecbe1a9658a70ba4973ee229be4d2b40e03dded4e72f24b829\"}],\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"inferenceBasis\":\"\",\"relationshipIds\":[]},{\"prose\":\"Inputs reaching the final path go to truetype_face. Its success returns a face; after an error, only inputs at least 118 bytes long try winfnt_face. A successful retry returns its face, a FontError::UnknownFileFormat is returned only when has_winfnt_header_shape is true, and other retry failures preserve the original SFNT error; shorter inputs also return that original error.\",\"identifiers\":[\"truetype_face\",\"winfnt_face\",\"FontError::UnknownFileFormat\",\"has_winfnt_header_shape\"],\"evidence\":[{\"referenceId\":\"evidence:9cb50acc68ca2d4d3d58ab43e8d6e48cd0356d9946bf14d2a1a472e7667d4bb0\"}],\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"inferenceBasis\":\"\",\"relationshipIds\":[]}],\"visual\":{\"kind\":\"dataFlow\",\"title\":\"First match wins; the final path may retry FNT\",\"direction\":\"topToBottom\",\"nodes\":[{\"label\":\"Input bytes\",\"detail\":\"Format probes examine the supplied byte slice.\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"PCF \u2192 PFR \u2192 WINFNT \u2192 BDF \u2192 CID\",\"detail\":\"Each match dispatches to its format constructor and returns.\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"Type42 \u2192 Type1\",\"detail\":\"The next ordered probes.\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"Control-only special case\",\"detail\":\"At least 17 control bytes return InvalidFileFormat.\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"SFNT / TrueType attempt\",\"detail\":\"The remaining input reaches truetype_face.\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]},{\"label\":\"FNT retry\",\"detail\":\"After SFNT error and only at 118 bytes or longer.\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]},{\"label\":\"Face or error returned\",\"detail\":\"Successful faces return; retry errors follow the stated preservation rule.\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]}],\"edges\":[{\"fromNodeIndex\":0,\"toNodeIndex\":1,\"label\":\"probe in order; first match returns\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":1,\"toNodeIndex\":2,\"label\":\"no earlier match\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"fromNodeIndex\":2,\"toNodeIndex\":3,\"label\":\"no Type42 or Type1 match\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"fromNodeIndex\":3,\"toNodeIndex\":4,\"label\":\"not the control-only case\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"fromNodeIndex\":4,\"toNodeIndex\":6,\"label\":\"SFNT success\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]},{\"fromNodeIndex\":4,\"toNodeIndex\":5,\"label\":\"SFNT error and length \u2265 118\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]},{\"fromNodeIndex\":4,\"toNodeIndex\":6,\"label\":\"SFNT error and length < 118\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]},{\"fromNodeIndex\":5,\"toNodeIndex\":6,\"label\":\"retry success or selected error rule\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]}]}}}",
+        "argumentsSha256": "f8243c916d6348a33cf89d27d5b16ee46ae41e33f200619a57352631319bde30",
+        "proposalSha256": "20c460e2802b9e1ff2755d0b1fbd312fd02fa8ee46ae345761bec78fd07407ed",
+        "findings": [
+          {
+            "location": "/section",
+            "code": "proposalShape"
+          }
+        ],
+        "generationId": null
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"format_dispatch\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"Ordered format dispatch and fallback\",\"claims\":[{\"prose\":\"memory_face checks PCF_FILE_VERSION, then the PFR prefix, WINFNT version, BDF keyword probe, and CID resource prefix, in that order. A match returns through the corresponding pcf_face, pfr_face, winfnt_face, bdf_face, or cid_type1_face constructor, so later probes are skipped; the BDF path first returns any constructor-validation error.\",\"identifiers\":[\"memory_face\",\"PCF_FILE_VERSION\",\"pcf_face\",\"pfr_face\",\"winfnt_face\",\"bdf_face\",\"cid_type1_face\"],\"evidence\":[{\"referenceId\":\"evidence:86285de09bca8a1b8b28a8d7298d00857ae82ef293b39d923d4893b6cea910c7\"}],\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"inferenceBasis\":\"Directly follows the ordered branches and early returns in the captured method.\",\"relationshipIds\":[]},{\"prose\":\"If those probes miss, type42_sfnt_data selects type42_face, followed by type1_cleartext selecting type1_face. Otherwise, an input of at least 17 bytes made entirely of control bytes returns FontError::InvalidFileFormat before the SFNT attempt.\",\"identifiers\":[\"type42_sfnt_data\",\"type42_face\",\"type1_cleartext\",\"type1_face\",\"FontError::InvalidFileFormat\"],\"evidence\":[{\"referenceId\":\"evidence:98e0c6d9a4a169ecbe1a9658a70ba4973ee229be4d2b40e03dded4e72f24b829\"}],\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"inferenceBasis\":\"Directly follows the ordered branches and return in the captured method.\",\"relationshipIds\":[]},{\"prose\":\"Inputs reaching the final path go to truetype_face. Its success returns a face; after an error, only inputs at least 118 bytes long try winfnt_face. A successful retry returns its face, a FontError::UnknownFileFormat is returned only when has_winfnt_header_shape is true, and other retry failures preserve the original SFNT error; shorter inputs also return that original error.\",\"identifiers\":[\"truetype_face\",\"winfnt_face\",\"FontError::UnknownFileFormat\",\"has_winfnt_header_shape\"],\"evidence\":[{\"referenceId\":\"evidence:9cb50acc68ca2d4d3d58ab43e8d6e48cd0356d9946bf14d2a1a472e7667d4bb0\"}],\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"inferenceBasis\":\"Directly follows the captured final match and error-handling branches.\",\"relationshipIds\":[]}],\"visual\":{\"kind\":\"dataFlow\",\"title\":\"First match wins; the final path may retry FNT\",\"direction\":\"topToBottom\",\"nodes\":[{\"label\":\"Input bytes\",\"detail\":\"Format probes examine the supplied byte slice.\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"PCF \u2192 PFR \u2192 WINFNT \u2192 BDF \u2192 CID\",\"detail\":\"The first match dispatches to its constructor.\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"Type42 \u2192 Type1\",\"detail\":\"The next ordered probes.\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"Control-only special case\",\"detail\":\"At least 17 control bytes return InvalidFileFormat.\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"SFNT / TrueType attempt\",\"detail\":\"The remaining input reaches truetype_face.\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]},{\"label\":\"FNT retry\",\"detail\":\"After SFNT error and only at 118 bytes or longer.\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]},{\"label\":\"Face or error returned\",\"detail\":\"Successful faces return; retry errors follow the preservation rule.\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]}],\"edges\":[{\"fromNodeIndex\":0,\"toNodeIndex\":1,\"label\":\"probe in order; first match returns\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":1,\"toNodeIndex\":2,\"label\":\"no earlier match\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"fromNodeIndex\":2,\"toNodeIndex\":3,\"label\":\"no Type42 or Type1 match\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"fromNodeIndex\":3,\"toNodeIndex\":4,\"label\":\"not the control-only case\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"fromNodeIndex\":4,\"toNodeIndex\":6,\"label\":\"SFNT success\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]},{\"fromNodeIndex\":4,\"toNodeIndex\":5,\"label\":\"SFNT error and length \u2265 118\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]},{\"fromNodeIndex\":4,\"toNodeIndex\":6,\"label\":\"SFNT error and length < 118\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]},{\"fromNodeIndex\":5,\"toNodeIndex\":6,\"label\":\"retry success or selected error rule\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]}]}}}",
+        "argumentsSha256": "d10cd874641dbb0a819287e7be0e36535264ebe6c6c02a2c6a214321c1308bc6",
+        "proposalSha256": "9a9559f000a01950aec4d0fe2318d0d22dc8f425ff25c85df20c2eee3f8a944f",
+        "findings": [
+          {
+            "location": "/section",
+            "code": "proposalShape"
+          }
+        ],
+        "generationId": null
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"format_dispatch\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"Ordered format dispatch and fallback\",\"claims\":[{\"prose\":\"memory_face checks PCF_FILE_VERSION, then the PFR prefix, WINFNT version, BDF keyword probe, and CID resource prefix, in that order. A match returns through the corresponding pcf_face, pfr_face, winfnt_face, bdf_face, or cid_type1_face constructor, so later probes are skipped; the BDF path first returns any constructor-validation error.\",\"identifiers\":[\"memory_face\",\"PCF_FILE_VERSION\",\"pcf_face\",\"pfr_face\",\"winfnt_face\",\"bdf_face\",\"cid_type1_face\"],\"evidence\":[{\"referenceId\":\"evidence:86285de09bca8a1b8b28a8d7298d00857ae82ef293b39d923d4893b6cea910c7\"}],\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"inferenceBasis\":\"Directly follows the ordered branches and early returns in the captured method.\",\"relationshipIds\":[]},{\"prose\":\"If those probes miss, type42_sfnt_data selects type42_face, followed by type1_cleartext selecting type1_face. Otherwise, an input of at least 17 bytes made entirely of control bytes returns FontError::InvalidFileFormat before the SFNT attempt.\",\"identifiers\":[\"type42_sfnt_data\",\"type42_face\",\"type1_cleartext\",\"type1_face\",\"FontError::InvalidFileFormat\"],\"evidence\":[{\"referenceId\":\"evidence:98e0c6d9a4a169ecbe1a9658a70ba4973ee229be4d2b40e03dded4e72f24b829\"}],\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"inferenceBasis\":\"Directly follows the ordered branches and return in the captured method.\",\"relationshipIds\":[]},{\"prose\":\"Inputs reaching the final path go to truetype_face. Its success returns a face; after an error, only inputs at least 118 bytes long try winfnt_face. A successful retry returns its face, a FontError::UnknownFileFormat is returned only when has_winfnt_header_shape is true, and other retry failures preserve the original SFNT error; shorter inputs also return that original error.\",\"identifiers\":[\"truetype_face\",\"winfnt_face\",\"FontError::UnknownFileFormat\",\"has_winfnt_header_shape\"],\"evidence\":[{\"referenceId\":\"evidence:9cb50acc68ca2d4d3d58ab43e8d6e48cd0356d9946bf14d2a1a472e7667d4bb0\"}],\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"inferenceBasis\":\"Directly follows the captured final match and error-handling branches.\",\"relationshipIds\":[]}],\"visual\":{\"kind\":\"none\",\"title\":\"\",\"direction\":\"auto\",\"nodes\":[],\"edges\":[]}}}",
+        "argumentsSha256": "e08aebdcc7cd6e4383c1d8108dda2b86aeeab0b7a0d47e943a9bb4a5e19649dd",
+        "proposalSha256": "4591abfa2c1c219cc666861fabae9cb3ee9c156e453e013f75ce31d42c9576c7",
+        "findings": [
+          {
+            "location": "/section",
+            "code": "proposalShape"
+          }
+        ],
+        "generationId": null
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"format_dispatch\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"Format selection\",\"claims\":[{\"prose\":\"memory_face checks PCF, PFR, WINFNT, BDF, and CID in that order. The first recognized format immediately dispatches to its face constructor; the BDF path first returns a constructor error if one is found.\",\"identifiers\":[\"memory_face\"],\"evidence\":[{\"referenceId\":\"evidence:86285de09bca8a1b8b28a8d7298d00857ae82ef293b39d923d4893b6cea910c7\"}],\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"inferenceBasis\":\"\",\"relationshipIds\":[]}],\"visual\":{\"kind\":\"none\",\"title\":\"\",\"direction\":\"auto\",\"nodes\":[],\"edges\":[]}}}",
+        "argumentsSha256": "822d33fbf19fbfa3fe3e3a6dda785b251ab662857e460684801c2ff8698f893f",
+        "proposalSha256": "7f09e8e13283bb60177a92eeb3399b0cdc5ba3f614e2e11d2c4837d6aa579d0f",
+        "findings": [
+          {
+            "location": "/section",
+            "code": "proposalShape"
+          }
+        ],
+        "generationId": null
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"format-dispatch\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"Format selection\",\"claims\":[{\"prose\":\"memory_face checks PCF, PFR, WINFNT, BDF, and CID in that order. The first recognized format immediately dispatches to its face constructor; the BDF path first returns a constructor error if one is found.\",\"identifiers\":[\"memory_face\"],\"evidence\":[{\"referenceId\":\"evidence:86285de09bca8a1b8b28a8d7298d00857ae82ef293b39d923d4893b6cea910c7\"}],\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"inferenceBasis\":\"\",\"relationshipIds\":[]}],\"visual\":{\"kind\":\"none\",\"title\":\"\",\"direction\":\"auto\",\"nodes\":[],\"edges\":[]}}}",
+        "argumentsSha256": "c125149c491d9639ddfe9aad161c8ed36370a7a19b3cde6bbdaf37a481eb0419",
+        "proposalSha256": "7f5e01c770f0046057851b1d8d2f92504aead0edfe76abfac893222e8c06ed57",
+        "findings": [],
+        "generationId": "generation:e4b7935e-d812-4326-b9a0-92d5c8dbd34b"
+      }
+    ],
+    "incompleteTopics": []
+  },
+  "ledger": {
+    "schemaVersion": 3,
+    "policy": "atlas-captured-ranges-v1-files12-source250000",
+    "binding": {
+      "operationId": "43d21471-83c1-45a0-8d36-2781396b3bb3",
+      "projectId": "/Users/lazytrot/work/fontdone",
+      "snapshotId": "snap-1792140879637485000-11155-0",
+      "manifestSha256": "25f5e44bfdd1dab6b31310f7307f165a9171a8b9fc55256ef599e9c8196ad3a2",
+      "grantId": "f956dbe2-fb2e-43d2-b70a-d2c9b882523b",
+      "runtime": {
+        "connectionId": "01c95d4b-ab08-4c47-9fa5-b8b92582ee5e",
+        "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+        "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+        "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+        "accountRevision": 1
+      },
+      "model": "gpt-6-luna",
+      "effort": "max"
+    },
+    "startedAtUnixMs": 1792227476419,
+    "status": "interrupted",
+    "calls": [
+      {
+        "id": "e81c94be-cbe0-4d21-b5cf-55cdc8ca7a73",
+        "tool": "definitions",
+        "argumentsSha256": "711faee91bf7ef228148b951d8ad4986ae5a051049f27d6e3a518bfd2ff21428",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1661,
+        "wireBytes": 1661,
+        "payloadSha256": "0cf5e3971031915d075b7520d8d56cbaa1da1e7f4013474bb2f84550d5476689",
+        "timing": {
+          "startedMs": 6898,
+          "preparedMs": 6996,
+          "finishedMs": 7263
+        }
+      },
+      {
+        "id": "678b193e-8234-404a-87f1-075ea218ebe9",
+        "tool": "read",
+        "argumentsSha256": "75858092792d59456f890f0fd5552bc5fbdf67a0a65b98fd6b1a818c88ef52fb",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:86285de09bca8a1b8b28a8d7298d00857ae82ef293b39d923d4893b6cea910c7",
+          "evidence:98e0c6d9a4a169ecbe1a9658a70ba4973ee229be4d2b40e03dded4e72f24b829",
+          "evidence:9cb50acc68ca2d4d3d58ab43e8d6e48cd0356d9946bf14d2a1a472e7667d4bb0"
+        ],
+        "sourceBytes": 2897,
+        "metadataBytes": 1807,
+        "wireBytes": 4772,
+        "payloadSha256": "db6adb1d60d1fa2003b8c093f7aac01c81f6b3d9f3fd4e1f368bfe7e99c422fd",
+        "timing": {
+          "startedMs": 9434,
+          "preparedMs": 9785,
+          "finishedMs": 10058
+        }
+      },
+      {
+        "id": "25a00d82-4a7f-4c20-ba7f-db61da02068e",
+        "tool": "proposeSection",
+        "argumentsSha256": "f8243c916d6348a33cf89d27d5b16ee46ae41e33f200619a57352631319bde30",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 516,
+        "wireBytes": 516,
+        "payloadSha256": "562027053e1a5abdeb4f4f71a640312fd65990a1fc0decaf9f4dcea54bee08c6",
+        "timing": {
+          "startedMs": 40093,
+          "preparedMs": 40689,
+          "finishedMs": 40950
+        }
+      },
+      {
+        "id": "9ddcb46e-9926-4dfd-b0a5-0ee8eae9acf0",
+        "tool": "proposeSection",
+        "argumentsSha256": "d10cd874641dbb0a819287e7be0e36535264ebe6c6c02a2c6a214321c1308bc6",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 516,
+        "wireBytes": 516,
+        "payloadSha256": "5f9e59a6636a88c3f8672780a97c08ebe4faa19b5f02a46350a2486e3fc12eeb",
+        "timing": {
+          "startedMs": 55566,
+          "preparedMs": 56180,
+          "finishedMs": 56474
+        }
+      },
+      {
+        "id": "f7a110f0-7d48-49b6-8a21-50c7dce45fa3",
+        "tool": "proposeSection",
+        "argumentsSha256": "e08aebdcc7cd6e4383c1d8108dda2b86aeeab0b7a0d47e943a9bb4a5e19649dd",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 516,
+        "wireBytes": 516,
+        "payloadSha256": "b4131e19da1f9641b8f89b42a5fc192aaadb9cee1bef3f442543b2a3aa79c828",
+        "timing": {
+          "startedMs": 72052,
+          "preparedMs": 72632,
+          "finishedMs": 72913
+        }
+      },
+      {
+        "id": "d38faa25-9e33-41c4-a5b1-ab6d7648da79",
+        "tool": "proposeSection",
+        "argumentsSha256": "822d33fbf19fbfa3fe3e3a6dda785b251ab662857e460684801c2ff8698f893f",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 516,
+        "wireBytes": 516,
+        "payloadSha256": "86c330e26bafcf28d031cafa55cb014f644020ac3df72e4d536595059f717780",
+        "timing": {
+          "startedMs": 83770,
+          "preparedMs": 84409,
+          "finishedMs": 84670
+        }
+      },
+      {
+        "id": "419d17a7-1837-4acc-82c0-8dc23208f2a3",
+        "tool": "proposeSection",
+        "argumentsSha256": "c125149c491d9639ddfe9aad161c8ed36370a7a19b3cde6bbdaf37a481eb0419",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 515,
+        "wireBytes": 515,
+        "payloadSha256": "c6c4ca6980caef8913cb5829aa65dca7fc6fab741dbbac7c51a887b146faf908",
+        "timing": {
+          "startedMs": 90483,
+          "preparedMs": 92404,
+          "finishedMs": 92677
+        }
+      },
+      {
+        "id": "b608a9cc-980e-43dc-9e54-f37f8b524161",
+        "tool": "definitions",
+        "argumentsSha256": "8e339215a6bd60bded0d47a3bf3de1c9dbc61343e4d10c66237fa68c998b22f0",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 3687,
+        "wireBytes": 3687,
+        "payloadSha256": "3e3239cc7e1b1663a897c8ba766b21e670891102eebc0907dfaab5814cb5bfef",
+        "timing": {
+          "startedMs": 95824,
+          "preparedMs": 95925,
+          "finishedMs": 96185
+        }
+      },
+      {
+        "id": "26d74958-ad75-4940-9c0c-553792dd6338",
+        "tool": "read",
+        "argumentsSha256": "8046bed93e14a489fb70d169d94c1e28d80ccb25f2e5b28c9c8123a1897ac618",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:9c32347d84ceaf63f852a1efe3d9603becd418ebadf9e4750f21100b4ce0c93e",
+          "evidence:e7476845b483645f57bcbbea7c065a219513ac1b1ba4a79332d5e9626064c470"
+        ],
+        "sourceBytes": 507,
+        "metadataBytes": 1339,
+        "wireBytes": 1857,
+        "payloadSha256": "fffc64ee391e23e7f016eb8860d1cf6cdee18a7131f927fd2543c8c6afe52627",
+        "timing": {
+          "startedMs": 99022,
+          "preparedMs": 99341,
+          "finishedMs": 99622
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "id": "evidence:86285de09bca8a1b8b28a8d7298d00857ae82ef293b39d923d4893b6cea910c7",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 147769,
+          "endByte": 148750,
+          "startLine": 4053,
+          "endLine": 4078,
+          "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:98e0c6d9a4a169ecbe1a9658a70ba4973ee229be4d2b40e03dded4e72f24b829",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 148750,
+          "endByte": 149723,
+          "startLine": 4079,
+          "endLine": 4096,
+          "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:9cb50acc68ca2d4d3d58ab43e8d6e48cd0356d9946bf14d2a1a472e7667d4bb0",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 149723,
+          "endByte": 150666,
+          "startLine": 4097,
+          "endLine": 4115,
+          "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:9c32347d84ceaf63f852a1efe3d9603becd418ebadf9e4750f21100b4ce0c93e",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 158045,
+          "endByte": 158235,
+          "startLine": 4300,
+          "endLine": 4302,
+          "chunkSha256": "cba0e764912fd61201fde99dd36fe565353fd46b4dfa0c7c277a84d37a49e038",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:e7476845b483645f57bcbbea7c065a219513ac1b1ba4a79332d5e9626064c470",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 172348,
+          "endByte": 172665,
+          "startLine": 4649,
+          "endLine": 4658,
+          "chunkSha256": "25d50cf234673fb7b38a72a38707306320638c7aa77b735a5273f5f20de6cb67",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      }
+    ],
+    "contextClock": "capturedCodeSessionV1"
+  }
+}

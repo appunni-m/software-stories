@@ -127,6 +127,27 @@ fn manifest(answer: &ActiveAnswer) -> String {
 }
 
 #[test]
+fn invalid_section_key_reports_its_exact_field_and_preserves_the_original_proposal() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancel) = setup(&f);
+    let evidence = read(&mut ledger, &f, &runtime, &cancel);
+    let mut answer = start(&ledger, &f, &runtime, &cancel);
+    let original = proposal(&evidence, "entry_flow", 0);
+    let prepared = answer.prepare(&ledger, &original, &f.manifest, &runtime, &cancel).unwrap();
+    assert_eq!(prepared.findings, vec![json!({"location":"/sectionKey","code":"sectionKeyFormat"})]);
+    assert!(prepared.generation_id.is_none());
+    answer.commit(&ledger, prepared, &f.manifest, &runtime, &cancel).unwrap();
+    let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
+    assert_eq!(saved.attempts[0].arguments, original);
+    assert!(saved.sections.is_empty());
+    assert!(valid_findings(&saved.attempts[0].findings));
+    publish(&mut answer, &ledger, &proposal(&evidence, "entry-flow", 0), &f, &runtime, &cancel);
+    assert_eq!(answer.value.sections.len(), 1);
+    // Changing a rejected key is not proof that all omitted claims were repaired.
+    assert!(answer.value.unresolved_proposals());
+}
+
+#[test]
 fn final_manifest_matches_latest_versions_and_cannot_rewrite_or_omit_sections() {
     let f = Fixture::new();
     let (mut l, r, c) = setup(&f);

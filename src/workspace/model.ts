@@ -77,14 +77,15 @@ export function cleanAnswerNotes(value: unknown): string[] {
 }
 
 const validRunId = (id: unknown): id is string => typeof id === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(id);
+const validGenerationId = (id: unknown): id is string => typeof id === 'string' && id.startsWith('generation:') && validRunId(id.slice('generation:'.length));
 export function cleanPublishedSections(value: unknown): PublishedSection[] {
   if (!Array.isArray(value)) return [];
   const seen = new Set<string>();
   return value.filter((s): s is PublishedSection => {
-    if (!s || typeof s !== 'object' || !validRunId(s.runId) || !validRunId(s.generationId)
+    if (!s || typeof s !== 'object' || !validRunId(s.runId) || !validGenerationId(s.generationId)
       || typeof s.revisionId !== 'string' || !s.revisionId || s.revisionId.length > 256
       || !/^[a-z0-9-]{1,80}$/.test(s.key) || !Number.isInteger(s.order) || s.order < 0 || s.order > 5
-      || !(s.supersedes === null || validRunId(s.supersedes))
+      || !(s.supersedes === null || validGenerationId(s.supersedes))
       || !Number.isFinite(s.contextElapsedMs) || s.contextElapsedMs < 0
       || !(s.runElapsedMs === null || Number.isFinite(s.runElapsedMs) && s.runElapsedMs >= 0)) return false;
     const id = `${s.runId}:${s.generationId}`;
