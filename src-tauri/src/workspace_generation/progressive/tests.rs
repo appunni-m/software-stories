@@ -276,3 +276,49 @@ fn fontdone_progressive_account_probe() {
         "a partial answer is not broad completion; inspect the preserved artifact"
     );
 }
+
+#[test]
+fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
+    let instructions = system_instructions();
+    assert!(instructions.contains("Teaching policy v2:"));
+    assert!(instructions.contains("open with the problem and a useful input-to-result example"));
+    assert!(instructions.contains("use at most one code element in a scene"));
+    assert!(instructions.contains("give each outcome its own accurately named node or table row"));
+    assert!(instructions.contains("All claim sentences become narration"));
+    assert!(!instructions.contains("The separate prose/spokenText fields remain required"));
+}
+
+#[test]
+fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits() {
+    let f = Fixture::new();
+    let input = input(&f);
+    let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
+    let contract = generation_contract(&input, &prompt, &schema).unwrap();
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v2");
+    assert_eq!(contract["systemInstructions"], system_instructions());
+    assert_eq!(
+        fingerprint,
+        context::digest(&serde_json::to_vec(&contract).unwrap())
+    );
+    assert_eq!(contract["sectionAttempts"], 8);
+    assert_eq!(contract["uniqueSections"], 6);
+    assert_eq!(contract["checkpointVersion"], 3);
+    assert_eq!(
+        contract["contractVersion"],
+        crate::evidence_ledger::PROGRESSIVE_CONTRACT
+    );
+    assert_eq!(contract["policy"], crate::evidence_ledger::POLICY);
+    assert_eq!(
+        contract["tools"],
+        serde_json::to_value(context_mcp::tools_for(true)).unwrap()
+    );
+    assert_eq!(contract["outputSchema"], schema);
+    let mut historical = contract.clone();
+    historical.as_object_mut().unwrap().remove("teachingPolicy");
+    historical["systemInstructions"] = json!(INSTRUCTIONS);
+    assert_ne!(
+        fingerprint,
+        context::digest(&serde_json::to_vec(&historical).unwrap())
+    );
+    assert!(serde_json::to_vec(&contract).unwrap().len() < 32000);
+}

@@ -1,28 +1,27 @@
 # Kata status — Code Atlas rebuild
 
-Snapshot: **17 October 2026**, read from live project `code-atlas-rebuild` after the native-citation Fontdone qualification. **73 records: 50 open, 23 closed.** Every record maps to exactly one checked-in task definition. No task was closed by this checkpoint. Historical closed records do not establish current runtime, semantic quality, native accessibility or release acceptance.
+Snapshot: **17 October 2026**, read from live project `code-atlas-rebuild` after the shared-teaching checkpoint. **73 records: 50 open, 23 closed.** Every record maps to exactly one checked-in task definition. No task was closed by this checkpoint. Historical closed records do not establish current runtime, semantic quality, native accessibility or release acceptance.
 
 ## Current generation gate
 
-The latest frozen broad Fontdone run returned **Partial in 491.831 s**,
-with three drafts at 76.328, 336.939 and 475.887 s. All 61 calls delivered,
-but eight proposals were exhausted before render dispatch, rasterization and
-bitmap publication. All 38 anchors match captured source. Narration remains
-technical and a visual label remains ambiguous; full quality is unproven.
-Two generic rejections were traced to incorrect source values, with a later
-local positional-feedback fix. Broad completion, installed/Pocket/accessibility
-and release gates remain open. [Current evidence and limits](acceptance/2026-10-17-scene-v2.md).
+The latest ordinary Fontdone file run is source-valid in **363.349 s**, with
+three narrated sections, nine compositions and 23 independently checked anchors.
+It opens with a worked example but still puts code syntax into nineteen metric
+elements and the narration. Visual meaning, Pocket listening and human
+comprehension remain unaccepted. This narrow result does not qualify a complete
+repository narrative or timing. [Exact account result and remaining gates](acceptance/2026-10-17-shared-teaching-policy.md).
 
-### Ordinary chapter layout correction
+Ordinary chapters now have one owned structural correction, exercised by an
+installed-account fault-injection test. Progressive requests share the teaching
+policy, with recorded historical scripts/scenes preserved. **404 native tests**
+pass (15 explicit probes ignored), as do **184 frontend tests** and an unsigned
+debug Mac build. Native UI remains unqualified while the Mac is locked. The
+legacy quality checker also needs its current-visual/prompt-fingerprint bridge
+repaired; its green structural corpus check is not chapter acceptance.
 
-The native preflight now reports all five invalid parents in the preserved
-Fontdone draft and offers the existing one-correction opportunity. A real
-installed-account synthetic fault injection made one correction and passed full
-source validation; this does not establish ordinary-generation teaching quality.
-The current suites pass **401 native tests** (15 explicit probes ignored) and
-**184 frontend tests**, and the unsigned debug Mac bundle builds.
-[Evidence, exact source pins and remaining gates](acceptance/2026-10-17-codex-layout-correction.md).
-All **73 records: 50 open, 23 closed** remain unchanged in status.
+All **73 records: 50 open, 23 closed** retain their status. No full product task
+closes on these mechanical checks. Earlier broad Partial results remain failures
+of complete repository explanation.
 
 ### Historical implementation checkpoints
 

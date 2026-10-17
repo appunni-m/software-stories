@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "working-tree-from-ecf891b",
+  "scope": "Shared teaching instructions and request binding; not native display, actual new progressive generation, semantic quality or narration acceptance",
+  "sourceHashes": {
+    "src-tauri/src/provider.rs": "94eaff5a091765c86dc7ba8c83df180c5332c33f1a77397ea32c4699d8c67b26",
+    "src-tauri/src/provider/visual_scenes.rs": "30003268314a93af759dfe76d6ff01698baf1fe81b053caa8604a7cb9c46e7bb",
+    "src-tauri/src/workspace_generation/progressive.rs": "bc40e32d6509f7c3eab6214feaa8d8c0e2e1cb86942c8c06e80b134a4bf91e58",
+    "src-tauri/src/workspace_generation/progressive/tests.rs": "09233dfcc3d79eaef66c5f889a4166ec20cbdcd43d396eaed569f3c295c02b6b",
+    "src-tauri/src/evidence_ledger/sections.rs": "b703efb4e7a990ee9bbbf1b64bf6df5ed77240515a6e0caf395de35ccf217237",
+    "src-tauri/src/evidence_ledger/sections/tests.rs": "062c11c42f956774a04b52d9dae972ed00e86a897f5acaf781c50cf5cbcf5820",
+    "src-tauri/src/chapter_origin.rs": "c9b281276b74a1e2bde1f2ddca97c5e84a1a49efc5bc316c690e18d3167926a1",
+    "src-tauri/src/context_mcp.rs": "9c8920cdabaf2d103c8b17441b8efb9ed5f3972bcde76eb352f779d94ac61a08"
+  },
+  "ordinaryInstructionBytes": 5718,
+  "ordinaryInstructionSha256": "831c31a5ab25b5c3729a87459736ece3004ea560179ca8457bbb8bd638edd909",
+  "progressiveTeachingPolicy": "meaning-first-v2",
+  "nativeTests": {
+    "passed": 404,
+    "failed": 0,
+    "ignored": 15,
+    "seconds": 33.06
+  },
+  "frontendTests": {
+    "passed": 184,
+    "failed": 0
+  },
+  "corpusStructuralCheck": true,
+  "qualityMetadataCommand": {
+    "exit": 0,
+    "scope": "legacy checker still has current-contract gaps; command success does not establish metadata fidelity or quality"
+  },
+  "unsignedDebugApp": {
+    "bytes": 138798192,
+    "sha256": "1cf14a174777a47578e76087a707d77123f05bf6d04d9ce2c4968425d5af6688",
+    "binarySignatureIgnoreResources": true,
+    "developerId": false,
+    "notarized": false,
+    "nativeUiQualified": false
+  },
+  "logs": {
+    "before": {
+      "path": "/private/tmp/code-atlas-shared-teaching-before.log",
+      "sha256": "8aaef3a1557b23b73a0ff62d6e06a3867ae783791bdd8b0786e1ea17102b77f5",
+      "bytes": 2376
+    },
+    "focused": {
+      "path": "/private/tmp/code-atlas-shared-teaching-focused.log",
+      "sha256": "4a97f307bd8ff4ac5369a3ecdc80aa40cd5d1d0f72c7eb18434ca5883cd265ce",
+      "bytes": 1696
+    },
+    "native": {
+      "path": "/private/tmp/code-atlas-shared-teaching-native.log",
+      "sha256": "871eadee40cc2e3932df5d4aec300dc5d3661c0a3a11754b20a11cb2ddd72c3a",
+      "bytes": 46087
+    },
+    "final-native": {
+      "path": "/private/tmp/code-atlas-shared-teaching-final-native.log",
+      "sha256": "f23c4196ce179ab6ada084c0026f501f06d6a00121f23a9b939e97675f7374b4",
+      "bytes": 46087
+    },
+    "frontend": {
+      "path": "/private/tmp/code-atlas-shared-teaching-frontend.log",
+      "sha256": "766c5d188673a8ab6786665efae80616c4b96c28122aa0278b4a957635830eff",
+      "bytes": 19569
+    },
+    "corpus": {
+      "path": "/private/tmp/code-atlas-shared-teaching-corpus.log",
+      "sha256": "9798e36718f2f8c9971d9fa57068c5b21d4c352c106e95a0232395c820b9d2c2",
+      "bytes": 562
+    },
+    "metadata": {
+      "path": "/private/tmp/code-atlas-shared-teaching-metadata.log",
+      "sha256": "0ddb5f47085c1c4c026642e15a0c24c01ddb5495d59d5c71bed3bf55efa52463",
+      "bytes": 888
+    },
+    "app-build": {
+      "path": "/private/tmp/code-atlas-shared-teaching-app-build.log",
+      "sha256": "b09b7615a62c06baad52e0cf70e4816e43356f6df184056ad84b0ebcd175cabc",
+      "bytes": 5254
+    }
+  },
+  "accepted": false,
+  "humanQualityOrListeningPass": false
+}

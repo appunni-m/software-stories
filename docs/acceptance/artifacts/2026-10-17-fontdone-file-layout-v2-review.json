@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "scope": "Independent source comparison of one ordinary Fontdone file generation; not whole repository, UI, human comprehension or listening qualification",
+  "compiledRevision": "ecf891b010baa98d5a880fa06f1e380a76e2432f",
+  "compiledSourceCount": 20,
+  "allCompiledSourcesMatchCommit": true,
+  "sourceSha256": "577271d072254f65a13c97b8aa334e1b1cc857d43d0468d4e48cb4ba61e63f59",
+  "sourceBytes": 2306,
+  "allAnchorsMatch": true,
+  "anchorCount": 23,
+  "anchors": [
+    {
+      "sectionId": "section:5ad3aa6f-67ba-4bd8-b1cc-1b59cb353ad2",
+      "claimId": "claim:05e3777e-c952-43f7-acce-dd86c9ece97b",
+      "anchorId": "anchor:0b22852f-3f2f-4c05-a599-12e087bf72c6",
+      "startByte": 504,
+      "endByteInclusive": 1014,
+      "valid": true
+    },
+    {
+      "sectionId": "section:5ad3aa6f-67ba-4bd8-b1cc-1b59cb353ad2",
+      "claimId": "claim:05e3777e-c952-43f7-acce-dd86c9ece97b",
+      "anchorId": "anchor:9adc771e-37af-46b0-8f7c-4bd355e0a208",
+      "startByte": 2191,
+      "endByteInclusive": 2295,
+      "valid": true
+    },
+    {
+      "sectionId": "section:5ad3aa6f-67ba-4bd8-b1cc-1b59cb353ad2",
+      "claimId": "claim:05e3777e-c952-43f7-acce-dd86c9ece97b",
+      "anchorId": "anchor:b4229d89-cea1-4d3c-9ea3-5e1c05e8e492",
+      "startByte": 1985,
+      "endByteInclusive": 2026,
+      "valid": true
+    },
+    {
+      "sectionId": "section:5ad3aa6f-67ba-4bd8-b1cc-1b59cb353ad2",
+      "claimId": "claim:5c1db749-c347-4e6f-8f02-70077fd519d0",
+      "anchorId": "anchor:f102a88a-67df-4b26-a803-2699861bb820",
+      "startByte": 112,
+      "endByteInclusive": 292,
+      "valid": true
+    },
+    {
+      "sectionId": "section:5ad3aa6f-67ba-4bd8-b1cc-1b59cb353ad2",
+      "claimId": "claim:07e6b98d-0adc-4a59-914a-db7cb7fd6645",
+      "anchorId": "anchor:25a3aa99-a2ae-4757-b4d7-33b5f5a92d9c",
+      "startByte": 654,
+      "endByteInclusive": 684,
+      "valid": true
+    },
+    {
+      "sectionId": "section:5ad3aa6f-67ba-4bd8-b1cc-1b59cb353ad2",
+      "claimId": "claim:07e6b98d-0adc-4a59-914a-db7cb7fd6645",
+      "anchorId": "anchor:ae902a24-61ff-45ba-8fc7-16a34b8c0d85",
+      "startByte": 690,
+      "endByteInclusive": 1014,
+      "valid": true
+    },
+    {
+      "sectionId": "section:5ad3aa6f-67ba-4bd8-b1cc-1b59cb353ad2",
+      "claimId": "claim:cba12f35-d129-45b2-9543-5c44154a212d",
+      "anchorId": "anchor:288cdc3d-c371-49d1-97e2-230c803928db",
+      "startByte": 728,
+      "endByteInclusive": 1314,
+      "valid": true
+    },
+    {
+      "sectionId": "section:f85bbb0e-969b-438a-86f2-1945550303f9",
+      "claimId": "claim:780e5d36-0cfd-4332-b3f3-083dcc4b08ae",
+      "anchorId": "anchor:6da5894b-2ee4-4c6b-9ea7-4f29a07ea0c4",
+      "startByte": 793,
+      "endByteInclusive": 829,
+      "valid": true
+    },
+    {
+      "sectionId": "section:f85bbb0e-969b-438a-86f2-1945550303f9",
+      "claimId": "claim:780e5d36-0cfd-4332-b3f3-083dcc4b08ae",
+      "anchorId": "anchor:c921bae0-b1df-45fc-a02a-3ff265da3f1a",
+      "startByte": 1064,
+      "endByteInclusive": 1100,
+      "valid": true
+    },
+    {
+      "sectionId": "section:f85bbb0e-969b-438a-86f2-1945550303f9",
+      "claimId": "claim:c420656a-ec2a-4ef1-ab4e-8a2952cb7729",
+      "anchorId": "anchor:c4b87b09-3472-47f6-a5b0-5b10ce8a8fcf",
+      "startByte": 1321,
+      "endByteInclusive": 1379,
+      "valid": true
+    },
+    {
+      "sectionId": "section:f85bbb0e-969b-438a-86f2-1945550303f9",
+      "claimId": "claim:c420656a-ec2a-4ef1-ab4e-8a2952cb7729",
+      "anchorId": "anchor:e28265e2-487d-4aeb-8bfd-9091c84f7302",
+      "startByte": 1611,
+      "endByteInclusive": 1730,
+      "valid": true
+    },
+    {
+      "sectionId": "section:f85bbb0e-969b-438a-86f2-1945550303f9",
+      "claimId": "claim:c88bf507-9361-455c-9e4e-ac48008e62f6",
+      "anchorId": "anchor:94dc5eca-8515-4f6b-ab9e-f523014a16e4",
+      "startByte": 1736,
+      "endByteInclusive": 1979,
+      "valid": true
+    },
+    {
+      "sectionId": "section:f85bbb0e-969b-438a-86f2-1945550303f9",
+      "claimId": "claim:c88bf507-9361-455c-9e4e-ac48008e62f6",
+      "anchorId": "anchor:8cc0586d-304f-4f4e-9e0e-bbcda987dea9",
+      "startByte": 690,
+      "endByteInclusive": 726,
+      "valid": true
+    },
+    {
+      "sectionId": "section:f85bbb0e-969b-438a-86f2-1945550303f9",
+      "claimId": "claim:c88bf507-9361-455c-9e4e-ac48008e62f6",
+      "anchorId": "anchor:174d9212-5abc-4ff8-b3a1-02ac0e728972",
+      "startByte": 987,
+      "endByteInclusive": 1014,
+      "valid": true
+    },
+    {
+      "sectionId": "section:f85bbb0e-969b-438a-86f2-1945550303f9",
+      "claimId": "claim:c88bf507-9361-455c-9e4e-ac48008e62f6",
+      "anchorId": "anchor:ecc24621-6b5f-4944-af5d-bf1383847f8c",
+      "startByte": 1280,
+      "endByteInclusive": 1307,
+      "valid": true
+    },
+    {
+      "sectionId": "section:ce8f1948-4f25-443c-ad0b-3fc5d46402d5",
+      "claimId": "claim:549f4a2f-ece7-474b-8d1a-c49e6e05bde8",
+      "anchorId": "anchor:32ac004d-7b96-4c5c-a58c-a1152095e0fd",
+      "startByte": 2191,
+      "endByteInclusive": 2295,
+      "valid": true
+    },
+    {
+      "sectionId": "section:ce8f1948-4f25-443c-ad0b-3fc5d46402d5",
+      "claimId": "claim:684e5027-03de-4ce0-8766-ed0494bdfd19",
+      "anchorId": "anchor:0b7ce706-ab71-4190-921f-3fbb870a30a2",
+      "startByte": 1985,
+      "endByteInclusive": 2026,
+      "valid": true
+    },
+    {
+      "sectionId": "section:ce8f1948-4f25-443c-ad0b-3fc5d46402d5",
+      "claimId": "claim:684e5027-03de-4ce0-8766-ed0494bdfd19",
+      "anchorId": "anchor:347eb86b-15c0-4d94-a3fb-6d432f80ec70",
+      "startByte": 2191,
+      "endByteInclusive": 2295,
+      "valid": true
+    },
+    {
+      "sectionId": "section:ce8f1948-4f25-443c-ad0b-3fc5d46402d5",
+      "claimId": "claim:684e5027-03de-4ce0-8766-ed0494bdfd19",
+      "anchorId": "anchor:4e28b95a-8fb5-4ad8-92b6-a9ff2335030d",
+      "startByte": 690,
+      "endByteInclusive": 726,
+      "valid": true
+    },
+    {
+      "sectionId": "section:ce8f1948-4f25-443c-ad0b-3fc5d46402d5",
+      "claimId": "claim:684e5027-03de-4ce0-8766-ed0494bdfd19",
+      "anchorId": "anchor:8e2c84c8-4388-4b43-83ce-5129a1e08f0c",
+      "startByte": 1821,
+      "endByteInclusive": 1836,
+      "valid": true
+    },
+    {
+      "sectionId": "section:ce8f1948-4f25-443c-ad0b-3fc5d46402d5",
+      "claimId": "claim:684e5027-03de-4ce0-8766-ed0494bdfd19",
+      "anchorId": "anchor:053ec8de-1b8e-49d7-939b-5a77f5912f2f",
+      "startByte": 535,
+      "endByteInclusive": 546,
+      "valid": true
+    },
+    {
+      "sectionId": "section:a428fdbd-dc34-48d1-8c19-8238efcd9f6a",
+      "claimId": "claim:3b9a77f9-9cdb-4a53-aac5-4f6cb3a7cdff",
+      "anchorId": "anchor:d374a12a-6831-41b8-9b4d-012e42277590",
+      "startByte": 504,
+      "endByteInclusive": 648,
+      "valid": true
+    },
+    {
+      "sectionId": "section:a428fdbd-dc34-48d1-8c19-8238efcd9f6a",
+      "claimId": "claim:e0017029-3974-4614-9b1c-eb30213782d5",
+      "anchorId": "anchor:aac71d9e-7963-4b09-9e55-cbabd3d803bb",
+      "startByte": 1385,
+      "endByteInclusive": 1454,
+      "valid": true
+    }
+  ],
+  "sectionsWithNarration": 3,
+  "sceneCount": 9,
+  "elementCounts": {
+    "table": 3,
+    "stack": 5,
+    "metric": 19,
+    "compare": 2,
+    "panel": 2
+  },
+  "illustrations": [
+    "Input | Stored offsets | Result\nShort glyph zero | 6 and 10 | offset 12, length 8\nAssumption | glyf length | at least 20",
+    "Case | Inputs | Length\nOrdered | this 12, next 18, glyf 30 | 6\nUnordered | this 12, next 9, glyf 30 | 18",
+    "Equal boundaries | Returned offset | Length\n12 and 12 | 12 | 0"
+  ],
+  "reviewedBehavior": [
+    "short: adjacent big-endian 16-bit offsets doubled; long: direct big-endian 32-bit offsets for every nonzero selector",
+    "missing pair returns no location; start beyond clamped table bound returns an empty zero-based location",
+    "oversized next is clipped only for idx == num_locations.saturating_sub(2); earlier slots return empty",
+    "ordered length is next-this; reversed length is glyf_len-this; equal boundaries retain this with zero length",
+    "worked short 6/10 becomes start 12 length 8 at table length >=20; ordered 12/18 gives 6 and reversed 12/9 gives 18 at table length 30"
+  ],
+  "sourceReviewPass": true,
+  "teachingQualityAccepted": false,
+  "qualityFindings": [
+    "Opening now uses a worked example and clipping versus empty-result labels are distinct.",
+    "19 metric elements mostly contain source syntax rather than readable quantities; zero code elements does not establish visual teaching.",
+    "Narration retains argument, slice, type-constructor and equality syntax instead of consistently explaining meaning.",
+    "Six-minute narrow file latency does not qualify whole-repository or first-useful-answer timing."
+  ],
+  "observedCorrectionCount": null,
+  "correctionObservationLimit": "The ordinary probe does not record intermediate correction events; do not infer that the original candidate required or received a repair.",
+  "accepted": false,
+  "humanQualityOrListeningPass": false
+}

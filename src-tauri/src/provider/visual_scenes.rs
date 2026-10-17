@@ -4,20 +4,38 @@
 use crate::chapters::{self, ChapterRevision};
 use serde_json::{json, Value};
 
-pub(super) const INSTRUCTIONS: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v2
-Author a causal illustrated answer, with the claims themselves as its complete narration. Usually use 2–5 short claims/scenes per section. Explain what happens to the input, why a guard or choice matters, and the consequence, including failure exceptions. Use ordinary spoken sentences and only the minimum exact identifiers needed for grounding; put call syntax and implementation detail in visual code/source links. Preserve every supported condition and qualifier. The app assembles full prose and speech from all validated claim sentences with inference labels; it never selects a more convenient subset. Keep that complete section within 4,000 UTF-8 bytes or split it. The separate prose/spokenText fields remain required transport fields under their documented bounds; fill them with complete sentences from these same claims.
+pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v2";
 
-Teaching policy v2: For a behavior question, open with the problem and a useful input-to-result example, then explain the decisions that make that outcome possible. Do not open with a function signature, argument-type list, or definition of result fields. A responsibility claim should explain the work accomplished, not recite its declaration. Narrate meaning: say that an unavailable record gives no location, or an invalid bound gives an empty range, rather than reading type constructors, angle brackets, field initializer syntax, question marks or call expressions. Keep only necessary bare source identifiers for grounding and explain them in ordinary words. Source links retain the precise implementation. Do not shorten the answer by omitting a guard or alternative.
+const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v2
+Author a causal illustrated answer, with the claims themselves as its complete narration. Usually use 2–5 short claims/scenes per section. Explain what happens to the input, why a guard or choice matters, and the consequence, including failure exceptions. Use ordinary spoken sentences and only the minimum exact identifiers needed for grounding; put call syntax and implementation detail in visual code/source links. Preserve every supported condition and qualifier. The app assembles full prose and speech from all validated claim sentences with inference labels; it never selects a more convenient subset. Keep that complete section within 4,000 UTF-8 bytes or split it. The separate prose/spokenText fields remain required transport fields under their documented bounds; fill them with complete sentences from these same claims."#;
 
-Choose the representation that teaches the behavior: byte strips for format signatures, before/after values for a transformation, comparisons or tables for alternatives, stacks for state, matrices for raster concepts, and graphs for genuine paths. Do not turn every scene into source-code cards. Show a meaningful example or change when the source supports it. Arrows must reflect the relationship actually described by the claim; different source tokens alone do not establish a transformation. Independent resources, such as two copied tables, belong beside each other in a comparison/grid, not across a conversion arrow. Show a conditional path with its guard; do not present a branch-specific helper as the unconditional result. Invented values must be defensible illustrative examples, introduced as examples in narration, never captured runtime observations.
+const BEHAVIOR_TEACHING: &str = r#"Teaching policy v2: For a behavior question, open with the problem and a useful input-to-result example, then explain the decisions that make that outcome possible. Do not open with a function signature, argument-type list, or definition of result fields. A responsibility claim should explain the work accomplished, not recite its declaration. Narrate meaning: say that an unavailable record gives no location, or an invalid bound gives an empty range, rather than reading type constructors, angle brackets, field initializer syntax, question marks or call expressions. Keep only necessary bare source identifiers for grounding and explain them in ordinary words. Source links retain the precise implementation. Do not shorten the answer by omitting a guard or alternative."#;
 
-Make the primary visual show the decision or consequence in readable values, quantities, grouped alternatives or changed state. A copied expression alone is not an explanation of its effect. Unless the reader explicitly asks for syntax, use at most one code element in a scene and put additional implementation detail behind source links. For alternatives, give each outcome its own accurately named node or table row and show the guard. Never caption both a clipped offset and an empty return with the same final-slot label. Introduce illustrative numbers in narration and make their input assumptions clear; never infer an unconditional result from one worked example.
+const REPRESENTATION_CHOICES: &str = r#"Choose the representation that teaches the behavior: byte strips for format signatures, before/after values for a transformation, comparisons or tables for alternatives, stacks for state, matrices for raster concepts, and graphs for genuine paths. Do not turn every scene into source-code cards. Show a meaningful example or change when the source supports it. Arrows must reflect the relationship actually described by the claim; different source tokens alone do not establish a transformation. Independent resources, such as two copied tables, belong beside each other in a comparison/grid, not across a conversion arrow. Show a conditional path with its guard; do not present a branch-specific helper as the unconditional result. Invented values must be defensible illustrative examples, introduced as examples in narration, never captured runtime observations."#;
 
-Every visual has kind, title, direction, nodes, edges and presentation. Use kind dataFlow, sequence or hierarchy for the underlying structure, with 2–12 short evidence-linked nodes and at most 20 real edges. Every node/edge cites 1–8 same-section zero-based {claimIndex,evidenceIndex} references; it cannot invent IDs or borrow another section's evidence. An import is not a runtime call. A graph without presentation needs at least one evidenced edge. A composition may have no edges. If no useful visual is supported use kind:none, title:"", direction:auto, nodes:[], edges:[], presentation:null. A plain graph also uses presentation:null.
+const OUTCOME_TEACHING: &str = r#"Make the primary visual show the decision or consequence in readable values, quantities, grouped alternatives or changed state. A copied expression alone is not an explanation of its effect. Unless the reader explicitly asks for syntax, use at most one code element in a scene and put additional implementation detail behind source links. For alternatives, give each outcome its own accurately named node or table row and show the guard. Never caption both a clipped offset and an empty return with the same final-slot label. Introduce illustrative numbers in narration and make their input assumptions clear; never infer an unconditional result from one worked example."#;
+
+const COMPOSITION_CONTRACT: &str = r#"Every visual has kind, title, direction, nodes, edges and presentation. Use kind dataFlow, sequence or hierarchy for the underlying structure, with 2–12 short evidence-linked nodes and at most 20 real edges. Every node/edge cites 1–8 same-section zero-based {claimIndex,evidenceIndex} references; it cannot invent IDs or borrow another section's evidence. An import is not a runtime call. A graph without presentation needs at least one evidenced edge. A composition may have no edges. If no useful visual is supported use kind:none, title:"", direction:auto, nodes:[], edges:[], presentation:null. A plain graph also uses presentation:null.
 
 For a narrated HTML composition use presentation:{schemaVersion:2,scenes:[{claimIndex:0,title:"short visual heading",mode:"composition",elements:[...]}]}. Supply exactly one scene per claim in claim order; a justified graph scene uses mode:graph,elements:[]. The app owns all HTML, styling and interactions. Each element has exactly kind,parentIndex,nodeIndex,tone,value,valueOrigin. Elements form one flat preorder tree: root parentIndex:null, others an earlier container's index. Groups are row,column,grid,panel,compare,stack, with nodeIndex:null,value:"",valueOrigin:none. Content is card,token,code,metric,bytes,matrix,table,text; nodeIndex names the node that supplies its label and captured-source links. That node must cite this scene's own claim, not merely another claim in the section. Tone is neutral,accent,muted,positive,warning. Arrow/divider are decoration with null nodeIndex and no value. Favor 2–4 meaningful large elements, at most 48 elements, six nesting levels, twelve children per group and twelve content elements.
 
 A nonempty value has valueOrigin:source only when it is an exact substring of that node's own same-claim cited excerpts. Do not relabel copied source as an illustration to evade the check. Invented examples use valueOrigin:illustration and receive a visible example badge. Empty values use valueOrigin:none. Values are at most 1,024 UTF-8 bytes. Bytes have 1–32 whitespace-separated cells; matrices have 1–16 equal rows of 1–24 zero/one/dot cells; tables have at most eight newline rows and six equal pipe-separated columns. Repeated visible labels/values on both sides of an arrow do not show a transformation. Never supply HTML strings, CSS, URLs, JavaScript, event handlers or extra fields. A valid schema or source token does not prove an illustrative outcome; check the whole scene against its claim before returning."#;
+
+/// Keep transport-specific fields out of progressive section instructions.
+pub(crate) fn teaching_instructions() -> String {
+    [BEHAVIOR_TEACHING, OUTCOME_TEACHING].join("\n\n")
+}
+
+pub(super) fn instructions() -> String {
+    [
+        STORY_INTRO,
+        BEHAVIOR_TEACHING,
+        REPRESENTATION_CHOICES,
+        OUTCOME_TEACHING,
+        COMPOSITION_CONTRACT,
+    ]
+    .join("\n\n")
+}
 
 pub(super) fn nullable_schema() -> Value {
     json!({"anyOf":[crate::scene_presentation::proposal_schema(),{"type":"null"}]})
@@ -108,6 +126,16 @@ pub(crate) mod tests {
             }]}
         });
         proposal
+    }
+
+    #[test]
+    fn sharing_teaching_policy_preserves_the_ordinary_prompt_bytes() {
+        assert_eq!(
+            crate::repository_context::digest(super::instructions().as_bytes()),
+            "831c31a5ab25b5c3729a87459736ece3004ea560179ca8457bbb8bd638edd909"
+        );
+        assert!(super::instructions().contains(super::BEHAVIOR_TEACHING));
+        assert!(super::instructions().contains(super::OUTCOME_TEACHING));
     }
 
     #[test]

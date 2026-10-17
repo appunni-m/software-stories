@@ -107,6 +107,12 @@ contract to account-agent and direct-provider chapter requests. Existing
 five-tool retrieval schemas and progressive tool catalogs retain their pinned
 historical identities.
 
+Ordinary and progressive requests share the behavior-first teaching paragraphs.
+Progressive contracts fingerprint `teachingPolicy: "meaning-first-v2"` and the
+exact composed instructions without changing stored checkpoint identities or
+replaying generation. This is a generation instruction, not semantic acceptance.
+[Implementation evidence and remaining quality gaps](acceptance/2026-10-17-shared-teaching-policy.md).
+
 After source canonicalization, the fresh-preview boundary assembles displayed
 prose and speech from **all** anchored claim sentences, preserving inference
 labels and sentence order. The complete script must be 20–4,000 UTF-8 bytes;

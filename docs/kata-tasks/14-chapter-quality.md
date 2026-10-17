@@ -175,7 +175,7 @@ exists. [Evidence and exact scope](../acceptance/2026-10-17-shared-chapter-scene
 - [ ] Independently validate the whole corrected candidate. Cover persistent
   invalid layout, unknown/oversized payloads, one-based/forward/leaf parents,
   Stop before correction, failures and unchanged saved history.
-- [ ] Share the meaning-first teaching policy with progressive chat while
+- [x] Share the meaning-first teaching policy with progressive chat while
   preserving stored receipt replay and original source/attempt bounds.
 - [ ] Qualify actual example-led visuals and natural narrated meaning after
   structural admission. Fewer code elements, schema validity and the passing
@@ -202,3 +202,50 @@ and native operation coverage. Progressive teaching-policy integration, an
 ordinary fresh Fontdone outcome, meaningful visuals, Pocket listening, complete
 repository narratives and language qualification remain open. No task closes
 on this structural repair.
+
+## Shared teaching and fresh ordinary Fontdone result — 17 October 2026
+
+The ordinary GPT-6 Luna/max request from commit ecf891b returned in 363.349 s
+and passed full native source validation: three narrated sections, nine current
+compositions and 23 independently checked anchors. The worked introduction and
+distinct clipping/empty-result labels improve the answer. **Quality still fails
+acceptance:** nineteen metric elements mostly contain source syntax, and the
+script still reads code expressions. Zero code leaves is not a teaching pass.
+The probe does not observe correction turns, so do not infer that it repaired
+an invalid first response. Original output and compiled source pins are retained.
+
+Progressive chat now shares the same behavior-first/outcome policy paragraphs,
+bound into the new request fingerprint as meaning-first-v2. Ordinary prompt
+bytes remain identical. Historical scene/script/receipt replay still passes;
+there is no new progressive account, native UI, Pocket or human quality pass.
+The current suites pass 404 native and 184 frontend tests; the unsigned debug
+Mac app builds. [Exact evidence and limits](../acceptance/2026-10-17-shared-teaching-policy.md).
+
+- [ ] Qualify visuals by their rendered meaning, including expressions disguised
+  as metric/token/card elements. An element-count rule cannot replace review.
+- [ ] Qualify a fresh progressive answer under the shared teaching policy,
+  preserve branch/error meanings and complete grounded narration, and exercise
+  native source/return and Pocket listening. Keep this task open.
+
+### Repair the benchmark bridge before using it for current generations
+
+The old checker rejects the current visual field; its metadata omits appended
+scene instructions and fingerprints the overview rather than file prompt
+template. A successful corpus or metadata command is not current-generation
+quality acceptance.
+
+- [ ] Version the current file-proposal/report bridge, accepting the complete
+  current visual/presentation contract. Reuse native source and visual admission;
+  avoid a second procedural visual validator that can drift from the product.
+- [ ] Fingerprint the actual file prompt plus shared teaching/composition text,
+  complete context builders, schemas, fresh-preview preparation and relevant
+  native validator modules. Changing any of them must stale an earlier report.
+- [ ] Support benchmark attempts generated with the saved Codex connection and
+  GPT-6 Luna/max; do not require API credentials or a different model. Preserve
+  backend/model/settings and exact reviewed request identity for every attempt.
+- [ ] Regress current source-valid compositions, malformed/future/foreign
+  evidence, incorrect source values, changed shared instructions and stale
+  reports. Keep source/schema acceptance distinct from the human rubric.
+- [ ] Exercise the full representative corpus and retain both shallow failures
+  and separately generated repairs. Require human semantic, visual and narration
+  review; never relabel old artifacts or infer teaching from a green schema.

@@ -2505,7 +2505,7 @@ fn build_chapter_context(
     if input.section_update.is_some() {
         let mut context = build_section_update_context(storage_dir, input)?;
         context.system_instruction.push_str("\n\n");
-        context.system_instruction.push_str(visual_scenes::INSTRUCTIONS);
+        context.system_instruction.push_str(&visual_scenes::instructions());
         return Ok(context);
     }
     let SelectedSnapshotEvidence {
@@ -2614,7 +2614,7 @@ SELECTED LOCAL INDEX EVIDENCE JSON:
         )
     };
     system_instruction.push_str("\n\n");
-    system_instruction.push_str(visual_scenes::INSTRUCTIONS);
+    system_instruction.push_str(&visual_scenes::instructions());
     Ok(ExplanationRequestContext {
         selected_files,
         selected_symbols,
