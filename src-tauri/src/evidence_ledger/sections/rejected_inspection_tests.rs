@@ -94,10 +94,38 @@ fn inspect_saved_section_rejections() {
                 citations.insert(native_citations::short_reference(ordinal), citation);
             }
         }
+        let source_list = sources.into_values().collect::<Vec<_>>();
+        // A separate, explicitly hypothetical fresh-policy comparison. Never
+        // change the saved proposal, checkpoint, outcome or consumed attempts.
+        // Resolve only source delivered before this exact rejected call.
+        let grounded_policy = (|| -> Result<Value, Vec<Value>> {
+            let mut fresh: Proposal = serde_json::from_str(&attempt.arguments).unwrap();
+            fresh.proposal_version = GROUNDED_NAMES_PROPOSAL_VERSION.to_owned();
+            let (response, _) = wrapped_authored(&mut fresh)?;
+            let resolved = resolved_authored(&fresh, native_citations::resolve(&response, |id| {
+                citations.get(id).cloned().ok_or("referenceUnavailable")
+            }))?;
+            let mut findings = alignment_findings(&fresh.section, resolved.text());
+            findings.extend(visual_shape_findings(&fresh.section));
+            findings.extend(scene_version_findings(&fresh.section, GROUNDED_NAMES_CHECKPOINT_VERSION));
+            findings.extend(scene_narration_findings(&fresh.section));
+            if !findings.is_empty() {
+                return Err(findings);
+            }
+            let (error, validation) = match chapter_generation::canonicalize_narrated_answer_section(
+                &record.binding.project_id, &manifest, syntax.as_ref(), &source_list, &resolved,
+            ) {
+                Err(error) => (Some(error), Value::Null),
+                Ok(revision) => (None, serde_json::to_value(chapters::validate_chapter_revision(
+                    &storage, &manifest, syntax.as_ref(), &revision,
+                )).unwrap()),
+            };
+            Ok(json!({"findings":[],"canonicalizationError":error,"validation":validation}))
+        })().unwrap_or_else(|findings| json!({"findings":findings,"canonicalizationError":null,"validation":null}));
         let response = match wrapped_authored(&mut proposal) {
             Ok((response, _)) => response,
             Err(findings) => {
-                reports.push(json!({"attempt":index+1,"sectionKey":proposal.section_key,"originalFindings":attempt.findings,"currentAuthoringFindings":findings,"canonicalizationError":null,"validation":null}));
+                reports.push(json!({"attempt":index+1,"sectionKey":proposal.section_key,"originalFindings":attempt.findings,"currentAuthoringFindings":findings,"canonicalizationError":null,"validation":null,"hypotheticalFreshGroundedPolicy":grounded_policy}));
                 continue;
             }
         };
@@ -109,7 +137,6 @@ fn inspect_saved_section_rejections() {
                 (Some("referenceUnavailable".to_owned()), Value::Null)
             }
             Ok(resolved) => {
-                let source_list = sources.into_values().collect::<Vec<_>>();
                 match chapter_generation::canonicalize_narrated_answer_section(
                     &record.binding.project_id,
                     &manifest,
@@ -131,7 +158,7 @@ fn inspect_saved_section_rejections() {
                 }
             }
         };
-        reports.push(json!({"attempt":index+1,"sectionKey":proposal.section_key,"originalFindings":attempt.findings,"canonicalizationError":error,"validation":validation}));
+        reports.push(json!({"attempt":index+1,"sectionKey":proposal.section_key,"originalFindings":attempt.findings,"canonicalizationError":error,"validation":validation,"hypotheticalFreshGroundedPolicy":grounded_policy}));
     }
     let mut options = fs::OpenOptions::new();
     options.write(true).create_new(true);
@@ -148,6 +175,7 @@ fn inspect_saved_section_rejections() {
     artifact.write_all(&serde_json::to_vec_pretty(&json!({
         "kind":"read-only-saved-section-rejection-inspection","runId":run,
         "scope":"Replay only this recorded operation's pre-proposal delivered source through current narrated-section validators. Original receipts are untouched. No account, inference, publication, acceptance or semantic review.",
+        "hypotheticalFreshGroundedPolicyScope":"Independently compare unchanged authored content and the same pre-proposal delivered sources under the current grounded-name policy for a hypothetical fresh proposal. Does not change historical rejection, outcome, attempts, final manifests, ownership or any receipt; does not qualify real generation or semantic meaning.",
         "accepted":false,"humanReview":false,"voiceReview":false,"reports":reports,
         "answerSchemaVersion":answer.schema_version,"finalManifests":final_manifests
     })).unwrap()).unwrap();
