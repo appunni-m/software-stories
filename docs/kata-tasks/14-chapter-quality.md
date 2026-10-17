@@ -234,18 +234,44 @@ scene instructions and fingerprints the overview rather than file prompt
 template. A successful corpus or metadata command is not current-generation
 quality acceptance.
 
-- [ ] Version the current file-proposal/report bridge, accepting the complete
+- [x] Version the current file-proposal/report bridge, accepting the complete
   current visual/presentation contract. Reuse native source and visual admission;
   avoid a second procedural visual validator that can drift from the product.
-- [ ] Fingerprint the actual file prompt plus shared teaching/composition text,
+- [x] Fingerprint the actual file prompt plus shared teaching/composition text,
   complete context builders, schemas, fresh-preview preparation and relevant
   native validator modules. Changing any of them must stale an earlier report.
 - [ ] Support benchmark attempts generated with the saved Codex connection and
   GPT-6 Luna/max; do not require API credentials or a different model. Preserve
   backend/model/settings and exact reviewed request identity for every attempt.
-- [ ] Regress current source-valid compositions, malformed/future/foreign
+- [x] Regress current source-valid compositions, malformed/future/foreign
   evidence, incorrect source values, changed shared instructions and stale
   reports. Keep source/schema acceptance distinct from the human rubric.
 - [ ] Exercise the full representative corpus and retain both shallow failures
   and separately generated repairs. Require human semantic, visual and narration
   review; never relabel old artifacts or infer teaching from a green schema.
+
+
+## Native benchmark boundary — 17 October 2026
+
+Current saved model proposals now use the app's actual request schema,
+canonicalizer, fresh narration preparation and complete source/scene validator
+through an isolated offline helper. Report schema v5 / response schema v2
+includes explicit backend/model/agent settings. Metadata defaults to Codex
+GPT-6 Luna/max and prepares direct API profiles without credentials or inference.
+It fingerprints the actual compiled file prompt including shared teaching text,
+plus all native build inputs and both checker files; stale helpers and reports
+fail closed. The historical authored rubric example remains separately scoped.
+
+Regressions replay the unchanged source-valid Fontdone answer (23 anchors) and
+retain the five-leaf-parent rejection. Missing visual fields, legacy/future
+presentations, foreign evidence, incorrect source values, source tampering,
+protocol/size/duplicate-key failures and changed build inputs are covered.
+The complete suites pass **410 native tests / 190 frontend tests**; 15 explicit
+account probes remain ignored. The frontend build passes. No LLM/agent generation was run.
+
+Still pending: capture and bind each real request-review identity and its index,
+run the complete representative generated corpus and preserve separately generated
+repairs, then obtain actual semantic/visual/narration review. Declaring a Codex
+backend or copying a fingerprint into a report is not proof of an agent run.
+This task remains open; the source-valid Fontdone answer still lacks accepted
+teaching quality. See [the evidence report](../acceptance/2026-10-17-native-quality-boundary.md).

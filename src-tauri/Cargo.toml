@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "A local-first guide to understanding software repositories"
 authors = ["Code Atlas contributors"]
 edition = "2024"
+default-run = "code-atlas-desktop"
 
 [lib]
 name = "code_atlas_desktop_lib"
@@ -19,6 +20,7 @@ bytes = "1"
 libc = "0.2"
 grep-regex = "=0.1.14"
 grep-searcher = "=0.1.17"
+jsonschema = { version = "=0.59.0", default-features = false }
 tantivy = { version = "=0.26.2", default-features = false, features = ["mmap", "lz4-compression"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 rig-core = { version = "=0.44.0", default-features = false, features = ["reqwest", "rustls"] }

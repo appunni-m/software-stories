@@ -32,6 +32,7 @@ mod codex_agent;
 mod codex_identity;
 mod codex_commands;
 mod context_mcp;
+mod chapter_quality;
 mod agent_context;
 mod evidence_ledger;
 mod native_citations;
@@ -1919,6 +1920,9 @@ fn validate_chapter_draft_preview(
 /// Runs the private MCP stdio entry point when this process was launched as a
 /// context helper. Returns false for the ordinary desktop invocation.
 pub fn run_context_helper() -> bool { context_mcp::run_if_requested() }
+
+/// Runs the bounded, offline benchmark validator without starting the desktop UI.
+pub fn run_quality_helper() -> bool { chapter_quality::run_if_requested() }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// Starts the Code Atlas Tauri application and its registered command layer.

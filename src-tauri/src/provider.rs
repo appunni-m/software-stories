@@ -34,7 +34,7 @@ const ANTHROPIC_DISCLOSURE_VERSION: &str = "anthropic-disclosure-2026-10-13-v1";
 #[cfg(test)]
 const DISCLOSURE_VERSION: &str = GEMINI_DISCLOSURE_VERSION;
 const PROMPT_VERSION: &str = "structured-file-chapter-v5";
-const FILE_PROMPT_VERSION: &str = PROMPT_VERSION;
+pub(crate) const FILE_PROMPT_VERSION: &str = PROMPT_VERSION;
 const OVERVIEW_PROMPT_VERSION: &str = "structured-repository-overview-v5";
 const SECTION_UPDATE_PROMPT_VERSION: &str = "structured-single-section-update-v3";
 const FILE_CHAPTER_PURPOSE: &str = "fileChapter";

@@ -1,0 +1,21 @@
+{
+  "corpusId": "code-atlas-chapter-quality-v1",
+  "corpusManifestSha256": "806344b9ecd209cdf243032bb76f1e98a642149f7f973aab888520e66eef93d9",
+  "scope": "offline contract metadata; synthetic runtime identity; no model or account qualification",
+  "backendId": "codex",
+  "modelId": "gpt-6-luna",
+  "reasoningEffort": "max",
+  "approvalPolicy": "never",
+  "nativeBuildSha256": "7f3857b746b72d9be5fd0999e0252e3d15a869bd8a1fca4d912c9d56c93a3bcc",
+  "modelIds": [
+    "gpt-6-luna"
+  ],
+  "modelAllowlistSha256": "3effccbf67cd824850f1a0f7764ea6741aa3c8ecee9bf1bbdb5f54af05ba256b",
+  "promptVersion": "structured-file-chapter-v5",
+  "promptSha256": "2226ff8ea3d37478374a7b4741822da795b1108cc2f955ea6713bfb253ad7298",
+  "requestAssemblySha256": "16a7b93a6c69b6a1193587cc4496b329c48ab8f7ac316f86a42605b1141b9573",
+  "generationConfigSha256": "95fb3dbeff166301a138bca9a54bdc9e0eca98fd4225dc24a5c31869c41c312d",
+  "chapterSchemaVersion": 4,
+  "responseSchemaVersion": 2,
+  "responseSchemaSha256": "cd839d21e28d9e16ac118c28c810e407e6b0a4ba2b4188bf0ff8ca61f66d9681"
+}

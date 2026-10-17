@@ -216,3 +216,21 @@ Mac app builds. [Exact evidence and limits](../acceptance/2026-10-17-shared-teac
 - [ ] Qualify a fresh progressive answer under the shared teaching policy,
   preserve branch/error meanings and complete grounded narration, and exercise
   native source/return and Pocket listening. Keep this task open.
+
+
+## Native replay and benchmark boundary — 17 October 2026
+
+The quality checker now reuses the current native schema, canonicalizer, fresh
+narration preparation and complete chapter validator. Its preserved Fontdone
+loca.rs replay passes with 23 anchors; the original five leaf-parent errors still
+fail. All 410 native and 190 frontend tests pass. This validates admission, not
+meaningful visual teaching. [Exact evidence and remaining gates](../acceptance/2026-10-17-native-quality-boundary.md).
+
+The rebuilt unsigned app is installed and open on the real existing Fontdone
+workspace. The older saved PFR0 visual returns from lib.rs to font.rs lines
+4053–4078 through its source control. Nested Back/return retains the parent's
+section/scene and the child's Flow tab. Its saved narration player advances to
+9.2 s of a displayed 17 s and Stop resets it. This is a bounded UI/player check
+on an existing scene, not a fresh meaning-first generation, verified audible
+quality, listening or comprehension acceptance. The broad narrative and human
+teaching/listening gates remain open; no task closes on this replay.

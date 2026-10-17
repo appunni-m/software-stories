@@ -1,9 +1,12 @@
 {
-  "reportSchemaVersion": 4,
+  "reportSchemaVersion": 5,
   "kind": "chapter-quality-review-report",
   "status": "pending",
   "corpusId": null,
   "corpusManifestSha256": null,
+  "backendId": null,
+  "reasoningEffort": null,
+  "approvalPolicy": null,
   "modelId": null,
   "modelVersion": null,
   "modelAllowlistSha256": null,

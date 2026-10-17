@@ -10,10 +10,11 @@
     "tauri": "tauri",
     "bundle:macos": "node scripts/macos-bundle-metadata.mjs write && CI=true tauri build --no-sign --bundles app,dmg && node scripts/macos-bundle-metadata.mjs verify",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "quality:build": "cargo build --locked --manifest-path src-tauri/Cargo.toml --bin code-atlas-quality",
     "quality:corpus": "node scripts/check-chapter-quality.mjs --corpus",
     "quality:metadata": "node scripts/check-chapter-quality.mjs --metadata",
     "quality:gate": "node scripts/check-chapter-quality.mjs",
-    "check": "npm run quality:corpus && npm run test && npm run build && cargo test --manifest-path src-tauri/Cargo.toml --lib && cargo check --manifest-path src-tauri/Cargo.toml"
+    "check": "npm run quality:build && npm run quality:corpus && npm run test && npm run build && cargo test --manifest-path src-tauri/Cargo.toml --lib && cargo check --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {
     "@codemirror/commands": "^6.11.1",

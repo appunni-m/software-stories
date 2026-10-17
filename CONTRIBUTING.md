@@ -30,7 +30,7 @@ Before handing off a change, run:
 npm run check
 ```
 
-That command validates the synthetic chapter corpus, runs all Node test files, builds the TypeScript/Vite app, runs the Rust library tests, and checks the Rust crate. For a chapter-quality report, see [Chapter quality gate](docs/CHAPTER_QUALITY_GATE.md); a generated metadata file is not a human-reviewed passing report.
+That command first builds the native quality helper, validates the synthetic chapter corpus, runs all Node test files, builds the TypeScript/Vite app, runs the Rust library tests, and checks the Rust crate. For a chapter-quality report, see [Chapter quality gate](docs/CHAPTER_QUALITY_GATE.md); a generated metadata file is not a human-reviewed passing report.
 
 ## Design constraints
 

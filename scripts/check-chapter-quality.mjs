@@ -4,12 +4,13 @@ import { createHash } from "node:crypto";
 import { readFile, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { currentNativeMetadata, defaultProfile, validateCurrentProposal } from "./lib/chapter-quality-native.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const defaultManifest = "benchmarks/chapter-quality/corpus/manifest.json";
-const reportSchemaVersion = 4;
+const reportSchemaVersion = 5;
 // Bump this when the provider-facing file-chapter response contract changes.
-const responseSchemaVersion = 1;
+const responseSchemaVersion = 2;
 const requiredRoleFamilies = [
   { label: "route/entrypoint", aliases: ["route", "entrypoint", "route-entrypoint", "route/entrypoint"] },
   { label: "service/core", aliases: ["service", "core", "service-core", "service/core"] },
@@ -157,7 +158,8 @@ function isRepoRelativePath(value) {
 function usage() {
   console.log(`Usage:
   npm run quality:corpus
-  npm run quality:metadata
+  npm run quality:build
+  npm run quality:metadata [-- --backend codex --model gpt-6-luna]
   npm run quality:gate -- --report <completed-report.json> [--manifest <manifest.json>]
 
 The corpus check is local and never calls a model. The release gate requires a
@@ -536,13 +538,19 @@ function validateFactCoverageContractExample() {
   }
 }
 
-async function printCurrentMetadata(manifestArg) {
+async function printCurrentMetadata(manifestArg, profile = defaultProfile) {
   await loadReportTemplate();
   const loaded = await loadManifest(manifestArg);
-  const current = await currentGenerationMetadata();
+  const current = await currentGenerationMetadata(profile);
   console.log(JSON.stringify({
     corpusId: loaded.manifest.corpusId,
     corpusManifestSha256: loaded.manifestSha256,
+    scope: current.scope,
+    backendId: current.backendId,
+    modelId: current.modelId,
+    reasoningEffort: current.reasoningEffort,
+    approvalPolicy: current.approvalPolicy,
+    nativeBuildSha256: current.nativeBuildSha256,
     modelIds: current.modelIds,
     modelAllowlistSha256: current.modelAllowlistSha256,
     promptVersion: current.promptVersion,
@@ -555,88 +563,10 @@ async function printCurrentMetadata(manifestArg) {
   }, null, 2));
 }
 
-async function currentGenerationMetadata() {
-  const provider = await readFile(resolve(root, "src-tauri/src/provider.rs"), "utf8");
-  const indexSource = await readFile(resolve(root, "src-tauri/src/index.rs"), "utf8");
-  const chapterTypes = await readFile(resolve(root, "src-tauri/src/chapters.rs"), "utf8");
-  const chapterGeneration = await readFile(resolve(root, "src-tauri/src/chapter_generation.rs"), "utf8");
-  const chapterValidation = chapterTypes;
-  const commandBridge = await readFile(resolve(root, "src-tauri/src/lib.rs"), "utf8");
-  const providerApiSource = await readFile(resolve(root, "src-tauri/src/provider_api.rs"), "utf8");
-  const promptVersion = provider.match(/const PROMPT_VERSION: &str = "([^"]+)";/)?.[1];
-  const chapterSchemaVersion = Number(chapterTypes.match(/pub const CHAPTER_SCHEMA_VERSION: u32 = (\d+);/)?.[1]);
-  if (!promptVersion || !Number.isInteger(chapterSchemaVersion)) {
-    throw new Error("Could not read current prompt and chapter schema versions from Rust sources");
-  }
-  const systemPrompt = provider.match(/let system_instruction = ("(?:[^"\\]|\\.)*")\.to_owned\(\);/)?.[1];
-  const userPromptTemplate = provider.match(/let user_prompt = format!\(\s*r#"([\s\S]*?)"#,/)?.[1];
-  if (!systemPrompt || !userPromptTemplate) throw new Error("Could not fingerprint the current chapter prompt text");
-
-  const disclosure = extractRustBlock(provider, "fn gemini_disclosure()");
-  const modelIds = [...disclosure.matchAll(/model_id:\s*"([^"]+)"/g)].map((match) => match[1]).sort();
-  if (modelIds.length === 0 || new Set(modelIds).size !== modelIds.length) {
-    throw new Error("Could not derive a unique Gemini chapter-model allowlist from provider::gemini_disclosure");
-  }
-  const responseSchema = extractRustBlock(provider, "fn file_chapter_response_schema()");
-  const generationConfig = extractRustBlock(provider, "fn file_chapter_generation_config()");
-  const requestAssembly = [
-    ...["GEMINI_API_ROOT", "OPENAI_API_ROOT", "ANTHROPIC_API_ROOT", "GEMINI_DISCLOSURE_VERSION", "OPENAI_DISCLOSURE_VERSION", "ANTHROPIC_DISCLOSURE_VERSION", "DISCLOSURE_VERSION", "PROMPT_VERSION", "MAX_CONTEXT_BYTES", "MAX_REQUEST_BODY_BYTES", "MAX_SELECTED_FILES", "MAX_REVIEW_SYMBOLS", "MAX_REVIEW_RELATIONSHIPS", "MAX_PROVIDER_RESPONSE_BYTES", "MAX_PROVIDER_ERROR_BYTES"]
-      .map((name) => provider.match(new RegExp(`const ${name}: [^=]+ = [^;]+;`))?.[0] ?? ""),
-    ...[
-      "pub struct ProviderRequestFile",
-      "pub struct ProviderSymbolEvidence",
-      "pub struct ProviderRelationshipEvidence",
-      "struct FingerprintFile",
-      "struct FingerprintInputs",
-      "pub struct ProviderRequestReview",
-      "pub struct ProviderSendResult",
-      "pub struct ProviderHttpResult",
-      "pub struct BuildProviderReviewInput",
-      "pub struct PendingProviderRequest",
-      "pub struct ProviderModel",
-      "pub struct ProviderDisclosure",
-      "fn selected_index_evidence(",
-      "fn checked_index_excerpt<",
-      "pub fn provider_catalog()",
-      "pub fn disclosure_for(",
-      "fn model_for(",
-      "pub fn build_request_review(",
-      "pub fn build_request_review_for_provider(",
-      "pub fn build_pr_guide_request_review_for_provider(",
-      "fn request_fingerprint(",
-      "fn request_fingerprint_for_provider(",
-      "pub fn revalidate_request_review(",
-      "pub async fn dispatch_reviewed_request<",
-      "pub async fn dispatch_reviewed_request_via_rig(",
-      "fn rig_request_failure(",
-      "fn check_generated_text_size(",
-      "fn generated_text_too_large_failure(",
-    ].map((signature) => extractRustBlock(provider, signature)),
-    chapterTypes.match(/pub const MAX_GENERATED_RESPONSE_BYTES: [^=]+ = [^;]+;/)?.[0] ?? "",
-    indexSource,
-    chapterGeneration,
-    chapterValidation,
-    providerApiSource,
-    extractRustBlock(commandBridge, "fn prepare_chapter_draft_preview("),
-    extractRustBlock(commandBridge, "fn build_provider_request_review("),
-    extractRustBlock(commandBridge, "fn build_provider_pr_guide_request_review("),
-    extractRustBlock(commandBridge, "async fn send_provider_request("),
-    extractRustBlock(commandBridge, "async fn send_provider_pr_guide_request("),
-    await readFile(resolve(root, "src-tauri/src/snapshot.rs"), "utf8"),
-    await readFile(resolve(root, "src-tauri/Cargo.toml"), "utf8"),
-    await readFile(resolve(root, "src-tauri/Cargo.lock"), "utf8"),
-  ].join("\n");
-  return {
-    promptVersion,
-    promptSha256: sha256(JSON.stringify([JSON.parse(systemPrompt), userPromptTemplate])),
-    requestAssemblySha256: sha256(requestAssembly),
-    generationConfigSha256: sha256(generationConfig),
-    chapterSchemaVersion,
-    responseSchemaVersion,
-    modelIds,
-    modelAllowlistSha256: sha256(JSON.stringify(modelIds)),
-    responseSchemaSha256: sha256(responseSchema),
-  };
+async function currentGenerationMetadata(profile = defaultProfile) {
+  const metadata = currentNativeMetadata(profile);
+  if (metadata.responseSchemaVersion !== responseSchemaVersion) throw new Error("Native response schema version does not match the report protocol");
+  return metadata;
 }
 
 async function loadReportTemplate() {
@@ -654,11 +584,11 @@ async function loadReportTemplate() {
 }
 
 function validateReportTemplateShape(template) {
-  exactKeys(template, ["reportSchemaVersion", "kind", "status", "corpusId", "corpusManifestSha256", "modelId", "modelVersion", "modelAllowlistSha256", "promptVersion", "promptSha256", "requestAssemblySha256", "generationConfigSha256", "chapterSchemaVersion", "responseSchemaVersion", "responseSchemaSha256", "reviewer", "reviewedAt", "qualityGateExample", "cases"], "Report template");
+  exactKeys(template, ["reportSchemaVersion", "kind", "status", "corpusId", "corpusManifestSha256", "backendId", "reasoningEffort", "approvalPolicy", "modelId", "modelVersion", "modelAllowlistSha256", "promptVersion", "promptSha256", "requestAssemblySha256", "generationConfigSha256", "chapterSchemaVersion", "responseSchemaVersion", "responseSchemaSha256", "reviewer", "reviewedAt", "qualityGateExample", "cases"], "Report template");
   if (template.reportSchemaVersion !== reportSchemaVersion || template.kind !== "chapter-quality-review-report" || template.status !== "pending") {
     throw new Error(`Report template must use schema version ${reportSchemaVersion} and remain pending`);
   }
-  for (const key of ["corpusId", "corpusManifestSha256", "modelId", "modelVersion", "modelAllowlistSha256", "promptVersion", "promptSha256", "requestAssemblySha256", "generationConfigSha256", "chapterSchemaVersion", "responseSchemaVersion", "responseSchemaSha256", "reviewer", "reviewedAt"]) {
+  for (const key of ["corpusId", "corpusManifestSha256", "backendId", "reasoningEffort", "approvalPolicy", "modelId", "modelVersion", "modelAllowlistSha256", "promptVersion", "promptSha256", "requestAssemblySha256", "generationConfigSha256", "chapterSchemaVersion", "responseSchemaVersion", "responseSchemaSha256", "reviewer", "reviewedAt"]) {
     if (template[key] !== null) throw new Error(`Report template ${key} must remain empty until a local review batch is recorded`);
   }
   if (!Array.isArray(template.cases) || template.cases.length !== 1) throw new Error("Report template must contain one unrun case example");
@@ -868,7 +798,9 @@ function validateEvidenceList(evidence, prose, identifiers, label, sources, targ
   return { targetAnchored };
 }
 
-function validateProposalArtifact(proposal, label, sources, targetPath, allowedRelationshipIds = new Set()) {
+// Historical human-authored rubric example only. Current model output must use
+// validateCurrentProposal and the native fresh-preview boundary.
+function validateAuthoredLegacyExample(proposal, label, sources, targetPath, allowedRelationshipIds = new Set()) {
   const claimIds = new Set();
   const textField = (value, minimum, maximum, fieldLabel) => {
     if (typeof value !== "string" || byteLength(value.trim()) < minimum || byteLength(value.trim()) > maximum) {
@@ -1018,7 +950,7 @@ async function loadManifestSources(manifestPath, manifestCase) {
   return sources;
 }
 
-async function readChapterArtifact(path, digest, label, reportsDirectory, manifestPath, manifestCase, schemaValidation) {
+async function readChapterArtifact(path, digest, label, reportsDirectory, manifestPath, manifestCase, schemaValidation, profile) {
   const bytes = await readVerifiedArtifact(path, digest, label, reportsDirectory);
   if (bytes.byteLength > 300 * 1024) throw new Error(`${label} exceeds the 300 KiB provider response limit`);
   let proposal;
@@ -1043,18 +975,17 @@ async function readChapterArtifact(path, digest, label, reportsDirectory, manife
   const sectionClaimIds = collectSectionClaimIds(proposal);
   const sources = await loadManifestSources(manifestPath, manifestCase);
   const claimEvidenceById = collectSectionClaimEvidenceById(proposal, sources);
-  const allowedRelationshipIds = new Set(manifestCase.allowedRelationshipIds ?? []);
-  let contractError;
-  try {
-    validateProposalArtifact(proposal, label, sources, manifestCase.path, allowedRelationshipIds);
-  } catch (error) {
-    contractError = error;
+  // Infrastructure failures must fail the report, not masquerade as a bad answer.
+  if ((manifestCase.allowedRelationshipIds ?? []).length) {
+    throw new Error(`${label}: relationship IDs need a saved native review/index binding; arbitrary manifest IDs are not accepted`);
   }
+  const validation = validateCurrentProposal(bytes.toString("utf8"), sources, manifestCase.path, profile);
+  const contractError = validation.valid ? undefined : new Error(validation.message);
   if (schemaValidation === "pass" && contractError) {
-    throw new Error(`${label} is marked schema-valid but fails local proposal/evidence validation: ${contractError.message}`);
+    throw new Error(`${label} is marked schema-valid but fails current native proposal/source/scene validation: ${contractError.message}`);
   }
   if (schemaValidation === "fail" && !contractError) {
-    throw new Error(`${label} passes local proposal/evidence validation but is recorded with schemaValidation fail`);
+    throw new Error(`${label} passes current native proposal/source/scene validation but is recorded with schemaValidation fail`);
   }
   return { bytes, proposal, claimIds, sectionClaimIds, claimEvidenceById, contractValid: !contractError, contractError };
 }
@@ -1202,9 +1133,9 @@ async function validateQualityGateExample(example, pinnedExample) {
   }
   exactQuoteAnchor(JSON.parse(simpleSourceLiteral), source.sourceExcerpt, "qualityGateExample source excerpt");
   const exampleSources = new Map([[source.path, { text: source.sourceExcerpt, sha256: source.sourceExcerptSha256 }]]);
-  const shallowClaimIds = new Set([...validateProposalArtifact(artifact.shallowCandidate, "qualityGateExample shallowCandidate", exampleSources, source.path)]
+  const shallowClaimIds = new Set([...validateAuthoredLegacyExample(artifact.shallowCandidate, "qualityGateExample shallowCandidate", exampleSources, source.path)]
     .map((claimId) => `shallowCandidate.${claimId}`));
-  validateProposalArtifact(artifact.repairedCandidate, "qualityGateExample repairedCandidate", exampleSources, source.path);
+  validateAuthoredLegacyExample(artifact.repairedCandidate, "qualityGateExample repairedCandidate", exampleSources, source.path);
   for (const [index, finding] of example.findings.entries()) {
     exactKeys(finding, ["category", "claimIds", "sourceRefs", "description"], `qualityGateExample finding ${index + 1}`);
     if (!allowedFailureCategories.has(finding.category) || !Array.isArray(finding.claimIds) || finding.claimIds.length === 0
@@ -1266,7 +1197,7 @@ async function validateReport(reportArg, manifestArg) {
   } catch (error) {
     throw new Error(`Could not read report JSON: ${error.message}`);
   }
-  exactKeys(report, ["reportSchemaVersion", "kind", "status", "corpusId", "corpusManifestSha256", "modelId", "modelVersion", "modelAllowlistSha256", "promptVersion", "promptSha256", "requestAssemblySha256", "generationConfigSha256", "chapterSchemaVersion", "responseSchemaVersion", "responseSchemaSha256", "reviewer", "reviewedAt", "qualityGateExample", "cases"], "Report");
+  exactKeys(report, ["reportSchemaVersion", "kind", "status", "corpusId", "corpusManifestSha256", "backendId", "reasoningEffort", "approvalPolicy", "modelId", "modelVersion", "modelAllowlistSha256", "promptVersion", "promptSha256", "requestAssemblySha256", "generationConfigSha256", "chapterSchemaVersion", "responseSchemaVersion", "responseSchemaSha256", "reviewer", "reviewedAt", "qualityGateExample", "cases"], "Report");
   if (report.reportSchemaVersion !== reportSchemaVersion || report.kind !== "chapter-quality-review-report" || !["pass", "fail"].includes(report.status)) {
     throw new Error(`Report must use schema version ${reportSchemaVersion} and final status pass or fail; pending or partial reports cannot gate release`);
   }
@@ -1278,7 +1209,8 @@ async function validateReport(reportArg, manifestArg) {
   requireHash(report.corpusManifestSha256, "corpusManifestSha256");
   if (report.corpusManifestSha256 !== loaded.manifestSha256) throw new Error("Report was reviewed against a different corpus manifest");
 
-  const current = await currentGenerationMetadata();
+  const profile = { backendId: report.backendId, modelId: report.modelId, reasoningEffort: report.reasoningEffort, approvalPolicy: report.approvalPolicy };
+  const current = await currentGenerationMetadata(profile);
   if (report.promptVersion !== current.promptVersion) throw new Error(`Report promptVersion is stale; current version is ${current.promptVersion}`);
   requireHash(report.promptSha256, "promptSha256");
   if (report.promptSha256 !== current.promptSha256) throw new Error("Report promptSha256 is stale; rerun quality review against the current prompt text");
@@ -1335,7 +1267,7 @@ async function validateReport(reportArg, manifestArg) {
     if (item.schemaValidation !== "pass" && item.schemaValidation !== "fail") {
       throw new Error(`${caseId}: schemaValidation must be pass or fail`);
     }
-    const finalArtifact = await readChapterArtifact(item.chapterArtifactPath, item.chapterArtifactSha256, `${caseId} chapter`, reportsDirectory, loaded.manifestPath, manifestCase, item.schemaValidation);
+    const finalArtifact = await readChapterArtifact(item.chapterArtifactPath, item.chapterArtifactSha256, `${caseId} chapter`, reportsDirectory, loaded.manifestPath, manifestCase, item.schemaValidation, profile);
     validateFactCoverage(item.factCoverage, manifestCase, finalArtifact, caseId, item.outcome);
     for (const category of item.failureCategories) {
       if (!allowedFailureCategories.has(category)) throw new Error(`${caseId}: unrecognized failure category ${category}`);
@@ -1359,9 +1291,9 @@ async function validateReport(reportArg, manifestArg) {
     const attemptArtifactPaths = new Set();
     const attemptArtifactDigests = new Set();
     for (const [attemptIndex, attempt] of item.attempts.entries()) {
-      exactKeys(attempt, ["label", "outcome", "schemaValidation", "modelId", "modelVersion", "requestFingerprint", "chapterArtifactPath", "chapterArtifactSha256", "failureCategories", "findings", "factCoverage", "rubric", "repairSummary"], `${caseId} attempt ${attemptIndex + 1}`);
-      if (attempt.modelId !== report.modelId || attempt.modelVersion !== report.modelVersion) {
-        throw new Error(`${caseId}: attempt ${attemptIndex + 1} model ID/version must match this benchmark batch`);
+      exactKeys(attempt, ["label", "outcome", "schemaValidation", "backendId", "reasoningEffort", "approvalPolicy", "modelId", "modelVersion", "requestFingerprint", "chapterArtifactPath", "chapterArtifactSha256", "failureCategories", "findings", "factCoverage", "rubric", "repairSummary"], `${caseId} attempt ${attemptIndex + 1}`);
+      if (attempt.backendId !== report.backendId || attempt.reasoningEffort !== report.reasoningEffort || attempt.approvalPolicy !== report.approvalPolicy || attempt.modelId !== report.modelId || attempt.modelVersion !== report.modelVersion) {
+        throw new Error(`${caseId}: attempt ${attemptIndex + 1} backend, agent settings and model ID/version must match this benchmark batch`);
       }
       requireHash(attempt.requestFingerprint, `${caseId} attempt ${attemptIndex + 1} requestFingerprint`);
       if (attempt.label !== (attemptIndex === 0 ? "initial" : "repaired") || !["pass", "fail"].includes(attempt.outcome)) {
@@ -1370,7 +1302,7 @@ async function validateReport(reportArg, manifestArg) {
       if (attempt.schemaValidation !== "pass" && attempt.schemaValidation !== "fail") {
         throw new Error(`${caseId}: attempt ${attemptIndex + 1} schemaValidation must be pass or fail`);
       }
-      const attemptArtifact = await readChapterArtifact(attempt.chapterArtifactPath, attempt.chapterArtifactSha256, `${caseId} attempt ${attemptIndex + 1}`, reportsDirectory, loaded.manifestPath, manifestCase, attempt.schemaValidation);
+      const attemptArtifact = await readChapterArtifact(attempt.chapterArtifactPath, attempt.chapterArtifactSha256, `${caseId} attempt ${attemptIndex + 1}`, reportsDirectory, loaded.manifestPath, manifestCase, attempt.schemaValidation, profile);
       validateFactCoverage(attempt.factCoverage, manifestCase, attemptArtifact, `${caseId} attempt ${attemptIndex + 1}`, attempt.outcome);
       if (attemptArtifactPaths.has(attempt.chapterArtifactPath) || attemptArtifactDigests.has(attempt.chapterArtifactSha256)) {
         throw new Error(`${caseId}: each attempt must preserve a new artifact path and distinct content digest`);
@@ -1469,7 +1401,11 @@ try {
   } else if (args.includes("--corpus")) {
     await validateCorpus(readOption(args, "--corpus", defaultManifest));
   } else if (args.includes("--metadata")) {
-    await printCurrentMetadata(readOption(args, "--metadata", defaultManifest));
+    const backendId = readOption(args, "--backend", "codex");
+    const modelId = readOption(args, "--model", backendId === "codex" ? "gpt-6-luna" : "");
+    await printCurrentMetadata(readOption(args, "--metadata", defaultManifest), {
+      backendId, modelId, reasoningEffort: backendId === "codex" ? "max" : null, approvalPolicy: backendId === "codex" ? "never" : null,
+    });
   } else {
     usage();
     process.exitCode = 2;

@@ -33,10 +33,16 @@ describe('offline chapter-quality corpus checker', () => {
     const result = spawnSync(process.execPath, [checker, '--metadata'], { cwd: root, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr || result.stdout);
     const metadata = JSON.parse(result.stdout);
-    assert.equal(metadata.responseSchemaVersion, 1);
+    assert.equal(metadata.responseSchemaVersion, 2);
+    assert.equal(metadata.backendId, 'codex');
+    assert.equal(metadata.modelId, 'gpt-6-luna');
+    assert.equal(metadata.reasoningEffort, 'max');
+    assert.equal(metadata.approvalPolicy, 'never');
+    assert.match(metadata.scope, /no model or account qualification/);
+    assert.match(metadata.nativeBuildSha256, /^[a-f0-9]{64}$/);
     assert.match(metadata.responseSchemaSha256, /^[a-f0-9]{64}$/);
     const reportTemplate = JSON.parse(await readFile(join(root, 'benchmarks/chapter-quality/review/REPORT_TEMPLATE.json'), 'utf8'));
-    assert.equal(reportTemplate.reportSchemaVersion, 4);
+    assert.equal(reportTemplate.reportSchemaVersion, 5);
     const rubric = await readFile(join(root, 'benchmarks/chapter-quality/review/RUBRIC.md'), 'utf8');
     assert.match(rubric, new RegExp(`report schema v${reportTemplate.reportSchemaVersion}`));
     assert.match(rubric, /response-schema version and SHA-256/);

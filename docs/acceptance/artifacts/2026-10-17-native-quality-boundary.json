@@ -1,0 +1,190 @@
+{
+  "schemaVersion": 1,
+  "kind": "offline-current-chapter-quality-boundary",
+  "scope": "mechanical source/schema validation and bounded native UI observations; no new LLM/agent generation or human teaching/listening acceptance",
+  "baseRevision": "71a56d9abcd26c63ab9692e40eb495b7be6a13da",
+  "sourceState": "tests ran on the working tree pinned below; verify pins against the eventual commit",
+  "sourceHashes": {
+    "src-tauri/build.rs": "2df0c2aea6e50645a5cdbf68b454828f3ad12d76be9d50e60777f1042c05d940",
+    "src-tauri/Cargo.toml": "130564ac787ecc259a9fd1fa0e26e0f214a7c20634a6e4cf85638a931326830b",
+    "src-tauri/Cargo.lock": "e67906193a17b35b6678fa674a9814e67e784360b88747d63c3a45c203d341ad",
+    "src-tauri/src/chapter_quality.rs": "2df3a81888fda26d325147f2870322e6936609805d73bff3c49d4b1e3770ad3e",
+    "src-tauri/src/bin/code-atlas-quality.rs": "6d1f6a7536ff1226c3154414670494bc14b783c9d5457c9d20c6d73f07e8ab62",
+    "src-tauri/src/lib.rs": "e391f5752da3022accd051b376bd62a22c8dce675483f75bbc9875ef8361d530",
+    "src-tauri/src/main.rs": "c4bf36c97674ec4c4a7bc7c7959020e3b941f55ea20df48b346d0c29e92972fa",
+    "src-tauri/src/provider.rs": "1836d0f2a3c6c0ed36e71b10f86186d8555958e5566066f14ea0d7af18eb1512",
+    "src-tauri/src/provider/visual_scenes.rs": "30003268314a93af759dfe76d6ff01698baf1fe81b053caa8604a7cb9c46e7bb",
+    "src-tauri/src/chapter_generation.rs": "d4994e434de43cc104af96189b2af07625050923fd76e63392030de335fadcbb",
+    "src-tauri/src/chapters.rs": "c8b136b9043c87cad4cb397e9ac2076f1d79d9357afbadde4f4d75e14de25490",
+    "src-tauri/src/scene_presentation.rs": "7e0ec5db03f2d4e6abddb7123e63cf9d7f5d35282931ac7223a64a6f7e76ee7c",
+    "scripts/check-chapter-quality.mjs": "7c22bb12c757b866905381c4558132abc706c646f1fe241db8ecb75da99d4885",
+    "scripts/lib/chapter-quality-native.mjs": "fc80d9ec2af9068300618ce615db09e6cc5c7124582f2b500678ea143177c744",
+    "package.json": "35d7957b8ace66ef280f6728c1a47c58db9d343f3cdf6a9c818b4fd902e8bf8d",
+    "tests/chapterQualityCorpus.test.mjs": "caccbb172b1a43e0adafbbb64ba15b103b628f3f8f702f015d9d53a580562bcf",
+    "tests/chapterQualityNative.test.mjs": "a50840b579e2373dd666f03b46d9814d663b856e18b5f921b7bb86a07e90c170",
+    "benchmarks/chapter-quality/review/REPORT_TEMPLATE.json": "e1050569ff9952eaa7791d658641a2259747558daeba0f6b52612dbbe216e2d8"
+  },
+  "compiledNativeBuildSha256": "7f3857b746b72d9be5fd0999e0252e3d15a869bd8a1fca4d912c9d56c93a3bcc",
+  "metadataArtifact": {
+    "path": "2026-10-17-native-quality-metadata.json",
+    "sha256": "643bacb701441497c152a3bc7f8ab4d9c69bc631ca0e161370aed424e9ae24b3"
+  },
+  "validation": {
+    "native": {
+      "passed": 410,
+      "failed": 0,
+      "explicitAccountProbesIgnored": 15,
+      "seconds": 39.86
+    },
+    "frontend": {
+      "passed": 190,
+      "failed": 0,
+      "seconds": 1.5145547910000001
+    },
+    "focusedNative": {
+      "passed": 6,
+      "failed": 0
+    },
+    "frontendBuild": true,
+    "historicalAuthoredFixtureUnchanged": true,
+    "fullCheck": true,
+    "clippy": {
+      "completed": true,
+      "warningsRemain": true,
+      "newQualityHelperWarnings": false
+    }
+  },
+  "preservedReplays": [
+    {
+      "artifact": "2026-10-17-fontdone-file-layout-v2.json",
+      "sha256": "6a9394c916de8fbc09218ef96e0f38294f440b3ed21949b5e0f8ef5a7d1add7b",
+      "nativeValid": true,
+      "sourceAnchors": 23,
+      "sectionsIncludingLimits": 4,
+      "humanQualityOrListeningPass": false
+    },
+    {
+      "artifact": "2026-10-17-fontdone-file-teaching-v2-rejected.json",
+      "sha256": "7d20fa0f9f686e7ea6bd8e94b879144c570b371649002e66b97b62d127f029ef",
+      "nativeValid": false,
+      "originalFiveLeafParentsPreserved": true
+    }
+  ],
+  "unsignedDebugApp": {
+    "binaryBytes": 149364528,
+    "binarySha256": "4de26acbc3122d703ec436346e90d90b1a3255de62571e372373d5c8e2d73586",
+    "binarySignatureIgnoreResources": true,
+    "developerId": false,
+    "notarized": false,
+    "installedAndOpened": true,
+    "previousBundleBackedUp": true,
+    "installedNativeMetadataBuildMatch": true
+  },
+  "nativeUi": {
+    "repository": "fontdone",
+    "snapshotHeadPrefix": "5249b72371",
+    "captureStatus": "partial",
+    "scene": "existing saved The PFR0 prefix dispatch; separate from replayed loca.rs artifact",
+    "sourceNavigation": {
+      "from": "src/lib.rs",
+      "to": "src/font.rs",
+      "selectedLines": [
+        4053,
+        4078
+      ],
+      "via": "PFR0 visual source control"
+    },
+    "nestedNavigation": {
+      "parentGuideRestored": true,
+      "parentSection": "2 / 3",
+      "parentOtherScene": "2 / 4",
+      "childFlowRestored": true,
+      "childAnswerStatus": "stopped"
+    },
+    "narrationPlayback": {
+      "statusObserved": "PLAYING",
+      "positionSeconds": 9.2,
+      "displayedDurationSeconds": 17,
+      "stopResetPosition": true,
+      "humanListeningOrComprehensionPass": false,
+      "finalBuildPlayback": {
+        "initialStatus": "PLAYING",
+        "endStatus": "PAUSED",
+        "endPositionSeconds": 17.9,
+        "displayedAtEnd": "00:17 / 00:17",
+        "humanListeningOrComprehensionPass": false
+      }
+    },
+    "fullAccessibilityAcceptance": false,
+    "finalBuildRestoredAndSourceNavigationRetested": true,
+    "finalBuildNestedNavigationRetested": true,
+    "previousUiCheckedBinarySha256": "3d2ca84c7d584ade1757262bf8575580e6f693267108627443cbd87dbb01e56e"
+  },
+  "failureHistory": [
+    "First build failed because the local sccache server could not start; subsequent builds used RUSTC_WRAPPER=.",
+    "An initial Node run was started before the desktop binary finished linking and timed out in an older desktop executable. A separate helper executable now prevents that UI fallback.",
+    "The next focused Node run rejected a fresh helper because the adapter used raw path ordering. Fixed to match Rust Path::Ord; subsequent focused and full suites passed.",
+    "Clippy found test-module placement in the new helper. Moved the test module after implementation and reran the complete check successfully; final source pins reflect the cleanup."
+  ],
+  "logs": {
+    "focusedNative": {
+      "path": "/private/tmp/code-atlas-quality-helper-unit.log",
+      "sha256": "ad25ca8380c2a1ef3ea9fcc274e9b4adada411f407e8b1c70a5aa558496a64fa"
+    },
+    "fullNative": {
+      "path": "/private/tmp/code-atlas-quality-native-rust-full.log",
+      "sha256": "b2324180ff3c2b2fed0d86ce6a0f4f7e87dbf54bf48933eb0cf144a81b5a141b"
+    },
+    "fullFrontend": {
+      "path": "/private/tmp/code-atlas-quality-native-node-complete.log",
+      "sha256": "23ebf80920c700fc7fb18fc5235077c4f3c5831b2cf932db1fac27c33726ce0e"
+    },
+    "frontendBuild": {
+      "path": "/private/tmp/code-atlas-quality-native-frontend.log",
+      "sha256": "f470128d3241f6231aecf54b6481d091283c24fc62fcaea1426dc1c646e1e4db"
+    },
+    "unsignedAppBundle": {
+      "path": "/private/tmp/code-atlas-quality-native-app-bundle.log",
+      "sha256": "947824c6ef5112cebea7590c6dbd01d6cc2167f3f99fdc1dcf46e343c79945ee"
+    },
+    "initialBuildCacheFailure": {
+      "path": "/private/tmp/code-atlas-quality-helper-check.log",
+      "sha256": "9917bc6684f68e89a44d648ea89f0f4886b41a278bf21282195a865476995bb3"
+    },
+    "initialPrelinkNodeFailure": {
+      "path": "/private/tmp/code-atlas-quality-native-node.log",
+      "sha256": "3edd4d17488d1f74442ddeb5313b44856199c5396f05f9b3f7d0111137a5bef0"
+    },
+    "pathOrderingFailure": {
+      "path": "/private/tmp/code-atlas-quality-native-node-final.log",
+      "sha256": "7c7859412612a058ed8d078cc2bd830a500e94ec73e9cf6535fc6f357487f00c"
+    },
+    "correctedFocusedNode": {
+      "path": "/private/tmp/code-atlas-quality-native-node-order-fix.log",
+      "sha256": "29697bfbe419eb66718f7ac0e1900777197884620139826fa1e574f559c39446"
+    },
+    "finalFullCheck": {
+      "path": "/private/tmp/code-atlas-quality-native-final-check.log",
+      "sha256": "7a830da032724aa502dc16f6ae163a7fd720559e2d911bc0c72e829fd9e469c8"
+    },
+    "finalClippy": {
+      "path": "/private/tmp/code-atlas-quality-native-clippy-final.log",
+      "sha256": "f6f4c61b043b8724b35e67529c190450c008baa3a7f77eb9cecd542cf5987857"
+    },
+    "finalUnsignedAppBundle": {
+      "path": "/private/tmp/code-atlas-quality-native-app-bundle-final.log",
+      "sha256": "aac830f87d3ce03fd73ae7509a7358d44c15fa2504b4b688a4a6ba43a9aee32b"
+    }
+  },
+  "pending": [
+    "Captured real request-review and index identity binding per attempt",
+    "Complete generated representative corpus with separately generated repairs",
+    "Human semantic, visual and narration review",
+    "Whole-repository timing/completeness",
+    "Pocket human listening and comprehension",
+    "Complete native accessibility/release acceptance"
+  ],
+  "acceptedNewRevision": false,
+  "humanQualityOrListeningPass": false,
+  "newLlmOrAgentCalls": 0
+}
