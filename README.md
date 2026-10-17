@@ -34,7 +34,7 @@ These are capabilities under development, not a finished or released product. **
 - [Product blueprint](docs/PRODUCT_BLUEPRINT.md) — intended user journey, file coverage, trust rules, and release gates.
 - [Interaction contract](docs/INTERACTION_CONTRACT.md) — controls, navigation destinations, side effects, and acceptance walkthrough.
 - [Technical plan](docs/TECHNICAL_PLAN.md) — implemented architecture notes and clearly marked future boundaries.
-- [Repository indexing and context research](docs/research/2026-10-17-repository-context-and-indexing.md) — industry approaches, confirmed Fontdone limits and the proposed retrieval architecture; implementation remains pending.
+- [Repository indexing and context research](docs/research/2026-10-17-repository-context-and-indexing.md) — twelve product/toolkit approaches, reusable indexing options and the proposed retrieval architecture; native range retrieval is measured, while agent retrieval and complete guides remain pending.
 - [Chapter schema](docs/CHAPTER_SCHEMA.md) — persisted chapter format, evidence validation, visuals, and revisions.
 - [Provider disclosures](docs/PROVIDER_DISCLOSURES.md) — direct APIs, the initial Codex account route, local Pocket narration, and optional Gemini speech.
 - [Chapter quality gate](docs/CHAPTER_QUALITY_GATE.md) — synthetic corpus and human-reviewed release report workflow.

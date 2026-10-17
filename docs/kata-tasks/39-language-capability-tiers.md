@@ -43,6 +43,12 @@ Advertising all languages from an LLM's general ability to read text, runtime gu
 ## Done evidence
 Dated capability matrix, source-linked fixture outputs and human-reviewed narratives; acceptance remains pending until authorized validation.
 
+## Reuse evaluation from the industry review — 17 October
+
+Before expanding custom semantic resolution, compare Serena's LSP-backed symbol/reference tools and revision-matched SCIP imports with the current native syntax/text fallback. See the [updated research](../research/2026-10-17-repository-context-and-indexing.md). This does not reopen the completed narrow lexical-shadowing correction or imply either adapter is installed.
+
+Record a concrete adapter decision with: pinned component and language-server versions; supported operations and missing-language behaviour; cold/warm startup and memory; required toolchains/build configuration; captured-snapshot versus live-file access; source/hash verification; read-only tool filtering; cancellation/deadlines; and packaging/licence requirements. Qualify representative Rust, TypeScript, Python/Go candidates and a mixed-language boundary only as implemented. The current Serena project declares separate MIT SolidLSP and GPL application components; do not rely on historical blanket licence descriptions. Missing dependencies or unavailable precise navigation must preserve useful text search and honest unresolved labels. This checkpoint adds no installed adapter or broad language-support claim.
+
 ## Scope of recorded validation — 2026-10-16 audit
 
 The dated validation counts above are historical records, not a new run against the current checkout. No tests or builds ran during this audit. They do not qualify the later chapter-version-4, agent-runtime, narration, packaged-app or complete language/narrative changes. Current release acceptance remains governed by the open parent/capability tasks and the deferred cases in `xymb`.

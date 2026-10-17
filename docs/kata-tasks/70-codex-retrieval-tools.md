@@ -41,3 +41,9 @@ Research and contracts only; no capability/runtime acceptance claim. The current
 ## Retrieval foundation checkpoint — 17 October
 
 Native search/read/cancel commands now exist; see the [measured limitations](../acceptance/2026-10-17-range-retrieval.md). Broad single-query lexical retrieval found only 2/12 expected declarations. Named global retrieval missed FFI/C adapter declarations that file-scoped search recovered. The owned agent must inspect the module map, vary queries/scopes and follow validated relationships without asking the reader to select references. This is not implemented or enabled in Codex yet. `a699` remains the open prerequisite; retain the existing account/model constraints and qualify the complete evidence ledger before transmission.
+
+## Expanded industry review — 17 October
+
+Reuse Codex's existing agent loop and standard MCP integration. The app adapter currently supplies evidence and forbids tools; having an index on disk does not give that agent access to it. The implementation must demonstrate actual search/read/refinement calls and a grounded answer in the existing account-backed runtime. MCP initialization, a valid output schema or a filename-selector result does not satisfy that outcome.
+
+Treat external context products as adapter candidates: Serena offers reusable LSP-backed navigation; Sourcebot offers a separately deployed multi-repo context service. Neither is a default dependency for this task. A candidate must fit the same snapshot, bounded read-only, cancellation and evidence-validation contract. Its advertised support for Codex is not proof that our integration works. Keep Claude deferred and avoid adding another agent framework or requiring a separate API connection.

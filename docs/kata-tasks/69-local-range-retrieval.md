@@ -46,3 +46,9 @@ Remaining acceptance work:
 - Actual packaged local search without AI and the complete acceptance matrix. Codex's current whole-file selector is unchanged.
 
 Kata `a699`, parent `0wdn` and dependent `gk46` remain open. The [earlier broad explanation failure](../acceptance/2026-10-17-fontdone.md) is not resolved by this search checkpoint.
+
+## Expanded industry review — 17 October
+
+The updated [research](../research/2026-10-17-repository-context-and-indexing.md) distinguishes persistent ranked text search, exact regex/substring search, syntax metadata and precise language intelligence. Cursor's local regex indexing, Sourcegraph's search/navigation loop and Aider's compact map reinforce the need for several bounded operations; a vector database is not a prerequisite.
+
+Retain the existing Tantivy/ripgrep/Tree-sitter foundation. Compare scoped/query-refined and relationship-guided retrieval against the frozen twelve-span Fontdone set before choosing another engine. If repeated scans become a measured bottleneck, evaluate existing Zoekt tooling rather than building a custom trigram index. Preserve one local context contract so a later qualified LSP/SCIP adapter can add precise links without replacing captured-text fallback. No new backend, runtime acceptance or task closure is established by this review.
