@@ -66,9 +66,79 @@ fn candidate(corrected: bool) -> crate::codex_agent::CodexRunResult {
         model: "gpt-6-luna".into(), effort: "max".into(),
         response_text: json!({"sections":[{"claims":[{
             "prose":if corrected {"greeting formats a message."} else {"The helper formats a message."},
-            "identifiers":["greeting"],"evidence":[{"quote":"export function greeting(name: string)"}]
+            "identifiers":["greeting"],"evidence":[{"path":SIMPLE_PATH,"quote":"export function greeting(name: string)"}]
         }]}]}).to_string(),
     }
+}
+
+#[test]
+fn quote_only_failure_gets_the_same_single_correction_and_no_new_context() {
+    let f = Fixture::new();
+    let mut s = investigated(&f);
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let fingerprint = "d".repeat(64);
+    let mut initial = candidate(true);
+    initial.turn_id = "first".into();
+    // An otherwise aligned quote changes source whitespace, reproducing the
+    // Fontdone failure without accepting a normalized version of the source.
+    initial.response_text = initial
+        .response_text
+        .replace("export function", "export  function");
+    assert!(
+        crate::claim_alignment::diagnostics(&initial.response_text)
+            .unwrap()
+            .is_empty()
+    );
+    let issues = s
+        .candidate_diagnostics(&initial, &cancelled)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        issues,
+        json!([{"location":"/sections/0/claims/0/evidence/0","quoteProblem":"quoteNotExact"}])
+            .as_array()
+            .unwrap()
+            .to_vec()
+    );
+    s.capture_candidate(&fingerprint, &initial, 1, &cancelled)
+        .unwrap();
+    let records = fs::read_dir(f.storage.join("rejected-explanations"))
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(records.len(), 1);
+    let saved: Value = serde_json::from_slice(&fs::read(records[0].path()).unwrap()).unwrap();
+    assert_eq!(
+        saved["candidates"][0]["responseText"],
+        initial.response_text
+    );
+    let before = serde_json::to_value(s.ledger.admitted_ranges()).unwrap();
+    s.begin_correction(&cancelled).unwrap();
+    let corrected = candidate(true);
+    s.capture_candidate(&fingerprint, &corrected, 2, &cancelled)
+        .unwrap();
+    assert!(
+        s.candidate_diagnostics(&corrected, &cancelled)
+            .unwrap()
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        before,
+        serde_json::to_value(s.ledger.admitted_ranges()).unwrap()
+    );
+    assert!(s.begin_correction(&cancelled).is_err());
+    assert!(
+        s.event(
+            &event(
+                "extra",
+                "list_modules",
+                &json!({"scope":null,"limit":4,"offset":0})
+            ),
+            false
+        )
+        .is_err()
+    );
 }
 
 #[test]

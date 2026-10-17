@@ -112,3 +112,13 @@ The complete native suite passed **286 tests** with eleven explicit probes ignor
 The first synthetic probe reached correction but failed independent section-content validation; its test prompt omitted the production prompt's prose/narration requirements. Its [separate failure](../acceptance/artifacts/2026-10-17-codex-owned-correction-incomplete-test-prompt.json) is preserved. The test now saves failures and candidates before temporary-fixture cleanup. No production source or validator was weakened to make the corrected synthetic case pass. The successful second probe had no concurrent build; these small synthetic timings are not a Fontdone speed benchmark.
 
 The broad Fontdone failure remains a failed historical run. It has not been replayed to obtain this correction evidence. Full broad narrative, attached-function, useful partial, semantic/speech, lifecycle and packaged-generation matrices stay open. The updated debug bundle was installed to qualify saved-reading navigation separately; it is not a signed release or proof of a complete production-ready guide.
+
+
+## Exact-quote correction checkpoint — 17 October
+
+The first attached `Font::memory_face` investigation delivered 29 calls and 69,653 distinct source bytes from three paths, including the 375,700-byte `font.rs`. It completed two turns in the same conversation in 391.557 seconds, then failed exact-source admission. The model moved `is` across a comment line break in one 937-byte quote; the identifier-only correction preserved that error. Both exact candidates and positional identifier findings are [preserved](../acceptance/artifacts/2026-10-17-fontdone-agent-memory-face.json); no preview was published.
+
+- [x] Diagnose exact claim-quote length, uniqueness and delivered-range coverage before the same single owned correction. Share matching rules with final admission; send fixed problem codes/JSON positions without source; keep correction tools frozen and the original limits/owner. Deterministic native regressions cover the observed comment reflow, source-only correction, unread/ambiguous/UTF-8 passages and cancellation. The full native suite passes 294 tests (11 explicit probes ignored).
+- [ ] Qualify the changed policy with the deliberate frozen Fontdone attached-function retest, then independently review its actual implementation facts, visuals and spoken script. The first failed sample is not a quality pass or a latency comparison.
+
+[Failure, timing boundaries and package evidence](../acceptance/2026-10-17-fontdone-quotes-and-tool-timing.md). This advances preflight recovery only; broad explanation quality, packaged generation, retention controls, persistent exploration conversations and the complete ownership/Stop/restart matrices remain open.

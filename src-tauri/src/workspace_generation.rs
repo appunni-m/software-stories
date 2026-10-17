@@ -88,7 +88,7 @@ fn request(
     let schema = provider::workspace_retrieval_schema();
     let contract=serde_json::to_vec(&json!({"contractVersion":"codex-retrieval-v1","runId":input.run_id,"projectId":input.project_id,"snapshotId":input.snapshot_id,
         "grantId":input.grant_id,"model":input.model_id,"effort":input.effort,"systemInstructions":INSTRUCTIONS,"prompt":prompt,"outputSchema":schema,"tools":context_mcp::TOOL_NAMES,
-        "claimAlignmentPolicy":"single-owned-correction-no-new-context-v1"})).map_err(|_|"The question contract could not be encoded.")?;
+        "claimAlignmentPolicy":"single-owned-correction-exact-quotes-v2"})).map_err(|_|"The question contract could not be encoded.")?;
     if contract.len() > 32000 {
         return Err("The question and references exceed the initial request limit.".into());
     }

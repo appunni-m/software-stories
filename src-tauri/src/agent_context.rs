@@ -583,7 +583,8 @@ impl Session {
         {
             return Err("The candidate does not own this investigation step.".into());
         }
-        let invalid = crate::claim_alignment::diagnostics(&response.response_text)
+        let invalid = self
+            .candidate_diagnostics(response, cancelled)?
             .is_some_and(|issues| !issues.is_empty());
         if invalid || ordinal == 2 {
             self.ledger
@@ -603,17 +604,50 @@ impl Session {
             &self.manifest.summary.snapshot_id,
         )?;
         self.ledger.check(&fresh, &self.runtime, cancelled)?;
+        let initial = self
+            .candidate
+            .as_ref()
+            .filter(|c| c.0 == 1)
+            .ok_or("Only one correction may follow the initial candidate.")?;
         if self.correction_only
-            || !self.candidate.as_ref().is_some_and(|c| {
-                c.0 == 1
-                    && crate::claim_alignment::diagnostics(&c.1.response_text)
-                        .is_some_and(|issues| !issues.is_empty())
-            })
+            || !self
+                .candidate_diagnostics(&initial.1, cancelled)?
+                .is_some_and(|issues| !issues.is_empty())
         {
             return Err("Only one correction may follow the initial candidate.".into());
         }
         self.correction_only = true;
         Ok(())
+    }
+
+    pub(crate) fn candidate_diagnostics(
+        &self,
+        response: &crate::codex_agent::CodexRunResult,
+        cancelled: &AtomicBool,
+    ) -> Result<Option<Vec<Value>>, String> {
+        self.check_complete()?;
+        let fresh = snapshot::load_snapshot_manifest(
+            &self.storage,
+            &self.manifest.summary.project_id,
+            &self.manifest.summary.snapshot_id,
+        )?;
+        self.ledger.check(&fresh, &self.runtime, cancelled)?;
+        let Some(mut issues) = crate::claim_alignment::diagnostics(&response.response_text) else {
+            return Ok(None);
+        };
+        if let Some(quotes) = self.ledger.quote_diagnostics(
+            &response.response_text,
+            &fresh,
+            &self.runtime,
+            cancelled,
+        )? {
+            // Quote problems go first so large lexical issue sets cannot hide
+            // a bad source passage within the bounded correction feedback.
+            let mut all = quotes;
+            all.append(&mut issues);
+            return Ok(Some(all));
+        }
+        Ok(Some(issues))
     }
 
     /// Called only by the manager-owned publication callback on rejection.

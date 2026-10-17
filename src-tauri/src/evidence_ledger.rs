@@ -27,6 +27,9 @@ const MAX_RESPONSE: usize = 128_000;
 const MAX_FRAGMENTS: usize = 512;
 const MAX_JOURNAL: usize = 1_000_000;
 const DEADLINE: Duration = Duration::from_secs(600);
+// An operation has a ten-minute deadline. Permit slow teardown beyond that
+// deadline, while refusing corrupt diagnostic offsets on inspection.
+const MAX_CONTEXT_ELAPSED_MS: u64 = 86_400_000;
 // Keep enough metadata/wire room to answer every remaining admitted call with
 // a source-free limit notice, even if several calls were already in flight.
 const MAX_LIMIT_NOTICE: usize = 1536;
@@ -178,6 +181,23 @@ struct Evidence {
     range: context::CodeRange,
 }
 
+/// Native tool timing only. This clock starts after the ledger is created,
+/// before syntax loading, excluding earlier renderer queue/account preparation. It cannot
+/// identify time spent reasoning, awaiting the provider or rendering an answer.
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+enum ContextClock {
+    CapturedCodeSessionV1,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CallTiming {
+    started_ms: u64,
+    prepared_ms: Option<u64>,
+    finished_ms: Option<u64>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Call {
@@ -192,6 +212,8 @@ struct Call {
     payload_sha256: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     budget_stop: Option<LimitReason>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    timing: Option<CallTiming>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -212,6 +234,8 @@ pub(crate) struct Record {
     status: Status,
     calls: Vec<Call>,
     evidence: Vec<Evidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    context_clock: Option<ContextClock>,
 }
 
 /// A token owns exactly one started attempt; callers cannot forge an ordinal.
@@ -224,6 +248,7 @@ pub(crate) struct Ledger {
     path: PathBuf,
     record: Record,
     deadline: Instant,
+    context_started: Instant,
 }
 
 #[derive(Serialize)]
@@ -335,6 +360,7 @@ impl Ledger {
             status: Status::Active,
             calls: vec![],
             evidence: vec![],
+            context_clock: Some(ContextClock::CapturedCodeSessionV1),
         };
         codex_agent::ensure_private_directory(
             path.parent().ok_or("Evidence storage is unavailable.")?,
@@ -342,11 +368,13 @@ impl Ledger {
         codex_agent::create_private_file(&path, &encode(&record)?).map_err(|_| {
             "A fresh evidence record could not be created. No context was sent.".to_owned()
         })?;
+        let context_started = Instant::now();
         Ok(Self {
             storage: storage.to_owned(),
             path,
             record,
-            deadline: Instant::now() + DEADLINE,
+            deadline: context_started + DEADLINE,
+            context_started,
         })
     }
 
@@ -418,9 +446,20 @@ impl Ledger {
             wire_bytes: 0,
             payload_sha256: None,
             budget_stop: None,
+            timing: Some(CallTiming {
+                started_ms: self.context_elapsed_ms(),
+                prepared_ms: None,
+                finished_ms: None,
+            }),
         });
         self.save(next)?;
         Ok(CallToken { id })
+    }
+
+    fn context_elapsed_ms(&self) -> u64 {
+        // An in-memory Instant cannot be resumed after process exit. Persisted
+        // values describe this operation only; restart never reissues its calls.
+        u64::try_from(self.context_started.elapsed().as_millis()).unwrap_or(u64::MAX)
     }
 
     fn pending(&self, token: &CallToken, tool: Tool) -> Result<(), String> {
@@ -754,6 +793,9 @@ impl Ledger {
                 .last_mut()
                 .ok_or("The context call is unavailable.")?;
             call.state = CallState::Prepared;
+            if let Some(timing) = &mut call.timing {
+                timing.prepared_ms = Some(self.context_elapsed_ms());
+            }
             call.budget_stop = response.budget_stop;
             call.evidence_ids = response.already_available.clone();
             for fragment in response.added {
@@ -779,6 +821,9 @@ impl Ledger {
                     let mut next = self.record.clone();
                     if let Some(call) = next.calls.last_mut() {
                         call.state = CallState::Rejected;
+                        if let Some(timing) = &mut call.timing {
+                            timing.finished_ms = Some(self.context_elapsed_ms());
+                        }
                     }
                     self.save(next)?;
                 }
@@ -797,6 +842,9 @@ impl Ledger {
         let mut delivered = self.record.clone();
         if let Some(call) = delivered.calls.last_mut() {
             call.state = CallState::Delivered;
+            if let Some(timing) = &mut call.timing {
+                timing.finished_ms = Some(self.context_elapsed_ms());
+            }
         }
         if let Err(error) = self.save(delivered) {
             self.interrupt();
@@ -806,10 +854,14 @@ impl Ledger {
     }
 
     fn interrupt(&mut self) {
+        let finished_ms = self.context_elapsed_ms();
         self.record.status = Status::Interrupted;
         if let Some(call) = self.record.calls.last_mut() {
             if matches!(call.state, CallState::Started | CallState::Prepared) {
                 call.state = CallState::Uncertain;
+                if let Some(timing) = &mut call.timing {
+                    timing.finished_ms = Some(finished_ms);
+                }
             }
         }
         // A durable Prepared record is already enough to prevent replay on restart.
@@ -938,6 +990,45 @@ impl Ledger {
             .collect()
     }
 
+    /// Check exact quotes locally before the one correction. Complete captured
+    /// files stay in this process; feedback contains only bounded JSON positions
+    /// and fixed problem codes. This does not admit a revision or new context.
+    pub(crate) fn quote_diagnostics(
+        &self,
+        response: &str,
+        manifest: &snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        cancelled: &AtomicBool,
+    ) -> Result<Option<Vec<serde_json::Value>>, String> {
+        let sources = self.validation_sources(manifest, runtime, cancelled)?;
+        let sources: HashMap<_, _> = sources.iter().map(|s| (s.path.as_str(), s)).collect();
+        let ranges = self.admitted_ranges();
+        let issues = crate::claim_alignment::quote_diagnostics(response, |path, quote| {
+            let Some(source) = sources.get(path) else {
+                return Some("pathNotAdmitted");
+            };
+            let start = match crate::chapter_generation::exact_quote_start(&source.contents, quote)
+            {
+                Ok(start) => start,
+                Err(crate::chapter_generation::QuoteProblem::Length) => return Some("quoteLength"),
+                Err(crate::chapter_generation::QuoteProblem::Missing) => {
+                    return Some("quoteNotExact");
+                }
+                Err(crate::chapter_generation::QuoteProblem::Ambiguous) => {
+                    return Some("quoteAmbiguous");
+                }
+            };
+            let covered = ranges
+                .iter()
+                .filter(|r| r.path == path && r.source_sha256 == source.sha256)
+                .map(|r| (r.start_byte, r.end_byte))
+                .collect();
+            (!gaps(start, start + quote.len(), covered).is_empty()).then_some("quoteNotAdmitted")
+        });
+        self.check(manifest, runtime, cancelled)?;
+        Ok(issues)
+    }
+
     pub(crate) fn admitted_ranges(&self) -> Vec<context::CodeRange> {
         self.record
             .evidence
@@ -1026,6 +1117,51 @@ fn gaps(start: usize, end: usize, mut intervals: Vec<(usize, usize)>) -> Vec<(us
     result
 }
 
+fn valid_context_timings(record: &Record) -> bool {
+    // Legacy ledgers predate this clock. Missing data remains unknown rather
+    // than becoming a zero-duration measurement. New records require every call.
+    let Some(ContextClock::CapturedCodeSessionV1) = record.context_clock else {
+        return record.calls.iter().all(|call| call.timing.is_none());
+    };
+    let mut prior_finish = 0;
+    for call in &record.calls {
+        let Some(timing) = &call.timing else {
+            return false;
+        };
+        if timing.started_ms < prior_finish
+            || [
+                Some(timing.started_ms),
+                timing.prepared_ms,
+                timing.finished_ms,
+            ]
+            .into_iter()
+            .flatten()
+            .any(|elapsed| elapsed > MAX_CONTEXT_ELAPSED_MS)
+            || timing
+                .prepared_ms
+                .is_some_and(|prepared| prepared < timing.started_ms)
+            || timing
+                .finished_ms
+                .is_some_and(|finished| finished < timing.prepared_ms.unwrap_or(timing.started_ms))
+            || match call.state {
+                CallState::Started => timing.prepared_ms.is_some() || timing.finished_ms.is_some(),
+                CallState::Prepared => timing.prepared_ms.is_none() || timing.finished_ms.is_some(),
+                CallState::Delivered => {
+                    timing.prepared_ms.is_none() || timing.finished_ms.is_none()
+                }
+                CallState::Rejected => timing.prepared_ms.is_some() || timing.finished_ms.is_none(),
+                CallState::Uncertain => timing.finished_ms.is_none(),
+            }
+        {
+            return false;
+        }
+        prior_finish = timing
+            .finished_ms
+            .unwrap_or(timing.prepared_ms.unwrap_or(timing.started_ms));
+    }
+    true
+}
+
 /// Reads metadata for inspection only. No constructor can resume this record.
 pub(crate) fn inspect(storage: &Path, operation_id: &str) -> Result<Record, String> {
     let path = path(storage, operation_id)?;
@@ -1039,6 +1175,7 @@ pub(crate) fn inspect(storage: &Path, operation_id: &str) -> Result<Record, Stri
     let record: Record = serde_json::from_slice(&bytes)
         .map_err(|_| "Evidence accounting is damaged; the original record was preserved.")?;
     if record.schema_version != 1
+        || !valid_context_timings(&record)
         || record.policy != POLICY
         || record.binding.operation_id != operation_id
         || record.calls.len() > MAX_CALLS

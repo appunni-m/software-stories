@@ -1211,10 +1211,19 @@ impl ServerProcess {
                 .map_err(|_| "Captured-code tools are unavailable.")?
                 .capture_candidate(fingerprint, &initial, 1, cancelled)?;
         }
-        let response = crate::claim_alignment::correct_once(
+        let response = crate::claim_alignment::correct_once_checked(
             input.repair_claim_alignment,
             initial,
-            |response| &response.response_text,
+            |response| {
+                if let Some(retrieval) = &input.retrieval {
+                    retrieval
+                        .lock()
+                        .map_err(|_| "Captured-code tools are unavailable.")?
+                        .candidate_diagnostics(response, cancelled)
+                } else {
+                    Ok(crate::claim_alignment::diagnostics(&response.response_text))
+                }
+            },
             |prompt| {
                 before_correction(self)?;
                 if let Some(retrieval) = &input.retrieval {

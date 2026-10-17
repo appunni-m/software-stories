@@ -46,3 +46,11 @@ The owned-tool investigation exposed repeated local hashing of the 246 MB instal
 Full monotonic stage tracing, bounded export/restart behavior, controlled repeated Fontdone questions and the two-minute first-admitted-answer gate remain open.
 
 The fourth broad agent investigation took 125.603 seconds in native generation and 127.82 seconds for the full test. It delivered 52 calls, read 47,986 distinct code bytes, consumed 239,661 metadata bytes, and then failed a search matcher without producing an answer. [Preserved result](../acceptance/artifacts/2026-10-17-fontdone-agent-broad-search-terms.json). Earlier transport failures and the old 606-second stopped attempt remain in the record. This is one failed sample with a changed integration, not a speedup measurement, percentile, or two-minute useful-answer pass.
+
+
+## Native tool boundary checkpoint — 17 October
+
+- [x] Add a named monotonic clock and start/prepared/finish offsets to newly persisted native retrieval calls. Record rejected and uncertain calls, preserve legacy missing values as unknown, and validate event order/state on inspection. Deterministic regressions cover successful/rejected/uncertain calls, restart inspection, invalid clock/missing/backwards/overlapping offsets and source-free records.
+- [ ] Complete the full stable job/turn trace contract above: queue, connection/index preparation, inference/correction, validation, publication, first useful answer, export/retention and restart reconciliation. Call-level offsets alone cannot attribute gaps to provider/model reasoning.
+
+The first attached `memory-face` sample ended after 391.557 seconds without a validated answer because one exact source quote was reflowed. It delivered 29 calls, 69,653 source bytes and 63,143 metadata bytes. Its old ledger has no native call timings, so none were reconstructed. This is one failed sample and fails the two-minute useful-answer target. [Exact candidates and counters](../acceptance/artifacts/2026-10-17-fontdone-agent-memory-face.json), [measurement boundaries](../acceptance/2026-10-17-fontdone-quotes-and-tool-timing.md). The new retest records the new native timing fields; repeated cold/warm comparisons remain pending.

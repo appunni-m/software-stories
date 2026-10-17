@@ -65,6 +65,206 @@ fn read(
     .unwrap();
     result
 }
+
+#[test]
+fn quote_diagnostics_check_exact_unique_admitted_utf8_without_transmitting_source() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    read(&mut l, &f, &r, &c, &[request(&f, 0, 40)]);
+    let before = serde_json::to_value(&l.record).unwrap();
+    for (path, quote, expected) in [
+        (
+            SIMPLE_PATH,
+            "// greeting formats UTF-8 text such as café.",
+            Some("quoteNotAdmitted"),
+        ),
+        (
+            SIMPLE_PATH,
+            "export function greeting(name: string)",
+            Some("quoteNotAdmitted"),
+        ),
+        (
+            SIMPLE_PATH,
+            "export  function greeting(name: string)",
+            Some("quoteNotExact"),
+        ),
+        (SIMPLE_PATH, "// marker repeats.", Some("quoteAmbiguous")),
+        (SIMPLE_PATH, "aaaaaaaa", Some("quoteAmbiguous")),
+        (SIMPLE_PATH, "greet", Some("quoteLength")),
+        (
+            "src/unread.ts",
+            "export function greeting(name: string)",
+            Some("pathNotAdmitted"),
+        ),
+        (SIMPLE_PATH, "// greeting formats UTF-8 text", None),
+    ] {
+        let response =
+            json!({"sections":[{"claims":[{"evidence":[{"path":path,"quote":quote}]}]}]})
+                .to_string();
+        let issues = l
+            .quote_diagnostics(&response, &f.manifest, &r, &c)
+            .unwrap()
+            .unwrap();
+        assert_eq!(issues.len(), usize::from(expected.is_some()), "{quote}");
+        if let Some(code) = expected {
+            assert_eq!(issues[0]["quoteProblem"], code);
+            assert_eq!(issues[0]["location"], "/sections/0/claims/0/evidence/0");
+            let encoded = serde_json::to_string(&issues).unwrap();
+            assert!(!encoded.contains(quote));
+            assert!(!encoded.contains(path));
+        }
+    }
+    assert_eq!(before, serde_json::to_value(&l.record).unwrap());
+    // Adjacent delivered fragments cover a quote without widening the grant.
+    read(&mut l, &f, &r, &c, &[request(&f, 40, SIMPLE_SOURCE.len())]);
+    let valid = json!({"sections":[{"claims":[{"evidence":[{"path":SIMPLE_PATH,
+        "quote":"// greeting formats UTF-8 text such as café."}]}]}]})
+    .to_string();
+    assert!(
+        l.quote_diagnostics(&valid, &f.manifest, &r, &c)
+            .unwrap()
+            .unwrap()
+            .is_empty()
+    );
+    c.store(true, Ordering::Relaxed);
+    assert!(l.quote_diagnostics(&valid, &f.manifest, &r, &c).is_err());
+}
+
+#[test]
+fn tool_timings_are_monotonic_source_free_and_survive_restart() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    read(&mut l, &f, &r, &c, &[request(&f, 0, 20)]);
+    read(&mut l, &f, &r, &c, &[request(&f, 20, 40)]);
+    let operation = l.record.binding.operation_id.clone();
+    let mut previous = 0;
+    for call in &l.record.calls {
+        let t = call.timing.as_ref().unwrap();
+        assert!(t.started_ms >= previous);
+        assert!(t.prepared_ms.unwrap() >= t.started_ms);
+        assert!(t.finished_ms.unwrap() >= t.prepared_ms.unwrap());
+        previous = t.finished_ms.unwrap();
+    }
+    assert!(
+        !fs::read_to_string(&l.path)
+            .unwrap()
+            .contains("export function greeting")
+    );
+    drop(l);
+    let saved = inspect(&f.storage, &operation).unwrap();
+    assert_eq!(
+        saved.context_clock,
+        Some(ContextClock::CapturedCodeSessionV1)
+    );
+    assert_eq!(saved.calls.len(), 2);
+    assert_eq!(
+        saved
+            .calls
+            .last()
+            .unwrap()
+            .timing
+            .as_ref()
+            .unwrap()
+            .finished_ms,
+        Some(previous)
+    );
+}
+
+#[test]
+fn rejected_uncertain_and_interrupted_tools_record_their_terminal_boundary() {
+    for fault in ["rejected", "uncertain", "interrupted"] {
+        let f = Fixture::new();
+        let (mut l, r, c) = setup(&f);
+        let operation = l.record.binding.operation_id.clone();
+        let token = l
+            .begin_call(Tool::Read, &"c".repeat(64), &f.manifest, &r, &c)
+            .unwrap();
+        if fault != "interrupted" {
+            let mut range = request(&f, 0, 20);
+            if fault == "rejected" {
+                // Out-of-bounds ranges produce a delivered readError reply.
+                // A forbidden path instead fails before transport preparation.
+                range.path = "../live.ts".into();
+            }
+            assert!(
+                l.deliver(
+                    token,
+                    Context::Read {},
+                    &[range],
+                    &f.manifest,
+                    &r,
+                    &c,
+                    |_| Err("transport failed".into())
+                )
+                .is_err()
+            );
+        }
+        drop(l);
+        let saved = inspect(&f.storage, &operation).unwrap();
+        let call = &saved.calls[0];
+        let timing = call.timing.as_ref().unwrap();
+        assert!(timing.finished_ms.is_some(), "{fault}");
+        assert_eq!(timing.prepared_ms.is_some(), fault == "uncertain");
+        assert_eq!(
+            call.state,
+            if fault == "rejected" {
+                CallState::Rejected
+            } else {
+                CallState::Uncertain
+            }
+        );
+    }
+}
+
+#[test]
+fn legacy_unknown_timings_remain_unknown_and_impossible_new_timelines_are_rejected() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    read(&mut l, &f, &r, &c, &[request(&f, 0, 20)]);
+    read(&mut l, &f, &r, &c, &[request(&f, 20, 40)]);
+    let mut original = serde_json::to_value(&l.record).unwrap();
+    // Fixed synthetic times exercise ordering independently of machine speed.
+    original["calls"][0]["timing"] = json!({"startedMs":1,"preparedMs":2,"finishedMs":3});
+    original["calls"][1]["timing"] = json!({"startedMs":5,"preparedMs":6,"finishedMs":7});
+    for fault in [
+        "clock",
+        "missing",
+        "backwards",
+        "unfinished",
+        "unprepared",
+        "bound",
+        "overlap",
+    ] {
+        let mut bad = original.clone();
+        match fault {
+            "clock" => bad["contextClock"] = json!("unknownClock"),
+            "missing" => {
+                bad["calls"][0].as_object_mut().unwrap().remove("timing");
+            }
+            "backwards" => bad["calls"][0]["timing"]["finishedMs"] = json!(0),
+            "unfinished" => bad["calls"][0]["timing"]["finishedMs"] = Value::Null,
+            "unprepared" => bad["calls"][0]["timing"]["preparedMs"] = Value::Null,
+            "bound" => bad["calls"][1]["timing"]["finishedMs"] = json!(86_400_001u64),
+            "overlap" => bad["calls"][1]["timing"]["startedMs"] = json!(2),
+            _ => unreachable!(),
+        }
+        fs::write(&l.path, serde_json::to_vec(&bad).unwrap()).unwrap();
+        assert!(
+            inspect(&f.storage, &l.record.binding.operation_id).is_err(),
+            "{fault}"
+        );
+    }
+    let mut legacy = original;
+    legacy.as_object_mut().unwrap().remove("contextClock");
+    for call in legacy["calls"].as_array_mut().unwrap() {
+        call.as_object_mut().unwrap().remove("timing");
+    }
+    fs::write(&l.path, serde_json::to_vec(&legacy).unwrap()).unwrap();
+    let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+    assert!(saved.context_clock.is_none());
+    assert!(saved.calls.iter().all(|call| call.timing.is_none()));
+    assert_eq!(serde_json::to_value(saved).unwrap(), legacy);
+}
 #[test]
 fn replies_report_capacity_after_their_own_cost() {
     let f = Fixture::new();

@@ -136,14 +136,30 @@ fn codex_owned_correction_probe() {
         manager.resume_connection(&f.storage)?;
         let runtime = manager.review_runtime(&f.storage)?;
         let operation = Uuid::new_v4().to_string();
-        let grant = workspace::save_retrieval_grant(&f.storage, &f.manifest.summary.project_id,
-            &f.manifest.summary.snapshot_id, &runtime)?;
-        let session = Arc::new(Mutex::new(agent_context::Session::new(&f.storage, &operation,
-            f.manifest.clone(), &runtime, &grant, RepositoryContextJobs::default())?));
-        let file = f.manifest.files.iter().find(|file|file.path == SIMPLE_PATH).unwrap();
+        let grant = workspace::save_retrieval_grant(
+            &f.storage,
+            &f.manifest.summary.project_id,
+            &f.manifest.summary.snapshot_id,
+            &runtime,
+        )?;
+        let session = Arc::new(Mutex::new(agent_context::Session::new(
+            &f.storage,
+            &operation,
+            f.manifest.clone(),
+            &runtime,
+            &grant,
+            RepositoryContextJobs::default(),
+        )?));
+        let file = f
+            .manifest
+            .files
+            .iter()
+            .find(|file| file.path == SIMPLE_PATH)
+            .unwrap();
         let prompt = json!({"question":"How does greeting format its result?",
             "startingPoint":{"path":SIMPLE_PATH,"sourceSha256":file.sha256,
-                "startByte":0,"endByte":file.size_bytes}}).to_string();
+                "startByte":0,"endByte":file.size_bytes}})
+        .to_string();
         assert!(!prompt.contains("export function"));
         let fingerprint = context::digest(prompt.as_bytes());
         let corrections = AtomicUsize::new(0);
@@ -189,29 +205,47 @@ fn codex_owned_correction_probe() {
         });
         // Preserve failed synthetic output before Fixture cleans its temporary
         // storage. Normal diagnostics never export private source/candidates.
-        let error = match &outcome {Err(error)=>Some(error.clone()),Ok(Err(error))=>Some(error.clone()),_=>None};
+        let error = match &outcome {
+            Err(error) => Some(error.clone()),
+            Ok(Err(error)) => Some(error.clone()),
+            _ => None,
+        };
         let recovered = crate::evidence_ledger::attempts::inspect(&f.storage, &operation).ok();
-        let record = crate::evidence_ledger::inspect(&f.storage, &operation).ok()
-            .map(|record|serde_json::to_value(record).unwrap());
+        let record = crate::evidence_ledger::inspect(&f.storage, &operation)
+            .ok()
+            .map(|record| serde_json::to_value(record).unwrap());
         let artifact = json!({"fixture":"public synthetic greeting; not user source", "operationId":operation,
             "model":"gpt-6-luna","effort":"max","elapsedMs":started.elapsed().as_millis(),
             "corrections":corrections.load(Ordering::Relaxed),"error":error,
             "candidates":recovered.map(|saved|saved.candidates),"calls":record.as_ref().map(|r|&r["calls"]),
             "revision":outcome.as_ref().ok().and_then(|r|r.as_ref().ok())});
-        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../docs/acceptance/artifacts/2026-10-17-codex-owned-correction.json");
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../docs/acceptance/artifacts/2026-10-17-codex-owned-correction.json");
         std::fs::write(path, serde_json::to_vec_pretty(&artifact).unwrap()).unwrap();
         let _revision = outcome??;
-        assert_eq!(corrections.load(Ordering::Relaxed), 1, "must exercise exactly one correction");
+        assert_eq!(
+            corrections.load(Ordering::Relaxed),
+            1,
+            "must exercise exactly one correction"
+        );
         let saved = crate::evidence_ledger::attempts::inspect(&f.storage, &operation)?;
         assert_eq!(saved.candidates.len(), 2);
         assert!(!saved.candidates[0].alignment_issues.is_empty());
         assert!(saved.candidates[1].alignment_issues.is_empty());
         assert_eq!(saved.candidates[0].thread_id, saved.candidates[1].thread_id);
         assert_ne!(saved.candidates[0].turn_id, saved.candidates[1].turn_id);
-        let ledger = serde_json::to_value(crate::evidence_ledger::inspect(&f.storage, &operation)?).unwrap();
-        assert_eq!(ledger["calls"].as_array().unwrap().len(), 1, "correction cannot request new context");
+        let ledger =
+            serde_json::to_value(crate::evidence_ledger::inspect(&f.storage, &operation)?).unwrap();
+        assert_eq!(
+            ledger["calls"].as_array().unwrap().len(),
+            1,
+            "correction cannot request new context"
+        );
         assert_eq!(ledger["status"], "complete");
-        println!("OWNED_CORRECTION_RESULT {}", json!({"operationId":operation,"corrections":1,"sourceCalls":1}));
+        println!(
+            "OWNED_CORRECTION_RESULT {}",
+            json!({"operationId":operation,"corrections":1,"sourceCalls":1})
+        );
         Ok(())
     })();
     manager.shutdown();
@@ -222,6 +256,7 @@ fn codex_owned_correction_probe() {
 #[test]
 #[ignore = "Existing-account GPT-6 Luna/max Fontdone investigation; consumes account quota and requires its saved snapshot."]
 fn fontdone_codex_retrieval_probe() {
+    use std::io::Write;
     let storage = std::path::PathBuf::from(
         std::env::var("CODE_ATLAS_FONTDONE_DATA_DIR").expect("set CODE_ATLAS_FONTDONE_DATA_DIR"),
     );
@@ -246,6 +281,29 @@ fn fontdone_codex_retrieval_probe() {
         ),
         _ => panic!("unknown Fontdone case"),
     };
+    let tag = std::env::var("CODE_ATLAS_FONTDONE_ARTIFACT_TAG").unwrap_or_default();
+    assert!(
+        tag.len() <= 48
+            && tag
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-'),
+        "use a short lowercase artifact tag"
+    );
+    let suffix = if tag.is_empty() {
+        String::new()
+    } else {
+        format!("-{tag}")
+    };
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
+        "../docs/acceptance/artifacts/2026-10-17-fontdone-agent-{case}{suffix}.json"
+    ));
+    // Reserve before using account quota. An existing observation is immutable,
+    // even if the later request fails or another probe starts concurrently.
+    let mut artifact_file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)
+        .expect("artifact exists: choose a fresh CODE_ATLAS_FONTDONE_ARTIFACT_TAG");
     let manifest = snapshot::load_snapshot_manifest(
         &storage,
         "/Users/lazytrot/work/fontdone",
@@ -296,11 +354,16 @@ fn fontdone_codex_retrieval_probe() {
     let ledger = crate::evidence_ledger::inspect(&storage, &input.run_id)
         .map(|r| serde_json::to_value(r).unwrap())
         .unwrap_or(Value::Null);
-    let artifact = json!({"case":case,"question":question,"projectId":input.project_id,"snapshotId":input.snapshot_id,"runId":input.run_id,"model":"gpt-6-luna","effort":"max","elapsedMs":started.elapsed().as_millis(),"phases":phases.into_inner().unwrap(),"status":ledger["status"],"calls":ledger["calls"],"evidence":ledger["evidence"],"preview":result.as_ref().ok(),"error":result.as_ref().err()});
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
-        "../docs/acceptance/artifacts/2026-10-17-fontdone-agent-{case}.json"
-    ));
-    std::fs::write(&path, serde_json::to_vec_pretty(&artifact).unwrap()).unwrap();
+    // This explicit public-source acceptance exports failed candidates for
+    // review. Production diagnostics remain source-free.
+    let rejected = crate::evidence_ledger::attempts::inspect(&storage, &input.run_id)
+        .ok()
+        .map(|saved| saved.candidates);
+    let artifact = json!({"case":case,"question":question,"projectId":input.project_id,"snapshotId":input.snapshot_id,"runId":input.run_id,"model":"gpt-6-luna","effort":"max","elapsedMs":started.elapsed().as_millis(),"phases":phases.into_inner().unwrap(),"status":ledger["status"],"calls":ledger["calls"],"evidence":ledger["evidence"],"rejectedCandidates":rejected,"preview":result.as_ref().ok(),"error":result.as_ref().err()});
+    artifact_file
+        .write_all(&serde_json::to_vec_pretty(&artifact).unwrap())
+        .unwrap();
+    artifact_file.sync_all().unwrap();
     println!("FONTDONE_AGENT_ARTIFACT {}", path.display());
     manager.shutdown();
     let preview = result.unwrap();

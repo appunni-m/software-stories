@@ -1451,6 +1451,27 @@ fn validate_aspect(aspect: &str, has_relationships: bool) -> Result<(), String> 
     Ok(())
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum QuoteProblem {
+    Length,
+    Missing,
+    Ambiguous,
+}
+
+/// Shared by correction diagnostics and final admission. No whitespace or
+/// Unicode normalization is permitted, and overlapping matches are ambiguous.
+pub(crate) fn exact_quote_start(source: &str, quote: &str) -> Result<usize, QuoteProblem> {
+    if !(8..=1_000).contains(&quote.len()) || quote.trim().is_empty() {
+        return Err(QuoteProblem::Length);
+    }
+    let start = source.find(quote).ok_or(QuoteProblem::Missing)?;
+    let after_first_start = start + quote.chars().next().map_or(0, char::len_utf8);
+    if source[after_first_start..].contains(quote) {
+        return Err(QuoteProblem::Ambiguous);
+    }
+    Ok(start)
+}
+
 fn build_anchors(
     prose: &str,
     identifiers: &[String],
@@ -1512,23 +1533,20 @@ fn build_anchors(
             "A cited source was not loaded from the selected snapshot.".to_owned()
         })?;
         let quote = item.quote.as_str();
-        if !(8..=1_000).contains(&quote.len()) || quote.trim().is_empty() {
-            return Err("An evidence quote must contain 8 to 1,000 exact source bytes.".to_owned());
-        }
-        let Some(start) = source.contents.find(quote) else {
-            return Err(format!(
-                "The cited quote for '{}' is not present in the captured source.",
-                item.path
-            ));
-        };
-        // Advance by one character so overlapping occurrences are ambiguous too.
-        let after_first_start = start + quote.chars().next().map_or(0, char::len_utf8);
-        if source.contents[after_first_start..].contains(quote) {
-            return Err(format!(
-                "The cited quote for '{}' appears more than once and is ambiguous.",
-                item.path
-            ));
-        }
+        let start =
+            exact_quote_start(&source.contents, quote).map_err(|problem| match problem {
+                QuoteProblem::Length => {
+                    "An evidence quote must contain 8 to 1,000 exact source bytes.".to_owned()
+                }
+                QuoteProblem::Missing => format!(
+                    "The cited quote for '{}' is not present in the captured source.",
+                    item.path
+                ),
+                QuoteProblem::Ambiguous => format!(
+                    "The cited quote for '{}' appears more than once and is ambiguous.",
+                    item.path
+                ),
+            })?;
         if Some(item.path.as_str()) == target_path {
             target_anchored = true;
         }
@@ -1842,6 +1860,25 @@ pub(crate) mod tests {
     const SIMPLE_FUNCTION: &str =
         "function greeting(name: string): string {\n    return `Hello, ${name}`;\n}";
     pub(crate) const SIMPLE_SOURCE: &str = "// greeting formats UTF-8 text such as café.\nexport function greeting(name: string): string {\n    return `Hello, ${name}`;\n}\n// marker repeats.\n// marker repeats.\nconst overlapping = \"aaaaaaaaa\";\n";
+
+    #[test]
+    fn exact_quote_check_rejects_the_fontdone_comment_reflow_instead_of_normalizing_it() {
+        let captured = "// Its unknown-format result is\n// the final face-open error.\nmatch Self::winfnt_face(data) {";
+        let reflowed = "// Its unknown-format result\n// is the final face-open error.\nmatch Self::winfnt_face(data) {";
+        assert_eq!(
+            exact_quote_start(captured, reflowed),
+            Err(QuoteProblem::Missing)
+        );
+        assert_eq!(exact_quote_start(captured, captured), Ok(0));
+        assert_eq!(
+            exact_quote_start("aaaaaaaaa", "aaaaaaaa"),
+            Err(QuoteProblem::Ambiguous)
+        );
+        assert_eq!(
+            exact_quote_start("// café\nfn greeting() {}", "fn greeting() {}"),
+            Ok("// café\n".len())
+        );
+    }
 
     #[test]
     fn visual_references_resolve_only_to_validated_section_claim_anchors() {
