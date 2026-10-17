@@ -8,6 +8,7 @@ use std::sync::Mutex;
 
 pub(crate) const MAX_PROPOSAL_BYTES: usize = 32_768;
 pub(crate) const PROPOSAL_VERSION: &str = "answerSectionV2";
+pub(crate) const SCENE_PROPOSAL_VERSION: &str = "answerSectionV3";
 const LEGACY_PROPOSAL_VERSION: &str = "answerSectionV1";
 const CURRENT_CHECKPOINT_VERSION: u32 = 4;
 const MAX_SECTIONS: usize = 6;
@@ -18,6 +19,7 @@ const MAX_DIRECTORY_ENTRIES: usize = 32;
 static STORE: Mutex<()> = Mutex::new(());
 
 pub(crate) mod reading;
+pub(crate) mod authoring;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
