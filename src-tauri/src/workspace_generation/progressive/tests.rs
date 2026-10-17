@@ -161,8 +161,14 @@ fn codex_progressive_account_probe() {
 fn fontdone_progressive_account_probe() {
     use std::io::Write;
     super::super::tests::require_live_context_helper();
-    let storage = std::path::PathBuf::from(std::env::var_os("CODE_ATLAS_FONTDONE_DATA_DIR").expect("set isolated CODE_ATLAS_FONTDONE_DATA_DIR"));
-    let output = std::path::PathBuf::from(std::env::var_os("CODE_ATLAS_PROGRESSIVE_PROBE_OUTPUT").expect("set fresh CODE_ATLAS_PROGRESSIVE_PROBE_OUTPUT"));
+    let storage = std::path::PathBuf::from(
+        std::env::var_os("CODE_ATLAS_FONTDONE_DATA_DIR")
+            .expect("set isolated CODE_ATLAS_FONTDONE_DATA_DIR"),
+    );
+    let output = std::path::PathBuf::from(
+        std::env::var_os("CODE_ATLAS_PROGRESSIVE_PROBE_OUTPUT")
+            .expect("set fresh CODE_ATLAS_PROGRESSIVE_PROBE_OUTPUT"),
+    );
     assert!(storage.is_absolute() && output.is_absolute());
     let mut artifact = std::fs::OpenOptions::new().write(true).create_new(true).open(&output).expect("never overwrite an earlier attempt");
     let project = "/Users/lazytrot/work/fontdone";
@@ -183,19 +189,49 @@ fn fontdone_progressive_account_probe() {
     let saved_storage = storage.clone();
     let result = run(&storage, input.clone(), &manager, RepositoryContextJobs::default(),
         &recovery::InterruptionJournal::default(),
-        |p| println!("FONTDONE_PROGRESSIVE_PHASE {} {}", p.phase, started.elapsed().as_millis()),
+        |p| {
+            println!(
+                "FONTDONE_PROGRESSIVE_PHASE {} {}",
+                p.phase,
+                started.elapsed().as_millis()
+            )
+        },
         Arc::new(move |notice| {
-            let saved = reading::adopt(&saved_storage, &notice.run_id, project, snapshot_id, &notice.generation_id);
-            println!("FONTDONE_SECTION {} {}", notice.order, started.elapsed().as_millis());
-            observed.lock().unwrap().push(json!({"notice":notice,"readyElapsedMs":started.elapsed().as_millis(),
-                "savedRevisionId":saved.as_ref().ok().map(|r|&r.revision_id),"error":saved.err()}));
-        }));
-    let answer = sections::inspect(&storage, &input.run_id).ok().map(|a| serde_json::to_value(a).unwrap());
-    let ledger = crate::evidence_ledger::inspect(&storage, &input.run_id).ok().map(|l| serde_json::to_value(l).unwrap());
+            let saved = reading::adopt(
+                &saved_storage,
+                &notice.run_id,
+                project,
+                snapshot_id,
+                &notice.generation_id,
+            );
+            println!(
+                "FONTDONE_SECTION {} {}",
+                notice.order,
+                started.elapsed().as_millis()
+            );
+            observed.lock().unwrap().push(
+                json!({"notice":notice,"readyElapsedMs":started.elapsed().as_millis(),
+                "savedRevisionId":saved.as_ref().ok().map(|r|&r.revision_id),"error":saved.err()}),
+            );
+        }),
+    );
+    let answer = sections::inspect(&storage, &input.run_id)
+        .ok()
+        .map(|a| serde_json::to_value(a).unwrap());
+    let ledger = crate::evidence_ledger::inspect(&storage, &input.run_id)
+        .ok()
+        .map(|l| serde_json::to_value(l).unwrap());
     let record = json!({"fixture":"Frozen user-selected Fontdone snapshot; isolated app storage, no accepted chapter decisions",
         "sourceRevision":std::env::var("CODE_ATLAS_QUALIFICATION_REVISION").ok(),"operationId":input.run_id,
         "evidenceLedgerSourceSha256":context::digest(include_bytes!("../../evidence_ledger.rs")),
         "probeSourceSha256":context::digest(include_bytes!("tests.rs")),
+        "implementationSourceSha256":{
+            "nativeCitations":context::digest(include_bytes!("../../native_citations.rs")),
+            "answerSections":context::digest(include_bytes!("../../evidence_ledger/sections.rs")),
+            "contextCatalog":context::digest(include_bytes!("../../context_mcp.rs")),
+            "progressiveRequest":context::digest(include_bytes!("../progressive.rs")),
+            "ownedContext":context::digest(include_bytes!("../../agent_context.rs"))
+        },
         "model":"gpt-6-luna","effort":"max","question":input.question,
         "snapshotSummary":manifest.summary,"totalElapsedMs":started.elapsed().as_millis(),
         "result":result.as_ref().ok(),"error":result.as_ref().err(),"answer":answer,"ledger":ledger,

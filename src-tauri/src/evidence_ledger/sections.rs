@@ -7,7 +7,8 @@ use serde_json::{Value, json};
 use std::sync::Mutex;
 
 pub(crate) const MAX_PROPOSAL_BYTES: usize = 32_768;
-pub(crate) const PROPOSAL_VERSION: &str = "answerSectionV1";
+pub(crate) const PROPOSAL_VERSION: &str = "answerSectionV2";
+const LEGACY_PROPOSAL_VERSION: &str = "answerSectionV1";
 const CURRENT_CHECKPOINT_VERSION: u32 = 2;
 const MAX_SECTIONS: usize = 6;
 const MAX_ATTEMPTS: usize = 8;
@@ -254,8 +255,13 @@ fn wrapped(proposal: &Proposal) -> Result<String, String> {
         "spokenText".into(),
         json!("Presentation is derived from the anchored claims."),
     );
+    let citation_version = if proposal.proposal_version == PROPOSAL_VERSION {
+        native_citations::SHORT_VERSION
+    } else {
+        native_citations::VERSION
+    };
     serde_json::to_string(
-        &json!({"citationVersion":native_citations::VERSION,"title":title,"sections":[section]}),
+        &json!({"citationVersion":citation_version,"title":title,"sections":[section]}),
     )
     .map_err(|_| "The section could not be encoded.".into())
 }
@@ -342,13 +348,18 @@ fn visual_shape_findings(section: &Value) -> Vec<Value> {
     let Some(visual) = section.get("visual").and_then(Value::as_object) else {
         return vec![json!({"location":"/section/visual","code":"visualField"})];
     };
-    ["kind", "title", "direction", "nodes", "edges"].into_iter().filter_map(|field| {
-        let valid = visual.get(field).is_some_and(|value| match field {
-            "nodes" | "edges" => value.is_array(),
-            _ => value.is_string(),
-        });
-        (!valid).then(|| json!({"location":format!("/section/visual/{field}"),"code":"visualField"}))
-    }).collect()
+    ["kind", "title", "direction", "nodes", "edges"]
+        .into_iter()
+        .filter_map(|field| {
+            let valid = visual.get(field).is_some_and(|value| match field {
+                "nodes" | "edges" => value.is_array(),
+                _ => value.is_string(),
+            });
+            (!valid).then(
+                || json!({"location":format!("/section/visual/{field}"),"code":"visualField"}),
+            )
+        })
+        .collect()
 }
 
 /// Diagnose a known scene failure only after native admission has rejected it.
@@ -440,7 +451,7 @@ impl Ledger {
         let _guard = STORE.lock().map_err(|_| "Answer storage is unavailable.")?;
         check_capacity(path.parent().ok_or("Answer storage is unavailable.")?)?;
         let value = Answer {
-            schema_version: 1,
+            schema_version: 2,
             binding: self.record.binding.clone(),
             request_sha256: request_sha256.into(),
             question: question.into(),
@@ -457,6 +468,14 @@ impl Ledger {
 }
 
 impl Answer {
+    fn proposal_version(&self) -> &'static str {
+        if self.schema_version == 2 {
+            PROPOSAL_VERSION
+        } else {
+            LEGACY_PROPOSAL_VERSION
+        }
+    }
+
     fn unresolved_proposals(&self) -> bool {
         self.attempts.iter().enumerate().any(|(i, attempt)| {
             if attempt.findings.is_empty() {
@@ -591,7 +610,14 @@ impl ActiveAnswer {
         runtime: &CodexReviewRuntime,
         cancelled: &AtomicBool,
     ) -> Result<PreparedSection, String> {
-        self.prepare_with_checkpoint_version(ledger, arguments, manifest, runtime, cancelled, CURRENT_CHECKPOINT_VERSION)
+        self.prepare_with_checkpoint_version(
+            ledger,
+            arguments,
+            manifest,
+            runtime,
+            cancelled,
+            CURRENT_CHECKPOINT_VERSION,
+        )
     }
 
     fn prepare_with_checkpoint_version(
@@ -629,7 +655,7 @@ impl ActiveAnswer {
         if let Some(proposal) = parsed.and_then(|v| serde_json::from_value::<Proposal>(v).ok()) {
             if !valid_key(&proposal.section_key) {
                 findings = vec![json!({"location":"/sectionKey","code":"sectionKeyFormat"})];
-            } else if proposal.proposal_version == PROPOSAL_VERSION
+            } else if proposal.proposal_version == self.value.proposal_version()
                 && proposal.order < MAX_SECTIONS
             {
                 let prior = self
@@ -932,7 +958,7 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
             .map_err(|_| "Invalid saved answer".to_owned())
             .and_then(|v| serde_json::from_value(v).map_err(|_| "Invalid saved answer".to_owned()))
             .map_err(|_| "The saved answer is damaged; it was preserved.")?;
-    if value.schema_version != 1
+    if !matches!(value.schema_version, 1 | 2)
         || value.binding.operation_id != operation
         || !value.binding.runtime.valid_shape()
         || value.binding.model != "gpt-6-luna"
@@ -1074,7 +1100,7 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
             .ok_or("The section has no owned proposal.")?;
         let proposal: Proposal = serde_json::from_str(&attempt.arguments)
             .map_err(|_| "The published proposal is damaged.")?;
-        if proposal.proposal_version != PROPOSAL_VERSION
+        if proposal.proposal_version != value.proposal_version()
             || proposal.section_key != section.key
             || proposal.order != section.order
             || proposal.previous_generation_id != section.supersedes
@@ -1090,7 +1116,7 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
             .collect::<Result<Vec<_>, _>>()?;
         let sources_by_path: HashMap<_, _> = sources.iter().map(|s| (s.path.as_str(), s)).collect();
         let mut citations = HashMap::new();
-        for evidence in &checkpoint.evidence {
+        for (index, evidence) in checkpoint.evidence.iter().enumerate() {
             if !checkpoint
                 .calls
                 .iter()
@@ -1106,10 +1132,11 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
                 .get(evidence.range.start_byte..evidence.range.end_byte)
                 .is_some_and(native_citations::citeable)
             {
-                citations.insert(
-                    evidence.id.as_str(),
-                    native_citations::Citation::checked(&evidence.range, source)?,
-                );
+                let citation = native_citations::Citation::checked(&evidence.range, source)?;
+                citations.insert(evidence.id.clone(), citation.clone());
+                if value.schema_version == 2 {
+                    citations.insert(native_citations::short_reference(index), citation);
+                }
             }
         }
         let resolved = match native_citations::resolve(&wrapped(&proposal)?, |id| {

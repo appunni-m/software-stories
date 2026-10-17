@@ -89,6 +89,10 @@ pub(crate) fn tools_for(progressive: bool) -> Vec<Tool> {
     if !progressive {
         return catalog;
     }
+    // Keep historical five-tool descriptions/schemas unchanged. Only this
+    // explicit mode advertises the operation-local short citation transport.
+    catalog.iter_mut().find(|tool| tool.name == "read_code").unwrap().description = Some(
+        "Read one to eight captured UTF-8 byte ranges, end exclusive, at most 32768 bytes each. Copy path, sourceSha256, startByte and endByte exactly from search or definitions. readError returns no code: correct the request or refine the search. Returns new fragments of at most 1000 bytes with referenceId such as code:1, original contents, range and citeable. Cite only citeable:true fragments using evidence:{referenceId:fragment.referenceId}. Copy the short referenceId exactly; the longer id is native integrity metadata, not the citation field. reusedReferences lists stable referenceId values for already delivered fragments. Each reference names the entire exact fragment in this investigation. Never invent an ID, copy source into the answer or cite discovery results. Short/blank fragments are not citeable; the full file stays local.".into());
     let mut section =
         crate::provider::workspace_retrieval_schema()["properties"]["sections"]["items"].clone();
     if let Some(properties) = section["properties"].as_object_mut() {
@@ -97,7 +101,10 @@ pub(crate) fn tools_for(progressive: bool) -> Vec<Tool> {
         properties.get_mut("claims").unwrap()["maxItems"] = json!(8);
     }
     section["required"] = json!(["title", "claims", "visual"]);
-    section["properties"]["visual"]["properties"]["presentation"] = crate::scene_presentation::proposal_schema();
+    section["properties"]["claims"]["items"]["properties"]["evidence"]["items"]["properties"]["referenceId"]
+        ["pattern"] = json!("^code:[1-9][0-9]{0,2}$");
+    section["properties"]["visual"]["properties"]["presentation"] =
+        crate::scene_presentation::proposal_schema();
     let schema = json!({"type":"object","additionalProperties":false,"properties":{
         "proposalVersion":{"type":"string","enum":[crate::evidence_ledger::sections::PROPOSAL_VERSION]},
         "sectionKey":{"type":"string","minLength":1,"maxLength":80,"pattern":"^[a-z0-9-]+$"},
@@ -129,23 +136,27 @@ pub(crate) fn write_packet(
 }
 pub(crate) fn read_packet(reader: &mut impl Read, limit: usize) -> Result<Vec<u8>, String> {
     let mut size = [0; 4];
-    reader
-        .read_exact(&mut size)
-        .map_err(|_| "The context transport disconnected.")?;
+    reader.read_exact(&mut size).map_err(packet_read_failure)?;
     let size = u32::from_be_bytes(size) as usize;
     if size == 0 || size > limit {
         return Err("The context packet exceeds its limit.".into());
     }
     let mut bytes = vec![0; size];
-    reader
-        .read_exact(&mut bytes)
-        .map_err(|_| "The context transport disconnected.")?;
+    reader.read_exact(&mut bytes).map_err(packet_read_failure)?;
     Ok(bytes)
 }
 
+fn packet_read_failure(error: std::io::Error) -> &'static str {
+    match error.kind() {
+        std::io::ErrorKind::TimedOut => "The code context packet timed out.",
+        std::io::ErrorKind::UnexpectedEof => "The context peer closed an incomplete packet.",
+        _ => "The context transport disconnected.",
+    }
+}
+
 /// A single deadline covers the complete native packet, including partial
-/// reads/writes. Per-syscall socket timeouts alone allow a slow peer to extend
-/// the operation indefinitely. Short waits also keep Stop responsive.
+/// reads/writes. Nonblocking I/O with short waits keeps Stop responsive and
+/// does not require setsockopt on a peer that may have closed with queued data.
 #[cfg(unix)]
 struct OwnerIo<'a> {
     stream: &'a mut std::os::unix::net::UnixStream,
@@ -174,18 +185,12 @@ impl OwnerIo<'_> {
 impl Read for OwnerIo<'_> {
     fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
         loop {
-            self.stream.set_read_timeout(Some(self.remaining()?))?;
+            self.remaining()?;
             match self.stream.read(bytes) {
-                Err(e)
-                    if matches!(
-                        e.kind(),
-                        std::io::ErrorKind::WouldBlock
-                            | std::io::ErrorKind::TimedOut
-                            | std::io::ErrorKind::Interrupted
-                    ) =>
-                {
-                    continue;
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(self.remaining()?);
                 }
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
                 result => return result,
             }
         }
@@ -195,18 +200,12 @@ impl Read for OwnerIo<'_> {
 impl Write for OwnerIo<'_> {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
         loop {
-            self.stream.set_write_timeout(Some(self.remaining()?))?;
+            self.remaining()?;
             match self.stream.write(bytes) {
-                Err(e)
-                    if matches!(
-                        e.kind(),
-                        std::io::ErrorKind::WouldBlock
-                            | std::io::ErrorKind::TimedOut
-                            | std::io::ErrorKind::Interrupted
-                    ) =>
-                {
-                    continue;
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(self.remaining()?);
                 }
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
                 result => return result,
             }
         }
@@ -229,6 +228,9 @@ pub(crate) fn read_owner_packet_for(
     cancelled: &std::sync::atomic::AtomicBool,
     progressive: bool,
 ) -> Result<Vec<u8>, String> {
+    stream
+        .set_nonblocking(true)
+        .map_err(|_| "The context transport could not use nonblocking I/O.")?;
     read_packet(
         &mut OwnerIo {
             stream,
@@ -248,6 +250,9 @@ pub(crate) fn write_owner_packet(
     bytes: &[u8],
     cancelled: &std::sync::atomic::AtomicBool,
 ) -> Result<(), String> {
+    stream
+        .set_nonblocking(true)
+        .map_err(|_| "The context transport could not use nonblocking I/O.")?;
     write_packet(
         &mut OwnerIo {
             stream,
@@ -403,6 +408,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn packet_read_errors_report_only_fixed_timeout_eof_or_transport_messages() {
+        assert_eq!(
+            packet_read_failure(std::io::Error::from(std::io::ErrorKind::TimedOut)),
+            "The code context packet timed out."
+        );
+        assert_eq!(
+            packet_read_failure(std::io::Error::from(std::io::ErrorKind::UnexpectedEof)),
+            "The context peer closed an incomplete packet."
+        );
+        assert_eq!(
+            packet_read_failure(std::io::Error::other("private native error text")),
+            "The context transport disconnected."
+        );
+        assert_eq!(
+            read_packet(&mut std::io::Cursor::new([0, 0]), MAX_INPUT).unwrap_err(),
+            "The context peer closed an incomplete packet."
+        );
+    }
+
+    #[test]
     fn progressive_catalog_extends_only_the_explicit_versioned_mode() {
         let legacy = tools();
         let progressive = tools_for(true);
@@ -411,10 +436,22 @@ mod tests {
             serde_json::to_value(&legacy).unwrap()
         );
         assert_eq!(progressive.len(), 6);
-        assert_eq!(
-            serde_json::to_value(&progressive[..5]).unwrap(),
-            serde_json::to_value(legacy).unwrap()
-        );
+        for (old, new) in legacy.iter().zip(&progressive[..5]) {
+            if old.name == "read_code" {
+                assert_eq!(old.input_schema, new.input_schema);
+                assert!(
+                    new.description
+                        .as_deref()
+                        .unwrap()
+                        .contains("reusedReferences")
+                );
+            } else {
+                assert_eq!(
+                    serde_json::to_value(old).unwrap(),
+                    serde_json::to_value(new).unwrap()
+                );
+            }
+        }
         let proposal = &progressive[5];
         assert_eq!(proposal.name, PROPOSAL_TOOL);
         assert_eq!(
@@ -434,25 +471,71 @@ mod tests {
                 ["referenceId"]["type"],
             "string"
         );
+        assert_eq!(
+            section["properties"]["claims"]["items"]["properties"]["evidence"]["items"]["properties"]
+                ["referenceId"]["pattern"],
+            "^code:[1-9][0-9]{0,2}$"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_complete_queued_packet_survives_the_peer_closing_before_the_read() {
+        use std::{os::unix::net::UnixStream, sync::atomic::AtomicBool};
+        let (mut owner, mut peer) = UnixStream::pair().unwrap();
+        write_packet(&mut peer, b"complete packet", MAX_INPUT).unwrap();
+        drop(peer);
+        assert_eq!(
+            read_owner_packet(&mut owner, &AtomicBool::new(false)).unwrap(),
+            b"complete packet"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_closed_peer_does_not_make_truncated_or_cancelled_packets_valid() {
+        use std::{os::unix::net::UnixStream, sync::atomic::AtomicBool};
+        let (mut owner, mut peer) = UnixStream::pair().unwrap();
+        peer.write_all(&20u32.to_be_bytes()).unwrap();
+        peer.write_all(b"truncated").unwrap();
+        drop(peer);
+        assert_eq!(
+            read_owner_packet(&mut owner, &AtomicBool::new(false)).unwrap_err(),
+            "The context peer closed an incomplete packet."
+        );
+
+        let (mut owner, mut peer) = UnixStream::pair().unwrap();
+        write_packet(&mut peer, b"complete packet", MAX_INPUT).unwrap();
+        drop(peer);
+        assert!(read_owner_packet(&mut owner, &AtomicBool::new(true)).is_err());
     }
 
     #[cfg(unix)]
     #[test]
     fn only_the_explicit_progressive_packet_reader_allows_the_larger_envelope() {
-        use std::{os::unix::net::UnixStream, sync::atomic::AtomicBool, thread};
-        for progressive in [false, true] {
-            let payload = vec![b'x'; MAX_INPUT + 1];
-            let (mut owner, mut peer) = UnixStream::pair().unwrap();
-            let worker =
-                thread::spawn(move || write_packet(&mut peer, &payload, MAX_PROGRESSIVE_INPUT));
-            let result = read_owner_packet_for(&mut owner, &AtomicBool::new(false), progressive);
-            if progressive {
-                assert_eq!(result.unwrap().len(), MAX_INPUT + 1);
-            } else {
-                assert!(result.is_err());
+        use std::{os::unix::net::UnixStream, sync::atomic::AtomicBool, thread, time::Instant};
+        for attempt in 0..16 {
+            for length in [MAX_INPUT + 1, MAX_PROGRESSIVE_INPUT] {
+                for progressive in [false, true] {
+                    let payload = vec![b'x'; length];
+                    let (mut owner, mut peer) = UnixStream::pair().unwrap();
+                    let worker = thread::spawn(move || {
+                        write_packet(&mut peer, &payload, MAX_PROGRESSIVE_INPUT)
+                    });
+                    let started = Instant::now();
+                    let result =
+                        read_owner_packet_for(&mut owner, &AtomicBool::new(false), progressive);
+                    let elapsed = started.elapsed();
+                    drop(owner);
+                    let sent = worker.join().unwrap();
+                    if progressive {
+                        assert_eq!(result.unwrap_or_else(|error| panic!("{error}; attempt={attempt}; length={length}; elapsed={elapsed:?}; peer={sent:?}")).len(), length);
+                        assert!(sent.is_ok());
+                    } else {
+                        assert!(result.is_err());
+                    }
+                }
             }
-            drop(owner);
-            let _ = worker.join().unwrap();
         }
     }
 

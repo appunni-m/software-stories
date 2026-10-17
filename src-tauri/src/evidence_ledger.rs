@@ -27,7 +27,7 @@ const MAX_SOURCE: usize = 250_000;
 const MAX_METADATA: usize = 256_000;
 const MAX_WIRE: usize = 1_000_000;
 const MAX_RESPONSE: usize = 128_000;
-const MAX_FRAGMENTS: usize = 512;
+const MAX_FRAGMENTS: usize = crate::native_citations::MAX_REFERENCES;
 const MAX_JOURNAL: usize = 1_000_000;
 const DEADLINE: Duration = Duration::from_secs(600);
 // An operation has a ten-minute deadline. Permit slow teardown beyond that
@@ -208,23 +208,31 @@ enum RejectionCode {
 
 fn rejection_code(error: &str) -> RejectionCode {
     match error {
-        "Only a range-read response may include one to eight source ranges." => RejectionCode::RangeCount,
+        "Only a range-read response may include one to eight source ranges." => {
+            RejectionCode::RangeCount
+        }
         "The requested evidence range is invalid or too large." => RejectionCode::InvalidRange,
         "The evidence path was not captured." | "This path is not in the selected snapshot."
         | "This path was not captured in the selected snapshot." => RejectionCode::PathNotCaptured,
         "Source verification exceeded its local byte limit."
-        | "Captured source exceeds the supported per-file size limit." => RejectionCode::SourceVerificationLimit,
+        | "Captured source exceeds the supported per-file size limit." => {
+            RejectionCode::SourceVerificationLimit
+        }
         "This captured path is excluded from code retrieval."
         | "This captured text is excluded by secret filtering." => RejectionCode::SourceExcluded,
         "Captured source failed its size or SHA-256 integrity check."
-        | "The snapshot contains an invalid content hash for this path." => RejectionCode::SourceIntegrity,
+        | "The snapshot contains an invalid content hash for this path." => {
+            RejectionCode::SourceIntegrity
+        }
         "Captured evidence is unavailable." => RejectionCode::SourceUnavailable,
         "This captured file is binary and cannot be opened as source text."
         | "This captured file is not valid UTF-8 source text." => RejectionCode::SourceEncoding,
         "The citation range is not valid UTF-8."
         | "The code range must lie on UTF-8 boundaries inside this file."
         | "Read a nonempty code range of at most 32,768 bytes." => RejectionCode::RangeEncoding,
-        "Source encoding failed." | "Context response encoding failed." => RejectionCode::ResponseEncoding,
+        "Source encoding failed." | "Context response encoding failed." => {
+            RejectionCode::ResponseEncoding
+        }
         "Context accounting is invalid." => RejectionCode::ResponseAccounting,
         "The context response exceeds this operation's evidence budget."
         | "The context limit notice exceeds its bound." => RejectionCode::ResponseBudget,
@@ -315,8 +323,18 @@ pub(crate) struct Ledger {
 #[serde(rename_all = "camelCase")]
 struct Fragment {
     id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reference_id: Option<String>,
     range: context::CodeRange,
     contents: String,
+    citeable: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ReusedReference {
+    id: String,
+    reference_id: String,
     citeable: bool,
 }
 
@@ -329,6 +347,8 @@ struct Response<'a> {
     context: Option<&'a Context<'a>>,
     added: Vec<Fragment>,
     already_available: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    reused_references: Vec<ReusedReference>,
     #[serde(skip_serializing_if = "Option::is_none")]
     read_error: Option<ReadError>,
     budget: ResponseBudget,
@@ -739,11 +759,16 @@ impl Ledger {
         }
         let mut response = Response {
             policy: POLICY,
-            citation_version: crate::native_citations::VERSION,
+            citation_version: if self.record.schema_version == 3 {
+                crate::native_citations::SHORT_VERSION
+            } else {
+                crate::native_citations::VERSION
+            },
             call_id: &token.id,
             context: Some(context),
             added: vec![],
             already_available: vec![],
+            reused_references: vec![],
             read_error: None,
             budget: self.response_budget(),
             budget_stop: None,
@@ -797,6 +822,7 @@ impl Ledger {
                 // agent can correct its own request within the original budget.
                 response.added.clear();
                 response.already_available.clear();
+                response.reused_references.clear();
                 response.read_error = Some(ReadError {
                     code: "invalidRead",
                     message: "No code was returned. Copy sourceSha256 and exact startByte/endByte from search_code or find_definitions. End is exclusive, inside sizeBytes, on UTF-8 boundaries, and at most 32768 bytes after start. Refine the search if needed.",
@@ -820,6 +846,30 @@ impl Ledger {
                     intervals.push((range.start_byte, range.end_byte));
                     if !response.already_available.contains(id) {
                         response.already_available.push(id.clone());
+                        if self.record.schema_version == 3 {
+                            let reference_id = self
+                                .record
+                                .evidence
+                                .iter()
+                                .position(|e| e.id == *id)
+                                .map(crate::native_citations::short_reference)
+                                .or_else(|| {
+                                    response
+                                        .added
+                                        .iter()
+                                        .find(|f| &f.id == id)
+                                        .and_then(|f| f.reference_id.clone())
+                                })
+                                .ok_or("The reusable native reference is unavailable.")?;
+                            response.reused_references.push(ReusedReference {
+                                id: id.clone(),
+                                reference_id,
+                                citeable: source
+                                    .contents
+                                    .get(range.start_byte..range.end_byte)
+                                    .is_some_and(crate::native_citations::citeable),
+                            });
+                        }
                     }
                 }
             }
@@ -829,6 +879,11 @@ impl Ledger {
                     let read = context::range_from_source(source, from, to)?;
                     response.added.push(Fragment {
                         id: evidence_id(&self.record, &read.range)?,
+                        reference_id: (self.record.schema_version == 3).then(|| {
+                            crate::native_citations::short_reference(
+                                self.record.evidence.len() + response.added.len(),
+                            )
+                        }),
                         citeable: crate::native_citations::citeable(&read.contents),
                         range: read.range,
                         contents: read.contents,
@@ -916,6 +971,7 @@ impl Ledger {
                 response.context = None;
                 response.added.clear();
                 response.already_available.clear();
+                response.reused_references.clear();
                 response.read_error = None;
                 response.budget = self.response_budget();
                 response.budget_stop = Some(reason);
@@ -1111,7 +1167,7 @@ impl Ledger {
         // Verify captured bytes before building the lookup table. A corrupt or
         // unavailable blob stops validation; it cannot become correction data.
         let mut citations = HashMap::new();
-        for evidence in &self.record.evidence {
+        for (index, evidence) in self.record.evidence.iter().enumerate() {
             self.check(manifest, runtime, cancelled)?;
             if !self.record.calls.iter().any(|call| {
                 call.state == CallState::Delivered && call.evidence_ids.contains(&evidence.id)
@@ -1131,10 +1187,11 @@ impl Ledger {
             if evidence.id != evidence_id(&self.record, &evidence.range)? {
                 return Err("The native citation identity changed.".into());
             }
-            citations.insert(
-                evidence.id.as_str(),
-                crate::native_citations::Citation::checked(&evidence.range, source)?,
-            );
+            let citation = crate::native_citations::Citation::checked(&evidence.range, source)?;
+            citations.insert(evidence.id.clone(), citation.clone());
+            if self.record.schema_version == 3 {
+                citations.insert(crate::native_citations::short_reference(index), citation);
+            }
         }
         let result = crate::native_citations::resolve(response, |id| {
             citations.get(id).cloned().ok_or("referenceUnavailable")

@@ -105,11 +105,21 @@ The [Fontdone report](../acceptance/2026-10-17-range-retrieval.md) gives explici
 
 ## Owned Codex investigation
 
+New progressive answers use `answerSectionV2` with `nativeEvidenceV2` short
+operation-local references such as `code:1`. Read replies expose `referenceId`
+and overlapping reads expose `reusedReferences`; cite only entries marked
+`citeable:true`. The native owner retains the full digest identity and resolves
+ordinals only against delivered captured evidence. New answer-record schema 2
+replays the same checkpoint order; schema 1 keeps the original digest protocol.
+Aliases never resolve globally or by a nearest match. [Contract and current
+qualification](../acceptance/2026-10-17-short-native-references.md).
+
+
 `generate_progressive_workspace_answer` starts the existing managed Codex app-server with `search_code`, `read_code`, `find_definitions`, `find_relationships`, `list_modules` and `propose_answer_section`. The five reading tools retain their source scope; section proposals do not add source access. Legacy `generate_workspace_answer` keeps its five-tool final-chapter contract. Codex chooses relevance. The app provides immutable tools and validates the result; it does not run another model to select whole files before the question.
 
 `rmcp` 3.5.1 (Apache-2.0; declared Rust minimum 1.88) supplies the standard MCP stdio server. The application binary's `--atlas-answer-mcp` entry (legacy `--atlas-context-mcp` for five tools) runs a bridge to an operation-owned, private Unix socket. Tool execution stays in the owning native application and uses the existing cancellable retrieval service. The helper has no repository/storage path or model credentials; no HTTP server or port is added.
 
-The native owner explicitly puts accepted sockets in blocking mode, including on macOS where they inherit the listener's nonblocking flag. One absolute deadline bounds a complete private packet: 200 ms for input, two seconds for output. Short socket waits check cancellation between attempts, including when a peer fragments the length header/body or stops reading. These packet deadlines are separate from the overall investigation deadline and the helper's result wait.
+The native owner explicitly uses nonblocking accepted sockets. One absolute deadline bounds a complete private packet: 200 ms for input, two seconds for output. A `WouldBlock` wait lasts at most 25 ms and checks Stop/deadline again before the next attempt, including fragmented headers/bodies and blocked output. The owner does not change socket timeout options: macOS can reject that change after the peer closes despite a complete queued packet. Complete queued packets remain readable; incomplete EOF, cancellation and oversized packets still fail. These packet deadlines are separate from the overall investigation deadline and the helper's result wait. [Reproduction, fix and qualification limits](../acceptance/2026-10-17-short-native-references.md#native-packet-race).
 
 The `atlas-captured-ranges-v1-files12-source250000` grant and ledger bind project, complete manifest, snapshot, operation UUID, account/runtime, GPT-6 Luna/max and policy. Limits: 12 files; 250,000 distinct source bytes; 256,000 metadata bytes; 1,000,000 serialized native tool-payload bytes; 128,000 bytes per result; 64 calls; 512 admitted fragments; ten minutes. UTF-8 range reads are at most 32,768 bytes each. Search snippets are omitted from agent responses. Local complete source validation is separate from transmission.
 

@@ -459,17 +459,12 @@ impl Session {
             gate()?;
             self.ledger
                 .check(&self.manifest, &self.runtime, cancelled)?;
-            // Darwin inherits O_NONBLOCK from the listener. A socket timeout
-            // does not make such a stream wait for a fragmented packet.
+            // The bounded packet owner handles fragmented nonblocking I/O.
+            // Do not set socket timeouts here: Darwin rejects setsockopt after
+            // a peer closes, even while its complete packet remains queued.
             stream
-                .set_nonblocking(false)
-                .map_err(|e| transport_setup_error("blocking mode", &e))?;
-            stream
-                .set_read_timeout(Some(Duration::from_millis(200)))
-                .map_err(|e| transport_setup_error("read", &e))?;
-            stream
-                .set_write_timeout(Some(Duration::from_secs(2)))
-                .map_err(|e| transport_setup_error("write", &e))?;
+                .set_nonblocking(true)
+                .map_err(|e| transport_setup_error("nonblocking mode", &e))?;
             let bytes = mcp::read_owner_packet_for(&mut stream, cancelled, self.is_progressive())?;
             let packet_bytes = bytes.len();
             let request: mcp::Request = parse(

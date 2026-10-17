@@ -66,11 +66,23 @@ fn read(
         .as_array()
         .and_then(|a| a.first())
         .or_else(|| {
+            result["reusedReferences"]
+                .as_array()
+                .and_then(|a| a.first())
+        })
+        .or_else(|| {
             result["alreadyAvailable"]
                 .as_array()
                 .and_then(|a| a.first())
         })
-        .map(|v| v.get("id").unwrap_or(v).as_str().unwrap().to_owned())
+        .map(|v| {
+            v.get("referenceId")
+                .or_else(|| v.get("id"))
+                .unwrap_or(v)
+                .as_str()
+                .unwrap()
+                .to_owned()
+        })
         .unwrap()
 }
 
@@ -254,7 +266,14 @@ fn invalid_section_key_reports_its_exact_field_and_preserves_the_original_propos
     assert_eq!(saved.attempts[0].arguments, original);
     assert!(saved.sections.is_empty());
     assert!(valid_findings(&saved.attempts[0].findings));
-    publish(&mut answer, &ledger, &proposal(&evidence, "entry-flow", 0), &f, &runtime, &cancel);
+    publish(
+        &mut answer,
+        &ledger,
+        &proposal(&evidence, "entry-flow", 0),
+        &f,
+        &runtime,
+        &cancel,
+    );
     assert_eq!(answer.value.sections.len(), 1);
     // Changing a rejected key is not proof that all omitted claims were repaired.
     assert!(answer.value.unresolved_proposals());
@@ -884,7 +903,8 @@ fn progressive_evidence_ids_and_receipts_cannot_reinterpret_historical_versions(
         ))
         .unwrap(),
     );
-    assert_eq!(id, format!("evidence:{expected}"));
+    assert_eq!(id, "code:1");
+    assert_eq!(l.record.evidence[0].id, format!("evidence:{expected}"));
     let mut historical = l.record.clone();
     historical.schema_version = 2;
     let old = context::digest(
@@ -1034,4 +1054,31 @@ fn scene_evidence_diagnostics_are_bounded_source_free_and_skip_unknown_shapes() 
     let bounded = scene_evidence_findings(&section);
     assert_eq!(bounded.len(), 64);
     assert!(valid_findings(&bounded));
+}
+
+#[test]
+fn legacy_long_reference_answers_replay_without_becoming_short_reference_records() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    read(&mut l, &f, &r, &c);
+    let mut a = start(&l, &f, &r, &c);
+    a.value.schema_version = 1;
+    fs::write(&a.path, encode_answer(&a.value).unwrap()).unwrap();
+    let mut raw: Value =
+        serde_json::from_str(&proposal(&l.record.evidence[0].id, "entry", 0)).unwrap();
+    raw["proposalVersion"] = json!(LEGACY_PROPOSAL_VERSION);
+    publish(&mut a, &l, &raw.to_string(), &f, &r, &c);
+    let before = fs::read(&a.path).unwrap();
+    let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+    assert_eq!(saved.schema_version, 1);
+    assert_eq!(saved.sections.len(), 1);
+    assert_eq!(fs::read(&a.path).unwrap(), before);
+    // A record version cannot be changed to reinterpret its references.
+    let mut tampered: Value = serde_json::from_slice(&before).unwrap();
+    tampered["schemaVersion"] = json!(2);
+    fs::write(&a.path, serde_json::to_vec(&tampered).unwrap()).unwrap();
+    assert!(inspect(&f.storage, &l.record.binding.operation_id).is_err());
+    tampered["schemaVersion"] = json!(3);
+    fs::write(&a.path, serde_json::to_vec(&tampered).unwrap()).unwrap();
+    assert!(inspect(&f.storage, &l.record.binding.operation_id).is_err());
 }

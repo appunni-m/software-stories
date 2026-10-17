@@ -32,6 +32,25 @@ fn setup(f: &Fixture) -> (Ledger, CodexReviewRuntime, AtomicBool) {
     .unwrap();
     (ledger, r, AtomicBool::new(false))
 }
+fn progressive_setup(f: &Fixture) -> (Ledger, CodexReviewRuntime, AtomicBool) {
+    let r = runtime();
+    let grant = workspace::save_retrieval_grant(
+        &f.storage,
+        &f.manifest.summary.project_id,
+        &f.manifest.summary.snapshot_id,
+        &r,
+    )
+    .unwrap();
+    let l = Ledger::new_progressive(
+        &f.storage,
+        &Uuid::new_v4().to_string(),
+        &f.manifest,
+        &grant,
+        &r,
+    )
+    .unwrap();
+    (l, r, AtomicBool::new(false))
+}
 fn request(f: &Fixture, from: usize, to: usize) -> RangeRequest {
     RangeRequest {
         path: SIMPLE_PATH.into(),
@@ -80,6 +99,104 @@ fn reference_draft(id: &str) -> String {
 }
 
 #[test]
+fn progressive_reads_issue_short_references_and_reuse_the_same_delivered_bytes() {
+    let f = Fixture::new();
+    let (mut l, r, c) = progressive_setup(&f);
+    let first = read(&mut l, &f, &r, &c, &[request(&f, 0, SIMPLE_SOURCE.len())]);
+    assert_eq!(first["citationVersion"], "nativeEvidenceV2");
+    assert_eq!(first["added"][0]["referenceId"], "code:1");
+    assert_eq!(first["added"][0]["contents"], SIMPLE_SOURCE);
+    let id = first["added"][0]["id"].as_str().unwrap();
+    assert_eq!(id, l.record.evidence[0].id);
+    let repeated = read(&mut l, &f, &r, &c, &[request(&f, 0, SIMPLE_SOURCE.len())]);
+    assert!(repeated["added"].as_array().unwrap().is_empty());
+    assert_eq!(repeated["reusedReferences"][0]["referenceId"], "code:1");
+    assert_eq!(repeated["reusedReferences"][0]["id"], id);
+    assert_eq!(repeated["reusedReferences"][0]["citeable"], true);
+    assert_eq!(l.record.evidence.len(), 1);
+    let raw = reference_draft("code:1").replace("nativeEvidenceV1", "nativeEvidenceV2");
+    let crate::native_citations::Resolution::Ready(resolved) =
+        l.resolve_citations(&raw, &f.manifest, &r, &c).unwrap()
+    else {
+        panic!("Native short reference must resolve");
+    };
+    assert!(resolved.text().contains("export function greeting"));
+    inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+}
+
+#[test]
+fn short_references_preserve_ordinals_during_same_batch_overlap_and_later_reads() {
+    let f = Fixture::new();
+    let (mut l, r, c) = progressive_setup(&f);
+    let reply = read(
+        &mut l,
+        &f,
+        &r,
+        &c,
+        &[request(&f, 0, 20), request(&f, 0, SIMPLE_SOURCE.len())],
+    );
+    assert_eq!(reply["added"][0]["referenceId"], "code:1");
+    assert_eq!(reply["added"][1]["referenceId"], "code:2");
+    assert_eq!(reply["reusedReferences"][0]["referenceId"], "code:1");
+    assert_eq!(l.record.calls[0].source_bytes, SIMPLE_SOURCE.len());
+    assert_eq!(l.record.evidence.len(), 2);
+    let repeated = read(&mut l, &f, &r, &c, &[request(&f, 0, SIMPLE_SOURCE.len())]);
+    let refs = repeated["reusedReferences"].as_array().unwrap();
+    assert_eq!(
+        refs.iter()
+            .map(|v| v["referenceId"].as_str().unwrap())
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from(["code:1", "code:2"])
+    );
+    let raw = reference_draft("code:1").replace("nativeEvidenceV1", "nativeEvidenceV2");
+    let crate::native_citations::Resolution::Ready(resolved) =
+        l.resolve_citations(&raw, &f.manifest, &r, &c).unwrap()
+    else {
+        panic!("First ordinal must remain available");
+    };
+    assert_eq!(
+        resolved.claim_spans(0, 0).unwrap()[0]
+            .checked_start(
+                SIMPLE_PATH,
+                &SIMPLE_SOURCE[..20],
+                &context::source(&f.storage, &f.manifest, SIMPLE_PATH).unwrap()
+            )
+            .unwrap(),
+        0
+    );
+}
+
+#[test]
+fn short_references_never_admit_tiny_unread_or_uncertain_fragments() {
+    let f = Fixture::new();
+    let (mut l, r, c) = progressive_setup(&f);
+    let raw = reference_draft("code:1").replace("nativeEvidenceV1", "nativeEvidenceV2");
+    assert!(matches!(
+        l.resolve_citations(&raw, &f.manifest, &r, &c).unwrap(),
+        crate::native_citations::Resolution::Invalid(_)
+    ));
+    let reply = read(&mut l, &f, &r, &c, &[request(&f, 0, 1)]);
+    assert_eq!(reply["added"][0]["referenceId"], "code:1");
+    assert_eq!(reply["added"][0]["citeable"], false);
+    assert!(matches!(
+        l.resolve_citations(&raw, &f.manifest, &r, &c).unwrap(),
+        crate::native_citations::Resolution::Invalid(_)
+    ));
+    let second = read(&mut l, &f, &r, &c, &[request(&f, 1, SIMPLE_SOURCE.len())]);
+    assert_eq!(second["added"][0]["referenceId"], "code:2");
+    let raw = raw.replace("code:1", "code:2");
+    assert!(matches!(
+        l.resolve_citations(&raw, &f.manifest, &r, &c).unwrap(),
+        crate::native_citations::Resolution::Ready(_)
+    ));
+    l.record.calls[1].state = CallState::Uncertain;
+    assert!(matches!(
+        l.resolve_citations(&raw, &f.manifest, &r, &c).unwrap(),
+        crate::native_citations::Resolution::Invalid(_)
+    ));
+}
+
+#[test]
 fn invalid_read_count_delivers_feedback_without_partial_source_and_can_be_corrected() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancelled) = setup(&f);
@@ -93,7 +210,13 @@ fn invalid_read_count_delivers_feedback_without_partial_source_and_can_be_correc
         assert_eq!(ledger.record.calls.last().unwrap().state, CallState::Delivered);
         assert_eq!(ledger.record.calls.last().unwrap().source_bytes, 0);
     }
-    let corrected = read(&mut ledger, &f, &runtime, &cancelled, &[request(&f, 0, SIMPLE_SOURCE.len())]);
+    let corrected = read(
+        &mut ledger,
+        &f,
+        &runtime,
+        &cancelled,
+        &[request(&f, 0, SIMPLE_SOURCE.len())],
+    );
     assert_eq!(corrected["added"][0]["contents"], SIMPLE_SOURCE);
     assert_eq!(ledger.record.calls.len(), 3);
     inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
@@ -103,7 +226,15 @@ fn invalid_read_count_delivers_feedback_without_partial_source_and_can_be_correc
 fn rejected_calls_retain_only_fixed_native_failure_codes_and_legacy_receipts_stay_readable() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancelled) = setup(&f);
-    let token = ledger.begin_call(Tool::Read, &"c".repeat(64), &f.manifest, &runtime, &cancelled).unwrap();
+    let token = ledger
+        .begin_call(
+            Tool::Read,
+            &"c".repeat(64),
+            &f.manifest,
+            &runtime,
+            &cancelled,
+        )
+        .unwrap();
     let mut range = request(&f, 0, 20);
     range.path = "../private.ts".into();
     assert!(ledger.deliver(token, Context::Read {}, &[range], &f.manifest, &runtime, &cancelled, |_| panic!("No source may cross")).is_err());
@@ -120,7 +251,13 @@ fn rejected_calls_retain_only_fixed_native_failure_codes_and_legacy_receipts_sta
     fs::write(&ledger.path, serde_json::to_vec(&legacy).unwrap()).unwrap();
     assert!(inspect(&f.storage, &ledger.record.binding.operation_id).is_err());
     let (mut delivered, runtime, cancelled) = setup(&f);
-    read(&mut delivered, &f, &runtime, &cancelled, &[request(&f, 0, SIMPLE_SOURCE.len())]);
+    read(
+        &mut delivered,
+        &f,
+        &runtime,
+        &cancelled,
+        &[request(&f, 0, SIMPLE_SOURCE.len())],
+    );
     let mut receipt: Value = serde_json::from_slice(&fs::read(&delivered.path).unwrap()).unwrap();
     assert_eq!(receipt["calls"][0]["state"], "delivered");
     receipt["calls"][0]["rejectionCode"] = json!("invalidRange");
@@ -141,11 +278,25 @@ fn delivered_native_reference_builds_exact_claim_and_visual_source_links() {
     let raw = reference_draft(reply["added"][0]["id"].as_str().unwrap());
     assert!(!raw.contains(SIMPLE_PATH));
     assert!(!raw.contains("export function"));
-    let crate::native_citations::Resolution::Ready(resolved) = l.resolve_citations(&raw,&f.manifest,&r,&c).unwrap() else { panic!("References must resolve"); };
-    let sources = l.validation_sources(&f.manifest,&r,&c).unwrap();
-    let revision = crate::chapter_generation::canonicalize_cited_workspace_overview(&f.manifest.summary.project_id,&f.manifest,Some(&f.index),&sources,&resolved).unwrap();
-    l.verify_revision(&revision,&f.manifest,&r,&c).unwrap();
-    assert_eq!(revision.sections[0].claims[0].anchors[0].excerpt,SIMPLE_SOURCE);
+    let crate::native_citations::Resolution::Ready(resolved) =
+        l.resolve_citations(&raw, &f.manifest, &r, &c).unwrap()
+    else {
+        panic!("References must resolve");
+    };
+    let sources = l.validation_sources(&f.manifest, &r, &c).unwrap();
+    let revision = crate::chapter_generation::canonicalize_cited_workspace_overview(
+        &f.manifest.summary.project_id,
+        &f.manifest,
+        Some(&f.index),
+        &sources,
+        &resolved,
+    )
+    .unwrap();
+    l.verify_revision(&revision, &f.manifest, &r, &c).unwrap();
+    assert_eq!(
+        revision.sections[0].claims[0].anchors[0].excerpt,
+        SIMPLE_SOURCE
+    );
     let anchor = &revision.sections[0].claims[0].anchors[0];
     assert_eq!(anchor.start_byte,0);
     assert_eq!(anchor.end_byte_inclusive as usize,SIMPLE_SOURCE.len()-1);
@@ -158,39 +309,73 @@ fn delivered_native_reference_builds_exact_claim_and_visual_source_links() {
 
 #[test]
 fn native_reference_selects_the_read_repeated_implementation_at_its_own_coordinates() {
-    let mut f=Fixture::new();
-    f.recapture_with_source(SIMPLE_PATH,&SIMPLE_SOURCE.repeat(2));
-    let(mut l,r,c)=setup(&f);
-    let reply=read(&mut l,&f,&r,&c,&[request(&f,SIMPLE_SOURCE.len(),SIMPLE_SOURCE.len()*2)]);
-    let raw=reference_draft(reply["added"][0]["id"].as_str().unwrap());
-    let crate::native_citations::Resolution::Ready(resolved)=l.resolve_citations(&raw,&f.manifest,&r,&c).unwrap() else { panic!("Read duplicate must resolve"); };
-    let sources=l.validation_sources(&f.manifest,&r,&c).unwrap();
-    assert_eq!(crate::chapter_generation::exact_quote_start(&sources[0].contents,SIMPLE_SOURCE),Err(crate::chapter_generation::QuoteProblem::Ambiguous));
-    let revision=crate::chapter_generation::canonicalize_cited_workspace_overview(&f.manifest.summary.project_id,&f.manifest,Some(&f.index),&sources,&resolved).unwrap();
-    let anchor=&revision.sections[0].claims[0].anchors[0];
-    assert_eq!(anchor.start_byte as usize,SIMPLE_SOURCE.len());
-    assert_eq!(anchor.excerpt,SIMPLE_SOURCE);
-    l.verify_revision(&revision,&f.manifest,&r,&c).unwrap();
-    assert_eq!(chapters::validate_chapter_revision(&f.storage,&f.manifest,Some(&f.index),&revision).status,chapters::ValidationReportStatus::Valid);
+    let mut f = Fixture::new();
+    f.recapture_with_source(SIMPLE_PATH, &SIMPLE_SOURCE.repeat(2));
+    let (mut l, r, c) = setup(&f);
+    let reply = read(
+        &mut l,
+        &f,
+        &r,
+        &c,
+        &[request(&f, SIMPLE_SOURCE.len(), SIMPLE_SOURCE.len() * 2)],
+    );
+    let raw = reference_draft(reply["added"][0]["id"].as_str().unwrap());
+    let crate::native_citations::Resolution::Ready(resolved) =
+        l.resolve_citations(&raw, &f.manifest, &r, &c).unwrap()
+    else {
+        panic!("Read duplicate must resolve");
+    };
+    let sources = l.validation_sources(&f.manifest, &r, &c).unwrap();
+    assert_eq!(
+        crate::chapter_generation::exact_quote_start(&sources[0].contents, SIMPLE_SOURCE),
+        Err(crate::chapter_generation::QuoteProblem::Ambiguous)
+    );
+    let revision = crate::chapter_generation::canonicalize_cited_workspace_overview(
+        &f.manifest.summary.project_id,
+        &f.manifest,
+        Some(&f.index),
+        &sources,
+        &resolved,
+    )
+    .unwrap();
+    let anchor = &revision.sections[0].claims[0].anchors[0];
+    assert_eq!(anchor.start_byte as usize, SIMPLE_SOURCE.len());
+    assert_eq!(anchor.excerpt, SIMPLE_SOURCE);
+    l.verify_revision(&revision, &f.manifest, &r, &c).unwrap();
+    assert_eq!(
+        chapters::validate_chapter_revision(&f.storage, &f.manifest, Some(&f.index), &revision)
+            .status,
+        chapters::ValidationReportStatus::Valid
+    );
 }
 
 #[test]
 fn native_ids_bind_operation_grant_and_runtime_and_cannot_cite_unread_or_uncertain_code() {
     let f = Fixture::new();
-    let (mut first,r,c)=setup(&f);
-    let reply=read(&mut first,&f,&r,&c,&[request(&f,0,40)]);
-    let id=reply["added"][0]["id"].as_str().unwrap();
-    let raw=reference_draft(id);
-    let (second,r2,c2)=setup(&f);
-    assert!(matches!(second.resolve_citations(&raw,&f.manifest,&r2,&c2).unwrap(),crate::native_citations::Resolution::Invalid(_)));
-    let mut other=first.record.clone();
-    for fault in ["operation","grant","runtime","snapshot"] {
-        other.binding=first.record.binding.clone();
-        match fault { "operation"=>other.binding.operation_id=Uuid::new_v4().to_string(),
-            "grant"=>other.binding.grant_id=Uuid::new_v4().to_string(),
-            "runtime"=>other.binding.runtime.account_revision+=1,
-            _=>other.binding.snapshot_id="another-snapshot".into() }
-        assert_ne!(evidence_id(&other,&first.record.evidence[0].range).unwrap(),id);
+    let (mut first, r, c) = setup(&f);
+    let reply = read(&mut first, &f, &r, &c, &[request(&f, 0, 40)]);
+    let id = reply["added"][0]["id"].as_str().unwrap();
+    let raw = reference_draft(id);
+    let (second, r2, c2) = setup(&f);
+    assert!(matches!(
+        second
+            .resolve_citations(&raw, &f.manifest, &r2, &c2)
+            .unwrap(),
+        crate::native_citations::Resolution::Invalid(_)
+    ));
+    let mut other = first.record.clone();
+    for fault in ["operation", "grant", "runtime", "snapshot"] {
+        other.binding = first.record.binding.clone();
+        match fault {
+            "operation" => other.binding.operation_id = Uuid::new_v4().to_string(),
+            "grant" => other.binding.grant_id = Uuid::new_v4().to_string(),
+            "runtime" => other.binding.runtime.account_revision += 1,
+            _ => other.binding.snapshot_id = "another-snapshot".into(),
+        }
+        assert_ne!(
+            evidence_id(&other, &first.record.evidence[0].range).unwrap(),
+            id
+        );
     }
     first.record.calls[0].state=CallState::Prepared;
     assert!(matches!(first.resolve_citations(&raw,&f.manifest,&r,&c).unwrap(),crate::native_citations::Resolution::Invalid(_)));

@@ -111,3 +111,15 @@ The frozen Fontdone GPT-6 Luna/max native probe returned **partial** after 387.5
 - [ ] Qualify the actual font-bytes-to-pixels narrative, meaningful transformations, original missing-entry/malformed-content distinction, natural complete narration/Pocket playback and installed reader/Stop/restart/accessibility. Repeated node labels, long helper names and a partial manifest do not pass these gates.
 
 Keep this task open. Native/probe arrival times are not UI-visible useful-answer timing; no human quality/listening pass is claimed.
+
+## Short-reference and packet-race checkpoint — 17 October
+
+The eight-proposal failure is preserved unchanged. Before increasing proposal limits, the new progressive contract uses operation-local `code:N` references from `read_code`, while native digest identities, delivered-source checks, checkpoints and all budgets stay unchanged. Answer-record schema 2 / `answerSectionV2` replays short references; historical schema 1 / `answerSectionV1` remains readable without migration. Strict malformed/unavailable/tiny/unread/uncertain-source and overlap/reuse regressions cover admission. No local code selects substitute evidence or repairs an agent's claim.
+
+A deterministic macOS queued-packet regression also exposed the intermittent native failure: setting a socket timeout after a peer closes returns OS error 22 while its complete packet remains readable. The owner now uses nonblocking I/O, preserving the 200 ms input/two-second output deadlines, Stop checks and size limits. The regression fails before the fix; the first fixed full suite passes 359 native tests (13 explicit probes ignored). [Contract, reproduction and remaining qualification](../acceptance/2026-10-17-short-native-references.md).
+
+- [x] Choose the bounded citation-transport correction before changing section-attempt allocation; keep eight proposals/six unique sections/64 calls/ten minutes and retain the failed broad artifact.
+- [ ] Qualify this exact implementation in a fresh isolated full Fontdone investigation. Preserve all rejected proposals and partial/terminal results, inspect actual source claims and scenes, and distinguish native arrival from UI-visible useful-answer timing.
+- [ ] Complete the existing installed reader, complete narrated story/Pocket and accessibility gates. Short-reference reliability and local packet tests do not satisfy these.
+
+Keep this task open. The fresh account run and current-bundle installation are pending.

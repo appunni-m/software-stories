@@ -119,3 +119,17 @@ Kata `xvjk`: [find relevant code from a question](kata-tasks/55-question-to-sour
 ## 17 October visual-story checkpoint
 
 The progressive Codex path now supports AI-authored HTML compositions alongside graphs, synchronized with complete scene narration and clickable captured source. A real synthetic scene and a narrow Fontdone PFR0 scene completed; earlier partial/failed runs remain preserved. Mechanical checks pass **346 native tests** (12 explicit live probes ignored) and **171 frontend tests**. [Evidence and remaining quality/export/accessibility gates](acceptance/2026-10-17-visual-story-guide.md). Live Kata still contains **73 tasks: 50 open, 23 closed**; no task is closed by this checkpoint.
+
+## 17 October short-reference and packet-race checkpoint
+
+New progressive answers use short operation-local `code:N` references, retaining
+exact native evidence identities, all original budgets and independent legacy
+answer replay. A deterministic macOS closed-peer timeout-setting failure is
+fixed through bounded nonblocking I/O; no error is ignored or deadline relaxed.
+The final rerun passes **359 native tests** (13 explicit account probes ignored),
+**179 frontend tests**, the production frontend and unsigned debug app build.
+The Mac is locked, so replacement/native acceptance remains pending. A fresh
+isolated broad Fontdone account qualification is still required; the earlier
+partial result remains failed. [Contract, causal evidence and limits](acceptance/2026-10-17-short-native-references.md).
+Live Kata remains **73 records: 50 open, 23 closed**. `3bz5`, `yk6c` and `gk46`
+remain open; no task is closed by this checkpoint.

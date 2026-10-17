@@ -8,8 +8,34 @@ use crate::{
 use serde_json::{Value, json};
 
 pub(crate) const VERSION: &str = "nativeEvidenceV1";
+pub(crate) const SHORT_VERSION: &str = "nativeEvidenceV2";
+pub(crate) const MAX_REFERENCES: usize = 512;
 pub(crate) const MAX_SPAN: usize = 1_000;
 const MAX_ISSUES: usize = 64;
+
+/// One-based ordinal in an immutable operation/checkpoint, never a source hash.
+pub(crate) fn short_reference(index: usize) -> String {
+    format!("code:{}", index + 1)
+}
+
+fn reference_shape(id: &str, short: bool) -> bool {
+    if short {
+        let Some(ordinal) = id.strip_prefix("code:") else {
+            return false;
+        };
+        return !ordinal.starts_with('0')
+            && ordinal.len() <= 3
+            && ordinal.bytes().all(|b| b.is_ascii_digit())
+            && ordinal
+                .parse::<usize>()
+                .is_ok_and(|n| (1..=MAX_REFERENCES).contains(&n));
+    }
+    id.len() == 73
+        && id.starts_with("evidence:")
+        && id[9..]
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
 
 #[derive(Clone, Debug)]
 pub(crate) struct Citation {
@@ -155,9 +181,11 @@ pub(crate) fn resolve(
     let Ok(mut value) = crate::strict_json::from_slice(response.as_bytes()) else {
         return invalid("", "citationShape");
     };
-    if value.get("citationVersion").and_then(Value::as_str) != Some(VERSION) {
-        return invalid("/citationVersion", "citationVersion");
-    }
+    let short = match value.get("citationVersion").and_then(Value::as_str) {
+        Some(VERSION) => false,
+        Some(SHORT_VERSION) => true,
+        _ => return invalid("/citationVersion", "citationVersion"),
+    };
     value.as_object_mut().unwrap().remove("citationVersion");
     let Some(sections) = value.get_mut("sections").and_then(Value::as_array_mut) else {
         return invalid("/sections", "citationShape");
@@ -192,13 +220,7 @@ pub(crate) fn resolve(
                     .filter(|o| o.len() == 1)
                     .and_then(|o| o.get("referenceId"))
                     .and_then(Value::as_str)
-                    .filter(|id| {
-                        id.len() == 73
-                            && id.starts_with("evidence:")
-                            && id[9..]
-                                .bytes()
-                                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-                    });
+                    .filter(|id| reference_shape(id, short));
                 let found = reference.ok_or("referenceShape").and_then(&mut lookup);
                 match found {
                     Ok(citation) => {

@@ -763,7 +763,7 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
         Arc::clone(&cancel),
     );
     let read_reply: Value = serde_json::from_str(&read_reply).unwrap();
-    let reference = read_reply["added"][0]["id"].as_str().unwrap();
+    let reference = read_reply["added"][0]["referenceId"].as_str().unwrap();
     let raw = sections::tests::proposal(reference, "entry", 0);
     let args: Value = serde_json::from_str(&raw).unwrap();
     let (_, text) = exchange_owned_ordered(

@@ -19,6 +19,53 @@ fn ready(resolution: Resolution) -> Resolved {
         Resolution::Invalid(issues) => panic!("{issues:?}"),
     }
 }
+
+#[test]
+fn short_reference_transport_keeps_exact_bytes_and_does_not_guess_unknown_ids() {
+    let source = source("fn greeting() { return; }\n");
+    let range = context::range_from_source(&source, 0, source.contents.len())
+        .unwrap()
+        .range;
+    let citation = Citation::checked(&range, &source).unwrap();
+    let raw = json!({"citationVersion":"nativeEvidenceV2","sections":[{"claims":[{"evidence":[{"referenceId":"code:1"}]}]}]}).to_string();
+    let resolved = ready(resolve(&raw, |id| {
+        assert_eq!(id, "code:1");
+        Ok(citation.clone())
+    }));
+    assert_eq!(
+        resolved.claim_spans(0, 0).unwrap()[0].excerpt,
+        source.contents
+    );
+    for id in [
+        "code:0",
+        "code:01",
+        "code:-1",
+        "code:513",
+        "code:1suffix",
+        "code: 1",
+    ] {
+        let invalid = raw.replace("code:1", id);
+        assert_eq!(
+            issues(resolve(&invalid, |_| panic!(
+                "Malformed IDs cannot reach lookup"
+            )))[0]["citationProblem"],
+            "referenceShape"
+        );
+    }
+    assert_eq!(
+        issues(resolve(&raw.replace("code:1", "code:2"), |_| Err(
+            "referenceUnavailable"
+        )))[0]["citationProblem"],
+        "referenceUnavailable"
+    );
+    assert_eq!(
+        issues(resolve(
+            &raw.replace("nativeEvidenceV2", VERSION),
+            |_| panic!("Legacy protocol cannot accept a short ID")
+        ))[0]["citationProblem"],
+        "referenceShape"
+    );
+}
 fn issues(resolution: Resolution) -> Vec<Value> {
     match resolution {
         Resolution::Ready(_) => panic!("Unexpected valid references"),

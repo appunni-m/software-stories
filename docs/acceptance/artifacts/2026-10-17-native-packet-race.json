@@ -1,0 +1,62 @@
+{
+  "host": {
+    "macOS": "15.7.7",
+    "build": "24G720",
+    "kernelSourceFamily": "xnu-11417.140.69"
+  },
+  "observedPacketFailure": {
+    "stage": "set_read_timeout",
+    "errorKind": "InvalidInput",
+    "rawOsError": 22,
+    "elapsedMicroseconds": 153.959,
+    "writer": "Ok",
+    "packetBytes": 34000
+  },
+  "minimalReproduction": {
+    "openPeer": {
+      "attempts": 100,
+      "timeoutSetterFailures": 0,
+      "exactQueuedMessagesRead": 100
+    },
+    "closedPeer": {
+      "attempts": 100,
+      "timeoutSetterFailures": 100,
+      "exactQueuedMessagesRead": 100
+    }
+  },
+  "regressionBeforeFix": "failed: a_complete_queued_packet_survives_the_peer_closing_before_the_read",
+  "firstFixedNativeSuite": {
+    "passed": 359,
+    "failed": 0,
+    "ignoredExplicitProbes": 13,
+    "seconds": 31.97
+  },
+  "limitsUnchanged": {
+    "inputDeadlineMilliseconds": 200,
+    "outputDeadlineMilliseconds": 2000,
+    "progressivePacketBytes": 34000
+  },
+  "scope": "Local standard UnixStream fixtures only. No inference, repository semantics, installed UI or narration qualification.",
+  "finalNativeSuite": {
+    "passed": 359,
+    "failed": 0,
+    "ignoredExplicitProbes": 13,
+    "seconds": 31.74
+  },
+  "repeatedEnvelopeMatrix": {
+    "repetitions": 10,
+    "casesPerRepetition": 64,
+    "totalCases": 640,
+    "passed": true,
+    "seconds": 46.436
+  },
+  "rebuiltHelper": {
+    "path": "/private/tmp/software-stories-kata/src-tauri/target/debug/bundle/macos/Code Atlas.app/Contents/MacOS/code-atlas-desktop",
+    "bytes": 119341616,
+    "sha256": "12aed600e5e9c8f99bf37fdd880b7dd3a4932fe72ea8836b1ab435c06985d106",
+    "embeddedMacExecutableIntegrity": true,
+    "developerId": false,
+    "notarized": false,
+    "installed": false
+  }
+}
