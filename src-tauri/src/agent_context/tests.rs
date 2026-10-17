@@ -42,6 +42,176 @@ fn session(f: &Fixture) -> Session {
     )
     .unwrap()
 }
+
+fn investigated(f: &Fixture) -> Session {
+    let mut s = session(f);
+    let file = f
+        .manifest
+        .files
+        .iter()
+        .find(|f| f.path == SIMPLE_PATH)
+        .unwrap();
+    exchange(
+        &mut s,
+        "read_code",
+        json!({"ranges":[{"path":SIMPLE_PATH,
+        "sourceSha256":file.sha256,"startByte":0,"endByte":file.size_bytes}]}),
+    );
+    s
+}
+
+fn candidate(corrected: bool) -> crate::codex_agent::CodexRunResult {
+    crate::codex_agent::CodexRunResult {
+        thread_id: "owned-thread".into(), turn_id: if corrected {"second"} else {"first"}.into(),
+        model: "gpt-6-luna".into(), effort: "max".into(),
+        response_text: json!({"sections":[{"claims":[{
+            "prose":if corrected {"greeting formats a message."} else {"The helper formats a message."},
+            "identifiers":["greeting"],"evidence":[{"quote":"export function greeting(name: string)"}]
+        }]}]}).to_string(),
+    }
+}
+
+#[test]
+fn correction_reuses_only_admitted_evidence_and_preserves_both_candidates() {
+    let f = Fixture::new();
+    let mut s = investigated(&f);
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let fingerprint = "d".repeat(64);
+    s.capture_candidate(&fingerprint, &candidate(false), 1, &cancelled)
+        .unwrap();
+    let before = s.ledger.admitted_ranges();
+    s.begin_correction(&cancelled).unwrap();
+    assert!(
+        s.event(
+            &event(
+                "extra",
+                "list_modules",
+                &json!({"scope":null,"limit":4,"offset":0})
+            ),
+            false
+        )
+        .is_err()
+    );
+    let mut stream = UnixStream::connect(s.directory.join("context.sock")).unwrap();
+    let request = mcp::Request {
+        token: s.token.clone(),
+        name: "list_modules".into(),
+        arguments: json!({"scope":null,"limit":4,"offset":0}),
+    };
+    mcp::write_packet(
+        &mut stream,
+        &serde_json::to_vec(&request).unwrap(),
+        mcp::MAX_INPUT,
+    )
+    .unwrap();
+    assert!(
+        s.poll(&cancelled, || Ok(()))
+            .unwrap_err()
+            .contains("additional repository context")
+    );
+    assert!(s.pending.is_none());
+    assert_eq!(
+        serde_json::to_value(s.ledger.admitted_ranges()).unwrap(),
+        serde_json::to_value(before).unwrap()
+    );
+    s.capture_candidate(&fingerprint, &candidate(true), 2, &cancelled)
+        .unwrap();
+    assert!(s.begin_correction(&cancelled).is_err());
+    assert!(
+        s.capture_candidate(&fingerprint, &candidate(true), 2, &cancelled)
+            .is_err()
+    );
+    s.preserve_rejection(
+        &fingerprint,
+        "Independent source validation rejected this candidate.",
+    )
+    .unwrap();
+    let files = fs::read_dir(f.storage.join("rejected-explanations"))
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(files.len(), 1);
+    let value: Value = serde_json::from_slice(&fs::read(files[0].path()).unwrap()).unwrap();
+    assert_eq!(value["candidates"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        value["candidates"][0]["responseText"],
+        candidate(false).response_text
+    );
+    assert_eq!(
+        value["candidates"][1]["responseText"],
+        candidate(true).response_text
+    );
+    assert_eq!(
+        value["candidates"][1]["rejection"],
+        "Independent source validation rejected this candidate."
+    );
+}
+
+#[test]
+fn aligned_initial_candidate_uses_no_recovery_slot_until_independent_rejection() {
+    let f = Fixture::new();
+    let mut s = investigated(&f);
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let fingerprint = "d".repeat(64);
+    s.capture_candidate(&fingerprint, &candidate(true), 1, &cancelled)
+        .unwrap();
+    assert!(!f.storage.join("rejected-explanations").exists());
+    assert!(s.begin_correction(&cancelled).is_err());
+    s.preserve_rejection(
+        &fingerprint,
+        "The source quote is not present in the captured file.",
+    )
+    .unwrap();
+    let saved = fs::read_dir(f.storage.join("rejected-explanations"))
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap();
+    let value: Value = serde_json::from_slice(&fs::read(saved.path()).unwrap()).unwrap();
+    assert_eq!(
+        value["candidates"][0]["rejection"],
+        "The source quote is not present in the captured file."
+    );
+    assert_eq!(value["candidates"][0]["alignmentIssues"], json!([]));
+}
+
+#[test]
+fn stopped_revoked_or_changed_owners_cannot_capture_or_begin_correction() {
+    for stage in ["capture", "correction", "corrected", "reject"] {
+        for fault in ["cancel", "revoke", "runtime"] {
+            let f = Fixture::new();
+            let mut s = investigated(&f);
+            let cancelled = Arc::new(AtomicBool::new(false));
+            let fingerprint = "d".repeat(64);
+            if stage != "capture" {
+                s.capture_candidate(&fingerprint, &candidate(false), 1, &cancelled)
+                    .unwrap();
+            }
+            if stage == "corrected" {
+                s.begin_correction(&cancelled).unwrap();
+            }
+            match fault {
+                "cancel" => cancelled.store(true, std::sync::atomic::Ordering::Release),
+                "revoke" => {
+                    // The command revokes authority by removing its saved grant.
+                    for entry in fs::read_dir(f.storage.join("workspace-permissions")).unwrap() {
+                        fs::remove_file(entry.unwrap().path()).unwrap();
+                    }
+                }
+                "runtime" => s.runtime.account_revision += 1,
+                _ => unreachable!(),
+            }
+            let result = match stage {
+                "capture" => s.capture_candidate(&fingerprint, &candidate(false), 1, &cancelled),
+                "correction" => s.begin_correction(&cancelled),
+                "corrected" => s.capture_candidate(&fingerprint, &candidate(true), 2, &cancelled),
+                "reject" => s.preserve_rejection(&fingerprint, "Rejected candidate."),
+                _ => unreachable!(),
+            };
+            assert!(result.is_err(), "{stage}/{fault}");
+        }
+    }
+}
 fn event(id: &str, name: &str, args: &Value) -> Value {
     json!({"id":id,"type":"mcpToolCall","server":mcp::SERVER,"tool":name,"arguments":args,"status":"inProgress"})
 }

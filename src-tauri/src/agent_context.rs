@@ -127,6 +127,8 @@ pub(crate) struct Session {
     events: HashMap<String, (Tool, String)>,
     consumed: HashSet<String>,
     completed: HashMap<String, (Tool, String, String)>,
+    correction_only: bool,
+    candidate: Option<(u8, crate::codex_agent::CodexRunResult, Arc<AtomicBool>)>,
 }
 
 #[cfg(unix)]
@@ -193,6 +195,8 @@ impl Session {
                 events: HashMap::new(),
                 consumed: HashSet::new(),
                 completed: HashMap::new(),
+                correction_only: false,
+                candidate: None,
             })
         })();
         if result.is_err() {
@@ -254,6 +258,9 @@ impl Session {
     /// Verify observed app-server events against responses admitted by this
     /// native session. An arbitrary MCP event is never accepted as evidence.
     pub(crate) fn event(&mut self, item: &Value, completed: bool) -> Result<(), String> {
+        if self.correction_only {
+            return Err("Correction cannot request additional repository context.".into());
+        }
         if item["server"] != mcp::SERVER
             || item.get("appContext").is_some_and(|v| !v.is_null())
             || item.get("pluginId").is_some_and(|v| !v.is_null())
@@ -363,6 +370,9 @@ impl Session {
             )?;
             if request.token != self.token {
                 return Err("Unknown captured-code authority.".into());
+            }
+            if self.correction_only {
+                return Err("Correction cannot request additional repository context.".into());
             }
             tool(&request.name)?;
             self.pending = Some(Pending {
@@ -545,7 +555,82 @@ impl Session {
         if !self.events.is_empty() || self.consumed.is_empty() {
             return Err("Codex did not finish its captured-code investigation.".into());
         }
+        #[cfg(unix)]
+        if self.pending.is_some() {
+            return Err("Codex did not finish its captured-code investigation.".into());
+        }
         Ok(())
+    }
+
+    pub(crate) fn capture_candidate(
+        &mut self,
+        fingerprint: &str,
+        response: &crate::codex_agent::CodexRunResult,
+        ordinal: u8,
+        cancelled: &Arc<AtomicBool>,
+    ) -> Result<(), String> {
+        self.check_complete()?;
+        let fresh = snapshot::load_snapshot_manifest(
+            &self.storage,
+            &self.manifest.summary.project_id,
+            &self.manifest.summary.snapshot_id,
+        )?;
+        self.ledger.check(&fresh, &self.runtime, cancelled)?;
+        if (ordinal == 1 && self.candidate.is_some())
+            || (ordinal == 2
+                && (!self.correction_only || !self.candidate.as_ref().is_some_and(|c| c.0 == 1)))
+            || !(1..=2).contains(&ordinal)
+        {
+            return Err("The candidate does not own this investigation step.".into());
+        }
+        let invalid = crate::claim_alignment::diagnostics(&response.response_text)
+            .is_some_and(|issues| !issues.is_empty());
+        if invalid || ordinal == 2 {
+            self.ledger
+                .save_candidate(fingerprint, response, ordinal, None)?;
+        }
+        self.candidate = Some((ordinal, response.clone(), Arc::clone(cancelled)));
+        Ok(())
+    }
+
+    /// Freeze before the sole correction turn. Both event and private packet
+    /// admission refuse additional tools, even if the model ignores the prompt.
+    pub(crate) fn begin_correction(&mut self, cancelled: &AtomicBool) -> Result<(), String> {
+        self.check_complete()?;
+        let fresh = snapshot::load_snapshot_manifest(
+            &self.storage,
+            &self.manifest.summary.project_id,
+            &self.manifest.summary.snapshot_id,
+        )?;
+        self.ledger.check(&fresh, &self.runtime, cancelled)?;
+        if self.correction_only
+            || !self.candidate.as_ref().is_some_and(|c| {
+                c.0 == 1
+                    && crate::claim_alignment::diagnostics(&c.1.response_text)
+                        .is_some_and(|issues| !issues.is_empty())
+            })
+        {
+            return Err("Only one correction may follow the initial candidate.".into());
+        }
+        self.correction_only = true;
+        Ok(())
+    }
+
+    /// Called only by the manager-owned publication callback on rejection.
+    /// A private failed candidate cannot enter the valid preview/chapter stores.
+    pub(crate) fn preserve_rejection(&self, fingerprint: &str, reason: &str) -> Result<(), String> {
+        let (ordinal, response, cancelled) = self
+            .candidate
+            .as_ref()
+            .ok_or("No completed candidate is available for rejection recovery.")?;
+        let fresh = snapshot::load_snapshot_manifest(
+            &self.storage,
+            &self.manifest.summary.project_id,
+            &self.manifest.summary.snapshot_id,
+        )?;
+        self.ledger.check(&fresh, &self.runtime, cancelled)?;
+        self.ledger
+            .save_candidate(fingerprint, response, *ordinal, Some(reason))
     }
 }
 impl Drop for Session {

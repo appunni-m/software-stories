@@ -570,8 +570,20 @@ impl CodexAgentManager {
             if cancelled.load(Ordering::Acquire) {
                 return Err(cancelled_message());
             }
-            let response =
-                process.generate(&input, &stage.path, &cancelled, started_at, &progress)?;
+            let response = process.generate(
+                &input,
+                &stage.path,
+                &cancelled,
+                started_at,
+                &progress,
+                fingerprint,
+                |process| {
+                    if self.observe_runtime(storage_dir, process)? != input.expected_runtime {
+                        return Err(codex_identity::changed());
+                    }
+                    Ok(())
+                },
+            )?;
             if self.observe_runtime(storage_dir, process)? != input.expected_runtime {
                 return Err(codex_identity::changed());
             }
@@ -1103,6 +1115,8 @@ impl ServerProcess {
         cancelled: &Arc<AtomicBool>,
         started_at: Instant,
         progress: &F,
+        fingerprint: &str,
+        mut before_correction: impl FnMut(&mut Self) -> Result<(), String>,
     ) -> Result<CodexRunResult, String>
     where
         F: Fn(CodexProgress),
@@ -1191,11 +1205,24 @@ impl ServerProcess {
             started_at,
             progress,
         )?;
+        if let Some(retrieval) = &input.retrieval {
+            retrieval
+                .lock()
+                .map_err(|_| "Captured-code tools are unavailable.")?
+                .capture_candidate(fingerprint, &initial, 1, cancelled)?;
+        }
         let response = crate::claim_alignment::correct_once(
             input.repair_claim_alignment,
             initial,
             |response| &response.response_text,
             |prompt| {
+                before_correction(self)?;
+                if let Some(retrieval) = &input.retrieval {
+                    retrieval
+                        .lock()
+                        .map_err(|_| "Captured-code tools are unavailable.")?
+                        .begin_correction(cancelled)?;
+                }
                 progress(progress_event(
                     &input.run_id,
                     "validating",
@@ -1203,9 +1230,16 @@ impl ServerProcess {
                     None,
                     "Refining the explanation against its cited code.",
                 ));
-                self.generate_turn(
+                let corrected = self.generate_turn(
                     input, stage, &thread_id, prompt, cancelled, started_at, progress,
-                )
+                )?;
+                if let Some(retrieval) = &input.retrieval {
+                    retrieval
+                        .lock()
+                        .map_err(|_| "Captured-code tools are unavailable.")?
+                        .capture_candidate(fingerprint, &corrected, 2, cancelled)?;
+                }
+                Ok(corrected)
             },
         )?;
         if let Some(retrieval) = &input.retrieval {
@@ -1707,10 +1741,7 @@ fn validate_run(input: &CodexRunInput) -> Result<(), String> {
         return Err("The explanation output schema is invalid or too large.".to_owned());
     }
     if input.retrieval.is_some()
-        && (!input.sources.is_empty()
-            || input.model != "gpt-6-luna"
-            || input.effort != "max"
-            || input.repair_claim_alignment)
+        && (!input.sources.is_empty() || input.model != "gpt-6-luna" || input.effort != "max")
     {
         return Err("Captured-code generation requires GPT-6 Luna/max, an empty initial source bundle and a single investigation.".into());
     }

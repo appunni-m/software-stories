@@ -1,0 +1,10 @@
+{
+  "fixture": "public synthetic greeting; not user source",
+  "model": "gpt-6-luna",
+  "effort": "max",
+  "testElapsedSeconds": 23.37,
+  "error": "Each overview section needs a specific title, substantive prose, non-empty bounded narration, and one to twenty claims.",
+  "result": "failed independent validation; no draft published",
+  "observedPhases": ["preparing", "starting", "generating", "validating", "validating", "starting", "generating", "generating", "validating"],
+  "limitation": "The synthetic test did not state the section prose and narration bounds. Its original candidates were in temporary fixture storage, which was removed by fixture cleanup; offending fields cannot be reviewed from this artifact. The probe was changed to preserve candidates and terminal failures before cleanup. This failure is not qualified as a successful correction."
+}

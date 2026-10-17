@@ -1,0 +1,135 @@
+{
+  "fixture": "public synthetic greeting; not user source",
+  "operationId": "a210335c-5bb7-4ac7-a40c-a20542c20f95",
+  "model": "gpt-6-luna",
+  "effort": "max",
+  "elapsedMs": 19714,
+  "corrections": 1,
+  "error": null,
+  "candidates": [
+    {
+      "ordinal": 1,
+      "threadId": "01a1488c-8310-7fb2-ae02-3b1b34e9ec7b",
+      "turnId": "01a1488c-83e9-7a80-8513-b60516aca6c1",
+      "responseText": "{\"title\":\"Greeting Output Formatting\",\"sections\":[{\"title\":\"Template result\",\"prose\":\"A string interpolation inserts the supplied name after the fixed “Hello, ” prefix.\",\"spokenText\":\"It returns Hello, followed by the supplied name.\",\"claims\":[{\"category\":\"codeBehavior\",\"aspect\":\"responsibility\",\"prose\":\"The helper formats the supplied name into a Hello message.\",\"inferenceBasis\":\"\",\"identifiers\":[\"greeting\"],\"evidence\":[{\"path\":\"src/greeting.ts\",\"quote\":\"return `Hello, ${name}`;\"}],\"relationshipIds\":[]}],\"visual\":{\"kind\":\"none\",\"title\":\"\",\"direction\":\"auto\",\"nodes\":[],\"edges\":[]}}]}",
+      "responseSha256": "9e44e4202136a39e17be52477cf164a903b6299541fbda112ac3f7a65785d71a",
+      "alignmentIssues": [
+        {
+          "location": "/sections/0/claims/0",
+          "missingFromProse": [
+            "greeting"
+          ],
+          "missingFromQuotes": [
+            "greeting"
+          ],
+          "quotesWithoutDeclaredIdentifier": [
+            0
+          ]
+        }
+      ],
+      "rejection": null
+    },
+    {
+      "ordinal": 2,
+      "threadId": "01a1488c-8310-7fb2-ae02-3b1b34e9ec7b",
+      "turnId": "01a1488c-b811-7001-9dfb-be88f1f430ef",
+      "responseText": "{\"title\":\"Greeting Output Formatting\",\"sections\":[{\"title\":\"Template result\",\"prose\":\"A string interpolation inserts the supplied name after the fixed “Hello, ” prefix.\",\"spokenText\":\"It returns Hello, followed by the supplied name.\",\"claims\":[{\"category\":\"codeBehavior\",\"aspect\":\"responsibility\",\"prose\":\"The `greeting` helper returns `Hello, ` followed by the supplied name.\",\"inferenceBasis\":\"\",\"identifiers\":[\"greeting\"],\"evidence\":[{\"path\":\"src/greeting.ts\",\"quote\":\"export function greeting(name: string): string {\\n    return `Hello, ${name}`;\\n}\"}],\"relationshipIds\":[]}],\"visual\":{\"kind\":\"none\",\"title\":\"\",\"direction\":\"auto\",\"nodes\":[],\"edges\":[]}}]}",
+      "responseSha256": "75a323c41ee601b4b4261879cba48922e3918c1660ff09ca2f31e4995275fe66",
+      "alignmentIssues": [],
+      "rejection": null
+    }
+  ],
+  "calls": [
+    {
+      "id": "42cee331-1a2a-48ca-8796-eea76e05f384",
+      "tool": "read",
+      "argumentsSha256": "51699020b5b19cbcdc1ef529e4a8da12dff1bf199821f7fed3022752468cc6d6",
+      "state": "delivered",
+      "evidenceIds": [
+        "evidence:9ef28e77db01687b668d92355d659f08bed5c136c52b754bc33a209b5126fcd6"
+      ],
+      "sourceBytes": 197,
+      "metadataBytes": 808,
+      "wireBytes": 1014,
+      "payloadSha256": "31c0d2af2aa6df18a124eb861c36034b4bc299fa7ce35963802397dcfc3533b2"
+    }
+  ],
+  "revision": {
+    "schemaVersion": 4,
+    "chapterId": "chapter:overview",
+    "revisionId": "revision:69cffb78-5d0f-4f40-b935-d8fea58091c9",
+    "revisionNumber": 1,
+    "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-41649-b872ac22-0e98-42bb-ab0c-1301ef616010/repository",
+    "snapshotId": "snap-1792218527477307000-41649-0",
+    "target": {
+      "targetId": "target:overview",
+      "scope": {
+        "kind": "overview"
+      }
+    },
+    "title": "Greeting Output Formatting",
+    "lifecycle": "draft",
+    "validationStatus": "unvalidated",
+    "createdAtUnixMs": 1792218549995,
+    "sections": [
+      {
+        "sectionId": "section:bad3497f-c167-4bec-a36e-0f077b80d875",
+        "sectionRevisionId": "sectionrev:bb6db4da-4753-4df9-9c2d-67448c704cd0",
+        "order": 0,
+        "title": "Template result",
+        "prose": "The `greeting` helper returns `Hello, ` followed by the supplied name.",
+        "spokenText": "The `greeting` helper returns `Hello, ` followed by the supplied name.",
+        "claims": [
+          {
+            "claimId": "claim:2437fc08-25e0-409e-94f5-21b7ef0ea916",
+            "category": {
+              "kind": "codeBehavior"
+            },
+            "prose": "The `greeting` helper returns `Hello, ` followed by the supplied name.",
+            "anchors": [
+              {
+                "anchorId": "anchor:d5b649bf-f308-44c1-ae2f-0f94547cfe01",
+                "path": "src/greeting.ts",
+                "symbolId": null,
+                "snapshotId": "snap-1792218527477307000-41649-0",
+                "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                "startByte": 46,
+                "endByteInclusive": 124,
+                "startLine": 2,
+                "endLine": 4,
+                "startColumn": 1,
+                "endColumn": 1,
+                "excerpt": "export function greeting(name: string): string {\n    return `Hello, ${name}`;\n}"
+              }
+            ],
+            "dependencies": [
+              {
+                "kind": "sourceFile",
+                "path": "src/greeting.ts",
+                "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715"
+              }
+            ]
+          }
+        ],
+        "dependencies": [
+          {
+            "kind": "sourceFile",
+            "path": "src/greeting.ts",
+            "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715"
+          }
+        ],
+        "visual": null,
+        "hotspots": [
+          {
+            "hotspotId": "overviewfile:56496653-80b5-46a4-829b-af5f1f5a2ec4",
+            "label": "Open file: src/greeting.ts",
+            "destination": {
+              "kind": "atlasFile",
+              "path": "src/greeting.ts"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

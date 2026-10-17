@@ -1,6 +1,8 @@
 //! Native admission for source transmitted through owned context tools.
 //! This records possible delivery before transport; it never resumes inference.
 
+pub(crate) mod attempts;
+
 use crate::{
     bounded_file, chapters, codex_agent, codex_identity::CodexReviewRuntime,
     repository_context as context, repository_structure as structure, snapshot, workspace,

@@ -87,7 +87,8 @@ fn request(
         "evidencePolicy":crate::evidence_ledger::POLICY,"scope":"captured implementation; use tools to investigate; starting points are not a source selection"})).map_err(|_|"The question could not be encoded.")?;
     let schema = provider::workspace_retrieval_schema();
     let contract=serde_json::to_vec(&json!({"contractVersion":"codex-retrieval-v1","runId":input.run_id,"projectId":input.project_id,"snapshotId":input.snapshot_id,
-        "grantId":input.grant_id,"model":input.model_id,"effort":input.effort,"systemInstructions":INSTRUCTIONS,"prompt":prompt,"outputSchema":schema,"tools":context_mcp::TOOL_NAMES})).map_err(|_|"The question contract could not be encoded.")?;
+        "grantId":input.grant_id,"model":input.model_id,"effort":input.effort,"systemInstructions":INSTRUCTIONS,"prompt":prompt,"outputSchema":schema,"tools":context_mcp::TOOL_NAMES,
+        "claimAlignmentPolicy":"single-owned-correction-no-new-context-v1"})).map_err(|_|"The question contract could not be encoded.")?;
     if contract.len() > 32000 {
         return Err("The question and references exceed the initial request limit.".into());
     }
@@ -201,7 +202,7 @@ pub(crate) fn run(
             system_instruction: INSTRUCTIONS.into(),
             user_prompt: prompt,
             output_schema: schema,
-            repair_claim_alignment: false,
+            repair_claim_alignment: true,
             retrieval: Some(Arc::clone(&session)),
             sources: vec![],
         },
@@ -240,6 +241,11 @@ pub(crate) fn run(
             })
         },
         |candidate: Result<PreparedChapterDraftPreview, String>| {
+            if let Err(reason) = &candidate {
+                session.lock().map_err(|_| "Rejected explanation recovery is unavailable.")?
+                    .preserve_rejection(&fingerprint, reason).map_err(|_| format!(
+                        "{reason} The rejected candidate could not be saved for local recovery."))?;
+            }
             candidate.and_then(|candidate| {
                 publish_chapter_candidate(storage, candidate, drafts, PreviewPublication::AgentOwned)
                     .map_err(|e| e.message)

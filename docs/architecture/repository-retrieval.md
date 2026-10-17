@@ -61,6 +61,16 @@ The deadline does not preempt a synchronous Tantivy call. `resultBytes` measures
 
 The current 250,000-byte model-operation source limit is unchanged. The source implementation now exposes five owned MCP tools through the existing Codex runtime; its initial native tests and live-account/package qualification are separate. Global disk retention/eviction and complete cache-boundary corruption/cancellation qualification remain open; disposable cache files must not be confused with saved explanations.
 
+## Rejected candidates and one correction
+
+Workspace Codex requests now fingerprint the `single-owned-correction-no-new-context-v1` policy. When the initial structured answer has an identifier missing from its claim prose or quotes, the native adapter retains that candidate privately and requests one correction in the same Codex thread. Positional diagnostics contain field locations and identifiers, without resending source. The original model, effort, cancellation owner and ten-minute deadline remain in force. Account/runtime identity and the saved snapshot grant are checked again before correction. Both MCP event admission and the private tool transport refuse additional repository context during this correction turn.
+
+The corrected candidate still passes the full independent source, claim and visual validators. Correction is not acceptance or a semantic-quality review. Failed source/schema/visual validation retains the completed candidate under the manager's publication ownership; it does not create a trusted preview. Transport failure or cancellation does not automatically replay the investigation.
+
+Private records live in `rejected-explanations/<operation UUID>.json`, separately from the source-free evidence ledger. They bind the request fingerprint, snapshot/runtime/grant receipt, delivered-range digest, thread/turn identities, exact structured response, response digest and positional alignment findings. The store admits at most eight operations, two candidates per operation and 2 MiB per record, reserving at most 16 MiB. Files use mode 0600 in a 0700 directory. Existing records are not silently evicted or overwritten with a different candidate. Reasoning and streamed analysis are not recorded. Default diagnostics do not export these source-containing records.
+
+**Pending:** a user-facing recovery/retention control must let the reader inspect or remove saved rejections without editing app storage. A full store currently refuses another rejection/correction, so this quota-management gap is tracked in [Kata gk46](../kata-tasks/70-codex-retrieval-tools.md). Test-only inspection checks the record against its independently persisted evidence receipt. Persistent exploration threads, whole-guide resume and semantic-quality qualification remain separate work.
+
 ## Dependencies and qualification
 
 Direct versions are locked in Cargo:
