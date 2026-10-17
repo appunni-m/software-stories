@@ -151,6 +151,14 @@ pub(super) fn compile(section: &Value) -> Result<Compiled, Vec<Value>> {
         let scene = canonical
             .remove("scene")
             .ok_or_else(|| issue(&base, "sceneAuthoringShape"))?;
+        let evidence_at = format!("/section/claims/{claim_index}/evidence");
+        let evidence = canonical
+            .get("evidence")
+            .and_then(Value::as_array)
+            .ok_or_else(|| issue(&evidence_at, "sceneAuthoringShape"))?;
+        if !(1..=8).contains(&evidence.len()) {
+            return Err(issue(&evidence_at, "sceneAuthoringLimit"));
+        }
         if settings.kind == "none" {
             if !scene.is_null() {
                 return Err(issue(&base, "sceneAuthoringShape"));
@@ -167,11 +175,6 @@ pub(super) fn compile(section: &Value) -> Result<Compiled, Vec<Value>> {
         {
             return Err(issue(&base, "sceneAuthoringLimit"));
         }
-        let evidence = canonical
-            .get("evidence")
-            .and_then(Value::as_array)
-            .filter(|v| (1..=8).contains(&v.len()))
-            .ok_or_else(shape)?;
         let mut node_keys = HashMap::new();
         for (index, node) in scene.nodes.into_iter().enumerate() {
             let at = format!("{base}/nodes/{index}");

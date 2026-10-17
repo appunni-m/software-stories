@@ -20,8 +20,8 @@ fn inspect_saved_section_rejections() {
     assert!(storage.is_absolute() && output.is_absolute());
     let record = super::super::inspect(&storage, &run).unwrap();
     let answer = inspect(&storage, &run).unwrap();
-    assert_eq!(
-        answer.schema_version, 2,
+    assert!(
+        matches!(answer.schema_version, 2 | 3),
         "inspection requires short-reference answers"
     );
     assert_eq!(answer.binding.operation_id, record.binding.operation_id);
@@ -50,7 +50,7 @@ fn inspect_saved_section_rejections() {
         .enumerate()
         .filter(|(_, a)| !a.findings.is_empty())
     {
-        let proposal: Proposal = serde_json::from_str(&attempt.arguments).unwrap();
+        let mut proposal: Proposal = serde_json::from_str(&attempt.arguments).unwrap();
         let position = record
             .calls
             .iter()
@@ -94,7 +94,14 @@ fn inspect_saved_section_rejections() {
                 citations.insert(native_citations::short_reference(ordinal), citation);
             }
         }
-        let resolved = native_citations::resolve(&wrapped(&proposal).unwrap(), |id| {
+        let response = match wrapped_authored(&mut proposal) {
+            Ok((response, _)) => response,
+            Err(findings) => {
+                reports.push(json!({"attempt":index+1,"sectionKey":proposal.section_key,"originalFindings":attempt.findings,"currentAuthoringFindings":findings,"canonicalizationError":null,"validation":null}));
+                continue;
+            }
+        };
+        let resolved = native_citations::resolve(&response, |id| {
             citations.get(id).cloned().ok_or("referenceUnavailable")
         });
         let (error, validation) = match resolved {

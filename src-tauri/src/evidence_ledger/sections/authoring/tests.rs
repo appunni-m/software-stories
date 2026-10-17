@@ -175,6 +175,30 @@ fn compiler_preserves_section_wide_limits_and_explicit_no_visual_fallback() {
 }
 
 #[test]
+fn claim_evidence_bounds_report_the_exact_field_without_removing_references() {
+    for count in [0, 9] {
+        for no_visual in [false, true] {
+            let mut raw = section("code:1");
+            raw["claims"][0]["evidence"] = json!(
+                (1..=count)
+                    .map(|i| json!({"referenceId":format!("code:{i}")}))
+                    .collect::<Vec<_>>()
+            );
+            if no_visual {
+                raw["visual"] = json!({"kind":"none","title":"","direction":"auto"});
+                raw["claims"][0]["scene"] = Value::Null;
+            }
+            let original = raw.clone();
+            assert_eq!(
+                compile(&raw).err().unwrap(),
+                vec![json!({"location":"/section/claims/0/evidence","code":"sceneAuthoringLimit"})]
+            );
+            assert_eq!(raw, original);
+        }
+    }
+}
+
+#[test]
 fn advertised_schema_matches_authored_objects_and_forbids_shared_numeric_pointers() {
     let schema = section_schema();
     let validator = jsonschema::validator_for(&schema).unwrap();
