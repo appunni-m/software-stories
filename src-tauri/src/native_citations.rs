@@ -129,7 +129,15 @@ impl Resolved {
     pub(crate) fn claim_spans(&self, section: usize, claim: usize) -> Option<&[Citation]> {
         self.spans.get(section)?.get(claim).map(Vec::as_slice)
     }
+
+    /// Compile only redundant metadata for the explicit new authoring protocol.
+    /// Trusted source spans and every authored content field remain unchanged.
+    pub(crate) fn with_named_identifiers(self) -> Result<Self, Vec<Value>> {
+        names::compile(self)
+    }
 }
+
+pub(crate) mod names;
 
 pub(crate) enum Resolution {
     Ready(Resolved),

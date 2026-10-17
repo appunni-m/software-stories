@@ -795,7 +795,7 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
             // The callback can independently inspect an already durable section;
             // it is never given an uncommitted preview or raw source payload.
             let saved = sections::inspect(&storage, &notice.run_id).unwrap();
-            assert_eq!(serde_json::to_value(&saved).unwrap()["schemaVersion"], 4);
+            assert_eq!(serde_json::to_value(&saved).unwrap()["schemaVersion"], 5);
             assert!(
                 saved
                     .sections
@@ -839,7 +839,7 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
     );
     let read_reply: Value = serde_json::from_str(&read_reply).unwrap();
     let reference = read_reply["added"][0]["referenceId"].as_str().unwrap();
-    let raw = sections::authoring::tests::proposal(reference, "entry", 0).to_string();
+    let raw = sections::authoring::tests::native_names_proposal(reference, "entry", 0).to_string();
     let args: Value = serde_json::from_str(&raw).unwrap();
     let mut wrong_order = args.clone();
     wrong_order["order"] = json!(5);
@@ -904,7 +904,7 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
         serde_json::from_str::<Value>(&text).unwrap()["context"]["result"]["generationId"],
         generation
     );
-    let mut bad = sections::authoring::tests::proposal(reference, "deeper", 1);
+    let mut bad = sections::authoring::tests::native_names_proposal(reference, "deeper", 1);
     bad["section"]["claims"][0]["evidence"][0]["referenceId"] =
         json!(format!("evidence:{}", "f".repeat(64)));
     let (_, text) =
@@ -934,7 +934,7 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
     // Simulate an observed scope change after durable commit, before notice or
     // reply. The section is inspectable, but no successful callback or reply
     // may escape and no automatic inference/tool replay is started.
-    let late = sections::authoring::tests::proposal(reference, "late", 1);
+    let late = sections::authoring::tests::native_names_proposal(reference, "late", 1);
     let started = event(&Uuid::new_v4().to_string(), mcp::PROPOSAL_TOOL, &late);
     s.event(&started, false).unwrap();
     let mut peer = UnixStream::connect(s.directory.join("context.sock")).unwrap();

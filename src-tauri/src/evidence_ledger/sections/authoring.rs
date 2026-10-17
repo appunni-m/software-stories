@@ -266,6 +266,19 @@ pub(super) fn compile(section: &Value) -> Result<Compiled, Vec<Value>> {
     })
 }
 
+/// The new protocol omits the duplicate list; names are compiled only after
+/// every native citation has passed ownership, delivery and captured-byte checks.
+pub(super) fn compile_native_names(section: &Value) -> Result<Compiled, Vec<Value>> {
+    if let Some(claims) = section["claims"].as_array() {
+        for (index, claim) in claims.iter().enumerate() {
+            if claim.get("identifiers").is_some() {
+                return Err(issue(&format!("/section/claims/{index}/identifiers"), "namedIdentifier"));
+            }
+        }
+    }
+    compile(section)
+}
+
 /// One source of truth for the agent-facing contract; canonical schemas stay frozen.
 pub(crate) fn section_schema() -> Value {
     let mut section =
@@ -320,6 +333,15 @@ pub(crate) fn section_schema() -> Value {
     visual["required"] = json!(["kind", "title", "direction"]);
     properties.insert("visual".into(), visual);
     section["required"] = json!(["title", "claims", "visual"]);
+    section
+}
+
+pub(crate) fn native_names_schema() -> Value {
+    let mut section = section_schema();
+    let claim = &mut section["properties"]["claims"]["items"];
+    claim["properties"].as_object_mut().unwrap().remove("identifiers");
+    claim["required"].as_array_mut().unwrap().retain(|field| field != "identifiers");
+    claim["properties"]["prose"]["description"] = json!("Complete grounded claim. Mark concrete code names or configuration keys with single inline backticks. Every cited fragment must contain a marked name; native code derives identifier metadata. Do not supply identifiers.");
     section
 }
 

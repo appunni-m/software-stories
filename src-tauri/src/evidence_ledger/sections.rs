@@ -9,9 +9,12 @@ use std::sync::Mutex;
 pub(crate) const MAX_PROPOSAL_BYTES: usize = 32_768;
 pub(crate) const PROPOSAL_VERSION: &str = "answerSectionV2";
 pub(crate) const SCENE_PROPOSAL_VERSION: &str = "answerSectionV3";
+pub(crate) const NATIVE_NAMES_PROPOSAL_VERSION: &str = "answerSectionV4";
 pub(crate) const NATIVE_MANIFEST_VERSION: &str = "answerManifestV2";
 pub(crate) const NATIVE_MANIFEST_POLICY: &str = "all-latest-published-sections-v1";
 pub(crate) const NATIVE_MANIFEST_ANSWER_VERSION: u32 = 4;
+pub(crate) const NATIVE_NAMES_ANSWER_VERSION: u32 = 5;
+pub(crate) const NATIVE_NAMES_CHECKPOINT_VERSION: u32 = 6;
 const LEGACY_PROPOSAL_VERSION: &str = "answerSectionV1";
 const CURRENT_CHECKPOINT_VERSION: u32 = 4;
 const SCENE_CHECKPOINT_VERSION: u32 = 5;
@@ -315,7 +318,7 @@ fn wrapped(proposal: &Proposal) -> Result<String, String> {
     );
     let citation_version = if matches!(
         proposal.proposal_version.as_str(),
-        PROPOSAL_VERSION | SCENE_PROPOSAL_VERSION
+        PROPOSAL_VERSION | SCENE_PROPOSAL_VERSION | NATIVE_NAMES_PROPOSAL_VERSION
     ) {
         native_citations::SHORT_VERSION
     } else {
@@ -336,7 +339,9 @@ fn finding(code: &str) -> Vec<Value> {
 fn wrapped_authored(
     proposal: &mut Proposal,
 ) -> Result<(String, Option<authoring::Compiled>), Vec<Value>> {
-    let compiled = if proposal.proposal_version == SCENE_PROPOSAL_VERSION {
+    let compiled = if proposal.proposal_version == NATIVE_NAMES_PROPOSAL_VERSION {
+        Some(authoring::compile_native_names(&proposal.section)?)
+    } else if proposal.proposal_version == SCENE_PROPOSAL_VERSION {
         Some(authoring::compile(&proposal.section)?)
     } else {
         None
@@ -348,6 +353,25 @@ fn wrapped_authored(
         wrapped(proposal).map_err(|_| finding("proposalShape"))?,
         compiled,
     ))
+}
+
+/// Only fresh proposals compile metadata, after native source resolution.
+/// Historical proposals retain their original identifiers and rejection rules.
+fn resolved_authored(
+    proposal: &Proposal,
+    resolution: native_citations::Resolution,
+) -> Result<native_citations::Resolved, Vec<Value>> {
+    match resolution {
+        native_citations::Resolution::Invalid(issues) => Err(issues.iter().take(64)
+            .map(|issue| json!({"location":section_location(issue),"code":"citation"})).collect()),
+        native_citations::Resolution::Ready(resolved)
+            if proposal.proposal_version == NATIVE_NAMES_PROPOSAL_VERSION =>
+        {
+            resolved.with_named_identifiers().map_err(|issues| issues.iter()
+                .map(|issue| json!({"location":section_location(issue),"code":issue["code"]})).collect())
+        }
+        native_citations::Resolution::Ready(resolved) => Ok(resolved),
+    }
 }
 
 fn section_location(issue: &Value) -> String {
@@ -486,7 +510,7 @@ fn scene_version_findings(section: &Value, checkpoint_version: u32) -> Vec<Value
             presentation.is_null() || matches!(presentation["schemaVersion"].as_u64(), Some(1 | 2))
         }
         3 => presentation["schemaVersion"].as_u64() == Some(2),
-        4 | 5 => presentation["schemaVersion"].as_u64() == Some(3),
+        4 | 5 | 6 => presentation["schemaVersion"].as_u64() == Some(3),
         _ => false,
     };
     if !supported {
@@ -626,7 +650,8 @@ fn valid_findings(findings: &[Value], schema_version: u32) -> bool {
                     s.len() <= 160 && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'/')
                 })
                 && v["code"].as_str().is_some_and(|s| {
-                    (matches!(schema_version, 3 | 4)
+                    (schema_version == NATIVE_NAMES_ANSWER_VERSION && matches!(s, "namedIdentifier" | "namedIdentifierEvidence"))
+                        || (matches!(schema_version, 3 | 4 | 5)
                         && matches!(
                             s,
                             "sceneAuthoringShape"
@@ -700,6 +725,7 @@ impl Ledger {
         )
     }
 
+    #[cfg(test)]
     pub(crate) fn start_native_manifest_answer_sections(
         &self,
         question: &str,
@@ -715,6 +741,19 @@ impl Ledger {
             runtime,
             cancelled,
             NATIVE_MANIFEST_ANSWER_VERSION,
+        )
+    }
+
+    pub(crate) fn start_native_names_answer_sections(
+        &self,
+        question: &str,
+        request_sha256: &str,
+        manifest: &snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        cancelled: &AtomicBool,
+    ) -> Result<ActiveAnswer, String> {
+        self.start_versioned_answer_sections(
+            question, request_sha256, manifest, runtime, cancelled, NATIVE_NAMES_ANSWER_VERSION,
         )
     }
 
@@ -758,11 +797,21 @@ impl Ledger {
 
 impl Answer {
     fn uses_scene_authoring(&self) -> bool {
-        matches!(self.schema_version, 3 | 4)
+        matches!(self.schema_version, 3 | 4 | 5)
+    }
+
+    fn supports_checkpoint(&self, checkpoint: u32) -> bool {
+        match self.schema_version {
+            NATIVE_NAMES_ANSWER_VERSION => checkpoint == NATIVE_NAMES_CHECKPOINT_VERSION,
+            3 | 4 => checkpoint == SCENE_CHECKPOINT_VERSION,
+            1 | 2 => matches!(checkpoint, 1 | 2 | 3 | 4),
+            _ => false,
+        }
     }
 
     fn proposal_version(&self) -> &'static str {
         match self.schema_version {
+            NATIVE_NAMES_ANSWER_VERSION => NATIVE_NAMES_PROPOSAL_VERSION,
             3 | 4 => SCENE_PROPOSAL_VERSION,
             2 => PROPOSAL_VERSION,
             _ => LEGACY_PROPOSAL_VERSION,
@@ -791,7 +840,7 @@ impl Answer {
         let parsed = crate::strict_json::from_slice(text.as_bytes()).map_err(
             |_| "The answer's final manifest is invalid. Published sections are preserved.",
         )?;
-        let topics = if self.schema_version == NATIVE_MANIFEST_ANSWER_VERSION {
+        let topics = if matches!(self.schema_version, NATIVE_MANIFEST_ANSWER_VERSION | NATIVE_NAMES_ANSWER_VERSION) {
             let manifest: NativeManifest = serde_json::from_value(parsed).map_err(
                 |_| "The answer's final manifest is invalid. Published sections are preserved.",
             )?;
@@ -826,7 +875,7 @@ impl Answer {
     }
 
     fn has_required_completion_manifest(&self) -> bool {
-        self.schema_version != NATIVE_MANIFEST_ANSWER_VERSION
+        !matches!(self.schema_version, NATIVE_MANIFEST_ANSWER_VERSION | NATIVE_NAMES_ANSWER_VERSION)
             || self.final_responses.last().is_some_and(|response| {
                 self.manifest_topics(&response.text)
                     .is_ok_and(|topics| topics.is_empty())
@@ -949,7 +998,9 @@ impl ActiveAnswer {
             manifest,
             runtime,
             cancelled,
-            if self.value.uses_scene_authoring() {
+            if self.value.schema_version == NATIVE_NAMES_ANSWER_VERSION {
+                NATIVE_NAMES_CHECKPOINT_VERSION
+            } else if self.value.uses_scene_authoring() {
                 SCENE_CHECKPOINT_VERSION
             } else {
                 CURRENT_CHECKPOINT_VERSION
@@ -966,9 +1017,7 @@ impl ActiveAnswer {
         cancelled: &AtomicBool,
         checkpoint_version: u32,
     ) -> Result<PreparedSection, String> {
-        if !matches!(checkpoint_version, 1 | 2 | 3 | 4 | 5)
-            || (checkpoint_version == SCENE_CHECKPOINT_VERSION) != self.value.uses_scene_authoring()
-        {
+        if !self.value.supports_checkpoint(checkpoint_version) {
             return Err("Unsupported answer presentation version.".into());
         }
         ledger.check(manifest, runtime, cancelled)?;
@@ -1031,9 +1080,9 @@ impl ActiveAnswer {
                     match wrapped_authored(&mut proposal) {
                         Err(issues) => findings = issues,
                         Ok((response, compiled)) => {
-                            match ledger.resolve_citations(&response, manifest, runtime, cancelled)? {
-                                native_citations::Resolution::Invalid(issues) => findings = issues.iter().take(64).map(|issue| json!({"location":section_location(issue),"code":"citation"})).collect(),
-                                native_citations::Resolution::Ready(resolved) => {
+                            match resolved_authored(&proposal, ledger.resolve_citations(&response, manifest, runtime, cancelled)?) {
+                                Err(issues) => findings = issues,
+                                Ok(resolved) => {
                                     let mut alignment = alignment_findings(&proposal.section, resolved.text());
                                     alignment.extend(visual_shape_findings(&proposal.section));
                                     alignment.extend(scene_version_findings(&proposal.section, checkpoint_version));
@@ -1324,7 +1373,7 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
         .map_err(|_| "Invalid saved answer".to_owned())
         .and_then(|v| serde_json::from_value(v).map_err(|_| "Invalid saved answer".to_owned()))
         .map_err(|_| "The saved answer is damaged; it was preserved.")?;
-    if !matches!(value.schema_version, 1 | 2 | 3 | 4)
+    if !matches!(value.schema_version, 1 | 2 | 3 | 4 | 5)
         || value.binding.operation_id != operation
         || !value.binding.runtime.valid_shape()
         || value.binding.model != "gpt-6-luna"
@@ -1423,9 +1472,7 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
             .map(|s| &s.key)
             .collect::<BTreeSet<_>>()
             .len();
-        if !matches!(section.checkpoint_version, 1 | 2 | 3 | 4 | 5)
-            || (section.checkpoint_version == SCENE_CHECKPOINT_VERSION)
-                != value.uses_scene_authoring()
+        if !value.supports_checkpoint(section.checkpoint_version)
             || checkpoint.schema_version != 3
             || !same_binding(&value.binding, &checkpoint.binding)?
             || checkpoint.status != Status::Active
@@ -1513,11 +1560,11 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
                 }
             }
         }
-        let resolved = match native_citations::resolve(&response, |id| {
+        let resolved = match resolved_authored(&proposal, native_citations::resolve(&response, |id| {
             citations.get(id).cloned().ok_or("referenceUnavailable")
-        }) {
-            native_citations::Resolution::Ready(value) => value,
-            native_citations::Resolution::Invalid(_) => {
+        })) {
+            Ok(value) => value,
+            Err(_) => {
                 return Err("The section cites code outside its delivered checkpoint.".into());
             }
         };

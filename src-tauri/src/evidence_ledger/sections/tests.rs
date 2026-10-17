@@ -3,6 +3,7 @@ use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE};
 
 mod scene_authoring;
 mod native_manifest;
+mod native_names;
 
 #[test]
 fn timing_export_keeps_scope_and_legacy_unknowns_without_source_or_inference() {

@@ -23,6 +23,15 @@ pub(crate) fn proposal(reference: &str, key: &str, order: usize) -> Value {
         "previousGenerationId":null,"section":section(reference)})
 }
 
+pub(crate) fn native_names_proposal(reference: &str, key: &str, order: usize) -> Value {
+    let mut raw = proposal(reference, key, order);
+    raw["proposalVersion"] = json!(super::super::NATIVE_NAMES_PROPOSAL_VERSION);
+    let claim = &mut raw["section"]["claims"][0];
+    claim.as_object_mut().unwrap().remove("identifiers");
+    claim["prose"] = json!("The `greeting` function formats the supplied name into a message. The returned greeting includes that name.");
+    raw
+}
+
 #[test]
 fn local_keys_compile_to_exact_canonical_references_without_rewriting_content() {
     let raw = section("code:1");

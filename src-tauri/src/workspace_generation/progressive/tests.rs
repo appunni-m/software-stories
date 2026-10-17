@@ -493,12 +493,13 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     );
     assert_eq!(contract["sectionAttempts"], 8);
     assert_eq!(contract["uniqueSections"], 6);
-    assert_eq!(contract["checkpointVersion"], 5);
-    assert_eq!(contract["answerSchemaVersion"], 4);
+    assert_eq!(contract["checkpointVersion"], 6);
+    assert_eq!(contract["answerSchemaVersion"], 5);
     assert_eq!(contract["finalManifestVersion"], "answerManifestV2");
     assert_eq!(contract["finalManifestPolicy"], "all-latest-published-sections-v1");
-    assert_eq!(contract["proposalVersion"], "answerSectionV3");
+    assert_eq!(contract["proposalVersion"], "answerSectionV4");
     assert_eq!(contract["sceneAuthoringPolicy"], "claim-owned-scene-local-identities-v1");
+    assert_eq!(contract["identifierCompilationPolicy"], "explicit-prose-names-own-fragments-v1");
     assert_eq!(contract["publicationOrderPolicy"], "investigation-local-next-order-v1");
     assert!(system_instructions().contains("Start its first new key at order:0"));
     assert!(system_instructions().contains("nextNewSectionOrder"));

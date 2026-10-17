@@ -21,7 +21,7 @@ fn inspect_saved_section_rejections() {
     let record = super::super::inspect(&storage, &run).unwrap();
     let answer = inspect(&storage, &run).unwrap();
     assert!(
-        matches!(answer.schema_version, 2 | 3 | 4),
+        matches!(answer.schema_version, 2 | 3 | 4 | 5),
         "inspection requires short-reference answers"
     );
     assert_eq!(answer.binding.operation_id, record.binding.operation_id);
@@ -101,14 +101,14 @@ fn inspect_saved_section_rejections() {
                 continue;
             }
         };
-        let resolved = native_citations::resolve(&response, |id| {
+        let resolved = resolved_authored(&proposal, native_citations::resolve(&response, |id| {
             citations.get(id).cloned().ok_or("referenceUnavailable")
-        });
+        }));
         let (error, validation) = match resolved {
-            native_citations::Resolution::Invalid(_) => {
+            Err(_) => {
                 (Some("referenceUnavailable".to_owned()), Value::Null)
             }
-            native_citations::Resolution::Ready(resolved) => {
+            Ok(resolved) => {
                 let source_list = sources.into_values().collect::<Vec<_>>();
                 match chapter_generation::canonicalize_narrated_answer_section(
                     &record.binding.project_id,
