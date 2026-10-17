@@ -4,7 +4,7 @@
 
 Workspace project: **code-atlas-rebuild**. Product plan: [PRODUCT_BLUEPRINT.md](PRODUCT_BLUEPRINT.md).
 Technical plan: [TECHNICAL_PLAN.md](TECHNICAL_PLAN.md). Original inventory generated on 2026-10-14; delivery order reconciled on 2026-10-16.
-Live-state snapshot: [all 55 tasks and their recorded status](KATA_STATUS.md).
+Live-state snapshot: [all task records and their recorded status](KATA_STATUS.md).
 Kata issue bodies are synchronized from `docs/kata-tasks/*.md`; each issue states its user outcome, interaction contract, acceptance criteria, exclusions, and closure evidence.
 
 **Priority update — 2026-10-16:** Deliver Codex first through [agent-first generation](kata-tasks/45-agent-first-generation.md), Kata `2r6n` (priority 0). The user deferred Claude (`8gqw`, priority 2); it no longer blocks the current Codex gate, but remains a direct dependency of full M7. Building, testing and a small synthetic installed-account Codex validation are authorized. Manual handoffs and direct API results cannot qualify Codex. See [Agent generation](AGENT_GENERATION.md).
@@ -12,6 +12,15 @@ Kata issue bodies are synchronized from `docs/kata-tasks/*.md`; each issue state
 ## Focused generation repair
 
 Kata `tmck` tracks [identifier correction](kata-tasks/65-claim-alignment-correction.md): one fingerprinted correction in the same Codex conversation, unchanged source validation and readable persisted failure messages. Parent quality `q0sm` remains open.
+
+## Large-repository generation checkpoint — 17 October
+
+The [native-citation Fontdone qualification](acceptance/2026-10-17-native-citation-references.md) preserves a failed six-minute investigation, despite correct reference resolution. The complete current tracker has **73 records: 50 open, 23 closed**. No task was closed by this checkpoint.
+
+- `yk6c` — [native evidence references](kata-tasks/72-agent-evidence-references.md): implemented and regression-tested; complete live answer/navigation/narration gates remain open.
+- `3bz5` — [progressive answer sections](kata-tasks/73-progressive-answer-sections.md): defined, pending implementation and qualification. Preserve independently admitted sections when later work fails, without relaxing evidence/content gates.
+- `ps02` — [generation timing](kata-tasks/71-generation-timing-traces.md): native call and coarse phase observations exist; the two-minute target and complete stage tracing remain open.
+- `q0sm` — [content quality](kata-tasks/14-chapter-quality.md): retain the required-versus-optional table counterexample; exact citations are not semantic proof.
 
 ## Product contract
 

@@ -1,0 +1,2220 @@
+{
+  "case": "memory-face",
+  "question": "How does Font::memory_face work? Explain its inputs, selection and validation of the face, and the data it creates. Follow necessary implementation dependencies.",
+  "projectId": "/Users/lazytrot/work/fontdone",
+  "snapshotId": "snap-1792140879637485000-11155-0",
+  "runId": "da7f3bb9-b3a8-4ce1-973e-e5ccd9916340",
+  "model": "gpt-6-luna",
+  "effort": "max",
+  "elapsedMs": 358714,
+  "phases": [
+    {
+      "phase": "preparing",
+      "elapsedMs": 1357
+    },
+    {
+      "phase": "starting",
+      "elapsedMs": 2088
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 229125
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 229673
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 230215
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 230751
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 231263
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 231835
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 232341
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 232896
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 233418
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 233967
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 234470
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 235214
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 235735
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 236313
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 236944
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 237514
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 238140
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 238795
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 239605
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 240126
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 241480
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 242024
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 242572
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 243132
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 243698
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 244228
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 244807
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 245588
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 246101
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 246668
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 247189
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 247714
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 248269
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 248780
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 249403
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 250347
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 250891
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 251451
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 252089
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 252782
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 253406
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 253911
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 254458
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 255051
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 255579
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 256098
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 256714
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 257219
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 257726
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 258325
+    },
+    {
+      "phase": "validating",
+      "elapsedMs": 258780
+    },
+    {
+      "phase": "validating",
+      "elapsedMs": 270063
+    },
+    {
+      "phase": "starting",
+      "elapsedMs": 270063
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 323996
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 324550
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 325085
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 325606
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 326194
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 326753
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 327304
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 327878
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 328388
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 328911
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 329506
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 330059
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 330649
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 331164
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 331743
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 332284
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 332856
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 333366
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 333930
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 334510
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 335024
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 335699
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 336222
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 336846
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 337685
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 338361
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 338949
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 339557
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 340752
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 341336
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 341872
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 342424
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 342924
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 343433
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 344010
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 344527
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 345115
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 345642
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 346171
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 346710
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 347261
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 347840
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 351392
+    },
+    {
+      "phase": "validating",
+      "elapsedMs": 351580
+    }
+  ],
+  "status": "interrupted",
+  "contextClock": "capturedCodeSessionV1",
+  "calls": [
+    {
+      "id": "c22d86e6-3616-45ca-a48d-bc95eb32eb76",
+      "tool": "definitions",
+      "argumentsSha256": "6e5a5559378ca09425a3423b18e8dacd6275932969c1ede1cb0a1a720e9dea11",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 1661,
+      "wireBytes": 1661,
+      "payloadSha256": "9177bc9370b287e2274fc9ad3b53eed8d9facfb1b0313a3d07d576bf5820a7b6",
+      "timing": {
+        "startedMs": 7695,
+        "preparedMs": 7762,
+        "finishedMs": 7980
+      }
+    },
+    {
+      "id": "d0e9e79b-99a5-4e00-8a8d-9791f80d2dac",
+      "tool": "read",
+      "argumentsSha256": "75858092792d59456f890f0fd5552bc5fbdf67a0a65b98fd6b1a818c88ef52fb",
+      "state": "delivered",
+      "evidenceIds": [
+        "evidence:73adba80cf59357bab7fd8d647f32e783d9d6a6928c6273b15f721c3e1cf09a0",
+        "evidence:7660ef4860e9a1d8e4402a745da15da806d42f0b6ac27f847673cbccb9c5b648",
+        "evidence:d55c0b35c26f3bfcd3fe3e31dbd079d98dec4938f5b6f5f5f6d0cf106b134cb4"
+      ],
+      "sourceBytes": 2897,
+      "metadataBytes": 1807,
+      "wireBytes": 4772,
+      "payloadSha256": "e57b35558695a14cd6fc7091f9d5c3b9490bc0108d86b769171433cf9a7349bc",
+      "timing": {
+        "startedMs": 10287,
+        "preparedMs": 10552,
+        "finishedMs": 10776
+      }
+    },
+    {
+      "id": "b8eeb769-cfa6-4fcc-998e-491ad8dc1691",
+      "tool": "definitions",
+      "argumentsSha256": "a35ad8837ab3700f9e7512f74c49a82ff1dd47e2f57a1bb96b52c4b964f69dd1",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 1649,
+      "wireBytes": 1649,
+      "payloadSha256": "b66877ca9b64ab75801f0df84a0cedfb31ffe4a9989b0fd51b824bd0f313d0f7",
+      "timing": {
+        "startedMs": 13579,
+        "preparedMs": 13652,
+        "finishedMs": 13874
+      }
+    },
+    {
+      "id": "6d0d9236-a1d7-4fc8-8ee5-fa50d29b4baa",
+      "tool": "definitions",
+      "argumentsSha256": "d4bd81bdb4b0821dc59fb91be82959b61e5bc4dfe3cf349a7591dae88e44eedb",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 1649,
+      "wireBytes": 1649,
+      "payloadSha256": "2ed07c25aa01a477c2a0cac38da48842905718a65bb37525918f8faa9df4c3fd",
+      "timing": {
+        "startedMs": 14336,
+        "preparedMs": 14405,
+        "finishedMs": 14633
+      }
+    },
+    {
+      "id": "75d20029-494e-4891-993d-62079fce518a",
+      "tool": "definitions",
+      "argumentsSha256": "8aac77b8b4308ef2c17302e46101d53573cb11876c0f3370566ca2ab2e4902fa",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 2639,
+      "wireBytes": 2639,
+      "payloadSha256": "974e1fbae5916a8a2f861e5d99dd6e02a612d55b48937ba1c4ef47d06059a41c",
+      "timing": {
+        "startedMs": 15093,
+        "preparedMs": 15173,
+        "finishedMs": 15405
+      }
+    },
+    {
+      "id": "28679429-9289-4fb9-9af2-0fc1a68d5003",
+      "tool": "definitions",
+      "argumentsSha256": "dc4ad3e0158365238fe3d174c426aa35521669ebcb2899e07c16e9a4c0c0fbc5",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 1661,
+      "wireBytes": 1661,
+      "payloadSha256": "a96660a1789d3451553702de21cbe4fca340ccc85b1f881c096efa0b499bc5fc",
+      "timing": {
+        "startedMs": 15870,
+        "preparedMs": 15932,
+        "finishedMs": 16150
+      }
+    },
+    {
+      "id": "2c75780a-1f97-4726-96bc-ef7a9c9520a2",
+      "tool": "definitions",
+      "argumentsSha256": "ed9883e8e9cd5f121432494c9db6f8a7cedb2f524e2e6e9f6c8704fed74ab52a",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 1649,
+      "wireBytes": 1649,
+      "payloadSha256": "c4ae9298332d49204a43ba482b639ecc034196190928403d5212eb9eb60bc546",
+      "timing": {
+        "startedMs": 16614,
+        "preparedMs": 16678,
+        "finishedMs": 16905
+      }
+    },
+    {
+      "id": "366dff8e-41dc-43ff-87ed-b51c2a4d7a76",
+      "tool": "definitions",
+      "argumentsSha256": "ded9517f24e496f14923bbbccb68b95811186c8d0d73ea564728778efd4825e2",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 2626,
+      "wireBytes": 2626,
+      "payloadSha256": "7130e2e7b89665acdedf0f514e7051a7173e13a3130284fd3ea4e353da3ba2c4",
+      "timing": {
+        "startedMs": 17417,
+        "preparedMs": 17491,
+        "finishedMs": 17726
+      }
+    },
+    {
+      "id": "69ec683d-c7a1-4865-93fd-1591d256c759",
+      "tool": "definitions",
+      "argumentsSha256": "781ab90c3b79ff7b55bf937282e9e017fef1d7a79d4f782791867c34f15b804a",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 2571,
+      "wireBytes": 2571,
+      "payloadSha256": "aa58b73528a279cd6fd024fe94bc67954a808f6df25f242fb8a959528eb79c2a",
+      "timing": {
+        "startedMs": 18185,
+        "preparedMs": 18257,
+        "finishedMs": 18479
+      }
+    },
+    {
+      "id": "f7129921-d941-4ec8-92d5-3f2c5a8fce6d",
+      "tool": "definitions",
+      "argumentsSha256": "7a8b438ec68cc6961be7094aed20221379bb9767c728f1d6cbdbcbc0a2e9af0b",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 1661,
+      "wireBytes": 1661,
+      "payloadSha256": "c2e48bd795fcd834aea05c5259a5063b3bff7a20a0f5eca9d12e34cf7c8def6c",
+      "timing": {
+        "startedMs": 18935,
+        "preparedMs": 19005,
+        "finishedMs": 19228
+      }
+    },
+    {
+      "id": "240019c3-25ae-4150-bec5-561414cb6abf",
+      "tool": "read",
+      "argumentsSha256": "5d1908c1e7696a641d1fb661b640873617ff85fe9314807c566c297dd8e57abd",
+      "state": "delivered",
+      "evidenceIds": [
+        "evidence:00fb169e5b12e553b0c3291c2140868adae901608521163b4441bb7f593c7cac",
+        "evidence:1c2c6fa6d402ab861158814dfed838fd8acee108a8724880fba9cf4c661b4acf",
+        "evidence:2c549a4f03c56134927060e5e95d6a03bd34912621f46ed8f03579fd2999de7f",
+        "evidence:31677e8b4a1ac6efe1f3826721b40704569eb4e00435bec29322132f06467545",
+        "evidence:352b9af4cf4103f60e0a987f3131a8b237da3f368d0b9853bd608dd40f875e37",
+        "evidence:4836427646b4b7dae7ce05cbb2a175928250240af2bdae3e8a88681444b701bb",
+        "evidence:7ab37fdbaa7a4ad86b4aed3647db25abc91e58d03c28b4129768e14fcef7a6fe",
+        "evidence:a0b9822563e3643d9883965d08bf55137978474071c559e2e904ebafe54c250c",
+        "evidence:a60db5310e536be62f86133279bc9934f06f0625493f2f554936e757863dac12",
+        "evidence:a945eae41c55aa478e5eccf647c246f12343abdd824814d780ec8b223211b95a",
+        "evidence:b456bbe2d054e714624ab7970b81a2dddfeded4f3f8e108142ae8bd4f686792b",
+        "evidence:b9bcda956e703fa254f338141b2be83876753e9f1ddbde1fa25fafb05e858b4c",
+        "evidence:ce4202b59302c39b244af58319f1313299d438a1516ab3fadbe9db965b21346f",
+        "evidence:d08bedf0b8b2a4b4f802c4e386c5e44934f3f5c322b1ce500f514fd87afa4354",
+        "evidence:d8ce2d8ff2db8999239e9a11402df779111800379a24a7112deb9841dff484cd",
+        "evidence:eaeed0ee2c65a72a5b0be7c779ff5370c0c86dc32efbeedd7cae83da18e4b5d5",
+        "evidence:f869abb40dc77fc95aaed61d50fca1ff4fbdf0a1e15abfb07b9c8cf99d9db70b"
+      ],
+      "sourceBytes": 12148,
+      "metadataBytes": 8359,
+      "wireBytes": 20812,
+      "payloadSha256": "94d58669244cd2216324941bf40a90a5628a9b612a7a7270f08d09294cd6bd6a",
+      "timing": {
+        "startedMs": 24462,
+        "preparedMs": 25812,
+        "finishedMs": 26038
+      }
+    },
+    {
+      "id": "c0de8e2b-dffd-47d7-ac27-9c2fe4070a00",
+      "tool": "definitions",
+      "argumentsSha256": "0cf134e0356710fc602b0b07dbf39dad20491df54086055eb930ccd0d42c32c2",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 2774,
+      "wireBytes": 2774,
+      "payloadSha256": "4c521d4f945eb73741a82e97900fdd7eaf527b6792ea5c57d3199fd882e8668a",
+      "timing": {
+        "startedMs": 29607,
+        "preparedMs": 29685,
+        "finishedMs": 29919
+      }
+    },
+    {
+      "id": "4d11aa38-a2be-4f2e-8ee1-20516ba72e94",
+      "tool": "definitions",
+      "argumentsSha256": "8a8524dc51fcc4956f55caa4dc66f8ac504df50a2e95e7f548b2047d0e0120e3",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 1705,
+      "wireBytes": 1705,
+      "payloadSha256": "16214a416afc2e57678a4ea7bc47c396b22a03b2a74cab2c59133d089fbd1b8b",
+      "timing": {
+        "startedMs": 30393,
+        "preparedMs": 30460,
+        "finishedMs": 30685
+      }
+    },
+    {
+      "id": "05db7c76-9db4-48d9-8da3-bf97fc605f1f",
+      "tool": "definitions",
+      "argumentsSha256": "1003abb3d2487d2e1590949d8767f014b6d8b488317b5a883e59f0f715d9fe03",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 1661,
+      "wireBytes": 1661,
+      "payloadSha256": "c49a4d0761c5d9246a5a0513d1fa993c5f69c91f1115c995b5ad13ee0cee68dc",
+      "timing": {
+        "startedMs": 31150,
+        "preparedMs": 31220,
+        "finishedMs": 31452
+      }
+    },
+    {
+      "id": "e90e7199-3e35-4fd0-8f98-d65d39019797",
+      "tool": "definitions",
+      "argumentsSha256": "133f909829069334c21192d19d9d1f28c8b04e6f5db3d2117f05864ddeb651cc",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 1669,
+      "wireBytes": 1669,
+      "payloadSha256": "c6d9eb96d63b444985da021f73356b0b7b02da7e539839f1217eb8d1d40df3c0",
+      "timing": {
+        "startedMs": 31926,
+        "preparedMs": 31985,
+        "finishedMs": 32225
+      }
+    },
+    {
+      "id": "fc18bef1-af2b-4f28-937a-4edf5e23c045",
+      "tool": "definitions",
+      "argumentsSha256": "87b6d330a4cdafeb0bd0a54c552e5a7d7316325813478edb75525250e2553ad4",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 1669,
+      "wireBytes": 1669,
+      "payloadSha256": "f1790a1d70409e132c2bf0b75590c913a826888ffaa585b829e4afecfbad8b6d",
+      "timing": {
+        "startedMs": 32719,
+        "preparedMs": 32788,
+        "finishedMs": 33014
+      }
+    },
+    {
+      "id": "ca831b24-495e-4621-b4d8-b081cbdcc93f",
+      "tool": "definitions",
+      "argumentsSha256": "b0b805538f9a23c5f2883425f88afc41b310f8154f5dc5d98e0bd3617c756529",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 759,
+      "wireBytes": 759,
+      "payloadSha256": "dd726e2ca8d1a445be8d961bdc5875ff4f5dc428068706d23f2ca1e86d2c6d60",
+      "timing": {
+        "startedMs": 33482,
+        "preparedMs": 33541,
+        "finishedMs": 33761
+      }
+    },
+    {
+      "id": "e1d6449f-75b7-4f5b-bc4a-e3eb6bb5538b",
+      "tool": "definitions",
+      "argumentsSha256": "9fe8307d4b58d0fe6e869eb81003436a85694516f8291e8c380c701d5b8250a9",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 759,
+      "wireBytes": 759,
+      "payloadSha256": "a2ab1d5ed09b870deb2880745e3ae95fcec1c2cdc1973c8b17a8dda72e84ecb1",
+      "timing": {
+        "startedMs": 34211,
+        "preparedMs": 34266,
+        "finishedMs": 34489
+      }
+    },
+    {
+      "id": "789c0dba-49aa-4cb0-b989-5ec4613a32dd",
+      "tool": "read",
+      "argumentsSha256": "85dd5956e6c7d51e4205febf0e2c7506d90fa2715f78641faf2adc625fe8e2bf",
+      "state": "delivered",
+      "evidenceIds": [
+        "evidence:077bb8655be3d245c35dfc510fe5b7c85da20dbfb2a595af8ab43d2ad3b4e080",
+        "evidence:6877be3ad3a0ecee0018f9c7ac8c40d45c4ed3a92c230afb95433f711f3bdaef",
+        "evidence:77dd6bedd3c384894ec1362ef64207c9a8872d8ad8891414d21730a80f40eeea",
+        "evidence:7c988c7436df65d0cf05962655050a82ca6bab227be29f6e65b431ad98af3eef",
+        "evidence:8dee45fa2dd35f532bb7842218f57a24c14693a4d14ca0e35918e4ce1266924a",
+        "evidence:98466bb655df6fffbb9ef314db991544668fc9b947e1b03855d82961e5bd9cbc",
+        "evidence:ac36d020f6347dab5812782120bb9bb5406f46b25b3fd128b13e740f8878975d",
+        "evidence:b576a5419d78386d26f6f80601d8cc7209c25e10654e760007d3f6dd3f38d888",
+        "evidence:bef0208fbfe222f42f912af9a9b69afe701fec61b62c5e5718e8f8bd96ce96bb",
+        "evidence:dca89d83bfa34fa0bfe7fe45db9a370c6fa16f41d7c60f50fa81a269d877beaa",
+        "evidence:f1ec4791d4f04f651f65a38edff5ca650ade50dd295e80054df9e74bd658d1ad"
+      ],
+      "sourceBytes": 10087,
+      "metadataBytes": 5551,
+      "wireBytes": 15933,
+      "payloadSha256": "1211ebd42c1fd49d0ee93918bc2af319ae01e55bb41564ba322dcc7fba5ca03d",
+      "timing": {
+        "startedMs": 39568,
+        "preparedMs": 40310,
+        "finishedMs": 40538
+      }
+    },
+    {
+      "id": "6da9cc45-1b41-4d51-ba28-1c67f66d1d58",
+      "tool": "read",
+      "argumentsSha256": "c2f5f89983d08224036b2ffb74a00a1520cc0e5cb5e2b6ac989df68073ee6877",
+      "state": "delivered",
+      "evidenceIds": [
+        "evidence:30df670d793ea58191f99f2cc0c0a74821b8245308a6b2de4a46eff10511faec",
+        "evidence:37a7ab53ac5f4d7317ba4c166566bdaaaa486eebdfdd95768bddcb211b1f0103",
+        "evidence:4e3536336ce82b9f1bce7beac2434f7bb5b76e104543726927061435ad61216f",
+        "evidence:66047e1f603921935d38c970e1b7c65d4c1fcf9a1fffc795d4c5e2e136922307",
+        "evidence:b4467dec8bab5538fa2beb81f22dfc1ace6fbc17258590d8a3f90641a390b7c9",
+        "evidence:e06ad3c46bd5e1a13a5980bed5f6219b73fc14418edaddcf4b48ff55bc73a829"
+      ],
+      "sourceBytes": 5565,
+      "metadataBytes": 3211,
+      "wireBytes": 8933,
+      "payloadSha256": "c8e800d111b21b0feb09aac7aaccedf5b4bbde3f08332323789e5da137c2b815",
+      "timing": {
+        "startedMs": 43765,
+        "preparedMs": 44184,
+        "finishedMs": 44412
+      }
+    },
+    {
+      "id": "ca3f4172-303a-4f47-986a-b127c19322ce",
+      "tool": "search",
+      "argumentsSha256": "6f1cc4d1e9add8f7cd67cf2e676e0d8da8594e48f06dc103e84e2b9e145f61c0",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 2815,
+      "wireBytes": 2815,
+      "payloadSha256": "67ed04872b28eaca91566a97664a20854d05c550f98e770648b58e205c0f9478",
+      "timing": {
+        "startedMs": 44886,
+        "preparedMs": 46149,
+        "finishedMs": 46628
+      }
+    },
+    {
+      "id": "1fbb944b-c382-47d9-a13d-e66ee61cbc3d",
+      "tool": "search",
+      "argumentsSha256": "5c3704dd7e8c66c5b1b1b1c4c2d7366779b76e9602337d46cb80092f64a3a75f",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 2823,
+      "wireBytes": 2823,
+      "payloadSha256": "81c924e12fdac1c411c04f59107bb4e49f8d132324460e4ad1f9e1babebcb961",
+      "timing": {
+        "startedMs": 47592,
+        "preparedMs": 47879,
+        "finishedMs": 48320
+      }
+    },
+    {
+      "id": "de12af22-975a-4e21-bddd-b9903f3f272f",
+      "tool": "search",
+      "argumentsSha256": "2302abac7595dd3ebd026b742d405636fe202d524ef604601846ae55b6624d1e",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 3372,
+      "wireBytes": 3372,
+      "payloadSha256": "81d70cab067900adb9ecadf367f60d0903b9ff23bae7904ecc005a41ac77893c",
+      "timing": {
+        "startedMs": 52980,
+        "preparedMs": 53112,
+        "finishedMs": 53358
+      }
+    },
+    {
+      "id": "615ef076-4cfe-49ef-82ac-b293c676c9e8",
+      "tool": "search",
+      "argumentsSha256": "9bff62808ef8bb6d89abd1100246416e0c911d64cd4edfacf71c352e9d957742",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 3484,
+      "wireBytes": 3484,
+      "payloadSha256": "4e7eb34baf2a2c1a17d64cf68f697b844bcffb295c89ab711ea72c2fc7626874",
+      "timing": {
+        "startedMs": 53823,
+        "preparedMs": 53953,
+        "finishedMs": 54177
+      }
+    },
+    {
+      "id": "8406a357-64a0-4125-a9e5-46e280a27626",
+      "tool": "search",
+      "argumentsSha256": "ff012f75f71d1ffb7e3c682ebf4ad68f138c6a6b15dab9881d22442b6a964978",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 3380,
+      "wireBytes": 3380,
+      "payloadSha256": "989d46b1d1027afd0fcbfb13a324ffc6abb81c49b9fc414f631ee4480c356062",
+      "timing": {
+        "startedMs": 54626,
+        "preparedMs": 54738,
+        "finishedMs": 54960
+      }
+    },
+    {
+      "id": "8f88af46-d752-4b88-a40f-14edde3219cc",
+      "tool": "search",
+      "argumentsSha256": "cbc46bcee97ce1b6ee082994d9b6ca26a1fe7d3df9287baf7d5fbc5c17f71ee4",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 3380,
+      "wireBytes": 3380,
+      "payloadSha256": "22091e28ae79071cc5b25dde966623c3593a08690aaad822175af1a4ad5709cc",
+      "timing": {
+        "startedMs": 55417,
+        "preparedMs": 55529,
+        "finishedMs": 55754
+      }
+    },
+    {
+      "id": "cb1a0cc3-e35e-4a87-be9f-7c83d1a9caed",
+      "tool": "read",
+      "argumentsSha256": "4ea2614ebd6716718ee6b48344db5cd850571e21de9778f3666cdd53bac6a2c2",
+      "state": "delivered",
+      "evidenceIds": [
+        "evidence:001614564a875c31c421ada119599a39eee11ed2f920ede50c7e05a1b40e6545",
+        "evidence:43aaaabfc76214cd0de8e2f13411d6dc20530080914ab0f803d942e42444fe42",
+        "evidence:4d0bfa2fb8d767d33933a4c5c9a35ee476243d8fce1e8d270736f3ef7557c9ef",
+        "evidence:5f590f932cee62b93c908d05f4f8da5f4fa82fd51f380cf5105c620753742370",
+        "evidence:9383ba03a2fe26caf468820135bb284d550334350e2adbdca1740d2185acdcfe",
+        "evidence:b6410cc1f731ea05ef4a9e69750a861131213ae2b66b2ff676550b0cf3b2af0e",
+        "evidence:c700b240aaf40bf6084b25062b6d2ac39a84e81d8d7e285667321537b5da6917",
+        "evidence:f9d09f4f7d79897074e76d4a951e05574b80a2cf1a1e7cd1cb432faaafc345ae"
+      ],
+      "sourceBytes": 6866,
+      "metadataBytes": 4104,
+      "wireBytes": 11206,
+      "payloadSha256": "745f18fb04ee098291c6285aec0e90862bd4160bb904afe7f62f3420f2f7b621",
+      "timing": {
+        "startedMs": 65867,
+        "preparedMs": 66403,
+        "finishedMs": 66644
+      }
+    },
+    {
+      "id": "0ab26a15-99f6-4834-988b-54f7f09fa94e",
+      "tool": "definitions",
+      "argumentsSha256": "184dca809303f4c789705995a4f2ecf2a53de5eed7c24ca42b6471a1ba709f52",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 1649,
+      "wireBytes": 1649,
+      "payloadSha256": "99f2a1b16212ce18dc6bfb5d00ae71652e89347b26e6ff4a8549dc53307d095f",
+      "timing": {
+        "startedMs": 67121,
+        "preparedMs": 67188,
+        "finishedMs": 67433
+      }
+    },
+    {
+      "id": "2445d587-6ed0-42e8-ad58-d6c67cb874a5",
+      "tool": "definitions",
+      "argumentsSha256": "bc37efac43798c64bef5415eed10ff0e697a92b2bd0172f869e782693ec3c026",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 759,
+      "wireBytes": 759,
+      "payloadSha256": "a4a3da1c892431890def95bae3bbd9c8ee1d2f49ff7e1a9319acd00ca297ae98",
+      "timing": {
+        "startedMs": 67899,
+        "preparedMs": 67954,
+        "finishedMs": 68178
+      }
+    },
+    {
+      "id": "bf7fde74-0331-44b8-97cc-4ae0918ddfda",
+      "tool": "definitions",
+      "argumentsSha256": "fbb8855eb9ef4a3e55522e7fdce107c062e97eff575282abaa748af298294e30",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 1664,
+      "wireBytes": 1664,
+      "payloadSha256": "45171d7b458a3b3dcac4170b775a6266241b44f4e0dedebacdded832162d14b4",
+      "timing": {
+        "startedMs": 68644,
+        "preparedMs": 68697,
+        "finishedMs": 68941
+      }
+    },
+    {
+      "id": "7e49443c-af3c-4470-9d7f-ce4a7486c905",
+      "tool": "read",
+      "argumentsSha256": "9dc8cf93b47a0d282a98c2711404b9b9a1e6a583eb88c220533a1cdf0f253583",
+      "state": "delivered",
+      "evidenceIds": [
+        "evidence:06fb369775a29566ece3ab2874d4196e0b624ad7f8561d60aa6b713572b551b7",
+        "evidence:248968341318bde12340b62cef1113da9ad46a537ac48ec9291d795361b52e20",
+        "evidence:6c6ecb0f3a7b6681d4de02bd682ed5e7fadc80fc804812d6f9a950a241edaf44",
+        "evidence:9cb0a4652add370d42496abd490faacd641a6f8d07ce0ee19fe2e655d19450c9",
+        "evidence:9ce0f550257116587d7047a887cf2f7575c33bddd4be4bbe958a63d030d52c3b",
+        "evidence:e09b7a38a059f7f5b82bb0f944a4cfc76959a5c2ee8fe900075ce40b2dc2226a",
+        "evidence:e9863dc1bc5563769217eb010e634027b338a59f1cd690f3a23f5dc112351036",
+        "evidence:eb0e8d7b0d2e1f698e38d484ba0bcccf752500e8c9f2596a0b035a2a63c094f7"
+      ],
+      "sourceBytes": 6740,
+      "metadataBytes": 4147,
+      "wireBytes": 11105,
+      "payloadSha256": "bd338fe8262242b15b945e46f578226b5a9caf21f96d1cb050adecae299cd3b8",
+      "timing": {
+        "startedMs": 72777,
+        "preparedMs": 73346,
+        "finishedMs": 73566
+      }
+    },
+    {
+      "id": "f1af41cc-6877-47d9-a322-40c99f862305",
+      "tool": "search",
+      "argumentsSha256": "b0776b4a86f8760f267da141a9bca53a1d79460ef5dab958d97ee8a91c4aa68d",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 2804,
+      "wireBytes": 2804,
+      "payloadSha256": "7a54fcf8123422a1e79ed641ccf448752bfe96298b0da89a8dd843d62027ea52",
+      "timing": {
+        "startedMs": 78753,
+        "preparedMs": 78874,
+        "finishedMs": 79121
+      }
+    },
+    {
+      "id": "58612685-5cfd-4cd2-bc11-1b834026cc77",
+      "tool": "definitions",
+      "argumentsSha256": "7a6be27817ec2dd3b2b2269050691c44daf3b5429c3a9bba8f2e1971153a8ba3",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 4321,
+      "wireBytes": 4321,
+      "payloadSha256": "860e4cfb2a4b802053de91c37dfec4b92df4293c557ba4d25620885e3f1d54ba",
+      "timing": {
+        "startedMs": 79620,
+        "preparedMs": 79695,
+        "finishedMs": 79919
+      }
+    },
+    {
+      "id": "06d4b7d5-6f56-48da-a097-7b2b5f376a08",
+      "tool": "search",
+      "argumentsSha256": "617e18854a9ca074f7562abbd99dddbc32379729a9b6a36cf163d5dbf696353b",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 2817,
+      "wireBytes": 2817,
+      "payloadSha256": "d141d819ce3ada6ba8a296a28806fedce6c52e046e23c81403785de9ed852b66",
+      "timing": {
+        "startedMs": 80374,
+        "preparedMs": 80504,
+        "finishedMs": 80729
+      }
+    },
+    {
+      "id": "0e10b2f3-8e3c-4540-b0db-036360286d85",
+      "tool": "search",
+      "argumentsSha256": "adf9e130c99370ddd16e9257a883d31032a72966653c58ded4cefc9cc7d4c284",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 2806,
+      "wireBytes": 2806,
+      "payloadSha256": "72200fb01375c7669053682c6fde0030cf501bf795e9c1690217d2490b820474",
+      "timing": {
+        "startedMs": 81204,
+        "preparedMs": 81413,
+        "finishedMs": 81789
+      }
+    },
+    {
+      "id": "ce5f0911-9c15-4eb8-a196-4b3f9776a65c",
+      "tool": "search",
+      "argumentsSha256": "03d8233efe5bd010cdb2fbcdc51f148a007a01d03c9a2a8daec378c96bc1b6c2",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 2814,
+      "wireBytes": 2814,
+      "payloadSha256": "b19abd0f5ec1e5542c0432686d49879bc563a8f04da841b0c9499c9ba2b0cace",
+      "timing": {
+        "startedMs": 82342,
+        "preparedMs": 82461,
+        "finishedMs": 82713
+      }
+    },
+    {
+      "id": "a796c991-e4f9-4f3c-98c3-9763ffbc048b",
+      "tool": "definitions",
+      "argumentsSha256": "b840489adcb36b73e9773e3712e9ede1f30d65ab102941534d2f51e5f2d1da2f",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 8445,
+      "wireBytes": 8445,
+      "payloadSha256": "a46a5bc2844e1b5c0460e0dd240ad5958825aad4273c828165dab6df8760932e",
+      "timing": {
+        "startedMs": 86097,
+        "preparedMs": 86163,
+        "finishedMs": 86395
+      }
+    },
+    {
+      "id": "ecf09f3e-335f-403b-a237-b2ac91b3a137",
+      "tool": "read",
+      "argumentsSha256": "6b3fb40cdafa11a1cea44fa17e09a7fceb43149ef060c62f534a7ae4a08c9cdd",
+      "state": "delivered",
+      "evidenceIds": [
+        "evidence:5b38fba1cbfcee311ec9e0f4578a0e28c9e55fce14d08f087f91cbb7d3a52b6c",
+        "evidence:b1245fc388e89d6d86e0da22e68b184e69d528a0a445b81723619eba28c835c5"
+      ],
+      "sourceBytes": 1628,
+      "metadataBytes": 1323,
+      "wireBytes": 2987,
+      "payloadSha256": "9bf89b8f9ba6e3a3afb06f2c2b6737d3f2bc54dfe83e591c0ee611eeb1087a6a",
+      "timing": {
+        "startedMs": 86861,
+        "preparedMs": 87070,
+        "finishedMs": 87292
+      }
+    },
+    {
+      "id": "9738b3a9-049c-4642-a47c-9db867028ea5",
+      "tool": "definitions",
+      "argumentsSha256": "e9dff80ddb6421fce528c211e5476cfe0079175321314c4caa584cf4506027c3",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 1706,
+      "wireBytes": 1706,
+      "payloadSha256": "cb6c75c00bf0f06f21d297dcb231d084144a4c9668ca5337c5426fc1f4e4ee77",
+      "timing": {
+        "startedMs": 87743,
+        "preparedMs": 87804,
+        "finishedMs": 88031
+      }
+    },
+    {
+      "id": "2377d613-8759-4036-b2f1-176458e5477b",
+      "tool": "read",
+      "argumentsSha256": "9ba5009d5d939177f3c7db68f97e898d402ca43ddccc8324f7075901fec26e5c",
+      "state": "delivered",
+      "evidenceIds": [
+        "evidence:122cc61493d1f7b466b9a4752b92dd4135fdc6cf2d90c338c26b67721d7b2194",
+        "evidence:592c8cb608253b7e6e36b683ede65ed6becb7e9b4818cf046a9d5cbd3b100a21",
+        "evidence:8bbb8d994ba3cbeeee82b489e4518dcd27b804fd124d3684fd0f65407f19427d",
+        "evidence:8d53a565ba2db60305adc9bb73947093709661193b81feb26bb2e90f775370e7",
+        "evidence:a2e3c70ab0bd61f8071a6ae656dbefee5853b58dc40141f32557abb3171325d0",
+        "evidence:cada54607fd1294728e7783fc1ed110f769252d7e6602eaf4dfe925f2edf89e1",
+        "evidence:fa2b24f1769c37c52e9f2f9376e140848db6b0ac6f50bb41718c86ec50310491",
+        "evidence:fc4d4a992001dd3f2253a515977e9ea6e0da7d67da45e058722540fb6765c179",
+        "evidence:fc539d2db2c58f67dd5851c40941267bd1eea3ddcf24ce0789f8fd82dbf422c3"
+      ],
+      "sourceBytes": 7360,
+      "metadataBytes": 4593,
+      "wireBytes": 12150,
+      "payloadSha256": "00c40f74b034237bbe9ab3987f4083663778af1bdedf4959124eb4cfbe446c99",
+      "timing": {
+        "startedMs": 91414,
+        "preparedMs": 92017,
+        "finishedMs": 92239
+      }
+    }
+  ],
+  "evidence": [
+    {
+      "id": "evidence:73adba80cf59357bab7fd8d647f32e783d9d6a6928c6273b15f721c3e1cf09a0",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 147769,
+        "endByte": 148750,
+        "startLine": 4053,
+        "endLine": 4078,
+        "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:7660ef4860e9a1d8e4402a745da15da806d42f0b6ac27f847673cbccb9c5b648",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 148750,
+        "endByte": 149723,
+        "startLine": 4079,
+        "endLine": 4096,
+        "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:d55c0b35c26f3bfcd3fe3e31dbd079d98dec4938f5b6f5f5f6d0cf106b134cb4",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 149723,
+        "endByte": 150666,
+        "startLine": 4097,
+        "endLine": 4115,
+        "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:00fb169e5b12e553b0c3291c2140868adae901608521163b4441bb7f593c7cac",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 158045,
+        "endByte": 158235,
+        "startLine": 4300,
+        "endLine": 4302,
+        "chunkSha256": "cba0e764912fd61201fde99dd36fe565353fd46b4dfa0c7c277a84d37a49e038",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:7ab37fdbaa7a4ad86b4aed3647db25abc91e58d03c28b4129768e14fcef7a6fe",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 158241,
+        "endByte": 159225,
+        "startLine": 4304,
+        "endLine": 4322,
+        "chunkSha256": "11e1d1d7ec9a19a8cfec397750af391c4d2c21a2686fc41b9905fc81a3d202ea",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:352b9af4cf4103f60e0a987f3131a8b237da3f368d0b9853bd608dd40f875e37",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 159225,
+        "endByte": 160184,
+        "startLine": 4323,
+        "endLine": 4345,
+        "chunkSha256": "d58716667ecdd0285e4307115e9c08fa2d8240da0bc449bf54c1a4e5a6d19e61",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:31677e8b4a1ac6efe1f3826721b40704569eb4e00435bec29322132f06467545",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 160184,
+        "endByte": 160885,
+        "startLine": 4346,
+        "endLine": 4366,
+        "chunkSha256": "7bb3ebce3f0256fd5e56e91caef1fafeeb2c7b0a2cb9b0ba91c0531dfb0cc0cd",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:d8ce2d8ff2db8999239e9a11402df779111800379a24a7112deb9841dff484cd",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 160891,
+        "endByte": 161882,
+        "startLine": 4368,
+        "endLine": 4385,
+        "chunkSha256": "409f6d4333e35a8f871dfa4a6290980cbd59c69ef2e69e5a434da602d9a8bf38",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:d08bedf0b8b2a4b4f802c4e386c5e44934f3f5c322b1ce500f514fd87afa4354",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 161882,
+        "endByte": 162862,
+        "startLine": 4386,
+        "endLine": 4413,
+        "chunkSha256": "101cdca6476b1228beda434b6772c969bb0ecdee46f130024f61830557830ca4",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:a60db5310e536be62f86133279bc9934f06f0625493f2f554936e757863dac12",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 162862,
+        "endByte": 163112,
+        "startLine": 4414,
+        "endLine": 4420,
+        "chunkSha256": "b153f68f214e8d3736fc558c8926a9a45907ee0815a6162e663168b22e12ccca",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:f869abb40dc77fc95aaed61d50fca1ff4fbdf0a1e15abfb07b9c8cf99d9db70b",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 163118,
+        "endByte": 164106,
+        "startLine": 4422,
+        "endLine": 4437,
+        "chunkSha256": "5d724f257e0541d41619fdd26029f556b0db23adbd1f6eac671bc36758817cc6",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:b456bbe2d054e714624ab7970b81a2dddfeded4f3f8e108142ae8bd4f686792b",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 164106,
+        "endByte": 164756,
+        "startLine": 4438,
+        "endLine": 4454,
+        "chunkSha256": "92e39c1a5394cd2355b74168266fd49a27ad46f303061f1a9abc9da70d19f053",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:4836427646b4b7dae7ce05cbb2a175928250240af2bdae3e8a88681444b701bb",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 164762,
+        "endByte": 165725,
+        "startLine": 4456,
+        "endLine": 4473,
+        "chunkSha256": "55e31df30f76940f4d24d09a9dfcf7e59e2b3eccdc3ebb70464b2f80d304d2c8",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:eaeed0ee2c65a72a5b0be7c779ff5370c0c86dc32efbeedd7cae83da18e4b5d5",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 165725,
+        "endByte": 166719,
+        "startLine": 4474,
+        "endLine": 4495,
+        "chunkSha256": "f9995c34c0e8d054619b50d293cf0c02e9334329a1367131c104db3b4d7c7961",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:a0b9822563e3643d9883965d08bf55137978474071c559e2e904ebafe54c250c",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 166719,
+        "endByte": 167692,
+        "startLine": 4496,
+        "endLine": 4525,
+        "chunkSha256": "fe9cd2c520839ab66b222bb34a1e449048159ac48103658198ff6453e9487e71",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:b9bcda956e703fa254f338141b2be83876753e9f1ddbde1fa25fafb05e858b4c",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 167692,
+        "endByte": 167797,
+        "startLine": 4526,
+        "endLine": 4528,
+        "chunkSha256": "0466ca1f10a24db1a666befeb14e8b723920ccc74c6049639885ea228de4e3c7",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:2c549a4f03c56134927060e5e95d6a03bd34912621f46ed8f03579fd2999de7f",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 167803,
+        "endByte": 168143,
+        "startLine": 4530,
+        "endLine": 4535,
+        "chunkSha256": "be716e5c587f73ded247eefb102d453136bb3bccfad36b434709ad2ab1969443",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:1c2c6fa6d402ab861158814dfed838fd8acee108a8724880fba9cf4c661b4acf",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 168149,
+        "endByte": 168369,
+        "startLine": 4537,
+        "endLine": 4540,
+        "chunkSha256": "bb2a2b8de96cc0b7e874a8ec90b3410a017e4537dcbc7f82019209f34d9ae1cd",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:ce4202b59302c39b244af58319f1313299d438a1516ab3fadbe9db965b21346f",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 170276,
+        "endByte": 171269,
+        "startLine": 4594,
+        "endLine": 4616,
+        "chunkSha256": "907ee40cbe58e88ec02288d34a40385052cd38b4c97ec03f62ab5afbaafc7d27",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:a945eae41c55aa478e5eccf647c246f12343abdd824814d780ec8b223211b95a",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 171269,
+        "endByte": 172136,
+        "startLine": 4617,
+        "endLine": 4641,
+        "chunkSha256": "6ee1da261391561d68302a3edcd0a8f651c9fca310f0e4beba0994059812f44a",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:dca89d83bfa34fa0bfe7fe45db9a370c6fa16f41d7c60f50fa81a269d877beaa",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 168375,
+        "endByte": 169339,
+        "startLine": 4542,
+        "endLine": 4563,
+        "chunkSha256": "7ef1d0c08c768b3d745381b35f4626f954ab65f7df9b265b67aa87f76282b3e1",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:ac36d020f6347dab5812782120bb9bb5406f46b25b3fd128b13e740f8878975d",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 169339,
+        "endByte": 170270,
+        "startLine": 4564,
+        "endLine": 4592,
+        "chunkSha256": "c202b3e647801fb0e92a1ae2d9fdb5a9b844616b4c4f0d7f9b200d3c7ddd133f",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:bef0208fbfe222f42f912af9a9b69afe701fec61b62c5e5718e8f8bd96ce96bb",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 172671,
+        "endByte": 173662,
+        "startLine": 4660,
+        "endLine": 4680,
+        "chunkSha256": "c51363000fadbf6974e4a9694d2711b3b2681cdbfa80618a981bc9e0d09eed9a",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:7c988c7436df65d0cf05962655050a82ca6bab227be29f6e65b431ad98af3eef",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 173662,
+        "endByte": 174631,
+        "startLine": 4681,
+        "endLine": 4703,
+        "chunkSha256": "79b358a9a95aa6464f600468127c534cc928eba95818595a616e8b58f707d97b",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:77dd6bedd3c384894ec1362ef64207c9a8872d8ad8891414d21730a80f40eeea",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 174631,
+        "endByte": 175604,
+        "startLine": 4704,
+        "endLine": 4722,
+        "chunkSha256": "6b5ec6a9b3e2c0c195164b134399975f23a6b4e0b9e2e80d416a608892b2d78f",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:8dee45fa2dd35f532bb7842218f57a24c14693a4d14ca0e35918e4ce1266924a",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 175604,
+        "endByte": 176593,
+        "startLine": 4723,
+        "endLine": 4745,
+        "chunkSha256": "219da608eb1c21d2583982eb1fe48f4d7844512391fde999994cfa5868767b70",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:f1ec4791d4f04f651f65a38edff5ca650ade50dd295e80054df9e74bd658d1ad",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 176593,
+        "endByte": 177543,
+        "startLine": 4746,
+        "endLine": 4763,
+        "chunkSha256": "dbbfed572f109c1afceb933675fcce87a3eb441a48d4722469866ee325eff9eb",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:6877be3ad3a0ecee0018f9c7ac8c40d45c4ed3a92c230afb95433f711f3bdaef",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 177543,
+        "endByte": 178534,
+        "startLine": 4764,
+        "endLine": 4786,
+        "chunkSha256": "e33dd771e5f29b0a54b18ac382ea03d1a924e23e6f80b4df1f97c1c85736a7f0",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:077bb8655be3d245c35dfc510fe5b7c85da20dbfb2a595af8ab43d2ad3b4e080",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 178534,
+        "endByte": 179531,
+        "startLine": 4787,
+        "endLine": 4809,
+        "chunkSha256": "8a0189b00719793aba8a3f236d26d6630dd224d18d232cb3c37ddd8c20499663",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:b576a5419d78386d26f6f80601d8cc7209c25e10654e760007d3f6dd3f38d888",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 179531,
+        "endByte": 180520,
+        "startLine": 4810,
+        "endLine": 4829,
+        "chunkSha256": "f91490f2e0a6485de01114ae1078ab7bc2c8f4da3b9ac262bf8adaf63dcffd92",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:98466bb655df6fffbb9ef314db991544668fc9b947e1b03855d82961e5bd9cbc",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 180520,
+        "endByte": 180863,
+        "startLine": 4830,
+        "endLine": 4840,
+        "chunkSha256": "67e564f82a99f5fa5c373a2b00b1ee274d5e9465e18316c3715870377b967ad3",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:b4467dec8bab5538fa2beb81f22dfc1ace6fbc17258590d8a3f90641a390b7c9",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 180863,
+        "endByte": 181844,
+        "startLine": 4841,
+        "endLine": 4861,
+        "chunkSha256": "6e838c59067a8ba69f5dbd41d091e0b4bbdf2f7cf04b3d2ec80c55ade55dec21",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:4e3536336ce82b9f1bce7beac2434f7bb5b76e104543726927061435ad61216f",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 181844,
+        "endByte": 182802,
+        "startLine": 4862,
+        "endLine": 4887,
+        "chunkSha256": "f5d61f511c78b1ea905736776a068df850717b6c2480a30a7f8e0634776671a9",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:66047e1f603921935d38c970e1b7c65d4c1fcf9a1fffc795d4c5e2e136922307",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 182802,
+        "endByte": 183786,
+        "startLine": 4888,
+        "endLine": 4920,
+        "chunkSha256": "1928309ef0b680eaf29c8a953da017b4ed41feb165b45a002af5070f4ecc96fa",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:30df670d793ea58191f99f2cc0c0a74821b8245308a6b2de4a46eff10511faec",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 183786,
+        "endByte": 184686,
+        "startLine": 4921,
+        "endLine": 4939,
+        "chunkSha256": "c9b11afc76a51d62061648776864d29917e713a65c7b6130b77bbf46c49fe346",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:37a7ab53ac5f4d7317ba4c166566bdaaaa486eebdfdd95768bddcb211b1f0103",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 184686,
+        "endByte": 185678,
+        "startLine": 4940,
+        "endLine": 4962,
+        "chunkSha256": "bc08c30e0605950f4dba5d931ab97287de6de4864616d10295bb593e04bbf0d4",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:e06ad3c46bd5e1a13a5980bed5f6219b73fc14418edaddcf4b48ff55bc73a829",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 185678,
+        "endByte": 186428,
+        "startLine": 4963,
+        "endLine": 4984,
+        "chunkSha256": "e5018532490673bbdf7a567527d57c78b6d3058d37cf40032ee9436b64c5bdf5",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:43aaaabfc76214cd0de8e2f13411d6dc20530080914ab0f803d942e42444fe42",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/tt/mod.rs",
+        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+        "startByte": 0,
+        "endByte": 963,
+        "startLine": 1,
+        "endLine": 42,
+        "chunkSha256": "5aaf7c8cbbac205f149481fc7dd7b7de3d282f082ca27fadf71812f8e22ca105",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:001614564a875c31c421ada119599a39eee11ed2f920ede50c7e05a1b40e6545",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/tt/mod.rs",
+        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+        "startByte": 963,
+        "endByte": 1926,
+        "startLine": 43,
+        "endLine": 73,
+        "chunkSha256": "c5c5d197ff311c46fe2cba5c1f8daf8613ca9df6156f1509f0cf4cc3396d2013",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:4d0bfa2fb8d767d33933a4c5c9a35ee476243d8fce1e8d270736f3ef7557c9ef",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/tt/mod.rs",
+        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+        "startByte": 1926,
+        "endByte": 2924,
+        "startLine": 74,
+        "endLine": 101,
+        "chunkSha256": "6a01288a23b3f1823ac119e1354751c1aa8c7f595123dab7ae6b1b9a245d1bb8",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:5f590f932cee62b93c908d05f4f8da5f4fa82fd51f380cf5105c620753742370",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/tt/mod.rs",
+        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+        "startByte": 2924,
+        "endByte": 3917,
+        "startLine": 102,
+        "endLine": 127,
+        "chunkSha256": "89fe5732a9dfa1e15d9b34dbdc8064dc9800fb859891e95424c0c10eb2edcb95",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:c700b240aaf40bf6084b25062b6d2ac39a84e81d8d7e285667321537b5da6917",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/tt/mod.rs",
+        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+        "startByte": 3917,
+        "endByte": 4873,
+        "startLine": 128,
+        "endLine": 156,
+        "chunkSha256": "aa4f452f3427678fcb4f59f402ea294e171ba6e9a282a3ef5644392ae06e880b",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:9383ba03a2fe26caf468820135bb284d550334350e2adbdca1740d2185acdcfe",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/tt/mod.rs",
+        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+        "startByte": 4873,
+        "endByte": 5831,
+        "startLine": 157,
+        "endLine": 179,
+        "chunkSha256": "8940204fb8eff8521cf1e98e133da16d6b0c6e48ccb34b4309c337fd4d4db427",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:f9d09f4f7d79897074e76d4a951e05574b80a2cf1a1e7cd1cb432faaafc345ae",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/tt/mod.rs",
+        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+        "startByte": 5831,
+        "endByte": 6831,
+        "startLine": 180,
+        "endLine": 211,
+        "chunkSha256": "a501198bf8d2fb46b52b9fa27d5bde612ae1cf0b4e0dafd3cc59c047788515a0",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:b6410cc1f731ea05ef4a9e69750a861131213ae2b66b2ff676550b0cf3b2af0e",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/tt/mod.rs",
+        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+        "startByte": 6831,
+        "endByte": 6866,
+        "startLine": 212,
+        "endLine": 214,
+        "chunkSha256": "cda027271d3baf04bab332ecf50a3e2cdf9ad4885ded6ead929e411f5710c258",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:6c6ecb0f3a7b6681d4de02bd682ed5e7fadc80fc804812d6f9a950a241edaf44",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 110894,
+        "endByte": 111893,
+        "startLine": 2935,
+        "endLine": 2956,
+        "chunkSha256": "53dffabd5b6d44a69d6e2cf64babe1f4da64032be07274dd9d0e77079a047473",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:eb0e8d7b0d2e1f698e38d484ba0bcccf752500e8c9f2596a0b035a2a63c094f7",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 111893,
+        "endByte": 112843,
+        "startLine": 2957,
+        "endLine": 2979,
+        "chunkSha256": "4b1b7931609ad4fdb5a7683e1bc9ceef7805f67c355492f425d60b6db99048ec",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:248968341318bde12340b62cef1113da9ad46a537ac48ec9291d795361b52e20",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 112843,
+        "endByte": 113834,
+        "startLine": 2980,
+        "endLine": 3004,
+        "chunkSha256": "eabdd2f35bfd761c6b7c81fbdd69218ffb115aa09e96bc1e261f69b5e58cb500",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:e9863dc1bc5563769217eb010e634027b338a59f1cd690f3a23f5dc112351036",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 113834,
+        "endByte": 114773,
+        "startLine": 3005,
+        "endLine": 3030,
+        "chunkSha256": "94e6c7f786d1e1feaf45dfa0e8892a7f257a2fb6e525cd58d752ac245be33aab",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:e09b7a38a059f7f5b82bb0f944a4cfc76959a5c2ee8fe900075ce40b2dc2226a",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 114773,
+        "endByte": 115757,
+        "startLine": 3031,
+        "endLine": 3053,
+        "chunkSha256": "ecca0855a97d81671bb9d784aaa4f661c60817c628923f263f13c2db25958e41",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:9ce0f550257116587d7047a887cf2f7575c33bddd4be4bbe958a63d030d52c3b",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 115757,
+        "endByte": 116555,
+        "startLine": 3054,
+        "endLine": 3085,
+        "chunkSha256": "2c246abe2cfe5a730ebe13d4beaf6011f3e4d62618b08fbdf18bcb54cbb39d2e",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:06fb369775a29566ece3ab2874d4196e0b624ad7f8561d60aa6b713572b551b7",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 153921,
+        "endByte": 154914,
+        "startLine": 4186,
+        "endLine": 4214,
+        "chunkSha256": "3cde7521d4f8a4462ced55e13d6b151a2c4c643518519a396655f0c829b8d83c",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:9cb0a4652add370d42496abd490faacd641a6f8d07ce0ee19fe2e655d19450c9",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 154914,
+        "endByte": 155000,
+        "startLine": 4215,
+        "endLine": 4217,
+        "chunkSha256": "1aee4d6f8661d81204f56c131ae241e37fa3d886d130c80ee60ab9dbf2818267",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:b1245fc388e89d6d86e0da22e68b184e69d528a0a445b81723619eba28c835c5",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 2205,
+        "endByte": 3154,
+        "startLine": 63,
+        "endLine": 83,
+        "chunkSha256": "5e40cbb60ff055d69cfc7c15afd10bb5dd845d1dc05752065e8648fddb64ccd7",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:5b38fba1cbfcee311ec9e0f4578a0e28c9e55fce14d08f087f91cbb7d3a52b6c",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 3154,
+        "endByte": 3833,
+        "startLine": 84,
+        "endLine": 99,
+        "chunkSha256": "e086b6ab6589abb0795bdd21fbac17a4a22dec9f0366466159d3b0a814fc0a8c",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:fa2b24f1769c37c52e9f2f9376e140848db6b0ac6f50bb41718c86ec50310491",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/tables.rs",
+        "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+        "startByte": 1158,
+        "endByte": 2134,
+        "startLine": 36,
+        "endLine": 57,
+        "chunkSha256": "fb11c12206ce32448a1efa56da1dbe2e1a612d3c070024d35ad15a3996cb3ce5",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:122cc61493d1f7b466b9a4752b92dd4135fdc6cf2d90c338c26b67721d7b2194",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/tables.rs",
+        "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+        "startByte": 2134,
+        "endByte": 3129,
+        "startLine": 58,
+        "endLine": 87,
+        "chunkSha256": "bf8cb1609d096fd9e6f0ab0e35f09f45c43597abec469d5eae93739a0276918f",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:a2e3c70ab0bd61f8071a6ae656dbefee5853b58dc40141f32557abb3171325d0",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/tables.rs",
+        "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+        "startByte": 3129,
+        "endByte": 4129,
+        "startLine": 88,
+        "endLine": 108,
+        "chunkSha256": "3151da2be2892b501900d575ffa86e3aeaa13c260458d8f0188112a81b10ab7b",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:cada54607fd1294728e7783fc1ed110f769252d7e6602eaf4dfe925f2edf89e1",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/tables.rs",
+        "sourceSha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+        "startByte": 4129,
+        "endByte": 4415,
+        "startLine": 109,
+        "endLine": 114,
+        "chunkSha256": "a79c008772dd8b86bf43a3b3f5869761d2ad101a6e917375f6470c6f305d239d",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:8d53a565ba2db60305adc9bb73947093709661193b81feb26bb2e90f775370e7",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 116555,
+        "endByte": 117542,
+        "startLine": 3086,
+        "endLine": 3117,
+        "chunkSha256": "ce85205d1cb64bab5cbeb67773b81b06eadc14ecf8f5c089fd62019970166f69",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:fc4d4a992001dd3f2253a515977e9ea6e0da7d67da45e058722540fb6765c179",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 117542,
+        "endByte": 118532,
+        "startLine": 3118,
+        "endLine": 3141,
+        "chunkSha256": "c5282180e07cb02fc93587c2bd51b36a3fe1d9727f7e88974530080d5f522855",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:8bbb8d994ba3cbeeee82b489e4518dcd27b804fd124d3684fd0f65407f19427d",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 118532,
+        "endByte": 119525,
+        "startLine": 3142,
+        "endLine": 3174,
+        "chunkSha256": "bef2f6f16012f374518e26a993122d07e98eafe250f65ef290033baad47be29c",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:fc539d2db2c58f67dd5851c40941267bd1eea3ddcf24ce0789f8fd82dbf422c3",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 119525,
+        "endByte": 120454,
+        "startLine": 3175,
+        "endLine": 3195,
+        "chunkSha256": "3f6a424751449ac921919cb31599b4453393c575761361735217df2690299ede",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:592c8cb608253b7e6e36b683ede65ed6becb7e9b4818cf046a9d5cbd3b100a21",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/font.rs",
+        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+        "startByte": 120454,
+        "endByte": 120658,
+        "startLine": 3196,
+        "endLine": 3201,
+        "chunkSha256": "25a9f18a09138b71b3a803456b3929d39813ddad7778a8a68e28d9b93eda8c97",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    }
+  ],
+  "rejectedCandidates": [
+    {
+      "ordinal": 1,
+      "threadId": "01a148c9-7666-7b53-8b72-ebe440878d82",
+      "turnId": "01a148c9-76f4-7f13-bc2b-ef7cb5e9c000",
+      "responseText": "{\n  \"title\": \"How Font::memory_face dispatches and builds a face\",\n  \"sections\": [\n    {\n      \"title\": \"Inputs and format dispatch\",\n      \"prose\": \"memory_face is a content-sniffing opener: it tests the input bytes in order, passes the requested face index and point size to the chosen constructor, then falls back to TrueType/SFNT parsing when no earlier format is selected.\",\n      \"spokenText\": \"It inspects the byte buffer in order, delegates to a format-specific loader, and uses TrueType parsing as the final general fallback.\",\n      \"claims\": [\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"inputOutput\",\n          \"prose\": \"The memory_face method accepts a borrowed data slice, a face_index, and a size_pt, and returns either a Font or FontError; its first probe sends a PCF_FILE_VERSION signature to pcf_face. In plain language, callers supply font bytes, a face selection, and a point size, and the bytes—not a filename—start the format choice.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"memory_face\",\n            \"data\",\n            \"face_index\",\n            \"size_pt\",\n            \"PCF_FILE_VERSION\",\n            \"pcf_face\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:73adba80cf59357bab7fd8d647f32e783d9d6a6928c6273b15f721c3e1cf09a0\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"execution\",\n          \"prose\": \"After the PCF probe, the method checks for PFR and WinFNT signatures, then a BDF text probe, a CID Type 1 prefix, a Type 42 SFNT probe, and Type 1 cleartext; each matching branch calls its corresponding constructor. In plain language, the first recognized format in this ordered chain determines which loader receives the bytes.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"pfr_face\",\n            \"winfnt_face\",\n            \"bdf_text\",\n            \"cid_type1_face\",\n            \"type42_sfnt_data\",\n            \"type42_face\",\n            \"type1_cleartext\",\n            \"type1_face\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:73adba80cf59357bab7fd8d647f32e783d9d6a6928c6273b15f721c3e1cf09a0\"\n            },\n            {\n              \"referenceId\": \"evidence:7660ef4860e9a1d8e4402a745da15da806d42f0b6ac27f847673cbccb9c5b648\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"failurePath\",\n          \"prose\": \"The BDF branch requires bdf_text to yield a first_bdf_keyword accepted by is_bdf_probe_keyword, and it returns any parse_bdf_constructor_error before calling bdf_face. If probing reaches the control-byte guard, a buffer of at least 17 control-only bytes returns FontError::InvalidFileFormat. In plain language, text alone does not force BDF loading, and a detected BDF-constructor failure does not fall through to another format.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"bdf_text\",\n            \"first_bdf_keyword\",\n            \"is_bdf_probe_keyword\",\n            \"parse_bdf_constructor_error\",\n            \"bdf_face\",\n            \"FontError::InvalidFileFormat\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:73adba80cf59357bab7fd8d647f32e783d9d6a6928c6273b15f721c3e1cf09a0\"\n            },\n            {\n              \"referenceId\": \"evidence:7660ef4860e9a1d8e4402a745da15da806d42f0b6ac27f847673cbccb9c5b648\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"failurePath\",\n          \"prose\": \"If earlier probes do not select a constructor, truetype_face is tried first; if it fails and the buffer is at least 118 bytes, winfnt_face is retried. A successful retry is returned, and a shaped WinFNT header can preserve an UnknownFileFormat result; other retry errors leave the original TrueType error in place. In plain language, the last fallback favors a valid WinFNT face without letting unrelated retry failures hide the first error.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"truetype_face\",\n            \"winfnt_face\",\n            \"has_winfnt_header_shape\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:d55c0b35c26f3bfcd3fe3e31dbd079d98dec4938f5b6f5f5f6d0cf106b134cb4\"\n            }\n          ],\n          \"relationshipIds\": []\n        }\n      ],\n      \"visual\": {\n        \"kind\": \"dataFlow\",\n        \"title\": \"memory_face routing\",\n        \"direction\": \"leftToRight\",\n        \"nodes\": [\n          {\n            \"label\": \"Request\",\n            \"detail\": \"Bytes, face index, and point size\",\n            \"evidence\": [\n              {\n                \"claimIndex\": 0,\n                \"evidenceIndex\": 0\n              }\n            ]\n          },\n          {\n            \"label\": \"Ordered probes\",\n            \"detail\": \"Format signatures and text probes\",\n            \"evidence\": [\n              {\n                \"claimIndex\": 1,\n                \"evidenceIndex\": 0\n              }\n            ]\n          },\n          {\n            \"label\": \"Format constructor\",\n            \"detail\": \"The selected format-specific loader\",\n            \"evidence\": [\n              {\n                \"claimIndex\": 1,\n                \"evidenceIndex\": 1\n              }\n            ]\n          },\n          {\n            \"label\": \"Final fallback\",\n            \"detail\": \"TrueType attempt, then conditional WinFNT retry\",\n            \"evidence\": [\n              {\n                \"claimIndex\": 3,\n                \"evidenceIndex\": 0\n              }\n            ]\n          }\n        ],\n        \"edges\": [\n          {\n            \"fromNodeIndex\": 0,\n            \"toNodeIndex\": 1,\n            \"label\": \"inspect bytes and arguments\",\n            \"evidence\": [\n              {\n                \"claimIndex\": 0,\n                \"evidenceIndex\": 0\n              }\n            ]\n          },\n          {\n            \"fromNodeIndex\": 1,\n            \"toNodeIndex\": 2,\n            \"label\": \"first matching format\",\n            \"evidence\": [\n              {\n                \"claimIndex\": 1,\n                \"evidenceIndex\": 0\n              },\n              {\n                \"claimIndex\": 1,\n                \"evidenceIndex\": 1\n              }\n            ]\n          },\n          {\n            \"fromNodeIndex\": 1,\n            \"toNodeIndex\": 3,\n            \"label\": \"no earlier probe selects a loader\",\n            \"evidence\": [\n              {\n                \"claimIndex\": 3,\n                \"evidenceIndex\": 0\n              }\n            ]\n          }\n        ]\n      }\n    },\n    {\n      \"title\": \"Face selection and validation\",\n      \"prose\": \"The meaning of face_index depends on the selected format. Several constructors accept only face zero; the SFNT path splits collection-face selection from named-instance selection and checks both against parsed data.\",\n      \"spokenText\": \"Face selection is format-specific: some loaders only accept zero, while TrueType collections and named instances validate their encoded selectors.\",\n      \"claims\": [\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"failurePath\",\n          \"prose\": \"type1_face, cid_type1_face, type42_face, winfnt_face, and the shared bitmap_face constructor each reject a nonzero face_index as out of range for their single face. In plain language, these paths only open face zero; they do not select another face when given a nonzero index.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"type1_face\",\n            \"cid_type1_face\",\n            \"type42_face\",\n            \"winfnt_face\",\n            \"bitmap_face\",\n            \"face_index\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:7ab37fdbaa7a4ad86b4aed3647db25abc91e58d03c28b4129768e14fcef7a6fe\"\n            },\n            {\n              \"referenceId\": \"evidence:d8ce2d8ff2db8999239e9a11402df779111800379a24a7112deb9841dff484cd\"\n            },\n            {\n              \"referenceId\": \"evidence:f869abb40dc77fc95aaed61d50fca1ff4fbdf0a1e15abfb07b9c8cf99d9db70b\"\n            },\n            {\n              \"referenceId\": \"evidence:ce4202b59302c39b244af58319f1313299d438a1516ab3fadbe9db965b21346f\"\n            },\n            {\n              \"referenceId\": \"evidence:dca89d83bfa34fa0bfe7fe45db9a370c6fa16f41d7c60f50fa81a269d877beaa\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"execution\",\n          \"prose\": \"The TrueType path masks face_index to obtain collection_face_index and passes it to resolve_face_index, which returns the selected offset or an out-of-range error. It separately reads named_instance from the higher bits and rejects it when fvar is absent or the value exceeds instance_count. In plain language, an SFNT request can choose a collection face and a named variation instance, but each selector must exist.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"collection_face_index\",\n            \"resolve_face_index\",\n            \"named_instance\",\n            \"instance_count\",\n            \"fvar\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:bef0208fbfe222f42f912af9a9b69afe701fec61b62c5e5718e8f8bd96ce96bb\"\n            },\n            {\n              \"referenceId\": \"evidence:f9d09f4f7d79897074e76d4a951e05574b80a2cf1a1e7cd1cb432faaafc345ae\"\n            },\n            {\n              \"referenceId\": \"evidence:7c988c7436df65d0cf05962655050a82ca6bab227be29f6e65b431ad98af3eef\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"failurePath\",\n          \"prose\": \"pfr_face delegates parsing and face selection to PfrFont::parse; it maps the parser's PFR face-index-out-of-range reason to FontError::InvalidArgument, an invalid header to InvalidFont, and other parse failures to InvalidTable. In plain language, PFR uses its own parser's index result and reports distinct error categories for index, header, and table failures.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"pfr_face\",\n            \"PfrFont::parse\",\n            \"FontError::InvalidArgument\",\n            \"FontError::InvalidTable\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:4836427646b4b7dae7ce05cbb2a175928250240af2bdae3e8a88681444b701bb\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"failurePath\",\n          \"prose\": \"The SFNT path requires head, maxp, cmap, hhea, and hmtx table entries; missing required entries fail construction. It tolerates some malformed table contents by defaulting failed maxp, cmap, or hmtx parsing instead of aborting. In plain language, a face needs its core tables, but some bad optional table data produces defaults rather than a failed open.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"head\",\n            \"maxp\",\n            \"cmap\",\n            \"hhea\",\n            \"hmtx\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:7c988c7436df65d0cf05962655050a82ca6bab227be29f6e65b431ad98af3eef\"\n            },\n            {\n              \"referenceId\": \"evidence:77dd6bedd3c384894ec1362ef64207c9a8872d8ad8891414d21730a80f40eeea\"\n            },\n            {\n              \"referenceId\": \"evidence:8dee45fa2dd35f532bb7842218f57a24c14693a4d14ca0e35918e4ce1266924a\"\n            }\n          ],\n          \"relationshipIds\": []\n        }\n      ],\n      \"visual\": {\n        \"kind\": \"none\",\n        \"title\": \"\",\n        \"direction\": \"auto\",\n        \"nodes\": [],\n        \"edges\": []\n      }\n    },\n    {\n      \"title\": \"What a successful call creates\",\n      \"prose\": \"Success returns a Font initialized with shared backing data, metrics, naming and hinting state, and optional fields for the chosen format. The data layout differs by loader: SFNT input retains parsed tables, bitmap faces use pixel metadata, and outline or PostScript formats also retain their specialized parsed payloads. The parser internals for every format are not exhaustively traced here.\",\n      \"spokenText\": \"A successful call returns a Font with shared parsed data, size metrics, hinting state, and format-specific metadata.\",\n      \"claims\": [\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"inputOutput\",\n          \"prose\": \"Font contains shared Arc<FontData>, size_pt, load_mode, ignore_sbix, and a face_kind, along with face_globals, italic state, names, format-specific data, size_metrics, selected_charmap, and raster scratch. In plain language, success returns a ready face object with both shared font backing and per-face rendering state, not just a parsed name.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"Font\",\n            \"FontData\",\n            \"face_kind\",\n            \"face_globals\",\n            \"size_metrics\",\n            \"selected_charmap\",\n            \"raster_scratch\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:b1245fc388e89d6d86e0da22e68b184e69d528a0a445b81723619eba28c835c5\"\n            },\n            {\n              \"referenceId\": \"evidence:5b38fba1cbfcee311ec9e0f4578a0e28c9e55fce14d08f087f91cbb7d3a52b6c\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"stateEffect\",\n          \"prose\": \"For SFNT input, the constructor creates FontData with a copy of the raw_data, the resolved face offset and index, face count, table_directory, cmap, and variation-related tables and coordinates. It also initializes SizeMetrics and selected_charmap, while FontData includes a glyph_cache for later glyph loads. In plain language, the SFNT result keeps the original bytes and parsed structures needed to use the selected face after opening.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"FontData\",\n            \"raw_data\",\n            \"table_directory\",\n            \"cmap\",\n            \"SizeMetrics\",\n            \"selected_charmap\",\n            \"glyph_cache\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:4e3536336ce82b9f1bce7beac2434f7bb5b76e104543726927061435ad61216f\"\n            },\n            {\n              \"referenceId\": \"evidence:66047e1f603921935d38c970e1b7c65d4c1fcf9a1fffc795d4c5e2e136922307\"\n            },\n            {\n              \"referenceId\": \"evidence:37a7ab53ac5f4d7317ba4c166566bdaaaa486eebdfdd95768bddcb211b1f0103\"\n            },\n            {\n              \"referenceId\": \"evidence:cada54607fd1294728e7783fc1ed110f769252d7e6602eaf4dfe925f2edf89e1\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"stateEffect\",\n          \"prose\": \"bdf_face and pcf_face parse their format metadata and hand it to bitmap_face. That shared constructor builds backing data with bdf_font_data, derives size_metrics from the metadata's pixel dimensions, and stores the BDF properties. In plain language, bitmap faces use their declared pixel size and properties to populate the common Font result.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"bdf_face\",\n            \"pcf_face\",\n            \"bitmap_face\",\n            \"bdf_font_data\",\n            \"size_metrics\",\n            \"bdf_properties\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:2c549a4f03c56134927060e5e95d6a03bd34912621f46ed8f03579fd2999de7f\"\n            },\n            {\n              \"referenceId\": \"evidence:1c2c6fa6d402ab861158814dfed838fd8acee108a8724880fba9cf4c661b4acf\"\n            },\n            {\n              \"referenceId\": \"evidence:dca89d83bfa34fa0bfe7fe45db9a370c6fa16f41d7c60f50fa81a269d877beaa\"\n            },\n            {\n              \"referenceId\": \"evidence:ac36d020f6347dab5812782120bb9bb5406f46b25b3fd128b13e740f8878975d\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"stateEffect\",\n          \"prose\": \"type1_face parses Type 1 metadata, private data, encoding, charstrings, and optional multi-master information; type1_font_data supplies its common backing, and the result stores Type 1-specific fields under FaceKind::Type1. In plain language, opening a Type 1 face creates both renderable backing data and the parsed PostScript state needed for that format.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"type1_face\",\n            \"parse_type1_metadata\",\n            \"type1_private\",\n            \"type1_encoding\",\n            \"type1_charstrings\",\n            \"type1_multi_master\",\n            \"type1_font_data\",\n            \"FaceKind::Type1\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:7ab37fdbaa7a4ad86b4aed3647db25abc91e58d03c28b4129768e14fcef7a6fe\"\n            },\n            {\n              \"referenceId\": \"evidence:352b9af4cf4103f60e0a987f3131a8b237da3f368d0b9853bd608dd40f875e37\"\n            },\n            {\n              \"referenceId\": \"evidence:31677e8b4a1ac6efe1f3826721b40704569eb4e00435bec29322132f06467545\"\n            },\n            {\n              \"referenceId\": \"evidence:e09b7a38a059f7f5b82bb0f944a4cfc76959a5c2ee8fe900075ce40b2dc2226a\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"stateEffect\",\n          \"prose\": \"cid_type1_face parses CID Type 1 metadata and creates common backing data using the parsed cid_count; the returned Font stores the descriptor in cid_type1 while leaving the ordinary Type 1 encoding and charstring fields empty. In plain language, CID Type 1 uses its own CID metadata payload rather than the regular Type 1 per-glyph fields.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"cid_type1_face\",\n            \"parse_cid_type1_metadata\",\n            \"type1_font_data\",\n            \"cid_count\",\n            \"cid_type1\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:d8ce2d8ff2db8999239e9a11402df779111800379a24a7112deb9841dff484cd\"\n            },\n            {\n              \"referenceId\": \"evidence:d08bedf0b8b2a4b4f802c4e386c5e44934f3f5c322b1ce500f514fd87afa4354\"\n            },\n            {\n              \"referenceId\": \"evidence:a60db5310e536be62f86133279bc9934f06f0625493f2f554936e757863dac12\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"stateEffect\",\n          \"prose\": \"pfr_face parses a PfrFont, derives outline metadata and glyph counts, and builds common backing through non_sfnt_outline_font_data; the returned Font is marked FaceKind::Pfr and retains the parsed object in pfr. In plain language, PFR creates a renderable face with synthesized common tables plus its PFR-specific parsed data.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"pfr_face\",\n            \"PfrFont::parse\",\n            \"non_sfnt_outline_font_data\",\n            \"FaceKind::Pfr\",\n            \"pfr\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:4836427646b4b7dae7ce05cbb2a175928250240af2bdae3e8a88681444b701bb\"\n            },\n            {\n              \"referenceId\": \"evidence:eaeed0ee2c65a72a5b0be7c779ff5370c0c86dc32efbeedd7cae83da18e4b5d5\"\n            },\n            {\n              \"referenceId\": \"evidence:a0b9822563e3643d9883965d08bf55137978474071c559e2e904ebafe54c250c\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"stateEffect\",\n          \"prose\": \"type42_face extracts the embedded SFNT and calls truetype_face with face index zero, then updates the result to FaceKind::Type42 and replaces selected names and italic metadata from the Type 42 wrapper. In plain language, Type 42 reuses the SFNT loader for its embedded font but returns a face labeled and named from the outer wrapper.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"type42_face\",\n            \"truetype_face\",\n            \"FaceKind::Type42\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:f869abb40dc77fc95aaed61d50fca1ff4fbdf0a1e15abfb07b9c8cf99d9db70b\"\n            },\n            {\n              \"referenceId\": \"evidence:b456bbe2d054e714624ab7970b81a2dddfeded4f3f8e108142ae8bd4f686792b\"\n            }\n          ],\n          \"relationshipIds\": []\n        }\n      ],\n      \"visual\": {\n        \"kind\": \"none\",\n        \"title\": \"\",\n        \"direction\": \"auto\",\n        \"nodes\": [],\n        \"edges\": []\n      }\n    }\n  ],\n  \"citationVersion\": \"nativeEvidenceV1\"\n}",
+      "responseSha256": "c163fd989963fce5fb0fdecf98ff46ff7c9474620bed143a535a8b545c58c390",
+      "alignmentIssues": [],
+      "preflightFindings": [
+        {
+          "location": "/sections/0/claims/1",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/0/claims/3",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/1/claims/1",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/1/claims/2",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/2/claims/0",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/2/claims/1",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/2/claims/2",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/2/claims/3",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/2/claims/4",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/2/claims/5",
+          "citationProblem": "identifierAlignment"
+        }
+      ],
+      "rejection": null
+    },
+    {
+      "ordinal": 2,
+      "threadId": "01a148c9-7666-7b53-8b72-ebe440878d82",
+      "turnId": "01a148cd-8dbc-7160-b24d-b33987c5240e",
+      "responseText": "{\n  \"title\": \"How Font::memory_face dispatches and builds a face\",\n  \"sections\": [\n    {\n      \"title\": \"Inputs and format dispatch\",\n      \"prose\": \"memory_face is a content-sniffing opener: it tests the input bytes in order, passes the requested face index and point size to the chosen constructor, then falls back to TrueType/SFNT parsing when no earlier format is selected.\",\n      \"spokenText\": \"It inspects the byte buffer in order, delegates to a format-specific loader, and uses TrueType parsing as the final general fallback.\",\n      \"claims\": [\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"inputOutput\",\n          \"prose\": \"The memory_face method accepts a borrowed data slice, a face_index, and a size_pt, and returns either a Font or FontError; its first probe sends a PCF_FILE_VERSION signature to pcf_face. In plain language, callers supply font bytes, a face selection, and a point size, and the bytes—not a filename—start the format choice.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"memory_face\",\n            \"data\",\n            \"face_index\",\n            \"size_pt\",\n            \"PCF_FILE_VERSION\",\n            \"pcf_face\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:73adba80cf59357bab7fd8d647f32e783d9d6a6928c6273b15f721c3e1cf09a0\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"execution\",\n          \"prose\": \"After the PCF probe, memory_face checks pfr_face, then winfnt_face, and uses bdf_text for its BDF probe. If probing continues, cid_type1_face is selected by its prefix, type42_sfnt_data selects type42_face, and type1_cleartext selects type1_face. In plain language, the first recognized format in this ordered chain determines which loader receives the bytes.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"pfr_face\",\n            \"winfnt_face\",\n            \"bdf_text\",\n            \"cid_type1_face\",\n            \"type42_sfnt_data\",\n            \"type42_face\",\n            \"type1_cleartext\",\n            \"type1_face\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:73adba80cf59357bab7fd8d647f32e783d9d6a6928c6273b15f721c3e1cf09a0\"\n            },\n            {\n              \"referenceId\": \"evidence:7660ef4860e9a1d8e4402a745da15da806d42f0b6ac27f847673cbccb9c5b648\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"failurePath\",\n          \"prose\": \"The BDF branch requires bdf_text to yield a first_bdf_keyword accepted by is_bdf_probe_keyword, and it returns any parse_bdf_constructor_error before calling bdf_face. If probing reaches the control-byte guard, a buffer of at least 17 control-only bytes returns FontError::InvalidFileFormat. In plain language, text alone does not force BDF loading, and a detected BDF-constructor failure does not fall through to another format.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"bdf_text\",\n            \"first_bdf_keyword\",\n            \"is_bdf_probe_keyword\",\n            \"parse_bdf_constructor_error\",\n            \"bdf_face\",\n            \"FontError::InvalidFileFormat\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:73adba80cf59357bab7fd8d647f32e783d9d6a6928c6273b15f721c3e1cf09a0\"\n            },\n            {\n              \"referenceId\": \"evidence:7660ef4860e9a1d8e4402a745da15da806d42f0b6ac27f847673cbccb9c5b648\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"failurePath\",\n          \"prose\": \"If earlier probes do not select a constructor, truetype_face is tried first; if it fails and the buffer is at least 118 bytes, winfnt_face is retried. A successful retry is returned, and a shaped WinFNT header can preserve a FontError::UnknownFileFormat result when has_winfnt_header_shape is true; other retry errors leave the original TrueType error in place. In plain language, the last fallback favors a valid WinFNT open without letting unrelated retry failures hide the first error.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"truetype_face\",\n            \"winfnt_face\",\n            \"has_winfnt_header_shape\",\n            \"FontError::UnknownFileFormat\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:d55c0b35c26f3bfcd3fe3e31dbd079d98dec4938f5b6f5f5f6d0cf106b134cb4\"\n            }\n          ],\n          \"relationshipIds\": []\n        }\n      ],\n      \"visual\": {\n        \"kind\": \"dataFlow\",\n        \"title\": \"memory_face routing\",\n        \"direction\": \"leftToRight\",\n        \"nodes\": [\n          {\n            \"label\": \"Request\",\n            \"detail\": \"Bytes, face index, and point size\",\n            \"evidence\": [\n              {\n                \"claimIndex\": 0,\n                \"evidenceIndex\": 0\n              }\n            ]\n          },\n          {\n            \"label\": \"Ordered probes\",\n            \"detail\": \"Format signatures and text probes\",\n            \"evidence\": [\n              {\n                \"claimIndex\": 1,\n                \"evidenceIndex\": 0\n              }\n            ]\n          },\n          {\n            \"label\": \"Format constructor\",\n            \"detail\": \"The selected format-specific loader\",\n            \"evidence\": [\n              {\n                \"claimIndex\": 1,\n                \"evidenceIndex\": 1\n              }\n            ]\n          },\n          {\n            \"label\": \"Final fallback\",\n            \"detail\": \"TrueType attempt, then conditional WinFNT retry\",\n            \"evidence\": [\n              {\n                \"claimIndex\": 3,\n                \"evidenceIndex\": 0\n              }\n            ]\n          }\n        ],\n        \"edges\": [\n          {\n            \"fromNodeIndex\": 0,\n            \"toNodeIndex\": 1,\n            \"label\": \"inspect bytes and arguments\",\n            \"evidence\": [\n              {\n                \"claimIndex\": 0,\n                \"evidenceIndex\": 0\n              }\n            ]\n          },\n          {\n            \"fromNodeIndex\": 1,\n            \"toNodeIndex\": 2,\n            \"label\": \"first matching format\",\n            \"evidence\": [\n              {\n                \"claimIndex\": 1,\n                \"evidenceIndex\": 0\n              },\n              {\n                \"claimIndex\": 1,\n                \"evidenceIndex\": 1\n              }\n            ]\n          },\n          {\n            \"fromNodeIndex\": 1,\n            \"toNodeIndex\": 3,\n            \"label\": \"no earlier probe selects a loader\",\n            \"evidence\": [\n              {\n                \"claimIndex\": 3,\n                \"evidenceIndex\": 0\n              }\n            ]\n          }\n        ]\n      }\n    },\n    {\n      \"title\": \"Face selection and validation\",\n      \"prose\": \"The meaning of face_index depends on the selected format. Several constructors accept only face zero; the SFNT path splits collection-face selection from named-instance selection and checks both against parsed data.\",\n      \"spokenText\": \"Face selection is format-specific: some loaders only accept zero, while TrueType collections and named instances validate their encoded selectors.\",\n      \"claims\": [\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"failurePath\",\n          \"prose\": \"type1_face, cid_type1_face, type42_face, winfnt_face, and the shared bitmap_face constructor each reject a nonzero face_index as out of range for their single face. In plain language, these paths only open face zero; they do not select another face when given a nonzero index.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"type1_face\",\n            \"cid_type1_face\",\n            \"type42_face\",\n            \"winfnt_face\",\n            \"bitmap_face\",\n            \"face_index\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:7ab37fdbaa7a4ad86b4aed3647db25abc91e58d03c28b4129768e14fcef7a6fe\"\n            },\n            {\n              \"referenceId\": \"evidence:d8ce2d8ff2db8999239e9a11402df779111800379a24a7112deb9841dff484cd\"\n            },\n            {\n              \"referenceId\": \"evidence:f869abb40dc77fc95aaed61d50fca1ff4fbdf0a1e15abfb07b9c8cf99d9db70b\"\n            },\n            {\n              \"referenceId\": \"evidence:ce4202b59302c39b244af58319f1313299d438a1516ab3fadbe9db965b21346f\"\n            },\n            {\n              \"referenceId\": \"evidence:dca89d83bfa34fa0bfe7fe45db9a370c6fa16f41d7c60f50fa81a269d877beaa\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"execution\",\n          \"prose\": \"The TrueType path masks face_index to obtain collection_face_index and passes it to resolve_face_index, which returns the selected offset or an out-of-range error. It separately reads named_instance from the higher bits and rejects it when fvar is absent or the value exceeds instance_count; the loaded data also tracks normalized_variation_coords_16_16. In plain language, an SFNT request can choose a collection face and a named variation instance, but each selector must exist.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"face_index\",\n            \"collection_face_index\",\n            \"resolve_face_index\",\n            \"named_instance\",\n            \"instance_count\",\n            \"fvar\",\n            \"normalized_variation_coords_16_16\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:bef0208fbfe222f42f912af9a9b69afe701fec61b62c5e5718e8f8bd96ce96bb\"\n            },\n            {\n              \"referenceId\": \"evidence:f9d09f4f7d79897074e76d4a951e05574b80a2cf1a1e7cd1cb432faaafc345ae\"\n            },\n            {\n              \"referenceId\": \"evidence:7c988c7436df65d0cf05962655050a82ca6bab227be29f6e65b431ad98af3eef\"\n            },\n            {\n              \"referenceId\": \"evidence:66047e1f603921935d38c970e1b7c65d4c1fcf9a1fffc795d4c5e2e136922307\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"failurePath\",\n          \"prose\": \"pfr_face delegates parsing and face selection to PfrFont::parse; it maps the parser's PFR face-index-out-of-range reason to FontError::InvalidArgument, an invalid header to FontError::InvalidFont, and other parse failures to FontError::InvalidTable. In plain language, PFR uses its own parser's index result and reports distinct error categories for index, header, and table failures.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"pfr_face\",\n            \"PfrFont::parse\",\n            \"FontError::InvalidArgument\",\n            \"FontError::InvalidFont\",\n            \"FontError::InvalidTable\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:4836427646b4b7dae7ce05cbb2a175928250240af2bdae3e8a88681444b701bb\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"failurePath\",\n          \"prose\": \"The SFNT path requires head, maxp, cmap, hhea, and hmtx table entries; missing required entries fail construction. It tolerates some malformed table contents by defaulting failed maxp, cmap, or hmtx parsing instead of aborting. In plain language, a face needs its core tables, but some bad optional table data produces defaults rather than a failed open.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"head\",\n            \"maxp\",\n            \"cmap\",\n            \"hhea\",\n            \"hmtx\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:7c988c7436df65d0cf05962655050a82ca6bab227be29f6e65b431ad98af3eef\"\n            },\n            {\n              \"referenceId\": \"evidence:77dd6bedd3c384894ec1362ef64207c9a8872d8ad8891414d21730a80f40eeea\"\n            },\n            {\n              \"referenceId\": \"evidence:8dee45fa2dd35f532bb7842218f57a24c14693a4d14ca0e35918e4ce1266924a\"\n            }\n          ],\n          \"relationshipIds\": []\n        }\n      ],\n      \"visual\": {\n        \"kind\": \"none\",\n        \"title\": \"\",\n        \"direction\": \"auto\",\n        \"nodes\": [],\n        \"edges\": []\n      }\n    },\n    {\n      \"title\": \"What a successful call creates\",\n      \"prose\": \"Success returns a Font initialized with shared backing data, metrics, naming and hinting state, and optional fields for the chosen format. The data layout differs by loader: SFNT input retains parsed tables, bitmap faces use pixel metadata, and outline or PostScript formats also retain their specialized parsed payloads. The parser internals for every format are not exhaustively traced here.\",\n      \"spokenText\": \"A successful call returns a Font with shared parsed data, size metrics, hinting state, and format-specific metadata.\",\n      \"claims\": [\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"inputOutput\",\n          \"prose\": \"Font contains shared Arc<FontData>, size_pt, load_mode, ignore_sbix, and a face_kind, along with face_globals, italic state, names, format-specific data, size_metrics, selected_charmap, and raster_scratch. In plain language, success returns a ready face object with both shared font backing and per-face rendering state, not just a parsed name.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"Font\",\n            \"FontData\",\n            \"face_kind\",\n            \"face_globals\",\n            \"size_metrics\",\n            \"selected_charmap\",\n            \"raster_scratch\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:b1245fc388e89d6d86e0da22e68b184e69d528a0a445b81723619eba28c835c5\"\n            },\n            {\n              \"referenceId\": \"evidence:5b38fba1cbfcee311ec9e0f4578a0e28c9e55fce14d08f087f91cbb7d3a52b6c\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"stateEffect\",\n          \"prose\": \"For SFNT input, the constructor creates FontData with a copy of raw_data, the resolved face offset and index, face count, table_directory, cmap, and variation-related tables and coordinates including normalized_variation_coords_16_16. It also initializes SizeMetrics and selected_charmap, while FontData includes a glyph_cache for later glyph loads. In plain language, the SFNT result keeps the original bytes and parsed structures needed to use the selected face after opening.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"FontData\",\n            \"raw_data\",\n            \"table_directory\",\n            \"cmap\",\n            \"SizeMetrics\",\n            \"selected_charmap\",\n            \"glyph_cache\",\n            \"normalized_variation_coords_16_16\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:4e3536336ce82b9f1bce7beac2434f7bb5b76e104543726927061435ad61216f\"\n            },\n            {\n              \"referenceId\": \"evidence:66047e1f603921935d38c970e1b7c65d4c1fcf9a1fffc795d4c5e2e136922307\"\n            },\n            {\n              \"referenceId\": \"evidence:37a7ab53ac5f4d7317ba4c166566bdaaaa486eebdfdd95768bddcb211b1f0103\"\n            },\n            {\n              \"referenceId\": \"evidence:cada54607fd1294728e7783fc1ed110f769252d7e6602eaf4dfe925f2edf89e1\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"stateEffect\",\n          \"prose\": \"bdf_face and pcf_face parse their format metadata and hand it to bitmap_face. That shared constructor builds backing data with bdf_font_data, derives size_metrics from the metadata's pixel dimensions, and stores the bdf_properties. In plain language, bitmap faces use their declared pixel size and properties to populate the common Font result.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"bdf_face\",\n            \"pcf_face\",\n            \"bitmap_face\",\n            \"bdf_font_data\",\n            \"size_metrics\",\n            \"bdf_properties\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:2c549a4f03c56134927060e5e95d6a03bd34912621f46ed8f03579fd2999de7f\"\n            },\n            {\n              \"referenceId\": \"evidence:1c2c6fa6d402ab861158814dfed838fd8acee108a8724880fba9cf4c661b4acf\"\n            },\n            {\n              \"referenceId\": \"evidence:dca89d83bfa34fa0bfe7fe45db9a370c6fa16f41d7c60f50fa81a269d877beaa\"\n            },\n            {\n              \"referenceId\": \"evidence:ac36d020f6347dab5812782120bb9bb5406f46b25b3fd128b13e740f8878975d\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"stateEffect\",\n          \"prose\": \"type1_face parses type1 metadata and the Type 1-specific type1_private, type1_encoding, type1_charstrings, and optional type1_multi_master values. It obtains shared backing through type1_font_data, which delegates to non_sfnt_outline_font_data, and stores the parsed payloads in the returned Font. In plain language, opening Type 1 creates renderable common backing as well as the PostScript state needed for that format.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"type1_face\",\n            \"parse_type1_metadata\",\n            \"type1_private\",\n            \"type1_encoding\",\n            \"type1_charstrings\",\n            \"type1_multi_master\",\n            \"type1_font_data\",\n            \"non_sfnt_outline_font_data\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:7ab37fdbaa7a4ad86b4aed3647db25abc91e58d03c28b4129768e14fcef7a6fe\"\n            },\n            {\n              \"referenceId\": \"evidence:352b9af4cf4103f60e0a987f3131a8b237da3f368d0b9853bd608dd40f875e37\"\n            },\n            {\n              \"referenceId\": \"evidence:31677e8b4a1ac6efe1f3826721b40704569eb4e00435bec29322132f06467545\"\n            },\n            {\n              \"referenceId\": \"evidence:e09b7a38a059f7f5b82bb0f944a4cfc76959a5c2ee8fe900075ce40b2dc2226a\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"stateEffect\",\n          \"prose\": \"cid_type1_face uses parse_cid_type1_metadata and type1_font_data with the parsed cid_count; the returned Font stores the descriptor in cid_type1 while its type1_encoding and type1_charstrings fields are empty. In plain language, CID Type 1 keeps its own CID metadata payload rather than the regular Type 1 encoding and charstring data.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"cid_type1_face\",\n            \"parse_cid_type1_metadata\",\n            \"type1_font_data\",\n            \"cid_count\",\n            \"cid_type1\",\n            \"type1_encoding\",\n            \"type1_charstrings\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:d8ce2d8ff2db8999239e9a11402df779111800379a24a7112deb9841dff484cd\"\n            },\n            {\n              \"referenceId\": \"evidence:d08bedf0b8b2a4b4f802c4e386c5e44934f3f5c322b1ce500f514fd87afa4354\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"stateEffect\",\n          \"prose\": \"pfr_face calls PfrFont::parse, derives outline metadata and glyph counts, and builds common backing through non_sfnt_outline_font_data; the returned Font is marked FaceKind::Pfr and retains the parsed object in pfr. In plain language, PFR creates a renderable face with synthesized common tables plus its PFR-specific parsed data.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"pfr_face\",\n            \"PfrFont::parse\",\n            \"non_sfnt_outline_font_data\",\n            \"FaceKind::Pfr\",\n            \"pfr\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:4836427646b4b7dae7ce05cbb2a175928250240af2bdae3e8a88681444b701bb\"\n            },\n            {\n              \"referenceId\": \"evidence:eaeed0ee2c65a72a5b0be7c779ff5370c0c86dc32efbeedd7cae83da18e4b5d5\"\n            },\n            {\n              \"referenceId\": \"evidence:a0b9822563e3643d9883965d08bf55137978474071c559e2e904ebafe54c250c\"\n            }\n          ],\n          \"relationshipIds\": []\n        },\n        {\n          \"category\": \"codeBehavior\",\n          \"aspect\": \"stateEffect\",\n          \"prose\": \"type42_face extracts the embedded SFNT and calls truetype_face with face index zero, then updates the result to FaceKind::Type42 and replaces selected names and italic metadata from the Type 42 wrapper. In plain language, Type 42 reuses the SFNT loader for its embedded font but returns a face labeled and named from the outer wrapper.\",\n          \"inferenceBasis\": \"\",\n          \"identifiers\": [\n            \"type42_face\",\n            \"truetype_face\",\n            \"FaceKind::Type42\"\n          ],\n          \"evidence\": [\n            {\n              \"referenceId\": \"evidence:f869abb40dc77fc95aaed61d50fca1ff4fbdf0a1e15abfb07b9c8cf99d9db70b\"\n            },\n            {\n              \"referenceId\": \"evidence:b456bbe2d054e714624ab7970b81a2dddfeded4f3f8e108142ae8bd4f686792b\"\n            }\n          ],\n          \"relationshipIds\": []\n        }\n      ],\n      \"visual\": {\n        \"kind\": \"none\",\n        \"title\": \"\",\n        \"direction\": \"auto\",\n        \"nodes\": [],\n        \"edges\": []\n      }\n    }\n  ],\n  \"citationVersion\": \"nativeEvidenceV1\"\n}",
+      "responseSha256": "70e1324e92816f1bbbd0796d20bada33bea6be4ef0d7cfd0a82137e7b351a8df",
+      "alignmentIssues": [],
+      "preflightFindings": [
+        {
+          "location": "/sections/2/claims/3",
+          "citationProblem": "identifierAlignment"
+        }
+      ],
+      "rejection": "Local preflight rejected the sole correction: [{\"location\":\"/sections/2/claims/3\",\"problem\":\"identifierAlignment\"}]"
+    }
+  ],
+  "preview": null,
+  "error": "The explanation still did not match its cited code after one correction. No draft was published. Your previous work is preserved."
+}

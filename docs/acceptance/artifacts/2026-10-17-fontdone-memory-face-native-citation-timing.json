@@ -1,0 +1,128 @@
+{
+  "runId": "da7f3bb9-b3a8-4ce1-973e-e5ccd9916340",
+  "model": "gpt-6-luna",
+  "effort": "max",
+  "snapshotId": "snap-1792140879637485000-11155-0",
+  "elapsedMs": 358714,
+  "status": "interrupted",
+  "error": "The explanation still did not match its cited code after one correction. No draft was published. Your previous work is preserved.",
+  "contextClock": "capturedCodeSessionV1",
+  "artifactSha256": "6fafd715ba0604607b68f8186b05c02ac64576b36dd3be4c6eb30445d215f147",
+  "sourceBytes": 53291,
+  "metadataBytes": 110896,
+  "wireBytes": 165699,
+  "callCount": 40,
+  "tools": {
+    "definitions": 22,
+    "read": 8,
+    "search": 10
+  },
+  "paths": [
+    "src/font.rs",
+    "src/tables.rs",
+    "src/tt/mod.rs"
+  ],
+  "toolTotalMs": 18542,
+  "toolLongestMs": 1742,
+  "lastToolFinishedContextMs": 92239,
+  "phaseTransitions": [
+    {
+      "phase": "preparing",
+      "elapsedMs": 1357
+    },
+    {
+      "phase": "starting",
+      "elapsedMs": 2088
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 229125
+    },
+    {
+      "phase": "validating",
+      "elapsedMs": 258780
+    },
+    {
+      "phase": "starting",
+      "elapsedMs": 270063
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 323996
+    },
+    {
+      "phase": "validating",
+      "elapsedMs": 351580
+    }
+  ],
+  "candidates": [
+    {
+      "ordinal": 1,
+      "responseSha256": "c163fd989963fce5fb0fdecf98ff46ff7c9474620bed143a535a8b545c58c390",
+      "responseBytes": 21218,
+      "sectionCount": 3,
+      "claimCount": 15,
+      "citationEntries": 40,
+      "unknownReferenceCount": 0,
+      "preflightFindings": [
+        {
+          "location": "/sections/0/claims/1",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/0/claims/3",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/1/claims/1",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/1/claims/2",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/2/claims/0",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/2/claims/1",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/2/claims/2",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/2/claims/3",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/2/claims/4",
+          "citationProblem": "identifierAlignment"
+        },
+        {
+          "location": "/sections/2/claims/5",
+          "citationProblem": "identifierAlignment"
+        }
+      ],
+      "rejection": null
+    },
+    {
+      "ordinal": 2,
+      "responseSha256": "70e1324e92816f1bbbd0796d20bada33bea6be4ef0d7cfd0a82137e7b351a8df",
+      "responseBytes": 21765,
+      "sectionCount": 3,
+      "claimCount": 15,
+      "citationEntries": 40,
+      "unknownReferenceCount": 0,
+      "preflightFindings": [
+        {
+          "location": "/sections/2/claims/3",
+          "citationProblem": "identifierAlignment"
+        }
+      ],
+      "rejection": "Local preflight rejected the sole correction: [{\"location\":\"/sections/2/claims/3\",\"problem\":\"identifierAlignment\"}]"
+    }
+  ]
+}
