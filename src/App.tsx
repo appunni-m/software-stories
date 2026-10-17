@@ -152,7 +152,7 @@ import {
 } from './lib/inventory';
 import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, atlasTreeKeyboardAction, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport, type AtlasViewport, type ProvenGraphEdge } from './lib/atlas';
 import { classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, sourceLineTextRanges, splitCapturedSourceLines, splitSourceTextAtRange } from './lib/codeLens';
-import { loadShellStartupData, WORKSPACE_COPY } from './lib/shell';
+import { loadShellStartupData, workspaceHeading } from './lib/shell';
 import { compareChapterRevisions, type RevisionChange } from './lib/revisionHistory';
 import {
   addCoverageGroup,
@@ -280,13 +280,13 @@ function App() {
   const pickerReturnFocusRef = useRef<string | undefined>(undefined);
   const currentWorkspace = navigation.current.workspace;
   useEffect(()=>{if(navigation.current.projectId){try{localStorage.setItem('code-atlas:last-project',navigation.current.projectId);}catch{/* Optional preference. */}}},[navigation.current.projectId]);
-  const copy = WORKSPACE_COPY[currentWorkspace];
   const currentProject = navigation.current.projectId
     ? knownProjects[navigation.current.projectId] ?? recentProjects.find((project) => project.projectId === navigation.current.projectId) ?? null
     : null;
   const currentSnapshots = currentProject ? snapshotsByProject[currentProject.projectId] ?? [] : [];
   const currentCapture = currentProject ? captureByProject[currentProject.projectId] ?? null : null;
   const selectedSnapshot = currentSnapshots.find((snapshot) => snapshot.snapshotId === navigation.current.snapshotId) ?? null;
+  const copy = workspaceHeading(currentWorkspace, !!snapshotManifest && snapshotManifest.summary.snapshotId === selectedSnapshot?.snapshotId);
 
   useEffect(() => {
     if (navigation.current.projectId && !currentProject) return;

@@ -3,11 +3,24 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import ts from 'typescript';
 import { initialNavigationState, navigateBack, navigateForward, navigateToWorkspace } from '../src/lib/navigation.ts';
-import { loadShellStartupData, PRIMARY_WORKSPACES, WORKSPACE_COPY } from '../src/lib/shell.ts';
+import { loadShellStartupData, PRIMARY_WORKSPACES, WORKSPACE_COPY, workspaceHeading } from '../src/lib/shell.ts';
 
 const allWorkspaces = ['atlas', 'code-lens', 'walkthrough', 'guide-plan', 'chapter-studio', 'changes'];
 
 describe('desktop shell acceptance contract', () => {
+  it('names the captured conversation workspace consistently without relabeling tools or empty states', () => {
+    for (const workspace of allWorkspaces) {
+      assert.equal(workspaceHeading(workspace, false), WORKSPACE_COPY[workspace]);
+      const copy = workspaceHeading(workspace, true);
+      if (['atlas', 'code-lens', 'guide-plan'].includes(workspace)) {
+        assert.equal(copy.title, 'Explore this codebase.');
+        assert.match(copy.subtitle, /question.*guide.*flow.*source/);
+      } else {
+        assert.equal(copy, WORKSPACE_COPY[workspace]);
+      }
+    }
+  });
+
   it('opens local file browsing with no project and exposes the simple primary destinations', () => {
     assert.deepEqual(initialNavigationState.current, {
       workspace: 'atlas', projectId: null, snapshotId: null, focusTarget: 'atlas:open-repository',

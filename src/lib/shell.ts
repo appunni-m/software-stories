@@ -40,6 +40,18 @@ export const WORKSPACE_COPY: Record<Workspace, { eyebrow: string; title: string;
   },
 };
 
+const EXPLORATION_COPY = {
+  eyebrow: 'CODE EXPLORATION',
+  title: 'Explore this codebase.',
+  subtitle: 'Ask a question, follow a guide or explore the flow with source beside it.',
+};
+
+/** The captured conversation view replaces these former standalone pages. */
+export function workspaceHeading(workspace: Workspace, hasCapturedSnapshot: boolean) {
+  return hasCapturedSnapshot && ['atlas', 'code-lens', 'guide-plan'].includes(workspace)
+    ? EXPLORATION_COPY : WORKSPACE_COPY[workspace];
+}
+
 export interface ShellStartupCommands {
   getApplicationStatus: () => Promise<ApplicationStatus>;
   getCaptureLimits: () => Promise<CaptureLimits>;
