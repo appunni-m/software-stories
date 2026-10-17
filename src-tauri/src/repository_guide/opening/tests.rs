@@ -58,6 +58,8 @@ fn combined_contract_keeps_the_same_scene_and_outline_boundaries() {
     assert!(instructions.contains("first real input-to-decision/result transition"));
     assert!(instructions.contains("SAME owned investigation and original budgets"));
     assert!(instructions.contains("sceneAuthoringReference"));
+    assert!(instructions.contains("Choose the representation that teaches the behavior"));
+    assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
     assert!(instructions.contains("Do not make the first unit an exhaustive"));
     assert!(!instructions.contains("Finish only with the supplied answerManifestV1"));
     assert!(!instructions.contains("then investigate and publish deeper sections"));

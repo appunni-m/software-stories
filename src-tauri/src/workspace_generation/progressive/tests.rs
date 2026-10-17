@@ -462,7 +462,7 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v5:"));
+    assert!(instructions.contains("Teaching policy v6:"));
     assert!(instructions.starts_with(ANSWER_ROLE));
     assert!(instructions.contains("then investigate and publish deeper sections"));
     assert!(!instructions.contains("then focus on the remaining research outline"));
@@ -485,7 +485,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     let input = input(&f);
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema).unwrap();
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v5");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v6");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert_eq!(
         fingerprint,
@@ -520,4 +520,25 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         context::digest(&serde_json::to_vec(&historical).unwrap())
     );
     assert!(serde_json::to_vec(&contract).unwrap().len() < 32000);
+}
+
+#[test]
+fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
+    let instructions = system_instructions();
+    assert!(instructions.contains("Choose the representation that teaches the behavior"));
+    assert!(instructions.contains("different source tokens alone do not establish a transformation"));
+    assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
+    assert!(instructions.contains("compare the claim with its narration, visible labels, node details and values"));
+    assert!(instructions.contains("Narration and collapsed details must not carry a missing branch by themselves"));
+    assert!(!instructions.contains("spokenText copies the complete scene narration"));
+}
+
+#[test]
+fn progressive_teaching_rules_fit_the_existing_request_metadata_limit() {
+    let f = Fixture::new();
+    let input = input(&f);
+    let prompt = question_prompt(&input, &f.manifest).unwrap();
+    let contract = generation_contract(&input, &prompt, &schema()).unwrap();
+    let bytes = serde_json::to_vec(&contract).unwrap();
+    assert!(bytes.len() <= 32000, "request metadata is {} bytes", bytes.len());
 }
