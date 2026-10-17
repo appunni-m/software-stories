@@ -58,3 +58,9 @@ Connected a separate progressive workspace command, exact final-manifest validat
 The full native suite passes 334 tests (12 explicit live probes ignored); frontend 148 and the production frontend build pass. [Implementation evidence and qualification boundaries](../acceptance/2026-10-17-progressive-reader-integration.md).
 
 Package/install/helper qualification, fresh Fontdone attached/broad semantic and timing acceptance, actual Pocket playback and installed keyboard/VoiceOver/focus/navigation/Stop/restart checks remain pending. Keep this task open.
+
+## First installed synthetic checkpoint — 17 October
+
+Built and integrity-checked the unsigned `2c7dda3` replacement, installed it and observed restoration of Fontdone's saved nested section and existing connection without setup. The first real public synthetic GPT-6 Luna/max run independently adopted sections at 26,211 ms and 70,403 ms, then returned partial at 76,252 ms. Keep its complete-answer assertion failed. The retained manifest exposed a 36-character schema bound for a native 47-character prefixed generation UUID; completion was correctly rejected while both drafts survived. The schema bound is fixed, with a dedicated regression; the full native suite passes 335 tests (12 live probes ignored). [Original failed artifact, diagnosis and limits](../acceptance/2026-10-17-progressive-reader-integration.md#installed-helper-and-first-live-synthetic-result).
+
+A fresh fixed-build account qualification, installed progressive card/navigation/Stop/restart checks, Fontdone attached/broad semantic and timing acceptance, Pocket playback and keyboard/VoiceOver gates remain pending. No failed artifact has been overwritten or converted into a pass. Keep this task open.

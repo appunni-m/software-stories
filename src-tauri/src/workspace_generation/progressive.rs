@@ -25,7 +25,7 @@ fn schema() -> Value {
         "manifestVersion":{"type":"string","enum":["answerManifestV1"]},
         "sections":{"type":"array","minItems":1,"maxItems":6,"items":{
             "type":"object","additionalProperties":false,"required":["sectionKey","generationId"],"properties":{
-                "sectionKey":{"type":"string","maxLength":80},"generationId":{"type":"string","maxLength":36}}}},
+                "sectionKey":{"type":"string","maxLength":80},"generationId":{"type":"string","maxLength":47}}}},
         "incompleteTopics":{"type":"array","maxItems":6,"items":{"type":"string","maxLength":240}}}})
 }
 

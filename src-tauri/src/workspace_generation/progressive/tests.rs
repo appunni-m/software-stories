@@ -54,6 +54,21 @@ fn native_worker_registration_prevents_false_restart_interruption() {
 }
 
 #[test]
+fn final_manifest_schema_preserves_the_entire_native_generation_identity() {
+    // Native publication returns a prefixed UUID, not a bare 36-byte UUID.
+    // A 36-character output constraint made real Codex truncate this identity
+    // and omit the second published section from its terminal manifest.
+    let generation_id = format!("generation:{}", Uuid::new_v4());
+    let contract = schema();
+    let bound = contract["properties"]["sections"]["items"]["properties"]
+        ["generationId"]["maxLength"]
+        .as_u64()
+        .unwrap();
+    assert_eq!(generation_id.len(), 47);
+    assert_eq!(bound, generation_id.len() as u64);
+}
+
+#[test]
 #[ignore = "Explicit existing-account GPT-6 Luna/max progressive synthetic answer; consumes quota and requires the rebuilt app helper."]
 fn codex_progressive_account_probe() {
     use std::io::Write;
