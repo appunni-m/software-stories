@@ -1,0 +1,23 @@
+{
+  "case": "memory-face",
+  "question": "How does Font::memory_face work? Explain its inputs, selection and validation of the face, and the data it creates. Follow necessary implementation dependencies.",
+  "projectId": "/Users/lazytrot/work/fontdone",
+  "snapshotId": "snap-1792140879637485000-11155-0",
+  "runId": "7da1bc81-95fc-49e2-ae94-783199aed786",
+  "model": "gpt-6-luna",
+  "effort": "max",
+  "elapsedMs": 947,
+  "phases": [
+    {
+      "phase": "preparing",
+      "elapsedMs": 461
+    }
+  ],
+  "status": "interrupted",
+  "contextClock": "capturedCodeSessionV1",
+  "calls": [],
+  "evidence": [],
+  "rejectedCandidates": null,
+  "preview": null,
+  "error": "Codex could not complete thread/start. The request was not retried and existing chapters were preserved."
+}

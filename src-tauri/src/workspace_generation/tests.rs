@@ -1,6 +1,21 @@
 use super::*;
 use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH};
 
+// libtest cannot serve the application's MCP subcommand. Fail before opening
+// an account/session or reserving a measurement artifact when a live probe
+// omitted its built application helper.
+fn require_live_context_helper() {
+    let path = std::path::PathBuf::from(std::env::var_os("CODE_ATLAS_CONTEXT_HELPER_BIN")
+        .expect("set CODE_ATLAS_CONTEXT_HELPER_BIN to the built Code Atlas executable"));
+    assert!(path.is_absolute() && path.is_file(), "the live probe requires an absolute built application executable path");
+    assert_ne!(std::fs::canonicalize(&path).unwrap(), std::fs::canonicalize(std::env::current_exe().unwrap()).unwrap(), "the Rust test executable cannot serve the MCP helper");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_ne!(path.metadata().unwrap().permissions().mode() & 0o111, 0, "the live context helper is not executable");
+    }
+}
+
 fn input(f: &Fixture) -> Input {
     Input {
         run_id: Uuid::new_v4().to_string(),
@@ -83,6 +98,7 @@ fn question_settings_and_bounds_are_part_of_the_contract() {
 #[test]
 #[ignore = "Explicit existing-account GPT-6 Luna/max synthetic investigation; consumes account quota."]
 fn codex_account_retrieval_probe() {
+    require_live_context_helper();
     let f = Fixture::new();
     let mut input = input(&f);
     let manager = codex_agent::CodexAgentManager::default();
@@ -134,6 +150,7 @@ fn codex_account_retrieval_probe() {
 #[test]
 #[ignore = "Existing-account GPT-6 Luna/max synthetic correction; consumes account quota."]
 fn codex_owned_correction_probe() {
+    require_live_context_helper();
     use std::sync::atomic::{AtomicUsize, Ordering};
     let f = Fixture::new();
     let manager = codex_agent::CodexAgentManager::default();
@@ -265,6 +282,7 @@ fn codex_owned_correction_probe() {
 #[test]
 #[ignore = "Existing-account GPT-6 Luna/max Fontdone investigation; consumes account quota and requires its saved snapshot."]
 fn fontdone_codex_retrieval_probe() {
+    require_live_context_helper();
     use std::io::Write;
     let storage = std::path::PathBuf::from(
         std::env::var("CODE_ATLAS_FONTDONE_DATA_DIR").expect("set CODE_ATLAS_FONTDONE_DATA_DIR"),
