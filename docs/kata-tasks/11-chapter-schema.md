@@ -43,3 +43,7 @@ Strict legacy v1–v3 chapter reads and version-3 overview/pending-preview recov
 - [ ] Review pacing, source-grounded answer quality, navigability and comprehension across representative languages. Recorded metadata/citation validity cannot satisfy this. Multi-unit orchestration and selective updates remain separate pending work.
 
 No tests, builds, app launches, agent/SDK probes, login or model requests ran. Existing fixture constructors only received the required absent-metadata field; no tests were added or executed. Changed Rust regions were formatted and Git whitespace checks are separate from compilation/runtime acceptance. Codex remains Source, every automatic Claude cell remains Missing behind the empty registry, and the multi-agent release requirement remains open.
+
+### Saved plan-step compatibility evidence — 17 October 2026
+
+Local native regressions now reopen the actual synthetic accepted route and its independently saved chapter after correcting a shared-enum serialization digest break. They retain the original record/revision/claim/anchor identities, revalidate chapter source, and exercise synthetic older request contracts plus new schema-2 plan-record acceptance. Plan-record schema 2 is independent of chapter schema 4; existing schema-1 plan bytes and chapter lineage remain unchanged. [Exact scope and remaining qualification](../acceptance/2026-10-17-saved-route-replay.md). This does not qualify both live agent workflows, the full origin/legacy/history matrix, native UI, speech or semantic quality; the schema task remains open.

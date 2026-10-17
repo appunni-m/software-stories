@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "snapshots": [
+    {
+      "snapshotId": "snap-1792133675714600000-43528-0",
+      "projectId": "/private/tmp/code-atlas-codex-synthetic",
+      "parentSnapshotId": null,
+      "createdAtUnixMs": 1792133675888,
+      "branch": "main",
+      "head": "7d2ec3b2756dae4417f7336d2bbf7837ec51bfbf",
+      "indexState": "clean",
+      "worktreeState": "clean",
+      "status": "complete",
+      "filesCaptured": 1,
+      "pathsSkipped": 1,
+      "totalBytes": 501,
+      "pathsVisited": 2,
+      "policyVersion": "capture-policy-v1"
+    }
+  ]
+}

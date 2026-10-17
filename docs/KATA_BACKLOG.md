@@ -160,3 +160,11 @@ assertion: three drafts, 61 delivered calls, eight proposals exhausted, missing
 rasterization/bitmap output. Exact source-value diagnostics follow the actual
 rejections; 371 native and 184 frontend checks pass. [Current result and scope](acceptance/2026-10-17-scene-v2.md).
 No task is closed or requirement removed.
+
+## Saved-route replay correction — 17 October
+
+`a1sm` and `8bw6` retain their full acceptance contracts while recording the
+native correction for historical enum digests and known planning request
+versions. Real saved route/chapter replay and explicit synthetic upgrades are
+covered separately. [Evidence and pending packaged qualification](acceptance/2026-10-17-saved-route-replay.md).
+All **73 records remain: 50 open, 23 closed**; no task is closed here.

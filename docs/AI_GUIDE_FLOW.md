@@ -39,3 +39,17 @@ After reviewing and accepting a route, choose **Build all chapters**. Code Atlas
 - Reopening the action derives remaining work from saved chapter lineage. It does not persist or automatically resume an active queue across app restarts. Acceptance and playback remain deliberate actions.
 
 The app still has separate quality and release gates for narrative depth, diagrams, language coverage, accessibility and reliability. Passing format/citation checks alone does not establish an excellent explanation.
+
+## Reopening saved routes
+
+Saved routes keep their original accepted revision, source snapshot and step
+links. The reader independently checks captured code and claims locally. It
+supports the three known planning request contracts across instruction/schema
+changes and preserves both historical schema-1 record encodings; new records
+use schema 2. Opening history starts no model request. Unsupported contracts or
+changed/unavailable evidence produce distinct errors and preserve the record.
+Older app binaries are not qualified to read new schema-2 records.
+
+The [saved-route qualification](acceptance/2026-10-17-saved-route-replay.md)
+contains the real saved fixture, simulated upgrade boundaries and pending
+packaged-app acceptance. It does not qualify whole-repository orchestration.

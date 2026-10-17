@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 2,
+  "summary": {
+    "snapshotId": "snap-1792133675714600000-43528-0",
+    "projectId": "/private/tmp/code-atlas-codex-synthetic",
+    "parentSnapshotId": null,
+    "createdAtUnixMs": 1792133675888,
+    "branch": "main",
+    "head": "7d2ec3b2756dae4417f7336d2bbf7837ec51bfbf",
+    "indexState": "clean",
+    "worktreeState": "clean",
+    "status": "complete",
+    "filesCaptured": 1,
+    "pathsSkipped": 1,
+    "totalBytes": 501,
+    "pathsVisited": 2,
+    "policyVersion": "capture-policy-v1"
+  },
+  "repositoryRoot": "/private/tmp/code-atlas-codex-synthetic",
+  "selectedPath": "/private/tmp/code-atlas-codex-synthetic",
+  "captureLimits": {
+    "policyVersion": "capture-policy-v1",
+    "maxFileBytes": 2097152,
+    "maxTotalBytes": 104857600,
+    "maxPaths": 25000,
+    "maxPathBytes": 1024,
+    "maxEntriesPerDirectory": 1000,
+    "excludedDirectories": [
+      "node_modules",
+      "vendor",
+      "target",
+      "dist",
+      "build",
+      "coverage",
+      "out",
+      "generated",
+      ".next",
+      ".nuxt",
+      ".turbo",
+      ".cache",
+      ".venv",
+      "venv"
+    ],
+    "otherExclusions": [
+      "Git-ignored paths; tracked files remain eligible",
+      "Symlinks and their targets",
+      "The repository .git marker and its contents",
+      "Nested Git repositories",
+      "Non-regular filesystem objects"
+    ]
+  },
+  "directories": [
+    {
+      "path": ".",
+      "kind": "directory",
+      "sizeBytes": null
+    }
+  ],
+  "files": [
+    {
+      "path": "cart.ts",
+      "kind": "file",
+      "sizeBytes": 501,
+      "sha256": "bd1859f143bc0f6eb5858ea58da490c7844b91602b5ca19e614e1d46c8f2680a",
+      "blobPath": "objects/sha256/bd/1859f143bc0f6eb5858ea58da490c7844b91602b5ca19e614e1d46c8f2680a",
+      "contentKind": "text",
+      "secretLike": false
+    }
+  ],
+  "skipped": [
+    {
+      "path": ".git",
+      "kind": "directory",
+      "sizeBytes": null,
+      "reason": "gitMetadata",
+      "details": "Git metadata is never captured."
+    }
+  ]
+}

@@ -17,6 +17,11 @@ use std::{
 };
 use uuid::Uuid;
 
+mod wire;
+
+pub(crate) const SAVED_PLAN_RECORD_SCHEMA_VERSION: u32 = 2;
+const LEGACY_SAVED_PLAN_RECORD_SCHEMA_VERSION: u32 = 1;
+
 const MAX_RECORD_BYTES: usize = 2 * 1024 * 1024;
 const MAX_PROJECT_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_RECORDS: usize = 128;
@@ -43,8 +48,7 @@ pub(crate) enum SavedPlanAgentSettings {
     },
 }
 
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[derive(Clone)]
 pub(crate) struct SavedPlanRecord {
     pub schema_version: u32,
     pub preview: RepositoryPlanPreview,
@@ -54,6 +58,9 @@ pub(crate) struct SavedPlanRecord {
     // Retain the strict proposal because canonical claims intentionally omit
     // model-declared identifiers/aspects needed for independent replay.
     pub response_text: String,
+    // A source-compatible enum field rename must not rehash immutable records.
+    // This is derived from strictly decoded native fields, never authorization.
+    encoding: wire::RecordEncoding,
 }
 
 /// Does not expose the original model proposal or any reusable authorization.
@@ -156,7 +163,7 @@ pub(crate) fn prepare_save(
     };
     preview.saved_locally = true;
     let record = SavedPlanRecord {
-        schema_version: 1,
+        schema_version: SAVED_PLAN_RECORD_SCHEMA_VERSION,
         preview,
         scope,
         selected_paths: review
@@ -166,6 +173,7 @@ pub(crate) fn prepare_save(
             .collect(),
         settings,
         response_text: response.response_text.clone(),
+        encoding: wire::RecordEncoding::Current,
     };
     validate_record_shape(&record, &review.project_id, &record.preview.plan.draft_id)
         .map_err(local_failure)?;
@@ -376,7 +384,7 @@ pub(crate) fn validate_record_shape(
             .fingerprint
             .bytes()
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
-    if record.schema_version != 1
+    if !matches!(record.schema_version, LEGACY_SAVED_PLAN_RECORD_SCHEMA_VERSION | SAVED_PLAN_RECORD_SCHEMA_VERSION)
         || !preview.saved_locally
         || preview.plan.schema_version != 1
         || preview.plan.project_id != project_id

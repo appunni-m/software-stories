@@ -1,0 +1,118 @@
+{
+  "scope": "Local saved-route/accepted-history/chapter compatibility; no fresh model request, installed UI, full narrative, speech, accessibility or release acceptance",
+  "baseCommit": "c98e73693f8bdf032d76d710704b8ed23104d3fe",
+  "nativeSuite": {
+    "passed": 382,
+    "failed": 0,
+    "ignoredExplicitProbes": 13,
+    "seconds": 39.94,
+    "newReplayRegressions": 11
+  },
+  "frontendSuite": {
+    "passed": 184,
+    "failed": 0
+  },
+  "productionFrontendBuild": true,
+  "debugApp": {
+    "path": "/private/tmp/software-stories-kata/src-tauri/target/debug/bundle/macos/Code Atlas.app/Contents/MacOS/code-atlas-desktop",
+    "bytes": 138694144,
+    "sha256": "9776a7cfd4c86f754b465e9733409c6880f3dc5514973634ddaa41bfd026b107",
+    "embeddedMacExecutableIntegrity": true,
+    "developerId": false,
+    "notarized": false,
+    "installed": false
+  },
+  "sourceSha256": {
+    "src-tauri/Cargo.toml": "db1fb8c9d939b402363bb6dc0b8e53d5cbd5d15be5e0a210b5ad25a70b95d501",
+    "src-tauri/src/repository_plan.rs": "559f2037ed1330121856b95e44be2a7a2051a51ef06d0876b83f3fef76449a61",
+    "src-tauri/src/repository_plan/contracts.rs": "3285a7424e287f1193c6f8ea709d4cfa81a162db4c6763c3da63eb5be03be77a",
+    "src-tauri/src/repository_plan/replay_tests.rs": "3b22407c89ef392f203c8270d19910c5e1c98b9ed63a3314af5f6bb48a5553c4",
+    "src-tauri/src/repository_plan_store.rs": "e5fbda0c73971360536bfe42e3ffc88b9d7b5daef973ade9b3c816eeeecbcfad",
+    "src-tauri/src/repository_plan_store/wire.rs": "efe2c29d71282d0cd920b51c111b13ece3a73c8eb8425057315015e4a2e4481b"
+  },
+  "frozenFixtures": {
+    "benchmarks/saved-route-replay/cart.ts": {
+      "bytes": 501,
+      "sha256": "bd1859f143bc0f6eb5858ea58da490c7844b91602b5ca19e614e1d46c8f2680a"
+    },
+    "benchmarks/saved-route-replay/catalog.json": {
+      "bytes": 563,
+      "sha256": "1f9db4a6b6a22560cf86ed7dad0fd78e56dcf70d9217e54cc7a48efb83d2afa5"
+    },
+    "benchmarks/saved-route-replay/chapter.json": {
+      "bytes": 22865,
+      "sha256": "ce470d2fedc3592edf2ce3ebc87da6bdfb08473325c2423f6a735ee79f54ebe0"
+    },
+    "benchmarks/saved-route-replay/draft.json": {
+      "bytes": 8269,
+      "sha256": "665b5886ff8e246abd6a499735bdd18559b70c2e5aa7f2b398a7d968973ae11a"
+    },
+    "benchmarks/saved-route-replay/history.json": {
+      "bytes": 8873,
+      "sha256": "3bad23b0970668473c8ca876c540d30ed406eaf1ad2fc2438e821364f2ecb86d"
+    },
+    "benchmarks/saved-route-replay/index.json": {
+      "bytes": 7533,
+      "sha256": "d8e9eed26768151bcad4e4a09267cff7cc6ba93ea3fa745b5f2b967987b582b4"
+    },
+    "benchmarks/saved-route-replay/manifest.json": {
+      "bytes": 2004,
+      "sha256": "681370ba4018d4958d6af8e406f2e260021cca144c53fbf3ceeff6948ac25b77"
+    }
+  },
+  "reproducedBeforeFix": [
+    {
+      "case": "Actual synthetic accepted route",
+      "requestContractAlreadyCurrent": true,
+      "error": "An accepted plan revision has inconsistent identity or content. Existing history was preserved.",
+      "cause": "Historical enum fields reserialized as camelCase, changing the saved native record digest"
+    },
+    {
+      "case": "Typed frozen record round trip",
+      "error": "changed fields: source_sha256/sourceSha256, relationship_id/relationshipId, visible_label/visibleLabel"
+    },
+    {
+      "case": "Synthetic older-contract variants from Git templates",
+      "error": "The saved plan's original question, inventory, source or index changed. Its local copy was preserved.",
+      "historicalAccountRun": false
+    }
+  ],
+  "preservedActualRecordSha256": "665b5886ff8e246abd6a499735bdd18559b70c2e5aa7f2b398a7d968973ae11a",
+  "preservedCurrentRequestSha256": "c19d282d051624a77f2afd78ed45ee2550a280806e28a3fbcf4aae0f8723c88c",
+  "independentContractReference": {
+    "method": "Separate Rust probe extracts literal instructions, prompt and schema from original Git revisions; compares exact JSON bytes with current registry at a 64-zero context digest and empty data object",
+    "results": [
+      {
+        "contract": "Initial",
+        "gitSource": "a1636b2",
+        "fixedInputRequestSha256": "d567453fef95580b4f272508b3fe294f520785831ba79172b56298b017d92756"
+      },
+      {
+        "contract": "CodeFirst",
+        "gitSource": "5fa83fd",
+        "fixedInputRequestSha256": "61bd7a116e25b2eb2004222cf4f1ea1900a51ab5d02fbfb4c9c15268b26b42cd"
+      },
+      {
+        "contract": "ExplicitEvidence",
+        "gitSource": "bd1b106",
+        "fixedInputRequestSha256": "eac43d71fc6576a7ebd096dbd9aebeb277bbe939a07c653694d52fca5e2391d6"
+      }
+    ]
+  },
+  "liveKata": {
+    "records": 73,
+    "open": 50,
+    "closed": 23,
+    "allBodiesStatusesPrioritiesVerified": true
+  },
+  "documentationAudit": {
+    "errors": 0,
+    "reviewItems": 6
+  },
+  "limits": [
+    "Mac locked; bundle not installed",
+    "Broad Fontdone remains Partial",
+    "Older app binaries unqualified for new schema-2 plan records",
+    "Current source/claim bounds and validators still apply; unknown request/evidence versions are preserved but rejected"
+  ]
+}

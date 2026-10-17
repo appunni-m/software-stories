@@ -15,6 +15,13 @@ and release gates remain open. [Current evidence and limits](acceptance/2026-10-
 
 ### Historical implementation checkpoints
 
+The saved-route compatibility correction preserves original plan digests,
+accepted revisions and chapter/step links across known enum encodings and
+request contracts. The real synthetic saved route/chapter and simulated
+upgrades pass native replay checks; opening history starts no inference.
+[Evidence and packaged acceptance still required](acceptance/2026-10-17-saved-route-replay.md).
+`a1sm` and `8bw6` remain open; the full 73-record scope is unchanged.
+
 The earlier unsigned native-citation debug app built and opened, retaining its saved Codex connection and nested reading position. That historical qualification passed **304 native tests** (11 explicit probes ignored), **145 frontend tests** and the production build. Native citations resolve exact delivered captured spans without asking the model to copy source quotes.
 
 The correctly configured frozen Fontdone GPT-6 Luna/max investigation still **failed after 358.714 seconds**, with no answer published. One identifier/evidence finding remained after correction; a separate source review found a required-versus-optional table error. [Exact evidence, limitations and timing](acceptance/2026-10-17-native-citation-references.md). This is not a quality, narration or two-minute latency pass.

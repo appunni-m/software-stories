@@ -47,6 +47,11 @@ The [local retrieval checkpoint](docs/acceptance/2026-10-17-range-retrieval.md) 
 
 The [versioned visual-scene checkpoint](docs/acceptance/2026-10-17-scene-v2.md) adds concrete transformation checks while preserving saved guides. A fresh broad run remains partial after three drafts; installed quality qualification remains pending.
 
+The [saved-route replay correction](docs/acceptance/2026-10-17-saved-route-replay.md)
+preserves older route digests and chapter links across known record/prompt
+formats. Local regressions reopen a real saved synthetic route; packaged
+upgrade and full repository-guide acceptance remain pending.
+
 The [latest Fontdone qualification](docs/acceptance/2026-10-17-short-native-references.md)
 uses short native citation references and preserves one draft, but still ends
 partial. Source-exception, visual-story, narration and broad-completion gates
