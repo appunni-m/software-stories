@@ -474,6 +474,10 @@ fn build(
             Arc::clone(&notify),
         );
         let answer = result.or_else(|error| {
+            // Qualification logs are private and opt-in. Production receipts
+            // retain fixed failure codes, never arbitrary agent or OS text.
+            #[cfg(test)]
+            eprintln!("GUIDE_UNIT_FAILURE {run_id}: {error}");
             reading::scoped(storage, &run_id, &record.project_id, &record.snapshot_id)
                 .map(|a| a.summary())
                 .map_err(|_| error)

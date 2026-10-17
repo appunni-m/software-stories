@@ -255,19 +255,28 @@ fn fontdone_repository_guide_account_probe() {
     let manager = codex_agent::CodexAgentManager::default();
     manager.resume_connection(&storage).unwrap();
     let runtime = manager.review_runtime(&storage).unwrap();
-    let grant_id =
-        workspace::save_retrieval_grant(&storage, project, snapshot_id, &runtime).unwrap();
-    let record=Record{revision:0,schema_version:1,contract:CONTRACT.into(),id:Uuid::new_v4().to_string(),project_id:project.into(),snapshot_id:snapshot_id.into(),
+    let resume_id = std::env::var("CODE_ATLAS_GUIDE_RESUME_ID").ok();
+    let record = if let Some(id) = &resume_id {
+        let original = scoped(&storage, id, project, snapshot_id).unwrap();
+        assert!(original.plan.is_some(), "Explicit continuation cannot repeat planning");
+        assert!(!matches!(original.status, Status::Planning | Status::Building));
+        workspace::check_retrieval_grant(&storage, &original.grant_id, project, snapshot_id, &runtime).unwrap();
+        original
+    } else {
+        let grant_id = workspace::save_retrieval_grant(&storage, project, snapshot_id, &runtime).unwrap();
+        Record{revision:0,schema_version:1,contract:CONTRACT.into(),id:Uuid::new_v4().to_string(),project_id:project.into(),snapshot_id:snapshot_id.into(),
         manifest_sha256:context::digest(&serde_json::to_vec(&manifest).unwrap()),grant_id,
         question:"How does Fontdone turn font bytes into a rendered glyph bitmap? Build a coherent guide through real entry points, parsing, outline loading, hinting, rasterization, output and important failure paths. Include alternate supported font representations where they change this journey; name any boundaries that remain unexplored.".into(),
-        planning_run_id:Uuid::new_v4().to_string(),plan:None,units:vec![],status:Status::Planning,active_run_id:None};
+        planning_run_id:Uuid::new_v4().to_string(),plan:None,units:vec![],status:Status::Planning,active_run_id:None}
+    };
     let _lease = store::lease(&storage, &record.id).unwrap().unwrap();
-    store::create(&storage, &record).unwrap();
-    store::update(&storage, &record.id, |r| {
-        r.active_run_id = Some(r.planning_run_id.clone());
-        Ok(())
-    })
-    .unwrap();
+    if resume_id.is_none() {
+        store::create(&storage, &record).unwrap();
+        store::update(&storage, &record.id, |r| {
+            r.active_run_id = Some(r.planning_run_id.clone());
+            Ok(())
+        }).unwrap();
+    }
     let started = Instant::now();
     let observations = Arc::new(Mutex::new(Vec::new()));
     let observed = Arc::clone(&observations);
@@ -338,7 +347,7 @@ fn fontdone_repository_guide_account_probe() {
         })
         .collect::<std::collections::BTreeMap<_, _>>();
     let receipt = json!({"sourceRevision":std::env::var("CODE_ATLAS_QUALIFICATION_REVISION").unwrap_or_else(|_|"unrecorded".into()),
-        "elapsedMs":started.elapsed().as_millis(),"guideId":record.id,"model":"gpt-6-luna","effort":"max", "accepted":false,
+        "elapsedMs":started.elapsed().as_millis(),"guideId":record.id,"explicitContinuation":resume_id.is_some(),"model":"gpt-6-luna","effort":"max", "accepted":false,
         "humanReview":false,"voiceReview":false,"result":result.as_ref().ok(),"error":result.as_ref().err(),
         "record":saved,"observations":*observations.lock().unwrap(),"ledgers":ledgers});
     artifact
