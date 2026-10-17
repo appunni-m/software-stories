@@ -52,6 +52,98 @@ fn native_worker_registration_prevents_false_restart_interruption() {
 }
 
 #[test]
+fn saved_answer_loading_keeps_active_workers_and_recovers_without_connecting_or_replaying() {
+    use crate::{codex_identity::CodexReviewRuntime, evidence_ledger::Ledger};
+    use std::sync::atomic::AtomicBool;
+    let f = Fixture::new();
+    let input = input(&f);
+    let runtime = CodexReviewRuntime {
+        connection_id: Uuid::new_v4().to_string(),
+        executable_path: "/usr/local/bin/codex".into(),
+        executable_sha256: "a".repeat(64),
+        account_identity_sha256: "b".repeat(64),
+        account_revision: 1,
+    };
+    let grant = workspace::save_retrieval_grant(
+        &f.storage,
+        &input.project_id,
+        &input.snapshot_id,
+        &runtime,
+    )
+    .unwrap();
+    let ledger =
+        Ledger::new_progressive(&f.storage, &input.run_id, &f.manifest, &grant, &runtime).unwrap();
+    ledger
+        .start_answer_sections(
+            &input.question,
+            &"d".repeat(64),
+            &f.manifest,
+            &runtime,
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+    let record_path = f
+        .storage
+        .join("answer-sections")
+        .join(format!("{}.json", input.run_id));
+    let original = std::fs::read(&record_path).unwrap();
+    let manager = codex_agent::CodexAgentManager::default();
+    let worker = manager.hold_answer_worker(&input.run_id).unwrap();
+    let active = load_saved_answer(
+        &f.storage,
+        &input.run_id,
+        &input.project_id,
+        &input.snapshot_id,
+        &manager,
+    )
+    .unwrap();
+    assert_eq!(active.outcome, Outcome::Working);
+    assert!(active.sections.is_empty());
+    assert_eq!(original, std::fs::read(&record_path).unwrap());
+    assert!(
+        load_saved_answer(
+            &f.storage,
+            &input.run_id,
+            "another-project",
+            &input.snapshot_id,
+            &manager
+        )
+        .is_err()
+    );
+    assert_eq!(original, std::fs::read(&record_path).unwrap());
+    drop(worker);
+    let recovered = load_saved_answer(
+        &f.storage,
+        &input.run_id,
+        &input.project_id,
+        &input.snapshot_id,
+        &manager,
+    )
+    .unwrap();
+    assert_eq!(recovered.outcome, Outcome::Interrupted);
+    assert!(recovered.sections.is_empty());
+    let saved = std::fs::read(&record_path).unwrap();
+    assert_ne!(original, saved);
+    assert_eq!(
+        load_saved_answer(
+            &f.storage,
+            &input.run_id,
+            &input.project_id,
+            &input.snapshot_id,
+            &manager
+        )
+        .unwrap()
+        .outcome,
+        Outcome::Interrupted
+    );
+    assert_eq!(saved, std::fs::read(&record_path).unwrap());
+    let listed = reading::list(&f.storage, &input.project_id, &input.snapshot_id).unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].outcome, Outcome::Interrupted);
+    assert!(!f.storage.join("codex-agent/runtime.json").exists());
+}
+
+#[test]
 fn final_manifest_schema_preserves_the_entire_native_generation_identity() {
     // Native publication returns a prefixed UUID, not a bare 36-byte UUID.
     // A 36-character output constraint made real Codex truncate this identity

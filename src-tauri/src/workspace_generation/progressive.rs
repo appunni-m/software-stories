@@ -7,6 +7,7 @@ use crate::evidence_ledger::sections::{
     reading::{self, Summary},
     Outcome, SectionNotice,
 };
+use tauri::Manager;
 
 mod starting_ranges;
 
@@ -280,7 +281,7 @@ pub(crate) fn run_with_starting_ranges(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub(crate) fn load_workspace_answer(
+pub(crate) async fn load_workspace_answer(
     app: AppHandle,
     manager: State<'_, codex_agent::CodexAgentManager>,
     run_id: String,
@@ -288,10 +289,25 @@ pub(crate) fn load_workspace_answer(
     snapshot_id: String,
 ) -> Result<Summary, String> {
     let storage = app_data_directory(&app)?;
-    manager.with_operation_state(&run_id, |active| {
-        let answer = reading::scoped(&storage, &run_id, &project_id, &snapshot_id)?;
+    let manager = manager.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        load_saved_answer(&storage, &run_id, &project_id, &snapshot_id, &manager)
+    })
+    .await
+    .map_err(|_| "The saved answer could not be read. Nothing was regenerated.".to_owned())?
+}
+
+fn load_saved_answer(
+    storage: &Path,
+    run_id: &str,
+    project_id: &str,
+    snapshot_id: &str,
+    manager: &codex_agent::CodexAgentManager,
+) -> Result<Summary, String> {
+    manager.with_operation_state(run_id, |active| {
+        let answer = reading::scoped(storage, run_id, project_id, snapshot_id)?;
         if !active && answer.outcome == Outcome::Working {
-            reading::interrupt(&storage, &run_id, Outcome::Interrupted)
+            reading::interrupt(storage, run_id, Outcome::Interrupted)
         } else {
             Ok(answer.summary())
         }
@@ -299,34 +315,38 @@ pub(crate) fn load_workspace_answer(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub(crate) fn save_workspace_answer_section(
+pub(crate) async fn save_workspace_answer_section(
     app: AppHandle,
-    write_lock: State<'_, crate::ChapterStoreLock>,
     run_id: String,
     project_id: String,
     snapshot_id: String,
     generation_id: String,
 ) -> Result<chapters::ChapterRevision, String> {
-    let _guard = write_lock
-        .0
-        .lock()
-        .map_err(|_| "The chapter library is unavailable.")?;
-    reading::adopt(
-        &app_data_directory(&app)?,
-        &run_id,
-        &project_id,
-        &snapshot_id,
-        &generation_id,
-    )
+    let storage = app_data_directory(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let write_lock = app.state::<crate::ChapterStoreLock>();
+        let _guard = write_lock
+            .0
+            .lock()
+            .map_err(|_| "The chapter library is unavailable.")?;
+        reading::adopt(&storage, &run_id, &project_id, &snapshot_id, &generation_id)
+    })
+    .await
+    .map_err(|_| {
+        "The section save worker stopped. Inspect saved work before retrying.".to_owned()
+    })?
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub(crate) fn list_workspace_answers(
+pub(crate) async fn list_workspace_answers(
     app: AppHandle,
     project_id: String,
     snapshot_id: String,
 ) -> Result<Vec<Summary>, String> {
-    reading::list(&app_data_directory(&app)?, &project_id, &snapshot_id)
+    let storage = app_data_directory(&app)?;
+    tauri::async_runtime::spawn_blocking(move || reading::list(&storage, &project_id, &snapshot_id))
+        .await
+        .map_err(|_| "Saved answers could not be listed. Nothing was regenerated.".to_owned())?
 }
 
 #[derive(Serialize)]
