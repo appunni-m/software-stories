@@ -5,6 +5,12 @@ use super::*;
 
 pub(crate) const POLICY: &str = "explicit-prose-names-own-fragments-v1";
 
+#[derive(Clone, Copy, PartialEq)]
+enum Policy {
+    ExactV1,
+    GroundedSuffixV2,
+}
+
 fn issue(location: String, code: &str) -> Vec<Value> {
     vec![json!({"location":location,"code":code})]
 }
@@ -60,6 +66,29 @@ fn candidates(prose: &str) -> Option<Vec<&str>> {
 }
 
 pub(super) fn compile(resolved: Resolved) -> Result<Resolved, Vec<Value>> {
+    compile_with_policy(resolved, Policy::ExactV1)
+}
+
+pub(super) fn compile_grounded(resolved: Resolved) -> Result<Resolved, Vec<Value>> {
+    compile_with_policy(resolved, Policy::GroundedSuffixV2)
+}
+
+fn variants(value: &str) -> Vec<&str> {
+    let mut result = vec![value];
+    for separator in ["::", "."] {
+        for (index, _) in value.match_indices(separator) {
+            let suffix = &value[index + separator.len()..];
+            if name(suffix) && !result.contains(&suffix) {
+                result.push(suffix);
+            }
+        }
+    }
+    // Prefer the longest literal qualification supported by the fragment.
+    result.sort_by_key(|value| std::cmp::Reverse(value.len()));
+    result
+}
+
+fn compile_with_policy(resolved: Resolved, policy: Policy) -> Result<Resolved, Vec<Value>> {
     let mut value: Value = serde_json::from_str(&resolved.text)
         .map_err(|_| issue(String::new(), "namedIdentifier"))?;
     let sections = value["sections"]
@@ -84,6 +113,16 @@ pub(super) fn compile(resolved: Resolved) -> Result<Resolved, Vec<Value>> {
                 .ok_or_else(|| issue(format!("{base}/prose"), "namedIdentifier"))?;
             let names = candidates(prose)
                 .ok_or_else(|| issue(format!("{base}/prose"), "namedIdentifier"))?;
+            let grounded: Vec<_> = names
+                .iter()
+                .flat_map(|name| {
+                    if policy == Policy::GroundedSuffixV2 {
+                        variants(name)
+                    } else {
+                        vec![*name]
+                    }
+                })
+                .collect();
             let spans = resolved
                 .claim_spans(si, ci)
                 .filter(|spans| (1..=8).contains(&spans.len()))
@@ -92,9 +131,12 @@ pub(super) fn compile(resolved: Resolved) -> Result<Resolved, Vec<Value>> {
             // One first prose-named identifier per fragment is sufficient for
             // the existing canonical invariant and yields at most eight names.
             for (ei, span) in spans.iter().enumerate() {
-                let chosen = names
+                let chosen = grounded
                     .iter()
-                    .find(|id| crate::chapter_generation::contains_identifier(&span.excerpt, id))
+                    .find(|id| {
+                        crate::chapter_generation::contains_identifier(prose, id)
+                            && crate::chapter_generation::contains_identifier(&span.excerpt, id)
+                    })
                     .ok_or_else(|| {
                         issue(format!("{base}/evidence/{ei}"), "namedIdentifierEvidence")
                     })?;
@@ -102,11 +144,17 @@ pub(super) fn compile(resolved: Resolved) -> Result<Resolved, Vec<Value>> {
                     selected.push(*chosen);
                 }
             }
-            if names.iter().any(|name| {
-                !spans
-                    .iter()
-                    .any(|span| crate::chapter_generation::contains_identifier(&span.excerpt, name))
-            }) {
+            // V1 additionally demanded every formatted name appear verbatim.
+            // Keep that historical rule. V2 compiles only the canonical name
+            // invariant; prose may contain contextual qualifications/implicit
+            // states. No prose/fact is removed or certified by this metadata.
+            if policy == Policy::ExactV1
+                && names.iter().any(|name| {
+                    !spans.iter().any(|span| {
+                        crate::chapter_generation::contains_identifier(&span.excerpt, name)
+                    })
+                })
+            {
                 return Err(issue(format!("{base}/prose"), "namedIdentifierEvidence"));
             }
             object.insert("identifiers".into(), json!(selected));

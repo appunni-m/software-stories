@@ -135,6 +135,10 @@ impl Resolved {
     pub(crate) fn with_named_identifiers(self) -> Result<Self, Vec<Value>> {
         names::compile(self)
     }
+
+    pub(crate) fn with_grounded_named_identifiers(self) -> Result<Self, Vec<Value>> {
+        names::compile_grounded(self)
+    }
 }
 
 pub(crate) mod names;

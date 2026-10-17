@@ -1,6 +1,14 @@
 use super::*;
 
 fn compiled(prose: &str, fragments: &[&str]) -> Result<Resolved, Vec<Value>> {
+    compiled_with_policy(prose, fragments, Policy::ExactV1)
+}
+
+fn compiled_with_policy(
+    prose: &str,
+    fragments: &[&str],
+    policy: Policy,
+) -> Result<Resolved, Vec<Value>> {
     let mut citations = std::collections::HashMap::new();
     for (index, fragment) in fragments.iter().enumerate() {
         let source = SnapshotSource {
@@ -25,8 +33,64 @@ fn compiled(prose: &str, fragments: &[&str]) -> Result<Resolved, Vec<Value>> {
     match resolve(&raw, |id| {
         citations.get(id).cloned().ok_or("referenceUnavailable")
     }) {
-        Resolution::Ready(resolved) => resolved.with_named_identifiers(),
+        Resolution::Ready(resolved) => compile_with_policy(resolved, policy),
         Resolution::Invalid(issues) => panic!("{issues:?}"),
+    }
+}
+
+#[test]
+fn grounded_suffixes_preserve_prose_and_prefer_the_longest_supported_literal_name() {
+    for (prose_name, source, expected) in [
+        ("Library::greeting", "fn greeting() { return; }", "greeting"),
+        ("crate::font::描画", "font::描画(data);", "font::描画"),
+        (
+            "module.renderer.render",
+            "renderer.render(data);",
+            "renderer.render",
+        ),
+        ("font-size", "set(\"font-size\", 12);", "font-size"),
+    ] {
+        let prose = format!("The `{prose_name}` operation returns `Result`.");
+        let resolved = compiled_with_policy(&prose, &[source], Policy::GroundedSuffixV2).unwrap();
+        let value: Value = serde_json::from_str(resolved.text()).unwrap();
+        let claim = &value["sections"][0]["claims"][0];
+        assert_eq!(claim["identifiers"], json!([expected]));
+        assert_eq!(claim["prose"], prose);
+        assert_eq!(claim["inferenceBasis"], "unchanged");
+        assert_eq!(claim["scene"]["narration"], "Complete natural speech.");
+        assert_eq!(claim["evidence"][0]["quote"], source);
+        assert_eq!(resolved.claim_spans(0, 0).unwrap()[0].excerpt, source);
+        // A literal suffix is metadata alignment, not proof of the surrounding
+        // qualification, return type or any other semantic statement in prose.
+        assert!(compiled(&prose, &[source]).is_err());
+    }
+}
+
+#[test]
+fn grounded_suffixes_do_not_split_keys_match_partial_names_or_cover_unrelated_fragments() {
+    for (prose, fragments) in [
+        (
+            "The `font-size` key controls this operation.",
+            vec!["let size = 12;"],
+        ),
+        (
+            "The `Library::greeting` helper returns.",
+            vec!["fn greeting_extra() {}"],
+        ),
+        (
+            "The `Library::greeting` helper returns.",
+            vec!["fn greeting() {}", "fn other() {}"],
+        ),
+        (
+            "The `crate::return` operation returns.",
+            vec!["return value;"],
+        ),
+        ("The greeting helper returns.", vec!["fn greeting() {}"]),
+    ] {
+        assert!(
+            compiled_with_policy(prose, &fragments, Policy::GroundedSuffixV2).is_err(),
+            "{prose}"
+        );
     }
 }
 
