@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addTurn, ancestors, chapterTarget, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths } from '../src/workspace/model.ts';
+import { addTurn, ancestors, chapterTarget, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
 const turn = (id,question='Explain the subtotal implementation') => ({id,question,context:[{path:'src/cart.ts',from:1,to:6}],status:'queued'});
 test('follow-ups stack at the current level; only explicit exploration creates a branch',()=>{
   let s=createWorkspace('p','snap');s=addTurn(s,turn('one'),'guide');s=addTurn(s,turn('two'),'flow');
@@ -72,4 +72,84 @@ test('AI-selected single code files use the file contract without manual attachm
   assert.equal(chapterTarget([],['src/cart.ts','src/tax.ts']),null);
   assert.equal(chapterTarget([{path:'README.md'},{path:'src/tax.ts'}],['README.md','src/tax.ts']),'src/tax.ts');
   assert.equal(chapterTarget([{path:'missing.ts'}],['src/cart.ts']),'src/cart.ts');
+});
+
+test('reading positions belong to the exact exploration, turn, revision and view',()=>{
+  const ready=(id,revisionId)=>({...turn(id),status:'ready',revisionId});
+  let s=addTurn(createWorkspace('p','snap'),ready('parent','rev-parent'),'guide');
+  s=rememberSection(s,'root','parent','guide',{revisionId:'rev-parent',sectionId:'section-two'});
+  s=rememberSection(s,'root','parent','flow',{revisionId:'rev-parent',sectionId:'diagram-three'});
+  s=rememberScroll(s,'root','guide',420);s=rememberScroll(s,'root','flow',84);s=rememberScroll(s,'root','history',125);
+  s=addTurn(s,ready('child-turn','rev-child'),'flow',{id:'child',originTurnId:'parent'});
+  s=rememberSection(s,'child','child-turn','guide',{revisionId:'rev-child',sectionId:'section-child'});
+  s=rememberScroll(s,'child','flow',230);
+  s=addTurn(s,{...ready('grandchild-turn','rev-grandchild'),status:'stopped'},'history',{id:'grandchild',originTurnId:'child-turn'});
+  s={...s,currentId:'root'};
+  s=addTurn(s,ready('sibling-turn','rev-sibling'),'guide',{id:'sibling',originTurnId:'parent'});
+  s=rememberSection(s,'sibling','sibling-turn','guide',{revisionId:'rev-sibling',sectionId:'section-sibling'});
+  s=rememberScroll(s,'sibling','guide',710);
+  const restored=parseWorkspace(JSON.stringify(s),'p','snap');
+  const root=restored.explorations.find(e=>e.id==='root');
+  const child=restored.explorations.find(e=>e.id==='child');
+  const grandchild=restored.explorations.find(e=>e.id==='grandchild');
+  const sibling=restored.explorations.find(e=>e.id==='sibling');
+  assert.equal(restored.currentId,'sibling');
+  assert.deepEqual(root.turns[0].reading,{guide:{revisionId:'rev-parent',sectionId:'section-two'},flow:{revisionId:'rev-parent',sectionId:'diagram-three'}});
+  assert.deepEqual(root.scrollPositions,{guide:420,flow:84,history:125});
+  assert.deepEqual(child.scrollPositions,{flow:230});assert.equal(child.view,'flow');
+  assert.equal(child.turns[0].reading.guide.sectionId,'section-child');
+  assert.equal(sibling.turns[0].reading.guide.sectionId,'section-sibling');assert.equal(sibling.scrollPositions.guide,710);
+  assert.equal(grandchild.turns[0].status,'stopped');assert.equal(grandchild.view,'history');
+  assert.deepEqual(root.turns[0].context,turn('parent').context);
+  assert.equal(root.turns[0].revisionId,'rev-parent');assert.equal(root.turns.length,1);
+  assert.deepEqual(ancestors(restored,'grandchild').map(e=>e.id),['root','child','grandchild']);
+});
+
+test('stable section identity survives ordering and safely falls back for a changed answer',()=>{
+  const sections=[{sectionId:'two'},{sectionId:'one'},{sectionId:'three'}];
+  assert.equal(sectionPosition('rev',sections,{revisionId:'rev',sectionId:'one'}),1);
+  assert.equal(sectionPosition('rev-new',sections,{revisionId:'rev',sectionId:'one'}),0);
+  assert.equal(sectionPosition('rev',sections,{revisionId:'rev',sectionId:'deleted'}),0);
+  assert.equal(sectionPosition('rev',[],{revisionId:'rev',sectionId:'one'}),0);
+  assert.equal(sectionPosition('rev',sections),0);
+});
+
+test('late reader events cannot change another revision or exploration',()=>{
+  let s=addTurn(createWorkspace('p','snap'),{...turn('one'),status:'ready',revisionId:'rev'},'guide');
+  s=rememberSection(s,'root','one','guide',{revisionId:'rev',sectionId:'two'});
+  assert.equal(rememberSection(s,'root','one','guide',{revisionId:'old-rev',sectionId:'one'}),s);
+  assert.equal(rememberSection(s,'missing','one','guide',{revisionId:'rev',sectionId:'one'}),s);
+  assert.equal(rememberSection(s,'root','missing','guide',{revisionId:'rev',sectionId:'one'}),s);
+  assert.equal(rememberSection(s,'root','one','history',{revisionId:'rev',sectionId:'one'}),s);
+  assert.equal(rememberSection(s,'root','one','guide',{revisionId:'rev',sectionId:'two'}),s);
+  s=addTurn(s,turn('child-turn'),'guide',{id:'child',originTurnId:'one'});
+  s=rememberScroll(s,'root','guide',303);
+  assert.equal(s.currentId,'child');assert.equal(s.explorations[0].scrollPositions.guide,303);
+  assert.equal(s.explorations[1].scrollPositions,undefined);
+});
+
+test('invalid and oversized reader positions are discarded without losing saved work',()=>{
+  let s=addTurn(createWorkspace('p','snap'),{...turn('one'),status:'ready',revisionId:'rev'},'guide');
+  s.explorations[0].turns[0].reading={guide:{revisionId:'rev',sectionId:'x'.repeat(257)},flow:{revisionId:'rev',sectionId:'ok',unexpected:'discard'}};
+  s.explorations[0].scrollPositions={guide:-1,flow:Infinity,history:10_000_001,unknown:1};
+  let restored=parseWorkspace(JSON.stringify(s),'p','snap');
+  assert.equal(restored.explorations[0].turns[0].question,turn('one').question);
+  assert.equal(restored.explorations[0].turns[0].revisionId,'rev');
+  assert.deepEqual(restored.explorations[0].turns[0].reading,{flow:{revisionId:'rev',sectionId:'ok'}});
+  assert.deepEqual(restored.explorations[0].scrollPositions,{});
+  for(const bad of [null,[],42,{revisionId:'rev',sectionId:'bad\u0000'},{revisionId:'',sectionId:'ok'}]){
+    s.explorations[0].turns[0].reading={guide:bad};
+    restored=parseWorkspace(JSON.stringify(s),'p','snap');
+    assert.deepEqual(restored.explorations[0].turns[0].reading,{});
+    assert.equal(rememberSection(s,'root','one','guide',bad),s);
+  }
+  for(const bad of [-1,NaN,Infinity,10_000_001,'100'])assert.equal(rememberScroll(s,'root','guide',bad),s);
+});
+
+test('legacy scroll position migrates only to its previously selected view',()=>{
+  const s=createWorkspace('p','snap');s.explorations[0].view='history';s.explorations[0].scrollTop=123;
+  let restored=parseWorkspace(JSON.stringify(s),'p','snap');
+  assert.deepEqual(restored.explorations[0].scrollPositions,{history:123});assert.equal(restored.explorations[0].scrollTop,undefined);
+  s.explorations[0].scrollPositions={history:456};
+  restored=parseWorkspace(JSON.stringify(s),'p','snap');assert.equal(restored.explorations[0].scrollPositions.history,456);
 });

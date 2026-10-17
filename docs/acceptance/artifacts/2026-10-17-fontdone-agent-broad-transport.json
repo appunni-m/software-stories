@@ -1,0 +1,81 @@
+{
+  "case": "broad",
+  "question": "How does Fontdone turn font bytes into a rendered glyph bitmap? Trace the real entry points, parsing, outline loading, hinting, and rasterization. Explain the important branches and show a flow with source links.",
+  "projectId": "/Users/lazytrot/work/fontdone",
+  "snapshotId": "snap-1792140879637485000-11155-0",
+  "runId": "329d2ebb-bb2a-4df5-9f31-3c86d3bda3bd",
+  "model": "gpt-6-luna",
+  "effort": "max",
+  "elapsedMs": 209876,
+  "phases": [
+    {
+      "phase": "preparing",
+      "elapsedMs": 11509
+    },
+    {
+      "phase": "starting",
+      "elapsedMs": 33377
+    }
+  ],
+  "status": "interrupted",
+  "calls": [
+    {
+      "id": "ac610e06-19c2-4a7f-8c05-a533e167c692",
+      "tool": "map",
+      "argumentsSha256": "8b80ba9be7742a7e532f86d4f590b47a1b9e2cd6b196ac6d56d107f26e3d8c65",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 4636,
+      "wireBytes": 4636,
+      "payloadSha256": "064e3b03328b9d08b3b39bb21d6f190a1a3ae0d2120ab719902b21d6e44b37f8"
+    },
+    {
+      "id": "5c47049b-2021-431b-beac-4fb9e3789e31",
+      "tool": "map",
+      "argumentsSha256": "966d0985a7f981cb09330bbb247689ff2bd828bb4f0880f976d0a9b68291ae9d",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 3180,
+      "wireBytes": 3180,
+      "payloadSha256": "ee9e9d85e5c42cd0ae7795470a31915ed3e0bdbe73a6cb52eb29f812ad1c3124"
+    },
+    {
+      "id": "8ac693d2-6c68-41b1-bf50-13dae2cfea12",
+      "tool": "definitions",
+      "argumentsSha256": "97a3626586a8d40c3380fee203bc6a2dd443f63f1015df08169cae8ca20383f2",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 7805,
+      "wireBytes": 7805,
+      "payloadSha256": "d63df236283eaec9498cba4dba1f6c8985b0e1573ba3202e78f8f34926693057"
+    },
+    {
+      "id": "65083a19-67f4-403f-9394-f53615f6269a",
+      "tool": "definitions",
+      "argumentsSha256": "c27362cff286c6d5dd233716e11aed8644b128de1c67c5ed18b536ca84247669",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 2426,
+      "wireBytes": 2426,
+      "payloadSha256": "695c757682daf5b3681c5b6fd31e7622980634c39b0b1e81f6d2c9569a09c9be"
+    },
+    {
+      "id": "0c90d644-b8f3-429f-96d5-d3fd5ea0fa83",
+      "tool": "definitions",
+      "argumentsSha256": "8585279c14632b8be13399af5da8dec2b9d4e3b4667c3f4065ff5ebf6c5f8616",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 527,
+      "wireBytes": 527,
+      "payloadSha256": "fbf39ede0fa646759830be0565f1dc6fcd53b120785cccc05df40ddb333b42ba"
+    }
+  ],
+  "evidence": [],
+  "preview": null,
+  "error": "Code tool transport unavailable."
+}

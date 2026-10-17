@@ -43,7 +43,9 @@ export function getWorkspace(project: string, snapshot: string): WorkspaceState 
   return states.get(id)!;
 }
 export function updateWorkspace(project: string, snapshot: string, update: (state: WorkspaceState) => WorkspaceState) {
-  const id = key(project, snapshot); const next = update(getWorkspace(project, snapshot)); states.set(id, next);
+  const id = key(project, snapshot); const previous = getWorkspace(project, snapshot); const next = update(previous);
+  if (next === previous) return;
+  states.set(id, next);
   try { localStorage.setItem(id, JSON.stringify(next)); } catch { window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice', { detail: { title: 'Conversation could not be saved', message: 'Local workspace storage is full. Generated explanations remain in the native library.' } })); }
   listeners.forEach((notify) => notify());
 }
