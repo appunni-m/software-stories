@@ -3,7 +3,9 @@
 
 use super::*;
 
+#[cfg(test)]
 pub(crate) const POLICY: &str = "explicit-prose-names-own-fragments-v1";
+pub(crate) const GROUNDED_POLICY: &str = "explicit-prose-grounded-suffixes-v2";
 
 #[derive(Clone, Copy, PartialEq)]
 enum Policy {

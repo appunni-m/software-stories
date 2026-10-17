@@ -21,7 +21,7 @@ fn inspect_saved_section_rejections() {
     let record = super::super::inspect(&storage, &run).unwrap();
     let answer = inspect(&storage, &run).unwrap();
     assert!(
-        matches!(answer.schema_version, 2 | 3 | 4 | 5),
+        matches!(answer.schema_version, 2 | 3 | 4 | 5 | 6),
         "inspection requires short-reference answers"
     );
     assert_eq!(answer.binding.operation_id, record.binding.operation_id);

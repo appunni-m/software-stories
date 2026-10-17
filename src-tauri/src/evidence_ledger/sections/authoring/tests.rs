@@ -32,6 +32,25 @@ pub(crate) fn native_names_proposal(reference: &str, key: &str, order: usize) ->
     raw
 }
 
+pub(crate) fn grounded_names_proposal(reference: &str, key: &str, order: usize) -> Value {
+    let mut raw = native_names_proposal(reference, key, order);
+    raw["proposalVersion"] = json!(super::super::GROUNDED_NAMES_PROPOSAL_VERSION);
+    raw
+}
+
+#[test]
+fn grounded_name_schema_versions_only_the_prose_contract_and_still_rejects_provider_metadata() {
+    let old = native_names_schema();
+    let mut fresh = grounded_names_schema();
+    let validator = jsonschema::validator_for(&fresh).unwrap();
+    let mut raw = grounded_names_proposal("code:1", "entry", 0);
+    assert!(validator.is_valid(&raw["section"]));
+    raw["section"]["claims"][0]["identifiers"] = json!(["greeting"]);
+    assert!(!validator.is_valid(&raw["section"]));
+    fresh["properties"]["claims"]["items"]["properties"]["prose"]["description"] = old["properties"]["claims"]["items"]["properties"]["prose"]["description"].clone();
+    assert_eq!(fresh, old);
+}
+
 #[test]
 fn local_keys_compile_to_exact_canonical_references_without_rewriting_content() {
     let raw = section("code:1");

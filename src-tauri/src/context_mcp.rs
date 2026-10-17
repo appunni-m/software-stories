@@ -93,9 +93,9 @@ pub(crate) fn tools_for(progressive: bool) -> Vec<Tool> {
     // explicit mode advertises the operation-local short citation transport.
     catalog.iter_mut().find(|tool| tool.name == "read_code").unwrap().description = Some(
         "Read one to eight captured UTF-8 byte ranges, end exclusive, at most 32768 bytes each. Copy path, sourceSha256, startByte and endByte exactly from search or definitions. readError returns no code: correct the request or refine the search. Returns new fragments of at most 1000 bytes with referenceId such as code:1, original contents, range and citeable. Cite only citeable:true fragments using evidence:{referenceId:fragment.referenceId}. Copy the short referenceId exactly; the longer id is native integrity metadata, not the citation field. reusedReferences lists stable referenceId values for already delivered fragments. Each reference names the entire exact fragment in this investigation. Never invent an ID, copy source into the answer or cite discovery results. Short/blank fragments are not citeable; the full file stays local.".into());
-    let section = crate::evidence_ledger::sections::authoring::native_names_schema();
+    let section = crate::evidence_ledger::sections::authoring::grounded_names_schema();
     let schema = json!({"type":"object","additionalProperties":false,"properties":{
-        "proposalVersion":{"type":"string","enum":[crate::evidence_ledger::sections::NATIVE_NAMES_PROPOSAL_VERSION]},
+        "proposalVersion":{"type":"string","enum":[crate::evidence_ledger::sections::GROUNDED_NAMES_PROPOSAL_VERSION]},
         "sectionKey":{"type":"string","minLength":1,"maxLength":80,"pattern":"^[a-z0-9-]+$"},
         "order":{"type":"integer","minimum":0,"maximum":5},
         "previousGenerationId":{"type":["string","null"],"maxLength":64},
@@ -466,7 +466,7 @@ mod tests {
         );
         assert_eq!(
             proposal.input_schema["properties"]["proposalVersion"]["enum"][0],
-            crate::evidence_ledger::sections::NATIVE_NAMES_PROPOSAL_VERSION
+            crate::evidence_ledger::sections::GROUNDED_NAMES_PROPOSAL_VERSION
         );
         let section = &proposal.input_schema["properties"]["section"];
         assert!(section["properties"].get("prose").is_none());
@@ -482,7 +482,7 @@ mod tests {
                 ["referenceId"]["pattern"],
             "^code:[1-9][0-9]{0,2}$"
         );
-        assert_eq!(*section, crate::evidence_ledger::sections::authoring::native_names_schema());
+        assert_eq!(*section, crate::evidence_ledger::sections::authoring::grounded_names_schema());
         assert!(section["properties"]["claims"]["items"]["properties"].get("identifiers").is_none());
         let visual = &section["properties"]["visual"];
         assert_eq!(visual["required"], json!(["kind", "title", "direction"]));

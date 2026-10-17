@@ -345,5 +345,11 @@ pub(crate) fn native_names_schema() -> Value {
     section
 }
 
+pub(crate) fn grounded_names_schema() -> Value {
+    let mut section = native_names_schema();
+    section["properties"]["claims"]["items"]["properties"]["prose"]["description"] = json!("Mark code names/configuration keys with single backticks. Each own cited fragment must contain a whole marked name or literal qualified-name suffix also present in prose. Native identifier metadata is not namespace or semantic proof; evidence must support the whole claim. Omit identifiers.");
+    section
+}
+
 #[cfg(test)]
 pub(crate) mod tests;

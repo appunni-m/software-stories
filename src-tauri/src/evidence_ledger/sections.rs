@@ -750,6 +750,7 @@ impl Ledger {
         )
     }
 
+    #[cfg(test)]
     pub(crate) fn start_native_names_answer_sections(
         &self,
         question: &str,
@@ -763,7 +764,6 @@ impl Ledger {
         )
     }
 
-    #[cfg(test)]
     pub(crate) fn start_grounded_names_answer_sections(
         &self, question: &str, request_sha256: &str,
         manifest: &snapshot::SnapshotManifest, runtime: &CodexReviewRuntime, cancelled: &AtomicBool,

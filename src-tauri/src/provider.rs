@@ -8235,7 +8235,7 @@ mod tests {
         // The progressive catalog explicitly versions current-investigation
         // order feedback, native name metadata and claim-owned scene identities/speech. The legacy retrieval
         // schema above remains byte-identical.
-        assert_eq!(crate::repository_context::digest(&serde_json::to_vec(&tools).unwrap()), "144a91c809ccab3ca2d7e114db8319abfc236ac43ccc5ef832aa64c8f590117b");
+        assert_eq!(crate::repository_context::digest(&serde_json::to_vec(&tools).unwrap()), "6446e37db48aac740b6c8fe449d5744716893696834be2c07d79a88e245ee584");
         let file = file_chapter_response_schema();
         let overview = repository_overview_response_schema();
         let repair = section_update_generation_config();

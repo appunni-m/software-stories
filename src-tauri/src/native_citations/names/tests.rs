@@ -96,6 +96,7 @@ fn grounded_suffixes_do_not_split_keys_match_partial_names_or_cover_unrelated_fr
 
 #[test]
 fn only_explicit_names_from_each_own_fragment_form_bounded_deterministic_metadata() {
+    assert_eq!(POLICY, "explicit-prose-names-own-fragments-v1");
     let prose = "The `greeting` helper calls `format_name` to create the message.";
     let fragments = [
         "fn greeting() { format_name(); }",

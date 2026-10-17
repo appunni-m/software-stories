@@ -175,7 +175,7 @@ impl Session {
         notify: Arc<dyn Fn(crate::evidence_ledger::sections::SectionNotice) + Send + Sync>,
     ) -> Result<Self, String> {
         let mut session = Self::build(storage, operation_id, manifest, runtime, grant, jobs, true)?;
-        let answer = session.ledger.start_native_names_answer_sections(
+        let answer = session.ledger.start_grounded_names_answer_sections(
             question,
             request_sha256,
             &session.manifest,
