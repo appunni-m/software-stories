@@ -97,6 +97,7 @@ pub(crate) fn tools_for(progressive: bool) -> Vec<Tool> {
         properties.get_mut("claims").unwrap()["maxItems"] = json!(8);
     }
     section["required"] = json!(["title", "claims", "visual"]);
+    section["properties"]["visual"]["properties"]["presentation"] = crate::scene_presentation::proposal_schema();
     let schema = json!({"type":"object","additionalProperties":false,"properties":{
         "proposalVersion":{"type":"string","enum":[crate::evidence_ledger::sections::PROPOSAL_VERSION]},
         "sectionKey":{"type":"string","minLength":1,"maxLength":80,"pattern":"^[a-z0-9-]+$"},

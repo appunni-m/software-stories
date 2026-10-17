@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Badge, Button, Dialog, Flex, IconButton, Tabs, TextField, Theme, Tooltip } from '@radix-ui/themes';
 import { Group, Panel, Separator } from 'react-resizable-panels';
@@ -6,7 +6,7 @@ import { Background, Controls, MarkerType, ReactFlow } from '@xyflow/react';
 import { ArrowLeft, ArrowRight, ArrowUp, BookOpen, ChevronDown, ChevronRight, Code2, FileCode2, Files, Folder, GitBranch, GitCommitHorizontal, History, LoaderCircle, MessageSquare, Network, Paperclip, Pencil, Play, Search, ShieldCheck, Square, X } from 'lucide-react';
 import { CodePane } from '../design/CodePane';
 import { FileFlow } from '../FileFlow';
-import { NarrationPlayer } from '../NarrationPlayer';
+import { VisualStory } from '../VisualStory';
 import { buildInventory } from '../lib/inventory';
 import { isNativeRuntime, listChapterRevisions, readSnapshotSource, type ChapterRevision, type ChapterSourceAnchor, type SnapshotManifest, type SnapshotSource, type SnapshotIndex, type HotspotDestination } from '../lib/commands';
 import { projectProvenRelationshipGraph } from '../lib/atlas';
@@ -18,7 +18,6 @@ import { useConnectionState } from '../lib/connectionStore';
 import { errorMessageOr, explanationErrorMessage } from '../lib/errorMessage';
 import './workspace.css';
 
-const VisualPanel = lazy(() => import('../Walkthrough').then((m) => ({ default:m.VisualPanel })));
 interface Commit { oid:string; parents:string[]; subject:string; author:string; timestamp:string }
 interface Props {
   manifest: SnapshotManifest; projectName:string; workspace:WorkspaceId; routePath?:string; routeRange?:SourceLineRange; routeSelection?:AtlasHotspotSelection;
@@ -271,12 +270,10 @@ function AnswerStorage(){
   return <Dialog.Root open={open} onOpenChange={setOpen}><Dialog.Trigger><Button size="1" variant="soft">Manage saved answers</Button></Dialog.Trigger><Dialog.Content maxWidth="560px"><Dialog.Title>Free local answer storage</Dialog.Title><Dialog.Description size="2">Keep your explanations and source links in the library while clearing an older investigation record. This removes its detailed generation receipt. It does not send code or ask AI again.</Dialog.Description><div className="dw-saved-answers">{answers.map((answer)=><section key={answer.runId}><p>{answer.question}</p><small>{answer.sections.length} saved section{answer.sections.length===1?'':'s'} · {answer.outcome}</small><Button size="1" variant="soft" disabled={!!busy||answer.outcome==='working'} onClick={()=>void release(answer)}>{busy===answer.runId?'Saving sections…':'Keep explanations and free space'}</Button></section>)}</div>{error&&<p role="alert">{error}</p>}<Flex justify="end" mt="4"><Dialog.Close><Button variant="soft" color="gray">Done</Button></Dialog.Close></Flex></Dialog.Content></Dialog.Root>;
 }
 function AnswerSection({turn,revision,loading,branches,compact,hideQuestion,onGo,onOpen,onBranch,onStop,onRetry,onReview,onRead,onSettings,onDestination,onSection}:AnswerProps){
-  const [showVisual,setShowVisual]=useState(false);const [audio,setAudio]=useState(false);const [playback,setPlayback]=useState(0);const [transcript,setTranscript]=useState(0);
   const position=revision?sectionPosition(revision.revisionId,revision.sections,turn.reading?.guide):0;
   const section=revision?.sections[position];
   const selectSection=(index:number)=>{
     const next=revision?.sections[index];if(!revision||!next)return;
-    setAudio(false);setPlayback(0);setTranscript(0);
     onSection(revision.revisionId,next.sectionId);
   };
   const readableError=turn.error?explanationErrorMessage(turn.error):undefined;
@@ -286,9 +283,16 @@ function AnswerSection({turn,revision,loading,branches,compact,hideQuestion,onGo
     {turn.status==='working'||turn.status==='queued'?<div className="dw-working" role="status"><LoaderCircle size={16}/><span>Building your explanation…</span><Button size="1" variant="ghost" color="gray" onClick={onStop}><Square size={12}/>Stop</Button></div>:turn.status==='failed'||turn.status==='interrupted'||turn.status==='stopped'?<><p className="dw-error">{turn.status==='stopped'?'Stopped. Saved explanations are preserved.':turn.status==='interrupted'?'This question was interrupted. Saved explanations are preserved.':knownEvidenceError?readableError:'This explanation could not be completed. Your saved work is preserved.'}</p>{turn.error&&!knownEvidenceError&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}<Button size="1" variant="soft" onClick={onRetry}>Try this question again</Button></>:!revision?loading?<p role="status">Loading saved explanation…</p>:<><p>This saved explanation is unavailable. Your question is preserved.</p><Button size="1" variant="soft" onClick={onRetry}>Explain this question again</Button></>:section?<>
       <div className="dw-answer-heading"><span>{compact?'Explanation':`${position+1} / ${revision.sections.length}`}</span>{revision.lifecycle!=='accepted'&&<Badge size="1" color="gray">{revision.lifecycle==='rejected'?'Rejected':'Draft'}</Badge>}<div><Tooltip content="Edit this explanation"><IconButton size="1" variant="ghost" color="gray" aria-label={`Edit ${revision.title}`} onClick={()=>onReview(revision)}><Pencil size={13}/></IconButton></Tooltip><Tooltip content="Open interactive player"><IconButton size="1" variant="ghost" color="gray" aria-label={`Play ${revision.title}`} onClick={()=>onRead(revision)}><Play size={13}/></IconButton></Tooltip></div></div>
       {turn.notes?.map((note)=><p key={note} className="dw-answer-note" role="status">{note}</p>)}
-      <h3>{section.title}</h3><p className="dw-prose">{section.prose}</p>
-      <div className="dw-citations">{section.claims.flatMap((c)=>c.anchors).slice(0,5).map((a)=><button key={a.anchorId} onClick={()=>onOpen(a)}><Code2 size={12}/>{a.path.split('/').at(-1)}:{a.startLine}–{a.endLine}</button>)}</div>
-      {!compact&&<><div className="dw-answer-tools">{section.visual&&<Button size="1" variant="ghost" color="gray" onClick={()=>setShowVisual((v)=>!v)}><Network size={13}/>{showVisual?'Hide visual':'Show visual'}</Button>}<Button size="1" variant="ghost" color="gray" onClick={()=>setAudio((v)=>!v)}><Play size={13}/>{audio?'Hide narration':'Listen'}</Button></div>{showVisual&&<Suspense fallback={<p>Opening visual…</p>}><VisualPanel revision={revision} section={section} onOpenAnchor={onOpen} onFollowHotspot={(hotspot)=>{const destination=hotspot.destination;if(destination.kind==='section')selectSection(revision.sections.findIndex((s)=>s.sectionId===destination.sectionId));else if(destination.kind==='codeLens'){const a=revision.sections.flatMap((s)=>s.claims.flatMap((c)=>c.anchors)).find((a)=>a.anchorId===destination.anchorId);if(a)onOpen(a);}else onDestination(destination);}}/></Suspense>}{audio&&<NarrationPlayer autoPlay key={section.sectionRevisionId} projectId={revision.projectId} chapterId={revision.chapterId} revisionId={revision.revisionId} section={section} restorePosition={playback} transcriptPosition={transcript} onPlaybackPositionChange={setPlayback} onTranscriptPositionChange={setTranscript} onOpenProviderSettings={onSettings}/>}<div className="dw-section-controls"><IconButton size="1" variant="ghost" color="gray" aria-label="Previous section" disabled={position===0} onClick={()=>selectSection(position-1)}><ArrowLeft size={14}/></IconButton><span>{section.title}</span><Button size="1" variant="soft" disabled={position>=revision.sections.length-1} onClick={()=>selectSection(position+1)}>Next<ArrowRight size={13}/></Button></div></>}
+      <h3>{section.title}</h3>
+      {!compact ? <>
+        <VisualStory key={section.sectionRevisionId} revision={revision} section={section} onSettings={onSettings} onOpenAnchor={onOpen} onFollowHotspot={(hotspot)=>{
+          const destination=hotspot.destination;
+          if(destination.kind==='section')selectSection(revision.sections.findIndex((s)=>s.sectionId===destination.sectionId));
+          else if(destination.kind==='codeLens'){const anchor=revision.sections.flatMap((s)=>s.claims.flatMap((c)=>c.anchors)).find((a)=>a.anchorId===destination.anchorId);if(anchor)onOpen(anchor);}
+          else onDestination(destination);
+        }}/>
+        <div className="dw-section-controls"><IconButton size="1" variant="ghost" color="gray" aria-label="Previous section" disabled={position===0} onClick={()=>selectSection(position-1)}><ArrowLeft size={14}/></IconButton><span>{position+1} / {revision.sections.length}</span><Button size="1" variant="soft" disabled={position>=revision.sections.length-1} onClick={()=>selectSection(position+1)}>Next section<ArrowRight size={13}/></Button></div>
+      </> : <details className="dw-flow-narration"><summary>Read narration</summary><p className="dw-prose">{section.spokenText || section.prose}</p><div className="dw-citations">{section.claims.flatMap((c)=>c.anchors).slice(0,5).map((a)=><button key={a.anchorId} onClick={()=>onOpen(a)}><Code2 size={12}/>{a.path.split('/').at(-1)}:{a.startLine}–{a.endLine}</button>)}</div></details>}
       <footer className="dw-branches"><Button size="1" variant="ghost" onClick={()=>onBranch(`Explain ${section.title} in more detail.`,contexts)}><Network size={13}/>Explore further</Button>{branches.length>0&&<span>{branches.length} exploration{branches.length===1?'':'s'}</span>}{branches.map((e)=><button className="dw-branch-link" key={e.id} onClick={()=>onGo(e.id)}><span className="dw-branch-connector">↳</span><span>{e.title}</span><small>{e.turns.length} answer{e.turns.length===1?'':'s'}</small><ChevronRight size={13}/></button>)}</footer>
     </>:<p>This saved explanation has no sections.</p>}
   </div></article>;

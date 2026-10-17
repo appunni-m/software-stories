@@ -497,6 +497,7 @@ export interface EvidenceLinkedVisualSpec {
   layoutHint: VisualLayoutHint;
   nodes: LinkedVisualNode[];
   edges: LinkedVisualEdge[];
+  presentation?: import('./scenePresentation').ScenePresentation;
 }
 
 /** Accepted v1 diagrams remain decodable and immutable; only v2 is interactive. */

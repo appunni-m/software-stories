@@ -5,6 +5,7 @@ import type {
   EvidenceLinkedVisualSpec,
   HotspotDestination,
 } from './commands';
+import { validScenePresentation } from './scenePresentation.ts';
 
 const MAX_NODES = 500;
 const MAX_EDGES = 1_000;
@@ -87,11 +88,14 @@ export function inspectInteractiveVisual(
     }
   }
 
+  if (raw.presentation !== undefined && !validScenePresentation(raw.presentation, raw.nodes, section.claims)) {
+    return { status: 'unavailable', reason: 'malformed' };
+  }
   return { status: 'available', visual: raw, anchorsById, hotspotsById };
 }
 
 function isCurrentVisual(value: Record<string, unknown>): value is Record<string, unknown> & EvidenceLinkedVisualSpec {
-  if (!hasExactKeys(value, ['schemaVersion', 'kind', 'title', 'layoutHint', 'nodes', 'edges'])
+  if (!hasExactKeys(value, ['schemaVersion', 'kind', 'title', 'layoutHint', 'nodes', 'edges', ...(Object.hasOwn(value, 'presentation') ? ['presentation'] : [])])
     || !['dataFlow', 'sequence', 'hierarchy'].includes(String(value.kind))
     || !hasBoundedText(value.title, MAX_TITLE_BYTES)
     || !isRecord(value.layoutHint)

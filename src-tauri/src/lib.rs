@@ -16,6 +16,7 @@ mod chapter_generation;
 mod chapter_review;
 mod chapter_store;
 mod chapters;
+mod scene_presentation;
 mod agent_handoff;
 mod agent_installation;
 mod claude_agent;
@@ -2259,6 +2260,7 @@ mod chapter_pipeline_tests {
             "The overlapping constant keeps this sample's repeated literal.".to_owned();
         base.sections[1].visual =
             Some(chapters::ChapterVisualPayload::from(chapters::VisualSpec {
+                presentation: None,
                 schema_version: 2,
                 kind: chapters::VisualKind::DataFlow,
                 title: "The repeated literal".to_owned(),

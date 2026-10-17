@@ -9,7 +9,6 @@ import {
   Layers3,
   Play,
   VolumeX,
-  Workflow,
 } from 'lucide-react';
 import {
   isNativeRuntime,
@@ -21,9 +20,8 @@ import {
   type HotspotDestination,
 } from './lib/commands';
 import { orderedSections, readerSelection, parseRememberedProgress, rememberedSectionRecord, resumeStorageKey, chooseSectionId } from './lib/walkthrough';
-import { inspectInteractiveVisual } from './lib/visuals';
 import type { WorkspaceRoute } from './lib/navigation';
-import { NarrationPlayer } from './NarrationPlayer';
+import { VisualStory } from './VisualStory';
 import { OfflineExport } from './OfflineExport';
 import { errorMessageOr } from './lib/errorMessage';
 
@@ -383,34 +381,9 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
             <article className="walkthrough-section-content" aria-label={`Section ${selectedSectionIndex + 1} of ${sections.length}`}>
               <div className="walkthrough-section-meta"><span>SECTION {String(selectedSectionIndex + 1).padStart(2, '0')} / {String(sections.length).padStart(2, '0')}</span><span>MANUAL PACE</span></div>
               <h2 ref={headingRef} tabIndex={-1} aria-label={`Section ${selectedSectionIndex + 1} of ${sections.length}: ${selectedSection.title}`} data-focus-key={`reader-section-heading:${selectedSection.sectionId}`}>{selectedSection.title}</h2>
-              <p className="walkthrough-section-prose">{selectedSection.prose}</p>
-
+              <VisualStory key={`${selectedRevision.revisionId}:${selectedSection.sectionRevisionId}`} revision={selectedRevision} section={selectedSection} activeFocusTarget={route.focusTarget} onOpenAnchor={openAnchor} onFollowHotspot={followHotspot} onSettings={onOpenProviderSettings} restorePosition={finitePosition(route.playbackPosition)} onPlaybackPositionChange={rememberPlaybackPosition} onTranscriptPositionChange={rememberTranscriptPosition} />
               <EvidencePanel section={selectedSection} onOpenAnchor={(anchor) => openAnchor(anchor)} />
-              <SectionFileLinks
-                section={selectedSection}
-                activeFocusTarget={route.focusTarget}
-                onFollowHotspot={followHotspot}
-              />
-              <VisualPanel revision={selectedRevision} section={selectedSection} activeFocusTarget={route.focusTarget} onFollowHotspot={followHotspot} onOpenAnchor={openAnchor} />
-
-              <details className="walkthrough-optional-audio"><summary>Listen to this section</summary>
-              <NarrationPlayer
-                key={`${selectedRevision.revisionId}:${selectedSection.sectionId}`}
-                projectId={projectId}
-                chapterId={selectedRevision.chapterId}
-                revisionId={selectedRevision.revisionId}
-                section={selectedSection}
-                restorePosition={finitePosition(route.playbackPosition)}
-                transcriptPosition={finitePosition(route.transcriptPosition)}
-                onPlaybackPositionChange={rememberPlaybackPosition}
-                onTranscriptPositionChange={rememberTranscriptPosition}
-                onOpenProviderSettings={onOpenProviderSettings}
-              />
-              </details>
-              {selectedSection.claims.some((claim) => claim.anchors.length > 0) && <div className="walkthrough-transcript-citations" role="group" aria-label="Source references for this section">
-                  <span>SOURCE LINKS</span>
-                  {[...new Map(selectedSection.claims.flatMap((claim) => claim.anchors).map((anchor) => [anchor.anchorId, anchor])).values()].map((anchor) => <button key={`transcript-${anchor.anchorId}`} data-focus-key={`reader-transcript-citation:${anchor.anchorId}`} onClick={() => openAnchor(anchor, `reader-transcript-citation:${anchor.anchorId}`)}><FileCode2 size={12} /><code>{anchor.path}:{anchor.startLine}-{anchor.endLine}</code><ArrowRight size={11} /></button>)}
-                </div>}
+              <SectionFileLinks section={selectedSection} activeFocusTarget={route.focusTarget} onFollowHotspot={followHotspot} />
 
               <div className="walkthrough-reader-footer">
                 <span>{selectedRevision.lifecycle === 'accepted' ? 'Accepted revision' : 'Draft revision'} <code>{selectedRevision.revisionNumber}</code> · snapshot <code>{selectedRevision.snapshotId.slice(-10)}</code></span>
@@ -489,76 +462,6 @@ function SectionFileLinks({
           </button>
         );
       })}
-    </section>
-  );
-}
-
-export function VisualPanel({ revision, section, activeFocusTarget, onFollowHotspot, onOpenAnchor }: {
-  revision: ChapterRevision;
-  section: ChapterSection;
-  activeFocusTarget?: string;
-  onFollowHotspot: (hotspot: ChapterHotspot, focusTarget?: string) => void;
-  onOpenAnchor: (anchor: ChapterSourceAnchor, focusTarget?: string) => void;
-}) {
-  const inspection = inspectInteractiveVisual(revision, section);
-  if (inspection.status === 'none') return null;
-  if (inspection.status !== 'available') {
-    const message = inspection.reason === 'legacy'
-        ? 'This older diagram is retained with the accepted explanation, but it does not have interactive source links. The text and evidence remain available.'
-        : 'This diagram does not match the safe interactive format, so it is unavailable. The explanation and source evidence remain available.';
-    return (
-    <section className="walkthrough-visual-slot" aria-label="Section visual">
-      <div className="walkthrough-panel-heading"><div><span className="walkthrough-kicker">VISUAL MAP</span><h3>Source stays in view</h3></div></div>
-      <div className="walkthrough-no-visual" role="status"><Workflow size={17} /><span>{message}</span></div>
-    </section>
-  );
-  }
-  const { visual, hotspotsById, anchorsById } = inspection;
-  const nodesById = new Map(visual.nodes.map((node) => [node.nodeId, node]));
-  const directionClass = visual.layoutHint.direction === 'leftToRight'
-    ? 'is-left-to-right'
-    : visual.layoutHint.direction === 'topToBottom' ? 'is-top-to-bottom' : 'is-auto';
-  return (
-    <section className="walkthrough-visual-slot" aria-labelledby={`visual-title-${section.sectionId}`}>
-      <div className="walkthrough-panel-heading"><div><span className="walkthrough-kicker">VISUAL MAP · {visual.kind.toUpperCase()}</span><h3 id={`visual-title-${section.sectionId}`}>{visual.title}</h3></div><span className="walkthrough-evidence-count">{visual.nodes.length} NODES · {visual.edges.length} LINKS</span></div>
-      <div className={`walkthrough-diagram ${directionClass}`} role="group" aria-label={`${visual.kind} diagram for ${visual.title}`}>
-        {visual.nodes.map((node, index) => {
-          const hotspot = node.hotspotId ? hotspotsById.get(node.hotspotId) : undefined;
-          const hotspotFocusTarget = hotspot ? `reader-hotspot:${hotspot.hotspotId}:${node.nodeId}` : undefined;
-          const outgoing = visual.edges.filter((edge) => edge.fromNodeId === node.nodeId);
-          return (
-            <div className="walkthrough-diagram-step" key={node.nodeId}>
-              <article className={`walkthrough-diagram-node${hotspot ? ' is-linked' : ''}`}>
-                <span className="walkthrough-diagram-node-number">{String(index + 1).padStart(2, '0')}</span>
-                <strong>{node.label}</strong>
-                {node.detail && <small>{node.detail}</small>}
-                {node.evidenceAnchorIds.length > 0 && <div className="walkthrough-visual-evidence" role="group" aria-label={`Evidence for ${node.label}`}>
-                  {node.evidenceAnchorIds.map((anchorId) => {
-                    const anchor = anchorsById.get(anchorId)!;
-                    const focusKey = `reader-visual-citation:${node.nodeId}:${anchorId}`;
-                    return <button className={activeFocusTarget === focusKey ? 'is-return-focus' : undefined} key={anchorId} data-focus-key={focusKey} onClick={() => onOpenAnchor(anchor, focusKey)}><FileCode2 size={11} /><code>{anchor.path}:{anchor.startLine}-{anchor.endLine}</code></button>;
-                  })}
-                </div>}
-                {hotspot && hotspotFocusTarget && <button className={`walkthrough-diagram-action${activeFocusTarget === hotspotFocusTarget ? ' is-return-focus' : ''}`} data-focus-key={hotspotFocusTarget} onClick={() => onFollowHotspot(hotspot, hotspotFocusTarget)}>{hotspot.label} <ArrowRight size={12} /></button>}
-              </article>
-              {outgoing.map((edge) => {
-                const target = nodesById.get(edge.toNodeId)!;
-                return <div className="walkthrough-diagram-edge" key={edge.edgeId}>
-                  <div className="walkthrough-diagram-edge-route"><span>{edge.label}</span><ArrowRight size={13} /><strong>{target.label}</strong></div>
-                  <div className="walkthrough-visual-evidence" role="group" aria-label={`Evidence for ${edge.label}`}>
-                    {edge.evidenceAnchorIds.map((anchorId) => {
-                      const anchor = anchorsById.get(anchorId)!;
-                      const focusKey = `reader-visual-citation:${edge.edgeId}:${anchorId}`;
-                      return <button className={activeFocusTarget === focusKey ? 'is-return-focus' : undefined} key={anchorId} data-focus-key={focusKey} onClick={() => onOpenAnchor(anchor, focusKey)}><FileCode2 size={11} /><code>{anchor.path}:{anchor.startLine}-{anchor.endLine}</code></button>;
-                    })}
-                  </div>
-                </div>;
-              })}
-            </div>
-          );
-        })}
-      </div>
-      <p className="walkthrough-visual-footnote">Source links open the captured code for this explanation.</p>
     </section>
   );
 }

@@ -336,6 +336,21 @@ fn alignment_findings(section: &Value, resolved: &str) -> Vec<Value> {
     findings
 }
 
+/// Field positions are sufficient to repair a malformed visual; never echo
+/// model strings, repository contents or raw decoder errors into tool feedback.
+fn visual_shape_findings(section: &Value) -> Vec<Value> {
+    let Some(visual) = section.get("visual").and_then(Value::as_object) else {
+        return vec![json!({"location":"/section/visual","code":"visualField"})];
+    };
+    ["kind", "title", "direction", "nodes", "edges"].into_iter().filter_map(|field| {
+        let valid = visual.get(field).is_some_and(|value| match field {
+            "nodes" | "edges" => value.is_array(),
+            _ => value.is_string(),
+        });
+        (!valid).then(|| json!({"location":format!("/section/visual/{field}"),"code":"visualField"}))
+    }).collect()
+}
+
 fn valid_findings(findings: &[Value]) -> bool {
     findings.len() <= 64
         && findings.iter().all(|v| {
@@ -358,6 +373,7 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "identifierEvidence"
                             | "evidenceIdentifier"
                             | "presentationLimit"
+                            | "visualField"
                             | "sectionValidation"
                     )
                 })
@@ -610,7 +626,9 @@ impl ActiveAnswer {
                     match ledger.resolve_citations(&response, manifest, runtime, cancelled)? {
                         native_citations::Resolution::Invalid(issues) => findings = issues.iter().take(64).map(|issue| json!({"location":section_location(issue),"code":"citation"})).collect(),
                         native_citations::Resolution::Ready(resolved) => {
-                            let alignment = alignment_findings(&proposal.section, resolved.text());
+                            let mut alignment = alignment_findings(&proposal.section, resolved.text());
+                            alignment.extend(visual_shape_findings(&proposal.section));
+                            alignment.truncate(64);
                             if !alignment.is_empty() {
                                 findings = alignment;
                             } else {

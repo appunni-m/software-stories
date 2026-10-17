@@ -16,7 +16,7 @@ const LEGACY_CHAPTER_SCHEMA_VERSION: u32 = 1;
 const REVIEW_CHAPTER_SCHEMA_VERSION: u32 = 2;
 pub(crate) const VISUAL_SCHEMA_VERSION: u32 = 2;
 const LEGACY_VISUAL_SCHEMA_VERSION: u32 = 1;
-pub const VISUAL_RENDERER_CONTRACT_VERSION: u32 = 1;
+pub const VISUAL_RENDERER_CONTRACT_VERSION: u32 = 2;
 const MAX_CHAPTER_JSON_BYTES: usize = 4 * 1024 * 1024;
 const MAX_ANCHOR_JSON_BYTES: usize = 128 * 1024;
 const MAX_SECTIONS: usize = 500;
@@ -588,6 +588,8 @@ pub enum HotspotDestination {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct VisualSpec {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presentation: Option<crate::scene_presentation::ScenePresentation>,
     pub schema_version: u32,
     pub kind: VisualKind,
     pub title: String,
@@ -1454,6 +1456,7 @@ pub fn validate_chapter_revision(
             if let Some(visual_spec) = visual.typed_visual() {
                 validator.validate_visual(
                     visual_spec,
+                    &section.claims,
                     &hotspot_ids,
                     &section_anchor_ids,
                     &mut ids,
@@ -1854,12 +1857,21 @@ impl Validator<'_> {
     fn validate_visual(
         &mut self,
         visual: &VisualSpec,
+        claims: &[ChapterClaim],
         hotspot_ids: &HashSet<String>,
         section_anchor_ids: &HashSet<String>,
         revision_ids: &mut HashSet<String>,
         section_id: Option<&str>,
         allow_legacy_visual: bool,
     ) {
+        if let Some(presentation) = &visual.presentation {
+            if visual.schema_version != VISUAL_SCHEMA_VERSION {
+                self.visual_issue(ChapterIssueCode::InvalidVisual, "HTML compositions require the current evidence-linked visual schema.", section_id, None, None);
+            }
+            if let Err(error) = crate::scene_presentation::validate(presentation, &visual.nodes, claims) {
+                self.visual_issue(ChapterIssueCode::InvalidVisual, &error, section_id, None, None);
+            }
+        }
         let is_legacy = visual.schema_version == LEGACY_VISUAL_SCHEMA_VERSION;
         let legacy_is_read_only_compatible = is_legacy && allow_legacy_visual;
         let is_current = visual.schema_version == VISUAL_SCHEMA_VERSION;
@@ -2854,6 +2866,7 @@ mod tests {
                         },
                     ],
                     visual: Some(ChapterVisualPayload::Typed(VisualSpec {
+                        presentation: None,
                         schema_version: VISUAL_SCHEMA_VERSION,
                         kind: VisualKind::DataFlow,
                         title: "Call path".to_owned(),

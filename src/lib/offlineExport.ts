@@ -111,6 +111,7 @@ export interface OfflineExportSectionPreview {
   spokenText: string;
   narrationTranscript: string | null;
   typedVisual: 'included' | 'unavailable' | 'none';
+  visualNote?: string;
   references: OfflineExportReference[];
 }
 
@@ -274,6 +275,8 @@ export function buildOfflineExportPreview(
         typedVisual: section.visual
           ? 'included'
           : section.visualUnavailable ? 'unavailable' : 'none',
+        visualNote: section.visual?.presentation?.scenes.some((scene) => scene.mode === 'composition')
+          ? COMPOSITION_EXPORT_NOTE : undefined,
         references: section.references,
       })),
       sourcePaths: [...new Set(chapter.references.map((reference) => reference.path))].sort(),
@@ -795,6 +798,8 @@ function renderPackage(
 </html>`;
 }
 
+const COMPOSITION_EXPORT_NOTE = 'This export includes the scene’s source outline. The interactive visual layout is available in Code Atlas.';
+
 function renderVisual(
   revision: ChapterRevision,
   section: SafeSection,
@@ -827,7 +832,9 @@ function renderVisual(
   }).join('');
   const type = typedVisual.kind === 'dataFlow' ? 'Data flow' : typedVisual.kind === 'sequence' ? 'Sequence' : 'Hierarchy';
   const visualData = section.visualAssetText ? `<details class="visual-source"><summary>Typed diagram data · JSON</summary><pre>${escapeHtml(section.visualAssetText)}</pre></details>` : '';
-  return `<figure class="visual"><figcaption><p class="eyebrow">${type} diagram</p><h4>${escapeHtml(typedVisual.title)}</h4><p class="muted">App-rendered from the accepted typed diagram. No chapter HTML, script, or CSS is executed.</p></figcaption><ol class="diagram">${nodes}</ol>${visualData}</figure>`;
+  const compositionNote = typedVisual.presentation?.scenes.some((scene) => scene.mode === 'composition')
+    ? `<p class="notice">${COMPOSITION_EXPORT_NOTE}</p>` : '';
+  return `<figure class="visual"><figcaption><p class="eyebrow">${type} diagram</p><h4>${escapeHtml(typedVisual.title)}</h4><p class="muted">App-rendered from the accepted typed diagram. No chapter HTML, script, or CSS is executed.</p>${compositionNote}</figcaption><ol class="diagram">${nodes}</ol>${visualData}</figure>`;
 }
 
 function renderVisualWithDom(
@@ -850,6 +857,9 @@ function renderVisualWithDom(
   caption.append(element('p', 'eyebrow', `${type} diagram`));
   caption.append(element('h4', undefined, visual.title));
   caption.append(element('p', 'muted', 'App-rendered from the accepted typed diagram. No chapter HTML, script, or CSS is executed.'));
+  if (visual.presentation?.scenes.some((scene) => scene.mode === 'composition')) {
+    caption.append(element('p', 'notice', COMPOSITION_EXPORT_NOTE));
+  }
   figure.append(caption);
   const list = element('ol', 'diagram');
   for (const [nodeIndex, node] of visual.nodes.entries()) {

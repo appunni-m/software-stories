@@ -501,6 +501,7 @@ mod tests {
             .clone();
         with_visual.sections[0].visual =
             Some(chapters::ChapterVisualPayload::from(chapters::VisualSpec {
+                presentation: None,
                 schema_version: 2,
                 kind: chapters::VisualKind::DataFlow,
                 title: "Greeting return flow".to_owned(),

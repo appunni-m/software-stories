@@ -85,6 +85,7 @@ fn codex_progressive_account_probe() {
         .unwrap();
     let f = Fixture::new();
     let mut input = input(&f);
+    input.question = "Explain only the implementation of greeting, from the incoming name to its returned string. Use one short AI-authored HTML composition (visual.presentation), showing the transformation with a clearly labeled illustrative name and greeting; a dependency graph would not help here. Narrate what the visual means. The function body is the complete requested scope; unrequested call sites are outside this question.".into();
     let manager = codex_agent::CodexAgentManager::default();
     manager.resume_connection(&f.storage).unwrap();
     let runtime = manager.review_runtime(&f.storage).unwrap();
@@ -140,6 +141,11 @@ fn codex_progressive_account_probe() {
     let result = result.unwrap();
     assert_eq!(result.outcome, Outcome::Complete);
     assert!(!result.sections.is_empty());
+    let saved = sections::inspect(&f.storage, &input.run_id).unwrap();
+    assert!(saved.sections.iter().any(|published| published.preview.revision.sections.iter().any(|section|
+        section.visual.as_ref().and_then(chapters::ChapterVisualPayload::typed_visual)
+            .and_then(|visual| visual.presentation.as_ref()).is_some_and(|presentation|
+                presentation.scenes.iter().any(|scene| scene.mode == crate::scene_presentation::SceneMode::Composition)))));
     let observations = observations.lock().unwrap();
     assert!(observations.iter().all(|v| v["error"].is_null()));
     assert!(

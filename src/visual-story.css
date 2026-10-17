@@ -1,0 +1,44 @@
+.visual-story { min-width: 0; margin-top: 12px; scroll-margin-top: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: hidden; }
+.story-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-height: 42px; padding: 5px 12px; border-bottom: 1px solid var(--border); }
+.story-scene-count { color: var(--muted); font-size: 12px; }
+.story-scene-dots { display: flex; flex-wrap: wrap; margin-right: auto; }
+.visual-story button { cursor: pointer; color: var(--text); }
+.visual-story button:disabled { opacity: .4; cursor: default; }
+.visual-story button:focus-visible, .visual-story summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.story-scene-dots button { width: 24px; height: 28px; display: grid; place-items: center; border: 0; background: transparent; }
+.story-scene-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); }
+.story-scene-dots [aria-current="step"] span { width: 18px; border-radius: 3px; background: var(--accent); }
+.story-map-toggle, .story-focus-bar button { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; font: inherit; font-size: 12px; background: var(--surface-raised); }
+.story-stage { height: clamp(300px, calc(100vh - 480px), 560px); min-width: 0; background: var(--canvas); }
+.story-html-stage { overflow: auto; }
+.visual-story .react-flow { --xy-background-color: var(--canvas); --xy-background-pattern-dots-color: var(--border-strong); --xy-node-background-color: var(--surface); --xy-node-color: var(--text); --xy-node-border: 1px solid var(--border-strong); --xy-edge-stroke: var(--muted); --xy-edge-label-color: var(--muted); --xy-edge-label-background-color: var(--surface); --xy-controls-button-background-color: var(--surface); --xy-controls-button-color: var(--text); --xy-controls-button-border-color: var(--border); }
+.visual-story .react-flow__node { padding: 12px; font: 500 14px/1.45 -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 7px; overflow-wrap: anywhere; box-shadow: none; }
+.visual-story .story-node-active { border: 2px solid var(--accent); background: var(--surface-raised); }
+.visual-story .story-node-focus { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+.visual-story .story-node-context { border-style: dashed; color: var(--muted); }
+.visual-story .story-node-button { border: 0; background: transparent; color: inherit; width: 100%; padding: 0; text-align: center; font: inherit; overflow-wrap: anywhere; }
+.visual-story .story-edge-active path { stroke: var(--accent); stroke-width: 2; }
+.visual-story .react-flow__edge-text { font-size: 11px; }
+.story-focus-bar { min-height: 44px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 7px 12px; border-top: 1px solid var(--border); }
+.story-focus-bar > span { flex: 1; min-width: 90px; color: var(--text); font-size: 13px; overflow-wrap: anywhere; }
+.story-source-stage { background: var(--canvas); padding: 18px; height: clamp(250px, 37vh, 450px); overflow: auto; }
+.story-source-stage > div:first-child { display: flex; align-items: center; gap: 7px; color: var(--muted); font: 12px var(--mono); }
+.story-source-stage pre { font: 13px/1.8 var(--mono); color: var(--text); tab-size: 4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.story-source-stage .story-no-visual { height: 100%; flex-direction: column; justify-content: center; text-align: center; gap: 16px; }
+.story-no-visual small { max-width: 300px; font: 13px/1.6 -apple-system, BlinkMacSystemFont, sans-serif; }
+.story-playbar { display: grid; grid-template-columns: 32px minmax(0,1fr) 32px; align-items: start; gap: 4px; padding: 10px 8px; border-bottom: 1px solid var(--border); }
+.story-previous, .story-next { display: grid; place-items: center; min-height: 34px; border: 0; border-radius: 5px; background: transparent; }
+.story-playbar .is-story-audio { margin: 0; padding: 0 5px; border: 0; display: flex; flex-direction: column; background: transparent; }
+.is-story-audio .walkthrough-panel-heading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.is-story-audio .walkthrough-playback { order: -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 5px; border: 0; padding: 0; }
+.is-story-audio .walkthrough-playback-buttons { flex-shrink: 0; }
+.is-story-audio .walkthrough-seek-label { flex: 1; min-width: 80px; display: block; }
+.is-story-audio .walkthrough-seek-label > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.is-story-audio .walkthrough-narration-script, .is-story-audio .walkthrough-narration-editor { margin-top: 6px; padding: 0; border: 0; }
+.walkthrough-narration-script summary, .story-details summary, .dw-flow-narration summary { cursor: pointer; color: var(--muted); font-size: 12px; padding: 6px 0; }
+.story-details { margin: 0 12px; padding: 0 0 8px; }
+.story-details p { font-size: 13px; line-height: 1.7; color: var(--muted); }
+.story-sources { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0; }
+.story-sources button { background: var(--surface-raised); border: 1px solid var(--border); padding: 6px; border-radius: 4px; font: 11px var(--mono); overflow-wrap: anywhere; text-align: left; }
+@media (max-width: 680px) { .story-stage { height: 330px; } .story-playbar { grid-template-columns: 26px minmax(0,1fr) 26px; padding-inline: 2px; } .story-toolbar { gap: 4px; } }
+@media (prefers-reduced-motion: reduce) { .visual-story *, .visual-story *::before, .visual-story *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

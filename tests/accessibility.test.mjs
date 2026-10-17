@@ -10,6 +10,7 @@ const theme = await readFile(new URL('../src/theme.css', import.meta.url), 'utf8
 const sourceRoot = new URL('../src/', import.meta.url);
 const surfaces = ['#181b20', '#20242b', '#272d36', '#303846'];
 const nameableRoles = new Set([
+  'img', // The composed pixel representation has an accessible image name.
   'alert', 'alertdialog', 'application', 'article', 'button', 'complementary', 'dialog',
   'figure', 'form', 'grid', 'group', 'list', 'listbox', 'main', 'menu', 'navigation',
   'progressbar', 'region', 'row', 'status', 'table', 'tablist', 'tabpanel', 'toolbar', 'tree', 'treegrid',

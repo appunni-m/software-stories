@@ -148,6 +148,27 @@ describe('offline chapter export', () => {
     assert.match(result.html, /Typed diagram data · JSON/);
   });
 
+  it('discloses the composition layout fallback in the preview and exported guide', async () => {
+    const visual = typedVisual();
+    visual.presentation = { schemaVersion: 1, scenes: [{
+      claimIndex: 0, title: 'Request input', mode: 'composition', elements: [
+        { kind: 'row', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
+        { kind: 'code', parentIndex: 0, nodeIndex: 0, tone: 'accent', value: 'run()', valueOrigin: 'source' },
+      ],
+    }] };
+    const revisions = [chapter({ sections: [section({ visual })] })];
+    const preview = buildOfflineExportPreview(revisions, ['revision:one'], true);
+    const notice = preview.chapters[0].sections[0].visualNote;
+    assert.match(notice, /source outline/);
+    assert.equal(preview.chapters[0].sections[0].typedVisual, 'included');
+    const result = await buildOfflineGuideHtml(revisions, {
+      selectedRevisionIds: ['revision:one'], includeExcerpts: true, exportedAtUnixMs: 10,
+    });
+    assert.ok(result.html.includes(notice));
+    const asset = result.manifest.assets.find((candidate) => candidate.kind === 'typedVisual');
+    assert.equal(asset.sha256, createHash('sha256').update(JSON.stringify(visual)).digest('hex'));
+  });
+
   it('embeds selected cached WAV tracks with their exact sanitized reviewed transcript and hashes in schema 3', async () => {
     const wav = narrationWav();
     const persistedScript = 'Outdated accepted script must not appear beside different audio.';

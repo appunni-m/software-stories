@@ -2253,6 +2253,7 @@ mod tests {
             },
         ];
         section.visual = Some(ChapterVisualPayload::Typed(VisualSpec {
+            presentation: None,
             schema_version: 2,
             kind: VisualKind::DataFlow,
             title: "Worker flow".to_owned(),

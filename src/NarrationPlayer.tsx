@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Check,
@@ -49,6 +49,9 @@ interface NarrationPlayerProps {
   onTranscriptPositionChange: (position: number) => void;
   onOpenProviderSettings: () => void;
   autoPlay?: boolean;
+  clip?: { id: string; text: string };
+  onEnded?: () => void;
+  compact?: boolean;
 }
 
 type NarrationPreferences = NarrationPreferencesSnapshot;
@@ -65,10 +68,12 @@ interface LoadedTrack {
   cacheHit: boolean;
 }
 
-export function NarrationPlayer({ projectId, chapterId, revisionId, section, restorePosition, transcriptPosition, onPlaybackPositionChange, onTranscriptPositionChange, autoPlay = false }: NarrationPlayerProps) {
-  const storageKey = `code-atlas:narration:${projectId}:${chapterId}:${revisionId}:${section.sectionId}`;
-  const fallbackScript = useMemo(() => defaultNarrationText(section.spokenText), [section.spokenText]);
-  const preferences = useMemo(() => readPreferences(storageKey, fallbackScript), [storageKey, fallbackScript]);
+export function NarrationPlayer({ projectId, chapterId, revisionId, section, restorePosition, transcriptPosition, onPlaybackPositionChange, onTranscriptPositionChange, autoPlay = false, clip, onEnded, compact = false }: NarrationPlayerProps) {
+  const titleId = useId();
+  const baseStorageKey = `code-atlas:narration:${projectId}:${chapterId}:${revisionId}:${section.sectionId}`;
+  const storageKey = clip ? `${baseStorageKey}:scene:${clip.id}` : baseStorageKey;
+  const fallbackScript = useMemo(() => defaultNarrationText(clip?.text ?? section.spokenText), [clip?.text, section.spokenText]);
+  const preferences = useMemo(() => readPreferences(storageKey, fallbackScript, clip ? baseStorageKey : undefined), [storageKey, fallbackScript, baseStorageKey, !!clip]);
   const [draft, setDraft] = useState<NarrationPreferences>(preferences);
   const voiceConnection = useVoiceConnection();
   const localNarration = draft.backend === 'pocket-tts';
@@ -104,6 +109,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   const audioRef = useRef<HTMLAudioElement>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const autoPlayRef = useRef(false);
+  const completionArmed = useRef(false);
   const cancelRequested = useRef(false);
   const mountedRef = useRef(false);
   const reviewGenerationRef = useRef(0);
@@ -113,7 +119,15 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   const lastRouteWriteRef = useRef(0);
 
   useEffect(() => {
-    setDraft(readPreferences(storageKey, fallbackScript));
+    const pauseOtherNarration = (event: Event) => {
+      if ((event as CustomEvent<string>).detail !== titleId) audioRef.current?.pause();
+    };
+    window.addEventListener('code-atlas:narration-playing', pauseOtherNarration);
+    return () => window.removeEventListener('code-atlas:narration-playing', pauseOtherNarration);
+  }, [titleId]);
+
+  useEffect(() => {
+    setDraft(readPreferences(storageKey, fallbackScript, clip ? baseStorageKey : undefined));
     setReview(null);
     setTrack(null);
     setCurrentTime(0);
@@ -201,6 +215,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      completionArmed.current = false;
       reviewGenerationRef.current += 1;
       autoPlayRef.current = false;
       audioRef.current?.pause();
@@ -561,13 +576,13 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   const captionText = track?.exactText ?? review?.exactText ?? draft.spokenText;
 
   return (
-    <section className="walkthrough-transcript walkthrough-narration" aria-labelledby="walkthrough-transcript-title">
+    <section className={`walkthrough-transcript walkthrough-narration${compact ? ' is-story-audio' : ''}`} aria-labelledby={titleId}>
       <audio
         ref={audioRef}
         className="walkthrough-narration-audio"
         preload="metadata"
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
+        onPlay={() => { completionArmed.current = true; setIsPlaying(true); window.dispatchEvent(new CustomEvent('code-atlas:narration-playing', { detail: titleId })); }}
+        onPause={(event) => { setIsPlaying(false); if (!event.currentTarget.ended) completionArmed.current = false; }}
         onDurationChange={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
         onLoadedMetadata={(event) => {
           setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0);
@@ -588,20 +603,27 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         onTimeUpdate={handleTimeUpdate}
         onEnded={() => {
           setIsPlaying(false);
+          const completedPlayback = completionArmed.current && mountedRef.current && audioRef.current?.ended;
+          completionArmed.current = false;
           persistPlaybackPosition(audioRef.current?.currentTime ?? 0);
+          // Seeking a paused restored clip to its saved end can also emit ended.
+          // Only an actual playback completion may advance the visual story.
+          if (completedPlayback) onEnded?.();
         }}
       />
       <div className="walkthrough-panel-heading">
-        <div><span className="walkthrough-kicker">CAPTIONS & TRANSCRIPT</span><h3 id="walkthrough-transcript-title">Listen to this section</h3></div>
+        <div><h3 id={titleId}>{clip ? 'Scene narration' : 'Narration'}</h3></div>
         <span className={`walkthrough-transcript-state${isPlaying ? ' is-playing' : ''}`}><Volume2 size={13} /> {isPlaying ? 'PLAYING' : track ? 'PAUSED' : 'AUDIO OFF'}</span>
       </div>
 
-      <div className="walkthrough-transcript-scroll" ref={transcriptRef} onScroll={(event) => onTranscriptPositionChange(event.currentTarget.scrollTop)} role="group" tabIndex={0} aria-label={`Transcript for ${section.title}`}>
-        <div className="walkthrough-caption" aria-live="polite" aria-atomic="true">
-          <span>{isPlaying ? 'CAPTION · CURRENT SECTION' : 'TRANSCRIPT · CURRENT SECTION'}</span>
+      <details className="walkthrough-narration-script">
+      <summary>Read narration</summary>
+      <div className="walkthrough-transcript-scroll" ref={transcriptRef} onScroll={(event) => onTranscriptPositionChange(event.currentTarget.scrollTop)} role="group" tabIndex={0} aria-label={`Narration for ${section.title}`}>
+        <div className="walkthrough-caption">
           <p>{captionText.trim() ? captionText : <em>No narration text is saved for this section. The written explanation and source evidence remain available.</em>}</p>
         </div>
       </div>
+      </details>
 
       <details className="walkthrough-narration-editor">
         <summary><span>Edit spoken text</span><ChevronDown size={13} /></summary>
@@ -722,9 +744,11 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   );
 }
 
-function readPreferences(storageKey: string, fallbackText: string): NarrationPreferences {
+function readPreferences(storageKey: string, fallbackText: string, parentKey?: string): NarrationPreferences {
   try {
-    return applyVoiceConnection(parseNarrationPreferences(window.localStorage.getItem(storageKey), fallbackText), readVoiceConnection());
+    const saved = window.localStorage.getItem(storageKey);
+    const parent = parentKey ? parseNarrationPreferences(window.localStorage.getItem(parentKey), fallbackText) : null;
+    return applyVoiceConnection(saved ? parseNarrationPreferences(saved, fallbackText) : parent ? { ...parent, spokenText: fallbackText } : parseNarrationPreferences(null, fallbackText), readVoiceConnection());
   } catch { /* Default to the accepted chapter script when storage is unavailable. */ }
   return applyVoiceConnection(parseNarrationPreferences(null, fallbackText), readVoiceConnection());
 }

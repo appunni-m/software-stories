@@ -966,3 +966,14 @@ fn ready_timing_is_persisted_once_and_independent_of_preparation_clock() {
     assert_eq!(summary.sections[0].run_elapsed_ms, Some(1000));
     assert!(a.record_publication_time(&generation, 600001).is_err());
 }
+
+#[test]
+fn visual_required_field_feedback_names_only_the_fixed_wire_position() {
+    let value = json!({"visual":{"kind":"dataFlow","direction":"auto","nodes":[],"edges":[]}});
+    assert_eq!(visual_shape_findings(&value), vec![json!({"location":"/section/visual/title","code":"visualField"})]);
+    let malformed = json!({"visual":{"kind":23,"title":"private model text","direction":"auto","nodes":"bad","edges":[]}});
+    let findings = visual_shape_findings(&malformed);
+    assert_eq!(findings.len(), 2);
+    assert!(valid_findings(&findings));
+    assert!(!serde_json::to_string(&findings).unwrap().contains("private"));
+}

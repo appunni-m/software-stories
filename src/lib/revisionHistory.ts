@@ -239,6 +239,7 @@ function compareVisual(
   compareField(changes, 'visual', path, 'kind', before.kind, after.kind);
   compareField(changes, 'visual', path, 'title', before.title, after.title);
   compareField(changes, 'visual', path, 'layoutHint', 'layoutHint' in before ? before.layoutHint : null, 'layoutHint' in after ? after.layoutHint : null);
+  compareField(changes, 'visual', path, 'presentation', 'presentation' in before ? before.presentation : null, 'presentation' in after ? after.presentation : null);
 
   compareKeyed(
     before.nodes ?? [], after.nodes ?? [],

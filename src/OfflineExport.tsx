@@ -345,6 +345,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
                             <div className="offline-export-preview-section" key={section.sectionId}>
                               <strong>{section.title}</strong>
                               <p className="offline-export-muted">Typed diagram asset: {section.typedVisual === 'included' ? 'included' : section.typedVisual === 'unavailable' ? 'unsupported diagram omitted with an explanation' : 'none attached'}.</p>
+                              {section.visualNote && <p className="offline-export-muted">{section.visualNote}</p>}
                               {audioCoverage !== undefined && <p className="offline-export-muted">
                                 Narration: {audioCoverage.message}
                               </p>}

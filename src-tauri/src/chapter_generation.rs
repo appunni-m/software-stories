@@ -52,6 +52,7 @@ fn no_visual_proposal() -> GeneratedVisualProposal {
         direction: chapters::VisualLayoutDirection::Auto,
         nodes: Vec::new(),
         edges: Vec::new(),
+        presentation: None,
     }
 }
 
@@ -65,6 +66,7 @@ fn canonicalize_visual_proposal(
             || proposed.direction != chapters::VisualLayoutDirection::Auto
             || !proposed.nodes.is_empty()
             || !proposed.edges.is_empty()
+            || proposed.presentation.is_some()
         {
             return Err(
                 "A visual marked none must have no title, custom layout, nodes, or edges."
@@ -76,7 +78,8 @@ fn canonicalize_visual_proposal(
     if proposed.title.trim().is_empty()
         || proposed.title.len() > 160
         || !(2..=12).contains(&proposed.nodes.len())
-        || !(1..=20).contains(&proposed.edges.len())
+        || proposed.edges.len() > 20
+        || (proposed.edges.is_empty() && proposed.presentation.is_none())
     {
         return Err(
             "A generated visual needs a specific title, two to twelve nodes, and one to twenty edges."
@@ -133,6 +136,9 @@ fn canonicalize_visual_proposal(
         });
     }
 
+    if let Some(presentation) = &proposed.presentation {
+        crate::scene_presentation::validate(presentation, &nodes, claims)?;
+    }
     let kind = match proposed.kind {
         GeneratedVisualKind::None => unreachable!("none visuals returned before conversion"),
         GeneratedVisualKind::DataFlow => chapters::VisualKind::DataFlow,
@@ -140,6 +146,7 @@ fn canonicalize_visual_proposal(
         GeneratedVisualKind::Hierarchy => chapters::VisualKind::Hierarchy,
     };
     Ok(Some(chapters::VisualSpec {
+        presentation: proposed.presentation.clone(),
         schema_version: chapters::VISUAL_SCHEMA_VERSION,
         kind,
         title: proposed.title.trim().to_owned(),
@@ -212,6 +219,8 @@ struct GeneratedVisualProposal {
     direction: chapters::VisualLayoutDirection,
     nodes: Vec<GeneratedVisualNode>,
     edges: Vec<GeneratedVisualEdge>,
+    #[serde(default)]
+    presentation: Option<crate::scene_presentation::ScenePresentation>,
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -702,6 +711,7 @@ fn same_visual_inputs(previous: &ChapterSection, next: &ChapterSection) -> bool 
         || previous_visual.layout_hint != next_visual.layout_hint
         || previous_visual.nodes.len() != next_visual.nodes.len()
         || previous_visual.edges.len() != next_visual.edges.len()
+        || previous_visual.presentation != next_visual.presentation
     {
         return false;
     }
@@ -1975,6 +1985,45 @@ pub(crate) mod tests {
         section.visual = Some(visual.into());
         let report = chapters::validate_chapter_revision(&fixture.storage, &fixture.manifest, Some(&fixture.index), &revision);
         assert_eq!(report.status, ValidationReportStatus::Valid, "{report:#?}");
+    }
+
+    #[test]
+    fn generated_html_compositions_are_validated_stored_and_selectively_compared() {
+        let fixture = Fixture::new();
+        let mut proposal = serde_json::to_value(simple_proposal()).unwrap();
+        proposal["sections"][0]["visual"] = serde_json::json!({
+            "kind":"dataFlow","title":"A name becomes a greeting","direction":"auto",
+            "nodes":[
+                {"label":"Template","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]},
+                {"label":"Returned greeting","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]}
+            ],"edges":[],"presentation":{"schemaVersion":1,"scenes":[{
+                "claimIndex":0,"title":"Put the name into the greeting","mode":"composition","elements":[
+                    {"kind":"row","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+                    {"kind":"code","parentIndex":0,"nodeIndex":0,"tone":"accent","value":"Hello, ${name}","valueOrigin":"source"},
+                    {"kind":"arrow","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+                    {"kind":"token","parentIndex":0,"nodeIndex":1,"tone":"positive","value":"Hello, Ada","valueOrigin":"illustration"}
+                ]
+            }]}
+        });
+        let revision = canonicalize_file_chapter(
+            &fixture.manifest.summary.project_id, &fixture.manifest, Some(&fixture.index),
+            SIMPLE_PATH, &fixture.sources(&[SIMPLE_PATH]), &HashSet::new(),
+            &serde_json::to_string(&proposal).unwrap(),
+        ).unwrap();
+        let report = chapters::validate_chapter_revision(&fixture.storage, &fixture.manifest, Some(&fixture.index), &revision);
+        assert_eq!(report.status, ValidationReportStatus::Valid, "{report:#?}");
+        let bytes = chapters::encode_chapter_revision(&revision).unwrap();
+        let restored = chapters::decode_chapter_revision(&bytes).unwrap();
+        assert!(same_visual_inputs(&revision.sections[0], &restored.sections[0]));
+        let mut changed = restored.sections[0].clone();
+        changed.visual.as_mut().unwrap().typed_visual_mut().unwrap().presentation.as_mut().unwrap().scenes[0].elements[3].value = "Hello, Bob".into();
+        assert!(!same_visual_inputs(&revision.sections[0], &changed));
+        proposal["sections"][0]["visual"]["presentation"]["scenes"][0]["elements"][1]["value"] = serde_json::json!("invented source");
+        assert!(canonicalize_file_chapter(
+            &fixture.manifest.summary.project_id, &fixture.manifest, Some(&fixture.index),
+            SIMPLE_PATH, &fixture.sources(&[SIMPLE_PATH]), &HashSet::new(),
+            &serde_json::to_string(&proposal).unwrap(),
+        ).is_err());
     }
 
     #[test]
