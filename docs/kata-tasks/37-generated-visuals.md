@@ -48,3 +48,19 @@ A packaged synthetic chapter run rejected a visual quote that was not attached t
 
 ## October 16 native rendering correction
 A real Codex-generated synthetic diagram passed native source validation but the viewer rejected snake_case hotspot destination fields. Native serialization now emits frontend camelCase, with legacy aliases on read for hotspots, inference labels and source dependencies. Require a stored legacy diagram and a freshly generated diagram to render, click a node and edge to their captured lines, and return without losing exploration. This corrects a wire contract; it is not visual-quality or accessibility acceptance.
+
+## October 17 narrated visual scenes
+
+Apply the [visual story contract](61-guide-flow-detail.md): scenes are authored claim units, linked to their own validated node evidence; narration describes the visual's decisions and meaning. Guide reveals a focused graph with real branching and readable action labels, while full-map inspection remains available. No generated executable HTML, guessed word alignment, invented runtime paths or automatic whole-section replacement. Require fresh generated Rust and TypeScript stories, preserved branches/errors, readable focal nodes, source/return, keyboard/reflow/motion evidence and human comprehension before closure. The older Fontdone dispatch graph can exercise rendering but is not a newly authored story or a complete repository answer.
+
+## October 17 representation choice and AI-authored HTML
+
+The user's clarified requirement supersedes the graph-only interpretation: preserve the improved workspace, but let AI choose and compose the visual representation. A graph remains valid when paths or relationships make it the clearest teaching device. Guide must also support byte/header strips, code/input/output transformations, comparisons, stacks, tables, quantities and pixel matrices, with responsive groups and a narrated story across scenes. A collection of diagram nodes restyled as cards does not establish this outcome.
+
+The implementation contract is [AI-authored scene compositions](../VISUAL_SCENES.md). The selected account-backed Codex agent authors a bounded HTML component tree via `visual.presentation`; the app renders the HTML. Native and reader validation enforce one scene per claim, same-claim evidence links, exact source values, explicitly labeled illustrative data, a single bounded tree and no executable content. AI chooses layouts and representation per scene, including graph scenes; app-owned rendering controls appearance, source clicks, playback, keyboard use and motion. Legacy graphs remain unchanged. Presentation changes participate in revision comparison and selective visual reuse.
+
+Closure still requires a fresh ordinary Codex-generated HTML composition and a justified graph on real Rust/TypeScript behavior, native display/source clicks, scene/audio lifecycle, readable narrow/light/dark views, preserved failure paths, comprehension/listening review, and equivalent offline export. The new structured contract is generation infrastructure, not proof of visual or semantic quality. Offline export must preserve the actual composition or explicitly disclose its current graph/evidence fallback; it cannot claim full scene fidelity prematurely.
+
+## October 17 HTML scene qualification
+
+The progressive Codex path generated a complete synthetic HTML scene and a complete narrow Fontdone PFR0 scene. Native source clicks and Pocket playback were observed; graphs remain available where appropriate. The final mechanical suites pass 346 native tests (12 live probes ignored) and 171 frontend tests. Other generation operations, representation quality, human comprehension/accessibility and faithful offline scene export remain open. See [results, preserved failures and remaining gates](../acceptance/2026-10-17-visual-story-guide.md). This task remains open.

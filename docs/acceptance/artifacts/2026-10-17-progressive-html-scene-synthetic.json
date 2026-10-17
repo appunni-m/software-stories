@@ -1,0 +1,509 @@
+{
+  "fixture": "public synthetic greeting; not user source",
+  "operationId": "46b4aa4c-891f-4f10-95bc-04334d2fb09e",
+  "model": "gpt-6-luna",
+  "effort": "max",
+  "totalElapsedMs": 22351,
+  "result": {
+    "runId": "46b4aa4c-891f-4f10-95bc-04334d2fb09e",
+    "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-57697-97aefb8c-0bda-4c27-a2e1-c8665156847c/repository",
+    "snapshotId": "snap-1792231888401133000-57697-0",
+    "question": "Explain only the implementation of greeting, from the incoming name to its returned string. Use one short AI-authored HTML composition (visual.presentation), showing the transformation with a clearly labeled illustrative name and greeting; a dependency graph would not help here. Narrate what the visual means. The function body is the complete requested scope; unrequested call sites are outside this question.",
+    "outcome": "complete",
+    "sections": [
+      {
+        "runId": "46b4aa4c-891f-4f10-95bc-04334d2fb09e",
+        "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-57697-97aefb8c-0bda-4c27-a2e1-c8665156847c/repository",
+        "snapshotId": "snap-1792231888401133000-57697-0",
+        "key": "greeting-transform",
+        "order": 0,
+        "generationId": "generation:b419bf5b-ee09-4266-b41d-0008ef5357d2",
+        "revisionId": "revision:e8aac7f7-7383-47d2-b8d0-4ea588220a18",
+        "supersedes": null,
+        "contextElapsedMs": 19555,
+        "runElapsedMs": 19950
+      }
+    ],
+    "incompleteTopics": []
+  },
+  "error": null,
+  "observations": [
+    {
+      "notice": {
+        "runId": "46b4aa4c-891f-4f10-95bc-04334d2fb09e",
+        "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-57697-97aefb8c-0bda-4c27-a2e1-c8665156847c/repository",
+        "snapshotId": "snap-1792231888401133000-57697-0",
+        "key": "greeting-transform",
+        "order": 0,
+        "generationId": "generation:b419bf5b-ee09-4266-b41d-0008ef5357d2",
+        "revisionId": "revision:e8aac7f7-7383-47d2-b8d0-4ea588220a18",
+        "supersedes": null,
+        "contextElapsedMs": 19555,
+        "runElapsedMs": 19950
+      },
+      "readyElapsedMs": 19964,
+      "savedRevisionId": "revision:e8aac7f7-7383-47d2-b8d0-4ea588220a18",
+      "error": null
+    }
+  ],
+  "answer": {
+    "schemaVersion": 1,
+    "binding": {
+      "operationId": "46b4aa4c-891f-4f10-95bc-04334d2fb09e",
+      "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-57697-97aefb8c-0bda-4c27-a2e1-c8665156847c/repository",
+      "snapshotId": "snap-1792231888401133000-57697-0",
+      "manifestSha256": "5ef20d14e185d540569613dd296c3c590a002dd4cb4e8ebbea06b20d1f93c42b",
+      "grantId": "6b021194-5d35-40b4-9b80-7f52ee8d838a",
+      "runtime": {
+        "connectionId": "7a7ce7a9-3cf7-4bd4-80da-bfb6c5066c35",
+        "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+        "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+        "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+        "accountRevision": 1
+      },
+      "model": "gpt-6-luna",
+      "effort": "max"
+    },
+    "requestSha256": "7d64b29db50ebe549f6d75b7cab3716c69cf9efeb6ac795c7b8ebae1d63be1e8",
+    "question": "Explain only the implementation of greeting, from the incoming name to its returned string. Use one short AI-authored HTML composition (visual.presentation), showing the transformation with a clearly labeled illustrative name and greeting; a dependency graph would not help here. Narrate what the visual means. The function body is the complete requested scope; unrequested call sites are outside this question.",
+    "outcome": "complete",
+    "sections": [
+      {
+        "checkpointVersion": 2,
+        "key": "greeting-transform",
+        "order": 0,
+        "supersedes": null,
+        "preview": {
+          "generationId": "generation:b419bf5b-ee09-4266-b41d-0008ef5357d2",
+          "revision": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:e8aac7f7-7383-47d2-b8d0-4ea588220a18",
+            "revisionNumber": 1,
+            "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-57697-97aefb8c-0bda-4c27-a2e1-c8665156847c/repository",
+            "snapshotId": "snap-1792231888401133000-57697-0",
+            "target": {
+              "targetId": "target:overview",
+              "scope": {
+                "kind": "overview"
+              }
+            },
+            "title": "How greeting builds its returned string",
+            "lifecycle": "draft",
+            "validationStatus": "valid",
+            "createdAtUnixMs": 1792231910356,
+            "generationOrigin": {
+              "schemaVersion": 5,
+              "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-57697-97aefb8c-0bda-4c27-a2e1-c8665156847c/repository",
+              "snapshotId": "snap-1792231888401133000-57697-0",
+              "targetPath": null,
+              "purpose": "repositoryOverview",
+              "requestId": "46b4aa4c-891f-4f10-95bc-04334d2fb09e",
+              "requestFingerprint": "524aff89b8e2bcac20ecb9b99569d11d1986504c296335350a3b642d25073be3",
+              "requestBodySha256": "7d64b29db50ebe549f6d75b7cab3716c69cf9efeb6ac795c7b8ebae1d63be1e8",
+              "contractVersion": "codex-retrieval-v3-answer-sections",
+              "settings": {
+                "backend": "codex",
+                "modelId": "gpt-6-luna",
+                "effort": "max",
+                "approvalPolicy": "never"
+              },
+              "sourceFiles": [
+                {
+                  "path": "src/greeting.ts",
+                  "sha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                  "sizeBytes": 197
+                }
+              ],
+              "sectionUpdate": null,
+              "plannedChapter": null,
+              "retrieval": {
+                "policy": "atlas-captured-ranges-v1-files12-source250000",
+                "ledgerSha256": "4364a71fdb046db84579fcb1d1b0500ce7b305a2f66195d274f150267312d616",
+                "ranges": [
+                  {
+                    "snapshotId": "snap-1792231888401133000-57697-0",
+                    "path": "src/greeting.ts",
+                    "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                    "startByte": 53,
+                    "endByte": 125,
+                    "startLine": 2,
+                    "endLine": 4,
+                    "chunkSha256": "8a8d3cbfdf0742125de2e4b8f444f83e017092c93ce81f4c65bf144d6f6e8496",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  }
+                ]
+              },
+              "contentSha256": "c8d0544ffeafbb4ccc3c42b78ce699ce793aacc75a77740dbf2fd8ea6266d38f"
+            },
+            "sections": [
+              {
+                "sectionId": "section:973af08a-02f9-4a14-b9bd-9f990ef707d8",
+                "sectionRevisionId": "sectionrev:2aff7a6e-1f3e-4342-8eb6-70462c8fb65f",
+                "order": 0,
+                "title": "How greeting builds its returned string",
+                "prose": "In `greeting`, `name` is placed after `Hello, ` in the template string that the function returns. Read the labeled tokens left to right: “Mira” is an illustrative incoming name, and “Hello, Mira” shows the resulting string; this example illustrates the interpolation, not an observed run.",
+                "spokenText": "In `greeting`, `name` is placed after `Hello, ` in the template string that the function returns. Read the labeled tokens left to right: “Mira” is an illustrative incoming name, and “Hello, Mira” shows the resulting string; this example illustrates the interpolation, not an observed run.",
+                "claims": [
+                  {
+                    "claimId": "claim:c29bc770-f5f5-4e8f-9fcd-4f12b278d2eb",
+                    "category": {
+                      "kind": "codeBehavior"
+                    },
+                    "prose": "In `greeting`, `name` is placed after `Hello, ` in the template string that the function returns. Read the labeled tokens left to right: “Mira” is an illustrative incoming name, and “Hello, Mira” shows the resulting string; this example illustrates the interpolation, not an observed run.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:30faf8ed-c714-4492-9615-79ef2c3296f8",
+                        "path": "src/greeting.ts",
+                        "symbolId": "sym:b90c846b3673c9ede3b020afe8db4669cedb12b9d2dc94766cdaa714fd4ea82f",
+                        "snapshotId": "snap-1792231888401133000-57697-0",
+                        "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                        "startByte": 53,
+                        "endByteInclusive": 124,
+                        "startLine": 2,
+                        "endLine": 4,
+                        "startColumn": 8,
+                        "endColumn": 1,
+                        "excerpt": "function greeting(name: string): string {\n    return `Hello, ${name}`;\n}"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/greeting.ts",
+                        "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715"
+                      },
+                      {
+                        "kind": "symbol",
+                        "path": "src/greeting.ts",
+                        "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                        "symbolId": "sym:b90c846b3673c9ede3b020afe8db4669cedb12b9d2dc94766cdaa714fd4ea82f"
+                      }
+                    ]
+                  }
+                ],
+                "dependencies": [
+                  {
+                    "kind": "sourceFile",
+                    "path": "src/greeting.ts",
+                    "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715"
+                  },
+                  {
+                    "kind": "symbol",
+                    "path": "src/greeting.ts",
+                    "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                    "symbolId": "sym:b90c846b3673c9ede3b020afe8db4669cedb12b9d2dc94766cdaa714fd4ea82f"
+                  }
+                ],
+                "visual": {
+                  "presentation": {
+                    "schemaVersion": 1,
+                    "scenes": [
+                      {
+                        "claimIndex": 0,
+                        "title": "Name to greeting",
+                        "mode": "composition",
+                        "elements": [
+                          {
+                            "kind": "row",
+                            "parentIndex": null,
+                            "nodeIndex": null,
+                            "tone": "neutral",
+                            "value": "",
+                            "valueOrigin": "none"
+                          },
+                          {
+                            "kind": "token",
+                            "parentIndex": 0,
+                            "nodeIndex": 0,
+                            "tone": "accent",
+                            "value": "Mira",
+                            "valueOrigin": "illustration"
+                          },
+                          {
+                            "kind": "arrow",
+                            "parentIndex": 0,
+                            "nodeIndex": null,
+                            "tone": "muted",
+                            "value": "",
+                            "valueOrigin": "none"
+                          },
+                          {
+                            "kind": "token",
+                            "parentIndex": 0,
+                            "nodeIndex": 1,
+                            "tone": "positive",
+                            "value": "Hello, Mira",
+                            "valueOrigin": "illustration"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "schemaVersion": 2,
+                  "kind": "dataFlow",
+                  "title": "Name becomes the returned greeting",
+                  "layoutHint": {
+                    "direction": "leftToRight"
+                  },
+                  "nodes": [
+                    {
+                      "nodeId": "visualnode:aa490fd4-17d9-4378-90f5-3ce49538d6f6",
+                      "label": "Incoming name",
+                      "detail": "Illustrative value",
+                      "hotspotId": "visualhotspot:17dfe94a-9ea1-4452-b547-d16849c52b85",
+                      "evidenceAnchorIds": [
+                        "anchor:30faf8ed-c714-4492-9615-79ef2c3296f8"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:66fbce19-f22f-43f4-991e-54c17f0d01da",
+                      "label": "Returned string",
+                      "detail": "Illustrative result",
+                      "hotspotId": "visualhotspot:acf1ec1d-497c-4b30-ac63-f2ab81e02549",
+                      "evidenceAnchorIds": [
+                        "anchor:30faf8ed-c714-4492-9615-79ef2c3296f8"
+                      ]
+                    }
+                  ],
+                  "edges": []
+                },
+                "hotspots": [
+                  {
+                    "hotspotId": "overviewfile:3a1a77fb-d9ef-42bb-b83e-27d9ed45f1ef",
+                    "label": "Open file: src/greeting.ts",
+                    "destination": {
+                      "kind": "atlasFile",
+                      "path": "src/greeting.ts"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:17dfe94a-9ea1-4452-b547-d16849c52b85",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:30faf8ed-c714-4492-9615-79ef2c3296f8"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:acf1ec1d-497c-4b30-ac63-f2ab81e02549",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:30faf8ed-c714-4492-9615-79ef2c3296f8"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "validation": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:e8aac7f7-7383-47d2-b8d0-4ea588220a18",
+            "snapshotId": "snap-1792231888401133000-57697-0",
+            "status": "valid",
+            "issues": []
+          },
+          "modelId": "gpt-6-luna",
+          "modelVersion": null,
+          "inputTokens": null,
+          "outputTokens": null,
+          "updateNotes": []
+        },
+        "publishedElapsedMs": 19555,
+        "publishedRunElapsedMs": 19950,
+        "proposalSha256": "6e9562ce0d25cf0ea8ece5cbb62b87fc2c1869089e68f929c4bfeb7e325e7c75",
+        "checkpointSha256": "4364a71fdb046db84579fcb1d1b0500ce7b305a2f66195d274f150267312d616",
+        "checkpoint": {
+          "schemaVersion": 3,
+          "policy": "atlas-captured-ranges-v1-files12-source250000",
+          "binding": {
+            "operationId": "46b4aa4c-891f-4f10-95bc-04334d2fb09e",
+            "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-57697-97aefb8c-0bda-4c27-a2e1-c8665156847c/repository",
+            "snapshotId": "snap-1792231888401133000-57697-0",
+            "manifestSha256": "5ef20d14e185d540569613dd296c3c590a002dd4cb4e8ebbea06b20d1f93c42b",
+            "grantId": "6b021194-5d35-40b4-9b80-7f52ee8d838a",
+            "runtime": {
+              "connectionId": "7a7ce7a9-3cf7-4bd4-80da-bfb6c5066c35",
+              "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+              "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+              "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+              "accountRevision": 1
+            },
+            "model": "gpt-6-luna",
+            "effort": "max"
+          },
+          "startedAtUnixMs": 1792231890798,
+          "status": "active",
+          "calls": [
+            {
+              "id": "cb353ec7-5a0d-4852-88d5-9773987ed201",
+              "tool": "definitions",
+              "argumentsSha256": "b32a10d2ad4e87908be09fb2cfe713621799095ad5bc2c081c44594b693b3018",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 1621,
+              "wireBytes": 1621,
+              "payloadSha256": "e429be5fc6b37e9c2653719e87ff2e80d5eb48854c6cd60fdad5bfc9fb5ad836",
+              "timing": {
+                "startedMs": 7750,
+                "preparedMs": 7757,
+                "finishedMs": 7886
+              }
+            },
+            {
+              "id": "3f1abde3-ca06-4044-b61d-393191c68683",
+              "tool": "read",
+              "argumentsSha256": "5b73ac54bb0aafe2fdc77365fdfa5421f7a0685a9f4c83d6256712aca62d4ff0",
+              "state": "delivered",
+              "evidenceIds": [
+                "evidence:ef58ccc55d5b6a3ea06e5dd7f787018b5df3266561099d18f306a0c3e02cc696"
+              ],
+              "sourceBytes": 72,
+              "metadataBytes": 862,
+              "wireBytes": 936,
+              "payloadSha256": "df297fab272a1ce77000945918decc4f43f46a9e0cb20615901c02c2e246ca09",
+              "timing": {
+                "startedMs": 10103,
+                "preparedMs": 10109,
+                "finishedMs": 10240
+              }
+            }
+          ],
+          "evidence": [
+            {
+              "id": "evidence:ef58ccc55d5b6a3ea06e5dd7f787018b5df3266561099d18f306a0c3e02cc696",
+              "range": {
+                "snapshotId": "snap-1792231888401133000-57697-0",
+                "path": "src/greeting.ts",
+                "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+                "startByte": 53,
+                "endByte": 125,
+                "startLine": 2,
+                "endLine": 4,
+                "chunkSha256": "8a8d3cbfdf0742125de2e4b8f444f83e017092c93ce81f4c65bf144d6f6e8496",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            }
+          ],
+          "contextClock": "capturedCodeSessionV1"
+        }
+      }
+    ],
+    "attempts": [
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"greeting-transform\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"How greeting builds its returned string\",\"claims\":[{\"aspect\":\"inputOutput\",\"category\":\"codeBehavior\",\"evidence\":[{\"referenceId\":\"evidence:ef58ccc55d5b6a3ea06e5dd7f787018b5df3266561099d18f306a0c3e02cc696\"}],\"identifiers\":[\"greeting\",\"name\"],\"inferenceBasis\":\"\",\"prose\":\"In `greeting`, `name` is placed after `Hello, ` in the template string that the function returns. Read the labeled tokens left to right: “Mira” is an illustrative incoming name, and “Hello, Mira” shows the resulting string; this example illustrates the interpolation, not an observed run.\",\"relationshipIds\":[]}],\"visual\":{\"kind\":\"dataFlow\",\"title\":\"Name becomes the returned greeting\",\"direction\":\"leftToRight\",\"nodes\":[{\"label\":\"Incoming name\",\"detail\":\"Illustrative value\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"Returned string\",\"detail\":\"Illustrative result\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]}],\"edges\":[],\"presentation\":{\"schemaVersion\":1,\"scenes\":[{\"claimIndex\":0,\"title\":\"Name to greeting\",\"mode\":\"composition\",\"elements\":[{\"kind\":\"row\",\"parentIndex\":null,\"nodeIndex\":null,\"tone\":\"neutral\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"token\",\"parentIndex\":0,\"nodeIndex\":0,\"tone\":\"accent\",\"value\":\"Mira\",\"valueOrigin\":\"illustration\"},{\"kind\":\"arrow\",\"parentIndex\":0,\"nodeIndex\":null,\"tone\":\"muted\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"token\",\"parentIndex\":0,\"nodeIndex\":1,\"tone\":\"positive\",\"value\":\"Hello, Mira\",\"valueOrigin\":\"illustration\"}]}]}}}}",
+        "argumentsSha256": "77a8667bdc668657dd216c72ca5cce7042d2f4ca5b52407e1d0f322c78b66cb8",
+        "proposalSha256": "6e9562ce0d25cf0ea8ece5cbb62b87fc2c1869089e68f929c4bfeb7e325e7c75",
+        "findings": [],
+        "generationId": "generation:b419bf5b-ee09-4266-b41d-0008ef5357d2"
+      }
+    ],
+    "finalResponses": [
+      {
+        "text": "{\"manifestVersion\":\"answerManifestV1\",\"sections\":[{\"sectionKey\":\"greeting-transform\",\"generationId\":\"generation:b419bf5b-ee09-4266-b41d-0008ef5357d2\"}],\"incompleteTopics\":[]}",
+        "sha256": "75e3f693ec474f1dcc76cadbc9b97d356ced4c89091c0b23ed9f1adaad1742ae"
+      }
+    ],
+    "incompleteTopics": []
+  },
+  "ledger": {
+    "schemaVersion": 3,
+    "policy": "atlas-captured-ranges-v1-files12-source250000",
+    "binding": {
+      "operationId": "46b4aa4c-891f-4f10-95bc-04334d2fb09e",
+      "projectId": "/private/var/folders/ht/wsllq4_d55x89lcbwb5yvqpc0000gn/T/code-atlas-generated-chapter-57697-97aefb8c-0bda-4c27-a2e1-c8665156847c/repository",
+      "snapshotId": "snap-1792231888401133000-57697-0",
+      "manifestSha256": "5ef20d14e185d540569613dd296c3c590a002dd4cb4e8ebbea06b20d1f93c42b",
+      "grantId": "6b021194-5d35-40b4-9b80-7f52ee8d838a",
+      "runtime": {
+        "connectionId": "7a7ce7a9-3cf7-4bd4-80da-bfb6c5066c35",
+        "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+        "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+        "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+        "accountRevision": 1
+      },
+      "model": "gpt-6-luna",
+      "effort": "max"
+    },
+    "startedAtUnixMs": 1792231890798,
+    "status": "complete",
+    "calls": [
+      {
+        "id": "cb353ec7-5a0d-4852-88d5-9773987ed201",
+        "tool": "definitions",
+        "argumentsSha256": "b32a10d2ad4e87908be09fb2cfe713621799095ad5bc2c081c44594b693b3018",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1621,
+        "wireBytes": 1621,
+        "payloadSha256": "e429be5fc6b37e9c2653719e87ff2e80d5eb48854c6cd60fdad5bfc9fb5ad836",
+        "timing": {
+          "startedMs": 7750,
+          "preparedMs": 7757,
+          "finishedMs": 7886
+        }
+      },
+      {
+        "id": "3f1abde3-ca06-4044-b61d-393191c68683",
+        "tool": "read",
+        "argumentsSha256": "5b73ac54bb0aafe2fdc77365fdfa5421f7a0685a9f4c83d6256712aca62d4ff0",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:ef58ccc55d5b6a3ea06e5dd7f787018b5df3266561099d18f306a0c3e02cc696"
+        ],
+        "sourceBytes": 72,
+        "metadataBytes": 862,
+        "wireBytes": 936,
+        "payloadSha256": "df297fab272a1ce77000945918decc4f43f46a9e0cb20615901c02c2e246ca09",
+        "timing": {
+          "startedMs": 10103,
+          "preparedMs": 10109,
+          "finishedMs": 10240
+        }
+      },
+      {
+        "id": "1c6239ff-7bff-4a82-a427-304c9abb8c0a",
+        "tool": "proposeSection",
+        "argumentsSha256": "77a8667bdc668657dd216c72ca5cce7042d2f4ca5b52407e1d0f322c78b66cb8",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 515,
+        "wireBytes": 515,
+        "payloadSha256": "06940027d6ea35f0147effb1db735bc3a7162bac167550ceabb13ab68df3e7a1",
+        "timing": {
+          "startedMs": 19540,
+          "preparedMs": 19826,
+          "finishedMs": 19955
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "id": "evidence:ef58ccc55d5b6a3ea06e5dd7f787018b5df3266561099d18f306a0c3e02cc696",
+        "range": {
+          "snapshotId": "snap-1792231888401133000-57697-0",
+          "path": "src/greeting.ts",
+          "sourceSha256": "209f09f08f5b7f4649c827a29566767507374fd9f513a9005c2ba32bd83fb715",
+          "startByte": 53,
+          "endByte": 125,
+          "startLine": 2,
+          "endLine": 4,
+          "chunkSha256": "8a8d3cbfdf0742125de2e4b8f444f83e017092c93ce81f4c65bf144d6f6e8496",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      }
+    ],
+    "contextClock": "capturedCodeSessionV1"
+  }
+}

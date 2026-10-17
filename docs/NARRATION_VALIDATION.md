@@ -9,8 +9,8 @@ offline-export checks.
 
 - Record app version/commit, macOS version, selected chapter/section, model ID,
   voice and delivery style from Connections → Voice. Only for explicitly selected Google speech, record the key's project tier; the app cannot inspect tier, quota or remaining usage.
-- Keep narration optional. The chapter prose, captured source, path names, and
-  citations must remain visible/readable with audio unavailable.
+- Keep narration optional. Captured code, source links and a readable narration
+  disclosure must remain available with audio unavailable; the script starts collapsed.
 - Newly generated behavior sections should already contain a concise natural
   speech script; this script is still editable, and no audio is synthesized
   until the reader explicitly requests it. App-generated evidence-limit
@@ -47,9 +47,9 @@ source identifiers remain unchanged.
 
 1. Edit the section's **spoken text**. Confirm the visible explanation, code,
    path, and citations remain separate and unchanged.
-2. For local Pocket, choose Listen and check the resolved transcript after pronunciation substitutions. The native review/cache lookup runs in the background. Engine/setup/model/voice controls must be absent from the answer. For Google, inspect the exact text, provider terms and optional segment details in its send review before consent. Confirm no source excerpt, repository path or whole-chapter content is included by default.
+2. For local Pocket, choose Play and expand Read narration to check the resolved transcript after pronunciation substitutions. The native review/cache lookup runs in the background. Engine/setup/model/voice controls must be absent from the answer. For Google, inspect the exact text, provider terms and optional segment details in its send review before consent. Confirm no source excerpt, repository path or whole-chapter content is included by default.
 3. Edit a script word beside the section or change delivery in Connections → Voice. Confirm old review/cache matching is invalidated and obsolete audio cannot play. Google consent must reset and a fresh exact-text review is required before sending.
-4. Listen once, then hear the complete result. Local narration must not require another Generate click. Assess pronunciation,
+4. Press Play once, then hear the complete result. Local narration must not require another Generate click. Assess pronunciation,
    punctuation, pacing, voice quality, and whether sentences are easy to
    follow. Compare the audio against the exact displayed script; do not accept
    audio that omits, adds, or garbles a substantive phrase.
@@ -89,7 +89,7 @@ Unresolved issues:
 ## Current Connections workflow (October 16 workspace)
 Open the header's connection button, then **Voice**. Pocket/Alba is the default. Prepare the voice once if needed; repair and license attribution are in Voice details and troubleshooting. Google is optional and explicitly selected here, with its key saved in Keychain. Voice and style apply across answers and repositories, including export cache matching. Existing per-section text and pronunciation edits remain local; legacy cloud settings do not override the global choice.
 
-On an answer choose **Listen**. Local review/cache lookup and synthesis run behind playback controls. Captions show the final pronunciation-expanded script. Pause, replay, seek and Next stay deliberate. The engine, runtime setup, voice and style no longer appear on each section. Optional transcript/pronunciation editing remains beside the section. For Google, inspect the exact text and provider terms and consent before sending; choosing the engine alone never authorizes a request. No cloud fallback is used.
+On an answer choose **Play**. Local review/cache lookup and synthesis run behind playback controls. **Read narration** reveals the final pronunciation-expanded script; it starts collapsed. Pause, replay, seek and section Next stay deliberate. The engine, runtime setup, voice and style no longer appear on each section. Optional transcript/pronunciation editing remains beside the section. For Google, inspect the exact text and provider terms and consent before sending; choosing the engine alone never authorizes a request. No cloud fallback is used.
 
 Validate across two answers and app restart. Changing Connections during a request must invalidate its review and prevent a stale result from playing. Export must scan the selected connection's matching audio without generating speech. Setup/key updates must refresh the open player when Connections closes. Human speech quality and code-name pronunciation still require listening review.
 
@@ -114,3 +114,43 @@ same default script as the player; the exact prepared text remains visible.
 Regressions cover the earlier Fontdone sentence-loss case and immutable legacy
 replay. Fresh generated content, actual Pocket output, pacing and comprehension
 still require the review above. Existing incomplete drafts remain incomplete.
+
+## Visual and HTML scene checks — October 17
+
+Guide and the standalone player now share a visual stage with Play/Pause,
+Replay, Stop, Seek and Previous/Next scene above it. Read narration, Edit spoken
+text and Scene details start collapsed. The selected AI connection can author
+[HTML compositions](VISUAL_SCENES.md) or a graph appropriate to the behavior.
+A node or HTML content element opens its exact captured source.
+
+When all saved narration is exactly covered by the authored grounded claims,
+each claim is one clip. Actual playback completion advances the visual scene;
+the section boundary always waits for the reader. A paused restored clip already
+at its end must stay on that scene. Manual scene/node selection stops playback
+and cancels the old clip request. Only one narration can play at a time across
+answer cards. Older summaries and custom whole-section scripts stay whole.
+
+Record these additional checks before closing the task:
+
+- Narration refers to the visual cues and explains what changes and why the
+  outcome matters. Every condition/error is preserved; pronunciation expansion
+  must not change the facts. Listen to graph and HTML examples.
+- Example data and pixels visibly say **Illustrative example** unless their
+  values are exact captured source substrings. No example is presented as a
+  recorded runtime result.
+- A completed clip advances exactly one scene. Manual selection, pause, seek,
+  stop and reopening an ended clip do not auto-advance. No second card can keep
+  playing in the background.
+- Scene selection and independent clip positions restore after restart without
+  autoplay. Verify code opening/return, keyboard and Reduce Motion in both the
+  Guide and standalone player.
+- Scene script/lexicon edits change that clip's cache identity. Global voice and
+  delivery remain in Connections. A prior whole-section edited script stays
+  authoritative; scene splitting never rewrites it.
+- Offline export currently scans full-section narration caches, not composed
+  scene clips. A missing matching full-section track remains transcript-only;
+  do not record scene audio export as passed. HTML scene fidelity in the static
+  export also remains pending.
+
+Automated bounds, native validation and playback-state observations are not a
+human listening/comprehension pass. Record the listener and actual notes above.

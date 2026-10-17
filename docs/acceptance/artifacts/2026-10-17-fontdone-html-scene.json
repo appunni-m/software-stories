@@ -1,0 +1,700 @@
+{
+  "fixture": "Fontdone captured public implementation; PFR0 dispatch branch only",
+  "operationId": "8d205cfd-063e-411a-b89a-605e9e1b1208",
+  "installedExecutableSha256": "9c661e10408510dcd950e959e241c38e03cc8fac386840e2f2f4ad7aa0616af5",
+  "model": "gpt-6-luna",
+  "effort": "max",
+  "answer": {
+    "schemaVersion": 1,
+    "binding": {
+      "operationId": "8d205cfd-063e-411a-b89a-605e9e1b1208",
+      "projectId": "/Users/lazytrot/work/fontdone",
+      "snapshotId": "snap-1792140879637485000-11155-0",
+      "manifestSha256": "25f5e44bfdd1dab6b31310f7307f165a9171a8b9fc55256ef599e9c8196ad3a2",
+      "grantId": "f956dbe2-fb2e-43d2-b70a-d2c9b882523b",
+      "runtime": {
+        "connectionId": "0ea58d31-f709-48f4-a25b-7634c4b99204",
+        "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+        "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+        "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+        "accountRevision": 1
+      },
+      "model": "gpt-6-luna",
+      "effort": "max"
+    },
+    "requestSha256": "818670fc1eb2c916765190589c5d22b7f1c97e1abb284c55fa538c00fe722e44",
+    "question": "Earlier questions: Explain what outline.rs:1\u201346 does and how it works. \u2192 How does Font::memory_face choose a format and create a usable face? Start with its ordered dispatch and invalid input or face-index branches. Then explain which SFNT tables are required, how missing tables differ from malformed table contents, and where errors propagate. Show the real code paths and useful diagrams.. Current question: In src/font.rs, show how the PFR0 prefix branch in Font::memory_face sends the incoming bytes to pfr_face. Make this a short narrated HTML visual story with an input/header representation and its consequence. Explain only this dispatch branch; do not investigate PFR internals or unrelated formats. Use a graph only if it teaches something that the header representation cannot.",
+    "outcome": "complete",
+    "sections": [
+      {
+        "checkpointVersion": 2,
+        "key": "pfr0-prefix-dispatch",
+        "order": 0,
+        "supersedes": null,
+        "preview": {
+          "generationId": "generation:db86e564-32fc-4ac7-a42a-9e14e0ee9860",
+          "revision": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:14c633a6-36ca-4ebb-812b-cc7bc6c0af46",
+            "revisionNumber": 1,
+            "projectId": "/Users/lazytrot/work/fontdone",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "target": {
+              "targetId": "target:overview",
+              "scope": {
+                "kind": "overview"
+              }
+            },
+            "title": "The PFR0 prefix dispatch",
+            "lifecycle": "draft",
+            "validationStatus": "valid",
+            "createdAtUnixMs": 1792232029634,
+            "generationOrigin": {
+              "schemaVersion": 5,
+              "projectId": "/Users/lazytrot/work/fontdone",
+              "snapshotId": "snap-1792140879637485000-11155-0",
+              "targetPath": null,
+              "purpose": "repositoryOverview",
+              "requestId": "8d205cfd-063e-411a-b89a-605e9e1b1208",
+              "requestFingerprint": "47dd935c97e3fc1beb2894573a7731cfa3f6f6eedaa7fc259805e6ff3f789cf5",
+              "requestBodySha256": "818670fc1eb2c916765190589c5d22b7f1c97e1abb284c55fa538c00fe722e44",
+              "contractVersion": "codex-retrieval-v3-answer-sections",
+              "settings": {
+                "backend": "codex",
+                "modelId": "gpt-6-luna",
+                "effort": "max",
+                "approvalPolicy": "never"
+              },
+              "sourceFiles": [
+                {
+                  "path": "src/font.rs",
+                  "sha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                  "sizeBytes": 375700
+                }
+              ],
+              "sectionUpdate": null,
+              "plannedChapter": null,
+              "retrieval": {
+                "policy": "atlas-captured-ranges-v1-files12-source250000",
+                "ledgerSha256": "6f0bbb1fc64dc2bd318497dcc7f9b5ed6cd9e714cf95440be9671fcb912075d9",
+                "ranges": [
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 147769,
+                    "endByte": 148750,
+                    "startLine": 4053,
+                    "endLine": 4078,
+                    "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 148750,
+                    "endByte": 149723,
+                    "startLine": 4079,
+                    "endLine": 4096,
+                    "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 149723,
+                    "endByte": 150666,
+                    "startLine": 4097,
+                    "endLine": 4115,
+                    "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  }
+                ]
+              },
+              "contentSha256": "c2c44d15dcc85e40a70649ed341a1145c4eda3e377c835d3b5ecbae77f043e28"
+            },
+            "sections": [
+              {
+                "sectionId": "section:e8174905-3223-4d10-bce5-d91ffb808a18",
+                "sectionRevisionId": "sectionrev:07c802d9-10a4-4a4a-aea4-4b55726e93cf",
+                "order": 0,
+                "title": "The PFR0 prefix dispatch",
+                "prose": "memory_face checks data.starts_with(b\"PFR0\"); on a match it immediately returns Self::pfr_face(data, face_index, size_pt), forwarding the original byte slice, face index, and point size. The header badge represents only the tested prefix, not a complete observed input.",
+                "spokenText": "memory_face checks data.starts_with(b\"PFR0\"); on a match it immediately returns Self::pfr_face(data, face_index, size_pt), forwarding the original byte slice, face index, and point size. The header badge represents only the tested prefix, not a complete observed input.",
+                "claims": [
+                  {
+                    "claimId": "claim:73971bf7-846d-486f-9314-dee5fd5f3a7a",
+                    "category": {
+                      "kind": "codeBehavior"
+                    },
+                    "prose": "memory_face checks data.starts_with(b\"PFR0\"); on a match it immediately returns Self::pfr_face(data, face_index, size_pt), forwarding the original byte slice, face index, and point size. The header badge represents only the tested prefix, not a complete observed input.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:79efa9b8-431d-49a6-8cef-0ba4183116f7",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 147769,
+                        "endByteInclusive": 148749,
+                        "startLine": 4053,
+                        "endLine": 4078,
+                        "startColumn": 5,
+                        "endColumn": 10,
+                        "excerpt": "pub(crate) fn memory_face(\n        data: &[u8],\n        face_index: usize,\n        size_pt: f32,\n    ) -> Result<Self, FontError> {\n        if read_u32_le(data, 0) == Some(PCF_FILE_VERSION) {\n            return Self::pcf_face(data, face_index, size_pt);\n        }\n        if data.starts_with(b\"PFR0\") {\n            return Self::pfr_face(data, face_index, size_pt);\n        }\n        if matches!(read_u16_le(data, 0), Some(0x0200) | Some(0x0300)) {\n            return Self::winfnt_face(data, face_index, size_pt);\n        }\n        if bdf_text(data)\n            .and_then(first_bdf_keyword)\n            .is_some_and(is_bdf_probe_keyword)\n        {\n            if let Some(error) = parse_bdf_constructor_error(data) {\n                return Err(error);\n            }\n            return Self::bdf_face(data, face_index, size_pt);\n        }\n        if data.starts_with(b\"%!PS-Adobe-3.0 Resource-CIDFont\") {\n            return Self::cid_type1_face(data, face_index, size_pt);\n        }\n"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2"
+                      },
+                      {
+                        "kind": "symbol",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481"
+                      }
+                    ]
+                  }
+                ],
+                "dependencies": [
+                  {
+                    "kind": "sourceFile",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2"
+                  },
+                  {
+                    "kind": "symbol",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481"
+                  }
+                ],
+                "visual": {
+                  "presentation": {
+                    "schemaVersion": 1,
+                    "scenes": [
+                      {
+                        "claimIndex": 0,
+                        "title": "Prefix match \u2192 face constructor",
+                        "mode": "composition",
+                        "elements": [
+                          {
+                            "kind": "row",
+                            "parentIndex": null,
+                            "nodeIndex": null,
+                            "tone": "neutral",
+                            "value": "",
+                            "valueOrigin": "none"
+                          },
+                          {
+                            "kind": "token",
+                            "parentIndex": 0,
+                            "nodeIndex": 0,
+                            "tone": "accent",
+                            "value": "PFR0",
+                            "valueOrigin": "source"
+                          },
+                          {
+                            "kind": "arrow",
+                            "parentIndex": 0,
+                            "nodeIndex": null,
+                            "tone": "muted",
+                            "value": "",
+                            "valueOrigin": "none"
+                          },
+                          {
+                            "kind": "code",
+                            "parentIndex": 0,
+                            "nodeIndex": 1,
+                            "tone": "positive",
+                            "value": "Self::pfr_face(data, face_index, size_pt)",
+                            "valueOrigin": "source"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "schemaVersion": 2,
+                  "kind": "dataFlow",
+                  "title": "PFR0 dispatch",
+                  "layoutHint": {
+                    "direction": "leftToRight"
+                  },
+                  "nodes": [
+                    {
+                      "nodeId": "visualnode:a00b40c7-ded5-4a4f-9d39-729b45649f98",
+                      "label": "PFR0 prefix",
+                      "detail": "Header marker checked on data",
+                      "hotspotId": "visualhotspot:7e036533-7664-49d2-b981-952d1e94f215",
+                      "evidenceAnchorIds": [
+                        "anchor:79efa9b8-431d-49a6-8cef-0ba4183116f7"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:c9e888e0-71b5-4d10-93b1-461c3415892c",
+                      "label": "pfr_face",
+                      "detail": "Called with data, face_index, size_pt",
+                      "hotspotId": "visualhotspot:ba22784e-be4d-4e26-827f-40cf3563cc7a",
+                      "evidenceAnchorIds": [
+                        "anchor:79efa9b8-431d-49a6-8cef-0ba4183116f7"
+                      ]
+                    }
+                  ],
+                  "edges": []
+                },
+                "hotspots": [
+                  {
+                    "hotspotId": "overviewfile:d319b797-0164-4f4c-9d80-5d1f24ea3b9f",
+                    "label": "Open file: src/font.rs",
+                    "destination": {
+                      "kind": "atlasFile",
+                      "path": "src/font.rs"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:7e036533-7664-49d2-b981-952d1e94f215",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:79efa9b8-431d-49a6-8cef-0ba4183116f7"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:ba22784e-be4d-4e26-827f-40cf3563cc7a",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:79efa9b8-431d-49a6-8cef-0ba4183116f7"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "validation": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:14c633a6-36ca-4ebb-812b-cc7bc6c0af46",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "status": "valid",
+            "issues": []
+          },
+          "modelId": "gpt-6-luna",
+          "modelVersion": null,
+          "inputTokens": null,
+          "outputTokens": null,
+          "updateNotes": []
+        },
+        "publishedElapsedMs": 74787,
+        "publishedRunElapsedMs": 75442,
+        "proposalSha256": "edaa6dbcd32ecbe2a12752b37e127f5ead9eb187989552d1ad3516ca3097f8fc",
+        "checkpointSha256": "6f0bbb1fc64dc2bd318497dcc7f9b5ed6cd9e714cf95440be9671fcb912075d9",
+        "checkpoint": {
+          "schemaVersion": 3,
+          "policy": "atlas-captured-ranges-v1-files12-source250000",
+          "binding": {
+            "operationId": "8d205cfd-063e-411a-b89a-605e9e1b1208",
+            "projectId": "/Users/lazytrot/work/fontdone",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "manifestSha256": "25f5e44bfdd1dab6b31310f7307f165a9171a8b9fc55256ef599e9c8196ad3a2",
+            "grantId": "f956dbe2-fb2e-43d2-b70a-d2c9b882523b",
+            "runtime": {
+              "connectionId": "0ea58d31-f709-48f4-a25b-7634c4b99204",
+              "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+              "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+              "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+              "accountRevision": 1
+            },
+            "model": "gpt-6-luna",
+            "effort": "max"
+          },
+          "startedAtUnixMs": 1792231955070,
+          "status": "active",
+          "calls": [
+            {
+              "id": "99dcdcd5-5338-4068-b5cb-4f8f76506568",
+              "tool": "definitions",
+              "argumentsSha256": "711faee91bf7ef228148b951d8ad4986ae5a051049f27d6e3a518bfd2ff21428",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 1661,
+              "wireBytes": 1661,
+              "payloadSha256": "c30f5f7d037e95a888702aab3afed50933d4f7fa5478fa3a8e7e63fd0d9bed9c",
+              "timing": {
+                "startedMs": 7205,
+                "preparedMs": 7269,
+                "finishedMs": 7494
+              }
+            },
+            {
+              "id": "966d606c-c178-46fa-a6a0-a6ea20985395",
+              "tool": "read",
+              "argumentsSha256": "75858092792d59456f890f0fd5552bc5fbdf67a0a65b98fd6b1a818c88ef52fb",
+              "state": "delivered",
+              "evidenceIds": [
+                "evidence:042825dec0df091bb632f2e1cca18e850ab42fed0124cab80686316c9dca6ef0",
+                "evidence:e915450fffe6e7dcf8e80e926b55303b9ba2406786165c084eeaf49b918a2dba",
+                "evidence:ef2a4e974ee3562f095fa9dd23bf5aa6e7d5d77d9b309b1613610b66fd442564"
+              ],
+              "sourceBytes": 2897,
+              "metadataBytes": 1807,
+              "wireBytes": 4772,
+              "payloadSha256": "e0350103b4142c542df1f6a7310ba6f918675e58f820eb26e079ece27993d349",
+              "timing": {
+                "startedMs": 10502,
+                "preparedMs": 10766,
+                "finishedMs": 11004
+              }
+            },
+            {
+              "id": "f33e8d64-7fe3-4856-bc08-828ef68f47e5",
+              "tool": "proposeSection",
+              "argumentsSha256": "a03107fec9c227771fdea5d406056911e47aa7f64813257852252453bdf528ec",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 520,
+              "wireBytes": 520,
+              "payloadSha256": "0d8811534b8495beb7e6a6cec41fd55704ae70448a96fbc5050130c855092ef8",
+              "timing": {
+                "startedMs": 28244,
+                "preparedMs": 29432,
+                "finishedMs": 29657
+              }
+            },
+            {
+              "id": "95b27192-3cf5-4298-91ca-e2a4bc564e2b",
+              "tool": "proposeSection",
+              "argumentsSha256": "bae871aaed7f2c4b7205d94e41f837cfdf01d0fb9fe3091e41e3b91ab6f25e8c",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 520,
+              "wireBytes": 520,
+              "payloadSha256": "ed77391583a0d427d3d7568a7924cd84fdfedbd9cd9878cfa0d9106fd483ed53",
+              "timing": {
+                "startedMs": 47117,
+                "preparedMs": 48331,
+                "finishedMs": 48569
+              }
+            },
+            {
+              "id": "3e7a7ef5-d12f-4d94-bb7d-e391bce3249a",
+              "tool": "proposeSection",
+              "argumentsSha256": "04df770b6484978f1b2b177e0c34f89f0ebea3686cf425fea6944f0c541b3ebe",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 520,
+              "wireBytes": 520,
+              "payloadSha256": "76c927c56dd64f48cd4979f265a9b249baf096ff166936fd9b3c6912c16f20e1",
+              "timing": {
+                "startedMs": 66262,
+                "preparedMs": 67415,
+                "finishedMs": 67637
+              }
+            }
+          ],
+          "evidence": [
+            {
+              "id": "evidence:ef2a4e974ee3562f095fa9dd23bf5aa6e7d5d77d9b309b1613610b66fd442564",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 147769,
+                "endByte": 148750,
+                "startLine": 4053,
+                "endLine": 4078,
+                "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:042825dec0df091bb632f2e1cca18e850ab42fed0124cab80686316c9dca6ef0",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 148750,
+                "endByte": 149723,
+                "startLine": 4079,
+                "endLine": 4096,
+                "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:e915450fffe6e7dcf8e80e926b55303b9ba2406786165c084eeaf49b918a2dba",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 149723,
+                "endByte": 150666,
+                "startLine": 4097,
+                "endLine": 4115,
+                "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            }
+          ],
+          "contextClock": "capturedCodeSessionV1"
+        }
+      }
+    ],
+    "attempts": [
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"pfr0-prefix-dispatch\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"The PFR0 prefix dispatch\",\"claims\":[{\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"prose\":\"In memory_face, data.starts_with(b\\\"PFR0\\\") recognizes the PFR0 prefix. On a match it immediately returns Self::pfr_face(data, face_index, size_pt), forwarding the original bytes plus the face index and point size; the header badge below represents only that tested prefix, not a complete observed input.\",\"identifiers\":[\"memory_face\",\"data.starts_with\",\"pfr_face\"],\"evidence\":[{\"referenceId\":\"evidence:ef2a4e974ee3562f095fa9dd23bf5aa6e7d5d77d9b309b1613610b66fd442564\"}],\"inferenceBasis\":\"\",\"relationshipIds\":[]}],\"visual\":{\"kind\":\"dataFlow\",\"direction\":\"leftToRight\",\"nodes\":[{\"label\":\"PFR0 prefix\",\"detail\":\"The header marker tested on data\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"pfr_face\",\"detail\":\"Receives data, face_index, and size_pt\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]}],\"edges\":[],\"presentation\":{\"schemaVersion\":1,\"scenes\":[{\"claimIndex\":0,\"title\":\"Prefix match \u2192 face constructor\",\"mode\":\"composition\",\"elements\":[{\"kind\":\"row\",\"parentIndex\":null,\"nodeIndex\":null,\"tone\":\"neutral\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"token\",\"parentIndex\":0,\"nodeIndex\":0,\"tone\":\"accent\",\"value\":\"PFR0\",\"valueOrigin\":\"source\"},{\"kind\":\"arrow\",\"parentIndex\":0,\"nodeIndex\":null,\"tone\":\"muted\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"code\",\"parentIndex\":0,\"nodeIndex\":1,\"tone\":\"positive\",\"value\":\"Self::pfr_face(data, face_index, size_pt)\",\"valueOrigin\":\"source\"}]}]}}}}",
+        "argumentsSha256": "a03107fec9c227771fdea5d406056911e47aa7f64813257852252453bdf528ec",
+        "proposalSha256": "5c6695f3b690bdeb09f94708a9d0ed7c880032159627dbd3516e3df36d5746c2",
+        "findings": [
+          {
+            "location": "/section",
+            "code": "sectionValidation"
+          }
+        ],
+        "generationId": null
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"pfr0-prefix-dispatch\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"The PFR0 prefix dispatch\",\"claims\":[{\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"prose\":\"memory_face checks data.starts_with(b\\\"PFR0\\\"); on a match it returns Self::pfr_face(data, face_index, size_pt), passing the original slice and the same face index and point size. The header badge below represents only the tested prefix, not a complete observed input.\",\"identifiers\":[\"memory_face\",\"pfr_face\"],\"evidence\":[{\"referenceId\":\"evidence:ef2a4e974ee3562f095fa9dd23bf5aa6e7d5d77d9b309b1613610b66fd442564\"}],\"inferenceBasis\":\"\",\"relationshipIds\":[]}],\"visual\":{\"kind\":\"dataFlow\",\"direction\":\"leftToRight\",\"nodes\":[{\"label\":\"PFR0 prefix\",\"detail\":\"Header marker checked on data\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"pfr_face\",\"detail\":\"Called with data, face_index, size_pt\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]}],\"edges\":[],\"presentation\":{\"schemaVersion\":1,\"scenes\":[{\"claimIndex\":0,\"title\":\"Prefix match \u2192 face constructor\",\"mode\":\"composition\",\"elements\":[{\"kind\":\"row\",\"parentIndex\":null,\"nodeIndex\":null,\"tone\":\"neutral\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"token\",\"parentIndex\":0,\"nodeIndex\":0,\"tone\":\"accent\",\"value\":\"PFR0\",\"valueOrigin\":\"source\"},{\"kind\":\"arrow\",\"parentIndex\":0,\"nodeIndex\":null,\"tone\":\"muted\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"code\",\"parentIndex\":0,\"nodeIndex\":1,\"tone\":\"positive\",\"value\":\"Self::pfr_face(data, face_index, size_pt)\",\"valueOrigin\":\"source\"}]}]}}}}",
+        "argumentsSha256": "bae871aaed7f2c4b7205d94e41f837cfdf01d0fb9fe3091e41e3b91ab6f25e8c",
+        "proposalSha256": "12b6b20af055a0fabc485943553155f9b2039922f40659183cfa85e7c2fa9c24",
+        "findings": [
+          {
+            "location": "/section",
+            "code": "sectionValidation"
+          }
+        ],
+        "generationId": null
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"pfr0-prefix-dispatch\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"The PFR0 prefix dispatch\",\"claims\":[{\"category\":\"codeBehavior\",\"aspect\":\"inputOutput\",\"prose\":\"memory_face checks data.starts_with(b\\\"PFR0\\\"); on a match it returns Self::pfr_face(data, face_index, size_pt), passing the original slice, face index, and point size. The header badge represents only the tested prefix, not a complete observed input.\",\"identifiers\":[\"memory_face\",\"pfr_face\"],\"evidence\":[{\"referenceId\":\"evidence:ef2a4e974ee3562f095fa9dd23bf5aa6e7d5d77d9b309b1613610b66fd442564\"}],\"inferenceBasis\":\"Directly stated by the prefix check and return in memory_face.\",\"relationshipIds\":[]}],\"visual\":{\"kind\":\"dataFlow\",\"direction\":\"leftToRight\",\"nodes\":[{\"label\":\"PFR0 prefix\",\"detail\":\"Header marker checked on data\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"pfr_face\",\"detail\":\"Called with data, face_index, size_pt\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]}],\"edges\":[],\"presentation\":{\"schemaVersion\":1,\"scenes\":[{\"claimIndex\":0,\"title\":\"Prefix match \u2192 face constructor\",\"mode\":\"composition\",\"elements\":[{\"kind\":\"row\",\"parentIndex\":null,\"nodeIndex\":null,\"tone\":\"neutral\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"token\",\"parentIndex\":0,\"nodeIndex\":0,\"tone\":\"accent\",\"value\":\"PFR0\",\"valueOrigin\":\"source\"},{\"kind\":\"code\",\"parentIndex\":0,\"nodeIndex\":1,\"tone\":\"positive\",\"value\":\"Self::pfr_face(data, face_index, size_pt)\",\"valueOrigin\":\"source\"}]}]}}}}",
+        "argumentsSha256": "04df770b6484978f1b2b177e0c34f89f0ebea3686cf425fea6944f0c541b3ebe",
+        "proposalSha256": "1508cf6016b1e3b6a1c7867d9f546a5ca393ba05b36700b8ac79f57a45709213",
+        "findings": [
+          {
+            "location": "/section",
+            "code": "sectionValidation"
+          }
+        ],
+        "generationId": null
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"pfr0-prefix-dispatch\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"The PFR0 prefix dispatch\",\"claims\":[{\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"prose\":\"memory_face checks data.starts_with(b\\\"PFR0\\\"); on a match it immediately returns Self::pfr_face(data, face_index, size_pt), forwarding the original byte slice, face index, and point size. The header badge represents only the tested prefix, not a complete observed input.\",\"identifiers\":[\"memory_face\",\"pfr_face\"],\"evidence\":[{\"referenceId\":\"evidence:ef2a4e974ee3562f095fa9dd23bf5aa6e7d5d77d9b309b1613610b66fd442564\"}],\"inferenceBasis\":\"Directly stated by the PFR0 check and return in memory_face.\",\"relationshipIds\":[]}],\"visual\":{\"title\":\"PFR0 dispatch\",\"kind\":\"dataFlow\",\"direction\":\"leftToRight\",\"nodes\":[{\"label\":\"PFR0 prefix\",\"detail\":\"Header marker checked on data\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"pfr_face\",\"detail\":\"Called with data, face_index, size_pt\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]}],\"edges\":[],\"presentation\":{\"schemaVersion\":1,\"scenes\":[{\"claimIndex\":0,\"title\":\"Prefix match \u2192 face constructor\",\"mode\":\"composition\",\"elements\":[{\"kind\":\"row\",\"parentIndex\":null,\"nodeIndex\":null,\"tone\":\"neutral\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"token\",\"parentIndex\":0,\"nodeIndex\":0,\"tone\":\"accent\",\"value\":\"PFR0\",\"valueOrigin\":\"source\"},{\"kind\":\"arrow\",\"parentIndex\":0,\"nodeIndex\":null,\"tone\":\"muted\",\"value\":\"\",\"valueOrigin\":\"none\"},{\"kind\":\"code\",\"parentIndex\":0,\"nodeIndex\":1,\"tone\":\"positive\",\"value\":\"Self::pfr_face(data, face_index, size_pt)\",\"valueOrigin\":\"source\"}]}]}}}}",
+        "argumentsSha256": "0ba5c5032e2ef163457b665cbefd1056aae186c0aaae69b0c43cdfa36378957d",
+        "proposalSha256": "edaa6dbcd32ecbe2a12752b37e127f5ead9eb187989552d1ad3516ca3097f8fc",
+        "findings": [],
+        "generationId": "generation:db86e564-32fc-4ac7-a42a-9e14e0ee9860"
+      }
+    ],
+    "finalResponses": [
+      {
+        "text": "{\"manifestVersion\":\"answerManifestV1\",\"sections\":[{\"sectionKey\":\"pfr0-prefix-dispatch\",\"generationId\":\"generation:db86e564-32fc-4ac7-a42a-9e14e0ee9860\"}],\"incompleteTopics\":[]}",
+        "sha256": "af7e48f953ab8e6da481ff226b60e6281f597a1c9fc592094e2e46f203fee2c6"
+      }
+    ],
+    "incompleteTopics": []
+  },
+  "ledger": {
+    "schemaVersion": 3,
+    "policy": "atlas-captured-ranges-v1-files12-source250000",
+    "binding": {
+      "operationId": "8d205cfd-063e-411a-b89a-605e9e1b1208",
+      "projectId": "/Users/lazytrot/work/fontdone",
+      "snapshotId": "snap-1792140879637485000-11155-0",
+      "manifestSha256": "25f5e44bfdd1dab6b31310f7307f165a9171a8b9fc55256ef599e9c8196ad3a2",
+      "grantId": "f956dbe2-fb2e-43d2-b70a-d2c9b882523b",
+      "runtime": {
+        "connectionId": "0ea58d31-f709-48f4-a25b-7634c4b99204",
+        "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+        "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+        "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+        "accountRevision": 1
+      },
+      "model": "gpt-6-luna",
+      "effort": "max"
+    },
+    "startedAtUnixMs": 1792231955070,
+    "status": "complete",
+    "calls": [
+      {
+        "id": "99dcdcd5-5338-4068-b5cb-4f8f76506568",
+        "tool": "definitions",
+        "argumentsSha256": "711faee91bf7ef228148b951d8ad4986ae5a051049f27d6e3a518bfd2ff21428",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1661,
+        "wireBytes": 1661,
+        "payloadSha256": "c30f5f7d037e95a888702aab3afed50933d4f7fa5478fa3a8e7e63fd0d9bed9c",
+        "timing": {
+          "startedMs": 7205,
+          "preparedMs": 7269,
+          "finishedMs": 7494
+        }
+      },
+      {
+        "id": "966d606c-c178-46fa-a6a0-a6ea20985395",
+        "tool": "read",
+        "argumentsSha256": "75858092792d59456f890f0fd5552bc5fbdf67a0a65b98fd6b1a818c88ef52fb",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:042825dec0df091bb632f2e1cca18e850ab42fed0124cab80686316c9dca6ef0",
+          "evidence:e915450fffe6e7dcf8e80e926b55303b9ba2406786165c084eeaf49b918a2dba",
+          "evidence:ef2a4e974ee3562f095fa9dd23bf5aa6e7d5d77d9b309b1613610b66fd442564"
+        ],
+        "sourceBytes": 2897,
+        "metadataBytes": 1807,
+        "wireBytes": 4772,
+        "payloadSha256": "e0350103b4142c542df1f6a7310ba6f918675e58f820eb26e079ece27993d349",
+        "timing": {
+          "startedMs": 10502,
+          "preparedMs": 10766,
+          "finishedMs": 11004
+        }
+      },
+      {
+        "id": "f33e8d64-7fe3-4856-bc08-828ef68f47e5",
+        "tool": "proposeSection",
+        "argumentsSha256": "a03107fec9c227771fdea5d406056911e47aa7f64813257852252453bdf528ec",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 520,
+        "wireBytes": 520,
+        "payloadSha256": "0d8811534b8495beb7e6a6cec41fd55704ae70448a96fbc5050130c855092ef8",
+        "timing": {
+          "startedMs": 28244,
+          "preparedMs": 29432,
+          "finishedMs": 29657
+        }
+      },
+      {
+        "id": "95b27192-3cf5-4298-91ca-e2a4bc564e2b",
+        "tool": "proposeSection",
+        "argumentsSha256": "bae871aaed7f2c4b7205d94e41f837cfdf01d0fb9fe3091e41e3b91ab6f25e8c",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 520,
+        "wireBytes": 520,
+        "payloadSha256": "ed77391583a0d427d3d7568a7924cd84fdfedbd9cd9878cfa0d9106fd483ed53",
+        "timing": {
+          "startedMs": 47117,
+          "preparedMs": 48331,
+          "finishedMs": 48569
+        }
+      },
+      {
+        "id": "3e7a7ef5-d12f-4d94-bb7d-e391bce3249a",
+        "tool": "proposeSection",
+        "argumentsSha256": "04df770b6484978f1b2b177e0c34f89f0ebea3686cf425fea6944f0c541b3ebe",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 520,
+        "wireBytes": 520,
+        "payloadSha256": "76c927c56dd64f48cd4979f265a9b249baf096ff166936fd9b3c6912c16f20e1",
+        "timing": {
+          "startedMs": 66262,
+          "preparedMs": 67415,
+          "finishedMs": 67637
+        }
+      },
+      {
+        "id": "c8274c61-8c4a-4fbb-bf19-885c94e3e079",
+        "tool": "proposeSection",
+        "argumentsSha256": "0ba5c5032e2ef163457b665cbefd1056aae186c0aaae69b0c43cdfa36378957d",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 515,
+        "wireBytes": 515,
+        "payloadSha256": "7355a760f24c4bd8a03b607391a0597fb562ca51da3a2fadd03d9cb7f3b28ac4",
+        "timing": {
+          "startedMs": 73810,
+          "preparedMs": 75276,
+          "finishedMs": 75513
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "id": "evidence:ef2a4e974ee3562f095fa9dd23bf5aa6e7d5d77d9b309b1613610b66fd442564",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 147769,
+          "endByte": 148750,
+          "startLine": 4053,
+          "endLine": 4078,
+          "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:042825dec0df091bb632f2e1cca18e850ab42fed0124cab80686316c9dca6ef0",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 148750,
+          "endByte": 149723,
+          "startLine": 4079,
+          "endLine": 4096,
+          "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:e915450fffe6e7dcf8e80e926b55303b9ba2406786165c084eeaf49b918a2dba",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 149723,
+          "endByte": 150666,
+          "startLine": 4097,
+          "endLine": 4115,
+          "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      }
+    ],
+    "contextClock": "capturedCodeSessionV1"
+  },
+  "observations": {
+    "nativeHtmlSceneRendered": true,
+    "sourceClickOpenedCapturedSpan": "src/font.rs:4053-4078",
+    "scriptAndDetailsInitiallyCollapsed": true,
+    "humanListeningPass": false,
+    "fullRepositoryAcceptance": false
+  }
+}

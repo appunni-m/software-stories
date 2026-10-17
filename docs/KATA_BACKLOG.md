@@ -99,3 +99,8 @@ The canonical dependency edges and every task's acceptance criteria still apply.
 ## Question-first source navigation — October 16
 
 Kata `xvjk`: [find relevant code from a question](kata-tasks/55-question-to-source-discovery.md). This follows the native workspace refinement and addresses manual source hunting. The source now includes Codex discovery over immutable indexed metadata, a global header connection, code-first claim rules and route chapter batching. Broad native/language/large-repository acceptance remains open. See [AI guide flow](AI_GUIDE_FLOW.md) and [route batch qualification](kata-tasks/56-route-chapter-batch.md).
+
+
+## 17 October visual-story checkpoint
+
+The progressive Codex path now supports AI-authored HTML compositions alongside graphs, synchronized with complete scene narration and clickable captured source. A real synthetic scene and a narrow Fontdone PFR0 scene completed; earlier partial/failed runs remain preserved. Mechanical checks pass **346 native tests** (12 explicit live probes ignored) and **171 frontend tests**. [Evidence and remaining quality/export/accessibility gates](acceptance/2026-10-17-visual-story-guide.md). Live Kata still contains **73 tasks: 50 open, 23 closed**; no task is closed by this checkpoint.

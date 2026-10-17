@@ -157,6 +157,15 @@ Version 1 diagrams remain preserved only on an already accepted, validated chapt
 
 The closed v2 schema has no HTML, script, URL, or CSS field; unknown fields are rejected. A malformed or unsupported visual is reported as invalid and falls back to a visual-unavailable state while the chapter prose and source evidence remain readable. The reader renders labels, details, prose, and excerpts as text, never as markup.
 
+Version 2 now also permits optional `presentation` (presentation schema version
+1): AI-authored compositions of bounded app-owned HTML components, or graph
+scenes, one per claim. Content elements refer to same-claim visual node indices;
+source values must exactly occur in their cited excerpts, and invented examples
+must be visibly labeled illustrations. No raw HTML/CSS/script or model-defined
+handlers execute. Older visuals omit this field unchanged. Renderer contract
+version 2 includes the composition in asset identity and selective reuse. See
+[scene grammar, bounds and limitations](VISUAL_SCENES.md).
+
 Each app-rendered diagram has a deterministic identity based on its typed visual data, the renderer contract version, the exact payloads of linked anchors, and destinations of hotspots used by its nodes. Anchor payloads include their snapshot IDs because an interactive source link is scoped to one immutable snapshot; moving an otherwise identical link to another snapshot changes the diagram identity. Section prose, narration, section order, unused anchors, unused hotspots, and unrelated sections do not change this identity. App-owned diagrams have no generated image/audio cache; the identity and reverse links define which diagram would need updating if a typed input changes.
 
 Every hotspot has an accessible label and exactly one tagged destination:

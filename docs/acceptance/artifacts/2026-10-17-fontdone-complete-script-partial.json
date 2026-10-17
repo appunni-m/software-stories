@@ -1,0 +1,1377 @@
+{
+  "artifactVersion": 1,
+  "sourceRevision": "7d6e335",
+  "installedExecutableSha256": "590f6f85e5d76db719423d1810669cf4c3b77cf0167fda42de27c82f995665fb",
+  "observations": {
+    "retryAt": "2026-10-17T09:27:46.530Z",
+    "firstCardObservedAt": "2026-10-17T09:28:55.475Z",
+    "firstCardUiUpperBoundMs": 68945,
+    "outcome": "partial",
+    "completedBroadQuestion": false,
+    "originalFailureCauseRetained": false,
+    "pocketAudioLoaded": true,
+    "pocketObservedPositionSeconds": 20.2,
+    "pocketObservedDurationSeconds": 72,
+    "pocketListeningQualityReviewed": false,
+    "notes": [
+      "One published section; no completed final manifest. The last read was rejected; its native failure cause was not retained.",
+      "Four complete grounded claims retained in both prose and spokenText at checkpointVersion 2. Ordered dispatch visual has 12 nodes and 11 links.",
+      "The phrase all control bytes is less precise than the actual guard, all bytes below ASCII space; semantic qualification remains open.",
+      "Pocket audio loaded and was observed paused at 00:20 / 01:12. No listening or timing-quality claim."
+    ]
+  },
+  "answer": {
+    "schemaVersion": 1,
+    "binding": {
+      "operationId": "b4776a04-5179-4024-9d2f-ddd5500fa9ca",
+      "projectId": "/Users/lazytrot/work/fontdone",
+      "snapshotId": "snap-1792140879637485000-11155-0",
+      "manifestSha256": "25f5e44bfdd1dab6b31310f7307f165a9171a8b9fc55256ef599e9c8196ad3a2",
+      "grantId": "f956dbe2-fb2e-43d2-b70a-d2c9b882523b",
+      "runtime": {
+        "connectionId": "44b3aa44-1d23-457f-bddd-fb9420b64658",
+        "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+        "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+        "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+        "accountRevision": 1
+      },
+      "model": "gpt-6-luna",
+      "effort": "max"
+    },
+    "requestSha256": "400ac6d8cdd268760efc54f0f936353a5322304caec814e2d3474f27c72c5d07",
+    "question": "Earlier questions: Using only src/outline.rs, when does Outline::is_empty return true? Explain both conditions and what happens if the fields disagree. → Explain what outline.rs:1–46 does and how it works.. Current question: How does Font::memory_face choose a format and create a usable face? Start with its ordered dispatch and invalid input or face-index branches. Then explain which SFNT tables are required, how missing tables differ from malformed table contents, and where errors propagate. Show the real code paths and useful diagrams.",
+    "outcome": "partial",
+    "sections": [
+      {
+        "checkpointVersion": 2,
+        "key": "format-dispatch",
+        "order": 0,
+        "supersedes": null,
+        "preview": {
+          "generationId": "generation:ca5609ec-408e-47b0-bf67-43d5d5d5451e",
+          "revision": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:a0d31aa6-7993-41d9-bdc2-dcd78df71ca0",
+            "revisionNumber": 1,
+            "projectId": "/Users/lazytrot/work/fontdone",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "target": {
+              "targetId": "target:overview",
+              "scope": {
+                "kind": "overview"
+              }
+            },
+            "title": "Format dispatch and fall-through",
+            "lifecycle": "draft",
+            "validationStatus": "valid",
+            "createdAtUnixMs": 1792229326179,
+            "generationOrigin": {
+              "schemaVersion": 5,
+              "projectId": "/Users/lazytrot/work/fontdone",
+              "snapshotId": "snap-1792140879637485000-11155-0",
+              "targetPath": null,
+              "purpose": "repositoryOverview",
+              "requestId": "b4776a04-5179-4024-9d2f-ddd5500fa9ca",
+              "requestFingerprint": "5d5bb76b288d11f17468d428f03f63049ca834f3d6bccfb612ebefc7960df823",
+              "requestBodySha256": "400ac6d8cdd268760efc54f0f936353a5322304caec814e2d3474f27c72c5d07",
+              "contractVersion": "codex-retrieval-v3-answer-sections",
+              "settings": {
+                "backend": "codex",
+                "modelId": "gpt-6-luna",
+                "effort": "max",
+                "approvalPolicy": "never"
+              },
+              "sourceFiles": [
+                {
+                  "path": "src/font.rs",
+                  "sha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                  "sizeBytes": 375700
+                }
+              ],
+              "sectionUpdate": null,
+              "plannedChapter": null,
+              "retrieval": {
+                "policy": "atlas-captured-ranges-v1-files12-source250000",
+                "ledgerSha256": "a27353b0b9072a35430cc8257ed05ccf73f29f9ed5fa409d301b99e20da52ab2",
+                "ranges": [
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 147769,
+                    "endByte": 148750,
+                    "startLine": 4053,
+                    "endLine": 4078,
+                    "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 148750,
+                    "endByte": 149723,
+                    "startLine": 4079,
+                    "endLine": 4096,
+                    "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 149723,
+                    "endByte": 150666,
+                    "startLine": 4097,
+                    "endLine": 4115,
+                    "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  }
+                ]
+              },
+              "contentSha256": "c4360b7ca4493aed36fceaa6d6249134b17e3a2551802fb2356954b521877cfb"
+            },
+            "sections": [
+              {
+                "sectionId": "section:2861c179-6acb-4955-ac0b-04d92903ddeb",
+                "sectionRevisionId": "sectionrev:282c4f52-63eb-4377-b8d6-4fbd6a5133a0",
+                "order": 0,
+                "title": "Format dispatch and fall-through",
+                "prose": "Font::memory_face gives earlier probes priority: a PCF_FILE_VERSION match calls pcf_face, otherwise a PFR0 prefix calls pfr_face, otherwise a 0x0200 or 0x0300 header calls winfnt_face. Each matching branch returns immediately, so later format checks do not run. Next, memory_face treats text as BDF only when its first BDF keyword passes is_bdf_probe_keyword; a parse_bdf_constructor_error is returned immediately, while no preflight error proceeds to bdf_face. After BDF, the ordered probes are a Resource-CIDFont prefix to cid_type1_face, recognizable data from type42_sfnt_data to type42_face, and type1_cleartext to type1_face; each matching probe returns its constructor result. If at least 17 bytes are all control bytes, memory_face returns InvalidFileFormat before trying truetype_face. Otherwise truetype_face runs first; on its error, inputs at least 118 bytes get a winfnt_face attempt, whose success wins, whose UnknownFileFormat wins only when has_winfnt_header_shape is true, and whose other errors leave the original TrueType error in place; shorter inputs return that original error directly.",
+                "spokenText": "Font::memory_face gives earlier probes priority: a PCF_FILE_VERSION match calls pcf_face, otherwise a PFR0 prefix calls pfr_face, otherwise a 0x0200 or 0x0300 header calls winfnt_face. Each matching branch returns immediately, so later format checks do not run. Next, memory_face treats text as BDF only when its first BDF keyword passes is_bdf_probe_keyword; a parse_bdf_constructor_error is returned immediately, while no preflight error proceeds to bdf_face. After BDF, the ordered probes are a Resource-CIDFont prefix to cid_type1_face, recognizable data from type42_sfnt_data to type42_face, and type1_cleartext to type1_face; each matching probe returns its constructor result. If at least 17 bytes are all control bytes, memory_face returns InvalidFileFormat before trying truetype_face. Otherwise truetype_face runs first; on its error, inputs at least 118 bytes get a winfnt_face attempt, whose success wins, whose UnknownFileFormat wins only when has_winfnt_header_shape is true, and whose other errors leave the original TrueType error in place; shorter inputs return that original error directly.",
+                "claims": [
+                  {
+                    "claimId": "claim:6fbc68f6-1ab0-448e-87d6-01c08ea69b3e",
+                    "category": {
+                      "kind": "codeBehavior"
+                    },
+                    "prose": "Font::memory_face gives earlier probes priority: a PCF_FILE_VERSION match calls pcf_face, otherwise a PFR0 prefix calls pfr_face, otherwise a 0x0200 or 0x0300 header calls winfnt_face. Each matching branch returns immediately, so later format checks do not run.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:27bbdb6b-5684-4306-92d9-8644c514a663",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 147769,
+                        "endByteInclusive": 148749,
+                        "startLine": 4053,
+                        "endLine": 4078,
+                        "startColumn": 5,
+                        "endColumn": 10,
+                        "excerpt": "pub(crate) fn memory_face(\n        data: &[u8],\n        face_index: usize,\n        size_pt: f32,\n    ) -> Result<Self, FontError> {\n        if read_u32_le(data, 0) == Some(PCF_FILE_VERSION) {\n            return Self::pcf_face(data, face_index, size_pt);\n        }\n        if data.starts_with(b\"PFR0\") {\n            return Self::pfr_face(data, face_index, size_pt);\n        }\n        if matches!(read_u16_le(data, 0), Some(0x0200) | Some(0x0300)) {\n            return Self::winfnt_face(data, face_index, size_pt);\n        }\n        if bdf_text(data)\n            .and_then(first_bdf_keyword)\n            .is_some_and(is_bdf_probe_keyword)\n        {\n            if let Some(error) = parse_bdf_constructor_error(data) {\n                return Err(error);\n            }\n            return Self::bdf_face(data, face_index, size_pt);\n        }\n        if data.starts_with(b\"%!PS-Adobe-3.0 Resource-CIDFont\") {\n            return Self::cid_type1_face(data, face_index, size_pt);\n        }\n"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2"
+                      },
+                      {
+                        "kind": "symbol",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481"
+                      }
+                    ]
+                  },
+                  {
+                    "claimId": "claim:e209d14d-735f-454b-ac46-1c2cf1787c8a",
+                    "category": {
+                      "kind": "codeBehavior"
+                    },
+                    "prose": "Next, memory_face treats text as BDF only when its first BDF keyword passes is_bdf_probe_keyword; a parse_bdf_constructor_error is returned immediately, while no preflight error proceeds to bdf_face.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:7955d45c-1402-4563-943f-1df63f983a5b",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 147769,
+                        "endByteInclusive": 148749,
+                        "startLine": 4053,
+                        "endLine": 4078,
+                        "startColumn": 5,
+                        "endColumn": 10,
+                        "excerpt": "pub(crate) fn memory_face(\n        data: &[u8],\n        face_index: usize,\n        size_pt: f32,\n    ) -> Result<Self, FontError> {\n        if read_u32_le(data, 0) == Some(PCF_FILE_VERSION) {\n            return Self::pcf_face(data, face_index, size_pt);\n        }\n        if data.starts_with(b\"PFR0\") {\n            return Self::pfr_face(data, face_index, size_pt);\n        }\n        if matches!(read_u16_le(data, 0), Some(0x0200) | Some(0x0300)) {\n            return Self::winfnt_face(data, face_index, size_pt);\n        }\n        if bdf_text(data)\n            .and_then(first_bdf_keyword)\n            .is_some_and(is_bdf_probe_keyword)\n        {\n            if let Some(error) = parse_bdf_constructor_error(data) {\n                return Err(error);\n            }\n            return Self::bdf_face(data, face_index, size_pt);\n        }\n        if data.starts_with(b\"%!PS-Adobe-3.0 Resource-CIDFont\") {\n            return Self::cid_type1_face(data, face_index, size_pt);\n        }\n"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2"
+                      },
+                      {
+                        "kind": "symbol",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481"
+                      }
+                    ]
+                  },
+                  {
+                    "claimId": "claim:24babd63-a34c-45cf-aa36-9614bc995787",
+                    "category": {
+                      "kind": "codeBehavior"
+                    },
+                    "prose": "After BDF, the ordered probes are a Resource-CIDFont prefix to cid_type1_face, recognizable data from type42_sfnt_data to type42_face, and type1_cleartext to type1_face; each matching probe returns its constructor result.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:c63dd846-ffb8-43ab-9393-3e8b3e20d5cc",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 147769,
+                        "endByteInclusive": 148749,
+                        "startLine": 4053,
+                        "endLine": 4078,
+                        "startColumn": 5,
+                        "endColumn": 10,
+                        "excerpt": "pub(crate) fn memory_face(\n        data: &[u8],\n        face_index: usize,\n        size_pt: f32,\n    ) -> Result<Self, FontError> {\n        if read_u32_le(data, 0) == Some(PCF_FILE_VERSION) {\n            return Self::pcf_face(data, face_index, size_pt);\n        }\n        if data.starts_with(b\"PFR0\") {\n            return Self::pfr_face(data, face_index, size_pt);\n        }\n        if matches!(read_u16_le(data, 0), Some(0x0200) | Some(0x0300)) {\n            return Self::winfnt_face(data, face_index, size_pt);\n        }\n        if bdf_text(data)\n            .and_then(first_bdf_keyword)\n            .is_some_and(is_bdf_probe_keyword)\n        {\n            if let Some(error) = parse_bdf_constructor_error(data) {\n                return Err(error);\n            }\n            return Self::bdf_face(data, face_index, size_pt);\n        }\n        if data.starts_with(b\"%!PS-Adobe-3.0 Resource-CIDFont\") {\n            return Self::cid_type1_face(data, face_index, size_pt);\n        }\n"
+                      },
+                      {
+                        "anchorId": "anchor:8b5c973f-516b-4540-b642-da62696873de",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 148750,
+                        "endByteInclusive": 149722,
+                        "startLine": 4079,
+                        "endLine": 4096,
+                        "startColumn": 1,
+                        "endColumn": 10,
+                        "excerpt": "        if type42_sfnt_data(data).is_some() {\n            return Self::type42_face(data, face_index, size_pt);\n        }\n        if type1_cleartext(data).is_some() {\n            return Self::type1_face(data, face_index, size_pt);\n        }\n        if data.len() >= 17 && data.iter().all(|byte| *byte < b' ') {\n            // FreeType's final BDF driver probe (`bdf/bdflib.c`) skips every\n            // byte below ASCII space while looking for a line.  An all-\n            // control stream therefore reaches EOF with no `STARTFONT`\n            // line and returns Invalid_File_Format from `bdf_load_font`;\n            // `BDF_Face_Init` preserves that error for `FT_Open_Face`.\n            // Keep the length guard because earlier C driver probes use\n            // fixed-size frames and win the error race on shorter streams.\n            return Err(FontError::InvalidFileFormat(\n                \"BDF stream ended before a complete line\".into(),\n            ));\n        }\n"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2"
+                      },
+                      {
+                        "kind": "symbol",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481"
+                      }
+                    ]
+                  },
+                  {
+                    "claimId": "claim:8d1d767c-cb0c-4377-ad48-dc5ff310dbba",
+                    "category": {
+                      "kind": "codeBehavior"
+                    },
+                    "prose": "If at least 17 bytes are all control bytes, memory_face returns InvalidFileFormat before trying truetype_face. Otherwise truetype_face runs first; on its error, inputs at least 118 bytes get a winfnt_face attempt, whose success wins, whose UnknownFileFormat wins only when has_winfnt_header_shape is true, and whose other errors leave the original TrueType error in place; shorter inputs return that original error directly.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:18b0f2a5-cf9f-4360-91cc-fee002468632",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 149723,
+                        "endByteInclusive": 150665,
+                        "startLine": 4097,
+                        "endLine": 4115,
+                        "startColumn": 1,
+                        "endColumn": 5,
+                        "excerpt": "        match Self::truetype_face(data, face_index, size_pt) {\n            Ok(face) => Ok(face),\n            Err(error) if data.len() >= 118 => {\n                // FreeType's WinFNT driver tries a standalone FNT header\n                // after its MZ/NE probe fails. Its unknown-format result is\n                // the final face-open error for a structurally plausible FNT\n                // header with an unsupported version; unrelated malformed\n                // buffers retain the earlier SFNT parser error.\n                match Self::winfnt_face(data, face_index, size_pt) {\n                    Ok(face) => Ok(face),\n                    Err(FontError::UnknownFileFormat(message)) if has_winfnt_header_shape(data) => {\n                        Err(FontError::UnknownFileFormat(message))\n                    }\n                    Err(_) => Err(error),\n                }\n            }\n            Err(error) => Err(error),\n        }\n    }"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2"
+                      },
+                      {
+                        "kind": "symbol",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481"
+                      }
+                    ]
+                  }
+                ],
+                "dependencies": [
+                  {
+                    "kind": "sourceFile",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2"
+                  },
+                  {
+                    "kind": "symbol",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481"
+                  }
+                ],
+                "visual": {
+                  "schemaVersion": 2,
+                  "kind": "dataFlow",
+                  "title": "Early ordered probes and their exits",
+                  "layoutHint": {
+                    "direction": "topToBottom"
+                  },
+                  "nodes": [
+                    {
+                      "nodeId": "visualnode:f1de2b2d-f343-4b7d-ba83-f00a5d75e248",
+                      "label": "Input bytes",
+                      "detail": "Start of Font::memory_face",
+                      "hotspotId": "visualhotspot:90641c07-f843-4e19-964a-700a874f15e9",
+                      "evidenceAnchorIds": [
+                        "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:47301876-5252-488f-b87b-5183f4f74930",
+                      "label": "PCF signature?",
+                      "detail": "Compare the little-endian word with PCF_FILE_VERSION",
+                      "hotspotId": "visualhotspot:98944d62-3498-40df-ae83-1ae35c5a4c12",
+                      "evidenceAnchorIds": [
+                        "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:8fbdf934-db45-4ed1-9c95-1021e63a9b43",
+                      "label": "pcf_face",
+                      "detail": "Immediate constructor return",
+                      "hotspotId": "visualhotspot:6900f0ed-d66a-47e6-849c-f53912664402",
+                      "evidenceAnchorIds": [
+                        "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:dd0a4220-899a-4cb4-9ecd-de154b93895f",
+                      "label": "PFR0 prefix?",
+                      "detail": "Checked only if PCF did not match",
+                      "hotspotId": "visualhotspot:39433617-1a4b-4249-b25f-95c10aced582",
+                      "evidenceAnchorIds": [
+                        "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:e1d3bf47-e405-41c0-b813-3d42f8a31e9e",
+                      "label": "pfr_face",
+                      "detail": "Immediate constructor return",
+                      "hotspotId": "visualhotspot:618805e1-0e6b-4dc7-be02-5bedd86b3c18",
+                      "evidenceAnchorIds": [
+                        "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:1a19871c-7393-488a-b633-17d17420f01c",
+                      "label": "WinFNT version?",
+                      "detail": "0x0200 or 0x0300, after PCF and PFR",
+                      "hotspotId": "visualhotspot:15df02f0-5d2b-4935-bf9a-46f2dc1c4477",
+                      "evidenceAnchorIds": [
+                        "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:b3eeefb1-a652-4383-8122-7c6f1e7dd407",
+                      "label": "winfnt_face",
+                      "detail": "Immediate constructor return",
+                      "hotspotId": "visualhotspot:b615daac-066e-447e-8337-a6fc6607b64c",
+                      "evidenceAnchorIds": [
+                        "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:4fa775f4-6594-4a66-a954-4831e291f01c",
+                      "label": "BDF probe keyword?",
+                      "detail": "Text and first keyword must pass the probe",
+                      "hotspotId": "visualhotspot:f03c41f4-a58a-41d3-b95a-e9fd70399e24",
+                      "evidenceAnchorIds": [
+                        "anchor:7955d45c-1402-4563-943f-1df63f983a5b"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:88d6b5f5-f481-4849-9df7-058dd79cdc5f",
+                      "label": "BDF preflight error?",
+                      "detail": "An error returns before constructing the face",
+                      "hotspotId": "visualhotspot:5c8c2642-4ed0-4fa9-886f-3eca9301174c",
+                      "evidenceAnchorIds": [
+                        "anchor:7955d45c-1402-4563-943f-1df63f983a5b"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:2c45604a-1a92-497f-a89f-0ed87d1bd44e",
+                      "label": "Return preflight error",
+                      "detail": "The parse error is propagated",
+                      "hotspotId": "visualhotspot:729ad930-9249-4123-8f35-889843c4dc2c",
+                      "evidenceAnchorIds": [
+                        "anchor:7955d45c-1402-4563-943f-1df63f983a5b"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:41d3a852-0df8-477c-9eb6-3a70c5caf476",
+                      "label": "bdf_face",
+                      "detail": "Called only when the BDF preflight has no error",
+                      "hotspotId": "visualhotspot:37f8d331-fce0-4721-8dbb-781240a384f5",
+                      "evidenceAnchorIds": [
+                        "anchor:7955d45c-1402-4563-943f-1df63f983a5b"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:55743336-1408-456d-9d75-cae3dbecc0c6",
+                      "label": "Remaining ordered probes",
+                      "detail": "CID Type 1, Type 42, Type 1, control-stream guard, then TrueType fallback",
+                      "hotspotId": "visualhotspot:fbfbfd8b-416c-486e-aa28-6015b328c5c6",
+                      "evidenceAnchorIds": [
+                        "anchor:8b5c973f-516b-4540-b642-da62696873de",
+                        "anchor:18b0f2a5-cf9f-4360-91cc-fee002468632"
+                      ]
+                    }
+                  ],
+                  "edges": [
+                    {
+                      "edgeId": "visualedge:28cfbdad-ea51-4f71-9e3f-650d41a0f043",
+                      "fromNodeId": "visualnode:f1de2b2d-f343-4b7d-ba83-f00a5d75e248",
+                      "toNodeId": "visualnode:47301876-5252-488f-b87b-5183f4f74930",
+                      "label": "inspect",
+                      "evidenceAnchorIds": [
+                        "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                      ]
+                    },
+                    {
+                      "edgeId": "visualedge:025d2757-dbe4-4866-a10c-2a6f22827d66",
+                      "fromNodeId": "visualnode:47301876-5252-488f-b87b-5183f4f74930",
+                      "toNodeId": "visualnode:8fbdf934-db45-4ed1-9c95-1021e63a9b43",
+                      "label": "PCF match",
+                      "evidenceAnchorIds": [
+                        "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                      ]
+                    },
+                    {
+                      "edgeId": "visualedge:c39487ec-a4c8-42e2-8362-c108c015389f",
+                      "fromNodeId": "visualnode:47301876-5252-488f-b87b-5183f4f74930",
+                      "toNodeId": "visualnode:dd0a4220-899a-4cb4-9ecd-de154b93895f",
+                      "label": "no: next probe",
+                      "evidenceAnchorIds": [
+                        "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                      ]
+                    },
+                    {
+                      "edgeId": "visualedge:4242abc3-65da-4a3b-9a9b-a114aae80a1b",
+                      "fromNodeId": "visualnode:dd0a4220-899a-4cb4-9ecd-de154b93895f",
+                      "toNodeId": "visualnode:e1d3bf47-e405-41c0-b813-3d42f8a31e9e",
+                      "label": "PFR0 match",
+                      "evidenceAnchorIds": [
+                        "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                      ]
+                    },
+                    {
+                      "edgeId": "visualedge:84788732-15eb-4b06-a4ed-e7463f66cef2",
+                      "fromNodeId": "visualnode:dd0a4220-899a-4cb4-9ecd-de154b93895f",
+                      "toNodeId": "visualnode:1a19871c-7393-488a-b633-17d17420f01c",
+                      "label": "no: next probe",
+                      "evidenceAnchorIds": [
+                        "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                      ]
+                    },
+                    {
+                      "edgeId": "visualedge:99272f99-4a48-42d6-baac-c045253e69d7",
+                      "fromNodeId": "visualnode:1a19871c-7393-488a-b633-17d17420f01c",
+                      "toNodeId": "visualnode:b3eeefb1-a652-4383-8122-7c6f1e7dd407",
+                      "label": "version match",
+                      "evidenceAnchorIds": [
+                        "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                      ]
+                    },
+                    {
+                      "edgeId": "visualedge:7014281e-8219-425c-8b62-8177328765ca",
+                      "fromNodeId": "visualnode:1a19871c-7393-488a-b633-17d17420f01c",
+                      "toNodeId": "visualnode:4fa775f4-6594-4a66-a954-4831e291f01c",
+                      "label": "no: next probe",
+                      "evidenceAnchorIds": [
+                        "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                      ]
+                    },
+                    {
+                      "edgeId": "visualedge:0389c624-6a4a-4a45-8efb-c189c5170d60",
+                      "fromNodeId": "visualnode:4fa775f4-6594-4a66-a954-4831e291f01c",
+                      "toNodeId": "visualnode:88d6b5f5-f481-4849-9df7-058dd79cdc5f",
+                      "label": "probe matches",
+                      "evidenceAnchorIds": [
+                        "anchor:7955d45c-1402-4563-943f-1df63f983a5b"
+                      ]
+                    },
+                    {
+                      "edgeId": "visualedge:daee78c4-6cc6-4ca5-8a3f-9768e5ce7b1f",
+                      "fromNodeId": "visualnode:4fa775f4-6594-4a66-a954-4831e291f01c",
+                      "toNodeId": "visualnode:55743336-1408-456d-9d75-cae3dbecc0c6",
+                      "label": "no: continue ordered dispatch",
+                      "evidenceAnchorIds": [
+                        "anchor:8b5c973f-516b-4540-b642-da62696873de"
+                      ]
+                    },
+                    {
+                      "edgeId": "visualedge:91d2ca94-a1a7-4cf8-9eaf-a984109ee6bd",
+                      "fromNodeId": "visualnode:88d6b5f5-f481-4849-9df7-058dd79cdc5f",
+                      "toNodeId": "visualnode:2c45604a-1a92-497f-a89f-0ed87d1bd44e",
+                      "label": "preflight returns Some(error)",
+                      "evidenceAnchorIds": [
+                        "anchor:7955d45c-1402-4563-943f-1df63f983a5b"
+                      ]
+                    },
+                    {
+                      "edgeId": "visualedge:8776321e-42e3-4ff6-bd11-c20a0a1510e0",
+                      "fromNodeId": "visualnode:88d6b5f5-f481-4849-9df7-058dd79cdc5f",
+                      "toNodeId": "visualnode:41d3a852-0df8-477c-9eb6-3a70c5caf476",
+                      "label": "no preflight error",
+                      "evidenceAnchorIds": [
+                        "anchor:7955d45c-1402-4563-943f-1df63f983a5b"
+                      ]
+                    }
+                  ]
+                },
+                "hotspots": [
+                  {
+                    "hotspotId": "overviewfile:e81592c4-90f4-4356-89ab-c1e29d1cfb23",
+                    "label": "Open file: src/font.rs",
+                    "destination": {
+                      "kind": "atlasFile",
+                      "path": "src/font.rs"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:90641c07-f843-4e19-964a-700a874f15e9",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:98944d62-3498-40df-ae83-1ae35c5a4c12",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:6900f0ed-d66a-47e6-849c-f53912664402",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:39433617-1a4b-4249-b25f-95c10aced582",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:618805e1-0e6b-4dc7-be02-5bedd86b3c18",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:15df02f0-5d2b-4935-bf9a-46f2dc1c4477",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:b615daac-066e-447e-8337-a6fc6607b64c",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:27bbdb6b-5684-4306-92d9-8644c514a663"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:f03c41f4-a58a-41d3-b95a-e9fd70399e24",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:7955d45c-1402-4563-943f-1df63f983a5b"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:5c8c2642-4ed0-4fa9-886f-3eca9301174c",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:7955d45c-1402-4563-943f-1df63f983a5b"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:729ad930-9249-4123-8f35-889843c4dc2c",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:7955d45c-1402-4563-943f-1df63f983a5b"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:37f8d331-fce0-4721-8dbb-781240a384f5",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:7955d45c-1402-4563-943f-1df63f983a5b"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:fbfbfd8b-416c-486e-aa28-6015b328c5c6",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:8b5c973f-516b-4540-b642-da62696873de"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "validation": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:a0d31aa6-7993-41d9-bdc2-dcd78df71ca0",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "status": "valid",
+            "issues": []
+          },
+          "modelId": "gpt-6-luna",
+          "modelVersion": null,
+          "inputTokens": null,
+          "outputTokens": null,
+          "updateNotes": []
+        },
+        "publishedElapsedMs": 58426,
+        "publishedRunElapsedMs": 59040,
+        "proposalSha256": "ebe85eb0269487314b9a31ad63024520f4aca03de0bd645e62481a41789d9d61",
+        "checkpointSha256": "a27353b0b9072a35430cc8257ed05ccf73f29f9ed5fa409d301b99e20da52ab2",
+        "checkpoint": {
+          "schemaVersion": 3,
+          "policy": "atlas-captured-ranges-v1-files12-source250000",
+          "binding": {
+            "operationId": "b4776a04-5179-4024-9d2f-ddd5500fa9ca",
+            "projectId": "/Users/lazytrot/work/fontdone",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "manifestSha256": "25f5e44bfdd1dab6b31310f7307f165a9171a8b9fc55256ef599e9c8196ad3a2",
+            "grantId": "f956dbe2-fb2e-43d2-b70a-d2c9b882523b",
+            "runtime": {
+              "connectionId": "44b3aa44-1d23-457f-bddd-fb9420b64658",
+              "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+              "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+              "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+              "accountRevision": 1
+            },
+            "model": "gpt-6-luna",
+            "effort": "max"
+          },
+          "startedAtUnixMs": 1792229268150,
+          "status": "active",
+          "calls": [
+            {
+              "id": "0da8a9b2-663c-4175-9957-993d80cca3dc",
+              "tool": "definitions",
+              "argumentsSha256": "711faee91bf7ef228148b951d8ad4986ae5a051049f27d6e3a518bfd2ff21428",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 1661,
+              "wireBytes": 1661,
+              "payloadSha256": "cb5471f2aeb4db569faa697805e2bfb413c9654a7642c5d80e794a43cd82e95c",
+              "timing": {
+                "startedMs": 7854,
+                "preparedMs": 7916,
+                "finishedMs": 8127
+              }
+            },
+            {
+              "id": "8e0d480a-a90d-4d75-bbb4-43a28dd33ff8",
+              "tool": "read",
+              "argumentsSha256": "75858092792d59456f890f0fd5552bc5fbdf67a0a65b98fd6b1a818c88ef52fb",
+              "state": "delivered",
+              "evidenceIds": [
+                "evidence:26005bbf5bb86c98f579d4863fbd98b07b12942ec2404d270aa9a710dfddaeed",
+                "evidence:95b46b1faddc4fd6aee96d3cfa62b529ee7df2a9acaec17c9377506d846f5a39",
+                "evidence:9e24586f5243bf7350ebf8c2392ef56d05fb26cf430602347e4de8ecd3991be2"
+              ],
+              "sourceBytes": 2897,
+              "metadataBytes": 1807,
+              "wireBytes": 4772,
+              "payloadSha256": "d6d102d11d4dbeb2252e0ed311a2ced6f4a215fbc4f63c2a479d634a34e7fde7",
+              "timing": {
+                "startedMs": 11249,
+                "preparedMs": 11487,
+                "finishedMs": 11699
+              }
+            },
+            {
+              "id": "0d85fb28-578d-44fc-961c-06e677aaaf7a",
+              "tool": "proposeSection",
+              "argumentsSha256": "2d6dd1a83139dffb6c960929db9f42e882cb9608bf6ac3cd95f285260dde60d5",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 688,
+              "wireBytes": 688,
+              "payloadSha256": "86cb9a0e03d5f5b11c9641e709b833df7f830a6757746404a4e8f56af178af56",
+              "timing": {
+                "startedMs": 42505,
+                "preparedMs": 43329,
+                "finishedMs": 43545
+              }
+            }
+          ],
+          "evidence": [
+            {
+              "id": "evidence:9e24586f5243bf7350ebf8c2392ef56d05fb26cf430602347e4de8ecd3991be2",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 147769,
+                "endByte": 148750,
+                "startLine": 4053,
+                "endLine": 4078,
+                "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:95b46b1faddc4fd6aee96d3cfa62b529ee7df2a9acaec17c9377506d846f5a39",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 148750,
+                "endByte": 149723,
+                "startLine": 4079,
+                "endLine": 4096,
+                "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:26005bbf5bb86c98f579d4863fbd98b07b12942ec2404d270aa9a710dfddaeed",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 149723,
+                "endByte": 150666,
+                "startLine": 4097,
+                "endLine": 4115,
+                "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            }
+          ],
+          "contextClock": "capturedCodeSessionV1"
+        }
+      }
+    ],
+    "attempts": [
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"format-dispatch\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"Format dispatch and fall-through\",\"claims\":[{\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"inferenceBasis\":\"\",\"identifiers\":[\"memory_face\",\"PCF_FILE_VERSION\",\"pcf_face\",\"pfr_face\",\"winfnt_face\"],\"evidence\":[{\"referenceId\":\"evidence:9e24586f5243bf7350ebf8c2392ef56d05fb26cf430602347e4de8ecd3991be2\"}],\"relationshipIds\":[],\"prose\":\"Font::memory_face gives earlier probes priority: a PCF_FILE_VERSION match calls pcf_face, otherwise a PFR0 prefix calls pfr_face, otherwise a 0x0200 or 0x0300 header calls winfnt_face. Each matching branch returns immediately, so later format checks do not run.\"},{\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"inferenceBasis\":\"\",\"identifiers\":[\"memory_face\",\"is_bdf_probe_keyword\",\"parse_bdf_constructor_error\",\"bdf_face\"],\"evidence\":[{\"referenceId\":\"evidence:9e24586f5243bf7350ebf8c2392ef56d05fb26cf430602347e4de8ecd3991be2\"}],\"relationshipIds\":[],\"prose\":\"Next, memory_face treats text as BDF only when its first BDF keyword passes is_bdf_probe_keyword; a parse_bdf_constructor_error is returned immediately, while no preflight error proceeds to bdf_face.\"},{\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"inferenceBasis\":\"\",\"identifiers\":[\"cid_type1_face\",\"type42_sfnt_data\",\"type42_face\",\"type1_cleartext\",\"type1_face\"],\"evidence\":[{\"referenceId\":\"evidence:95b46b1faddc4fd6aee96d3cfa62b529ee7df2a9acaec17c9377506d846f5a39\"}],\"relationshipIds\":[],\"prose\":\"After BDF, the ordered probes are a Resource-CIDFont prefix to cid_type1_face, recognizable Type 42 SFNT data to type42_face, and Type 1 cleartext to type1_face; each matching probe returns its constructor result.\"},{\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"inferenceBasis\":\"\",\"identifiers\":[\"truetype_face\",\"winfnt_face\",\"has_winfnt_header_shape\",\"UnknownFileFormat\"],\"evidence\":[{\"referenceId\":\"evidence:26005bbf5bb86c98f579d4863fbd98b07b12942ec2404d270aa9a710dfddaeed\"}],\"relationshipIds\":[],\"prose\":\"If at least 17 bytes are all control bytes, memory_face returns InvalidFileFormat before trying truetype_face. Otherwise truetype_face runs first; on its error, inputs at least 118 bytes get a winfnt_face attempt, whose success wins, whose UnknownFileFormat wins only when has_winfnt_header_shape is true, and whose other errors leave the original TrueType error in place; shorter inputs return that original error directly.\"}],\"visual\":{\"kind\":\"dataFlow\",\"title\":\"Early ordered probes and their exits\",\"direction\":\"topToBottom\",\"nodes\":[{\"label\":\"Input bytes\",\"detail\":\"Start of Font::memory_face\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"PCF signature?\",\"detail\":\"Compare the little-endian word with PCF_FILE_VERSION\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"pcf_face\",\"detail\":\"Immediate constructor return\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"PFR0 prefix?\",\"detail\":\"Checked only if PCF did not match\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"pfr_face\",\"detail\":\"Immediate constructor return\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"WinFNT version?\",\"detail\":\"0x0200 or 0x0300, after PCF and PFR\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"winfnt_face\",\"detail\":\"Immediate constructor return\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"BDF probe keyword?\",\"detail\":\"Text and first keyword must pass the probe\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"BDF preflight error?\",\"detail\":\"An error returns before constructing the face\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"Return preflight error\",\"detail\":\"The parse error is propagated\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"bdf_face\",\"detail\":\"Called only when the BDF preflight has no error\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"Remaining ordered probes\",\"detail\":\"CID Type 1, Type 42, Type 1, control-stream guard, then TrueType fallback\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0},{\"claimIndex\":3,\"evidenceIndex\":0}]}],\"edges\":[{\"fromNodeIndex\":0,\"toNodeIndex\":1,\"label\":\"inspect\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":1,\"toNodeIndex\":2,\"label\":\"PCF match\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":1,\"toNodeIndex\":3,\"label\":\"no: next probe\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":3,\"toNodeIndex\":4,\"label\":\"PFR0 match\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":3,\"toNodeIndex\":5,\"label\":\"no: next probe\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":5,\"toNodeIndex\":6,\"label\":\"version match\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":5,\"toNodeIndex\":7,\"label\":\"no: next probe\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":7,\"toNodeIndex\":8,\"label\":\"probe matches\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"fromNodeIndex\":7,\"toNodeIndex\":11,\"label\":\"no: continue ordered dispatch\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]},{\"fromNodeIndex\":8,\"toNodeIndex\":9,\"label\":\"preflight returns Some(error)\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"fromNodeIndex\":8,\"toNodeIndex\":10,\"label\":\"no preflight error\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]}]}}}",
+        "argumentsSha256": "2d6dd1a83139dffb6c960929db9f42e882cb9608bf6ac3cd95f285260dde60d5",
+        "proposalSha256": "f7b323421c1dcbe887f77ff3d94079a727bc3e7553b08fc2731279493d0ef08a",
+        "findings": [
+          {
+            "location": "/section/claims/2/identifiers/1",
+            "code": "identifierProse"
+          },
+          {
+            "location": "/section/claims/2/identifiers/3",
+            "code": "identifierProse"
+          },
+          {
+            "location": "/section/claims/2/identifiers/0",
+            "code": "identifierEvidence"
+          }
+        ],
+        "generationId": null
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"format-dispatch\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"Format dispatch and fall-through\",\"claims\":[{\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"inferenceBasis\":\"\",\"identifiers\":[\"memory_face\",\"PCF_FILE_VERSION\",\"pcf_face\",\"pfr_face\",\"winfnt_face\"],\"evidence\":[{\"referenceId\":\"evidence:9e24586f5243bf7350ebf8c2392ef56d05fb26cf430602347e4de8ecd3991be2\"}],\"relationshipIds\":[],\"prose\":\"Font::memory_face gives earlier probes priority: a PCF_FILE_VERSION match calls pcf_face, otherwise a PFR0 prefix calls pfr_face, otherwise a 0x0200 or 0x0300 header calls winfnt_face. Each matching branch returns immediately, so later format checks do not run.\"},{\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"inferenceBasis\":\"\",\"identifiers\":[\"memory_face\",\"is_bdf_probe_keyword\",\"parse_bdf_constructor_error\",\"bdf_face\"],\"evidence\":[{\"referenceId\":\"evidence:9e24586f5243bf7350ebf8c2392ef56d05fb26cf430602347e4de8ecd3991be2\"}],\"relationshipIds\":[],\"prose\":\"Next, memory_face treats text as BDF only when its first BDF keyword passes is_bdf_probe_keyword; a parse_bdf_constructor_error is returned immediately, while no preflight error proceeds to bdf_face.\"},{\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"inferenceBasis\":\"\",\"identifiers\":[\"cid_type1_face\",\"type42_sfnt_data\",\"type42_face\",\"type1_cleartext\",\"type1_face\"],\"evidence\":[{\"referenceId\":\"evidence:9e24586f5243bf7350ebf8c2392ef56d05fb26cf430602347e4de8ecd3991be2\"},{\"referenceId\":\"evidence:95b46b1faddc4fd6aee96d3cfa62b529ee7df2a9acaec17c9377506d846f5a39\"}],\"relationshipIds\":[],\"prose\":\"After BDF, the ordered probes are a Resource-CIDFont prefix to cid_type1_face, recognizable data from type42_sfnt_data to type42_face, and type1_cleartext to type1_face; each matching probe returns its constructor result.\"},{\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"inferenceBasis\":\"\",\"identifiers\":[\"truetype_face\",\"winfnt_face\",\"has_winfnt_header_shape\",\"UnknownFileFormat\"],\"evidence\":[{\"referenceId\":\"evidence:26005bbf5bb86c98f579d4863fbd98b07b12942ec2404d270aa9a710dfddaeed\"}],\"relationshipIds\":[],\"prose\":\"If at least 17 bytes are all control bytes, memory_face returns InvalidFileFormat before trying truetype_face. Otherwise truetype_face runs first; on its error, inputs at least 118 bytes get a winfnt_face attempt, whose success wins, whose UnknownFileFormat wins only when has_winfnt_header_shape is true, and whose other errors leave the original TrueType error in place; shorter inputs return that original error directly.\"}],\"visual\":{\"kind\":\"dataFlow\",\"title\":\"Early ordered probes and their exits\",\"direction\":\"topToBottom\",\"nodes\":[{\"label\":\"Input bytes\",\"detail\":\"Start of Font::memory_face\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"PCF signature?\",\"detail\":\"Compare the little-endian word with PCF_FILE_VERSION\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"pcf_face\",\"detail\":\"Immediate constructor return\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"PFR0 prefix?\",\"detail\":\"Checked only if PCF did not match\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"pfr_face\",\"detail\":\"Immediate constructor return\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"WinFNT version?\",\"detail\":\"0x0200 or 0x0300, after PCF and PFR\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"winfnt_face\",\"detail\":\"Immediate constructor return\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"BDF probe keyword?\",\"detail\":\"Text and first keyword must pass the probe\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"BDF preflight error?\",\"detail\":\"An error returns before constructing the face\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"Return preflight error\",\"detail\":\"The parse error is propagated\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"bdf_face\",\"detail\":\"Called only when the BDF preflight has no error\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"Remaining ordered probes\",\"detail\":\"CID Type 1, Type 42, Type 1, control-stream guard, then TrueType fallback\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":1},{\"claimIndex\":3,\"evidenceIndex\":0}]}],\"edges\":[{\"fromNodeIndex\":0,\"toNodeIndex\":1,\"label\":\"inspect\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":1,\"toNodeIndex\":2,\"label\":\"PCF match\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":1,\"toNodeIndex\":3,\"label\":\"no: next probe\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":3,\"toNodeIndex\":4,\"label\":\"PFR0 match\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":3,\"toNodeIndex\":5,\"label\":\"no: next probe\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":5,\"toNodeIndex\":6,\"label\":\"version match\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":5,\"toNodeIndex\":7,\"label\":\"no: next probe\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":7,\"toNodeIndex\":8,\"label\":\"probe matches\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"fromNodeIndex\":7,\"toNodeIndex\":11,\"label\":\"no: continue ordered dispatch\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":1}]},{\"fromNodeIndex\":8,\"toNodeIndex\":9,\"label\":\"preflight returns Some(error)\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"fromNodeIndex\":8,\"toNodeIndex\":10,\"label\":\"no preflight error\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]}]}}}",
+        "argumentsSha256": "0eb1711a575eb3f4b0d40eea9c0c6502b0cd1a690e8de4a676f3b610c44068ee",
+        "proposalSha256": "ebe85eb0269487314b9a31ad63024520f4aca03de0bd645e62481a41789d9d61",
+        "findings": [],
+        "generationId": "generation:ca5609ec-408e-47b0-bf67-43d5d5d5451e"
+      }
+    ],
+    "incompleteTopics": [
+      "The investigation ended before all requested details could be completed. Only the published sections are available."
+    ]
+  },
+  "ledger": {
+    "schemaVersion": 3,
+    "policy": "atlas-captured-ranges-v1-files12-source250000",
+    "binding": {
+      "operationId": "b4776a04-5179-4024-9d2f-ddd5500fa9ca",
+      "projectId": "/Users/lazytrot/work/fontdone",
+      "snapshotId": "snap-1792140879637485000-11155-0",
+      "manifestSha256": "25f5e44bfdd1dab6b31310f7307f165a9171a8b9fc55256ef599e9c8196ad3a2",
+      "grantId": "f956dbe2-fb2e-43d2-b70a-d2c9b882523b",
+      "runtime": {
+        "connectionId": "44b3aa44-1d23-457f-bddd-fb9420b64658",
+        "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+        "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+        "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+        "accountRevision": 1
+      },
+      "model": "gpt-6-luna",
+      "effort": "max"
+    },
+    "startedAtUnixMs": 1792229268150,
+    "status": "interrupted",
+    "calls": [
+      {
+        "id": "0da8a9b2-663c-4175-9957-993d80cca3dc",
+        "tool": "definitions",
+        "argumentsSha256": "711faee91bf7ef228148b951d8ad4986ae5a051049f27d6e3a518bfd2ff21428",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1661,
+        "wireBytes": 1661,
+        "payloadSha256": "cb5471f2aeb4db569faa697805e2bfb413c9654a7642c5d80e794a43cd82e95c",
+        "timing": {
+          "startedMs": 7854,
+          "preparedMs": 7916,
+          "finishedMs": 8127
+        }
+      },
+      {
+        "id": "8e0d480a-a90d-4d75-bbb4-43a28dd33ff8",
+        "tool": "read",
+        "argumentsSha256": "75858092792d59456f890f0fd5552bc5fbdf67a0a65b98fd6b1a818c88ef52fb",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:26005bbf5bb86c98f579d4863fbd98b07b12942ec2404d270aa9a710dfddaeed",
+          "evidence:95b46b1faddc4fd6aee96d3cfa62b529ee7df2a9acaec17c9377506d846f5a39",
+          "evidence:9e24586f5243bf7350ebf8c2392ef56d05fb26cf430602347e4de8ecd3991be2"
+        ],
+        "sourceBytes": 2897,
+        "metadataBytes": 1807,
+        "wireBytes": 4772,
+        "payloadSha256": "d6d102d11d4dbeb2252e0ed311a2ced6f4a215fbc4f63c2a479d634a34e7fde7",
+        "timing": {
+          "startedMs": 11249,
+          "preparedMs": 11487,
+          "finishedMs": 11699
+        }
+      },
+      {
+        "id": "0d85fb28-578d-44fc-961c-06e677aaaf7a",
+        "tool": "proposeSection",
+        "argumentsSha256": "2d6dd1a83139dffb6c960929db9f42e882cb9608bf6ac3cd95f285260dde60d5",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 688,
+        "wireBytes": 688,
+        "payloadSha256": "86cb9a0e03d5f5b11c9641e709b833df7f830a6757746404a4e8f56af178af56",
+        "timing": {
+          "startedMs": 42505,
+          "preparedMs": 43329,
+          "finishedMs": 43545
+        }
+      },
+      {
+        "id": "4c7dd37b-ae5d-4ac9-b33d-27cb2226cace",
+        "tool": "proposeSection",
+        "argumentsSha256": "0eb1711a575eb3f4b0d40eea9c0c6502b0cd1a690e8de4a676f3b610c44068ee",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 515,
+        "wireBytes": 515,
+        "payloadSha256": "15d0d76e97a5191c9a7cad613861e141482a8a8359da3b5ab9f41564531609d0",
+        "timing": {
+          "startedMs": 57303,
+          "preparedMs": 58879,
+          "finishedMs": 59098
+        }
+      },
+      {
+        "id": "198086e1-aaae-43b8-bba1-e6aea453dcfb",
+        "tool": "definitions",
+        "argumentsSha256": "8e339215a6bd60bded0d47a3bf3de1c9dbc61343e4d10c66237fa68c998b22f0",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 3687,
+        "wireBytes": 3687,
+        "payloadSha256": "e931511f6bacf66fd31e8626e1491a01c67bc86f3f8525849c839fe9ad4bd6a8",
+        "timing": {
+          "startedMs": 61992,
+          "preparedMs": 62067,
+          "finishedMs": 62284
+        }
+      },
+      {
+        "id": "28ce7700-39f0-47c7-90a1-c04c23adb2af",
+        "tool": "read",
+        "argumentsSha256": "06a21bf8ffeb45b911c586f86aade81fa8341407ee5993867ebeb82850f732c9",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:0c2dbc7f8569a7ec8ebf642d76a8264c94a97fd1931edff8378688e8ff5ae653"
+        ],
+        "sourceBytes": 190,
+        "metadataBytes": 871,
+        "wireBytes": 1063,
+        "payloadSha256": "ae602909a8086987bd49a93d29e5abf292e45bd926b5f8a97fb1fe56a54e6dbf",
+        "timing": {
+          "startedMs": 64743,
+          "preparedMs": 64889,
+          "finishedMs": 65107
+        }
+      },
+      {
+        "id": "879aeab4-8ab8-4fba-9273-21f7a57d300f",
+        "tool": "definitions",
+        "argumentsSha256": "9ec13194b965289ef04c4fbb1b6f2512d03126e11f3252e3f9631336bc2c2716",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1801,
+        "wireBytes": 1801,
+        "payloadSha256": "a56870d681e4721e022bc562ff5ce0a7fb69c602e6c1069e6a61fbcb7320ce47",
+        "timing": {
+          "startedMs": 67613,
+          "preparedMs": 67680,
+          "finishedMs": 67899
+        }
+      },
+      {
+        "id": "8f42a4fa-3c46-48d7-ae72-8e205b77912c",
+        "tool": "read",
+        "argumentsSha256": "dd84d68b4ad10958990e489fde3830c99259ca1852e8167c6bcf0ebe9efe90ff",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:095be198a239aed3a9d6a910785a118284f9e59531b4c718d69c01f95ca1b7f2",
+          "evidence:26fe27635873e6513a0fb60cc428689de39e2f714c241647c870d1a5760a24d7",
+          "evidence:434faebf48e7b2be80448868384876618dd20d484c7d38904ed9594a8f0c02e6",
+          "evidence:44b374ee21a147f7eb95f650c1aee50f52c897753ac4a68a531f6fe064a40e86",
+          "evidence:5b2ce5e5cd7bd07ec9c1ead8c06bb5e14a125f78972ef6114276f34f29f4dbd6",
+          "evidence:734fc97300ba9d6ec08fa2fcb0f9c058cbe3b4d1551aed46c8f688e847947070",
+          "evidence:c154d51eebad3ad37d92eb5ff79b215c92b564745b92dd40f7be40df7178fdf6",
+          "evidence:c92c2de182900be11227d6c3a48dd5c27feb150e6ffcc22689fe63f7634b1312",
+          "evidence:eb6bcdcbf0f5ff6bb5f0d803893d44624f23b3614d4238ae81c84f463434b440"
+        ],
+        "sourceBytes": 8192,
+        "metadataBytes": 4615,
+        "wireBytes": 13050,
+        "payloadSha256": "b48b5e77af349ed7c87262cc513aa539c88e7dee92bdd83904acd79097a836c9",
+        "timing": {
+          "startedMs": 70445,
+          "preparedMs": 70977,
+          "finishedMs": 71194
+        }
+      },
+      {
+        "id": "e98ddecd-025f-4c18-a42b-9b815a405fff",
+        "tool": "read",
+        "argumentsSha256": "c2f5f89983d08224036b2ffb74a00a1520cc0e5cb5e2b6ac989df68073ee6877",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:28ff70965975b6a9d43ff4161e3ebeb1831be66f92d3e86e0346df62dedd8128",
+          "evidence:3038bb542c0fc932dd02d1af39d3a10f2e29fe0253fdbdeb7b12af95f682caaf",
+          "evidence:639e38d129505fedaa66b59b71a91ff6be20fbf0670cafc4b389bc61fa693f47",
+          "evidence:7dde866832adceea1e34c2162e6392d3cb9c8aad5015e951cc16b184197a142f",
+          "evidence:a223f4593da92e61b959687688a7a59f4f050ff3369b8c4420f463bcf9bf272a",
+          "evidence:d78cf4d70e69c8ef5ee3158f4f9465377480253bc3cd071bbe58205cc077e7cf"
+        ],
+        "sourceBytes": 5565,
+        "metadataBytes": 3211,
+        "wireBytes": 8933,
+        "payloadSha256": "8e5d478b84070559f09880f9f2be5f28f36950405d3c2d4f3898e14ca3a9a3fa",
+        "timing": {
+          "startedMs": 73654,
+          "preparedMs": 74037,
+          "finishedMs": 74255
+        }
+      },
+      {
+        "id": "9fe7ce58-7d1d-4c17-b71e-939f805a77fd",
+        "tool": "definitions",
+        "argumentsSha256": "fd1abccb4fc2194767d2f6df5135f84ca43b13144cea0ff311ad28fda765f2de",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1659,
+        "wireBytes": 1659,
+        "payloadSha256": "5264afacfa219b0fc17c64c82c6f7c7af2dbf7089e1bc893d23a96ab8b81d5c2",
+        "timing": {
+          "startedMs": 78359,
+          "preparedMs": 78412,
+          "finishedMs": 78630
+        }
+      },
+      {
+        "id": "4c01c369-6751-491e-80cf-b1de48a5dabc",
+        "tool": "definitions",
+        "argumentsSha256": "0f3d35e5af4856a229f405fcf026609c83ee978c63d07be2b798f80622f4f458",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1682,
+        "wireBytes": 1682,
+        "payloadSha256": "519224e2b841e804b69584aac200323c4d0da0a08c565691b4148a38d79076b5",
+        "timing": {
+          "startedMs": 80968,
+          "preparedMs": 81021,
+          "finishedMs": 81235
+        }
+      },
+      {
+        "id": "3ea46eef-e929-4566-8efd-6fe5a9366ba3",
+        "tool": "read",
+        "argumentsSha256": "f5bf4c8bbc44990001c8bf642a2a611b2493d71ee1a3aa06c032042dd2f465c6",
+        "state": "rejected",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 0,
+        "wireBytes": 0,
+        "payloadSha256": null,
+        "timing": {
+          "startedMs": 84524,
+          "preparedMs": null,
+          "finishedMs": 84748
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "id": "evidence:9e24586f5243bf7350ebf8c2392ef56d05fb26cf430602347e4de8ecd3991be2",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 147769,
+          "endByte": 148750,
+          "startLine": 4053,
+          "endLine": 4078,
+          "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:95b46b1faddc4fd6aee96d3cfa62b529ee7df2a9acaec17c9377506d846f5a39",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 148750,
+          "endByte": 149723,
+          "startLine": 4079,
+          "endLine": 4096,
+          "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:26005bbf5bb86c98f579d4863fbd98b07b12942ec2404d270aa9a710dfddaeed",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 149723,
+          "endByte": 150666,
+          "startLine": 4097,
+          "endLine": 4115,
+          "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:0c2dbc7f8569a7ec8ebf642d76a8264c94a97fd1931edff8378688e8ff5ae653",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 158045,
+          "endByte": 158235,
+          "startLine": 4300,
+          "endLine": 4302,
+          "chunkSha256": "cba0e764912fd61201fde99dd36fe565353fd46b4dfa0c7c277a84d37a49e038",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:5b2ce5e5cd7bd07ec9c1ead8c06bb5e14a125f78972ef6114276f34f29f4dbd6",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 172671,
+          "endByte": 173662,
+          "startLine": 4660,
+          "endLine": 4680,
+          "chunkSha256": "c51363000fadbf6974e4a9694d2711b3b2681cdbfa80618a981bc9e0d09eed9a",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:095be198a239aed3a9d6a910785a118284f9e59531b4c718d69c01f95ca1b7f2",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 173662,
+          "endByte": 174631,
+          "startLine": 4681,
+          "endLine": 4703,
+          "chunkSha256": "79b358a9a95aa6464f600468127c534cc928eba95818595a616e8b58f707d97b",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:26fe27635873e6513a0fb60cc428689de39e2f714c241647c870d1a5760a24d7",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 174631,
+          "endByte": 175604,
+          "startLine": 4704,
+          "endLine": 4722,
+          "chunkSha256": "6b5ec6a9b3e2c0c195164b134399975f23a6b4e0b9e2e80d416a608892b2d78f",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:eb6bcdcbf0f5ff6bb5f0d803893d44624f23b3614d4238ae81c84f463434b440",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 175604,
+          "endByte": 176593,
+          "startLine": 4723,
+          "endLine": 4745,
+          "chunkSha256": "219da608eb1c21d2583982eb1fe48f4d7844512391fde999994cfa5868767b70",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:734fc97300ba9d6ec08fa2fcb0f9c058cbe3b4d1551aed46c8f688e847947070",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 176593,
+          "endByte": 177543,
+          "startLine": 4746,
+          "endLine": 4763,
+          "chunkSha256": "dbbfed572f109c1afceb933675fcce87a3eb441a48d4722469866ee325eff9eb",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:44b374ee21a147f7eb95f650c1aee50f52c897753ac4a68a531f6fe064a40e86",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 177543,
+          "endByte": 178534,
+          "startLine": 4764,
+          "endLine": 4786,
+          "chunkSha256": "e33dd771e5f29b0a54b18ac382ea03d1a924e23e6f80b4df1f97c1c85736a7f0",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:434faebf48e7b2be80448868384876618dd20d484c7d38904ed9594a8f0c02e6",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 178534,
+          "endByte": 179531,
+          "startLine": 4787,
+          "endLine": 4809,
+          "chunkSha256": "8a0189b00719793aba8a3f236d26d6630dd224d18d232cb3c37ddd8c20499663",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:c92c2de182900be11227d6c3a48dd5c27feb150e6ffcc22689fe63f7634b1312",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 179531,
+          "endByte": 180520,
+          "startLine": 4810,
+          "endLine": 4829,
+          "chunkSha256": "f91490f2e0a6485de01114ae1078ab7bc2c8f4da3b9ac262bf8adaf63dcffd92",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:c154d51eebad3ad37d92eb5ff79b215c92b564745b92dd40f7be40df7178fdf6",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 180520,
+          "endByte": 180863,
+          "startLine": 4830,
+          "endLine": 4840,
+          "chunkSha256": "67e564f82a99f5fa5c373a2b00b1ee274d5e9465e18316c3715870377b967ad3",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:28ff70965975b6a9d43ff4161e3ebeb1831be66f92d3e86e0346df62dedd8128",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 180863,
+          "endByte": 181844,
+          "startLine": 4841,
+          "endLine": 4861,
+          "chunkSha256": "6e838c59067a8ba69f5dbd41d091e0b4bbdf2f7cf04b3d2ec80c55ade55dec21",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:d78cf4d70e69c8ef5ee3158f4f9465377480253bc3cd071bbe58205cc077e7cf",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 181844,
+          "endByte": 182802,
+          "startLine": 4862,
+          "endLine": 4887,
+          "chunkSha256": "f5d61f511c78b1ea905736776a068df850717b6c2480a30a7f8e0634776671a9",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:a223f4593da92e61b959687688a7a59f4f050ff3369b8c4420f463bcf9bf272a",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 182802,
+          "endByte": 183786,
+          "startLine": 4888,
+          "endLine": 4920,
+          "chunkSha256": "1928309ef0b680eaf29c8a953da017b4ed41feb165b45a002af5070f4ecc96fa",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:3038bb542c0fc932dd02d1af39d3a10f2e29fe0253fdbdeb7b12af95f682caaf",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 183786,
+          "endByte": 184686,
+          "startLine": 4921,
+          "endLine": 4939,
+          "chunkSha256": "c9b11afc76a51d62061648776864d29917e713a65c7b6130b77bbf46c49fe346",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:639e38d129505fedaa66b59b71a91ff6be20fbf0670cafc4b389bc61fa693f47",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 184686,
+          "endByte": 185678,
+          "startLine": 4940,
+          "endLine": 4962,
+          "chunkSha256": "bc08c30e0605950f4dba5d931ab97287de6de4864616d10295bb593e04bbf0d4",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:7dde866832adceea1e34c2162e6392d3cb9c8aad5015e951cc16b184197a142f",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 185678,
+          "endByte": 186428,
+          "startLine": 4963,
+          "endLine": 4984,
+          "chunkSha256": "e5018532490673bbdf7a567527d57c78b6d3058d37cf40032ee9436b64c5bdf5",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      }
+    ],
+    "contextClock": "capturedCodeSessionV1"
+  }
+}

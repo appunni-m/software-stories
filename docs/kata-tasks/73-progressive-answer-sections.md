@@ -90,3 +90,13 @@ The checkout now provides bounded positional identifier-count/prose/evidence/cit
 ## Final replacement observation — 17 October
 
 The final diagnostic/Flow replacement was built, executable-integrity checked, installed and opened. Computer use confirmed restoration of the latest explicit Input validation and face-index failures Flow selection and graph, all three retained cards, the exact font.rs:4079–4096 source selection and the saved Codex connection. No new answer operation was created on restart. Full native 337, frontend 150 and production frontend/app builds pass. [Verification, executable hash and pending limits](../acceptance/2026-10-17-progressive-reader-integration.md#final-source-verification-and-replacement). This remains an unsigned debug build; fresh real diagnostic/content, broad Fontdone, complete narration and accessibility gates are still open.
+
+## October 17 complete narration and visual-story follow-up
+
+Checkpoint version 2 now retains all distinct grounded claim sentences in prose and speech, with whole-section rejection above 4,000 UTF-8 bytes; version 1 replay remains unchanged. The installed `7d6e335` Fontdone retry published one section in 59.040 s (UI first observed by 68.945 s), retained all four claims and a 12-node/11-edge branch visual, and ended partial after 12 calls/16,844 source bytes. The last read was rejected; its native cause was not retained, so no root cause or broad-answer pass is claimed. A BDF early-error exception is now explicit, but “all control bytes” is less precise than the actual below-ASCII-space guard. Pocket loaded a 72-second track; listening quality was not reviewed. Preserve the [original partial evidence](../acceptance/artifacts/2026-10-17-fontdone-complete-script-partial.json).
+
+The current Guide implementation follows [narrated visual scenes](61-guide-flow-detail.md): collapsed script, a visual stage and audio-driven scene boundaries, without changing immutable saved answers. Current rendering, fresh story-generation, complete Fontdone, semantic depth, audio and accessibility evidence remain required; this follow-up does not close the task.
+
+## October 17 HTML scene qualification
+
+The complete synthetic HTML operation published in 19.950 s and finished in 22.351 s. A separate installed Fontdone PFR0-only operation published a complete scene at run elapsed 75.442 s, after three missing-title proposal rejections. A follow-up now provides fixed visualField positions and explicit required-field instructions; this diagnostic refinement has unit evidence only. Keep broader Fontdone completion, semantic accuracy and voice-quality gates open. See [results, preserved failures and remaining gates](../acceptance/2026-10-17-visual-story-guide.md). This task remains open.

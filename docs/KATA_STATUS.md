@@ -112,3 +112,8 @@ The fresh fixed-schema synthetic account run completed in 51.671 s, but an insta
 ## Latest progressive Fontdone qualification
 
 An explicit installed retry retained prior cards and delivered two new sections while working, but ended partial after 22 calls and 20,739 shared source bytes. The new first card was observed within 82 seconds; source review found a missing BDF error exception, an inadequate branch diagram and incomplete/technical narration. **This is not a quality or first-useful-answer timing pass.** The native ID, exact diagnostic positions and Flow selection fixes pass **337 native tests** (12 ignored) and **150 frontend tests**. [Full evidence and remaining work](acceptance/2026-10-17-progressive-reader-integration.md#fresh-fontdone-retry-useful-delivery-mechanics-incomplete-content). `3bz5`, `q0sm`, `na54` and their broader acceptance gates remain open; no task is closed.
+
+
+## 17 October visual-story checkpoint
+
+The progressive Codex path now supports AI-authored HTML compositions alongside graphs, synchronized with complete scene narration and clickable captured source. A real synthetic scene and a narrow Fontdone PFR0 scene completed; earlier partial/failed runs remain preserved. Mechanical checks pass **346 native tests** (12 explicit live probes ignored) and **171 frontend tests**. [Evidence and remaining quality/export/accessibility gates](acceptance/2026-10-17-visual-story-guide.md). Live Kata still contains **73 tasks: 50 open, 23 closed**; no task is closed by this checkpoint.
