@@ -26,11 +26,9 @@ fn progressive_contract_is_small_binds_intent_and_never_requests_a_final_rewrite
         json!(["answerManifestV1"])
     );
     assert!(schema["properties"].get("citationVersion").is_none());
-    assert!(
-        schema["properties"]["sections"]["items"]["properties"]
-            .get("claims")
-            .is_none()
-    );
+    assert!(schema["properties"]["sections"]["items"]["properties"]
+        .get("claims")
+        .is_none());
     assert_ne!(
         digest,
         super::super::request(&input, &f.manifest).unwrap().2
@@ -60,8 +58,8 @@ fn final_manifest_schema_preserves_the_entire_native_generation_identity() {
     // and omit the second published section from its terminal manifest.
     let generation_id = format!("generation:{}", Uuid::new_v4());
     let contract = schema();
-    let bound = contract["properties"]["sections"]["items"]["properties"]
-        ["generationId"]["maxLength"]
+    let bound = contract["properties"]["sections"]["items"]["properties"]["generationId"]
+        ["maxLength"]
         .as_u64()
         .unwrap();
     assert_eq!(generation_id.len(), 47);
@@ -142,10 +140,22 @@ fn codex_progressive_account_probe() {
     assert_eq!(result.outcome, Outcome::Complete);
     assert!(!result.sections.is_empty());
     let saved = sections::inspect(&f.storage, &input.run_id).unwrap();
-    assert!(saved.sections.iter().any(|published| published.preview.revision.sections.iter().any(|section|
-        section.visual.as_ref().and_then(chapters::ChapterVisualPayload::typed_visual)
-            .and_then(|visual| visual.presentation.as_ref()).is_some_and(|presentation|
-                presentation.scenes.iter().any(|scene| scene.mode == crate::scene_presentation::SceneMode::Composition)))));
+    assert!(saved
+        .sections
+        .iter()
+        .any(|published| published
+            .preview
+            .revision
+            .sections
+            .iter()
+            .any(|section| section
+                .visual
+                .as_ref()
+                .and_then(chapters::ChapterVisualPayload::typed_visual)
+                .and_then(|visual| visual.presentation.as_ref())
+                .is_some_and(|presentation| presentation.scenes.iter().any(
+                    |scene| scene.mode == crate::scene_presentation::SceneMode::Composition
+                )))));
     let observations = observations.lock().unwrap();
     assert!(observations.iter().all(|v| v["error"].is_null()));
     assert!(
@@ -170,14 +180,19 @@ fn fontdone_progressive_account_probe() {
             .expect("set fresh CODE_ATLAS_PROGRESSIVE_PROBE_OUTPUT"),
     );
     assert!(storage.is_absolute() && output.is_absolute());
-    let mut artifact = std::fs::OpenOptions::new().write(true).create_new(true).open(&output).expect("never overwrite an earlier attempt");
+    let mut artifact = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&output)
+        .expect("never overwrite an earlier attempt");
     let project = "/Users/lazytrot/work/fontdone";
     let snapshot_id = "snap-1792140879637485000-11155-0";
     let manifest = snapshot::load_snapshot_manifest(&storage, project, snapshot_id).unwrap();
     let manager = codex_agent::CodexAgentManager::default();
     manager.resume_connection(&storage).unwrap();
     let runtime = manager.review_runtime(&storage).unwrap();
-    let grant_id = workspace::save_retrieval_grant(&storage, project, snapshot_id, &runtime).unwrap();
+    let grant_id =
+        workspace::save_retrieval_grant(&storage, project, snapshot_id, &runtime).unwrap();
     let input = Input {
         run_id: Uuid::new_v4().to_string(), project_id: project.into(), snapshot_id: snapshot_id.into(), grant_id,
         question: "How does Fontdone turn font bytes into a rendered glyph bitmap? Trace the real entry points, parsing, outline loading, hinting, and rasterization. Explain the important branches and show useful visual scenes with source links.".into(),
@@ -187,7 +202,11 @@ fn fontdone_progressive_account_probe() {
     let observations = Arc::new(Mutex::new(vec![]));
     let observed = Arc::clone(&observations);
     let saved_storage = storage.clone();
-    let result = run(&storage, input.clone(), &manager, RepositoryContextJobs::default(),
+    let result = run(
+        &storage,
+        input.clone(),
+        &manager,
+        RepositoryContextJobs::default(),
         &recovery::InterruptionJournal::default(),
         |p| {
             println!(
@@ -228,6 +247,8 @@ fn fontdone_progressive_account_probe() {
         "implementationSourceSha256":{
             "nativeCitations":context::digest(include_bytes!("../../native_citations.rs")),
             "answerSections":context::digest(include_bytes!("../../evidence_ledger/sections.rs")),
+            "scenePresentation":context::digest(include_bytes!("../../scene_presentation.rs")),
+            "sceneQuality":context::digest(include_bytes!("../../scene_presentation/quality.rs")),
             "contextCatalog":context::digest(include_bytes!("../../context_mcp.rs")),
             "progressiveRequest":context::digest(include_bytes!("../progressive.rs")),
             "ownedContext":context::digest(include_bytes!("../../agent_context.rs"))
@@ -236,9 +257,22 @@ fn fontdone_progressive_account_probe() {
         "snapshotSummary":manifest.summary,"totalElapsedMs":started.elapsed().as_millis(),
         "result":result.as_ref().ok(),"error":result.as_ref().err(),"answer":answer,"ledger":ledger,
         "observations":*observations.lock().unwrap(),"humanQualityReview":false,"humanListeningPass":false});
-    artifact.write_all(&serde_json::to_vec_pretty(&record).unwrap()).unwrap();
+    artifact
+        .write_all(&serde_json::to_vec_pretty(&record).unwrap())
+        .unwrap();
     artifact.sync_all().unwrap();
     manager.shutdown();
-    assert!(observations.lock().unwrap().iter().all(|o|o["error"].is_null()), "section adoption failed; inspect the preserved artifact");
-    assert_eq!(result.unwrap().outcome, Outcome::Complete, "a partial answer is not broad completion; inspect the preserved artifact");
+    assert!(
+        observations
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|o| o["error"].is_null()),
+        "section adoption failed; inspect the preserved artifact"
+    );
+    assert_eq!(
+        result.unwrap().outcome,
+        Outcome::Complete,
+        "a partial answer is not broad completion; inspect the preserved artifact"
+    );
 }

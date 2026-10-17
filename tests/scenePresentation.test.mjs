@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { validScenePresentation } from '../src/lib/scenePresentation.ts';
 import { inspectInteractiveVisual } from '../src/lib/visuals.ts';
+import { readFileSync } from 'node:fs';
 
 const claims = [{ claimId: 'claim:one', anchors: [{ anchorId: 'anchor:one', excerpt: 'return `Hello, ${name}`;' }] }];
 const nodes = [{ nodeId: 'node:one', label: 'Greeting', detail: null, hotspotId: null, evidenceAnchorIds: ['anchor:one'] }];
@@ -9,6 +10,56 @@ const element = (kind, value = '', valueOrigin = 'none', parentIndex = null) => 
 const presentation = (elements = [element('code', 'Hello, ${name}', 'source')]) => ({ schemaVersion: 1, scenes: [{ claimIndex: 0, title: 'An incoming name becomes a greeting', mode: 'composition', elements }] });
 
 describe('AI-authored HTML scene contract', () => {
+  it('version 2 allows meaningful values and roles while rejecting presentation-only changes', () => {
+    const root = { ...element('row'), nodeIndex: null };
+    const arrow = { ...element('arrow', '', 'none', 0), nodeIndex: null };
+    const same = presentation([root, element('card', '', 'none', 0), arrow, { ...element('code', '', 'none', 0), tone: 'positive' }]);
+    same.schemaVersion = 2;
+    assert.equal(validScenePresentation(same, nodes, claims), false);
+    for (const [before, after] of [['input', 'output'], ['  Mira  ', 'Mira'], ['a', 'A']]) {
+      same.scenes[0].elements[1] = element('token', before, 'illustration', 0);
+      same.scenes[0].elements[3] = element('token', after, 'illustration', 0);
+      assert.equal(validScenePresentation(same, nodes, claims), true);
+    }
+    same.scenes[0].elements[3].value = 'a';
+    same.scenes[0].elements[3].nodeIndex = 1;
+    const duplicateNodes = [nodes[0], { ...nodes[0], nodeId: 'node:two' }];
+    assert.equal(validScenePresentation(same, duplicateNodes, claims), false);
+    duplicateNodes[1].label = 'Result role';
+    assert.equal(validScenePresentation(same, duplicateNodes, claims), true);
+    same.scenes[0].elements[2].kind = 'divider';
+    duplicateNodes[1].label = nodes[0].label;
+    assert.equal(validScenePresentation(same, duplicateNodes, claims), true);
+    same.scenes[0].mode = 'graph'; same.scenes[0].elements = [];
+    assert.equal(validScenePresentation(same, nodes, claims), true);
+    for (const version of ['2', 0, 3, null]) {
+      same.schemaVersion = version;
+      assert.equal(validScenePresentation(same, nodes, claims), false);
+    }
+  });
+  it('compares nested content rather than wrappers, tones or node IDs', () => {
+    const tree = presentation([
+      { ...element('row'), nodeIndex: null },
+      { ...element('panel', '', 'none', 0), nodeIndex: null },
+      element('card', 'same', 'illustration', 1),
+      { ...element('arrow', '', 'none', 0), nodeIndex: null },
+      { ...element('column', '', 'none', 0), nodeIndex: null },
+      { ...element('text', 'same', 'illustration', 4), tone: 'positive', nodeIndex: 1 },
+    ]);
+    tree.schemaVersion = 2;
+    const duplicated = [nodes[0], { ...nodes[0], nodeId: 'node:two' }];
+    assert.equal(validScenePresentation(tree, duplicated, claims), false);
+    tree.schemaVersion = 1;
+    assert.equal(validScenePresentation(tree, duplicated, claims), true);
+  });
+  it('rejects the recorded repeated transformation in new scenes while preserving version 1', () => {
+    const artifact = JSON.parse(readFileSync(new URL('../docs/acceptance/artifacts/2026-10-17-fontdone-short-references-partial.json', import.meta.url)));
+    const section = artifact.answer.sections[0].preview.revision.sections[0];
+    const authored = structuredClone(section.visual.presentation);
+    assert.equal(validScenePresentation(authored, section.visual.nodes, section.claims), true);
+    authored.schemaVersion = 2;
+    assert.equal(validScenePresentation(authored, section.visual.nodes, section.claims), false);
+  });
   it('accepts composable layouts with exact source values, illustrations and graph scenes', () => {
     const root = { ...element('row'), nodeIndex: null };
     assert.ok(validScenePresentation(presentation([root, element('bytes', '48 65 6c 6c 6f', 'illustration', 0), element('token', 'Hello, Ada', 'illustration', 0)]), nodes, claims));

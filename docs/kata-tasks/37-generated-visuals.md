@@ -92,3 +92,9 @@ The fresh frozen broad Fontdone operation published one HTML-backed draft, but s
 - [ ] Qualify AI-authored representations that teach actual changes/branches, then check narration and captured-source hotspots in the installed app. The existing generic “avoid identical labels” instruction did not prevent this sample.
 
 Keep this task open. The broad completion assertion remains failed; local mechanical tests or an HTML mode label do not establish visual quality.
+
+## Versioned scene-quality implementation — 17 October
+
+Presentation version 2 and progressive checkpoint version 3 now reject identical visible labels/values across a composition arrow, including nested groups. Changing IDs, tone or wrappers does not evade the rule. Distinct states/roles, exact case/whitespace changes, comparisons without arrows and graph scenes remain available. New proposals receive positional `sceneRepetition`/`sceneVersion` feedback and retain rejected arguments; no original budget is reset. Historical presentation version 1/checkpoints 1/2 replay unchanged and exact repeats remain idempotent. The real Fontdone counterexample fails before the guard and is rejected afterward.
+
+Mechanical evidence: 368 native tests, 183 frontend tests, production build and unsigned debug bundle pass, including legacy replay, correction and offline version 2 source/audio export. [Contract and limits](../acceptance/2026-10-17-scene-v2.md). A fresh broad account qualification, actual scene meaning/source interaction, Pocket listening and native accessibility remain required. This task stays open.

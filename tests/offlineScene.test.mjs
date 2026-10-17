@@ -16,7 +16,9 @@ it('offline composition preserves every supported data and layout primitive', ()
   for (const [kind, value] of Object.entries(values)) {
     for (const group of ['row', 'column', 'grid', 'panel', 'compare', 'stack']) {
       const authored = scene(kind, value, group);
-      assert.ok(validScenePresentation({ schemaVersion: 1, scenes: [authored] }, visual.nodes, claims));
+      for (const schemaVersion of [1, 2]) {
+        assert.ok(validScenePresentation({ schemaVersion, scenes: [authored] }, visual.nodes, claims));
+      }
       const markup = renderOfflineScene(authored, visual, () => '#evidence-1-1');
       assert.ok(markup.includes(`scene-${kind}`));
       assert.ok(markup.includes(`scene-${group}`));

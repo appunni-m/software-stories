@@ -1,0 +1,46 @@
+{
+  "scope": "Versioned scene proposal/read/replay/export mechanics; not semantic quality, broad completion, human listening, native accessibility or signed release acceptance",
+  "nativeSuite": {
+    "passed": 368,
+    "failed": 0,
+    "ignoredExplicitProbes": 13,
+    "seconds": 35.42
+  },
+  "frontendSuite": {
+    "passed": 183,
+    "failed": 0
+  },
+  "productionFrontendBuild": true,
+  "debugApp": {
+    "path": "/private/tmp/software-stories-kata/src-tauri/target/debug/bundle/macos/Code Atlas.app/Contents/MacOS/code-atlas-desktop",
+    "bytes": 119522528,
+    "sha256": "71048642917fb97e3db3f28e60f79c441d336e619b2bd587e36b134193f30e6e",
+    "embeddedMacExecutableIntegrity": true,
+    "developerId": false,
+    "notarized": false,
+    "installed": false
+  },
+  "sourceSha256": {
+    "src-tauri/src/scene_presentation.rs": "1735654cb29fd477073b949793ae9a01aace5c11a173d2e6a61e5d4d175e61cc",
+    "src-tauri/src/scene_presentation/quality.rs": "71d7ab52349f659524cec960fb3f0f4ff6eccf5e051e3c93ba93be74be9961a8",
+    "src-tauri/src/evidence_ledger/sections.rs": "634d9d28a1d28e736ea7f448c7ef4aa9de7fd604faa7a0dec1a96a7b3fd4e30d",
+    "src-tauri/src/evidence_ledger/sections/tests.rs": "7054a9e3de97ebded6ce6a90aee248d906d073d4be1da7da55351a590f2a911e",
+    "src-tauri/src/workspace_generation/progressive.rs": "555b236f75486459b1d68f93975fc79dcb0fc0cb7db6c3c0a3a88cdc230e6e29",
+    "src-tauri/src/workspace_generation/progressive/tests.rs": "adaa088dbac237fb2bf185414aa950f17454fb661028bbc036f2a08d73aefef0",
+    "src/lib/scenePresentation.ts": "a9300270b3e9540cf76918afeb9de74b77cdc3a44779eee4fbe8724593a81eae",
+    "tests/scenePresentation.test.mjs": "1acc3be1df89031b79eb323fd5f1d827f6d46e9cc691cefd769437122e72ddb1",
+    "tests/offlineScene.test.mjs": "9d0debfd5928f42b4b14a9d4c56ed8489dc57ece2a024754419b9eb20aebda38",
+    "tests/offlineExport.test.mjs": "8eaa1097645d8bd14ca4d29e91165f768b874dddf8881fba4797fb19d9752a24"
+  },
+  "counterexampleBeforeFix": {
+    "nativeRegression": "failed before quality guard (unexpected Ok)",
+    "frontendRegression": "failed before quality guard (true instead of false)",
+    "artifactSha256": "d2fa901ddd2e363a81bef1c3856980d5c0b9ad047d89054050492574c76752fa"
+  },
+  "liveKata": {
+    "records": 73,
+    "open": 50,
+    "closed": 23
+  },
+  "freshBroadAccountQualification": "pending"
+}

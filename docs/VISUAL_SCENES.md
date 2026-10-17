@@ -49,7 +49,9 @@ the behavior; semantic and comprehension review remain necessary.
 
 ### Stored shape
 
-Visual version 2 gains an optional `presentation` field with its own version 1.
+Visual version 2 has an optional `presentation` field. New progressive
+generations use presentation version 2 and answer checkpoint version 3.
+Presentation version 1 and answer checkpoints 1/2 retain their historical rules.
 Absent fields remain absent on serialization. Existing diagrams and immutable
 answer checkpoints are not regenerated or migrated on read. The renderer
 contract is version 2; composition data participates in visual fingerprints,
@@ -57,7 +59,7 @@ revision comparisons and selective visual reuse.
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "scenes": [{
     "claimIndex": 0,
     "title": "Put the name into the greeting",
@@ -76,6 +78,28 @@ The example assumes two nodes citing the same claim, whose captured code
 contains the literal template substring. Its output is an example, not a
 recorded execution. Layout arrows express reading direction; runtime claims
 still require evidence. Graph scenes use `mode: "graph", elements: []`.
+
+### Meaningful transformations
+
+Version 2 rejects an arrow with identical visible content on either side.
+The check compares the nearest content-bearing sibling groups, including their
+nested leaves, by visible node labels and exact values. Changing node IDs,
+colors, wrappers or content primitive does not establish a transformation.
+Distinct input/result roles or distinct values remain valid; case and whitespace
+changes are meaningful and are compared exactly. Comparisons without an arrow
+and graph scenes are unaffected. This catches a concrete empty-card failure;
+it does not prove that different labels or illustrative values teach the code
+correctly.
+
+The progressive agent receives fixed `sceneRepetition` feedback at the arrow
+position and must repair the complete proposal within the existing operation
+budget. `sceneVersion` rejects an old, absent or malformed version on a newly
+supplied presentation. Omitting the optional presentation remains valid. An
+exact repeat of an old admitted proposal keeps its old checkpoint and IDs;
+replay never upgrades or rewrites historical guides. New checkpoint replay
+independently enforces the new version requirement. Rejected proposals remain
+in the private answer record, while repair feedback contains positions and
+fixed codes only.
 
 ### Primitives and bounds
 

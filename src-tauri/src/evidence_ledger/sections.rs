@@ -3,13 +3,13 @@
 
 use super::*;
 use crate::{chapter_generation, chapter_origin, native_citations};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::sync::Mutex;
 
 pub(crate) const MAX_PROPOSAL_BYTES: usize = 32_768;
 pub(crate) const PROPOSAL_VERSION: &str = "answerSectionV2";
 const LEGACY_PROPOSAL_VERSION: &str = "answerSectionV1";
-const CURRENT_CHECKPOINT_VERSION: u32 = 2;
+const CURRENT_CHECKPOINT_VERSION: u32 = 3;
 const MAX_SECTIONS: usize = 6;
 const MAX_ATTEMPTS: usize = 8;
 const MAX_ANSWERS: usize = 8;
@@ -414,6 +414,39 @@ fn visual_shape_findings(section: &Value) -> Vec<Value> {
         .collect()
 }
 
+/// New checkpoints bind the new scene policy; old immutable checkpoints keep
+/// the policy under which they were published. Omitted presentations are valid.
+fn scene_version_findings(section: &Value, checkpoint_version: u32) -> Vec<Value> {
+    if checkpoint_version >= 3
+        && section["visual"].get("presentation").is_some()
+        && section["visual"]["presentation"]["schemaVersion"].as_u64() != Some(2)
+    {
+        vec![json!({"location":"/section/visual/presentation/schemaVersion","code":"sceneVersion"})]
+    } else {
+        vec![]
+    }
+}
+
+fn scene_repetition_findings(section: &Value) -> Vec<Value> {
+    let visual = &section["visual"];
+    let Some(nodes) = visual["nodes"].as_array().filter(|nodes| nodes.len() <= 12) else {
+        return vec![];
+    };
+    let Some(labels) = nodes
+        .iter()
+        .map(|node| node["label"].as_str())
+        .collect::<Option<Vec<_>>>()
+    else {
+        return vec![];
+    };
+    let Ok(presentation) = serde_json::from_value(visual["presentation"].clone()) else {
+        return vec![];
+    };
+    crate::scene_presentation::repetition_positions(&presentation, &labels).into_iter()
+        .map(|(scene, element)| json!({"location":format!("/section/visual/presentation/scenes/{scene}/elements/{element}"),"code":"sceneRepetition"}))
+        .collect()
+}
+
 /// Diagnose a known scene failure only after native admission has rejected it.
 /// This does not resolve evidence or authorize a visual; the canonicalizer
 /// remains authoritative for node references and the complete presentation.
@@ -423,7 +456,9 @@ fn scene_evidence_findings(section: &Value) -> Vec<Value> {
     let Some(nodes) = visual["nodes"].as_array().filter(|n| n.len() <= 12) else {
         return Vec::new();
     };
-    let Ok(presentation) = serde_json::from_value::<ScenePresentation>(visual["presentation"].clone()) else {
+    let Ok(presentation) =
+        serde_json::from_value::<ScenePresentation>(visual["presentation"].clone())
+    else {
         return Vec::new();
     };
     let mut findings = Vec::new();
@@ -432,16 +467,30 @@ fn scene_evidence_findings(section: &Value) -> Vec<Value> {
             continue;
         }
         for (element_index, element) in scene.elements.iter().take(48).enumerate() {
-            if !matches!(element.kind, ElementKind::Card | ElementKind::Token | ElementKind::Code
-                | ElementKind::Metric | ElementKind::Bytes | ElementKind::Matrix
-                | ElementKind::Table | ElementKind::Text) {
+            if !matches!(
+                element.kind,
+                ElementKind::Card
+                    | ElementKind::Token
+                    | ElementKind::Code
+                    | ElementKind::Metric
+                    | ElementKind::Bytes
+                    | ElementKind::Matrix
+                    | ElementKind::Table
+                    | ElementKind::Text
+            ) {
                 continue;
             }
-            let Some(references) = element.node_index.and_then(|n| nodes.get(n))
-                .and_then(|node| node["evidence"].as_array()) else {
+            let Some(references) = element
+                .node_index
+                .and_then(|n| nodes.get(n))
+                .and_then(|node| node["evidence"].as_array())
+            else {
                 continue;
             };
-            if !references.iter().any(|reference| reference["claimIndex"].as_u64() == Some(scene_index as u64)) {
+            if !references
+                .iter()
+                .any(|reference| reference["claimIndex"].as_u64() == Some(scene_index as u64))
+            {
                 findings.push(json!({"location":format!("/section/visual/presentation/scenes/{scene_index}/elements/{element_index}/nodeIndex"),"code":"sceneEvidence"}));
                 if findings.len() == 64 {
                     return findings;
@@ -476,6 +525,8 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "presentationLimit"
                             | "visualField"
                             | "sceneEvidence"
+                            | "sceneVersion"
+                            | "sceneRepetition"
                             | "sectionValidation"
                     )
                 })
@@ -682,7 +733,7 @@ impl ActiveAnswer {
         cancelled: &AtomicBool,
         checkpoint_version: u32,
     ) -> Result<PreparedSection, String> {
-        if !matches!(checkpoint_version, 1 | 2) {
+        if !matches!(checkpoint_version, 1 | 2 | 3) {
             return Err("Unsupported answer presentation version.".into());
         }
         ledger.check(manifest, runtime, cancelled)?;
@@ -746,6 +797,7 @@ impl ActiveAnswer {
                         native_citations::Resolution::Ready(resolved) => {
                             let mut alignment = alignment_findings(&proposal.section, resolved.text());
                             alignment.extend(visual_shape_findings(&proposal.section));
+                            alignment.extend(scene_version_findings(&proposal.section, checkpoint_version));
                             alignment.truncate(64);
                             if !alignment.is_empty() {
                                 findings = alignment;
@@ -773,6 +825,8 @@ impl ActiveAnswer {
                                     Err(error) if error == chapter_generation::COMPLETE_CLAIMS_LIMIT_ERROR => findings = finding("presentationLimit"),
                                     Err(_) => {
                                         findings = scene_evidence_findings(&proposal.section);
+                                        findings.extend(scene_repetition_findings(&proposal.section));
+                                        findings.truncate(64);
                                         if findings.is_empty() {
                                             findings = finding("sectionValidation");
                                         }
@@ -1109,7 +1163,7 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
             .map(|s| &s.key)
             .collect::<BTreeSet<_>>()
             .len();
-        if !matches!(section.checkpoint_version, 1 | 2)
+        if !matches!(section.checkpoint_version, 1 | 2 | 3)
             || checkpoint.schema_version != 3
             || !same_binding(&value.binding, &checkpoint.binding)?
             || checkpoint.status != Status::Active
@@ -1203,6 +1257,9 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
                 return Err("The section cites code outside its delivered checkpoint.".into());
             }
         };
+        if !scene_version_findings(&proposal.section, section.checkpoint_version).is_empty() {
+            return Err("The saved scene does not match its checkpoint policy.".into());
+        }
         let canonicalize = if section.checkpoint_version == 1 {
             chapter_generation::canonicalize_cited_workspace_overview
         } else {

@@ -123,6 +123,22 @@ const sceneTrack = (sceneId, exactText = `Reviewed ${sceneId}.`) => ({
 });
 
 describe('offline chapter export', () => {
+  it('exports current and historical scene versions without changing their data or source links', async () => {
+    for (const schemaVersion of [1, 2]) {
+      const accepted = sceneChapter();
+      accepted.sections[0].visual.presentation.schemaVersion = schemaVersion;
+      const before = structuredClone(accepted);
+      const result = await buildOfflineGuideHtml([accepted], {
+        selectedRevisionIds: [accepted.revisionId], includeExcerpts: true,
+        includeNarrationAudio: true, narrationAudio: [sceneTrack('claim:input'), sceneTrack('claim:return')],
+      });
+      assert.equal((result.html.match(/class="offline-story-scene"/g) ?? []).length, 2);
+      assert.equal((result.html.match(/<audio controls/g) ?? []).length, 2);
+      assert.match(result.html, /href="#evidence-1-1"/);
+      assert.match(result.html, /href="#section-1-1-scene-2"/);
+      assert.deepEqual(accepted, before);
+    }
+  });
   it('includes only selected accepted revisions and records revision and snapshot identities', async () => {
     const accepted = chapter();
     const draft = chapter({ revisionId: 'revision:draft', lifecycle: 'draft' });

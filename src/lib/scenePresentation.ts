@@ -16,7 +16,7 @@ export interface PresentationScene {
   mode: 'composition' | 'graph';
   elements: SceneElement[];
 }
-export interface ScenePresentation { schemaVersion: 1; scenes: PresentationScene[] }
+export interface ScenePresentation { schemaVersion: 1 | 2; scenes: PresentationScene[] }
 export const containerKinds = new Set<string>(['row', 'column', 'grid', 'panel', 'compare', 'stack']);
 const kinds = new Set([...containerKinds, 'card', 'token', 'code', 'metric', 'bytes', 'matrix', 'table', 'text', 'arrow', 'divider']);
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -24,11 +24,35 @@ const exact = (v: Record<string, unknown>, keys: string[]) => Object.keys(v).len
 const bytes = (s: string) => new TextEncoder().encode(s).length;
 const index = (v: unknown, bound: number): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 && v < bound;
 
+/** Called only after the whole tree is validated. Layout/tone changes cannot
+ * turn identical visible content into a transformation. Values stay exact so
+ * case and whitespace transformations remain expressible.
+ */
+function repeatsTransformation(elements: SceneElement[], nodes: LinkedVisualNode[]): boolean {
+  const descendsFrom = (index: number, root: number): boolean => {
+    let parent = elements[index].parentIndex;
+    while (parent !== null) { if (parent === root) return true; parent = elements[parent].parentIndex; }
+    return false;
+  };
+  const signature = (root: number) => elements.flatMap((e, i) =>
+    (i === root || descendsFrom(i, root)) && !containerKinds.has(e.kind) && e.kind !== 'arrow' && e.kind !== 'divider'
+      ? [[nodes[e.nodeIndex!].label.trim(), e.value]] : []);
+  return elements.some((element, i) => {
+    if (element.kind !== 'arrow' || element.parentIndex === null) return false;
+    const siblings = elements.flatMap((e, n) => e.parentIndex === element.parentIndex ? [n] : []);
+    const at = siblings.indexOf(i);
+    const content = (indices: number[]) => indices.map(signature).find(s => s.length);
+    const before = content(siblings.slice(0, at).reverse());
+    const after = content(siblings.slice(at + 1));
+    return !!before && !!after && JSON.stringify(before) === JSON.stringify(after);
+  });
+}
+
 /** Reject the entire presentation on unknown fields, foreign evidence or an
  * oversized tree. Strings are always text; the renderer never interprets HTML.
  */
 export function validScenePresentation(raw: unknown, nodes: LinkedVisualNode[], claims: ChapterClaim[]): raw is ScenePresentation {
-  if (!record(raw) || !exact(raw, ['schemaVersion', 'scenes']) || raw.schemaVersion !== 1 || !Array.isArray(raw.scenes)
+  if (!record(raw) || !exact(raw, ['schemaVersion', 'scenes']) || (raw.schemaVersion !== 1 && raw.schemaVersion !== 2) || !Array.isArray(raw.scenes)
     || raw.scenes.length !== claims.length || raw.scenes.length < 1 || raw.scenes.length > 20) return false;
   return raw.scenes.every((scene, claimIndex) => {
     if (!record(scene) || !exact(scene, ['claimIndex', 'title', 'mode', 'elements']) || scene.claimIndex !== claimIndex
@@ -71,6 +95,7 @@ export function validScenePresentation(raw: unknown, nodes: LinkedVisualNode[], 
       }
       if (e.kind === 'bytes' && (!e.value.trim() || e.value.trim().split(/\s+/u).length > 32)) return false;
     }
-    return leaves >= 1 && leaves <= 12 && elements.every((e, i) => !containerKinds.has(e.kind) || counts[i] > 0);
+    return leaves >= 1 && leaves <= 12 && elements.every((e, i) => !containerKinds.has(e.kind) || counts[i] > 0)
+      && (raw.schemaVersion === 1 || !repeatsTransformation(elements as SceneElement[], nodes));
   });
 }

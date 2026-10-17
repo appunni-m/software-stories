@@ -145,7 +145,7 @@ fn complete_presentation_keeps_every_condition_and_later_sentence() {
     raw["section"]["claims"][0]["prose"] = json!(complete);
     publish(&mut a, &l, &raw.to_string(), &f, &r, &c);
     let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
-    assert_eq!(saved.sections[0].checkpoint_version, 2);
+    assert_eq!(saved.sections[0].checkpoint_version, 3);
     let section = &saved.sections[0].preview.revision.sections[0];
     assert_eq!(section.prose, complete);
     assert_eq!(section.spoken_text, complete);
@@ -161,12 +161,20 @@ fn oversized_complete_presentation_is_rejected_without_publishing_a_summary() {
     let mut claims = Vec::new();
     for index in 0..4 {
         let mut claim = raw["section"]["claims"][0].clone();
-        claim["prose"] = json!(format!("The greeting function {} in case {index}.", "formats the supplied name into a message and ".repeat(30)));
+        claim["prose"] = json!(format!(
+            "The greeting function {} in case {index}.",
+            "formats the supplied name into a message and ".repeat(30)
+        ));
         claims.push(claim);
     }
     raw["section"]["claims"] = json!(claims);
-    let prepared = a.prepare(&l, &raw.to_string(), &f.manifest, &r, &c).unwrap();
-    assert_eq!(prepared.findings, vec![json!({"location":"/section","code":"presentationLimit"})]);
+    let prepared = a
+        .prepare(&l, &raw.to_string(), &f.manifest, &r, &c)
+        .unwrap();
+    assert_eq!(
+        prepared.findings,
+        vec![json!({"location":"/section","code":"presentationLimit"})]
+    );
     assert!(prepared.generation_id.is_none());
     a.commit(&l, prepared, &f.manifest, &r, &c).unwrap();
     let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
@@ -184,7 +192,9 @@ fn historical_summary_checkpoints_are_not_reinterpreted_as_complete_scripts() {
         let mut raw: Value = serde_json::from_str(&proposal(&id, "entry", 0)).unwrap();
         raw["section"]["claims"][0]["prose"] = json!("The `greeting` function formats the supplied `name`. It returns the resulting message.");
         let raw = raw.to_string();
-        let prepared = a.prepare_with_checkpoint_version(&l, &raw, &f.manifest, &r, &c, version).unwrap();
+        let prepared = a
+            .prepare_with_checkpoint_version(&l, &raw, &f.manifest, &r, &c, version)
+            .unwrap();
         assert!(prepared.findings.is_empty());
         a.commit(&l, prepared, &f.manifest, &r, &c).unwrap();
         let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
@@ -258,10 +268,17 @@ fn invalid_section_key_reports_its_exact_field_and_preserves_the_original_propos
     let evidence = read(&mut ledger, &f, &runtime, &cancel);
     let mut answer = start(&ledger, &f, &runtime, &cancel);
     let original = proposal(&evidence, "entry_flow", 0);
-    let prepared = answer.prepare(&ledger, &original, &f.manifest, &runtime, &cancel).unwrap();
-    assert_eq!(prepared.findings, vec![json!({"location":"/sectionKey","code":"sectionKeyFormat"})]);
+    let prepared = answer
+        .prepare(&ledger, &original, &f.manifest, &runtime, &cancel)
+        .unwrap();
+    assert_eq!(
+        prepared.findings,
+        vec![json!({"location":"/sectionKey","code":"sectionKeyFormat"})]
+    );
     assert!(prepared.generation_id.is_none());
-    answer.commit(&ledger, prepared, &f.manifest, &runtime, &cancel).unwrap();
+    answer
+        .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
+        .unwrap();
     let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
     assert_eq!(saved.attempts[0].arguments, original);
     assert!(saved.sections.is_empty());
@@ -417,11 +434,10 @@ fn recovery_marks_work_interrupted_without_reopening_or_replaying_the_investigat
             .outcome,
         Outcome::Interrupted
     );
-    assert!(
-        a.prepare(&l, &proposal(&id, "later", 1), &f.manifest, &r, &c)
-            .and_then(|p| a.commit(&l, p, &f.manifest, &r, &c))
-            .is_err()
-    );
+    assert!(a
+        .prepare(&l, &proposal(&id, "later", 1), &f.manifest, &r, &c)
+        .and_then(|p| a.commit(&l, p, &f.manifest, &r, &c))
+        .is_err());
 }
 
 #[test]
@@ -448,17 +464,15 @@ fn a_published_section_replays_exact_source_visual_and_proposal_after_ledger_app
     assert_eq!(section.claims[0].anchors[0].excerpt, SIMPLE_SOURCE);
     assert!(!section.prose.contains("Presentation is derived"));
     assert!(!section.spoken_text.contains("Presentation is derived"));
-    assert!(
-        section
-            .visual
-            .as_ref()
-            .unwrap()
-            .typed_visual()
-            .unwrap()
-            .nodes
-            .iter()
-            .all(|n| n.evidence_anchor_ids == vec![section.claims[0].anchors[0].anchor_id.clone()])
-    );
+    assert!(section
+        .visual
+        .as_ref()
+        .unwrap()
+        .typed_visual()
+        .unwrap()
+        .nodes
+        .iter()
+        .all(|n| n.evidence_anchor_ids == vec![section.claims[0].anchors[0].anchor_id.clone()]));
     // The checkpoint remains independently inspectable without the mutable
     // operation record. No grant or runtime connection is acquired by replay.
     fs::remove_file(&ledger.path).unwrap();
@@ -484,11 +498,14 @@ fn a_later_rejected_claim_preserves_the_first_section_and_allows_a_partial_termi
         "\"identifiers\":[\"not_read\"]",
     );
     let p = a.prepare(&ledger, &bad, &f.manifest, &r, &c).unwrap();
-    assert_eq!(p.findings, vec![
-        json!({"location":"/section/claims/0/identifiers/0","code":"identifierProse"}),
-        json!({"location":"/section/claims/0/identifiers/0","code":"identifierEvidence"}),
-        json!({"location":"/section/claims/0/evidence/0","code":"evidenceIdentifier"}),
-    ]);
+    assert_eq!(
+        p.findings,
+        vec![
+            json!({"location":"/section/claims/0/identifiers/0","code":"identifierProse"}),
+            json!({"location":"/section/claims/0/identifiers/0","code":"identifierEvidence"}),
+            json!({"location":"/section/claims/0/evidence/0","code":"evidenceIdentifier"}),
+        ]
+    );
     assert!(p.generation_id.is_none());
     a.commit(&ledger, p, &f.manifest, &r, &c).unwrap();
     a.finish(
@@ -588,10 +605,9 @@ fn invalid_proposals_are_bounded_and_never_replace_an_existing_section() {
         assert!(!p.findings.is_empty());
         a.commit(&l, p, &f.manifest, &r, &c).unwrap();
     }
-    assert!(
-        a.prepare(&l, &proposal(&id, "second", 1), &f.manifest, &r, &c)
-            .is_err()
-    );
+    assert!(a
+        .prepare(&l, &proposal(&id, "second", 1), &f.manifest, &r, &c)
+        .is_err());
     assert_eq!(serde_json::to_value(&a.value.sections[0]).unwrap(), valid);
     inspect(&f.storage, &l.record.binding.operation_id).unwrap();
 }
@@ -629,12 +645,12 @@ fn checkpoint_proposal_content_and_visual_tampering_fail_independent_inspection(
                     json!("This unrelated sentence was never generated by the owned proposal.")
             }
             "edge" => {
-                saved["sections"][0]["preview"]["revision"]["sections"][0]["visual"]["edges"][0]["label"] =
-                    json!("unproven relationship")
+                saved["sections"][0]["preview"]["revision"]["sections"][0]["visual"]["edges"][0]
+                    ["label"] = json!("unproven relationship")
             }
             "origin" => {
-                saved["sections"][0]["preview"]["revision"]["generationOrigin"]["retrieval"]["ledgerSha256"] =
-                    json!("f".repeat(64))
+                saved["sections"][0]["preview"]["revision"]["generationOrigin"]["retrieval"]
+                    ["ledgerSha256"] = json!("f".repeat(64))
             }
             "order" => saved["sections"][0]["order"] = json!(2),
             "identity" => saved["binding"]["runtime"]["accountRevision"] = json!(99),
@@ -666,7 +682,7 @@ fn saved_file_symlinks_capacity_and_stale_preparation_cannot_destroy_prior_work(
     assert_eq!(fs::read(&a.path).unwrap(), before);
     #[cfg(unix)]
     {
-        use std::os::unix::fs::{PermissionsExt, symlink};
+        use std::os::unix::fs::{symlink, PermissionsExt};
         assert_eq!(
             a.path.metadata().unwrap().permissions().mode() & 0o777,
             0o600
@@ -683,11 +699,9 @@ fn saved_file_symlinks_capacity_and_stale_preparation_cannot_destroy_prior_work(
         start(&ledger, &f, &r, &c);
     }
     let (ledger, r, c) = setup(&f);
-    assert!(
-        ledger
-            .start_answer_sections("Another question", &"e".repeat(64), &f.manifest, &r, &c)
-            .is_err()
-    );
+    assert!(ledger
+        .start_answer_sections("Another question", &"e".repeat(64), &f.manifest, &r, &c)
+        .is_err());
     assert_eq!(fs::read(&a.path).unwrap(), before);
 }
 
@@ -733,10 +747,9 @@ fn oversized_proposals_and_corrupt_storage_preserve_the_previous_bytes() {
     let mut a = start(&l, &f, &r, &c);
     publish(&mut a, &l, &proposal(&id, "entry", 0), &f, &r, &c);
     let before = fs::read(&a.path).unwrap();
-    assert!(
-        a.prepare(&l, &"x".repeat(MAX_PROPOSAL_BYTES + 1), &f.manifest, &r, &c)
-            .is_err()
-    );
+    assert!(a
+        .prepare(&l, &"x".repeat(MAX_PROPOSAL_BYTES + 1), &f.manifest, &r, &c)
+        .is_err());
     assert_eq!(fs::read(&a.path).unwrap(), before);
     let prepared = a
         .prepare(&l, &proposal(&id, "later", 1), &f.manifest, &r, &c)
@@ -746,17 +759,15 @@ fn oversized_proposals_and_corrupt_storage_preserve_the_previous_bytes() {
     assert!(a.finish(Outcome::Partial, vec![]).is_err());
     assert_eq!(fs::read(&a.path).unwrap(), b"damaged local answer");
     let (other, runtime, cancel) = setup(&f);
-    assert!(
-        other
-            .start_answer_sections(
-                "Another question",
-                &"e".repeat(64),
-                &f.manifest,
-                &runtime,
-                &cancel
-            )
-            .is_err()
-    );
+    assert!(other
+        .start_answer_sections(
+            "Another question",
+            &"e".repeat(64),
+            &f.manifest,
+            &runtime,
+            &cancel
+        )
+        .is_err());
     assert_eq!(fs::read(&a.path).unwrap(), b"damaged local answer");
 }
 
@@ -772,7 +783,10 @@ fn incomplete_or_uncertain_source_delivery_cannot_publish_a_section() {
         let rejected = a
             .prepare(&l, &proposal(&id, "entry", 0), &f.manifest, &r, &c)
             .unwrap();
-        assert_eq!(rejected.findings, vec![json!({"location":"/section/claims/0/evidence/0","code":"citation"})]);
+        assert_eq!(
+            rejected.findings,
+            vec![json!({"location":"/section/claims/0/evidence/0","code":"citation"})]
+        );
         assert!(rejected.generation_id.is_none());
         assert_eq!(fs::read(&a.path).unwrap(), before);
     }
@@ -806,19 +820,17 @@ fn a_failed_final_manifest_cannot_clear_sections_and_terminal_records_cannot_pub
     let first = publish(&mut a, &l, &proposal(&id, "entry", 0), &f, &r, &c);
     let before = fs::read(&a.path).unwrap();
     assert!(a.finish(Outcome::Failed, vec![]).is_err());
-    assert!(
-        a.finish(Outcome::Complete, vec!["Unfinished".into()])
-            .is_err()
-    );
+    assert!(a
+        .finish(Outcome::Complete, vec!["Unfinished".into()])
+        .is_err());
     assert_eq!(fs::read(&a.path).unwrap(), before);
     a.finish(Outcome::Stopped, vec![]).unwrap();
     let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
     assert_eq!(saved.outcome, Outcome::Stopped);
     assert_eq!(saved.sections[0].preview.generation_id, first);
-    assert!(
-        a.prepare(&l, &proposal(&id, "later", 1), &f.manifest, &r, &c)
-            .is_err()
-    );
+    assert!(a
+        .prepare(&l, &proposal(&id, "later", 1), &f.manifest, &r, &c)
+        .is_err());
     assert!(a.finish(Outcome::Complete, vec![]).is_err());
 }
 
@@ -873,17 +885,15 @@ fn saved_answer_bounds_and_proposal_versions_fail_without_inference_or_replaceme
         .unwrap();
     }
     let (other, runtime, cancel) = setup(&f);
-    assert!(
-        other
-            .start_answer_sections(
-                "Another question",
-                &"e".repeat(64),
-                &f.manifest,
-                &runtime,
-                &cancel
-            )
-            .is_err()
-    );
+    assert!(other
+        .start_answer_sections(
+            "Another question",
+            &"e".repeat(64),
+            &f.manifest,
+            &runtime,
+            &cancel
+        )
+        .is_err());
     assert_eq!(fs::read(&a.path).unwrap(), original);
     inspect(&f.storage, &l.record.binding.operation_id).unwrap();
 }
@@ -959,14 +969,12 @@ fn progressive_evidence_ids_and_receipts_cannot_reinterpret_historical_versions(
         "max",
     )
     .unwrap();
-    assert!(
-        old.begin_call(Tool::ProposeSection, &"f".repeat(64), &f.manifest, &r, &c)
-            .is_err()
-    );
-    assert!(
-        old.start_answer_sections("Another question", &"e".repeat(64), &f.manifest, &r, &c)
-            .is_err()
-    );
+    assert!(old
+        .begin_call(Tool::ProposeSection, &"f".repeat(64), &f.manifest, &r, &c)
+        .is_err());
+    assert!(old
+        .start_answer_sections("Another question", &"e".repeat(64), &f.manifest, &r, &c)
+        .is_err());
     assert!(old.record.calls.is_empty());
 }
 
@@ -990,12 +998,17 @@ fn ready_timing_is_persisted_once_and_independent_of_preparation_clock() {
 #[test]
 fn visual_required_field_feedback_names_only_the_fixed_wire_position() {
     let value = json!({"visual":{"kind":"dataFlow","direction":"auto","nodes":[],"edges":[]}});
-    assert_eq!(visual_shape_findings(&value), vec![json!({"location":"/section/visual/title","code":"visualField"})]);
+    assert_eq!(
+        visual_shape_findings(&value),
+        vec![json!({"location":"/section/visual/title","code":"visualField"})]
+    );
     let malformed = json!({"visual":{"kind":23,"title":"private model text","direction":"auto","nodes":"bad","edges":[]}});
     let findings = visual_shape_findings(&malformed);
     assert_eq!(findings.len(), 2);
     assert!(valid_findings(&findings));
-    assert!(!serde_json::to_string(&findings).unwrap().contains("private"));
+    assert!(!serde_json::to_string(&findings)
+        .unwrap()
+        .contains("private"));
 }
 
 #[test]
@@ -1006,10 +1019,14 @@ fn scene_evidence_feedback_locates_the_wrong_claim_and_preserves_the_rejected_pr
     let mut a = start(&l, &f, &r, &c);
     let mut raw: Value = serde_json::from_str(&proposal(&id, "entry", 0)).unwrap();
     let mut second = raw["section"]["claims"][0].clone();
-    second["prose"] = json!("The greeting function returns a formatted message containing the supplied name.");
-    raw["section"]["claims"].as_array_mut().unwrap().push(second);
+    second["prose"] =
+        json!("The greeting function returns a formatted message containing the supplied name.");
+    raw["section"]["claims"]
+        .as_array_mut()
+        .unwrap()
+        .push(second);
     raw["section"]["visual"]["nodes"][1]["evidence"][0]["claimIndex"] = json!(1);
-    raw["section"]["visual"]["presentation"] = json!({"schemaVersion":1,"scenes":[
+    raw["section"]["visual"]["presentation"] = json!({"schemaVersion":2,"scenes":[
         {"claimIndex":0,"title":"Format a name","mode":"composition","elements":[
             {"kind":"card","parentIndex":null,"nodeIndex":0,"tone":"accent","value":"","valueOrigin":"none"}]},
         {"claimIndex":1,"title":"Return the message","mode":"composition","elements":[
@@ -1017,7 +1034,12 @@ fn scene_evidence_feedback_locates_the_wrong_claim_and_preserves_the_rejected_pr
     ]});
     let rejected_raw = raw.to_string();
     let rejected = a.prepare(&l, &rejected_raw, &f.manifest, &r, &c).unwrap();
-    assert_eq!(rejected.findings, vec![json!({"location":"/section/visual/presentation/scenes/1/elements/0/nodeIndex","code":"sceneEvidence"})]);
+    assert_eq!(
+        rejected.findings,
+        vec![
+            json!({"location":"/section/visual/presentation/scenes/1/elements/0/nodeIndex","code":"sceneEvidence"})
+        ]
+    );
     assert!(valid_findings(&rejected.findings));
     assert!(rejected.generation_id.is_none());
     a.commit(&l, rejected, &f.manifest, &r, &c).unwrap();
@@ -1031,6 +1053,130 @@ fn scene_evidence_feedback_locates_the_wrong_claim_and_preserves_the_rejected_pr
     assert_eq!(saved.sections.len(), 1);
 }
 
+fn self_transforming_presentation() -> Value {
+    json!({"schemaVersion":2,"scenes":[{"claimIndex":0,"title":"A transformation","mode":"composition","elements":[
+        {"kind":"row","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+        {"kind":"card","parentIndex":0,"nodeIndex":0,"tone":"accent","value":"","valueOrigin":"none"},
+        {"kind":"arrow","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+        {"kind":"card","parentIndex":0,"nodeIndex":0,"tone":"positive","value":"","valueOrigin":"none"}
+    ]}]})
+}
+
+#[test]
+fn fresh_scene_policy_retains_rejection_and_allows_full_correction_without_resetting_attempts() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    let id = read(&mut l, &f, &r, &c);
+    let mut a = start(&l, &f, &r, &c);
+    let mut raw: Value = serde_json::from_str(&proposal(&id, "entry", 0)).unwrap();
+    raw["section"]["visual"]["presentation"] = self_transforming_presentation();
+    let original_claims = raw["section"]["claims"].clone();
+    let rejected_raw = raw.to_string();
+    let rejected = a.prepare(&l, &rejected_raw, &f.manifest, &r, &c).unwrap();
+    assert_eq!(
+        rejected.findings,
+        vec![
+            json!({"location":"/section/visual/presentation/scenes/0/elements/2","code":"sceneRepetition"})
+        ]
+    );
+    assert!(valid_findings(&rejected.findings));
+    assert!(rejected.generation_id.is_none());
+    a.commit(&l, rejected, &f.manifest, &r, &c).unwrap();
+    let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+    assert!(saved.sections.is_empty());
+    assert_eq!(saved.attempts[0].arguments, rejected_raw);
+    raw["section"]["visual"]["presentation"]["schemaVersion"] = json!(1);
+    let rejected = a
+        .prepare(&l, &raw.to_string(), &f.manifest, &r, &c)
+        .unwrap();
+    assert_eq!(
+        rejected.findings,
+        vec![
+            json!({"location":"/section/visual/presentation/schemaVersion","code":"sceneVersion"})
+        ]
+    );
+    a.commit(&l, rejected, &f.manifest, &r, &c).unwrap();
+    raw["section"]["visual"]["presentation"]["schemaVersion"] = json!(2);
+    raw["section"]["visual"]["presentation"]["scenes"][0]["elements"][3]["nodeIndex"] = json!(1);
+    assert_eq!(raw["section"]["claims"], original_claims);
+    publish(&mut a, &l, &raw.to_string(), &f, &r, &c);
+    let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+    assert_eq!(saved.attempts.len(), 3);
+    assert_eq!(saved.sections.len(), 1);
+    assert_eq!(saved.sections[0].checkpoint_version, 3);
+    assert_eq!(
+        saved.sections[0].preview.revision.sections[0].claims.len(),
+        1
+    );
+}
+
+#[test]
+fn historical_scene_v1_checkpoints_replay_and_remain_idempotent_under_new_policy() {
+    for checkpoint_version in [1, 2] {
+        let f = Fixture::new();
+        let (mut l, r, c) = setup(&f);
+        let id = read(&mut l, &f, &r, &c);
+        let mut a = start(&l, &f, &r, &c);
+        let mut raw: Value = serde_json::from_str(&proposal(&id, "entry", 0)).unwrap();
+        raw["section"]["visual"]["presentation"] = self_transforming_presentation();
+        raw["section"]["visual"]["presentation"]["schemaVersion"] = json!(1);
+        let raw = raw.to_string();
+        let prepared = a
+            .prepare_with_checkpoint_version(&l, &raw, &f.manifest, &r, &c, checkpoint_version)
+            .unwrap();
+        assert!(prepared.findings.is_empty());
+        a.commit(&l, prepared, &f.manifest, &r, &c).unwrap();
+        let before = fs::read(&a.path).unwrap();
+        let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+        assert_eq!(saved.sections[0].checkpoint_version, checkpoint_version);
+        assert_eq!(fs::read(&a.path).unwrap(), before);
+        publish(&mut a, &l, &raw, &f, &r, &c);
+        assert_eq!(a.value.sections.len(), 1);
+        assert_eq!(a.value.sections[0].checkpoint_version, checkpoint_version);
+        let mut forged = serde_json::to_value(&a.value).unwrap();
+        forged["sections"][0]["checkpointVersion"] = json!(3);
+        fs::write(&a.path, serde_json::to_vec(&forged).unwrap()).unwrap();
+        assert!(inspect(&f.storage, &l.record.binding.operation_id).is_err());
+    }
+}
+
+#[test]
+fn new_scene_findings_are_source_free_bounded_and_do_not_interpret_unknown_trees() {
+    let mut section = json!({"visual":{"nodes":[{"label":"private source marker"}],"presentation":self_transforming_presentation()}});
+    let findings = scene_repetition_findings(&section);
+    assert_eq!(findings.len(), 1);
+    assert!(valid_findings(&findings));
+    assert!(!serde_json::to_string(&findings)
+        .unwrap()
+        .contains("private"));
+    let scene = section["visual"]["presentation"]["scenes"][0].clone();
+    let mut elements = vec![scene["elements"][0].clone()];
+    for i in 0..11 {
+        elements.push(scene["elements"][if i % 2 == 0 { 1 } else { 2 }].clone());
+    }
+    section["visual"]["presentation"]["scenes"] = json!((0..20).map(|i| json!({"claimIndex":i,"title":"private scene","mode":"composition","elements":elements})).collect::<Vec<_>>());
+    let findings = scene_repetition_findings(&section);
+    assert_eq!(findings.len(), 64);
+    assert!(valid_findings(&findings));
+    section["visual"]["presentation"]["scenes"][0]["elements"][0]["parentIndex"] = json!(999);
+    section["visual"]["presentation"]["scenes"]
+        .as_array_mut()
+        .unwrap()
+        .truncate(1);
+    assert!(scene_repetition_findings(&section).is_empty());
+    section["visual"]["presentation"]["scenes"][0]["elements"][0]["parentIndex"] = Value::Null;
+    section["visual"]["presentation"]["schemaVersion"] = json!(1);
+    assert!(scene_repetition_findings(&section).is_empty());
+    assert_eq!(scene_version_findings(&section, 3).len(), 1);
+    assert!(scene_version_findings(&section, 2).is_empty());
+    for version in [json!("2"), json!(3), Value::Null] {
+        section["visual"]["presentation"]["schemaVersion"] = version;
+        assert_eq!(scene_version_findings(&section, 3).len(), 1);
+    }
+    assert!(scene_repetition_findings(&json!({})).is_empty());
+    assert!(scene_version_findings(&json!({"visual":{}}), 3).is_empty());
+}
+
 #[test]
 fn scene_evidence_diagnostics_are_bounded_source_free_and_skip_unknown_shapes() {
     let mut section = json!({"visual":{"nodes":[{"label":"private label","evidence":[{"claimIndex":1,"evidenceIndex":0}]}],
@@ -1039,8 +1185,13 @@ fn scene_evidence_diagnostics_are_bounded_source_free_and_skip_unknown_shapes() 
     let findings = scene_evidence_findings(&section);
     assert_eq!(findings.len(), 1);
     assert!(valid_findings(&findings));
-    assert!(!serde_json::to_string(&findings).unwrap().contains("private"));
-    section["visual"]["nodes"][0]["evidence"].as_array_mut().unwrap().push(json!({"claimIndex":0,"evidenceIndex":0}));
+    assert!(!serde_json::to_string(&findings)
+        .unwrap()
+        .contains("private"));
+    section["visual"]["nodes"][0]["evidence"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"claimIndex":0,"evidenceIndex":0}));
     assert!(scene_evidence_findings(&section).is_empty());
     section["visual"]["nodes"][0]["evidence"] = json!([]);
     section["visual"]["presentation"]["scenes"][0]["mode"] = json!("graph");
@@ -1111,12 +1262,10 @@ fn partial_answer_retains_fixed_actual_failure_without_losing_its_published_sect
     assert_eq!(saved.outcome, Outcome::Partial);
     assert_eq!(saved.sections.len(), 1);
     // Technical diagnostics stay in the private record, outside the UI summary.
-    assert!(
-        serde_json::to_value(saved)
-            .unwrap()
-            .get("failureCode")
-            .is_none()
-    );
+    assert!(serde_json::to_value(saved)
+        .unwrap()
+        .get("failureCode")
+        .is_none());
     let replay = inspect(&f.storage, run).unwrap();
     assert_eq!(replay.failure_code, Some(FailureCode::InvalidToolArguments));
     assert_eq!(serde_json::to_value(&replay.sections).unwrap(), before);
@@ -1179,8 +1328,12 @@ fn failure_diagnostics_reject_unknown_null_and_nonterminal_metadata() {
     let run = &ledger.record.binding.operation_id;
     let original = fs::read(&answer.path).unwrap();
     assert!(reading::interrupt_with_failure(
-        &f.storage, run, Outcome::Partial, Some(FailureCode::Stopped),
-    ).is_err());
+        &f.storage,
+        run,
+        Outcome::Partial,
+        Some(FailureCode::Stopped),
+    )
+    .is_err());
     assert_eq!(fs::read(&answer.path).unwrap(), original);
     for value in [
         json!(null),

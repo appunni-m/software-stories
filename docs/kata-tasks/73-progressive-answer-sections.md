@@ -133,3 +133,7 @@ The worker discarded its actual terminal error when preserving this partial answ
 - [ ] Reproduce the actual uncertain-call failure with retained native classification before attributing it to arguments, sockets, context size or a model. Preserve the failed completion; do not reset budgets or rerun automatically.
 - [ ] Correct the missing dispatcher exceptions and repeated empty-card scene through the existing quality/visual tasks; the source-valid draft is not an accepted narrative.
 - [ ] Complete the original broad answer, installed reader/Stop/restart, Pocket and accessibility gates. Keep this task open.
+
+## Scene policy checkpoint — 17 October
+
+New progressive sections now bind checkpoint version 3 to presentation version 2. Old checkpoints 1/2 remain immutable and readable; a fresh proposal cannot downgrade its scene policy. Fixed positional feedback preserves full rejected arguments and permits a corrected complete section within the same attempt budget. Private diagnostic retention from the prior checkpoint is unchanged. Native suite: 368 pass, 13 explicit probes ignored; frontend: 183 pass. [Evidence and remaining broad/native gates](../acceptance/2026-10-17-scene-v2.md). Fresh broad account completion and installed acceptance remain unproven; keep this task open.

@@ -187,3 +187,13 @@ the follow-up. [Preserved failure and remaining work](acceptance/2026-10-17-shor
 All 73 checked-in task bodies/statuses/priorities match live Kata: **50 open,
 23 closed**. Duplicate YAML frontmatter was removed from three live issue
 bodies; requirements and statuses are unchanged. No task is closed by these checks.
+
+## Versioned scene-quality checkpoint — 17 October
+
+New progressive compositions reject the recorded empty self-transformation,
+with source-free positional repair feedback and original budgets. Historical
+scene/checkpoint versions remain readable and idempotent. **368 native tests**
+(13 explicit probes ignored), **183 frontend tests**, production frontend and
+unsigned debug app builds pass. Fresh broad generation and installed/Pocket/
+accessibility quality remain pending; the Mac is locked. [Exact evidence and
+limits](acceptance/2026-10-17-scene-v2.md). No task is closed.

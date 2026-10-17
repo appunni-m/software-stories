@@ -112,3 +112,7 @@ The fresh full Fontdone question returned Partial in 160.010 s, with one source-
 - [ ] Review a complete font-bytes → parse → outline → hint → raster → bitmap story against captured source, including optional/missing-table contrasts and early errors. Exact IDs, faster first publication and schema-valid HTML do not pass the rubric.
 
 This is an agent source/structure finding, not the required human benchmark. The follow-up's 363 native/179 frontend tests qualify mechanics only. Keep this task open.
+
+## Narrow visual-quality guard — 17 October
+
+The concrete Fontdone empty-card self-transformation now has a versioned native/reader rejection and positional repair feedback. New narration instructions minimize necessary declared identifiers while preserving exact code alignment, full conditions and failure behavior. Mechanical checks pass (368 native, 183 frontend), but differing labels alone cannot prove a useful scene, a truthful illustration, natural narration or repository completeness. [Implementation scope and required fresh qualification](../acceptance/2026-10-17-scene-v2.md). The preserved broad failure remains failed. Keep semantic/comprehension/Pocket listening and complete-repository gates open.

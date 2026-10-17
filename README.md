@@ -45,6 +45,8 @@ These are capabilities under development, not a finished or released product. **
 
 The [local retrieval checkpoint](docs/acceptance/2026-10-17-range-retrieval.md) records native range search and its limits. The [owned Codex investigation checkpoint](docs/acceptance/2026-10-17-codex-owned-retrieval.md) adds one live GPT-6 Luna/max synthetic answer using iterative tools: five calls and 197 distinct source bytes. Workspace chat now uses that route in source. Fontdone broad/focused explanations, speed and packaged-app acceptance remain open.
 
+The [versioned visual-scene checkpoint](docs/acceptance/2026-10-17-scene-v2.md) adds concrete transformation checks while preserving saved guides. Fresh broad and installed quality qualification remains pending.
+
 The [latest Fontdone qualification](docs/acceptance/2026-10-17-short-native-references.md)
 uses short native citation references and preserves one draft, but still ends
 partial. Source-exception, visual-story, narration and broad-completion gates

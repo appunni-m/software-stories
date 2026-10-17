@@ -144,3 +144,11 @@ isolated broad Fontdone account qualification is still required; the earlier
 partial result remains failed. [Contract, causal evidence and limits](acceptance/2026-10-17-short-native-references.md).
 Live Kata remains **73 records: 50 open, 23 closed**. `3bz5`, `yk6c` and `gk46`
 remain open; no task is closed by this checkpoint.
+
+## Versioned scene-quality checkpoint — 17 October
+
+`j53m`, `3bz5` and `q0sm` record the new presentation-v2/checkpoint-v3 guard,
+legacy preservation and bounded repair feedback. Mechanical suites/builds
+pass; the fresh broad account and installed scene/narration qualification
+remain required. [Evidence and scope](acceptance/2026-10-17-scene-v2.md).
+All 73 records remain present; 50 are open and 23 closed.

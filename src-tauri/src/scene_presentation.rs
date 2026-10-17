@@ -3,7 +3,10 @@
 
 use crate::chapters::{ChapterClaim, VisualNode};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
+
+mod quality;
+pub(crate) use quality::repetition_positions;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -95,13 +98,13 @@ pub fn validate(
     nodes: &[VisualNode],
     claims: &[ChapterClaim],
 ) -> Result<(), String> {
-    if presentation.schema_version != 1
+    if !matches!(presentation.schema_version, 1 | 2)
         || presentation.scenes.len() != claims.len()
         || presentation.scenes.is_empty()
         || presentation.scenes.len() > 20
     {
         return Err(
-            "A scene presentation needs version 1 and one scene for each claim, in claim order."
+            "A scene presentation needs version 1 or 2 and one scene for each claim, in claim order."
                 .into(),
         );
     }
@@ -225,13 +228,17 @@ pub fn validate(
             );
         }
     }
+    let labels: Vec<_> = nodes.iter().map(|n| n.label.as_str()).collect();
+    if !repetition_positions(presentation, &labels).is_empty() {
+        return Err("A transformation must show distinct input/result labels or values.".into());
+    }
     Ok(())
 }
 
 /// Flat parent indices keep the model schema small and avoid recursive schemas.
 pub(crate) fn proposal_schema() -> Value {
     json!({"type":"object","additionalProperties":false,"required":["schemaVersion","scenes"],"properties":{
-        "schemaVersion":{"type":"integer","enum":[1]},
+        "schemaVersion":{"type":"integer","enum":[2]},
         "scenes":{"type":"array","minItems":1,"maxItems":20,"items":{
             "type":"object","additionalProperties":false,"required":["claimIndex","title","mode","elements"],"properties":{
                 "claimIndex":{"type":"integer","minimum":0,"maximum":19},
@@ -254,6 +261,28 @@ pub(crate) fn proposal_schema() -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn new_scene_policy_rejects_the_recorded_empty_self_transformation_but_keeps_legacy() {
+        let artifact: Value = serde_json::from_str(include_str!(
+            "../../docs/acceptance/artifacts/2026-10-17-fontdone-short-references-partial.json"
+        ))
+        .unwrap();
+        let revision: crate::chapters::ChapterRevision = serde_json::from_value(
+            artifact["answer"]["sections"][0]["preview"]["revision"].clone(),
+        )
+        .unwrap();
+        let section = &revision.sections[0];
+        let visual = section.visual.as_ref().unwrap().typed_visual().unwrap();
+        let mut presentation = visual.presentation.clone().unwrap();
+        // The original admitted guide is immutable and stays readable.
+        assert_eq!(presentation.schema_version, 1);
+        validate(&presentation, &visual.nodes, &section.claims).unwrap();
+        presentation.schema_version = 2;
+        assert!(validate(&presentation, &visual.nodes, &section.claims)
+            .unwrap_err()
+            .contains("distinct input/result labels or values"));
+    }
 
     fn fixture() -> (Vec<VisualNode>, Vec<ChapterClaim>, ScenePresentation) {
         let artifact: Value = serde_json::from_str(include_str!(
@@ -314,14 +343,55 @@ mod tests {
     }
 
     #[test]
+    fn scene_v2_requires_a_visible_transition_but_allows_real_state_comparisons() {
+        let (mut nodes, claims, mut presentation) = fixture();
+        presentation.schema_version = 2;
+        let elements = json!([
+            {"kind":"row","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"card","parentIndex":0,"nodeIndex":3,"tone":"accent","value":"","valueOrigin":"none"},
+            {"kind":"arrow","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"code","parentIndex":0,"nodeIndex":3,"tone":"positive","value":"","valueOrigin":"none"}
+        ]);
+        presentation.scenes[0].elements = serde_json::from_value(elements).unwrap();
+        assert!(validate(&presentation, &nodes, &claims).is_err());
+        for (before, after) in [("PFR0", "font bytes"), ("  Mira  ", "Mira"), ("a", "A")] {
+            for (element, value) in [(1, before), (3, after)] {
+                let item = &mut presentation.scenes[0].elements[element];
+                item.value = value.into();
+                item.value_origin = ValueOrigin::Illustration;
+            }
+            validate(&presentation, &nodes, &claims).unwrap();
+        }
+        // Distinct roles can legitimately share the same source and value.
+        nodes[0] = nodes[3].clone();
+        nodes[0].label = "Result role".into();
+        presentation.scenes[0].elements[3].node_index = Some(0);
+        presentation.scenes[0].elements[3].value = "a".into();
+        validate(&presentation, &nodes, &claims).unwrap();
+        // A comparison without a transformation arrow is outside this rule.
+        presentation.scenes[0].elements[3].node_index = Some(3);
+        presentation.scenes[0].elements[2].kind = ElementKind::Divider;
+        validate(&presentation, &nodes, &claims).unwrap();
+        for scene in &mut presentation.scenes {
+            scene.mode = SceneMode::Graph;
+            scene.elements.clear();
+        }
+        validate(&presentation, &nodes, &claims).unwrap();
+        presentation.schema_version = 3;
+        assert!(validate(&presentation, &nodes, &claims).is_err());
+        assert_eq!(
+            proposal_schema()["properties"]["schemaVersion"]["enum"],
+            json!([2])
+        );
+    }
+
+    #[test]
     fn content_cannot_borrow_a_different_claim_or_fabricate_a_source_value() {
         let (nodes, claims, mut presentation) = fixture();
         presentation.scenes[0].elements[0].node_index = Some(8);
-        assert!(
-            validate(&presentation, &nodes, &claims)
-                .unwrap_err()
-                .contains("own claim")
-        );
+        assert!(validate(&presentation, &nodes, &claims)
+            .unwrap_err()
+            .contains("own claim"));
         presentation.scenes[0].elements[0].node_index = Some(3);
         presentation.scenes[0].elements[0].value = "not an actual input".into();
         assert!(validate(&presentation, &nodes, &claims).is_err());
