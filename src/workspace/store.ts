@@ -2,10 +2,10 @@ import { createQuestionQueue } from './queue';
 import { useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { cancelCodexChapterRequest, getSnapshotIndexProgress, loadSnapshotIndex, startSnapshotIndexing, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
+import { cancelCodexChapterRequest, getSnapshotIndexProgress, listChapterRevisions, loadSnapshotIndex, startSnapshotIndexing, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
-import { addTurn, cleanAnswerNotes, learningQuestion, mergePublishedSections, parseWorkspace, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
+import { addTurn, cleanAnswerNotes, learningQuestion, mergePublishedSections, mergeRepositoryGuide, parseWorkspace, type RepositoryGuide, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
 
 const indexLoads = new Map<string, Promise<SnapshotIndex>>();
 /** One local index build per snapshot, shared by reading and questions. No model call. */
@@ -78,6 +78,16 @@ export function stopQuestion(project: string, snapshot: string, id: string) {
   const job = jobs.get(id);
   if (job) job.cancelled = true;
   const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === id);
+  if (turn?.guideId) {
+    if ((job && !job.runId) || (!turn.guide && !turn.runIds?.length && !job?.runId)) {
+      patchTurn(project,snapshot,id,{status:'stopped',error:undefined});
+      return;
+    }
+    void invoke('stop_repository_guide',{projectId:project,snapshotId:snapshot,id:turn.guideId}).then(() => restoreRepositoryGuides(project,snapshot)).catch((failure) => {
+      patchTurn(project,snapshot,id,{error:errorMessageOr(failure,'The guide could not be stopped. Try Stop again.')});
+    });
+    return;
+  }
   const runId = job?.runId ?? turn?.runIds?.at(-1);
   if (runId) void cancelCodexChapterRequest(runId).catch(() => {});
   patchTurn(project,snapshot,id,{ status:'stopped', error: undefined });
@@ -119,13 +129,19 @@ export async function watchWorkspaceAnswers(project: string, snapshot: string): 
   const refresh = (scope: {projectId:string;snapshotId:string;runId:string}) => {
     if (closed || scope.projectId !== project || scope.snapshotId !== snapshot) return;
     const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.runIds?.includes(scope.runId));
-    if (turn && jobs.has(turn.id)) return;
+    if (turn && jobs.has(turn.id) && !turn.guideId) return;
     pending = pending.then(async () => { if (!closed) await restoreWorkspaceAnswers(project,snapshot); }).catch(() => {});
   };
   const section = await listen<Pick<AnswerSummary,'projectId'|'snapshotId'|'runId'>>('workspace-answer-section',({payload}) => refresh(payload));
   try {
     const finished = await listen<AnswerSummary>('workspace-answer-finished',({payload}) => refresh(payload));
-    return () => {closed=true;section();finished();};
+    try {
+      const guide = await listen<RepositoryGuide>('repository-guide-changed',({payload}) => {
+        if (closed || payload.projectId !== project || payload.snapshotId !== snapshot) return;
+        pending = pending.then(() => reconcileGuide(project,snapshot,payload)).catch(() => {});
+      });
+      return () => {closed=true;section();finished();guide();};
+    } catch (error) { finished(); throw error; }
   } catch (error) { section(); throw error; }
 }
 /** Restart recovery is local reading only. It never reconnects or replays AI. */
@@ -133,9 +149,11 @@ export function restoreWorkspaceAnswers(project: string, snapshot: string): Prom
   const scope = key(project,snapshot);
   const existing = restorations.get(scope); if (existing) return existing;
   const pending = (async () => {
+    await restoreRepositoryGuides(project,snapshot);
     const saved = await invoke<AnswerSummary[]>('list_workspace_answers',{projectId:project,snapshotId:snapshot});
     for (const entry of saved) {
       let turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.runIds?.includes(entry.runId));
+      if (turn?.guideId) continue;
       if (turn && jobs.has(turn.id)) continue;
       if (!turn) {
         const id = crypto.randomUUID();
@@ -153,6 +171,54 @@ export function restoreWorkspaceAnswers(project: string, snapshot: string): Prom
  * been saved. Questions, source links and chapter revisions remain readable. */
 export async function removeAnswerRecord(project: string, snapshot: string, runId: string) {
   await invoke('remove_workspace_answer_record',{projectId:project,snapshotId:snapshot,runId});
+}
+export function appendRepositoryGuide(project: string, snapshot: string, question: string): string {
+  const id = appendQuestion(project,snapshot,question,[],'guide');
+  patchTurn(project,snapshot,id,{guideId:crypto.randomUUID()});
+  return id;
+}
+async function reconcileGuide(project: string, snapshot: string, guide: RepositoryGuide) {
+  if (guide.projectId !== project || guide.snapshotId !== snapshot) throw new Error('This guide belongs to another snapshot.');
+  updateWorkspace(project,snapshot,(state) => mergeRepositoryGuide(state,guide));
+  const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.guideId === guide.id);
+  if (!turn) return;
+  // Adoption is local and idempotent. A freed terminal receipt may already have
+  // all immutable drafts in the library; never regenerate it to restore cards.
+  const saved = await listChapterRevisions(project,snapshot);
+  for (const answer of guide.answers) for (const section of answer.sections) {
+    if (!saved.some((r) => r.revisionId === section.revisionId)) await adoptSection(project,snapshot,turn.id,section);
+  }
+  window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project}}));
+}
+async function restoreRepositoryGuides(project: string, snapshot: string) {
+  const guides = await invoke<RepositoryGuide[]>('list_repository_guides',{projectId:project,snapshotId:snapshot});
+  for (const guide of guides) await reconcileGuide(project,snapshot,guide);
+}
+/** Explicit start/continue only. The native worker survives webview navigation;
+ * restored metadata never calls this function. */
+export async function runRepositoryGuide(project: string, snapshot: string, id: string, grantId: string, resume = false) {
+  if (jobs.has(id)) return;
+  const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === id);
+  if (!turn?.guideId) return;
+  const job = {cancelled:false,runId:null as string|null};jobs.set(id,job);
+  const release = await enterQuestionQueue();
+  try {
+    if (job.cancelled) return;
+    patchTurn(project,snapshot,id,{status:'working',error:undefined});
+    await ensureCodexConnection(true);
+    if (job.cancelled) return;
+    const selection = readCodexSelection();
+    if (selection.modelId !== 'gpt-6-luna' || selection.effort !== 'max') throw new Error('Choose GPT-6 Luna with max reasoning in the connection settings.');
+    job.runId = turn.guideId;
+    const guide = await invoke<RepositoryGuide>(resume ? 'resume_repository_guide' : 'start_repository_guide', resume
+      ? {id:turn.guideId,projectId:project,snapshotId:snapshot,consent:true}
+      : {input:{id:turn.guideId,projectId:project,snapshotId:snapshot,grantId,question:turn.question,consent:true}});
+    await reconcileGuide(project,snapshot,guide);
+    window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice',{detail:{title:guide.status==='ready'?'Guide ready':'Guide progress saved',message:guide.title,projectId:project,snapshotId:snapshot}}));
+  } catch (failure) {
+    try { await restoreRepositoryGuides(project,snapshot); } catch { /* Preserve saved cards and the original error. */ }
+    patchTurn(project,snapshot,id,{status:job.cancelled?'stopped':'partial',error:errorMessageOr(failure,'The guide could not be completed. Saved sections remain available.')});
+  } finally { release();jobs.delete(id); }
 }
 /** Module-owned operation: changing tab, file, repository or opening settings does not cancel it. */
 export async function runQuestion(project: string, snapshot: string, id: string, grantId: string): Promise<ChapterRevision | null> {

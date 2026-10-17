@@ -65,6 +65,7 @@ mod source_discovery;
 mod strict_json;
 mod workspace;
 mod workspace_generation;
+mod repository_guide;
 
 use project::{ProjectOpenResult, RecentProject};
 use serde::Serialize;
@@ -1989,6 +1990,10 @@ pub fn run() {
             codex_commands::send_codex_pr_change_request,
             codex_commands::cancel_codex_chapter_request,
             workspace_generation::generate_workspace_answer,
+            repository_guide::start_repository_guide,
+            repository_guide::resume_repository_guide,
+            repository_guide::stop_repository_guide,
+            repository_guide::list_repository_guides,
             workspace_generation::progressive::generate_progressive_workspace_answer,
             workspace_generation::progressive::load_workspace_answer,
             workspace_generation::progressive::save_workspace_answer_section,

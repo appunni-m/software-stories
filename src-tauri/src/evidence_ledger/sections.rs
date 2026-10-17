@@ -156,7 +156,7 @@ pub(crate) struct PreparedSection {
 }
 
 /// Source-free event identity. Draft contents stay behind native inspection.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SectionNotice {
     pub(crate) run_id: String,

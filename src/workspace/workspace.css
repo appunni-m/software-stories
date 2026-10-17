@@ -160,3 +160,10 @@
 .dw-saved-answers { display: grid; gap: 16px; margin-top: 16px; }
 .dw-saved-answers section { display: grid; justify-items: start; gap: 8px; border-bottom: 1px solid var(--gray-6); padding-bottom: 16px; }
 .dw-saved-answers p { margin: 0; overflow-wrap: anywhere; }
+.dw-guide-outline { margin: 12px 0 20px; padding: 12px 14px; border: 1px solid var(--gray-6); border-radius: var(--radius-3); color: var(--gray-11); }
+.dw-guide-outline summary { cursor: pointer; color: var(--gray-12); font-size: 13px; }
+.dw-guide-outline summary > span { float: right; padding-left: 12px; font-size: 12px; color: var(--gray-11); }
+.dw-guide-outline ol { margin: 14px 0; padding-left: 20px; }
+.dw-guide-outline li { padding: 5px 0; font-size: 13px; }
+.dw-guide-outline li small { display: block; color: var(--gray-10); }
+.dw-guide-outline p { font-size: 12px; line-height: 1.5; }

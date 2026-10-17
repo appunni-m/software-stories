@@ -11,7 +11,7 @@ pub(crate) struct SectionIdentity {
     pub(crate) generation_id: String,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Summary {
     pub(crate) run_id: String,
@@ -77,6 +77,16 @@ pub(crate) fn scoped(
         return Err("This answer belongs to another repository or snapshot.".into());
     }
     Ok(answer)
+}
+
+/// Cached guide metadata may cover an explicitly removed receipt, never a
+/// damaged existing record whose independent evidence replay has failed.
+pub(crate) fn exists(storage: &Path, run: &str) -> Result<bool, String> {
+    match std::fs::symlink_metadata(record_path(storage, run)?) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(_) => Err("The saved answer record could not be inspected.".into()),
+    }
 }
 
 /// Caller holds the manager's active-operation lock, or has joined the worker.

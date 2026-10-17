@@ -11,12 +11,21 @@ export interface AnswerSummary {
   outcome: 'working' | 'complete' | 'partial' | 'stopped' | 'failed' | 'interrupted';
   sections: PublishedSection[]; incompleteTopics: string[];
 }
+export interface RepositoryGuide {
+  revision: number;
+  id: string; projectId: string; snapshotId: string; question: string; title: string;
+  status: 'planning' | 'building' | 'ready' | 'partial' | 'stopped' | 'interrupted' | 'failed';
+  units: { key: string; question: string; prerequisites: string[]; status: string; runIds: string[] }[];
+  answers: AnswerSummary[]; omissions: string[]; capturedFiles: number; startingFiles: number;
+}
 export interface Turn {
   id: string; question: string; context: Context[];
   status: 'queued' | 'working' | 'ready' | 'partial' | 'failed' | 'stopped' | 'interrupted';
   revisionId?: string; generationId?: string; error?: string;
   runIds?: string[]; publishedSections?: PublishedSection[];
   notes?: string[];
+  guideId?: string;
+  guide?: Omit<RepositoryGuide, 'answers'>;
   reading?: Partial<Record<'guide' | 'flow', ReadingPosition>>;
 }
 export interface Exploration { id: string; parentId: string | null; originTurnId: string | null; title: string; view: View; turns: Turn[]; file?: string; reveal?: Context; scrollTop?: number; scrollPositions?: Partial<Record<View, number>> }
@@ -49,6 +58,8 @@ export function parseWorkspace(raw: string | null, projectId: string, snapshotId
           || !['queued','working','ready','partial','failed','stopped','interrupted'].includes(t.status)
           || t.context.some((c) => typeof c.path !== 'string' || c.path.startsWith('/') || c.path.split('/').includes('..'))) return fallback();
         const reading = t.reading;
+        if (!validRunId(t.guideId)) { delete t.guideId; delete t.guide; }
+        else delete t.guide; // Native job state is authoritative after reopening.
         t.runIds = Array.isArray(t.runIds) ? [...new Set(t.runIds.filter(validRunId))].slice(0, 32) : [];
         t.publishedSections = cleanPublishedSections(t.publishedSections).filter((s) => t.runIds!.includes(s.runId));
         t.notes = cleanAnswerNotes(t.notes);
@@ -66,6 +77,23 @@ export function parseWorkspace(raw: string | null, projectId: string, snapshotId
     }
     return value;
   } catch { return fallback(); }
+}
+
+/** A guide is one conversation card, even across independent native runs and
+ * a lost local-storage write. Never change the reader's view or section. */
+export function mergeRepositoryGuide(state: WorkspaceState, guide: RepositoryGuide): WorkspaceState {
+  if (guide.projectId !== state.projectId || guide.snapshotId !== state.snapshotId || !validRunId(guide.id)) return state;
+  const runIds = [...new Set(guide.units.flatMap((unit) => unit.runIds).filter(validRunId))];
+  const owner = state.explorations.find((e) => e.turns.some((t) => t.guideId === guide.id));
+  const previous = owner?.turns.find((t) => t.guideId === guide.id)?.guide;
+  if (previous && previous.revision > guide.revision) return state;
+  const status: Turn['status'] = guide.status === 'planning' || guide.status === 'building' ? 'working' : guide.status;
+  const { answers: _, ...metadata } = guide;
+  const merge = (turn: Turn): Turn => mergePublishedSections({ ...turn, guideId: guide.id, guide: metadata,
+    runIds, status, error: undefined, notes: [] }, guide.answers.flatMap((answer) => answer.sections));
+  return { ...state, explorations: state.explorations.map((e) => owner ? e.id !== owner.id ? e : {
+    ...e, turns: e.turns.map((t) => t.guideId === guide.id ? merge(t) : t),
+  } : e.id !== 'root' ? e : { ...e, turns: [...e.turns, merge({ id: guide.id, question: guide.question, context: [], status: 'interrupted' })] }) };
 }
 
 /** Keep partial-answer scope visible after navigation and restart. */

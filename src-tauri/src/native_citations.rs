@@ -44,6 +44,11 @@ pub(crate) struct Citation {
 }
 
 impl Citation {
+    /// Retain a native-delivered starting range for a research outline.
+    pub(crate) fn range(&self) -> &context::CodeRange {
+        &self.range
+    }
+
     /// Only the ledger calls this after proving current ownership and delivery.
     /// Recheck against the full immutable source without substring matching.
     pub(crate) fn checked(
