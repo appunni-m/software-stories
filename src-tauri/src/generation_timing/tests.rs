@@ -239,6 +239,8 @@ fn malformed_event_order_and_context_states_are_not_exported() {
         json!({"originElapsedMs":0,"calls":[{"tool":"read","state":"delivered","startedMs":0,"preparedMs":null,"finishedMs":3,"sourceBytes":0,"metadataBytes":0,"wireBytes":0}]}),
         json!({"originElapsedMs":0,"calls":[{"tool":"read","state":"started","startedMs":0,"preparedMs":1,"finishedMs":3,"sourceBytes":0,"metadataBytes":0,"wireBytes":0}]}),
         json!({"originElapsedMs":0,"calls":[{"tool":"read","state":"delivered","startedMs":0,"preparedMs":1,"finishedMs":3,"sourceBytes":250001,"metadataBytes":0,"wireBytes":250001}]}),
+        json!({"originElapsedMs":0,"calls":[{"tool":"read","state":"delivered","startedMs":0,"preparedMs":1,"finishedMs":3,"sourceBytes":10,"metadataBytes":10,"wireBytes":19}]}),
+        json!({"originElapsedMs":MAX_ELAPSED,"calls":[{"tool":"read","state":"delivered","startedMs":0,"preparedMs":0,"finishedMs":0,"sourceBytes":0,"metadataBytes":0,"wireBytes":0}]}),
     ] {
         let mut value = original.clone();
         value["context"] = invalid;
@@ -255,6 +257,38 @@ fn malformed_event_order_and_context_states_are_not_exported() {
     fs::write(&file, serde_json::to_vec(&value).unwrap()).unwrap();
     assert!(inspect(&f.0, &id).is_err());
     fs::write(&file, serde_json::to_vec(&original).unwrap()).unwrap();
+}
+
+#[test]
+fn overfull_external_storage_disables_tracing_without_deleting_records() {
+    let f = Fixture::new();
+    let original = run();
+    f.trace(&original, Instant::now()).finish(Ok(()));
+    let template: Value =
+        serde_json::from_slice(&fs::read(path(&f.0, &original).unwrap()).unwrap()).unwrap();
+    for _ in 0..MAX_RECORDS {
+        let id = run();
+        let mut value = template.clone();
+        value["runId"] = json!(id);
+        fs::write(
+            path(&f.0, &id).unwrap(),
+            serde_json::to_vec(&value).unwrap(),
+        )
+        .unwrap();
+    }
+    let count = fs::read_dir(f.0.join("generation-timings"))
+        .unwrap()
+        .count();
+    let id = run();
+    f.trace(&id, Instant::now()).finish(Ok(()));
+    assert_eq!(
+        fs::read_dir(f.0.join("generation-timings"))
+            .unwrap()
+            .count(),
+        count
+    );
+    assert!(inspect(&f.0, &id).unwrap().is_none());
+    assert!(inspect(&f.0, &original).unwrap().is_some());
 }
 
 #[cfg(unix)]

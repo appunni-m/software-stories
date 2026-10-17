@@ -127,15 +127,26 @@ fn codex_progressive_account_probe() {
     let ledger = crate::evidence_ledger::inspect(&f.storage, &input.run_id)
         .ok()
         .map(|v| serde_json::to_value(v).unwrap());
+    let timing = timing_report(&f.storage, &input.run_id, &input.project_id, &input.snapshot_id, false);
     let record = json!({"fixture":"public synthetic greeting; not user source","operationId":input.run_id,
         "model":"gpt-6-luna","effort":"max","totalElapsedMs":started.elapsed().as_millis(),
         "result":result.as_ref().ok(),"error":result.as_ref().err(),"observations":*observations.lock().unwrap(),
-        "answer":answer,"ledger":ledger});
+        "answer":answer,"ledger":ledger,"timing":timing.as_ref().ok(),"timingError":timing.as_ref().err()});
     artifact
         .write_all(&serde_json::to_vec_pretty(&record).unwrap())
         .unwrap();
     artifact.sync_all().unwrap();
     manager.shutdown();
+    let timing = serde_json::to_value(timing.unwrap()).unwrap();
+    assert_eq!(timing["trace"]["terminal"]["state"], "returned");
+    assert!(timing["trace"]["tokenUsage"].is_null());
+    assert_eq!(timing["trace"]["modelId"], "gpt-6-luna");
+    assert_eq!(timing["trace"]["reasoningEffort"], "max");
+    assert!(!timing["trace"]["events"].as_array().unwrap().is_empty());
+    let timing_text = timing.to_string();
+    for forbidden in ["accountIdentitySha256", "executablePath", "Hello, ${name}", "referenceId", "excerpt"] {
+        assert!(!timing_text.contains(forbidden));
+    }
     let result = result.unwrap();
     assert_eq!(result.outcome, Outcome::Complete);
     assert!(!result.sections.is_empty());

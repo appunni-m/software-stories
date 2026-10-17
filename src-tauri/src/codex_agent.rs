@@ -638,11 +638,29 @@ impl CodexAgentManager {
         F: Fn(CodexProgress),
     {
         validate_run(&input)?;
-        let trace = crate::generation_timing::Trace::new(storage_dir, &input.run_id, fingerprint,
-            &input.expected_runtime, &input.model, &input.effort, started_at);
+        let trace = crate::generation_timing::Trace::new(
+            storage_dir,
+            &input.run_id,
+            fingerprint,
+            &input.expected_runtime,
+            &input.model,
+            &input.effort,
+            started_at,
+        );
         let retrieval = input.retrieval.clone();
-        let result = self.run_owned_with_timing(storage_dir, input, fingerprint, started_at,
-            |event| { trace.progress(&event.phase); progress(event); }, validate, publish, &trace);
+        let result = self.run_owned_with_timing(
+            storage_dir,
+            input,
+            fingerprint,
+            started_at,
+            |event| {
+                trace.progress(&event.phase);
+                progress(event);
+            },
+            validate,
+            publish,
+            &trace,
+        );
         if let Some(session) = retrieval.as_ref().and_then(|session| session.lock().ok()) {
             trace.context(session.ledger.timing_diagnostics(started_at));
         }
@@ -661,7 +679,8 @@ impl CodexAgentManager {
         publish: impl FnOnce(T) -> U,
         trace: &crate::generation_timing::Trace,
     ) -> Result<U, String>
-    where F: Fn(CodexProgress),
+    where
+        F: Fn(CodexProgress),
     {
         let mut slot = self.lock_process()?;
         trace.event(crate::generation_timing::EventKind::RuntimeLockAcquired);
@@ -2891,6 +2910,50 @@ mod section_publication_tests {
             executable_sha256: "a".repeat(64),
             account_identity_sha256: "b".repeat(64),
             account_revision: 1,
+        }
+    }
+
+    #[test]
+    fn timing_storage_failure_does_not_change_pre_dispatch_cancellation() {
+        for diagnostics_available in [true, false] {
+            let root = std::env::temp_dir().join(format!("atlas-manager-timing-{}", Uuid::new_v4()));
+            ensure_private_directory(&root).unwrap();
+            if !diagnostics_available {
+                fs::write(root.join("generation-timings"), b"existing unrelated file").unwrap();
+            }
+            let id = Uuid::new_v4().to_string();
+            let manager = CodexAgentManager::default();
+            assert!(manager.cancel(&id));
+            let contents = "export const answer = 42;".to_owned();
+            let input = CodexRunInput {
+                run_id: id.clone(), expected_runtime: runtime(),
+                model: "gpt-6-luna".into(), effort: "max".into(), approval_policy: "never".into(),
+                system_instruction: "Synthetic cancellation test; no inference.".into(),
+                user_prompt: "Explain the synthetic constant.".into(), output_schema: json!({}),
+                correction_policy: crate::claim_alignment::CorrectionPolicy::Disabled,
+                retrieval: None,
+                sources: vec![CodexSourceFile { path: "answer.ts".into(), sha256: hex_digest(contents.as_bytes()), contents }],
+            };
+            let callbacks = AtomicBool::new(false);
+            let result = manager.run_with_result_and_publish(
+                &root, input, &"c".repeat(64), Instant::now(),
+                |_| callbacks.store(true, Ordering::Release),
+                |_, _| callbacks.store(true, Ordering::Release),
+                |_| callbacks.store(true, Ordering::Release),
+            );
+            assert_eq!(result.unwrap_err(), cancelled_message());
+            assert!(!callbacks.load(Ordering::Acquire));
+            assert!(manager.0.process.lock().unwrap().is_none());
+            assert!(manager.0.active.lock().unwrap().is_none());
+            if diagnostics_available {
+                let record = crate::generation_timing::inspect(&root, &id).unwrap().unwrap();
+                let value = serde_json::to_value(record).unwrap();
+                assert_eq!(value["terminal"]["state"], "cancelled");
+                assert_eq!(value["events"].as_array().unwrap().len(), 2);
+            } else {
+                assert_eq!(fs::read(root.join("generation-timings")).unwrap(), b"existing unrelated file");
+            }
+            fs::remove_dir_all(root).unwrap();
         }
     }
     #[test]

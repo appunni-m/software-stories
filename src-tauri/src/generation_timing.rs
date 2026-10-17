@@ -184,6 +184,9 @@ fn validate(record: &Record) -> Result<(), String> {
         let mut prior = 0;
         let mut bytes = (0_u64, 0_u64, 0_u64);
         for call in &context.calls {
+            if call.source_bytes as u128 + call.metadata_bytes as u128 > call.wire_bytes as u128 {
+                return Err(invalid());
+            }
             let values = [call.started_ms, call.prepared_ms, call.finished_ms];
             let mut last = prior;
             for offset in values.into_iter().flatten() {
@@ -226,6 +229,11 @@ fn validate(record: &Record) -> Result<(), String> {
             bytes.1 = bytes.1.saturating_add(call.metadata_bytes as u64);
             bytes.2 = bytes.2.saturating_add(call.wire_bytes as u64);
         }
+        if let (Some(origin), Some(end)) = (context.origin_elapsed_ms, &record.terminal) {
+            if origin.saturating_add(prior) > end.elapsed_ms {
+                return Err(invalid());
+            }
+        }
         if bytes.0 > 250_000 || bytes.1 > 256_000 || bytes.2 > 1_000_000 {
             return Err(invalid());
         }
@@ -263,7 +271,10 @@ fn reserve(storage: &Path, run: &str) -> Result<PathBuf, String> {
             ));
         }
     }
-    if records.len() >= MAX_RECORDS {
+    if records.len() > MAX_RECORDS {
+        return Err("Timing storage already exceeds its record limit.".into());
+    }
+    if records.len() == MAX_RECORDS {
         records.sort_by_key(|(_, _, modified)| *modified);
         let oldest = records
             .into_iter()

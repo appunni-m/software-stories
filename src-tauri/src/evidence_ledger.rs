@@ -612,17 +612,26 @@ impl Ledger {
 
     /// Export only fixed tool states, byte counters and monotonic offsets.
     /// A missing clock relation remains unknown; never infer it from wall time.
-    pub(crate) fn timing_diagnostics(&self, run_started: Instant) -> crate::generation_timing::ContextTiming {
+    pub(crate) fn timing_diagnostics(
+        &self,
+        run_started: Instant,
+    ) -> crate::generation_timing::ContextTiming {
         crate::generation_timing::ContextTiming {
-            origin_elapsed_ms: self.context_started.checked_duration_since(run_started)
+            origin_elapsed_ms: self.context_started
+                .checked_duration_since(run_started)
                 .and_then(|duration| u64::try_from(duration.as_millis()).ok()),
-            calls: self.record.calls.iter().map(|call| crate::generation_timing::ContextCall {
-                tool: call.tool, state: call.state.clone(),
-                started_ms: call.timing.as_ref().map(|timing| timing.started_ms),
-                prepared_ms: call.timing.as_ref().and_then(|timing| timing.prepared_ms),
-                finished_ms: call.timing.as_ref().and_then(|timing| timing.finished_ms),
-                source_bytes: call.source_bytes, metadata_bytes: call.metadata_bytes, wire_bytes: call.wire_bytes,
-            }).collect(),
+            calls: self.record.calls.iter()
+                .map(|call| crate::generation_timing::ContextCall {
+                    tool: call.tool,
+                    state: call.state.clone(),
+                    started_ms: call.timing.as_ref().map(|timing| timing.started_ms),
+                    prepared_ms: call.timing.as_ref().and_then(|timing| timing.prepared_ms),
+                    finished_ms: call.timing.as_ref().and_then(|timing| timing.finished_ms),
+                    source_bytes: call.source_bytes,
+                    metadata_bytes: call.metadata_bytes,
+                    wire_bytes: call.wire_bytes,
+                })
+                .collect(),
         }
     }
 

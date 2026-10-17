@@ -20,9 +20,8 @@ fn timing_export_keeps_scope_and_legacy_unknowns_without_source_or_inference() {
     assert!(value["publications"][0]["runElapsedMs"].is_null());
     assert_eq!(value["publications"].as_array().unwrap().len(), 1);
     let text = value.to_string();
-    for forbidden in [SIMPLE_SOURCE, SIMPLE_PATH, "usr/local", "accountIdentitySha256", "excerpt", "question"] {
-        // The fixed scope sentence says "question"; it contains no question value.
-        if forbidden != "question" { assert!(!text.contains(forbidden)); }
+    for forbidden in [SIMPLE_SOURCE, SIMPLE_PATH, "usr/local", "accountIdentitySha256", "excerpt"] {
+        assert!(!text.contains(forbidden));
     }
     assert!(value.get("question").is_none());
     assert_eq!(original, fs::read(&answer_path).unwrap());
