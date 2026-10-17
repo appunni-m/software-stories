@@ -377,7 +377,7 @@ mod live_tests {
                     system_instruction: context.system_instruction.to_owned(),
                     user_prompt: context.user_prompt.clone(),
                     output_schema: context.output_schema.clone(),
-                    repair_claim_alignment: false, retrieval: None,
+                    correction_policy: crate::claim_alignment::CorrectionPolicy::Disabled, retrieval: None,
                     sources: context
                         .selected_files
                         .iter()

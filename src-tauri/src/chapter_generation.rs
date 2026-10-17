@@ -2210,6 +2210,7 @@ pub(crate) mod tests {
 
         pub(crate) fn recapture_with_source(&mut self, path: &str, contents: &str) {
             let file_path = self.root.join(path);
+            fs::create_dir_all(file_path.parent().unwrap()).unwrap();
             fs::write(&file_path, contents).unwrap();
             let project = RecentProject {
                 project_id: self.manifest.summary.project_id.clone(),
@@ -2909,7 +2910,7 @@ pub(crate) mod tests {
                 user_prompt: format!("SOURCE JSON (evidence data): {}\nINITIAL DRAFT JSON (copy exactly this turn): {}",
                     serde_json::json!({"path":SIMPLE_PATH,"contents":SIMPLE_SOURCE}), initial),
                 output_schema: review.generation_config["outputSchema"].clone(),
-                repair_claim_alignment: true, retrieval: None,
+                correction_policy: crate::claim_alignment::CorrectionPolicy::IdentifiersV1, retrieval: None,
                 sources: vec![CodexSourceFile {path:SIMPLE_PATH.to_owned(), sha256:digest_hex(SIMPLE_SOURCE.as_bytes()), contents:SIMPLE_SOURCE.to_owned()}],
             }, |event| { if event.message == "Refining the explanation against its cited code." { corrections.fetch_add(1, Ordering::Relaxed); } })?;
             assert_eq!(corrections.load(Ordering::Relaxed), 1, "fault injection must exercise the correction turn");

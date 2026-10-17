@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "scope": "Independent comparison of synthetic installed-account correction and compiled implementation; no ordinary-generation or human quality claim",
+  "sourceValid": true,
+  "observedCorrectionCount": 1,
+  "exactClaimPreservation": true,
+  "sourceDigestMatches": true,
+  "fixedParent": 0,
+  "compiledSourceCount": 20,
+  "allCompiledSourcesMatch": true,
+  "nativeTests": {
+    "passed": 401,
+    "failed": 0,
+    "ignored": 15,
+    "seconds": 36.93
+  },
+  "frontendTests": {
+    "passed": 184,
+    "failed": 0
+  },
+  "frontendBuild": true,
+  "unsignedDebugBundle": {
+    "bytes": 138796752,
+    "sha256": "4882687d66f39cb25a7f7463058ff58aaae8312028fd3f0baf28fba639e6c19c",
+    "binaryCodesignIgnoreResources": true,
+    "developerId": false,
+    "notarized": false,
+    "nativeUiQualified": false
+  },
+  "logs": {
+    "before": {
+      "path": "/private/tmp/code-atlas-layout-repair-before.log",
+      "bytes": 2341,
+      "sha256": "f54dcec3bd4bf3ae0e75058310a0665c3316c70d3ea87165f2b399dffd122d23"
+    },
+    "account": {
+      "path": "/private/tmp/code-atlas-layout-repair-account.log",
+      "bytes": 1749,
+      "sha256": "aa234f549b8722a2298fb6c04b36adc0a8c2fefff7942ea3e679df6fef3837d0"
+    },
+    "frontend": {
+      "path": "/private/tmp/code-atlas-layout-repair-frontend.log",
+      "bytes": 19578,
+      "sha256": "54b8eb5a53ace9a8fda5e9120f986009e2d74a942e0e8431d54fdd9a9c40ed61"
+    },
+    "frontend-build": {
+      "path": "/private/tmp/code-atlas-layout-repair-frontend-build.log",
+      "bytes": 1123,
+      "sha256": "f5c0a8522089b008168756f72339a91c820e00772136f6198fd3c68366cec363"
+    },
+    "final-native": {
+      "path": "/private/tmp/code-atlas-layout-repair-final-native.log",
+      "bytes": 45634,
+      "sha256": "f012af60a046cbd302509a7d4116087109b963ab1cf642c30b34d53b8223fb74"
+    },
+    "app-build": {
+      "path": "/private/tmp/code-atlas-layout-repair-app-build.log",
+      "bytes": 5254,
+      "sha256": "7a1b9c1401f7ec2a46858c28d3984c770f336c016788062af98ed44e6540b328"
+    }
+  },
+  "humanQualityOrListeningPass": false
+}

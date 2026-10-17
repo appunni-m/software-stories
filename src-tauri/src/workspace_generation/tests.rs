@@ -198,7 +198,7 @@ fn codex_owned_correction_probe() {
                 "Do not correct that deliberate mismatch in the first turn. If a SECOND turn requests correction, obey it and explain the read implementation accurately ",
                 "using only source already delivered. Do not call tools in the second turn. No extra claims, sections, source, commands, or network.").into(),
             user_prompt:prompt, output_schema:provider::workspace_retrieval_schema(),
-            repair_claim_alignment:true, retrieval:Some(Arc::clone(&session)), sources:vec![],
+            correction_policy:crate::claim_alignment::CorrectionPolicy::IdentifiersV1, retrieval:Some(Arc::clone(&session)), sources:vec![],
         }, &fingerprint, started, |event| {
             if event.message == "Refining the explanation against its cited code." {
                 corrections.fetch_add(1, Ordering::Relaxed);

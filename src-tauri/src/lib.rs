@@ -2158,7 +2158,7 @@ mod chapter_pipeline_tests {
             model: "gpt-6-luna".into(), effort: "max".into(), approval_policy: "never".into(),
             system_instruction: review.system_instruction.clone(), user_prompt: review.user_prompt.clone(),
             output_schema: review.generation_config["outputSchema"].clone(),
-            repair_claim_alignment: true, retrieval: None,
+            correction_policy: crate::claim_alignment::CorrectionPolicy::from_generation_config(&review.generation_config), retrieval: None,
             sources: vec![CodexSourceFile { path: source.path.clone(), sha256: source.sha256.clone(), contents: source.contents.clone() }],
         }, |_| {});
         let elapsed = started.elapsed().as_millis();
@@ -2499,6 +2499,22 @@ mod chapter_pipeline_tests {
             chapter_freshness::SectionFreshnessStatus::SafeToCarry,
             "{freshness:#?}"
         );
+
+        let codex_runtime = codex_identity::CodexReviewRuntime {
+            connection_id: uuid::Uuid::new_v4().to_string(), executable_path: "/usr/local/bin/codex".into(),
+            executable_sha256: "a".repeat(64), account_identity_sha256: "b".repeat(64), account_revision: 1,
+        };
+        let codex_review = provider::build_codex_chapter_review(&fixture.storage,
+            &provider::BuildCodexReviewInput {
+                project_id:accepted.project_id.clone(), snapshot_id:fixture.manifest.summary.snapshot_id.clone(),
+                target_path:Some(SIMPLE_PATH.to_owned()), selected_paths:vec![SIMPLE_PATH.to_owned()],
+                model_id:"gpt-6-luna".into(), effort:"max".into(), approval_policy:"never".into(),
+                section_update:Some(target.clone()), question:None, focus:vec![], workspace_grant:None,
+            }, &codex_runtime).unwrap().review;
+        assert_eq!(codex_review.purpose,"sectionUpdate");
+        assert_eq!(crate::claim_alignment::CorrectionPolicy::from_generation_config(&codex_review.generation_config),
+            crate::claim_alignment::CorrectionPolicy::ChapterLayoutV2);
+        provider::revalidate_codex_request_review(&fixture.storage,&codex_review,&codex_runtime).unwrap();
 
         for disclosure in provider::provider_catalog() {
             let model_id = disclosure.models[0].model_id.clone();

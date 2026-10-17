@@ -207,7 +207,7 @@ pub(crate) fn run(
             system_instruction: INSTRUCTIONS.into(),
             user_prompt: prompt,
             output_schema: schema,
-            repair_claim_alignment: true,
+            correction_policy: crate::claim_alignment::CorrectionPolicy::IdentifiersV1,
             retrieval: Some(Arc::clone(&session)),
             sources: vec![],
         },

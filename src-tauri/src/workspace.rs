@@ -255,6 +255,27 @@ mod tests {
             account_revision: 1,
         }
     }
+
+    #[test]
+    fn codex_file_and_overview_chapters_request_layout_correction_without_a_chat_question() {
+        let fixture = Fixture::new();
+        let runtime = runtime();
+        for target_path in [Some(SIMPLE_PATH.to_owned()), None] {
+            let input = crate::provider::BuildCodexReviewInput {
+                project_id:fixture.manifest.summary.project_id.clone(),
+                snapshot_id:fixture.manifest.summary.snapshot_id.clone(), target_path,
+                selected_paths:vec![SIMPLE_PATH.to_owned()], model_id:"gpt-6-luna".into(),
+                effort:"max".into(), approval_policy:"never".into(), section_update:None,
+                question:None, focus:vec![], workspace_grant:None,
+            };
+            let review=crate::provider::build_codex_chapter_review(&fixture.storage,&input,&runtime).unwrap().review;
+            assert_eq!(crate::claim_alignment::CorrectionPolicy::from_generation_config(&review.generation_config),
+                crate::claim_alignment::CorrectionPolicy::ChapterLayoutV2);
+            assert!(review.generation_config.get("claimAlignmentCorrection").is_none());
+            assert!(review.system_instruction.contains("one correction"));
+            crate::provider::revalidate_codex_request_review(&fixture.storage,&review,&runtime).unwrap();
+        }
+    }
     fn save_grant(fixture: &Fixture, runtime: &CodexReviewRuntime) -> String {
         let id = Uuid::new_v4().to_string();
         let path = grant_path(&fixture.storage, &id).unwrap();
@@ -376,11 +397,11 @@ mod tests {
                 .is_ok()
         );
         assert_eq!(
-            first.generation_config["claimAlignmentCorrection"],
-            serde_json::json!({"policy": "identifier-alignment-v1", "maxAttempts": 1})
+            first.generation_config["candidateCorrection"],
+            crate::claim_alignment::chapter_correction_config()
         );
         let mut tampered = first.clone();
-        tampered.generation_config["claimAlignmentCorrection"]["maxAttempts"] =
+        tampered.generation_config["candidateCorrection"]["maxAttempts"] =
             serde_json::json!(2);
         assert!(
             crate::provider::revalidate_codex_request_review(&fixture.storage, &tampered, &runtime)

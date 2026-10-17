@@ -13,6 +13,17 @@ Two generic rejections were traced to incorrect source values, with a later
 local positional-feedback fix. Broad completion, installed/Pocket/accessibility
 and release gates remain open. [Current evidence and limits](acceptance/2026-10-17-scene-v2.md).
 
+### Ordinary chapter layout correction
+
+The native preflight now reports all five invalid parents in the preserved
+Fontdone draft and offers the existing one-correction opportunity. A real
+installed-account synthetic fault injection made one correction and passed full
+source validation; this does not establish ordinary-generation teaching quality.
+The current suites pass **401 native tests** (15 explicit probes ignored) and
+**184 frontend tests**, and the unsigned debug Mac bundle builds.
+[Evidence, exact source pins and remaining gates](acceptance/2026-10-17-codex-layout-correction.md).
+All **73 records: 50 open, 23 closed** remain unchanged in status.
+
 ### Historical implementation checkpoints
 
 The saved-route compatibility correction preserves original plan digests,

@@ -1,0 +1,22 @@
+{
+  "src-tauri/src/chapter_generation.rs": "d4994e434de43cc104af96189b2af07625050923fd76e63392030de335fadcbb",
+  "src-tauri/src/chapter_origin.rs": "c9b281276b74a1e2bde1f2ddca97c5e84a1a49efc5bc316c690e18d3167926a1",
+  "src-tauri/src/chapters.rs": "c8b136b9043c87cad4cb397e9ac2076f1d79d9357afbadde4f4d75e14de25490",
+  "src-tauri/src/claim_alignment.rs": "2e09b756b4de81f76b02f5b5de808f5fd8df966395cd4df243a8d85aa34c7659",
+  "src-tauri/src/claim_alignment/account_probe.rs": "affaecdc8a7a36271abc9ecc4d25daef5d8c8d005794f8ba70572ece089cd5c2",
+  "src-tauri/src/claim_alignment/scenes.rs": "073395dab43b4b83b270fc7b704169976dc6577f0b0ea219bb49769e888a37f7",
+  "src-tauri/src/codex_agent.rs": "facb145d18dd44a4e23f8b27331e25ea1d11954894cd2f2c009713dbda44c349",
+  "src-tauri/src/codex_commands.rs": "37f20ca3b2f3ca1054342e57462804bae6b311d58bea63ca84b54ed4a3063a56",
+  "src-tauri/src/codex_identity.rs": "c250708bc493d15d6d619bc42dce9c0d647d1b660dc396f2c09f591c9fa59664",
+  "src-tauri/src/lib.rs": "83e16446fe11a780ced7321d9fde09a9e7e11e2a864cfeebc0017706b520da4a",
+  "src-tauri/src/provider.rs": "7fcb75467073fc7f86ea84642c3c3846731514ba94ae3ca3c9c65677f331a76c",
+  "src-tauri/src/provider/visual_scenes.rs": "5f8626ef1ab350cb79836904fb76af795e490298fba3241754875fe95db18878",
+  "src-tauri/src/repository_plan.rs": "0d636ff55a8dd88fb074cbe5a772ac5cfc41564c7a82eb5cb2d7dc4756a63e41",
+  "src-tauri/src/scene_presentation.rs": "7e0ec5db03f2d4e6abddb7123e63cf9d7f5d35282931ac7223a64a6f7e76ee7c",
+  "src-tauri/src/scene_presentation/tree.rs": "c9c91e7b92b617cbea6820ce0fef1e80a5804de8cbade974f3a21d139d11287e",
+  "src-tauri/src/source_discovery.rs": "5f4b5a25275b2219cc0f1a776981d67736168359253a56d6aacd94ceb7c9c62e",
+  "src-tauri/src/workspace.rs": "10a3bae3fbbe02b981f9e876999819c7ca137f654f6d47c7e01068358b9b9e7c",
+  "src-tauri/src/workspace_generation.rs": "603480b4b1f2c3ea4ce557f10287fca5a2268ba8dfd84f0175f5c7e2fd54be56",
+  "src-tauri/src/workspace_generation/progressive.rs": "e976f33dec04e4afce02e0e07a8a7313bbe2c34d1a98c5d452fcc586a6bdbd8d",
+  "src-tauri/src/workspace_generation/tests.rs": "33d8023b8f09f2fdf39258fe15a5b64e291febf8941a42931ad9d6451ac80a43"
+}

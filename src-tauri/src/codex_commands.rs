@@ -829,10 +829,11 @@ async fn prepare_codex_operation(
         system_instruction: review.system_instruction.clone(),
         user_prompt: review.user_prompt.clone(),
         output_schema: review.generation_config["outputSchema"].clone(),
-        repair_claim_alignment: matches!(operation, CodexOperation::Chapter)
-            && review.generation_config["workspaceQuestion"].is_string()
-            && review.generation_config["claimAlignmentCorrection"]
-                == serde_json::json!({"policy": "identifier-alignment-v1", "maxAttempts": 1}),
+        correction_policy: if matches!(operation, CodexOperation::Chapter) {
+            crate::claim_alignment::CorrectionPolicy::from_generation_config(&review.generation_config)
+        } else {
+            crate::claim_alignment::CorrectionPolicy::Disabled
+        },
         retrieval: None,
         sources: review
             .selected_files

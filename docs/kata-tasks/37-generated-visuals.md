@@ -155,11 +155,11 @@ story, and still opens with a record definition. All original output and
 thirteen exact source quotes are retained; no valid/accepted revision or audio
 exists. [Evidence and exact scope](../acceptance/2026-10-17-shared-chapter-scenes.md#teaching-policy-follow-up-rejected-layout).
 
-- [ ] Extend the owned ordinary Codex chapter correction to bounded positional
+- [x] Extend the owned ordinary Codex chapter correction to bounded positional
   scene-structure findings alongside lexical findings. Apply it across supported
   file/overview/selected-repair paths, using the saved connection and no API
   prerequisite or new source request.
-- [ ] Use the existing single correction opportunity and original thread,
+- [x] Use the existing single correction opportunity and original thread,
   question, model, settings, source, permission, Stop owner and deadline. Do not
   add independent retry loops, patch generated indices or remove claims locally.
 - [ ] Independently validate the whole corrected candidate. Cover persistent
@@ -170,3 +170,25 @@ exists. [Evidence and exact scope](../acceptance/2026-10-17-shared-chapter-scene
 - [ ] Qualify actual example-led visuals and natural narrated meaning after
   structural admission. Fewer code elements, schema validity and the passing
   394-native regression suite cannot establish this quality. Keep open.
+
+## Bounded native layout correction — 17 October 2026
+
+The ordinary Codex chapter path now fingerprints the versioned one-correction
+policy for file, overview, planned-file and selected-section requests, including
+requests without a question. Shared native tree rules report source-free
+positions/codes; the agent returns the complete candidate and full validation
+still owns admission. The unchanged real Fontdone rejection yields all five
+expected findings. Regression and mock-correction checks cover bounds, unknown
+shapes, persistent failure, full source validation and unchanged history.
+
+A deliberately invalid synthetic draft exercised the real installed GPT-6
+Luna/max worker: one observed correction, unchanged claims and a source-valid
+final candidate in 20.473 s. This is fault injection, not ordinary-generation
+or visual-quality acceptance. All 401 native and 184 frontend tests pass and
+the unsigned Mac bundle builds. [Exact evidence and limits](../acceptance/2026-10-17-codex-layout-correction.md).
+
+The broader validation checkbox stays pending for live Stop/failure interaction
+and native operation coverage. Progressive teaching-policy integration, an
+ordinary fresh Fontdone outcome, meaningful visuals, Pocket listening, complete
+repository narratives and language qualification remain open. No task closes
+on this structural repair.

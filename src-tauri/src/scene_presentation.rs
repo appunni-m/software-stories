@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 mod quality;
+pub(crate) mod tree;
 pub(crate) use quality::repetition_positions;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -120,44 +121,13 @@ pub fn validate(
             }
             continue;
         }
-        if scene.elements.is_empty() || scene.elements.len() > 48 {
-            return Err("A composition needs 1–48 elements.".into());
+        if let Some(finding) = tree::findings(&scene.elements).first() {
+            return Err(finding.message.into());
         }
-        let mut depths = Vec::new();
-        let mut child_counts = vec![0; scene.elements.len()];
-        let mut leaves = 0;
-        for (i, element) in scene.elements.iter().enumerate() {
-            let depth =
-                match element.parent_index {
-                    None if i == 0 => 0,
-                    Some(parent) if parent < i && scene.elements[parent].kind.container() => {
-                        child_counts[parent] += 1;
-                        if child_counts[parent] > 12 {
-                            return Err(
-                                "A composition group may contain at most twelve children.".into()
-                            );
-                        }
-                        depths[parent] + 1
-                    }
-                    _ => return Err(
-                        "Composition elements need one root and an earlier container parentIndex."
-                            .into(),
-                    ),
-                };
-            if depth > 6 {
-                return Err("Composition nesting may be at most six levels.".into());
-            }
-            depths.push(depth);
+        for element in &scene.elements {
             if element.kind.container() || element.kind.decorative() {
-                if element.node_index.is_some()
-                    || !element.value.is_empty()
-                    || element.value_origin != ValueOrigin::None
-                {
-                    return Err("Layout and decorative elements cannot add uncited content.".into());
-                }
                 continue;
             }
-            leaves += 1;
             let node = element.node_index.and_then(|n| nodes.get(n)).ok_or(
                 "A content element needs an existing nodeIndex for its label and code evidence.",
             )?;
@@ -214,18 +184,6 @@ pub fn validate(
             {
                 return Err("A byte strip needs 1–32 whitespace-separated cells.".into());
             }
-        }
-        if leaves == 0
-            || leaves > 12
-            || scene
-                .elements
-                .iter()
-                .enumerate()
-                .any(|(i, e)| e.kind.container() && child_counts[i] == 0)
-        {
-            return Err(
-                "A composition needs 1–12 cited content elements and no empty groups.".into(),
-            );
         }
     }
     let labels: Vec<_> = nodes.iter().map(|n| n.label.as_str()).collect();
