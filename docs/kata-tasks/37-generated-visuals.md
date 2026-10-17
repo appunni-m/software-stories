@@ -122,3 +122,26 @@ visual explanations. [Exact preserved proposals/scenes and review](../acceptance
   schema, source grounding or export-link checks.
 
 Keep this task open. The dummy greeting export remains only a packaging demo.
+
+## Shared chapter compositions — 17 October 2026
+
+File chapters, repository overviews and selected-section repairs now request
+the same bounded HTML composition vocabulary as progressive chat. Fresh output
+uses presentation v2 and complete grounded claim narration; carried sections
+and stored legacy guides retain their bytes. The historical retrieval schema
+and progressive tool catalog remain pinned. Native regressions pass (394), as
+do 184 frontend tests and an unsigned debug app build.
+
+A real ordinary Codex GPT-6 Luna/max Fontdone `loca.rs` chapter produced eleven
+source-valid compositions in 240.902 s. Independent checks confirm all twenty
+source anchors and the shown short-encoding arithmetic. **Quality remains
+unaccepted:** signature-first exposition, fifteen code blocks among twenty-five
+content elements, the two oversized-next alternatives sharing a misleading
+Final-slot clip label, and code syntax in narration. [Original result, exact
+scope and remaining gates](../acceptance/2026-10-17-shared-chapter-scenes.md).
+
+Pending: make the agent open with the behavior/problem and a useful concrete
+example; represent each branch outcome distinctly; favor meaning over copied
+syntax; qualify fresh representation quality, real Pocket listening, native
+source navigation, selective repair/cache preservation and language coverage.
+Do not count this narrow source pass as a full repository or comprehension pass.

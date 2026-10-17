@@ -1,0 +1,164 @@
+{
+  "reviewKind": "Independent agent check of captured source, examples and representation; not human acceptance",
+  "artifactSha256": "a868bbd2a0c54dd60926ce630c580e260ea788d8569dd06ac72321afccf850ac",
+  "implementationHashes": {
+    "src-tauri/src/lib.rs": "af92da4342054385094e437152788bfd25827d53470bd9611e50aa984d6638dc",
+    "src-tauri/src/provider.rs": "6247e1a776ce1f8e67a5abe88820e7ecc72ad1ef08228c852f328b18e142ad24",
+    "src-tauri/src/provider/visual_scenes.rs": "ebb7cd352613d5863578522cb5b6dccab80a547f5454214be60d5bc3c28383bc",
+    "src-tauri/src/chapter_generation.rs": "a429a2ada354a39c34c4e03df14b79fdf455e623ecc8568ffb71356a41a41139",
+    "src-tauri/src/chapters.rs": "c8b136b9043c87cad4cb397e9ac2076f1d79d9357afbadde4f4d75e14de25490",
+    "src-tauri/src/scene_presentation.rs": "1735654cb29fd477073b949793ae9a01aace5c11a173d2e6a61e5d4d175e61cc",
+    "src-tauri/src/codex_agent.rs": "c086f43d75ba90c8ad4e0cc4c3ed48b318cb59374ca1cf97ee529fdb4b4b22d7"
+  },
+  "implementationHashesMatch": true,
+  "sourceSha256": "577271d072254f65a13c97b8aa334e1b1cc857d43d0468d4e48cb4ba61e63f59",
+  "checkedAnchors": [
+    {
+      "anchorId": "anchor:897ac678-9bff-4947-bcf6-ccd5a584901e",
+      "startByte": 504,
+      "endByteInclusive": 648,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:1a2d291c-0cbb-4b12-8c6d-7f8df854c699",
+      "startByte": 112,
+      "endByteInclusive": 292,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:c98a7c23-ccd8-42b0-b741-3bd405875ab8",
+      "startByte": 650,
+      "endByteInclusive": 684,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:fe75c507-557b-4b64-8e33-1be92dfb6e7d",
+      "startByte": 686,
+      "endByteInclusive": 756,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:8baefb3c-85ed-4b1e-983f-3eb410318169",
+      "startByte": 1016,
+      "endByteInclusive": 1054,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:89098783-aa21-4714-b50d-061b868fa697",
+      "startByte": 758,
+      "endByteInclusive": 977,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:bdd605c4-e86d-47b1-981c-ee9d6db71551",
+      "startByte": 1029,
+      "endByteInclusive": 1270,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:2e7e0d92-820f-4433-9f8e-a0ca38f4929a",
+      "startByte": 785,
+      "endByteInclusive": 829,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:d65e2f50-5de9-4049-8247-5abbdae71b68",
+      "startByte": 1056,
+      "endByteInclusive": 1100,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:22ae5d98-a0d9-473f-a6f8-90236e7e0fa6",
+      "startByte": 504,
+      "endByteInclusive": 648,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:e7535fc6-bab6-4a4f-838a-98f1ff479e72",
+      "startByte": 1317,
+      "endByteInclusive": 1379,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:e6a0e88a-3f25-44d6-8d22-f012d34b0b7b",
+      "startByte": 1607,
+      "endByteInclusive": 1730,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:69c2ff0e-caa6-41cd-a011-f2a22ebe722e",
+      "startByte": 1381,
+      "endByteInclusive": 1605,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:707d0de8-8b1c-4da0-b93f-2c094122eda8",
+      "startByte": 1732,
+      "endByteInclusive": 1979,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:068ce0e6-7ee8-4d80-9c30-b802639385b0",
+      "startByte": 2183,
+      "endByteInclusive": 2295,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:de3d98fc-5966-48a6-aae4-4b2e6de0ae5a",
+      "startByte": 758,
+      "endByteInclusive": 977,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:e32e897c-a6e0-4d15-8761-7d940279f988",
+      "startByte": 2183,
+      "endByteInclusive": 2295,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:c3e966ce-5d9b-4df5-830a-eae0cec145c1",
+      "startByte": 504,
+      "endByteInclusive": 648,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:aab6a7c4-5bc4-4310-b49d-d6e6359a101f",
+      "startByte": 223,
+      "endByteInclusive": 292,
+      "exact": true
+    },
+    {
+      "anchorId": "anchor:a2fd2081-e088-463b-9d5c-7f49de4f0ae1",
+      "startByte": 785,
+      "endByteInclusive": 829,
+      "exact": true
+    }
+  ],
+  "sceneCount": 11,
+  "contentKinds": {
+    "code": 15,
+    "token": 7,
+    "metric": 2,
+    "bytes": 1
+  },
+  "narrowBranchReview": [
+    "Only format zero takes short encoding; all nonzero values take the long branch.",
+    "Short offsets decode two big-endian u16 values and double them; long offsets decode two u32 values.",
+    "An incomplete pair returns None; outside bounds can instead return an empty Some location.",
+    "The final-slot oversized-next condition clips; an earlier oversized-next location becomes empty.",
+    "Equal offsets produce zero length; reversed offsets use remaining glyf bytes.",
+    "The illustrated short record 00 01 00 03 at index zero with table length ten gives offsets two/six and length four by the shown expressions; this is not an observed execution."
+  ],
+  "teachingQuality": "Not accepted",
+  "findings": [
+    "The first section recites the function signature and result types rather than opening with a causal example.",
+    "Most compositions show source expressions or field tokens; only the last section illustrates bytes changing into a concrete range.",
+    "Bounds scene 2 binds both the clipped-next expression and the return-Some alternative to the same Final-slot clip node, obscuring the distinct outcomes.",
+    "Narration still contains Option<GlyphLocation>, Some(GlyphLocation { offset: 0, length: 0 }), question-mark syntax and long code identifiers.",
+    "The 240.902-second one-file result is not a first-useful-section or full-repository performance pass."
+  ],
+  "accepted": false,
+  "wholeRepositoryPass": false,
+  "nativeNavigationPass": false,
+  "humanQualityOrListeningPass": false
+}

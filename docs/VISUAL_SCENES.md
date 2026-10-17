@@ -24,9 +24,12 @@ used merely because the old renderer expected edges.
 
 ## Generation and evidence
 
-The progressive Codex tool accepts optional `visual.presentation` alongside the
-existing evidence-linked visual nodes and edges. Each claim is one narrated
-scene. The agent authors:
+Progressive Codex publication and fresh chapter generation support
+`visual.presentation` alongside the evidence-linked visual nodes and edges.
+File chapters, repository overviews and selected-section repairs share the
+same composition vocabulary and causal-story instructions. A chapter request
+requires the presentation property and permits `null` for a plain graph or
+absent visual. Each composed claim is one narrated scene. The agent authors:
 
 1. The grounded claim and exact delivered evidence references.
 2. Short node labels/details, each bound to that claim's evidence.
@@ -49,8 +52,9 @@ the behavior; semantic and comprehension review remain necessary.
 
 ### Stored shape
 
-Visual version 2 has an optional `presentation` field. New progressive
-generations use presentation version 2 and answer checkpoint version 3.
+Stored visual version 2 has an optional `presentation` field. New chapter
+compositions and progressive generations use presentation version 2;
+progressive publication uses answer checkpoint version 3.
 Presentation version 1 and answer checkpoints 1/2 retain their historical rules.
 Absent fields remain absent on serialization. Existing diagrams and immutable
 answer checkpoints are not regenerated or migrated on read. The renderer
@@ -141,10 +145,15 @@ available under disclosures, and the app honors Reduce Motion.
 
 ## Qualification and current limits
 
-The new proposal schema is exposed on the progressive account-backed Codex
-path. Older direct-provider and non-progressive prompts still request diagrams;
-their existing output remains readable. Broad representation selection across
-languages and generation operations remains task `j53m` scope.
+The proposal schema is exposed on progressive account-backed Codex and the
+shared file/overview/selected-repair request builders, including direct-provider
+wires. Schema and mock-wire checks do not qualify a remote API model's output.
+The fresh chapter boundary requires version 2 and assembles complete grounded
+claim narration, with a 4,000-byte section bound and no silent selection of
+shorter sentences. Selective repairs prepare only their selected section;
+existing saved scripts and carried legacy scenes keep their content.
+Broad representation quality across languages and operations remains task
+`j53m` scope.
 
 The schema-4 offline exporter renders HTML compositions and attaches verified
 cached audio to individual scenes, with matching transcripts and independent

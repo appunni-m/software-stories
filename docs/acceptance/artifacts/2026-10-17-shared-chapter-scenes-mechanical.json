@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "baseRevision": "125897362b7612ad1546faebc035182068624ee8",
+  "implementationHashes": {
+    "src-tauri/src/lib.rs": "af92da4342054385094e437152788bfd25827d53470bd9611e50aa984d6638dc",
+    "src-tauri/src/provider.rs": "6247e1a776ce1f8e67a5abe88820e7ecc72ad1ef08228c852f328b18e142ad24",
+    "src-tauri/src/provider/visual_scenes.rs": "ebb7cd352613d5863578522cb5b6dccab80a547f5454214be60d5bc3c28383bc",
+    "src-tauri/src/chapter_generation.rs": "a429a2ada354a39c34c4e03df14b79fdf455e623ecc8568ffb71356a41a41139",
+    "src-tauri/src/chapters.rs": "c8b136b9043c87cad4cb397e9ac2076f1d79d9357afbadde4f4d75e14de25490",
+    "src-tauri/src/scene_presentation.rs": "1735654cb29fd477073b949793ae9a01aace5c11a173d2e6a61e5d4d175e61cc",
+    "src-tauri/src/codex_agent.rs": "c086f43d75ba90c8ad4e0cc4c3ed48b318cb59374ca1cf97ee529fdb4b4b22d7"
+  },
+  "native": {
+    "passed": 394,
+    "failed": 0,
+    "ignored": 14,
+    "seconds": 33.35
+  },
+  "frontend": {
+    "passed": 184,
+    "failed": 0
+  },
+  "frontendBuild": true,
+  "debugAppBuild": true,
+  "logs": {
+    "native-final": {
+      "path": "/private/tmp/code-atlas-shared-scenes-native-final.log",
+      "sha256": "be320e6aed5db5462bf6aabce82b84ff672b92f188263f2c84c39d015ea3055d"
+    },
+    "frontend": {
+      "path": "/private/tmp/code-atlas-shared-scenes-frontend.log",
+      "sha256": "4a40065df97e719aeceafb1ff3f294a4fccd9f908b8d2589da01a38e464c4925"
+    },
+    "frontend-build": {
+      "path": "/private/tmp/code-atlas-shared-scenes-frontend-build.log",
+      "sha256": "bb9f530e5fedb8880b74e8939270c44f8a25eb1284a8cc43d89b5c6e8e229511"
+    },
+    "app-build": {
+      "path": "/private/tmp/code-atlas-shared-scenes-app-build.log",
+      "sha256": "596e42d746390a9ba53c5734b5ddf55fa1c6ceb170a82fd4f3f0a6f2b03b13b8"
+    }
+  },
+  "app": {
+    "bytes": 138749744,
+    "sha256": "ee8dd2468359c316be0a3412f055bb3e778427269204732d50caaaef3641a9b3",
+    "developerIdSignedOrNotarized": false,
+    "installedOrNativeUiQualified": false
+  },
+  "kata": {
+    "total": 73,
+    "open": 50,
+    "closed": 23,
+    "updatedBodies": [
+      "j53m",
+      "q0sm",
+      "6qk9",
+      "tbsh"
+    ]
+  },
+  "docAudit": {
+    "errors": 0,
+    "reviewItems": 6
+  },
+  "accountQualification": "2026-10-17-fontdone-file-scenes.json",
+  "teachingQualityAccepted": false
+}

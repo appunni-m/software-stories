@@ -59,7 +59,15 @@ File generation accepts a separate, strict proposal, defined by the `GeneratedCh
           ],
           "relationshipIds": []
         }
-      ]
+      ],
+      "visual": {
+        "kind": "none",
+        "title": "",
+        "direction": "auto",
+        "nodes": [],
+        "edges": [],
+        "presentation": null
+      }
     }
   ],
   "evidenceLimits": [
@@ -85,6 +93,26 @@ Workspace Codex questions fingerprint `claimAlignmentCorrection: {"policy":"iden
 An evidence item contains only a selected captured `path` and an exact `quote`. The quote must occur exactly once in that file, including overlapping occurrences, and its whitespace and UTF-8 bytes are preserved. Repeated, missing, empty, unselected, or malformed evidence rejects the proposal. The app locates each verified quote in the captured bytes and constructs its snapshot identity, source hash, inclusive byte offsets, line positions, byte columns, optional enclosing index symbol, and source dependencies locally. The model does not supply a revision ID, anchor ID, source hash, offset, lifecycle, validation status, saved visual ID, or hotspot ID.
 
 A section can propose a bounded `visual` (`none`, `dataFlow`, `sequence`, or `hierarchy`). Current generation schemas require each node/edge's evidence to contain references such as `{"claimIndex":0,"evidenceIndex":0}`. Both indexes are zero-based within that same section's claims and their evidence arrays. The app validates the claims first, resolves existing references to exact anchors, then constructs diagram and source-link IDs. Missing or duplicate references, foreign fields, malformed indexes and invalid graph edges reject the proposal. A reference does not establish that a diagram's semantic interpretation is correct; content review remains necessary. Legacy visual proposals using exact `{path, quote}` items remain readable with their original strict claim-attachment checks. Stored visual schema and anchor destinations are unchanged.
+
+Fresh file chapters, repository overviews and single-section repairs request
+`presentation`, either `null` for no composition or a version-2
+[visual scene composition](VISUAL_SCENES.md). The prompt identities are
+`structured-file-chapter-v4`, `structured-repository-overview-v4` and
+`structured-single-section-update-v2`. The shared context builder supplies this
+contract to account-agent and direct-provider chapter requests. Existing
+five-tool retrieval schemas and progressive tool catalogs retain their pinned
+historical identities.
+
+After source canonicalization, the fresh-preview boundary assembles displayed
+prose and speech from **all** anchored claim sentences, preserving inference
+labels and sentence order. The complete script must be 20–4,000 UTF-8 bytes;
+an oversized answer fails rather than losing later behavior. The proposal's
+shorter `spokenText` remains a required compatibility transport field under
+its existing 1,000-byte bound. It does not select which claims are narrated.
+Evidence-limit sections remain silent. A selective repair prepares only its
+selected section; carried sections, custom scripts and stored revisions are
+not rewritten by this policy. Legacy presentations remain readable under
+their original validation, but a fresh result cannot downgrade to version 1.
 
 Relationship claims cite IDs copied from the reviewed `selectedRelationships` context. Each relationship carries its indexed type, confidence, source and target, exact source excerpt, and unresolved reason when present. The request filter includes only relationships whose source and any resolved target refer to selected, verified indexed files or symbols. The app rechecks the cited IDs, hashes, ranges, and selected endpoints, then appends the actual indexed type and confidence to the saved claim. Unresolved targets retain their unresolved status; static index evidence does not establish runtime calls or outcomes.
 
@@ -116,7 +144,7 @@ Only the explicit **Save local draft** action adds that pending revision to chap
 
 ## Claims and evidence
 
-Each section stores `title`, explanatory `prose`, independently editable `spokenText`, claims, explicit dependencies, an optional typed visual, and typed hotspots. Empty `spokenText` remains allowed for legacy or manually authored sections where narration is absent. Newly generated behavior sections require a short, natural-language script by default; the app-generated evidence-limit section remains silent. TTS audio is still optional and is never requested until the reader reviews and consents to that request.
+Each section stores `title`, explanatory `prose`, independently editable `spokenText`, claims, explicit dependencies, an optional typed visual, and typed hotspots. Empty `spokenText` remains allowed for legacy or manually authored sections where narration is absent. Newly generated behavior sections receive the complete grounded claim narration described above; the app-generated evidence-limit section remains silent. TTS audio is still optional and is never requested until the reader reviews and consents to that request.
 
 Claim categories are tagged values:
 

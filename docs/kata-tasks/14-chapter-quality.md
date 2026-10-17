@@ -139,3 +139,19 @@ shown without its condition. [Preserved result and review](../acceptance/2026-10
   synthetic Pocket WAV is not a benchmark/human listening pass.
 
 Keep this task open and preserve all existing quality gates.
+
+## Ordinary chapter scene qualification — 17 October 2026
+
+The real Codex GPT-6 Luna/max `loca.rs` chapter passes exact source validation
+and the illustrative short-offset arithmetic agrees with captured code. It
+still fails the teaching goal: signature-first content, mostly syntax cards,
+ambiguous labels for distinct oversized-offset outcomes, and raw type/call
+syntax in narration. [Preserved request, result and independent review](../acceptance/2026-10-17-shared-chapter-scenes.md).
+
+- [ ] Qualify an example-led causal story with distinct guarded outcomes and
+  visual meaning beyond quoted expressions.
+- [ ] Qualify natural scene narration and actual Pocket audio through human
+  listening/comprehension; this result has no generated audio or human pass.
+- [ ] Preserve the separate broad Fontdone Partial failure. A four-minute
+  narrow file answer cannot establish whole-repository or first-useful-answer
+  performance. Keep this quality task open.

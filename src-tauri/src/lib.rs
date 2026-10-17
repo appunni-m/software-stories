@@ -1881,6 +1881,10 @@ fn validate_chapter_draft_preview(
             message,
         )
     })?;
+    provider::visual_scenes::prepare_generated_sections(
+        &mut revision,
+        review.section_update_context.as_ref().map(|context| context.section_id.as_str()),
+    ).map_err(|message| failure(provider::ProviderFailureKind::MalformedProviderResponse, message))?;
     let validation = chapters::validate_chapter_revision(
         storage_dir,
         &manifest,
@@ -2084,6 +2088,113 @@ pub fn run() {
 mod chapter_pipeline_tests {
     use super::*;
     use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, simple_proposal};
+
+    #[test]
+    fn fresh_file_and_overview_previews_validate_scenes_and_keep_complete_narration() {
+        let fixture = Fixture::new();
+        for overview in [false, true] {
+            let review = provider::build_request_review(&fixture.storage,
+                &provider::BuildProviderReviewInput {
+                    project_id: fixture.manifest.summary.project_id.clone(),
+                    snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                    target_path: if overview { None } else { Some(SIMPLE_PATH.to_owned()) },
+                    selected_paths: vec![SIMPLE_PATH.to_owned()],
+                    model_id: "gemini-3.8-flash".to_owned(), section_update: None,
+                }).unwrap().review;
+            assert!(review.system_instruction.contains("ai-html-compositions-v2"));
+            let mut proposal = provider::visual_scenes::tests::composed_proposal(2);
+            if overview { proposal.as_object_mut().unwrap().remove("evidenceLimits"); }
+            let original = proposal["sections"][0]["claims"][0]["prose"].as_str().unwrap().to_owned();
+            let full = format!("{original} An incoming name becomes part of the returned greeting.");
+            proposal["sections"][0]["claims"][0]["prose"] = serde_json::json!(&full);
+            let prepared = validate_chapter_draft_preview(
+                &fixture.storage, &review, response(&review, proposal.to_string())).unwrap();
+            assert_eq!(prepared.revision.sections[0].spoken_text, full);
+            assert_eq!(prepared.revision.sections[0].prose, full);
+            let presentation = prepared.revision.sections[0].visual.as_ref().unwrap()
+                .typed_visual().unwrap().presentation.as_ref().unwrap();
+            assert_eq!(presentation.schema_version, 2);
+            assert_eq!(presentation.scenes.len(), 1);
+            assert!(chapter_store::list_for_project(&fixture.storage, &review.project_id).unwrap().is_empty());
+            // A historical shape still decodes, but cannot downgrade a fresh result.
+            proposal["sections"][0]["visual"]["presentation"]["schemaVersion"] = serde_json::json!(1);
+            let error = validate_chapter_draft_preview(
+                &fixture.storage, &review, response(&review, proposal.to_string())).err().unwrap();
+            assert_eq!(error.kind, provider::ProviderFailureKind::MalformedProviderResponse);
+            assert!(error.message.contains("version 2"));
+        }
+    }
+
+    #[test]
+    #[ignore = "Explicit existing-account GPT-6 Luna/max Fontdone file-scene qualification; consumes quota."]
+    fn fontdone_file_scene_account_probe() {
+        use crate::codex_agent::{CodexAgentManager, CodexRunInput, CodexSourceFile};
+        use std::io::Write;
+        let storage = std::path::PathBuf::from(std::env::var_os("CODE_ATLAS_FONTDONE_DATA_DIR")
+            .expect("set isolated CODE_ATLAS_FONTDONE_DATA_DIR"));
+        let output = std::path::PathBuf::from(std::env::var_os("CODE_ATLAS_FILE_SCENE_OUTPUT")
+            .expect("set a fresh absolute CODE_ATLAS_FILE_SCENE_OUTPUT"));
+        assert!(storage.is_absolute() && output.is_absolute());
+        let mut artifact = std::fs::OpenOptions::new().write(true).create_new(true)
+            .open(&output).expect("never overwrite another attempt");
+        let project = "/Users/lazytrot/work/fontdone";
+        let snapshot = "snap-1792140879637485000-11155-0";
+        let path = "src/tt/loca.rs";
+        let question = "How does this file turn a glyph ID into its byte range? Explain the short and long offset encodings, missing entries, and the bounds and ordering cases that determine glyph length. Use a concrete illustrative example where it helps.";
+        let manager = CodexAgentManager::default();
+        assert!(manager.resume_connection(&storage).unwrap().authenticated);
+        let runtime = manager.review_runtime(&storage).unwrap();
+        let review = provider::build_codex_chapter_review(&storage,
+            &provider::BuildCodexReviewInput {
+                project_id: project.into(), snapshot_id: snapshot.into(),
+                target_path: Some(path.into()), selected_paths: vec![path.into()],
+                model_id: "gpt-6-luna".into(), effort: "max".into(), approval_policy: "never".into(),
+                section_update: None, question: Some(question.into()), focus: vec![], workspace_grant: None,
+            }, &runtime).unwrap().review;
+        let source = snapshot::read_snapshot_source(&storage, project, snapshot, path).unwrap();
+        let started = std::time::Instant::now();
+        let run = manager.run(&storage, CodexRunInput {
+            run_id: format!("file-scenes-{}", uuid::Uuid::new_v4()), expected_runtime: runtime,
+            model: "gpt-6-luna".into(), effort: "max".into(), approval_policy: "never".into(),
+            system_instruction: review.system_instruction.clone(), user_prompt: review.user_prompt.clone(),
+            output_schema: review.generation_config["outputSchema"].clone(),
+            repair_claim_alignment: true, retrieval: None,
+            sources: vec![CodexSourceFile { path: source.path.clone(), sha256: source.sha256.clone(), contents: source.contents.clone() }],
+        }, |_| {});
+        let elapsed = started.elapsed().as_millis();
+        manager.shutdown();
+        let validated = run.as_ref().map_err(|e| e.clone()).and_then(|reply| {
+            if reply.model != "gpt-6-luna" || reply.effort != "max" {
+                return Err("The account runtime changed the requested model or effort.".to_owned());
+            }
+            validate_chapter_draft_preview(&storage, &review,
+                provider::ProviderSendResult {
+                    review_id: review.review_id.clone(), fingerprint: review.fingerprint.clone(),
+                    model_id: reply.model.clone(), model_version: None,
+                    response_text: reply.response_text.clone(), input_tokens: None, output_tokens: None,
+                }).map_err(|e| e.message)
+        });
+        let report = serde_json::json!({
+            "schemaVersion":1, "scope":"One real Fontdone file; not whole-repository qualification",
+            "sourceRevision":std::env::var("CODE_ATLAS_QUALIFICATION_REVISION").ok(),
+            "model":"gpt-6-luna", "effort":"max", "elapsedMs":elapsed,
+            "source":{"projectId":project,"snapshotId":snapshot,"path":path,"sha256":source.sha256,"bytes":source.contents.len()},
+            "request":{"fingerprint":review.fingerprint,"systemInstruction":review.system_instruction,
+                "userPrompt":review.user_prompt,"generationConfig":review.generation_config},
+            "responseText":run.as_ref().ok().map(|r|&r.response_text),
+            "runtimeError":run.as_ref().err(), "validationError":validated.as_ref().err(),
+            "revision":validated.as_ref().ok().map(|v|&v.revision),
+            "validation":validated.as_ref().ok().map(|v|&v.validation),
+            "accepted":false, "humanQualityOrListeningPass":false,
+        });
+        artifact.write_all(serde_json::to_string_pretty(&report).unwrap().as_bytes()).unwrap();
+        artifact.sync_all().unwrap();
+        println!("FILE_SCENE_QUALIFICATION {} {}ms", output.display(), elapsed);
+        let validated = validated.unwrap();
+        assert!(validated.revision.sections.iter().any(|s| s.visual.as_ref()
+            .and_then(|v|v.typed_visual()).and_then(|v|v.presentation.as_ref()).is_some()),
+            "A scene-free answer does not qualify AI visual generation; retain the original result.");
+    }
 
     fn review(fixture: &Fixture) -> provider::ProviderRequestReview {
         provider::build_request_review(
