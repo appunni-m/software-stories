@@ -15,6 +15,7 @@ export interface RepositoryGuide {
   revision: number;
   id: string; projectId: string; snapshotId: string; question: string; title: string;
   status: 'planning' | 'building' | 'ready' | 'partial' | 'stopped' | 'interrupted' | 'failed';
+  openingRunId?: string | null;
   units: { key: string; question: string; prerequisites: string[]; status: string; runIds: string[] }[];
   answers: AnswerSummary[]; omissions: string[]; capturedFiles: number; startingFiles: number;
 }
@@ -108,7 +109,7 @@ export function parseWorkspace(raw: string | null, projectId: string, snapshotId
  * a lost local-storage write. Never change the reader's view or section. */
 export function mergeRepositoryGuide(state: WorkspaceState, guide: RepositoryGuide): WorkspaceState {
   if (guide.projectId !== state.projectId || guide.snapshotId !== state.snapshotId || !validRunId(guide.id)) return state;
-  const runIds = [...new Set(guide.units.flatMap((unit) => unit.runIds).filter(validRunId))];
+  const runIds = [...new Set([guide.openingRunId, ...guide.units.flatMap((unit) => unit.runIds)].filter(validRunId))];
   const owner = state.explorations.find((e) => e.turns.some((t) => t.guideId === guide.id));
   const previous = owner?.turns.find((t) => t.guideId === guide.id)?.guide;
   if (previous && previous.revision > guide.revision) return state;

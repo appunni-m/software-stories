@@ -59,3 +59,23 @@ test('contextual guide keeps explicit source and nested intent',()=>{
   assert.match(contextualGuideIntent('',[],true),/this topic/);
   assert.equal(contextualGuideIntent('   ',[],false),null);
 });
+test('an opening answer belongs to the guide before its outline exists and survives restart',()=>{
+  const opening={...section,runId:guideId};
+  const planning={...guide(),revision:0,status:'planning',openingRunId:guideId,units:[],
+    answers:[{runId:guideId,projectId:'p',snapshotId:'s',question:'How does this project work?',outcome:'working',sections:[opening],incompleteTopics:[]}]};
+  let state=mergeRepositoryGuide(createWorkspace('p','s'),planning);
+  const turn=state.explorations[0].turns[0];
+  assert.deepEqual(turn.runIds,[guideId]);assert.deepEqual(turn.publishedSections,[opening]);
+  assert.equal(turn.status,'working');assert.equal(turn.guide.units.length,0);
+  state=parseWorkspace(JSON.stringify(state),'p','s');
+  assert.deepEqual(state.explorations[0].turns[0].publishedSections,[opening]);
+  const outline={...guide(),openingRunId:guideId,answers:[...planning.answers,...guide().answers]};
+  state=mergeRepositoryGuide(state,outline);
+  assert.equal(state.explorations[0].turns.length,1);
+  assert.deepEqual(state.explorations[0].turns[0].runIds,[guideId,runId]);
+  assert.deepEqual(state.explorations[0].turns[0].publishedSections,[opening,section]);
+  const stopped={...outline,revision:3,status:'stopped'};
+  state=mergeRepositoryGuide(state,stopped);
+  assert.equal(mergeRepositoryGuide(state,planning),state);
+  assert.deepEqual(state.explorations[0].turns[0].publishedSections,[opening,section]);
+});

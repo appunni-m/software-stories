@@ -57,7 +57,7 @@ struct StartingEvidence {
     quote: String,
 }
 
-fn schema() -> Value {
+pub(super) fn schema() -> Value {
     let evidence = json!({"type":"array","minItems":1,"maxItems":4,"items":{
         "type":"object","additionalProperties":false,"required":["referenceId"],"properties":{
             "referenceId":{"type":"string","maxLength":8,"pattern":"^code:[1-9][0-9]{0,2}$"}}}});
@@ -142,13 +142,59 @@ fn canonicalize(resolved: &native_citations::Resolved) -> Result<Plan, String> {
     })
 }
 
+fn request(job: &Record) -> Result<(String, Value, String, String), String> {
+    let has_opening = job.opening.is_some();
+    let prompt = serde_json::to_string(&json!({"question":job.question,"snapshotId":job.snapshot_id,
+        "scope":"all eligible captured implementation, researched by ranges; never select whole files for transmission"}))
+        .map_err(|_| "The guide question could not be encoded.")?;
+    let schema = if has_opening {
+        opening::schema(schema())
+    } else {
+        schema()
+    };
+    let instructions = if has_opening {
+        opening::instructions()
+    } else {
+        INSTRUCTIONS.into()
+    };
+    let tools = if has_opening {
+        context_mcp::tools_for(true)
+    } else {
+        context_mcp::tools_for_planning()
+    };
+    let mut contract = json!({"contractVersion":job.contract,
+        "runId":job.planning_run_id,"guideId":job.id,"grantId":job.grant_id,"manifestSha256":job.manifest_sha256,
+        "instructions":instructions,"prompt":prompt,"schema":schema,"tools":tools,
+        "correctionPolicy":if has_opening {"owned-section-proposals-no-final-rewrite-v1"} else {"fixed-native-starting-references-v1-max1"},
+        "openingPolicy":if has_opening {Some(opening::POLICY)} else {None},
+        "model":"gpt-6-luna","effort":"max","maxUnits":MAX_UNITS,"maxAttemptsPerUnit":MAX_ATTEMPTS});
+    if has_opening {
+        contract["sourcePolicy"] = json!(crate::evidence_ledger::POLICY);
+        contract["baseInstructions"] = json!(agent_context::PROGRESSIVE_BASE_INSTRUCTIONS);
+        contract["sceneAuthoringPolicy"] =
+            json!(crate::evidence_ledger::sections::authoring::POLICY);
+        contract["checkpointVersion"] = json!(5);
+    }
+    let contract =
+        serde_json::to_vec(&contract).map_err(|_| "The guide contract could not be encoded.")?;
+    if contract.len() > 128 * 1024 {
+        return Err(
+            "The guide intent exceeds its initial contract limit. No investigation was started."
+                .into(),
+        );
+    }
+    let fingerprint = context::digest(&contract);
+    Ok((prompt, schema, fingerprint, instructions))
+}
+
 pub(super) fn run(
     storage: &Path,
     job: &Record,
     manager: &codex_agent::CodexAgentManager,
     jobs: RepositoryContextJobs,
     progress: impl Fn(codex_agent::CodexProgress),
-    publish: impl FnOnce(Plan) -> Result<(), String>,
+    notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
+    publish: impl FnOnce(Plan, Option<Summary>) -> Result<(), String>,
 ) -> Result<(), String> {
     let started = Instant::now();
     let manifest = checked_manifest(storage, job)?;
@@ -160,24 +206,36 @@ pub(super) fn run(
         &job.snapshot_id,
         &runtime,
     )?;
-    let session = Arc::new(Mutex::new(agent_context::Session::new_planning(
-        storage,
-        &job.planning_run_id,
-        manifest.clone(),
-        &runtime,
-        &job.grant_id,
-        jobs,
-    )?));
-    let prompt = serde_json::to_string(&json!({"question":job.question,"snapshotId":job.snapshot_id,
-        "scope":"all eligible captured implementation, researched by ranges; never select whole files for transmission"}))
-        .map_err(|_| "The guide question could not be encoded.")?;
-    let schema = schema();
-    let fingerprint = context::digest(&serde_json::to_vec(&json!({"contractVersion":CONTRACT,
-        "runId":job.planning_run_id,"guideId":job.id,"grantId":job.grant_id,"manifestSha256":job.manifest_sha256,
-        "instructions":INSTRUCTIONS,"prompt":prompt,"schema":schema,"tools":context_mcp::tools_for_planning(),"correctionPolicy":"fixed-native-starting-references-v1-max1",
-        "model":"gpt-6-luna","effort":"max","maxUnits":MAX_UNITS,"maxAttemptsPerUnit":MAX_ATTEMPTS}))
-        .map_err(|_| "The guide contract could not be encoded.")?);
-    manager.run_with_result_and_publish(
+    let has_opening = job.opening.is_some();
+    let _worker = if has_opening {
+        Some(manager.hold_answer_worker(&job.planning_run_id)?)
+    } else {
+        None
+    };
+    let (prompt, schema, fingerprint, instructions) = request(job)?;
+    let session = Arc::new(Mutex::new(if has_opening {
+        agent_context::Session::new_progressive(
+            storage,
+            &job.planning_run_id,
+            manifest.clone(),
+            &runtime,
+            &job.grant_id,
+            jobs,
+            &job.question,
+            &fingerprint,
+            notify,
+        )?
+    } else {
+        agent_context::Session::new_planning(
+            storage,
+            &job.planning_run_id,
+            manifest.clone(),
+            &runtime,
+            &job.grant_id,
+            jobs,
+        )?
+    }));
+    let outcome = manager.run_with_result_and_publish(
         storage,
         codex_agent::CodexRunInput {
             run_id: job.planning_run_id.clone(),
@@ -185,24 +243,34 @@ pub(super) fn run(
             model: "gpt-6-luna".into(),
             effort: "max".into(),
             approval_policy: "never".into(),
-            system_instruction: INSTRUCTIONS.into(),
+            system_instruction: instructions,
             user_prompt: prompt,
             output_schema: schema,
-            correction_policy: CorrectionPolicy::IdentifiersV1,
+            correction_policy: if has_opening {
+                CorrectionPolicy::Disabled
+            } else {
+                CorrectionPolicy::IdentifiersV1
+            },
             retrieval: Some(Arc::clone(&session)),
             sources: vec![],
         },
         &fingerprint,
         started,
         progress,
-        |response, access| -> Result<Plan, String> {
+        |response, access| -> Result<(Plan, Option<String>), String> {
             access.check_review(&job.planning_run_id, &fingerprint, &runtime.executable_path)?;
             let mut owned = session
                 .lock()
                 .map_err(|_| "The guide research session is unavailable.")?;
             owned.check_complete()?;
+            let (outline, answer) = if has_opening {
+                let (outline, answer) = opening::split(&response.response_text)?;
+                (outline, Some(answer))
+            } else {
+                (response.response_text, None)
+            };
             let resolved = match owned.ledger.resolve_citations(
-                &response.response_text,
+                &outline,
                 &manifest,
                 access.runtime(),
                 access.cancelled(),
@@ -216,13 +284,56 @@ pub(super) fn run(
                 }
             };
             let plan = canonicalize(&resolved)?;
-            owned
-                .ledger
-                .complete(&manifest, access.runtime(), access.cancelled())?;
-            Ok(plan)
+            // Progressive completion belongs to its exact final manifest. The
+            // legacy planner has no answer publication owner or manifest.
+            if !has_opening {
+                owned
+                    .ledger
+                    .complete(&manifest, access.runtime(), access.cancelled())?;
+            }
+            Ok((plan, answer))
         },
-        |result| publish(result?),
-    )?
+        |result| {
+            let (plan, manifest) = result?;
+            let answer = if let Some(manifest) = manifest {
+                session
+                    .lock()
+                    .map_err(|_| "The guide research session is unavailable.")?
+                    .finish_answer_manifest(&manifest)?;
+                Some(
+                    crate::evidence_ledger::sections::inspect(storage, &job.planning_run_id)?
+                        .summary(),
+                )
+            } else {
+                None
+            };
+            publish(plan, answer)
+        },
+    );
+    if has_opening {
+        if let Err(error) | Ok(Err(error)) = &outcome {
+            let cancelled = session
+                .lock()
+                .map_err(|_| "The guide research session is unavailable.")?
+                .answer_cancelled()
+                || store::read(storage, &job.id)?.status == Status::Stopped;
+            reading::interrupt_with_failure(
+                storage,
+                &job.planning_run_id,
+                if cancelled {
+                    Outcome::Stopped
+                } else {
+                    Outcome::Partial
+                },
+                Some(if cancelled {
+                    crate::evidence_ledger::sections::FailureCode::Stopped
+                } else {
+                    crate::evidence_ledger::sections::FailureCode::from_error(error)
+                }),
+            )?;
+        }
+    }
+    outcome?
 }
 
 #[cfg(test)]

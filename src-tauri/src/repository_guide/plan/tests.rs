@@ -74,3 +74,41 @@ fn unread_references_never_become_starting_paths() {
         native_citations::Resolution::Invalid(_)
     ));
 }
+
+#[test]
+fn opening_request_retains_full_intent_and_binds_its_versioned_publication_contract() {
+    let f = Fixture::new();
+    let mut r = crate::repository_guide::tests::record(&f);
+    let (_, legacy_schema, legacy_digest, legacy_instructions) = request(&r).unwrap();
+    assert_eq!(legacy_schema, schema());
+    assert_eq!(legacy_instructions, INSTRUCTIONS);
+    r.schema_version = 2;
+    r.contract = CONTRACT.into();
+    r.question = "How do café 🦀 bytes reach output, including rejected inputs?".into();
+    r.opening = Some(Attempt {
+        run_id: r.planning_run_id.clone(),
+        question: r.question.clone(),
+        summary: None,
+    });
+    let (prompt, output, digest, instructions) = request(&r).unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&prompt).unwrap()["question"],
+        r.question
+    );
+    assert_eq!(output, opening::schema(schema()));
+    assert_ne!(digest, legacy_digest);
+    assert!(instructions.contains("sceneAuthoringLimit"));
+    assert_eq!(request(&r).unwrap().2, digest);
+    r.question
+        .push_str(" Preserve every requested alternative.");
+    assert_ne!(request(&r).unwrap().2, digest);
+    r.question = "\"".repeat(12000);
+    r.opening.as_mut().unwrap().question = r.question.clone();
+    let (prompt, _, _, _) = request(&r).unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&prompt).unwrap()["question"],
+        r.question
+    );
+    assert_eq!(MAX_UNITS, 6);
+    assert_eq!(MAX_ATTEMPTS, 2);
+}

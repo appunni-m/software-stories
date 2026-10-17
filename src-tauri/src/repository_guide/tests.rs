@@ -9,7 +9,7 @@ pub(super) fn record(f: &Fixture) -> Record {
     Record {
         revision: 0,
         schema_version: 1,
-        contract: CONTRACT.into(),
+        contract: PLAN_ONLY_CONTRACT.into(),
         id: Uuid::new_v4().to_string(),
         project_id: f.manifest.summary.project_id.clone(),
         snapshot_id: f.manifest.summary.snapshot_id.clone(),
@@ -17,6 +17,7 @@ pub(super) fn record(f: &Fixture) -> Record {
         grant_id: Uuid::new_v4().to_string(),
         question: "How does this project work?".into(),
         planning_run_id: Uuid::new_v4().to_string(),
+        opening: None,
         plan: Some(Plan {
             title: "A grounded repository guide".into(),
             units: vec![
@@ -294,10 +295,8 @@ fn fontdone_repository_guide_account_probe() {
         original
     } else {
         let grant_id = workspace::save_retrieval_grant(&storage, project, snapshot_id, &runtime).unwrap();
-        Record{revision:0,schema_version:1,contract:CONTRACT.into(),id:Uuid::new_v4().to_string(),project_id:project.into(),snapshot_id:snapshot_id.into(),
-        manifest_sha256:context::digest(&serde_json::to_vec(&manifest).unwrap()),grant_id,
-        question:"How does Fontdone turn font bytes into a rendered glyph bitmap? Build a coherent guide through real entry points, parsing, outline loading, hinting, rasterization, output and important failure paths. Include alternate supported font representations where they change this journey; name any boundaries that remain unexplored.".into(),
-        planning_run_id:Uuid::new_v4().to_string(),plan:None,units:vec![],status:Status::Planning,active_run_id:None}
+        new_record(Start { id:Uuid::new_v4().to_string(), project_id:project.into(), snapshot_id:snapshot_id.into(),
+            grant_id, question:"How does Fontdone turn font bytes into a rendered glyph bitmap? Build a coherent guide through real entry points, parsing, outline loading, hinting, rasterization, output and important failure paths. Include alternate supported font representations where they change this journey; name any boundaries that remain unexplored.".into(), consent:true }, &manifest).unwrap()
     };
     let _lease = store::lease(&storage, &record.id).unwrap().unwrap();
     if resume_id.is_none() {

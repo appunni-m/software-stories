@@ -20,13 +20,15 @@ use std::{
 use tauri::{AppHandle, Emitter, Manager, State};
 use uuid::Uuid;
 
+mod opening;
 mod plan;
 mod recovering;
 mod store;
 use plan::Plan;
 use recovering::reconcile;
 
-const CONTRACT: &str = "repository-guide-v2-short-reference-planning";
+const CONTRACT: &str = "repository-guide-v3-opening-during-planning";
+const PLAN_ONLY_CONTRACT: &str = "repository-guide-v2-short-reference-planning";
 const LEGACY_CONTRACT: &str = "repository-guide-v1-owned-range-planning";
 const MAX_UNITS: usize = 6;
 const MAX_ATTEMPTS: usize = 2;
@@ -68,6 +70,8 @@ struct Record {
     grant_id: String,
     question: String,
     planning_run_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    opening: Option<Attempt>,
     plan: Option<Plan>,
     units: Vec<Unit>,
     status: Status,
@@ -85,6 +89,7 @@ pub(crate) struct GuideSummary {
     status: Status,
     units: Vec<UnitSummary>,
     answers: Vec<Summary>,
+    opening_run_id: Option<String>,
     omissions: Vec<String>,
     captured_files: usize,
     starting_files: usize,
@@ -151,6 +156,13 @@ fn unit_complete(unit: &Unit) -> bool {
         .and_then(|a| a.summary.as_ref())
         .is_some_and(|s| s.outcome == Outcome::Complete && !s.sections.is_empty())
 }
+fn guide_complete(record: &Record) -> bool {
+    record.opening.as_ref().is_none_or(|a| {
+        a.summary
+            .as_ref()
+            .is_some_and(|s| s.outcome == Outcome::Complete && !s.sections.is_empty())
+    }) && record.units.iter().all(unit_complete)
+}
 fn prerequisite_complete(record: &Record, index: usize) -> bool {
     record.plan.as_ref().is_some_and(|p| {
         p.units[index].prerequisites.iter().all(|key| {
@@ -194,7 +206,11 @@ fn unit_status(unit: &Unit) -> &'static str {
 fn summary(storage: &Path, record: &Record) -> Result<GuideSummary, String> {
     let manifest = checked_manifest(storage, record)?;
     let mut answers = Vec::new();
-    for attempt in record.units.iter().flat_map(|u| &u.attempts) {
+    for attempt in record
+        .opening
+        .iter()
+        .chain(record.units.iter().flat_map(|u| &u.attempts))
+    {
         match if reading::exists(storage, &attempt.run_id)? {
             Some(reading::scoped(
                 storage,
@@ -257,6 +273,7 @@ fn summary(storage: &Path, record: &Record) -> Result<GuideSummary, String> {
         status: record.status.clone(),
         units,
         answers,
+        opening_run_id: record.opening.as_ref().map(|a| a.run_id.clone()),
         omissions: plan.map_or_else(Vec::new, |p| p.omissions.clone()),
         captured_files: manifest
             .files
@@ -323,7 +340,10 @@ fn unit_intent(
     index: usize,
 ) -> Result<workspace_generation::progressive::GuideIntent, String> {
     let plan = record.plan.as_ref().ok_or("The guide has no outline.")?;
-    let unit = plan.units.get(index).ok_or("The guide unit is unavailable.")?;
+    let unit = plan
+        .units
+        .get(index)
+        .ok_or("The guide unit is unavailable.")?;
     Ok(workspace_generation::progressive::GuideIntent {
         guide_id: record.id.clone(),
         question: record.question.clone(),
@@ -333,6 +353,47 @@ fn unit_intent(
         research_boundaries: plan.omissions.clone(),
     })
 }
+fn save_outline(
+    storage: &Path,
+    expected: &Record,
+    plan: Plan,
+    answer: Option<Summary>,
+) -> Result<(), String> {
+    store::update(storage, &expected.id, |current| {
+        if current.status == Status::Stopped {
+            return Err("The guide was stopped. No outline was published.".into());
+        }
+        if current.revision != expected.revision
+            || current.plan.is_some()
+            || current.active_run_id.as_deref() != Some(expected.planning_run_id.as_str())
+        {
+            return Err("The guide changed while its outline was being saved. Existing progress was preserved.".into());
+        }
+        current.units = plan
+            .units
+            .iter()
+            .map(|u| Unit {
+                key: u.key.clone(),
+                attempts: vec![],
+            })
+            .collect();
+        current.plan = Some(plan);
+        match (&mut current.opening, answer) {
+            (Some(opening), Some(answer)) => opening.summary = Some(answer),
+            (None, None) => {}
+            _ => {
+                return Err(
+                    "The guide opening owner changed. Saved sections were preserved.".into(),
+                );
+            }
+        }
+        current.status = Status::Building;
+        current.active_run_id = None;
+        Ok(())
+    })?;
+    Ok(())
+}
+
 fn build(
     storage: &Path,
     id: &str,
@@ -350,27 +411,35 @@ fn build(
         if record.status != Status::Planning {
             return Err("This guide stopped before its outline was saved. Start a new guide; no investigation was replayed.".into());
         }
-        plan::run(storage, &record, manager, jobs.clone(), &progress, |plan| {
-            store::update(storage, id, |current| {
-                if current.status == Status::Stopped {
-                    return Err("The guide was stopped. No outline was published.".into());
-                }
-                current.units = plan
-                    .units
-                    .iter()
-                    .map(|u| Unit {
-                        key: u.key.clone(),
-                        attempts: vec![],
-                    })
-                    .collect();
-                current.plan = Some(plan);
-                current.status = Status::Building;
-                current.active_run_id = None;
-                Ok(())
-            })?;
-            Ok(())
-        })?;
+        // The reader must know the opening owner before its first publication.
+        // This observation starts no additional model operation.
+        changed(&summary(storage, &record)?);
+        let result = plan::run(
+            storage,
+            &record,
+            manager,
+            jobs.clone(),
+            &progress,
+            Arc::clone(&notify),
+            |plan, answer| save_outline(storage, &record, plan, answer),
+        );
+        if result.is_err() {
+            opening::retain_failure(storage, &record)?;
+            let saved = summary(storage, &store::read(storage, id)?)?;
+            for section in saved.answers.iter().flat_map(|a| &a.sections) {
+                adopt(section)?;
+            }
+            changed(&saved);
+        }
+        result?;
         record = store::read(storage, id)?;
+        for section in summary(storage, &record)?
+            .answers
+            .iter()
+            .flat_map(|a| &a.sections)
+        {
+            adopt(section)?;
+        }
         changed(&summary(storage, &record)?);
     }
     for index in 0..record.units.len() {
@@ -479,7 +548,7 @@ fn build(
     }
     record = store::update(storage, id, |current| {
         if current.status != Status::Stopped {
-            current.status = if current.units.iter().all(unit_complete) {
+            current.status = if guide_complete(current) {
                 Status::Ready
             } else {
                 Status::Partial
@@ -502,6 +571,33 @@ pub(crate) struct Start {
     grant_id: String,
     question: String,
     consent: bool,
+}
+
+fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Record, String> {
+    let planning_run_id = input.id.clone();
+    Ok(Record {
+        revision: 0,
+        schema_version: 2,
+        contract: CONTRACT.into(),
+        id: input.id,
+        project_id: input.project_id,
+        snapshot_id: input.snapshot_id,
+        manifest_sha256: context::digest(
+            &serde_json::to_vec(&manifest).map_err(|_| "The inventory could not be encoded.")?,
+        ),
+        grant_id: input.grant_id,
+        opening: Some(Attempt {
+            run_id: planning_run_id.clone(),
+            question: input.question.clone(),
+            summary: None,
+        }),
+        question: input.question,
+        planning_run_id,
+        plan: None,
+        units: vec![],
+        status: Status::Planning,
+        active_run_id: None,
+    })
 }
 
 #[tauri::command]
@@ -531,25 +627,7 @@ pub(crate) async fn start_repository_guide(
         &input.snapshot_id,
         &runtime,
     )?;
-    let planning_run_id = input.id.clone();
-    let record = Record {
-        revision: 0,
-        schema_version: 1,
-        contract: CONTRACT.into(),
-        id: input.id,
-        project_id: input.project_id,
-        snapshot_id: input.snapshot_id,
-        manifest_sha256: context::digest(
-            &serde_json::to_vec(&manifest).map_err(|_| "The inventory could not be encoded.")?,
-        ),
-        grant_id: input.grant_id,
-        question: input.question,
-        planning_run_id,
-        plan: None,
-        units: vec![],
-        status: Status::Planning,
-        active_run_id: None,
-    };
+    let record = new_record(input, &manifest)?;
     let lease =
         store::lease(&storage, &record.id)?.ok_or("This guide already has a native worker.")?;
     store::create(&storage, &record)?;

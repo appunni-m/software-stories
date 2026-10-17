@@ -28,7 +28,11 @@ fn reconcile_with_reader(
     mut read: impl FnMut(&Attempt) -> Result<Option<reading::Observation>, String>,
 ) -> Result<Record, String> {
     let mut next = record.clone();
-    for attempt in next.units.iter_mut().flat_map(|unit| &mut unit.attempts) {
+    for attempt in next
+        .opening
+        .iter_mut()
+        .chain(next.units.iter_mut().flat_map(|unit| &mut unit.attempts))
+    {
         if attempt
             .summary
             .as_ref()

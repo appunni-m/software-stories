@@ -148,15 +148,19 @@ fn lock_named(storage: &Path, name: &str) -> Result<Option<crate::file_lease::Le
     {
         return Err("The guide lease is not a regular local file.".into());
     }
-    crate::file_lease::try_exclusive(file)
-        .map_err(|_| "The filesystem cannot lease a guide worker. Existing work was preserved.".into())
+    crate::file_lease::try_exclusive(file).map_err(|_| {
+        "The filesystem cannot lease a guide worker. Existing work was preserved.".into()
+    })
 }
 #[cfg(not(unix))]
 fn lock_named(_storage: &Path, _name: &str) -> Result<Option<crate::file_lease::Lease>, String> {
     Err("Guide transactions require a native Unix filesystem lease.".into())
 }
 #[cfg(not(unix))]
-pub(super) fn lease(_storage: &Path, _id: &str) -> Result<Option<crate::file_lease::Lease>, String> {
+pub(super) fn lease(
+    _storage: &Path,
+    _id: &str,
+) -> Result<Option<crate::file_lease::Lease>, String> {
     Err("Repository guide workers require a native Unix filesystem lease.".into())
 }
 
@@ -184,8 +188,10 @@ pub(super) fn create(storage: &Path, record: &Record) -> Result<(), String> {
 }
 
 fn validate(record: &Record) -> Result<(), String> {
-    if record.schema_version != 1
-        || !matches!(record.contract.as_str(), CONTRACT | LEGACY_CONTRACT)
+    if !matches!(
+        (record.schema_version, record.contract.as_str()),
+        (2, CONTRACT) | (1, PLAN_ONLY_CONTRACT | LEGACY_CONTRACT)
+    ) || (record.schema_version == 2) != record.opening.is_some()
         || !uuid(&record.id)
         || !uuid(&record.planning_run_id)
         || !uuid(&record.grant_id)
@@ -201,6 +207,12 @@ fn validate(record: &Record) -> Result<(), String> {
         || record.active_run_id.as_ref().is_some_and(|id| !uuid(id))
     {
         return Err("The saved repository guide has an incompatible contract.".into());
+    }
+    if let Some(opening) = &record.opening {
+        if opening.run_id != record.planning_run_id || opening.question != record.question {
+            return Err("The saved guide opening changed its owner or question.".into());
+        }
+        validate_summary(record, opening)?;
     }
     let mut runs = std::collections::HashSet::from([record.planning_run_id.as_str()]);
     if let Some(plan) = &record.plan {
@@ -241,33 +253,7 @@ fn validate(record: &Record) -> Result<(), String> {
                 {
                     return Err("The saved guide repeats an investigation identity.".into());
                 }
-                if let Some(summary) = &attempt.summary {
-                    if summary.run_id != attempt.run_id
-                        || summary.question != attempt.question
-                        || summary.project_id != record.project_id
-                        || summary.snapshot_id != record.snapshot_id
-                        || summary.sections.len() > 8
-                        || (summary.outcome == Outcome::Complete
-                            && (summary.sections.is_empty()
-                                || !summary.incomplete_topics.is_empty()))
-                        || summary.incomplete_topics.len() > 6
-                        || summary.incomplete_topics.iter().any(|t| !text(t, 1, 1000))
-                        || summary.sections.iter().any(|s| {
-                            s.run_id != attempt.run_id
-                                || s.project_id != record.project_id
-                                || s.snapshot_id != record.snapshot_id
-                                || !key(&s.key)
-                                || s.order > 5
-                                || !s
-                                    .generation_id
-                                    .strip_prefix("generation:")
-                                    .is_some_and(uuid)
-                                || s.revision_id.len() > 256
-                        })
-                    {
-                        return Err("The saved guide's answer lineage or bounds changed.".into());
-                    }
-                }
+                validate_summary(record, attempt)?;
             }
         }
     } else if !record.units.is_empty() {
@@ -280,10 +266,38 @@ fn validate(record: &Record) -> Result<(), String> {
     {
         return Err("The guide's active investigation is unknown.".into());
     }
-    if record.status == Status::Ready
-        && (record.plan.is_none() || !record.units.iter().all(unit_complete))
-    {
+    if record.status == Status::Ready && (record.plan.is_none() || !guide_complete(record)) {
         return Err("The saved guide is marked ready without complete units.".into());
+    }
+    Ok(())
+}
+
+fn validate_summary(record: &Record, attempt: &Attempt) -> Result<(), String> {
+    if let Some(summary) = &attempt.summary {
+        if summary.run_id != attempt.run_id
+            || summary.question != attempt.question
+            || summary.project_id != record.project_id
+            || summary.snapshot_id != record.snapshot_id
+            || summary.sections.len() > 8
+            || (summary.outcome == Outcome::Complete
+                && (summary.sections.is_empty() || !summary.incomplete_topics.is_empty()))
+            || summary.incomplete_topics.len() > 6
+            || summary.incomplete_topics.iter().any(|t| !text(t, 1, 1000))
+            || summary.sections.iter().any(|s| {
+                s.run_id != attempt.run_id
+                    || s.project_id != record.project_id
+                    || s.snapshot_id != record.snapshot_id
+                    || !key(&s.key)
+                    || s.order > 5
+                    || !s
+                        .generation_id
+                        .strip_prefix("generation:")
+                        .is_some_and(uuid)
+                    || s.revision_id.len() > 256
+            })
+        {
+            return Err("The saved guide's answer lineage or bounds changed.".into());
+        }
     }
     Ok(())
 }
