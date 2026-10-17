@@ -298,6 +298,55 @@ fn malformed_read_feedback_consumes_the_original_call_budget_without_new_evidenc
 }
 
 #[test]
+fn typed_read_argument_feedback_uses_the_same_full_budget_without_source_or_counter_reset() {
+    for progressive in [false, true] {
+        let f = Fixture::new();
+        let (mut ledger, runtime, cancel) = if progressive { progressive_setup(&f) } else { setup(&f) };
+        for ordinal in 0..MAX_CALLS {
+            let token = ledger.begin_call(Tool::Read, &"c".repeat(64), &f.manifest, &runtime, &cancel).unwrap();
+            let mut reply = Value::Null;
+            ledger.deliver(token, Context::ReadArgumentsError {}, &[], &f.manifest, &runtime, &cancel, |bytes| {
+                reply = serde_json::from_slice(bytes).unwrap(); Ok(())
+            }).unwrap();
+            if ordinal + 1 == MAX_CALLS {
+                assert_eq!(reply["budgetStop"], "calls");
+                assert!(reply.get("readError").is_none());
+            } else {
+                assert_eq!(reply["readError"]["code"], "invalidReadArguments");
+            }
+            assert!(reply["added"].as_array().unwrap().is_empty());
+            assert_eq!(reply["budget"]["remaining"]["calls"], MAX_CALLS - ordinal - 1);
+            assert!(ledger.admitted_ranges().is_empty());
+        }
+        assert!(ledger.begin_call(Tool::Read, &"c".repeat(64), &f.manifest, &runtime, &cancel).is_err());
+        assert_eq!(ledger.record.calls.len(), MAX_CALLS);
+        assert!(ledger.record.evidence.is_empty());
+        assert!(ledger.record.calls.iter().all(|call| call.state == CallState::Delivered && call.source_bytes == 0));
+    }
+}
+
+#[test]
+fn typed_read_argument_feedback_cannot_bypass_authority_stop_or_delivery_failure() {
+    for cause in ["wrongTool", "sourceRanges", "runtime", "cancelled", "uncertain"] {
+        let f = Fixture::new();
+        let (mut ledger, runtime, cancel) = progressive_setup(&f);
+        let kind = if cause == "wrongTool" { Tool::Search } else { Tool::Read };
+        let token = ledger.begin_call(kind, &"c".repeat(64), &f.manifest, &runtime, &cancel).unwrap();
+        let mut selected_runtime = runtime.clone();
+        if cause == "runtime" { selected_runtime.account_revision += 1; }
+        if cause == "cancelled" { cancel.store(true, std::sync::atomic::Ordering::SeqCst); }
+        let ranges = if cause == "sourceRanges" { vec![request(&f, 0, SIMPLE_SOURCE.len())] } else { vec![] };
+        let mut sent = false;
+        assert!(ledger.deliver(token, Context::ReadArgumentsError {}, &ranges, &f.manifest, &selected_runtime, &cancel, |_| {
+            sent = true; Err("delivery failed".into())
+        }).is_err(), "{cause}");
+        assert_eq!(sent, cause == "uncertain", "{cause}");
+        assert!(ledger.record.evidence.is_empty());
+        if cause == "uncertain" { assert_eq!(ledger.record.calls[0].state, CallState::Uncertain); }
+    }
+}
+
+#[test]
 fn rejected_calls_retain_only_fixed_native_failure_codes_and_legacy_receipts_stay_readable() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancelled) = setup(&f);

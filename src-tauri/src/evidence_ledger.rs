@@ -106,6 +106,7 @@ pub(crate) enum Context<'a> {
         message: &'static str,
     },
     Read {},
+    ReadArgumentsError {},
     SectionProposal {
         #[serde(rename = "generationId")]
         generation_id: Option<&'a str>,
@@ -160,7 +161,7 @@ impl Context<'_> {
     fn tool(&self) -> Tool {
         match self {
             Self::Search(_) | Self::SearchError { .. } => Tool::Search,
-            Self::Read {} => Tool::Read,
+            Self::Read {} | Self::ReadArgumentsError {} => Tool::Read,
             Self::Definitions(_) => Tool::Definitions,
             Self::Relationships(_) => Tool::Relationships,
             Self::Map(_) => Tool::Map,
@@ -800,6 +801,19 @@ impl Ledger {
             budget: self.response_budget(),
             budget_stop: None,
         };
+        if matches!(context, Context::ReadArgumentsError {}) {
+            if !requests.is_empty() {
+                return Err("Malformed read arguments cannot supply source ranges.".into());
+            }
+            response.read_error = Some(ReadError {
+                code: "invalidReadArguments",
+                message: "No code was returned. Use exactly {ranges:[{path,sourceSha256,startByte,endByte}]} with one to eight entries, captured relative path/hash strings and nonnegative integer byte offsets. Do not quote numbers, add fields or invent/default ranges. Copy descriptors from search_code or find_definitions and correct within the remaining budget.",
+                path: None,
+                source_sha256: None,
+                size_bytes: None,
+            });
+            return Ok(response);
+        }
         if context.tool() == Tool::Read && !(1..=8).contains(&requests.len()) {
             // A batching mistake is correctable. Return no source at all,
             // rather than truncate to eight ranges or abort the investigation.

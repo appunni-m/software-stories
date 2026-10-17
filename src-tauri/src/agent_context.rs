@@ -644,7 +644,13 @@ impl Session {
                 )
             }
             Tool::Read => {
-                let args: Read = parse(request.arguments)?;
+                let args: Read = match parse(request.arguments) {
+                    Ok(args) => args,
+                    Err(_) => return self.ledger.deliver(
+                        token, Context::ReadArgumentsError {}, &[], &fresh,
+                        &self.runtime, cancelled, send,
+                    ),
+                };
                 self.ledger.deliver(
                     token,
                     Context::Read {},

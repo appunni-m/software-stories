@@ -525,6 +525,27 @@ fn invalid_range_returns_no_code_and_an_agent_can_correct_it() {
     assert!(!s.ledger.admitted_ranges().is_empty());
     s.check_complete().unwrap();
 }
+
+#[test]
+fn malformed_typed_read_arguments_return_owned_feedback_before_a_corrected_read() {
+    let f = Fixture::new();
+    let mut s = session(&f);
+    let file = f.manifest.files.iter().find(|file| file.path == SIMPLE_PATH).unwrap();
+    let valid = json!({"path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":0,"endByte":file.size_bytes});
+    for arguments in [Value::Null, json!({}), json!({"ranges":"secret_descriptor_payload"}), json!({"ranges":[{"path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":"0","endByte":file.size_bytes}]}), json!({"ranges":[{"path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":-1,"endByte":file.size_bytes}]}), json!({"ranges":[valid.clone()],"extra":"secret_descriptor_payload"})] {
+        let (_, text) = exchange(&mut s, "read_code", arguments);
+        let result: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(result["readError"]["code"], "invalidReadArguments");
+        assert!(result["added"].as_array().unwrap().is_empty());
+        assert!(s.ledger.admitted_ranges().is_empty());
+        assert!(!text.contains("secret_descriptor_payload"));
+        assert!(!text.contains("export function greeting"));
+    }
+    let (_, text) = exchange(&mut s, "read_code", json!({"ranges":[valid]}));
+    assert!(text.contains("export function greeting"));
+    assert!(!s.ledger.admitted_ranges().is_empty());
+    s.check_complete().unwrap();
+}
 #[test]
 fn invalid_read_batches_return_owned_feedback_then_allow_a_corrected_read() {
     let f = Fixture::new();
