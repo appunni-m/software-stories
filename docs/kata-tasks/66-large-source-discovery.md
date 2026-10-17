@@ -37,3 +37,7 @@ The native replacement build independently reproduced this after connection reco
 ## Evidence
 
 See [Fontdone acceptance](../acceptance/2026-10-17-fontdone.md). This task records a confirmed source-selection limitation; it does not infer the semantic quality of a generated answer from metadata alone.
+
+## Industry review and implementation units — October 17
+
+The [repository context study](../research/2026-10-17-repository-context-and-indexing.md) compares ten published product approaches and existing indexing components. The recommended implementation is split into [local range retrieval](69-local-range-retrieval.md), Kata `a699`, then [owned Codex retrieval tools](70-codex-retrieval-tools.md), Kata `gk46`. This replaces whole-file selection with bounded search/read operations while preserving exact-source validation. Semantic embeddings and compiler indexes remain evaluated extensions. These are open implementation contracts, not shipped fixes or accepted performance results.

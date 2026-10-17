@@ -13,6 +13,12 @@ A newcomer can follow a real feature end to end, understand each relevant file, 
 ## Current evidence
 The implementation generates bounded file chapters and an optional orientation chapter from 1–12 selected files. The file quality gate does not qualify a complete repository narrative. There is no demonstrated whole-repository story planner or cross-language end-to-end quality report.
 
+## Industry review follow-up — October 17
+
+The [whole-repository context study](../research/2026-10-17-repository-context-and-indexing.md) identifies DeepWiki's hierarchical, source-linked pages as the closest product reference, with a local range index and agent search/read tools as the recommended context foundation. These are recommendations, not accepted narrative generation. Local retrieval is tracked in `a699`, Codex tools in `gk46`, and phase timings in `ps02`.
+
+For this task, keep repository inventory, question evidence coverage and generated-guide coverage separate. Build automatic behaviour journeys and independently validated sections, then generate visuals/narration from those sections. Persist source-range and prerequisite dependencies so editing a section or source range invalidates affected dependent material without rebuilding unrelated content. Preserve partial/failed sections and older revisions; a generic overview or a valid single-file draft cannot establish complete-repository coverage. Progressive publication, selective updates and the representative language matrix remain open.
+
 ## Source implementation progress (2026-10-15)
 The repository-overview request now frames the optional overview as a short learning path through the selected repository slice: explain prerequisites before using them, prioritize a supported behavior journey from an evidenced entry point, and stop at unknown module/protocol/language boundaries. It asks for question-form section titles and avoids one generic responsibility summary per file. The prompt version was advanced so reviewed requests bind to the new instructions.
 

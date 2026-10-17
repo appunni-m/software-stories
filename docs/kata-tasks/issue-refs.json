@@ -66,5 +66,8 @@
   "t65": "tmck",
   "large-source-discovery": "0wdn",
   "queued-connection-recovery": "xs7j",
-  "exploration-reading-position": "erzc"
+  "exploration-reading-position": "erzc",
+  "local-range-retrieval": "a699",
+  "codex-retrieval-tools": "gk46",
+  "generation-timing-traces": "ps02"
 }

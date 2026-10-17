@@ -34,3 +34,7 @@ The broad native question had no validated answer after 606 seconds and was manu
 - [ ] Profile large-repository time to the first useful, validated answer separately from discovery, generation, validation and queue wait; retain exact request/source identities and do not call this single run a performance benchmark.
 - [ ] Distinguish waiting questions from the active question with compact, reader-facing status. In this run every queued card said “Building your explanation…” for the duration of the slow first request.
 - [ ] Complete the wider restart, cancellation/race, durable scheduler and lost-save matrix; the narrow connection correction does not close this parent.
+
+### Industry review follow-up — October 17
+
+The timing checkbox now has a concrete child contract: [generation timing traces](71-generation-timing-traces.md), Kata `ps02`. Record queue/connection/index/retrieval/inference/validation/publication separately and distinguish first validated answer from first token. The [industry review](../research/2026-10-17-repository-context-and-indexing.md) recommends independently validated section publication and avoiding output the presentation layer discards. Progressive generation remains future work under this parent and repository narratives; research has not changed the running job pipeline or qualified its latency.

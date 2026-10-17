@@ -36,3 +36,5 @@ Remaining: Rust multi-crate and large TypeScript native runs, missing/unreadable
 ## Fontdone qualification — October 17
 
 The real Rust multi-crate repository exposes a gap between capture/index eligibility and question retrieval: the central 375,700-byte `src/font.rs` is indexed but excluded from discovery, and larger adapter implementations are above both request and parser limits. The broad font-to-bitmap request staged nine smaller files without the core font implementation or public Rust API. Keep large-repository acceptance open. Bounded source ranges and staged retrieval have a separate contract in [task 66](66-large-source-discovery.md), Kata `0wdn`; [native observations](../acceptance/2026-10-17-fontdone.md) preserve the limitations and failed attempts.
+
+The subsequent [industry study](../research/2026-10-17-repository-context-and-indexing.md) recommends a local lexical/range index plus owned agent search/read tools. Implementation contracts are `a699` and `gk46`; neither is complete. Discovery acceptance must measure expected-range recall independently, rather than using the model's selected files as its own ground truth.
