@@ -229,6 +229,58 @@ fn publish(f: &Fixture, r: &Record) -> crate::evidence_ledger::sections::ActiveA
 }
 
 #[test]
+fn independent_research_continues_after_an_honest_boundary_but_not_a_failed_operation() {
+    use crate::evidence_ledger::sections::FailureCode;
+    let f = Fixture::new();
+    let r = pending(&f);
+    let mut active = publish(&f, &r);
+    active.finish_manifest(&json!({"manifestVersion":"answerManifestV2","incompleteTopics":["A later implementation remains unexplored."]}).to_string(), false).unwrap();
+    let answer = reading::scoped(&f.storage, &r.planning_run_id, &r.project_id, &r.snapshot_id).unwrap();
+    assert_eq!(answer.outcome, Outcome::Partial);
+    assert!(!answer.has_recorded_failure());
+    assert!(check_research_outcome(&r, &answer).is_ok());
+    for code in [FailureCode::InvalidToolArguments, FailureCode::ToolEvent,
+        FailureCode::ContextTimeout, FailureCode::ContextPeerClosed,
+        FailureCode::ContextTransport, FailureCode::ContextDelivery,
+        FailureCode::RunTimeout, FailureCode::RuntimeIdentity, FailureCode::Unknown] {
+        let f = Fixture::new();
+        let r = pending(&f);
+        let _active = publish(&f, &r);
+        reading::interrupt_with_failure(&f.storage, &r.planning_run_id, Outcome::Partial, Some(code)).unwrap();
+        let answer = reading::scoped(&f.storage, &r.planning_run_id, &r.project_id, &r.snapshot_id).unwrap();
+        assert_eq!(answer.outcome, Outcome::Partial);
+        assert!(!answer.sections.is_empty(), "useful recovery sections are preserved");
+        assert!(answer.has_recorded_failure());
+        assert!(check_research_outcome(&r, &answer).is_err());
+        let mut historical = r.clone();
+        historical.schema_version = 2;
+        historical.contract = OPENING_CONTRACT.into();
+        assert!(check_research_outcome(&historical, &answer).is_ok());
+    }
+}
+
+#[test]
+fn interrupted_or_working_receipts_never_authorize_later_research_and_stop_stays_stop() {
+    let f = Fixture::new();
+    let r = pending(&f);
+    let _active = publish(&f, &r);
+    let answer = reading::scoped(&f.storage, &r.planning_run_id, &r.project_id, &r.snapshot_id).unwrap();
+    assert_eq!(answer.outcome, Outcome::Working);
+    assert!(check_research_outcome(&r, &answer).is_err());
+    reading::interrupt(&f.storage, &r.planning_run_id, Outcome::Interrupted).unwrap();
+    let answer = reading::scoped(&f.storage, &r.planning_run_id, &r.project_id, &r.snapshot_id).unwrap();
+    assert!(check_research_outcome(&r, &answer).is_err());
+    let f = Fixture::new();
+    let r = pending(&f);
+    let _active = publish(&f, &r);
+    reading::interrupt_with_failure(&f.storage, &r.planning_run_id, Outcome::Stopped,
+        Some(crate::evidence_ledger::sections::FailureCode::Stopped)).unwrap();
+    let answer = reading::scoped(&f.storage, &r.planning_run_id, &r.project_id, &r.snapshot_id).unwrap();
+    assert_eq!(answer.outcome, Outcome::Stopped);
+    assert!(check_research_outcome(&r, &answer).is_ok());
+}
+
+#[test]
 fn a_validated_scene_is_readable_and_adoptable_before_the_outline_exists() {
     let f = Fixture::new();
     let r = pending(&f);

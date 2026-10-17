@@ -24,6 +24,12 @@ pub(crate) struct Summary {
 }
 
 impl Answer {
+    /// A saved partial can retain useful sections after a failed operation.
+    /// Consumers must not mistake that recovery result for safe completion.
+    pub(crate) fn has_recorded_failure(&self) -> bool {
+        self.failure_code.is_some()
+    }
+
     pub(super) fn latest_identities(&self) -> Vec<SectionIdentity> {
         let mut latest = BTreeMap::new();
         for section in &self.sections {

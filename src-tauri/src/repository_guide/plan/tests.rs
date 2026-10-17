@@ -82,7 +82,7 @@ fn opening_request_retains_full_intent_and_binds_its_versioned_publication_contr
     let (_, legacy_schema, legacy_digest, legacy_instructions) = request(&r).unwrap();
     assert_eq!(legacy_schema, schema());
     assert_eq!(legacy_instructions, INSTRUCTIONS);
-    r.schema_version = 2;
+    r.schema_version = 3;
     r.contract = CONTRACT.into();
     r.question = "How do café 🦀 bytes reach output, including rejected inputs?".into();
     r.opening = Some(Attempt {
@@ -111,4 +111,21 @@ fn opening_request_retains_full_intent_and_binds_its_versioned_publication_contr
     );
     assert_eq!(MAX_UNITS, 6);
     assert_eq!(MAX_ATTEMPTS, 2);
+}
+
+#[test]
+fn fresh_research_policy_is_fingerprinted_without_rewriting_historical_requests() {
+    let f = Fixture::new();
+    let mut r = crate::repository_guide::tests::fresh_record(&f);
+    let (prompt, output, fresh_digest, fresh_instructions) = request(&r).unwrap();
+    assert!(fresh_instructions.ends_with(RESEARCH_INSTRUCTIONS));
+    r.schema_version = 2;
+    r.contract = OPENING_CONTRACT.into();
+    let (old_prompt, old_output, old_digest, old_instructions) = request(&r).unwrap();
+    assert_eq!(prompt, old_prompt);
+    assert_eq!(output, old_output);
+    assert_eq!(old_instructions, opening::instructions());
+    assert_ne!(fresh_digest, old_digest);
+    assert_eq!(request(&r).unwrap().2, old_digest);
+    assert_eq!(RESEARCH_POLICY, "ordered-independent-research-v1");
 }

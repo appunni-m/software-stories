@@ -152,11 +152,15 @@ fn request(job: &Record) -> Result<(String, Value, String, String), String> {
     } else {
         schema()
     };
-    let instructions = if has_opening {
+    let mut instructions = if has_opening {
         opening::instructions()
     } else {
         INSTRUCTIONS.into()
     };
+    if independent_research(job) {
+        instructions.push('\n');
+        instructions.push_str(RESEARCH_INSTRUCTIONS);
+    }
     let tools = if has_opening {
         context_mcp::tools_for(true)
     } else {
@@ -168,6 +172,9 @@ fn request(job: &Record) -> Result<(String, Value, String, String), String> {
         "correctionPolicy":if has_opening {"owned-section-proposals-no-final-rewrite-v1"} else {"fixed-native-starting-references-v1-max1"},
         "openingPolicy":if has_opening {Some(opening::POLICY)} else {None},
         "model":"gpt-6-luna","effort":"max","maxUnits":MAX_UNITS,"maxAttemptsPerUnit":MAX_ATTEMPTS});
+    if independent_research(job) {
+        contract["unitResearchPolicy"] = json!(RESEARCH_POLICY);
+    }
     if has_opening {
         contract["sourcePolicy"] = json!(crate::evidence_ledger::POLICY);
         contract["baseInstructions"] = json!(agent_context::PROGRESSIVE_BASE_INSTRUCTIONS);

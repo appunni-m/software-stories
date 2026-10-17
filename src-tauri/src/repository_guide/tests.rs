@@ -85,6 +85,139 @@ pub(super) fn attempt(record: &Record, outcome: Outcome) -> Attempt {
         }),
     }
 }
+pub(super) fn fresh_record(f: &Fixture) -> Record {
+    let previous = record(f);
+    let mut fresh = new_record(
+        Start {
+            id: previous.id,
+            project_id: previous.project_id,
+            snapshot_id: previous.snapshot_id,
+            grant_id: previous.grant_id,
+            question: previous.question,
+            consent: true,
+        },
+        &f.manifest,
+    )
+    .unwrap();
+    fresh.plan = previous.plan;
+    fresh.units = previous.units;
+    fresh.status = Status::Building;
+    fresh
+}
+#[test]
+fn fresh_guide_researches_later_units_after_a_partial_reading_prerequisite() {
+    let f = Fixture::new();
+    let mut r = fresh_record(&f);
+    let partial = attempt(&r, Outcome::Partial);
+    r.units[0].attempts.push(partial);
+    assert!(!prerequisite_complete(&r, 1));
+    assert!(unit_research_eligible(&r, 1), "a reading prerequisite is not permission to research captured code independently");
+    assert!(!guide_complete(&r));
+    assert_eq!(r.units[0].attempts.len(), 1);
+    assert!(r.units[1].attempts.is_empty());
+}
+
+#[test]
+fn independent_research_preserves_outline_order_attempt_limits_and_reading_edges() {
+    let f = Fixture::new();
+    let mut r = fresh_record(&f);
+    let range = r.plan.as_ref().unwrap().units[0].starting_ranges[0].clone();
+    r.plan.as_mut().unwrap().units = (0..MAX_UNITS)
+        .map(|i| plan::UnitPlan {
+            key: format!("unit-{i}"),
+            question: format!("How does behavior number {i} transform its input?"),
+            prerequisites: if i == 0 { vec![] } else { vec![format!("unit-{}", i - 1)] },
+            starting_ranges: vec![range.clone()],
+        })
+        .collect();
+    r.units = r.plan.as_ref().unwrap().units.iter()
+        .map(|u| Unit { key: u.key.clone(), attempts: vec![] }).collect();
+    let outline = serde_json::to_vec(&r.plan).unwrap();
+    let mut visited = vec![];
+    // This is the production loop's bounded, ordered eligibility decision.
+    for index in 0..r.units.len() {
+        assert!(unit_research_eligible(&r, index));
+        visited.push(r.units[index].key.clone());
+        let intent = unit_intent(&r, index).unwrap();
+        assert_eq!(intent.unit_number, index + 1);
+        assert_eq!(intent.unit_count, MAX_UNITS);
+        let question = continuation(&f.storage, &r, index).unwrap();
+        assert!(question.starts_with(&r.plan.as_ref().unwrap().units[index].question));
+        assert!(question.contains(RESEARCH_INSTRUCTIONS));
+        assert!(!question.contains(SIMPLE_SOURCE));
+        let partial = attempt(&r, Outcome::Partial);
+        r.units[index].attempts.push(partial);
+    }
+    assert_eq!(visited, (0..MAX_UNITS).map(|i| format!("unit-{i}")).collect::<Vec<_>>());
+    assert!(r.units.iter().all(|u| u.attempts.len() == 1));
+    assert_eq!(serde_json::to_vec(&r.plan).unwrap(), outline);
+    assert!(!guide_complete(&r));
+    let second = attempt(&r, Outcome::Partial);
+    r.units[0].attempts.push(second);
+    assert!(!unit_research_eligible(&r, 0));
+    let complete = attempt(&r, Outcome::Complete);
+    r.units[1].attempts.push(complete);
+    assert!(!unit_research_eligible(&r, 1));
+    r.status = Status::Stopped;
+    assert!((0..r.units.len()).all(|i| !unit_research_eligible(&r, i)));
+    assert_eq!(MAX_UNITS + 1, 7);
+    assert_eq!(MAX_ATTEMPTS, 2);
+}
+
+#[test]
+fn previous_opening_guides_keep_their_prerequisite_gates_and_exact_saved_bytes() {
+    let f = Fixture::new();
+    let mut r = fresh_record(&f);
+    r.schema_version = 2;
+    r.contract = OPENING_CONTRACT.into();
+    let partial = attempt(&r, Outcome::Partial);
+    r.units[0].attempts.push(partial);
+    store::create(&f.storage, &r).unwrap();
+    let path = f.storage.join("repository-guides").join(format!("{}.json", r.id));
+    let before = std::fs::read(&path).unwrap();
+    let saved = store::read(&f.storage, &r.id).unwrap();
+    assert!(!independent_research(&saved));
+    assert!(!unit_research_eligible(&saved, 1));
+    assert!(!continuation(&f.storage, &saved, 1).unwrap().contains(RESEARCH_INSTRUCTIONS));
+    assert_eq!(std::fs::read(path).unwrap(), before);
+    assert_eq!(saved.units[0].attempts.len(), 1);
+}
+
+#[test]
+fn research_admission_preserves_stop_owner_revision_and_spent_attempts() {
+    let f = Fixture::new();
+    let r = fresh_record(&f);
+    store::create(&f.storage, &r).unwrap();
+    let question = continuation(&f.storage, &r, 1).unwrap();
+    let run_id = Uuid::new_v4().to_string();
+    let begun = begin_unit(&f.storage, &r, 1, &run_id, &question).unwrap();
+    assert_eq!(begun.units[1].attempts.len(), 1);
+    assert_eq!(begun.active_run_id.as_deref(), Some(run_id.as_str()));
+    let before = serde_json::to_vec(&begun).unwrap();
+    assert!(begin_unit(&f.storage, &r, 1, &Uuid::new_v4().to_string(), &question).is_err());
+    assert!(begin_unit(&f.storage, &begun, 1, &Uuid::new_v4().to_string(), &question).is_err());
+    assert_eq!(serde_json::to_vec(&store::read(&f.storage, &r.id).unwrap()).unwrap(), before);
+    let stopped = store::update(&f.storage, &r.id, |current| {
+        current.status = Status::Stopped;
+        Ok(())
+    }).unwrap();
+    assert!(begin_unit(&f.storage, &begun, 0, &Uuid::new_v4().to_string(), &question).is_err());
+    let after = store::read(&f.storage, &r.id).unwrap();
+    assert_eq!(after.status, Status::Stopped);
+    assert_eq!(after.revision, stopped.revision);
+    assert!(after.units[0].attempts.is_empty());
+    assert_eq!(after.units[1].attempts.len(), 1);
+
+    let mut exhausted = fresh_record(&f);
+    for _ in 0..MAX_ATTEMPTS {
+        let partial = attempt(&exhausted, Outcome::Partial);
+        exhausted.units[0].attempts.push(partial);
+    }
+    store::create(&f.storage, &exhausted).unwrap();
+    assert!(begin_unit(&f.storage, &exhausted, 0, &Uuid::new_v4().to_string(), &question).is_err());
+    assert_eq!(store::read(&f.storage, &exhausted.id).unwrap().units[0].attempts.len(), MAX_ATTEMPTS);
+}
+
 #[test]
 fn prerequisites_wait_for_a_complete_unit_and_completed_units_are_skipped() {
     let f = Fixture::new();

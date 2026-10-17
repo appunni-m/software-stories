@@ -83,13 +83,34 @@ fn damaged_contract_duplicate_runs_and_excess_attempts_fail_without_rewriting() 
     r.units[1].attempts.clear();
     r.contract = "unknown".into();
     assert!(validate(&r).is_err());
-    r.contract = CONTRACT.into();
+    r.contract = PLAN_ONLY_CONTRACT.into();
     for _ in 0..2 {
         let next = attempt(&r, Outcome::Partial);
         r.units[0].attempts.push(next);
     }
     assert!(validate(&r).is_err());
     assert!(read(&f.storage, "../../outside").is_err());
+}
+
+#[test]
+fn fresh_independent_research_requires_its_own_schema_and_opening() {
+    let f = Fixture::new();
+    let fresh = crate::repository_guide::tests::fresh_record(&f);
+    assert_eq!(fresh.schema_version, 3);
+    assert_eq!(fresh.contract, CONTRACT);
+    assert!(validate(&fresh).is_ok());
+    for (schema, contract) in [(2, CONTRACT), (3, OPENING_CONTRACT), (1, CONTRACT), (3, PLAN_ONLY_CONTRACT)] {
+        let mut invalid = fresh.clone();
+        invalid.schema_version = schema;
+        invalid.contract = contract.into();
+        assert!(validate(&invalid).is_err(), "{schema}/{contract}");
+    }
+    let mut missing = fresh.clone();
+    missing.opening = None;
+    assert!(validate(&missing).is_err());
+    let mut invalid_edge = fresh;
+    invalid_edge.plan.as_mut().unwrap().units[0].prerequisites = vec!["output".into()];
+    assert!(validate(&invalid_edge).is_err(), "independent research still preserves the reading DAG");
 }
 #[test]
 fn nonregular_records_and_oversized_data_are_preserved() {

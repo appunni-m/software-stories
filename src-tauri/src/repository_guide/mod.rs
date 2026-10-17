@@ -27,9 +27,12 @@ mod store;
 use plan::Plan;
 use recovering::reconcile;
 
-const CONTRACT: &str = "repository-guide-v3-opening-during-planning";
+const CONTRACT: &str = "repository-guide-v4-independent-unit-research";
+const OPENING_CONTRACT: &str = "repository-guide-v3-opening-during-planning";
 const PLAN_ONLY_CONTRACT: &str = "repository-guide-v2-short-reference-planning";
 const LEGACY_CONTRACT: &str = "repository-guide-v1-owned-range-planning";
+const RESEARCH_POLICY: &str = "ordered-independent-research-v1";
+const RESEARCH_INSTRUCTIONS: &str = "Prerequisites describe reading order, not permission to investigate. Each outlined unit will research its own captured code in outline order even if an earlier explanation remains incomplete. Earlier questions and starting ranges supply leads, never implementation facts or inherited citations. Preserve requested alternatives and failures; independently verify every explanation. A partial unit stays partial and cannot establish a later unit's behavior.";
 const MAX_UNITS: usize = 6;
 const MAX_ATTEMPTS: usize = 2;
 
@@ -173,6 +176,58 @@ fn prerequisite_complete(record: &Record, index: usize) -> bool {
         })
     })
 }
+fn independent_research(record: &Record) -> bool {
+    record.schema_version == 3 && record.contract == CONTRACT
+}
+fn unit_research_eligible(record: &Record, index: usize) -> bool {
+    record.status != Status::Stopped
+        && record.units.get(index).is_some_and(|unit| {
+            !unit_complete(unit) && unit.attempts.len() < MAX_ATTEMPTS
+        })
+        && (independent_research(record) || prerequisite_complete(record, index))
+}
+
+fn begin_unit(
+    storage: &Path,
+    expected: &Record,
+    index: usize,
+    run_id: &str,
+    question: &str,
+) -> Result<Record, String> {
+    store::update(storage, &expected.id, |current| {
+        if current.status == Status::Stopped {
+            return Err("The guide was stopped. Saved sections remain available.".into());
+        }
+        if current.revision != expected.revision
+            || current.active_run_id.is_some()
+            || !unit_research_eligible(current, index)
+        {
+            return Err("The guide changed before its investigation started. Saved progress was preserved; no operation was dispatched.".into());
+        }
+        current.status = Status::Building;
+        current.active_run_id = Some(run_id.into());
+        current.units[index].attempts.push(Attempt {
+            run_id: run_id.into(),
+            question: question.into(),
+            summary: None,
+        });
+        Ok(())
+    })
+}
+
+fn check_research_outcome(
+    record: &Record,
+    answer: &crate::evidence_ledger::sections::Answer,
+) -> Result<(), String> {
+    if independent_research(record)
+        && answer.outcome != Outcome::Stopped
+        && (answer.has_recorded_failure()
+            || !matches!(answer.outcome, Outcome::Complete | Outcome::Partial))
+    {
+        return Err("The guide investigation did not finish safely. Saved sections remain available; no later investigation was started.".into());
+    }
+    Ok(())
+}
 fn saved_section(storage: &Path, section: &SectionNotice) -> Result<bool, String> {
     Ok(
         crate::chapter_store::list_for_snapshot(
@@ -306,6 +361,10 @@ fn continuation(storage: &Path, record: &Record, index: usize) -> Result<String,
             .collect::<Vec<_>>()
             .join(" ")
     );
+    if independent_research(record) {
+        question.push('\n');
+        question.push_str(RESEARCH_INSTRUCTIONS);
+    }
     if !record.units[index].attempts.is_empty() {
         let chapters = crate::chapter_store::list_for_snapshot(
             storage,
@@ -455,10 +514,7 @@ fn build(
         {
             adopt(section)?;
         }
-        if unit_complete(&record.units[index])
-            || record.units[index].attempts.len() >= MAX_ATTEMPTS
-            || !prerequisite_complete(&record, index)
-        {
+        if !unit_research_eligible(&record, index) {
             continue;
         }
         checked_manifest(storage, &record)?;
@@ -473,19 +529,7 @@ fn build(
         let question = continuation(storage, &record, index)?;
         let guide_intent = unit_intent(&record, index)?;
         let run_id = Uuid::new_v4().to_string();
-        record = store::update(storage, id, |current| {
-            if current.status == Status::Stopped {
-                return Err("The guide was stopped. Saved sections remain available.".into());
-            }
-            current.status = Status::Building;
-            current.active_run_id = Some(run_id.clone());
-            current.units[index].attempts.push(Attempt {
-                run_id: run_id.clone(),
-                question: question.clone(),
-                summary: None,
-            });
-            Ok(())
-        })?;
+        record = begin_unit(storage, &record, index, &run_id, &question)?;
         changed(&summary(storage, &record)?);
         let references = record.plan.as_ref().unwrap().units[index]
             .starting_ranges
@@ -517,6 +561,7 @@ fn build(
             &progress,
             Arc::clone(&notify),
         );
+        let operation_error = result.as_ref().err().cloned();
         let answer = result.or_else(|error| {
             // Qualification logs are private and opt-in. Production receipts
             // retain fixed failure codes, never arbitrary agent or OS text.
@@ -545,6 +590,18 @@ fn build(
             Ok(())
         })?;
         changed(&summary(storage, &record)?);
+        if independent_research(&record) {
+            if let Some(error) = operation_error {
+                return Err(error);
+            }
+            // A progressive operation can preserve useful sections while
+            // returning Partial after a transport, runtime or authority fault.
+            // Such a result is not permission to spend another operation.
+            check_research_outcome(
+                &record,
+                &reading::scoped(storage, &run_id, &record.project_id, &record.snapshot_id)?,
+            )?;
+        }
     }
     record = store::update(storage, id, |current| {
         if current.status != Status::Stopped {
@@ -577,7 +634,7 @@ fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Rec
     let planning_run_id = input.id.clone();
     Ok(Record {
         revision: 0,
-        schema_version: 2,
+        schema_version: 3,
         contract: CONTRACT.into(),
         id: input.id,
         project_id: input.project_id,

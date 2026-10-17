@@ -190,8 +190,8 @@ pub(super) fn create(storage: &Path, record: &Record) -> Result<(), String> {
 fn validate(record: &Record) -> Result<(), String> {
     if !matches!(
         (record.schema_version, record.contract.as_str()),
-        (2, CONTRACT) | (1, PLAN_ONLY_CONTRACT | LEGACY_CONTRACT)
-    ) || (record.schema_version == 2) != record.opening.is_some()
+        (3, CONTRACT) | (2, OPENING_CONTRACT) | (1, PLAN_ONLY_CONTRACT | LEGACY_CONTRACT)
+    ) || (record.schema_version >= 2) != record.opening.is_some()
         || !uuid(&record.id)
         || !uuid(&record.planning_run_id)
         || !uuid(&record.grant_id)
