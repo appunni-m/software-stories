@@ -558,7 +558,7 @@ export function VisualPanel({ revision, section, activeFocusTarget, onFollowHots
           );
         })}
       </div>
-      <p className="walkthrough-visual-footnote">Part of accepted revision {revision.revisionNumber}. Source links open the exact evidence; hotspot actions follow destinations in this revision.</p>
+      <p className="walkthrough-visual-footnote">Source links open the captured code for this explanation.</p>
     </section>
   );
 }

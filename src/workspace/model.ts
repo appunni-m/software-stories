@@ -102,6 +102,12 @@ export function mergePublishedSections(turn: Turn, incoming: PublishedSection[])
   return { ...turn, publishedSections: sections, revisionId: turn.revisionId ?? sections[0]?.revisionId };
 }
 
+/** Start Flow with this answer's diagram, preserving any explicit selection. */
+export function chooseFlowRevision<T extends { revisionId: string }>(revisions: readonly T[], savedRevisionId: string | undefined, hasDiagram: (revision: T) => boolean): T | undefined {
+  return revisions.find((revision) => revision.revisionId === savedRevisionId)
+    ?? revisions.find(hasDiagram) ?? revisions[0];
+}
+
 function cleanReadingPosition(value: unknown): ReadingPosition | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
   const p = value as ReadingPosition;

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { addTurn, ancestors, chapterTarget, cleanAnswerNotes, cleanPublishedSections, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
+import { addTurn, ancestors, chapterTarget, chooseFlowRevision, cleanAnswerNotes, cleanPublishedSections, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
 const turn = (id,question='Explain the subtotal implementation') => ({id,question,context:[{path:'src/cart.ts',from:1,to:6}],status:'queued'});
 test('follow-ups stack at the current level; only explicit exploration creates a branch',()=>{
   let s=createWorkspace('p','snap');s=addTurn(s,turn('one'),'guide');s=addTurn(s,turn('two'),'flow');
@@ -211,4 +211,17 @@ test('real native section notices survive Guide state and local restart without 
   const restored=parseWorkspace(JSON.stringify(saved),result.projectId,result.snapshotId).explorations[0].turns[0];
   assert.equal(restored.status,'stopped');
   assert.deepEqual(restored.publishedSections,t.publishedSections);
+});
+
+test('Flow starts with the answer diagram and keeps an explicit selection as sections arrive',()=>{
+  const plain={revisionId:'old-draft',diagram:false};
+  const main={revisionId:'dispatch',diagram:true};
+  const later={revisionId:'validation',diagram:true};
+  const hasDiagram=(revision)=>revision.diagram;
+  assert.equal(chooseFlowRevision([plain,main],undefined,hasDiagram),main);
+  assert.equal(chooseFlowRevision([plain,main,later],main.revisionId,hasDiagram),main);
+  assert.equal(chooseFlowRevision([plain,main,later],plain.revisionId,hasDiagram),plain);
+  assert.equal(chooseFlowRevision([plain,main],'other-question',hasDiagram),main);
+  assert.equal(chooseFlowRevision([plain],undefined,hasDiagram),plain);
+  assert.equal(chooseFlowRevision([],undefined,hasDiagram),undefined);
 });

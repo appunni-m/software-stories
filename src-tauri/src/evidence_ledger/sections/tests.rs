@@ -127,6 +127,47 @@ fn manifest(answer: &ActiveAnswer) -> String {
 }
 
 #[test]
+fn proposal_feedback_locates_identifier_counts_prose_and_evidence_without_copying_data() {
+    let claim = json!({"prose":"The helper returns a greeting string.","identifiers":["greeting","absent"],"evidence":[{"quote":"fn greeting() { private_source_marker(); }"},{"quote":"unrelated_source_marker"}]});
+    let section = json!({"claims":[claim]});
+    let text = json!({"sections":[section]}).to_string();
+    let findings = alignment_findings(&section, &text);
+    assert_eq!(
+        findings,
+        vec![
+            json!({"location":"/section/claims/0/identifiers/1","code":"identifierProse"}),
+            json!({"location":"/section/claims/0/identifiers/1","code":"identifierEvidence"}),
+            json!({"location":"/section/claims/0/evidence/1","code":"evidenceIdentifier"}),
+        ]
+    );
+    assert!(valid_findings(&findings));
+    let encoded = serde_json::to_string(&findings).unwrap();
+    for forbidden in [
+        "greeting",
+        "absent",
+        "private_source_marker",
+        "unrelated_source_marker",
+    ] {
+        assert!(!encoded.contains(forbidden));
+    }
+    let mut too_many = section.clone();
+    too_many["claims"][0]["identifiers"] = json!(vec!["greeting"; 9]);
+    assert_eq!(
+        alignment_findings(&too_many, &json!({"sections":[too_many]}).to_string()),
+        vec![json!({"location":"/section/claims/0/identifiers","code":"identifierCount"})]
+    );
+    assert!(!alignment_findings(&section, "{}").is_empty());
+    assert_eq!(
+        section_location(&json!({"location":"/sections/0/claims/2/evidence/3"})),
+        "/section/claims/2/evidence/3"
+    );
+    assert_eq!(
+        section_location(&json!({"location":"private/source.rs"})),
+        "/section"
+    );
+}
+
+#[test]
 fn invalid_section_key_reports_its_exact_field_and_preserves_the_original_proposal() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancel) = setup(&f);
@@ -352,7 +393,11 @@ fn a_later_rejected_claim_preserves_the_first_section_and_allows_a_partial_termi
         "\"identifiers\":[\"not_read\"]",
     );
     let p = a.prepare(&ledger, &bad, &f.manifest, &r, &c).unwrap();
-    assert_eq!(p.findings, finding("identifierAlignment"));
+    assert_eq!(p.findings, vec![
+        json!({"location":"/section/claims/0/identifiers/0","code":"identifierProse"}),
+        json!({"location":"/section/claims/0/identifiers/0","code":"identifierEvidence"}),
+        json!({"location":"/section/claims/0/evidence/0","code":"evidenceIdentifier"}),
+    ]);
     assert!(p.generation_id.is_none());
     a.commit(&ledger, p, &f.manifest, &r, &c).unwrap();
     a.finish(
@@ -636,7 +681,7 @@ fn incomplete_or_uncertain_source_delivery_cannot_publish_a_section() {
         let rejected = a
             .prepare(&l, &proposal(&id, "entry", 0), &f.manifest, &r, &c)
             .unwrap();
-        assert_eq!(rejected.findings, finding("citation"));
+        assert_eq!(rejected.findings, vec![json!({"location":"/section/claims/0/evidence/0","code":"citation"})]);
         assert!(rejected.generation_id.is_none());
         assert_eq!(fs::read(&a.path).unwrap(), before);
     }

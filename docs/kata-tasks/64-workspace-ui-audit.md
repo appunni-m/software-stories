@@ -62,3 +62,9 @@ The [large-repository acceptance run](../acceptance/2026-10-17-fontdone.md) repr
 - [ ] A shared search term carries from Search into Explorer, leaving an empty filtered tree for a symbol name. Make the filter's current scope obvious or retain separate search/filter values.
 
 The snapshot, source range, question tree, selected view and saved draft did survive restart; Pocket playback also reused its recording. These passes do not close the unresolved UI, reader-position, accessibility or deeper-branch gates.
+
+## Installed progressive reader findings — 17 October
+
+Computer use found valid native section IDs discarded by the reader, leaving a stopped draft hidden despite successful local storage. The reader/native ID contract is fixed and a regression uses real native notices; installed restart restored the draft and its exact source citation without inference. A later manual retry kept prior cards visible and allowed nested navigation while work continued.
+
+Flow initially selected an older draft without a diagram and substituted unrelated file relationships despite a generated question diagram being available. The checkout now prefers that answer's evidenced diagram only when there is no explicit selection, preserves the user's choice as sections arrive, and does not substitute unrelated relationships for an existing explanation. The visual footer also incorrectly called a draft accepted; that claim is removed. [Exact observations and qualification boundaries](../acceptance/2026-10-17-progressive-reader-integration.md#fresh-fontdone-retry-useful-delivery-mechanics-incomplete-content). Retain installed default-selection, keyboard/focus/VoiceOver and complete UI acceptance as open gates.

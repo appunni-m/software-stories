@@ -263,6 +263,78 @@ fn finding(code: &str) -> Vec<Value> {
     vec![json!({"location":"/section","code":code})]
 }
 
+fn section_location(issue: &Value) -> String {
+    issue["location"]
+        .as_str()
+        .and_then(|location| location.strip_prefix("/sections/0"))
+        .map(|suffix| format!("/section{suffix}"))
+        .filter(|location| {
+            location.len() <= 160
+                && location
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'/')
+        })
+        .unwrap_or_else(|| "/section".into())
+}
+
+/// Retain native diagnostic positions, never names, quotes or guessed repairs.
+fn alignment_findings(section: &Value, resolved: &str) -> Vec<Value> {
+    let Some(claims) = section["claims"].as_array() else {
+        return finding("identifierAlignment");
+    };
+    let counts: Vec<_> = claims.iter().enumerate().filter(|(_, claim)| {
+        claim["identifiers"].as_array().is_some_and(|ids| !(1..=8).contains(&ids.len()))
+    }).map(|(index, _)| json!({"location":format!("/section/claims/{index}/identifiers"),"code":"identifierCount"})).collect();
+    if !counts.is_empty() {
+        return counts;
+    }
+    let Some(issues) = crate::claim_alignment::diagnostics(resolved) else {
+        return finding("identifierAlignment");
+    };
+    let mut findings = Vec::new();
+    for issue in issues {
+        let before = findings.len();
+        let location = section_location(&issue);
+        let claim = issue["location"]
+            .as_str()
+            .and_then(|s| s.strip_prefix("/sections/0/claims/"))
+            .and_then(|s| s.parse::<usize>().ok())
+            .and_then(|index| claims.get(index));
+        let Some(identifiers) = claim.and_then(|c| c["identifiers"].as_array()) else {
+            return finding("identifierAlignment");
+        };
+        for (field, code) in [
+            ("missingFromProse", "identifierProse"),
+            ("missingFromQuotes", "identifierEvidence"),
+        ] {
+            for missing in issue[field].as_array().into_iter().flatten() {
+                if let Some(index) = identifiers
+                    .iter()
+                    .position(|id| id.as_str().map(str::trim) == missing.as_str())
+                {
+                    findings.push(
+                        json!({"location":format!("{location}/identifiers/{index}"),"code":code}),
+                    );
+                }
+            }
+        }
+        for index in issue["quotesWithoutDeclaredIdentifier"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_u64)
+            .filter(|index| *index < 8)
+        {
+            findings.push(json!({"location":format!("{location}/evidence/{index}"),"code":"evidenceIdentifier"}));
+        }
+        if findings.len() == before {
+            findings.extend(finding("identifierAlignment"));
+        }
+    }
+    findings.truncate(64);
+    findings
+}
+
 fn valid_findings(findings: &[Value]) -> bool {
     findings.len() <= 64
         && findings.iter().all(|v| {
@@ -280,6 +352,10 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "sectionLimit"
                             | "citation"
                             | "identifierAlignment"
+                            | "identifierCount"
+                            | "identifierProse"
+                            | "identifierEvidence"
+                            | "evidenceIdentifier"
                             | "sectionValidation"
                     )
                 })
@@ -515,12 +591,11 @@ impl ActiveAnswer {
                     findings = finding("sectionOrder");
                 } else if let Ok(response) = wrapped(&proposal) {
                     match ledger.resolve_citations(&response, manifest, runtime, cancelled)? {
-                        native_citations::Resolution::Invalid(_) => findings = finding("citation"),
+                        native_citations::Resolution::Invalid(issues) => findings = issues.iter().take(64).map(|issue| json!({"location":section_location(issue),"code":"citation"})).collect(),
                         native_citations::Resolution::Ready(resolved) => {
-                            if crate::claim_alignment::diagnostics(resolved.text())
-                                .is_none_or(|i| !i.is_empty())
-                            {
-                                findings = finding("identifierAlignment");
+                            let alignment = alignment_findings(&proposal.section, resolved.text());
+                            if !alignment.is_empty() {
+                                findings = alignment;
                             } else {
                                 let sources =
                                     ledger.validation_sources(manifest, runtime, cancelled)?;

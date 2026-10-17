@@ -1,0 +1,2971 @@
+{
+  "sourceRevision": "2f9f138",
+  "installedExecutableSha256": "d39c94b0538f713cf6ab8024fe9cb53a12ada719d5965dc8b848a9e6387563d3",
+  "operationId": "de1d0d41-db5c-4984-8685-c03b1e0a45ce",
+  "fixture": "Explicit UI retry, same authorized frozen public Fontdone snapshot and attached src/font.rs",
+  "retryAtUtc": "2026-10-17T09:04:51.164Z",
+  "firstNewSectionUiObservedAfterRetryMs": 81626,
+  "terminalUiObservedAfterRetryMs": 331596,
+  "uiOutcome": "Some details could not be completed. Your saved sections are available below.",
+  "uiObservations": [
+    "Prior stopped section stayed visible during retry.",
+    "Existing nested exploration and Back did not stop the native run.",
+    "New dispatch card and its visual were readable while investigation continued.",
+    "Visual supporting-code control opened font.rs lines 4079\u20134096.",
+    "Flow initially selected an old non-diagram answer and showed unrelated file relations; manually selecting the dispatch explanation showed the generated graph.",
+    "Explicit Flow selection remained on dispatch when the second section arrived and at terminal partial outcome.",
+    "No new account setup or consent prompt. No Pocket synthesis/playback."
+  ],
+  "acceptance": {
+    "completeFontdoneAnswer": false,
+    "meaningfulBranchDiagram": false,
+    "completeNarration": false,
+    "flowDefaultSelection": false,
+    "voiceOver": null,
+    "firstNewSectionUiWithin120Seconds": true,
+    "firstUsefulMainAnswerQualified": false
+  },
+  "answer": {
+    "schemaVersion": 1,
+    "binding": {
+      "operationId": "de1d0d41-db5c-4984-8685-c03b1e0a45ce",
+      "projectId": "/Users/lazytrot/work/fontdone",
+      "snapshotId": "snap-1792140879637485000-11155-0",
+      "manifestSha256": "25f5e44bfdd1dab6b31310f7307f165a9171a8b9fc55256ef599e9c8196ad3a2",
+      "grantId": "f956dbe2-fb2e-43d2-b70a-d2c9b882523b",
+      "runtime": {
+        "connectionId": "29190d89-40ef-468b-bc39-6ce995733811",
+        "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+        "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+        "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+        "accountRevision": 1
+      },
+      "model": "gpt-6-luna",
+      "effort": "max"
+    },
+    "requestSha256": "f84dfe1fbd6507d0e9a79feef48ddce3ef988f56695868e8f899cdc24602b93b",
+    "question": "Earlier questions: Using only src/outline.rs, when does Outline::is_empty return true? Explain both conditions and what happens if the fields disagree. \u2192 Explain what outline.rs:1\u201346 does and how it works.. Current question: How does Font::memory_face choose a format and create a usable face? Start with its ordered dispatch and invalid input or face-index branches. Then explain which SFNT tables are required, how missing tables differ from malformed table contents, and where errors propagate. Show the real code paths and useful diagrams.",
+    "outcome": "partial",
+    "sections": [
+      {
+        "checkpointVersion": 1,
+        "key": "dispatch",
+        "order": 0,
+        "supersedes": null,
+        "preview": {
+          "generationId": "generation:6ead17af-a583-4f80-9b72-9a12e258b81a",
+          "revision": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:837e148a-758f-46a2-8e57-495a83694c4e",
+            "revisionNumber": 1,
+            "projectId": "/Users/lazytrot/work/fontdone",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "target": {
+              "targetId": "target:overview",
+              "scope": {
+                "kind": "overview"
+              }
+            },
+            "title": "How memory face selects a format",
+            "lifecycle": "draft",
+            "validationStatus": "valid",
+            "createdAtUnixMs": 1792227963347,
+            "generationOrigin": {
+              "schemaVersion": 5,
+              "projectId": "/Users/lazytrot/work/fontdone",
+              "snapshotId": "snap-1792140879637485000-11155-0",
+              "targetPath": null,
+              "purpose": "repositoryOverview",
+              "requestId": "de1d0d41-db5c-4984-8685-c03b1e0a45ce",
+              "requestFingerprint": "c6dd3de32c6f832837bca71df636c03ccff5e34aff5a97ea3b599b3d4afe6b89",
+              "requestBodySha256": "f84dfe1fbd6507d0e9a79feef48ddce3ef988f56695868e8f899cdc24602b93b",
+              "contractVersion": "codex-retrieval-v3-answer-sections",
+              "settings": {
+                "backend": "codex",
+                "modelId": "gpt-6-luna",
+                "effort": "max",
+                "approvalPolicy": "never"
+              },
+              "sourceFiles": [
+                {
+                  "path": "src/font.rs",
+                  "sha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                  "sizeBytes": 375700
+                }
+              ],
+              "sectionUpdate": null,
+              "plannedChapter": null,
+              "retrieval": {
+                "policy": "atlas-captured-ranges-v1-files12-source250000",
+                "ledgerSha256": "ab54ec3a1067f87a0066188cfba31d240b68b42ab32d8998ebec31d5284db103",
+                "ranges": [
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 147769,
+                    "endByte": 148750,
+                    "startLine": 4053,
+                    "endLine": 4078,
+                    "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 148750,
+                    "endByte": 149723,
+                    "startLine": 4079,
+                    "endLine": 4096,
+                    "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 149723,
+                    "endByte": 150666,
+                    "startLine": 4097,
+                    "endLine": 4115,
+                    "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  }
+                ]
+              },
+              "contentSha256": "8cbeda54dfed2799b5809e8cb4124b61d043c4fde31b33942e1f322375518c5d"
+            },
+            "sections": [
+              {
+                "sectionId": "section:90c32db7-b25b-4e23-b673-c45c17653a4d",
+                "sectionRevisionId": "sectionrev:62273c39-ef75-43bb-a75b-c7fc8d52231e",
+                "order": 0,
+                "title": "How memory face selects a format",
+                "prose": "memory_face dispatches in order: it recognizes the PCF version and calls pcf_face, then the PFR0 signature and pfr_face, then WinFNT version words and winfnt_face, then a BDF keyword probe, the CID resource prefix, Type 42 SFNT data, and Type 1 cleartext. The corresponding later constructors are cid_type1_face, type42_face, and type1_face; the first matching branch returns its constructor result, with face_index and size_pt passed through.",
+                "spokenText": "memory_face dispatches in order: it recognizes the PCF version and calls pcf_face, then the PFR0 signature and pfr_face, then WinFNT version words and winfnt_face, then a BDF keyword probe, the CID resource prefix, Type 42 SFNT data, and Type 1 cleartext. The corresponding later constructors are cid_type1_face, type42_face, and type1_face; the first matching branch returns its constructor result, with face_index and size_pt passed through.",
+                "claims": [
+                  {
+                    "claimId": "claim:1af1c25f-f320-4b5b-bf4a-e26151cb41bc",
+                    "category": {
+                      "kind": "codeBehavior"
+                    },
+                    "prose": "memory_face dispatches in order: it recognizes the PCF version and calls pcf_face, then the PFR0 signature and pfr_face, then WinFNT version words and winfnt_face, then a BDF keyword probe, the CID resource prefix, Type 42 SFNT data, and Type 1 cleartext. The corresponding later constructors are cid_type1_face, type42_face, and type1_face; the first matching branch returns its constructor result, with face_index and size_pt passed through.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:2753c8ea-e672-45aa-8edd-ee5cb9c0ca03",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 147769,
+                        "endByteInclusive": 148749,
+                        "startLine": 4053,
+                        "endLine": 4078,
+                        "startColumn": 5,
+                        "endColumn": 10,
+                        "excerpt": "pub(crate) fn memory_face(\n        data: &[u8],\n        face_index: usize,\n        size_pt: f32,\n    ) -> Result<Self, FontError> {\n        if read_u32_le(data, 0) == Some(PCF_FILE_VERSION) {\n            return Self::pcf_face(data, face_index, size_pt);\n        }\n        if data.starts_with(b\"PFR0\") {\n            return Self::pfr_face(data, face_index, size_pt);\n        }\n        if matches!(read_u16_le(data, 0), Some(0x0200) | Some(0x0300)) {\n            return Self::winfnt_face(data, face_index, size_pt);\n        }\n        if bdf_text(data)\n            .and_then(first_bdf_keyword)\n            .is_some_and(is_bdf_probe_keyword)\n        {\n            if let Some(error) = parse_bdf_constructor_error(data) {\n                return Err(error);\n            }\n            return Self::bdf_face(data, face_index, size_pt);\n        }\n        if data.starts_with(b\"%!PS-Adobe-3.0 Resource-CIDFont\") {\n            return Self::cid_type1_face(data, face_index, size_pt);\n        }\n"
+                      },
+                      {
+                        "anchorId": "anchor:b0d50424-9cd4-4505-8a37-7223ab71219b",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 148750,
+                        "endByteInclusive": 149722,
+                        "startLine": 4079,
+                        "endLine": 4096,
+                        "startColumn": 1,
+                        "endColumn": 10,
+                        "excerpt": "        if type42_sfnt_data(data).is_some() {\n            return Self::type42_face(data, face_index, size_pt);\n        }\n        if type1_cleartext(data).is_some() {\n            return Self::type1_face(data, face_index, size_pt);\n        }\n        if data.len() >= 17 && data.iter().all(|byte| *byte < b' ') {\n            // FreeType's final BDF driver probe (`bdf/bdflib.c`) skips every\n            // byte below ASCII space while looking for a line.  An all-\n            // control stream therefore reaches EOF with no `STARTFONT`\n            // line and returns Invalid_File_Format from `bdf_load_font`;\n            // `BDF_Face_Init` preserves that error for `FT_Open_Face`.\n            // Keep the length guard because earlier C driver probes use\n            // fixed-size frames and win the error race on shorter streams.\n            return Err(FontError::InvalidFileFormat(\n                \"BDF stream ended before a complete line\".into(),\n            ));\n        }\n"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2"
+                      },
+                      {
+                        "kind": "symbol",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481"
+                      }
+                    ]
+                  }
+                ],
+                "dependencies": [
+                  {
+                    "kind": "sourceFile",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2"
+                  },
+                  {
+                    "kind": "symbol",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481"
+                  }
+                ],
+                "visual": {
+                  "schemaVersion": 2,
+                  "kind": "dataFlow",
+                  "title": "Ordered format dispatch",
+                  "layoutHint": {
+                    "direction": "leftToRight"
+                  },
+                  "nodes": [
+                    {
+                      "nodeId": "visualnode:38c78038-81ac-4783-988d-e1a728f56eee",
+                      "label": "Bytes",
+                      "detail": "Format signature probes run in source order",
+                      "hotspotId": "visualhotspot:868f1eee-37a8-4710-8195-338a57fa4fb7",
+                      "evidenceAnchorIds": [
+                        "anchor:2753c8ea-e672-45aa-8edd-ee5cb9c0ca03"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:3881afca-472f-44b9-80c6-3b071275ec35",
+                      "label": "First matching constructor",
+                      "detail": "Constructor result is returned",
+                      "hotspotId": "visualhotspot:a5259baf-7cf6-4cba-a9d1-7d4b6d403be4",
+                      "evidenceAnchorIds": [
+                        "anchor:b0d50424-9cd4-4505-8a37-7223ab71219b"
+                      ]
+                    }
+                  ],
+                  "edges": [
+                    {
+                      "edgeId": "visualedge:bbfb952a-f58c-4d19-ae18-3959018c58ec",
+                      "fromNodeId": "visualnode:38c78038-81ac-4783-988d-e1a728f56eee",
+                      "toNodeId": "visualnode:3881afca-472f-44b9-80c6-3b071275ec35",
+                      "label": "first matching branch",
+                      "evidenceAnchorIds": [
+                        "anchor:2753c8ea-e672-45aa-8edd-ee5cb9c0ca03"
+                      ]
+                    }
+                  ]
+                },
+                "hotspots": [
+                  {
+                    "hotspotId": "overviewfile:a7ce2649-1b49-4d9a-8427-f7086cb103c7",
+                    "label": "Open file: src/font.rs",
+                    "destination": {
+                      "kind": "atlasFile",
+                      "path": "src/font.rs"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:868f1eee-37a8-4710-8195-338a57fa4fb7",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:2753c8ea-e672-45aa-8edd-ee5cb9c0ca03"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:a5259baf-7cf6-4cba-a9d1-7d4b6d403be4",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:b0d50424-9cd4-4505-8a37-7223ab71219b"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "validation": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:837e148a-758f-46a2-8e57-495a83694c4e",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "status": "valid",
+            "issues": []
+          },
+          "modelId": "gpt-6-luna",
+          "modelVersion": null,
+          "inputTokens": null,
+          "outputTokens": null,
+          "updateNotes": []
+        },
+        "publishedElapsedMs": 70580,
+        "publishedRunElapsedMs": 71337,
+        "proposalSha256": "9bff259501274e029065f5f0a4d8cc93553a1ce6b3d4d2f9848602eafdbe23e3",
+        "checkpointSha256": "ab54ec3a1067f87a0066188cfba31d240b68b42ab32d8998ebec31d5284db103",
+        "checkpoint": {
+          "schemaVersion": 3,
+          "policy": "atlas-captured-ranges-v1-files12-source250000",
+          "binding": {
+            "operationId": "de1d0d41-db5c-4984-8685-c03b1e0a45ce",
+            "projectId": "/Users/lazytrot/work/fontdone",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "manifestSha256": "25f5e44bfdd1dab6b31310f7307f165a9171a8b9fc55256ef599e9c8196ad3a2",
+            "grantId": "f956dbe2-fb2e-43d2-b70a-d2c9b882523b",
+            "runtime": {
+              "connectionId": "29190d89-40ef-468b-bc39-6ce995733811",
+              "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+              "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+              "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+              "accountRevision": 1
+            },
+            "model": "gpt-6-luna",
+            "effort": "max"
+          },
+          "startedAtUnixMs": 1792227893112,
+          "status": "active",
+          "calls": [
+            {
+              "id": "afbec0de-067b-459b-b4af-3006b7d2ebae",
+              "tool": "definitions",
+              "argumentsSha256": "711faee91bf7ef228148b951d8ad4986ae5a051049f27d6e3a518bfd2ff21428",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 1661,
+              "wireBytes": 1661,
+              "payloadSha256": "046c9ac3072011ad4432ba7a51bf9eb56a0368d94ec32ba24268b10b1535256d",
+              "timing": {
+                "startedMs": 7315,
+                "preparedMs": 7377,
+                "finishedMs": 7595
+              }
+            },
+            {
+              "id": "d1299017-2dc7-4af2-97f1-9ea5e495be7f",
+              "tool": "read",
+              "argumentsSha256": "75858092792d59456f890f0fd5552bc5fbdf67a0a65b98fd6b1a818c88ef52fb",
+              "state": "delivered",
+              "evidenceIds": [
+                "evidence:1950d6ffac8c8f76ca39ca0ead996fc74e57ca901958f7dad62a2e0a767a796b",
+                "evidence:b1e7b276c35ff4bece0bfcdc34964bf8e86b8ea859556cc166ff4f46583226a0",
+                "evidence:feea96bd8d1110a12b5ff13baa1b0e59fe7ed1d1b6db77ed09c91aba9bb64e02"
+              ],
+              "sourceBytes": 2897,
+              "metadataBytes": 1807,
+              "wireBytes": 4772,
+              "payloadSha256": "c668f80559318a3aa7fdebc7d0c4394e4cca28be0dae91f21febffdcd8000e43",
+              "timing": {
+                "startedMs": 10705,
+                "preparedMs": 10963,
+                "finishedMs": 11197
+              }
+            },
+            {
+              "id": "34dfdf50-0203-455c-b550-90d83b4e0e30",
+              "tool": "proposeSection",
+              "argumentsSha256": "eb7a84e6adeda2656f5ba81e8a1a313e0138e0472472ddf0deb97b2b6dbbf72d",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 522,
+              "wireBytes": 522,
+              "payloadSha256": "7b7aa0cdacb96bf52c0597568917c333c50adb1899374e6263beeb114009ceb7",
+              "timing": {
+                "startedMs": 30684,
+                "preparedMs": 31490,
+                "finishedMs": 31707
+              }
+            },
+            {
+              "id": "7fbd968e-4d08-4305-b4ab-675344f74c2c",
+              "tool": "proposeSection",
+              "argumentsSha256": "049f924b65475b66724a5060b221de30df99cbfe996fcbd6e7660ff9f45134bf",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 522,
+              "wireBytes": 522,
+              "payloadSha256": "669e4db82cffa49a2d1c536cdfe6db4232013ea3d6f42951c13cdcdf3e93a2c9",
+              "timing": {
+                "startedMs": 46245,
+                "preparedMs": 47083,
+                "finishedMs": 47309
+              }
+            }
+          ],
+          "evidence": [
+            {
+              "id": "evidence:b1e7b276c35ff4bece0bfcdc34964bf8e86b8ea859556cc166ff4f46583226a0",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 147769,
+                "endByte": 148750,
+                "startLine": 4053,
+                "endLine": 4078,
+                "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:1950d6ffac8c8f76ca39ca0ead996fc74e57ca901958f7dad62a2e0a767a796b",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 148750,
+                "endByte": 149723,
+                "startLine": 4079,
+                "endLine": 4096,
+                "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:feea96bd8d1110a12b5ff13baa1b0e59fe7ed1d1b6db77ed09c91aba9bb64e02",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 149723,
+                "endByte": 150666,
+                "startLine": 4097,
+                "endLine": 4115,
+                "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            }
+          ],
+          "contextClock": "capturedCodeSessionV1"
+        }
+      },
+      {
+        "checkpointVersion": 1,
+        "key": "input-and-face-index",
+        "order": 1,
+        "supersedes": null,
+        "preview": {
+          "generationId": "generation:a559c032-0358-4ea9-9300-d5e35bde71b5",
+          "revision": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:72448296-e7ab-47e6-a895-099f3e613f7f",
+            "revisionNumber": 1,
+            "projectId": "/Users/lazytrot/work/fontdone",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "target": {
+              "targetId": "target:overview",
+              "scope": {
+                "kind": "overview"
+              }
+            },
+            "title": "Input validation and face-index failures",
+            "lifecycle": "draft",
+            "validationStatus": "valid",
+            "createdAtUnixMs": 1792228058097,
+            "generationOrigin": {
+              "schemaVersion": 5,
+              "projectId": "/Users/lazytrot/work/fontdone",
+              "snapshotId": "snap-1792140879637485000-11155-0",
+              "targetPath": null,
+              "purpose": "repositoryOverview",
+              "requestId": "de1d0d41-db5c-4984-8685-c03b1e0a45ce",
+              "requestFingerprint": "4c8514ac6645f2c1b8f9e4ea8c388c1a72062e77182ae8a3e54f7d2857986246",
+              "requestBodySha256": "f84dfe1fbd6507d0e9a79feef48ddce3ef988f56695868e8f899cdc24602b93b",
+              "contractVersion": "codex-retrieval-v3-answer-sections",
+              "settings": {
+                "backend": "codex",
+                "modelId": "gpt-6-luna",
+                "effort": "max",
+                "approvalPolicy": "never"
+              },
+              "sourceFiles": [
+                {
+                  "path": "src/font.rs",
+                  "sha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                  "sizeBytes": 375700
+                },
+                {
+                  "path": "src/tt/mod.rs",
+                  "sha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                  "sizeBytes": 6866
+                }
+              ],
+              "sectionUpdate": null,
+              "plannedChapter": null,
+              "retrieval": {
+                "policy": "atlas-captured-ranges-v1-files12-source250000",
+                "ledgerSha256": "9c882e1146795a466b058c2dc8c4dd98db188e841557607c053cbf7e7d05dc81",
+                "ranges": [
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 147769,
+                    "endByte": 148750,
+                    "startLine": 4053,
+                    "endLine": 4078,
+                    "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 148750,
+                    "endByte": 149723,
+                    "startLine": 4079,
+                    "endLine": 4096,
+                    "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 149723,
+                    "endByte": 150666,
+                    "startLine": 4097,
+                    "endLine": 4115,
+                    "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 158045,
+                    "endByte": 158235,
+                    "startLine": 4300,
+                    "endLine": 4302,
+                    "chunkSha256": "cba0e764912fd61201fde99dd36fe565353fd46b4dfa0c7c277a84d37a49e038",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 172671,
+                    "endByte": 173662,
+                    "startLine": 4660,
+                    "endLine": 4680,
+                    "chunkSha256": "c51363000fadbf6974e4a9694d2711b3b2681cdbfa80618a981bc9e0d09eed9a",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 173662,
+                    "endByte": 174631,
+                    "startLine": 4681,
+                    "endLine": 4703,
+                    "chunkSha256": "79b358a9a95aa6464f600468127c534cc928eba95818595a616e8b58f707d97b",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 174631,
+                    "endByte": 175604,
+                    "startLine": 4704,
+                    "endLine": 4722,
+                    "chunkSha256": "6b5ec6a9b3e2c0c195164b134399975f23a6b4e0b9e2e80d416a608892b2d78f",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 175604,
+                    "endByte": 176593,
+                    "startLine": 4723,
+                    "endLine": 4745,
+                    "chunkSha256": "219da608eb1c21d2583982eb1fe48f4d7844512391fde999994cfa5868767b70",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 176593,
+                    "endByte": 177543,
+                    "startLine": 4746,
+                    "endLine": 4763,
+                    "chunkSha256": "dbbfed572f109c1afceb933675fcce87a3eb441a48d4722469866ee325eff9eb",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 177543,
+                    "endByte": 178534,
+                    "startLine": 4764,
+                    "endLine": 4786,
+                    "chunkSha256": "e33dd771e5f29b0a54b18ac382ea03d1a924e23e6f80b4df1f97c1c85736a7f0",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 178534,
+                    "endByte": 179531,
+                    "startLine": 4787,
+                    "endLine": 4809,
+                    "chunkSha256": "8a0189b00719793aba8a3f236d26d6630dd224d18d232cb3c37ddd8c20499663",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 179531,
+                    "endByte": 180520,
+                    "startLine": 4810,
+                    "endLine": 4829,
+                    "chunkSha256": "f91490f2e0a6485de01114ae1078ab7bc2c8f4da3b9ac262bf8adaf63dcffd92",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 180520,
+                    "endByte": 180863,
+                    "startLine": 4830,
+                    "endLine": 4840,
+                    "chunkSha256": "67e564f82a99f5fa5c373a2b00b1ee274d5e9465e18316c3715870377b967ad3",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 180863,
+                    "endByte": 181844,
+                    "startLine": 4841,
+                    "endLine": 4861,
+                    "chunkSha256": "6e838c59067a8ba69f5dbd41d091e0b4bbdf2f7cf04b3d2ec80c55ade55dec21",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 181844,
+                    "endByte": 182802,
+                    "startLine": 4862,
+                    "endLine": 4887,
+                    "chunkSha256": "f5d61f511c78b1ea905736776a068df850717b6c2480a30a7f8e0634776671a9",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 182802,
+                    "endByte": 183786,
+                    "startLine": 4888,
+                    "endLine": 4920,
+                    "chunkSha256": "1928309ef0b680eaf29c8a953da017b4ed41feb165b45a002af5070f4ecc96fa",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 183786,
+                    "endByte": 184686,
+                    "startLine": 4921,
+                    "endLine": 4939,
+                    "chunkSha256": "c9b11afc76a51d62061648776864d29917e713a65c7b6130b77bbf46c49fe346",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 184686,
+                    "endByte": 185678,
+                    "startLine": 4940,
+                    "endLine": 4962,
+                    "chunkSha256": "bc08c30e0605950f4dba5d931ab97287de6de4864616d10295bb593e04bbf0d4",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "startByte": 185678,
+                    "endByte": 186428,
+                    "startLine": 4963,
+                    "endLine": 4984,
+                    "chunkSha256": "e5018532490673bbdf7a567527d57c78b6d3058d37cf40032ee9436b64c5bdf5",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/tt/mod.rs",
+                    "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                    "startByte": 5664,
+                    "endByte": 6053,
+                    "startLine": 177,
+                    "endLine": 186,
+                    "chunkSha256": "d8087077a9deacdfec99c7f1b7c1a90111bd90648c1bc30931480e23f688fe41",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/tt/mod.rs",
+                    "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                    "startByte": 4370,
+                    "endByte": 5360,
+                    "startLine": 141,
+                    "endLine": 166,
+                    "chunkSha256": "d51145116a3baf345e2b78250be64f90586b109bcb34c93a2d159822c40ab9c0",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/tt/mod.rs",
+                    "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                    "startByte": 5360,
+                    "endByte": 5575,
+                    "startLine": 167,
+                    "endLine": 174,
+                    "chunkSha256": "6ea80a914e3f6637926cb9d0f7899298f8d8b6a6fe08de67b69c983517e50299",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/tt/mod.rs",
+                    "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                    "startByte": 2505,
+                    "endByte": 3491,
+                    "startLine": 91,
+                    "endLine": 114,
+                    "chunkSha256": "04abd42d348c00ff9112161841147bb218c2bcffea44f128c64831f40ee8398d",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/tt/mod.rs",
+                    "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                    "startByte": 3491,
+                    "endByte": 4295,
+                    "startLine": 115,
+                    "endLine": 138,
+                    "chunkSha256": "640c200b563a1e1d2096c54357fdfcf0d81722446e80a623f5a7824baf65a852",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/tt/mod.rs",
+                    "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                    "startByte": 1533,
+                    "endByte": 1874,
+                    "startLine": 62,
+                    "endLine": 71,
+                    "chunkSha256": "8c00fb5373feb7a586431261e48df03d0b7a0d9292a3745771f735adcc18ed3b",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  },
+                  {
+                    "snapshotId": "snap-1792140879637485000-11155-0",
+                    "path": "src/tt/mod.rs",
+                    "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                    "startByte": 1930,
+                    "endByte": 2100,
+                    "startLine": 74,
+                    "endLine": 79,
+                    "chunkSha256": "0f7fb08179e5b011dfbc5976e76da1f2e239a2731c4381059194a19c12b2747a",
+                    "enclosing": null,
+                    "parent": null,
+                    "parser": null
+                  }
+                ]
+              },
+              "contentSha256": "3a9eb703a454b5cacbe879382de1ef777f50ea87c1e5c2539a0d6232cf83e5d9"
+            },
+            "sections": [
+              {
+                "sectionId": "section:55daf6aa-b63c-4541-97c8-f35bcf422717",
+                "sectionRevisionId": "sectionrev:7bc7f20c-20bb-49cb-a199-57fa9a20af50",
+                "order": 0,
+                "title": "Input validation and face-index failures",
+                "prose": "On the SFNT path, face_index is split: collection_face_index uses its low 16 bits to select a collection face, while named_instance uses bits 16 through 30. resolve_face_index rejects a collection index outside the face-offset list with InvalidFont; a nonzero named_instance is also rejected with InvalidFont if fvar is unavailable or exceeds instance_count. If no earlier format probe matches, memory_face returns InvalidFileFormat for a stream at least 17 bytes long whose bytes are all below ASCII space. Other inputs reach truetype_face; if it fails on at least 118 bytes, winfnt_face is tried, with its UnknownFileFormat retained only when has_winfnt_header_shape is true. A successful retry wins, other retry failures preserve the original TrueType error, and shorter inputs keep that original error. Malformed SFNT framing fails before table loading: face_offsets requires a four-byte header, a TTC header of at least 12 bytes, and a complete four-byte offset per face; an offset array that cannot fit returns ArrayTooLarge. A non-TTC must pass parse_table_directory. parse_table_directory_at then requires a 12-byte offset table, TrueType or OTTO magic, at least one table, and complete 16-byte records. These checks return InvalidFont except a zero-table directory, which returns SfntZeroTablesStreamOperation.",
+                "spokenText": "On the SFNT path, face_index is split: collection_face_index uses its low 16 bits to select a collection face, while named_instance uses bits 16 through 30. resolve_face_index rejects a collection index outside the face-offset list with InvalidFont; a nonzero named_instance is also rejected with InvalidFont if fvar is unavailable or exceeds instance_count. A successful retry wins, other retry failures preserve the original TrueType error, and shorter inputs keep that original error.",
+                "claims": [
+                  {
+                    "claimId": "claim:47eb4dba-ef71-4c0c-9df1-a03cdf42d5ac",
+                    "category": {
+                      "kind": "codeBehavior"
+                    },
+                    "prose": "On the SFNT path, face_index is split: collection_face_index uses its low 16 bits to select a collection face, while named_instance uses bits 16 through 30. resolve_face_index rejects a collection index outside the face-offset list with InvalidFont; a nonzero named_instance is also rejected with InvalidFont if fvar is unavailable or exceeds instance_count.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:e8297b5c-839c-4600-bb90-59691cdb4282",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:6fc8d1ba465eb6d184a316ae76fc490a2da1633118ddff36ca44c8b6d253b585",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 172671,
+                        "endByteInclusive": 173661,
+                        "startLine": 4660,
+                        "endLine": 4680,
+                        "startColumn": 5,
+                        "endColumn": 12,
+                        "excerpt": "fn truetype_face_with_load_mode_and_design_coords(\n        data: &[u8],\n        face_index: usize,\n        size_pt: f32,\n        load_mode: LoadMode,\n        design_coords: Option<&[i32]>,\n        blend_coords_16_16: Option<&[i32]>,\n        variation_coordinates_set: bool,\n    ) -> Result<Self, FontError> {\n        // FreeType stores a 1-based named-instance selector in bits 16..30;\n        // the low 16 bits still select the collection face (ftobjs.c).\n        let collection_face_index = face_index & 0xFFFF;\n        let (num_faces, face_offset) = tt::resolve_face_index(data, collection_face_index)?;\n        let dir = tt::parse_table_directory_at(data, face_offset)?;\n        let fvar = dir\n            .find(data, tag(b\"fvar\"))\n            .and_then(|bytes| tt::fvar::parse_fvar(bytes).ok());\n        let avar = fvar.as_ref().and_then(|fvar| {\n            dir.find(data, tag(b\"avar\"))\n                .and_then(|bytes| tt::avar::parse_avar(bytes, fvar.axes.len()).ok())\n        });\n"
+                      },
+                      {
+                        "anchorId": "anchor:9a696d85-8a66-4281-a3e5-110956566d22",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:6fc8d1ba465eb6d184a316ae76fc490a2da1633118ddff36ca44c8b6d253b585",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 173662,
+                        "endByteInclusive": 174630,
+                        "startLine": 4681,
+                        "endLine": 4703,
+                        "startColumn": 1,
+                        "endColumn": 48,
+                        "excerpt": "        let named_instance = (face_index >> 16) & 0x7FFF;\n        if named_instance != 0\n            && fvar\n                .as_ref()\n                .is_none_or(|table| named_instance > usize::from(table.instance_count))\n        {\n            return Err(FontError::InvalidFont(format!(\n                \"named instance {named_instance} is unavailable\"\n            )));\n        }\n\n        let head_bytes = dir\n            .find(data, tag(b\"head\"))\n            .ok_or_else(|| FontError::InvalidFont(\"missing 'head' table\".into()))?;\n        let head = tt::head::parse_head(head_bytes)?;\n\n        // tt_face_load_maxp reads its optional 26-byte frame from the SFNT\n        // stream after goto_table, without constraining reads to table length.\n        let maxp_record = dir\n            .record(tag(b\"maxp\"))\n            .ok_or_else(|| FontError::InvalidFont(\"missing 'maxp' table\".into()))?;\n        let maxp_bytes = data\n            .get(maxp_record.offset as usize..)\n"
+                      },
+                      {
+                        "anchorId": "anchor:d364016b-d061-44df-9175-0324700bf6b7",
+                        "path": "src/tt/mod.rs",
+                        "symbolId": "sym:d2e6ade7664e68a28a19597dc4c373ace6064780c5a2c7042824bc9f5f9e9bd3",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                        "startByte": 5664,
+                        "endByteInclusive": 6052,
+                        "startLine": 177,
+                        "endLine": 186,
+                        "startColumn": 1,
+                        "endColumn": 1,
+                        "excerpt": "pub fn resolve_face_index(data: &[u8], face_index: usize) -> Result<(usize, usize), FontError> {\n    let offsets = face_offsets(data)?;\n    let count = offsets.len();\n    let offset = offsets.get(face_index).copied().ok_or_else(|| {\n        FontError::InvalidFont(format!(\n            \"face index {face_index} out of range for {count} face(s)\"\n        ))\n    })?;\n    Ok((count, offset))\n}"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2"
+                      },
+                      {
+                        "kind": "symbol",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "symbolId": "sym:6fc8d1ba465eb6d184a316ae76fc490a2da1633118ddff36ca44c8b6d253b585"
+                      },
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/tt/mod.rs",
+                        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05"
+                      },
+                      {
+                        "kind": "symbol",
+                        "path": "src/tt/mod.rs",
+                        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                        "symbolId": "sym:d2e6ade7664e68a28a19597dc4c373ace6064780c5a2c7042824bc9f5f9e9bd3"
+                      }
+                    ]
+                  },
+                  {
+                    "claimId": "claim:2ccb560a-2a19-4915-87bc-9014bdeb4fb8",
+                    "category": {
+                      "kind": "codeBehavior"
+                    },
+                    "prose": "If no earlier format probe matches, memory_face returns InvalidFileFormat for a stream at least 17 bytes long whose bytes are all below ASCII space. Other inputs reach truetype_face; if it fails on at least 118 bytes, winfnt_face is tried, with its UnknownFileFormat retained only when has_winfnt_header_shape is true. A successful retry wins, other retry failures preserve the original TrueType error, and shorter inputs keep that original error.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:8d04bf9a-f552-4187-b4f9-ed74f1e1ffa5",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 147769,
+                        "endByteInclusive": 148749,
+                        "startLine": 4053,
+                        "endLine": 4078,
+                        "startColumn": 5,
+                        "endColumn": 10,
+                        "excerpt": "pub(crate) fn memory_face(\n        data: &[u8],\n        face_index: usize,\n        size_pt: f32,\n    ) -> Result<Self, FontError> {\n        if read_u32_le(data, 0) == Some(PCF_FILE_VERSION) {\n            return Self::pcf_face(data, face_index, size_pt);\n        }\n        if data.starts_with(b\"PFR0\") {\n            return Self::pfr_face(data, face_index, size_pt);\n        }\n        if matches!(read_u16_le(data, 0), Some(0x0200) | Some(0x0300)) {\n            return Self::winfnt_face(data, face_index, size_pt);\n        }\n        if bdf_text(data)\n            .and_then(first_bdf_keyword)\n            .is_some_and(is_bdf_probe_keyword)\n        {\n            if let Some(error) = parse_bdf_constructor_error(data) {\n                return Err(error);\n            }\n            return Self::bdf_face(data, face_index, size_pt);\n        }\n        if data.starts_with(b\"%!PS-Adobe-3.0 Resource-CIDFont\") {\n            return Self::cid_type1_face(data, face_index, size_pt);\n        }\n"
+                      },
+                      {
+                        "anchorId": "anchor:6e644f74-1e98-40bb-b606-3395fa2d064c",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 148750,
+                        "endByteInclusive": 149722,
+                        "startLine": 4079,
+                        "endLine": 4096,
+                        "startColumn": 1,
+                        "endColumn": 10,
+                        "excerpt": "        if type42_sfnt_data(data).is_some() {\n            return Self::type42_face(data, face_index, size_pt);\n        }\n        if type1_cleartext(data).is_some() {\n            return Self::type1_face(data, face_index, size_pt);\n        }\n        if data.len() >= 17 && data.iter().all(|byte| *byte < b' ') {\n            // FreeType's final BDF driver probe (`bdf/bdflib.c`) skips every\n            // byte below ASCII space while looking for a line.  An all-\n            // control stream therefore reaches EOF with no `STARTFONT`\n            // line and returns Invalid_File_Format from `bdf_load_font`;\n            // `BDF_Face_Init` preserves that error for `FT_Open_Face`.\n            // Keep the length guard because earlier C driver probes use\n            // fixed-size frames and win the error race on shorter streams.\n            return Err(FontError::InvalidFileFormat(\n                \"BDF stream ended before a complete line\".into(),\n            ));\n        }\n"
+                      },
+                      {
+                        "anchorId": "anchor:864444b2-adfa-4f51-87d9-e0842ee47f2c",
+                        "path": "src/font.rs",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "startByte": 149723,
+                        "endByteInclusive": 150665,
+                        "startLine": 4097,
+                        "endLine": 4115,
+                        "startColumn": 1,
+                        "endColumn": 5,
+                        "excerpt": "        match Self::truetype_face(data, face_index, size_pt) {\n            Ok(face) => Ok(face),\n            Err(error) if data.len() >= 118 => {\n                // FreeType's WinFNT driver tries a standalone FNT header\n                // after its MZ/NE probe fails. Its unknown-format result is\n                // the final face-open error for a structurally plausible FNT\n                // header with an unsupported version; unrelated malformed\n                // buffers retain the earlier SFNT parser error.\n                match Self::winfnt_face(data, face_index, size_pt) {\n                    Ok(face) => Ok(face),\n                    Err(FontError::UnknownFileFormat(message)) if has_winfnt_header_shape(data) => {\n                        Err(FontError::UnknownFileFormat(message))\n                    }\n                    Err(_) => Err(error),\n                }\n            }\n            Err(error) => Err(error),\n        }\n    }"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2"
+                      },
+                      {
+                        "kind": "symbol",
+                        "path": "src/font.rs",
+                        "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                        "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481"
+                      }
+                    ]
+                  },
+                  {
+                    "claimId": "claim:e26afe0b-d2e2-4bb0-8cba-20dbc23a4e27",
+                    "category": {
+                      "kind": "codeBehavior"
+                    },
+                    "prose": "Malformed SFNT framing fails before table loading: face_offsets requires a four-byte header, a TTC header of at least 12 bytes, and a complete four-byte offset per face; an offset array that cannot fit returns ArrayTooLarge. A non-TTC must pass parse_table_directory. parse_table_directory_at then requires a 12-byte offset table, TrueType or OTTO magic, at least one table, and complete 16-byte records. These checks return InvalidFont except a zero-table directory, which returns SfntZeroTablesStreamOperation.",
+                    "anchors": [
+                      {
+                        "anchorId": "anchor:487add58-d239-44f7-86c2-04350c92e622",
+                        "path": "src/tt/mod.rs",
+                        "symbolId": "sym:d2bec6a2eedfadfce8f145f48d898456711b47efe3e46d5a2e916d443a192385",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                        "startByte": 4370,
+                        "endByteInclusive": 5359,
+                        "startLine": 141,
+                        "endLine": 166,
+                        "startColumn": 1,
+                        "endColumn": 39,
+                        "excerpt": "pub fn face_offsets(data: &[u8]) -> Result<Vec<usize>, FontError> {\n    if data.len() < 4 {\n        return Err(FontError::InvalidFont(\n            \"data too short for SFNT header\".into(),\n        ));\n    }\n    if &data[0..4] != b\"ttcf\" {\n        parse_table_directory(data)?;\n        return Ok(vec![0]);\n    }\n    if data.len() < 12 {\n        return Err(FontError::InvalidFont(\n            \"TTC header too short (need 12 bytes)\".into(),\n        ));\n    }\n    let num_faces = read_u32(data, 8) as usize;\n    // FreeType 2.14.3 `sfnt_open_font` (`src/sfnt/sfobjs.c`) routes a TTC\n    // face-count whose offset array cannot fit in the stream through\n    // `FT_Err_Array_Too_Large` before attempting allocation.\n    let Some(offset_bytes) = num_faces.checked_mul(4) else {\n        return Err(FontError::ArrayTooLarge);\n    };\n    let Some(offset_table_end) = 12usize.checked_add(offset_bytes) else {\n        return Err(FontError::ArrayTooLarge);\n    };\n    if data.len() < offset_table_end {\n"
+                      },
+                      {
+                        "anchorId": "anchor:ce08afd7-ea75-459c-92ad-25daf6335852",
+                        "path": "src/tt/mod.rs",
+                        "symbolId": "sym:d2bec6a2eedfadfce8f145f48d898456711b47efe3e46d5a2e916d443a192385",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                        "startByte": 5360,
+                        "endByteInclusive": 5574,
+                        "startLine": 167,
+                        "endLine": 174,
+                        "startColumn": 1,
+                        "endColumn": 1,
+                        "excerpt": "        return Err(FontError::ArrayTooLarge);\n    }\n    let mut offsets = Vec::with_capacity(num_faces);\n    for i in 0..num_faces {\n        offsets.push(read_u32(data, 12 + i * 4) as usize);\n    }\n    Ok(offsets)\n}"
+                      },
+                      {
+                        "anchorId": "anchor:280de4a9-e163-4a51-b669-67526cddfbd4",
+                        "path": "src/tt/mod.rs",
+                        "symbolId": "sym:3180fc045875872d2c61d8a9c562c8049b90b3a89df1d9823a1eba3e204cb11e",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                        "startByte": 2505,
+                        "endByteInclusive": 3490,
+                        "startLine": 91,
+                        "endLine": 114,
+                        "startColumn": 1,
+                        "endColumn": 67,
+                        "excerpt": "pub fn parse_table_directory_at(data: &[u8], base: usize) -> Result<TableDirectory, FontError> {\n    let font = data\n        .get(base..)\n        .ok_or_else(|| FontError::InvalidFont(\"font offset out of range\".into()))?;\n    if font.len() < 12 {\n        return Err(FontError::InvalidFont(\n            \"data too short for offset table (need 12 bytes)\".into(),\n        ));\n    }\n\n    let sf_version = read_u32(font, 0);\n    if sf_version != TRUE_MAGIC && sf_version != OTTO_MAGIC {\n        return Err(FontError::InvalidFont(format!(\n            \"unknown sfVersion: 0x{:08X}\",\n            sf_version\n        )));\n    }\n\n    let num_tables = read_u16(font, 4) as usize;\n    if num_tables == 0 {\n        // FreeType 2.14.3 reads the SFNT offset table, then rejects both\n        // TrueType and OTTO directories with no valid entries during face\n        // open (`sfnt/ttload.c`: `tt_face_load_font_dir`/`check_table_dir`).\n        // The public status is `FT_Err_Invalid_Stream_Operation`.\n"
+                      },
+                      {
+                        "anchorId": "anchor:d987fbc7-ce0a-4dad-81e6-6b58db5bb99c",
+                        "path": "src/tt/mod.rs",
+                        "symbolId": "sym:3180fc045875872d2c61d8a9c562c8049b90b3a89df1d9823a1eba3e204cb11e",
+                        "snapshotId": "snap-1792140879637485000-11155-0",
+                        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                        "startByte": 3491,
+                        "endByteInclusive": 4294,
+                        "startLine": 115,
+                        "endLine": 138,
+                        "startColumn": 1,
+                        "endColumn": 1,
+                        "excerpt": "        return Err(FontError::SfntZeroTablesStreamOperation);\n    }\n    let dir_start = 12usize;\n    let dir_end = dir_start + num_tables * 16;\n    if font.len() < dir_end {\n        return Err(FontError::InvalidFont(format!(\n            \"data too short for {num_tables} table records\"\n        )));\n    }\n\n    let mut records = Vec::with_capacity(num_tables);\n    for i in 0..num_tables {\n        let off = dir_start + i * 16;\n        records.push(TableRecord {\n            tag: read_u32(font, off),\n            // In TTC files, table offsets remain absolute from the collection\n            // start (ttload.c:tt_face_load_font_dir); don't add the face base.\n            offset: read_u32(font, off + 8),\n            length: read_u32(font, off + 12),\n        });\n    }\n\n    Ok(TableDirectory { records })\n}"
+                      }
+                    ],
+                    "dependencies": [
+                      {
+                        "kind": "sourceFile",
+                        "path": "src/tt/mod.rs",
+                        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05"
+                      },
+                      {
+                        "kind": "symbol",
+                        "path": "src/tt/mod.rs",
+                        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                        "symbolId": "sym:d2bec6a2eedfadfce8f145f48d898456711b47efe3e46d5a2e916d443a192385"
+                      },
+                      {
+                        "kind": "symbol",
+                        "path": "src/tt/mod.rs",
+                        "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                        "symbolId": "sym:3180fc045875872d2c61d8a9c562c8049b90b3a89df1d9823a1eba3e204cb11e"
+                      }
+                    ]
+                  }
+                ],
+                "dependencies": [
+                  {
+                    "kind": "sourceFile",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2"
+                  },
+                  {
+                    "kind": "symbol",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "symbolId": "sym:6fc8d1ba465eb6d184a316ae76fc490a2da1633118ddff36ca44c8b6d253b585"
+                  },
+                  {
+                    "kind": "sourceFile",
+                    "path": "src/tt/mod.rs",
+                    "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05"
+                  },
+                  {
+                    "kind": "symbol",
+                    "path": "src/tt/mod.rs",
+                    "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                    "symbolId": "sym:d2e6ade7664e68a28a19597dc4c373ace6064780c5a2c7042824bc9f5f9e9bd3"
+                  },
+                  {
+                    "kind": "symbol",
+                    "path": "src/font.rs",
+                    "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                    "symbolId": "sym:bdc256ba358aaed5b629ef1c98c10f0cc60d6d3220838d0831707c54ad951481"
+                  },
+                  {
+                    "kind": "symbol",
+                    "path": "src/tt/mod.rs",
+                    "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                    "symbolId": "sym:d2bec6a2eedfadfce8f145f48d898456711b47efe3e46d5a2e916d443a192385"
+                  },
+                  {
+                    "kind": "symbol",
+                    "path": "src/tt/mod.rs",
+                    "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                    "symbolId": "sym:3180fc045875872d2c61d8a9c562c8049b90b3a89df1d9823a1eba3e204cb11e"
+                  }
+                ],
+                "visual": {
+                  "schemaVersion": 2,
+                  "kind": "sequence",
+                  "title": "SFNT input, index, and failure branches",
+                  "layoutHint": {
+                    "direction": "topToBottom"
+                  },
+                  "nodes": [
+                    {
+                      "nodeId": "visualnode:0e34270b-d34b-4a32-bb05-20f883ade570",
+                      "label": "Probe result",
+                      "detail": "Recognized specialized format or final SFNT path",
+                      "hotspotId": "visualhotspot:d4cfe847-2ebd-4be3-bb6b-976a64a53323",
+                      "evidenceAnchorIds": [
+                        "anchor:8d04bf9a-f552-4187-b4f9-ed74f1e1ffa5"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:45926ee3-d8ba-4fad-82ed-41657a6771f4",
+                      "label": "SFNT framing",
+                      "detail": "Validate signature, directory, and collection offsets",
+                      "hotspotId": "visualhotspot:49419784-f0df-49dd-91c9-8623346915ab",
+                      "evidenceAnchorIds": [
+                        "anchor:487add58-d239-44f7-86c2-04350c92e622"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:bfd02787-9a49-4d3a-8666-9f7aef9f90dc",
+                      "label": "Face selector",
+                      "detail": "Resolve collection index and optional named instance",
+                      "hotspotId": "visualhotspot:13bfc51f-990f-4687-abef-4d0ff9f3402b",
+                      "evidenceAnchorIds": [
+                        "anchor:9a696d85-8a66-4281-a3e5-110956566d22"
+                      ]
+                    },
+                    {
+                      "nodeId": "visualnode:16bb897d-a30b-4b07-a903-24b1652e5449",
+                      "label": "Face or error",
+                      "detail": "Usable face on success; preserved or generated error otherwise",
+                      "hotspotId": "visualhotspot:d1867f66-411f-4196-8b5c-2e3febc2d443",
+                      "evidenceAnchorIds": [
+                        "anchor:9a696d85-8a66-4281-a3e5-110956566d22"
+                      ]
+                    }
+                  ],
+                  "edges": [
+                    {
+                      "edgeId": "visualedge:972b9fba-5c17-47ce-b9b4-733ae84b52ed",
+                      "fromNodeId": "visualnode:0e34270b-d34b-4a32-bb05-20f883ade570",
+                      "toNodeId": "visualnode:45926ee3-d8ba-4fad-82ed-41657a6771f4",
+                      "label": "no earlier probe matches",
+                      "evidenceAnchorIds": [
+                        "anchor:864444b2-adfa-4f51-87d9-e0842ee47f2c"
+                      ]
+                    },
+                    {
+                      "edgeId": "visualedge:d63f67c5-ed1f-4af3-a7c7-d48db8b4a712",
+                      "fromNodeId": "visualnode:45926ee3-d8ba-4fad-82ed-41657a6771f4",
+                      "toNodeId": "visualnode:bfd02787-9a49-4d3a-8666-9f7aef9f90dc",
+                      "label": "framing and offsets resolve",
+                      "evidenceAnchorIds": [
+                        "anchor:280de4a9-e163-4a51-b669-67526cddfbd4"
+                      ]
+                    },
+                    {
+                      "edgeId": "visualedge:fbbd3c54-1533-477f-96e6-fa071ab55f58",
+                      "fromNodeId": "visualnode:bfd02787-9a49-4d3a-8666-9f7aef9f90dc",
+                      "toNodeId": "visualnode:16bb897d-a30b-4b07-a903-24b1652e5449",
+                      "label": "index validation and table loading",
+                      "evidenceAnchorIds": [
+                        "anchor:9a696d85-8a66-4281-a3e5-110956566d22"
+                      ]
+                    }
+                  ]
+                },
+                "hotspots": [
+                  {
+                    "hotspotId": "overviewfile:e8ad7be8-85c4-49f7-8080-ad225c45d0ab",
+                    "label": "Open file: src/font.rs",
+                    "destination": {
+                      "kind": "atlasFile",
+                      "path": "src/font.rs"
+                    }
+                  },
+                  {
+                    "hotspotId": "overviewfile:6e010f22-3f20-410c-8115-2bc08c06e3a0",
+                    "label": "Open file: src/tt/mod.rs",
+                    "destination": {
+                      "kind": "atlasFile",
+                      "path": "src/tt/mod.rs"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:d4cfe847-2ebd-4be3-bb6b-976a64a53323",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:8d04bf9a-f552-4187-b4f9-ed74f1e1ffa5"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:49419784-f0df-49dd-91c9-8623346915ab",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:487add58-d239-44f7-86c2-04350c92e622"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:13bfc51f-990f-4687-abef-4d0ff9f3402b",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:9a696d85-8a66-4281-a3e5-110956566d22"
+                    }
+                  },
+                  {
+                    "hotspotId": "visualhotspot:d1867f66-411f-4196-8b5c-2e3febc2d443",
+                    "label": "Open supporting code",
+                    "destination": {
+                      "kind": "codeLens",
+                      "anchorId": "anchor:9a696d85-8a66-4281-a3e5-110956566d22"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "validation": {
+            "schemaVersion": 4,
+            "chapterId": "chapter:overview",
+            "revisionId": "revision:72448296-e7ab-47e6-a895-099f3e613f7f",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "status": "valid",
+            "issues": []
+          },
+          "modelId": "gpt-6-luna",
+          "modelVersion": null,
+          "inputTokens": null,
+          "outputTokens": null,
+          "updateNotes": []
+        },
+        "publishedElapsedMs": 165762,
+        "publishedRunElapsedMs": 166389,
+        "proposalSha256": "1f332b180be4447dd09681e64857fd8e04879fc4c22a6835f9b094d946db396d",
+        "checkpointSha256": "9c882e1146795a466b058c2dc8c4dd98db188e841557607c053cbf7e7d05dc81",
+        "checkpoint": {
+          "schemaVersion": 3,
+          "policy": "atlas-captured-ranges-v1-files12-source250000",
+          "binding": {
+            "operationId": "de1d0d41-db5c-4984-8685-c03b1e0a45ce",
+            "projectId": "/Users/lazytrot/work/fontdone",
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "manifestSha256": "25f5e44bfdd1dab6b31310f7307f165a9171a8b9fc55256ef599e9c8196ad3a2",
+            "grantId": "f956dbe2-fb2e-43d2-b70a-d2c9b882523b",
+            "runtime": {
+              "connectionId": "29190d89-40ef-468b-bc39-6ce995733811",
+              "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+              "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+              "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+              "accountRevision": 1
+            },
+            "model": "gpt-6-luna",
+            "effort": "max"
+          },
+          "startedAtUnixMs": 1792227893112,
+          "status": "active",
+          "calls": [
+            {
+              "id": "afbec0de-067b-459b-b4af-3006b7d2ebae",
+              "tool": "definitions",
+              "argumentsSha256": "711faee91bf7ef228148b951d8ad4986ae5a051049f27d6e3a518bfd2ff21428",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 1661,
+              "wireBytes": 1661,
+              "payloadSha256": "046c9ac3072011ad4432ba7a51bf9eb56a0368d94ec32ba24268b10b1535256d",
+              "timing": {
+                "startedMs": 7315,
+                "preparedMs": 7377,
+                "finishedMs": 7595
+              }
+            },
+            {
+              "id": "d1299017-2dc7-4af2-97f1-9ea5e495be7f",
+              "tool": "read",
+              "argumentsSha256": "75858092792d59456f890f0fd5552bc5fbdf67a0a65b98fd6b1a818c88ef52fb",
+              "state": "delivered",
+              "evidenceIds": [
+                "evidence:1950d6ffac8c8f76ca39ca0ead996fc74e57ca901958f7dad62a2e0a767a796b",
+                "evidence:b1e7b276c35ff4bece0bfcdc34964bf8e86b8ea859556cc166ff4f46583226a0",
+                "evidence:feea96bd8d1110a12b5ff13baa1b0e59fe7ed1d1b6db77ed09c91aba9bb64e02"
+              ],
+              "sourceBytes": 2897,
+              "metadataBytes": 1807,
+              "wireBytes": 4772,
+              "payloadSha256": "c668f80559318a3aa7fdebc7d0c4394e4cca28be0dae91f21febffdcd8000e43",
+              "timing": {
+                "startedMs": 10705,
+                "preparedMs": 10963,
+                "finishedMs": 11197
+              }
+            },
+            {
+              "id": "34dfdf50-0203-455c-b550-90d83b4e0e30",
+              "tool": "proposeSection",
+              "argumentsSha256": "eb7a84e6adeda2656f5ba81e8a1a313e0138e0472472ddf0deb97b2b6dbbf72d",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 522,
+              "wireBytes": 522,
+              "payloadSha256": "7b7aa0cdacb96bf52c0597568917c333c50adb1899374e6263beeb114009ceb7",
+              "timing": {
+                "startedMs": 30684,
+                "preparedMs": 31490,
+                "finishedMs": 31707
+              }
+            },
+            {
+              "id": "7fbd968e-4d08-4305-b4ab-675344f74c2c",
+              "tool": "proposeSection",
+              "argumentsSha256": "049f924b65475b66724a5060b221de30df99cbfe996fcbd6e7660ff9f45134bf",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 522,
+              "wireBytes": 522,
+              "payloadSha256": "669e4db82cffa49a2d1c536cdfe6db4232013ea3d6f42951c13cdcdf3e93a2c9",
+              "timing": {
+                "startedMs": 46245,
+                "preparedMs": 47083,
+                "finishedMs": 47309
+              }
+            },
+            {
+              "id": "1f4d8aff-7367-4f93-ba2a-6b07aea31f77",
+              "tool": "proposeSection",
+              "argumentsSha256": "13eed3b0c05530a99f60baa42d8e244caf5d525651d344052f7be3856c868968",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 515,
+              "wireBytes": 515,
+              "payloadSha256": "433b44efaa55a9558086088de4bb8de626557e397fb13ca89991a806a8eb046f",
+              "timing": {
+                "startedMs": 69270,
+                "preparedMs": 71208,
+                "finishedMs": 71558
+              }
+            },
+            {
+              "id": "290b6c82-3e8c-43f0-aeea-7b8123a01004",
+              "tool": "definitions",
+              "argumentsSha256": "7f497bf607bb1a534d25f784854def5ec181096daf8fe448d6a69b6c27f9331f",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 3687,
+              "wireBytes": 3687,
+              "payloadSha256": "8baaec730ec1ba9fd1154f9778ff6be2e708d43fdae5389e109efd4edb46fcfd",
+              "timing": {
+                "startedMs": 75962,
+                "preparedMs": 76113,
+                "finishedMs": 76379
+              }
+            },
+            {
+              "id": "05b1d550-c128-43fc-8d7c-3e3713f39f08",
+              "tool": "read",
+              "argumentsSha256": "06a21bf8ffeb45b911c586f86aade81fa8341407ee5993867ebeb82850f732c9",
+              "state": "delivered",
+              "evidenceIds": [
+                "evidence:8ea75ae47844c4daac0473b93051851c72e26dfb06969e5fa974727b7404724a"
+              ],
+              "sourceBytes": 190,
+              "metadataBytes": 871,
+              "wireBytes": 1063,
+              "payloadSha256": "3c183f594f78b3b9263bb2cdb63fcad60257a301c42df227f23668f0ad6c4627",
+              "timing": {
+                "startedMs": 78804,
+                "preparedMs": 78970,
+                "finishedMs": 79205
+              }
+            },
+            {
+              "id": "af204d56-8942-4dee-af09-301b50303bd2",
+              "tool": "read",
+              "argumentsSha256": "dd84d68b4ad10958990e489fde3830c99259ca1852e8167c6bcf0ebe9efe90ff",
+              "state": "delivered",
+              "evidenceIds": [
+                "evidence:1baea7afc5ed7496054daad5242a1bc0c9b7716e7869183c12820aba6130d4cc",
+                "evidence:455c6b054463107dcba7f07c212495050ac1d20613fb2ced5e78916c69c7e196",
+                "evidence:503250d7e28d6f4a52d20151b1b0a0842c422e84abd7183b2af9934e6b4a67a9",
+                "evidence:62c0aa7b284c6339306e16c0fcbb4725bb9340056edadfe0acbad9a6cb5384ee",
+                "evidence:64b006def1258ca1f02638953b66a35f5062bc18a75e1baf39e46cba4d40f7d0",
+                "evidence:65e1f7b880e8fe6cab42d21b7c0d95b84fe9cce27cbafc469f4dd3feac02ad8b",
+                "evidence:986f4d88cda53fe0ff00e2f5ca7316e452bb87c52bc3bcea2525a8875554f83e",
+                "evidence:d24ad1b3f8a7d6da1777934be43b503b31f4ad9d6ee46848b077b2516b7356a2",
+                "evidence:f1f59eba64a16313e2dff129341ddd41e7881f6204f8beaf87564e442da4330a"
+              ],
+              "sourceBytes": 8192,
+              "metadataBytes": 4615,
+              "wireBytes": 13050,
+              "payloadSha256": "ac6706c5639377355799a3c8661691908a010aacbeb5c8a64420aed07526fde2",
+              "timing": {
+                "startedMs": 82218,
+                "preparedMs": 82779,
+                "finishedMs": 82997
+              }
+            },
+            {
+              "id": "e895cbdb-484b-4eef-aed4-17cc4bc21069",
+              "tool": "read",
+              "argumentsSha256": "c2f5f89983d08224036b2ffb74a00a1520cc0e5cb5e2b6ac989df68073ee6877",
+              "state": "delivered",
+              "evidenceIds": [
+                "evidence:52fa770c612c9591ccc3050aa2bfc1200742681f00772f7e0a5d38b868f4e70b",
+                "evidence:870172d0fd85d16d3dd7c9fa779a6ffc22a9df98fcf1c5cb9ad3488865a9552d",
+                "evidence:9ed9e76b0c3ff2bbb3e14ebd556672330e97d2d5ee6f459f09eab1218915f8df",
+                "evidence:b107b0efce356b67c8211287e9dfbba4b800a9a2f19f27ca258ea6ee52080305",
+                "evidence:ccdfd2d7b601d99af3a010dbf866ecddd2a3d6ccbe1ad5cc1bb70776e515d82b",
+                "evidence:ffea2796348bc59c67337aa8a947deb9098561facfd5186b658aa2fa89beff77"
+              ],
+              "sourceBytes": 5565,
+              "metadataBytes": 3211,
+              "wireBytes": 8933,
+              "payloadSha256": "e7a2634d16cd0e53fb6f213a7b4b8804b60fa13de689491666cbea7c53fa8173",
+              "timing": {
+                "startedMs": 86645,
+                "preparedMs": 87079,
+                "finishedMs": 87315
+              }
+            },
+            {
+              "id": "1ae5f5fe-4485-4035-b45d-68195df35445",
+              "tool": "definitions",
+              "argumentsSha256": "e4b9bb01291ee81a594f1e9deb4d348242267e5f7ffc5688c93bf9f087b47909",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 1659,
+              "wireBytes": 1659,
+              "payloadSha256": "d02355625f5235ad5683c2535ca5df51eed63614da75a4198e8d508e6a888a79",
+              "timing": {
+                "startedMs": 91125,
+                "preparedMs": 91181,
+                "finishedMs": 91400
+              }
+            },
+            {
+              "id": "b2e0a885-df65-425c-a2a9-dc743c203b3d",
+              "tool": "read",
+              "argumentsSha256": "0a09ab55384da3974c56e6add0dfee879b612bb41737690a3046feb38c3e899c",
+              "state": "delivered",
+              "evidenceIds": [
+                "evidence:e59867cea3a294d67781d3219e6d8da5522de38dd360da09c0842f1f70a5df52"
+              ],
+              "sourceBytes": 389,
+              "metadataBytes": 867,
+              "wireBytes": 1267,
+              "payloadSha256": "a6e80c45284113f0ddccadebd4fc002822b77ca6124576ce1ed1a467d70a015f",
+              "timing": {
+                "startedMs": 93448,
+                "preparedMs": 93589,
+                "finishedMs": 93810
+              }
+            },
+            {
+              "id": "2d8018cd-e996-4a51-810b-e733ee95daa4",
+              "tool": "definitions",
+              "argumentsSha256": "78733639c14fc42b0d747471959b65a7c69bae6b9f21b038a8d0a711ce8a2bcf",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 1640,
+              "wireBytes": 1640,
+              "payloadSha256": "58ee29471cb35250484782c10a5623fee99f376de0e4dd4b82b391cb91299f49",
+              "timing": {
+                "startedMs": 96513,
+                "preparedMs": 96571,
+                "finishedMs": 96842
+              }
+            },
+            {
+              "id": "bcc14253-5872-49b5-80b9-68dc161dc960",
+              "tool": "read",
+              "argumentsSha256": "2607beeee4615ea6b80d8074bfc02bcfbf6299b918399bef3a2116b7df04cd0b",
+              "state": "delivered",
+              "evidenceIds": [
+                "evidence:a99c8698b42a16d6dad4df73bed0f72fda4d38d6063afe437ac1664af4a719f8",
+                "evidence:abc02366649c4502d7de1a611a1d57adcc61cb16f6bdbcfb0a99042e949d1d7f"
+              ],
+              "sourceBytes": 1205,
+              "metadataBytes": 1331,
+              "wireBytes": 2575,
+              "payloadSha256": "b4f5822618e51a1f7ae3fea5138fd746f103d58e0576562aa09f29a4e8cc9d83",
+              "timing": {
+                "startedMs": 99117,
+                "preparedMs": 99328,
+                "finishedMs": 99571
+              }
+            },
+            {
+              "id": "5d4361b4-9f80-4ddc-ab35-43f6b1552096",
+              "tool": "definitions",
+              "argumentsSha256": "9fed0470faf6c51526e7bca7440eb4322aac7aebd8f6e0615aeecd03f4adbafd",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 1682,
+              "wireBytes": 1682,
+              "payloadSha256": "b497af9eccf6aaa54e1d5c97bfe31a77cee9930d65037e968ca3b58544d3ecd7",
+              "timing": {
+                "startedMs": 102201,
+                "preparedMs": 102258,
+                "finishedMs": 102508
+              }
+            },
+            {
+              "id": "8047e4ca-c07b-47ef-9940-609a035d0ddd",
+              "tool": "read",
+              "argumentsSha256": "24d3c7fb1c338550d040afea28d18c4fd8f941437d71ad306f935bf54520ea0a",
+              "state": "delivered",
+              "evidenceIds": [
+                "evidence:34a2c98be824baaeb078f249b8f12e253d2d2fae15c6f4d6e809250e12a50ca1",
+                "evidence:a7b33fd44801cd9dfd710a56c14798e6ce99067d3be44b3ceaf81104c311d44b"
+              ],
+              "sourceBytes": 1790,
+              "metadataBytes": 1330,
+              "wireBytes": 3175,
+              "payloadSha256": "74a39ad3bf85f6e3a049671831029abf1d6d479f69572cd7a15c71fdef7f0dfb",
+              "timing": {
+                "startedMs": 105227,
+                "preparedMs": 105442,
+                "finishedMs": 105686
+              }
+            },
+            {
+              "id": "2b02106d-05c6-4e5c-8ad3-39485979ef36",
+              "tool": "definitions",
+              "argumentsSha256": "0827911f67b5e857338dd153956e3569e65f4159f9dd9bec55f387eb57a9bdd7",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 3422,
+              "wireBytes": 3422,
+              "payloadSha256": "d13a7800042144d6c6a16b013f482c46806a7cf8ccf2145e228dc97267c2c475",
+              "timing": {
+                "startedMs": 108058,
+                "preparedMs": 108112,
+                "finishedMs": 108338
+              }
+            },
+            {
+              "id": "b9f02b1a-b913-4240-803b-49288c625143",
+              "tool": "read",
+              "argumentsSha256": "e9ff0b8dcd544520a834ad93f42e123cb30f272e3c6502e92532d8df69dcc2ab",
+              "state": "delivered",
+              "evidenceIds": [
+                "evidence:96e988e13fb315e03767519230745c6bc683c8f22b8d7504806b4641b760b0f5",
+                "evidence:fc72ec42433b1464d500429d1dfc20e1e702c969fa85b3c2855957f3e603b8ef"
+              ],
+              "sourceBytes": 511,
+              "metadataBytes": 1327,
+              "wireBytes": 1852,
+              "payloadSha256": "7c9ae90499fa8541bb8429f24df6bbffa4ac3f0457bc581872ecaf6bda162089",
+              "timing": {
+                "startedMs": 112360,
+                "preparedMs": 112598,
+                "finishedMs": 112821
+              }
+            },
+            {
+              "id": "95ca51c1-1afa-41ec-853b-5212388e0af4",
+              "tool": "proposeSection",
+              "argumentsSha256": "2e16b547d07ee2b1e1c8a1f06320f5ebf2477d1b13ab7060061eb90bdaf66404",
+              "state": "delivered",
+              "evidenceIds": [],
+              "sourceBytes": 0,
+              "metadataBytes": 522,
+              "wireBytes": 522,
+              "payloadSha256": "382d52f0b6d32a208da7604c780a318ff00151c0ad7b83abfb7f5dcb39eed1f5",
+              "timing": {
+                "startedMs": 144082,
+                "preparedMs": 146074,
+                "finishedMs": 146295
+              }
+            }
+          ],
+          "evidence": [
+            {
+              "id": "evidence:b1e7b276c35ff4bece0bfcdc34964bf8e86b8ea859556cc166ff4f46583226a0",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 147769,
+                "endByte": 148750,
+                "startLine": 4053,
+                "endLine": 4078,
+                "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:1950d6ffac8c8f76ca39ca0ead996fc74e57ca901958f7dad62a2e0a767a796b",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 148750,
+                "endByte": 149723,
+                "startLine": 4079,
+                "endLine": 4096,
+                "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:feea96bd8d1110a12b5ff13baa1b0e59fe7ed1d1b6db77ed09c91aba9bb64e02",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 149723,
+                "endByte": 150666,
+                "startLine": 4097,
+                "endLine": 4115,
+                "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:8ea75ae47844c4daac0473b93051851c72e26dfb06969e5fa974727b7404724a",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 158045,
+                "endByte": 158235,
+                "startLine": 4300,
+                "endLine": 4302,
+                "chunkSha256": "cba0e764912fd61201fde99dd36fe565353fd46b4dfa0c7c277a84d37a49e038",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:65e1f7b880e8fe6cab42d21b7c0d95b84fe9cce27cbafc469f4dd3feac02ad8b",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 172671,
+                "endByte": 173662,
+                "startLine": 4660,
+                "endLine": 4680,
+                "chunkSha256": "c51363000fadbf6974e4a9694d2711b3b2681cdbfa80618a981bc9e0d09eed9a",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:455c6b054463107dcba7f07c212495050ac1d20613fb2ced5e78916c69c7e196",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 173662,
+                "endByte": 174631,
+                "startLine": 4681,
+                "endLine": 4703,
+                "chunkSha256": "79b358a9a95aa6464f600468127c534cc928eba95818595a616e8b58f707d97b",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:f1f59eba64a16313e2dff129341ddd41e7881f6204f8beaf87564e442da4330a",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 174631,
+                "endByte": 175604,
+                "startLine": 4704,
+                "endLine": 4722,
+                "chunkSha256": "6b5ec6a9b3e2c0c195164b134399975f23a6b4e0b9e2e80d416a608892b2d78f",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:62c0aa7b284c6339306e16c0fcbb4725bb9340056edadfe0acbad9a6cb5384ee",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 175604,
+                "endByte": 176593,
+                "startLine": 4723,
+                "endLine": 4745,
+                "chunkSha256": "219da608eb1c21d2583982eb1fe48f4d7844512391fde999994cfa5868767b70",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:d24ad1b3f8a7d6da1777934be43b503b31f4ad9d6ee46848b077b2516b7356a2",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 176593,
+                "endByte": 177543,
+                "startLine": 4746,
+                "endLine": 4763,
+                "chunkSha256": "dbbfed572f109c1afceb933675fcce87a3eb441a48d4722469866ee325eff9eb",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:64b006def1258ca1f02638953b66a35f5062bc18a75e1baf39e46cba4d40f7d0",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 177543,
+                "endByte": 178534,
+                "startLine": 4764,
+                "endLine": 4786,
+                "chunkSha256": "e33dd771e5f29b0a54b18ac382ea03d1a924e23e6f80b4df1f97c1c85736a7f0",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:986f4d88cda53fe0ff00e2f5ca7316e452bb87c52bc3bcea2525a8875554f83e",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 178534,
+                "endByte": 179531,
+                "startLine": 4787,
+                "endLine": 4809,
+                "chunkSha256": "8a0189b00719793aba8a3f236d26d6630dd224d18d232cb3c37ddd8c20499663",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:503250d7e28d6f4a52d20151b1b0a0842c422e84abd7183b2af9934e6b4a67a9",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 179531,
+                "endByte": 180520,
+                "startLine": 4810,
+                "endLine": 4829,
+                "chunkSha256": "f91490f2e0a6485de01114ae1078ab7bc2c8f4da3b9ac262bf8adaf63dcffd92",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:1baea7afc5ed7496054daad5242a1bc0c9b7716e7869183c12820aba6130d4cc",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 180520,
+                "endByte": 180863,
+                "startLine": 4830,
+                "endLine": 4840,
+                "chunkSha256": "67e564f82a99f5fa5c373a2b00b1ee274d5e9465e18316c3715870377b967ad3",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:b107b0efce356b67c8211287e9dfbba4b800a9a2f19f27ca258ea6ee52080305",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 180863,
+                "endByte": 181844,
+                "startLine": 4841,
+                "endLine": 4861,
+                "chunkSha256": "6e838c59067a8ba69f5dbd41d091e0b4bbdf2f7cf04b3d2ec80c55ade55dec21",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:ccdfd2d7b601d99af3a010dbf866ecddd2a3d6ccbe1ad5cc1bb70776e515d82b",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 181844,
+                "endByte": 182802,
+                "startLine": 4862,
+                "endLine": 4887,
+                "chunkSha256": "f5d61f511c78b1ea905736776a068df850717b6c2480a30a7f8e0634776671a9",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:870172d0fd85d16d3dd7c9fa779a6ffc22a9df98fcf1c5cb9ad3488865a9552d",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 182802,
+                "endByte": 183786,
+                "startLine": 4888,
+                "endLine": 4920,
+                "chunkSha256": "1928309ef0b680eaf29c8a953da017b4ed41feb165b45a002af5070f4ecc96fa",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:9ed9e76b0c3ff2bbb3e14ebd556672330e97d2d5ee6f459f09eab1218915f8df",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 183786,
+                "endByte": 184686,
+                "startLine": 4921,
+                "endLine": 4939,
+                "chunkSha256": "c9b11afc76a51d62061648776864d29917e713a65c7b6130b77bbf46c49fe346",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:52fa770c612c9591ccc3050aa2bfc1200742681f00772f7e0a5d38b868f4e70b",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 184686,
+                "endByte": 185678,
+                "startLine": 4940,
+                "endLine": 4962,
+                "chunkSha256": "bc08c30e0605950f4dba5d931ab97287de6de4864616d10295bb593e04bbf0d4",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:ffea2796348bc59c67337aa8a947deb9098561facfd5186b658aa2fa89beff77",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/font.rs",
+                "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+                "startByte": 185678,
+                "endByte": 186428,
+                "startLine": 4963,
+                "endLine": 4984,
+                "chunkSha256": "e5018532490673bbdf7a567527d57c78b6d3058d37cf40032ee9436b64c5bdf5",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:e59867cea3a294d67781d3219e6d8da5522de38dd360da09c0842f1f70a5df52",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/tt/mod.rs",
+                "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                "startByte": 5664,
+                "endByte": 6053,
+                "startLine": 177,
+                "endLine": 186,
+                "chunkSha256": "d8087077a9deacdfec99c7f1b7c1a90111bd90648c1bc30931480e23f688fe41",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:abc02366649c4502d7de1a611a1d57adcc61cb16f6bdbcfb0a99042e949d1d7f",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/tt/mod.rs",
+                "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                "startByte": 4370,
+                "endByte": 5360,
+                "startLine": 141,
+                "endLine": 166,
+                "chunkSha256": "d51145116a3baf345e2b78250be64f90586b109bcb34c93a2d159822c40ab9c0",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:a99c8698b42a16d6dad4df73bed0f72fda4d38d6063afe437ac1664af4a719f8",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/tt/mod.rs",
+                "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                "startByte": 5360,
+                "endByte": 5575,
+                "startLine": 167,
+                "endLine": 174,
+                "chunkSha256": "6ea80a914e3f6637926cb9d0f7899298f8d8b6a6fe08de67b69c983517e50299",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:34a2c98be824baaeb078f249b8f12e253d2d2fae15c6f4d6e809250e12a50ca1",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/tt/mod.rs",
+                "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                "startByte": 2505,
+                "endByte": 3491,
+                "startLine": 91,
+                "endLine": 114,
+                "chunkSha256": "04abd42d348c00ff9112161841147bb218c2bcffea44f128c64831f40ee8398d",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:a7b33fd44801cd9dfd710a56c14798e6ce99067d3be44b3ceaf81104c311d44b",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/tt/mod.rs",
+                "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                "startByte": 3491,
+                "endByte": 4295,
+                "startLine": 115,
+                "endLine": 138,
+                "chunkSha256": "640c200b563a1e1d2096c54357fdfcf0d81722446e80a623f5a7824baf65a852",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:fc72ec42433b1464d500429d1dfc20e1e702c969fa85b3c2855957f3e603b8ef",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/tt/mod.rs",
+                "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                "startByte": 1533,
+                "endByte": 1874,
+                "startLine": 62,
+                "endLine": 71,
+                "chunkSha256": "8c00fb5373feb7a586431261e48df03d0b7a0d9292a3745771f735adcc18ed3b",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            },
+            {
+              "id": "evidence:96e988e13fb315e03767519230745c6bc683c8f22b8d7504806b4641b760b0f5",
+              "range": {
+                "snapshotId": "snap-1792140879637485000-11155-0",
+                "path": "src/tt/mod.rs",
+                "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+                "startByte": 1930,
+                "endByte": 2100,
+                "startLine": 74,
+                "endLine": 79,
+                "chunkSha256": "0f7fb08179e5b011dfbc5976e76da1f2e239a2731c4381059194a19c12b2747a",
+                "enclosing": null,
+                "parent": null,
+                "parser": null
+              }
+            }
+          ],
+          "contextClock": "capturedCodeSessionV1"
+        }
+      }
+    ],
+    "attempts": [
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"dispatch\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"Format dispatch and fallback behavior\",\"claims\":[{\"prose\":\"The memory_face method tests formats in order: the little-endian PCF version, the PFR0 prefix, WinFNT versions 0x0200 or 0x0300, a BDF keyword probe, the CID resource prefix, Type 42 SFNT data, and Type 1 cleartext; the first match is sent to its format constructor. It forwards the supplied face_index and size_pt to those constructors.\",\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"identifiers\":[\"memory_face\",\"PCF_FILE_VERSION\",\"pcf_face\",\"pfr_face\",\"winfnt_face\",\"bdf_text\",\"first_bdf_keyword\",\"is_bdf_probe_keyword\",\"cid_type1_face\",\"type42_sfnt_data\",\"type42_face\",\"type1_cleartext\",\"type1_face\",\"face_index\",\"size_pt\"],\"evidence\":[{\"referenceId\":\"evidence:b1e7b276c35ff4bece0bfcdc34964bf8e86b8ea859556cc166ff4f46583226a0\"},{\"referenceId\":\"evidence:1950d6ffac8c8f76ca39ca0ead996fc74e57ca901958f7dad62a2e0a767a796b\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"},{\"prose\":\"After those probes, memory_face returns InvalidFileFormat for an input of at least 17 bytes consisting entirely of bytes below ASCII space. Otherwise it tries truetype_face; if that fails and data is at least 118 bytes, winfnt_face gets a retry. A successful retry is returned, UnknownFileFormat is retained only for a WinFNT-shaped header, and other retry errors give way to the original TrueType error; inputs shorter than 118 bytes keep that original error.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"memory_face\",\"FontError::InvalidFileFormat\",\"truetype_face\",\"data\",\"winfnt_face\",\"FontError::UnknownFileFormat\",\"has_winfnt_header_shape\"],\"evidence\":[{\"referenceId\":\"evidence:1950d6ffac8c8f76ca39ca0ead996fc74e57ca901958f7dad62a2e0a767a796b\"},{\"referenceId\":\"evidence:feea96bd8d1110a12b5ff13baa1b0e59fe7ed1d1b6db77ed09c91aba9bb64e02\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"}],\"visual\":{\"kind\":\"dataFlow\",\"title\":\"Ordered format selection and final fallback\",\"direction\":\"leftToRight\",\"nodes\":[{\"label\":\"Input bytes\",\"detail\":\"Signature and probe checks\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"Matched format\",\"detail\":\"The first recognized format is constructed\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":1}]},{\"label\":\"Control-only stream\",\"detail\":\"Long all-control input returns a format error\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"TrueType attempt\",\"detail\":\"Final normal parse, then conditional WinFNT retry\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":1}]},{\"label\":\"Face or selected error\",\"detail\":\"Retry success or chosen failure is returned\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":1}]}],\"edges\":[{\"fromNodeIndex\":0,\"toNodeIndex\":1,\"label\":\"first matching probe\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"fromNodeIndex\":0,\"toNodeIndex\":2,\"label\":\"all controls and length at least 17\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"fromNodeIndex\":0,\"toNodeIndex\":3,\"label\":\"no earlier probe matches\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":1}]},{\"fromNodeIndex\":3,\"toNodeIndex\":4,\"label\":\"TrueType or retry result\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":1}]}]}}}",
+        "argumentsSha256": "eb7a84e6adeda2656f5ba81e8a1a313e0138e0472472ddf0deb97b2b6dbbf72d",
+        "proposalSha256": "e96d46cf30dade7a5902a19d53301de4ef03d236963bcbd64a8a2352eb90c585",
+        "findings": [
+          {
+            "location": "/section",
+            "code": "identifierAlignment"
+          }
+        ],
+        "generationId": null
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"dispatch\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"Format dispatch and fallback behavior\",\"claims\":[{\"prose\":\"The memory_face method checks PCF_FILE_VERSION and calls pcf_face first, then checks PFR0 and calls pfr_face; the next branch tests for WinFNT 0x0200 or 0x0300 and calls winfnt_face. It then probes BDF with bdf_text, first_bdf_keyword, and is_bdf_probe_keyword, checks the CID resource prefix for cid_type1_face, recognizes Type 42 through type42_sfnt_data before type42_face, and finally tries type1_cleartext before type1_face. Each selected constructor receives the supplied face_index and size_pt.\",\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"identifiers\":[\"memory_face\",\"PCF_FILE_VERSION\",\"pcf_face\",\"PFR0\",\"pfr_face\",\"winfnt_face\",\"bdf_text\",\"first_bdf_keyword\",\"is_bdf_probe_keyword\",\"cid_type1_face\",\"type42_sfnt_data\",\"type42_face\",\"type1_cleartext\",\"type1_face\",\"face_index\",\"size_pt\"],\"evidence\":[{\"referenceId\":\"evidence:b1e7b276c35ff4bece0bfcdc34964bf8e86b8ea859556cc166ff4f46583226a0\"},{\"referenceId\":\"evidence:1950d6ffac8c8f76ca39ca0ead996fc74e57ca901958f7dad62a2e0a767a796b\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"},{\"prose\":\"After the signature probes, memory_face returns FontError::InvalidFileFormat for data of at least 17 bytes when every byte is below ASCII space. Otherwise it tries truetype_face; when that fails and data is at least 118 bytes, winfnt_face gets a retry. A successful retry is returned, FontError::UnknownFileFormat is retained only when has_winfnt_header_shape is true, and every other retry error gives way to the original TrueType error; shorter inputs keep that original error.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"memory_face\",\"FontError::InvalidFileFormat\",\"truetype_face\",\"data\",\"winfnt_face\",\"FontError::UnknownFileFormat\",\"has_winfnt_header_shape\"],\"evidence\":[{\"referenceId\":\"evidence:b1e7b276c35ff4bece0bfcdc34964bf8e86b8ea859556cc166ff4f46583226a0\"},{\"referenceId\":\"evidence:1950d6ffac8c8f76ca39ca0ead996fc74e57ca901958f7dad62a2e0a767a796b\"},{\"referenceId\":\"evidence:feea96bd8d1110a12b5ff13baa1b0e59fe7ed1d1b6db77ed09c91aba9bb64e02\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"}],\"visual\":{\"kind\":\"dataFlow\",\"title\":\"Ordered format selection and final fallback\",\"direction\":\"leftToRight\",\"nodes\":[{\"label\":\"Input bytes\",\"detail\":\"Signature and probe checks\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"Matched format\",\"detail\":\"The first recognized format is constructed\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":1}]},{\"label\":\"Control-only stream\",\"detail\":\"Long all-control input returns a format error\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":2}]},{\"label\":\"TrueType attempt\",\"detail\":\"Final normal parse, then conditional WinFNT retry\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":2}]},{\"label\":\"Face or selected error\",\"detail\":\"Retry success or chosen failure is returned\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":2}]}],\"edges\":[{\"fromNodeIndex\":0,\"toNodeIndex\":1,\"label\":\"first matching probe\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":1}]},{\"fromNodeIndex\":0,\"toNodeIndex\":2,\"label\":\"all controls and length at least 17\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":2}]},{\"fromNodeIndex\":0,\"toNodeIndex\":3,\"label\":\"no earlier probe matches\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":2}]},{\"fromNodeIndex\":3,\"toNodeIndex\":4,\"label\":\"TrueType or retry result\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":2}]}]}}}",
+        "argumentsSha256": "049f924b65475b66724a5060b221de30df99cbfe996fcbd6e7660ff9f45134bf",
+        "proposalSha256": "33a5ea0835dd334e4d95b9cf8e2dadd6da1c84354f5b8ddbd17c6bcec26e8cb2",
+        "findings": [
+          {
+            "location": "/section",
+            "code": "identifierAlignment"
+          }
+        ],
+        "generationId": null
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"dispatch\",\"order\":0,\"previousGenerationId\":null,\"section\":{\"title\":\"How memory face selects a format\",\"claims\":[{\"prose\":\"memory_face dispatches in order: it recognizes the PCF version and calls pcf_face, then the PFR0 signature and pfr_face, then WinFNT version words and winfnt_face, then a BDF keyword probe, the CID resource prefix, Type 42 SFNT data, and Type 1 cleartext. The corresponding later constructors are cid_type1_face, type42_face, and type1_face; the first matching branch returns its constructor result, with face_index and size_pt passed through.\",\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"identifiers\":[\"memory_face\",\"pcf_face\",\"pfr_face\",\"winfnt_face\",\"cid_type1_face\",\"type42_face\",\"type1_face\"],\"evidence\":[{\"referenceId\":\"evidence:b1e7b276c35ff4bece0bfcdc34964bf8e86b8ea859556cc166ff4f46583226a0\"},{\"referenceId\":\"evidence:1950d6ffac8c8f76ca39ca0ead996fc74e57ca901958f7dad62a2e0a767a796b\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"}],\"visual\":{\"kind\":\"dataFlow\",\"title\":\"Ordered format dispatch\",\"direction\":\"leftToRight\",\"nodes\":[{\"label\":\"Bytes\",\"detail\":\"Format signature probes run in source order\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]},{\"label\":\"First matching constructor\",\"detail\":\"Constructor result is returned\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":1}]}],\"edges\":[{\"fromNodeIndex\":0,\"toNodeIndex\":1,\"label\":\"first matching branch\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":0}]}]}}}",
+        "argumentsSha256": "13eed3b0c05530a99f60baa42d8e244caf5d525651d344052f7be3856c868968",
+        "proposalSha256": "9bff259501274e029065f5f0a4d8cc93553a1ce6b3d4d2f9848602eafdbe23e3",
+        "findings": [],
+        "generationId": "generation:6ead17af-a583-4f80-9b72-9a12e258b81a"
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"input-and-face-index\",\"order\":1,\"previousGenerationId\":null,\"section\":{\"title\":\"Input validation and face-index failures\",\"claims\":[{\"prose\":\"On the SFNT path, face_index is split: collection_face_index uses its low 16 bits to select a collection face, while named_instance uses bits 16 through 30. resolve_face_index rejects a collection index outside the face-offset list with InvalidFont; a nonzero named_instance is also rejected with InvalidFont if fvar is unavailable or exceeds instance_count.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"face_index\",\"collection_face_index\",\"named_instance\",\"resolve_face_index\",\"InvalidFont\",\"instance_count\"],\"evidence\":[{\"referenceId\":\"evidence:65e1f7b880e8fe6cab42d21b7c0d95b84fe9cce27cbafc469f4dd3feac02ad8b\"},{\"referenceId\":\"evidence:455c6b054463107dcba7f07c212495050ac1d20613fb2ced5e78916c69c7e196\"},{\"referenceId\":\"evidence:e59867cea3a294d67781d3219e6d8da5522de38dd360da09c0842f1f70a5df52\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"},{\"prose\":\"If no earlier format probe matches, memory_face returns InvalidFileFormat for a stream at least 17 bytes long whose bytes are all below ASCII space. Other inputs reach truetype_face; if it fails on at least 118 bytes, winfnt_face is tried, with its UnknownFileFormat retained only when has_winfnt_header_shape is true. A successful retry wins, other retry failures preserve the original TrueType error, and shorter inputs keep that original error.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"memory_face\",\"InvalidFileFormat\",\"truetype_face\",\"winfnt_face\",\"UnknownFileFormat\",\"has_winfnt_header_shape\"],\"evidence\":[{\"referenceId\":\"evidence:b1e7b276c35ff4bece0bfcdc34964bf8e86b8ea859556cc166ff4f46583226a0\"},{\"referenceId\":\"evidence:1950d6ffac8c8f76ca39ca0ead996fc74e57ca901958f7dad62a2e0a767a796b\"},{\"referenceId\":\"evidence:feea96bd8d1110a12b5ff13baa1b0e59fe7ed1d1b6db77ed09c91aba9bb64e02\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"},{\"prose\":\"Malformed SFNT framing fails before table loading: face_offsets requires a four-byte header, a TTC header of at least 12 bytes, and a complete four-byte offset per face; a non-TTC must pass parse_table_directory. parse_table_directory_at then requires a 12-byte offset table, TrueType or OTTO magic, at least one table, and complete 16-byte records. These checks return InvalidFont except a zero-table directory, which returns SfntZeroTablesStreamOperation.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"face_offsets\",\"parse_table_directory\",\"parse_table_directory_at\",\"InvalidFont\",\"SfntZeroTablesStreamOperation\"],\"evidence\":[{\"referenceId\":\"evidence:abc02366649c4502d7de1a611a1d57adcc61cb16f6bdbcfb0a99042e949d1d7f\"},{\"referenceId\":\"evidence:a99c8698b42a16d6dad4df73bed0f72fda4d38d6063afe437ac1664af4a719f8\"},{\"referenceId\":\"evidence:34a2c98be824baaeb078f249b8f12e253d2d2fae15c6f4d6e809250e12a50ca1\"},{\"referenceId\":\"evidence:a7b33fd44801cd9dfd710a56c14798e6ce99067d3be44b3ceaf81104c311d44b\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"}],\"visual\":{\"kind\":\"sequence\",\"title\":\"SFNT input, index, and failure branches\",\"direction\":\"topToBottom\",\"nodes\":[{\"label\":\"Probe result\",\"detail\":\"Recognized specialized format or final SFNT path\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"SFNT framing\",\"detail\":\"Validate signature, directory, and collection offsets\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]},{\"label\":\"Face selector\",\"detail\":\"Resolve collection index and optional named instance\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":1}]},{\"label\":\"Face or error\",\"detail\":\"Usable face on success; preserved or generated error otherwise\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":1}]}],\"edges\":[{\"fromNodeIndex\":0,\"toNodeIndex\":1,\"label\":\"no earlier probe matches\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":2}]},{\"fromNodeIndex\":1,\"toNodeIndex\":2,\"label\":\"framing and offsets resolve\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":2}]},{\"fromNodeIndex\":2,\"toNodeIndex\":3,\"label\":\"index validation and table loading\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":1}]}]}}}",
+        "argumentsSha256": "2e16b547d07ee2b1e1c8a1f06320f5ebf2477d1b13ab7060061eb90bdaf66404",
+        "proposalSha256": "4214d30b6d03798c0de409bcbdd9840bda22f2fa11212cad62d5a8248daa1a5e",
+        "findings": [
+          {
+            "location": "/section",
+            "code": "identifierAlignment"
+          }
+        ],
+        "generationId": null
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"input-and-face-index\",\"order\":1,\"previousGenerationId\":null,\"section\":{\"title\":\"Input validation and face-index failures\",\"claims\":[{\"prose\":\"On the SFNT path, face_index is split: collection_face_index uses its low 16 bits to select a collection face, while named_instance uses bits 16 through 30. resolve_face_index rejects a collection index outside the face-offset list with InvalidFont; a nonzero named_instance is also rejected with InvalidFont if fvar is unavailable or exceeds instance_count.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"face_index\",\"collection_face_index\",\"named_instance\",\"resolve_face_index\",\"InvalidFont\",\"instance_count\"],\"evidence\":[{\"referenceId\":\"evidence:65e1f7b880e8fe6cab42d21b7c0d95b84fe9cce27cbafc469f4dd3feac02ad8b\"},{\"referenceId\":\"evidence:455c6b054463107dcba7f07c212495050ac1d20613fb2ced5e78916c69c7e196\"},{\"referenceId\":\"evidence:e59867cea3a294d67781d3219e6d8da5522de38dd360da09c0842f1f70a5df52\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"},{\"prose\":\"If no earlier format probe matches, memory_face returns InvalidFileFormat for a stream at least 17 bytes long whose bytes are all below ASCII space. Other inputs reach truetype_face; if it fails on at least 118 bytes, winfnt_face is tried, with its UnknownFileFormat retained only when has_winfnt_header_shape is true. A successful retry wins, other retry failures preserve the original TrueType error, and shorter inputs keep that original error.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"memory_face\",\"InvalidFileFormat\",\"truetype_face\",\"winfnt_face\",\"UnknownFileFormat\",\"has_winfnt_header_shape\"],\"evidence\":[{\"referenceId\":\"evidence:b1e7b276c35ff4bece0bfcdc34964bf8e86b8ea859556cc166ff4f46583226a0\"},{\"referenceId\":\"evidence:1950d6ffac8c8f76ca39ca0ead996fc74e57ca901958f7dad62a2e0a767a796b\"},{\"referenceId\":\"evidence:feea96bd8d1110a12b5ff13baa1b0e59fe7ed1d1b6db77ed09c91aba9bb64e02\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"},{\"prose\":\"Malformed SFNT framing fails before table loading: face_offsets requires a four-byte header, a TTC header of at least 12 bytes, and a complete four-byte offset per face; an offset array that cannot fit returns ArrayTooLarge. A non-TTC must pass parse_table_directory. parse_table_directory_at then requires a 12-byte offset table, TrueType or OTTO magic, at least one table, and complete 16-byte records. These checks return InvalidFont except a zero-table directory, which returns SfntZeroTablesStreamOperation.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"face_offsets\",\"parse_table_directory\",\"parse_table_directory_at\",\"InvalidFont\",\"SfntZeroTablesStreamOperation\",\"ArrayTooLarge\"],\"evidence\":[{\"referenceId\":\"evidence:abc02366649c4502d7de1a611a1d57adcc61cb16f6bdbcfb0a99042e949d1d7f\"},{\"referenceId\":\"evidence:a99c8698b42a16d6dad4df73bed0f72fda4d38d6063afe437ac1664af4a719f8\"},{\"referenceId\":\"evidence:34a2c98be824baaeb078f249b8f12e253d2d2fae15c6f4d6e809250e12a50ca1\"},{\"referenceId\":\"evidence:a7b33fd44801cd9dfd710a56c14798e6ce99067d3be44b3ceaf81104c311d44b\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"}],\"visual\":{\"kind\":\"sequence\",\"title\":\"SFNT input, index, and failure branches\",\"direction\":\"topToBottom\",\"nodes\":[{\"label\":\"Probe result\",\"detail\":\"Recognized specialized format or final SFNT path\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"SFNT framing\",\"detail\":\"Validate signature, directory, and collection offsets\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":0}]},{\"label\":\"Face selector\",\"detail\":\"Resolve collection index and optional named instance\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":1}]},{\"label\":\"Face or error\",\"detail\":\"Usable face on success; preserved or generated error otherwise\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":1}]}],\"edges\":[{\"fromNodeIndex\":0,\"toNodeIndex\":1,\"label\":\"no earlier probe matches\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":2}]},{\"fromNodeIndex\":1,\"toNodeIndex\":2,\"label\":\"framing and offsets resolve\",\"evidence\":[{\"claimIndex\":2,\"evidenceIndex\":2}]},{\"fromNodeIndex\":2,\"toNodeIndex\":3,\"label\":\"index validation and table loading\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":1}]}]}}}",
+        "argumentsSha256": "3b790e9dae454b5f16e0175fbe9ddb6c664556a0ac5e0ea718b711f67136bcbf",
+        "proposalSha256": "1f332b180be4447dd09681e64857fd8e04879fc4c22a6835f9b094d946db396d",
+        "findings": [],
+        "generationId": "generation:a559c032-0358-4ea9-9300-d5e35bde71b5"
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"sfnt-table-behavior\",\"order\":2,\"previousGenerationId\":null,\"section\":{\"title\":\"Required tables, parse failures, and face construction\",\"claims\":[{\"prose\":\"The required entries are head, maxp, cmap, hhea, and hmtx: their absence triggers InvalidFont, including an invalid maxp offset, while malformed head and hhea contents propagate parse_head and parse_hhea failures. In contrast, malformed maxp, cmap, and hmtx contents become defaults through parse_maxp, parse_cmap, and parse_hmtx; a bad cmap therefore permits face construction with an empty public charmap list.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"head\",\"maxp\",\"cmap\",\"hhea\",\"hmtx\",\"InvalidFont\",\"parse_head\",\"parse_hhea\",\"parse_maxp\",\"parse_cmap\",\"parse_hmtx\"],\"evidence\":[{\"referenceId\":\"evidence:455c6b054463107dcba7f07c212495050ac1d20613fb2ced5e78916c69c7e196\"},{\"referenceId\":\"evidence:f1f59eba64a16313e2dff129341ddd41e7881f6204f8beaf87564e442da4330a\"},{\"referenceId\":\"evidence:62c0aa7b284c6339306e16c0fcbb4725bb9340056edadfe0acbad9a6cb5384ee\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"},{\"prose\":\"The directory find method returns a byte slice only when a matching record's offset and end fit inside data. Thus an absent tag and an out-of-file record both become None and make required lookups fail as missing-table InvalidFont; bounded bytes instead reach the table-specific parser, whose error may propagate, default, or fall back.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"find\",\"data\",\"InvalidFont\"],\"evidence\":[{\"referenceId\":\"evidence:fc72ec42433b1464d500429d1dfc20e1e702c969fa85b3c2855957f3e603b8ef\"},{\"referenceId\":\"evidence:455c6b054463107dcba7f07c212495050ac1d20613fb2ced5e78916c69c7e196\"},{\"referenceId\":\"evidence:f1f59eba64a16313e2dff129341ddd41e7881f6204f8beaf87564e442da4330a\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"},{\"prose\":\"Optional tables have distinct policies: missing or malformed name data falls back to Unknown and Regular through parse_name; missing vhea is tolerated, but malformed vhea propagates through parse_vhea, while bad vmtx data defaults through parse_vmtx. A malformed gvar is retained as gvar_error rather than aborting face creation, and malformed cvt data is ignored by parse_cvt.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"name\",\"parse_name\",\"vhea\",\"parse_vhea\",\"vmtx\",\"parse_vmtx\",\"gvar_error\",\"parse_gvar\",\"cvt\",\"parse_cvt\"],\"evidence\":[{\"referenceId\":\"evidence:62c0aa7b284c6339306e16c0fcbb4725bb9340056edadfe0acbad9a6cb5384ee\"},{\"referenceId\":\"evidence:64b006def1258ca1f02638953b66a35f5062bc18a75e1baf39e46cba4d40f7d0\"},{\"referenceId\":\"evidence:986f4d88cda53fe0ff00e2f5ca7316e452bb87c52bc3bcea2525a8875554f83e\"},{\"referenceId\":\"evidence:ccdfd2d7b601d99af3a010dbf866ecddd2a3d6ccbe1ad5cc1bb70776e515d82b\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"},{\"prose\":\"After table handling, font_data is assembled as FontData with the raw bytes, face offset, face index, directory, and parsed tables. The constructor derives FaceGlobals and SizeMetrics, selects a Unicode entry through default_unicode_charmap_index when one exists, and returns Font with the SFNT face kind and chosen names, metrics, and selected_charmap.\",\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"identifiers\":[\"font_data\",\"FontData\",\"FaceGlobals\",\"SizeMetrics\",\"default_unicode_charmap_index\",\"Font\",\"selected_charmap\"],\"evidence\":[{\"referenceId\":\"evidence:ccdfd2d7b601d99af3a010dbf866ecddd2a3d6ccbe1ad5cc1bb70776e515d82b\"},{\"referenceId\":\"evidence:870172d0fd85d16d3dd7c9fa779a6ffc22a9df98fcf1c5cb9ad3488865a9552d\"},{\"referenceId\":\"evidence:52fa770c612c9591ccc3050aa2bfc1200742681f00772f7e0a5d38b868f4e70b\"},{\"referenceId\":\"evidence:ffea2796348bc59c67337aa8a947deb9098561facfd5186b658aa2fa89beff77\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"}],\"visual\":{\"kind\":\"dataFlow\",\"title\":\"SFNT tables to a returned face\",\"direction\":\"leftToRight\",\"nodes\":[{\"label\":\"Directory lookup\",\"detail\":\"Missing entries fail; bounded entries are parsed\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"Required and optional table policies\",\"detail\":\"Parser errors propagate, default, or fall back\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":1},{\"claimIndex\":2,\"evidenceIndex\":1}]},{\"label\":\"FontData\",\"detail\":\"Raw input and resolved tables are assembled\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":0}]},{\"label\":\"Derived face state\",\"detail\":\"Globals, metrics, and Unicode charmap selection\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":2}]},{\"label\":\"Returned Font\",\"detail\":\"SFNT face is constructed\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":3}]}],\"edges\":[{\"fromNodeIndex\":0,\"toNodeIndex\":1,\"label\":\"table slice or missing lookup\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"fromNodeIndex\":1,\"toNodeIndex\":2,\"label\":\"surviving table state\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":0}]},{\"fromNodeIndex\":2,\"toNodeIndex\":3,\"label\":\"derive metrics and globals\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":2}]},{\"fromNodeIndex\":3,\"toNodeIndex\":4,\"label\":\"complete face fields\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":3}]}]}}}",
+        "argumentsSha256": "e64f7c4c1304be250fc7bd83268cbd635b423cb06b40662a3525387c2ed26683",
+        "proposalSha256": "07ce2a905e93279efc2d9b67f8980af7c8376d64c01f8ea8f26c65f6a8404c67",
+        "findings": [
+          {
+            "location": "/section",
+            "code": "identifierAlignment"
+          }
+        ],
+        "generationId": null
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"sfnt-table-behavior\",\"order\":2,\"previousGenerationId\":null,\"section\":{\"title\":\"Required tables, parse failures, and face construction\",\"claims\":[{\"prose\":\"The required entries are head, maxp, cmap, hhea, and hmtx: their absence triggers InvalidFont, including an invalid maxp offset, while malformed head and hhea contents propagate parse_head and parse_hhea failures. In contrast, malformed maxp, cmap, and hmtx contents become defaults through parse_maxp, parse_cmap, and parse_hmtx; a bad cmap therefore permits face construction with an empty public charmap list.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"head\",\"maxp\",\"cmap\",\"hhea\",\"hmtx\",\"InvalidFont\",\"parse_head\",\"parse_hhea\",\"parse_maxp\",\"parse_cmap\",\"parse_hmtx\"],\"evidence\":[{\"referenceId\":\"evidence:455c6b054463107dcba7f07c212495050ac1d20613fb2ced5e78916c69c7e196\"},{\"referenceId\":\"evidence:f1f59eba64a16313e2dff129341ddd41e7881f6204f8beaf87564e442da4330a\"},{\"referenceId\":\"evidence:62c0aa7b284c6339306e16c0fcbb4725bb9340056edadfe0acbad9a6cb5384ee\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"},{\"prose\":\"The directory find method returns a byte slice only when a matching record's offset and end fit inside data. Thus an absent tag and an out-of-file record both become None and make required lookups fail as missing-table InvalidFont; bounded bytes instead reach the table-specific parser, whose error may propagate, default, or fall back.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"find\",\"data\",\"InvalidFont\"],\"evidence\":[{\"referenceId\":\"evidence:fc72ec42433b1464d500429d1dfc20e1e702c969fa85b3c2855957f3e603b8ef\"},{\"referenceId\":\"evidence:455c6b054463107dcba7f07c212495050ac1d20613fb2ced5e78916c69c7e196\"},{\"referenceId\":\"evidence:f1f59eba64a16313e2dff129341ddd41e7881f6204f8beaf87564e442da4330a\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"},{\"prose\":\"Optional tables have distinct policies: missing or malformed name data falls back to Unknown and Regular through parse_name; missing vhea is tolerated, but malformed vhea propagates through parse_vhea, while bad vmtx data defaults through parse_vmtx. A malformed gvar parse error is retained as gvar_error rather than aborting face creation, and malformed cvt data is ignored by parse_cvt.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"name\",\"parse_name\",\"vhea\",\"parse_vhea\",\"vmtx\",\"parse_vmtx\",\"gvar_error\",\"parse_gvar\",\"error\",\"cvt\",\"parse_cvt\"],\"evidence\":[{\"referenceId\":\"evidence:62c0aa7b284c6339306e16c0fcbb4725bb9340056edadfe0acbad9a6cb5384ee\"},{\"referenceId\":\"evidence:64b006def1258ca1f02638953b66a35f5062bc18a75e1baf39e46cba4d40f7d0\"},{\"referenceId\":\"evidence:986f4d88cda53fe0ff00e2f5ca7316e452bb87c52bc3bcea2525a8875554f83e\"},{\"referenceId\":\"evidence:ccdfd2d7b601d99af3a010dbf866ecddd2a3d6ccbe1ad5cc1bb70776e515d82b\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"},{\"prose\":\"After table handling, font_data is assembled as FontData with the raw bytes, face offset, face index, directory, and parsed tables. The constructor derives FaceGlobals and SizeMetrics, selects a Unicode entry through default_unicode_charmap_index when one exists, and returns Font with the SFNT face kind marked FaceKind::Sfnt and the chosen names, metrics, and selected_charmap.\",\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"identifiers\":[\"font_data\",\"FontData\",\"FaceGlobals\",\"SizeMetrics\",\"default_unicode_charmap_index\",\"Font\",\"selected_charmap\",\"FaceKind\"],\"evidence\":[{\"referenceId\":\"evidence:ccdfd2d7b601d99af3a010dbf866ecddd2a3d6ccbe1ad5cc1bb70776e515d82b\"},{\"referenceId\":\"evidence:870172d0fd85d16d3dd7c9fa779a6ffc22a9df98fcf1c5cb9ad3488865a9552d\"},{\"referenceId\":\"evidence:52fa770c612c9591ccc3050aa2bfc1200742681f00772f7e0a5d38b868f4e70b\"},{\"referenceId\":\"evidence:ffea2796348bc59c67337aa8a947deb9098561facfd5186b658aa2fa89beff77\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"}],\"visual\":{\"kind\":\"dataFlow\",\"title\":\"SFNT tables to a returned face\",\"direction\":\"leftToRight\",\"nodes\":[{\"label\":\"Directory lookup\",\"detail\":\"Missing entries fail; bounded entries are parsed\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"Required and optional table policies\",\"detail\":\"Parser errors propagate, default, or fall back\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":1},{\"claimIndex\":2,\"evidenceIndex\":1}]},{\"label\":\"FontData\",\"detail\":\"Raw input and resolved tables are assembled\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":0}]},{\"label\":\"Derived face state\",\"detail\":\"Globals, metrics, and Unicode charmap selection\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":2}]},{\"label\":\"Returned Font\",\"detail\":\"SFNT face is constructed\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":3}]}],\"edges\":[{\"fromNodeIndex\":0,\"toNodeIndex\":1,\"label\":\"table slice or missing lookup\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"fromNodeIndex\":1,\"toNodeIndex\":2,\"label\":\"surviving table state\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":0}]},{\"fromNodeIndex\":2,\"toNodeIndex\":3,\"label\":\"derive metrics and globals\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":2}]},{\"fromNodeIndex\":3,\"toNodeIndex\":4,\"label\":\"complete face fields\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":3}]}]}}}",
+        "argumentsSha256": "4b4b0c950c57a1ff2a26120f1718e8fd20aa96bd20b3b9b98332838e5011bdb7",
+        "proposalSha256": "ffb25b7441b0bde0151b1fb09de3b94e1a304f24c21e52aa1a6ae27e2418bc15",
+        "findings": [
+          {
+            "location": "/section",
+            "code": "identifierAlignment"
+          }
+        ],
+        "generationId": null
+      },
+      {
+        "arguments": "{\"proposalVersion\":\"answerSectionV1\",\"sectionKey\":\"sfnt-table-behavior\",\"order\":2,\"previousGenerationId\":null,\"section\":{\"title\":\"Required tables, parse failures, and face construction\",\"claims\":[{\"prose\":\"The required entries are head, maxp, cmap, hhea, and hmtx: their absence triggers InvalidFont, including an invalid maxp offset, while malformed head and hhea contents propagate parser failures. In contrast, malformed maxp, cmap, and hmtx contents become defaults; a bad cmap therefore permits face construction with an empty public charmap list.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"head\",\"maxp\",\"cmap\",\"hhea\",\"hmtx\",\"InvalidFont\",\"parse_head\",\"parse_maxp\"],\"evidence\":[{\"referenceId\":\"evidence:455c6b054463107dcba7f07c212495050ac1d20613fb2ced5e78916c69c7e196\"},{\"referenceId\":\"evidence:f1f59eba64a16313e2dff129341ddd41e7881f6204f8beaf87564e442da4330a\"},{\"referenceId\":\"evidence:62c0aa7b284c6339306e16c0fcbb4725bb9340056edadfe0acbad9a6cb5384ee\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"},{\"prose\":\"The directory find method returns a byte slice only when a matching record's offset and end fit inside data. Thus an absent tag and an out-of-file record both become None and make required lookups fail as missing-table InvalidFont; bounded bytes instead reach the table-specific parser, whose error may propagate, default, or fall back.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"find\",\"data\",\"InvalidFont\"],\"evidence\":[{\"referenceId\":\"evidence:fc72ec42433b1464d500429d1dfc20e1e702c969fa85b3c2855957f3e603b8ef\"},{\"referenceId\":\"evidence:455c6b054463107dcba7f07c212495050ac1d20613fb2ced5e78916c69c7e196\"},{\"referenceId\":\"evidence:f1f59eba64a16313e2dff129341ddd41e7881f6204f8beaf87564e442da4330a\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"},{\"prose\":\"Optional tables have distinct policies: missing or malformed name data falls back to Unknown and Regular; missing vhea is tolerated, but malformed vhea propagates, while bad vmtx data defaults. A malformed gvar parse error is retained as gvar_error rather than aborting face creation, and malformed cvt data is ignored.\",\"category\":\"codeBehavior\",\"aspect\":\"failurePath\",\"identifiers\":[\"name\",\"vhea\",\"parse_vhea\",\"vmtx\",\"parse_vmtx\",\"gvar_error\",\"cvt\",\"error\"],\"evidence\":[{\"referenceId\":\"evidence:62c0aa7b284c6339306e16c0fcbb4725bb9340056edadfe0acbad9a6cb5384ee\"},{\"referenceId\":\"evidence:64b006def1258ca1f02638953b66a35f5062bc18a75e1baf39e46cba4d40f7d0\"},{\"referenceId\":\"evidence:986f4d88cda53fe0ff00e2f5ca7316e452bb87c52bc3bcea2525a8875554f83e\"},{\"referenceId\":\"evidence:ccdfd2d7b601d99af3a010dbf866ecddd2a3d6ccbe1ad5cc1bb70776e515d82b\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"},{\"prose\":\"After table handling, font_data is assembled as FontData with the raw bytes, face offset, face index, directory, and parsed tables. The constructor derives FaceGlobals and SizeMetrics, selects a Unicode entry through default_unicode_charmap_index when one exists, and returns Font with the SFNT face kind marked FaceKind::Sfnt and the chosen names, metrics, and selected_charmap.\",\"category\":\"codeBehavior\",\"aspect\":\"execution\",\"identifiers\":[\"font_data\",\"FontData\",\"FaceGlobals\",\"SizeMetrics\",\"default_unicode_charmap_index\",\"Font\",\"selected_charmap\",\"FaceKind\"],\"evidence\":[{\"referenceId\":\"evidence:ccdfd2d7b601d99af3a010dbf866ecddd2a3d6ccbe1ad5cc1bb70776e515d82b\"},{\"referenceId\":\"evidence:870172d0fd85d16d3dd7c9fa779a6ffc22a9df98fcf1c5cb9ad3488865a9552d\"},{\"referenceId\":\"evidence:52fa770c612c9591ccc3050aa2bfc1200742681f00772f7e0a5d38b868f4e70b\"},{\"referenceId\":\"evidence:ffea2796348bc59c67337aa8a947deb9098561facfd5186b658aa2fa89beff77\"}],\"relationshipIds\":[],\"inferenceBasis\":\"\"}],\"visual\":{\"kind\":\"dataFlow\",\"title\":\"SFNT tables to a returned face\",\"direction\":\"leftToRight\",\"nodes\":[{\"label\":\"Directory lookup\",\"detail\":\"Missing entries fail; bounded entries are parsed\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"label\":\"Required and optional table policies\",\"detail\":\"Parser errors propagate, default, or fall back\",\"evidence\":[{\"claimIndex\":0,\"evidenceIndex\":1},{\"claimIndex\":2,\"evidenceIndex\":1}]},{\"label\":\"FontData\",\"detail\":\"Raw input and resolved tables are assembled\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":0}]},{\"label\":\"Derived face state\",\"detail\":\"Globals, metrics, and Unicode charmap selection\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":2}]},{\"label\":\"Returned Font\",\"detail\":\"SFNT face is constructed\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":3}]}],\"edges\":[{\"fromNodeIndex\":0,\"toNodeIndex\":1,\"label\":\"table slice or missing lookup\",\"evidence\":[{\"claimIndex\":1,\"evidenceIndex\":0}]},{\"fromNodeIndex\":1,\"toNodeIndex\":2,\"label\":\"surviving table state\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":0}]},{\"fromNodeIndex\":2,\"toNodeIndex\":3,\"label\":\"derive metrics and globals\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":2}]},{\"fromNodeIndex\":3,\"toNodeIndex\":4,\"label\":\"complete face fields\",\"evidence\":[{\"claimIndex\":3,\"evidenceIndex\":3}]}]}}}",
+        "argumentsSha256": "695967f9f327494080eedd0593ab3712186450c6514b524fb51721396f9fe09e",
+        "proposalSha256": "ed0f9a990f8139ba52ea63550377809990814348b186ff42de6355e81c6da71d",
+        "findings": [
+          {
+            "location": "/section",
+            "code": "identifierAlignment"
+          }
+        ],
+        "generationId": null
+      }
+    ],
+    "finalResponses": [
+      {
+        "text": "{\"manifestVersion\":\"answerManifestV1\",\"sections\":[{\"sectionKey\":\"dispatch\",\"generationId\":\"generation:6ead17af-a583-4f80-9b72-9a12e258b81a\"},{\"sectionKey\":\"input-and-face-index\",\"generationId\":\"generation:a559c032-0358-4ea9-9300-d5e35bde71b5\"}],\"incompleteTopics\":[\"Required versus optional SFNT table handling, including malformed-content policies and error propagation\",\"How parsed tables and derived state become the returned Font face\"]}",
+        "sha256": "461a935b4f495f228ed790584fb238395fb7ad47161a85ab5c3a11da4fb28fc2"
+      }
+    ],
+    "incompleteTopics": [
+      "Required versus optional SFNT table handling, including malformed-content policies and error propagation",
+      "How parsed tables and derived state become the returned Font face"
+    ]
+  },
+  "ledger": {
+    "schemaVersion": 3,
+    "policy": "atlas-captured-ranges-v1-files12-source250000",
+    "binding": {
+      "operationId": "de1d0d41-db5c-4984-8685-c03b1e0a45ce",
+      "projectId": "/Users/lazytrot/work/fontdone",
+      "snapshotId": "snap-1792140879637485000-11155-0",
+      "manifestSha256": "25f5e44bfdd1dab6b31310f7307f165a9171a8b9fc55256ef599e9c8196ad3a2",
+      "grantId": "f956dbe2-fb2e-43d2-b70a-d2c9b882523b",
+      "runtime": {
+        "connectionId": "29190d89-40ef-468b-bc39-6ce995733811",
+        "executablePath": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex",
+        "executableSha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+        "accountIdentitySha256": "e8edfe9ae011b41f4c9ee88d89c1b5b95eedf20a068725e82f68e70a9e3f5900",
+        "accountRevision": 1
+      },
+      "model": "gpt-6-luna",
+      "effort": "max"
+    },
+    "startedAtUnixMs": 1792227893112,
+    "status": "complete",
+    "calls": [
+      {
+        "id": "afbec0de-067b-459b-b4af-3006b7d2ebae",
+        "tool": "definitions",
+        "argumentsSha256": "711faee91bf7ef228148b951d8ad4986ae5a051049f27d6e3a518bfd2ff21428",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1661,
+        "wireBytes": 1661,
+        "payloadSha256": "046c9ac3072011ad4432ba7a51bf9eb56a0368d94ec32ba24268b10b1535256d",
+        "timing": {
+          "startedMs": 7315,
+          "preparedMs": 7377,
+          "finishedMs": 7595
+        }
+      },
+      {
+        "id": "d1299017-2dc7-4af2-97f1-9ea5e495be7f",
+        "tool": "read",
+        "argumentsSha256": "75858092792d59456f890f0fd5552bc5fbdf67a0a65b98fd6b1a818c88ef52fb",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:1950d6ffac8c8f76ca39ca0ead996fc74e57ca901958f7dad62a2e0a767a796b",
+          "evidence:b1e7b276c35ff4bece0bfcdc34964bf8e86b8ea859556cc166ff4f46583226a0",
+          "evidence:feea96bd8d1110a12b5ff13baa1b0e59fe7ed1d1b6db77ed09c91aba9bb64e02"
+        ],
+        "sourceBytes": 2897,
+        "metadataBytes": 1807,
+        "wireBytes": 4772,
+        "payloadSha256": "c668f80559318a3aa7fdebc7d0c4394e4cca28be0dae91f21febffdcd8000e43",
+        "timing": {
+          "startedMs": 10705,
+          "preparedMs": 10963,
+          "finishedMs": 11197
+        }
+      },
+      {
+        "id": "34dfdf50-0203-455c-b550-90d83b4e0e30",
+        "tool": "proposeSection",
+        "argumentsSha256": "eb7a84e6adeda2656f5ba81e8a1a313e0138e0472472ddf0deb97b2b6dbbf72d",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 522,
+        "wireBytes": 522,
+        "payloadSha256": "7b7aa0cdacb96bf52c0597568917c333c50adb1899374e6263beeb114009ceb7",
+        "timing": {
+          "startedMs": 30684,
+          "preparedMs": 31490,
+          "finishedMs": 31707
+        }
+      },
+      {
+        "id": "7fbd968e-4d08-4305-b4ab-675344f74c2c",
+        "tool": "proposeSection",
+        "argumentsSha256": "049f924b65475b66724a5060b221de30df99cbfe996fcbd6e7660ff9f45134bf",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 522,
+        "wireBytes": 522,
+        "payloadSha256": "669e4db82cffa49a2d1c536cdfe6db4232013ea3d6f42951c13cdcdf3e93a2c9",
+        "timing": {
+          "startedMs": 46245,
+          "preparedMs": 47083,
+          "finishedMs": 47309
+        }
+      },
+      {
+        "id": "1f4d8aff-7367-4f93-ba2a-6b07aea31f77",
+        "tool": "proposeSection",
+        "argumentsSha256": "13eed3b0c05530a99f60baa42d8e244caf5d525651d344052f7be3856c868968",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 515,
+        "wireBytes": 515,
+        "payloadSha256": "433b44efaa55a9558086088de4bb8de626557e397fb13ca89991a806a8eb046f",
+        "timing": {
+          "startedMs": 69270,
+          "preparedMs": 71208,
+          "finishedMs": 71558
+        }
+      },
+      {
+        "id": "290b6c82-3e8c-43f0-aeea-7b8123a01004",
+        "tool": "definitions",
+        "argumentsSha256": "7f497bf607bb1a534d25f784854def5ec181096daf8fe448d6a69b6c27f9331f",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 3687,
+        "wireBytes": 3687,
+        "payloadSha256": "8baaec730ec1ba9fd1154f9778ff6be2e708d43fdae5389e109efd4edb46fcfd",
+        "timing": {
+          "startedMs": 75962,
+          "preparedMs": 76113,
+          "finishedMs": 76379
+        }
+      },
+      {
+        "id": "05b1d550-c128-43fc-8d7c-3e3713f39f08",
+        "tool": "read",
+        "argumentsSha256": "06a21bf8ffeb45b911c586f86aade81fa8341407ee5993867ebeb82850f732c9",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:8ea75ae47844c4daac0473b93051851c72e26dfb06969e5fa974727b7404724a"
+        ],
+        "sourceBytes": 190,
+        "metadataBytes": 871,
+        "wireBytes": 1063,
+        "payloadSha256": "3c183f594f78b3b9263bb2cdb63fcad60257a301c42df227f23668f0ad6c4627",
+        "timing": {
+          "startedMs": 78804,
+          "preparedMs": 78970,
+          "finishedMs": 79205
+        }
+      },
+      {
+        "id": "af204d56-8942-4dee-af09-301b50303bd2",
+        "tool": "read",
+        "argumentsSha256": "dd84d68b4ad10958990e489fde3830c99259ca1852e8167c6bcf0ebe9efe90ff",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:1baea7afc5ed7496054daad5242a1bc0c9b7716e7869183c12820aba6130d4cc",
+          "evidence:455c6b054463107dcba7f07c212495050ac1d20613fb2ced5e78916c69c7e196",
+          "evidence:503250d7e28d6f4a52d20151b1b0a0842c422e84abd7183b2af9934e6b4a67a9",
+          "evidence:62c0aa7b284c6339306e16c0fcbb4725bb9340056edadfe0acbad9a6cb5384ee",
+          "evidence:64b006def1258ca1f02638953b66a35f5062bc18a75e1baf39e46cba4d40f7d0",
+          "evidence:65e1f7b880e8fe6cab42d21b7c0d95b84fe9cce27cbafc469f4dd3feac02ad8b",
+          "evidence:986f4d88cda53fe0ff00e2f5ca7316e452bb87c52bc3bcea2525a8875554f83e",
+          "evidence:d24ad1b3f8a7d6da1777934be43b503b31f4ad9d6ee46848b077b2516b7356a2",
+          "evidence:f1f59eba64a16313e2dff129341ddd41e7881f6204f8beaf87564e442da4330a"
+        ],
+        "sourceBytes": 8192,
+        "metadataBytes": 4615,
+        "wireBytes": 13050,
+        "payloadSha256": "ac6706c5639377355799a3c8661691908a010aacbeb5c8a64420aed07526fde2",
+        "timing": {
+          "startedMs": 82218,
+          "preparedMs": 82779,
+          "finishedMs": 82997
+        }
+      },
+      {
+        "id": "e895cbdb-484b-4eef-aed4-17cc4bc21069",
+        "tool": "read",
+        "argumentsSha256": "c2f5f89983d08224036b2ffb74a00a1520cc0e5cb5e2b6ac989df68073ee6877",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:52fa770c612c9591ccc3050aa2bfc1200742681f00772f7e0a5d38b868f4e70b",
+          "evidence:870172d0fd85d16d3dd7c9fa779a6ffc22a9df98fcf1c5cb9ad3488865a9552d",
+          "evidence:9ed9e76b0c3ff2bbb3e14ebd556672330e97d2d5ee6f459f09eab1218915f8df",
+          "evidence:b107b0efce356b67c8211287e9dfbba4b800a9a2f19f27ca258ea6ee52080305",
+          "evidence:ccdfd2d7b601d99af3a010dbf866ecddd2a3d6ccbe1ad5cc1bb70776e515d82b",
+          "evidence:ffea2796348bc59c67337aa8a947deb9098561facfd5186b658aa2fa89beff77"
+        ],
+        "sourceBytes": 5565,
+        "metadataBytes": 3211,
+        "wireBytes": 8933,
+        "payloadSha256": "e7a2634d16cd0e53fb6f213a7b4b8804b60fa13de689491666cbea7c53fa8173",
+        "timing": {
+          "startedMs": 86645,
+          "preparedMs": 87079,
+          "finishedMs": 87315
+        }
+      },
+      {
+        "id": "1ae5f5fe-4485-4035-b45d-68195df35445",
+        "tool": "definitions",
+        "argumentsSha256": "e4b9bb01291ee81a594f1e9deb4d348242267e5f7ffc5688c93bf9f087b47909",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1659,
+        "wireBytes": 1659,
+        "payloadSha256": "d02355625f5235ad5683c2535ca5df51eed63614da75a4198e8d508e6a888a79",
+        "timing": {
+          "startedMs": 91125,
+          "preparedMs": 91181,
+          "finishedMs": 91400
+        }
+      },
+      {
+        "id": "b2e0a885-df65-425c-a2a9-dc743c203b3d",
+        "tool": "read",
+        "argumentsSha256": "0a09ab55384da3974c56e6add0dfee879b612bb41737690a3046feb38c3e899c",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:e59867cea3a294d67781d3219e6d8da5522de38dd360da09c0842f1f70a5df52"
+        ],
+        "sourceBytes": 389,
+        "metadataBytes": 867,
+        "wireBytes": 1267,
+        "payloadSha256": "a6e80c45284113f0ddccadebd4fc002822b77ca6124576ce1ed1a467d70a015f",
+        "timing": {
+          "startedMs": 93448,
+          "preparedMs": 93589,
+          "finishedMs": 93810
+        }
+      },
+      {
+        "id": "2d8018cd-e996-4a51-810b-e733ee95daa4",
+        "tool": "definitions",
+        "argumentsSha256": "78733639c14fc42b0d747471959b65a7c69bae6b9f21b038a8d0a711ce8a2bcf",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1640,
+        "wireBytes": 1640,
+        "payloadSha256": "58ee29471cb35250484782c10a5623fee99f376de0e4dd4b82b391cb91299f49",
+        "timing": {
+          "startedMs": 96513,
+          "preparedMs": 96571,
+          "finishedMs": 96842
+        }
+      },
+      {
+        "id": "bcc14253-5872-49b5-80b9-68dc161dc960",
+        "tool": "read",
+        "argumentsSha256": "2607beeee4615ea6b80d8074bfc02bcfbf6299b918399bef3a2116b7df04cd0b",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:a99c8698b42a16d6dad4df73bed0f72fda4d38d6063afe437ac1664af4a719f8",
+          "evidence:abc02366649c4502d7de1a611a1d57adcc61cb16f6bdbcfb0a99042e949d1d7f"
+        ],
+        "sourceBytes": 1205,
+        "metadataBytes": 1331,
+        "wireBytes": 2575,
+        "payloadSha256": "b4f5822618e51a1f7ae3fea5138fd746f103d58e0576562aa09f29a4e8cc9d83",
+        "timing": {
+          "startedMs": 99117,
+          "preparedMs": 99328,
+          "finishedMs": 99571
+        }
+      },
+      {
+        "id": "5d4361b4-9f80-4ddc-ab35-43f6b1552096",
+        "tool": "definitions",
+        "argumentsSha256": "9fed0470faf6c51526e7bca7440eb4322aac7aebd8f6e0615aeecd03f4adbafd",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 1682,
+        "wireBytes": 1682,
+        "payloadSha256": "b497af9eccf6aaa54e1d5c97bfe31a77cee9930d65037e968ca3b58544d3ecd7",
+        "timing": {
+          "startedMs": 102201,
+          "preparedMs": 102258,
+          "finishedMs": 102508
+        }
+      },
+      {
+        "id": "8047e4ca-c07b-47ef-9940-609a035d0ddd",
+        "tool": "read",
+        "argumentsSha256": "24d3c7fb1c338550d040afea28d18c4fd8f941437d71ad306f935bf54520ea0a",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:34a2c98be824baaeb078f249b8f12e253d2d2fae15c6f4d6e809250e12a50ca1",
+          "evidence:a7b33fd44801cd9dfd710a56c14798e6ce99067d3be44b3ceaf81104c311d44b"
+        ],
+        "sourceBytes": 1790,
+        "metadataBytes": 1330,
+        "wireBytes": 3175,
+        "payloadSha256": "74a39ad3bf85f6e3a049671831029abf1d6d479f69572cd7a15c71fdef7f0dfb",
+        "timing": {
+          "startedMs": 105227,
+          "preparedMs": 105442,
+          "finishedMs": 105686
+        }
+      },
+      {
+        "id": "2b02106d-05c6-4e5c-8ad3-39485979ef36",
+        "tool": "definitions",
+        "argumentsSha256": "0827911f67b5e857338dd153956e3569e65f4159f9dd9bec55f387eb57a9bdd7",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 3422,
+        "wireBytes": 3422,
+        "payloadSha256": "d13a7800042144d6c6a16b013f482c46806a7cf8ccf2145e228dc97267c2c475",
+        "timing": {
+          "startedMs": 108058,
+          "preparedMs": 108112,
+          "finishedMs": 108338
+        }
+      },
+      {
+        "id": "b9f02b1a-b913-4240-803b-49288c625143",
+        "tool": "read",
+        "argumentsSha256": "e9ff0b8dcd544520a834ad93f42e123cb30f272e3c6502e92532d8df69dcc2ab",
+        "state": "delivered",
+        "evidenceIds": [
+          "evidence:96e988e13fb315e03767519230745c6bc683c8f22b8d7504806b4641b760b0f5",
+          "evidence:fc72ec42433b1464d500429d1dfc20e1e702c969fa85b3c2855957f3e603b8ef"
+        ],
+        "sourceBytes": 511,
+        "metadataBytes": 1327,
+        "wireBytes": 1852,
+        "payloadSha256": "7c9ae90499fa8541bb8429f24df6bbffa4ac3f0457bc581872ecaf6bda162089",
+        "timing": {
+          "startedMs": 112360,
+          "preparedMs": 112598,
+          "finishedMs": 112821
+        }
+      },
+      {
+        "id": "95ca51c1-1afa-41ec-853b-5212388e0af4",
+        "tool": "proposeSection",
+        "argumentsSha256": "2e16b547d07ee2b1e1c8a1f06320f5ebf2477d1b13ab7060061eb90bdaf66404",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 522,
+        "wireBytes": 522,
+        "payloadSha256": "382d52f0b6d32a208da7604c780a318ff00151c0ad7b83abfb7f5dcb39eed1f5",
+        "timing": {
+          "startedMs": 144082,
+          "preparedMs": 146074,
+          "finishedMs": 146295
+        }
+      },
+      {
+        "id": "d634cc35-044b-4f71-bffb-266515579549",
+        "tool": "proposeSection",
+        "argumentsSha256": "3b790e9dae454b5f16e0175fbe9ddb6c664556a0ac5e0ea718b711f67136bcbf",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 515,
+        "wireBytes": 515,
+        "payloadSha256": "6eb4bca95e2ab60092edf60d0d268c33dc943ca2dd750092cb35f60c7f7a870e",
+        "timing": {
+          "startedMs": 163043,
+          "preparedMs": 166227,
+          "finishedMs": 166458
+        }
+      },
+      {
+        "id": "c6d54037-0298-44a4-bf6f-7956c3c65e0e",
+        "tool": "proposeSection",
+        "argumentsSha256": "e64f7c4c1304be250fc7bd83268cbd635b423cb06b40662a3525387c2ed26683",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 522,
+        "wireBytes": 522,
+        "payloadSha256": "1498c4bf8ef3e347c4a23bfe7ccf28c68944a80c0b7bcbfc54e51df6f7538960",
+        "timing": {
+          "startedMs": 206022,
+          "preparedMs": 208292,
+          "finishedMs": 208528
+        }
+      },
+      {
+        "id": "668a2ae3-5839-420f-a60c-ff22c83af5b8",
+        "tool": "proposeSection",
+        "argumentsSha256": "4b4b0c950c57a1ff2a26120f1718e8fd20aa96bd20b3b9b98332838e5011bdb7",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 522,
+        "wireBytes": 522,
+        "payloadSha256": "51089afa76db0decb5fe3a96e31962a4724511825270487dc478079d4f458872",
+        "timing": {
+          "startedMs": 230193,
+          "preparedMs": 232515,
+          "finishedMs": 232771
+        }
+      },
+      {
+        "id": "962fe7ed-5eec-438b-9b58-35127c872c57",
+        "tool": "proposeSection",
+        "argumentsSha256": "695967f9f327494080eedd0593ab3712186450c6514b524fb51721396f9fe09e",
+        "state": "delivered",
+        "evidenceIds": [],
+        "sourceBytes": 0,
+        "metadataBytes": 522,
+        "wireBytes": 522,
+        "payloadSha256": "4a89db7924ee2ab7e75988c68646ccb6823115bb2a43c9a08138d6f91a52cb88",
+        "timing": {
+          "startedMs": 260387,
+          "preparedMs": 263046,
+          "finishedMs": 263307
+        }
+      }
+    ],
+    "evidence": [
+      {
+        "id": "evidence:b1e7b276c35ff4bece0bfcdc34964bf8e86b8ea859556cc166ff4f46583226a0",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 147769,
+          "endByte": 148750,
+          "startLine": 4053,
+          "endLine": 4078,
+          "chunkSha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:1950d6ffac8c8f76ca39ca0ead996fc74e57ca901958f7dad62a2e0a767a796b",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 148750,
+          "endByte": 149723,
+          "startLine": 4079,
+          "endLine": 4096,
+          "chunkSha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:feea96bd8d1110a12b5ff13baa1b0e59fe7ed1d1b6db77ed09c91aba9bb64e02",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 149723,
+          "endByte": 150666,
+          "startLine": 4097,
+          "endLine": 4115,
+          "chunkSha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:8ea75ae47844c4daac0473b93051851c72e26dfb06969e5fa974727b7404724a",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 158045,
+          "endByte": 158235,
+          "startLine": 4300,
+          "endLine": 4302,
+          "chunkSha256": "cba0e764912fd61201fde99dd36fe565353fd46b4dfa0c7c277a84d37a49e038",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:65e1f7b880e8fe6cab42d21b7c0d95b84fe9cce27cbafc469f4dd3feac02ad8b",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 172671,
+          "endByte": 173662,
+          "startLine": 4660,
+          "endLine": 4680,
+          "chunkSha256": "c51363000fadbf6974e4a9694d2711b3b2681cdbfa80618a981bc9e0d09eed9a",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:455c6b054463107dcba7f07c212495050ac1d20613fb2ced5e78916c69c7e196",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 173662,
+          "endByte": 174631,
+          "startLine": 4681,
+          "endLine": 4703,
+          "chunkSha256": "79b358a9a95aa6464f600468127c534cc928eba95818595a616e8b58f707d97b",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:f1f59eba64a16313e2dff129341ddd41e7881f6204f8beaf87564e442da4330a",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 174631,
+          "endByte": 175604,
+          "startLine": 4704,
+          "endLine": 4722,
+          "chunkSha256": "6b5ec6a9b3e2c0c195164b134399975f23a6b4e0b9e2e80d416a608892b2d78f",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:62c0aa7b284c6339306e16c0fcbb4725bb9340056edadfe0acbad9a6cb5384ee",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 175604,
+          "endByte": 176593,
+          "startLine": 4723,
+          "endLine": 4745,
+          "chunkSha256": "219da608eb1c21d2583982eb1fe48f4d7844512391fde999994cfa5868767b70",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:d24ad1b3f8a7d6da1777934be43b503b31f4ad9d6ee46848b077b2516b7356a2",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 176593,
+          "endByte": 177543,
+          "startLine": 4746,
+          "endLine": 4763,
+          "chunkSha256": "dbbfed572f109c1afceb933675fcce87a3eb441a48d4722469866ee325eff9eb",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:64b006def1258ca1f02638953b66a35f5062bc18a75e1baf39e46cba4d40f7d0",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 177543,
+          "endByte": 178534,
+          "startLine": 4764,
+          "endLine": 4786,
+          "chunkSha256": "e33dd771e5f29b0a54b18ac382ea03d1a924e23e6f80b4df1f97c1c85736a7f0",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:986f4d88cda53fe0ff00e2f5ca7316e452bb87c52bc3bcea2525a8875554f83e",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 178534,
+          "endByte": 179531,
+          "startLine": 4787,
+          "endLine": 4809,
+          "chunkSha256": "8a0189b00719793aba8a3f236d26d6630dd224d18d232cb3c37ddd8c20499663",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:503250d7e28d6f4a52d20151b1b0a0842c422e84abd7183b2af9934e6b4a67a9",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 179531,
+          "endByte": 180520,
+          "startLine": 4810,
+          "endLine": 4829,
+          "chunkSha256": "f91490f2e0a6485de01114ae1078ab7bc2c8f4da3b9ac262bf8adaf63dcffd92",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:1baea7afc5ed7496054daad5242a1bc0c9b7716e7869183c12820aba6130d4cc",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 180520,
+          "endByte": 180863,
+          "startLine": 4830,
+          "endLine": 4840,
+          "chunkSha256": "67e564f82a99f5fa5c373a2b00b1ee274d5e9465e18316c3715870377b967ad3",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:b107b0efce356b67c8211287e9dfbba4b800a9a2f19f27ca258ea6ee52080305",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 180863,
+          "endByte": 181844,
+          "startLine": 4841,
+          "endLine": 4861,
+          "chunkSha256": "6e838c59067a8ba69f5dbd41d091e0b4bbdf2f7cf04b3d2ec80c55ade55dec21",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:ccdfd2d7b601d99af3a010dbf866ecddd2a3d6ccbe1ad5cc1bb70776e515d82b",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 181844,
+          "endByte": 182802,
+          "startLine": 4862,
+          "endLine": 4887,
+          "chunkSha256": "f5d61f511c78b1ea905736776a068df850717b6c2480a30a7f8e0634776671a9",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:870172d0fd85d16d3dd7c9fa779a6ffc22a9df98fcf1c5cb9ad3488865a9552d",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 182802,
+          "endByte": 183786,
+          "startLine": 4888,
+          "endLine": 4920,
+          "chunkSha256": "1928309ef0b680eaf29c8a953da017b4ed41feb165b45a002af5070f4ecc96fa",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:9ed9e76b0c3ff2bbb3e14ebd556672330e97d2d5ee6f459f09eab1218915f8df",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 183786,
+          "endByte": 184686,
+          "startLine": 4921,
+          "endLine": 4939,
+          "chunkSha256": "c9b11afc76a51d62061648776864d29917e713a65c7b6130b77bbf46c49fe346",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:52fa770c612c9591ccc3050aa2bfc1200742681f00772f7e0a5d38b868f4e70b",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 184686,
+          "endByte": 185678,
+          "startLine": 4940,
+          "endLine": 4962,
+          "chunkSha256": "bc08c30e0605950f4dba5d931ab97287de6de4864616d10295bb593e04bbf0d4",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:ffea2796348bc59c67337aa8a947deb9098561facfd5186b658aa2fa89beff77",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/font.rs",
+          "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+          "startByte": 185678,
+          "endByte": 186428,
+          "startLine": 4963,
+          "endLine": 4984,
+          "chunkSha256": "e5018532490673bbdf7a567527d57c78b6d3058d37cf40032ee9436b64c5bdf5",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:e59867cea3a294d67781d3219e6d8da5522de38dd360da09c0842f1f70a5df52",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tt/mod.rs",
+          "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+          "startByte": 5664,
+          "endByte": 6053,
+          "startLine": 177,
+          "endLine": 186,
+          "chunkSha256": "d8087077a9deacdfec99c7f1b7c1a90111bd90648c1bc30931480e23f688fe41",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:abc02366649c4502d7de1a611a1d57adcc61cb16f6bdbcfb0a99042e949d1d7f",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tt/mod.rs",
+          "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+          "startByte": 4370,
+          "endByte": 5360,
+          "startLine": 141,
+          "endLine": 166,
+          "chunkSha256": "d51145116a3baf345e2b78250be64f90586b109bcb34c93a2d159822c40ab9c0",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:a99c8698b42a16d6dad4df73bed0f72fda4d38d6063afe437ac1664af4a719f8",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tt/mod.rs",
+          "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+          "startByte": 5360,
+          "endByte": 5575,
+          "startLine": 167,
+          "endLine": 174,
+          "chunkSha256": "6ea80a914e3f6637926cb9d0f7899298f8d8b6a6fe08de67b69c983517e50299",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:34a2c98be824baaeb078f249b8f12e253d2d2fae15c6f4d6e809250e12a50ca1",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tt/mod.rs",
+          "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+          "startByte": 2505,
+          "endByte": 3491,
+          "startLine": 91,
+          "endLine": 114,
+          "chunkSha256": "04abd42d348c00ff9112161841147bb218c2bcffea44f128c64831f40ee8398d",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:a7b33fd44801cd9dfd710a56c14798e6ce99067d3be44b3ceaf81104c311d44b",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tt/mod.rs",
+          "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+          "startByte": 3491,
+          "endByte": 4295,
+          "startLine": 115,
+          "endLine": 138,
+          "chunkSha256": "640c200b563a1e1d2096c54357fdfcf0d81722446e80a623f5a7824baf65a852",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:fc72ec42433b1464d500429d1dfc20e1e702c969fa85b3c2855957f3e603b8ef",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tt/mod.rs",
+          "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+          "startByte": 1533,
+          "endByte": 1874,
+          "startLine": 62,
+          "endLine": 71,
+          "chunkSha256": "8c00fb5373feb7a586431261e48df03d0b7a0d9292a3745771f735adcc18ed3b",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      },
+      {
+        "id": "evidence:96e988e13fb315e03767519230745c6bc683c8f22b8d7504806b4641b760b0f5",
+        "range": {
+          "snapshotId": "snap-1792140879637485000-11155-0",
+          "path": "src/tt/mod.rs",
+          "sourceSha256": "2fffdb6423f280b745a191a0d4df6ce9de1025a1d69fea7be282937b45ecdf05",
+          "startByte": 1930,
+          "endByte": 2100,
+          "startLine": 74,
+          "endLine": 79,
+          "chunkSha256": "0f7fb08179e5b011dfbc5976e76da1f2e239a2731c4381059194a19c12b2747a",
+          "enclosing": null,
+          "parent": null,
+          "parser": null
+        }
+      }
+    ],
+    "contextClock": "capturedCodeSessionV1"
+  },
+  "qualityFindings": [
+    "The dispatch claim says the first matching branch returns its constructor result, but BDF can return parse_bdf_constructor_error without calling bdf_face; the cited code contains this exception.",
+    "The dispatch diagram has two nodes and one edge, so it does not teach the ordered format branches.",
+    "The first section narration retains raw underscored function names; the second omits most validation and fallback sentences. No pronunciation/audio pass.",
+    "Required-table missing-versus-malformed behavior and returned-face construction remain explicitly incomplete."
+  ]
+}
