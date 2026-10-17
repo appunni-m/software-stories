@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { cancelCodexChapterRequest, getSnapshotIndexProgress, listChapterRevisions, loadSnapshotIndex, saveGeneratedChapterDraft, startSnapshotIndexing, type ChapterDraftPreview, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
-import { addTurn, learningQuestion, parseWorkspace, type Context, type Turn, type View, type WorkspaceState } from './model';
+import { addTurn, cleanAnswerNotes, learningQuestion, parseWorkspace, type Context, type Turn, type View, type WorkspaceState } from './model';
 
 const indexLoads = new Map<string, Promise<SnapshotIndex>>();
 /** One local index build per snapshot, shared by reading and questions. No model call. */
@@ -107,7 +107,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
       ...selection,
     } });
     check(); job.runId = null;
-    patchTurn(project,snapshot,id,{ generationId:preview.generationId });
+    patchTurn(project,snapshot,id,{ generationId:preview.generationId, notes:cleanAnswerNotes(preview.updateNotes) });
     let revision: ChapterRevision;
     try { revision = await saveGeneratedChapterDraft(preview.generationId); }
     catch (failure) {

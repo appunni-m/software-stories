@@ -33,7 +33,11 @@ Fontdone's broad explanation was manually stopped at 606 seconds without a valid
 
 ## Evidence
 
-Research and contracts only. This task narrows the existing timing checkbox in parent Kata `nw1h`; the parent retains durable scheduling, progressive section publication, restart and the broader cancellation matrix.
+The dated probes below record local identity costs, coarse generation phases and owned-tool counters. They do not implement or qualify the complete versioned stage trace required above. This task remains open and narrows the timing checkbox in parent Kata `nw1h`; the parent retains durable scheduling, progressive section publication, restart and the broader cancellation matrix.
+
+## Broad answer latency after retrieval feedback — 17 October
+
+The [fifth broad attempt](../acceptance/artifacts/2026-10-17-fontdone-agent-broad-budget-identifier.json) delivered 58 calls and 94,809 source bytes across nine implementation paths. First observed agent-message delta progress arrived at 484.557 seconds; validation started at 528.769 seconds and rejected a declared identifier missing from claim prose. Native execution ended at 529.629 seconds; the whole test took 531.81 seconds. No preview was published and no limit notice was needed. The two-minute first useful answer target fails; no semantic or speed pass follows from improved code coverage. Do not attribute all of this time to context size, search or model reasoning without the missing stage/event measurements. This is one failed sample, not a latency distribution.
 
 ## First local cost measurement — 17 October
 

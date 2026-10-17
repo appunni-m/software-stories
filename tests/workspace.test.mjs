@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addTurn, ancestors, chapterTarget, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
+import { addTurn, ancestors, chapterTarget, cleanAnswerNotes, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
 const turn = (id,question='Explain the subtotal implementation') => ({id,question,context:[{path:'src/cart.ts',from:1,to:6}],status:'queued'});
 test('follow-ups stack at the current level; only explicit exploration creates a branch',()=>{
   let s=createWorkspace('p','snap');s=addTurn(s,turn('one'),'guide');s=addTurn(s,turn('two'),'flow');
@@ -23,6 +23,15 @@ test('reopening restores history and last view, and never resubmits interrupted 
   assert.equal(restored.explorations[0].view,'flow');assert.equal(restored.explorations[0].turns[0].status,'interrupted');
   assert.equal(restored.explorations[0].turns.length,1);
   assert.equal(parseWorkspace(JSON.stringify(s),'other','snap').explorations[0].turns.length,0);
+});
+test('partial-answer scope notes survive reopening with bounded plain text',()=>{
+  let s=createWorkspace('p','snap');s=addTurn(s,{...turn('one'),status:'ready',notes:[' This explanation covers inspected paths. ','This explanation covers inspected paths.',null,'bad\ntext','x'.repeat(1001)]},'guide');
+  const restored=parseWorkspace(JSON.stringify(s),'p','snap');
+  assert.deepEqual(restored.explorations[0].turns[0].notes,['This explanation covers inspected paths.']);
+  assert.deepEqual(cleanAnswerNotes('invalid'),[]);
+  assert.equal(cleanAnswerNotes(Array.from({length:20},(_,i)=>`Note ${i}`)).length,8);
+  delete s.explorations[0].turns[0].notes;
+  assert.deepEqual(parseWorkspace(JSON.stringify(s),'p','snap').explorations[0].turns[0].notes,[]);
 });
 test('damaged, cyclic or path-traversing saved UI state falls back safely',()=>{
   const s=createWorkspace('p','snap');s.explorations.push({id:'a',parentId:'a',originTurnId:null,title:'bad',turns:[],view:'guide'});

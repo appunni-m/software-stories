@@ -422,12 +422,24 @@ impl Session {
         match kind {
             Tool::Search => {
                 let args: Search = parse(request.arguments)?;
+                let query_scope = scope(args.scope.as_deref());
+                if query_scope.is_some_and(|p| !context::safe_path(p)) {
+                    return Err("Search within a captured file or folder.".into());
+                }
+                if context::validate_search(&args.query, query_scope, args.limit.clamp(1, 32))
+                    .is_err()
+                {
+                    return self.ledger.deliver(token, Context::SearchError {
+                        code: "invalidQuery",
+                        message: "No code or search results were returned. Use 2–240 printable characters with one to 32 searchable terms. Code punctuation is literal. Prefer a code identifier or a short phrase and narrow the captured scope when needed.",
+                    }, &[], &fresh, &self.runtime, cancelled, send);
+                }
                 let input = repository_context_commands::SearchInput {
                     request_id: Uuid::new_v4().to_string(),
                     project_id: fresh.summary.project_id.clone(),
                     snapshot_id: fresh.summary.snapshot_id.clone(),
                     query: args.query,
-                    path: scope(args.scope.as_deref()).map(str::to_owned),
+                    path: query_scope.map(str::to_owned),
                     limit: args.limit.clamp(1, 32),
                 };
                 let result = repository_context_commands::search_snapshot(

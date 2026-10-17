@@ -225,6 +225,76 @@ fn excessive_agent_page_size_is_bounded_instead_of_aborting() {
     s.check_complete().unwrap();
 }
 #[test]
+fn invalid_query_returns_bounded_feedback_and_can_be_corrected() {
+    let f = Fixture::new();
+    let mut s = session(&f);
+    for query in [
+        "x".to_owned(),
+        "\nprivate query".to_owned(),
+        "x".repeat(241),
+        "{}".to_owned(),
+        (0..33)
+            .map(|i| format!("term{i}"))
+            .collect::<Vec<_>>()
+            .join(" "),
+    ] {
+        let (_, text) = exchange(
+            &mut s,
+            "search_code",
+            json!({"query":query,"scope":null,"limit":4}),
+        );
+        let result: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(result["context"]["kind"], "searchError");
+        assert_eq!(result["context"]["result"]["code"], "invalidQuery");
+        assert!(result["added"].as_array().unwrap().is_empty());
+        assert!(!text.contains("private query"));
+        assert!(text.len() < 1536);
+        assert!(s.ledger.admitted_ranges().is_empty());
+    }
+    let (_, text) = exchange(
+        &mut s,
+        "search_code",
+        json!({"query":"greeting(","scope":null,"limit":4}),
+    );
+    let result: Value = serde_json::from_str(&text).unwrap();
+    assert!(
+        !result["context"]["result"]["matches"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    s.check_complete().unwrap();
+}
+
+#[test]
+fn unsafe_scope_is_not_a_correctable_query_error() {
+    let f = Fixture::new();
+    let mut s = session(&f);
+    let args = json!({"query":"x","scope":"../private","limit":4});
+    s.event(&event("unsafe", "search_code", &args), false)
+        .unwrap();
+    let mut stream = UnixStream::connect(s.directory.join("context.sock")).unwrap();
+    mcp::write_packet(
+        &mut stream,
+        &serde_json::to_vec(&mcp::Request {
+            token: s.token.clone(),
+            name: "search_code".into(),
+            arguments: args,
+        })
+        .unwrap(),
+        mcp::MAX_INPUT,
+    )
+    .unwrap();
+    assert!(
+        s.poll(&Arc::new(AtomicBool::new(false)), || Ok(()))
+            .unwrap_err()
+            .contains("captured file or folder")
+    );
+    assert!(s.ledger.admitted_ranges().is_empty());
+    assert!(s.check_complete().is_err());
+}
+
+#[test]
 fn code_punctuation_in_search_is_literal_instead_of_a_regex() {
     let f = Fixture::new();
     let mut s = session(&f);

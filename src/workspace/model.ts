@@ -6,6 +6,7 @@ export interface Turn {
   id: string; question: string; context: Context[];
   status: 'queued' | 'working' | 'ready' | 'failed' | 'stopped' | 'interrupted';
   revisionId?: string; generationId?: string; error?: string;
+  notes?: string[];
   reading?: Partial<Record<'guide' | 'flow', ReadingPosition>>;
 }
 export interface Exploration { id: string; parentId: string | null; originTurnId: string | null; title: string; view: View; turns: Turn[]; file?: string; reveal?: Context; scrollTop?: number; scrollPositions?: Partial<Record<View, number>> }
@@ -38,6 +39,7 @@ export function parseWorkspace(raw: string | null, projectId: string, snapshotId
           || !['queued','working','ready','failed','stopped','interrupted'].includes(t.status)
           || t.context.some((c) => typeof c.path !== 'string' || c.path.startsWith('/') || c.path.split('/').includes('..'))) return fallback();
         const reading = t.reading;
+        t.notes = cleanAnswerNotes(t.notes);
         t.reading = {};
         if (reading && typeof reading === 'object' && !Array.isArray(reading)) {
           for (const view of ['guide', 'flow'] as const) {
@@ -52,6 +54,14 @@ export function parseWorkspace(raw: string | null, projectId: string, snapshotId
     }
     return value;
   } catch { return fallback(); }
+}
+
+/** Keep partial-answer scope visible after navigation and restart. */
+export function cleanAnswerNotes(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((note): note is string => typeof note === 'string'
+    && note.trim().length > 0 && note.length <= 1_000 && !/[\u0000-\u001f\u007f]/.test(note))
+    .map((note) => note.trim()))].slice(0, 8);
 }
 
 function cleanReadingPosition(value: unknown): ReadingPosition | undefined {

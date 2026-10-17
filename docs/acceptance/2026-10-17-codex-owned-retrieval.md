@@ -12,8 +12,8 @@ The native evidence ledger binds the snapshot/account/runtime grant and records 
 
 | Check | Observed outcome |
 | --- | --- |
-| Full native suite | Latest run: 266 passed in 22.47 seconds, 10 explicit probes ignored; zero failures. |
-| Frontend suite | Latest reading-position checkpoint: 141 passed; zero failures. |
+| Full native suite | Final budget/query/narration checkpoint: 277 passed in 22.01 seconds, 10 explicit probes ignored; zero failures. |
+| Frontend suite | 142 passed; zero failures. Includes bounded scope-note restoration. |
 | Frontend production build | Passed; existing large-bundle warning remains. |
 | Debug application build | Passed before the read-error feedback refinement; the standard stdio bridge was exercised by the live test below. A newly packaged UI has not been qualified. |
 | First synthetic live attempt | Failed after 94.29 seconds when an agent read requested an invalid hash or UTF-8 range. It exposed no source for that read. |
@@ -104,3 +104,23 @@ Narration is insufficient: it retained only “They are distinct stored fields, 
 A headless probe of that packaged executable completed standard MCP initialization and `tools/list`, verified exactly the five read-only tools, and confirmed that a tool request without its owning operation returns an error without source evidence. The helper exited with code zero after stdin closed. [Catalog probe and executable identity](artifacts/2026-10-17-packaged-context-helper.json). This probe used no repository data, model account or inference. Computer use still reported a locked Mac, so the installed app was not replaced and packaged parent generation, source navigation, saved reading position, permission UI and playback remain unqualified.
 
 A subsequent test-only refinement gives the symlink digest regression a valid, nonempty target so empty-file rejection cannot mask accidental following of that link. The complete native suite again passed: 266 tests, ten explicit probes ignored, zero failures, 22.47 seconds. This changes no packaged production logic.
+
+## Budget feedback and supported narration
+
+The native ledger now reports conservative remaining resource capacity after every result, including the result's own encoded cost and a reserve for subsequent feedback. Near a boundary it asks the agent to finish. A result exceeding a source/file/fragment/metadata/payload/per-result bound, or the final admitted call, returns only a charged limit notice. It admits no new context or source. The agent can finish from earlier delivered evidence; hard call/deadline, grant, runtime and exact citation checks still apply. An uncertain notice write terminates the operation without retry. Limits are unchanged.
+
+Invalid query text now returns bounded correction guidance through the same ledger. Unsafe scope, changed identity and storage failures remain terminal. Deterministic coverage includes real 240,000-byte source admission followed by source-limit feedback, file/fragment/per-result/call limits, injected counter boundaries, invalid-query correction, unknown scope and uncertain notice delivery. Record inspection rejects impossible source/metadata/payload counters and still reads old records without a limit field. Injected counters are explicitly not live delivery evidence.
+
+Workspace instructions now explain that presentation is built from anchored claim sentences, and request plain-language restatements of the same main behavior. Narration keeps behavior claims in order before peripheral context; a code-only behavior remains present if no plain restatement exists. Regressions verify both cases and retain independent content/anchor checks and inference labels. This does not prove natural Pocket speech, semantic completeness or a human quality pass.
+
+The first complete native regression run passed **277 tests**, with ten explicit probes ignored, in **25.56 seconds**. Its log is `/private/tmp/code-atlas-budget-narration-native.log`. The preserved packaged helper has the unchanged transport protocol, but predates these native-owner changes; it does not establish an updated packaged-parent gate. The following deliberate Fontdone check uses the new native owner with that helper, the existing account and GPT-6 Luna/max, without a concurrent build or automatic inference retry.
+
+## Broad investigation with budget feedback: identifier failure
+
+The fifth deliberate broad run reached nine implementation paths, including `src/api.rs`, `src/font.rs`, `src/tables.rs`, `src/scaler.rs`, `src/tt/glyf.rs`, `src/tt/hinter/mod.rs` and `src/render.rs`, plus the JavaScript and Rust WASM adapters. It delivered **58 calls**, **94,809 distinct source bytes**, **163,837 metadata bytes** and **261,365 native payload bytes**. No hard limit notice was needed. [Preserved failure and evidence receipt](artifacts/2026-10-17-fontdone-agent-broad-budget-identifier.json).
+
+The completed output failed native claim admission: `The AI explanation does not name its declared source identifier 'resolve_face_index'. No draft was saved.` Native execution took **529.629 seconds**; the complete test took **531.81 seconds**. The first observed agent-message delta progress event was at **484.557 seconds**, with validation starting at **528.769 seconds**. These coarse events do not establish how the runtime divided the preceding wait between reasoning, tools and other work, or establish a first useful answer. No model reasoning is captured in the artifact.
+
+This run gets past the earlier page, event-order, transport and search failures and reads the previously missed core implementation. It still fails the broad-answer, speed, narrative, visual and narration gates: no preview was published. The artifact contains the terminal finding and evidence identities, without the rejected structured candidate, so it cannot support claim-by-claim semantic review or identify the exact offending prose. Preserve a bounded rejected candidate with positional diagnostics before qualifying correction/recovery; do not weaken the lexical/source gate or repeat the whole investigation automatically. This source route does not currently invoke the legacy adapter's alignment correction.
+
+After the final prior-evidence regression and workspace scope-note changes, the native suite passed **277 tests in 22.01 seconds** with ten explicit probes ignored. The frontend suite passed **142 tests** and the production frontend build passed with the existing bundle-size warning. Scope notes now remain with their workspace question across navigation and reopening; packaged visual acceptance and scope presentation outside that conversation remain pending. Logs: `/private/tmp/code-atlas-budget-narration-final-native.log`, `/private/tmp/code-atlas-budget-feedback-frontend.log`, `/private/tmp/code-atlas-budget-feedback-build.log`. No new application server was started and no packaged app was replaced at this checkpoint.

@@ -66,6 +66,269 @@ fn read(
     result
 }
 #[test]
+fn replies_report_capacity_after_their_own_cost() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    let reply = read(&mut l, &f, &r, &c, &[request(&f, 0, 30)]);
+    let remaining = &reply["budget"]["remaining"];
+    let call = &l.record.calls[0];
+    let reserved = reply["budget"]["feedbackBytesReserved"].as_u64().unwrap() as usize;
+    assert_eq!(remaining["sourceBytes"], MAX_SOURCE - 30);
+    assert_eq!(remaining["files"], MAX_FILES - 1);
+    assert_eq!(remaining["calls"], MAX_CALLS - 1);
+    assert_eq!(remaining["fragments"], MAX_FRAGMENTS - 1);
+    assert!(
+        remaining["metadataBytes"].as_u64().unwrap() as usize
+            <= MAX_METADATA - call.metadata_bytes - reserved
+    );
+    assert!(
+        remaining["wireBytes"].as_u64().unwrap() as usize <= MAX_WIRE - call.wire_bytes - reserved
+    );
+    assert_eq!(reply["budget"]["finishNow"], false);
+}
+
+#[test]
+fn limit_feedback_is_charged_and_never_admits_more_code() {
+    for reason in [
+        LimitReason::SourceBytes,
+        LimitReason::MetadataBytes,
+        LimitReason::WireBytes,
+    ] {
+        let f = Fixture::new();
+        let (mut l, r, c) = setup(&f);
+        read(&mut l, &f, &r, &c, &[request(&f, 0, 30)]);
+        // Boundary injection tests the native counter policy, not live recall.
+        let reserved = (MAX_CALLS - 2) * MAX_LIMIT_NOTICE;
+        match reason {
+            LimitReason::SourceBytes => l.record.calls[0].source_bytes = MAX_SOURCE,
+            LimitReason::MetadataBytes => {
+                l.record.calls[0].metadata_bytes = MAX_METADATA - reserved
+            }
+            LimitReason::WireBytes => l.record.calls[0].wire_bytes = MAX_WIRE - reserved,
+            _ => unreachable!(),
+        }
+        for _ in 0..3 {
+            let reply = read(&mut l, &f, &r, &c, &[request(&f, 30, 50)]);
+            assert_eq!(reply["budgetStop"], serde_json::to_value(reason).unwrap());
+            assert_eq!(reply["budget"]["finishNow"], true);
+            assert!(reply["context"].is_null());
+            assert!(reply["added"].as_array().unwrap().is_empty());
+            assert_eq!(l.record.evidence.len(), 1);
+            let call = l.record.calls.last().unwrap();
+            assert_eq!(call.state, CallState::Delivered);
+            assert_eq!(call.source_bytes, 0);
+            assert!(call.metadata_bytes > 0 && call.wire_bytes <= MAX_LIMIT_NOTICE);
+        }
+        assert!(l.budget_stopped());
+        // These deliberately injected counters do not represent real delivery.
+        // The persisted-record inspector must reject that inconsistency.
+        assert!(inspect(&f.storage, &l.record.binding.operation_id).is_err());
+    }
+}
+
+#[test]
+fn real_source_exhaustion_retains_a_valid_receipt_and_prior_evidence() {
+    let mut f = Fixture::new();
+    f.recapture_with_source(SIMPLE_PATH, &"x".repeat(280_000));
+    let (mut l, r, c) = setup(&f);
+    for i in 0..8 {
+        read(
+            &mut l,
+            &f,
+            &r,
+            &c,
+            &[request(&f, i * 30_000, (i + 1) * 30_000)],
+        );
+    }
+    let reply = read(&mut l, &f, &r, &c, &[request(&f, 240_000, 270_000)]);
+    assert_eq!(reply["budgetStop"], "sourceBytes");
+    assert_eq!(reply["budget"]["remaining"]["sourceBytes"], 10_000);
+    assert!(reply["added"].as_array().unwrap().is_empty());
+    assert_eq!(l.record.evidence.len(), 8);
+    assert_eq!(
+        l.record.calls.iter().map(|c| c.source_bytes).sum::<usize>(),
+        240_000
+    );
+    l.complete(&f.manifest, &r, &c).unwrap();
+    assert_eq!(
+        inspect(&f.storage, &l.record.binding.operation_id)
+            .unwrap()
+            .status,
+        Status::Complete
+    );
+}
+
+#[test]
+fn budget_notice_does_not_bypass_scope_stop_or_uncertain_delivery() {
+    for fault in ["path", "cancel", "runtime", "transport"] {
+        let f = Fixture::new();
+        let (mut l, mut r, c) = setup(&f);
+        for _ in 0..MAX_CALLS - 1 {
+            read(&mut l, &f, &r, &c, &[request(&f, 0, 20)]);
+        }
+        let token = l
+            .begin_call(Tool::Read, &"c".repeat(64), &f.manifest, &r, &c)
+            .unwrap();
+        let mut range = request(&f, 20, 30);
+        match fault {
+            "path" => range.path = "../private".into(),
+            "cancel" => c.store(true, Ordering::Release),
+            "runtime" => r.account_revision += 1,
+            _ => (),
+        }
+        let mut sent = false;
+        let result = l.deliver(
+            token,
+            Context::Read {},
+            &[range],
+            &f.manifest,
+            &r,
+            &c,
+            |bytes| {
+                assert_eq!(fault, "transport");
+                let response: Value = serde_json::from_slice(bytes).unwrap();
+                assert_eq!(response["budgetStop"], "calls");
+                assert!(response["added"].as_array().unwrap().is_empty());
+                sent = true;
+                Err("uncertain write".into())
+            },
+        );
+        assert!(result.is_err());
+        assert_eq!(sent, fault == "transport");
+        assert_eq!(l.record.evidence.len(), 1);
+        if fault == "transport" {
+            assert_eq!(l.record.status, Status::Interrupted);
+            assert_eq!(l.record.calls.last().unwrap().state, CallState::Uncertain);
+            assert!(
+                l.begin_call(Tool::Read, &"c".repeat(64), &f.manifest, &r, &c)
+                    .is_err()
+            );
+            inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+        }
+    }
+}
+
+#[test]
+fn saved_budget_counters_must_match_possible_delivery_and_old_records_remain_readable() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    read(&mut l, &f, &r, &c, &[request(&f, 0, 30)]);
+    let mut legacy = serde_json::to_value(&l.record).unwrap();
+    legacy["calls"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("budgetStop");
+    fs::write(&l.path, serde_json::to_vec(&legacy).unwrap()).unwrap();
+    inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+    for field in ["sourceBytes", "metadataBytes"] {
+        let mut forged = legacy.clone();
+        forged["calls"][0][field] = json!(MAX_SOURCE);
+        fs::write(&l.path, serde_json::to_vec(&forged).unwrap()).unwrap();
+        assert!(inspect(&f.storage, &l.record.binding.operation_id).is_err());
+    }
+}
+
+#[test]
+fn final_call_keeps_prior_evidence_and_reserves_feedback() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    for i in 0..MAX_CALLS {
+        let reply = read(&mut l, &f, &r, &c, &[request(&f, 0, 30)]);
+        if i == MAX_CALLS - 1 {
+            assert_eq!(reply["budgetStop"], "calls");
+            assert_eq!(reply["budget"]["remaining"]["calls"], 0);
+            assert!(reply["context"].is_null());
+        }
+    }
+    assert_eq!(l.record.evidence.len(), 1);
+    assert_eq!(
+        l.record.calls.iter().map(|c| c.source_bytes).sum::<usize>(),
+        30
+    );
+    assert!(
+        l.begin_call(Tool::Read, &"c".repeat(64), &f.manifest, &r, &c)
+            .is_err()
+    );
+    l.complete(&f.manifest, &r, &c).unwrap();
+    assert_eq!(
+        inspect(&f.storage, &l.record.binding.operation_id)
+            .unwrap()
+            .status,
+        Status::Complete
+    );
+}
+
+#[test]
+fn real_file_and_fragment_limits_return_no_new_evidence() {
+    let mut f = Fixture::new();
+    for i in 0..=MAX_FILES {
+        f.recapture_with_source(
+            &format!("src/part{i}.ts"),
+            &format!("export const part{i} = 'captured source';\n"),
+        );
+    }
+    let (mut l, r, c) = setup(&f);
+    for i in 0..=MAX_FILES {
+        let path = format!("src/part{i}.ts");
+        let file = f
+            .manifest
+            .files
+            .iter()
+            .find(|file| file.path == path)
+            .unwrap();
+        let reply = read(
+            &mut l,
+            &f,
+            &r,
+            &c,
+            &[RangeRequest {
+                path,
+                source_sha256: file.sha256.clone(),
+                start_byte: 0,
+                end_byte: 20,
+            }],
+        );
+        if i == MAX_FILES {
+            assert_eq!(reply["budgetStop"], "files");
+        }
+    }
+    assert_eq!(l.record.evidence.len(), MAX_FILES);
+
+    let mut f = Fixture::new();
+    f.recapture_with_source(SIMPLE_PATH, &"x".repeat(1024));
+    let (mut l, r, c) = setup(&f);
+    for batch in 0..32 {
+        let ranges = (0..8)
+            .map(|i| {
+                let start = (batch * 8 + i) * 2 + 1;
+                request(&f, start, start + 1)
+            })
+            .collect::<Vec<_>>();
+        read(&mut l, &f, &r, &c, &ranges);
+    }
+    assert_eq!(l.record.evidence.len(), 256);
+    let reply = read(&mut l, &f, &r, &c, &[request(&f, 0, 513)]);
+    assert_eq!(reply["budgetStop"], "fragments");
+    assert!(reply["added"].as_array().unwrap().is_empty());
+    assert_eq!(l.record.evidence.len(), 256);
+}
+
+#[test]
+fn escaped_source_cannot_exceed_one_reply() {
+    let mut f = Fixture::new();
+    f.recapture_with_source(SIMPLE_PATH, &"\"\\\n".repeat(40_000));
+    let (mut l, r, c) = setup(&f);
+    let ranges = (0..4)
+        .map(|i| request(&f, i * 30_000, (i + 1) * 30_000))
+        .collect::<Vec<_>>();
+    let reply = read(&mut l, &f, &r, &c, &ranges);
+    assert_eq!(reply["budgetStop"], "resultBytes");
+    assert!(l.record.evidence.is_empty());
+    assert_eq!(l.record.calls[0].source_bytes, 0);
+    assert!(l.record.calls[0].wire_bytes <= MAX_LIMIT_NOTICE);
+}
+
+#[test]
 fn overlapping_reads_send_only_new_bytes_and_store_no_source() {
     let f = Fixture::new();
     let (mut l, r, c) = setup(&f);
@@ -312,6 +575,12 @@ fn only_admitted_exact_quotes_can_back_a_validated_answer() {
             a.end_byte_inclusive as usize + 1,
         )],
     );
+    l.verify_revision(&revision, &f.manifest, &r, &c).unwrap();
+    let exact = request(&f, a.start_byte as usize, a.end_byte_inclusive as usize + 1);
+    for _ in 1..MAX_CALLS {
+        read(&mut l, &f, &r, &c, std::slice::from_ref(&exact));
+    }
+    assert!(l.budget_stopped());
     l.verify_revision(&revision, &f.manifest, &r, &c).unwrap();
     let mut changed = revision.clone();
     changed.sections[0].claims[0].anchors[0].excerpt.push('!');

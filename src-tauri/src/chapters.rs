@@ -438,6 +438,28 @@ pub(crate) fn overview_claim_sentences(claims: &[ChapterClaim]) -> Vec<String> {
     sentences
 }
 
+/// Prefer the actual behavior over peripheral context. If a behavior claim
+/// lacks plain language, retain its exact sentences rather than silently
+/// replacing the answer with a more speakable side observation.
+pub(crate) fn overview_narration_sentences(claims: &[ChapterClaim]) -> Vec<String> {
+    let natural = |s: &String| !s.contains(['`', '_', '{', '}', '(', ')', '/', '\\']) && !s.contains("::");
+    let behavior = claims.iter().filter(|c| matches!(c.category, ClaimCategory::CodeBehavior))
+        .flat_map(|c| {
+            let sentences = overview_claim_sentences(std::slice::from_ref(c));
+            let plain = sentences.iter().filter(|s| natural(s)).cloned().collect::<Vec<_>>();
+            if plain.is_empty() { sentences } else { plain }
+        }).collect::<Vec<_>>();
+    let all = overview_claim_sentences(claims);
+    let mut sentences = if behavior.is_empty() {
+        let plain = all.iter().filter(|s| natural(s)).cloned().collect::<Vec<_>>();
+        if plain.is_empty() { all.clone() } else { plain }
+    } else { behavior };
+    for sentence in all.into_iter().filter(natural) {
+        if !sentences.contains(&sentence) { sentences.push(sentence); }
+    }
+    sentences
+}
+
 /// Validate the content-only invariants that must hold at every storage
 /// boundary, even when a caller has not yet loaded the immutable snapshot to
 /// perform full anchor verification.

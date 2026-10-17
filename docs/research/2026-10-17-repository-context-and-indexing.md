@@ -1,14 +1,22 @@
 # How code tools understand entire repositories
 
-Research date: 17 October 2026; expanded review against primary documentation on the same date. App observations distinguish the `be49e35` [Fontdone acceptance run](../acceptance/2026-10-17-fontdone.md) from the `94ff754` [native retrieval checkpoint](../acceptance/2026-10-17-range-retrieval.md). Native structural tools have a [separate checkpoint](../acceptance/2026-10-17-structural-context.md); this research does not qualify Codex tool use or broad generation.
+Research date: 17 October 2026; expanded review against primary documentation on the same date. Historical app observations distinguish the `be49e35` [Fontdone acceptance run](../acceptance/2026-10-17-fontdone.md) from the `94ff754` [native retrieval checkpoint](../acceptance/2026-10-17-range-retrieval.md). Native structural tools have a [separate checkpoint](../acceptance/2026-10-17-structural-context.md). The subsequent [owned Codex investigation report](../acceptance/2026-10-17-codex-owned-retrieval.md) records implemented tool use, successful synthetic/focused investigations and failed broad attempts. This research is not a broad-generation acceptance pass.
 
 ## Recommendation
 
 Build a shared, local repository context service: an immutable inventory, syntax-aware source ranges, lexical search, and confidence-labelled relationships. Let the existing Codex app-server search and read those ranges through narrowly scoped tools. Generate independently saved explanation sections from the retrieved evidence, then attach visuals and Pocket narration.
 
-Use our existing Tree-sitter parsers, **Tantivy** for ranked text search, and the ripgrep project's Rust search libraries for bounded fallback searches. Evaluate **Serena/LSP or imported SCIP** before building broader semantic navigation ourselves. Keep embeddings as an optional improvement evaluated against retrieval failures. The architecture below is a recommendation. The [local retrieval implementation checkpoint](../acceptance/2026-10-17-range-retrieval.md) has native measurements; the Codex retrieval loop and broad repository explanation remain unimplemented/unqualified.
+Use our existing Tree-sitter parsers, **Tantivy** for ranked text search, and the ripgrep project's Rust search libraries for bounded fallback searches. Evaluate **Serena/LSP or imported SCIP** before building broader semantic navigation ourselves. Keep embeddings as an optional improvement evaluated against retrieval failures. The architecture below includes recommendations beyond the implemented [local retrieval service](../acceptance/2026-10-17-range-retrieval.md) and [owned Codex loop](../acceptance/2026-10-17-codex-owned-retrieval.md). Broad repository explanation and packaged parent acceptance remain unqualified.
 
 The studied systems offer repository-wide retrieval or exploration; their documentation does not establish exhaustive understanding of every file or execution path. Exclusions, language coverage, stale indexes and generated summaries still require explicit treatment.
+
+## How Codex Desktop investigates a question
+
+The desktop app, CLI and IDE experiences share the open Codex harness. It manages the conversation, tools, sandbox/approval policy and continued work. App-server exposes this runtime so a product can start and resume conversations, stream events, interrupt work and provide its own tools. [Official integration explanation](https://developers.openai.com/blog/codex-as-a-platform), [app-server protocol](https://learn.chatgpt.com/docs/app-server).
+
+Repository investigation is iterative: search names/content, read relevant ranges, follow references and adjust the next query using those results. The official prompting guide recommends repository search tools such as `rg`, parallel independent reads and context compaction for longer work. It also discusses custom semantic/MCP tools as options requiring tuning. These sources do not establish a mandatory vector index or exhaustive preloading of every repository file. [Codex prompting guide](https://developers.openai.com/cookbook/examples/gpt-5/codex_prompting_guide).
+
+For Code Atlas, reuse that agent loop and let Codex choose evidence. Our app supplies the captured-code tools, handles the source grant, and turns independently validated output into the explanation, graph and narration. Its scoped MCP-only, ephemeral-question integration has different permissions and lifecycle from a general desktop coding session. The observed search/transport/budget failures belong to this adapter; they are not evidence of a desktop Codex restriction or a reason to ask readers to choose fewer files.
 
 ## What established products actually do
 

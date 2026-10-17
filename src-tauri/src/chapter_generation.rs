@@ -1055,13 +1055,12 @@ fn canonicalize_overview(
                 if !prose.is_empty() { prose.push(' '); }
                 prose.push_str(sentence);
             }
-            let natural = sentences.iter().filter(|sentence| !sentence.contains(['`', '_', '{', '}', '(', ')', '/', '\\']) && !sentence.contains("::")).collect::<Vec<_>>();
-            let candidates = if natural.is_empty() { sentences.iter().collect::<Vec<_>>() } else { natural };
+            let candidates = chapters::overview_narration_sentences(&section.claims);
             let mut spoken = String::new();
             for sentence in candidates.into_iter().take(3) {
                 if spoken.len() + sentence.len() + usize::from(!spoken.is_empty()) > 1_000 { break; }
                 if !spoken.is_empty() { spoken.push(' '); }
-                spoken.push_str(sentence);
+                spoken.push_str(&sentence);
             }
             if prose.len() < 20 || spoken.is_empty() {
                 return Err("The anchored claims need complete, bounded sentences for overview reading and narration.".to_owned());
@@ -2672,6 +2671,40 @@ pub(crate) mod tests {
         assert!(chapters::overview_section_copy_supported(&revision.sections[0]));
         chapters::validate_overview_content(&revision).unwrap();
         fixture.assert_traceable(&revision, &[SIMPLE_PATH, SUPPORT_PATH]);
+    }
+
+    #[test]
+    fn workspace_narration_keeps_main_behavior_before_plain_context() {
+        let fixture = Fixture::new();
+        for (main, expected) in [
+            ("`greeting` formats `name`. It returns a greeting containing the supplied name.",
+             "It returns a greeting containing the supplied name."),
+            ("`greeting` formats `name` into a greeting.",
+             "`greeting` formats `name` into a greeting."),
+        ] {
+            let mut file = simple_proposal();
+            file.sections[0].claims[0].prose = main.to_owned();
+            let mut context = file.sections[0].claims[0].clone();
+            context.category = "repositoryContext".to_owned();
+            context.prose = "`name` holds the supplied text. The text is a separate input to the operation.".to_owned();
+            context.identifiers = vec!["name".to_owned()];
+            file.sections[0].claims.push(context);
+            // A second plain behavior must not displace an earlier behavior
+            // that still contains its literal code identifiers.
+            let mut other = file.sections[0].claims[0].clone();
+            other.prose = "greeting receives name. The result is text.".to_owned();
+            file.sections[0].claims.push(other);
+            file.sections[0].spoken_text = "This unsupported narration must be discarded.".to_owned();
+            let proposal = GeneratedOverviewProposal { title: file.title, sections: file.sections };
+            let revision = canonicalize_workspace_overview(&fixture.manifest.summary.project_id,
+                &fixture.manifest, Some(&fixture.index), &fixture.sources(&[SIMPLE_PATH]),
+                &HashSet::new(), &serde_json::to_string(&proposal).unwrap()).unwrap();
+            assert!(revision.sections[0].spoken_text.starts_with(expected), "{}", revision.sections[0].spoken_text);
+            assert!(!revision.sections[0].spoken_text.contains("unsupported narration"));
+            assert!(chapters::overview_section_copy_supported(&revision.sections[0]));
+            chapters::validate_overview_content(&revision).unwrap();
+            fixture.assert_traceable(&revision, &[SIMPLE_PATH]);
+        }
     }
 
     #[test]

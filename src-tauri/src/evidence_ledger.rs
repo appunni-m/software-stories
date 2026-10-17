@@ -25,6 +25,43 @@ const MAX_RESPONSE: usize = 128_000;
 const MAX_FRAGMENTS: usize = 512;
 const MAX_JOURNAL: usize = 1_000_000;
 const DEADLINE: Duration = Duration::from_secs(600);
+// Keep enough metadata/wire room to answer every remaining admitted call with
+// a source-free limit notice, even if several calls were already in flight.
+const MAX_LIMIT_NOTICE: usize = 1536;
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+enum LimitReason {
+    Calls,
+    SourceBytes,
+    MetadataBytes,
+    WireBytes,
+    Files,
+    Fragments,
+    ResultBytes,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RemainingBudget {
+    calls: usize,
+    files: usize,
+    source_bytes: usize,
+    metadata_bytes: usize,
+    wire_bytes: usize,
+    fragments: usize,
+    time_ms: u64,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ResponseBudget {
+    // Conservative capacity for more data after this result; excludes room
+    // reserved for possible subsequent source-free limit notices.
+    remaining: RemainingBudget,
+    feedback_bytes_reserved: usize,
+    finish_now: bool,
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -55,6 +92,10 @@ pub(crate) enum Tool {
 #[serde(tag = "kind", content = "result", rename_all = "camelCase")]
 pub(crate) enum Context<'a> {
     Search(SearchMetadata<'a>),
+    SearchError {
+        code: &'static str,
+        message: &'static str,
+    },
     Read {},
     Definitions(&'a structure::Page<structure::Symbol>),
     Relationships(&'a structure::Page<structure::Relationship>),
@@ -100,7 +141,7 @@ impl<'a> From<&'a context::SearchResult> for SearchMetadata<'a> {
 impl Context<'_> {
     fn tool(&self) -> Tool {
         match self {
-            Self::Search(_) => Tool::Search,
+            Self::Search(_) | Self::SearchError { .. } => Tool::Search,
             Self::Read {} => Tool::Read,
             Self::Definitions(_) => Tool::Definitions,
             Self::Relationships(_) => Tool::Relationships,
@@ -147,6 +188,8 @@ struct Call {
     metadata_bytes: usize,
     wire_bytes: usize,
     payload_sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    budget_stop: Option<LimitReason>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -194,11 +237,14 @@ struct Fragment {
 struct Response<'a> {
     policy: &'static str,
     call_id: &'a str,
-    context: &'a Context<'a>,
+    context: Option<&'a Context<'a>>,
     added: Vec<Fragment>,
     already_available: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     read_error: Option<ReadError>,
+    budget: ResponseBudget,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    budget_stop: Option<LimitReason>,
 }
 
 /// A correctable request error is metadata, never source evidence. It travels
@@ -369,6 +415,7 @@ impl Ledger {
             metadata_bytes: 0,
             wire_bytes: 0,
             payload_sha256: None,
+            budget_stop: None,
         });
         self.save(next)?;
         Ok(CallToken { id })
@@ -384,6 +431,126 @@ impl Ledger {
             return Err("This context response does not own its pending call.".to_owned());
         }
         Ok(())
+    }
+
+    fn response_budget(&self) -> ResponseBudget {
+        let calls = MAX_CALLS.saturating_sub(self.record.calls.len());
+        let reserved = calls * MAX_LIMIT_NOTICE;
+        let source = self
+            .record
+            .calls
+            .iter()
+            .map(|c| c.source_bytes)
+            .sum::<usize>();
+        let metadata = self
+            .record
+            .calls
+            .iter()
+            .map(|c| c.metadata_bytes)
+            .sum::<usize>();
+        let wire = self
+            .record
+            .calls
+            .iter()
+            .map(|c| c.wire_bytes)
+            .sum::<usize>();
+        ResponseBudget {
+            remaining: RemainingBudget {
+                calls,
+                files: MAX_FILES.saturating_sub(
+                    self.record
+                        .evidence
+                        .iter()
+                        .map(|e| &e.range.path)
+                        .collect::<BTreeSet<_>>()
+                        .len(),
+                ),
+                source_bytes: MAX_SOURCE.saturating_sub(source),
+                metadata_bytes: MAX_METADATA
+                    .saturating_sub(metadata)
+                    .saturating_sub(reserved),
+                wire_bytes: MAX_WIRE.saturating_sub(wire).saturating_sub(reserved),
+                fragments: MAX_FRAGMENTS.saturating_sub(self.record.evidence.len()),
+                time_ms: self
+                    .deadline
+                    .saturating_duration_since(Instant::now())
+                    .as_millis()
+                    .min(u64::MAX as u128) as u64,
+            },
+            feedback_bytes_reserved: reserved,
+            finish_now: false,
+        }
+    }
+
+    /// Include the result's own serialized cost. A second encoding can only
+    /// shorten numeric fields, so the reported remaining capacity is a safe
+    /// lower bound rather than an optimistic or recursively rounded estimate.
+    fn encode_response(
+        &self,
+        response: &mut Response<'_>,
+    ) -> Result<(Vec<u8>, usize, usize), String> {
+        let source = response
+            .added
+            .iter()
+            .map(|e| e.contents.len())
+            .sum::<usize>();
+        let encoded_source = response
+            .added
+            .iter()
+            .map(|e| serde_json::to_vec(&e.contents).map(|b| b.len() - 2))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| "Source encoding failed.")?
+            .into_iter()
+            .sum::<usize>();
+        let files = self
+            .record
+            .evidence
+            .iter()
+            .map(|e| &e.range.path)
+            .chain(response.added.iter().map(|e| &e.range.path))
+            .collect::<BTreeSet<_>>()
+            .len();
+        let base_metadata = response.budget.remaining.metadata_bytes;
+        let base_wire = response.budget.remaining.wire_bytes;
+        response.budget.remaining.source_bytes = response
+            .budget
+            .remaining
+            .source_bytes
+            .saturating_sub(source);
+        response.budget.remaining.files = MAX_FILES.saturating_sub(files);
+        response.budget.remaining.fragments = response
+            .budget
+            .remaining
+            .fragments
+            .saturating_sub(response.added.len());
+        let first =
+            serde_json::to_vec(response).map_err(|_| "Context response encoding failed.")?;
+        response.budget.remaining.metadata_bytes = base_metadata.saturating_sub(
+            first
+                .len()
+                .checked_sub(encoded_source)
+                .ok_or("Context accounting is invalid.")?,
+        );
+        response.budget.remaining.wire_bytes = base_wire.saturating_sub(first.len());
+        response.budget.finish_now = response.budget_stop.is_some()
+            || response.budget.remaining.calls <= 6
+            || response.budget.remaining.metadata_bytes < 16_000
+            || response.budget.remaining.source_bytes < 4_000
+            || response.budget.remaining.time_ms < 60_000;
+        let bytes =
+            serde_json::to_vec(response).map_err(|_| "Context response encoding failed.")?;
+        let metadata = bytes
+            .len()
+            .checked_sub(encoded_source)
+            .ok_or("Context accounting is invalid.")?;
+        Ok((bytes, source, metadata))
+    }
+
+    pub(crate) fn budget_stopped(&self) -> bool {
+        self.record
+            .calls
+            .iter()
+            .any(|call| call.budget_stop.is_some())
     }
 
     fn response<'a>(
@@ -404,10 +571,12 @@ impl Ledger {
         let mut response = Response {
             policy: POLICY,
             call_id: &token.id,
-            context,
+            context: Some(context),
             added: vec![],
             already_available: vec![],
             read_error: None,
+            budget: self.response_budget(),
+            budget_stop: None,
         };
         let mut sources = HashMap::new();
         let mut verified_bytes = 0u64;
@@ -502,27 +671,10 @@ impl Ledger {
     ) -> Result<(), String> {
         self.check(manifest, runtime, cancelled)?;
         let prepared = (|| {
-            let response =
+            let mut response =
                 self.response(&token, &context, requests, manifest, runtime, cancelled)?;
-            let bytes = serde_json::to_vec(&response)
-                .map_err(|_| "Context response encoding failed.".to_owned())?;
-            let source_bytes = response
-                .added
-                .iter()
-                .map(|e| e.contents.len())
-                .sum::<usize>();
-            let encoded_source = response
-                .added
-                .iter()
-                .map(|e| serde_json::to_vec(&e.contents).map(|b| b.len() - 2))
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|_| "Source encoding failed.")?
-                .into_iter()
-                .sum::<usize>();
-            let metadata_bytes = bytes
-                .len()
-                .checked_sub(encoded_source)
-                .ok_or("Context accounting is invalid.")?;
+            let (mut bytes, mut source_bytes, mut metadata_bytes) =
+                self.encode_response(&mut response)?;
             let prior_source = self
                 .record
                 .calls
@@ -545,18 +697,53 @@ impl Ledger {
                 .record
                 .evidence
                 .iter()
-                .map(|e| e.range.path.as_str())
-                .chain(response.added.iter().map(|e| e.range.path.as_str()))
-                .collect::<BTreeSet<_>>();
-            if bytes.len() > MAX_RESPONSE
-                || prior_source + source_bytes > MAX_SOURCE
-                || prior_metadata + metadata_bytes > MAX_METADATA
-                || prior_wire + bytes.len() > MAX_WIRE
-                || files.len() > MAX_FILES
-                || self.record.evidence.len() + response.added.len() > MAX_FRAGMENTS
+                .map(|e| &e.range.path)
+                .chain(response.added.iter().map(|e| &e.range.path))
+                .collect::<BTreeSet<_>>()
+                .len();
+            let reserved = response.budget.feedback_bytes_reserved;
+            let limit = self
+                .record
+                .calls
+                .iter()
+                .find_map(|c| c.budget_stop)
+                .or_else(|| {
+                    if self.record.calls.len() == MAX_CALLS {
+                        Some(LimitReason::Calls)
+                    } else if prior_source + source_bytes > MAX_SOURCE {
+                        Some(LimitReason::SourceBytes)
+                    } else if files > MAX_FILES {
+                        Some(LimitReason::Files)
+                    } else if self.record.evidence.len() + response.added.len() > MAX_FRAGMENTS {
+                        Some(LimitReason::Fragments)
+                    } else if bytes.len() > MAX_RESPONSE {
+                        Some(LimitReason::ResultBytes)
+                    } else if prior_metadata + metadata_bytes + reserved > MAX_METADATA {
+                        Some(LimitReason::MetadataBytes)
+                    } else if prior_wire + bytes.len() + reserved > MAX_WIRE {
+                        Some(LimitReason::WireBytes)
+                    } else {
+                        None
+                    }
+                });
+            if let Some(reason) = limit {
+                // Nothing from the oversized/new result crosses the boundary.
+                // Keep the turn alive so Codex can answer from prior evidence.
+                response.context = None;
+                response.added.clear();
+                response.already_available.clear();
+                response.read_error = None;
+                response.budget = self.response_budget();
+                response.budget_stop = Some(reason);
+                (bytes, source_bytes, metadata_bytes) = self.encode_response(&mut response)?;
+                if bytes.len() > MAX_LIMIT_NOTICE {
+                    return Err("The context limit notice exceeds its bound.".into());
+                }
+            }
+            if prior_metadata + metadata_bytes > MAX_METADATA || prior_wire + bytes.len() > MAX_WIRE
             {
                 return Err(
-                    "The context response exceeds this operation's evidence budget.".to_owned(),
+                    "The context response exceeds this operation's evidence budget.".into(),
                 );
             }
             let mut next = self.record.clone();
@@ -565,6 +752,7 @@ impl Ledger {
                 .last_mut()
                 .ok_or("The context call is unavailable.")?;
             call.state = CallState::Prepared;
+            call.budget_stop = response.budget_stop;
             call.evidence_ids = response.already_available.clone();
             for fragment in response.added {
                 call.evidence_ids.push(fragment.id.clone());
@@ -887,12 +1075,36 @@ pub(crate) fn inspect(storage: &Path, operation_id: &str) -> Result<Record, Stri
             !canonical_uuid(&c.id)
                 || !hash(&c.arguments_sha256)
                 || c.wire_bytes > MAX_RESPONSE
+                || c.source_bytes as u128 + c.metadata_bytes as u128 > c.wire_bytes as u128
                 || c.evidence_ids.len() > MAX_FRAGMENTS
                 || c.payload_sha256.as_ref().is_some_and(|h| !hash(h))
+                || (c.budget_stop.is_some()
+                    && (c.source_bytes != 0
+                        || !c.evidence_ids.is_empty()
+                        || matches!(c.state, CallState::Started | CallState::Rejected)))
                 || c.evidence_ids
                     .iter()
                     .any(|id| !record.evidence.iter().any(|e| &e.id == id))
         })
+        || record
+            .calls
+            .iter()
+            .scan(false, |stopped, c| {
+                let invalid = *stopped && (c.source_bytes != 0 || !c.evidence_ids.is_empty());
+                *stopped |= c.budget_stop.is_some();
+                Some(invalid)
+            })
+            .any(|invalid| invalid)
+        || record
+            .calls
+            .iter()
+            .map(|c| c.source_bytes as u128)
+            .sum::<u128>()
+            != record
+                .evidence
+                .iter()
+                .map(|e| e.range.end_byte.saturating_sub(e.range.start_byte) as u128)
+                .sum::<u128>()
         || record
             .evidence
             .iter()
