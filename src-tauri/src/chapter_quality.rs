@@ -151,7 +151,9 @@ fn process(bytes: &[u8]) -> Result<Value, String> {
             let result = validate(&fixture, &review, &validator, &target_path, &proposal);
             Ok(match result {
                 Ok(counts) => json!({"valid": true, "counts": counts}),
-                Err(message) => json!({"valid": false, "message": message}),
+                Err(message) => json!({"valid": false, "message": message,
+                    "diagnostics": crate::claim_alignment::fixed_source_chapter_diagnostics(&proposal,
+                        fixture.sources.iter().map(|s| (s.path.as_str(), s.contents.as_str()))).unwrap_or_default()}),
             })
         }
         _ => Err("Unsupported quality protocol version.".to_owned()),
@@ -468,6 +470,18 @@ mod tests {
         let data = run(&request(proposal)).unwrap();
         assert_eq!(data["valid"], true, "{data}");
         assert!(data["counts"]["sourceAnchors"].as_u64().unwrap() > 0);
+    }
+
+    #[test]
+    fn failed_scene_candidates_expose_the_owned_correction_positions_without_admitting_content() {
+        let mut proposal = provider::visual_scenes::tests::composed_proposal(3);
+        proposal["sections"][0]["visual"]["nodes"][0]["evidence"][0]["claimIndex"] = json!(1);
+        let data = run(&request(proposal)).unwrap();
+        assert_eq!(data["valid"], false);
+        assert_eq!(data["diagnostics"], json!([
+            {"location":"/sections/0/visual/presentation/scenes/0/elements/1/nodeIndex","sceneProblem":"sceneEvidence"}
+        ]));
+        assert!(!data["diagnostics"].to_string().contains("Hello"));
     }
 
     #[test]

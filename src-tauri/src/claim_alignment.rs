@@ -19,7 +19,7 @@ const STILL_INVALID: &str = "The explanation still did not match its cited code 
 pub(crate) enum CorrectionPolicy {
     Disabled,
     IdentifiersV1,
-    ChapterScenesV3,
+    ChapterScenesV4,
 }
 
 impl CorrectionPolicy {
@@ -27,7 +27,7 @@ impl CorrectionPolicy {
         if config.get("claimAlignmentCorrection").is_none()
             && config.get("candidateCorrection") == Some(&chapter_correction_config())
         {
-            Self::ChapterScenesV3
+            Self::ChapterScenesV4
         } else if config.get("candidateCorrection").is_none()
             && config["workspaceQuestion"].is_string()
             && config["claimAlignmentCorrection"] == json!({"policy":"identifier-alignment-v1","maxAttempts":1})
@@ -40,13 +40,36 @@ impl CorrectionPolicy {
 }
 
 pub(crate) fn chapter_correction_config() -> Value {
-    json!({"policy":"chapter-scenes-and-identifiers-v3","maxAttempts":1})
+    json!({"policy":"chapter-scenes-and-identifiers-v4","maxAttempts":1})
 }
 
 /// Chapter-specific preflight; full source and storage admission remain separate.
 pub(crate) fn chapter_diagnostics(response: &str) -> Option<Vec<Value>> {
     let mut issues = diagnostics(response)?;
     scenes::append(response, &mut issues);
+    Some(issues)
+}
+
+/// Fixed-source chapters already reviewed these complete immutable files. Reuse
+/// final admission's exact quote rule before the same single correction, without
+/// fetching source, normalizing quotes or permitting a filesystem lookup.
+pub(crate) fn fixed_source_chapter_diagnostics<'a>(
+    response: &str,
+    sources: impl IntoIterator<Item = (&'a str, &'a str)>,
+) -> Option<Vec<Value>> {
+    let mut issues = chapter_diagnostics(response)?;
+    let sources: std::collections::HashMap<_, _> = sources.into_iter().collect();
+    let quotes = quote_diagnostics(response, |path, quote| {
+        let Some(source) = sources.get(path) else { return Some("pathNotAdmitted"); };
+        match crate::chapter_generation::exact_quote_start(source, quote) {
+            Ok(_) => None,
+            Err(crate::chapter_generation::QuoteProblem::Length) => Some("quoteLength"),
+            Err(crate::chapter_generation::QuoteProblem::Missing) => Some("quoteNotExact"),
+            Err(crate::chapter_generation::QuoteProblem::Ambiguous) => Some("quoteAmbiguous"),
+        }
+    })?;
+    issues.extend(quotes);
+    issues.truncate(MAX_ISSUES);
     Some(issues)
 }
 
@@ -149,7 +172,7 @@ fn prompt_for_issues(mut issues: Vec<Value>) -> Option<String> {
     let native = issues.iter().any(|issue| issue.get("citationProblem").is_some()
         || issue.get("citationVersion").and_then(Value::as_str) == Some(crate::native_citations::VERSION));
     let scene_feedback = if issues.iter().any(|issue| issue.get("sceneProblem").is_some()) {
-        " For sceneProblem findings, repair the complete scene using the original claims and evidence. A narrationRequired finding needs nonempty scene narration, at most 4,000 UTF-8 bytes, covering the same claim with all guards, alternatives and uncertainty in natural speech. Keep exact implementation identifiers in the claim; do not read them merely to pass grounding. A narrationLength finding requires 20–4,000 UTF-8 bytes across the complete ordered script; split without dropping behavior. Inference labels are added by the app. A tree has exactly one root; every other parentIndex names an earlier container. Only row, column, grid, panel, compare and stack are containers. Card, token, code, metric, bytes, matrix, table and text are content leaves; arrow and divider are decoration. Containers/decorations use nodeIndex:null, value:\"\", valueOrigin:none. Keep source-linked content in content leaves. Respect 48 elements, six nesting levels, twelve children per group and 1–12 content leaves; remove no supported behavior to evade these limits. Fix layout structure without patching evidence or inventing new values. The full visual/source validator still runs after this one correction."
+        " For sceneProblem findings, repair the complete scene using the original claims and evidence. A sceneEvidence finding points to a content nodeIndex whose node cites a different claim. Choose or author a node citing this scene's own claim and evidence; do not borrow another scene's source, drop the claim or invent a citation. A narrationRequired finding needs nonempty scene narration, at most 4,000 UTF-8 bytes, covering the same claim with all guards, alternatives and uncertainty in natural speech. Keep exact implementation identifiers in the claim; do not read them merely to pass grounding. A narrationLength finding requires 20–4,000 UTF-8 bytes across the complete ordered script; split without dropping behavior. Inference labels are added by the app. A tree has exactly one root; every other parentIndex names an earlier container. Only row, column, grid, panel, compare and stack are containers. Card, token, code, metric, bytes, matrix, table and text are content leaves; arrow and divider are decoration. Containers/decorations use nodeIndex:null, value:\"\", valueOrigin:none. Keep source-linked content in content leaves. Respect 48 elements, six nesting levels, twelve children per group and 1–12 content leaves; remove no supported behavior to evade these limits. Fix layout structure without patching evidence or inventing new values. The full visual/source validator still runs after this one correction."
     } else { "" };
     let problem_types = if scene_feedback.is_empty() { "identifier or exact-quote" } else { "identifier, exact-quote or composition-structure" };
     let feedback = json!({"issues": issues, "limit": MAX_ISSUES}).to_string();
@@ -176,12 +199,13 @@ pub(crate) fn quote_diagnostics(
         return None;
     }
     let response = crate::strict_json::from_slice(response.as_bytes()).ok()?;
-    let sections = response.get("sections")?.as_array()?;
-    if sections.is_empty() || sections.len() > 12 {
-        return None;
-    }
+    let sections: Vec<(&Value, String)> = if let Some(sections) = response.get("sections") {
+        let sections = sections.as_array()?;
+        if sections.is_empty() || sections.len() > 12 { return None; }
+        sections.iter().enumerate().map(|(i, s)| (s, format!("/sections/{i}"))).collect()
+    } else { vec![(&response, String::new())] };
     let mut issues = vec![];
-    for (si, section) in sections.iter().enumerate() {
+    for (section, prefix) in sections {
         let claims = section.get("claims")?.as_array()?;
         if claims.is_empty() || claims.len() > 20 {
             return None;
@@ -196,7 +220,7 @@ pub(crate) fn quote_diagnostics(
                 let quote = item.get("quote")?.as_str()?;
                 if let Some(code) = problem(path, quote) {
                     if issues.len() < MAX_ISSUES {
-                        issues.push(json!({"location":format!("/sections/{si}/claims/{ci}/evidence/{ei}"),"quoteProblem":code}));
+                        issues.push(json!({"location":format!("{prefix}/claims/{ci}/evidence/{ei}"),"quoteProblem":code}));
                     }
                 }
             }
@@ -261,15 +285,16 @@ mod tests {
     fn correction_policy_requires_the_exact_reviewed_version_and_one_attempt() {
         use CorrectionPolicy::*;
         let current = json!({"candidateCorrection":chapter_correction_config()});
-        assert_eq!(CorrectionPolicy::from_generation_config(&current), ChapterScenesV3);
+        assert_eq!(CorrectionPolicy::from_generation_config(&current), ChapterScenesV4);
         let legacy = json!({"workspaceQuestion":"Which path runs?", "claimAlignmentCorrection":{"policy":"identifier-alignment-v1","maxAttempts":1}});
         assert_eq!(CorrectionPolicy::from_generation_config(&legacy), IdentifiersV1);
         for changed in [
             json!({}),
             json!({"candidateCorrection":{"policy":"chapter-layout-and-identifiers-v2","maxAttempts":1}}),
-            json!({"candidateCorrection":{"policy":"chapter-scenes-and-identifiers-v3","maxAttempts":2}}),
+            json!({"candidateCorrection":{"policy":"chapter-scenes-and-identifiers-v3","maxAttempts":1}}),
+            json!({"candidateCorrection":{"policy":"chapter-scenes-and-identifiers-v4","maxAttempts":2}}),
             json!({"candidateCorrection":{"policy":"future","maxAttempts":1}}),
-            json!({"candidateCorrection":{"policy":"chapter-scenes-and-identifiers-v3","maxAttempts":1,"extra":true}}),
+            json!({"candidateCorrection":{"policy":"chapter-scenes-and-identifiers-v4","maxAttempts":1,"extra":true}}),
             json!({"candidateCorrection":chapter_correction_config(),"claimAlignmentCorrection":legacy["claimAlignmentCorrection"]}),
             json!({"claimAlignmentCorrection":legacy["claimAlignmentCorrection"]}),
         ] {
@@ -297,6 +322,80 @@ mod tests {
         assert_eq!(candidate["sections"][0]["claims"], original_claims);
         assert!(chapter_diagnostics(&corrected).unwrap().is_empty());
         assert!(correct_once_checked(true, input.clone(), |text| Ok(chapter_diagnostics(text)), |_| Ok(input)).is_err());
+    }
+
+    #[test]
+    fn scene_evidence_repair_keeps_claims_and_requires_full_native_source_admission() {
+        use crate::{chapter_generation, chapters, provider};
+        use chapter_generation::tests::{Fixture, SIMPLE_PATH};
+        let fixture = Fixture::new();
+        let mut initial = provider::visual_scenes::tests::composed_proposal(3);
+        let mut claim = initial["sections"][0]["claims"][0].clone();
+        claim["prose"] = json!("The greeting function returns the supplied name with a fixed greeting prefix.");
+        initial["sections"][0]["claims"].as_array_mut().unwrap().push(claim);
+        let mut scene = initial["sections"][0]["visual"]["presentation"]["scenes"][0].clone();
+        scene["claimIndex"] = json!(1);
+        scene["narration"] = json!("The completed greeting comes back to the caller, with the supplied name after its prefix.");
+        initial["sections"][0]["visual"]["presentation"]["scenes"].as_array_mut().unwrap().push(scene);
+        let claims = initial["sections"][0]["claims"].clone();
+        let text = initial.to_string();
+        let canonicalize = |text: &str| chapter_generation::canonicalize_file_chapter(
+            &fixture.manifest.summary.project_id, &fixture.manifest, Some(&fixture.index),
+            SIMPLE_PATH, &fixture.sources(&[SIMPLE_PATH]), &std::collections::HashSet::new(), text);
+        assert!(canonicalize(&text).unwrap_err().contains("own claim"));
+        assert_eq!(chapter_diagnostics(&text).unwrap(), vec![
+            json!({"location":"/sections/0/visual/presentation/scenes/1/elements/1/nodeIndex","sceneProblem":"sceneEvidence"}),
+            json!({"location":"/sections/0/visual/presentation/scenes/1/elements/3/nodeIndex","sceneProblem":"sceneEvidence"}),
+        ]);
+        // A mock complete agent reply, never production index patching.
+        let corrected = correct_once_checked(true, text.clone(), |text| Ok(chapter_diagnostics(text)), |feedback| {
+            assert!(feedback.contains("sceneEvidence"));
+            assert!(feedback.contains("Do not call tools"));
+            assert!(!feedback.contains("Hello, ${name}"));
+            for node in initial["sections"][0]["visual"]["nodes"].as_array_mut().unwrap() {
+                node["evidence"].as_array_mut().unwrap().push(json!({"claimIndex":1,"evidenceIndex":0}));
+            }
+            Ok(initial.to_string())
+        }).unwrap();
+        assert_eq!(serde_json::from_str::<Value>(&corrected).unwrap()["sections"][0]["claims"], claims);
+        let mut revision = canonicalize(&corrected).unwrap();
+        provider::visual_scenes::prepare_generated_sections(&mut revision, None).unwrap();
+        let validation = chapters::validate_chapter_revision(&fixture.storage, &fixture.manifest, Some(&fixture.index), &revision);
+        assert_eq!(validation.status, chapters::ValidationReportStatus::Valid, "{validation:?}");
+        assert!(correct_once_checked(true, text.clone(), |text| Ok(chapter_diagnostics(text)), |_| Ok(text)).is_err());
+        assert!(crate::chapter_store::list_for_project(&fixture.storage, &fixture.manifest.summary.project_id).unwrap().is_empty());
+    }
+
+    #[test]
+    fn fixed_chapters_check_exact_quotes_and_scene_evidence_in_the_same_single_correction() {
+        use crate::chapter_generation::tests::{SIMPLE_PATH, SIMPLE_SOURCE};
+        let mut proposal = crate::provider::visual_scenes::tests::composed_proposal(3);
+        let original = proposal.clone();
+        let quote = proposal["sections"][0]["claims"][0]["evidence"][0]["quote"].as_str().unwrap().to_owned();
+        proposal["sections"][0]["claims"][0]["evidence"][0]["quote"] = json!(format!("{quote} extra_text_not_in_source"));
+        proposal["sections"][0]["visual"]["nodes"][0]["evidence"][0]["claimIndex"] = json!(1);
+        let diagnose = |text: &str| Ok(fixed_source_chapter_diagnostics(text, [(SIMPLE_PATH, SIMPLE_SOURCE)]));
+        let findings = diagnose(&proposal.to_string()).unwrap().unwrap();
+        assert_eq!(findings.len(), 2);
+        assert_eq!(findings[0]["sceneProblem"], "sceneEvidence");
+        assert_eq!(findings[1], json!({"location":"/sections/0/claims/0/evidence/0","quoteProblem":"quoteNotExact"}));
+        let output = correct_once_checked(true, proposal.to_string(), |text| diagnose(text), |feedback| {
+            assert!(feedback.contains("quoteNotExact"));
+            assert!(feedback.contains("sceneEvidence"));
+            assert!(!feedback.contains("extra_text_not_in_source"));
+            assert!(!feedback.contains(SIMPLE_PATH));
+            Ok(original.to_string())
+        }).unwrap();
+        assert_eq!(serde_json::from_str::<Value>(&output).unwrap(), original);
+        assert!(fixed_source_chapter_diagnostics(&output, [(SIMPLE_PATH, SIMPLE_SOURCE)]).unwrap().is_empty());
+        let selected = proposal["sections"][0].to_string();
+        let issues = fixed_source_chapter_diagnostics(&selected, [(SIMPLE_PATH, SIMPLE_SOURCE)]).unwrap();
+        assert_eq!(issues[1]["location"], "/claims/0/evidence/0");
+        let issues = fixed_source_chapter_diagnostics(&output, std::iter::empty()).unwrap();
+        assert_eq!(issues[0]["quoteProblem"], "pathNotAdmitted");
+        let repeated = format!("{SIMPLE_SOURCE}\n{SIMPLE_SOURCE}");
+        let issues = fixed_source_chapter_diagnostics(&output, [(SIMPLE_PATH, repeated.as_str())]).unwrap();
+        assert_eq!(issues[0]["quoteProblem"], "quoteAmbiguous");
     }
 
     #[test]

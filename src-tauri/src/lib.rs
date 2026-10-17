@@ -2523,7 +2523,7 @@ mod chapter_pipeline_tests {
             }, &codex_runtime).unwrap().review;
         assert_eq!(codex_review.purpose,"sectionUpdate");
         assert_eq!(crate::claim_alignment::CorrectionPolicy::from_generation_config(&codex_review.generation_config),
-            crate::claim_alignment::CorrectionPolicy::ChapterScenesV3);
+            crate::claim_alignment::CorrectionPolicy::ChapterScenesV4);
         provider::revalidate_codex_request_review(&fixture.storage,&codex_review,&codex_runtime).unwrap();
 
         for disclosure in provider::provider_catalog() {

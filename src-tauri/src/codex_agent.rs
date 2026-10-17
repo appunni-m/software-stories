@@ -1319,7 +1319,7 @@ impl ServerProcess {
             &self.disabled_mcp,
         );
         if let Some(retrieval) = &input.retrieval {
-            if input.correction_policy == crate::claim_alignment::CorrectionPolicy::ChapterScenesV3 {
+            if input.correction_policy == crate::claim_alignment::CorrectionPolicy::ChapterScenesV4 {
                 return Err("Chapter layout correction requires the reviewed fixed-source operation.".into());
             }
             let session = retrieval
@@ -1418,8 +1418,9 @@ impl ServerProcess {
                         .candidate_diagnostics(response, cancelled)
                 } else {
                     Ok(match input.correction_policy {
-                        crate::claim_alignment::CorrectionPolicy::ChapterScenesV3 =>
-                            crate::claim_alignment::chapter_diagnostics(&response.response_text),
+                        crate::claim_alignment::CorrectionPolicy::ChapterScenesV4 =>
+                            crate::claim_alignment::fixed_source_chapter_diagnostics(&response.response_text,
+                                input.sources.iter().map(|s| (s.path.as_str(), s.contents.as_str()))),
                         _ => crate::claim_alignment::diagnostics(&response.response_text),
                     })
                 }

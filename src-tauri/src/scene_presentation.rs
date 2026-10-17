@@ -70,6 +70,38 @@ pub(crate) fn narration(
     Ok(Some(scripts))
 }
 
+/// Known proposal-reference mismatch, shared by chapter and progressive repair.
+/// Positions only: no code, labels or quotes leave this diagnostic. It resolves
+/// no evidence and cannot admit a draft or renew the single correction budget.
+pub(crate) fn foreign_claim_positions(section: &Value) -> Vec<(usize, usize)> {
+    let visual = &section["visual"];
+    let Some(nodes) = visual["nodes"].as_array().filter(|n| n.len() <= 12) else {
+        return vec![];
+    };
+    let Ok(presentation) = serde_json::from_value::<ScenePresentation>(visual["presentation"].clone()) else {
+        return vec![];
+    };
+    if !matches!(presentation.schema_version, 1 | 2 | 3) || presentation.scenes.len() > 20 {
+        return vec![];
+    }
+    let mut positions = Vec::new();
+    for (scene_index, scene) in presentation.scenes.iter().enumerate() {
+        if scene.mode != SceneMode::Composition || scene.claim_index != scene_index || scene.elements.len() > 48 {
+            continue;
+        }
+        for (element_index, element) in scene.elements.iter().enumerate() {
+            if element.kind.container() || element.kind.decorative() { continue; }
+            let Some(references) = element.node_index.and_then(|n| nodes.get(n))
+                .and_then(|node| node["evidence"].as_array()) else { continue; };
+            if !references.iter().any(|r| r["claimIndex"].as_u64() == Some(scene_index as u64)) {
+                positions.push((scene_index, element_index));
+                if positions.len() == 64 { return positions; }
+            }
+        }
+    }
+    positions
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum SceneMode {

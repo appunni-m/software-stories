@@ -542,54 +542,9 @@ fn scene_source_value_findings(section: &Value, resolved: &str) -> Vec<Value> {
 /// This does not resolve evidence or authorize a visual; the canonicalizer
 /// remains authoritative for node references and the complete presentation.
 fn scene_evidence_findings(section: &Value) -> Vec<Value> {
-    use crate::scene_presentation::{ElementKind, SceneMode, ScenePresentation};
-    let visual = &section["visual"];
-    let Some(nodes) = visual["nodes"].as_array().filter(|n| n.len() <= 12) else {
-        return Vec::new();
-    };
-    let Ok(presentation) =
-        serde_json::from_value::<ScenePresentation>(visual["presentation"].clone())
-    else {
-        return Vec::new();
-    };
-    let mut findings = Vec::new();
-    for (scene_index, scene) in presentation.scenes.iter().take(20).enumerate() {
-        if scene.mode != SceneMode::Composition || scene.claim_index != scene_index {
-            continue;
-        }
-        for (element_index, element) in scene.elements.iter().take(48).enumerate() {
-            if !matches!(
-                element.kind,
-                ElementKind::Card
-                    | ElementKind::Token
-                    | ElementKind::Code
-                    | ElementKind::Metric
-                    | ElementKind::Bytes
-                    | ElementKind::Matrix
-                    | ElementKind::Table
-                    | ElementKind::Text
-            ) {
-                continue;
-            }
-            let Some(references) = element
-                .node_index
-                .and_then(|n| nodes.get(n))
-                .and_then(|node| node["evidence"].as_array())
-            else {
-                continue;
-            };
-            if !references
-                .iter()
-                .any(|reference| reference["claimIndex"].as_u64() == Some(scene_index as u64))
-            {
-                findings.push(json!({"location":format!("/section/visual/presentation/scenes/{scene_index}/elements/{element_index}/nodeIndex"),"code":"sceneEvidence"}));
-                if findings.len() == 64 {
-                    return findings;
-                }
-            }
-        }
-    }
-    findings
+    crate::scene_presentation::foreign_claim_positions(section).into_iter()
+        .map(|(scene, element)| json!({"location":format!("/section/visual/presentation/scenes/{scene}/elements/{element}/nodeIndex"),"code":"sceneEvidence"}))
+        .collect()
 }
 
 fn valid_findings(findings: &[Value]) -> bool {

@@ -30,6 +30,10 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
         if !matches!(presentation.schema_version, 2 | 3) || presentation.scenes.len() > 20 {
             continue;
         }
+        for (scene, element) in crate::scene_presentation::foreign_claim_positions(section) {
+            if issues.len() >= super::MAX_ISSUES { return; }
+            issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{scene}/elements/{element}/nodeIndex"),"sceneProblem":"sceneEvidence"}));
+        }
         for (index, scene) in presentation.scenes.iter().enumerate() {
             if presentation.schema_version == 3 && !scene.narration.as_ref().is_some_and(|s| !s.trim().is_empty() && s.len() <= 4_000) {
                 if issues.len() >= super::MAX_ISSUES { return; }
