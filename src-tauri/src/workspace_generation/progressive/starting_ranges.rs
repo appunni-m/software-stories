@@ -13,8 +13,12 @@ pub(super) fn request(
     input: &Input,
     manifest: &snapshot::SnapshotManifest,
     ranges: &[context::CodeRange],
+    guide_intent: Option<&GuideIntent>,
 ) -> Result<(String, Value, String, String), String> {
-    if ranges.is_empty() {
+    if let Some(intent) = guide_intent {
+        intent.validate()?;
+    }
+    if ranges.is_empty() && guide_intent.is_none() {
         // Preserve the exact ordinary-question contract and historical prompt.
         let (prompt, schema, fingerprint) = super::request(input, manifest)?;
         return Ok((prompt, schema, fingerprint, system_instructions()));
@@ -51,18 +55,45 @@ pub(super) fn request(
             end_byte: range.end_byte,
         });
     }
-    prompt["startingRanges"] = json!(hints);
-    prompt["startingRangePolicy"] = json!(POLICY);
+    if !ranges.is_empty() {
+        prompt["startingRanges"] = json!(hints);
+        prompt["startingRangePolicy"] = json!(POLICY);
+    }
+    if let Some(intent) = guide_intent {
+        prompt["guideContext"] = json!(intent);
+        prompt["guideContextPolicy"] = json!(guide_intent::POLICY);
+    }
     let prompt =
         serde_json::to_string(&prompt).map_err(|_| "The question could not be encoded.")?;
     let schema = schema();
-    let instructions = format!("{}\n\n{INSTRUCTIONS}", system_instructions());
+    let mut instructions = system_instructions();
+    if !ranges.is_empty() {
+        instructions.push_str(&format!("\n\n{INSTRUCTIONS}"));
+    }
+    if guide_intent.is_some() {
+        instructions.push_str(&format!("\n\n{}", guide_intent::INSTRUCTIONS));
+    }
     let mut contract = generation_contract(input, &prompt, &schema)?;
     contract["systemInstructions"] = json!(instructions);
-    contract["startingRangePolicy"] = json!(POLICY);
+    if !ranges.is_empty() {
+        contract["startingRangePolicy"] = json!(POLICY);
+    }
+    if guide_intent.is_some() {
+        contract["guideContextPolicy"] = json!(guide_intent::POLICY);
+    }
     let bytes = serde_json::to_vec(&contract)
         .map_err(|_| "The progressive question contract could not be encoded.")?;
-    if bytes.len() > 32000 {
+    // A guide carries its original question separately from the independent
+    // unit/continuation question. Keep both bounded and exact. This changes no
+    // source/tool/proposal/time limits and sends no additional source bytes.
+    // The fingerprint also encodes the already-serialized prompt as a JSON
+    // string, so quotes are escaped twice inside this bounded local contract.
+    let limit = if guide_intent.is_some() {
+        128 * 1024
+    } else {
+        32000
+    };
+    if bytes.len() > limit {
         return Err("The question and references exceed the initial request limit.".into());
     }
     Ok((prompt, schema, context::digest(&bytes), instructions))
@@ -103,9 +134,153 @@ mod tests {
         let (input, _) = prepared(&f);
         let previous = super::super::request(&input, &f.manifest).unwrap();
         let (prompt, schema, fingerprint, instructions) =
-            request(&f.storage, &input, &f.manifest, &[]).unwrap();
+            request(&f.storage, &input, &f.manifest, &[], None).unwrap();
         assert_eq!((prompt, schema, fingerprint), previous);
         assert_eq!(instructions, system_instructions());
+    }
+
+    fn guide_intent() -> GuideIntent {
+        GuideIntent {
+            guide_id: Uuid::new_v4().to_string(),
+            question: "How does a requested name become output, including important failure paths?"
+                .into(),
+            unit_key: "greeting-input".into(),
+            unit_number: 1,
+            unit_count: 2,
+            research_boundaries: vec!["Runtime execution was not observed.".into()],
+        }
+    }
+
+    #[test]
+    fn guide_request_preserves_original_intent_and_boundaries_as_context_not_evidence() {
+        let f = Fixture::new();
+        let (input, range) = prepared(&f);
+        let intent = guide_intent();
+        let (prompt, schema, fingerprint, instructions) = request(
+            &f.storage,
+            &input,
+            &f.manifest,
+            &[range.clone()],
+            Some(&intent),
+        )
+        .unwrap();
+        let value: Value = serde_json::from_str(&prompt).unwrap();
+        assert_eq!(value["question"], input.question);
+        assert_eq!(value["guideContext"], json!(intent));
+        assert_ne!(value["question"], value["guideContext"]["question"]);
+        let ordinary = request(&f.storage, &input, &f.manifest, &[range], None).unwrap();
+        assert_ne!(fingerprint, ordinary.2);
+        assert!(instructions.contains("guideContext"));
+        assert!(!prompt.contains(SIMPLE_SOURCE));
+        for forbidden in ["referenceId", "code:1", "quote", "contents"] {
+            assert!(!value["guideContext"].to_string().contains(forbidden));
+        }
+        let mut contract = generation_contract(&input, &prompt, &schema).unwrap();
+        contract["systemInstructions"] = json!(instructions);
+        contract["startingRangePolicy"] = json!(POLICY);
+        contract["guideContextPolicy"] = json!(guide_intent::POLICY);
+        assert_eq!(
+            fingerprint,
+            context::digest(&serde_json::to_vec(&contract).unwrap())
+        );
+        assert_eq!(value["guideContextPolicy"], guide_intent::POLICY);
+        assert_eq!(contract["sectionAttempts"], 8);
+        assert_eq!(contract["uniqueSections"], 6);
+        assert_eq!(
+            contract["tools"],
+            serde_json::to_value(context_mcp::tools_for(true)).unwrap()
+        );
+        assert!(!f.storage.join("answer-sections").exists());
+        assert!(!f.storage.join("evidence-ledgers").exists());
+    }
+
+    #[test]
+    fn every_guide_intent_field_is_bound_without_rewriting_unit_or_original_questions() {
+        let f = Fixture::new();
+        let (input, range) = prepared(&f);
+        let original = guide_intent();
+        let ranges = [range];
+        let previous = request(&f.storage, &input, &f.manifest, &ranges, Some(&original)).unwrap();
+        for field in ["guide", "question", "key", "number", "count", "boundaries"] {
+            let mut changed = original.clone();
+            match field {
+                "guide" => changed.guide_id = Uuid::new_v4().to_string(),
+                "question" => changed
+                    .question
+                    .push_str(" What happens on malformed input?"),
+                "key" => changed.unit_key.push_str("-revised"),
+                "number" => changed.unit_number = 2,
+                "count" => changed.unit_count = 3,
+                "boundaries" => changed
+                    .research_boundaries
+                    .push("No downstream caller was executed.".into()),
+                _ => unreachable!(),
+            }
+            let next = request(&f.storage, &input, &f.manifest, &ranges, Some(&changed)).unwrap();
+            assert_ne!(previous.2, next.2, "{field}");
+            let prompt: Value = serde_json::from_str(&next.0).unwrap();
+            assert_eq!(prompt["question"], input.question);
+            assert_eq!(prompt["guideContext"]["question"], changed.question);
+        }
+    }
+
+    #[test]
+    fn invalid_guide_intent_is_rejected_before_source_retrieval_or_inference() {
+        let f = Fixture::new();
+        let (input, _) = prepared(&f);
+        let original = guide_intent();
+        for field in [
+            "guide",
+            "empty",
+            "long",
+            "control",
+            "key",
+            "number",
+            "count",
+            "boundaries",
+            "boundary",
+        ] {
+            let mut changed = original.clone();
+            match field {
+                "guide" => changed.guide_id = "not-a-guide".into(),
+                "empty" => changed.question = " ".into(),
+                "long" => changed.question = "é".repeat(6001),
+                "control" => changed.question.push('\n'),
+                "key" => changed.unit_key = "bad_key".into(),
+                "number" => changed.unit_number = 0,
+                "count" => changed.unit_count = 7,
+                "boundaries" => changed.research_boundaries = vec!["boundary".into(); 9],
+                "boundary" => changed.research_boundaries = vec!["é".repeat(121)],
+                _ => unreachable!(),
+            }
+            let error = request(&f.storage, &input, &f.manifest, &[], Some(&changed)).unwrap_err();
+            assert!(
+                error.contains("learning intent is invalid"),
+                "{field}: {error}"
+            );
+        }
+        assert!(!f.storage.join("answer-sections").exists());
+        assert!(!f.storage.join("evidence-ledgers").exists());
+    }
+
+    #[test]
+    fn a_full_size_original_question_survives_separately_from_a_full_size_unit() {
+        let f = Fixture::new();
+        let (mut input, range) = prepared(&f);
+        let mut intent = guide_intent();
+        intent.question = "\"é".repeat(4000);
+        input.question = "\"x".repeat(6000);
+        assert_eq!(intent.question.len(), 12000);
+        assert_eq!(input.question.len(), 12000);
+        let (prompt, _, _, _) =
+            request(&f.storage, &input, &f.manifest, &[range], Some(&intent)).unwrap();
+        let value: Value = serde_json::from_str(&prompt).unwrap();
+        assert_eq!(value["question"], input.question);
+        assert_eq!(value["guideContext"]["question"], intent.question);
+        let without_ranges = request(&f.storage, &input, &f.manifest, &[], Some(&intent)).unwrap();
+        let value: Value = serde_json::from_str(&without_ranges.0).unwrap();
+        assert_eq!(value["guideContext"], json!(intent));
+        assert!(value.get("startingRanges").is_none());
     }
 
     #[test]
@@ -113,7 +288,7 @@ mod tests {
         let f = Fixture::new();
         let (input, range) = prepared(&f);
         let (prompt, schema, fingerprint, instructions) =
-            request(&f.storage, &input, &f.manifest, &[range.clone()]).unwrap();
+            request(&f.storage, &input, &f.manifest, &[range.clone()], None).unwrap();
         let value: Value = serde_json::from_str(&prompt).unwrap();
         assert_eq!(value["startingRangePolicy"], POLICY);
         assert_eq!(
@@ -175,14 +350,23 @@ mod tests {
                 _ => unreachable!(),
             }
             assert!(
-                request(&f.storage, &input, &f.manifest, &[changed]).is_err(),
+                request(&f.storage, &input, &f.manifest, &[changed], None).is_err(),
                 "{field}"
             );
         }
-        assert!(request(&f.storage, &input, &f.manifest, &vec![range.clone(); 5]).is_err());
+        assert!(
+            request(
+                &f.storage,
+                &input,
+                &f.manifest,
+                &vec![range.clone(); 5],
+                None
+            )
+            .is_err()
+        );
         let mut missing = input;
         missing.references.clear();
-        assert!(request(&f.storage, &missing, &f.manifest, &[range]).is_err());
+        assert!(request(&f.storage, &missing, &f.manifest, &[range], None).is_err());
     }
 
     #[test]
@@ -191,12 +375,12 @@ mod tests {
         let text = format!("{SIMPLE_SOURCE}\r\n// A greeting for café 🦀\r\n");
         f.recapture_with_source(SIMPLE_PATH, &text);
         let (input, range) = prepared(&f);
-        assert!(request(&f.storage, &input, &f.manifest, &[range.clone()]).is_ok());
+        assert!(request(&f.storage, &input, &f.manifest, &[range.clone()], None).is_ok());
         let mut invalid = range.clone();
         invalid.end_byte = text.find('🦀').unwrap() + 1;
-        assert!(request(&f.storage, &input, &f.manifest, &[invalid]).is_err());
+        assert!(request(&f.storage, &input, &f.manifest, &[invalid], None).is_err());
         f.recapture_with_source(SIMPLE_PATH, &text.replace("greeting", "salutation"));
-        assert!(request(&f.storage, &input, &f.manifest, &[range]).is_err());
+        assert!(request(&f.storage, &input, &f.manifest, &[range], None).is_err());
     }
 
     #[test]
@@ -221,7 +405,14 @@ mod tests {
             &runtime,
         )
         .unwrap();
-        let (prompt, _, _, _) = request(&f.storage, &input, &f.manifest, &[range]).unwrap();
+        let (prompt, _, _, _) = request(
+            &f.storage,
+            &input,
+            &f.manifest,
+            &[range],
+            Some(&guide_intent()),
+        )
+        .unwrap();
         let value: Value = serde_json::from_str(&prompt).unwrap();
         let ranges: Vec<RangeRequest> =
             serde_json::from_value(value["startingRanges"].clone()).unwrap();

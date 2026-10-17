@@ -361,6 +361,22 @@ fn continuation(storage: &Path, record: &Record, index: usize) -> Result<String,
     }
     Ok(question)
 }
+
+fn unit_intent(
+    record: &Record,
+    index: usize,
+) -> Result<workspace_generation::progressive::GuideIntent, String> {
+    let plan = record.plan.as_ref().ok_or("The guide has no outline.")?;
+    let unit = plan.units.get(index).ok_or("The guide unit is unavailable.")?;
+    Ok(workspace_generation::progressive::GuideIntent {
+        guide_id: record.id.clone(),
+        question: record.question.clone(),
+        unit_key: unit.key.clone(),
+        unit_number: index + 1,
+        unit_count: plan.units.len(),
+        research_boundaries: plan.omissions.clone(),
+    })
+}
 fn build(
     storage: &Path,
     id: &str,
@@ -430,6 +446,7 @@ fn build(
             &runtime,
         )?;
         let question = continuation(storage, &record, index)?;
+        let guide_intent = unit_intent(&record, index)?;
         let run_id = Uuid::new_v4().to_string();
         record = store::update(storage, id, |current| {
             if current.status == Status::Stopped {
@@ -468,6 +485,7 @@ fn build(
                 effort: "max".into(),
             },
             &record.plan.as_ref().unwrap().units[index].starting_ranges,
+            Some(&guide_intent),
             manager,
             jobs.clone(),
             journal,

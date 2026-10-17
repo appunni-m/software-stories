@@ -101,6 +101,33 @@ fn prerequisites_wait_for_a_complete_unit_and_completed_units_are_skipped() {
     assert_eq!(MAX_UNITS, 6);
     assert_eq!(MAX_ATTEMPTS, 2);
 }
+
+#[test]
+fn each_unit_receives_the_exact_native_guide_intent_without_changing_its_question() {
+    let f = Fixture::new();
+    let mut record = record(&f);
+    record.question = "How does café 🦀 turn a name into output, including failures?".into();
+    record.plan.as_mut().unwrap().omissions = vec![
+        "No runtime execution was captured.".into(),
+        "Detailed encoding diagnostics remain unexplored.".into(),
+    ];
+    for index in 0..2 {
+        let intent = unit_intent(&record, index).unwrap();
+        let value = serde_json::to_value(intent).unwrap();
+        assert_eq!(value["guideId"], record.id);
+        assert_eq!(value["question"], record.question);
+        assert_eq!(value["researchBoundaries"], serde_json::json!(record.plan.as_ref().unwrap().omissions));
+        assert_eq!(value["unitKey"], record.units[index].key);
+        assert_eq!(value["unitNumber"], index + 1);
+        assert_eq!(value["unitCount"], 2);
+        assert!(continuation(&f.storage, &record, index).unwrap().starts_with(
+            &record.plan.as_ref().unwrap().units[index].question
+        ));
+    }
+    assert!(unit_intent(&record, 2).is_err());
+    record.plan = None;
+    assert!(unit_intent(&record, 0).is_err());
+}
 #[test]
 fn guide_reopens_without_research_and_source_scope_is_revalidated() {
     let f = Fixture::new();
