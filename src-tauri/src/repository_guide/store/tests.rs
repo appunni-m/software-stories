@@ -96,10 +96,10 @@ fn damaged_contract_duplicate_runs_and_excess_attempts_fail_without_rewriting() 
 fn fresh_independent_research_requires_its_own_schema_and_opening() {
     let f = Fixture::new();
     let fresh = crate::repository_guide::tests::fresh_record(&f);
-    assert_eq!(fresh.schema_version, 3);
+    assert_eq!(fresh.schema_version, 4);
     assert_eq!(fresh.contract, CONTRACT);
     assert!(validate(&fresh).is_ok());
-    for (schema, contract) in [(2, CONTRACT), (3, OPENING_CONTRACT), (1, CONTRACT), (3, PLAN_ONLY_CONTRACT)] {
+    for (schema, contract) in [(2, CONTRACT), (3, CONTRACT), (4, INDEPENDENT_CONTRACT), (3, OPENING_CONTRACT), (1, CONTRACT), (4, PLAN_ONLY_CONTRACT)] {
         let mut invalid = fresh.clone();
         invalid.schema_version = schema;
         invalid.contract = contract.into();
@@ -111,6 +111,45 @@ fn fresh_independent_research_requires_its_own_schema_and_opening() {
     let mut invalid_edge = fresh;
     invalid_edge.plan.as_mut().unwrap().units[0].prerequisites = vec!["output".into()];
     assert!(validate(&invalid_edge).is_err(), "independent research still preserves the reading DAG");
+}
+
+#[test]
+fn separate_opening_binding_rejects_changed_context_and_old_contracts_keep_their_bytes() {
+    let f = Fixture::new();
+    let fresh = crate::repository_guide::tests::fresh_record(&f);
+    for kind in ["missing", "digest", "guideQuestion", "openingQuestion", "project", "snapshot", "run"] {
+        let mut invalid = fresh.clone();
+        match kind {
+            "missing" => invalid.opening_context_sha256 = None,
+            "digest" => invalid.opening_context_sha256 = Some("a".repeat(64)),
+            "guideQuestion" => invalid.question.push_str(" Changed intent."),
+            "openingQuestion" => invalid.opening.as_mut().unwrap().question = invalid.question.clone(),
+            "project" => invalid.project_id.push_str("-other"),
+            "snapshot" => invalid.snapshot_id.push_str("-other"),
+            "run" => {invalid.planning_run_id = Uuid::new_v4().to_string(); invalid.opening.as_mut().unwrap().run_id = invalid.planning_run_id.clone();},
+            _ => unreachable!(),
+        }
+        assert!(validate(&invalid).is_err(), "{kind}");
+    }
+    for (schema_version, contract) in [(3, INDEPENDENT_CONTRACT), (2, OPENING_CONTRACT)] {
+        let mut old = crate::repository_guide::tests::fresh_record(&f);
+        old.schema_version = schema_version;
+        old.contract = contract.into();
+        old.opening_context_sha256 = None;
+        old.opening.as_mut().unwrap().question = old.question.clone();
+        create(&f.storage, &old).unwrap();
+        let location = path(&f.storage, &old.id).unwrap();
+        let before = std::fs::read(&location).unwrap();
+        assert!(!String::from_utf8_lossy(&before).contains("openingContextSha256"));
+        let restored = read(&f.storage, &old.id).unwrap();
+        assert_eq!(restored.contract, contract);
+        assert_eq!(opening::question(&restored).unwrap(), old.question);
+        assert_eq!(independent_research(&restored), schema_version == 3);
+        assert_eq!(std::fs::read(location).unwrap(), before);
+    }
+    let mut foreign = crate::repository_guide::tests::record(&f);
+    foreign.opening_context_sha256 = fresh.opening_context_sha256;
+    assert!(validate(&foreign).is_err());
 }
 #[test]
 fn nonregular_records_and_oversized_data_are_preserved() {

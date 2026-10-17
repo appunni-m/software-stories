@@ -27,7 +27,8 @@ mod store;
 use plan::Plan;
 use recovering::reconcile;
 
-const CONTRACT: &str = "repository-guide-v4-independent-unit-research";
+const CONTRACT: &str = "repository-guide-v5-separate-opening-intent";
+const INDEPENDENT_CONTRACT: &str = "repository-guide-v4-independent-unit-research";
 const OPENING_CONTRACT: &str = "repository-guide-v3-opening-during-planning";
 const PLAN_ONLY_CONTRACT: &str = "repository-guide-v2-short-reference-planning";
 const LEGACY_CONTRACT: &str = "repository-guide-v1-owned-range-planning";
@@ -75,6 +76,8 @@ struct Record {
     planning_run_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     opening: Option<Attempt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    opening_context_sha256: Option<String>,
     plan: Option<Plan>,
     units: Vec<Unit>,
     status: Status,
@@ -177,7 +180,11 @@ fn prerequisite_complete(record: &Record, index: usize) -> bool {
     })
 }
 fn independent_research(record: &Record) -> bool {
-    record.schema_version == 3 && record.contract == CONTRACT
+    matches!((record.schema_version, record.contract.as_str()),
+        (4, CONTRACT) | (3, INDEPENDENT_CONTRACT))
+}
+fn separate_opening_intent(record: &Record) -> bool {
+    record.schema_version == 4 && record.contract == CONTRACT
 }
 fn unit_research_eligible(record: &Record, index: usize) -> bool {
     record.status != Status::Stopped
@@ -632,9 +639,9 @@ pub(crate) struct Start {
 
 fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Record, String> {
     let planning_run_id = input.id.clone();
-    Ok(Record {
+    let mut record = Record {
         revision: 0,
-        schema_version: 3,
+        schema_version: 4,
         contract: CONTRACT.into(),
         id: input.id,
         project_id: input.project_id,
@@ -645,16 +652,19 @@ fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Rec
         grant_id: input.grant_id,
         opening: Some(Attempt {
             run_id: planning_run_id.clone(),
-            question: input.question.clone(),
+            question: opening::LEARNING_QUESTION.into(),
             summary: None,
         }),
+        opening_context_sha256: None,
         question: input.question,
         planning_run_id,
         plan: None,
         units: vec![],
         status: Status::Planning,
         active_run_id: None,
-    })
+    };
+    record.opening_context_sha256 = Some(opening::context_sha256(&record)?);
+    Ok(record)
 }
 
 #[tauri::command]

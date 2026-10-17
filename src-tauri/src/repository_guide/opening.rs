@@ -4,7 +4,11 @@
 use super::*;
 use serde_json::{Value, json};
 
-pub(super) const POLICY: &str = "first-transition-with-native-publications-v2";
+const LEGACY_POLICY: &str = "first-transition-with-native-publications-v2";
+const SCOPED_POLICY: &str = "first-transition-with-separate-learning-intent-v3";
+pub(super) const LEARNING_QUESTION: &str = "How does the repository's real entry point accept its input, make the first consequential decision, and return or propagate that transition's result?";
+const SCOPED_ROLE: &str = "This owned investigation has two distinct questions. The top-level question is the opening answer's learning question: teach the actual first input-to-decision/result transition and its guards, using captured implementation. guideContext.question is the exact original whole-guide question: preserve its entire scope in the deeper outline, including alternatives and failures. Publish a small illustrated opening early, then finish researching that outline within this same operation and original budgets. Source selection is yours; neither question establishes implementation facts.";
+const SCOPED_COMPLETION: &str = "Assess openingAnswer.incompleteTopics against the top-level opening question, while outline coverage is assessed against the complete guideContext.question. Returning a selected driver's Result can fully explain caller dispatch without claiming the driver's work succeeds; unclaimed callee internals belong to later research when required by the whole-guide question. Missing conditions, fall-through or returned/propagated outcomes within the opening's own chosen transition still remain incomplete. Do not remove facts, hide an unresolved opening guard or shrink the whole-guide outline to obtain completion. Completing the opening never completes the whole guide.";
 const ROLE: &str = r#"Investigate the original learning question using captured implementation code. Read the actual entry point and first input-to-decision/result transition early. Publish a small complete opening section as soon as its implementation evidence has been read, then focus on the remaining research outline. Preserve the question's causal order and full scope in that outline, including requested alternate paths and failures. The opening teaches its real transition and all relevant guards and consequences; it is not a plan or file list. For a predicate explain both true and false conditions. Do not continue publishing every deeper stage as part of the opening. Those stages belong to the distinct focused investigations you are planning within this same operation and original budgets."#;
 
 const FINAL_INSTRUCTIONS: &str = r#"This operation opens a complete repository guide and researches its deeper outline. The original learning question remains the guide's full scope. Publish a useful illustrated opening through propose_answer_section as soon as you have read the first real input-to-decision/result transition. Do not wait for a complete repository survey or outline. The opening must teach implementation behavior; a file list, generic introduction or promise to investigate is not an answer. Its narrower role is the first concrete transition, not every alternate representation and failure family. Explain its supported guards and consequences completely. Keep the opening small, normally one section, while preserving every fact you choose to teach. Continue researching the outline in the SAME owned investigation and original budgets; never start a second operation to get an opening.
@@ -15,6 +19,49 @@ outline is a repositoryGuidePlanV1 object using citationVersion:"nativeEvidenceV
 
 pub(super) fn instructions() -> String {
     workspace_generation::progressive::instructions_for_role(ROLE, FINAL_INSTRUCTIONS)
+}
+
+pub(super) fn policy(job: &Record) -> &'static str {
+    if separate_opening_intent(job) { SCOPED_POLICY } else { LEGACY_POLICY }
+}
+
+pub(super) fn context_sha256(job: &Record) -> Result<String, String> {
+    let bytes = serde_json::to_vec(&json!({
+        "policy":SCOPED_POLICY,"guideId":job.id,"runId":job.planning_run_id,
+        "projectId":job.project_id,"snapshotId":job.snapshot_id,
+        "guideQuestion":job.question,"openingQuestion":LEARNING_QUESTION,
+    })).map_err(|_| "The opening learning intent could not be encoded.")?;
+    Ok(context::digest(&bytes))
+}
+
+pub(super) fn question(job: &Record) -> Result<&str, String> {
+    let opening = job.opening.as_ref().ok_or("The guide has no opening owner.")?;
+    let expected = if separate_opening_intent(job) { LEARNING_QUESTION } else { &job.question };
+    if opening.run_id != job.planning_run_id || opening.question != expected
+        || (separate_opening_intent(job)
+            && job.opening_context_sha256.as_deref() != Some(context_sha256(job)?.as_str()))
+        || (!separate_opening_intent(job) && job.opening_context_sha256.is_some())
+    {
+        return Err("The guide opening changed its owner or learning intent.".into());
+    }
+    Ok(&opening.question)
+}
+
+pub(super) fn instructions_for(job: &Record) -> String {
+    if separate_opening_intent(job) {
+        workspace_generation::progressive::instructions_for_role(
+            SCOPED_ROLE, &format!("{FINAL_INSTRUCTIONS}\n\n{SCOPED_COMPLETION}"),
+        )
+    } else { instructions() }
+}
+
+pub(super) fn schema_for(job: &Record, outline: Value) -> Value {
+    let mut result = schema(outline);
+    if separate_opening_intent(job) {
+        result["properties"]["openingAnswer"]["description"] = json!("Unfinished behavior within the top-level opening learning question; this is not a completion declaration for guideContext.question.");
+        result["properties"]["outline"]["description"] = json!("Research questions covering the complete original guideContext.question together with the opening; never narrow the original requested behavior.");
+    }
+    result
 }
 
 pub(super) fn schema(outline: Value) -> Value {
@@ -70,7 +117,10 @@ pub(super) fn retain_failure(storage: &Path, job: &Record) -> Result<(), String>
             .opening
             .as_mut()
             .ok_or("The guide opening owner changed.")?;
-        if saved.run_id != opening.run_id || saved.question != opening.question {
+        if saved.run_id != opening.run_id || saved.question != opening.question
+            || current.question != job.question
+            || current.opening_context_sha256 != job.opening_context_sha256
+        {
             return Err("The guide opening scope changed. Saved work was preserved.".into());
         }
         saved.summary = answer;

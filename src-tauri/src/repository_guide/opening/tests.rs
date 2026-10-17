@@ -89,6 +89,18 @@ fn opening_has_a_durable_owner_before_any_outline_or_sections_exist() {
 }
 
 #[test]
+fn fresh_opening_owns_a_separate_learning_question_without_losing_the_guide_question() {
+    let f = Fixture::new();
+    let r = pending(&f);
+    let opening = r.opening.as_ref().unwrap();
+    assert_ne!(opening.question, r.question, "the first transition and the entire guide must not share one answer scope");
+    store::create(&f.storage, &r).unwrap();
+    let reopened = store::read(&f.storage, &r.id).unwrap();
+    assert_eq!(reopened.question, r.question);
+    assert_eq!(reopened.opening.unwrap().question, opening.question);
+}
+
+#[test]
 fn opening_cannot_be_forged_into_a_legacy_record_or_another_question() {
     let f = Fixture::new();
     let original = pending(&f);
@@ -214,7 +226,7 @@ fn publish(f: &Fixture, r: &Record) -> crate::evidence_ledger::sections::ActiveA
         .unwrap();
     let reference = delivered["added"][0]["referenceId"].as_str().unwrap();
     let mut answer = ledger
-        .start_native_manifest_answer_sections(&r.question, &"d".repeat(64), &f.manifest, &runtime, &cancel)
+        .start_native_manifest_answer_sections(question(r).unwrap(), &"d".repeat(64), &f.manifest, &runtime, &cancel)
         .unwrap();
     let raw = crate::evidence_ledger::sections::authoring::tests::proposal(reference, "opening", 0)
         .to_string();
@@ -255,6 +267,8 @@ fn independent_research_continues_after_an_honest_boundary_but_not_a_failed_oper
         let mut historical = r.clone();
         historical.schema_version = 2;
         historical.contract = OPENING_CONTRACT.into();
+        historical.opening_context_sha256 = None;
+        historical.opening.as_mut().unwrap().question = historical.question.clone();
         assert!(check_research_outcome(&historical, &answer).is_ok());
     }
 }
@@ -295,7 +309,8 @@ fn a_validated_scene_is_readable_and_adoptable_before_the_outline_exists() {
     let shown = summary(&f.storage, &r).unwrap();
     assert!(shown.units.is_empty());
     assert_eq!(shown.answers.len(), 1);
-    assert_eq!(shown.answers[0].question, r.question);
+    assert_eq!(shown.answers[0].question, question(&r).unwrap());
+    assert_eq!(shown.question, r.question);
     assert_eq!(shown.answers[0].outcome, Outcome::Working);
     let section = shown.answers[0].sections[0].clone();
     let revision = reading::adopt(

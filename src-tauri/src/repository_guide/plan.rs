@@ -144,16 +144,21 @@ fn canonicalize(resolved: &native_citations::Resolved) -> Result<Plan, String> {
 
 fn request(job: &Record) -> Result<(String, Value, String, String), String> {
     let has_opening = job.opening.is_some();
-    let prompt = serde_json::to_string(&json!({"question":job.question,"snapshotId":job.snapshot_id,
-        "scope":"all eligible captured implementation, researched by ranges; never select whole files for transmission"}))
+    let question = if has_opening { opening::question(job)? } else { &job.question };
+    let mut intent = json!({"question":question,"snapshotId":job.snapshot_id,
+        "scope":"all eligible captured implementation, researched by ranges; never select whole files for transmission"});
+    if separate_opening_intent(job) {
+        intent["guideContext"] = json!({"guideId":job.id,"question":job.question});
+    }
+    let prompt = serde_json::to_string(&intent)
         .map_err(|_| "The guide question could not be encoded.")?;
     let schema = if has_opening {
-        opening::schema(schema())
+        opening::schema_for(job, schema())
     } else {
         schema()
     };
     let mut instructions = if has_opening {
-        opening::instructions()
+        opening::instructions_for(job)
     } else {
         INSTRUCTIONS.into()
     };
@@ -170,10 +175,13 @@ fn request(job: &Record) -> Result<(String, Value, String, String), String> {
         "runId":job.planning_run_id,"guideId":job.id,"grantId":job.grant_id,"manifestSha256":job.manifest_sha256,
         "instructions":instructions,"prompt":prompt,"schema":schema,"tools":tools,
         "correctionPolicy":if has_opening {"owned-section-proposals-no-final-rewrite-v1"} else {"fixed-native-starting-references-v1-max1"},
-        "openingPolicy":if has_opening {Some(opening::POLICY)} else {None},
+        "openingPolicy":if has_opening {Some(opening::policy(job))} else {None},
         "model":"gpt-6-luna","effort":"max","maxUnits":MAX_UNITS,"maxAttemptsPerUnit":MAX_ATTEMPTS});
     if independent_research(job) {
         contract["unitResearchPolicy"] = json!(RESEARCH_POLICY);
+    }
+    if separate_opening_intent(job) {
+        contract["openingIntentSha256"] = json!(job.opening_context_sha256);
     }
     if has_opening {
         contract["sourcePolicy"] = json!(crate::evidence_ledger::POLICY);
@@ -198,6 +206,27 @@ fn request(job: &Record) -> Result<(String, Value, String, String), String> {
     }
     let fingerprint = context::digest(&contract);
     Ok((prompt, schema, fingerprint, instructions))
+}
+
+fn new_session(
+    storage: &Path,
+    job: &Record,
+    manifest: snapshot::SnapshotManifest,
+    runtime: &crate::codex_identity::CodexReviewRuntime,
+    jobs: RepositoryContextJobs,
+    fingerprint: &str,
+    notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
+) -> Result<agent_context::Session, String> {
+    if job.opening.is_some() {
+        agent_context::Session::new_progressive(
+            storage, &job.planning_run_id, manifest, runtime, &job.grant_id,
+            jobs, opening::question(job)?, fingerprint, notify,
+        )
+    } else {
+        agent_context::Session::new_planning(
+            storage, &job.planning_run_id, manifest, runtime, &job.grant_id, jobs,
+        )
+    }
 }
 
 pub(super) fn run(
@@ -226,28 +255,9 @@ pub(super) fn run(
         None
     };
     let (prompt, schema, fingerprint, instructions) = request(job)?;
-    let session = Arc::new(Mutex::new(if has_opening {
-        agent_context::Session::new_progressive(
-            storage,
-            &job.planning_run_id,
-            manifest.clone(),
-            &runtime,
-            &job.grant_id,
-            jobs,
-            &job.question,
-            &fingerprint,
-            notify,
-        )?
-    } else {
-        agent_context::Session::new_planning(
-            storage,
-            &job.planning_run_id,
-            manifest.clone(),
-            &runtime,
-            &job.grant_id,
-            jobs,
-        )?
-    }));
+    let session = Arc::new(Mutex::new(new_session(
+        storage, job, manifest.clone(), &runtime, jobs, &fingerprint, notify,
+    )?));
     let outcome = manager.run_with_result_and_publish(
         storage,
         codex_agent::CodexRunInput {

@@ -79,3 +79,21 @@ test('an opening answer belongs to the guide before its outline exists and survi
   assert.equal(mergeRepositoryGuide(state,planning),state);
   assert.deepEqual(state.explorations[0].turns[0].publishedSections,[opening,section]);
 });
+
+test('an independently scoped opening preserves the original guide card question and section ownership',()=>{
+  const original='How do font bytes become bitmap pixels, including alternate formats and errors?';
+  const opening={...section,runId:guideId};
+  const planning={...guide(),question:original,revision:0,status:'planning',openingRunId:guideId,units:[],
+    answers:[{runId:guideId,projectId:'p',snapshotId:'s',question:'How does the actual first input transition return or propagate a result?',outcome:'partial',sections:[opening],incompleteTopics:['A guard remains unresolved.']}]};
+  let state=mergeRepositoryGuide(createWorkspace('p','s'),planning);
+  assert.equal(state.explorations[0].turns[0].question,original);
+  assert.deepEqual(state.explorations[0].turns[0].publishedSections,[opening]);
+  state=parseWorkspace(JSON.stringify(state),'p','s');
+  assert.equal(state.explorations[0].turns[0].question,original);
+  assert.deepEqual(state.explorations[0].turns[0].runIds,[guideId]);
+  const deeper={...guide(),question:original,openingRunId:guideId,answers:[...planning.answers,...guide().answers]};
+  state=mergeRepositoryGuide(state,deeper);
+  assert.equal(state.explorations[0].turns.length,1);
+  assert.equal(state.explorations[0].turns[0].question,original);
+  assert.deepEqual(state.explorations[0].turns[0].publishedSections,[opening,section]);
+});

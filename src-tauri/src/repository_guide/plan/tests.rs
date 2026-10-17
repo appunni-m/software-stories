@@ -83,7 +83,7 @@ fn opening_request_retains_full_intent_and_binds_its_versioned_publication_contr
     assert_eq!(legacy_schema, schema());
     assert_eq!(legacy_instructions, INSTRUCTIONS);
     r.schema_version = 3;
-    r.contract = CONTRACT.into();
+    r.contract = INDEPENDENT_CONTRACT.into();
     r.question = "How do café 🦀 bytes reach output, including rejected inputs?".into();
     r.opening = Some(Attempt {
         run_id: r.planning_run_id.clone(),
@@ -101,6 +101,7 @@ fn opening_request_retains_full_intent_and_binds_its_versioned_publication_contr
     assert_eq!(request(&r).unwrap().2, digest);
     r.question
         .push_str(" Preserve every requested alternative.");
+    r.opening.as_mut().unwrap().question = r.question.clone();
     assert_ne!(request(&r).unwrap().2, digest);
     r.question = "\"".repeat(12000);
     r.opening.as_mut().unwrap().question = r.question.clone();
@@ -117,6 +118,10 @@ fn opening_request_retains_full_intent_and_binds_its_versioned_publication_contr
 fn fresh_research_policy_is_fingerprinted_without_rewriting_historical_requests() {
     let f = Fixture::new();
     let mut r = crate::repository_guide::tests::fresh_record(&f);
+    r.schema_version = 3;
+    r.contract = INDEPENDENT_CONTRACT.into();
+    r.opening_context_sha256 = None;
+    r.opening.as_mut().unwrap().question = r.question.clone();
     let (prompt, output, fresh_digest, fresh_instructions) = request(&r).unwrap();
     assert!(fresh_instructions.ends_with(RESEARCH_INSTRUCTIONS));
     r.schema_version = 2;
@@ -128,4 +133,59 @@ fn fresh_research_policy_is_fingerprinted_without_rewriting_historical_requests(
     assert_ne!(fresh_digest, old_digest);
     assert_eq!(request(&r).unwrap().2, old_digest);
     assert_eq!(RESEARCH_POLICY, "ordered-independent-research-v1");
+}
+
+#[test]
+fn separate_opening_intent_binds_both_questions_and_preserves_the_complete_outline_scope() {
+    let f = Fixture::new();
+    let mut r = crate::repository_guide::tests::fresh_record(&f);
+    r.question = "How do café 🦀 bytes reach output, including every requested alternate and failure?".into();
+    r.opening_context_sha256 = Some(opening::context_sha256(&r).unwrap());
+    let (prompt, output, fingerprint, instructions) = request(&r).unwrap();
+    let intent: Value = serde_json::from_str(&prompt).unwrap();
+    assert_eq!(intent["question"], opening::LEARNING_QUESTION);
+    assert_eq!(intent["guideContext"]["question"], r.question);
+    assert_eq!(intent["guideContext"]["guideId"], r.id);
+    assert_eq!(output, opening::schema_for(&r, schema()));
+    assert!(output["properties"]["openingAnswer"]["description"].as_str().unwrap().contains("not a completion declaration"));
+    assert!(instructions.contains("two distinct questions"));
+    assert!(instructions.contains("Missing conditions, fall-through or returned/propagated outcomes"));
+    assert!(instructions.contains("never completes the whole guide"));
+    assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
+    assert_eq!(opening::policy(&r), "first-transition-with-separate-learning-intent-v3");
+    r.question.push_str(" Preserve downstream ownership.");
+    assert!(request(&r).is_err(), "an unchanged binding cannot admit a changed guide question");
+    r.opening_context_sha256 = Some(opening::context_sha256(&r).unwrap());
+    assert_ne!(request(&r).unwrap().2, fingerprint);
+    let mut wrong_opening = r.clone();
+    wrong_opening.opening.as_mut().unwrap().question = wrong_opening.question.clone();
+    assert!(request(&wrong_opening).is_err());
+    r.question = "\"".repeat(12000);
+    r.opening_context_sha256 = Some(opening::context_sha256(&r).unwrap());
+    let (prompt, _, _, _) = request(&r).unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&prompt).unwrap()["guideContext"]["question"], r.question);
+    assert!(prompt.len() < 128 * 1024);
+    assert_eq!(MAX_UNITS + 1, 7);
+    assert_eq!(MAX_ATTEMPTS, 2);
+}
+
+#[test]
+fn production_opening_session_stores_the_separate_question_without_connecting_an_account() {
+    let f = Fixture::new();
+    let mut r = crate::repository_guide::tests::fresh_record(&f);
+    let runtime = crate::codex_identity::CodexReviewRuntime {
+        connection_id: Uuid::new_v4().to_string(), executable_path: "/usr/local/bin/codex".into(),
+        executable_sha256: "a".repeat(64), account_identity_sha256: "b".repeat(64), account_revision: 1,
+    };
+    r.grant_id = workspace::save_retrieval_grant(&f.storage, &r.project_id, &r.snapshot_id, &runtime).unwrap();
+    let (_, _, fingerprint, _) = request(&r).unwrap();
+    let _session = new_session(&f.storage, &r, f.manifest.clone(), &runtime,
+        RepositoryContextJobs::default(), &fingerprint, Arc::new(|_| {})).unwrap();
+    let answer = reading::scoped(&f.storage, &r.planning_run_id, &r.project_id, &r.snapshot_id).unwrap();
+    assert_eq!(answer.question, opening::LEARNING_QUESTION);
+    assert_ne!(answer.question, r.question);
+    assert_eq!(answer.outcome, Outcome::Working);
+    assert!(answer.sections.is_empty());
+    assert_eq!(unit_intent(&r, 0).unwrap().question, r.question);
+    assert!(!f.storage.join("codex-agent/runtime.json").exists());
 }

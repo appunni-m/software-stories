@@ -18,6 +18,7 @@ pub(super) fn record(f: &Fixture) -> Record {
         question: "How does this project work?".into(),
         planning_run_id: Uuid::new_v4().to_string(),
         opening: None,
+        opening_context_sha256: None,
         plan: Some(Plan {
             title: "A grounded repository guide".into(),
             units: vec![
@@ -170,6 +171,8 @@ fn previous_opening_guides_keep_their_prerequisite_gates_and_exact_saved_bytes()
     let mut r = fresh_record(&f);
     r.schema_version = 2;
     r.contract = OPENING_CONTRACT.into();
+    r.opening_context_sha256 = None;
+    r.opening.as_mut().unwrap().question = r.question.clone();
     let partial = attempt(&r, Outcome::Partial);
     r.units[0].attempts.push(partial);
     store::create(&f.storage, &r).unwrap();

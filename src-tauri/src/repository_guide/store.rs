@@ -190,7 +190,7 @@ pub(super) fn create(storage: &Path, record: &Record) -> Result<(), String> {
 fn validate(record: &Record) -> Result<(), String> {
     if !matches!(
         (record.schema_version, record.contract.as_str()),
-        (3, CONTRACT) | (2, OPENING_CONTRACT) | (1, PLAN_ONLY_CONTRACT | LEGACY_CONTRACT)
+        (4, CONTRACT) | (3, INDEPENDENT_CONTRACT) | (2, OPENING_CONTRACT) | (1, PLAN_ONLY_CONTRACT | LEGACY_CONTRACT)
     ) || (record.schema_version >= 2) != record.opening.is_some()
         || !uuid(&record.id)
         || !uuid(&record.planning_run_id)
@@ -209,10 +209,10 @@ fn validate(record: &Record) -> Result<(), String> {
         return Err("The saved repository guide has an incompatible contract.".into());
     }
     if let Some(opening) = &record.opening {
-        if opening.run_id != record.planning_run_id || opening.question != record.question {
-            return Err("The saved guide opening changed its owner or question.".into());
-        }
+        opening::question(record)?;
         validate_summary(record, opening)?;
+    } else if record.opening_context_sha256.is_some() {
+        return Err("The saved guide has learning intent without an opening.".into());
     }
     let mut runs = std::collections::HashSet::from([record.planning_run_id.as_str()]);
     if let Some(plan) = &record.plan {
