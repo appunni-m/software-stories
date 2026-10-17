@@ -96,6 +96,24 @@ export function mergeRepositoryGuide(state: WorkspaceState, guide: RepositoryGui
   } : e.id !== 'root' ? e : { ...e, turns: [...e.turns, merge({ id: guide.id, question: guide.question, context: [], status: 'interrupted' })] }) };
 }
 
+/** Canceling a review removes only its undispatched, empty UI card. Native
+ * jobs, saved output and branches are never discarded by closing a dialog. */
+export function discardUnstartedGuide(state: WorkspaceState, turnId: string): WorkspaceState {
+  const turn = state.explorations.flatMap((e) => e.turns).find((t) => t.id === turnId);
+  if (!turn?.guideId || turn.status !== 'queued' || turn.guide || turn.runIds?.length
+    || turn.publishedSections?.length || state.explorations.some((e) => e.originTurnId === turnId)) return state;
+  return { ...state, explorations: state.explorations.map((e) => ({ ...e, turns: e.turns.filter((t) => t.id !== turnId) })) };
+}
+
+/** An empty contextual action keeps attached/nested intent. Only the root's
+ * empty action starts a repository-wide guide. */
+export function contextualGuideIntent(query: string, context: readonly Context[], nested: boolean): string | null {
+  if (query.trim()) return query;
+  if (context.length) return 'Guide me through this selected code, its decisions and consequences.';
+  if (nested) return 'Guide me through this topic, its decisions and consequences.';
+  return null;
+}
+
 /** Keep partial-answer scope visible after navigation and restart. */
 export function cleanAnswerNotes(value: unknown): string[] {
   if (!Array.isArray(value)) return [];

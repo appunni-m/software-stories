@@ -10,7 +10,7 @@ const INSTRUCTIONS: &str = r#"Plan a complete illustrated guide answering the le
 
 Return a research outline, not an answer or file inventory: 2–6 concrete learning questions, ordered from prerequisites/input through transformations, state, output and failure paths. Group related behavior into coherent units rather than one unit per file. Each question must be self-contained, end with a question mark, name the behavior to investigate, and be narrow enough for an independent investigation. Do not assume a path is implemented merely from a filename. Name prerequisites only by earlier unit keys. Do not fabricate coverage; name concrete omissions or unsupported boundaries. An empty omissions array means only that you have no additional known research boundary; it never means every file is explained.
 
-Each unit is a section with key (lowercase ASCII letters/digits/hyphens), question, prerequisites and claims:[{evidence:[{referenceId:"evidence:…"}]}]. Claims here contain ONLY evidence entries: they are source starting points, not prose or established facts. Use 1–4 citeable referenceId values copied exactly from read_code, not discovery IDs. The app resolves paths/coordinates locally. Do not output source quotes, paths, hashes, answers or narration. The unit's later independent investigation will establish its actual explanation. Use citationVersion:"nativeEvidenceV1" and planVersion:"repositoryGuidePlanV1". Keep the title short. Finish within the original tool/source/time limits, respecting finishNow. No Markdown or extra properties."#;
+Each unit is a section with key (lowercase ASCII letters/digits/hyphens), question, prerequisites and claims:[{evidence:[{referenceId:"code:1"}]}]. Claims here contain ONLY evidence entries: they are source starting points, not prose or established facts. Use 1–4 citeable referenceId values copied exactly from read_code, not discovery IDs. The app resolves paths/coordinates locally. Do not output source quotes, paths, hashes, answers or narration. The unit's later independent investigation will establish its actual explanation. Use citationVersion:"nativeEvidenceV2" and planVersion:"repositoryGuidePlanV1". Keep the title short. Finish within the original tool/source/time limits, respecting finishNow. No Markdown or extra properties."#;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -60,12 +60,12 @@ struct StartingEvidence {
 fn schema() -> Value {
     let evidence = json!({"type":"array","minItems":1,"maxItems":4,"items":{
         "type":"object","additionalProperties":false,"required":["referenceId"],"properties":{
-            "referenceId":{"type":"string","maxLength":73}}}});
+            "referenceId":{"type":"string","maxLength":8}}}});
     let claims = json!({"type":"array","minItems":1,"maxItems":1,"items":{
         "type":"object","additionalProperties":false,"required":["evidence"],"properties":{"evidence":evidence}}});
     json!({"type":"object","additionalProperties":false,
       "required":["citationVersion","planVersion","title","sections","omissions"],"properties":{
-        "citationVersion":{"type":"string","enum":["nativeEvidenceV1"]},
+        "citationVersion":{"type":"string","enum":["nativeEvidenceV2"]},
         "planVersion":{"type":"string","enum":["repositoryGuidePlanV1"]},
         "title":{"type":"string","minLength":8,"maxLength":120},
         "sections":{"type":"array","minItems":2,"maxItems":MAX_UNITS,"items":{
@@ -160,7 +160,7 @@ pub(super) fn run(
         &job.snapshot_id,
         &runtime,
     )?;
-    let session = Arc::new(Mutex::new(agent_context::Session::new(
+    let session = Arc::new(Mutex::new(agent_context::Session::new_planning(
         storage,
         &job.planning_run_id,
         manifest.clone(),
@@ -174,7 +174,7 @@ pub(super) fn run(
     let schema = schema();
     let fingerprint = context::digest(&serde_json::to_vec(&json!({"contractVersion":CONTRACT,
         "runId":job.planning_run_id,"guideId":job.id,"grantId":job.grant_id,"manifestSha256":job.manifest_sha256,
-        "instructions":INSTRUCTIONS,"prompt":prompt,"schema":schema,"tools":context_mcp::TOOL_NAMES,
+        "instructions":INSTRUCTIONS,"prompt":prompt,"schema":schema,"tools":context_mcp::tools_for_planning(),"correctionPolicy":"fixed-native-starting-references-v1-max1",
         "model":"gpt-6-luna","effort":"max","maxUnits":MAX_UNITS,"maxAttemptsPerUnit":MAX_ATTEMPTS}))
         .map_err(|_| "The guide contract could not be encoded.")?);
     manager.run_with_result_and_publish(
@@ -188,7 +188,7 @@ pub(super) fn run(
             system_instruction: INSTRUCTIONS.into(),
             user_prompt: prompt,
             output_schema: schema,
-            correction_policy: CorrectionPolicy::Disabled,
+            correction_policy: CorrectionPolicy::IdentifiersV1,
             retrieval: Some(Arc::clone(&session)),
             sources: vec![],
         },

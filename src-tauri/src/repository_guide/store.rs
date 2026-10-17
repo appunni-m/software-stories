@@ -193,7 +193,7 @@ pub(super) fn create(storage: &Path, record: &Record) -> Result<(), String> {
 
 fn validate(record: &Record) -> Result<(), String> {
     if record.schema_version != 1
-        || record.contract != CONTRACT
+        || !matches!(record.contract.as_str(), CONTRACT | LEGACY_CONTRACT)
         || !uuid(&record.id)
         || !uuid(&record.planning_run_id)
         || !uuid(&record.grant_id)

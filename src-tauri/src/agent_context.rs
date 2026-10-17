@@ -131,6 +131,7 @@ pub(crate) struct Session {
     consumed: HashSet<String>,
     completed: HashMap<String, (Tool, String, String)>,
     progressive: Option<SectionSession>,
+    short_references: bool,
     correction_only: bool,
     candidate: Option<(u8, crate::codex_agent::CodexRunResult, Arc<AtomicBool>)>,
 }
@@ -189,6 +190,15 @@ impl Session {
         Ok(session)
     }
 
+    /// Five read-only tools with the already-owned short citation ledger;
+    /// unlike progressive answers this cannot publish explanation sections.
+    #[cfg(unix)]
+    pub(crate) fn new_planning(storage: &Path, operation_id: &str,
+        manifest: snapshot::SnapshotManifest, runtime: &CodexReviewRuntime,
+        grant: &str, jobs: RepositoryContextJobs) -> Result<Self,String> {
+        Self::build(storage, operation_id, manifest, runtime, grant, jobs, true)
+    }
+
     #[cfg(unix)]
     fn build(
         storage: &Path,
@@ -197,9 +207,9 @@ impl Session {
         runtime: &CodexReviewRuntime,
         grant: &str,
         jobs: RepositoryContextJobs,
-        progressive: bool,
+        short_references: bool,
     ) -> Result<Self, String> {
-        let ledger = if progressive {
+        let ledger = if short_references {
             Ledger::new_progressive(storage, operation_id, &manifest, grant, runtime)?
         } else {
             Ledger::new(
@@ -251,6 +261,7 @@ impl Session {
                 consumed: HashSet::new(),
                 completed: HashMap::new(),
                 progressive: None,
+                short_references,
                 correction_only: false,
                 candidate: None,
             })
@@ -314,7 +325,7 @@ impl Session {
         let executable =
             std::env::current_exe().map_err(|_| "The app's code tool helper is unavailable.")?;
         Ok(
-            json!({"command":executable,"args":[if self.is_progressive() { "--atlas-answer-mcp" } else { "--atlas-context-mcp" },self.directory.join("context.sock")],
+            json!({"command":executable,"args":[if self.is_progressive() { "--atlas-answer-mcp" } else if self.short_references { "--atlas-plan-mcp" } else { "--atlas-context-mcp" },self.directory.join("context.sock")],
             "env":{"CODE_ATLAS_CONTEXT_TOKEN":self.token},"enabled":true,"required":true,
             "enabled_tools":mcp::tool_names(self.is_progressive()),"startup_timeout_sec":20,"tool_timeout_sec":95,"default_tools_approval_mode":"approve"}),
         )
@@ -813,7 +824,13 @@ impl Session {
             &self.runtime,
             cancelled,
         )? {
-            crate::native_citations::Resolution::Invalid(issues) => Ok(Some(issues)),
+            crate::native_citations::Resolution::Invalid(mut issues) => {
+                if self.short_references && !self.is_progressive() {
+                    for issue in &mut issues { issue["citationVersion"]=json!(crate::native_citations::SHORT_VERSION); }
+                }
+                Ok(Some(issues))
+            },
+            crate::native_citations::Resolution::Ready(_) if self.short_references && !self.is_progressive() => Ok(Some(vec![])),
             crate::native_citations::Resolution::Ready(resolved) => Ok(
                 crate::claim_alignment::diagnostics(resolved.text()).map(|mut issues| {
                     for issue in &mut issues {

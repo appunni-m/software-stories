@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createWorkspace, addTurn, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
+import { createWorkspace, addTurn, contextualGuideIntent, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
 const guideId='ea6054f9-c7ce-4489-a928-b48697371565';
 const runId='c9410fba-7b55-42c5-b6e2-061c538bfcf2';
 const generationId='generation:776b022e-d466-455b-8594-d8a808e20f58';
@@ -44,4 +44,18 @@ test('late progress cannot replace a newer stop or completion receipt',()=>{
   let state=mergeRepositoryGuide(createWorkspace('p','s'),{...guide(),revision:4,status:'ready'});
   const previous=state;state=mergeRepositoryGuide(state,guide());assert.equal(state,previous);
   assert.equal(state.explorations[0].turns[0].status,'ready');
+});
+test('canceling an unstarted guide review removes only its empty card',()=>{
+  let state=createWorkspace('p','s');state=addTurn(state,{id:'old',question:'Earlier question',context:[],status:'ready'},'flow');
+  state=addTurn(state,{id:'new',question:'New guide',guideId,context:[],status:'queued'},'guide');
+  const canceled=discardUnstartedGuide(state,'new');assert.deepEqual(canceled.explorations[0].turns.map((t)=>t.id),['old']);
+  assert.equal(canceled.currentId,state.currentId);
+  state.explorations[0].turns[1].status='working';assert.equal(discardUnstartedGuide(state,'new'),state);
+  state.explorations[0].turns[1].status='queued';state.explorations[0].turns[1].runIds=[runId];assert.equal(discardUnstartedGuide(state,'new'),state);
+});
+test('contextual guide keeps explicit source and nested intent',()=>{
+  assert.equal(contextualGuideIntent('Explain bounds',[],false),'Explain bounds');
+  assert.match(contextualGuideIntent('',[{path:'src/parser.rs',from:8,to:20}],false),/selected code/);
+  assert.match(contextualGuideIntent('',[],true),/this topic/);
+  assert.equal(contextualGuideIntent('   ',[],false),null);
 });

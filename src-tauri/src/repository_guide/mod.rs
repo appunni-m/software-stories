@@ -24,7 +24,8 @@ mod plan;
 mod store;
 use plan::Plan;
 
-const CONTRACT: &str = "repository-guide-v1-owned-range-planning";
+const CONTRACT: &str = "repository-guide-v2-short-reference-planning";
+const LEGACY_CONTRACT: &str = "repository-guide-v1-owned-range-planning";
 const MAX_UNITS: usize = 6;
 const MAX_ATTEMPTS: usize = 2;
 

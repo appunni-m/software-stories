@@ -2,9 +2,9 @@ use super::*;
 use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE};
 
 fn proposal() -> Value {
-    json!({"citationVersion":"nativeEvidenceV1","planVersion":"repositoryGuidePlanV1","title":"Follow the greeting journey",
-    "sections":[{"key":"input","question":"How does the incoming name enter the greeting?","prerequisites":[],"claims":[{"evidence":[{"referenceId":format!("evidence:{}","a".repeat(64))}]}]},
-    {"key":"output","question":"How does the greeting turn into the returned output?","prerequisites":["input"],"claims":[{"evidence":[{"referenceId":format!("evidence:{}","a".repeat(64))}]}]}],"omissions":["Runtime execution was not observed."]})
+    json!({"citationVersion":"nativeEvidenceV2","planVersion":"repositoryGuidePlanV1","title":"Follow the greeting journey",
+    "sections":[{"key":"input","question":"How does the incoming name enter the greeting?","prerequisites":[],"claims":[{"evidence":[{"referenceId":"code:1"}]}]},
+    {"key":"output","question":"How does the greeting turn into the returned output?","prerequisites":["input"],"claims":[{"evidence":[{"referenceId":"code:1"}]}]}],"omissions":["Runtime execution was not observed."]})
 }
 fn resolve(value: Value) -> native_citations::Resolved {
     let f = Fixture::new();
