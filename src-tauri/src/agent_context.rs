@@ -265,6 +265,20 @@ impl Session {
         self.progressive.is_some()
     }
 
+    pub(crate) fn finish_answer_manifest(&mut self, text: &str) -> Result<(), String> {
+        let stopped = self.ledger.budget_stopped();
+        let progressive = self.progressive.as_mut().ok_or("This investigation does not publish sections.")?;
+        let owner = progressive.owner.as_ref().ok_or("This investigation has no native publication owner.")?;
+        if owner.cancelled() { return Err("This investigation was stopped. Published sections are preserved.".into()); }
+        let fresh = snapshot::load_snapshot_manifest(&self.storage, &self.manifest.summary.project_id, &self.manifest.summary.snapshot_id)?;
+        self.ledger.complete(&fresh, &self.runtime, owner.cancellation_flag())?;
+        progressive.answer.finish_manifest(text, stopped)
+    }
+
+    pub(crate) fn answer_cancelled(&self) -> bool {
+        self.progressive.as_ref().and_then(|s| s.owner.as_ref()).is_some_and(|o| o.cancelled())
+    }
+
     fn checked_tool(&self, name: &str) -> Result<Tool, String> {
         let kind = tool(name)?;
         if kind == Tool::ProposeSection && !self.is_progressive() {
@@ -546,10 +560,11 @@ impl Session {
                 mode.answer
                     .commit(&self.ledger, prepared, &fresh, &self.runtime, cancelled)?;
                 gate()?;
-                self.ledger.check(&fresh, &self.runtime, cancelled)
+                self.ledger.check(&fresh, &self.runtime, cancelled)?;
+                if let Some(id) = generation.as_deref() { mode.answer.record_publication_time(id, owner.elapsed_ms())?; }
+                Ok(())
             })?;
-            if let Some(mut notice) = generation.as_deref().and_then(|id| mode.answer.notice(id)) {
-                notice.run_elapsed_ms = Some(owner.elapsed_ms());
+            if let Some(notice) = generation.as_deref().and_then(|id| mode.answer.notice(id)) {
                 (mode.notify)(notice);
             }
             return self.ledger.deliver(

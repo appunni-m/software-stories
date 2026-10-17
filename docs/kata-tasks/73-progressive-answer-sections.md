@@ -50,3 +50,11 @@ Added the explicit six-tool session/helper, bounded `answerSectionV1` proposal d
 The complete native suite passes 326 tests (11 live probes ignored); frontend regressions pass 145 and the production frontend/native checks pass. [Protocol evidence, warnings and limits](../acceptance/2026-10-17-progressive-section-protocol.md).
 
 The workspace command still uses the legacy final-chapter path. Progressive request/final-manifest handling, terminal outcome reconciliation, Tauri section events, normal draft adoption, Guide/Flow rendering during work, restart/retention UI and fresh installed Fontdone/Pocket/accessibility/timing qualification remain pending. Build and install the new helper before a real progressive probe. Keep this task open.
+
+## Reader integration checkpoint — 17 October
+
+Connected a separate progressive workspace command, exact final-manifest validation/retention, source-free section events, independently verified native chapter adoption and terminal/restart reconciliation. The production reader now selects this command, appends stable Guide cards during work, preserves earlier cards on later failure/Stop/retry, and offers explicit Flow section selection. Recovery does not reconnect or replay inference. A native worker lease protects preparation from false restart interruption. At the bounded storage error, an explicit retention action saves all section drafts before removing a terminal investigation receipt; native guards reject active or unsaved work.
+
+The full native suite passes 334 tests (12 explicit live probes ignored); frontend 148 and the production frontend build pass. [Implementation evidence and qualification boundaries](../acceptance/2026-10-17-progressive-reader-integration.md).
+
+Package/install/helper qualification, fresh Fontdone attached/broad semantic and timing acceptance, actual Pocket playback and installed keyboard/VoiceOver/focus/navigation/Stop/restart checks remain pending. Keep this task open.

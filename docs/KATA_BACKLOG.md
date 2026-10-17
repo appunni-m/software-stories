@@ -18,7 +18,7 @@ Kata `tmck` tracks [identifier correction](kata-tasks/65-claim-alignment-correct
 The [native-citation Fontdone qualification](acceptance/2026-10-17-native-citation-references.md) preserves a failed six-minute investigation, despite correct reference resolution. The complete current tracker has **73 records: 50 open, 23 closed**. No task was closed by this checkpoint.
 
 - `yk6c` — [native evidence references](kata-tasks/72-agent-evidence-references.md): implemented and regression-tested; complete live answer/navigation/narration gates remain open.
-- `3bz5` — [progressive answer sections](kata-tasks/73-progressive-answer-sections.md): native storage, versioned proposal dispatch and shared publication ownership are implemented with synthetic regressions. The background command/final manifest, events, reader/restart/retention UI and live qualification remain pending. [Protocol checkpoint](acceptance/2026-10-17-progressive-section-protocol.md).
+- `3bz5` — [progressive answer sections](kata-tasks/73-progressive-answer-sections.md): native storage/ownership, progressive command/final manifest, events, draft adoption and reader/restart/retention handling are implemented with regressions. Package/helper and real Fontdone/Pocket/native accessibility/timing qualification remain pending. [Reader checkpoint](acceptance/2026-10-17-progressive-reader-integration.md).
 - `ps02` — [generation timing](kata-tasks/71-generation-timing-traces.md): native call and coarse phase observations exist; the two-minute target and complete stage tracing remain open.
 - `q0sm` — [content quality](kata-tasks/14-chapter-quality.md): retain the required-versus-optional table counterexample; exact citations are not semantic proof.
 

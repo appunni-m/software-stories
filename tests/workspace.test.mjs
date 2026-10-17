@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { addTurn, ancestors, chapterTarget, cleanAnswerNotes, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
+import { addTurn, ancestors, chapterTarget, cleanAnswerNotes, cleanPublishedSections, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
 const turn = (id,question='Explain the subtotal implementation') => ({id,question,context:[{path:'src/cart.ts',from:1,to:6}],status:'queued'});
 test('follow-ups stack at the current level; only explicit exploration creates a branch',()=>{
   let s=createWorkspace('p','snap');s=addTurn(s,turn('one'),'guide');s=addTurn(s,turn('two'),'flow');
@@ -161,4 +161,39 @@ test('legacy scroll position migrates only to its previously selected view',()=>
   assert.deepEqual(restored.explorations[0].scrollPositions,{history:123});assert.equal(restored.explorations[0].scrollTop,undefined);
   s.explorations[0].scrollPositions={history:456};
   restored=parseWorkspace(JSON.stringify(s),'p','snap');assert.equal(restored.explorations[0].scrollPositions.history,456);
+});
+
+const runOne='11111111-1111-4111-8111-111111111111';
+const runTwo='22222222-2222-4222-8222-222222222222';
+const sectionRef=(order=0,runId=runOne)=>({runId,key:`section-${order}`,order,generationId:`aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa${order}`,revisionId:`revision-${order}`,supersedes:null,contextElapsedMs:40,runElapsedMs:80});
+test('progressive cards append once and preserve reading, drafts, and status after restart',()=>{
+  let t={...turn('one'),status:'working',runIds:[runOne]};
+  t=mergePublishedSections(t,[sectionRef()]);
+  t.reading={guide:{revisionId:'revision-0',sectionId:'saved-section'}};
+  t=mergePublishedSections(t,[sectionRef(),sectionRef(1)]);
+  assert.equal(t.publishedSections.length,2);assert.equal(t.revisionId,'revision-0');
+  assert.deepEqual(t.reading.guide,{revisionId:'revision-0',sectionId:'saved-section'});
+  assert.equal(mergePublishedSections(t,[sectionRef(2,runTwo)]).publishedSections.length,2);
+  const s=addTurn(createWorkspace('p','snap'),t,'guide');
+  const restored=parseWorkspace(JSON.stringify(s),'p','snap').explorations[0].turns[0];
+  assert.equal(restored.status,'interrupted');assert.equal(restored.publishedSections.length,2);
+  assert.deepEqual(restored.reading,t.reading);assert.deepEqual(restored.runIds,[runOne]);
+});
+test('partial and stopped answers retain every published section and independent Flow selection',()=>{
+  for(const status of ['partial','stopped','failed']){
+    const t=mergePublishedSections({...turn('one'),status,runIds:[runOne]},[sectionRef(),sectionRef(1)]);
+    let s=addTurn(createWorkspace('p','snap'),t,'flow');
+    s=rememberSection(s,'root','one','flow',{revisionId:'revision-1',sectionId:'second'});
+    const restored=parseWorkspace(JSON.stringify(s),'p','snap').explorations[0].turns[0];
+    assert.equal(restored.status,status);assert.equal(restored.publishedSections.length,2);
+    assert.deepEqual(restored.reading.flow,{revisionId:'revision-1',sectionId:'second'});
+  }
+});
+test('progressive section identities and timing are bounded and unknown runs cannot acquire a card',()=>{
+  assert.deepEqual(cleanPublishedSections([{...sectionRef(),order:6}]),[]);
+  assert.deepEqual(cleanPublishedSections([{...sectionRef(),runElapsedMs:Infinity}]),[]);
+  assert.deepEqual(cleanPublishedSections([{...sectionRef(),generationId:'forged'}]),[]);
+  assert.equal(cleanPublishedSections([sectionRef(),sectionRef()]).length,1);
+  const state=addTurn(createWorkspace('p','snap'),{...turn('one'),runIds:[runOne],publishedSections:[sectionRef(0,runTwo)]},'guide');
+  assert.equal(parseWorkspace(JSON.stringify(state),'p','snap').explorations[0].turns[0].publishedSections.length,0);
 });

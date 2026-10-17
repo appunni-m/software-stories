@@ -4,7 +4,7 @@ use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH};
 // libtest cannot serve the application's MCP subcommand. Fail before opening
 // an account/session or reserving a measurement artifact when a live probe
 // omitted its built application helper.
-fn require_live_context_helper() {
+pub(super) fn require_live_context_helper() {
     let path = std::path::PathBuf::from(std::env::var_os("CODE_ATLAS_CONTEXT_HELPER_BIN")
         .expect("set CODE_ATLAS_CONTEXT_HELPER_BIN to the built Code Atlas executable"));
     assert!(path.is_absolute() && path.is_file(), "the live probe requires an absolute built application executable path");

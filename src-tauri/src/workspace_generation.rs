@@ -52,10 +52,10 @@ Presentation uses your validated claim sentences, in order; separate prose and s
 
 Choose a dataFlow, sequence or hierarchy visual where the section's code evidence supports it. A real visual has 2–12 nodes and 1–20 labeled edges. Each node/edge has 1–8 evidence references {claimIndex,evidenceIndex} to this SAME section's claims/evidence, zero-based. Node indices on edges must exist. Do not invent runtime connections from imports or filenames. Otherwise return visual {kind:"none",title:"",direction:"auto",nodes:[],edges:[]}. No Markdown fences or extra properties. Stop investigating when there is enough evidence for a useful cited answer; keep unsupported boundaries explicit rather than inventing completeness."#;
 
-fn request(
+fn question_prompt(
     input: &Input,
     manifest: &snapshot::SnapshotManifest,
-) -> Result<(String, Value, String), String> {
+) -> Result<String, String> {
     if Uuid::parse_str(&input.run_id).is_err()
         || input.model_id != "gpt-6-luna"
         || input.effort != "max"
@@ -85,6 +85,11 @@ fn request(
     }
     let prompt=serde_json::to_string(&json!({"question":input.question,"snapshotId":input.snapshot_id,"startingPoints":input.references,
         "evidencePolicy":crate::evidence_ledger::POLICY,"scope":"captured implementation; use tools to investigate; starting points are not a source selection"})).map_err(|_|"The question could not be encoded.")?;
+    Ok(prompt)
+}
+
+fn request(input: &Input, manifest: &snapshot::SnapshotManifest) -> Result<(String, Value, String), String> {
+    let prompt = question_prompt(input, manifest)?;
     let schema = provider::workspace_retrieval_schema();
     let contract=serde_json::to_vec(&json!({"contractVersion":crate::evidence_ledger::RETRIEVAL_CONTRACT,"runId":input.run_id,"projectId":input.project_id,"snapshotId":input.snapshot_id,
         "grantId":input.grant_id,"model":input.model_id,"effort":input.effort,"systemInstructions":INSTRUCTIONS,"prompt":prompt,"outputSchema":schema,"tools":context_mcp::TOOL_NAMES,
@@ -267,6 +272,8 @@ pub(crate) fn run(
     }
     result
 }
+
+pub(crate) mod progressive;
 
 #[cfg(test)]
 mod tests;

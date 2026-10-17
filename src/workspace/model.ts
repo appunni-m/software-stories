@@ -2,10 +2,20 @@
 export type View = 'guide' | 'flow' | 'history';
 export interface Context { path: string; sha256?: string; from?: number; to?: number }
 export interface ReadingPosition { revisionId: string; sectionId: string }
+export interface PublishedSection {
+  runId: string; key: string; order: number; generationId: string; revisionId: string;
+  supersedes: string | null; contextElapsedMs: number; runElapsedMs: number | null;
+}
+export interface AnswerSummary {
+  runId: string; projectId: string; snapshotId: string; question: string;
+  outcome: 'working' | 'complete' | 'partial' | 'stopped' | 'failed' | 'interrupted';
+  sections: PublishedSection[]; incompleteTopics: string[];
+}
 export interface Turn {
   id: string; question: string; context: Context[];
-  status: 'queued' | 'working' | 'ready' | 'failed' | 'stopped' | 'interrupted';
+  status: 'queued' | 'working' | 'ready' | 'partial' | 'failed' | 'stopped' | 'interrupted';
   revisionId?: string; generationId?: string; error?: string;
+  runIds?: string[]; publishedSections?: PublishedSection[];
   notes?: string[];
   reading?: Partial<Record<'guide' | 'flow', ReadingPosition>>;
 }
@@ -36,9 +46,11 @@ export function parseWorkspace(raw: string | null, projectId: string, snapshotId
       delete e.scrollTop;
       for (const t of e.turns) {
         if (typeof t.id !== 'string' || typeof t.question !== 'string' || !Array.isArray(t.context)
-          || !['queued','working','ready','failed','stopped','interrupted'].includes(t.status)
+          || !['queued','working','ready','partial','failed','stopped','interrupted'].includes(t.status)
           || t.context.some((c) => typeof c.path !== 'string' || c.path.startsWith('/') || c.path.split('/').includes('..'))) return fallback();
         const reading = t.reading;
+        t.runIds = Array.isArray(t.runIds) ? [...new Set(t.runIds.filter(validRunId))].slice(0, 32) : [];
+        t.publishedSections = cleanPublishedSections(t.publishedSections).filter((s) => t.runIds!.includes(s.runId));
         t.notes = cleanAnswerNotes(t.notes);
         t.reading = {};
         if (reading && typeof reading === 'object' && !Array.isArray(reading)) {
@@ -62,6 +74,31 @@ export function cleanAnswerNotes(value: unknown): string[] {
   return [...new Set(value.filter((note): note is string => typeof note === 'string'
     && note.trim().length > 0 && note.length <= 1_000 && !/[\u0000-\u001f\u007f]/.test(note))
     .map((note) => note.trim()))].slice(0, 8);
+}
+
+const validRunId = (id: unknown): id is string => typeof id === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(id);
+export function cleanPublishedSections(value: unknown): PublishedSection[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  return value.filter((s): s is PublishedSection => {
+    if (!s || typeof s !== 'object' || !validRunId(s.runId) || !validRunId(s.generationId)
+      || typeof s.revisionId !== 'string' || !s.revisionId || s.revisionId.length > 256
+      || !/^[a-z0-9-]{1,80}$/.test(s.key) || !Number.isInteger(s.order) || s.order < 0 || s.order > 5
+      || !(s.supersedes === null || validRunId(s.supersedes))
+      || !Number.isFinite(s.contextElapsedMs) || s.contextElapsedMs < 0
+      || !(s.runElapsedMs === null || Number.isFinite(s.runElapsedMs) && s.runElapsedMs >= 0)) return false;
+    const id = `${s.runId}:${s.generationId}`;
+    if (seen.has(id)) return false;
+    seen.add(id); return true;
+  }).slice(0, 256).map((s) => ({ runId:s.runId,key:s.key,order:s.order,generationId:s.generationId,revisionId:s.revisionId,
+    supersedes:s.supersedes,contextElapsedMs:s.contextElapsedMs,runElapsedMs:s.runElapsedMs }));
+}
+
+/** Append immutable cards; a later section never replaces a reading position. */
+export function mergePublishedSections(turn: Turn, incoming: PublishedSection[]): Turn {
+  const allowed = incoming.filter((s) => turn.runIds?.includes(s.runId));
+  const sections = cleanPublishedSections([...(turn.publishedSections ?? []), ...allowed]);
+  return { ...turn, publishedSections: sections, revisionId: turn.revisionId ?? sections[0]?.revisionId };
 }
 
 function cleanReadingPosition(value: unknown): ReadingPosition | undefined {
@@ -91,7 +128,7 @@ export function rememberSection(state: WorkspaceState, explorationId: string, tu
   const clean = cleanReadingPosition(position);
   const owner = state.explorations.find((e) => e.id === explorationId);
   const turn = owner?.turns.find((t) => t.id === turnId);
-  if (!clean || !turn || turn.revisionId !== clean.revisionId || (turn.reading?.[view]?.revisionId === clean.revisionId && turn.reading[view]?.sectionId === clean.sectionId)) return state;
+  if (!clean || !turn || (turn.revisionId !== clean.revisionId && !turn.publishedSections?.some((s) => s.revisionId === clean.revisionId)) || (turn.reading?.[view]?.revisionId === clean.revisionId && turn.reading[view]?.sectionId === clean.sectionId)) return state;
   return { ...state, explorations: state.explorations.map((e) => e.id !== explorationId ? e : { ...e, turns: e.turns.map((t) => t.id !== turnId ? t : { ...t, reading: { ...t.reading, [view]: clean } }) }) };
 }
 export function rememberScroll(state: WorkspaceState, explorationId: string, view: View, top: number): WorkspaceState {

@@ -122,6 +122,155 @@ fn publish(
     generation
 }
 
+fn manifest(answer: &ActiveAnswer) -> String {
+    json!({"manifestVersion":"answerManifestV1","sections":answer.value.latest_identities(),"incompleteTopics":[]}).to_string()
+}
+
+#[test]
+fn final_manifest_matches_latest_versions_and_cannot_rewrite_or_omit_sections() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    let id = read(&mut l, &f, &r, &c);
+    let mut a = start(&l, &f, &r, &c);
+    let first = publish(&mut a, &l, &proposal(&id, "entry", 0), &f, &r, &c);
+    let old = manifest(&a);
+    let mut updated: Value = serde_json::from_str(&proposal(&id, "entry", 0)).unwrap();
+    updated["previousGenerationId"] = json!(first);
+    updated["section"]["title"] = json!("Formatting the supplied name");
+    let second = publish(&mut a, &l, &updated.to_string(), &f, &r, &c);
+    assert!(a.finish_manifest(&old, false).is_err());
+    assert_eq!(
+        inspect(&f.storage, &l.record.binding.operation_id)
+            .unwrap()
+            .final_responses[0]
+            .text,
+        old
+    );
+    assert!(a.finish_manifest(&format!("{{\"manifestVersion\":\"answerManifestV1\",\"sections\":[],\"incompleteTopics\":[]}}"),false).is_err());
+    assert_eq!(a.value.sections.len(), 2);
+    let final_text = manifest(&a);
+    a.finish_manifest(&final_text, false).unwrap();
+    let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+    assert_eq!(saved.outcome, Outcome::Complete);
+    assert_eq!(saved.latest_identities()[0].generation_id, second);
+    let summary = serde_json::to_string(&saved.summary()).unwrap();
+    assert!(!summary.contains(SIMPLE_SOURCE));
+    assert!(!summary.contains("arguments"));
+    assert!(!summary.contains("accountIdentity"));
+}
+
+#[test]
+fn unresolved_rejection_or_budget_stop_cannot_claim_a_complete_answer() {
+    for budget in [false, true] {
+        let f = Fixture::new();
+        let (mut l, r, c) = setup(&f);
+        let id = read(&mut l, &f, &r, &c);
+        let mut a = start(&l, &f, &r, &c);
+        publish(&mut a, &l, &proposal(&id, "entry", 0), &f, &r, &c);
+        if !budget {
+            let p = a.prepare(&l, "{", &f.manifest, &r, &c).unwrap();
+            a.commit(&l, p, &f.manifest, &r, &c).unwrap();
+        }
+        let text = manifest(&a);
+        a.finish_manifest(&text, budget).unwrap();
+        let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+        assert_eq!(saved.outcome, Outcome::Partial);
+        assert_eq!(saved.sections.len(), 1);
+        assert_eq!(saved.incomplete_topics.len(), 1);
+    }
+}
+
+#[test]
+fn repaired_proposal_can_complete_and_foreign_manifest_fields_fail_closed() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    let id = read(&mut l, &f, &r, &c);
+    let mut a = start(&l, &f, &r, &c);
+    let mut bad: Value = serde_json::from_str(&proposal(&id, "entry", 0)).unwrap();
+    bad["section"]["claims"][0]["identifiers"] = json!(["unread"]);
+    let p = a
+        .prepare(&l, &bad.to_string(), &f.manifest, &r, &c)
+        .unwrap();
+    a.commit(&l, p, &f.manifest, &r, &c).unwrap();
+    publish(&mut a, &l, &proposal(&id, "entry", 0), &f, &r, &c);
+    let text = manifest(&a);
+    let mut foreign: Value = serde_json::from_str(&text).unwrap();
+    foreign["explanation"] = json!("unvalidated replacement");
+    assert!(a.finish_manifest(&foreign.to_string(), false).is_err());
+    a.finish_manifest(&text, false).unwrap();
+    assert_eq!(
+        inspect(&f.storage, &l.record.binding.operation_id)
+            .unwrap()
+            .outcome,
+        Outcome::Complete
+    );
+}
+
+#[test]
+fn local_adoption_is_idempotent_after_stop_and_revocation_and_retention_preserves_drafts() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    let id = read(&mut l, &f, &r, &c);
+    let mut a = start(&l, &f, &r, &c);
+    let generation = publish(&mut a, &l, &proposal(&id, "entry", 0), &f, &r, &c);
+    let run = &l.record.binding.operation_id;
+    let project = &f.manifest.summary.project_id;
+    let snapshot = &f.manifest.summary.snapshot_id;
+    assert!(reading::remove(&f.storage, run, project, snapshot).is_err());
+    a.finish(Outcome::Stopped, vec![]).unwrap();
+    assert!(reading::remove(&f.storage, run, project, snapshot).is_err());
+    fs::remove_file(
+        f.storage
+            .join("workspace-permissions")
+            .join(format!("{}.json", l.record.binding.grant_id)),
+    )
+    .unwrap();
+    let saved = reading::adopt(&f.storage, run, project, snapshot, &generation).unwrap();
+    assert_eq!(
+        reading::adopt(&f.storage, run, project, snapshot, &generation).unwrap(),
+        saved
+    );
+    assert!(reading::adopt(&f.storage, run, "foreign", snapshot, &generation).is_err());
+    assert_eq!(
+        reading::list(&f.storage, project, snapshot).unwrap().len(),
+        1
+    );
+    reading::remove(&f.storage, run, project, snapshot).unwrap();
+    assert!(inspect(&f.storage, run).is_err());
+    assert_eq!(
+        crate::chapter_store::list_for_snapshot(&f.storage, project, snapshot).unwrap(),
+        vec![saved]
+    );
+}
+
+#[test]
+fn recovery_marks_work_interrupted_without_reopening_or_replaying_the_investigation() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    let id = read(&mut l, &f, &r, &c);
+    let mut a = start(&l, &f, &r, &c);
+    publish(&mut a, &l, &proposal(&id, "entry", 0), &f, &r, &c);
+    let summary = reading::interrupt(
+        &f.storage,
+        &l.record.binding.operation_id,
+        Outcome::Interrupted,
+    )
+    .unwrap();
+    assert_eq!(summary.outcome, Outcome::Interrupted);
+    assert_eq!(summary.sections.len(), 1);
+    assert_eq!(
+        reading::interrupt(&f.storage, &l.record.binding.operation_id, Outcome::Failed)
+            .unwrap()
+            .outcome,
+        Outcome::Interrupted
+    );
+    assert!(
+        a.prepare(&l, &proposal(&id, "later", 1), &f.manifest, &r, &c)
+            .and_then(|p| a.commit(&l, p, &f.manifest, &r, &c))
+            .is_err()
+    );
+}
+
 #[test]
 fn a_published_section_replays_exact_source_visual_and_proposal_after_ledger_appends() {
     let f = Fixture::new();
@@ -661,4 +810,21 @@ fn progressive_evidence_ids_and_receipts_cannot_reinterpret_historical_versions(
             .is_err()
     );
     assert!(old.record.calls.is_empty());
+}
+
+#[test]
+fn ready_timing_is_persisted_once_and_independent_of_preparation_clock() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    let id = read(&mut l, &f, &r, &c);
+    let mut a = start(&l, &f, &r, &c);
+    let generation = publish(&mut a, &l, &proposal(&id, "entry", 0), &f, &r, &c);
+    assert_eq!(a.notice(&generation).unwrap().run_elapsed_ms, None);
+    a.record_publication_time(&generation, 1000).unwrap();
+    a.record_publication_time(&generation, 2000).unwrap();
+    let summary = inspect(&f.storage, &l.record.binding.operation_id)
+        .unwrap()
+        .summary();
+    assert_eq!(summary.sections[0].run_elapsed_ms, Some(1000));
+    assert!(a.record_publication_time(&generation, 600001).is_err());
 }

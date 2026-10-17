@@ -181,6 +181,7 @@ struct ManagerInner {
     process: Mutex<Option<ServerProcess>>,
     status: Mutex<CodexAgentStatus>,
     active: Mutex<Option<ActiveRun>>,
+    answer_workers: Mutex<HashSet<String>>,
     process_id: Arc<AtomicU32>,
     shutdown: Arc<AtomicBool>,
     cancelled_runs: Mutex<HashMap<String, Instant>>,
@@ -189,6 +190,16 @@ struct ManagerInner {
 struct ActiveRun {
     id: String,
     cancelled: Arc<AtomicBool>,
+}
+
+pub(crate) struct AnswerWorker {
+    inner: Arc<ManagerInner>,
+    run_id: String,
+}
+impl Drop for AnswerWorker {
+    fn drop(&mut self) {
+        if let Ok(mut workers) = self.inner.answer_workers.lock() { workers.remove(&self.run_id); }
+    }
 }
 
 /// Native-only publication authority installed after an active run is owned.
@@ -262,6 +273,8 @@ impl SectionPublicationOwner {
     pub(crate) fn cancelled(&self) -> bool {
         self.cancelled.load(Ordering::Acquire) || self.inner.shutdown.load(Ordering::Acquire)
     }
+
+    pub(crate) fn cancellation_flag(&self) -> &AtomicBool { &self.cancelled }
 }
 
 #[cfg(test)]
@@ -300,6 +313,21 @@ fn default_auto_connect() -> bool {
 }
 
 impl CodexAgentManager {
+    /// Observe ownership and reconcile persisted outcomes in the same ordering
+    /// as Stop and publication. The callback cannot call this manager.
+    pub(crate) fn with_operation_state<T>(&self, run_id: &str, read: impl FnOnce(bool) -> Result<T, String>) -> Result<T, String> {
+        let active = self.0.active.lock().map_err(|_| BUSY)?;
+        let workers = self.0.answer_workers.lock().map_err(|_| BUSY)?;
+        read(active.as_ref().is_some_and(|run| run.id == run_id) || workers.contains(run_id))
+    }
+
+    pub(crate) fn hold_answer_worker(&self, run_id: &str) -> Result<AnswerWorker, String> {
+        let _active = self.0.active.lock().map_err(|_| BUSY)?;
+        let mut workers = self.0.answer_workers.lock().map_err(|_| BUSY)?;
+        if !workers.insert(run_id.into()) { return Err("This answer already has a native worker.".into()); }
+        Ok(AnswerWorker { inner: Arc::clone(&self.0), run_id: run_id.into() })
+    }
+
     /// Permission revocation and draft publication share one native ordering.
     /// The callback must not call back into this manager while holding the lock.
     pub(crate) fn serialize_permission_change<T>(&self, change: impl FnOnce() -> Result<T, String>) -> Result<T, String> {

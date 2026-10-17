@@ -15,6 +15,8 @@ const MAX_RECORD_BYTES: usize = 4 * 1024 * 1024;
 const MAX_DIRECTORY_ENTRIES: usize = 32;
 static STORE: Mutex<()> = Mutex::new(());
 
+pub(crate) mod reading;
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum Outcome {
@@ -35,6 +37,8 @@ pub(crate) struct PublishedSection {
     pub(crate) supersedes: Option<String>,
     pub(crate) preview: chapters::ChapterDraftPreview,
     pub(crate) published_elapsed_ms: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    published_run_elapsed_ms: Option<u64>,
     proposal_sha256: String,
     checkpoint_sha256: String,
     checkpoint: Record,
@@ -52,6 +56,13 @@ struct Attempt {
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct FinalResponse {
+    text: String,
+    sha256: String,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Answer {
     schema_version: u32,
     binding: Binding,
@@ -60,6 +71,8 @@ pub(crate) struct Answer {
     pub(crate) outcome: Outcome,
     pub(crate) sections: Vec<PublishedSection>,
     attempts: Vec<Attempt>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    final_responses: Vec<FinalResponse>,
     pub(crate) incomplete_topics: Vec<String>,
 }
 
@@ -300,6 +313,7 @@ impl Ledger {
             outcome: Outcome::Working,
             sections: vec![],
             attempts: vec![],
+            final_responses: vec![],
             incomplete_topics: vec![],
         };
         self.check(manifest, runtime, cancelled)?;
@@ -308,7 +322,106 @@ impl Ledger {
     }
 }
 
+impl Answer {
+    fn unresolved_proposals(&self) -> bool {
+        self.attempts.iter().enumerate().any(|(i, attempt)| {
+            if attempt.findings.is_empty() {
+                return false;
+            }
+            let key = crate::strict_json::from_slice(attempt.arguments.as_bytes())
+                .ok()
+                .and_then(|v| {
+                    v.get("sectionKey")
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                });
+            !key.is_some_and(|key| {
+                self.attempts[i + 1..].iter().any(|later| {
+                    later.generation_id.as_ref().is_some_and(|id| {
+                        self.sections
+                            .iter()
+                            .any(|s| &s.preview.generation_id == id && s.key == key)
+                    })
+                })
+            })
+        })
+    }
+}
+
 impl ActiveAnswer {
+    pub(crate) fn finish_manifest(
+        &mut self,
+        text: &str,
+        budget_stopped: bool,
+    ) -> Result<(), String> {
+        // Preserve the exact native-owned final response, including malformed
+        // manifests, before evaluating it. No provider retry is started here.
+        if self.value.outcome != Outcome::Working || text.len() > 300 * 1024 {
+            return Err("The answer's final response is unavailable or exceeds its limit.".into());
+        }
+        if !self.value.final_responses.iter().any(|r| r.text == text) {
+            if self.value.final_responses.len() >= 4 {
+                return Err("The answer's final response record reached its limit.".into());
+            }
+            let _guard = STORE.lock().map_err(|_| "Answer storage is unavailable.")?;
+            if read_bytes(&self.path)? != encode_answer(&self.value)? {
+                return Err("The saved answer changed; no final response was appended.".into());
+            }
+            let mut next = self.value.clone();
+            next.final_responses.push(FinalResponse {
+                text: text.into(),
+                sha256: context::digest(text.as_bytes()),
+            });
+            codex_agent::atomic_private_write(&self.path, &encode_answer(&next)?)?;
+            self.value = next;
+        }
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase", deny_unknown_fields)]
+        struct Manifest {
+            manifest_version: String,
+            sections: Vec<reading::SectionIdentity>,
+            incomplete_topics: Vec<String>,
+        }
+        if text.len() > 4096 {
+            return Err("The answer's final manifest exceeds its limit.".into());
+        }
+        let manifest: Manifest = crate::strict_json::from_slice(text.as_bytes())
+            .ok()
+            .and_then(|v| serde_json::from_value(v).ok())
+            .ok_or("The answer's final manifest is invalid. Published sections are preserved.")?;
+        if manifest.manifest_version != "answerManifestV1"
+            || manifest.sections != self.value.latest_identities()
+            || manifest.sections.is_empty()
+        {
+            return Err(
+                "The answer's final manifest does not match its published sections.".into(),
+            );
+        }
+        let mut topics = manifest.incomplete_topics;
+        if topics.len() > 6
+            || topics
+                .iter()
+                .any(|s| s.trim().is_empty() || s.len() > 240 || s.chars().any(char::is_control))
+        {
+            return Err("The answer's unfinished topics are invalid.".into());
+        }
+        // A rejected proposal is not proof that its intended subject was
+        // completed. Only a later accepted proposal for that same key repairs
+        // it; malformed attempts without a key remain unresolved.
+        let unresolved = self.value.unresolved_proposals();
+        if (budget_stopped || unresolved) && topics.is_empty() {
+            topics.push("Some planned details could not be completed within this investigation. Published sections remain available.".into());
+        }
+        self.finish(
+            if topics.is_empty() {
+                Outcome::Complete
+            } else {
+                Outcome::Partial
+            },
+            topics,
+        )
+    }
+
     pub(crate) fn identity(&self) -> (&str, &str) {
         (&self.value.binding.operation_id, &self.value.request_sha256)
     }
@@ -332,7 +445,7 @@ impl ActiveAnswer {
                 revision_id: s.preview.revision.revision_id.clone(),
                 supersedes: s.supersedes.clone(),
                 context_elapsed_ms: s.published_elapsed_ms,
-                run_elapsed_ms: None,
+                run_elapsed_ms: s.published_run_elapsed_ms,
             })
     }
 
@@ -454,6 +567,7 @@ impl ActiveAnswer {
                                                 order: proposal.order,
                                                 supersedes: proposal.previous_generation_id,
                                                 published_elapsed_ms: ledger.context_elapsed_ms(),
+                                                published_run_elapsed_ms: None,
                                                 proposal_sha256: proposal_sha256.clone(),
                                                 checkpoint_sha256,
                                                 checkpoint,
@@ -522,6 +636,35 @@ impl ActiveAnswer {
         Ok(())
     }
 
+    /// Caller still holds the native publication lock after section commit.
+    /// An absent observation means the commit was not successfully announced.
+    pub(crate) fn record_publication_time(
+        &mut self,
+        generation: &str,
+        elapsed: u64,
+    ) -> Result<(), String> {
+        let _guard = STORE.lock().map_err(|_| "Answer storage is unavailable.")?;
+        if self.value.outcome != Outcome::Working
+            || elapsed > 600_000
+            || read_bytes(&self.path)? != encode_answer(&self.value)?
+        {
+            return Err("The section publication observation could not be saved.".into());
+        }
+        let mut next = self.value.clone();
+        let section = next
+            .sections
+            .iter_mut()
+            .find(|s| s.preview.generation_id == generation)
+            .ok_or("The publication observation names an unknown section.")?;
+        if section.published_run_elapsed_ms.is_some() {
+            return Ok(());
+        }
+        section.published_run_elapsed_ms = Some(elapsed);
+        codex_agent::atomic_private_write(&self.path, &encode_answer(&next)?)?;
+        self.value = next;
+        Ok(())
+    }
+
     pub(crate) fn finish(
         &mut self,
         outcome: Outcome,
@@ -534,7 +677,9 @@ impl ActiveAnswer {
                 .iter()
                 .any(|s| s.trim().is_empty() || s.len() > 240 || s.chars().any(char::is_control))
             || (outcome == Outcome::Complete
-                && (self.value.sections.is_empty() || !incomplete_topics.is_empty()))
+                && (self.value.sections.is_empty()
+                    || !incomplete_topics.is_empty()
+                    || self.value.unresolved_proposals()))
             || (outcome == Outcome::Partial && self.value.sections.is_empty())
             || (outcome == Outcome::Failed && !self.value.sections.is_empty())
         {
@@ -636,6 +781,11 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
         || value.question.trim().is_empty()
         || value.question.len() > 12_000
         || value.attempts.len() > MAX_ATTEMPTS
+        || value.final_responses.len() > 4
+        || value
+            .final_responses
+            .iter()
+            .any(|r| r.text.len() > 300 * 1024 || r.sha256 != context::digest(r.text.as_bytes()))
         || value.sections.len() > MAX_ATTEMPTS
         || value
             .sections
@@ -658,7 +808,9 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
             .iter()
             .any(|s| s.trim().is_empty() || s.len() > 240 || s.chars().any(char::is_control))
         || (value.outcome == Outcome::Complete
-            && (value.sections.is_empty() || !value.incomplete_topics.is_empty()))
+            && (value.sections.is_empty()
+                || !value.incomplete_topics.is_empty()
+                || value.unresolved_proposals()))
         || (value.outcome == Outcome::Partial && value.sections.is_empty())
         || (value.outcome == Outcome::Failed && !value.sections.is_empty())
     {
@@ -726,6 +878,9 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
             || !valid_key(&section.key)
             || section.order >= MAX_SECTIONS
             || section.published_elapsed_ms > MAX_CONTEXT_ELAPSED_MS
+            || section
+                .published_run_elapsed_ms
+                .is_some_and(|ms| ms > 600_000)
             || prior.map(|s| s.preview.generation_id.as_str()) != section.supersedes.as_deref()
             || prior.map_or(section.order != expected_order, |p| {
                 p.order != section.order
