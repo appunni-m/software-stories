@@ -168,6 +168,71 @@ fn publish(
 }
 
 #[test]
+fn duplicate_visual_evidence_names_the_exact_item_and_repairs_without_losing_claims() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancel) = setup(&f);
+    let id = read(&mut ledger, &f, &runtime, &cancel);
+    let mut answer = start(&ledger, &f, &runtime, &cancel);
+    let mut raw: Value = serde_json::from_str(&proposal(&id, "entry", 0)).unwrap();
+    let original_claims = raw["section"]["claims"].clone();
+    for field in ["nodes", "edges"] {
+        let reference = raw["section"]["visual"][field][0]["evidence"][0].clone();
+        raw["section"]["visual"][field][0]["evidence"]
+            .as_array_mut()
+            .unwrap()
+            .push(reference);
+    }
+    let prepared = answer
+        .prepare(&ledger, &raw.to_string(), &f.manifest, &runtime, &cancel)
+        .unwrap();
+    assert!(prepared.generation_id.is_none());
+    assert_eq!(
+        prepared.findings,
+        vec![
+            json!({"location":"/section/visual/nodes/0/evidence/1","code":"visualEvidenceDuplicate"}),
+            json!({"location":"/section/visual/edges/0/evidence/1","code":"visualEvidenceDuplicate"}),
+        ]
+    );
+    assert!(valid_findings(&prepared.findings));
+    answer
+        .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
+        .unwrap();
+    assert!(
+        inspect(&f.storage, &ledger.record.binding.operation_id)
+            .unwrap()
+            .sections
+            .is_empty()
+    );
+    for field in ["nodes", "edges"] {
+        raw["section"]["visual"][field][0]["evidence"]
+            .as_array_mut()
+            .unwrap()
+            .pop();
+    }
+    assert_eq!(raw["section"]["claims"], original_claims);
+    // The same source reference on two different nodes remains legitimate.
+    assert_eq!(
+        raw["section"]["visual"]["nodes"][0]["evidence"],
+        raw["section"]["visual"]["nodes"][1]["evidence"]
+    );
+    publish(
+        &mut answer,
+        &ledger,
+        &raw.to_string(),
+        &f,
+        &runtime,
+        &cancel,
+    );
+    let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
+    assert_eq!(saved.attempts.len(), 2);
+    assert_eq!(saved.sections.len(), 1);
+    assert_eq!(
+        saved.sections[0].preview.revision.sections[0].claims[0].prose,
+        original_claims[0]["prose"].as_str().unwrap()
+    );
+}
+
+#[test]
 fn complete_presentation_keeps_every_condition_and_later_sentence() {
     let f = Fixture::new();
     let (mut l, r, c) = setup(&f);

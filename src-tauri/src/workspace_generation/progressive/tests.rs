@@ -299,6 +299,8 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.contains("state the general decision rule"));
     assert!(instructions.contains("an example alone cannot replace the rule"));
     assert!(!instructions.contains("The separate prose/spokenText fields remain required"));
+    assert!(instructions.contains("visualEvidenceDuplicate identifies the redundant entry"));
+    assert!(instructions.contains("preserving the claim, supported behavior and chosen representation"));
 }
 
 #[test]

@@ -455,7 +455,7 @@ fn build(
                 to: Some(r.end_line as u32),
             })
             .collect();
-        let result = workspace_generation::progressive::run(
+        let result = workspace_generation::progressive::run_with_starting_ranges(
             storage,
             Input {
                 run_id: run_id.clone(),
@@ -467,6 +467,7 @@ fn build(
                 model_id: "gpt-6-luna".into(),
                 effort: "max".into(),
             },
+            &record.plan.as_ref().unwrap().units[index].starting_ranges,
             manager,
             jobs.clone(),
             journal,

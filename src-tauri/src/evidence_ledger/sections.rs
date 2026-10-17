@@ -414,6 +414,39 @@ fn visual_shape_findings(section: &Value) -> Vec<Value> {
         .collect()
 }
 
+/// A repeated reference within one item is rejected by the canonicalizer.
+/// Report its exact position so repairing it need not replace the visual.
+fn visual_evidence_findings(section: &Value) -> Vec<Value> {
+    let mut findings = Vec::new();
+    for field in ["nodes", "edges"] {
+        for (item_index, item) in section["visual"][field]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .enumerate()
+        {
+            let mut seen = BTreeSet::new();
+            for (reference_index, reference) in item["evidence"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .enumerate()
+            {
+                let pair = reference["claimIndex"]
+                    .as_u64()
+                    .zip(reference["evidenceIndex"].as_u64());
+                if pair.is_some_and(|pair| !seen.insert(pair)) {
+                    findings.push(json!({"location":format!("/section/visual/{field}/{item_index}/evidence/{reference_index}"),"code":"visualEvidenceDuplicate"}));
+                    if findings.len() == 64 {
+                        return findings;
+                    }
+                }
+            }
+        }
+    }
+    findings
+}
+
 /// New checkpoints bind the new scene policy; old immutable checkpoints keep
 /// the policy under which they were published. Omitted presentations are valid.
 fn scene_version_findings(section: &Value, checkpoint_version: u32) -> Vec<Value> {
@@ -570,6 +603,7 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "evidenceIdentifier"
                             | "presentationLimit"
                             | "visualField"
+                            | "visualEvidenceDuplicate"
                             | "sceneEvidence"
                             | "sceneVersion"
                             | "sceneNarration"
@@ -875,7 +909,8 @@ impl ActiveAnswer {
                                 ) {
                                     Err(error) if error == chapter_generation::COMPLETE_CLAIMS_LIMIT_ERROR => findings = finding("presentationLimit"),
                                     Err(_) => {
-                                        findings = scene_evidence_findings(&proposal.section);
+                                        findings = visual_evidence_findings(&proposal.section);
+                                        findings.extend(scene_evidence_findings(&proposal.section));
                                         findings.extend(scene_repetition_findings(&proposal.section));
                                         findings.extend(scene_source_value_findings(&proposal.section, resolved.text()));
                                         findings.truncate(64);
@@ -1373,3 +1408,6 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
 
 #[cfg(test)]
 pub(crate) mod tests;
+
+#[cfg(test)]
+mod rejected_inspection_tests;
