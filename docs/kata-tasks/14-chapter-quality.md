@@ -47,3 +47,14 @@ No tests or builds were run during the October 15 static bug-fix pass. Keep acce
 ## Identifier alignment correction — October 16
 
 The reported `record_pipeline_operation_path` failure is the same class as the earlier identifier/prose mismatches. Workspace Codex questions now fingerprint a single correction policy and send bounded positional diagnostics in the same ephemeral thread. No local prose patch, fabricated quote, model fallback or new file selection is permitted. The correction still requires full source and storage validation. The narrow repair regression and packaged smoke evidence belong to [identifier correction acceptance](../acceptance/2026-10-16-claim-alignment.md). Keep this quality gate open: automated lexical correction does not establish semantic accuracy, narrative depth, benchmark coverage or natural speech.
+
+## Fontdone sample — October 17
+
+The [native acceptance record](../acceptance/2026-10-17-fontdone.md) preserves a broad attempt manually stopped after 606 seconds, two ensuing stale-runtime failures, an independently reproduced oversized-file rejection, and a successful small Outline draft. Native cancellation recovery was separately corrected. All seven anchors in the saved draft match independently checked bytes; the OR predicate explanation matches its implementation. This is agent inspection of one small file inside a large repository, not the representative human-reviewed benchmark or successful broad repository explanation.
+
+- [ ] Prioritize the current question's direct answer in the first section. The Outline predicate answer appeared after a data-model section, adding an unnecessary Next action.
+- [ ] Distinguish a field's documented contract from verified consuming behavior. The successful sample describes tag/dropout fallbacks from inline documentation without selecting their implementation.
+- [ ] Benchmark discovery omissions and time to a useful validated answer on large core files. The broad Fontdone request excluded `src/font.rs` and `src/api.rs`; its smaller successful sibling does not resolve that gap.
+- [ ] Qualify generated visuals on a nontrivial implementation path. All sections in the Outline sample had no generated visual; static file Flow cannot substitute.
+
+Keep this gate open, including human narration review and language/PR coverage. The exact successful draft and source-scope metadata are linked from the acceptance record.

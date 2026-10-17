@@ -1,0 +1,335 @@
+{
+  "schemaVersion": 4,
+  "chapterId": "chapter:file:6420f12f4e213f21f72bbe0f4b7e05a3e5dc36e78c3b313b87e025670c461dbc",
+  "revisionId": "revision:d06cc73d-1f1a-4ffa-a6e5-2f0bacf6300d",
+  "revisionNumber": 1,
+  "projectId": "/Users/lazytrot/work/fontdone",
+  "snapshotId": "snap-1792140879637485000-11155-0",
+  "target": {
+    "targetId": "target:file:6420f12f4e213f21f72bbe0f4b7e05a3e5dc36e78c3b313b87e025670c461dbc",
+    "scope": {
+      "kind": "file",
+      "path": "src/outline.rs"
+    }
+  },
+  "title": "src/outline.rs: Outline data model and emptiness check",
+  "lifecycle": "draft",
+  "validationStatus": "valid",
+  "createdAtUnixMs": 1792199128262,
+  "generationOrigin": {
+    "schemaVersion": 2,
+    "projectId": "/Users/lazytrot/work/fontdone",
+    "snapshotId": "snap-1792140879637485000-11155-0",
+    "targetPath": "src/outline.rs",
+    "purpose": "fileChapter",
+    "requestId": "9203d631-c230-48ef-ad9b-240b2e9ccca2",
+    "requestFingerprint": "d1c51a9d277ae689ad12f4407ec271e0c51782f6a28d0040eaa45b7066875459",
+    "requestBodySha256": "b1e6355e512753bdcea629b2a4d0f1d9e34f0199ed2907ab80b59b94a6a33626",
+    "contractVersion": "codex-chapter-v2",
+    "settings": {
+      "backend": "codex",
+      "modelId": "gpt-6-luna",
+      "effort": "max",
+      "approvalPolicy": "never"
+    },
+    "sourceFiles": [
+      {
+        "path": "src/outline.rs",
+        "sha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+        "sizeBytes": 1929
+      }
+    ],
+    "sectionUpdate": null,
+    "plannedChapter": null,
+    "contentSha256": "531883f5805dfb67ced756630a0b53b97274acf67d7ab6f1153de0eccd4b4f55"
+  },
+  "sections": [
+    {
+      "sectionId": "section:3928e42f-b0e1-46f0-bcad-a3b2c557da92",
+      "sectionRevisionId": "sectionrev:695b0f02-d287-48a0-9870-9d3602a08822",
+      "order": 0,
+      "title": "Stored geometry and raster metadata",
+      "prose": "`Outline` is a public record for flattened contour geometry: its point coordinates are represented by `OutlinePoint`, while endpoint indices, tag bytes, dropout controls, fill flags, and pixel-aligned bounds remain separate fields. This file also defines internal numeric outline settings; no consuming operation for those settings appears here.",
+      "spokenText": "The file models flattened contour geometry alongside its tags, raster controls, fill settings, and bitmap bounds. It also declares a small set of internal numeric settings.",
+      "claims": [
+        {
+          "claimId": "claim:c2e139a8-8d54-4bfb-b363-53499af8688e",
+          "category": {
+            "kind": "codeBehavior"
+          },
+          "prose": "The public `Outline` record stores its contour count in `n_contours`, contour endpoint indices in `contours`, and flattened geometry in `points` as `OutlinePoint` values.",
+          "anchors": [
+            {
+              "anchorId": "anchor:0ed997aa-ba62-47db-8350-7835f2537d2d",
+              "path": "src/outline.rs",
+              "symbolId": null,
+              "snapshotId": "snap-1792140879637485000-11155-0",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+              "startByte": 846,
+              "endByteInclusive": 1178,
+              "startLine": 23,
+              "endLine": 31,
+              "startColumn": 1,
+              "endColumn": 34,
+              "excerpt": "/// FreeType's `FT_Outline`: flattened contours in 26.6 units.\n#[derive(Debug, Clone, Default, PartialEq, Eq)]\npub struct Outline {\n    /// Number of contours.\n    pub n_contours: i32,\n    /// Endpoint index of each contour.\n    pub contours: Vec<i16>,\n    /// Flattened points across all contours.\n    pub points: Vec<OutlinePoint>,"
+            }
+          ],
+          "dependencies": [
+            {
+              "kind": "sourceFile",
+              "path": "src/outline.rs",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d"
+            }
+          ]
+        },
+        {
+          "claimId": "claim:c42463c2-07a9-46bd-8aa0-9bc3b3ea4c9c",
+          "category": {
+            "kind": "codeBehavior"
+          },
+          "prose": "Each `OutlinePoint` has 26.6 integer coordinates named `x` and `y`, plus an `on_curve` boolean indicating its curve tag.",
+          "anchors": [
+            {
+              "anchorId": "anchor:d1fc9c51-3826-4f07-9b46-fb7af6caec09",
+              "path": "src/outline.rs",
+              "symbolId": null,
+              "snapshotId": "snap-1792140879637485000-11155-0",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+              "startByte": 282,
+              "endByteInclusive": 483,
+              "startLine": 7,
+              "endLine": 13,
+              "startColumn": 1,
+              "endColumn": 1,
+              "excerpt": "/// A point in an `FT_Outline`-style outline (26.6 coordinates).\n#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]\npub struct OutlinePoint {\n    pub x: i32,\n    pub y: i32,\n    pub on_curve: bool,\n}"
+            }
+          ],
+          "dependencies": [
+            {
+              "kind": "sourceFile",
+              "path": "src/outline.rs",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d"
+            }
+          ]
+        },
+        {
+          "claimId": "claim:a4345b81-3d37-42fb-95e6-5b01d9e58fe2",
+          "category": {
+            "kind": "codeBehavior"
+          },
+          "prose": "`tags` can store exact public FreeType tag bytes when a loader has them; an empty `tags` vector means curve tags are derived from `OutlinePoint::on_curve`. `contour_dropouts` stores per-contour dropout controls, and an empty vector means the control is derived from `flags`.",
+          "anchors": [
+            {
+              "anchorId": "anchor:5d741dfa-0531-4d07-96b6-839691295256",
+              "path": "src/outline.rs",
+              "symbolId": "sym:00eb83d9bd7adcc460c42cf5bf1ca9357c2f737edd95ef24ffeb5b1cd5df3f60",
+              "snapshotId": "snap-1792140879637485000-11155-0",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+              "startByte": 1180,
+              "endByteInclusive": 1501,
+              "startLine": 32,
+              "endLine": 37,
+              "startColumn": 1,
+              "endColumn": 34,
+              "excerpt": "    /// Full FreeType outline tag bytes when a loader has exact public tags.\n    /// Empty means derive curve tags from [`OutlinePoint::on_curve`].\n    pub tags: Vec<u8>,\n    /// Per-contour black rasterizer dropout controls.  Empty means derive the\n    /// control from [`Self::flags`].\n    pub contour_dropouts: Vec<u8>,"
+            }
+          ],
+          "dependencies": [
+            {
+              "kind": "sourceFile",
+              "path": "src/outline.rs",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d"
+            },
+            {
+              "kind": "symbol",
+              "path": "src/outline.rs",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+              "symbolId": "sym:00eb83d9bd7adcc460c42cf5bf1ca9357c2f737edd95ef24ffeb5b1cd5df3f60"
+            }
+          ]
+        },
+        {
+          "claimId": "claim:02130b57-b6c4-48b9-a8d8-b47d16557fae",
+          "category": {
+            "kind": "codeBehavior"
+          },
+          "prose": "The `flags` field stores outline flags, while `cbox_x_min`, `cbox_y_min`, `cbox_x_max`, and `cbox_y_max` store pixel-aligned bounds used to size the target bitmap.",
+          "anchors": [
+            {
+              "anchorId": "anchor:7620b785-1e7f-4317-9baa-77ea9ba909e2",
+              "path": "src/outline.rs",
+              "symbolId": "sym:00eb83d9bd7adcc460c42cf5bf1ca9357c2f737edd95ef24ffeb5b1cd5df3f60",
+              "snapshotId": "snap-1792140879637485000-11155-0",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+              "startByte": 1503,
+              "endByteInclusive": 1809,
+              "startLine": 38,
+              "endLine": 45,
+              "startColumn": 1,
+              "endColumn": 24,
+              "excerpt": "    /// Outline flags (`FT_OUTLINE_EVEN_ODD_FILL` etc.). TrueType uses the\n    /// default non-zero fill.\n    pub flags: u32,\n    /// Pixel-aligned CBox used to size the target bitmap (integer pixel coords).\n    pub cbox_x_min: i32,\n    pub cbox_y_min: i32,\n    pub cbox_x_max: i32,\n    pub cbox_y_max: i32,"
+            }
+          ],
+          "dependencies": [
+            {
+              "kind": "sourceFile",
+              "path": "src/outline.rs",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d"
+            },
+            {
+              "kind": "symbol",
+              "path": "src/outline.rs",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+              "symbolId": "sym:00eb83d9bd7adcc460c42cf5bf1ca9357c2f737edd95ef24ffeb5b1cd5df3f60"
+            }
+          ]
+        },
+        {
+          "claimId": "claim:3a9bc0ce-a8c8-4f35-96a6-5b85eda1b84e",
+          "category": {
+            "kind": "codeBehavior"
+          },
+          "prose": "The file defines crate-visible `u32` constants named `OUTLINE_HIGH_PRECISION`, `OUTLINE_SINGLE_PASS`, `OUTLINE_REVERSE_FILL`, `OUTLINE_IGNORE_DROPOUTS`, `OUTLINE_SMART_DROPOUTS`, `OUTLINE_INCLUDE_STUBS`, and `OUTLINE_OVERLAP`, each with a fixed hexadecimal value; no operation consuming these constants appears in this file.",
+          "anchors": [
+            {
+              "anchorId": "anchor:6df8e1cb-423e-430b-862f-928993d3e4c9",
+              "path": "src/outline.rs",
+              "symbolId": null,
+              "snapshotId": "snap-1792140879637485000-11155-0",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+              "startByte": 486,
+              "endByteInclusive": 843,
+              "startLine": 15,
+              "endLine": 21,
+              "startColumn": 1,
+              "endColumn": 45,
+              "excerpt": "pub(crate) const OUTLINE_HIGH_PRECISION: u32 = 0x100;\npub(crate) const OUTLINE_SINGLE_PASS: u32 = 0x200;\npub(crate) const OUTLINE_REVERSE_FILL: u32 = 0x4;\npub(crate) const OUTLINE_IGNORE_DROPOUTS: u32 = 0x8;\npub(crate) const OUTLINE_SMART_DROPOUTS: u32 = 0x10;\npub(crate) const OUTLINE_INCLUDE_STUBS: u32 = 0x20;\npub(crate) const OUTLINE_OVERLAP: u32 = 0x40;"
+            }
+          ],
+          "dependencies": [
+            {
+              "kind": "sourceFile",
+              "path": "src/outline.rs",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d"
+            }
+          ]
+        }
+      ],
+      "dependencies": [
+        {
+          "kind": "sourceFile",
+          "path": "src/outline.rs",
+          "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d"
+        },
+        {
+          "kind": "symbol",
+          "path": "src/outline.rs",
+          "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+          "symbolId": "sym:00eb83d9bd7adcc460c42cf5bf1ca9357c2f737edd95ef24ffeb5b1cd5df3f60"
+        }
+      ],
+      "visual": null,
+      "hotspots": []
+    },
+    {
+      "sectionId": "section:6c7bdeeb-6de7-41c1-9b6e-e3061926d7d7",
+      "sectionRevisionId": "sectionrev:c2da979b-920d-47ea-988f-d4ba25919666",
+      "order": 1,
+      "title": "When `is_empty` returns true",
+      "prose": "`Outline::is_empty` checks two conditions joined by OR: no stored points, or a contour count of zero. Either condition is enough, so disagreement between the fields does not prevent a true result. The method returns false only when points are present and the contour count is nonzero; its body shows no field update or error result.",
+      "spokenText": "The check returns true if there are no stored points or if the contour count is zero. Either mismatch is enough, and when neither condition holds it returns false; the method only borrows the outline.",
+      "claims": [
+        {
+          "claimId": "claim:0116f1ac-e01e-4c07-b75d-2f17e4297857",
+          "category": {
+            "kind": "codeBehavior"
+          },
+          "prose": "`Outline::is_empty` returns true when `points.is_empty()` or `n_contours == 0`; either condition alone is sufficient. Thus, empty `points` with nonzero `n_contours`, and nonempty `points` with zero `n_contours`, both produce true. It returns false only when `points` is nonempty and `n_contours` is nonzero. The method takes `&self` and returns `bool`; its body shows no field write or error result, so it does not repair disagreement.",
+          "anchors": [
+            {
+              "anchorId": "anchor:cadb42fc-8ec7-49c7-9e44-8b6d54a39ab4",
+              "path": "src/outline.rs",
+              "symbolId": null,
+              "snapshotId": "snap-1792140879637485000-11155-0",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+              "startByte": 1814,
+              "endByteInclusive": 1927,
+              "startLine": 48,
+              "endLine": 52,
+              "startColumn": 1,
+              "endColumn": 1,
+              "excerpt": "impl Outline {\n    pub fn is_empty(&self) -> bool {\n        self.points.is_empty() || self.n_contours == 0\n    }\n}"
+            }
+          ],
+          "dependencies": [
+            {
+              "kind": "sourceFile",
+              "path": "src/outline.rs",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d"
+            }
+          ]
+        }
+      ],
+      "dependencies": [
+        {
+          "kind": "sourceFile",
+          "path": "src/outline.rs",
+          "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d"
+        }
+      ],
+      "visual": null,
+      "hotspots": []
+    },
+    {
+      "sectionId": "section:d7cd35f7-2809-4bf9-9641-d4b4e5509c86",
+      "sectionRevisionId": "sectionrev:345d3ad0-5af6-4b07-8440-83ceb160546b",
+      "order": 2,
+      "title": "What the source does not prove",
+      "prose": "The body of `is_empty` establishes the local predicate, but this selected file does not establish which callers invoke it or when it is used at runtime.",
+      "spokenText": "",
+      "claims": [
+        {
+          "claimId": "claim:aeeb310f-cae0-438b-8c62-fcf9ce2c6de8",
+          "category": {
+            "kind": "inference",
+            "visibleLabel": "Evidence limit",
+            "basis": "Static source shows the method body, not caller behavior or runtime traces."
+          },
+          "prose": "The body of `is_empty` establishes the local predicate, but this selected file does not establish which callers invoke it or when it is used at runtime.",
+          "anchors": [
+            {
+              "anchorId": "anchor:ab70733c-2143-4c9a-92ac-b53a2229c8e8",
+              "path": "src/outline.rs",
+              "symbolId": null,
+              "snapshotId": "snap-1792140879637485000-11155-0",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+              "startByte": 1814,
+              "endByteInclusive": 1927,
+              "startLine": 48,
+              "endLine": 52,
+              "startColumn": 1,
+              "endColumn": 1,
+              "excerpt": "impl Outline {\n    pub fn is_empty(&self) -> bool {\n        self.points.is_empty() || self.n_contours == 0\n    }\n}"
+            }
+          ],
+          "dependencies": [
+            {
+              "kind": "sourceFile",
+              "path": "src/outline.rs",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d"
+            }
+          ]
+        }
+      ],
+      "dependencies": [
+        {
+          "kind": "sourceFile",
+          "path": "src/outline.rs",
+          "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d"
+        }
+      ],
+      "visual": null,
+      "hotspots": []
+    }
+  ]
+}

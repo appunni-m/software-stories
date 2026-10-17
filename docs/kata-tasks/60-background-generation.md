@@ -26,3 +26,11 @@ New question jobs have module ownership independent of views, explicit Stop, nat
 Questions are now serialized before native inference, so follow-ups queued while another question runs do not collide with the installed Codex adapter. A stopped waiter releases its slot without inference. The adapter supplies explicit source-only base instructions instead of inheriting a coding-agent prompt, while retaining all tool-event rejection, permission, provenance, model and grant checks. Restart scheduling and the full cancellation/race matrix remain unqualified.
 
 Workspace generation routes a sole AI-selected implementation file to the file chapter contract. Multi-file workspace overviews have a fingerprinted `anchored-claims-v1` presentation recipe: validate exact claim evidence and diagram references, then compose display/narration from complete claim sentences. Discard separate model prose/narration, preserve inference labels and keep native storage copy validation. No automatic retry or weaker evidence admission is introduced. Qualify multi-file dispatch and malformed-claim failure alongside the existing queue/lifecycle matrix.
+
+## Fontdone qualification — October 17
+
+The broad native question had no validated answer after 606 seconds and was manually stopped. Two queued questions then failed because the frontend reused a cached connection after native cancellation reaped the process. The narrow correction checks/restores the actual saved runtime at the queue boundary before preparing a fresh review; [task 67](67-queued-connection-recovery.md), Kata `xs7j`, owns its regression and native cancellation qualification. Preserve the original failed cards.
+
+- [ ] Profile large-repository time to the first useful, validated answer separately from discovery, generation, validation and queue wait; retain exact request/source identities and do not call this single run a performance benchmark.
+- [ ] Distinguish waiting questions from the active question with compact, reader-facing status. In this run every queued card said “Building your explanation…” for the duration of the slow first request.
+- [ ] Complete the wider restart, cancellation/race, durable scheduler and lost-save matrix; the narrow connection correction does not close this parent.

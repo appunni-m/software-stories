@@ -40,6 +40,14 @@ The browser preview cannot read local snapshots. Open Code Atlas in the Mac app 
 
 See the [language capability matrix](LANGUAGE_CAPABILITIES.md) for the current per-language and per-operation limits.
 
+### A file opens, but AI cannot explain it
+
+Capture, indexing and AI context have different limits. Current question discovery excludes an entire file above 250,000 bytes, even if its captured source opens and its symbols were indexed. A large core module can therefore be absent from an otherwise valid answer. This was observed with Fontdone's `src/font.rs`; it is an app limitation, not evidence that the file is irrelevant. Bounded range retrieval is pending in [the large-source task](kata-tasks/66-large-source-discovery.md).
+
+### Questions queued after Stop fail to connect
+
+Update to the build containing `96a40a3`. Each dequeued question now checks the actual Codex runtime and restores the saved connection before preparing a new request. This does not resend the stopped question. Earlier failed cards remain failed until deliberately retried; explicit disconnect or a changed account still requires attention in Connections. See [Fontdone acceptance](acceptance/2026-10-17-fontdone.md) for the observed failure and qualification scope.
+
 ## Opening a file in Code Lens shows an error
 
 First note how you opened it: **Open in Code Lens** from an Atlas file row, a

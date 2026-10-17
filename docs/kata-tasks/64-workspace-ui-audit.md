@@ -50,3 +50,15 @@ The header Connections window owns Explanations and Voice. Engine/account/model/
 
 
 Installed observation: existing origin-v1 answers/diagram now load; clicking Validation selects captured lines 2–4. A new explicit empty-list retry saved an origin-v2 file chapter and new diagram; subtotal node selected captured line 12. Shared Connections and direct local Listen were inspected in the actual app. Two sections and a second answer used the same global voice. Retain remaining UI gaps: graph accessibility currently exposes library edge-selection/delete instructions despite a reading surface; some diagram nodes lack button semantics; the hidden legacy landmark copy is outdated; prose backticks need a safe inline-code renderer; branch “answers” counts include failed questions. These need explicit keyboard/accessibility and content-rendering work without changing saved evidence.
+
+## Fontdone findings — October 17
+
+The [large-repository acceptance run](../acceptance/2026-10-17-fontdone.md) reproduced remaining user-facing inconsistencies:
+
+- [ ] Returning from a child, switching Guide/history or restarting restores the parent answer at section one. Preserve exact reader position under separate [task 68](68-exploration-reading-position.md), Kata `erzc`.
+- [ ] History labels stopped questions with no saved revision “Open the saved explanation.” Show the actual stopped/interrupted/failed state and an appropriate navigation/retry label; only a matching revision may be called saved.
+- [ ] A stopped child with no generated result is counted as “1 answer.” Distinguish questions/explorations from completed answers without hiding their preserved history.
+- [ ] Headings and prose display literal Markdown backticks. Render supported inline code safely; preserve stored prose and citation identity and do not execute model HTML.
+- [ ] A shared search term carries from Search into Explorer, leaving an empty filtered tree for a symbol name. Make the filter's current scope obvious or retain separate search/filter values.
+
+The snapshot, source range, question tree, selected view and saved draft did survive restart; Pocket playback also reused its recording. These passes do not close the unresolved UI, reader-position, accessibility or deeper-branch gates.

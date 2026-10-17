@@ -1,0 +1,64 @@
+{
+  "scenario": "fontdone-broad-path",
+  "appCodeCommit": "a696b69",
+  "repositoryCommit": "5249b723719445813b8771a602ea5b96891d4450",
+  "snapshotId": "snap-1792140879637485000-11155-0",
+  "totalSourceBytes": 247956,
+  "files": [
+    {
+      "path": "fontdone-wasm/examples/node.mjs",
+      "sha256": "f10b0fccf090488379df225f0d7eb0e809329c02033ff9daecc4a469cba1976c",
+      "stagedFile": "source-0000.txt",
+      "bytes": 3541
+    },
+    {
+      "path": "fontdone-wasm/npm/index.js",
+      "sha256": "9d5a002c2be551e29caffaadcaf48d4bf0a948582f6d9d1a650a23a85d3e9396",
+      "stagedFile": "source-0001.txt",
+      "bytes": 12181
+    },
+    {
+      "path": "fontdone-wasm/src/lib.rs",
+      "sha256": "13ba1c3f58e2b810a89532ba017fe5ee96bc62cd3b768c1c4aba2a2e0299e6ae",
+      "stagedFile": "source-0002.txt",
+      "bytes": 16015
+    },
+    {
+      "path": "src/autohint/mod.rs",
+      "sha256": "0b511ea3d22c0b3da36db0ddc3eeae0b85161331058e5798a85c777a82e97c8e",
+      "stagedFile": "source-0003.txt",
+      "bytes": 1789
+    },
+    {
+      "path": "src/outline.rs",
+      "sha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+      "stagedFile": "source-0004.txt",
+      "bytes": 1929
+    },
+    {
+      "path": "src/render.rs",
+      "sha256": "4e94ae93c44d0c3a29f2671f5f08af2530cf48a37d2ebc3dc0bdeb211abff33e",
+      "stagedFile": "source-0005.txt",
+      "bytes": 99403
+    },
+    {
+      "path": "src/scaler.rs",
+      "sha256": "0daeda0ed05baa6f7295ced5f9904514fae0b77076e5411241cf25439d4860ab",
+      "stagedFile": "source-0006.txt",
+      "bytes": 88507
+    },
+    {
+      "path": "src/tables.rs",
+      "sha256": "b9e3269fa3aa3be208f9d3f62d7527472912990ec2d76179aa4cd50a8c983dc8",
+      "stagedFile": "source-0007.txt",
+      "bytes": 18213
+    },
+    {
+      "path": "tests/pipe_trace.rs",
+      "sha256": "0ba36fa504f5d40c6961a9a9170a1db4e19fb979bba140dde6c164b54f368d6e",
+      "stagedFile": "source-0008.txt",
+      "bytes": 6378
+    }
+  ],
+  "status": "Observed native staged source manifest; not a raw model response or complete request fingerprint."
+}
