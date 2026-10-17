@@ -2,6 +2,7 @@
 //! This records possible delivery before transport; it never resumes inference.
 
 pub(crate) mod attempts;
+pub(crate) mod sections;
 
 use crate::{
     bounded_file, chapters, codex_agent, codex_identity::CodexReviewRuntime,
@@ -325,7 +326,8 @@ fn evidence_id(record: &Record, range: &context::CodeRange) -> Result<String, St
         serde_json::to_vec(&(&record.binding.project_id, range))
     } else {
         serde_json::to_vec(&(RETRIEVAL_CONTRACT, &record.binding, range))
-    }.map_err(|_| "Evidence identity could not be encoded.")?;
+    }
+    .map_err(|_| "Evidence identity could not be encoded.")?;
     Ok(format!("evidence:{}", context::digest(&identity)))
 }
 
@@ -893,90 +895,10 @@ impl Ledger {
         cancelled: &AtomicBool,
     ) -> Result<(), String> {
         self.check(manifest, runtime, cancelled)?;
-        if revision.sections.is_empty()
-            || revision
-                .sections
-                .iter()
-                .any(|s| s.claims.is_empty() || s.claims.iter().any(|c| c.anchors.is_empty()))
-            || revision.project_id != self.record.binding.project_id
-            || revision.snapshot_id != self.record.binding.snapshot_id
-        {
-            return Err(
-                "The explanation does not belong to this active evidence operation.".to_owned(),
-            );
-        }
-        let mut sources = HashMap::new();
-        for anchor in revision
-            .sections
-            .iter()
-            .flat_map(|s| &s.claims)
-            .flat_map(|c| &c.anchors)
-        {
-            self.check(manifest, runtime, cancelled)?;
-            let start: usize = anchor
-                .start_byte
-                .try_into()
-                .map_err(|_| "The cited range is out of bounds.")?;
-            let end: usize = anchor
-                .end_byte_inclusive
-                .checked_add(1)
-                .and_then(|v| v.try_into().ok())
-                .ok_or("The cited range is out of bounds.")?;
-            let intervals = self
-                .record
-                .evidence
-                .iter()
-                .filter(|e| {
-                    e.range.path == anchor.path
-                        && e.range.source_sha256 == anchor.source_sha256
-                        && e.range.snapshot_id == anchor.snapshot_id
-                        && self.record.calls.iter().any(|c| {
-                            c.state == CallState::Delivered && c.evidence_ids.contains(&e.id)
-                        })
-                })
-                .map(|e| (e.range.start_byte, e.range.end_byte))
-                .collect();
-            if start >= end
-                || anchor.snapshot_id != self.record.binding.snapshot_id
-                || !gaps(start, end, intervals).is_empty()
-            {
-                return Err(
-                    "An explanation cites captured code that was not admitted to this operation."
-                        .to_owned(),
-                );
-            }
-            if !sources.contains_key(&anchor.path) {
-                sources.insert(
-                    anchor.path.clone(),
-                    context::source(&self.storage, manifest, &anchor.path)?,
-                );
-            }
-            let source = sources
-                .get(&anchor.path)
-                .ok_or("The cited source is unavailable.")?;
-            let read = context::range_from_source(source, start, end)?;
-            let column = |offset| {
-                let before = &source.contents.as_bytes()[..offset];
-                before
-                    .iter()
-                    .rposition(|b| *b == b'\n')
-                    .map_or(before.len(), |i| before.len() - i - 1)
-                    + 1
-            };
-            if source.sha256 != anchor.source_sha256
-                || read.contents != anchor.excerpt
-                || read.range.start_line != anchor.start_line as usize
-                || read.range.end_line != anchor.end_line as usize
-                || column(start) != anchor.start_column as usize
-                || column(end - 1) != anchor.end_column as usize
-            {
-                return Err(
-                    "The cited excerpt or coordinates do not match admitted captured code."
-                        .to_owned(),
-                );
-            }
-        }
-        Ok(())
+        verify_record_revision(&self.storage, &self.record, revision, manifest, || {
+            self.check(manifest, runtime, cancelled)
+        })?;
+        self.check(manifest, runtime, cancelled)
     }
 
     /// Full sources are loaded only for local canonical validation, never sent
@@ -1055,7 +977,9 @@ impl Ledger {
     ) -> Result<crate::native_citations::Resolution, String> {
         self.check(manifest, runtime, cancelled)?;
         if self.record.schema_version != 2 {
-            return Err("Historical evidence records cannot resume native citation generation.".into());
+            return Err(
+                "Historical evidence records cannot resume native citation generation.".into(),
+            );
         }
         let sources = self.validation_sources(manifest, runtime, cancelled)?;
         let sources: HashMap<_, _> = sources.iter().map(|s| (s.path.as_str(), s)).collect();
@@ -1064,19 +988,32 @@ impl Ledger {
         let mut citations = HashMap::new();
         for evidence in &self.record.evidence {
             self.check(manifest, runtime, cancelled)?;
-            if !self.record.calls.iter().any(|call| call.state == CallState::Delivered && call.evidence_ids.contains(&evidence.id)) {
+            if !self.record.calls.iter().any(|call| {
+                call.state == CallState::Delivered && call.evidence_ids.contains(&evidence.id)
+            }) {
                 continue;
             }
-            let source = sources.get(evidence.range.path.as_str()).ok_or("The cited captured source is unavailable.")?;
-            let contents = source.contents.get(evidence.range.start_byte..evidence.range.end_byte)
+            let source = sources
+                .get(evidence.range.path.as_str())
+                .ok_or("The cited captured source is unavailable.")?;
+            let contents = source
+                .contents
+                .get(evidence.range.start_byte..evidence.range.end_byte)
                 .ok_or("The cited captured span is unavailable.")?;
-            if !crate::native_citations::citeable(contents) { continue; }
+            if !crate::native_citations::citeable(contents) {
+                continue;
+            }
             if evidence.id != evidence_id(&self.record, &evidence.range)? {
                 return Err("The native citation identity changed.".into());
             }
-            citations.insert(evidence.id.as_str(), crate::native_citations::Citation::checked(&evidence.range, source)?);
+            citations.insert(
+                evidence.id.as_str(),
+                crate::native_citations::Citation::checked(&evidence.range, source)?,
+            );
         }
-        let result = crate::native_citations::resolve(response, |id| citations.get(id).cloned().ok_or("referenceUnavailable"));
+        let result = crate::native_citations::resolve(response, |id| {
+            citations.get(id).cloned().ok_or("referenceUnavailable")
+        });
         self.check(manifest, runtime, cancelled)?;
         Ok(result)
     }
@@ -1214,6 +1151,102 @@ fn valid_context_timings(record: &Record) -> bool {
     true
 }
 
+fn verify_record_revision(
+    storage: &Path,
+    record: &Record,
+    revision: &chapters::ChapterRevision,
+    manifest: &snapshot::SnapshotManifest,
+    mut gate: impl FnMut() -> Result<(), String>,
+) -> Result<(), String> {
+    gate()?;
+    if manifest_hash(manifest)? != record.binding.manifest_sha256 {
+        return Err("The evidence checkpoint belongs to another captured manifest.".into());
+    }
+    if revision.sections.is_empty()
+        || revision
+            .sections
+            .iter()
+            .any(|s| s.claims.is_empty() || s.claims.iter().any(|c| c.anchors.is_empty()))
+        || revision.project_id != record.binding.project_id
+        || revision.snapshot_id != record.binding.snapshot_id
+    {
+        return Err(
+            "The explanation does not belong to this active evidence operation.".to_owned(),
+        );
+    }
+    let mut sources = HashMap::new();
+    for anchor in revision
+        .sections
+        .iter()
+        .flat_map(|s| &s.claims)
+        .flat_map(|c| &c.anchors)
+    {
+        gate()?;
+        let start: usize = anchor
+            .start_byte
+            .try_into()
+            .map_err(|_| "The cited range is out of bounds.")?;
+        let end: usize = anchor
+            .end_byte_inclusive
+            .checked_add(1)
+            .and_then(|v| v.try_into().ok())
+            .ok_or("The cited range is out of bounds.")?;
+        let intervals = record
+            .evidence
+            .iter()
+            .filter(|e| {
+                e.range.path == anchor.path
+                    && e.range.source_sha256 == anchor.source_sha256
+                    && e.range.snapshot_id == anchor.snapshot_id
+                    && record
+                        .calls
+                        .iter()
+                        .any(|c| c.state == CallState::Delivered && c.evidence_ids.contains(&e.id))
+            })
+            .map(|e| (e.range.start_byte, e.range.end_byte))
+            .collect();
+        if start >= end
+            || anchor.snapshot_id != record.binding.snapshot_id
+            || !gaps(start, end, intervals).is_empty()
+        {
+            return Err(
+                "An explanation cites captured code that was not admitted to this operation."
+                    .to_owned(),
+            );
+        }
+        if !sources.contains_key(&anchor.path) {
+            sources.insert(
+                anchor.path.clone(),
+                context::source(storage, manifest, &anchor.path)?,
+            );
+        }
+        let source = sources
+            .get(&anchor.path)
+            .ok_or("The cited source is unavailable.")?;
+        let read = context::range_from_source(source, start, end)?;
+        let column = |offset| {
+            let before = &source.contents.as_bytes()[..offset];
+            before
+                .iter()
+                .rposition(|b| *b == b'\n')
+                .map_or(before.len(), |i| before.len() - i - 1)
+                + 1
+        };
+        if source.sha256 != anchor.source_sha256
+            || read.contents != anchor.excerpt
+            || read.range.start_line != anchor.start_line as usize
+            || read.range.end_line != anchor.end_line as usize
+            || column(start) != anchor.start_column as usize
+            || column(end - 1) != anchor.end_column as usize
+        {
+            return Err(
+                "The cited excerpt or coordinates do not match admitted captured code.".to_owned(),
+            );
+        }
+    }
+    Ok(())
+}
+
 /// Reads metadata for inspection only. No constructor can resume this record.
 pub(crate) fn inspect(storage: &Path, operation_id: &str) -> Result<Record, String> {
     let path = path(storage, operation_id)?;
@@ -1226,7 +1259,13 @@ pub(crate) fn inspect(storage: &Path, operation_id: &str) -> Result<Record, Stri
         .map_err(|_| "Evidence accounting is unreadable or exceeds its limit.".to_owned())?;
     let record: Record = serde_json::from_slice(&bytes)
         .map_err(|_| "Evidence accounting is damaged; the original record was preserved.")?;
-    if !matches!(record.schema_version, 1 | 2)
+    validate_record(&record, operation_id)?;
+    Ok(record)
+}
+
+fn validate_record(record: &Record, operation_id: &str) -> Result<(), String> {
+    if !canonical_uuid(operation_id)
+        || !matches!(record.schema_version, 1 | 2)
         || !valid_context_timings(&record)
         || record.policy != POLICY
         || record.binding.operation_id != operation_id
@@ -1317,7 +1356,8 @@ pub(crate) fn inspect(storage: &Path, operation_id: &str) -> Result<Record, Stri
                 || e.range.snapshot_id != record.binding.snapshot_id
                 || e.range.start_byte >= e.range.end_byte
                 || e.range.end_byte - e.range.start_byte > context::MAX_RANGE_BYTES
-                || (record.schema_version == 2 && e.range.end_byte - e.range.start_byte > crate::native_citations::MAX_SPAN)
+                || (record.schema_version == 2
+                    && e.range.end_byte - e.range.start_byte > crate::native_citations::MAX_SPAN)
                 || !evidence_id(&record, &e.range).is_ok_and(|id| id == e.id)
         })
     {
@@ -1326,7 +1366,7 @@ pub(crate) fn inspect(storage: &Path, operation_id: &str) -> Result<Record, Stri
                 .to_owned(),
         );
     }
-    Ok(record)
+    Ok(())
 }
 
 #[cfg(test)]

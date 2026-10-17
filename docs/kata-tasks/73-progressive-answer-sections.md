@@ -36,3 +36,9 @@ The frozen Fontdone native-citation investigation returned three sections after 
 ## Delivery order and boundaries
 
 First define and test durable section/checkpoint admission; then integrate the owned proposal tool, background job events and existing Guide/Flow reader; finally qualify real generation and playback. No new app server/port, embedding service, agent framework, local model or API key prerequisite. Persistent cross-question agent conversations, full language/framework coverage, section editing and signed release remain separate tasks. This task is open until all of its gates pass.
+
+## Native storage checkpoint — 17 October
+
+Implemented the private bounded section/proposal store and immutable checkpoint replay using the existing citation, claim, diagram and chapter validators. Exact repeats retain generation identity; changed content requires an explicit immutable revision. Preparation and compare-and-swap commit are separate. The full native suite passes 318 tests (11 live probes ignored), including 14 new section-storage regressions. These cover preservation after a later rejection, limits, stale writes, Stop/permission/runtime/snapshot/deadline changes, source delivery uncertainty and stored-content tampering. [Implementation evidence and exact integration boundaries](../acceptance/2026-10-17-progressive-section-storage.md).
+
+The agent tool/catalog, shared native cancellation lock, background events, Guide/Flow rendering, draft adoption, restart/retention UI and real Fontdone/Pocket/accessibility/timing qualification remain pending. No progressive answer has been published in the installed app by this checkpoint. Keep this task open.

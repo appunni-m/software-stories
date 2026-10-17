@@ -2298,9 +2298,16 @@ pub(crate) fn create_private_file(path: &Path, bytes: &[u8]) -> Result<(), Strin
     let mut file = options
         .open(path)
         .map_err(|_| "The private Codex file could not be created.")?;
-    file.write_all(bytes)
+    let result = file.write_all(bytes)
         .and_then(|_| file.sync_all())
-        .map_err(|_| "The private Codex file could not be saved.".to_owned())
+        .map_err(|_| "The private Codex file could not be saved.".to_owned());
+    drop(file);
+    if result.is_err() {
+        // Only remove the file we successfully created with create_new. Never
+        // erase an existing destination when opening or writing a new file fails.
+        let _ = fs::remove_file(path);
+    }
+    result
 }
 
 pub(crate) fn atomic_private_write(path: &Path, bytes: &[u8]) -> Result<(), String> {
@@ -2310,9 +2317,19 @@ pub(crate) fn atomic_private_write(path: &Path, bytes: &[u8]) -> Result<(), Stri
         return Err("Codex configuration is not a regular file.".to_owned());
     }
     let temporary = path.with_file_name(format!(".settings-{}.tmp", Uuid::new_v4()));
-    create_private_file(&temporary, bytes)?;
-    let result = fs::rename(&temporary, path)
-        .map_err(|_| "Codex configuration could not be saved.".to_owned());
+    let result = (|| {
+        create_private_file(&temporary, bytes)?;
+        fs::rename(&temporary, path)
+            .map_err(|_| "Codex configuration could not be saved.".to_owned())?;
+        // The file was synced before rename. Sync its directory entry before
+        // a caller announces durable publication. A failure here is uncertain;
+        // preserve the new destination for inspection, never roll it back.
+        #[cfg(unix)]
+        fs::File::open(path.parent().ok_or("Private file directory is unavailable.")?)
+            .and_then(|directory| directory.sync_all())
+            .map_err(|_| "The private file rename could not be confirmed durable.".to_owned())?;
+        Ok(())
+    })();
     let _ = fs::remove_file(&temporary);
     result
 }
