@@ -161,7 +161,7 @@ impl ChapterGenerationOrigin {
                 .map_err(|_| "The retrieval origin could not be encoded.")?,
         );
         let origin = Self {
-            schema_version: 3,
+            schema_version: 4,
             project_id: revision.project_id.clone(),
             snapshot_id: revision.snapshot_id.clone(),
             target_path: None,
@@ -169,7 +169,7 @@ impl ChapterGenerationOrigin {
             request_id: operation_id.into(),
             request_fingerprint: fingerprint,
             request_body_sha256: request_sha256.into(),
-            contract_version: "codex-retrieval-v1".into(),
+            contract_version: crate::evidence_ledger::RETRIEVAL_CONTRACT.into(),
             settings: RecordedAgentSettings::Codex {
                 model_id: "gpt-6-luna".into(),
                 effort: "max".into(),
@@ -246,7 +246,7 @@ impl ChapterGenerationOrigin {
         let retrieval_ok = if let Some(retrieval) = &self.retrieval {
             let mut ordered = retrieval.ranges.iter().collect::<Vec<_>>();
             ordered.sort_by_key(|r| (&r.path, r.start_byte));
-            self.schema_version == 3
+            matches!(self.schema_version, 3 | 4)
                 && backend == "codex"
                 && self.planned_chapter.is_none()
                 && self.section_update.is_none()
@@ -274,6 +274,7 @@ impl ChapterGenerationOrigin {
                         && r.end_line >= r.start_line
                         && r.start_byte < r.end_byte
                         && r.end_byte - r.start_byte <= 32768
+                        && (self.schema_version == 3 || r.end_byte - r.start_byte <= crate::native_citations::MAX_SPAN)
                         && self.source_files.iter().any(|s| {
                             s.path == r.path
                                 && s.sha256 == r.source_sha256
@@ -294,10 +295,11 @@ impl ChapterGenerationOrigin {
                     .iter()
                     .all(|s| retrieval.ranges.iter().any(|r| r.path == s.path))
         } else {
-            self.schema_version != 3
+            !matches!(self.schema_version, 3 | 4)
         };
         let expected_contract = if self.retrieval.is_some() {
-            "codex-retrieval-v1".to_owned()
+            if self.schema_version == 3 { "codex-retrieval-v1".to_owned() }
+            else { crate::evidence_ledger::RETRIEVAL_CONTRACT.to_owned() }
         } else if self.planned_chapter.is_some() {
             format!("{backend}-planned-chapter-v1")
         } else if backend == "codex" {
@@ -305,7 +307,7 @@ impl ChapterGenerationOrigin {
         } else {
             "claude-chapter-v1".to_owned()
         };
-        if !matches!(self.schema_version, 1 | 2 | 3)
+        if !matches!(self.schema_version, 1 | 2 | 3 | 4)
             || !retrieval_ok
             || revision.schema_version < 4
             || self.project_id != revision.project_id
@@ -730,6 +732,17 @@ mod tests {
         let encoded = serde_json::to_vec(&revision).unwrap();
         let roundtrip: ChapterRevision = serde_json::from_slice(&encoded).unwrap();
         validate_revision_origin(&roundtrip).unwrap();
+        assert_eq!(roundtrip.generation_origin.as_ref().unwrap().schema_version,4);
+        // Historical quote-based retrieval receipts keep their contract and
+        // bytes, and remain independently readable without any inference.
+        let mut historical=roundtrip.clone();
+        let origin=historical.generation_origin.as_mut().unwrap();
+        origin.schema_version=3;
+        origin.contract_version="codex-retrieval-v1".into();
+        let historical_bytes=serde_json::to_vec(&historical).unwrap();
+        let historical_roundtrip:ChapterRevision=serde_json::from_slice(&historical_bytes).unwrap();
+        validate_revision_origin(&historical_roundtrip).unwrap();
+        assert_eq!(serde_json::to_vec(&historical_roundtrip).unwrap(),historical_bytes);
         for mode in 0..4 {
             let mut changed = roundtrip.clone();
             let receipt = changed

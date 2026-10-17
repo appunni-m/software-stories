@@ -46,7 +46,7 @@ pub(crate) fn tools() -> Vec<Tool> {
         ),
         (
             "read_code",
-            "Read one to eight captured UTF-8 byte ranges, end exclusive, at most 32768 bytes each. Copy path, sourceSha256, startByte and endByte exactly from search or definitions; never guess a file's length. readError returns no code: correct the request or refine the search. Returns new code fragments and references for already read overlaps. The full file stays local.",
+            "Read one to eight captured UTF-8 byte ranges, end exclusive, at most 32768 bytes each. Copy path, sourceSha256, startByte and endByte exactly from search or definitions; never guess a file's length. readError returns no code: correct the request or refine the search. Returns new code fragments of at most 1000 bytes with an id, original contents, range and citeable flag. Cite a citeable:true fragment using evidence:{referenceId:id}; do not copy or reformat source in the answer. Each ID refers to the entire fragment. alreadyAvailable contains reusable IDs from previous reads. Short/blank fragments are not citeable. The full file stays local.",
             json!({"ranges":{"type":"array","minItems":1,"maxItems":8,"items":{"type":"object","additionalProperties":false,"properties":{"path":{"type":"string"},"sourceSha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},"startByte":{"type":"integer","minimum":0},"endByte":{"type":"integer","minimum":1}},"required":["path","sourceSha256","startByte","endByte"]}}}),
         ),
         (

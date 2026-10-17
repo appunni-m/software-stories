@@ -66,6 +66,127 @@ fn read(
     result
 }
 
+fn reference_draft(id: &str) -> String {
+    let prose = "The greeting function formats the supplied name into a message.";
+    json!({"citationVersion":crate::native_citations::VERSION,"title":"Formatting a greeting","sections":[{
+        "title":"Construct the message","prose":prose,"spokenText":prose,
+        "claims":[{"category":"codeBehavior","aspect":"responsibility","prose":prose,"inferenceBasis":"",
+            "identifiers":["greeting"],"evidence":[{"referenceId":id}],"relationshipIds":[]}],
+        "visual":{"kind":"sequence","title":"Build the greeting","direction":"auto",
+            "nodes":[{"label":"Receive name","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]},
+                {"label":"Format message","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]}],
+            "edges":[{"fromNodeIndex":0,"toNodeIndex":1,"label":"format","evidence":[{"claimIndex":0,"evidenceIndex":0}]}]}
+    }]}).to_string()
+}
+
+#[test]
+fn delivered_native_reference_builds_exact_claim_and_visual_source_links() {
+    let f = Fixture::new();
+    let (mut l,r,c) = setup(&f);
+    let reply = read(&mut l,&f,&r,&c,&[request(&f,0,SIMPLE_SOURCE.len())]);
+    assert_eq!(reply["citationVersion"],crate::native_citations::VERSION);
+    assert_eq!(reply["added"][0]["citeable"],true);
+    let raw = reference_draft(reply["added"][0]["id"].as_str().unwrap());
+    assert!(!raw.contains(SIMPLE_PATH));
+    assert!(!raw.contains("export function"));
+    let crate::native_citations::Resolution::Ready(resolved) = l.resolve_citations(&raw,&f.manifest,&r,&c).unwrap() else { panic!("References must resolve"); };
+    let sources = l.validation_sources(&f.manifest,&r,&c).unwrap();
+    let revision = crate::chapter_generation::canonicalize_cited_workspace_overview(&f.manifest.summary.project_id,&f.manifest,Some(&f.index),&sources,&resolved).unwrap();
+    l.verify_revision(&revision,&f.manifest,&r,&c).unwrap();
+    assert_eq!(revision.sections[0].claims[0].anchors[0].excerpt,SIMPLE_SOURCE);
+    let anchor = &revision.sections[0].claims[0].anchors[0];
+    assert_eq!(anchor.start_byte,0);
+    assert_eq!(anchor.end_byte_inclusive as usize,SIMPLE_SOURCE.len()-1);
+    let visual = revision.sections[0].visual.as_ref().unwrap().typed_visual().unwrap();
+    assert!(visual.nodes.iter().all(|node|node.evidence_anchor_ids==[anchor.anchor_id.clone()]));
+    assert!(visual.edges.iter().all(|edge|edge.evidence_anchor_ids==[anchor.anchor_id.clone()]));
+    let validation=chapters::validate_chapter_revision(&f.storage,&f.manifest,Some(&f.index),&revision);
+    assert_eq!(validation.status,chapters::ValidationReportStatus::Valid,"{:?}",validation);
+}
+
+#[test]
+fn native_reference_selects_the_read_repeated_implementation_at_its_own_coordinates() {
+    let mut f=Fixture::new();
+    f.recapture_with_source(SIMPLE_PATH,&SIMPLE_SOURCE.repeat(2));
+    let(mut l,r,c)=setup(&f);
+    let reply=read(&mut l,&f,&r,&c,&[request(&f,SIMPLE_SOURCE.len(),SIMPLE_SOURCE.len()*2)]);
+    let raw=reference_draft(reply["added"][0]["id"].as_str().unwrap());
+    let crate::native_citations::Resolution::Ready(resolved)=l.resolve_citations(&raw,&f.manifest,&r,&c).unwrap() else { panic!("Read duplicate must resolve"); };
+    let sources=l.validation_sources(&f.manifest,&r,&c).unwrap();
+    assert_eq!(crate::chapter_generation::exact_quote_start(&sources[0].contents,SIMPLE_SOURCE),Err(crate::chapter_generation::QuoteProblem::Ambiguous));
+    let revision=crate::chapter_generation::canonicalize_cited_workspace_overview(&f.manifest.summary.project_id,&f.manifest,Some(&f.index),&sources,&resolved).unwrap();
+    let anchor=&revision.sections[0].claims[0].anchors[0];
+    assert_eq!(anchor.start_byte as usize,SIMPLE_SOURCE.len());
+    assert_eq!(anchor.excerpt,SIMPLE_SOURCE);
+    l.verify_revision(&revision,&f.manifest,&r,&c).unwrap();
+    assert_eq!(chapters::validate_chapter_revision(&f.storage,&f.manifest,Some(&f.index),&revision).status,chapters::ValidationReportStatus::Valid);
+}
+
+#[test]
+fn native_ids_bind_operation_grant_and_runtime_and_cannot_cite_unread_or_uncertain_code() {
+    let f = Fixture::new();
+    let (mut first,r,c)=setup(&f);
+    let reply=read(&mut first,&f,&r,&c,&[request(&f,0,40)]);
+    let id=reply["added"][0]["id"].as_str().unwrap();
+    let raw=reference_draft(id);
+    let (second,r2,c2)=setup(&f);
+    assert!(matches!(second.resolve_citations(&raw,&f.manifest,&r2,&c2).unwrap(),crate::native_citations::Resolution::Invalid(_)));
+    let mut other=first.record.clone();
+    for fault in ["operation","grant","runtime","snapshot"] {
+        other.binding=first.record.binding.clone();
+        match fault { "operation"=>other.binding.operation_id=Uuid::new_v4().to_string(),
+            "grant"=>other.binding.grant_id=Uuid::new_v4().to_string(),
+            "runtime"=>other.binding.runtime.account_revision+=1,
+            _=>other.binding.snapshot_id="another-snapshot".into() }
+        assert_ne!(evidence_id(&other,&first.record.evidence[0].range).unwrap(),id);
+    }
+    first.record.calls[0].state=CallState::Prepared;
+    assert!(matches!(first.resolve_citations(&raw,&f.manifest,&r,&c).unwrap(),crate::native_citations::Resolution::Invalid(_)));
+    first.record.calls[0].state=CallState::Uncertain;
+    assert!(matches!(first.resolve_citations(&raw,&f.manifest,&r,&c).unwrap(),crate::native_citations::Resolution::Invalid(_)));
+    first.record.calls[0].state=CallState::Delivered;
+    let mut changed=r.clone(); changed.account_revision+=1;
+    assert!(first.resolve_citations(&raw,&f.manifest,&changed,&c).is_err());
+    c.store(true,Ordering::Release);
+    assert!(first.resolve_citations(&raw,&f.manifest,&r,&c).is_err());
+}
+
+#[test]
+fn reference_resolution_rejects_revoked_access_and_corrupt_captured_blobs() {
+    for fault in ["revoke","corrupt","missing"] {
+        let f=Fixture::new(); let(mut l,r,c)=setup(&f);
+        let reply=read(&mut l,&f,&r,&c,&[request(&f,0,40)]);
+        let raw=reference_draft(reply["added"][0]["id"].as_str().unwrap());
+        if fault=="revoke" {
+            for entry in fs::read_dir(f.storage.join("workspace-permissions")).unwrap() { fs::remove_file(entry.unwrap().path()).unwrap(); }
+        } else {
+            let sha=&l.record.evidence[0].range.source_sha256;
+            let blob=f.storage.join("objects/sha256").join(&sha[..2]).join(&sha[2..]);
+            if fault=="corrupt" { fs::write(blob,b"wrong captured bytes").unwrap(); } else { fs::remove_file(blob).unwrap(); }
+        }
+        assert!(l.resolve_citations(&raw,&f.manifest,&r,&c).is_err(),"{fault}");
+    }
+}
+
+#[test]
+fn historical_v1_ledgers_keep_original_ids_and_serialized_digest_and_cannot_resume() {
+    let f=Fixture::new(); let(mut l,r,c)=setup(&f);
+    read(&mut l,&f,&r,&c,&[request(&f,0,40)]);
+    let new_id=l.record.evidence[0].id.clone();
+    l.record.schema_version=1;
+    let old_id=evidence_id(&l.record,&l.record.evidence[0].range).unwrap();
+    assert_ne!(old_id,new_id);
+    l.record.evidence[0].id=old_id.clone();
+    l.record.calls[0].evidence_ids=vec![old_id.clone()];
+    l.record.context_clock=None;
+    l.record.calls[0].timing=None;
+    l.save(l.record.clone()).unwrap();
+    let original=fs::read(&l.path).unwrap();
+    let saved=inspect(&f.storage,&l.record.binding.operation_id).unwrap();
+    assert_eq!(encode(&saved).unwrap(),original);
+    assert!(l.resolve_citations(&reference_draft(&old_id),&f.manifest,&r,&c).is_err());
+}
+
 #[test]
 fn quote_diagnostics_check_exact_unique_admitted_utf8_without_transmitting_source() {
     let f = Fixture::new();
@@ -344,7 +465,7 @@ fn real_source_exhaustion_retains_a_valid_receipt_and_prior_evidence() {
     assert_eq!(reply["budgetStop"], "sourceBytes");
     assert_eq!(reply["budget"]["remaining"]["sourceBytes"], 10_000);
     assert!(reply["added"].as_array().unwrap().is_empty());
-    assert_eq!(l.record.evidence.len(), 8);
+    assert_eq!(l.record.evidence.len(), 240);
     assert_eq!(
         l.record.calls.iter().map(|c| c.source_bytes).sum::<usize>(),
         240_000

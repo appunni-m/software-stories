@@ -939,7 +939,7 @@ pub fn canonicalize_repository_overview(
     allowed_relationship_ids: &HashSet<String>,
     response_text: &str,
 ) -> Result<ChapterRevision, String> {
-    canonicalize_overview(project_id, manifest, index, selected_sources, allowed_relationship_ids, response_text, false)
+    canonicalize_overview(project_id, manifest, index, selected_sources, allowed_relationship_ids, response_text, false, None)
 }
 
 /// Render workspace overview copy from exact validated claim sentences. The
@@ -953,7 +953,17 @@ pub(crate) fn canonicalize_workspace_overview(
     allowed_relationship_ids: &HashSet<String>,
     response_text: &str,
 ) -> Result<ChapterRevision, String> {
-    canonicalize_overview(project_id, manifest, index, selected_sources, allowed_relationship_ids, response_text, true)
+    canonicalize_overview(project_id, manifest, index, selected_sources, allowed_relationship_ids, response_text, true, None)
+}
+
+pub(crate) fn canonicalize_cited_workspace_overview(
+    project_id: &str,
+    manifest: &SnapshotManifest,
+    index: Option<&SnapshotIndex>,
+    selected_sources: &[SnapshotSource],
+    response: &crate::native_citations::Resolved,
+) -> Result<ChapterRevision, String> {
+    canonicalize_overview(project_id, manifest, index, selected_sources, &HashSet::new(), response.text(), true, Some(response))
 }
 
 fn canonicalize_overview(
@@ -964,6 +974,7 @@ fn canonicalize_overview(
     allowed_relationship_ids: &HashSet<String>,
     response_text: &str,
     claim_presentation: bool,
+    native_citations: Option<&crate::native_citations::Resolved>,
 ) -> Result<ChapterRevision, String> {
     if response_text.len() > chapters::MAX_GENERATED_RESPONSE_BYTES {
         return Err(
@@ -1003,7 +1014,7 @@ fn canonicalize_overview(
         let section_id = generated_id("section");
         let mut claims = Vec::with_capacity(proposed_section.claims.len());
         let mut dependencies = Vec::new();
-        for proposed_claim in &proposed_section.claims {
+        for (claim_order, proposed_claim) in proposed_section.claims.iter().enumerate() {
             validate_resolved_overview_relationships(
                 proposed_claim,
                 index,
@@ -1011,7 +1022,10 @@ fn canonicalize_overview(
                 &sources,
                 allowed_relationship_ids,
             )?;
-            let (claim, claim_dependencies, _) = build_claim(
+            let spans = native_citations.map(|resolved| resolved.claim_spans(order, claim_order)
+                .ok_or("The native citation positions do not match the explanation."))
+                .transpose()?;
+            let (claim, claim_dependencies, _) = build_claim_with_spans(
                 proposed_claim,
                 &section_id,
                 None,
@@ -1019,6 +1033,7 @@ fn canonicalize_overview(
                 &sources,
                 index,
                 allowed_relationship_ids,
+                spans,
             )?;
             if claim.anchors.is_empty() {
                 return Err(
@@ -1337,6 +1352,19 @@ fn build_claim(
     index: Option<&SnapshotIndex>,
     allowed_relationship_ids: &HashSet<String>,
 ) -> Result<(ChapterClaim, Vec<SectionDependency>, bool), String> {
+    build_claim_with_spans(proposed, section_id, target_path, selected_paths, sources, index, allowed_relationship_ids, None)
+}
+
+fn build_claim_with_spans(
+    proposed: &GeneratedChapterClaim,
+    section_id: &str,
+    target_path: Option<&str>,
+    selected_paths: &HashSet<String>,
+    sources: &HashMap<String, &SnapshotSource>,
+    index: Option<&SnapshotIndex>,
+    allowed_relationship_ids: &HashSet<String>,
+    native_spans: Option<&[crate::native_citations::Citation]>,
+) -> Result<(ChapterClaim, Vec<SectionDependency>, bool), String> {
     let category = match proposed.category.as_str() {
         "codeBehavior" => ClaimCategory::CodeBehavior,
         "repositoryContext" => ClaimCategory::RepositoryContext,
@@ -1357,6 +1385,7 @@ fn build_claim(
         selected_paths,
         sources,
         index,
+        native_spans,
     )?;
     if category == ClaimCategory::CodeBehavior && anchors.is_empty() {
         return Err("A code-behavior claim requires an exact source quote.".to_owned());
@@ -1413,6 +1442,7 @@ fn build_evidence_limit(
         selected_paths,
         sources,
         index,
+        None,
     )?;
     Ok((
         ChapterClaim {
@@ -1481,6 +1511,7 @@ fn build_anchors(
     selected_paths: &HashSet<String>,
     sources: &HashMap<String, &SnapshotSource>,
     index: Option<&SnapshotIndex>,
+    native_spans: Option<&[crate::native_citations::Citation]>,
 ) -> Result<(Vec<ChapterSourceAnchor>, Vec<SectionDependency>, bool), String> {
     let prose = prose.trim();
     if !(24..=2_000).contains(&prose.len())
@@ -1504,6 +1535,9 @@ fn build_anchors(
             "Each generated claim must provide one to eight exact source quotes.".to_owned(),
         );
     }
+    if native_spans.is_some_and(|spans| spans.len() != evidence.len()) {
+        return Err("The native citation count does not match its claim.".into());
+    }
     let mut anchors = Vec::with_capacity(evidence.len());
     let mut dependencies = Vec::new();
     let mut target_anchored = false;
@@ -1522,7 +1556,7 @@ fn build_anchors(
         }
     }
     let mut verified_identifiers = HashSet::new();
-    for item in evidence {
+    for (evidence_order, item) in evidence.iter().enumerate() {
         if !selected_paths.contains(&item.path) {
             return Err(format!(
                 "Evidence path '{}' was not explicitly selected for this request.",
@@ -1533,7 +1567,9 @@ fn build_anchors(
             "A cited source was not loaded from the selected snapshot.".to_owned()
         })?;
         let quote = item.quote.as_str();
-        let start =
+        let start = if let Some(spans) = native_spans {
+            spans[evidence_order].checked_start(&item.path, quote, source)?
+        } else {
             exact_quote_start(&source.contents, quote).map_err(|problem| match problem {
                 QuoteProblem::Length => {
                     "An evidence quote must contain 8 to 1,000 exact source bytes.".to_owned()
@@ -1546,7 +1582,8 @@ fn build_anchors(
                     "The cited quote for '{}' appears more than once and is ambiguous.",
                     item.path
                 ),
-            })?;
+            })?
+        };
         if Some(item.path.as_str()) == target_path {
             target_anchored = true;
         }

@@ -60,118 +60,64 @@ fn investigated(f: &Fixture) -> Session {
     s
 }
 
-fn candidate(corrected: bool) -> crate::codex_agent::CodexRunResult {
+fn candidate(s: &Session, corrected: bool) -> crate::codex_agent::CodexRunResult {
     crate::codex_agent::CodexRunResult {
         thread_id: "owned-thread".into(), turn_id: if corrected {"second"} else {"first"}.into(),
         model: "gpt-6-luna".into(), effort: "max".into(),
-        response_text: json!({"sections":[{"claims":[{
+        response_text: json!({"citationVersion":crate::native_citations::VERSION,"sections":[{"claims":[{
             "prose":if corrected {"greeting formats a message."} else {"The helper formats a message."},
-            "identifiers":["greeting"],"evidence":[{"path":SIMPLE_PATH,"quote":"export function greeting(name: string)"}]
+            "identifiers":["greeting"],"evidence":[{"referenceId":reference_id(s)}]
         }]}]}).to_string(),
     }
 }
 
+fn reference_id(s: &Session) -> String {
+    let file = fs::read_dir(s.storage.join("evidence-ledgers")).unwrap().next().unwrap().unwrap().path();
+    let ledger: Value = serde_json::from_slice(&fs::read(file).unwrap()).unwrap();
+    ledger["evidence"][0]["id"].as_str().unwrap().to_owned()
+}
+
 #[test]
-fn quote_only_failure_gets_the_same_single_correction_and_no_new_context() {
+fn unavailable_reference_gets_one_correction_without_new_context() {
     let f = Fixture::new();
     let mut s = investigated(&f);
     let cancelled = Arc::new(AtomicBool::new(false));
     let fingerprint = "d".repeat(64);
-    let mut initial = candidate(true);
+    let mut initial = candidate(&s, true);
     initial.turn_id = "first".into();
-    // An otherwise aligned quote changes source whitespace, reproducing the
-    // Fontdone failure without accepting a normalized version of the source.
-    initial.response_text = initial
-        .response_text
-        .replace("export function", "export  function");
-    assert!(
-        crate::claim_alignment::diagnostics(&initial.response_text)
-            .unwrap()
-            .is_empty()
-    );
-    let issues = s
-        .candidate_diagnostics(&initial, &cancelled)
-        .unwrap()
-        .unwrap();
-    assert_eq!(
-        issues,
-        json!([{"location":"/sections/0/claims/0/evidence/0","quoteProblem":"quoteNotExact"}])
-            .as_array()
-            .unwrap()
-            .to_vec()
-    );
-    s.capture_candidate(&fingerprint, &initial, 1, &cancelled)
-        .unwrap();
-    let records = fs::read_dir(f.storage.join("rejected-explanations"))
-        .unwrap()
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap();
-    assert_eq!(records.len(), 1);
-    let saved: Value = serde_json::from_slice(&fs::read(records[0].path()).unwrap()).unwrap();
-    assert_eq!(
-        saved["candidates"][0]["responseText"],
-        initial.response_text
-    );
+    initial.response_text = initial.response_text.replace(&reference_id(&s), &format!("evidence:{}", "f".repeat(64)));
+    let issues = s.candidate_diagnostics(&initial, &cancelled).unwrap().unwrap();
+    assert_eq!(issues, json!([{"location":"/sections/0/claims/0/evidence/0","citationProblem":"referenceUnavailable"}]).as_array().unwrap().to_vec());
+    s.capture_candidate(&fingerprint, &initial, 1, &cancelled).unwrap();
     let before = serde_json::to_value(s.ledger.admitted_ranges()).unwrap();
     s.begin_correction(&cancelled).unwrap();
-    let corrected = candidate(true);
-    s.capture_candidate(&fingerprint, &corrected, 2, &cancelled)
-        .unwrap();
-    assert!(
-        s.candidate_diagnostics(&corrected, &cancelled)
-            .unwrap()
-            .unwrap()
-            .is_empty()
-    );
-    assert_eq!(
-        before,
-        serde_json::to_value(s.ledger.admitted_ranges()).unwrap()
-    );
+    let corrected = candidate(&s, true);
+    s.capture_candidate(&fingerprint, &corrected, 2, &cancelled).unwrap();
+    assert!(s.candidate_diagnostics(&corrected, &cancelled).unwrap().unwrap().is_empty());
+    assert_eq!(before, serde_json::to_value(s.ledger.admitted_ranges()).unwrap());
     assert!(s.begin_correction(&cancelled).is_err());
-    assert!(
-        s.event(
-            &event(
-                "extra",
-                "list_modules",
-                &json!({"scope":null,"limit":4,"offset":0})
-            ),
-            false
-        )
-        .is_err()
-    );
+    assert!(s.event(&event("extra", "list_modules", &json!({"scope":null,"limit":4,"offset":0})),false).is_err());
 }
 
 #[test]
-fn failed_quote_correction_retains_its_reason_without_source_in_the_diagnostic() {
+fn failed_reference_correction_retains_its_reason_without_source() {
     let f = Fixture::new();
     let mut s = investigated(&f);
     let cancelled = Arc::new(AtomicBool::new(false));
-    let mut initial = candidate(true);
+    let mut initial = candidate(&s, true);
     initial.turn_id = "first".into();
-    initial.response_text = initial
-        .response_text
-        .replace("export function", "export  function");
-    s.capture_candidate(&"d".repeat(64), &initial, 1, &cancelled)
-        .unwrap();
+    initial.response_text = initial.response_text.replace(&reference_id(&s), &format!("evidence:{}", "f".repeat(64)));
+    s.capture_candidate(&"d".repeat(64), &initial, 1, &cancelled).unwrap();
     s.begin_correction(&cancelled).unwrap();
     let mut corrected = initial;
     corrected.turn_id = "second".into();
-    s.capture_candidate(&"d".repeat(64), &corrected, 2, &cancelled)
-        .unwrap();
-    let path = fs::read_dir(f.storage.join("rejected-explanations"))
-        .unwrap()
-        .next()
-        .unwrap()
-        .unwrap()
-        .path();
+    s.capture_candidate(&"d".repeat(64), &corrected, 2, &cancelled).unwrap();
+    let path = fs::read_dir(f.storage.join("rejected-explanations")).unwrap().next().unwrap().unwrap().path();
     let saved: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
-    assert_eq!(
-        saved["candidates"][1]["responseText"],
-        corrected.response_text
-    );
+    assert_eq!(saved["candidates"][1]["responseText"], corrected.response_text);
     let rejection = saved["candidates"][1]["rejection"].as_str().unwrap();
     assert!(rejection.contains("/sections/0/claims/0/evidence/0"));
-    assert!(rejection.contains("quoteNotExact"));
+    assert!(rejection.contains("referenceUnavailable"));
     assert!(!rejection.contains("export"));
     assert!(!rejection.contains(SIMPLE_PATH));
     assert!(rejection.len() <= 2000);
@@ -184,7 +130,7 @@ fn correction_reuses_only_admitted_evidence_and_preserves_both_candidates() {
     let mut s = investigated(&f);
     let cancelled = Arc::new(AtomicBool::new(false));
     let fingerprint = "d".repeat(64);
-    s.capture_candidate(&fingerprint, &candidate(false), 1, &cancelled)
+    s.capture_candidate(&fingerprint, &candidate(&s, false), 1, &cancelled)
         .unwrap();
     let before = s.ledger.admitted_ranges();
     s.begin_correction(&cancelled).unwrap();
@@ -221,11 +167,11 @@ fn correction_reuses_only_admitted_evidence_and_preserves_both_candidates() {
         serde_json::to_value(s.ledger.admitted_ranges()).unwrap(),
         serde_json::to_value(before).unwrap()
     );
-    s.capture_candidate(&fingerprint, &candidate(true), 2, &cancelled)
+    s.capture_candidate(&fingerprint, &candidate(&s, true), 2, &cancelled)
         .unwrap();
     assert!(s.begin_correction(&cancelled).is_err());
     assert!(
-        s.capture_candidate(&fingerprint, &candidate(true), 2, &cancelled)
+        s.capture_candidate(&fingerprint, &candidate(&s, true), 2, &cancelled)
             .is_err()
     );
     s.preserve_rejection(
@@ -242,11 +188,11 @@ fn correction_reuses_only_admitted_evidence_and_preserves_both_candidates() {
     assert_eq!(value["candidates"].as_array().unwrap().len(), 2);
     assert_eq!(
         value["candidates"][0]["responseText"],
-        candidate(false).response_text
+        candidate(&s, false).response_text
     );
     assert_eq!(
         value["candidates"][1]["responseText"],
-        candidate(true).response_text
+        candidate(&s, true).response_text
     );
     assert_eq!(
         value["candidates"][1]["rejection"],
@@ -260,7 +206,7 @@ fn aligned_initial_candidate_uses_no_recovery_slot_until_independent_rejection()
     let mut s = investigated(&f);
     let cancelled = Arc::new(AtomicBool::new(false));
     let fingerprint = "d".repeat(64);
-    s.capture_candidate(&fingerprint, &candidate(true), 1, &cancelled)
+    s.capture_candidate(&fingerprint, &candidate(&s, true), 1, &cancelled)
         .unwrap();
     assert!(!f.storage.join("rejected-explanations").exists());
     assert!(s.begin_correction(&cancelled).is_err());
@@ -291,7 +237,7 @@ fn stopped_revoked_or_changed_owners_cannot_capture_or_begin_correction() {
             let cancelled = Arc::new(AtomicBool::new(false));
             let fingerprint = "d".repeat(64);
             if stage != "capture" {
-                s.capture_candidate(&fingerprint, &candidate(false), 1, &cancelled)
+                s.capture_candidate(&fingerprint, &candidate(&s, false), 1, &cancelled)
                     .unwrap();
             }
             if stage == "corrected" {
@@ -309,9 +255,9 @@ fn stopped_revoked_or_changed_owners_cannot_capture_or_begin_correction() {
                 _ => unreachable!(),
             }
             let result = match stage {
-                "capture" => s.capture_candidate(&fingerprint, &candidate(false), 1, &cancelled),
+                "capture" => s.capture_candidate(&fingerprint, &candidate(&s, false), 1, &cancelled),
                 "correction" => s.begin_correction(&cancelled),
-                "corrected" => s.capture_candidate(&fingerprint, &candidate(true), 2, &cancelled),
+                "corrected" => s.capture_candidate(&fingerprint, &candidate(&s, true), 2, &cancelled),
                 "reject" => s.preserve_rejection(&fingerprint, "Rejected candidate."),
                 _ => unreachable!(),
             };

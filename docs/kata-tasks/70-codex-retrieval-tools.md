@@ -131,3 +131,9 @@ The [exact-quote-policy retest](../acceptance/artifacts/2026-10-17-fontdone-agen
 - [ ] Implement and qualify [native evidence references, Kata yk6c](72-agent-evidence-references.md), replacing model-copied source quotes for this agent path while retaining byte/digest/coordinate, claim and visual admission. This is a reliability prerequisite for attached-function acceptance; another wording tweak is not a completed fix.
 
 Failed second-candidate preflight now retains bounded fixed codes and positions in private recovery; final deterministic suite: 295 passed, 11 ignored. The live failure predates that diagnostic-only addition and is preserved unchanged. All broader parent gates remain open.
+
+## Native citation implementation checkpoint — 17 October
+
+The native evidence-reference protocol is implemented, with operation-bound delivered IDs resolved locally into exact captured spans. New schema versions preserve legacy chapters, receipts and rejected attempts. The full native suite passes **304 tests** (11 explicit probes ignored), frontend **145**, and production frontend build passes. The installed unsigned debug app passed executable integrity and reopened the saved nested Guide at section 2/3 with the same source selection and Codex connection. [Contract, limitations and package identity](../acceptance/2026-10-17-native-citation-references.md).
+
+This remains open: one explicit frozen Fontdone GPT-6 Luna/max investigation, actual implementation-fact/diagram review, fresh citation navigation and Pocket narration must pass separately. Previous failed runs remain failed. Full broad explanation quality, latency, recovery controls and persistent exploration conversations are separate outstanding gates.

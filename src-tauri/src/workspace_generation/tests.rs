@@ -24,6 +24,11 @@ fn initial_request_contains_intent_and_no_whole_source_or_index() {
     assert!(prompt.len() < 1000);
     assert_eq!(digest.len(), 64);
     assert_eq!(schema["additionalProperties"], false);
+    assert_eq!(schema["properties"]["citationVersion"]["enum"],json!([crate::native_citations::VERSION]));
+    let evidence=&schema["properties"]["sections"]["items"]["properties"]["claims"]["items"]["properties"]["evidence"]["items"];
+    assert_eq!(evidence["additionalProperties"],false);
+    assert_eq!(evidence["required"],json!(["referenceId"]));
+    assert!(evidence["properties"].get("quote").is_none());
 }
 #[test]
 fn attached_large_files_are_starting_points_and_stale_or_forged_references_fail() {
@@ -170,7 +175,7 @@ fn codex_owned_correction_probe() {
             system_instruction:concat!("This is an isolated synthetic integration test. First read the complete startingPoint range using read_code. ",
                 "Return one section with one codeBehavior/responsibility claim and visual kind none. Use a specific 8-120 character chapter title, ",
                 "a section title of at most 120 bytes, substantive section prose of 20-4000 bytes and non-empty spokenText of 1-1000 bytes. ",
-                "Use inferenceBasis empty and relationshipIds empty. Copy an exact unique quote from that delivered source. ",
+                "Use inferenceBasis empty and relationshipIds empty. Set citationVersion nativeEvidenceV1 and cite a citeable:true fragment using {referenceId:fragment.id}. Do not copy source quotes. ",
                 "The claim's identifiers must be [\"greeting\"]. For the FIRST response only, intentionally omit the literal identifier greeting from that claim's prose; ",
                 "use this prose exactly: The helper formats the supplied name into a Hello message. ",
                 "Do not correct that deliberate mismatch in the first turn. If a SECOND turn requests correction, obey it and explain the read implementation accurately ",
@@ -187,8 +192,12 @@ fn codex_owned_correction_probe() {
             let mut owned = session.lock().map_err(|_| "Synthetic context lock failed.")?;
             owned.check_complete()?;
             let sources = owned.ledger.validation_sources(&f.manifest, access.runtime(), access.cancelled())?;
-            let revision = chapter_generation::canonicalize_workspace_overview(&f.manifest.summary.project_id,
-                &f.manifest, Some(&f.index), &sources, &Default::default(), &response.response_text)?;
+            let resolved=match owned.ledger.resolve_citations(&response.response_text,&f.manifest,access.runtime(),access.cancelled())? {
+                crate::native_citations::Resolution::Ready(resolved)=>resolved,
+                crate::native_citations::Resolution::Invalid(_)=>return Err("Synthetic references are unavailable.".into()),
+            };
+            let revision = chapter_generation::canonicalize_cited_workspace_overview(&f.manifest.summary.project_id,
+                &f.manifest, Some(&f.index), &sources, &resolved)?;
             owned.ledger.verify_revision(&revision, &f.manifest, access.runtime(), access.cancelled())?;
             let validation = chapters::validate_chapter_revision(&f.storage, &f.manifest, Some(&f.index), &revision);
             if validation.status != chapters::ValidationReportStatus::Valid {
@@ -230,8 +239,8 @@ fn codex_owned_correction_probe() {
         );
         let saved = crate::evidence_ledger::attempts::inspect(&f.storage, &operation)?;
         assert_eq!(saved.candidates.len(), 2);
-        assert!(!saved.candidates[0].alignment_issues.is_empty());
-        assert!(saved.candidates[1].alignment_issues.is_empty());
+        assert!(!saved.candidates[0].preflight_findings.as_ref().unwrap().is_empty());
+        assert!(saved.candidates[1].preflight_findings.as_ref().unwrap().is_empty());
         assert_eq!(saved.candidates[0].thread_id, saved.candidates[1].thread_id);
         assert_ne!(saved.candidates[0].turn_id, saved.candidates[1].turn_id);
         let ledger =

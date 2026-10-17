@@ -37,3 +37,9 @@ Two frozen Fontdone `memory-face` investigations failed after one correction. Th
 ## Scope boundaries
 
 This task replaces fragile model-copied citation transport. Full persistent exploration conversations, progressive section publication, complete stage tracing, broad-repository narrative/language coverage and recovery retention UI remain required in their existing tasks. Closing this child does not close parent `gk46`, chapter-quality `q0sm` or timing `ps02`.
+
+## Native citation implementation checkpoint — 17 October
+
+The native evidence-reference protocol is implemented, with operation-bound delivered IDs resolved locally into exact captured spans. New schema versions preserve legacy chapters, receipts and rejected attempts. The full native suite passes **304 tests** (11 explicit probes ignored), frontend **145**, and production frontend build passes. The installed unsigned debug app passed executable integrity and reopened the saved nested Guide at section 2/3 with the same source selection and Codex connection. [Contract, limitations and package identity](../acceptance/2026-10-17-native-citation-references.md).
+
+This remains open: one explicit frozen Fontdone GPT-6 Luna/max investigation, actual implementation-fact/diagram review, fresh citation navigation and Pocket narration must pass separately. Previous failed runs remain failed. Full broad explanation quality, latency, recovery controls and persistent exploration conversations are separate outstanding gates.

@@ -1,0 +1,25 @@
+# Native citation references
+
+Date: 17 October 2026. Source base: `cc83987` plus this checkpoint. This follows the two [failed frozen Fontdone investigations](2026-10-17-fontdone-quotes-and-tool-timing.md). It changes citation transport, without certifying explanation quality or completing the broad-repository acceptance gate.
+
+## Contract
+
+Workspace investigation requests fingerprint `codex-retrieval-v2-native-citations`, output `citationVersion: nativeEvidenceV1`, and use `single-owned-correction-native-citations-v3`. Claim evidence contains only `{referenceId}`. Codex chooses an ID from a delivered `read_code` fragment; the app supplies the exact original excerpt and coordinates locally. Model-written paths, quotes, offsets, hashes and extra evidence properties are refused.
+
+The range reader partitions newly delivered gaps into fragments of at most 1,000 bytes, preferring line boundaries and preserving UTF-8 and CRLF. Fragments with fewer than eight bytes or only whitespace explicitly have `citeable:false`. These cannot justify a claim. Adjacent or overlapping reads reuse the existing delivered IDs and send only previously unread bytes; fragmentation does not widen the requested range. A claim may cite up to eight suitable fragments. This version does not synthesize a larger citation across previously separate fragments; short/blank fragments remain unavailable for citation.
+
+New ledger schema 2 binds each ID to the complete operation/project/snapshot/manifest/grant/account/runtime/model/effort binding and captured range identity. A valid-looking ID for actual but unread code does not resolve. Only Delivered calls contribute references; Prepared, Uncertain, rejected or absent delivery cannot justify a claim. Stop, runtime/account changes, revoked grants and missing/corrupt captured blobs still stop admission. The same source/file/call/fragment/metadata/payload/deadline limits apply; added ID/flag metadata counts against the original budgets. No extra server, provider or source preload was added.
+
+Resolution reads the immutable captured blobs, verifies exact range/digest/coordinates, and supplies an internal type that cannot be deserialized from provider JSON. The chapter builder rechecks that type against its full captured sources. Explicit verified coordinates disambiguate repeated occurrences; the legacy quote route retains its original uniqueness rule. Final independent claim, source, diagram and storage checks still run. Valid references do not prove semantic accuracy, meaningful arrows or good narration.
+
+One owned correction can fix reference/identifier findings using the existing conversation and already delivered IDs. It cannot call tools or restart research; account/model/max reasoning, cancellation and the original deadline remain owned by the same run. Recovery schema 2 retains the raw candidates and bounded fixed preflight codes/positions. Historical recovery schema 1 remains readable. No raw failed response is rewritten into an accepted chapter.
+
+New generation origins use schema 4 and the new retrieval contract. Old schema-3 retrieval origins, schema-1 ledgers and quote-based chapters remain readable under their original contracts; historical records cannot resume generation or acquire new references. Sharing policy/limits are unchanged, so this transport update does not request another connection setup or extend a source grant.
+
+## Qualification
+
+The full native regression suite passed **304 tests**, with 11 account/native probes explicitly ignored. The frontend suite passed **145 tests** and the production frontend build passed. Regressions cover the two failed comment passages, repeated implementation coordinates through full chapter validation, source-linked diagram construction, bounded delivery, foreign/unread/uncertain references, revocation/corruption and legacy identity compatibility. These checks establish transport and deterministic admission; they do not establish explanation quality.
+
+The unsigned debug Mac app packaged successfully and was installed after its source and bundle executable matched: **115,741,104 bytes**, SHA-256 `29868c4bb55c66a1f953d5dcad5a602c01a998b31a73d9d54540b85260934450`. Embedded executable integrity passed, and computer use confirmed the installed app opened with the saved Codex connection and nested Outline Guide still on section **2/3**, with source lines **48–52** selected. This verifies preservation of that existing reading state; it does not qualify generation through the new citation contract or a signed release.
+
+One deliberate frozen Fontdone investigation, its code-fact/visual review, fresh citation navigation and Pocket narration remain pending. Record their outcomes separately before closing [Kata yk6c](../kata-tasks/72-agent-evidence-references.md). The previous Fontdone failures and their two-minute target failures remain unchanged.

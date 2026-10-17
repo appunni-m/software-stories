@@ -33,6 +33,7 @@ mod codex_commands;
 mod context_mcp;
 mod agent_context;
 mod evidence_ledger;
+mod native_citations;
 mod git_evidence;
 mod index;
 mod narration;

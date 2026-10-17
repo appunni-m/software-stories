@@ -1259,6 +1259,13 @@ fn repository_overview_generation_config() -> Value {
 
 pub(crate) fn workspace_retrieval_schema()->Value {
     let mut schema=repository_overview_response_schema();
+    // Agent responses select native-delivered IDs. Quotes, paths, offsets and
+    // digests are resolved locally and cannot be supplied in this wire schema.
+    schema["properties"]["citationVersion"] = json!({"type":"STRING","enum":[crate::native_citations::VERSION]});
+    schema["required"].as_array_mut().unwrap().push(json!("citationVersion"));
+    schema["properties"]["sections"]["items"]["properties"]["claims"]["items"]["properties"]["evidence"]["items"] = json!({
+        "type":"OBJECT","properties":{"referenceId":{"type":"STRING","pattern":"^evidence:[a-f0-9]{64}$"}},"required":["referenceId"]
+    });
     crate::provider_api::lowercase_schema_types(&mut schema);
     close_agent_schema_objects(&mut schema);
     schema

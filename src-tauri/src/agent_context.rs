@@ -591,13 +591,13 @@ impl Session {
         let rejection = (invalid && ordinal == 2).then(|| {
             let positions = issues.as_ref().unwrap().iter().take(8).map(|issue|json!({
                 "location":issue["location"],
-                "problem":issue.get("quoteProblem").and_then(Value::as_str).unwrap_or("identifierAlignment"),
+                "problem":issue.get("citationProblem").or_else(||issue.get("quoteProblem")).and_then(Value::as_str).unwrap_or("identifierAlignment"),
             })).collect::<Vec<_>>();
             format!("Local preflight rejected the sole correction: {}", json!(positions))
         });
         if invalid || ordinal == 2 {
             self.ledger
-                .save_candidate(fingerprint, response, ordinal, rejection.as_deref())?;
+                .save_candidate_with_findings(fingerprint, response, ordinal, rejection.as_deref(),Some(crate::native_citations::fixed_findings(issues.as_deref().unwrap_or(&[]))))?;
         }
         self.candidate = Some((ordinal, response.clone(), Arc::clone(cancelled)));
         Ok(())
@@ -641,22 +641,13 @@ impl Session {
             &self.manifest.summary.snapshot_id,
         )?;
         self.ledger.check(&fresh, &self.runtime, cancelled)?;
-        let Some(mut issues) = crate::claim_alignment::diagnostics(&response.response_text) else {
-            return Ok(None);
-        };
-        if let Some(quotes) = self.ledger.quote_diagnostics(
-            &response.response_text,
-            &fresh,
-            &self.runtime,
-            cancelled,
-        )? {
-            // Quote problems go first so large lexical issue sets cannot hide
-            // a bad source passage within the bounded correction feedback.
-            let mut all = quotes;
-            all.append(&mut issues);
-            return Ok(Some(all));
+        match self.ledger.resolve_citations(&response.response_text, &fresh, &self.runtime, cancelled)? {
+            crate::native_citations::Resolution::Invalid(issues) => Ok(Some(issues)),
+            crate::native_citations::Resolution::Ready(resolved) => Ok(crate::claim_alignment::diagnostics(resolved.text()).map(|mut issues| {
+                for issue in &mut issues { issue["citationVersion"] = json!(crate::native_citations::VERSION); }
+                issues
+            })),
         }
-        Ok(Some(issues))
     }
 
     /// Called only by the manager-owned publication callback on rejection.
@@ -672,8 +663,9 @@ impl Session {
             &self.manifest.summary.snapshot_id,
         )?;
         self.ledger.check(&fresh, &self.runtime, cancelled)?;
+        let issues=self.candidate_diagnostics(response,cancelled)?;
         self.ledger
-            .save_candidate(fingerprint, response, *ordinal, Some(reason))
+            .save_candidate_with_findings(fingerprint, response, *ordinal, Some(reason),Some(crate::native_citations::fixed_findings(issues.as_deref().unwrap_or(&[]))))
     }
 }
 impl Drop for Session {

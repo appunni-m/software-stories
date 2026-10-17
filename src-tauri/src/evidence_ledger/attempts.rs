@@ -19,6 +19,8 @@ pub(crate) struct Candidate {
     pub(crate) response_text: String,
     response_sha256: String,
     pub(crate) alignment_issues: Vec<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) preflight_findings: Option<Vec<Value>>,
     pub(crate) rejection: Option<String>,
 }
 
@@ -52,7 +54,7 @@ fn read(path: &Path) -> Result<Candidates, String> {
         .map_err(|_| "Saved rejected explanation exceeds its bound or is unreadable.")?;
     let record: Candidates = serde_json::from_slice(&bytes)
         .map_err(|_| "Saved rejected explanation is damaged; it was preserved.")?;
-    if record.schema_version != 1
+    if !matches!(record.schema_version,1|2)
         || !canonical_uuid(&record.binding.operation_id)
         || !hash(&record.request_fingerprint)
         || !hash(&record.evidence_sha256)
@@ -66,6 +68,11 @@ fn read(path: &Path) -> Result<Candidates, String> {
                 || c.response_sha256 != context::digest(c.response_text.as_bytes())
                 || c.alignment_issues
                     != crate::claim_alignment::diagnostics(&c.response_text).unwrap_or_default()
+                || match (&c.preflight_findings,record.schema_version) {
+                    (None,1)=>false,
+                    (Some(findings),2)=>!crate::native_citations::valid_findings(findings),
+                    _=>true,
+                }
                 || c.rejection
                     .as_ref()
                     .is_some_and(|r| r.is_empty() || r.len() > 2000)
@@ -93,6 +100,17 @@ impl Ledger {
         ordinal: u8,
         rejection: Option<&str>,
     ) -> Result<(), String> {
+        self.save_candidate_with_findings(fingerprint,response,ordinal,rejection,None)
+    }
+
+    pub(crate) fn save_candidate_with_findings(
+        &self,
+        fingerprint: &str,
+        response: &codex_agent::CodexRunResult,
+        ordinal: u8,
+        rejection: Option<&str>,
+        findings: Option<Vec<Value>>,
+    ) -> Result<(), String> {
         let _guard = STORE
             .lock()
             .map_err(|_| "Rejected explanation recovery is busy.")?;
@@ -104,6 +122,7 @@ impl Ledger {
             || !identity(&response.turn_id)
             || response.response_text.len() > chapters::MAX_GENERATED_RESPONSE_BYTES
             || rejection.is_some_and(|r| r.is_empty() || r.len() > 2000)
+            || findings.as_ref().is_some_and(|f| !crate::native_citations::valid_findings(f))
         {
             return Err(
                 "Rejected explanation does not belong to this operation or exceeds its bounds."
@@ -151,7 +170,7 @@ impl Ledger {
                 .map_err(|_| "Captured evidence could not be identified.")?,
         );
         let mut saved = current.unwrap_or_else(|| Candidates {
-            schema_version: 1,
+            schema_version: if findings.is_some() {2} else {1},
             binding: self.record.binding.clone(),
             request_fingerprint: fingerprint.into(),
             evidence_sha256: evidence_sha256.clone(),
@@ -160,6 +179,7 @@ impl Ledger {
         if saved.binding != self.record.binding
             || saved.request_fingerprint != fingerprint
             || saved.evidence_sha256 != evidence_sha256
+            || saved.schema_version != if findings.is_some() {2} else {1}
         {
             return Err(
                 "Saved rejected explanation belongs to different evidence or request settings."
@@ -174,12 +194,14 @@ impl Ledger {
             response_sha256: context::digest(response.response_text.as_bytes()),
             alignment_issues: crate::claim_alignment::diagnostics(&response.response_text)
                 .unwrap_or_default(),
+            preflight_findings:findings,
             rejection: rejection.map(str::to_owned),
         };
         if let Some(prior) = saved.candidates.get_mut(ordinal as usize - 1) {
             if prior.response_sha256 != candidate.response_sha256
                 || prior.thread_id != candidate.thread_id
                 || prior.turn_id != candidate.turn_id
+                || prior.preflight_findings != candidate.preflight_findings
                 || (prior.rejection.is_some() && prior.rejection != candidate.rejection)
             {
                 return Err("An existing rejected candidate cannot be replaced.".into());

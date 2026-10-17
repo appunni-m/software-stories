@@ -18,6 +18,7 @@ use std::{
 use uuid::Uuid;
 
 pub(crate) const POLICY: &str = "atlas-captured-ranges-v1-files12-source250000";
+pub(crate) const RETRIEVAL_CONTRACT: &str = "codex-retrieval-v2-native-citations";
 const MAX_CALLS: usize = 64;
 const MAX_FILES: usize = 12;
 const MAX_SOURCE: usize = 250_000;
@@ -257,12 +258,14 @@ struct Fragment {
     id: String,
     range: context::CodeRange,
     contents: String,
+    citeable: bool,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Response<'a> {
     policy: &'static str,
+    citation_version: &'static str,
     call_id: &'a str,
     context: Option<&'a Context<'a>>,
     added: Vec<Fragment>,
@@ -315,6 +318,17 @@ fn encode(record: &Record) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
+fn evidence_id(record: &Record, range: &context::CodeRange) -> Result<String, String> {
+    // Historical v1 IDs/digests stay byte-compatible. New IDs also bind the
+    // operation, grant, account/runtime and model, so foreign IDs never resolve.
+    let identity = if record.schema_version == 1 {
+        serde_json::to_vec(&(&record.binding.project_id, range))
+    } else {
+        serde_json::to_vec(&(RETRIEVAL_CONTRACT, &record.binding, range))
+    }.map_err(|_| "Evidence identity could not be encoded.")?;
+    Ok(format!("evidence:{}", context::digest(&identity)))
+}
+
 impl Ledger {
     pub(crate) fn new(
         storage: &Path,
@@ -339,7 +353,7 @@ impl Ledger {
             runtime,
         )?;
         let record = Record {
-            schema_version: 1,
+            schema_version: 2,
             policy: POLICY.to_owned(),
             binding: Binding {
                 operation_id: operation_id.to_owned(),
@@ -611,6 +625,7 @@ impl Ledger {
         }
         let mut response = Response {
             policy: POLICY,
+            citation_version: crate::native_citations::VERSION,
             call_id: &token.id,
             context: Some(context),
             added: vec![],
@@ -683,14 +698,16 @@ impl Ledger {
                 }
             }
             for (start, end) in gaps(request.start_byte, request.end_byte, intervals) {
-                let read = context::range_from_source(source, start, end)?;
-                let identity = serde_json::to_vec(&(&self.record.binding.project_id, &read.range))
-                    .map_err(|_| "Evidence identity could not be encoded.")?;
-                response.added.push(Fragment {
-                    id: format!("evidence:{}", context::digest(&identity)),
-                    range: read.range,
-                    contents: read.contents,
-                });
+                for (from, to) in crate::native_citations::spans(&source.contents, start, end)? {
+                    self.check(manifest, runtime, cancelled)?;
+                    let read = context::range_from_source(source, from, to)?;
+                    response.added.push(Fragment {
+                        id: evidence_id(&self.record, &read.range)?,
+                        citeable: crate::native_citations::citeable(&read.contents),
+                        range: read.range,
+                        contents: read.contents,
+                    });
+                }
             }
         }
         response.already_available.sort();
@@ -1029,6 +1046,41 @@ impl Ledger {
         Ok(issues)
     }
 
+    pub(crate) fn resolve_citations(
+        &self,
+        response: &str,
+        manifest: &snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        cancelled: &AtomicBool,
+    ) -> Result<crate::native_citations::Resolution, String> {
+        self.check(manifest, runtime, cancelled)?;
+        if self.record.schema_version != 2 {
+            return Err("Historical evidence records cannot resume native citation generation.".into());
+        }
+        let sources = self.validation_sources(manifest, runtime, cancelled)?;
+        let sources: HashMap<_, _> = sources.iter().map(|s| (s.path.as_str(), s)).collect();
+        // Verify captured bytes before building the lookup table. A corrupt or
+        // unavailable blob stops validation; it cannot become correction data.
+        let mut citations = HashMap::new();
+        for evidence in &self.record.evidence {
+            self.check(manifest, runtime, cancelled)?;
+            if !self.record.calls.iter().any(|call| call.state == CallState::Delivered && call.evidence_ids.contains(&evidence.id)) {
+                continue;
+            }
+            let source = sources.get(evidence.range.path.as_str()).ok_or("The cited captured source is unavailable.")?;
+            let contents = source.contents.get(evidence.range.start_byte..evidence.range.end_byte)
+                .ok_or("The cited captured span is unavailable.")?;
+            if !crate::native_citations::citeable(contents) { continue; }
+            if evidence.id != evidence_id(&self.record, &evidence.range)? {
+                return Err("The native citation identity changed.".into());
+            }
+            citations.insert(evidence.id.as_str(), crate::native_citations::Citation::checked(&evidence.range, source)?);
+        }
+        let result = crate::native_citations::resolve(response, |id| citations.get(id).cloned().ok_or("referenceUnavailable"));
+        self.check(manifest, runtime, cancelled)?;
+        Ok(result)
+    }
+
     pub(crate) fn admitted_ranges(&self) -> Vec<context::CodeRange> {
         self.record
             .evidence
@@ -1174,7 +1226,7 @@ pub(crate) fn inspect(storage: &Path, operation_id: &str) -> Result<Record, Stri
         .map_err(|_| "Evidence accounting is unreadable or exceeds its limit.".to_owned())?;
     let record: Record = serde_json::from_slice(&bytes)
         .map_err(|_| "Evidence accounting is damaged; the original record was preserved.")?;
-    if record.schema_version != 1
+    if !matches!(record.schema_version, 1 | 2)
         || !valid_context_timings(&record)
         || record.policy != POLICY
         || record.binding.operation_id != operation_id
@@ -1265,14 +1317,8 @@ pub(crate) fn inspect(storage: &Path, operation_id: &str) -> Result<Record, Stri
                 || e.range.snapshot_id != record.binding.snapshot_id
                 || e.range.start_byte >= e.range.end_byte
                 || e.range.end_byte - e.range.start_byte > context::MAX_RANGE_BYTES
-                || e.id
-                    != format!(
-                        "evidence:{}",
-                        context::digest(
-                            &serde_json::to_vec(&(&record.binding.project_id, &e.range))
-                                .unwrap_or_default()
-                        )
-                    )
+                || (record.schema_version == 2 && e.range.end_byte - e.range.start_byte > crate::native_citations::MAX_SPAN)
+                || !evidence_id(&record, &e.range).is_ok_and(|id| id == e.id)
         })
     {
         return Err(
