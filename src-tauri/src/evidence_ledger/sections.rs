@@ -9,6 +9,9 @@ use std::sync::Mutex;
 pub(crate) const MAX_PROPOSAL_BYTES: usize = 32_768;
 pub(crate) const PROPOSAL_VERSION: &str = "answerSectionV2";
 pub(crate) const SCENE_PROPOSAL_VERSION: &str = "answerSectionV3";
+pub(crate) const NATIVE_MANIFEST_VERSION: &str = "answerManifestV2";
+pub(crate) const NATIVE_MANIFEST_POLICY: &str = "all-latest-published-sections-v1";
+pub(crate) const NATIVE_MANIFEST_ANSWER_VERSION: u32 = 4;
 const LEGACY_PROPOSAL_VERSION: &str = "answerSectionV1";
 const CURRENT_CHECKPOINT_VERSION: u32 = 4;
 const SCENE_CHECKPOINT_VERSION: u32 = 5;
@@ -19,8 +22,8 @@ const MAX_RECORD_BYTES: usize = 4 * 1024 * 1024;
 const MAX_DIRECTORY_ENTRIES: usize = 32;
 static STORE: Mutex<()> = Mutex::new(());
 
-pub(crate) mod reading;
 pub(crate) mod authoring;
+pub(crate) mod reading;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -475,9 +478,13 @@ fn visual_evidence_findings(section: &Value) -> Vec<Value> {
 /// New checkpoints bind the new scene policy; old immutable checkpoints keep
 /// the policy under which they were published. Omitted presentations are valid.
 fn scene_version_findings(section: &Value, checkpoint_version: u32) -> Vec<Value> {
-    let Some(presentation) = section["visual"].get("presentation") else { return vec![]; };
+    let Some(presentation) = section["visual"].get("presentation") else {
+        return vec![];
+    };
     let supported = match checkpoint_version {
-        1 | 2 => presentation.is_null() || matches!(presentation["schemaVersion"].as_u64(), Some(1 | 2)),
+        1 | 2 => {
+            presentation.is_null() || matches!(presentation["schemaVersion"].as_u64(), Some(1 | 2))
+        }
         3 => presentation["schemaVersion"].as_u64() == Some(2),
         4 | 5 => presentation["schemaVersion"].as_u64() == Some(3),
         _ => false,
@@ -493,8 +500,12 @@ fn scene_version_findings(section: &Value, checkpoint_version: u32) -> Vec<Value
 /// never invents speech, removes claims or grants another attempt.
 fn scene_narration_findings(section: &Value) -> Vec<Value> {
     let presentation = &section["visual"]["presentation"];
-    if presentation["schemaVersion"].as_u64() != Some(3) { return vec![]; }
-    let Some(scenes) = presentation["scenes"].as_array().filter(|s| s.len() <= 20) else { return vec![]; };
+    if presentation["schemaVersion"].as_u64() != Some(3) {
+        return vec![];
+    }
+    let Some(scenes) = presentation["scenes"].as_array().filter(|s| s.len() <= 20) else {
+        return vec![];
+    };
     let mut findings = Vec::new();
     let mut total = 0;
     for (index, scene) in scenes.iter().enumerate() {
@@ -506,7 +517,9 @@ fn scene_narration_findings(section: &Value) -> Vec<Value> {
         }
     }
     if findings.is_empty() && !(20..=4_000).contains(&total) {
-        findings.push(json!({"location":"/section/visual/presentation/scenes","code":"sceneNarration"}));
+        findings.push(
+            json!({"location":"/section/visual/presentation/scenes","code":"sceneNarration"}),
+        );
     }
     findings
 }
@@ -613,7 +626,7 @@ fn valid_findings(findings: &[Value], schema_version: u32) -> bool {
                     s.len() <= 160 && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'/')
                 })
                 && v["code"].as_str().is_some_and(|s| {
-                    (schema_version == 3
+                    (matches!(schema_version, 3 | 4)
                         && matches!(
                             s,
                             "sceneAuthoringShape"
@@ -668,6 +681,7 @@ impl Ledger {
         )
     }
 
+    #[cfg(test)]
     pub(crate) fn start_scene_answer_sections(
         &self,
         question: &str,
@@ -683,6 +697,24 @@ impl Ledger {
             runtime,
             cancelled,
             3,
+        )
+    }
+
+    pub(crate) fn start_native_manifest_answer_sections(
+        &self,
+        question: &str,
+        request_sha256: &str,
+        manifest: &snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        cancelled: &AtomicBool,
+    ) -> Result<ActiveAnswer, String> {
+        self.start_versioned_answer_sections(
+            question,
+            request_sha256,
+            manifest,
+            runtime,
+            cancelled,
+            NATIVE_MANIFEST_ANSWER_VERSION,
         )
     }
 
@@ -725,12 +757,80 @@ impl Ledger {
 }
 
 impl Answer {
+    fn uses_scene_authoring(&self) -> bool {
+        matches!(self.schema_version, 3 | 4)
+    }
+
     fn proposal_version(&self) -> &'static str {
         match self.schema_version {
-            3 => SCENE_PROPOSAL_VERSION,
+            3 | 4 => SCENE_PROPOSAL_VERSION,
             2 => PROPOSAL_VERSION,
             _ => LEGACY_PROPOSAL_VERSION,
         }
+    }
+
+    /// Fresh final responses cannot select, omit or replace native publications.
+    /// Historical answers retain their exact explicit-identity admission rule.
+    fn manifest_topics(&self, text: &str) -> Result<Vec<String>, String> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase", deny_unknown_fields)]
+        struct NativeManifest {
+            manifest_version: String,
+            incomplete_topics: Vec<String>,
+        }
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase", deny_unknown_fields)]
+        struct LegacyManifest {
+            manifest_version: String,
+            sections: Vec<reading::SectionIdentity>,
+            incomplete_topics: Vec<String>,
+        }
+        if text.len() > 4096 {
+            return Err("The answer's final manifest exceeds its limit.".into());
+        }
+        let parsed = crate::strict_json::from_slice(text.as_bytes()).map_err(
+            |_| "The answer's final manifest is invalid. Published sections are preserved.",
+        )?;
+        let topics = if self.schema_version == NATIVE_MANIFEST_ANSWER_VERSION {
+            let manifest: NativeManifest = serde_json::from_value(parsed).map_err(
+                |_| "The answer's final manifest is invalid. Published sections are preserved.",
+            )?;
+            if manifest.manifest_version != NATIVE_MANIFEST_VERSION || self.sections.is_empty() {
+                return Err(
+                    "The answer's final manifest does not match its published sections.".into(),
+                );
+            }
+            manifest.incomplete_topics
+        } else {
+            let manifest: LegacyManifest = serde_json::from_value(parsed).map_err(
+                |_| "The answer's final manifest is invalid. Published sections are preserved.",
+            )?;
+            if manifest.manifest_version != "answerManifestV1"
+                || manifest.sections != self.latest_identities()
+                || manifest.sections.is_empty()
+            {
+                return Err(
+                    "The answer's final manifest does not match its published sections.".into(),
+                );
+            }
+            manifest.incomplete_topics
+        };
+        if topics.len() > 6
+            || topics
+                .iter()
+                .any(|s| s.trim().is_empty() || s.len() > 240 || s.chars().any(char::is_control))
+        {
+            return Err("The answer's unfinished topics are invalid.".into());
+        }
+        Ok(topics)
+    }
+
+    fn has_required_completion_manifest(&self) -> bool {
+        self.schema_version != NATIVE_MANIFEST_ANSWER_VERSION
+            || self.final_responses.last().is_some_and(|response| {
+                self.manifest_topics(&response.text)
+                    .is_ok_and(|topics| topics.is_empty())
+            })
     }
 
     fn unresolved_proposals(&self) -> bool {
@@ -785,36 +885,7 @@ impl ActiveAnswer {
             codex_agent::atomic_private_write(&self.path, &encode_answer(&next)?)?;
             self.value = next;
         }
-        #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase", deny_unknown_fields)]
-        struct Manifest {
-            manifest_version: String,
-            sections: Vec<reading::SectionIdentity>,
-            incomplete_topics: Vec<String>,
-        }
-        if text.len() > 4096 {
-            return Err("The answer's final manifest exceeds its limit.".into());
-        }
-        let manifest: Manifest = crate::strict_json::from_slice(text.as_bytes())
-            .ok()
-            .and_then(|v| serde_json::from_value(v).ok())
-            .ok_or("The answer's final manifest is invalid. Published sections are preserved.")?;
-        if manifest.manifest_version != "answerManifestV1"
-            || manifest.sections != self.value.latest_identities()
-            || manifest.sections.is_empty()
-        {
-            return Err(
-                "The answer's final manifest does not match its published sections.".into(),
-            );
-        }
-        let mut topics = manifest.incomplete_topics;
-        if topics.len() > 6
-            || topics
-                .iter()
-                .any(|s| s.trim().is_empty() || s.len() > 240 || s.chars().any(char::is_control))
-        {
-            return Err("The answer's unfinished topics are invalid.".into());
-        }
+        let mut topics = self.value.manifest_topics(text)?;
         // A rejected proposal is not proof that its intended subject was
         // completed. Only a later accepted proposal for that same key repairs
         // it; malformed attempts without a key remain unresolved.
@@ -878,7 +949,7 @@ impl ActiveAnswer {
             manifest,
             runtime,
             cancelled,
-            if self.value.schema_version == 3 {
+            if self.value.uses_scene_authoring() {
                 SCENE_CHECKPOINT_VERSION
             } else {
                 CURRENT_CHECKPOINT_VERSION
@@ -896,7 +967,7 @@ impl ActiveAnswer {
         checkpoint_version: u32,
     ) -> Result<PreparedSection, String> {
         if !matches!(checkpoint_version, 1 | 2 | 3 | 4 | 5)
-            || (checkpoint_version == SCENE_CHECKPOINT_VERSION) != (self.value.schema_version == 3)
+            || (checkpoint_version == SCENE_CHECKPOINT_VERSION) != self.value.uses_scene_authoring()
         {
             return Err("Unsupported answer presentation version.".into());
         }
@@ -1152,6 +1223,7 @@ impl ActiveAnswer {
             || (outcome == Outcome::Complete
                 && (self.value.sections.is_empty()
                     || !incomplete_topics.is_empty()
+                    || !self.value.has_required_completion_manifest()
                     || self.value.unresolved_proposals()))
             || (outcome == Outcome::Partial && self.value.sections.is_empty())
             || (outcome == Outcome::Failed && !self.value.sections.is_empty())
@@ -1248,12 +1320,11 @@ fn read_record_bytes(storage: &Path, operation: &str) -> Result<Vec<u8>, String>
 }
 
 fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer, String> {
-    let value: Answer =
-        crate::strict_json::from_slice(bytes)
-            .map_err(|_| "Invalid saved answer".to_owned())
-            .and_then(|v| serde_json::from_value(v).map_err(|_| "Invalid saved answer".to_owned()))
-            .map_err(|_| "The saved answer is damaged; it was preserved.")?;
-    if !matches!(value.schema_version, 1 | 2 | 3)
+    let value: Answer = crate::strict_json::from_slice(bytes)
+        .map_err(|_| "Invalid saved answer".to_owned())
+        .and_then(|v| serde_json::from_value(v).map_err(|_| "Invalid saved answer".to_owned()))
+        .map_err(|_| "The saved answer is damaged; it was preserved.")?;
+    if !matches!(value.schema_version, 1 | 2 | 3 | 4)
         || value.binding.operation_id != operation
         || !value.binding.runtime.valid_shape()
         || value.binding.model != "gpt-6-luna"
@@ -1296,6 +1367,7 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
         || (value.outcome == Outcome::Complete
             && (value.sections.is_empty()
                 || !value.incomplete_topics.is_empty()
+                || !value.has_required_completion_manifest()
                 || value.unresolved_proposals()))
         || (value.outcome == Outcome::Partial && value.sections.is_empty())
         || (value.outcome == Outcome::Failed && !value.sections.is_empty())
@@ -1352,7 +1424,8 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
             .collect::<BTreeSet<_>>()
             .len();
         if !matches!(section.checkpoint_version, 1 | 2 | 3 | 4 | 5)
-            || (section.checkpoint_version == SCENE_CHECKPOINT_VERSION) != (value.schema_version == 3)
+            || (section.checkpoint_version == SCENE_CHECKPOINT_VERSION)
+                != value.uses_scene_authoring()
             || checkpoint.schema_version != 3
             || !same_binding(&value.binding, &checkpoint.binding)?
             || checkpoint.status != Status::Active

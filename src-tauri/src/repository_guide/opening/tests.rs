@@ -212,7 +212,7 @@ fn publish(f: &Fixture, r: &Record) -> crate::evidence_ledger::sections::ActiveA
         .unwrap();
     let reference = delivered["added"][0]["referenceId"].as_str().unwrap();
     let mut answer = ledger
-        .start_scene_answer_sections(&r.question, &"d".repeat(64), &f.manifest, &runtime, &cancel)
+        .start_native_manifest_answer_sections(&r.question, &"d".repeat(64), &f.manifest, &runtime, &cancel)
         .unwrap();
     let raw = crate::evidence_ledger::sections::authoring::tests::proposal(reference, "opening", 0)
         .to_string();
@@ -321,9 +321,7 @@ fn completed_opening_does_not_complete_deeper_units_and_partial_opening_cannot_b
     let mut r = pending(&f);
     store::create(&f.storage, &r).unwrap();
     let mut answer = publish(&f, &r);
-    let shown = summary(&f.storage, &r).unwrap();
-    let section = &shown.answers[0].sections[0];
-    answer.finish_manifest(&json!({"manifestVersion":"answerManifestV1","sections":[{"sectionKey":section.key,"generationId":section.generation_id}],"incompleteTopics":[]}).to_string(), false).unwrap();
+    answer.finish_manifest(&json!({"manifestVersion":"answerManifestV2","incompleteTopics":[]}).to_string(), false).unwrap();
     let result = summary(&f.storage, &r).unwrap().answers.remove(0);
     assert_eq!(result.outcome, Outcome::Complete);
     let old = record(&f);

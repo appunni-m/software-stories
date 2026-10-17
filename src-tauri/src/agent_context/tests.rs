@@ -795,6 +795,7 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
             // The callback can independently inspect an already durable section;
             // it is never given an uncommitted preview or raw source payload.
             let saved = sections::inspect(&storage, &notice.run_id).unwrap();
+            assert_eq!(serde_json::to_value(&saved).unwrap()["schemaVersion"], 4);
             assert!(
                 saved
                     .sections

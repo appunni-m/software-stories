@@ -174,6 +174,12 @@ fn request(job: &Record) -> Result<(String, Value, String, String), String> {
         contract["sceneAuthoringPolicy"] =
             json!(crate::evidence_ledger::sections::authoring::POLICY);
         contract["checkpointVersion"] = json!(5);
+        contract["finalManifestVersion"] =
+            json!(crate::evidence_ledger::sections::NATIVE_MANIFEST_VERSION);
+        contract["finalManifestPolicy"] =
+            json!(crate::evidence_ledger::sections::NATIVE_MANIFEST_POLICY);
+        contract["answerSchemaVersion"] =
+            json!(crate::evidence_ledger::sections::NATIVE_MANIFEST_ANSWER_VERSION);
     }
     let contract =
         serde_json::to_vec(&contract).map_err(|_| "The guide contract could not be encoded.")?;

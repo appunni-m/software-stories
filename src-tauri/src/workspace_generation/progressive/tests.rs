@@ -23,7 +23,7 @@ fn progressive_contract_is_small_binds_intent_and_never_requests_a_final_rewrite
     assert!(!prompt.contains("export function greeting"));
     assert_eq!(
         schema["properties"]["manifestVersion"]["enum"],
-        json!(["answerManifestV1"])
+        json!(["answerManifestV2"])
     );
     assert!(schema["properties"].get("citationVersion").is_none());
     assert!(schema["properties"]["sections"]["items"]["properties"]
@@ -147,18 +147,20 @@ fn saved_answer_loading_keeps_active_workers_and_recovers_without_connecting_or_
 }
 
 #[test]
-fn final_manifest_schema_preserves_the_entire_native_generation_identity() {
-    // Native publication returns a prefixed UUID, not a bare 36-byte UUID.
-    // A 36-character output constraint made real Codex truncate this identity
-    // and omit the second published section from its terminal manifest.
-    let generation_id = format!("generation:{}", Uuid::new_v4());
+fn native_manifest_schema_leaves_all_published_identities_under_native_ownership() {
+    // An actual Fontdone final response omitted a third published section.
+    // A fresh agent reports unfinished topics; it never recopies owned IDs.
     let contract = schema();
-    let bound = contract["properties"]["sections"]["items"]["properties"]["generationId"]
-        ["maxLength"]
-        .as_u64()
-        .unwrap();
-    assert_eq!(generation_id.len(), 47);
-    assert_eq!(bound, generation_id.len() as u64);
+    assert_eq!(contract["required"], json!(["manifestVersion", "incompleteTopics"]));
+    assert_eq!(contract["properties"].as_object().unwrap().len(), 2);
+    assert!(contract["properties"].get("sections").is_none());
+    assert_eq!(contract["additionalProperties"], false);
+    assert_eq!(contract["properties"]["manifestVersion"]["enum"], json!(["answerManifestV2"]));
+    assert_eq!(contract["properties"]["incompleteTopics"]["maxItems"], 6);
+    let instructions = system_instructions();
+    assert!(instructions.contains("retains every latest published section automatically"));
+    assert!(instructions.contains("Do not copy sectionKey or generationId"));
+    assert!(!instructions.contains("sections lists the latest accepted"));
 }
 
 #[test]
@@ -492,6 +494,9 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert_eq!(contract["sectionAttempts"], 8);
     assert_eq!(contract["uniqueSections"], 6);
     assert_eq!(contract["checkpointVersion"], 5);
+    assert_eq!(contract["answerSchemaVersion"], 4);
+    assert_eq!(contract["finalManifestVersion"], "answerManifestV2");
+    assert_eq!(contract["finalManifestPolicy"], "all-latest-published-sections-v1");
     assert_eq!(contract["proposalVersion"], "answerSectionV3");
     assert_eq!(contract["sceneAuthoringPolicy"], "claim-owned-scene-local-identities-v1");
     assert_eq!(contract["publicationOrderPolicy"], "investigation-local-next-order-v1");

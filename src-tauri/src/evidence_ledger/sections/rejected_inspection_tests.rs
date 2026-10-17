@@ -21,7 +21,7 @@ fn inspect_saved_section_rejections() {
     let record = super::super::inspect(&storage, &run).unwrap();
     let answer = inspect(&storage, &run).unwrap();
     assert!(
-        matches!(answer.schema_version, 2 | 3),
+        matches!(answer.schema_version, 2 | 3 | 4),
         "inspection requires short-reference answers"
     );
     assert_eq!(answer.binding.operation_id, record.binding.operation_id);
@@ -141,10 +141,15 @@ fn inspect_saved_section_rejections() {
         options.mode(0o600);
     }
     let mut artifact = options.open(output).unwrap();
+    let final_manifests = answer.final_responses.iter().map(|response| json!({
+        "sha256":response.sha256,"bytes":response.text.len(),
+        "admissibleUnderRecordedSchema":answer.manifest_topics(&response.text).is_ok()
+    })).collect::<Vec<_>>();
     artifact.write_all(&serde_json::to_vec_pretty(&json!({
         "kind":"read-only-saved-section-rejection-inspection","runId":run,
         "scope":"Replay only this recorded operation's pre-proposal delivered source through current narrated-section validators. Original receipts are untouched. No account, inference, publication, acceptance or semantic review.",
-        "accepted":false,"humanReview":false,"voiceReview":false,"reports":reports
+        "accepted":false,"humanReview":false,"voiceReview":false,"reports":reports,
+        "answerSchemaVersion":answer.schema_version,"finalManifests":final_manifests
     })).unwrap()).unwrap();
     artifact.sync_all().unwrap();
 }

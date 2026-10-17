@@ -1,5 +1,5 @@
-//! Progressive workspace answers. The final response names published sections;
-//! it cannot replace them or supply a second unvalidated answer.
+//! Progressive workspace answers. Native publication owns every section;
+//! the final response declares unfinished topics, never replacement content.
 
 use super::*;
 use crate::evidence_ledger::sections::{
@@ -31,7 +31,7 @@ A content value is optional (empty string with valueOrigin:"none"). Nonempty val
 
 Published sections are immutable drafts. A proposal reply names its generationId or fixed validation findings. A sectionKeyFormat finding at /sectionKey means use 1–80 lowercase ASCII letters, digits or hyphens only, never underscores. Findings identify exact proposal positions: identifierCount requires 1–8 identifiers per claim; split a long behavior into several claims instead of dropping details. identifierProse means that identifier is absent from the same claim sentence, identifierEvidence means it is absent from all that claim’s cited fragments, and evidenceIdentifier means that fragment contains none of the claim’s declared identifiers. citation points to an invalid or unavailable delivered reference. Copy a citeable fragment’s exact referenceId from the existing read result or reusedReferences; never shorten or compose an ID yourself. sceneAuthoringShape identifies an invalid claim-owned scene or field. sceneAuthoringKey identifies a duplicate, unknown or forward local key; use a unique local key and a prior container for parentKey. sceneAuthoringReference requires each node/edge reference to occur exactly once in its owning claim evidence, without duplicate references. sceneAuthoringLimit identifies a claim/evidence or visual size bound at the named position. Each claim needs 1–8 evidence entries; retain every supported behavior and necessary reference by splitting an oversized claim/section within the original budgets, never by deleting evidence. Fix the named position; never delete a supported claim or expand budgets. sceneNarration names missing/empty/oversized narration or an oversized complete script. Write the complete natural script for every claim in order, retaining its guards, alternatives and uncertainty; do not replace or drop the claim. sceneRepetition points to an arrow whose input and output have identical visible labels and values, including content nested in groups. Repair it with distinct meaningful roles or different source-backed/illustrative values; changing colors, wrappers, element kinds or node IDs does not show a change. Historical proposal versions are not repair options. sceneSourceValue points to a source-valued element that is absent from that node’s own same-claim cited excerpts. Use an exact value from those excerpts or correct the node’s evidence using the claim’s already-delivered references; a source value cannot borrow another node’s or claim’s excerpt. Do not relabel a copied expression as an illustration to evade this check. Every scene is compiled with its enclosing claim as its sole evidence scope; sceneEvidence identifies content whose evidence does not belong to that claim. presentationLimit means the complete grounded text must be 20–4,000 UTF-8 bytes; split an oversized section without dropping behavior. Correct the complete section and keep its supported behavior and visual. Repair the whole rejected section within the original budget; never omit a claim to hide unsupported behavior. Changed content under an existing key must name its exact previousGenerationId and keep the same order; exact repeated proposals are idempotent. At most six unique sections and eight total proposals, all within the original 64 tool calls and ten-minute deadline. Tool budget.remaining is conservative after the result; finishNow means finish using evidence already read. A budgetStop gives no new source. Do not repeat rejected requests or restart investigation to reset limits."#;
 
-const MANIFEST_INSTRUCTIONS: &str = r#"Answer the requested scope; missing unrequested callers or downstream systems is not an incomplete topic. Finish only with the supplied answerManifestV1 JSON schema: sections lists the latest accepted {sectionKey,generationId} in order, and incompleteTopics names concrete boundaries you could not investigate. Do not put explanations, source quotations, paths or invented generation IDs in the final response. A final manifest cannot publish new content. No Markdown fences or extra fields."#;
+const MANIFEST_INSTRUCTIONS: &str = r#"Answer the requested scope; missing unrequested callers or downstream systems is not an incomplete topic. Finish only with the supplied answerManifestV2 JSON schema: {manifestVersion:"answerManifestV2",incompleteTopics:[...]}. The app retains every latest published section automatically, in its native publication order. Do not copy sectionKey or generationId into the final response or select a subset of sections. incompleteTopics names concrete requested boundaries you could not investigate. Rejected work is not completed work. Do not put explanations, source quotations, paths or new content in the final response. A final manifest cannot publish, remove or replace a section. No Markdown fences or extra fields."#;
 
 fn system_instructions() -> String {
     instructions_for_role(ANSWER_ROLE, MANIFEST_INSTRUCTIONS)
@@ -48,11 +48,8 @@ pub(crate) fn instructions_for_role(role: &str, final_instructions: &str) -> Str
 
 pub(crate) fn schema() -> Value {
     json!({"type":"object","additionalProperties":false,
-        "required":["manifestVersion","sections","incompleteTopics"],"properties":{
-        "manifestVersion":{"type":"string","enum":["answerManifestV1"]},
-        "sections":{"type":"array","minItems":1,"maxItems":6,"items":{
-            "type":"object","additionalProperties":false,"required":["sectionKey","generationId"],"properties":{
-                "sectionKey":{"type":"string","maxLength":80},"generationId":{"type":"string","maxLength":47}}}},
+        "required":["manifestVersion","incompleteTopics"],"properties":{
+        "manifestVersion":{"type":"string","enum":[sections::NATIVE_MANIFEST_VERSION]},
         "incompleteTopics":{"type":"array","maxItems":6,"items":{"type":"string","maxLength":240}}}})
 }
 
@@ -73,6 +70,9 @@ fn generation_contract(input: &Input, prompt: &str, schema: &Value) -> Result<Va
         "policy":crate::evidence_ledger::POLICY,"sectionAttempts":8,"uniqueSections":6,
         "claimAlignmentPolicy":"whole-section-validation-no-final-rewrite-v1",
         "publicationOrderPolicy":"investigation-local-next-order-v1",
+        "finalManifestVersion":sections::NATIVE_MANIFEST_VERSION,
+        "finalManifestPolicy":sections::NATIVE_MANIFEST_POLICY,
+        "answerSchemaVersion":sections::NATIVE_MANIFEST_ANSWER_VERSION,
         "citationPolicy":"native-short-references-v2","proposalVersion":sections::SCENE_PROPOSAL_VERSION,
         "sceneAuthoringPolicy":sections::authoring::POLICY,
         "presentationPolicy":"complete-claims-and-scene-narration-v3","storyPolicy":"ai-html-compositions-v3","teachingPolicy":provider::visual_scenes::TEACHING_POLICY_VERSION,"checkpointVersion":5
