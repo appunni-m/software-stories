@@ -2,6 +2,21 @@ use super::*;
 use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH};
 use std::{io::Write, os::unix::net::UnixStream, thread, time::Instant};
 
+#[test]
+fn transport_setup_diagnostics_exclude_os_messages_and_private_paths() {
+    let error = std::io::Error::new(
+        std::io::ErrorKind::NotConnected,
+        "private /source/account details",
+    );
+    assert_eq!(
+        transport_setup_error("read", &error),
+        "Code tool read setup failed (NotConnected, OS unavailable)."
+    );
+    assert!(
+        !transport_setup_error("write", &std::io::Error::from_raw_os_error(57)).contains("/source")
+    );
+}
+
 fn session(f: &Fixture) -> Session {
     let runtime = CodexReviewRuntime {
         connection_id: Uuid::new_v4().to_string(),
@@ -52,7 +67,16 @@ fn exchange_ordered(s: &mut Session, name: &str, args: Value, mut early: bool) -
             arguments: args,
         })
         .unwrap();
-        mcp::write_packet(&mut stream, &payload, mcp::MAX_INPUT).unwrap();
+        // Exercise the actual owner through a split length header and body.
+        // Darwin's inherited nonblocking stream used to reject this packet.
+        let header = (payload.len() as u32).to_be_bytes();
+        stream.write_all(&header[..2]).unwrap();
+        thread::sleep(Duration::from_millis(20));
+        stream.write_all(&header[2..]).unwrap();
+        let split = payload.len() / 2;
+        stream.write_all(&payload[..split]).unwrap();
+        thread::sleep(Duration::from_millis(20));
+        stream.write_all(&payload[split..]).unwrap();
         String::from_utf8(mcp::read_packet(&mut stream, mcp::MAX_REPLY).unwrap()).unwrap()
     });
     let deadline = Instant::now() + Duration::from_secs(10);
@@ -200,6 +224,28 @@ fn excessive_agent_page_size_is_bounded_instead_of_aborting() {
     }
     s.check_complete().unwrap();
 }
+#[test]
+fn code_punctuation_in_search_is_literal_instead_of_a_regex() {
+    let f = Fixture::new();
+    let mut s = session(&f);
+    for query in ["greeting(", "greeting[", "greeting\\", "greeting.*"] {
+        let (_, text) = exchange(
+            &mut s,
+            "search_code",
+            json!({"query":query,"scope":null,"limit":4}),
+        );
+        let result: Value = serde_json::from_str(&text).unwrap();
+        let matches = result
+            .pointer("/context/result/matches")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        assert!(!matches.is_empty(), "no candidates for {query}");
+        assert!(result["added"].as_array().unwrap().is_empty());
+    }
+    s.check_complete().unwrap();
+}
+
 #[test]
 fn foreign_tools_forged_results_and_changed_arguments_are_rejected() {
     let f = Fixture::new();

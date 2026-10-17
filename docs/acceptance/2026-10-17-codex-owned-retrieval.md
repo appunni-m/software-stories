@@ -12,8 +12,8 @@ The native evidence ledger binds the snapshot/account/runtime grant and records 
 
 | Check | Observed outcome |
 | --- | --- |
-| Full native suite | 260 passed, 9 explicit live probes ignored; zero failures. |
-| Frontend suite | 136 passed; zero failures. |
+| Full native suite | Latest run: 266 passed in 18.48 seconds, 10 explicit probes ignored; zero failures. |
+| Frontend suite | Latest reading-position checkpoint: 141 passed; zero failures. |
 | Frontend production build | Passed; existing large-bundle warning remains. |
 | Debug application build | Passed before the read-error feedback refinement; the standard stdio bridge was exercised by the live test below. A newly packaged UI has not been qualified. |
 | First synthetic live attempt | Failed after 94.29 seconds when an agent read requested an invalid hash or UTF-8 range. It exposed no source for that read. |
@@ -64,3 +64,27 @@ The bridge now caps requested page sizes at 32 while preserving native continuat
 - Migrate or explicitly retain the legacy file/plan/section/Git operation contracts. Native tests and this small answer do not pass whole-repository narrative, diagram, language or voice-quality gates.
 
 Kata `gk46`, `a699`, `0wdn` and the narrative/quality tasks remain open.
+
+## Local runtime-check cost
+
+The installed Codex executable is 246,046,384 bytes. A standalone unoptimized streaming SHA-256 diagnostic took 8,701 and 9,436 ms per read. The native owned-tool gate performs this check before accepting a connection, again before processing it, and before writing its result. Several parallel requests can therefore wait behind expensive local checks. This is a plausible contributor to the third transport failure, not a confirmed account/model or transport root cause.
+
+The existing RustCrypto `sha2` dependency now enables its `asm` feature (including runtime-detected ARM SHA instructions with software fallback), and development/test builds optimize that dependency. The streaming check, source/account gates, cancellation checks and metadata validation remain in place. Four calls to the actual native `executable_digest` returned the same SHA-256 in **126, 128, 122 and 126 ms**. [Timing scope and limitations](artifacts/2026-10-17-runtime-digest-timing.json) separate these native samples from the earlier standalone diagnostic; they do not establish complete generation latency.
+
+The native suite now passes **266 tests**, with ten explicit probes ignored, including new streaming known-vector/cancellation/path regressions, privacy-safe transport diagnostics, packet regressions and the literal-search regression below. The frontend has **141 passing tests** following the reading-position fix. The local timing result does not establish large-repository success.
+
+## Native packet transport
+
+A separate macOS probe reproduced an accepted Unix socket inheriting nonblocking mode from the listener: a read with a configured 50 ms socket timeout returned `WouldBlock` immediately. This is consistent with the [Apple `accept` contract](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/accept.2.html). The native owner now explicitly makes accepted sockets blocking before reading a packet.
+
+Native packets also have one absolute deadline across all partial reads or writes: 200 ms for an input packet and two seconds for an output packet. Short socket waits check Stop between attempts; a slow peer cannot restart the deadline with each byte. The standard MCP stdio wire and helper protocol are unchanged. Existing owned-session regressions now split both the length header and body, exercising the real owner and evidence admission. Additional tests cover slow partial input, Stop during input or blocked output, and output deadline expiry without Stop. The complete native suite passed in 25.25 seconds.
+
+An unsigned release `.app` and `.dmg` built and passed the bundle/DMG integrity checks with the SHA optimization and saved-reading-position fix. That build predates the packet changes above; rebuilding it and checking the replacement UI remain separate work. The next Fontdone probe uses the current native test driver with that release executable as its unchanged stdio helper. It does not establish acceptance of the packaged parent application.
+
+## Fourth Fontdone broad run
+
+The current native owner completed 52 tool deliveries and admitted **47,986 distinct code bytes** from `src/api.rs`, `src/font.rs` and `src/tables.rs`, represented by 21 evidence ranges. Metadata consumed 239,661 bytes; native serialized tool payloads consumed 288,861 bytes. The 53rd call stopped at `Code search terms are invalid.` Native generation took 125.603 seconds; the full test took 127.82 seconds. No answer was published. [The separate failure artifact](artifacts/2026-10-17-fontdone-agent-broad-search-terms.json) preserves the request, counters and admitted range identities.
+
+This run progressed past the earlier transport failures and read the large implementation files. It still fails the broad-answer acceptance gate. The record stores argument digests, so it does not establish the exact text of the failing search. An independent owned-session reproducer with the valid code query `greeting(` produced the same error before the fix. In the locked `grep-regex` version, `build_literals` still parses regular expressions unless `fixed_strings(true)` is configured; the case-insensitive setting takes the parsing path. Both snippet matchers now explicitly use fixed strings. The regression also exercises brackets, a trailing backslash and regex-looking punctuation without exposing source as search evidence.
+
+The literal-search regression failed before changing the matchers; the full suite then passed 266 tests with ten explicit probes ignored in 18.48 seconds. Discovery consumed most of the metadata budget before reaching loading/hinting/rasterization. Exposing remaining budgets, reducing redundant discovery and supporting a useful cited partial answer at a limit remain open; this run is not a two-minute useful-answer pass.

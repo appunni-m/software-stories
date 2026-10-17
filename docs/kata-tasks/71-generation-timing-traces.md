@@ -34,3 +34,11 @@ Fontdone's broad explanation was manually stopped at 606 seconds without a valid
 ## Evidence
 
 Research and contracts only. This task narrows the existing timing checkbox in parent Kata `nw1h`; the parent retains durable scheduling, progressive section publication, restart and the broader cancellation matrix.
+
+## First local cost measurement — 17 October
+
+The owned-tool investigation exposed repeated local hashing of the 246 MB installed Codex executable. The original standalone diagnostic took 8.7–9.4 seconds per hash. After enabling and optimizing the existing RustCrypto accelerated backend, the actual native identity check took 122–128 ms across four calls. This is a bounded local diagnostic, not a measured end-to-end generation speedup or an implemented stage trace. [Artifact and timing boundaries](../acceptance/artifacts/2026-10-17-runtime-digest-timing.json) preserve the distinction.
+
+Full monotonic stage tracing, bounded export/restart behavior, controlled repeated Fontdone questions and the two-minute first-admitted-answer gate remain open.
+
+The fourth broad agent investigation took 125.603 seconds in native generation and 127.82 seconds for the full test. It delivered 52 calls, read 47,986 distinct code bytes, consumed 239,661 metadata bytes, and then failed a search matcher without producing an answer. [Preserved result](../acceptance/artifacts/2026-10-17-fontdone-agent-broad-search-terms.json). Earlier transport failures and the old 606-second stopped attempt remain in the record. This is one failed sample with a changed integration, not a speedup measurement, percentile, or two-minute useful-answer pass.

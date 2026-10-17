@@ -104,6 +104,110 @@ pub(crate) fn read_packet(reader: &mut impl Read, limit: usize) -> Result<Vec<u8
     Ok(bytes)
 }
 
+/// A single deadline covers the complete native packet, including partial
+/// reads/writes. Per-syscall socket timeouts alone allow a slow peer to extend
+/// the operation indefinitely. Short waits also keep Stop responsive.
+#[cfg(unix)]
+struct OwnerIo<'a> {
+    stream: &'a mut std::os::unix::net::UnixStream,
+    cancelled: &'a std::sync::atomic::AtomicBool,
+    deadline: std::time::Instant,
+}
+#[cfg(unix)]
+impl OwnerIo<'_> {
+    fn remaining(&self) -> std::io::Result<Duration> {
+        if self.cancelled.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(std::io::Error::other("Code context stopped."));
+        }
+        self.deadline
+            .checked_duration_since(std::time::Instant::now())
+            .filter(|left| !left.is_zero())
+            .map(|left| left.min(Duration::from_millis(25)))
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "Code context packet timed out.",
+                )
+            })
+    }
+}
+#[cfg(unix)]
+impl Read for OwnerIo<'_> {
+    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+        loop {
+            self.stream.set_read_timeout(Some(self.remaining()?))?;
+            match self.stream.read(bytes) {
+                Err(e)
+                    if matches!(
+                        e.kind(),
+                        std::io::ErrorKind::WouldBlock
+                            | std::io::ErrorKind::TimedOut
+                            | std::io::ErrorKind::Interrupted
+                    ) =>
+                {
+                    continue;
+                }
+                result => return result,
+            }
+        }
+    }
+}
+#[cfg(unix)]
+impl Write for OwnerIo<'_> {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        loop {
+            self.stream.set_write_timeout(Some(self.remaining()?))?;
+            match self.stream.write(bytes) {
+                Err(e)
+                    if matches!(
+                        e.kind(),
+                        std::io::ErrorKind::WouldBlock
+                            | std::io::ErrorKind::TimedOut
+                            | std::io::ErrorKind::Interrupted
+                    ) =>
+                {
+                    continue;
+                }
+                result => return result,
+            }
+        }
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.remaining()?;
+        self.stream.flush()
+    }
+}
+#[cfg(unix)]
+pub(crate) fn read_owner_packet(
+    stream: &mut std::os::unix::net::UnixStream,
+    cancelled: &std::sync::atomic::AtomicBool,
+) -> Result<Vec<u8>, String> {
+    read_packet(
+        &mut OwnerIo {
+            stream,
+            cancelled,
+            deadline: std::time::Instant::now() + Duration::from_millis(200),
+        },
+        MAX_INPUT,
+    )
+}
+#[cfg(unix)]
+pub(crate) fn write_owner_packet(
+    stream: &mut std::os::unix::net::UnixStream,
+    bytes: &[u8],
+    cancelled: &std::sync::atomic::AtomicBool,
+) -> Result<(), String> {
+    write_packet(
+        &mut OwnerIo {
+            stream,
+            cancelled,
+            deadline: std::time::Instant::now() + Duration::from_secs(2),
+        },
+        bytes,
+        MAX_REPLY,
+    )
+}
+
 struct Adapter {
     socket: PathBuf,
     token: String,
@@ -230,6 +334,91 @@ pub(crate) fn run_if_requested() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn native_packet_deadline_covers_slow_partial_input() {
+        use std::{os::unix::net::UnixStream, sync::atomic::AtomicBool, thread, time::Instant};
+        let (mut owner, mut peer) = UnixStream::pair().unwrap();
+        let worker = thread::spawn(move || {
+            peer.write_all(&32u32.to_be_bytes()).unwrap();
+            for _ in 0..32 {
+                thread::sleep(Duration::from_millis(25));
+                if peer.write_all(b"x").is_err() {
+                    break;
+                }
+            }
+        });
+        let started = Instant::now();
+        assert!(read_owner_packet(&mut owner, &AtomicBool::new(false)).is_err());
+        assert!(started.elapsed() < Duration::from_secs(2));
+        drop(owner);
+        worker.join().unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stop_interrupts_native_packet_input_and_blocked_output() {
+        use std::{
+            os::unix::net::UnixStream,
+            sync::{
+                Arc,
+                atomic::{AtomicBool, Ordering},
+            },
+            thread,
+            time::Instant,
+        };
+        let (mut owner, _peer) = UnixStream::pair().unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let setter = Arc::clone(&stop);
+        let worker = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(40));
+            setter.store(true, Ordering::Release);
+        });
+        let started = Instant::now();
+        assert!(read_owner_packet(&mut owner, &stop).is_err());
+        assert!(started.elapsed() < Duration::from_secs(2));
+        worker.join().unwrap();
+
+        let (mut owner, _peer) = UnixStream::pair().unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let setter = Arc::clone(&stop);
+        let worker = thread::spawn(move || {
+            thread::sleep(Duration::from_millis(40));
+            setter.store(true, Ordering::Release);
+        });
+        let started = Instant::now();
+        let mut failed = false;
+        for _ in 0..32 {
+            if write_owner_packet(&mut owner, &vec![b'x'; MAX_REPLY], &stop).is_err() {
+                failed = true;
+                break;
+            }
+        }
+        assert!(failed);
+        assert!(started.elapsed() < Duration::from_secs(2));
+        worker.join().unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn native_packet_output_has_one_deadline_even_without_stop() {
+        use std::{os::unix::net::UnixStream, sync::atomic::AtomicBool, time::Instant};
+        let (mut owner, _peer) = UnixStream::pair().unwrap();
+        let started = Instant::now();
+        let mut failed = false;
+        for _ in 0..32 {
+            if write_owner_packet(&mut owner, &vec![b'x'; MAX_REPLY], &AtomicBool::new(false))
+                .is_err()
+            {
+                failed = true;
+                break;
+            }
+        }
+        assert!(failed);
+        assert!(started.elapsed() < Duration::from_secs(4));
+    }
+
     #[test]
     fn catalog_is_only_owned_read_only_tools_and_packets_are_bounded() {
         let tools = tools();

@@ -61,3 +61,23 @@ Implemented in source: the workspace composer invokes one `generate_workspace_an
 Remain **open**: Fontdone broad/focused/Outline answers and independent narrative/flow review; complete negative-budget, identity, mid-stage Stop/restart/successor matrix; packaged helper/source navigation/permission acceptance; ledger omissions/reasons and useful partial answers at limits. The successful synthetic is not a whole-repository or package gate. Earlier checkpoints above describe the state before this source implementation.
 
 Fontdone runtime checks exposed two additional adapter issues: an excessive module-page request and ordering between the MCP stream and app-server started notifications. Page sizes now cap at 32; private requests wait up to three seconds for exact event ownership, with no data exposed before matching. Deterministic regressions pass. Both failed public-source attempts are preserved in the acceptance report; a further deliberate run remains pending. No Fontdone answer/package gate is closed.
+
+## Runtime-check diagnosis — 17 October
+
+The third broad Fontdone investigation passed five discovery calls and then stopped during private transport setup, before reading source. Native generation took 209.876 seconds; the complete test took 238.07 seconds. All three failed attempts remain preserved in the acceptance report.
+
+A local probe identified expensive repeated hashing of the 246 MB installed runtime. The existing RustCrypto SHA implementation now uses its accelerated backend and an optimized dependency in development/test builds. Four actual native checks took 122–128 ms and produced identical hashes; known-vector, cancellation and no-follow contracts remain covered. The suite passes 262 native tests and 141 frontend tests. Transport errors now retain stage/kind/OS code without OS text, private paths or source. See the [measured scope](../acceptance/2026-10-17-codex-owned-retrieval.md#local-runtime-check-cost).
+
+The timeout cause is not yet established by this isolated measurement. Release helper/package startup and another full Fontdone run remain required. No question was automatically retried and no model/reasoning settings were lowered.
+
+## Packet transport checkpoint — 17 October
+
+A macOS socket probe confirmed that accepted streams inherited nonblocking mode: setting a socket timeout still returned `WouldBlock` immediately. The native owner now explicitly uses blocking streams and one absolute deadline for each complete packet, with short cancellable waits. All owned-session tests fragment their header/body; further regressions cover slow input, Stop during blocked input/output, and output deadline expiry. The full native suite passes 265 tests with ten explicit probes ignored.
+
+The unsigned release app/DMG passed bundle integrity checks before this last transport change. A new native Fontdone broad probe is being evaluated with the unchanged release helper protocol. Packaged parent acceptance, independent explanation/flow review and all remaining matrices above stay open.
+
+## Broad investigation after transport fixes — 17 October
+
+The fourth broad run delivered 52 calls and read 47,986 distinct source bytes in 21 ranges from `src/api.rs`, `src/font.rs` and `src/tables.rs`. It stopped on the 53rd call with a code-search matcher error, after 125.603 seconds of native generation (127.82 seconds for the complete test), without an answer. Its separate [failure artifact](../acceptance/artifacts/2026-10-17-fontdone-agent-broad-search-terms.json) remains preserved. A deterministic owned-session query containing an opening parenthesis reproduced the same error before fixing literal matcher configuration. The failing live query itself is not recoverable from the ledger's argument digest.
+
+Before a further broad qualification, expose remaining call/source/metadata/wire budgets to the agent and qualify bounded query feedback and useful partial answers at limits. The observed discovery used 239,661 of 256,000 metadata bytes while reading only three implementation files. Do not raise whole-file or operation caps to hide this gap. Complete the focused predicate and attached-function cases separately; keep the broad narrative/flow and package gates open.

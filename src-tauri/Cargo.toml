@@ -10,7 +10,7 @@ name = "code_atlas_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-sha2 = "0.10"
+sha2 = { version = "0.10", features = ["asm"] }
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
@@ -25,7 +25,7 @@ rig-core = { version = "=0.44.0", default-features = false, features = ["reqwest
 rmcp = { version = "=3.5.1", default-features = false, features = ["server", "transport-io"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
-sha2 = "0.10"
+sha2 = { version = "0.10", features = ["asm"] }
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 tree-sitter = "=0.27.1"
@@ -41,6 +41,11 @@ keyring = "4.2"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
+
+# Runtime identity is checked before each admitted tool result. Keep the
+# existing streaming SHA-256 checks responsive in development and test builds.
+[profile.dev.package.sha2]
+opt-level = 3
 
 [profile.release]
 codegen-units = 1

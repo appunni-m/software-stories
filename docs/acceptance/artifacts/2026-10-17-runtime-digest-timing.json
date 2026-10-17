@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-17",
+  "scope": "local executable identity check, not complete generation latency",
+  "nativeAfter": {
+    "bytes": 246046384,
+    "sha256": "0d5ac7aae20c4eda6242428d5e218c55ba96d8763fda2a271088ff37104b9d28",
+    "elapsedMs": [
+      126,
+      128,
+      122,
+      126
+    ]
+  },
+  "afterSettings": {
+    "sha2": "0.10.9",
+    "features": [
+      "asm"
+    ],
+    "sha2OptLevel": 3,
+    "driverProfile": "test, otherwise unoptimized"
+  },
+  "baselineDiagnostics": {
+    "elapsedMs": [
+      8701,
+      9436
+    ],
+    "scope": "standalone unoptimized 64 KiB streaming sha2 probe on the same 246046384-byte executable; excludes metadata/cancellation checks and did not export its digest"
+  },
+  "limitations": [
+    "Small local sample, no inference or account access in timing test.",
+    "Earlier standalone measurements and native samples are different timing boundaries, so they do not establish an end-to-end speedup.",
+    "Fontdone timeout cause remains a hypothesis until the complete investigation is rerun.",
+    "The full native suite separately validates SHA-256 known vectors, cancellation, no-follow paths and empty/invalid runtime rejection."
+  ]
+}

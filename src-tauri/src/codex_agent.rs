@@ -2417,6 +2417,60 @@ mod tests {
     use super::*;
 
     #[test]
+    fn streaming_runtime_digest_keeps_sha256_and_fail_closed_contract() {
+        let root = std::env::temp_dir().join(format!("atlas-digest-{}", Uuid::new_v4()));
+        fs::create_dir(&root).unwrap();
+        let _cleanup = TemporaryDirectory(root.clone());
+        let file = root.join("runtime");
+        let stopped = AtomicBool::new(false);
+        fs::write(&file, b"abc").unwrap();
+        assert_eq!(
+            executable_digest(&file, &stopped, None).unwrap(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        fs::write(&file, vec![b'a'; 1_000_000]).unwrap();
+        assert_eq!(
+            executable_digest(&file, &stopped, None).unwrap(),
+            "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"
+        );
+        assert!(executable_digest(&file, &AtomicBool::new(true), None).is_err());
+        assert!(executable_digest(&file, &stopped, Some(&AtomicBool::new(true))).is_err());
+        assert!(executable_digest(&root, &stopped, None).is_err());
+        fs::write(&file, b"").unwrap();
+        assert!(executable_digest(&file, &stopped, None).is_err());
+        #[cfg(unix)]
+        {
+            let link = root.join("symlink");
+            std::os::unix::fs::symlink(&file, &link).unwrap();
+            assert!(executable_digest(&link, &stopped, None).is_err());
+        }
+    }
+
+    /// Read-only timing of the real streaming identity check, without account
+    /// access or inference. No executable contents are written to diagnostics.
+    #[test]
+    #[ignore = "Set CODE_ATLAS_LIVE_CODEX to an existing executable; local digest timings only."]
+    fn installed_runtime_digest_timing() {
+        let executable = std::env::var("CODE_ATLAS_LIVE_CODEX").expect("set CODE_ATLAS_LIVE_CODEX");
+        let mut digest = None;
+        let mut samples = Vec::new();
+        for _ in 0..4 {
+            let started = Instant::now();
+            let observed =
+                executable_digest(Path::new(&executable), &AtomicBool::new(false), None).unwrap();
+            samples.push(started.elapsed().as_millis());
+            if let Some(expected) = &digest {
+                assert_eq!(&observed, expected);
+            }
+            digest = Some(observed);
+        }
+        println!(
+            "RUNTIME_DIGEST_TIMING {}",
+            json!({"bytes":fs::metadata(&executable).unwrap().len(),"sha256":digest,"elapsedMs":samples})
+        );
+    }
+
+    #[test]
     fn legacy_runtime_settings_keep_automatic_account_reuse() {
         let settings: RuntimeSettings = serde_json::from_value(json!({
             "executablePath": "/installed/codex"

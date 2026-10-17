@@ -1083,10 +1083,12 @@ pub(crate) fn search(
     let exact_terms = vec![query.rsplit("::").next().unwrap_or(query).to_owned()];
     let matcher = RegexMatcherBuilder::new()
         .case_insensitive(true)
+        .fixed_strings(true)
         .build_literals(&words)
         .map_err(|_| "Code search terms are invalid.".to_owned())?;
     let exact_matcher = RegexMatcherBuilder::new()
         .case_insensitive(true)
+        .fixed_strings(true)
         .build_literals(&exact_terms)
         .map_err(|_| "Code search terms are invalid.".to_owned())?;
     let mut matches = vec![];

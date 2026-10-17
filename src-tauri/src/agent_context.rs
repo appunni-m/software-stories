@@ -69,6 +69,16 @@ fn parse<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, String> {
 fn scope(value: Option<&str>) -> Option<&str> {
     value.filter(|path| !matches!(*path, "" | "."))
 }
+fn transport_setup_error(stage: &str, error: &std::io::Error) -> String {
+    // Keep useful failure classification without forwarding OS/path messages.
+    format!(
+        "Code tool {stage} setup failed ({:?}, OS {}).",
+        error.kind(),
+        error
+            .raw_os_error()
+            .map_or_else(|| "unavailable".into(), |n| n.to_string())
+    )
+}
 fn tool(name: &str) -> Result<Tool, String> {
     match name {
         "search_code" => Ok(Tool::Search),
@@ -336,13 +346,18 @@ impl Session {
             gate()?;
             self.ledger
                 .check(&self.manifest, &self.runtime, cancelled)?;
+            // Darwin inherits O_NONBLOCK from the listener. A socket timeout
+            // does not make such a stream wait for a fragmented packet.
+            stream
+                .set_nonblocking(false)
+                .map_err(|e| transport_setup_error("blocking mode", &e))?;
             stream
                 .set_read_timeout(Some(Duration::from_millis(200)))
-                .map_err(|_| "Code tool transport unavailable.")?;
+                .map_err(|e| transport_setup_error("read", &e))?;
             stream
                 .set_write_timeout(Some(Duration::from_secs(2)))
-                .map_err(|_| "Code tool transport unavailable.")?;
-            let bytes = mcp::read_packet(&mut stream, mcp::MAX_INPUT)?;
+                .map_err(|e| transport_setup_error("write", &e))?;
+            let bytes = mcp::read_owner_packet(&mut stream, cancelled)?;
             let request: mcp::Request = parse(
                 crate::strict_json::from_slice(&bytes).map_err(|_| "Invalid code tool packet.")?,
             )?;
@@ -402,7 +417,7 @@ impl Session {
         let budget = native_request.budget();
         let send = |payload: &[u8]| {
             gate()?;
-            mcp::write_packet(&mut stream, payload, mcp::MAX_REPLY)
+            mcp::write_owner_packet(&mut stream, payload, cancelled)
         };
         match kind {
             Tool::Search => {
