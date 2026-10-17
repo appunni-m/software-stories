@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { GitComparisonController } from './gitComparisonController';
 
 export interface ApplicationStatus {
   productName: string;
@@ -118,7 +119,7 @@ export interface SnapshotProgress {
   summary: SnapshotSummary | null;
 }
 
-export type GitComparisonStatus = 'ready' | 'chooseAgain' | 'limited' | 'error';
+export type GitComparisonStatus = 'ready' | 'chooseAgain' | 'limited' | 'error' | 'cancelled';
 export type GitRefSide = 'base' | 'head';
 export type GitRefProblemKind = 'invalid' | 'missing' | 'ambiguous' | 'notCommit';
 export type GitChangeKind = 'added' | 'deleted' | 'modified' | 'renamed' | 'copied' | 'typeChanged' | 'other';
@@ -995,12 +996,26 @@ export async function openRecentProject(projectId: string): Promise<ProjectOpenR
   return invoke<ProjectOpenResult>('open_recent_project', { projectId });
 }
 
+const gitComparisons = new GitComparisonController({
+  compare: (input) => invoke<GitComparisonResult>('compare_local_git_revisions', input),
+  cancel: (requestId) => invoke('cancel_repository_context', { requestId }),
+});
+
+export const subscribeLocalGitComparisons = gitComparisons.subscribe;
+export function isLocalGitComparisonBusy(projectId: string | null): boolean {
+  return gitComparisons.isBusy(projectId);
+}
+export function cancelLocalGitComparison(projectId: string): void {
+  gitComparisons.cancel(projectId);
+}
+
 export async function compareLocalGitRevisions(
   projectId: string,
   baseRef: string,
   headRef: string,
+  signal?: AbortSignal,
 ): Promise<GitComparisonResult> {
-  return invoke<GitComparisonResult>('compare_local_git_revisions', { projectId, baseRef, headRef });
+  return gitComparisons.compare(projectId, baseRef, headRef, signal);
 }
 
 export async function buildProviderPrGuideRequestReview(providerId: string, input: {

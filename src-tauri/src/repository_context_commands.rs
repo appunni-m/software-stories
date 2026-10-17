@@ -138,6 +138,10 @@ impl RepositoryContextJobs {
 }
 
 impl Request {
+    pub(crate) fn cancellation(&self) -> &AtomicBool {
+        &self.cancelled
+    }
+
     pub(crate) fn budget(&self) -> context::Budget<'_> {
         context::Budget::new(&self.cancelled)
     }

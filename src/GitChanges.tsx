@@ -1,8 +1,11 @@
-import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { AlertTriangle, ArrowDownUp, GitBranch, GitCommitHorizontal, RefreshCw } from 'lucide-react';
 import type { AgentGitRecovery } from './lib/agentRecovery';
 import {
   compareLocalGitRevisions,
+  cancelLocalGitComparison,
+  isLocalGitComparisonBusy,
+  subscribeLocalGitComparisons,
   isNativeRuntime,
   type GitComparisonResult,
   type GitFileChange,
@@ -44,7 +47,8 @@ export function GitChangesScreen({
 }: GitChangesScreenProps) {
   const [baseRef, setBaseRef] = useState(initialBaseRef);
   const [headRef, setHeadRef] = useState(initialHeadRef);
-  const [busy, setBusy] = useState(false);
+  const busy = useSyncExternalStore(subscribeLocalGitComparisons, () => isLocalGitComparisonBusy(projectId), () => false);
+  const activeRequest = useRef<AbortController | null>(null);
   const [error, setError] = useState<string | null>(null);
   const requestSequence = useRef(0);
 
@@ -54,9 +58,12 @@ export function GitChangesScreen({
   }, [initialBaseRef, initialHeadRef]);
 
   useEffect(() => {
-    setBusy(false);
     setError(null);
-    return () => { requestSequence.current += 1; };
+    return () => {
+      requestSequence.current += 1;
+      activeRequest.current?.abort();
+      activeRequest.current = null;
+    };
   }, [projectId]);
 
   const matchingComparison = comparison
@@ -72,18 +79,20 @@ export function GitChangesScreen({
     const nextBaseRef = baseRef.trim();
     const nextHeadRef = headRef.trim();
     const sequence = ++requestSequence.current;
-    setBusy(true);
+    const controller = new AbortController();
+    activeRequest.current = controller;
     setError(null);
     onRefsChange(nextBaseRef, nextHeadRef);
     try {
-      const result = await compareLocalGitRevisions(projectId, nextBaseRef, nextHeadRef);
+      const result = await compareLocalGitRevisions(projectId, nextBaseRef, nextHeadRef, controller.signal);
       if (sequence === requestSequence.current) onComparison(projectId, nextBaseRef, nextHeadRef, result);
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
       if (sequence === requestSequence.current) {
         setError('Code Atlas could not compare those versions. Check that the repository is available, then try again.');
       }
     } finally {
-      if (sequence === requestSequence.current) setBusy(false);
+      if (activeRequest.current === controller) activeRequest.current = null;
     }
   }
 
@@ -119,7 +128,7 @@ export function GitChangesScreen({
           <span className="git-readonly-badge"><GitCommitHorizontal size={14} /> Read-only</span>
         </div>
         <p className="git-ref-explainer">Enter a starting and ending version already on this Mac. A branch, tag, or commit ID works. Code Atlas checks both before showing the changes.</p>
-        <form className="git-ref-form" onSubmit={(event) => { void handleCompare(event); }}>
+        <form className="git-ref-form" aria-busy={busy} onSubmit={(event) => { void handleCompare(event); }}>
           <label>
             Starting version
             <input
@@ -157,9 +166,11 @@ export function GitChangesScreen({
               aria-label="Ending Git version"
             />
           </label>
-          <button className="primary-button git-compare-button" type="submit" disabled={!canCompare || busy}>
-            <RefreshCw size={15} className={busy ? 'git-spin' : ''} /> {busy ? 'Comparing versions…' : 'Compare versions'}
-          </button>
+          {busy ? <button type="button" className="secondary-button git-compare-button" onClick={() => cancelLocalGitComparison(projectId)}>
+            <RefreshCw size={15} className="git-spin" /> Stop comparison
+          </button> : <button className="primary-button git-compare-button" type="submit" disabled={!canCompare}>
+            <RefreshCw size={15} /> Compare versions
+          </button>}
         </form>
         <p className="git-safety-note"><strong>No checkout, fetch, or Git write.</strong> Comparison reads existing local objects only. The result is bounded; skipped or uncertain evidence is labeled.</p>
         {!isNativeRuntime() && (
@@ -219,7 +230,7 @@ function ComparisonResults({
       ? 'Choose valid versions'
       : isPartial
         ? 'Partial comparison'
-        : 'Comparison unavailable';
+        : comparison.status === 'cancelled' ? 'Comparison stopped' : 'Comparison unavailable';
 
   return (
     <section className="git-comparison-results" aria-labelledby="git-results-title">

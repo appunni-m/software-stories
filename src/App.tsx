@@ -51,6 +51,7 @@ import {
 } from 'lucide-react';
 import {
   compareLocalGitRevisions,
+  cancelLocalGitComparison,
   getApplicationStatus,
   getCaptureLimits,
   assessChapterFreshness,
@@ -283,6 +284,10 @@ function App() {
   const currentProject = navigation.current.projectId
     ? knownProjects[navigation.current.projectId] ?? recentProjects.find((project) => project.projectId === navigation.current.projectId) ?? null
     : null;
+  useEffect(() => {
+    const projectId = currentProject?.projectId;
+    return () => { if (projectId) cancelLocalGitComparison(projectId); };
+  }, [currentProject?.projectId]);
   const currentSnapshots = currentProject ? snapshotsByProject[currentProject.projectId] ?? [] : [];
   const currentCapture = currentProject ? captureByProject[currentProject.projectId] ?? null : null;
   const selectedSnapshot = currentSnapshots.find((snapshot) => snapshot.snapshotId === navigation.current.snapshotId) ?? null;
@@ -1523,7 +1528,7 @@ function App() {
               onRememberFile={(relativePath) => { if (currentProject && selectedSnapshot) rememberFileLocation(currentProject.projectId,{snapshotId:selectedSnapshot.snapshotId,path:relativePath}); }}
               onCompare={(baseRef,headRef) => {
                 setNavigation((state)=>navigateToRoute(state,{...state.current,workspace:'changes',baseRef,headRef,selectedChangePath:undefined}));
-                if(currentProject){const projectId=currentProject.projectId;void compareLocalGitRevisions(projectId,baseRef,headRef).then((result)=>setGitComparisonsByProject((s)=>({...s,[projectId]:{baseRef,headRef,result}}))).catch(()=>setNotice({title:'Comparison unavailable',message:'Choose two local commits and try again.'}));}
+                if(currentProject){const projectId=currentProject.projectId;void compareLocalGitRevisions(projectId,baseRef,headRef).then((result)=>setGitComparisonsByProject((s)=>({...s,[projectId]:{baseRef,headRef,result}}))).catch((error: unknown)=>{if(error instanceof Error && error.name==='AbortError')return;setNotice({title:'Comparison unavailable',message:'Choose two local commits and try again.'});});}
               }}>
             {currentWorkspace === 'atlas' && selectedSnapshot && snapshotManifest ? (
               <>

@@ -24,6 +24,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tree_sitter::{Language, ParseOptions, Parser, Point};
 
+#[cfg(all(test, unix))]
+mod cancellation_tests;
+
 const MAX_CHANGED_FILES: usize = 128;
 const MAX_RAW_DIFF_BYTES: usize = 1024 * 1024;
 const MAX_FILE_BYTES: u64 = 512 * 1024;
@@ -41,6 +44,18 @@ const MAX_RELATIONSHIP_TREE_FILES: usize = 10_000;
 const MAX_RELATIONSHIP_EVIDENCE_PER_FILE_SIDE: usize = 16;
 const MAX_GIT_STDERR_BYTES: usize = 16 * 1024;
 
+#[derive(Clone, Copy)]
+struct Control<'a> {
+    end: Instant,
+    cancelled: &'a AtomicBool,
+}
+
+impl Control<'_> {
+    fn stopped(self) -> bool {
+        self.cancelled.load(Ordering::Acquire) || Instant::now() >= self.end
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum GitComparisonStatus {
@@ -48,6 +63,7 @@ pub enum GitComparisonStatus {
     ChooseAgain,
     Limited,
     Error,
+    Cancelled,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -212,6 +228,7 @@ enum GitEvidenceError {
     OutputLimit(String),
     TimedOut(String),
     InvalidOutput(String),
+    Cancelled,
 }
 
 #[derive(Clone, Debug)]
@@ -304,11 +321,42 @@ pub fn compare_local_revisions(
     base_ref: &str,
     head_ref: &str,
 ) -> GitComparisonResult {
+    compare_local_revisions_cancellable(repository, base_ref, head_ref, &AtomicBool::new(false))
+}
+
+pub(crate) fn compare_local_revisions_cancellable(
+    repository: &Path,
+    base_ref: &str,
+    head_ref: &str,
+    cancelled: &AtomicBool,
+) -> GitComparisonResult {
+    let control = Control {
+        end: Instant::now() + MAX_COMPARISON_TIME,
+        cancelled,
+    };
+    let result = compare_with_control(repository, base_ref, head_ref, control);
+    if cancelled.load(Ordering::Acquire) {
+        let mut stopped = GitComparisonResult::error("Comparison stopped.");
+        stopped.status = GitComparisonStatus::Cancelled;
+        stopped
+    } else {
+        result
+    }
+}
+
+fn compare_with_control(
+    repository: &Path,
+    base_ref: &str,
+    head_ref: &str,
+    deadline: Control<'_>,
+) -> GitComparisonResult {
+    if deadline.stopped() {
+        return GitComparisonResult::error("The comparison cannot continue.");
+    }
     let repository = match fs::canonicalize(repository) {
         Ok(path) if path.is_dir() => path,
         _ => return GitComparisonResult::error("The selected repository folder is unavailable."),
     };
-    let deadline = Instant::now() + MAX_COMPARISON_TIME;
     let object_format = match git_text(
         &repository,
         &["rev-parse", "--show-object-format"],
@@ -398,7 +446,7 @@ pub fn compare_local_revisions(
     });
 
     for raw in raw_changes {
-        if Instant::now() >= deadline {
+        if deadline.stopped() {
             limit_reason = Some(
                 "The comparison reached its 30-second time limit; remaining evidence was omitted."
                     .to_owned(),
@@ -460,15 +508,18 @@ fn add_cross_file_relationships(
     base_revision_id: &str,
     head_revision_id: &str,
     changes: &mut [GitFileChange],
-    comparison_deadline: Instant,
+    comparison_deadline: Control<'_>,
 ) -> GitRelationshipImpact {
     let now = Instant::now();
-    if now >= comparison_deadline {
+    if comparison_deadline.stopped() {
         return relationship_impact_unavailable(
             "The file diff used the comparison time budget before relationship indexing began.",
         );
     }
-    let scan_deadline = (now + MAX_RELATIONSHIP_SCAN_TIME).min(comparison_deadline);
+    let scan_deadline = Control {
+        end: (now + MAX_RELATIONSHIP_SCAN_TIME).min(comparison_deadline.end),
+        ..comparison_deadline
+    };
     let base_priority_paths = changes
         .iter()
         .filter_map(|change| change.base_path.clone())
@@ -481,37 +532,41 @@ fn add_cross_file_relationships(
     let finished = Arc::new(AtomicBool::new(false));
     let timer_cancellation = Arc::clone(&cancellation);
     let timer_finished = Arc::clone(&finished);
-    let timer = thread::spawn(move || {
-        while Instant::now() < scan_deadline && !timer_finished.load(Ordering::Relaxed) {
-            thread::sleep(Duration::from_millis(10));
-        }
-        if !timer_finished.load(Ordering::Relaxed) {
-            timer_cancellation.store(true, Ordering::Relaxed);
-        }
-    });
+    let (base_index, head_index) = thread::scope(|scope| {
+        let timer = scope.spawn(move || {
+            while !scan_deadline.stopped() && !timer_finished.load(Ordering::Relaxed) {
+                thread::sleep(Duration::from_millis(10));
+            }
+            if !timer_finished.load(Ordering::Relaxed) {
+                timer_cancellation.store(true, Ordering::Relaxed);
+            }
+        });
 
-    let base_index = build_revision_index(
-        repository,
-        base_revision_id,
-        &base_priority_paths,
-        scan_deadline,
-        &cancellation,
-    );
-    let head_index = if Instant::now() < scan_deadline && !cancellation.load(Ordering::Relaxed) {
-        build_revision_index(
+        let base_index = build_revision_index(
             repository,
-            head_revision_id,
-            &head_priority_paths,
+            base_revision_id,
+            &base_priority_paths,
             scan_deadline,
             &cancellation,
-        )
-    } else {
-        Err(GitEvidenceError::TimedOut(
+        );
+        let head_index = if !scan_deadline.stopped() && !cancellation.load(Ordering::Relaxed) {
+            build_revision_index(
+                repository,
+                head_revision_id,
+                &head_priority_paths,
+                scan_deadline,
+                &cancellation,
+            )
+        } else {
+            Err(GitEvidenceError::TimedOut(
             "The relationship index reached its bounded scan time; head-side relationships are unavailable.".to_owned(),
         ))
-    };
-    finished.store(true, Ordering::Relaxed);
-    let _ = timer.join();
+        };
+        finished.store(true, Ordering::Relaxed);
+        let _ = timer.join();
+
+        (base_index, head_index)
+    });
 
     let mut relationship_evidence_limited = false;
     for change in changes {
@@ -597,7 +652,7 @@ fn build_revision_index(
     repository: &Path,
     revision_id: &str,
     priority_paths: &BTreeSet<String>,
-    deadline: Instant,
+    deadline: Control<'_>,
     cancellation: &AtomicBool,
 ) -> Result<RevisionIndex, GitEvidenceError> {
     let output = git_output(
@@ -822,7 +877,7 @@ fn parse_tree_entries(
 fn read_tree_blob_batch(
     repository: &Path,
     entries: &[GitTreeEntry],
-    deadline: Instant,
+    deadline: Control<'_>,
 ) -> Result<Vec<Vec<u8>>, GitEvidenceError> {
     if entries.is_empty() {
         return Ok(Vec::new());
@@ -1064,7 +1119,7 @@ fn resolve_ref(
     repository: &Path,
     requested: &str,
     object_format: &str,
-    deadline: Instant,
+    deadline: Control<'_>,
 ) -> Result<ResolvedGitRef, RefResolutionError> {
     if requested == "HEAD" {
         return resolve_commit_expression(repository, requested, "HEAD", deadline);
@@ -1128,7 +1183,7 @@ fn resolve_ref(
     }
 }
 
-fn ref_candidates(requested: &str, deadline: Instant) -> Result<Vec<String>, String> {
+fn ref_candidates(requested: &str, deadline: Control<'_>) -> Result<Vec<String>, String> {
     if requested.is_empty()
         || requested.len() > 1_024
         || requested.len() > 1024
@@ -1180,7 +1235,7 @@ fn ref_candidates(requested: &str, deadline: Instant) -> Result<Vec<String>, Str
     Ok(candidates.into_iter().collect())
 }
 
-fn valid_git_ref(reference: &str, deadline: Instant) -> bool {
+fn valid_git_ref(reference: &str, deadline: Control<'_>) -> bool {
     if reference.contains("//") || reference.ends_with(".lock") || reference.ends_with(".") {
         return false;
     }
@@ -1190,13 +1245,13 @@ fn valid_git_ref(reference: &str, deadline: Instant) -> bool {
         &mut command,
         None,
         Limits {
-            command_timeout: deadline.saturating_duration_since(Instant::now()),
-            operation_deadline: deadline,
+            command_timeout: deadline.end.saturating_duration_since(Instant::now()),
+            operation_deadline: deadline.end,
             stdout_bytes: 0,
             stderr_bytes: 0,
             stdin_bytes: 0,
         },
-        None,
+        Some(deadline.cancelled),
     )
     .is_ok_and(|output| output.status.success())
 }
@@ -1205,7 +1260,7 @@ fn resolve_commit_expression(
     repository: &Path,
     requested: &str,
     expression: &str,
-    deadline: Instant,
+    deadline: Control<'_>,
 ) -> Result<ResolvedGitRef, RefResolutionError> {
     let output = match git_output(
         repository,
@@ -1331,7 +1386,7 @@ fn build_file_change(
     head_revision_id: &str,
     raw: RawGitChange,
     total_patch_bytes: &mut usize,
-    deadline: Instant,
+    deadline: Control<'_>,
 ) -> Result<GitFileChange, GitEvidenceError> {
     let base_path = raw
         .base_path_bytes
@@ -1429,8 +1484,10 @@ fn build_file_change(
             change.skipped_reason = Some("No bundled Tree-sitter grammar supports this file extension; the textual hunk can still be inspected.".to_owned());
         }
         Some(language) => {
-            let (base_symbols, base_ok) = parsed_symbols_for_blob(base_blob.as_ref(), language);
-            let (head_symbols, head_ok) = parsed_symbols_for_blob(head_blob.as_ref(), language);
+            let (base_symbols, base_ok) =
+                parsed_symbols_for_blob(base_blob.as_ref(), language, deadline);
+            let (head_symbols, head_ok) =
+                parsed_symbols_for_blob(head_blob.as_ref(), language, deadline);
             if !base_ok || !head_ok {
                 change.classification = EvidenceClassification::ParserUncertain;
                 change.skipped_reason = Some("Tree-sitter reported syntax errors or reached its bounded parse limit on at least one revision; no parser-backed symbols or relationships are attached.".to_owned());
@@ -1739,7 +1796,7 @@ fn push_bounded_line(output: &mut String, line: &str) {
 fn blob_size(
     repository: &Path,
     object_id: Option<&str>,
-    deadline: Instant,
+    deadline: Control<'_>,
 ) -> Result<Option<u64>, GitEvidenceError> {
     let Some(object_id) = object_id else {
         return Ok(None);
@@ -1761,7 +1818,7 @@ fn read_text_blob(
     repository: &Path,
     object_id: Option<&str>,
     size_bytes: Option<u64>,
-    deadline: Instant,
+    deadline: Control<'_>,
 ) -> Result<Option<TextBlob>, GitEvidenceError> {
     let (Some(object_id), Some(size_bytes)) = (object_id, size_bytes) else {
         return Ok(None);
@@ -1790,23 +1847,28 @@ fn is_text(bytes: &[u8]) -> bool {
 fn parsed_symbols_for_blob(
     blob: Option<&TextBlob>,
     language: ParseLanguage,
+    control: Control<'_>,
 ) -> (Vec<ParsedGitSymbol>, bool) {
     let Some(blob) = blob else {
         return (Vec::new(), true);
     };
-    match parse_git_symbols(language, &blob.bytes) {
+    match parse_git_symbols(language, &blob.bytes, control) {
         Some(symbols) => (symbols, true),
         None => (Vec::new(), false),
     }
 }
 
-fn parse_git_symbols(language: ParseLanguage, source: &[u8]) -> Option<Vec<ParsedGitSymbol>> {
+fn parse_git_symbols(
+    language: ParseLanguage,
+    source: &[u8],
+    control: Control<'_>,
+) -> Option<Vec<ParsedGitSymbol>> {
     let mut parser = Parser::new();
     parser.set_language(&language.grammar()).ok()?;
     let started = Instant::now();
     let mut exceeded_time = false;
     let mut progress = |_state: &tree_sitter::ParseState| {
-        if started.elapsed() > MAX_PARSE_TIME {
+        if control.stopped() || started.elapsed() > MAX_PARSE_TIME {
             exceeded_time = true;
             std::ops::ControlFlow::Break(())
         } else {
@@ -1816,7 +1878,7 @@ fn parse_git_symbols(language: ParseLanguage, source: &[u8]) -> Option<Vec<Parse
     let options = ParseOptions::new().progress_callback(&mut progress);
     let mut read_chunk = |offset: usize, _position: Point| source.get(offset..).unwrap_or(&[]);
     let tree = parser.parse_with_options(&mut read_chunk, None, Some(options))?;
-    if exceeded_time || started.elapsed() > MAX_PARSE_TIME {
+    if control.stopped() || exceeded_time || started.elapsed() > MAX_PARSE_TIME {
         return None;
     }
     let source_text = std::str::from_utf8(source).ok()?;
@@ -1825,7 +1887,12 @@ fn parse_git_symbols(language: ParseLanguage, source: &[u8]) -> Option<Vec<Parse
     let mut symbols = Vec::new();
     while let Some(node) = stack.pop() {
         visited += 1;
-        if visited > MAX_AST_NODES_PER_FILE || node.kind() == "ERROR" || node.is_missing() {
+        if control.stopped()
+            || started.elapsed() > MAX_PARSE_TIME
+            || visited > MAX_AST_NODES_PER_FILE
+            || node.kind() == "ERROR"
+            || node.is_missing()
+        {
             return None;
         }
         if let Some(kind) = git_symbol_kind(node.kind(), language) {
@@ -2067,7 +2134,7 @@ fn change_kind_order(kind: &GitChangeKind) -> u8 {
 fn git_text(
     repository: &Path,
     args: &[&str],
-    deadline: Instant,
+    deadline: Control<'_>,
 ) -> Result<String, GitEvidenceError> {
     let output = git_output(repository, args, 4096, deadline)?;
     if !output.status.success() {
@@ -2080,7 +2147,7 @@ fn git_output(
     repository: &Path,
     args: &[&str],
     max_stdout_bytes: usize,
-    deadline: Instant,
+    deadline: Control<'_>,
 ) -> Result<Output, GitEvidenceError> {
     run_git_output(repository, args, max_stdout_bytes, deadline, None)
 }
@@ -2089,7 +2156,7 @@ fn git_output_with_input(
     repository: &Path,
     args: &[&str],
     max_stdout_bytes: usize,
-    deadline: Instant,
+    deadline: Control<'_>,
     input: &[u8],
 ) -> Result<Output, GitEvidenceError> {
     run_git_output(repository, args, max_stdout_bytes, deadline, Some(input))
@@ -2099,10 +2166,13 @@ fn run_git_output(
     repository: &Path,
     args: &[&str],
     max_stdout_bytes: usize,
-    deadline: Instant,
+    deadline: Control<'_>,
     input: Option<&[u8]>,
 ) -> Result<Output, GitEvidenceError> {
-    let remaining = deadline.saturating_duration_since(Instant::now());
+    if deadline.cancelled.load(Ordering::Acquire) {
+        return Err(GitEvidenceError::Cancelled);
+    }
+    let remaining = deadline.end.saturating_duration_since(Instant::now());
     if remaining.is_zero() {
         return Err(GitEvidenceError::TimedOut(
             "The bounded local Git command reached its time limit; remaining evidence was omitted."
@@ -2125,14 +2195,15 @@ fn run_git_output(
         input.map(<[u8]>::to_vec),
         Limits {
             command_timeout: remaining,
-            operation_deadline: deadline,
+            operation_deadline: deadline.end,
             stdout_bytes: max_stdout_bytes,
             stderr_bytes: MAX_GIT_STDERR_BYTES,
             stdin_bytes: 1024 * 1024,
         },
-        None,
+        Some(deadline.cancelled),
     )
     .map_err(|error| match error {
+        RunError::Cancelled => GitEvidenceError::Cancelled,
         RunError::TimedOut => GitEvidenceError::TimedOut(
             "The bounded local Git command reached its time limit; remaining evidence was omitted."
                 .to_owned(),
@@ -2160,6 +2231,7 @@ fn git_failure_message(output: &Output) -> String {
 impl GitEvidenceError {
     fn message(&self) -> String {
         match self {
+            Self::Cancelled => "Comparison stopped.".to_owned(),
             Self::Git(message)
             | Self::OutputLimit(message)
             | Self::TimedOut(message)

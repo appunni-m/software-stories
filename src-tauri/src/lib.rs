@@ -785,17 +785,40 @@ fn assess_chapter_freshness(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-fn compare_local_git_revisions(
+async fn compare_local_git_revisions(
     sessions: State<'_, ProjectSessions>,
+    jobs: State<'_, repository_context_commands::RepositoryContextJobs>,
+    request_id: String,
     project_id: String,
     base_ref: String,
     head_ref: String,
-) -> git_evidence::GitComparisonResult {
+) -> Result<git_evidence::GitComparisonResult, String> {
     let project = match sessions.get(&project_id) {
         Ok(project) => project,
-        Err(message) => return git_evidence::GitComparisonResult::error(message),
+        Err(message) => return Ok(git_evidence::GitComparisonResult::error(message)),
     };
-    git_evidence::compare_local_revisions(Path::new(&project.repository_root), &base_ref, &head_ref)
+    let request = match jobs.begin(&request_id) {
+        Ok(request) => request,
+        Err(_) => {
+            return Ok(git_evidence::GitComparisonResult::error(
+                "The comparison could not start. Try again when the current local operation finishes.",
+            ));
+        }
+    };
+    Ok(tauri::async_runtime::spawn_blocking(move || {
+        git_evidence::compare_local_revisions_cancellable(
+            Path::new(&project.repository_root),
+            &base_ref,
+            &head_ref,
+            request.cancellation(),
+        )
+    })
+    .await
+    .unwrap_or_else(|_| {
+        git_evidence::GitComparisonResult::error(
+            "The comparison stopped unexpectedly. Your previous result is unchanged.",
+        )
+    }))
 }
 
 #[tauri::command]
