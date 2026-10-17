@@ -240,6 +240,64 @@ fn invalid_read_count_delivers_feedback_without_partial_source_and_can_be_correc
 }
 
 #[test]
+fn malformed_read_descriptors_return_owned_feedback_without_admitting_any_batch_source() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancelled) = setup(&f);
+    let valid = request(&f, 0, SIMPLE_SOURCE.len());
+    for defect in ["unsafe-path", "malformed-digest", "uncaptured-path"] {
+        let mut invalid = valid.clone();
+        match defect {
+            "unsafe-path" => invalid.path = "../private-source.ts".into(),
+            "malformed-digest" => invalid.source_sha256 = "not-a-source-digest".into(),
+            _ => invalid.path = "uncaptured-source.ts".into(),
+        }
+        let response = read(&mut ledger, &f, &runtime, &cancelled, &[valid.clone(), invalid]);
+        assert_eq!(response["readError"]["code"], "invalidRead");
+        for field in ["path", "sourceSha256", "sizeBytes"] {
+            assert!(response["readError"].get(field).is_none());
+        }
+        assert!(response["added"].as_array().unwrap().is_empty());
+        assert!(response["alreadyAvailable"].as_array().unwrap().is_empty());
+        assert!(response.get("reusedReferences").is_none());
+        assert!(ledger.admitted_ranges().is_empty());
+        assert_eq!(ledger.record.calls.last().unwrap().state, CallState::Delivered);
+        assert_eq!(ledger.record.calls.last().unwrap().source_bytes, 0);
+        let text = response.to_string();
+        for forbidden in [SIMPLE_SOURCE, "private-source", "not-a-source-digest", "uncaptured-source"] {
+            assert!(!text.contains(forbidden));
+        }
+    }
+    let corrected = read(&mut ledger, &f, &runtime, &cancelled, &[valid]);
+    assert_eq!(corrected["added"][0]["contents"], SIMPLE_SOURCE);
+    assert_eq!(ledger.record.calls.len(), 4);
+    inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
+}
+
+#[test]
+fn malformed_read_feedback_consumes_the_original_call_budget_without_new_evidence() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancelled) = setup(&f);
+    let mut invalid = request(&f, 0, SIMPLE_SOURCE.len());
+    invalid.source_sha256 = "not-a-source-digest".into();
+    for ordinal in 0..MAX_CALLS {
+        let reply = read(&mut ledger, &f, &runtime, &cancelled, &[invalid.clone()]);
+        if ordinal + 1 == MAX_CALLS {
+            assert_eq!(reply["budgetStop"], "calls");
+            assert!(reply.get("readError").is_none());
+        } else {
+            assert_eq!(reply["readError"]["code"], "invalidRead");
+        }
+        assert_eq!(reply["budget"]["remaining"]["calls"], MAX_CALLS - ordinal - 1);
+        assert!(reply["added"].as_array().unwrap().is_empty());
+        assert!(ledger.admitted_ranges().is_empty());
+    }
+    assert!(ledger.begin_call(Tool::Read, &"c".repeat(64), &f.manifest, &runtime, &cancelled).is_err());
+    assert_eq!(ledger.record.calls.len(), MAX_CALLS);
+    assert!(ledger.record.calls.iter().all(|call| call.state == CallState::Delivered && call.source_bytes == 0));
+    inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
+}
+
+#[test]
 fn rejected_calls_retain_only_fixed_native_failure_codes_and_legacy_receipts_stay_readable() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancelled) = setup(&f);
@@ -252,18 +310,25 @@ fn rejected_calls_retain_only_fixed_native_failure_codes_and_legacy_receipts_sta
             &cancelled,
         )
         .unwrap();
-    let mut range = request(&f, 0, 20);
-    range.path = "../private.ts".into();
+    let range = request(&f, 0, 20);
+    let sha = &range.source_sha256;
+    let object = f.storage.join("objects/sha256").join(&sha[..2]).join(&sha[2..]);
+    let original = fs::read(&object).unwrap();
+    fs::write(&object, b"Changed immutable source").unwrap();
     assert!(ledger.deliver(token, Context::Read {}, &[range], &f.manifest, &runtime, &cancelled, |_| panic!("No source may cross")).is_err());
+    fs::write(&object, original).unwrap();
     let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
-    assert_eq!(saved.calls[0].rejection_code, Some(RejectionCode::InvalidRange));
+    assert_eq!(saved.calls[0].rejection_code, Some(RejectionCode::SourceIntegrity));
     let bytes = fs::read(&ledger.path).unwrap();
-    assert!(!String::from_utf8_lossy(&bytes).contains("private.ts"));
+    assert!(!String::from_utf8_lossy(&bytes).contains("Changed immutable source"));
     assert_eq!(rejection_code("secret source text and /private/path"), RejectionCode::Unknown);
     let mut legacy: Value = serde_json::from_slice(&bytes).unwrap();
     legacy["calls"][0].as_object_mut().unwrap().remove("rejectionCode");
     fs::write(&ledger.path, serde_json::to_vec(&legacy).unwrap()).unwrap();
     assert_eq!(inspect(&f.storage, &ledger.record.binding.operation_id).unwrap().calls[0].rejection_code, None);
+    legacy["calls"][0]["rejectionCode"] = json!("invalidRange");
+    fs::write(&ledger.path, serde_json::to_vec(&legacy).unwrap()).unwrap();
+    assert_eq!(inspect(&f.storage, &ledger.record.binding.operation_id).unwrap().calls[0].rejection_code, Some(RejectionCode::InvalidRange));
     legacy["calls"][0]["rejectionCode"] = json!("unrecognized raw error text");
     fs::write(&ledger.path, serde_json::to_vec(&legacy).unwrap()).unwrap();
     assert!(inspect(&f.storage, &ledger.record.binding.operation_id).is_err());
@@ -555,11 +620,13 @@ fn rejected_uncertain_and_interrupted_tools_record_their_terminal_boundary() {
             .begin_call(Tool::Read, &"c".repeat(64), &f.manifest, &r, &c)
             .unwrap();
         if fault != "interrupted" {
-            let mut range = request(&f, 0, 20);
+            let range = request(&f, 0, 20);
             if fault == "rejected" {
-                // Out-of-bounds ranges produce a delivered readError reply.
-                // A forbidden path instead fails before transport preparation.
-                range.path = "../live.ts".into();
+                // Descriptor errors are correctable metadata. Corrupt immutable
+                // source must still fail before transport preparation.
+                let sha = &range.source_sha256;
+                let object = f.storage.join("objects/sha256").join(&sha[..2]).join(&sha[2..]);
+                fs::write(object, b"Changed immutable source").unwrap();
             }
             assert!(
                 l.deliver(
@@ -735,7 +802,7 @@ fn real_source_exhaustion_retains_a_valid_receipt_and_prior_evidence() {
 
 #[test]
 fn budget_notice_does_not_bypass_scope_stop_or_uncertain_delivery() {
-    for fault in ["path", "cancel", "runtime", "transport"] {
+    for fault in ["integrity", "cancel", "runtime", "transport"] {
         let f = Fixture::new();
         let (mut l, mut r, c) = setup(&f);
         for _ in 0..MAX_CALLS - 1 {
@@ -744,9 +811,13 @@ fn budget_notice_does_not_bypass_scope_stop_or_uncertain_delivery() {
         let token = l
             .begin_call(Tool::Read, &"c".repeat(64), &f.manifest, &r, &c)
             .unwrap();
-        let mut range = request(&f, 20, 30);
+        let range = request(&f, 20, 30);
         match fault {
-            "path" => range.path = "../private".into(),
+            "integrity" => {
+                let sha = &range.source_sha256;
+                let object = f.storage.join("objects/sha256").join(&sha[..2]).join(&sha[2..]);
+                fs::write(object, b"Changed immutable source").unwrap();
+            }
             "cancel" => c.store(true, Ordering::Release),
             "runtime" => r.account_revision += 1,
             _ => (),
@@ -976,7 +1047,7 @@ fn invalid_reads_return_accounted_metadata_and_never_substitute_source() {
 }
 
 #[test]
-fn foreign_paths_and_wrong_tools_are_terminal_without_source_delivery() {
+fn foreign_paths_return_no_source_and_wrong_tools_remain_terminal() {
     let f = Fixture::new();
     let (mut l, r, c) = setup(&f);
     let mut wrong_path = request(&f, 0, 20);
@@ -984,20 +1055,27 @@ fn foreign_paths_and_wrong_tools_are_terminal_without_source_delivery() {
     let call = l
         .begin_call(Tool::Read, &"c".repeat(64), &f.manifest, &r, &c)
         .unwrap();
-    assert!(
-        l.deliver(
+    let mut feedback_sent = false;
+    l.deliver(
             call,
             Context::Read {},
             &[wrong_path],
             &f.manifest,
             &r,
             &c,
-            |_| panic!("foreign source escaped")
-        )
-        .is_err()
-    );
+            |bytes| {
+                let reply: Value = serde_json::from_slice(bytes).unwrap();
+                assert_eq!(reply["readError"]["code"], "invalidRead");
+                assert!(reply["added"].as_array().unwrap().is_empty());
+                assert!(reply["alreadyAvailable"].as_array().unwrap().is_empty());
+                assert!(!String::from_utf8_lossy(bytes).contains("../live.ts"));
+                feedback_sent = true;
+                Ok(())
+            }
+        ).unwrap();
+    assert!(feedback_sent);
     assert!(l.record.evidence.is_empty());
-    assert_eq!(l.record.calls[0].state, CallState::Rejected);
+    assert_eq!(l.record.calls[0].state, CallState::Delivered);
     let call = l
         .begin_call(Tool::Map, &"c".repeat(64), &f.manifest, &r, &c)
         .unwrap();

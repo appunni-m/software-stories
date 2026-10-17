@@ -812,13 +812,28 @@ impl Ledger {
             });
             return Ok(response);
         }
+        if requests.iter().any(|request| {
+            !context::safe_path(&request.path)
+                || !hash(&request.source_sha256)
+                || !manifest.files.iter().any(|file| file.path == request.path)
+        }) {
+            // Validate the complete descriptor batch before loading any source.
+            // A model typo grants no evidence and need not kill its connection.
+            // Authorization, immutable-object integrity and delivery still fail
+            // through their existing terminal paths, never through this reply.
+            response.read_error = Some(ReadError {
+                code: "invalidRead",
+                message: "No code was returned. Copy the exact captured relative path and 64-character lowercase hexadecimal sourceSha256 from search_code or find_definitions. Do not invent paths or hashes. Correct the request within the remaining budget.",
+                path: None,
+                source_sha256: None,
+                size_bytes: None,
+            });
+            return Ok(response);
+        }
         let mut sources = HashMap::new();
         let mut verified_bytes = 0u64;
         for request in requests {
             self.check(manifest, runtime, cancelled)?;
-            if !context::safe_path(&request.path) || !hash(&request.source_sha256) {
-                return Err("The requested evidence range is invalid or too large.".to_owned());
-            }
             if !sources.contains_key(&request.path) {
                 let file = manifest
                     .files

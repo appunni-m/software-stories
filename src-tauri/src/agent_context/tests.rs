@@ -544,6 +544,29 @@ fn invalid_read_batches_return_owned_feedback_then_allow_a_corrected_read() {
 }
 
 #[test]
+fn malformed_read_descriptors_keep_the_owned_tool_exchange_correctable() {
+    let f = Fixture::new();
+    let mut s = session(&f);
+    let file = f.manifest.files.iter().find(|file| file.path == SIMPLE_PATH).unwrap();
+    let range = json!({"path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":0,"endByte":file.size_bytes});
+    for (field, value) in [("path", "../private-source.ts"), ("sourceSha256", "not-a-source-digest"), ("path", "uncaptured-source.ts")] {
+        let mut invalid = range.clone();
+        invalid[field] = json!(value);
+        let (_, text) = exchange(&mut s, "read_code", json!({"ranges":[range.clone(), invalid]}));
+        let reply: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(reply["readError"]["code"], "invalidRead");
+        assert!(reply["added"].as_array().unwrap().is_empty());
+        assert!(!text.contains(value));
+        assert!(!text.contains(crate::chapter_generation::tests::SIMPLE_SOURCE));
+        assert!(s.ledger.admitted_ranges().is_empty());
+    }
+    let (_, corrected) = exchange(&mut s, "read_code", json!({"ranges":[range]}));
+    assert!(corrected.contains("export function greeting"));
+    assert!(!s.ledger.admitted_ranges().is_empty());
+    s.check_complete().unwrap();
+}
+
+#[test]
 fn excessive_agent_page_size_is_bounded_instead_of_aborting() {
     let f = Fixture::new();
     let mut s = session(&f);
