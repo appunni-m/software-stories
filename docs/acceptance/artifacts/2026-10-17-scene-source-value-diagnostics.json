@@ -1,0 +1,45 @@
+{
+  "scope": "Local exact source-value repair diagnostics after the preserved failed account run; no new account, installed UI, quality, Pocket listening or release pass",
+  "nativeSuite": {
+    "passed": 371,
+    "failed": 0,
+    "ignoredExplicitProbes": 13,
+    "seconds": 36.5
+  },
+  "frontendSuite": {
+    "passed": 184,
+    "failed": 0
+  },
+  "productionFrontendBuild": true,
+  "debugApp": {
+    "path": "/private/tmp/software-stories-kata/src-tauri/target/debug/bundle/macos/Code Atlas.app/Contents/MacOS/code-atlas-desktop",
+    "bytes": 119535312,
+    "sha256": "75ec1a861d6dff652090d20d5fcb30e7434e5eeeab32cf1545f5c897c361d232",
+    "embeddedMacExecutableIntegrity": true,
+    "developerId": false,
+    "notarized": false,
+    "installed": false
+  },
+  "sourceSha256": {
+    "src-tauri/src/evidence_ledger/sections.rs": "b703efb4e7a990ee9bbbf1b64bf6df5ed77240515a6e0caf395de35ccf217237",
+    "src-tauri/src/evidence_ledger/sections/tests.rs": "062c11c42f956774a04b52d9dae972ed00e86a897f5acaf781c50cf5cbcf5820",
+    "src-tauri/src/workspace_generation/progressive.rs": "4b1453a8dbebfb5b5f39ece245821b9535c6f0d2f093c808b721b1925775c798",
+    "tests/scenePresentation.test.mjs": "cc2c9a871b3a6bcfef183daed127c3087816b1fd26e2bf8cd6ee1591b7ec614c"
+  },
+  "regressionBeforeFix": "Focused source-value feedback test failed: generic sectionValidation instead of positional sceneSourceValue",
+  "realRejectedProposalFixtures": [
+    4,
+    7
+  ],
+  "liveKata": {
+    "records": 73,
+    "open": 50,
+    "closed": 23,
+    "allBodiesStatusesPrioritiesVerified": true
+  },
+  "documentationAudit": {
+    "errors": 0,
+    "reviewItems": 6
+  },
+  "failedAccountArtifactSha256": "c486424229fcddc3f65583b7c12baf9fd3c5e0f2190d8e97cbc8edf4804c841d"
+}

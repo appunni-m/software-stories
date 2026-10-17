@@ -137,3 +137,9 @@ The worker discarded its actual terminal error when preserving this partial answ
 ## Scene policy checkpoint — 17 October
 
 New progressive sections now bind checkpoint version 3 to presentation version 2. Old checkpoints 1/2 remain immutable and readable; a fresh proposal cannot downgrade its scene policy. Fixed positional feedback preserves full rejected arguments and permits a corrected complete section within the same attempt budget. Private diagnostic retention from the prior checkpoint is unchanged. Native suite: 368 pass, 13 explicit probes ignored; frontend: 183 pass. [Evidence and remaining broad/native gates](../acceptance/2026-10-17-scene-v2.md). Fresh broad account completion and installed acceptance remain unproven; keep this task open.
+
+## Fresh broad run and exact source-value recovery — 17 October
+
+A fresh isolated `0650790` Fontdone run is Partial at 491.831 seconds: three drafts at 76.328/336.939/475.887 seconds, 61 delivered calls, eight proposals (five rejected). The final manifest explicitly retains render-mode/rasterization/bitmap publication as incomplete because the proposal limit was reached; no runtime terminal-failure code is present. Do not relabel the failed Complete assertion as a pass. All 38 anchors and nine input metadata hashes independently match. [Full evidence and limits](../acceptance/2026-10-17-scene-v2.md).
+
+Two generic rejections were diagnosed as source-valued content outside its own node's same-claim excerpts. The later local fix provides fixed positional sceneSourceValue feedback without returning source text or changing authority/budgets. Real-artifact and full correction regressions pass; final suites 371 native/184 frontend. No account retry was run after that fix. Broad completion, native/Pocket/quality and useful-answer latency remain open.

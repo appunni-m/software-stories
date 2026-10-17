@@ -10,6 +10,17 @@ const element = (kind, value = '', valueOrigin = 'none', parentIndex = null) => 
 const presentation = (elements = [element('code', 'Hello, ${name}', 'source')]) => ({ schemaVersion: 1, scenes: [{ claimIndex: 0, title: 'An incoming name becomes a greeting', mode: 'composition', elements }] });
 
 describe('AI-authored HTML scene contract', () => {
+  it('reads every published version 2 scene in the real partial Fontdone run', () => {
+    const artifact = JSON.parse(readFileSync(new URL('../docs/acceptance/artifacts/2026-10-17-fontdone-scene-v2-partial.json', import.meta.url)));
+    assert.equal(artifact.answer.outcome, 'partial');
+    assert.equal(artifact.answer.sections.length, 3);
+    for (const published of artifact.answer.sections) {
+      for (const section of published.preview.revision.sections) {
+        assert.equal(section.visual.presentation.schemaVersion, 2);
+        assert.ok(validScenePresentation(section.visual.presentation, section.visual.nodes, section.claims));
+      }
+    }
+  });
   it('version 2 allows meaningful values and roles while rejecting presentation-only changes', () => {
     const root = { ...element('row'), nodeIndex: null };
     const arrow = { ...element('arrow', '', 'none', 0), nodeIndex: null };

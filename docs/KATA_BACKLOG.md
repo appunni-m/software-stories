@@ -152,3 +152,11 @@ legacy preservation and bounded repair feedback. Mechanical suites/builds
 pass; the fresh broad account and installed scene/narration qualification
 remain required. [Evidence and scope](acceptance/2026-10-17-scene-v2.md).
 All 73 records remain present; 50 are open and 23 closed.
+
+## Fresh version-2 broad run — still partial
+
+`j53m`, `3bz5`, `q0sm`, `gk46` and `ps02` retain the failed complete-answer
+assertion: three drafts, 61 delivered calls, eight proposals exhausted, missing
+rasterization/bitmap output. Exact source-value diagnostics follow the actual
+rejections; 371 native and 184 frontend checks pass. [Current result and scope](acceptance/2026-10-17-scene-v2.md).
+No task is closed or requirement removed.

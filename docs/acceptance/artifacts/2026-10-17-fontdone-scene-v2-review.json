@@ -1,0 +1,310 @@
+{
+  "reviewKind": "Agent independent captured-source/identity checks; not a human quality/listening pass",
+  "operationId": "bd97a080-e639-4bb9-b413-f881b90b811b",
+  "artifactSha256": "c486424229fcddc3f65583b7c12baf9fd3c5e0f2190d8e97cbc8edf4804c841d",
+  "implementationHashesMatch": true,
+  "inputMetadataHashesUnchanged": 9,
+  "checkedAnchors": [
+    {
+      "anchorId": "anchor:0f54755b-5bd5-44e3-99f0-9bcd0664adbd",
+      "path": "src/api.rs",
+      "startByte": 6302,
+      "endByteExclusive": 7226,
+      "sha256": "58b340be33830ce7f19d1ca8477be4c12e92017f2de8586f43b0c61fd775bb53"
+    },
+    {
+      "anchorId": "anchor:b6e017ae-ef6e-4e9e-bc73-d530f5ed6765",
+      "path": "src/font.rs",
+      "startByte": 147769,
+      "endByteExclusive": 148750,
+      "sha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3"
+    },
+    {
+      "anchorId": "anchor:cc6d1788-87fc-4e4e-8323-09cdaf467bf0",
+      "path": "src/font.rs",
+      "startByte": 147769,
+      "endByteExclusive": 148750,
+      "sha256": "151fb073e20b3c840718388004cb6cae133f60ca146c8c7166c8400d254340f3"
+    },
+    {
+      "anchorId": "anchor:debddb60-6f64-4567-bea7-d0b808499171",
+      "path": "src/font.rs",
+      "startByte": 148750,
+      "endByteExclusive": 149723,
+      "sha256": "d0fce891cd7f956a107353deaab25eb34c99350637573510e447b8e815c99be3"
+    },
+    {
+      "anchorId": "anchor:fb6dea19-857e-4f3c-8d5b-4c868ea3b19e",
+      "path": "src/font.rs",
+      "startByte": 149723,
+      "endByteExclusive": 150666,
+      "sha256": "9995cf2f42a323867e93cd2c09f1ebe7887ab7777de06684703ef5c01a363eda"
+    },
+    {
+      "anchorId": "anchor:0748e0cf-9b08-4b75-bd28-54aebfe0e2b4",
+      "path": "src/font.rs",
+      "startByte": 172671,
+      "endByteExclusive": 173662,
+      "sha256": "c51363000fadbf6974e4a9694d2711b3b2681cdbfa80618a981bc9e0d09eed9a"
+    },
+    {
+      "anchorId": "anchor:94fe4812-e518-4f8b-a83c-2d76e9d2f41d",
+      "path": "src/font.rs",
+      "startByte": 173662,
+      "endByteExclusive": 174631,
+      "sha256": "79b358a9a95aa6464f600468127c534cc928eba95818595a616e8b58f707d97b"
+    },
+    {
+      "anchorId": "anchor:04e7e63c-e8d4-4e0e-960e-9f9bb2914088",
+      "path": "src/font.rs",
+      "startByte": 174631,
+      "endByteExclusive": 175604,
+      "sha256": "6b5ec6a9b3e2c0c195164b134399975f23a6b4e0b9e2e80d416a608892b2d78f"
+    },
+    {
+      "anchorId": "anchor:0398eeec-5d91-41ed-8023-947ae8154207",
+      "path": "src/font.rs",
+      "startByte": 175604,
+      "endByteExclusive": 176593,
+      "sha256": "219da608eb1c21d2583982eb1fe48f4d7844512391fde999994cfa5868767b70"
+    },
+    {
+      "anchorId": "anchor:d25bebff-4036-473e-a07e-69eff7b6a8ee",
+      "path": "src/api.rs",
+      "startByte": 22294,
+      "endByteExclusive": 23235,
+      "sha256": "3f5981a782954e12811837317c50d50aea67e67cf6695207b11a17b5431cdd29"
+    },
+    {
+      "anchorId": "anchor:358d7f1b-f04c-47e1-a1d1-a68ab51353d0",
+      "path": "src/api.rs",
+      "startByte": 24522,
+      "endByteExclusive": 25466,
+      "sha256": "464ff146ad441aeb17ce9f6edb5d2f3238d85196b0eb293c01f27a6af18df89b"
+    },
+    {
+      "anchorId": "anchor:2b41f331-c952-4cde-a725-ecbe1a70208a",
+      "path": "src/api.rs",
+      "startByte": 23632,
+      "endByteExclusive": 24516,
+      "sha256": "32c3592e7e82280a974fe9eb986e42fed7e39d405a1e2b09b9eebbe07c20c793"
+    },
+    {
+      "anchorId": "anchor:1160c428-8c4b-4dc4-af04-1ce396144f57",
+      "path": "src/api.rs",
+      "startByte": 24522,
+      "endByteExclusive": 25466,
+      "sha256": "464ff146ad441aeb17ce9f6edb5d2f3238d85196b0eb293c01f27a6af18df89b"
+    },
+    {
+      "anchorId": "anchor:407deb76-aaf0-4132-a48e-473b4967d1b0",
+      "path": "src/api.rs",
+      "startByte": 25466,
+      "endByteExclusive": 26456,
+      "sha256": "e9df7a45b12003970c0d9f4f15dd02232a764cb7a8bf0bea20e6055a1ea29fa4"
+    },
+    {
+      "anchorId": "anchor:365d60bb-96fe-4e91-aa6f-f758ecd3347f",
+      "path": "src/api.rs",
+      "startByte": 26456,
+      "endByteExclusive": 27453,
+      "sha256": "06d61453b49f243bf70fc63ef3d1584babd162ac8810bc2c9a150160df5f27f7"
+    },
+    {
+      "anchorId": "anchor:ac6e73a1-4ab2-416f-b276-60d2feaa413b",
+      "path": "src/api.rs",
+      "startByte": 27453,
+      "endByteExclusive": 28424,
+      "sha256": "85967dc1e976201bba200c624b07352a78f5aa51542e77660015d5bc0ccf2b74"
+    },
+    {
+      "anchorId": "anchor:e0b2d267-b533-4bc8-95c4-081eea4c8154",
+      "path": "src/api.rs",
+      "startByte": 28424,
+      "endByteExclusive": 29421,
+      "sha256": "8d93816f6006540d94fe81f4bd1b553742a680ec3d974438980c514950611d88"
+    },
+    {
+      "anchorId": "anchor:bae490ae-7da5-4ed9-a3b9-4dfa4abb31e9",
+      "path": "src/api.rs",
+      "startByte": 24522,
+      "endByteExclusive": 25466,
+      "sha256": "464ff146ad441aeb17ce9f6edb5d2f3238d85196b0eb293c01f27a6af18df89b"
+    },
+    {
+      "anchorId": "anchor:fe7788c4-fac9-4632-88b6-ffee10bc63fe",
+      "path": "src/api.rs",
+      "startByte": 29421,
+      "endByteExclusive": 30323,
+      "sha256": "7c61dabf6dab9a86556cc93c6214af34818df5f2886e966111107a5c6e3f6157"
+    },
+    {
+      "anchorId": "anchor:e2f7650b-64fc-4867-b136-c77e71b7d8e6",
+      "path": "src/api.rs",
+      "startByte": 30323,
+      "endByteExclusive": 31317,
+      "sha256": "47600e014e55a4d3211bec3e6d2ebafa70ebbfa38034f9aebb483445d5b01519"
+    },
+    {
+      "anchorId": "anchor:1c2896af-473c-431f-92c6-61d3d9d5b7e0",
+      "path": "src/font.rs",
+      "startByte": 268867,
+      "endByteExclusive": 269851,
+      "sha256": "d7ac12390b929477beb46b823055ea7243277e8dcecd1c40aa04ee4061936cd8"
+    },
+    {
+      "anchorId": "anchor:0ede03c9-a05a-4245-82cd-d0468c5f3a19",
+      "path": "src/font.rs",
+      "startByte": 298569,
+      "endByteExclusive": 299474,
+      "sha256": "d17389d8bc9462399613e87aaec5f2606e1ffecf2c76134158e179665092df49"
+    },
+    {
+      "anchorId": "anchor:4b95d441-1f8d-44d8-94ea-3e19ab917821",
+      "path": "src/font.rs",
+      "startByte": 299474,
+      "endByteExclusive": 300465,
+      "sha256": "a0cb897393ed9969049e81658c1c7f2d03d05c02c158c74cc38928a23a139560"
+    },
+    {
+      "anchorId": "anchor:0cd352e5-8ff6-4e14-b2d0-c88182f31d04",
+      "path": "src/font.rs",
+      "startByte": 300465,
+      "endByteExclusive": 301465,
+      "sha256": "3720ecd2b4a624226db1523a0d2cc9181b3eec6b967441690d57075e543378b2"
+    },
+    {
+      "anchorId": "anchor:1375f3fb-1228-4817-b224-c61648345e4c",
+      "path": "src/tables.rs",
+      "startByte": 7652,
+      "endByteExclusive": 8647,
+      "sha256": "d5780a309729db8c246b4b08226fd345b2548a27bb67c370d5cf1c759f35ffa7"
+    },
+    {
+      "anchorId": "anchor:6958bd70-f6cc-49a3-bbdf-03f18efc9158",
+      "path": "src/tables.rs",
+      "startByte": 8647,
+      "endByteExclusive": 9615,
+      "sha256": "1f965d23bf110de7a7ed567004be2995d5accbc9d88629462f360a9aa414aabb"
+    },
+    {
+      "anchorId": "anchor:6ec06654-f601-438f-8cd5-71583d3c41c3",
+      "path": "src/tables.rs",
+      "startByte": 9615,
+      "endByteExclusive": 9949,
+      "sha256": "858453e030e610099b83335f4d9a88376df6e6a5e80a9cfc9d195784cf4dae16"
+    },
+    {
+      "anchorId": "anchor:cb1c9e96-e476-49d5-9bbe-ae5294b03f0b",
+      "path": "src/tt/glyf.rs",
+      "startByte": 5288,
+      "endByteExclusive": 5719,
+      "sha256": "cf20db1231a660706d67754e08be1e365be852b65b8429ebd40d7731f9501396"
+    },
+    {
+      "anchorId": "anchor:5cfe9224-24bb-4fdf-9ffb-01b4f52bb5c6",
+      "path": "src/tt/loca.rs",
+      "startByte": 504,
+      "endByteExclusive": 1456,
+      "sha256": "3594ffbcc76c5064004f83aad908577bae02e40eaa6b18c6d4f65b7e8fe1401f"
+    },
+    {
+      "anchorId": "anchor:4bb198b6-a304-4fc7-ab09-e235e8ec0f4d",
+      "path": "src/tt/loca.rs",
+      "startByte": 1456,
+      "endByteExclusive": 2305,
+      "sha256": "5c6de7f69bc735fdb56ae8f31cb18e9b998004ba349f5a9d7044186b84895f75"
+    },
+    {
+      "anchorId": "anchor:a4826331-53d0-467a-a595-3045053c7515",
+      "path": "src/tt/glyf.rs",
+      "startByte": 12821,
+      "endByteExclusive": 13761,
+      "sha256": "91d86036cd656bb62a9d27c81b8523663c4b955db33bf0c44fe19b20bb0c246f"
+    },
+    {
+      "anchorId": "anchor:9975e361-5d99-4969-91dc-7f6541034060",
+      "path": "src/tt/glyf.rs",
+      "startByte": 13761,
+      "endByteExclusive": 14746,
+      "sha256": "0fa9783b4f2ae2fffed136bcf8b0712c047cd8c7e6ce08794dc91b7d35bb3325"
+    },
+    {
+      "anchorId": "anchor:1722ed74-5d04-479f-91dd-c947d938162f",
+      "path": "src/tt/glyf.rs",
+      "startByte": 17580,
+      "endByteExclusive": 18548,
+      "sha256": "6c024638b399d331e528acdbb6acf79d8219a50a563bfc72bee5b6d11bdbe187"
+    },
+    {
+      "anchorId": "anchor:7b800b06-3869-4061-9dd3-b9369aec4692",
+      "path": "src/tt/glyf.rs",
+      "startByte": 20527,
+      "endByteExclusive": 21013,
+      "sha256": "5b33483d31bb8117c89f2a2fd6b62e9c3f8b62a2509d6b92bbdc2249c1fac569"
+    },
+    {
+      "anchorId": "anchor:0afe461e-33ad-46ec-bb38-d4788511d208",
+      "path": "src/tt/hinter/mod.rs",
+      "startByte": 5639,
+      "endByteExclusive": 6616,
+      "sha256": "0da13fb98aab7329cddf52eb41e291ebeb81af20110f6eaa4ae7cbce2703eab2"
+    },
+    {
+      "anchorId": "anchor:f6ae4fa0-f92d-48ee-a693-28facb07bda5",
+      "path": "src/tt/hinter/mod.rs",
+      "startByte": 6616,
+      "endByteExclusive": 7611,
+      "sha256": "10a4fa228e4fc68fccd9de13ca976396b93012c3a5b524efcb18178b68fe2106"
+    },
+    {
+      "anchorId": "anchor:aea2dde0-59f2-448e-b8e0-016b0552ee6e",
+      "path": "src/tt/hinter/mod.rs",
+      "startByte": 10561,
+      "endByteExclusive": 11532,
+      "sha256": "320634c4f8382b9fe87156e784dcef492f18020672b469253e278d74d8bd7caa"
+    },
+    {
+      "anchorId": "anchor:16c705ed-ea82-4361-9ab9-e86cc68cbc2d",
+      "path": "src/tt/hinter/mod.rs",
+      "startByte": 12532,
+      "endByteExclusive": 13521,
+      "sha256": "eb9bc469bd3dcefd5c09feb0b375191420572b1ffb47ee6d2bb0d11459e35cfe"
+    }
+  ],
+  "outcome": "partial",
+  "failureCode": null,
+  "toolCalls": 61,
+  "toolStates": {
+    "delivered": 61
+  },
+  "proposals": 8,
+  "sections": 3,
+  "humanQualityReview": false,
+  "humanListeningPass": false,
+  "status": "Failed broad completion; narration and visual quality remain unqualified",
+  "findings": [
+    {
+      "kind": "missingRequestedCoverage",
+      "detail": "The final manifest explicitly leaves render-mode dispatch, rasterization and final bitmap publication unpublished after the eight-proposal limit."
+    },
+    {
+      "kind": "opaqueRepairFeedback",
+      "attempts": [
+        4,
+        7
+      ],
+      "detail": "Both generic sectionValidation rejections correspond to an exact source value absent from that node\u2019s same-claim cited excerpt: scenes 1 and 3 respectively, element 1. Independent captured-source inspection confirms both mismatches; later proposals correct them."
+    },
+    {
+      "kind": "narrationDensity",
+      "detail": "Published narration retains helper lists, long identifiers, bit flags and question-mark syntax instead of consistently telling the meaning of the visual in calm ordinary language. No Pocket listening qualification ran."
+    },
+    {
+      "kind": "ambiguousVisualLabel",
+      "sectionOrder": 1,
+      "detail": "The visual node labelled Optional parse defaults can imply optional tables, despite its table and prose correctly distinguishing required presence from defaulted malformed contents."
+    }
+  ],
+  "sourceReviewScope": "Independent exact identity/range checks for all 38 anchors, targeted checks of BDF/dispatcher exceptions, required-vs-malformed SFNT tables and the two rejected source values. This is not an exhaustive proof of every semantic statement."
+}

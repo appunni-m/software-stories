@@ -101,6 +101,12 @@ independently enforces the new version requirement. Rejected proposals remain
 in the private answer record, while repair feedback contains positions and
 fixed codes only.
 
+After native rejection, `sceneSourceValue` locates a source-valued element that
+does not occur in its own node's same-claim cited excerpts. Repair the value or
+its evidence, retaining exact citation authority; another node's or claim's
+excerpt is insufficient. The feedback never includes source strings or raw
+decoder errors. It does not authorize a value or bypass canonicalization.
+
 ### Primitives and bounds
 
 - Groups: `row`, `column`, `grid`, `panel`, `compare`, `stack`.

@@ -116,3 +116,9 @@ This is an agent source/structure finding, not the required human benchmark. The
 ## Narrow visual-quality guard — 17 October
 
 The concrete Fontdone empty-card self-transformation now has a versioned native/reader rejection and positional repair feedback. New narration instructions minimize necessary declared identifiers while preserving exact code alignment, full conditions and failure behavior. Mechanical checks pass (368 native, 183 frontend), but differing labels alone cannot prove a useful scene, a truthful illustration, natural narration or repository completeness. [Implementation scope and required fresh qualification](../acceptance/2026-10-17-scene-v2.md). The preserved broad failure remains failed. Keep semantic/comprehension/Pocket listening and complete-repository gates open.
+
+## Fresh version-2 broad review — 17 October
+
+The preserved Fontdone answer remains Partial after three drafts and eight proposals. Rasterization and bitmap output are explicitly unpublished. Targeted source review confirms BDF/17-byte guard exceptions and required-table versus malformed-content defaults; this is not exhaustive semantic proof. The repeated empty-arrow defect is gone, but the Optional parse defaults label remains ambiguous and long names/bit flags/question-mark syntax still make narration technical. No human comprehension or Pocket listening pass exists. [Exact result, scope and failures](../acceptance/2026-10-17-scene-v2.md).
+
+The later exact source-value repair diagnostics pass 371 native/184 frontend checks, including both real rejected proposals; they are not a new generation-quality pass. Keep the complete representative language/operation/human quality requirements and this task open.

@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::{chapter_generation, chapter_origin, native_citations};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Mutex;
 
 pub(crate) const MAX_PROPOSAL_BYTES: usize = 32_768;
@@ -447,6 +447,71 @@ fn scene_repetition_findings(section: &Value) -> Vec<Value> {
         .collect()
 }
 
+/// Only called after native citation resolution and failed canonicalization.
+/// Exact same-claim quotes explain a known failure; this never admits a value
+/// or returns source strings as repair feedback.
+fn scene_source_value_findings(section: &Value, resolved: &str) -> Vec<Value> {
+    use crate::scene_presentation::{SceneMode, ScenePresentation, ValueOrigin};
+    let visual = &section["visual"];
+    let Some(nodes) = visual["nodes"].as_array().filter(|nodes| nodes.len() <= 12) else {
+        return vec![];
+    };
+    let Ok(presentation) =
+        serde_json::from_value::<ScenePresentation>(visual["presentation"].clone())
+    else {
+        return vec![];
+    };
+    let Ok(resolved) = serde_json::from_str::<Value>(resolved) else {
+        return vec![];
+    };
+    let Some(claims) = resolved["sections"][0]["claims"].as_array() else {
+        return vec![];
+    };
+    let mut findings = Vec::new();
+    for (scene_index, scene) in presentation.scenes.iter().take(20).enumerate() {
+        if scene.mode != SceneMode::Composition || scene.claim_index != scene_index {
+            continue;
+        }
+        for (element_index, element) in scene.elements.iter().take(48).enumerate() {
+            if element.value_origin != ValueOrigin::Source
+                || element.value.trim().is_empty()
+                || element.value.len() > 1024
+            {
+                continue;
+            }
+            let Some(references) = element
+                .node_index
+                .and_then(|i| nodes.get(i))
+                .and_then(|node| node["evidence"].as_array())
+                .filter(|refs| refs.len() <= 8)
+            else {
+                continue;
+            };
+            let quotes: Vec<_> = references
+                .iter()
+                .filter_map(|reference| {
+                    if reference["claimIndex"].as_u64()? != scene_index as u64 {
+                        return None;
+                    }
+                    let evidence_index =
+                        usize::try_from(reference["evidenceIndex"].as_u64()?).ok()?;
+                    claims.get(scene_index)?["evidence"]
+                        .as_array()?
+                        .get(evidence_index)?["quote"]
+                        .as_str()
+                })
+                .collect();
+            if !quotes.is_empty() && !quotes.iter().any(|quote| quote.contains(&element.value)) {
+                findings.push(json!({"location":format!("/section/visual/presentation/scenes/{scene_index}/elements/{element_index}/value"),"code":"sceneSourceValue"}));
+                if findings.len() == 64 {
+                    return findings;
+                }
+            }
+        }
+    }
+    findings
+}
+
 /// Diagnose a known scene failure only after native admission has rejected it.
 /// This does not resolve evidence or authorize a visual; the canonicalizer
 /// remains authoritative for node references and the complete presentation.
@@ -527,6 +592,7 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "sceneEvidence"
                             | "sceneVersion"
                             | "sceneRepetition"
+                            | "sceneSourceValue"
                             | "sectionValidation"
                     )
                 })
@@ -826,6 +892,7 @@ impl ActiveAnswer {
                                     Err(_) => {
                                         findings = scene_evidence_findings(&proposal.section);
                                         findings.extend(scene_repetition_findings(&proposal.section));
+                                        findings.extend(scene_source_value_findings(&proposal.section, resolved.text()));
                                         findings.truncate(64);
                                         if findings.is_empty() {
                                             findings = finding("sectionValidation");

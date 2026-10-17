@@ -4,13 +4,14 @@ Snapshot: **17 October 2026**, read from live project `code-atlas-rebuild` after
 
 ## Current generation gate
 
-The latest frozen broad Fontdone run returned **Partial in 160.010 s**, with
-one draft at 74.578 s and an uncertain final read. The preserved output fails
-source-exception, meaningful-visual and narration review. The exact cause of
-that read remains unknown. Short references and the causal macOS queued-packet
-fix have mechanical evidence; a later follow-up retains fixed private terminal
-diagnostics. Broad completion, quality/voice, installed acceptance and release
-remain open. [Current evidence and limits](acceptance/2026-10-17-short-native-references.md).
+The latest frozen broad Fontdone run returned **Partial in 491.831 s**,
+with three drafts at 76.328, 336.939 and 475.887 s. All 61 calls delivered,
+but eight proposals were exhausted before render dispatch, rasterization and
+bitmap publication. All 38 anchors match captured source. Narration remains
+technical and a visual label remains ambiguous; full quality is unproven.
+Two generic rejections were traced to incorrect source values, with a later
+local positional-feedback fix. Broad completion, installed/Pocket/accessibility
+and release gates remain open. [Current evidence and limits](acceptance/2026-10-17-scene-v2.md).
 
 ### Historical implementation checkpoints
 
@@ -197,3 +198,16 @@ scene/checkpoint versions remain readable and idempotent. **368 native tests**
 unsigned debug app builds pass. Fresh broad generation and installed/Pocket/
 accessibility quality remain pending; the Mac is locked. [Exact evidence and
 limits](acceptance/2026-10-17-scene-v2.md). No task is closed.
+
+## Fresh version-2 broad result and repair diagnostics
+
+The isolated `0650790` run retained three drafts but failed broad completion at
+491.831 s: rasterization/final bitmap publication remain absent after the
+eight-proposal limit. All 61 calls delivered and 38 anchors match captured
+source. Targeted review still finds technical narration and an ambiguous
+visual label. Later positional source-value feedback has failing-before and
+passing-after evidence for both actual generic rejections. **371 native tests**
+(13 explicit probes ignored) and **184 frontend tests** pass. These local fixes
+postdate the account artifact; installed/Pocket/accessibility and broader
+quality remain open. [Exact evidence](acceptance/2026-10-17-scene-v2.md).
+All 73 task records remain present: 50 open, 23 closed.
