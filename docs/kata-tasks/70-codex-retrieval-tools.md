@@ -36,7 +36,7 @@ Depends on [local range retrieval](69-local-range-retrieval.md). Prefer an app-o
 
 ## Evidence
 
-Research and contracts only; no capability/runtime acceptance claim. The current adapter rejects tools intentionally, so this requires a narrow new admission contract rather than simply enabling all tool events.
+Workspace owned-tool retrieval is implemented in source, with deterministic tests, a successful small synthetic investigation, and the separately checked focused Fontdone predicate below. Broad Fontdone generation and packaged parent acceptance remain open. Earlier dated checkpoints describe the preceding fixed-evidence adapter; the current admission contract enables only the five owned tools.
 
 ## Retrieval foundation checkpoint — 17 October
 
@@ -83,3 +83,5 @@ The fourth broad run delivered 52 calls and read 47,986 distinct source bytes in
 Before a further broad qualification, expose remaining call/source/metadata/wire budgets to the agent and qualify bounded query feedback and useful partial answers at limits. The observed discovery used 239,661 of 256,000 metadata bytes while reading only three implementation files. Do not raise whole-file or operation caps to hide this gap. Complete the focused predicate and attached-function cases separately; keep the broad narrative/flow and package gates open.
 
 The separate focused `outline` request passed in 53.087 seconds of native generation (55.46 seconds for the whole test): four calls, 948 distinct source bytes, one section, two validated anchors and a source-linked OR diagram. Agent source inspection confirms direct-first predicate, disagreeing fields and false case. [Exact draft](../acceptance/artifacts/2026-10-17-fontdone-agent-outline.json). Its spoken script omits the actual predicate, so speech comprehension still fails. The attached `memory-face`, broad explanation, budget/identity/Stop matrices, human quality review and packaged UI remain open; this focused success closes none of those gates.
+
+The current unsigned app/DMG subsequently rebuilt with the packet and literal-search fixes, passed bundle/schema/checksum verification, and passed a headless packaged-helper initialization/catalog probe. Exactly five read-only tools were listed; a missing owner returned an error without evidence. [Package probe](../acceptance/artifacts/2026-10-17-packaged-context-helper.json). The Mac remained locked, so the installed app was not replaced. Packaged parent generation and user-visible navigation/permission/playback acceptance remain open.

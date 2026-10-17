@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-17",
+  "scope": "packaged helper startup and standard MCP catalog only; no owning native session, repository reads, account access or inference",
+  "binarySha256": "cefd0255c50c593c03c872e1b058d891f20249cf65240757053623d1c3265c91",
+  "protocolVersion": "2025-11-25",
+  "serverInfo": {
+    "name": "code-atlas-context",
+    "version": "0.1.0"
+  },
+  "tools": [
+    "find_definitions",
+    "find_relationships",
+    "list_modules",
+    "read_code",
+    "search_code"
+  ],
+  "readOnlyAnnotationsVerified": true,
+  "missingOwnerRejectedWithoutEvidence": true,
+  "exitCodeAfterStdinClosed": 0,
+  "limitations": [
+    "Does not qualify generation in the packaged parent, source navigation, permission UI or playback.",
+    "The native app was not replaced or opened because computer use reports a locked Mac."
+  ]
+}

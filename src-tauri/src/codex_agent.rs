@@ -2440,6 +2440,10 @@ mod tests {
         assert!(executable_digest(&file, &stopped, None).is_err());
         #[cfg(unix)]
         {
+            // A valid target ensures the empty-file check cannot mask an
+            // accidentally followed symbolic link.
+            fs::write(&file, b"abc").unwrap();
+            assert!(executable_digest(&file, &stopped, None).is_ok());
             let link = root.join("symlink");
             std::os::unix::fs::symlink(&file, &link).unwrap();
             assert!(executable_digest(&link, &stopped, None).is_err());

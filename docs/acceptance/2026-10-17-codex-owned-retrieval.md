@@ -12,7 +12,7 @@ The native evidence ledger binds the snapshot/account/runtime grant and records 
 
 | Check | Observed outcome |
 | --- | --- |
-| Full native suite | Latest run: 266 passed in 18.48 seconds, 10 explicit probes ignored; zero failures. |
+| Full native suite | Latest run: 266 passed in 22.47 seconds, 10 explicit probes ignored; zero failures. |
 | Frontend suite | Latest reading-position checkpoint: 141 passed; zero failures. |
 | Frontend production build | Passed; existing large-bundle warning remains. |
 | Debug application build | Passed before the read-error feedback refinement; the standard stdio bridge was exercised by the live test below. A newly packaged UI has not been qualified. |
@@ -79,7 +79,7 @@ A separate macOS probe reproduced an accepted Unix socket inheriting nonblocking
 
 Native packets also have one absolute deadline across all partial reads or writes: 200 ms for an input packet and two seconds for an output packet. Short socket waits check Stop between attempts; a slow peer cannot restart the deadline with each byte. The standard MCP stdio wire and helper protocol are unchanged. Existing owned-session regressions now split both the length header and body, exercising the real owner and evidence admission. Additional tests cover slow partial input, Stop during input or blocked output, and output deadline expiry without Stop. The complete native suite passed in 25.25 seconds.
 
-An unsigned release `.app` and `.dmg` built and passed the bundle/DMG integrity checks with the SHA optimization and saved-reading-position fix. That build predates the packet changes above; rebuilding it and checking the replacement UI remain separate work. The next Fontdone probe uses the current native test driver with that release executable as its unchanged stdio helper. It does not establish acceptance of the packaged parent application.
+An initial unsigned release `.app` and `.dmg` built and passed the bundle/DMG integrity checks with the SHA optimization and saved-reading-position fix. That first build predates the packet changes above. The fourth broad and focused predicate probes used the current native test driver with that initial release executable as its unchanged stdio helper. They do not establish acceptance of the packaged parent application.
 
 ## Fourth Fontdone broad run
 
@@ -96,3 +96,11 @@ A separate, deliberate `outline` request passed using GPT-6 Luna/max and the sam
 Source inspection independently matched both anchors' full-file hash, exact UTF-8 bytes, uniqueness, line coordinates and admitted ranges against the pinned clean `src/outline.rs`. The answer leads with the actual OR predicate, explains that either true condition suffices when they disagree, and states the false case as nonempty points with a nonzero contour count. Both diagram edges cite that predicate; this is a logical dependency diagram, not an observed execution trace.
 
 Narration is insufficient: it retained only “They are distinct stored fields, matching the two separate tests in the predicate.” The workspace canonicalizer discards the separate proposed narration and prefers claim sentences without code punctuation, so the principal predicate sentences were skipped. Align the agent instructions and supported narration selection before a listening-quality pass; do not bypass claim grounding or present this as Pocket playback evidence. The attached `memory-face` case, broad journey, human quality rubric and packaged player/navigation remain open.
+
+## Current package checkpoint
+
+`env RUSTC_WRAPPER= CARGO_INCREMENTAL=0 npm run bundle:macos` subsequently rebuilt the unsigned app and DMG with the packet and literal-search fixes. The production frontend build, bundle identity/schema metadata and DMG checksum verification passed. The existing frontend size and native dead-code warnings remain.
+
+A headless probe of that packaged executable completed standard MCP initialization and `tools/list`, verified exactly the five read-only tools, and confirmed that a tool request without its owning operation returns an error without source evidence. The helper exited with code zero after stdin closed. [Catalog probe and executable identity](artifacts/2026-10-17-packaged-context-helper.json). This probe used no repository data, model account or inference. Computer use still reported a locked Mac, so the installed app was not replaced and packaged parent generation, source navigation, saved reading position, permission UI and playback remain unqualified.
+
+A subsequent test-only refinement gives the symlink digest regression a valid, nonempty target so empty-file rejection cannot mask accidental following of that link. The complete native suite again passed: 266 tests, ten explicit probes ignored, zero failures, 22.47 seconds. This changes no packaged production logic.
