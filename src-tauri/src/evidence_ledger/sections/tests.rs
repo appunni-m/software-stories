@@ -977,3 +977,61 @@ fn visual_required_field_feedback_names_only_the_fixed_wire_position() {
     assert!(valid_findings(&findings));
     assert!(!serde_json::to_string(&findings).unwrap().contains("private"));
 }
+
+#[test]
+fn scene_evidence_feedback_locates_the_wrong_claim_and_preserves_the_rejected_proposal() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    let id = read(&mut l, &f, &r, &c);
+    let mut a = start(&l, &f, &r, &c);
+    let mut raw: Value = serde_json::from_str(&proposal(&id, "entry", 0)).unwrap();
+    let mut second = raw["section"]["claims"][0].clone();
+    second["prose"] = json!("The greeting function returns a formatted message containing the supplied name.");
+    raw["section"]["claims"].as_array_mut().unwrap().push(second);
+    raw["section"]["visual"]["nodes"][1]["evidence"][0]["claimIndex"] = json!(1);
+    raw["section"]["visual"]["presentation"] = json!({"schemaVersion":1,"scenes":[
+        {"claimIndex":0,"title":"Format a name","mode":"composition","elements":[
+            {"kind":"card","parentIndex":null,"nodeIndex":0,"tone":"accent","value":"","valueOrigin":"none"}]},
+        {"claimIndex":1,"title":"Return the message","mode":"composition","elements":[
+            {"kind":"card","parentIndex":null,"nodeIndex":0,"tone":"positive","value":"","valueOrigin":"none"}]}
+    ]});
+    let rejected_raw = raw.to_string();
+    let rejected = a.prepare(&l, &rejected_raw, &f.manifest, &r, &c).unwrap();
+    assert_eq!(rejected.findings, vec![json!({"location":"/section/visual/presentation/scenes/1/elements/0/nodeIndex","code":"sceneEvidence"})]);
+    assert!(valid_findings(&rejected.findings));
+    assert!(rejected.generation_id.is_none());
+    a.commit(&l, rejected, &f.manifest, &r, &c).unwrap();
+    let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+    assert!(saved.sections.is_empty());
+    assert_eq!(saved.attempts[0].arguments, rejected_raw);
+    raw["section"]["visual"]["presentation"]["scenes"][1]["elements"][0]["nodeIndex"] = json!(1);
+    publish(&mut a, &l, &raw.to_string(), &f, &r, &c);
+    let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+    assert_eq!(saved.attempts.len(), 2);
+    assert_eq!(saved.sections.len(), 1);
+}
+
+#[test]
+fn scene_evidence_diagnostics_are_bounded_source_free_and_skip_unknown_shapes() {
+    let mut section = json!({"visual":{"nodes":[{"label":"private label","evidence":[{"claimIndex":1,"evidenceIndex":0}]}],
+        "presentation":{"schemaVersion":1,"scenes":[{"claimIndex":0,"title":"private heading","mode":"composition","elements":[
+            {"kind":"code","parentIndex":null,"nodeIndex":0,"tone":"accent","value":"private source","valueOrigin":"source"}]}]}}});
+    let findings = scene_evidence_findings(&section);
+    assert_eq!(findings.len(), 1);
+    assert!(valid_findings(&findings));
+    assert!(!serde_json::to_string(&findings).unwrap().contains("private"));
+    section["visual"]["nodes"][0]["evidence"].as_array_mut().unwrap().push(json!({"claimIndex":0,"evidenceIndex":0}));
+    assert!(scene_evidence_findings(&section).is_empty());
+    section["visual"]["nodes"][0]["evidence"] = json!([]);
+    section["visual"]["presentation"]["scenes"][0]["mode"] = json!("graph");
+    assert!(scene_evidence_findings(&section).is_empty());
+    section["visual"]["presentation"]["scenes"][0]["mode"] = json!("unknown");
+    assert!(scene_evidence_findings(&section).is_empty());
+    assert!(scene_evidence_findings(&json!({})).is_empty());
+    let elements: Vec<_> = (0..48).map(|_| json!({"kind":"card","parentIndex":null,"nodeIndex":0,"tone":"accent","value":"","valueOrigin":"none"})).collect();
+    let scenes: Vec<_> = (0..20).map(|index| json!({"claimIndex":index,"title":"A bounded scene","mode":"composition","elements":elements})).collect();
+    section["visual"]["presentation"]["scenes"] = json!(scenes);
+    let bounded = scene_evidence_findings(&section);
+    assert_eq!(bounded.len(), 64);
+    assert!(valid_findings(&bounded));
+}

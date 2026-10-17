@@ -96,3 +96,9 @@ Evaluate whether the agent chose a representation that helps answer the question
 ## October 17 HTML scene qualification
 
 A complete narrow PFR0 Fontdone answer proves HTML composition/source-click mechanics, not whole-repository or narration quality. Its accepted script still reads call syntax; new-generation instructions move expressions to visuals and explain their meaning aloud, retaining bare identifiers and supported conditions. Fresh human quality qualification remains required. Earlier partial and failed outcomes are preserved separately. See [results, preserved failures and remaining gates](../acceptance/2026-10-17-visual-story-guide.md). This task remains open.
+
+## Broad pipeline review — 17 October
+
+The [read-diagnostics Fontdone run](../acceptance/2026-10-17-read-recovery-and-broad-answer.md) is **partial**, not a chapter-quality pass. Three sections and all 20 exact source anchors survive independent byte/digest inspection, but requested rasterization/hinting internals remain unfinished. The published order begins with glyph loading before font bytes. One SFNT claim describes malformed `maxp`/`cmap` payload recovery as an “optional parse,” omitting that both table entries remain required. Keep missing-entry and malformed-content branches explicit in the review; do not label this ambiguous distinction passed.
+
+The first composition repeats identical node labels across its input/output and scale/exit scenes. Long function identifiers remain in full narration; no generated Pocket clips or human comprehension/listening pass exist for this broad answer. Before closure, qualify a coherent pipeline story, useful source-linked visual transformations and intelligible scene narration, including the real error/alternative branches. Native acceptance, exact citations and the 351-native/179-frontend regression suite do not establish semantic quality.

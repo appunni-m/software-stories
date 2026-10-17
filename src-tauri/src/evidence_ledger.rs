@@ -186,6 +186,52 @@ enum CallState {
     Uncertain,
 }
 
+/// Fixed native failure positions, never model text, paths or OS messages.
+/// Older receipts omitted this field; their cause remains unknown.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+enum RejectionCode {
+    RangeCount,
+    InvalidRange,
+    PathNotCaptured,
+    SourceVerificationLimit,
+    SourceExcluded,
+    SourceIntegrity,
+    SourceUnavailable,
+    SourceEncoding,
+    RangeEncoding,
+    ResponseEncoding,
+    ResponseAccounting,
+    ResponseBudget,
+    Unknown,
+}
+
+fn rejection_code(error: &str) -> RejectionCode {
+    match error {
+        "Only a range-read response may include one to eight source ranges." => RejectionCode::RangeCount,
+        "The requested evidence range is invalid or too large." => RejectionCode::InvalidRange,
+        "The evidence path was not captured." | "This path is not in the selected snapshot."
+        | "This path was not captured in the selected snapshot." => RejectionCode::PathNotCaptured,
+        "Source verification exceeded its local byte limit."
+        | "Captured source exceeds the supported per-file size limit." => RejectionCode::SourceVerificationLimit,
+        "This captured path is excluded from code retrieval."
+        | "This captured text is excluded by secret filtering." => RejectionCode::SourceExcluded,
+        "Captured source failed its size or SHA-256 integrity check."
+        | "The snapshot contains an invalid content hash for this path." => RejectionCode::SourceIntegrity,
+        "Captured evidence is unavailable." => RejectionCode::SourceUnavailable,
+        "This captured file is binary and cannot be opened as source text."
+        | "This captured file is not valid UTF-8 source text." => RejectionCode::SourceEncoding,
+        "The citation range is not valid UTF-8."
+        | "The code range must lie on UTF-8 boundaries inside this file."
+        | "Read a nonempty code range of at most 32,768 bytes." => RejectionCode::RangeEncoding,
+        "Source encoding failed." | "Context response encoding failed." => RejectionCode::ResponseEncoding,
+        "Context accounting is invalid." => RejectionCode::ResponseAccounting,
+        "The context response exceeds this operation's evidence budget."
+        | "The context limit notice exceeds its bound." => RejectionCode::ResponseBudget,
+        _ => RejectionCode::Unknown,
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Evidence {
@@ -226,6 +272,8 @@ struct Call {
     budget_stop: Option<LimitReason>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     timing: Option<CallTiming>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    rejection_code: Option<RejectionCode>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -295,9 +343,12 @@ struct Response<'a> {
 struct ReadError {
     code: &'static str,
     message: &'static str,
-    path: String,
-    source_sha256: String,
-    size_bytes: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_sha256: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    size_bytes: Option<usize>,
 }
 
 fn canonical_uuid(value: &str) -> bool {
@@ -527,6 +578,7 @@ impl Ledger {
                 prepared_ms: None,
                 finished_ms: None,
             }),
+            rejection_code: None,
         });
         self.save(next)?;
         Ok(CallToken { id })
@@ -680,7 +732,7 @@ impl Ledger {
         cancelled: &AtomicBool,
     ) -> Result<Response<'a>, String> {
         self.pending(token, context.tool())?;
-        if requests.len() > 8 || (context.tool() == Tool::Read) != !requests.is_empty() {
+        if context.tool() != Tool::Read && !requests.is_empty() {
             return Err(
                 "Only a range-read response may include one to eight source ranges.".to_owned(),
             );
@@ -696,6 +748,18 @@ impl Ledger {
             budget: self.response_budget(),
             budget_stop: None,
         };
+        if context.tool() == Tool::Read && !(1..=8).contains(&requests.len()) {
+            // A batching mistake is correctable. Return no source at all,
+            // rather than truncate to eight ranges or abort the investigation.
+            response.read_error = Some(ReadError {
+                code: "invalidRangeCount",
+                message: "No code was returned. Supply one to eight ranges in each read_code call. Split larger batches into separate calls within the remaining budget.",
+                path: None,
+                source_sha256: None,
+                size_bytes: None,
+            });
+            return Ok(response);
+        }
         let mut sources = HashMap::new();
         let mut verified_bytes = 0u64;
         for request in requests {
@@ -736,9 +800,9 @@ impl Ledger {
                 response.read_error = Some(ReadError {
                     code: "invalidRead",
                     message: "No code was returned. Copy sourceSha256 and exact startByte/endByte from search_code or find_definitions. End is exclusive, inside sizeBytes, on UTF-8 boundaries, and at most 32768 bytes after start. Refine the search if needed.",
-                    path: request.path.clone(),
-                    source_sha256: source.sha256.clone(),
-                    size_bytes: source.contents.len(),
+                    path: Some(request.path.clone()),
+                    source_sha256: Some(source.sha256.clone()),
+                    size_bytes: Some(source.contents.len()),
                 });
                 return Ok(response);
             }
@@ -790,7 +854,7 @@ impl Ledger {
         send: impl FnOnce(&[u8]) -> Result<(), String>,
     ) -> Result<(), String> {
         self.check(manifest, runtime, cancelled)?;
-        let prepared = (|| {
+        let prepared: Result<(Record, Vec<u8>), String> = (|| {
             let mut response =
                 self.response(&token, &context, requests, manifest, runtime, cancelled)?;
             let (mut bytes, mut source_bytes, mut metadata_bytes) =
@@ -900,6 +964,7 @@ impl Ledger {
                     let mut next = self.record.clone();
                     if let Some(call) = next.calls.last_mut() {
                         call.state = CallState::Rejected;
+                        call.rejection_code = Some(rejection_code(&error));
                         if let Some(timing) = &mut call.timing {
                             timing.finished_ms = Some(self.context_elapsed_ms());
                         }
@@ -1369,6 +1434,7 @@ fn validate_record(record: &Record, operation_id: &str) -> Result<(), String> {
                 || c.source_bytes as u128 + c.metadata_bytes as u128 > c.wire_bytes as u128
                 || c.evidence_ids.len() > MAX_FRAGMENTS
                 || c.payload_sha256.as_ref().is_some_and(|h| !hash(h))
+                || (c.rejection_code.is_some() && c.state != CallState::Rejected)
                 || (c.budget_stop.is_some()
                     && (c.source_bytes != 0
                         || !c.evidence_ids.is_empty()

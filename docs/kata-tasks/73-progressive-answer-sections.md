@@ -100,3 +100,14 @@ The current Guide implementation follows [narrated visual scenes](61-guide-flow-
 ## October 17 HTML scene qualification
 
 The complete synthetic HTML operation published in 19.950 s and finished in 22.351 s. A separate installed Fontdone PFR0-only operation published a complete scene at run elapsed 75.442 s, after three missing-title proposal rejections. A follow-up now provides fixed visualField positions and explicit required-field instructions; this diagnostic refinement has unit evidence only. Keep broader Fontdone completion, semantic accuracy and voice-quality gates open. See [results, preserved failures and remaining gates](../acceptance/2026-10-17-visual-story-guide.md). This task remains open.
+
+## Broad read-diagnostics qualification — 17 October
+
+The frozen Fontdone GPT-6 Luna/max native probe returned **partial** after 387.523 measured seconds (391.43 s for the test), publishing three independently adopted drafts at 99.936 s, 192.016 s and 341.735 s. All 39 calls delivered 123,317 distinct source bytes from five implementation paths. Five of eight proposals were rejected; the last outline-to-pixels proposal still had an invalid citation. The completion assertion failed. [Exact unchanged result, source review and remaining scope](../acceptance/2026-10-17-read-recovery-and-broad-answer.md).
+
+- [x] Preserve the whole partial answer, rejected proposals, final manifest and evidence ledger in a fresh isolated qualification; compare captured metadata and all 20 published anchor byte ranges without accepting chapters or modifying the user's live project.
+- [x] Reproduce a cross-claim HTML-scene node rejection and replace its generic tool feedback with fixed `sceneEvidence` at the element's `nodeIndex`. Preserve the failed proposal, native validation and correction within the same answer. Full native suite: 351 passed, 13 explicit probes ignored; frontend: 179 passed. The account artifact predates this diagnostic/prompt change and is not its fresh broad qualification.
+- [ ] Evaluate section-attempt allocation and citation correction using this eight-proposal exhaustion. Define bounded retained storage, per-section correction opportunity and finalization reserves inside the original ownership/call/deadline policy; do not simply increase a cap or reset the investigation. Qualify a new broad run only after the implementation decision, preserving this failed completion check.
+- [ ] Qualify the actual font-bytes-to-pixels narrative, meaningful transformations, original missing-entry/malformed-content distinction, natural complete narration/Pocket playback and installed reader/Stop/restart/accessibility. Repeated node labels, long helper names and a partial manifest do not pass these gates.
+
+Keep this task open. Native/probe arrival times are not UI-visible useful-answer timing; no human quality/listening pass is claimed.

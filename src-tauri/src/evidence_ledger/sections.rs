@@ -351,6 +351,44 @@ fn visual_shape_findings(section: &Value) -> Vec<Value> {
     }).collect()
 }
 
+/// Diagnose a known scene failure only after native admission has rejected it.
+/// This does not resolve evidence or authorize a visual; the canonicalizer
+/// remains authoritative for node references and the complete presentation.
+fn scene_evidence_findings(section: &Value) -> Vec<Value> {
+    use crate::scene_presentation::{ElementKind, SceneMode, ScenePresentation};
+    let visual = &section["visual"];
+    let Some(nodes) = visual["nodes"].as_array().filter(|n| n.len() <= 12) else {
+        return Vec::new();
+    };
+    let Ok(presentation) = serde_json::from_value::<ScenePresentation>(visual["presentation"].clone()) else {
+        return Vec::new();
+    };
+    let mut findings = Vec::new();
+    for (scene_index, scene) in presentation.scenes.iter().take(20).enumerate() {
+        if scene.mode != SceneMode::Composition || scene.claim_index != scene_index {
+            continue;
+        }
+        for (element_index, element) in scene.elements.iter().take(48).enumerate() {
+            if !matches!(element.kind, ElementKind::Card | ElementKind::Token | ElementKind::Code
+                | ElementKind::Metric | ElementKind::Bytes | ElementKind::Matrix
+                | ElementKind::Table | ElementKind::Text) {
+                continue;
+            }
+            let Some(references) = element.node_index.and_then(|n| nodes.get(n))
+                .and_then(|node| node["evidence"].as_array()) else {
+                continue;
+            };
+            if !references.iter().any(|reference| reference["claimIndex"].as_u64() == Some(scene_index as u64)) {
+                findings.push(json!({"location":format!("/section/visual/presentation/scenes/{scene_index}/elements/{element_index}/nodeIndex"),"code":"sceneEvidence"}));
+                if findings.len() == 64 {
+                    return findings;
+                }
+            }
+        }
+    }
+    findings
+}
+
 fn valid_findings(findings: &[Value]) -> bool {
     findings.len() <= 64
         && findings.iter().all(|v| {
@@ -374,6 +412,7 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "evidenceIdentifier"
                             | "presentationLimit"
                             | "visualField"
+                            | "sceneEvidence"
                             | "sectionValidation"
                     )
                 })
@@ -653,7 +692,12 @@ impl ActiveAnswer {
                                     &resolved,
                                 ) {
                                     Err(error) if error == chapter_generation::COMPLETE_CLAIMS_LIMIT_ERROR => findings = finding("presentationLimit"),
-                                    Err(_) => findings = finding("sectionValidation"),
+                                    Err(_) => {
+                                        findings = scene_evidence_findings(&proposal.section);
+                                        if findings.is_empty() {
+                                            findings = finding("sectionValidation");
+                                        }
+                                    },
                                     Ok(mut revision) => {
                                         ledger.verify_revision(
                                             &revision, manifest, runtime, cancelled,

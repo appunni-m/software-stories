@@ -80,6 +80,58 @@ fn reference_draft(id: &str) -> String {
 }
 
 #[test]
+fn invalid_read_count_delivers_feedback_without_partial_source_and_can_be_corrected() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancelled) = setup(&f);
+    for ranges in [vec![], vec![request(&f, 0, SIMPLE_SOURCE.len()); 9]] {
+        let response = read(&mut ledger, &f, &runtime, &cancelled, &ranges);
+        assert_eq!(response["readError"]["code"], "invalidRangeCount");
+        assert!(response["readError"].get("path").is_none());
+        assert!(response["added"].as_array().unwrap().is_empty());
+        assert!(response["alreadyAvailable"].as_array().unwrap().is_empty());
+        assert!(ledger.admitted_ranges().is_empty());
+        assert_eq!(ledger.record.calls.last().unwrap().state, CallState::Delivered);
+        assert_eq!(ledger.record.calls.last().unwrap().source_bytes, 0);
+    }
+    let corrected = read(&mut ledger, &f, &runtime, &cancelled, &[request(&f, 0, SIMPLE_SOURCE.len())]);
+    assert_eq!(corrected["added"][0]["contents"], SIMPLE_SOURCE);
+    assert_eq!(ledger.record.calls.len(), 3);
+    inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
+}
+
+#[test]
+fn rejected_calls_retain_only_fixed_native_failure_codes_and_legacy_receipts_stay_readable() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancelled) = setup(&f);
+    let token = ledger.begin_call(Tool::Read, &"c".repeat(64), &f.manifest, &runtime, &cancelled).unwrap();
+    let mut range = request(&f, 0, 20);
+    range.path = "../private.ts".into();
+    assert!(ledger.deliver(token, Context::Read {}, &[range], &f.manifest, &runtime, &cancelled, |_| panic!("No source may cross")).is_err());
+    let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
+    assert_eq!(saved.calls[0].rejection_code, Some(RejectionCode::InvalidRange));
+    let bytes = fs::read(&ledger.path).unwrap();
+    assert!(!String::from_utf8_lossy(&bytes).contains("private.ts"));
+    assert_eq!(rejection_code("secret source text and /private/path"), RejectionCode::Unknown);
+    let mut legacy: Value = serde_json::from_slice(&bytes).unwrap();
+    legacy["calls"][0].as_object_mut().unwrap().remove("rejectionCode");
+    fs::write(&ledger.path, serde_json::to_vec(&legacy).unwrap()).unwrap();
+    assert_eq!(inspect(&f.storage, &ledger.record.binding.operation_id).unwrap().calls[0].rejection_code, None);
+    legacy["calls"][0]["rejectionCode"] = json!("unrecognized raw error text");
+    fs::write(&ledger.path, serde_json::to_vec(&legacy).unwrap()).unwrap();
+    assert!(inspect(&f.storage, &ledger.record.binding.operation_id).is_err());
+    let (mut delivered, runtime, cancelled) = setup(&f);
+    read(&mut delivered, &f, &runtime, &cancelled, &[request(&f, 0, SIMPLE_SOURCE.len())]);
+    let mut receipt: Value = serde_json::from_slice(&fs::read(&delivered.path).unwrap()).unwrap();
+    assert_eq!(receipt["calls"][0]["state"], "delivered");
+    receipt["calls"][0]["rejectionCode"] = json!("invalidRange");
+    fs::write(&delivered.path, serde_json::to_vec(&receipt).unwrap()).unwrap();
+    assert!(inspect(&f.storage, &delivered.record.binding.operation_id).is_err());
+    receipt["calls"][0].as_object_mut().unwrap().remove("rejectionCode");
+    fs::write(&delivered.path, serde_json::to_vec(&receipt).unwrap()).unwrap();
+    inspect(&f.storage, &delivered.record.binding.operation_id).unwrap();
+}
+
+#[test]
 fn delivered_native_reference_builds_exact_claim_and_visual_source_links() {
     let f = Fixture::new();
     let (mut l,r,c) = setup(&f);

@@ -14,6 +14,14 @@ cache export, actual browser playback and human listening remain pending.
 [Evidence and remaining work](acceptance/2026-10-17-offline-visual-scenes.md).
 No task is closed; live Kata remains 73 records, 50 open and 23 closed.
 
+**October 17 read-recovery checkpoint:** the broad Fontdone run is still
+partial: three drafts, 387.523 seconds, eight proposals exhausted. Read batching
+and scene feedback fixes pass 351 native and 179 frontend tests; the new unsigned
+bundle awaits an unlocked Mac for replacement/native checks. The failed broad
+completion and visual/narration weaknesses remain recorded in `3bz5`, `gk46`,
+`q0sm` and `j53m`. [Evidence and remaining work](acceptance/2026-10-17-read-recovery-and-broad-answer.md).
+No task is closed; live Kata remains 73 records, 50 open and 23 closed.
+
 **Priority update — 2026-10-16:** Deliver Codex first through [agent-first generation](kata-tasks/45-agent-first-generation.md), Kata `2r6n` (priority 0). The user deferred Claude (`8gqw`, priority 2); it no longer blocks the current Codex gate, but remains a direct dependency of full M7. Building, testing and a small synthetic installed-account Codex validation are authorized. Manual handoffs and direct API results cannot qualify Codex. See [Agent generation](AGENT_GENERATION.md).
 
 ## Focused generation repair

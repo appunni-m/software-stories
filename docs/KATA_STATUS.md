@@ -129,3 +129,22 @@ and paused narration. Actual accepted-chapter/cache export, browser playback and
 human listening remain unverified. [Exact scope and remaining checks](acceptance/2026-10-17-offline-visual-scenes.md).
 Live Kata remains **73 records: 50 open, 23 closed**; `8r4j`, `70x5` and `j53m`
 remain open.
+
+## 17 October read-recovery and broad-answer checkpoint
+
+A fresh frozen Fontdone GPT-6 Luna/max native run published three adopted drafts
+but returned **partial after 387.523 seconds**. All 39 calls delivered 123,317
+source bytes from five paths; five of eight proposals were rejected and
+rasterization/hinting details remain unfinished. All 20 published anchors
+match captured bytes, but the required-table contrast, visual repetition and
+technical narration still need quality work. The completion assertion remains
+failed. [Preserved evidence and review](acceptance/2026-10-17-read-recovery-and-broad-answer.md).
+
+Read-batch mistakes now return correctable source-free feedback, native hard
+rejections retain fixed diagnostic codes, and cross-claim scene nodes receive
+positional feedback after native rejection. **351 native tests** (13 explicit
+probes ignored), **179 frontend tests** and the unsigned debug build pass. The
+Mac was locked, so the new bundle has not replaced the installed app; fresh
+native acceptance remains pending. The broad account artifact predates the
+later scene feedback/prompt change. Live Kata remains **73 records: 50 open,
+23 closed**; no task is closed.

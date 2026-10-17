@@ -76,3 +76,9 @@ packages pass mechanical tests. Actual accepted-chapter/browser/cache evidence,
 keyboard/reflow and human comprehension remain pending; the fixture is not an
 agent-generation or visual-quality pass. See [scoped qualification and remaining
 checks](../acceptance/2026-10-17-offline-visual-scenes.md). Keep this task open.
+
+## Real broad-scene review and diagnostic recovery — 17 October
+
+The [broad Fontdone artifact](../acceptance/2026-10-17-read-recovery-and-broad-answer.md) publishes three HTML-scene sections but remains partial. Its first scenes repeat the same node label on both sides of an arrow; admitted composition alone is not an effective transformation. Retain this as a real visual-quality counterexample. The second proposal also used a node cited only by a different claim, correctly rejected by native validation but reported generically. A reproducing regression now verifies fixed `sceneEvidence` feedback at the content `nodeIndex`, complete rejected-proposal retention, no publication before repair and successful correction. Native validation is unchanged. Source-free/unknown-shape checks also pass; full native suite: 351 passed, 13 explicit probes ignored, frontend: 179 passed.
+
+The account artifact precedes the feedback and prompt clarification; no fresh broad run qualifies those later changes. Meaningful examples/transformations, actual Pocket narration, installed source interaction/accessibility and complete broad repository visuals remain open. The dummy offline greeting export demonstrates packaging mechanics only; user clarification is not a playback or quality acceptance result.
