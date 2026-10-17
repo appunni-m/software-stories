@@ -11,6 +11,28 @@ export interface NarrationPreferencesSnapshot {
 export const DEFAULT_NARRATION_VOICE = 'alba';
 export const DEFAULT_NARRATION_STYLE = '';
 
+/** Pronounce names in the default script without changing its sentences.
+ * Saved user edits and explicit pronunciation entries remain authoritative.
+ * Does not parse source, drop sentences or rewrite conditions.
+ */
+export function defaultNarrationText(text: string): string {
+  return text.replace(/`[^`\n]+`|[A-Za-z_$][A-Za-z0-9_$]*(?:(?:::|\.)[A-Za-z_$][A-Za-z0-9_$]*)*/g, (token: string, offset: number) => {
+    const quoted = token.startsWith('`');
+    const name = quoted ? token.slice(1, -1) : token;
+    if (!/^[A-Za-z_$][A-Za-z0-9_$]*(?:(?:::|\.)[A-Za-z_$][A-Za-z0-9_$]*)*$/.test(name)) return token;
+    if (/[\p{L}\p{N}_$./:\\]/u.test(text[offset - 1] ?? '')
+      || /[\p{L}\p{N}_$/\\:]/u.test(text[offset + token.length] ?? '')) return token;
+    // Dotted names can be filenames. Leave them and path-adjacent tokens
+    // unchanged; this is a narrow pronunciation rule, not a code parser.
+    if (name.includes('.')) return token;
+    return name.replace(/::/g, ' ')
+      .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .replace(/_+/g, ' ')
+      .trim();
+  });
+}
+
 /** Decode the saved per-section narration preferences without trusting storage data. */
 export function parseNarrationPreferences(
   serialized: string | null,

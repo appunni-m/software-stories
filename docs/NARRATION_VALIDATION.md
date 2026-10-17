@@ -92,3 +92,25 @@ Open the header's connection button, then **Voice**. Pocket/Alba is the default.
 On an answer choose **Listen**. Local review/cache lookup and synthesis run behind playback controls. Captions show the final pronunciation-expanded script. Pause, replay, seek and Next stay deliberate. The engine, runtime setup, voice and style no longer appear on each section. Optional transcript/pronunciation editing remains beside the section. For Google, inspect the exact text and provider terms and consent before sending; choosing the engine alone never authorizes a request. No cloud fallback is used.
 
 Validate across two answers and app restart. Changing Connections during a request must invalidate its review and prevent a stale result from playing. Export must scan the selected connection's matching audio without generating speech. Setup/key updates must refresh the open player when Connections closes. Human speech quality and code-name pronunciation still require listening review.
+
+## Complete progressive scripts — October 17
+
+New progressive answer checkpoints use presentation version 2. Reading and
+saved speech contain all distinct grounded claim sentences in order, including
+conditions, later error cases and visible inference labels. The complete copy
+must fit 20–4,000 UTF-8 bytes. An oversized proposal is rejected as a whole with
+`presentationLimit`; the agent must split it rather than receiving a silently
+shortened script. Historical version-1 checkpoints retain their original copy
+when reopened; they are not upgraded or regenerated on read.
+
+For a section with no saved narration edits, the player expands underscores,
+camel-case boundaries and Rust namespace separators into words, and removes
+backticks around simple names. This is a narrow pronunciation rule; it does not
+rewrite facts, interpret expressions or establish semantic accuracy. Dotted
+names, paths and URLs remain unchanged. User-edited transcripts and explicit
+pronunciations remain authoritative. The cache scan for offline export uses the
+same default script as the player; the exact prepared text remains visible.
+
+Regressions cover the earlier Fontdone sentence-loss case and immutable legacy
+replay. Fresh generated content, actual Pocket output, pacing and comprehension
+still require the review above. Existing incomplete drafts remain incomplete.

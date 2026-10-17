@@ -8,6 +8,7 @@ use std::sync::Mutex;
 
 pub(crate) const MAX_PROPOSAL_BYTES: usize = 32_768;
 pub(crate) const PROPOSAL_VERSION: &str = "answerSectionV1";
+const CURRENT_CHECKPOINT_VERSION: u32 = 2;
 const MAX_SECTIONS: usize = 6;
 const MAX_ATTEMPTS: usize = 8;
 const MAX_ANSWERS: usize = 8;
@@ -356,6 +357,7 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "identifierProse"
                             | "identifierEvidence"
                             | "evidenceIdentifier"
+                            | "presentationLimit"
                             | "sectionValidation"
                     )
                 })
@@ -534,6 +536,21 @@ impl ActiveAnswer {
         runtime: &CodexReviewRuntime,
         cancelled: &AtomicBool,
     ) -> Result<PreparedSection, String> {
+        self.prepare_with_checkpoint_version(ledger, arguments, manifest, runtime, cancelled, CURRENT_CHECKPOINT_VERSION)
+    }
+
+    fn prepare_with_checkpoint_version(
+        &self,
+        ledger: &Ledger,
+        arguments: &str,
+        manifest: &snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        cancelled: &AtomicBool,
+        checkpoint_version: u32,
+    ) -> Result<PreparedSection, String> {
+        if !matches!(checkpoint_version, 1 | 2) {
+            return Err("Unsupported answer presentation version.".into());
+        }
         ledger.check(manifest, runtime, cancelled)?;
         if self.value.outcome != Outcome::Working
             || !same_binding(&self.value.binding, &ledger.record.binding)?
@@ -605,13 +622,19 @@ impl ActiveAnswer {
                                     &manifest.summary.snapshot_id,
                                 )
                                 .unwrap_or(None);
-                                match chapter_generation::canonicalize_cited_workspace_overview(
+                                let canonicalize = if checkpoint_version == 1 {
+                                    chapter_generation::canonicalize_cited_workspace_overview
+                                } else {
+                                    chapter_generation::canonicalize_complete_answer_section
+                                };
+                                match canonicalize(
                                     &manifest.summary.project_id,
                                     manifest,
                                     syntax.as_ref(),
                                     &sources,
                                     &resolved,
                                 ) {
+                                    Err(error) if error == chapter_generation::COMPLETE_CLAIMS_LIMIT_ERROR => findings = finding("presentationLimit"),
                                     Err(_) => findings = finding("sectionValidation"),
                                     Ok(mut revision) => {
                                         ledger.verify_revision(
@@ -639,7 +662,7 @@ impl ActiveAnswer {
                                                 chapters::ValidationStatus::Valid;
                                             let id = format!("generation:{}", Uuid::new_v4());
                                             next.sections.push(PublishedSection {
-                                                checkpoint_version: 1,
+                                                checkpoint_version,
                                                 key: proposal.section_key,
                                                 order: proposal.order,
                                                 supersedes: proposal.previous_generation_id,
@@ -942,7 +965,7 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
             .map(|s| &s.key)
             .collect::<BTreeSet<_>>()
             .len();
-        if section.checkpoint_version != 1
+        if !matches!(section.checkpoint_version, 1 | 2)
             || checkpoint.schema_version != 3
             || !same_binding(&value.binding, &checkpoint.binding)?
             || checkpoint.status != Status::Active
@@ -1035,7 +1058,12 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
                 return Err("The section cites code outside its delivered checkpoint.".into());
             }
         };
-        let rebuilt = chapter_generation::canonicalize_cited_workspace_overview(
+        let canonicalize = if section.checkpoint_version == 1 {
+            chapter_generation::canonicalize_cited_workspace_overview
+        } else {
+            chapter_generation::canonicalize_complete_answer_section
+        };
+        let rebuilt = canonicalize(
             &value.binding.project_id,
             &manifest,
             syntax.as_ref(),

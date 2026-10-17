@@ -7,7 +7,7 @@ import {
   loadReviewedNarrationAudio,
   type ChapterRevision,
 } from './lib/commands';
-import { parseNarrationPreferences } from './lib/narration';
+import { defaultNarrationText, parseNarrationPreferences } from './lib/narration';
 import { applyVoiceConnection } from './lib/voiceConnection';
 import { useVoiceConnection } from './lib/voiceConnectionStore';
 import { errorMessageOr } from './lib/errorMessage';
@@ -121,7 +121,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
             unavailable = true;
             continue;
           }
-          const preferences = applyVoiceConnection(parseNarrationPreferences(serialized, section.spokenText), voiceConnection);
+          const preferences = applyVoiceConnection(parseNarrationPreferences(serialized, defaultNarrationText(section.spokenText)), voiceConnection);
           if (!preferences.spokenText.trim()) continue;
           let reviewId: string | null = null;
           try {

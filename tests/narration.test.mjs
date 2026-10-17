@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import {
   applyPronunciationLexicon,
+  defaultNarrationText,
   DEFAULT_NARRATION_STYLE,
   DEFAULT_NARRATION_VOICE,
   narrationPreferencesMatch,
@@ -14,6 +16,37 @@ const preferences = (overrides = {}) => ({
   style: 'Warm',
   lexicon: [{ name: 'cacheKey', sayAs: 'cache key', include: true }],
   ...overrides,
+});
+
+describe('default code-name pronunciation', () => {
+  it('keeps every sentence and numeric condition while expanding code names', () => {
+    const script = 'The `Font::memory_face` method calls parseBDF. If face_index exceeds 3, InvalidFont is returned. Otherwise the HTTPClient keeps the original error.';
+    assert.equal(defaultNarrationText(script), 'The Font memory face method calls parse BDF. If face index exceeds 3, Invalid Font is returned. Otherwise the HTTP Client keeps the original error.');
+  });
+
+  it('leaves paths, URLs, expressions and embedded names intact', () => {
+    const script = 'Read src/file_name.rs or FileName.swift and https://example.com/file_name. Keep `x != 0` and éface_index unchanged. memory_face_extra is a separate name.';
+    assert.equal(defaultNarrationText(script), 'Read src/file_name.rs or FileName.swift and https://example.com/file_name. Keep `x != 0` and éface_index unchanged. memory face extra is a separate name.');
+  });
+
+  it('never rewrites saved user scripts or explicit pronunciation choices', () => {
+    const fallback = defaultNarrationText('memory_face rejects face_index.');
+    const saved = parseNarrationPreferences(JSON.stringify({ backend: 'pocket-tts', spokenText: 'My edited memory_face script.', lexicon: [{ name: 'memory_face', sayAs: 'memory face function', include: true }] }), fallback);
+    assert.equal(saved.spokenText, 'My edited memory_face script.');
+    assert.equal(applyPronunciationLexicon(saved.spokenText, saved.lexicon), 'My edited memory face function script.');
+    assert.equal(parseNarrationPreferences(null, fallback).spokenText, 'memory face rejects face index.');
+  });
+
+  it('preserves all reviewed Fontdone validation and fallback sentences', () => {
+    const artifact = JSON.parse(readFileSync(new URL('../docs/acceptance/artifacts/2026-10-17-fontdone-progressive-partial.json', import.meta.url)));
+    const section = artifact.answer.sections[1].preview.revision.sections[0];
+    const complete = section.prose;
+    const spoken = defaultNarrationText(complete);
+    assert.ok(complete.length > 1_000);
+    for (const phrase of ['low 16 bits', 'bits 16 through 30', 'at least 17 bytes', 'at least 118 bytes', 'shorter inputs', 'four-byte offset per face', '12-byte offset table', 'zero-table directory']) assert.ok(spoken.includes(phrase), phrase);
+    assert.ok(spoken.includes('preserve the original True Type error'));
+    assert.ok(!spoken.includes('resolve_face_index'));
+  });
 });
 
 describe('narration cache request snapshots', () => {

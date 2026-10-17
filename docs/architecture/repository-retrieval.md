@@ -123,4 +123,15 @@ Workspace reading and narration are built from complete sentences in validated c
 
 Progressive sections are independently admitted and atomically retained before reader events. A strict final manifest names current section identities; it cannot supply a replacement chapter. Draft adoption and restart reconciliation are local/idempotent. The reader appends stable cards without selecting newly arriving sections or starting narration. Native ownership, terminal outcomes, exact proposal/final-response retention and explicit bounded receipt management are described in the [reader integration checkpoint](../acceptance/2026-10-17-progressive-reader-integration.md).
 
+New section checkpoints use version 2 presentation: all distinct anchored claim
+sentences become reading and saved speech in order, within a complete 4,000-byte
+section limit. `presentationLimit` rejects oversized copy without publishing a
+truncated section. Version-1 checkpoints retain their original sentence
+selection policy during independent replay; changing a stored checkpoint version
+does not recertify its content. The request fingerprint includes the presentation
+policy and checkpoint version. Both versions still require the complete native
+source, claim, diagram and origin validation. Preserving all sentences fixes
+information loss; it does not prove that the generated claims are true or that
+the narration sounds natural.
+
 Workspace chat uses this route in source. Native tests do not establish a working packaged product or the Fontdone broad/focused quality gates. Track those in [the Codex retrieval task](../kata-tasks/70-codex-retrieval-tools.md). Legacy chapter, plan, section and Git dialogs retain their existing fixed-evidence contracts.

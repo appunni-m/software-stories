@@ -939,7 +939,7 @@ pub fn canonicalize_repository_overview(
     allowed_relationship_ids: &HashSet<String>,
     response_text: &str,
 ) -> Result<ChapterRevision, String> {
-    canonicalize_overview(project_id, manifest, index, selected_sources, allowed_relationship_ids, response_text, false, None)
+    canonicalize_overview(project_id, manifest, index, selected_sources, allowed_relationship_ids, response_text, OverviewPresentation::Supplied, None)
 }
 
 /// Render workspace overview copy from exact validated claim sentences. The
@@ -953,7 +953,7 @@ pub(crate) fn canonicalize_workspace_overview(
     allowed_relationship_ids: &HashSet<String>,
     response_text: &str,
 ) -> Result<ChapterRevision, String> {
-    canonicalize_overview(project_id, manifest, index, selected_sources, allowed_relationship_ids, response_text, true, None)
+    canonicalize_overview(project_id, manifest, index, selected_sources, allowed_relationship_ids, response_text, OverviewPresentation::ClaimSummaryV1, None)
 }
 
 pub(crate) fn canonicalize_cited_workspace_overview(
@@ -963,7 +963,28 @@ pub(crate) fn canonicalize_cited_workspace_overview(
     selected_sources: &[SnapshotSource],
     response: &crate::native_citations::Resolved,
 ) -> Result<ChapterRevision, String> {
-    canonicalize_overview(project_id, manifest, index, selected_sources, &HashSet::new(), response.text(), true, Some(response))
+    canonicalize_overview(project_id, manifest, index, selected_sources, &HashSet::new(), response.text(), OverviewPresentation::ClaimSummaryV1, Some(response))
+}
+
+pub(crate) const COMPLETE_CLAIMS_LIMIT_ERROR: &str = "A complete answer section must contain 20 to 4,000 UTF-8 bytes of grounded sentences; split it into smaller complete sections without omitting behavior.";
+
+/// New progressive checkpoints retain every grounded sentence in both reading
+/// and speech. Historical checkpoints keep their original summary policy.
+pub(crate) fn canonicalize_complete_answer_section(
+    project_id: &str,
+    manifest: &SnapshotManifest,
+    index: Option<&SnapshotIndex>,
+    selected_sources: &[SnapshotSource],
+    response: &crate::native_citations::Resolved,
+) -> Result<ChapterRevision, String> {
+    canonicalize_overview(project_id, manifest, index, selected_sources, &HashSet::new(), response.text(), OverviewPresentation::CompleteClaimsV2, Some(response))
+}
+
+#[derive(Clone, Copy)]
+enum OverviewPresentation {
+    Supplied,
+    ClaimSummaryV1,
+    CompleteClaimsV2,
 }
 
 fn canonicalize_overview(
@@ -973,7 +994,7 @@ fn canonicalize_overview(
     selected_sources: &[SnapshotSource],
     allowed_relationship_ids: &HashSet<String>,
     response_text: &str,
-    claim_presentation: bool,
+    presentation: OverviewPresentation,
     native_citations: Option<&crate::native_citations::Resolved>,
 ) -> Result<ChapterRevision, String> {
     if response_text.len() > chapters::MAX_GENERATED_RESPONSE_BYTES {
@@ -1061,7 +1082,16 @@ fn canonicalize_overview(
             visual: visual.map(Into::into),
             hotspots,
         };
-        if claim_presentation {
+        if matches!(presentation, OverviewPresentation::CompleteClaimsV2) {
+            let complete = chapters::overview_claim_sentences(&section.claims).join(" ");
+            if !(20..=4_000).contains(&complete.len()) {
+                return Err(COMPLETE_CLAIMS_LIMIT_ERROR.to_owned());
+            }
+            // Never select a convenient subset: qualifiers, later error cases
+            // and inference labels must survive in the exact saved script.
+            section.prose = complete.clone();
+            section.spoken_text = complete;
+        } else if matches!(presentation, OverviewPresentation::ClaimSummaryV1) {
             let sentences = chapters::overview_claim_sentences(&section.claims);
             // Keep whole sentences; never truncate into an unsupported fragment.
             let mut prose = String::new();

@@ -30,6 +30,7 @@ import {
 } from './lib/commands';
 import {
   parseNarrationPreferences,
+  defaultNarrationText,
   narrationPreferencesMatch,
   type NarrationPreferencesSnapshot,
 } from './lib/narration';
@@ -66,7 +67,8 @@ interface LoadedTrack {
 
 export function NarrationPlayer({ projectId, chapterId, revisionId, section, restorePosition, transcriptPosition, onPlaybackPositionChange, onTranscriptPositionChange, autoPlay = false }: NarrationPlayerProps) {
   const storageKey = `code-atlas:narration:${projectId}:${chapterId}:${revisionId}:${section.sectionId}`;
-  const preferences = useMemo(() => readPreferences(storageKey, section.spokenText), [storageKey, section.spokenText]);
+  const fallbackScript = useMemo(() => defaultNarrationText(section.spokenText), [section.spokenText]);
+  const preferences = useMemo(() => readPreferences(storageKey, fallbackScript), [storageKey, fallbackScript]);
   const [draft, setDraft] = useState<NarrationPreferences>(preferences);
   const voiceConnection = useVoiceConnection();
   const localNarration = draft.backend === 'pocket-tts';
@@ -111,12 +113,12 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   const lastRouteWriteRef = useRef(0);
 
   useEffect(() => {
-    setDraft(readPreferences(storageKey, section.spokenText));
+    setDraft(readPreferences(storageKey, fallbackScript));
     setReview(null);
     setTrack(null);
     setCurrentTime(0);
     setDuration(0);
-  }, [storageKey, section.spokenText]);
+  }, [storageKey, fallbackScript]);
 
   useEffect(() => {
     if (!transcriptRef.current) return;

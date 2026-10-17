@@ -122,6 +122,78 @@ fn publish(
     generation
 }
 
+#[test]
+fn complete_presentation_keeps_every_condition_and_later_sentence() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    let id = read(&mut l, &f, &r, &c);
+    let mut a = start(&l, &f, &r, &c);
+    let mut raw: Value = serde_json::from_str(&proposal(&id, "entry", 0)).unwrap();
+    let complete = "The `greeting` function formats the supplied `name`. It uses the input directly. The greeting includes the supplied name. An empty name still reaches the same formatting operation. The function returns the resulting message.";
+    raw["section"]["claims"][0]["prose"] = json!(complete);
+    publish(&mut a, &l, &raw.to_string(), &f, &r, &c);
+    let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+    assert_eq!(saved.sections[0].checkpoint_version, 2);
+    let section = &saved.sections[0].preview.revision.sections[0];
+    assert_eq!(section.prose, complete);
+    assert_eq!(section.spoken_text, complete);
+}
+
+#[test]
+fn oversized_complete_presentation_is_rejected_without_publishing_a_summary() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    let id = read(&mut l, &f, &r, &c);
+    let mut a = start(&l, &f, &r, &c);
+    let mut raw: Value = serde_json::from_str(&proposal(&id, "entry", 0)).unwrap();
+    let mut claims = Vec::new();
+    for index in 0..4 {
+        let mut claim = raw["section"]["claims"][0].clone();
+        claim["prose"] = json!(format!("The greeting function {} in case {index}.", "formats the supplied name into a message and ".repeat(30)));
+        claims.push(claim);
+    }
+    raw["section"]["claims"] = json!(claims);
+    let prepared = a.prepare(&l, &raw.to_string(), &f.manifest, &r, &c).unwrap();
+    assert_eq!(prepared.findings, vec![json!({"location":"/section","code":"presentationLimit"})]);
+    assert!(prepared.generation_id.is_none());
+    a.commit(&l, prepared, &f.manifest, &r, &c).unwrap();
+    let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+    assert!(saved.sections.is_empty());
+    assert_eq!(saved.attempts[0].arguments, raw.to_string());
+}
+
+#[test]
+fn historical_summary_checkpoints_are_not_reinterpreted_as_complete_scripts() {
+    for version in [1, 2] {
+        let f = Fixture::new();
+        let (mut l, r, c) = setup(&f);
+        let id = read(&mut l, &f, &r, &c);
+        let mut a = start(&l, &f, &r, &c);
+        let mut raw: Value = serde_json::from_str(&proposal(&id, "entry", 0)).unwrap();
+        raw["section"]["claims"][0]["prose"] = json!("The `greeting` function formats the supplied `name`. It returns the resulting message.");
+        let raw = raw.to_string();
+        let prepared = a.prepare_with_checkpoint_version(&l, &raw, &f.manifest, &r, &c, version).unwrap();
+        assert!(prepared.findings.is_empty());
+        a.commit(&l, prepared, &f.manifest, &r, &c).unwrap();
+        let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+        let script = &saved.sections[0].preview.revision.sections[0].spoken_text;
+        if version == 1 {
+            assert_eq!(script, "It returns the resulting message.");
+        } else {
+            assert_eq!(script, "The `greeting` function formats the supplied `name`. It returns the resulting message.");
+        }
+        let before = fs::read(&a.path).unwrap();
+        // Exact old proposals remain idempotent under the new write policy.
+        publish(&mut a, &l, &raw, &f, &r, &c);
+        assert_eq!(a.value.sections.len(), 1);
+        assert_eq!(a.value.sections[0].checkpoint_version, version);
+        let mut forged: Value = serde_json::from_slice(&before).unwrap();
+        forged["sections"][0]["checkpointVersion"] = json!(3 - version);
+        fs::write(&a.path, serde_json::to_vec(&forged).unwrap()).unwrap();
+        assert!(inspect(&f.storage, &l.record.binding.operation_id).is_err());
+    }
+}
+
 fn manifest(answer: &ActiveAnswer) -> String {
     json!({"manifestVersion":"answerManifestV1","sections":answer.value.latest_identities(),"incompleteTopics":[]}).to_string()
 }
