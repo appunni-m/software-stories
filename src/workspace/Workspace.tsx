@@ -257,17 +257,16 @@ function Answer(props:AnswerProps){
 function AnswerDiagnostics({project,snapshot,runId}:{project:string;snapshot:string;runId:string}) {
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState<string|null>(null);
+  const [saved,setSaved]=useState(false);
+  useEffect(()=>{setSaved(false);setError(null);},[runId]);
   const download=async()=>{
-    setBusy(true);setError(null);
+    setBusy(true);setError(null);setSaved(false);
     try{
-      const report=await invoke('load_workspace_answer_timing',{projectId:project,snapshotId:snapshot,runId});
-      const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)+'\n'],{type:'application/json'}));
-      const anchor=document.createElement('a');anchor.href=url;anchor.download='code-atlas-timing.json';anchor.hidden=true;
-      document.body.append(anchor);anchor.click();anchor.remove();window.setTimeout(()=>URL.revokeObjectURL(url),0);
+      setSaved(await invoke<boolean>('save_workspace_answer_timing',{projectId:project,snapshotId:snapshot,runId}));
     }catch(failure){setError(errorMessageOr(failure,'Timing diagnostics could not be loaded. Your explanation is preserved.'));}
     finally{setBusy(false);}
   };
-  return <details className="dw-error-details"><summary>Diagnostics</summary><p>Download timings and counters to investigate a slow or incomplete answer. Source code and conversation text are excluded.</p><Button size="1" variant="soft" disabled={busy} onClick={()=>void download()}>{busy?'Preparing…':'Download timing report'}</Button>{error&&<p role="alert">{error}</p>}</details>;
+  return <details className="dw-error-details"><summary>Diagnostics</summary><p>Save timings and counters to investigate a slow or incomplete answer. Source code and conversation text are excluded.</p><Button size="1" variant="soft" disabled={busy} onClick={()=>void download()}>{busy?'Preparing…':'Save timing report'}</Button>{saved&&<p role="status">Timing report saved.</p>}{error&&<p role="alert">{error}</p>}</details>;
 }
 function AnswerStorage(){
   const [open,setOpen]=useState(false);const [answers,setAnswers]=useState<AnswerSummary[]>([]);const [error,setError]=useState<string|null>(null);const [busy,setBusy]=useState<string|null>(null);

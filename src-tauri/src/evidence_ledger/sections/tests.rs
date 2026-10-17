@@ -17,7 +17,9 @@ fn timing_export_keeps_scope_and_legacy_unknowns_without_source_or_inference() {
     let value = serde_json::to_value(report).unwrap();
     assert_eq!(value["answerOutcome"], "interrupted");
     assert!(value["trace"].is_null());
-    assert!(value["publications"][0]["runElapsedMs"].is_null());
+    assert_eq!(value["schemaVersion"], 2);
+    assert!(value["publications"][0]["nativeReadyRunElapsedMs"].is_null());
+    assert!(value["publications"][0].get("candidatePreparedContextElapsedMs").is_some());
     assert_eq!(value["publications"].as_array().unwrap().len(), 1);
     let text = value.to_string();
     for forbidden in [SIMPLE_SOURCE, SIMPLE_PATH, "usr/local", "accountIdentitySha256", "excerpt"] {

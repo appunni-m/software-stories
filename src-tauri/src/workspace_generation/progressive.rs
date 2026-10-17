@@ -325,26 +325,30 @@ pub(crate) struct TimingReport {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct PublicationTiming { order: usize, context_elapsed_ms: u64, run_elapsed_ms: Option<u64> }
+struct PublicationTiming {
+    order: usize,
+    candidate_prepared_context_elapsed_ms: u64,
+    native_ready_run_elapsed_ms: Option<u64>,
+}
 
 pub(crate) fn timing_report(storage: &Path, run: &str, project: &str, snapshot: &str, active: bool) -> Result<TimingReport, String> {
     let answer = reading::scoped(storage, run, project, snapshot)?;
     Ok(TimingReport {
-        schema_version: 1, kind: "code-atlas-generation-timing",
-        scope: "Native observations only. A returned dispatch is not proof of a complete or useful answer. No source, question, account, executable path or model reasoning is included.",
+        schema_version: 2, kind: "code-atlas-generation-timing",
+        scope: "Native observations only. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption or usefulness. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
         run_id: run.into(),
         answer_outcome: if !active && answer.outcome == Outcome::Working { Outcome::Interrupted } else { answer.outcome },
         worker_active: active, trace: crate::generation_timing::inspect(storage, run)?,
         publications: answer.sections.iter().map(|section| PublicationTiming {
-            order: section.order, context_elapsed_ms: section.published_elapsed_ms,
-            run_elapsed_ms: section.published_run_elapsed_ms,
+            order: section.order, candidate_prepared_context_elapsed_ms: section.published_elapsed_ms,
+            native_ready_run_elapsed_ms: section.published_run_elapsed_ms,
         }).collect(),
         unmeasured: ["rendererQueue", "connectionPreparationBeforeManager", "rendererAdoption", "narrationReadiness", "providerWaitVersusModelReasoning"],
     })
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub(crate) fn load_workspace_answer_timing(
+pub(crate) async fn load_workspace_answer_timing(
     app: AppHandle,
     manager: State<'_, codex_agent::CodexAgentManager>,
     run_id: String,
@@ -352,7 +356,23 @@ pub(crate) fn load_workspace_answer_timing(
     snapshot_id: String,
 ) -> Result<TimingReport, String> {
     let storage = app_data_directory(&app)?;
-    manager.with_operation_state(&run_id, |active| timing_report(&storage, &run_id, &project_id, &snapshot_id, active))
+    let manager = manager.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        manager.with_operation_state(&run_id, |active| timing_report(&storage, &run_id, &project_id, &snapshot_id, active))
+    }).await.map_err(|_| "Timing diagnostics could not be loaded.")?
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn save_workspace_answer_timing(
+    app: AppHandle,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    run_id: String,
+    project_id: String,
+    snapshot_id: String,
+) -> Result<bool, String> {
+    let report = load_workspace_answer_timing(app.clone(), manager, run_id, project_id, snapshot_id).await?;
+    let bytes = serde_json::to_vec_pretty(&report).map_err(|_| "Timing diagnostics could not be encoded.")?;
+    crate::local_export::save(app, "code-atlas-timing.json".into(), "json", bytes, 256 * 1024).await
 }
 
 #[tauri::command]

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { AlertTriangle, Download, FileCode2, X } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import {
   buildNarrationRequestReview,
   discardNarrationRequestReview,
@@ -208,16 +209,21 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
         includeNarrationAudio,
         narrationAudio: cachedNarration,
       });
-      const blob = new Blob([result.html], { type: 'text/html;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = result.filename;
-      anchor.hidden = true;
-      document.body.append(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      if (isNativeRuntime()) {
+        const saved = await invoke<boolean>('save_offline_guide', { filename: result.filename, html: result.html });
+        if (!saved) return;
+      } else {
+        const blob = new Blob([result.html], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = result.filename;
+        anchor.hidden = true;
+        document.body.append(anchor);
+        anchor.click();
+        anchor.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      }
       setOpen(false);
     } catch (exportError) {
       setError(errorMessageOr(exportError, 'The offline guide could not be created.'));
