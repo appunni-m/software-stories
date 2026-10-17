@@ -24,7 +24,7 @@ No task is closed; live Kata remains 73 records, 50 open and 23 closed.
 
 **Priority update — 2026-10-16:** Deliver Codex first through [agent-first generation](kata-tasks/45-agent-first-generation.md), Kata `2r6n` (priority 0). The user deferred Claude (`8gqw`, priority 2); it no longer blocks the current Codex gate, but remains a direct dependency of full M7. Building, testing and a small synthetic installed-account Codex validation are authorized. Manual handoffs and direct API results cannot qualify Codex. See [Agent generation](AGENT_GENERATION.md).
 
-## Latest broad qualification — 17 October
+## Earlier short-reference qualification — 17 October
 
 The fresh short-reference Fontdone run still fails broad completion: one draft,
 160.010 s and an uncertain final read. Independent review finds missing branch
@@ -168,3 +168,16 @@ native correction for historical enum digests and known planning request
 versions. Real saved route/chapter replay and explicit synthetic upgrades are
 covered separately. [Evidence and pending packaged qualification](acceptance/2026-10-17-saved-route-replay.md).
 All **73 records remain: 50 open, 23 closed**; no task is closed here.
+
+## Latest broad result and narration ownership — 17 October
+
+The fresh `97e420d` Fontdone run remains Partial near ten minutes, preserving
+three drafts through normal-gray rasterization/bitmap publication. Exact source
+checks pass for all 29 anchors, but misleading arrows/code-card scenes and dense
+narration remain tracked in `3bz5`, `j53m` and `q0sm`. [Result and pending work](acceptance/2026-10-17-fontdone-source-value.md).
+
+`q6g3` now implements one finite worker per complete reviewed script, model/voice
+reuse within it, four waiting slots and cancellable bounded stdin. `dbmd` retains
+installed cache/player/export and listening acceptance. [Exact evidence and
+limits](acceptance/2026-10-17-pocket-whole-script.md). The Mac remains locked;
+no task is closed, and live status remains 73 records / 50 open / 23 closed.

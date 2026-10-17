@@ -16,6 +16,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tokio::sync::oneshot;
 
+mod queue;
+
 #[cfg(unix)]
 use std::os::unix::{fs::PermissionsExt, process::CommandExt};
 
@@ -33,11 +35,15 @@ const REQUIREMENTS: [&str; 5] = [
 ];
 const MAX_WAV_BYTES: usize = 12 * 1024 * 1024;
 const MAX_TEXT_BYTES: usize = 16_000;
+const MAX_SEGMENT_BYTES: usize = 4_000;
+const MAX_SEGMENTS: usize = 64;
+const MAX_PACKET_BYTES: usize = MAX_TEXT_BYTES * 6 + 1024;
 const ASSET_NAMES: [&str; 3] = ["model.safetensors", "tokenizer.json", "alba.safetensors"];
 static BUSY: AtomicBool = AtomicBool::new(false);
 static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
 static ACTIVE_PROCESS: Mutex<Option<u32>> = Mutex::new(None);
 static PHASE: Mutex<&'static str> = Mutex::new("idle");
+static WORKER_QUEUE: queue::WorkerQueue = queue::WorkerQueue::new();
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -192,6 +198,7 @@ pub(crate) fn status(storage: &Path) -> PocketTtsStatus {
 /// exit event; the worker thread normally reaps the direct child on its next poll.
 pub(crate) fn shutdown() {
     SHUTTING_DOWN.store(true, Ordering::Release);
+    WORKER_QUEUE.close();
     if let Ok(active) = ACTIVE_PROCESS.lock() {
         if let Some(pid) = *active {
             kill_process_group(pid);
@@ -213,19 +220,13 @@ pub(crate) async fn setup(
 }
 
 /// Generate one section with a finite, offline worker and return validated PCM WAV.
-pub(crate) async fn synthesize(
+pub(crate) async fn synthesize_segments(
     storage: &Path,
-    text: &str,
+    segments: &[String],
     cancellation: &mut oneshot::Receiver<()>,
 ) -> Result<Vec<u8>, ProviderFailure> {
-    if text.trim().is_empty() || text.len() > MAX_TEXT_BYTES {
-        return Err(failure(
-            ProviderFailureKind::InvalidReview,
-            "Pocket TTS needs 1 to 16,000 UTF-8 bytes of narration text.",
-        ));
-    }
+    let packet = section_packet(segments)?;
     let runtime = root(storage);
-    let text = text.to_owned();
     run_exclusive(cancellation, move |cancelled| {
         if !installed(&runtime) {
             return Err(failure(ProviderFailureKind::UnavailableModel, "Set up Pocket TTS before generating narration. Missing or changed runtime files require setup again."));
@@ -236,13 +237,45 @@ pub(crate) async fn synthesize(
         let _cleanup = OutputCleanup(output.clone());
         let _ = fs::remove_file(&output);
         let mut command = worker_command(&runtime, "synthesize", true);
-        run_child(&mut command, Some(text.as_bytes()), &cancelled, Duration::from_secs(300),
+        run_child(&mut command, Some(&packet), &cancelled, Duration::from_secs(300),
             "Pocket TTS could not generate audio. Run setup again if its files changed; the transcript and prior audio remain available.")?;
         let bytes = bounded_read(&output, MAX_WAV_BYTES).ok_or_else(|| failure(
             ProviderFailureKind::ProviderResponseTooLarge, "Pocket TTS returned missing or oversized audio. The transcript and prior audio remain available."))?;
         validate_wav(&bytes)?;
         Ok(bytes)
     }).await
+}
+
+fn section_packet(segments: &[String]) -> Result<Vec<u8>, ProviderFailure> {
+    if segments.is_empty()
+        || segments.len() > MAX_SEGMENTS
+        || segments
+            .iter()
+            .try_fold(0_usize, |sum, text| sum.checked_add(text.len()))
+            .is_none_or(|total| total > MAX_TEXT_BYTES)
+        || segments
+            .iter()
+            .any(|text| text.trim().is_empty() || text.len() > MAX_SEGMENT_BYTES)
+    {
+        return Err(failure(
+            ProviderFailureKind::InvalidReview,
+            "Pocket TTS needs the reviewed segments, each at most 4,000 UTF-8 bytes and at most 16,000 bytes in total.",
+        ));
+    }
+    let packet = serde_json::to_vec(&serde_json::json!({"schemaVersion":1,"segments":segments}))
+        .map_err(|_| {
+            failure(
+                ProviderFailureKind::InvalidReview,
+                "The local narration request could not be encoded.",
+            )
+        })?;
+    if packet.len() > MAX_PACKET_BYTES {
+        return Err(failure(
+            ProviderFailureKind::InvalidReview,
+            "The local narration request exceeds its limit.",
+        ));
+    }
+    Ok(packet)
 }
 
 async fn run_exclusive<T: Send + 'static>(
@@ -258,17 +291,15 @@ async fn run_exclusive<T: Send + 'static>(
             "Pocket TTS currently requires an Apple Silicon Mac.",
         ));
     }
-    BUSY.compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
-        .map_err(|_| {
-            failure(
-                ProviderFailureKind::ReviewUnavailable,
-                "Pocket TTS is already working. Wait for it or cancel the active request.",
-            )
-        })?;
+    let permit = WORKER_QUEUE.acquire(cancellation).await?;
+    if SHUTTING_DOWN.load(Ordering::Acquire) {
+        return Err(cancelled_failure());
+    }
+    BUSY.store(true, Ordering::Release);
     let cancelled = Arc::new(AtomicBool::new(false));
     let _cancel_on_drop = CancelOnDrop(Arc::clone(&cancelled));
     let task_cancelled = Arc::clone(&cancelled);
-    let lease = OperationLease;
+    let lease = OperationLease { _permit: permit };
     let mut task = tauri::async_runtime::spawn_blocking(move || {
         let _lease = lease;
         operation(task_cancelled)
@@ -285,7 +316,9 @@ async fn run_exclusive<T: Send + 'static>(
     }
 }
 
-struct OperationLease;
+struct OperationLease {
+    _permit: queue::WorkerPermit<'static>,
+}
 impl Drop for OperationLease {
     fn drop(&mut self) {
         set_phase("idle");
@@ -426,9 +459,8 @@ fn run_child(
     timeout: Duration,
     message: &'static str,
 ) -> Result<(), ProviderFailure> {
-    if cancelled.load(Ordering::Acquire) || SHUTTING_DOWN.load(Ordering::Acquire) {
-        return Err(cancelled_failure());
-    }
+    let started = Instant::now();
+    check_process_boundary(cancelled, started, timeout)?;
     command.stdin(if input.is_some() {
         Stdio::piped()
     } else {
@@ -452,26 +484,10 @@ fn run_child(
         reaped: false,
     };
     if let Some(input) = input {
-        let mut stdin = child
-            .child
-            .stdin
-            .take()
-            .ok_or_else(|| failure(ProviderFailureKind::UnavailableModel, message))?;
-        stdin
-            .write_all(input)
-            .map_err(|_| failure(ProviderFailureKind::UnavailableModel, message))?;
+        write_child_input(&mut child, input, cancelled, started, timeout, message)?;
     }
-    let started = Instant::now();
     loop {
-        if cancelled.load(Ordering::Acquire) || SHUTTING_DOWN.load(Ordering::Acquire) {
-            return Err(cancelled_failure());
-        }
-        if started.elapsed() >= timeout {
-            return Err(failure(
-                ProviderFailureKind::RequestTimedOut,
-                "Pocket TTS reached its local time limit and was stopped. The transcript and prior audio remain available.",
-            ));
-        }
+        check_process_boundary(cancelled, started, timeout)?;
         let mut active = ACTIVE_PROCESS
             .lock()
             .map_err(|_| failure(ProviderFailureKind::UnavailableModel, message))?;
@@ -492,6 +508,74 @@ fn run_child(
             Err(_) => return Err(failure(ProviderFailureKind::UnavailableModel, message)),
         }
     }
+}
+
+fn check_process_boundary(
+    cancelled: &AtomicBool,
+    started: Instant,
+    timeout: Duration,
+) -> Result<(), ProviderFailure> {
+    if cancelled.load(Ordering::Acquire) || SHUTTING_DOWN.load(Ordering::Acquire) {
+        return Err(cancelled_failure());
+    }
+    if started.elapsed() >= timeout {
+        return Err(failure(
+            ProviderFailureKind::RequestTimedOut,
+            "Pocket TTS reached its local time limit and was stopped. The transcript and prior audio remain available.",
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn write_child_input(
+    child: &mut ManagedChild,
+    input: &[u8],
+    cancelled: &AtomicBool,
+    started: Instant,
+    timeout: Duration,
+    message: &'static str,
+) -> Result<(), ProviderFailure> {
+    use std::os::fd::AsRawFd;
+    let mut stdin = child
+        .child
+        .stdin
+        .take()
+        .ok_or_else(|| failure(ProviderFailureKind::UnavailableModel, message))?;
+    let fd = stdin.as_raw_fd();
+    // SAFETY: `stdin` exclusively owns this live descriptor for both calls and
+    // all writes below. fcntl takes integer arguments here, no pointers. Keep
+    // existing flags; no other thread closes or reuses this descriptor.
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags < 0 || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        return Err(failure(ProviderFailureKind::UnavailableModel, message));
+    }
+    let mut cursor = 0;
+    while cursor < input.len() {
+        check_process_boundary(cancelled, started, timeout)?;
+        match stdin.write(&input[cursor..]) {
+            Ok(0) => return Err(failure(ProviderFailureKind::UnavailableModel, message)),
+            Ok(bytes) => cursor += bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                std::thread::sleep(Duration::from_millis(10))
+            }
+            Err(_) => return Err(failure(ProviderFailureKind::UnavailableModel, message)),
+        }
+    }
+    Ok(()) // Closing stdin delivers EOF before waiting for the finite worker.
+}
+
+#[cfg(not(unix))]
+fn write_child_input(
+    _: &mut ManagedChild,
+    _: &[u8],
+    _: &AtomicBool,
+    _: Instant,
+    _: Duration,
+    message: &'static str,
+) -> Result<(), ProviderFailure> {
+    Err(failure(ProviderFailureKind::UnavailableModel, message))
 }
 
 struct ManagedChild {
@@ -589,6 +673,109 @@ fn cancelled_failure() -> ProviderFailure {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reviewed_packet_keeps_order_text_and_utf8_bounds() {
+        let segments = vec!["é".repeat(2_000); 4];
+        let bytes = section_packet(&segments).unwrap();
+        let decoded: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(
+            decoded,
+            serde_json::json!({"schemaVersion":1,"segments":segments})
+        );
+        // JSON escaping can expand valid source text without widening its limit.
+        let escaped = vec!["\u{0001}".repeat(4_000); 4];
+        let bytes = section_packet(&escaped).unwrap();
+        assert!(bytes.len() > MAX_TEXT_BYTES);
+        assert!(bytes.len() <= MAX_PACKET_BYTES);
+        for invalid in [
+            vec![],
+            vec![" ".into()],
+            vec!["é".repeat(2_001)],
+            vec!["a".repeat(4_000); 5],
+            vec!["a".into(); MAX_SEGMENTS + 1],
+        ] {
+            assert_eq!(
+                section_packet(&invalid).unwrap_err().kind,
+                ProviderFailureKind::InvalidReview
+            );
+        }
+    }
+
+    #[cfg(unix)]
+    static PROCESS_TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    #[cfg(unix)]
+    fn blocked_input_failure(cancel_after: Option<Duration>) -> ProviderFailure {
+        let _serial = PROCESS_TEST_LOCK.lock().unwrap();
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let mut command = Command::new("/bin/sleep");
+        command
+            .arg("30")
+            .process_group(0)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        let process = command.spawn().unwrap();
+        let pid = process.id();
+        *ACTIVE_PROCESS.lock().unwrap() = Some(pid);
+        let mut child = ManagedChild {
+            child: process,
+            reaped: false,
+        };
+        let trigger = cancel_after.map(|delay| {
+            let cancelled = Arc::clone(&cancelled);
+            std::thread::spawn(move || {
+                std::thread::sleep(delay);
+                cancelled.store(true, Ordering::Release);
+            })
+        });
+        let started = Instant::now();
+        let result = write_child_input(
+            &mut child,
+            &vec![b'x'; 1_048_576],
+            &cancelled,
+            started,
+            Duration::from_millis(300),
+            "fixed synthetic failure",
+        );
+        drop(child);
+        if let Some(trigger) = trigger {
+            trigger.join().unwrap();
+        }
+        assert!(started.elapsed() < Duration::from_secs(3));
+        assert_eq!(*ACTIVE_PROCESS.lock().unwrap(), None);
+        let mut status = 0;
+        // SAFETY: the captured PID belongs to the direct child above. waitpid
+        // writes only to this valid local integer. Drop must already reap it.
+        assert_eq!(
+            unsafe { libc::waitpid(pid as i32, &mut status, libc::WNOHANG) },
+            -1
+        );
+        assert_eq!(
+            std::io::Error::last_os_error().raw_os_error(),
+            Some(libc::ECHILD)
+        );
+        result.unwrap_err()
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn stalled_input_deadline_stops_and_reaps_owned_child() {
+        assert_eq!(
+            blocked_input_failure(None).kind,
+            ProviderFailureKind::RequestTimedOut
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn stalled_input_cancellation_stops_and_reaps_owned_child() {
+        assert_eq!(
+            blocked_input_failure(Some(Duration::from_millis(60))).kind,
+            ProviderFailureKind::RequestCancelled
+        );
+    }
 
     #[test]
     fn streaming_worker_uses_thread_compatible_no_grad_context() {

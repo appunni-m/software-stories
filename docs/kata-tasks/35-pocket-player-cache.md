@@ -66,3 +66,22 @@ Native observation in the Connections package: header → Voice showed Pocket/Al
 
 
 Final package restart observed: Pocket remained selected and ready; Codex GPT-6 Luna/max resumed without sign-in; root and child cached recordings played directly. Child pause at 2.7s and existing source/answer records survived. The new header visibly names Connections; Stop is disabled during synthesis preparation while Cancel audio remains available. Fresh setup recovery, all cancellation races, voice-change invalidation/export and human listening remain open acceptance work.
+
+## Whole-script worker follow-up — 17 October
+
+The local narration layer now submits all reviewed segments to one finite worker
+and receives one complete validated WAV. Model/voice load once, ordering and
+200 ms joining are unchanged, and no intermediate segment can be cached or
+returned after later failure. The existing worker fingerprint separates new
+reviews/audio from old cache files; Google cache identity and all Voice controls
+remain unchanged. Six deterministic Python tests, native packet/queue/cancellation
+checks and a real isolated 13.08-second worker sample pass. [Scope and exact
+identities](../acceptance/2026-10-17-pocket-whole-script.md).
+
+- [ ] In the replacement app, verify changed-worker review/cache invalidation,
+  unchanged-script reuse, queued and active cancellation, voice switches and
+  whole-output preservation across navigation/window close and restart.
+- [ ] Requalify scene/section playback and selected matching export; record a
+  human review of real code narration. A valid synthetic WAV does not pass these.
+
+Keep this task open; the Mac is still locked and the new bundle is not installed.

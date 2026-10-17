@@ -104,3 +104,21 @@ Mechanical evidence: 368 native tests, 183 frontend tests, production build and 
 The committed-helper GPT-6 Luna/max run publishes three scene-backed drafts but finishes Partial at 491.831 seconds. All 61 calls deliver; eight proposals are exhausted before render dispatch, rasterization and final bitmap publication. All 38 anchors independently match captured bytes/hashes/coordinates. The repeated empty-card defect is absent, but the Optional parse defaults label remains ambiguous and narration remains too technical. This is not human comprehension, speech or complete-repository acceptance. [Unchanged result and targeted review](../acceptance/2026-10-17-scene-v2.md).
 
 Two generic source-value rejections are now exact `sceneSourceValue` findings at the offending element's `/value`, after native rejection and using only native-resolved same-claim excerpts. Both real rejections and a failing-before/passing-after correction regression are preserved. Final mechanical suites: 371 native pass, 13 explicit probes ignored, 184 frontend pass. This follow-up postdates the account artifact; complete account, installed source/scene/Pocket and accessibility evidence remain required. Keep this task open.
+
+## Exact tokens still permit misleading scenes — 17 October
+
+The new source-valid Fontdone result reaches three drafts through rasterization,
+but remains Partial. Its “Geometry and programs” scene places `loca_data` and
+`glyf_data` across an arrow although the narration describes distinct copied
+tables; the final scene singles out the overlap rasterizer without showing its
+branch condition. Most compositions are code-card arrangements, not helpful
+visual explanations. [Exact preserved proposals/scenes and review](../acceptance/2026-10-17-fontdone-source-value.md).
+
+- [ ] Teach relations and changing state through AI-authored representations,
+  including accurate arrows, branch conditions and meaningful examples. Different
+  exact source tokens do not by themselves imply a transformation.
+- [ ] Review the actual narrated scene in context with clickable captured code;
+  keep semantic/human comprehension and Pocket listening gates separate from
+  schema, source grounding or export-link checks.
+
+Keep this task open. The dummy greeting export remains only a packaging demo.

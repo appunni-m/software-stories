@@ -1,0 +1,23 @@
+{
+  "scope": "Real pinned Pocket worker, two explicitly synthetic reviewed segments, isolated output and configuration; read-only reuse of installed assets/interpreter, not clean setup, native cache or human listening acceptance.",
+  "workerSha256": "d9bbbfea984b11c18250e69a06880b595bab9499e618b171f59d84c75069ddac",
+  "modelId": "pocket-tts-3.3.0:english_2026-09:e7205b6e:alba:4e1e0a3e:pcm-v1",
+  "exitCode": 0,
+  "elapsedSeconds": 12.679,
+  "segments": [
+    "The font's bytes first reach a format probe. The loader chooses a parser before an outline can be built.",
+    "After hinting adjusts the outline, rasterization turns its edges into pixel coverage. A bitmap is returned only when rendering succeeds."
+  ],
+  "humanListeningPass": false,
+  "nativeCacheQualification": false,
+  "networkIsolation": "Explicit offline environment and local model config; no network syscall tracing.",
+  "audio": {
+    "sha256": "9a0c5b059b2acfbaea1212a0d0139aa220e9515ef9f49615cc7a4e90c3556fa6",
+    "byteLength": 627884,
+    "channels": 1,
+    "sampleWidth": 2,
+    "sampleRate": 24000,
+    "frames": 313920,
+    "durationSeconds": 13.08
+  }
+}

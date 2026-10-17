@@ -122,3 +122,20 @@ The concrete Fontdone empty-card self-transformation now has a versioned native/
 The preserved Fontdone answer remains Partial after three drafts and eight proposals. Rasterization and bitmap output are explicitly unpublished. Targeted source review confirms BDF/17-byte guard exceptions and required-table versus malformed-content defaults; this is not exhaustive semantic proof. The repeated empty-arrow defect is gone, but the Optional parse defaults label remains ambiguous and long names/bit flags/question-mark syntax still make narration technical. No human comprehension or Pocket listening pass exists. [Exact result, scope and failures](../acceptance/2026-10-17-scene-v2.md).
 
 The later exact source-value repair diagnostics pass 371 native/184 frontend checks, including both real rejected proposals; they are not a new generation-quality pass. Keep the complete representative language/operation/human quality requirements and this task open.
+
+## New broad result retains semantic presentation failures — 17 October
+
+The new `97e420d` Fontdone run preserves three source-valid drafts through
+normal-gray rasterization/bitmap output, but remains Partial near ten minutes.
+All 29 anchors match captured source. Dense names/flags still dominate narration,
+and exact code tokens are connected by misleading arrows: `loca_data → glyf_data`
+is not the copied-table relationship stated by the claim; overlap rendering is
+shown without its condition. [Preserved result and review](../acceptance/2026-10-17-fontdone-source-value.md).
+
+- [ ] Retain these as negative semantic-presentation cases, with independently
+  reviewed repairs rather than treating the failed generated answer as an oracle.
+- [ ] Qualify complete causal meaning, branch coverage and narration/comprehension
+  for representative languages/operations. A source-valid Partial answer or a
+  synthetic Pocket WAV is not a benchmark/human listening pass.
+
+Keep this task open and preserve all existing quality gates.

@@ -1,0 +1,75 @@
+{
+  "scope": "Whole reviewed-script Pocket ownership/queue and deterministic contracts, plus an isolated real worker. Not installed native playback, clean setup, listening, release or broad Fontdone acceptance.",
+  "baseRevision": "97e420d2baaa3225c90c9d37086c579a521d5be1",
+  "sourceSha256": {
+    "src-tauri/src/pocket_tts.rs": "ce809b0b10cbec19b106550d739986373efc0a9b0f872e31c7e369cf5c7d8aaa",
+    "src-tauri/src/pocket_tts/queue.rs": "d3830ffebf8f4d70505ceefcec6fca67ce38b15d30a0cb561a89e2bf33fa4efa",
+    "src-tauri/resources/pocket_tts_worker.py": "d9bbbfea984b11c18250e69a06880b595bab9499e618b171f59d84c75069ddac",
+    "src-tauri/src/narration.rs": "2f4ca7154a6ec2ef88e1bf1ebe94337185d540f5c5b0134397719f541e2add1c",
+    "src-tauri/tests/test_pocket_tts_worker.py": "e0b0f67a342dcbe2794010e5bac1a3ca357cc97e4c50f74fdb8e1110f3e8b158"
+  },
+  "tests": {
+    "native": {
+      "passed": 388,
+      "failed": 0,
+      "ignoredExplicitLiveProbes": 13,
+      "durationSeconds": 35.71
+    },
+    "frontend": {
+      "passed": 184,
+      "failed": 0
+    },
+    "workerPython": {
+      "passed": 6,
+      "failed": 0,
+      "modelMocked": true
+    }
+  },
+  "bundle": {
+    "path": "/private/tmp/software-stories-kata/src-tauri/target/debug/bundle/macos/Code Atlas.app/Contents/MacOS/code-atlas-desktop",
+    "byteLength": 138739392,
+    "sha256": "ec0ee6c72f4b008bd966e06d43dd0dcf1816fc1b233f14461a8c1b3522d4b1a6",
+    "embeddedMachOIntegrity": {
+      "exitCode": 0,
+      "output": "/private/tmp/software-stories-kata/src-tauri/target/debug/bundle/macos/Code Atlas.app/Contents/MacOS/code-atlas-desktop: valid on disk (not all contents verified)\n/private/tmp/software-stories-kata/src-tauri/target/debug/bundle/macos/Code Atlas.app/Contents/MacOS/code-atlas-desktop: satisfies its Designated Requirement"
+    },
+    "strictExecutableVerification": {
+      "exitCode": 1,
+      "output": "/private/tmp/software-stories-kata/src-tauri/target/debug/bundle/macos/Code Atlas.app/Contents/MacOS/code-atlas-desktop: code has no resources but signature indicates they must be present"
+    },
+    "developerId": false,
+    "notarization": false,
+    "installed": false,
+    "nativeUiQualification": false
+  },
+  "kata": {
+    "records": 73,
+    "open": 50,
+    "closed": 23,
+    "allBodiesMatchCanonical": true,
+    "statusesPrioritiesRelationshipsUnchanged": true
+  },
+  "logs": {
+    "native": {
+      "path": "/private/tmp/code-atlas-pocket-section-native-final.log",
+      "sha256": "6c0e4413594ad9c608b067b356f95d621dbc92af75fdbc708eb5f1ae1ce7cad8"
+    },
+    "frontend": {
+      "path": "/private/tmp/code-atlas-pocket-section-frontend.log",
+      "sha256": "3461804b4493a155d143ee7881567baa955d039388725f7d41c78b61a70c2a0c"
+    },
+    "python": {
+      "path": "/private/tmp/code-atlas-pocket-section-python.log",
+      "sha256": "031ddcd913a2db7b0f7456019a62ccace8a3d71f5591d3662c6912b150cbe21b"
+    },
+    "beforePython": {
+      "path": "/private/tmp/code-atlas-pocket-section-before.log",
+      "sha256": "e2fa8221ee3d920d78531b62135302367f31e16dd81730f4fe4b6499b37dbcb2"
+    },
+    "bundle": {
+      "path": "/private/tmp/code-atlas-pocket-section-app-build-final.log",
+      "sha256": "c9e5f1cace19656b9cbdcf8cf9c13989e94b9e8e2410e16c2959600e1c58d062"
+    }
+  },
+  "humanListeningPass": false
+}

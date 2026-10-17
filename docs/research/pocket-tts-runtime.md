@@ -66,9 +66,15 @@ The edited transcript reaches the worker over stdin, not process arguments or a
 saved request file. No API key is needed. Neither stdout nor dependency exception
 text is forwarded to logs. There is no server or listening port.
 
-Only one setup/generation operation can run at a time. Each finite worker loads
-its model, writes bounded mono PCM16 24 kHz WAV, and exits. This means the model
-is reloaded for each invocation; warm persistent inference is not implemented.
+One setup/generation operation owns the runtime until its child is reaped; at
+most four others can wait. Queued cancellation or a dropped waiter starts no
+process. A strict version-1 stdin packet carries 1–64 reviewed segments, each at
+most 4,000 UTF-8 bytes and at most 16,000 total text bytes (97,024 transport
+bytes). One finite worker loads the model/voice once for that script, generates
+segments in order with `copy_state=True`, joins them with 200 ms PCM pauses,
+and exits. Warm reuse is within the script; persistent inference is not implemented.
+Every segment must be nonempty and finite; pauses count toward the output cap.
+A later failure discards the entire temporary output.
 Rust independently checks the WAV header, length and 12 MiB limit, reads at most
 that limit plus one byte, and removes the temporary output after success/failure.
 The accepted section cache is managed by the narration layer.
@@ -76,7 +82,9 @@ The accepted section cache is managed by the narration layer.
 Cancellation, timeouts and dropped request futures stop the owned process group;
 the worker thread reaps the direct child. The desktop app must call `shutdown()`
 on its actual exit event. Setup phases have finite time limits, and synthesis is
-limited to five minutes per invocation. A crash or forced OS termination can
+limited to five minutes for the entire script invocation, including nonblocking
+stdin delivery. A stalled pipe observes cancellation/deadline and cannot retain
+the owner indefinitely. A crash or forced OS termination can
 leave partial setup downloads; explicit setup replaces incomplete runtime state.
 
 ## Release and acceptance work still required
@@ -93,4 +101,7 @@ network failure, cancelled download, repair, package/model corruption, offline
 synthesis, long-script limits, repeated cancellation, app exit and child cleanup.
 Record an actual human listening review of source names, acronyms, identifiers
 and section pacing. Validate the complete player/cache/export path separately.
-None of these checks ran as part of this source-only change.
+The [October 17 whole-script checkpoint](../acceptance/2026-10-17-pocket-whole-script.md)
+adds isolated real-worker synthesis and deterministic packet/queue/cancellation
+checks. It does not qualify clean setup, installed multi-window/exit behavior,
+native cache/export invalidation or human listening.

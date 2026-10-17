@@ -218,3 +218,18 @@ passing-after evidence for both actual generic rejections. **371 native tests**
 postdate the account artifact; installed/Pocket/accessibility and broader
 quality remain open. [Exact evidence](acceptance/2026-10-17-scene-v2.md).
 All 73 task records remain present: 50 open, 23 closed.
+
+## Precise-feedback Fontdone and whole-script Pocket checkpoint — 17 October
+
+The new frozen GPT-6 Luna/max run remains **Partial at 599.786 s**. Three drafts
+now reach normal-gray rasterization/bitmap output; alternate branches remain
+unfinished. All 55 calls deliver, 127,466 distinct source bytes are used, and 29
+anchors match captured bytes. Code-card arrows and dense narration remain
+concrete quality failures. [Original result and review](acceptance/2026-10-17-fontdone-source-value.md).
+
+Pocket now keeps one worker/model load across a reviewed script, with four
+waiting slots and cancellable bounded stdin. Deterministic native/Python checks
+and a real isolated 13.08-second synthetic worker sample pass. Installed cache,
+player/export, clean setup and human listening remain open; Mac lock prevents
+replacement. [Evidence and limits](acceptance/2026-10-17-pocket-whole-script.md).
+All **73 records remain present: 50 open, 23 closed**. No task is closed.

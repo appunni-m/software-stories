@@ -18,7 +18,7 @@ The [interactive design preview](http://127.0.0.1:4173/workspace-preview.html) u
 - The Guide reader can export one self-contained HTML file from selected accepted revisions. Its preview reports section/scene audio coverage and matching reviewed transcripts, paths and excerpts. HTML visual compositions and cached scene clips are included with manual navigation; graphs use source outlines. Live local Files destinations and automatic scene playback are unavailable offline. See [offline use and limits](docs/OFFLINE_EXPORT.md).
 - Direct Gemini, OpenAI, and Anthropic API paths for file chapters, optional repository orientation, selective section updates, PR Guides, and transient single-hunk PR change explanations. A reviewed request sends only the selected captured context after explicit confirmation; persisted chapter/PR Guide content remains unaccepted until the user reviews it.
 - A Codex account route for file chapters and an overview of 1–12 selected captured files: managed app-server over stdio, browser sign-in, runtime model/reasoning choices, reviewed source, progress/cancellation, and locally validated unaccepted drafts. One-section stale repairs now share the scoped evidence builder and preservation validator. Exact Files source ranges, PR Guides and single-hunk explanations now share immutable context, managed dispatch and the existing citation validators; range/hunk results stay transient and guides use separate unaccepted PR history. A synthetic packaged-app file chapter has completed generation, draft save, acceptance, citation navigation and manual section advance through the existing ChatGPT account. Other operations and full runtime/account/distribution qualification remain open.
-- Optional Pocket TTS narration, configured once in **Connections → Voice** and used across answers. Setup downloads an app-managed runtime and pinned English model/Alba voice on Apple Silicon Macs; it currently requires an existing `uv` installation. Generation uses a finite local worker per segment, without an API key or listening server. Legacy Google preferences and cached audio remain distinct. The global voice connection defaults to Pocket; Gemini speech is available by explicit selection in Connections and requires consent before sending.
+- Optional Pocket TTS narration, configured once in **Connections → Voice** and used across answers. Setup downloads an app-managed runtime and pinned English model/Alba voice on Apple Silicon Macs; it currently requires an existing `uv` installation. Generation uses one finite local worker per reviewed script, reusing the loaded model across its segments, without an API key or listening server. At most four operations can wait behind the active owner. Legacy Google preferences and cached audio remain distinct. The global voice connection defaults to Pocket; Gemini speech is available by explicit selection in Connections and requires consent before sending.
 
 - **Question-led explanations**: ask in the pinned composer; Codex selects implementation using captured paths, symbols and static relationships, then saves a cited chapter draft. Code is the source of truth; docs are hints or explicitly deprecated. The earlier route planner and sequential chapter-batch implementation remain in source, but their staged Guide wizard is superseded by the new workspace and is not a normal navigation destination. Multi-chapter orchestration remains tracked in `a1sm`. See the [current workspace flow](docs/design/WORKSPACE_EXPLORATION.md); [AI guide flow](docs/AI_GUIDE_FLOW.md) retains the historical route contracts.
 
@@ -52,11 +52,13 @@ preserves older route digests and chapter links across known record/prompt
 formats. Local regressions reopen a real saved synthetic route; packaged
 upgrade and full repository-guide acceptance remain pending.
 
-The [latest Fontdone qualification](docs/acceptance/2026-10-17-short-native-references.md)
-uses short native citation references and preserves one draft, but still ends
-partial. Source-exception, visual-story, narration and broad-completion gates
-remain open. Local packet/record checks are not production or content-quality
-acceptance.
+The [latest Fontdone qualification](docs/acceptance/2026-10-17-fontdone-source-value.md)
+preserves three drafts through normal-gray rasterization/bitmap output, but still
+ends partial near ten minutes. Its source-valid code-card scenes still have
+misleading arrows and dense narration. Full completion, visual-story, listening
+and installed usability gates remain open. [Whole-script Pocket ownership](docs/acceptance/2026-10-17-pocket-whole-script.md)
+now loads the model once per script; a real isolated worker sample and mechanical
+checks pass, without claiming native playback or speech-quality acceptance.
 
 ## Local development
 

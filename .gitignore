@@ -13,3 +13,7 @@ benchmarks/chapter-quality/review/reports/
 
 # Retain retired prototypes locally without publishing them.
 /deprecated/
+
+# Python worker contract checks.
+__pycache__/
+*.py[cod]

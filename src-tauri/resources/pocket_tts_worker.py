@@ -20,7 +20,11 @@ PACKAGES = {
 }
 MODEL_ID = "pocket-tts-3.3.0:english_2026-09:e7205b6e:alba:4e1e0a3e:pcm-v1"
 MAX_TEXT_BYTES = 16_000
+MAX_SEGMENT_BYTES = 4_000
+MAX_SEGMENTS = 64
+MAX_PACKET_BYTES = MAX_TEXT_BYTES * 6 + 1024
 MAX_WAV_BYTES = 12 * 1024 * 1024
+SEGMENT_PAUSE_PCM = bytes(9_600)  # 200 ms, mono PCM16 at 24 kHz.
 REPOSITORY = "kyutai/pocket-tts-without-voice-cloning"
 ASSETS = {
     "model.safetensors": (
@@ -99,17 +103,40 @@ def setup(root):
     temporary.replace(root / "ready.json")
 
 
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate_packet_key")
+        result[key] = value
+    return result
+
+
+def reviewed_segments():
+    # Text arrives only over an anonymous pipe and is never stored or logged.
+    raw = sys.stdin.buffer.read(MAX_PACKET_BYTES + 1)
+    if not raw or len(raw) > MAX_PACKET_BYTES:
+        raise ValueError("invalid_packet_size")
+    packet = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object)
+    if (not isinstance(packet, dict) or set(packet) != {"schemaVersion", "segments"}
+            or type(packet["schemaVersion"]) is not int or packet["schemaVersion"] != 1):
+        raise ValueError("invalid_packet")
+    segments = packet["segments"]
+    if not isinstance(segments, list) or not 1 <= len(segments) <= MAX_SEGMENTS:
+        raise ValueError("invalid_segments")
+    if any(not isinstance(text, str) or not text.strip()
+           or len(text.encode("utf-8")) > MAX_SEGMENT_BYTES for text in segments):
+        raise ValueError("invalid_segment")
+    if sum(len(text.encode("utf-8")) for text in segments) > MAX_TEXT_BYTES:
+        raise ValueError("invalid_text_size")
+    return segments
+
+
 def synthesize(root):
+    segments = reviewed_segments()
     import numpy as np
     import torch
 
-    # Text arrives only over an anonymous pipe and is never stored or logged.
-    raw = sys.stdin.buffer.read(MAX_TEXT_BYTES + 1)
-    if not raw or len(raw) > MAX_TEXT_BYTES:
-        raise ValueError("invalid_text_size")
-    text = raw.decode("utf-8")
-    if not text.strip():
-        raise ValueError("empty_text")
     manifest = json.loads((root / "ready.json").read_text(encoding="utf-8"))
     if manifest["modelId"] != MODEL_ID or manifest["configSha256"] != digest(root / "model.yaml"):
         raise ValueError("runtime_changed")
@@ -128,17 +155,28 @@ def synthesize(root):
             audio.setnchannels(1)
             audio.setsampwidth(2)
             audio.setframerate(24_000)
-            for chunk in model.generate_audio_stream(state, text):
-                values = chunk.detach().cpu().numpy().reshape(-1)
-                if not np.isfinite(values).all():
-                    raise ValueError("nonfinite_audio")
-                pcm = (np.clip(values, -1.0, 1.0) * 32767).astype("<i2").tobytes()
-                pcm_bytes += len(pcm)
-                if pcm_bytes + 44 > MAX_WAV_BYTES:
-                    raise ValueError("audio_too_large")
-                audio.writeframesraw(pcm)
-        if pcm_bytes == 0:
-            raise ValueError("empty_audio")
+            for index, text in enumerate(segments):
+                if index:
+                    pcm_bytes += len(SEGMENT_PAUSE_PCM)
+                    if pcm_bytes + 44 > MAX_WAV_BYTES:
+                        raise ValueError("audio_too_large")
+                    audio.writeframesraw(SEGMENT_PAUSE_PCM)
+                segment_bytes = 0
+                # Preserve the built-in voice prompt across sequential segments.
+                # Pocket may mutate a generation's state in background threads.
+                for chunk in model.generate_audio_stream(state, text, copy_state=True):
+                    values = chunk.detach().cpu().numpy().reshape(-1)
+                    if not np.isfinite(values).all():
+                        raise ValueError("nonfinite_audio")
+                    size = values.size * 2
+                    if pcm_bytes + size + 44 > MAX_WAV_BYTES:
+                        raise ValueError("audio_too_large")
+                    pcm = (np.clip(values, -1.0, 1.0) * 32767).astype("<i2").tobytes()
+                    pcm_bytes += size
+                    segment_bytes += size
+                    audio.writeframesraw(pcm)
+                if segment_bytes == 0:
+                    raise ValueError("empty_audio")
     except BaseException:
         destination.unlink(missing_ok=True)
         raise

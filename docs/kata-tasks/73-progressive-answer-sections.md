@@ -143,3 +143,26 @@ New progressive sections now bind checkpoint version 3 to presentation version 2
 A fresh isolated `0650790` Fontdone run is Partial at 491.831 seconds: three drafts at 76.328/336.939/475.887 seconds, 61 delivered calls, eight proposals (five rejected). The final manifest explicitly retains render-mode/rasterization/bitmap publication as incomplete because the proposal limit was reached; no runtime terminal-failure code is present. Do not relabel the failed Complete assertion as a pass. All 38 anchors and nine input metadata hashes independently match. [Full evidence and limits](../acceptance/2026-10-17-scene-v2.md).
 
 Two generic rejections were diagnosed as source-valued content outside its own node's same-claim excerpts. The later local fix provides fixed positional sceneSourceValue feedback without returning source text or changing authority/budgets. Real-artifact and full correction regressions pass; final suites 371 native/184 frontend. No account retry was run after that fix. Broad completion, native/Pocket/quality and useful-answer latency remain open.
+
+## Fresh precise-feedback Fontdone result — 17 October
+
+The new isolated `97e420d` GPT-6 Luna/max run is **Partial at 599.786 seconds**;
+its Complete assertion remains failed. It delivers three drafts covering byte
+entry, TrueType outlines/hinting and normal-gray rasterization/bitmap output.
+CFF/CFF2/Type 1 loader internals and alternate render-mode/overlap internals
+remain explicitly incomplete. Fifty-five calls deliver 127,466 distinct source
+bytes from seven paths; six proposals include three full rejections/repairs.
+The native source-value diagnostic is used and no generic sectionValidation
+finding appears. All 29 anchors and nine input metadata hashes match.
+[Unchanged result, timing, review and limits](../acceptance/2026-10-17-fontdone-source-value.md).
+
+- [ ] Complete the original broad narrative within the original policy without
+  relabeling this Partial result, omitting declared main scope or resetting caps.
+- [ ] Correct semantic representation: `loca_data → glyf_data` falsely suggests
+  a transformation between copied tables, and the overlap rasterizer scene lacks
+  its visual condition. Most scenes are code cards, with dense spoken identifiers.
+- [ ] Retain installed navigation/Stop/restart, meaningful causal narration,
+  Pocket listening and accessibility gates. First native adoption at 85.391 s
+  is not a UI-visible useful-answer or human comprehension pass.
+
+No automatic retry occurred; previous failures remain preserved. Keep open.

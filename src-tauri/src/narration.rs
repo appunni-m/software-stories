@@ -422,38 +422,13 @@ pub async fn synthesize_reviewed_audio(
         return ProviderCommandResult::ok(audio_result(&pending.review, bytes, true));
     }
     if pending.review.model_id == crate::pocket_tts::MODEL_ID {
-        let mut segments = Vec::new();
-        let mut total_pcm_bytes = 0_usize;
-        for text in &pending.review.request_segments {
-            let audio = match crate::pocket_tts::synthesize(storage_dir, text, cancellation).await {
-                Ok(audio) => audio,
-                Err(error) => return ProviderCommandResult::failed(error),
-            };
-            if !is_wav(&audio) {
-                return ProviderCommandResult::error(
-                    ProviderFailureKind::MalformedProviderResponse,
-                    "Local narration returned invalid WAV audio. Previous audio is preserved.",
-                );
-            }
-            let Some(pcm) = wav_pcm_data(&audio) else {
-                return ProviderCommandResult::error(
-                    ProviderFailureKind::MalformedProviderResponse,
-                    "Local narration returned WAV audio with no PCM data. Previous audio is preserved.",
-                );
-            };
-            total_pcm_bytes = total_pcm_bytes.saturating_add(pcm.len());
-            let total_bytes = 44_usize
-                .saturating_add(total_pcm_bytes)
-                .saturating_add(9_600_usize.saturating_mul(segments.len()));
-            if audio.len() > MAX_RESPONSE_BYTES || total_bytes > MAX_RESPONSE_BYTES {
-                return ProviderCommandResult::error(
-                    ProviderFailureKind::ProviderResponseTooLarge,
-                    "Local narration exceeded the audio limit. Previous audio is preserved.",
-                );
-            }
-            segments.push(audio);
-        }
-        let bytes = match join_wav_segments(&segments) {
+        let bytes = match crate::pocket_tts::synthesize_segments(
+            storage_dir,
+            &pending.review.request_segments,
+            cancellation,
+        )
+        .await
+        {
             Ok(bytes) => bytes,
             Err(error) => return ProviderCommandResult::failed(error),
         };

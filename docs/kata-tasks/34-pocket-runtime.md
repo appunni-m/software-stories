@@ -10,6 +10,25 @@ labels: speech, local, runtime
 ## User outcome
 The Mac app generates narration locally with Pocket TTS, without an API key or a separate listening port.
 
+## Whole-script ownership checkpoint — 2026-10-17
+
+One finite offline worker now owns a complete reviewed script (1–64 segments,
+4,000 UTF-8 bytes per segment / 16,000 total), loading model/voice once and
+preserving exact order with 200 ms pauses. Setup and synthesis share one owner
+with four waiting slots. Queued cancellation starts no process; active work
+retains ownership through child reaping. Nonblocking stdin observes the same
+five-minute deadline as generation. Duplicate/future/oversized packets, empty
+or nonfinite segments and partial WAV output are rejected. Worker fingerprint
+changes invalidate new local review/cache lookup without rewriting old files.
+
+Six deterministic Python contract tests and focused native queue/packet/stalled
+pipe cancellation/reaping tests pass. A real pinned worker separately generated
+a valid 13.08-second sample from two explicitly synthetic segments in 12.679 s,
+using isolated output/config and existing interpreter/assets read-only. This is
+not installed playback, clean setup, cache/export or human listening evidence.
+[Exact changes, evidence and remaining gates](../acceptance/2026-10-17-pocket-whole-script.md).
+Keep this task open. The earlier per-segment description below is historical.
+
 ## Current native evidence — 2026-10-16
 
 The release app's **Set up local narration** action completed Python, package and pinned model/Alba preparation and displayed **Pocket TTS is ready**. The initial native Python failure was caused by passing both `--managed-python` and `UV_PYTHON_PREFERENCE=only-managed`; the installer now uses only the enforced environment preference. The corrected command passed and a regression test covers the exact argument/environment construction. Full `npm run check` passed (98 frontend, 185 Rust passed, two ignored), and unsigned `.app`/DMG packaging passed.
@@ -24,7 +43,7 @@ Remaining broader qualification work:
 
 - [ ] Package and qualify the installer/runtime for the supported Mac target: pin/verify or bundle `uv`, complete the transitive artifact/hash lock, retain licenses, and define signing/notarization/quarantine behavior.
 - [ ] Establish minimum macOS, wheel compatibility, disk/download/memory requirements, update/cache cleanup and uninstall behavior on a clean account without developer caches.
-- [ ] Define whole-section ownership/queueing. Current exclusivity is per finite segment; the model reloads each invocation and another window can acquire the runtime between segments. Warm reuse is not implemented.
+- [x] Define and implement whole-script ownership with a bounded queue and warm model/voice reuse within that script. Isolated packet/queue/cancellation and real-worker checks are recorded above; installed cross-window/setup interleaving, app exit and player/cache behavior remain qualification work.
 - [ ] When authorized, exercise fresh setup, missing installer, network/low-disk failure, cancelled downloads, retry/repair, changed packages/models and incomplete manifests.
 - [ ] Record offline synthesis, bounded output, repeated cancellation, timeout, window navigation and actual app-exit child cleanup; accept only complete validated WAV output.
 
