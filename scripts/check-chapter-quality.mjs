@@ -10,7 +10,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const defaultManifest = "benchmarks/chapter-quality/corpus/manifest.json";
 const reportSchemaVersion = 5;
 // Bump this when the provider-facing file-chapter response contract changes.
-const responseSchemaVersion = 2;
+const responseSchemaVersion = 3;
 const requiredRoleFamilies = [
   { label: "route/entrypoint", aliases: ["route", "entrypoint", "route-entrypoint", "route/entrypoint"] },
   { label: "service/core", aliases: ["service", "core", "service-core", "service/core"] },

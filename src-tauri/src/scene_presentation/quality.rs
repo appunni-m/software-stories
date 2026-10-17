@@ -51,7 +51,7 @@ pub(crate) fn repetition_positions(
     presentation: &ScenePresentation,
     labels: &[&str],
 ) -> Vec<(usize, usize)> {
-    if presentation.schema_version != 2 || presentation.scenes.len() > 20 || labels.len() > 12 {
+    if !matches!(presentation.schema_version, 2 | 3) || presentation.scenes.len() > 20 || labels.len() > 12 {
         return vec![];
     }
     let mut positions = Vec::new();

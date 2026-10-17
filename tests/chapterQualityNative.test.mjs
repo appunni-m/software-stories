@@ -18,12 +18,12 @@ async function savedAttempt(name) {
 }
 
 describe('current native chapter quality boundary', () => {
-  it('replays the preserved real Fontdone answer without a model call', async () => {
+  it('rejects the old fresh-generation contract without silently rewriting the preserved Fontdone answer', async () => {
     const { artifact, sources } = await savedAttempt('2026-10-17-fontdone-file-layout-v2.json');
     const result = validateCurrentProposal(artifact.responseText, sources, artifact.source.path);
-    assert.equal(result.valid, true, JSON.stringify(result));
-    assert.equal(result.counts.sourceAnchors, 23);
-    assert.equal(result.counts.sections, 4);
+    assert.equal(result.valid, false, JSON.stringify(result));
+    assert.match(result.message, /Current response schema|version 3/);
+    assert.equal(JSON.parse(artifact.responseText).sections[0].visual.presentation.schemaVersion, 2);
     // This mechanical result does not alter the preserved failed teaching review.
     assert.equal(artifact.humanQualityOrListeningPass, false);
   });

@@ -1,4 +1,5 @@
 import type { ChapterSection, EvidenceLinkedVisualSpec } from './commands';
+import { sceneNarrations, validScenePresentation } from './scenePresentation.ts';
 
 export interface StoryScene {
   id: string;
@@ -26,6 +27,22 @@ function sentences(text: string): string[] {
  * Older summaries and edited scripts stay whole unless every spoken sentence is accounted for.
  */
 export function storyScenes(section: ChapterSection, visual?: EvidenceLinkedVisualSpec, savedScript?: string): StoryScene[] {
+  // Export and audio scheduling call without a visual argument. Read the same
+  // validated presentation, so they never fall back to technical claim prose.
+  const candidate = visual ?? (section.visual?.schemaVersion === 2 ? section.visual : undefined);
+  const presentation = candidate?.presentation;
+  if (presentation?.schemaVersion === 3 && Array.isArray(candidate?.nodes)
+    && validScenePresentation(presentation, candidate.nodes, section.claims)) {
+    const scripts = sceneNarrations(presentation, section.claims)!;
+    if (normalize(scripts.join(' ')) === normalize(savedScript ?? section.spokenText)) {
+      return scripts.map((narration, i) => {
+        const claim = section.claims[i];
+        const anchorIds = claim.anchors.map(a => a.anchorId);
+        return { id: claim.claimId, narration, anchorIds,
+          nodeIds: candidate.nodes.filter(n => n.evidenceAnchorIds.some(id => anchorIds.includes(id))).map(n => n.nodeId) };
+      });
+    }
+  }
   const seen = new Set<string>();
   const scenes = section.claims.filter((claim) => claim.anchors.length > 0).flatMap((claim) => {
     const spoken = sentences(claim.prose)

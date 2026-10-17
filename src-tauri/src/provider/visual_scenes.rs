@@ -4,12 +4,13 @@
 use crate::chapters::{self, ChapterRevision};
 use serde_json::{json, Value};
 
-pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v2";
+pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v3";
 
-const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v2
-Author a causal illustrated answer, with the claims themselves as its complete narration. Usually use 2–5 short claims/scenes per section. Explain what happens to the input, why a guard or choice matters, and the consequence, including failure exceptions. Use ordinary spoken sentences and only the minimum exact identifiers needed for grounding; put call syntax and implementation detail in visual code/source links. Preserve every supported condition and qualifier. The app assembles full prose and speech from all validated claim sentences with inference labels; it never selects a more convenient subset. Keep that complete section within 4,000 UTF-8 bytes or split it. The separate prose/spokenText fields remain required transport fields under their documented bounds; fill them with complete sentences from these same claims."#;
+const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v3
+Author a causal illustrated answer. Keep exact implementation claims as inspectable source-grounded details; every declared identifier still appears literally in its claim. Write separate natural narration on each scene to explain that claim's meaning, not its spelling. Usually use 2–5 short claims/scenes per section. Speech follows the input, why a choice or guard matters, and the consequence, including all alternative/error conditions. Refer to the short visual labels, introduce useful invented inputs as examples, and connect scenes causally. Do not read declarations, helper names, type constructors, paths, call syntax or punctuation by default. A user explicitly asking about a name or syntax may need that name spoken. Do not change or omit a claim's conditions, exceptions, inference or uncertainty when paraphrasing. The app prefixes inference narration with its visible label. Exact source links remain available. Narration is AI-authored, not automatic code-name removal or proof of semantic equivalence.
+The app assembles full details from all validated claims and speech from all ordered scene narrations; it never selects a convenient subset. Keep each complete section's details and speech within 4,000 UTF-8 bytes or split it without dropping behavior. Separate prose/spokenText transport fields remain required under their documented bounds: prose copies complete claim sentences, spokenText copies the complete scene narration. With no visual presentation, use complete claim sentences for both fields."#;
 
-const BEHAVIOR_TEACHING: &str = r#"Teaching policy v2: For a behavior question, open with the problem and a useful input-to-result example, then explain the decisions that make that outcome possible. Do not open with a function signature, argument-type list, or definition of result fields. A responsibility claim should explain the work accomplished, not recite its declaration. Narrate meaning: say that an unavailable record gives no location, or an invalid bound gives an empty range, rather than reading type constructors, angle brackets, field initializer syntax, question marks or call expressions. Keep only necessary bare source identifiers for grounding and explain them in ordinary words. Source links retain the precise implementation. Do not shorten the answer by omitting a guard or alternative."#;
+const BEHAVIOR_TEACHING: &str = r#"Teaching policy v3: For a behavior question, open with the problem and a useful input-to-result example, then explain the decisions that make that outcome possible. Do not open with a function signature, argument-type list, or definition of result fields. A responsibility claim should explain the work accomplished, not recite its declaration. Narrate meaning: say that an unavailable record gives no location, or an invalid bound gives an empty range, rather than reading type constructors, angle brackets, field initializer syntax, question marks or call expressions. Keep necessary exact source identifiers in the inspectable claim; scene narration explains their work in ordinary words without being forced to repeat them. Source links retain the precise implementation. Do not shorten the answer by omitting a guard or alternative."#;
 
 const REPRESENTATION_CHOICES: &str = r#"Choose the representation that teaches the behavior: byte strips for format signatures, before/after values for a transformation, comparisons or tables for alternatives, stacks for state, matrices for raster concepts, and graphs for genuine paths. Do not turn every scene into source-code cards. Show a meaningful example or change when the source supports it. Arrows must reflect the relationship actually described by the claim; different source tokens alone do not establish a transformation. Independent resources, such as two copied tables, belong beside each other in a comparison/grid, not across a conversion arrow. Show a conditional path with its guard; do not present a branch-specific helper as the unconditional result. Invented values must be defensible illustrative examples, introduced as examples in narration, never captured runtime observations."#;
 
@@ -17,7 +18,7 @@ const OUTCOME_TEACHING: &str = r#"Make the primary visual show the decision or c
 
 const COMPOSITION_CONTRACT: &str = r#"Every visual has kind, title, direction, nodes, edges and presentation. Use kind dataFlow, sequence or hierarchy for the underlying structure, with 2–12 short evidence-linked nodes and at most 20 real edges. Every node/edge cites 1–8 same-section zero-based {claimIndex,evidenceIndex} references; it cannot invent IDs or borrow another section's evidence. An import is not a runtime call. A graph without presentation needs at least one evidenced edge. A composition may have no edges. If no useful visual is supported use kind:none, title:"", direction:auto, nodes:[], edges:[], presentation:null. A plain graph also uses presentation:null.
 
-For a narrated HTML composition use presentation:{schemaVersion:2,scenes:[{claimIndex:0,title:"short visual heading",mode:"composition",elements:[...]}]}. Supply exactly one scene per claim in claim order; a justified graph scene uses mode:graph,elements:[]. The app owns all HTML, styling and interactions. Each element has exactly kind,parentIndex,nodeIndex,tone,value,valueOrigin. Elements form one flat preorder tree: root parentIndex:null, others an earlier container's index. Groups are row,column,grid,panel,compare,stack, with nodeIndex:null,value:"",valueOrigin:none. Content is card,token,code,metric,bytes,matrix,table,text; nodeIndex names the node that supplies its label and captured-source links. That node must cite this scene's own claim, not merely another claim in the section. Tone is neutral,accent,muted,positive,warning. Arrow/divider are decoration with null nodeIndex and no value. Favor 2–4 meaningful large elements, at most 48 elements, six nesting levels, twelve children per group and twelve content elements.
+For a narrated HTML composition use presentation:{schemaVersion:3,scenes:[{claimIndex:0,title:"short visual heading",narration:"Natural speech explaining this claim and visual, including its guards and alternatives.",mode:"composition",elements:[...]}]}. Supply exactly one scene per claim in claim order; a justified graph scene also has narration and uses mode:graph,elements:[]. The app owns all HTML, styling and interactions. Each element has exactly kind,parentIndex,nodeIndex,tone,value,valueOrigin. Elements form one flat preorder tree: root parentIndex:null, others an earlier container's index. Groups are row,column,grid,panel,compare,stack, with nodeIndex:null,value:"",valueOrigin:none. Content is card,token,code,metric,bytes,matrix,table,text; nodeIndex names the node that supplies its label and captured-source links. That node must cite this scene's own claim, not merely another claim in the section. Tone is neutral,accent,muted,positive,warning. Arrow/divider are decoration with null nodeIndex and no value. Favor 2–4 meaningful large elements, at most 48 elements, six nesting levels, twelve children per group and twelve content elements.
 
 A nonempty value has valueOrigin:source only when it is an exact substring of that node's own same-claim cited excerpts. Do not relabel copied source as an illustration to evade the check. Invented examples use valueOrigin:illustration and receive a visible example badge. Empty values use valueOrigin:none. Values are at most 1,024 UTF-8 bytes. Bytes have 1–32 whitespace-separated cells; matrices have 1–16 equal rows of 1–24 zero/one/dot cells; tables have at most eight newline rows and six equal pipe-separated columns. Repeated visible labels/values on both sides of an arrow do not show a transformation. Never supply HTML strings, CSS, URLs, JavaScript, event handlers or extra fields. A valid schema or source token does not prove an illustrative outcome; check the whole scene against its claim before returning."#;
 
@@ -60,10 +61,10 @@ pub(crate) fn prepare_generated_sections(
             .as_ref()
             .and_then(|v| v.typed_visual())
             .and_then(|v| v.presentation.as_ref())
-            .is_some_and(|p| p.schema_version != 2)
+            .is_some_and(|p| p.schema_version != 3)
         {
             return Err(
-                "New chapter scenes require presentation version 2. No draft was saved.".into(),
+                "New chapter scenes require presentation version 3. No draft was saved.".into(),
             );
         }
         // The app's evidence-limits section is intentionally silent. Generated
@@ -75,11 +76,12 @@ pub(crate) fn prepare_generated_sections(
         if !(20..=4_000).contains(&complete.len()) {
             return Err("The complete grounded narration must be 20–4,000 UTF-8 bytes. Split the section without omitting behavior. No draft was saved.".into());
         }
-        scripts.push((index, complete));
+        let narration = chapters::authored_section_narration(section)?.unwrap_or_else(|| complete.clone());
+        scripts.push((index, complete, narration));
     }
     // Do not expose even a locally half-prepared revision on a later failure.
-    for (index, script) in scripts {
-        revision.sections[index].prose = script.clone();
+    for (index, details, script) in scripts {
+        revision.sections[index].prose = details;
         revision.sections[index].spoken_text = script;
     }
     Ok(())
@@ -125,14 +127,17 @@ pub(crate) mod tests {
                 ]
             }]}
         });
+        if version == 3 {
+            proposal["sections"][0]["visual"]["presentation"]["scenes"][0]["narration"] = json!("For example, a name of Mira becomes Hello, Mira; an empty name still gets the same greeting prefix.");
+        }
         proposal
     }
 
     #[test]
-    fn sharing_teaching_policy_preserves_the_ordinary_prompt_bytes() {
+    fn ordinary_prompt_binds_the_versioned_scene_narration_policy() {
         assert_eq!(
             crate::repository_context::digest(super::instructions().as_bytes()),
-            "831c31a5ab25b5c3729a87459736ece3004ea560179ca8457bbb8bd638edd909"
+            "4e7bd9b719df00409a15825b75c461aa836c627bd6a409390d03daac7e811f60"
         );
         assert!(super::instructions().contains(super::BEHAVIOR_TEACHING));
         assert!(super::instructions().contains(super::OUTCOME_TEACHING));
@@ -175,7 +180,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn fresh_compositions_use_v2_without_changing_legacy_read_validation() {
+    fn fresh_compositions_use_v3_without_changing_legacy_read_validation() {
         let fixture = Fixture::new();
         let legacy = revision(&fixture, composed_proposal(1));
         let validation = chapters::validate_chapter_revision(
@@ -188,9 +193,9 @@ pub(crate) mod tests {
         let mut fresh = legacy.clone();
         assert!(prepare_generated_sections(&mut fresh, None)
             .unwrap_err()
-            .contains("version 2"));
+            .contains("version 3"));
         assert_eq!(fresh, legacy);
-        let mut current = revision(&fixture, composed_proposal(2));
+        let mut current = revision(&fixture, composed_proposal(3));
         prepare_generated_sections(&mut current, None).unwrap();
         let validation = chapters::validate_chapter_revision(
             &fixture.storage,
@@ -203,6 +208,18 @@ pub(crate) mod tests {
             ValidationReportStatus::Valid,
             "{validation:?}"
         );
+        assert!(current.sections[0].prose.contains("greeting"));
+        assert!(!current.sections[0].spoken_text.contains("greeting("));
+        assert!(current.sections[0].spoken_text.starts_with("For example"));
+        assert_ne!(current.sections[0].prose, current.sections[0].spoken_text);
+        let before = current.clone();
+        let mut value = serde_json::to_value(&current).unwrap();
+        value["sections"][0]["visual"]["presentation"]["scenes"][0]["narration"] = json!("");
+        let mut invalid: ChapterRevision = serde_json::from_value(value).unwrap();
+        let untouched = invalid.clone();
+        assert!(prepare_generated_sections(&mut invalid, None).is_err());
+        assert_eq!(invalid, untouched);
+        assert_ne!(invalid, before);
     }
 
     #[test]

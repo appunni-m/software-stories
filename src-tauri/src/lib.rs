@@ -2110,27 +2110,28 @@ mod chapter_pipeline_tests {
                     selected_paths: vec![SIMPLE_PATH.to_owned()],
                     model_id: "gemini-3.8-flash".to_owned(), section_update: None,
                 }).unwrap().review;
-            assert!(review.system_instruction.contains("ai-html-compositions-v2"));
-            let mut proposal = provider::visual_scenes::tests::composed_proposal(2);
+            assert!(review.system_instruction.contains("ai-html-compositions-v3"));
+            let mut proposal = provider::visual_scenes::tests::composed_proposal(3);
             if overview { proposal.as_object_mut().unwrap().remove("evidenceLimits"); }
             let original = proposal["sections"][0]["claims"][0]["prose"].as_str().unwrap().to_owned();
             let full = format!("{original} An incoming name becomes part of the returned greeting.");
             proposal["sections"][0]["claims"][0]["prose"] = serde_json::json!(&full);
             let prepared = validate_chapter_draft_preview(
                 &fixture.storage, &review, response(&review, proposal.to_string())).unwrap();
-            assert_eq!(prepared.revision.sections[0].spoken_text, full);
+            assert_eq!(prepared.revision.sections[0].spoken_text, proposal["sections"][0]["visual"]["presentation"]["scenes"][0]["narration"].as_str().unwrap());
             assert_eq!(prepared.revision.sections[0].prose, full);
             let presentation = prepared.revision.sections[0].visual.as_ref().unwrap()
                 .typed_visual().unwrap().presentation.as_ref().unwrap();
-            assert_eq!(presentation.schema_version, 2);
+            assert_eq!(presentation.schema_version, 3);
             assert_eq!(presentation.scenes.len(), 1);
             assert!(chapter_store::list_for_project(&fixture.storage, &review.project_id).unwrap().is_empty());
             // A historical shape still decodes, but cannot downgrade a fresh result.
             proposal["sections"][0]["visual"]["presentation"]["schemaVersion"] = serde_json::json!(1);
+            proposal["sections"][0]["visual"]["presentation"]["scenes"][0].as_object_mut().unwrap().remove("narration");
             let error = validate_chapter_draft_preview(
                 &fixture.storage, &review, response(&review, proposal.to_string())).err().unwrap();
             assert_eq!(error.kind, provider::ProviderFailureKind::MalformedProviderResponse);
-            assert!(error.message.contains("version 2"));
+            assert!(error.message.contains("version 3"));
         }
     }
 
@@ -2522,7 +2523,7 @@ mod chapter_pipeline_tests {
             }, &codex_runtime).unwrap().review;
         assert_eq!(codex_review.purpose,"sectionUpdate");
         assert_eq!(crate::claim_alignment::CorrectionPolicy::from_generation_config(&codex_review.generation_config),
-            crate::claim_alignment::CorrectionPolicy::ChapterLayoutV2);
+            crate::claim_alignment::CorrectionPolicy::ChapterScenesV3);
         provider::revalidate_codex_request_review(&fixture.storage,&codex_review,&codex_runtime).unwrap();
 
         for disclosure in provider::provider_catalog() {

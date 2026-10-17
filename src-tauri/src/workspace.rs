@@ -270,7 +270,7 @@ mod tests {
             };
             let review=crate::provider::build_codex_chapter_review(&fixture.storage,&input,&runtime).unwrap().review;
             assert_eq!(crate::claim_alignment::CorrectionPolicy::from_generation_config(&review.generation_config),
-                crate::claim_alignment::CorrectionPolicy::ChapterLayoutV2);
+                crate::claim_alignment::CorrectionPolicy::ChapterScenesV3);
             assert!(review.generation_config.get("claimAlignmentCorrection").is_none());
             assert!(review.system_instruction.contains("one correction"));
             crate::provider::revalidate_codex_request_review(&fixture.storage,&review,&runtime).unwrap();

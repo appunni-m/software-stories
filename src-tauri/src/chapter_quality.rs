@@ -130,7 +130,7 @@ fn process(bytes: &[u8]) -> Result<Value, String> {
                 "reasoningEffort": profile.reasoning_effort, "approvalPolicy": profile.approval_policy,
                 "modelIds": model_ids, "promptVersion": provider::FILE_PROMPT_VERSION,
                 "chapterSchemaVersion": chapters::CHAPTER_SCHEMA_VERSION,
-                "responseSchemaVersion": 2,
+                "responseSchemaVersion": 3,
                 "systemInstruction": review.system_instruction, "userPrompt": review.user_prompt,
                 "generationConfig": review.generation_config, "responseSchema": schema,
             }))
@@ -464,7 +464,7 @@ mod tests {
 
     #[test]
     fn current_composition_passes_the_same_native_preview_boundary() {
-        let proposal = provider::visual_scenes::tests::composed_proposal(2);
+        let proposal = provider::visual_scenes::tests::composed_proposal(3);
         let data = run(&request(proposal)).unwrap();
         assert_eq!(data["valid"], true, "{data}");
         assert!(data["counts"]["sourceAnchors"].as_u64().unwrap() > 0);
@@ -472,7 +472,7 @@ mod tests {
 
     #[test]
     fn malformed_future_foreign_and_downgraded_scenes_are_rejected() {
-        let base = provider::visual_scenes::tests::composed_proposal(2);
+        let base = provider::visual_scenes::tests::composed_proposal(3);
         let mut missing_visual = base.clone();
         missing_visual["sections"][0]
             .as_object_mut()
@@ -503,7 +503,7 @@ mod tests {
 
     #[test]
     fn source_profile_and_protocol_failures_are_infrastructure_errors() {
-        let base = request(provider::visual_scenes::tests::composed_proposal(2));
+        let base = request(provider::visual_scenes::tests::composed_proposal(3));
         for mutation in [
             "sourceHash",
             "path",
@@ -546,13 +546,13 @@ mod tests {
             first["systemInstruction"]
                 .as_str()
                 .unwrap()
-                .contains("Teaching policy v2:")
+                .contains("Teaching policy v3:")
         );
         assert!(
             first["systemInstruction"]
                 .as_str()
                 .unwrap()
-                .contains("ai-html-compositions-v2")
+                .contains("ai-html-compositions-v3")
         );
         assert!(
             first["userPrompt"]
@@ -564,7 +564,7 @@ mod tests {
             first["generationConfig"]["candidateCorrection"]["maxAttempts"],
             1
         );
-        assert_eq!(first["responseSchemaVersion"], 2);
+        assert_eq!(first["responseSchemaVersion"], 3);
         assert_eq!(first["responseSchema"]["additionalProperties"], false);
     }
 

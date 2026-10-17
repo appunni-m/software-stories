@@ -121,3 +121,23 @@ describe('AI-authored HTML scene contract', () => {
     assert.equal(inspectInteractiveVisual(revision, section).status, 'available');
   });
 });
+
+it('version 3 requires bounded speech per claim while historical scene shapes remain exact', () => {
+  const current = presentation(); current.schemaVersion = 3;
+  current.scenes[0].narration = 'For example, a name of Ada becomes Hello, Ada; the same prefix remains for an empty name.';
+  assert.ok(validScenePresentation(current, nodes, claims));
+  for (const narration of [undefined, null, '', '  ', 'é'.repeat(2001)]) {
+    const bad = structuredClone(current); bad.scenes[0].narration = narration;
+    assert.equal(validScenePresentation(bad, nodes, claims), false);
+  }
+  for (const version of [1, 2]) {
+    const legacy = structuredClone(current); legacy.schemaVersion = version;
+    assert.equal(validScenePresentation(legacy, nodes, claims), false);
+    delete legacy.scenes[0].narration;
+    assert.ok(validScenePresentation(legacy, nodes, claims));
+  }
+  const missing = structuredClone(current); missing.scenes = [];
+  assert.equal(validScenePresentation(missing, nodes, claims), false);
+  current.scenes[0].claimIndex = 1;
+  assert.equal(validScenePresentation(current, nodes, claims), false);
+});

@@ -19,7 +19,7 @@ const STILL_INVALID: &str = "The explanation still did not match its cited code 
 pub(crate) enum CorrectionPolicy {
     Disabled,
     IdentifiersV1,
-    ChapterLayoutV2,
+    ChapterScenesV3,
 }
 
 impl CorrectionPolicy {
@@ -27,7 +27,7 @@ impl CorrectionPolicy {
         if config.get("claimAlignmentCorrection").is_none()
             && config.get("candidateCorrection") == Some(&chapter_correction_config())
         {
-            Self::ChapterLayoutV2
+            Self::ChapterScenesV3
         } else if config.get("candidateCorrection").is_none()
             && config["workspaceQuestion"].is_string()
             && config["claimAlignmentCorrection"] == json!({"policy":"identifier-alignment-v1","maxAttempts":1})
@@ -40,7 +40,7 @@ impl CorrectionPolicy {
 }
 
 pub(crate) fn chapter_correction_config() -> Value {
-    json!({"policy":"chapter-layout-and-identifiers-v2","maxAttempts":1})
+    json!({"policy":"chapter-scenes-and-identifiers-v3","maxAttempts":1})
 }
 
 /// Chapter-specific preflight; full source and storage admission remain separate.
@@ -149,7 +149,7 @@ fn prompt_for_issues(mut issues: Vec<Value>) -> Option<String> {
     let native = issues.iter().any(|issue| issue.get("citationProblem").is_some()
         || issue.get("citationVersion").and_then(Value::as_str) == Some(crate::native_citations::VERSION));
     let scene_feedback = if issues.iter().any(|issue| issue.get("sceneProblem").is_some()) {
-        " For sceneProblem findings, repair the complete composition using the original claims and evidence. A tree has exactly one root; every other parentIndex names an earlier container. Only row, column, grid, panel, compare and stack are containers. Card, token, code, metric, bytes, matrix, table and text are content leaves; arrow and divider are decoration. Containers/decorations use nodeIndex:null, value:\"\", valueOrigin:none. Keep source-linked content in content leaves. Respect 48 elements, six nesting levels, twelve children per group and 1–12 content leaves; remove no supported behavior to evade these limits. Fix layout structure without patching evidence or inventing new values. The full visual/source validator still runs after this one correction."
+        " For sceneProblem findings, repair the complete scene using the original claims and evidence. A narrationRequired finding needs nonempty scene narration, at most 4,000 UTF-8 bytes, covering the same claim with all guards, alternatives and uncertainty in natural speech. Keep exact implementation identifiers in the claim; do not read them merely to pass grounding. A narrationLength finding requires 20–4,000 UTF-8 bytes across the complete ordered script; split without dropping behavior. Inference labels are added by the app. A tree has exactly one root; every other parentIndex names an earlier container. Only row, column, grid, panel, compare and stack are containers. Card, token, code, metric, bytes, matrix, table and text are content leaves; arrow and divider are decoration. Containers/decorations use nodeIndex:null, value:\"\", valueOrigin:none. Keep source-linked content in content leaves. Respect 48 elements, six nesting levels, twelve children per group and 1–12 content leaves; remove no supported behavior to evade these limits. Fix layout structure without patching evidence or inventing new values. The full visual/source validator still runs after this one correction."
     } else { "" };
     let problem_types = if scene_feedback.is_empty() { "identifier or exact-quote" } else { "identifier, exact-quote or composition-structure" };
     let feedback = json!({"issues": issues, "limit": MAX_ISSUES}).to_string();
@@ -261,19 +261,42 @@ mod tests {
     fn correction_policy_requires_the_exact_reviewed_version_and_one_attempt() {
         use CorrectionPolicy::*;
         let current = json!({"candidateCorrection":chapter_correction_config()});
-        assert_eq!(CorrectionPolicy::from_generation_config(&current), ChapterLayoutV2);
+        assert_eq!(CorrectionPolicy::from_generation_config(&current), ChapterScenesV3);
         let legacy = json!({"workspaceQuestion":"Which path runs?", "claimAlignmentCorrection":{"policy":"identifier-alignment-v1","maxAttempts":1}});
         assert_eq!(CorrectionPolicy::from_generation_config(&legacy), IdentifiersV1);
         for changed in [
             json!({}),
-            json!({"candidateCorrection":{"policy":"chapter-layout-and-identifiers-v2","maxAttempts":2}}),
+            json!({"candidateCorrection":{"policy":"chapter-layout-and-identifiers-v2","maxAttempts":1}}),
+            json!({"candidateCorrection":{"policy":"chapter-scenes-and-identifiers-v3","maxAttempts":2}}),
             json!({"candidateCorrection":{"policy":"future","maxAttempts":1}}),
-            json!({"candidateCorrection":{"policy":"chapter-layout-and-identifiers-v2","maxAttempts":1,"extra":true}}),
+            json!({"candidateCorrection":{"policy":"chapter-scenes-and-identifiers-v3","maxAttempts":1,"extra":true}}),
             json!({"candidateCorrection":chapter_correction_config(),"claimAlignmentCorrection":legacy["claimAlignmentCorrection"]}),
             json!({"claimAlignmentCorrection":legacy["claimAlignmentCorrection"]}),
         ] {
             assert_eq!(CorrectionPolicy::from_generation_config(&changed), Disabled);
         }
+    }
+
+    #[test]
+    fn scene_speech_repair_uses_one_complete_candidate_and_preserves_claims() {
+        let mut initial = crate::provider::visual_scenes::tests::composed_proposal(3);
+        let original_claims = initial["sections"][0]["claims"].clone();
+        initial["sections"][0]["visual"]["presentation"]["scenes"][0]
+            .as_object_mut().unwrap().remove("narration");
+        let input = initial.to_string();
+        let findings = chapter_diagnostics(&input).unwrap();
+        assert_eq!(findings, vec![json!({"location":"/sections/0/visual/presentation/scenes/0/narration","sceneProblem":"narrationRequired"})]);
+        let corrected = correct_once_checked(true, input.clone(), |text| Ok(chapter_diagnostics(text)), |feedback| {
+            assert!(feedback.contains("narrationRequired"));
+            assert!(feedback.contains("Do not call tools"));
+            assert!(!feedback.contains("Hello, ${name}"));
+            initial["sections"][0]["visual"]["presentation"]["scenes"][0]["narration"] = json!("The incoming name becomes part of the greeting; the prefix remains even when the name is empty.");
+            Ok(initial.to_string())
+        }).unwrap();
+        let candidate: Value = serde_json::from_str(&corrected).unwrap();
+        assert_eq!(candidate["sections"][0]["claims"], original_claims);
+        assert!(chapter_diagnostics(&corrected).unwrap().is_empty());
+        assert!(correct_once_checked(true, input.clone(), |text| Ok(chapter_diagnostics(text)), |_| Ok(input)).is_err());
     }
 
     #[test]
@@ -337,7 +360,9 @@ mod tests {
             }).unwrap();
         assert_eq!(calls.get(), 1);
         let mut revision = canonicalize(&corrected).unwrap();
-        crate::provider::visual_scenes::prepare_generated_sections(&mut revision, None).unwrap();
+        let historical = revision.clone();
+        assert!(crate::provider::visual_scenes::prepare_generated_sections(&mut revision, None).is_err());
+        assert_eq!(revision, historical, "historical layout correction never rewrites a script");
         let report = chapters::validate_chapter_revision(&fixture.storage, &fixture.manifest, Some(&fixture.index), &revision);
         assert_eq!(report.status, chapters::ValidationReportStatus::Valid, "{report:?}");
         assert_eq!(saved["responseText"], initial);

@@ -27,10 +27,14 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
         let Ok(presentation) = serde_json::from_value::<ScenePresentation>(value.clone()) else {
             continue;
         };
-        if presentation.schema_version != 2 || presentation.scenes.len() > 20 {
+        if !matches!(presentation.schema_version, 2 | 3) || presentation.scenes.len() > 20 {
             continue;
         }
         for (index, scene) in presentation.scenes.iter().enumerate() {
+            if presentation.schema_version == 3 && !scene.narration.as_ref().is_some_and(|s| !s.trim().is_empty() && s.len() <= 4_000) {
+                if issues.len() >= super::MAX_ISSUES { return; }
+                issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{index}/narration"),"sceneProblem":"narrationRequired"}));
+            }
             if scene.mode != SceneMode::Composition {
                 continue;
             }
@@ -47,6 +51,15 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
                     location.push_str(&format!("/{}", finding.field));
                 }
                 issues.push(json!({"location":location,"sceneProblem":finding.code}));
+            }
+        }
+        if presentation.schema_version == 3 && issues.len() < super::MAX_ISSUES
+            && presentation.scenes.iter().all(|s| s.narration.as_ref().is_some_and(|s| !s.trim().is_empty() && s.len() <= 4_000)) {
+            let total = presentation.scenes.iter().filter_map(|s| s.narration.as_deref())
+                .map(|s| s.split_whitespace().collect::<Vec<_>>().join(" "))
+                .collect::<Vec<_>>().join(" ").len();
+            if !(20..=4_000).contains(&total) {
+                issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes"),"sceneProblem":"narrationLength"}));
             }
         }
     }

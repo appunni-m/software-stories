@@ -9,7 +9,7 @@ use std::sync::Mutex;
 pub(crate) const MAX_PROPOSAL_BYTES: usize = 32_768;
 pub(crate) const PROPOSAL_VERSION: &str = "answerSectionV2";
 const LEGACY_PROPOSAL_VERSION: &str = "answerSectionV1";
-const CURRENT_CHECKPOINT_VERSION: u32 = 3;
+const CURRENT_CHECKPOINT_VERSION: u32 = 4;
 const MAX_SECTIONS: usize = 6;
 const MAX_ATTEMPTS: usize = 8;
 const MAX_ANSWERS: usize = 8;
@@ -417,14 +417,40 @@ fn visual_shape_findings(section: &Value) -> Vec<Value> {
 /// New checkpoints bind the new scene policy; old immutable checkpoints keep
 /// the policy under which they were published. Omitted presentations are valid.
 fn scene_version_findings(section: &Value, checkpoint_version: u32) -> Vec<Value> {
-    if checkpoint_version >= 3
-        && section["visual"].get("presentation").is_some()
-        && section["visual"]["presentation"]["schemaVersion"].as_u64() != Some(2)
-    {
+    let Some(presentation) = section["visual"].get("presentation") else { return vec![]; };
+    let supported = match checkpoint_version {
+        1 | 2 => presentation.is_null() || matches!(presentation["schemaVersion"].as_u64(), Some(1 | 2)),
+        3 => presentation["schemaVersion"].as_u64() == Some(2),
+        4 => presentation["schemaVersion"].as_u64() == Some(3),
+        _ => false,
+    };
+    if !supported {
         vec![json!({"location":"/section/visual/presentation/schemaVersion","code":"sceneVersion"})]
     } else {
         vec![]
     }
+}
+
+/// Fixed positions only. Full canonical validation still owns admission; this
+/// never invents speech, removes claims or grants another attempt.
+fn scene_narration_findings(section: &Value) -> Vec<Value> {
+    let presentation = &section["visual"]["presentation"];
+    if presentation["schemaVersion"].as_u64() != Some(3) { return vec![]; }
+    let Some(scenes) = presentation["scenes"].as_array().filter(|s| s.len() <= 20) else { return vec![]; };
+    let mut findings = Vec::new();
+    let mut total = 0;
+    for (index, scene) in scenes.iter().enumerate() {
+        match scene["narration"].as_str() {
+            Some(text) if !text.trim().is_empty() && text.len() <= 4_000 => {
+                total += text.split_whitespace().collect::<Vec<_>>().join(" ").len() + usize::from(index > 0);
+            }
+            _ => findings.push(json!({"location":format!("/section/visual/presentation/scenes/{index}/narration"),"code":"sceneNarration"})),
+        }
+    }
+    if findings.is_empty() && !(20..=4_000).contains(&total) {
+        findings.push(json!({"location":"/section/visual/presentation/scenes","code":"sceneNarration"}));
+    }
+    findings
 }
 
 fn scene_repetition_findings(section: &Value) -> Vec<Value> {
@@ -591,6 +617,7 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "visualField"
                             | "sceneEvidence"
                             | "sceneVersion"
+                            | "sceneNarration"
                             | "sceneRepetition"
                             | "sceneSourceValue"
                             | "sectionValidation"
@@ -799,7 +826,7 @@ impl ActiveAnswer {
         cancelled: &AtomicBool,
         checkpoint_version: u32,
     ) -> Result<PreparedSection, String> {
-        if !matches!(checkpoint_version, 1 | 2 | 3) {
+        if !matches!(checkpoint_version, 1 | 2 | 3 | 4) {
             return Err("Unsupported answer presentation version.".into());
         }
         ledger.check(manifest, runtime, cancelled)?;
@@ -864,6 +891,7 @@ impl ActiveAnswer {
                             let mut alignment = alignment_findings(&proposal.section, resolved.text());
                             alignment.extend(visual_shape_findings(&proposal.section));
                             alignment.extend(scene_version_findings(&proposal.section, checkpoint_version));
+                            if checkpoint_version >= 4 { alignment.extend(scene_narration_findings(&proposal.section)); }
                             alignment.truncate(64);
                             if !alignment.is_empty() {
                                 findings = alignment;
@@ -878,6 +906,8 @@ impl ActiveAnswer {
                                 .unwrap_or(None);
                                 let canonicalize = if checkpoint_version == 1 {
                                     chapter_generation::canonicalize_cited_workspace_overview
+                                } else if checkpoint_version >= 4 {
+                                    chapter_generation::canonicalize_narrated_answer_section
                                 } else {
                                     chapter_generation::canonicalize_complete_answer_section
                                 };
@@ -1230,7 +1260,7 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
             .map(|s| &s.key)
             .collect::<BTreeSet<_>>()
             .len();
-        if !matches!(section.checkpoint_version, 1 | 2 | 3)
+        if !matches!(section.checkpoint_version, 1 | 2 | 3 | 4)
             || checkpoint.schema_version != 3
             || !same_binding(&value.binding, &checkpoint.binding)?
             || checkpoint.status != Status::Active
@@ -1329,6 +1359,8 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Answer, String>
         }
         let canonicalize = if section.checkpoint_version == 1 {
             chapter_generation::canonicalize_cited_workspace_overview
+        } else if section.checkpoint_version >= 4 {
+            chapter_generation::canonicalize_narrated_answer_section
         } else {
             chapter_generation::canonicalize_complete_answer_section
         };

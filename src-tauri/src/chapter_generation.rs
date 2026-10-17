@@ -990,11 +990,24 @@ pub(crate) fn canonicalize_complete_answer_section(
     canonicalize_overview(project_id, manifest, index, selected_sources, &HashSet::new(), response.text(), OverviewPresentation::CompleteClaimsV2, Some(response))
 }
 
+/// New checkpoints retain exact claims in details and the complete authored
+/// scene script in speech. Historical checkpoint reconstruction stays above.
+pub(crate) fn canonicalize_narrated_answer_section(
+    project_id: &str,
+    manifest: &SnapshotManifest,
+    index: Option<&SnapshotIndex>,
+    selected_sources: &[SnapshotSource],
+    response: &crate::native_citations::Resolved,
+) -> Result<ChapterRevision, String> {
+    canonicalize_overview(project_id, manifest, index, selected_sources, &HashSet::new(), response.text(), OverviewPresentation::SceneNarrationV3, Some(response))
+}
+
 #[derive(Clone, Copy)]
 enum OverviewPresentation {
     Supplied,
     ClaimSummaryV1,
     CompleteClaimsV2,
+    SceneNarrationV3,
 }
 
 fn canonicalize_overview(
@@ -1092,7 +1105,7 @@ fn canonicalize_overview(
             visual: visual.map(Into::into),
             hotspots,
         };
-        if matches!(presentation, OverviewPresentation::CompleteClaimsV2) {
+        if matches!(presentation, OverviewPresentation::CompleteClaimsV2 | OverviewPresentation::SceneNarrationV3) {
             let complete = chapters::overview_claim_sentences(&section.claims).join(" ");
             if !(20..=4_000).contains(&complete.len()) {
                 return Err(COMPLETE_CLAIMS_LIMIT_ERROR.to_owned());
@@ -1100,7 +1113,9 @@ fn canonicalize_overview(
             // Never select a convenient subset: qualifiers, later error cases
             // and inference labels must survive in the exact saved script.
             section.prose = complete.clone();
-            section.spoken_text = complete;
+            section.spoken_text = if matches!(presentation, OverviewPresentation::SceneNarrationV3) {
+                chapters::authored_section_narration(&section)?.unwrap_or(complete)
+            } else { complete };
         } else if matches!(presentation, OverviewPresentation::ClaimSummaryV1) {
             let sentences = chapters::overview_claim_sentences(&section.claims);
             // Keep whole sentences; never truncate into an unsupported fragment.

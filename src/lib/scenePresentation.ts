@@ -13,16 +13,35 @@ export interface SceneElement {
 export interface PresentationScene {
   claimIndex: number;
   title: string;
+  narration?: string;
   mode: 'composition' | 'graph';
   elements: SceneElement[];
 }
-export interface ScenePresentation { schemaVersion: 1 | 2; scenes: PresentationScene[] }
+export interface ScenePresentation { schemaVersion: 1 | 2 | 3; scenes: PresentationScene[] }
 export const containerKinds = new Set<string>(['row', 'column', 'grid', 'panel', 'compare', 'stack']);
 const kinds = new Set([...containerKinds, 'card', 'token', 'code', 'metric', 'bytes', 'matrix', 'table', 'text', 'arrow', 'divider']);
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const exact = (v: Record<string, unknown>, keys: string[]) => Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v, k));
 const bytes = (s: string) => new TextEncoder().encode(s).length;
 const index = (v: unknown, bound: number): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 && v < bound;
+
+/** Identity/coverage checks only; semantic faithfulness requires review against
+ * the exact claim. Keep every scene and prefix inferred speech visibly. */
+export function sceneNarrations(presentation: ScenePresentation, claims: ChapterClaim[]): string[] | null {
+  if (presentation.schemaVersion !== 3 || presentation.scenes.length !== claims.length || !claims.length || claims.length > 20) return null;
+  const scripts: string[] = [];
+  for (const [i, scene] of presentation.scenes.entries()) {
+    if (scene.claimIndex !== i || !claims[i].anchors.length || typeof scene.narration !== 'string' || !scene.narration.trim() || bytes(scene.narration) > 4000) return null;
+    const text = scene.narration.trim().replace(/\s+/gu, ' ');
+    if (claims[i].category?.kind === 'inference') {
+      const label = claims[i].category.visibleLabel.trim();
+      if (!label) return null;
+      scripts.push(`${label}: ${text}`);
+    } else scripts.push(text);
+  }
+  const length = bytes(scripts.join(' '));
+  return length >= 20 && length <= 4000 ? scripts : null;
+}
 
 /** Called only after the whole tree is validated. Layout/tone changes cannot
  * turn identical visible content into a transformation. Values stay exact so
@@ -52,10 +71,10 @@ function repeatsTransformation(elements: SceneElement[], nodes: LinkedVisualNode
  * oversized tree. Strings are always text; the renderer never interprets HTML.
  */
 export function validScenePresentation(raw: unknown, nodes: LinkedVisualNode[], claims: ChapterClaim[]): raw is ScenePresentation {
-  if (!record(raw) || !exact(raw, ['schemaVersion', 'scenes']) || (raw.schemaVersion !== 1 && raw.schemaVersion !== 2) || !Array.isArray(raw.scenes)
+  if (!record(raw) || !exact(raw, ['schemaVersion', 'scenes']) || ![1, 2, 3].includes(raw.schemaVersion as number) || !Array.isArray(raw.scenes)
     || raw.scenes.length !== claims.length || raw.scenes.length < 1 || raw.scenes.length > 20) return false;
-  return raw.scenes.every((scene, claimIndex) => {
-    if (!record(scene) || !exact(scene, ['claimIndex', 'title', 'mode', 'elements']) || scene.claimIndex !== claimIndex
+  const valid = raw.scenes.every((scene, claimIndex) => {
+    if (!record(scene) || !exact(scene, ['claimIndex', 'title', 'mode', 'elements', ...(raw.schemaVersion === 3 ? ['narration'] : [])]) || scene.claimIndex !== claimIndex
       || typeof scene.title !== 'string' || !scene.title.trim() || bytes(scene.title) > 120
       || !['composition', 'graph'].includes(String(scene.mode)) || !Array.isArray(scene.elements)) return false;
     if (scene.mode === 'graph') return scene.elements.length === 0;
@@ -98,4 +117,5 @@ export function validScenePresentation(raw: unknown, nodes: LinkedVisualNode[], 
     return leaves >= 1 && leaves <= 12 && elements.every((e, i) => !containerKinds.has(e.kind) || counts[i] > 0)
       && (raw.schemaVersion === 1 || !repeatsTransformation(elements as SceneElement[], nodes));
   });
+  return valid && (raw.schemaVersion !== 3 || sceneNarrations(raw as unknown as ScenePresentation, claims) !== null);
 }

@@ -178,7 +178,7 @@ fn complete_presentation_keeps_every_condition_and_later_sentence() {
     raw["section"]["claims"][0]["prose"] = json!(complete);
     publish(&mut a, &l, &raw.to_string(), &f, &r, &c);
     let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
-    assert_eq!(saved.sections[0].checkpoint_version, 3);
+    assert_eq!(saved.sections[0].checkpoint_version, 4);
     let section = &saved.sections[0].preview.revision.sections[0];
     assert_eq!(section.prose, complete);
     assert_eq!(section.spoken_text, complete);
@@ -217,7 +217,7 @@ fn oversized_complete_presentation_is_rejected_without_publishing_a_summary() {
 
 #[test]
 fn historical_summary_checkpoints_are_not_reinterpreted_as_complete_scripts() {
-    for version in [1, 2] {
+    for version in [1, 2, 3] {
         let f = Fixture::new();
         let (mut l, r, c) = setup(&f);
         let id = read(&mut l, &f, &r, &c);
@@ -248,9 +248,102 @@ fn historical_summary_checkpoints_are_not_reinterpreted_as_complete_scripts() {
         assert_eq!(a.value.sections.len(), 1);
         assert_eq!(a.value.sections[0].checkpoint_version, version);
         let mut forged: Value = serde_json::from_slice(&before).unwrap();
-        forged["sections"][0]["checkpointVersion"] = json!(3 - version);
+        forged["sections"][0]["checkpointVersion"] = json!(if version == 1 { 2 } else { 1 });
         fs::write(&a.path, serde_json::to_vec(&forged).unwrap()).unwrap();
         assert!(inspect(&f.storage, &l.record.binding.operation_id).is_err());
+    }
+}
+
+#[test]
+fn narrated_checkpoints_keep_exact_details_and_independently_authored_scene_speech() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    let id = read(&mut l, &f, &r, &c);
+    let mut a = start(&l, &f, &r, &c);
+    let mut raw: Value = serde_json::from_str(&proposal(&id, "entry", 0)).unwrap();
+    let speech = "For example, the name Mira becomes Hello, Mira; an empty name still gets the greeting prefix.";
+    raw["section"]["visual"]["presentation"] = json!({"schemaVersion":3,"scenes":[{
+        "claimIndex":0,"title":"Put the name in the greeting","narration":speech,"mode":"graph","elements":[]
+    }]});
+    publish(&mut a, &l, &raw.to_string(), &f, &r, &c);
+    let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+    let section = &saved.sections[0].preview.revision.sections[0];
+    assert_eq!(saved.sections[0].checkpoint_version, 4);
+    assert_eq!(section.spoken_text, speech);
+    assert!(section.prose.contains("greeting"));
+    assert_ne!(section.prose, section.spoken_text);
+    assert_eq!(section.claims[0].prose, raw["section"]["claims"][0]["prose"]);
+    let original = fs::read(&a.path).unwrap();
+    publish(&mut a, &l, &raw.to_string(), &f, &r, &c);
+    assert_eq!(a.value.sections.len(), 1);
+    assert_eq!(a.value.sections[0].checkpoint_version, 4);
+    assert_eq!(inspect(&f.storage, &l.record.binding.operation_id).unwrap().sections[0].preview.revision.sections[0].spoken_text, speech);
+    let mut forged: Value = serde_json::from_slice(&original).unwrap();
+    forged["sections"][0]["preview"]["revision"]["sections"][0]["spokenText"] = json!("Unrelated replacement narration.");
+    fs::write(&a.path, serde_json::to_vec(&forged).unwrap()).unwrap();
+    assert!(inspect(&f.storage, &l.record.binding.operation_id).is_err());
+}
+
+#[test]
+fn missing_scene_speech_is_rejected_positionally_without_modifying_claims_or_resetting_attempts() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    let id = read(&mut l, &f, &r, &c);
+    let mut a = start(&l, &f, &r, &c);
+    let mut raw: Value = serde_json::from_str(&proposal(&id, "entry", 0)).unwrap();
+    let original_claims = raw["section"]["claims"].clone();
+    raw["section"]["visual"]["presentation"] = json!({"schemaVersion":3,"scenes":[{
+        "claimIndex":0,"title":"Put the name in the greeting","mode":"graph","elements":[]
+    }]});
+    let rejected_raw = raw.to_string();
+    let prepared = a.prepare(&l, &rejected_raw, &f.manifest, &r, &c).unwrap();
+    assert_eq!(prepared.findings, vec![json!({"location":"/section/visual/presentation/scenes/0/narration","code":"sceneNarration"})]);
+    assert!(valid_findings(&prepared.findings));
+    a.commit(&l, prepared, &f.manifest, &r, &c).unwrap();
+    assert!(inspect(&f.storage, &l.record.binding.operation_id).unwrap().sections.is_empty());
+    raw["section"]["visual"]["presentation"]["scenes"][0]["narration"] = json!("The incoming name becomes part of the greeting, even when it is empty.");
+    publish(&mut a, &l, &raw.to_string(), &f, &r, &c);
+    assert_eq!(a.value.attempts.len(), 2);
+    assert_eq!(a.value.attempts[0].arguments, rejected_raw);
+    assert_eq!(raw["section"]["claims"], original_claims);
+}
+
+#[test]
+fn historical_scene_v2_checkpoint_keeps_exact_script_and_presentation_bytes() {
+    let f = Fixture::new();
+    let (mut l, r, c) = setup(&f);
+    let id = read(&mut l, &f, &r, &c);
+    let mut a = start(&l, &f, &r, &c);
+    let mut raw: Value = serde_json::from_str(&proposal(&id, "entry", 0)).unwrap();
+    raw["section"]["visual"]["presentation"] = json!({"schemaVersion":2,"scenes":[{
+        "claimIndex":0,"title":"Put the name in the greeting","mode":"graph","elements":[]
+    }]});
+    let prepared = a.prepare_with_checkpoint_version(&l, &raw.to_string(), &f.manifest, &r, &c, 3).unwrap();
+    assert!(prepared.findings.is_empty());
+    a.commit(&l, prepared, &f.manifest, &r, &c).unwrap();
+    let bytes = fs::read(&a.path).unwrap();
+    let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+    assert_eq!(saved.sections[0].checkpoint_version, 3);
+    let section = &saved.sections[0].preview.revision.sections[0];
+    assert_eq!(section.spoken_text, section.prose);
+    assert!(!serde_json::to_string(&section.visual).unwrap().contains("narration"));
+    assert_eq!(fs::read(&a.path).unwrap(), bytes);
+    let original_section = serde_json::to_value(&saved.sections[0]).unwrap();
+    publish(&mut a, &l, &raw.to_string(), &f, &r, &c);
+    assert_eq!(a.value.sections[0].checkpoint_version, 3);
+    inspect(&f.storage, &l.record.binding.operation_id).unwrap();
+    assert_eq!(serde_json::to_value(&a.value.sections[0]).unwrap(), original_section);
+}
+
+#[test]
+fn each_checkpoint_keeps_its_original_scene_version_boundary() {
+    for checkpoint in 1..=4 {
+        assert!(scene_version_findings(&json!({"visual":{}}), checkpoint).is_empty());
+        for version in 1..=4 {
+            let section = json!({"visual":{"presentation":{"schemaVersion":version,"scenes":[]}}});
+            let expected = match checkpoint { 1 | 2 => version <= 2, 3 => version == 2, 4 => version == 3, _ => false };
+            assert_eq!(scene_version_findings(&section, checkpoint).is_empty(), expected, "checkpoint {checkpoint}, scene {version}");
+        }
     }
 }
 
@@ -1081,10 +1174,10 @@ fn scene_evidence_feedback_locates_the_wrong_claim_and_preserves_the_rejected_pr
         .unwrap()
         .push(second);
     raw["section"]["visual"]["nodes"][1]["evidence"][0]["claimIndex"] = json!(1);
-    raw["section"]["visual"]["presentation"] = json!({"schemaVersion":2,"scenes":[
-        {"claimIndex":0,"title":"Format a name","mode":"composition","elements":[
+    raw["section"]["visual"]["presentation"] = json!({"schemaVersion":3,"scenes":[
+        {"claimIndex":0,"narration":"The incoming name becomes part of the greeting.","title":"Format a name","mode":"composition","elements":[
             {"kind":"card","parentIndex":null,"nodeIndex":0,"tone":"accent","value":"","valueOrigin":"none"}]},
-        {"claimIndex":1,"title":"Return the message","mode":"composition","elements":[
+        {"claimIndex":1,"narration":"The completed message returns to the caller.","title":"Return the message","mode":"composition","elements":[
             {"kind":"card","parentIndex":null,"nodeIndex":0,"tone":"positive","value":"","valueOrigin":"none"}]}
     ]});
     let rejected_raw = raw.to_string();
@@ -1109,7 +1202,7 @@ fn scene_evidence_feedback_locates_the_wrong_claim_and_preserves_the_rejected_pr
 }
 
 fn self_transforming_presentation() -> Value {
-    json!({"schemaVersion":2,"scenes":[{"claimIndex":0,"title":"A transformation","mode":"composition","elements":[
+    json!({"schemaVersion":3,"scenes":[{"claimIndex":0,"narration":"The input name becomes part of the returned message, even if it is empty.","title":"A transformation","mode":"composition","elements":[
         {"kind":"row","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
         {"kind":"card","parentIndex":0,"nodeIndex":0,"tone":"accent","value":"","valueOrigin":"none"},
         {"kind":"arrow","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
@@ -1308,14 +1401,14 @@ fn fresh_scene_policy_retains_rejection_and_allows_full_correction_without_reset
         ]
     );
     a.commit(&l, rejected, &f.manifest, &r, &c).unwrap();
-    raw["section"]["visual"]["presentation"]["schemaVersion"] = json!(2);
+    raw["section"]["visual"]["presentation"]["schemaVersion"] = json!(3);
     raw["section"]["visual"]["presentation"]["scenes"][0]["elements"][3]["nodeIndex"] = json!(1);
     assert_eq!(raw["section"]["claims"], original_claims);
     publish(&mut a, &l, &raw.to_string(), &f, &r, &c);
     let saved = inspect(&f.storage, &l.record.binding.operation_id).unwrap();
     assert_eq!(saved.attempts.len(), 3);
     assert_eq!(saved.sections.len(), 1);
-    assert_eq!(saved.sections[0].checkpoint_version, 3);
+    assert_eq!(saved.sections[0].checkpoint_version, 4);
     assert_eq!(
         saved.sections[0].preview.revision.sections[0].claims.len(),
         1
@@ -1332,6 +1425,7 @@ fn historical_scene_v1_checkpoints_replay_and_remain_idempotent_under_new_policy
         let mut raw: Value = serde_json::from_str(&proposal(&id, "entry", 0)).unwrap();
         raw["section"]["visual"]["presentation"] = self_transforming_presentation();
         raw["section"]["visual"]["presentation"]["schemaVersion"] = json!(1);
+        raw["section"]["visual"]["presentation"]["scenes"][0].as_object_mut().unwrap().remove("narration");
         let raw = raw.to_string();
         let prepared = a
             .prepare_with_checkpoint_version(&l, &raw, &f.manifest, &r, &c, checkpoint_version)

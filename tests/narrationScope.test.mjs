@@ -41,3 +41,17 @@ it('legacy summaries are not split and unreadable storage cannot guess cache set
   assert.throws(() => sectionNarrationScopes(revision, section(), () => { throw new Error('Storage unavailable'); }), /Storage unavailable/);
   assert.equal(scopedNarrationPreferences(read({}), 'scene', 'Scene fallback', baseKey).spokenText, 'Scene fallback');
 });
+
+it('natural scene scripts use identical scopes in player and export and retain per-scene edits', () => {
+  const current = section();
+  const scripts = ['A prefix check decides which reader should handle these bytes.', 'The chosen reader gets the original input, including its remaining bytes.'];
+  current.spokenText = scripts.join(' ');
+  current.visual = { schemaVersion: 2, nodes: [{ nodeId: 'n1', evidenceAnchorIds: ['anchor:one'] }, { nodeId: 'n2', evidenceAnchorIds: ['anchor:two'] }],
+    presentation: { schemaVersion: 3, scenes: scripts.map((narration, claimIndex) => ({ claimIndex, title: 'Read the input', narration, mode: 'graph', elements: [] })) } };
+  const scopes = sectionNarrationScopes(revision, current, read({}));
+  assert.deepEqual(scopes.map(s => s.sceneId), ['claim:prefix', 'claim:call']);
+  assert.deepEqual(scopes.map(s => s.preferences.spokenText), scripts);
+  const edited = sectionNarrationScopes(revision, current, read({ [`${baseKey}:scene:claim:call`]: JSON.stringify({ backend: 'pocket-tts', spokenText: 'My second-scene script.' }) }));
+  assert.equal(edited[1].preferences.spokenText, 'My second-scene script.');
+  assert.equal(edited[0].preferences.spokenText, scripts[0]);
+});

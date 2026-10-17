@@ -33,7 +33,7 @@ describe('offline chapter-quality corpus checker', () => {
     const result = spawnSync(process.execPath, [checker, '--metadata'], { cwd: root, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr || result.stdout);
     const metadata = JSON.parse(result.stdout);
-    assert.equal(metadata.responseSchemaVersion, 2);
+    assert.equal(metadata.responseSchemaVersion, 3);
     assert.equal(metadata.backendId, 'codex');
     assert.equal(metadata.modelId, 'gpt-6-luna');
     assert.equal(metadata.reasoningEffort, 'max');

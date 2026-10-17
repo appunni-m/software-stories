@@ -58,13 +58,13 @@ fn installed_codex_repairs_a_leaf_parent_once() {
         .map_err(|e| e.message)?
         .review;
         let policy = CorrectionPolicy::from_generation_config(&review.generation_config);
-        if policy != CorrectionPolicy::ChapterLayoutV2 {
+        if policy != CorrectionPolicy::ChapterScenesV3 {
             return Err(
                 "The production review did not select the current chapter correction policy."
                     .into(),
             );
         }
-        let mut initial = provider::visual_scenes::tests::composed_proposal(2);
+        let mut initial = provider::visual_scenes::tests::composed_proposal(3);
         initial["sections"][0]["visual"]["presentation"]["scenes"][0]["elements"][3]
             ["parentIndex"] = json!(1);
         let source = fixture.sources(&[SIMPLE_PATH]).remove(0);

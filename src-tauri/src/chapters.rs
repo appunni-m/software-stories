@@ -398,20 +398,25 @@ pub enum ClaimCategory {
     },
 }
 
-/// Overview prose and narration must be composed from complete sentences that
-/// already exist in an anchored claim. Inference sentences carry their visible
-/// label in the reader-facing copy as well as in the claim metadata.
+/// Exact implementation prose stays grounded in claims. Version-3 scenes may
+/// supply their separate, explicitly mapped script; old scripts keep the
+/// original sentence-copy policy. Neither check certifies paraphrase semantics.
 pub fn overview_section_copy_supported(section: &ChapterSection) -> bool {
     if section.claims.is_empty() {
         return false;
     }
     let supported_sentences = overview_claim_sentences(&section.claims).into_iter().collect::<HashSet<_>>();
-    [&section.prose, &section.spoken_text]
-        .into_iter()
-        .filter(|text| !text.trim().is_empty())
-        .flat_map(|text| sentence_fragments(text))
-        .all(|sentence| supported_sentences.contains(&sentence))
-        && !sentence_fragments(&section.prose).is_empty()
+    let copied = |text: &str| sentence_fragments(text).iter().all(|s| supported_sentences.contains(s));
+    copied(&section.prose) && !sentence_fragments(&section.prose).is_empty()
+        && (copied(&section.spoken_text)
+            || authored_section_narration(section).ok().flatten().as_deref() == Some(section.spoken_text.as_str()))
+}
+
+pub(crate) fn authored_section_narration(section: &ChapterSection) -> Result<Option<String>, String> {
+    let Some(presentation) = section.visual.as_ref().and_then(|v| v.typed_visual())
+        .and_then(|v| v.presentation.as_ref()) else { return Ok(None); };
+    crate::scene_presentation::narration(presentation, &section.claims)
+        .map(|scripts| scripts.map(|scripts| scripts.join(" ")))
 }
 
 /// Ordered, complete reader-visible sentences from anchored claims only.

@@ -87,3 +87,32 @@ describe('visual story scenes', () => {
     assert.equal(readStoryProgress(JSON.stringify({ positions: { entry: 3601 } }), scenes).positions[0][1], 0);
   });
 });
+
+it('authored narration follows all claim scenes for the reader and export without speaking identifiers', () => {
+  const scripts = ['For example, a request arrives with untrusted bytes.', 'If the check rejects them, the caller gets an error. Otherwise, processing continues.'];
+  const authored = { ...visual, presentation: { schemaVersion: 3, scenes: scripts.map((narration, claimIndex) => ({ claimIndex, title: 'Follow the request', narration, mode: 'graph', elements: [] })) } };
+  const current = { ...section, spokenText: scripts.join(' '), visual: authored };
+  const fromReader = storyScenes(current, authored);
+  const fromExport = storyScenes(current);
+  assert.deepEqual(fromReader, fromExport);
+  assert.deepEqual(fromReader.map(s => s.narration), scripts);
+  assert.deepEqual(fromReader.map(s => s.id), claims.map(c => c.claimId));
+  assert.deepEqual(fromReader.map(s => s.anchorIds), [['a:entry'], ['a:check']]);
+  assert.equal(fromReader[1].nodeIds.length, 3);
+  assert.ok(current.claims[0].prose.includes('handleRequest'));
+  assert.ok(!fromReader[0].narration.includes('handleRequest'));
+  assert.deepEqual(storyScenes(current, authored, 'My edited whole script.').map(s => s.narration), ['My edited whole script.']);
+  const bad = structuredClone(current); bad.visual.presentation.scenes.pop();
+  assert.deepEqual(storyScenes(bad).map(s => s.narration), [current.spokenText]);
+});
+
+it('new authored inferred scenes preserve their visible uncertainty label in speech', () => {
+  const current = structuredClone(section);
+  current.claims[1].category = { kind: 'inference', visibleLabel: 'Inference' };
+  current.visual = { ...visual, presentation: { schemaVersion: 3, scenes: [
+    { claimIndex: 0, title: 'Arrival', narration: 'The bytes arrive before any trust decision.', mode: 'graph', elements: [] },
+    { claimIndex: 1, title: 'Possible effect', narration: 'This may avoid work on rejected input. This is not a runtime guarantee.', mode: 'graph', elements: [] },
+  ] } };
+  current.spokenText = 'The bytes arrive before any trust decision. Inference: This may avoid work on rejected input. This is not a runtime guarantee.';
+  assert.deepEqual(storyScenes(current).map(s => s.narration), ['The bytes arrive before any trust decision.', 'Inference: This may avoid work on rejected input. This is not a runtime guarantee.']);
+});

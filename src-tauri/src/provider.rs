@@ -33,10 +33,10 @@ const OPENAI_DISCLOSURE_VERSION: &str = "openai-disclosure-2026-10-13-v1";
 const ANTHROPIC_DISCLOSURE_VERSION: &str = "anthropic-disclosure-2026-10-13-v1";
 #[cfg(test)]
 const DISCLOSURE_VERSION: &str = GEMINI_DISCLOSURE_VERSION;
-const PROMPT_VERSION: &str = "structured-file-chapter-v5";
+const PROMPT_VERSION: &str = "structured-file-chapter-v6";
 pub(crate) const FILE_PROMPT_VERSION: &str = PROMPT_VERSION;
-const OVERVIEW_PROMPT_VERSION: &str = "structured-repository-overview-v5";
-const SECTION_UPDATE_PROMPT_VERSION: &str = "structured-single-section-update-v3";
+const OVERVIEW_PROMPT_VERSION: &str = "structured-repository-overview-v6";
+const SECTION_UPDATE_PROMPT_VERSION: &str = "structured-single-section-update-v4";
 const FILE_CHAPTER_PURPOSE: &str = "fileChapter";
 const REPOSITORY_OVERVIEW_PURPOSE: &str = "repositoryOverview";
 const REPOSITORY_PLAN_PURPOSE: &str = "repositoryPlan";
@@ -8226,11 +8226,11 @@ mod tests {
     }
 
     #[test]
-    fn chapter_scene_schema_extends_generation_without_changing_retrieval_contracts() {
+    fn chapter_scene_narration_versions_new_proposals_without_changing_retrieval_schema() {
         let legacy = workspace_retrieval_schema();
         let tools = crate::context_mcp::tools_for(true);
         assert_eq!(crate::repository_context::digest(&serde_json::to_vec(&legacy).unwrap()), "fd962326147fe3732af0c0e5c2d4d1535879a314d297b3996b72a14b6abf7689");
-        assert_eq!(crate::repository_context::digest(&serde_json::to_vec(&tools).unwrap()), "46b56be56897108464af861b548522e14379943d9dbb58ea73bcbce8daa5b481");
+        assert_eq!(crate::repository_context::digest(&serde_json::to_vec(&tools).unwrap()), "13ab96766a249d298fe8f0d93a321deb9b88dfdd8fafe774dbc1f7eb9e4fbde3");
         let file = file_chapter_response_schema();
         let overview = repository_overview_response_schema();
         let repair = section_update_generation_config();
