@@ -4,7 +4,7 @@
 use crate::chapters::{self, ChapterRevision};
 use serde_json::{json, Value};
 
-pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v4";
+pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v5";
 
 /// One speech contract for file, overview and selected-section user prompts.
 /// Keep compatibility fields complete rather than imposing a summary shortcut.
@@ -14,7 +14,9 @@ const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v3
 Author a causal illustrated answer. Keep exact implementation claims as inspectable source-grounded details; every declared identifier still appears literally in its claim. Write separate natural narration on each scene to explain that claim's meaning, not its spelling. Usually use 2–5 short claims/scenes per section. Speech follows the input, why a choice or guard matters, and the consequence, including all alternative/error conditions. Refer to the short visual labels, introduce useful invented inputs as examples, and connect scenes causally. Do not read declarations, helper names, type constructors, paths, call syntax or punctuation by default. A user explicitly asking about a name or syntax may need that name spoken. Do not change or omit a claim's conditions, exceptions, inference or uncertainty when paraphrasing. The app prefixes inference narration with its visible label. Exact source links remain available. Narration is AI-authored, not automatic code-name removal or proof of semantic equivalence.
 The app assembles full details from all validated claims and speech from all ordered scene narrations; it never selects a convenient subset. Keep each complete section's details and speech within 4,000 UTF-8 bytes or split it without dropping behavior. Separate prose/spokenText transport fields remain required under their documented bounds: prose copies complete claim sentences, spokenText copies the complete scene narration. With no visual presentation, use complete claim sentences for both fields."#;
 
-const BEHAVIOR_TEACHING: &str = r#"Teaching policy v4: For a behavior question, open with the problem and a useful input-to-result example, then explain the decisions that make that outcome possible. Do not open with a function signature, argument-type list, or definition of result fields. A responsibility claim should explain the work accomplished, not recite its declaration. Narrate meaning: say that an unavailable record gives no location, or an invalid bound gives an empty range, rather than reading type constructors, angle brackets, field initializer syntax, question marks or call expressions. Keep necessary exact source identifiers in the inspectable claim; scene narration explains their work in ordinary words without being forced to repeat them. Source links retain the precise implementation. Do not shorten the answer by omitting a guard or alternative. For every conditional claim, state the general decision rule and every relevant alternative in the narration before using a worked example; an example alone cannot replace the rule. Explain which inputs select an encoding or branch, including zero versus any nonzero value when that is what the implementation tests. Explain whether an empty result retains its starting location or resets it. A reader should be able to predict an unshown input, not just repeat the illustrated numbers. These are general teaching requirements, not permission to infer a guard absent from the captured code."#;
+const BEHAVIOR_TEACHING: &str = r#"Teaching policy v5: For a behavior question, open with the problem and a useful input-to-result example, then explain the decisions that make that outcome possible. Do not open with a function signature, argument-type list, or definition of result fields. A responsibility claim should explain the work accomplished, not recite its declaration. Narrate meaning: say that an unavailable record gives no location, or an invalid bound gives an empty range, rather than reading type constructors, angle brackets, field initializer syntax, question marks or call expressions. Keep necessary exact source identifiers in the inspectable claim; scene narration explains their work in ordinary words without being forced to repeat them. Source links retain the precise implementation. Do not shorten the answer by omitting a guard or alternative. For every conditional claim, state the general decision rule and every relevant alternative in the narration before using a worked example; an example alone cannot replace the rule. Explain which inputs select an encoding or branch, including zero versus any nonzero value when that is what the implementation tests. Explain whether an empty result retains its starting location or resets it. A reader should be able to predict an unshown input, not just repeat the illustrated numbers. These are general teaching requirements, not permission to infer a guard absent from the captured code."#;
+
+const EVIDENCE_MEANING: &str = r#"Trace the whole decision before describing its outcome: lookup and byte-range extraction can fail before a parser runs. A fallback in the parser-error arm applies only after every earlier guard and failure has been accounted for. Distinguish a missing entry, inaccessible bytes, malformed contents and successful parsing when the implementation does. Preserve those conditions and outcomes in the claim, visual and natural narration; never generalize a local fallback to every malformed input. A comment or default constructor does not prove later consumer behavior. If you describe how a later consumer interprets a value, cite that consumer's implementation together with the relevant producer and connecting conditions. Otherwise restrict the claim to the evidenced construction and explicitly leave the downstream outcome unexplored. A source reference proves only the behavior its actual implementation supports; schema validation and a matching identifier do not establish semantic correctness."#;
 
 const REPRESENTATION_CHOICES: &str = r#"Choose the representation that teaches the behavior: byte strips for format signatures, before/after values for a transformation, comparisons or tables for alternatives, stacks for state, matrices for raster concepts, and graphs for genuine paths. Do not turn every scene into source-code cards. Show a meaningful example or change when the source supports it. Arrows must reflect the relationship actually described by the claim; different source tokens alone do not establish a transformation. Independent resources, such as two copied tables, belong beside each other in a comparison/grid, not across a conversion arrow. Show a conditional path with its guard; do not present a branch-specific helper as the unconditional result. Invented values must be defensible illustrative examples, introduced as examples in narration, never captured runtime observations."#;
 
@@ -28,13 +30,14 @@ A nonempty value has valueOrigin:source only when it is an exact substring of th
 
 /// Keep transport-specific fields out of progressive section instructions.
 pub(crate) fn teaching_instructions() -> String {
-    [BEHAVIOR_TEACHING, OUTCOME_TEACHING].join("\n\n")
+    [BEHAVIOR_TEACHING, EVIDENCE_MEANING, OUTCOME_TEACHING].join("\n\n")
 }
 
 pub(super) fn instructions() -> String {
     [
         STORY_INTRO,
         BEHAVIOR_TEACHING,
+        EVIDENCE_MEANING,
         REPRESENTATION_CHOICES,
         OUTCOME_TEACHING,
         COMPOSITION_CONTRACT,
@@ -141,7 +144,7 @@ pub(crate) mod tests {
     fn ordinary_prompt_binds_the_versioned_scene_narration_policy() {
         assert_eq!(
             crate::repository_context::digest(super::instructions().as_bytes()),
-            "72e5ac916b7c7c908809ee59b52833e8038e7cb9ac7ad36585cf922f350ad9d4"
+            "ed9219f5d33b2cb5ffd4c1c42f9deea4553a3d3770a8922a8080b25e83f8d4c7"
         );
         assert!(super::instructions().contains(super::BEHAVIOR_TEACHING));
         assert!(super::instructions().contains(super::OUTCOME_TEACHING));
@@ -155,6 +158,16 @@ pub(crate) mod tests {
         assert!(BEHAVIOR_TEACHING.contains("state the general decision rule"));
         assert!(BEHAVIOR_TEACHING.contains("an example alone cannot replace the rule"));
         assert!(teaching_instructions().contains(BEHAVIOR_TEACHING));
+    }
+
+    #[test]
+    fn all_generation_routes_distinguish_preconditions_parse_fallbacks_and_consumer_facts() {
+        for instructions in [super::instructions(), teaching_instructions()] {
+            assert!(instructions.contains("A comment or default constructor does not prove later consumer behavior"));
+            assert!(instructions.contains("lookup and byte-range extraction can fail before a parser runs"));
+            assert!(instructions.contains("cite that consumer's implementation"));
+            assert!(instructions.contains("every earlier guard and failure"));
+        }
     }
 
     #[test]

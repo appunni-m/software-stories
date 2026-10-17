@@ -60,6 +60,17 @@ fn combined_contract_keeps_the_same_scene_and_outline_boundaries() {
     assert!(instructions.contains("sceneAuthoringReference"));
     assert!(instructions.contains("Do not make the first unit an exhaustive"));
     assert!(!instructions.contains("Finish only with the supplied answerManifestV1"));
+    assert!(!instructions.contains("then investigate and publish deeper sections"));
+    assert!(instructions.contains("then focus on the remaining research outline"));
+    assert!(instructions.contains("A comment or default constructor does not prove later consumer behavior"));
+    let base = crate::agent_context::PROGRESSIVE_BASE_INSTRUCTIONS;
+    assert!(!base.contains("then investigate and publish deeper supported sections"));
+    assert!(base.contains("operation's role and final schema"));
+    assert!(base.contains("Respect the original source, call, proposal and time limits"));
+    assert!(base.contains("Do not run commands, edit code, browse, delegate or access a live checkout"));
+    assert!(instructions.contains("including requested alternate paths and failures"));
+    assert!(instructions.contains("Evidence proves the whole claim"));
+    assert!(instructions.contains("At most six unique sections and eight total proposals"));
 }
 
 #[test]
