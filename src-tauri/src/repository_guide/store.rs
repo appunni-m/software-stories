@@ -116,17 +116,17 @@ pub(super) fn list(storage: &Path, project: &str, snapshot: &str) -> Result<Vec<
     Ok(records)
 }
 
-/// Owned descriptor releases the nonblocking lease on return, panic or exit.
+/// Native owner explicitly releases the lease on return or unwind.
 #[cfg(unix)]
-pub(super) fn lease(storage: &Path, id: &str) -> Result<Option<File>, String> {
+pub(super) fn lease(storage: &Path, id: &str) -> Result<Option<crate::file_lease::Lease>, String> {
     if !uuid(id) {
         return Err("The guide worker identity is invalid.".into());
     }
     lock_named(storage, &format!("{id}.lock"))
 }
 #[cfg(unix)]
-fn lock_named(storage: &Path, name: &str) -> Result<Option<File>, String> {
-    use std::os::{fd::AsRawFd, unix::fs::OpenOptionsExt};
+fn lock_named(storage: &Path, name: &str) -> Result<Option<crate::file_lease::Lease>, String> {
+    use std::os::unix::fs::OpenOptionsExt;
     let directory = directory(storage)?;
     let lock_path = directory.join(name);
     if !lock_path.exists() && scan(&directory)?.len() >= MAX_ENTRIES {
@@ -148,23 +148,15 @@ fn lock_named(storage: &Path, name: &str) -> Result<Option<File>, String> {
     {
         return Err("The guide lease is not a regular local file.".into());
     }
-    // SAFETY: file owns this live descriptor; flock borrows it, has no pointer
-    // arguments, and LOCK_NB cannot wait. Keeping File retains the advisory lock.
-    if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } == 0 {
-        return Ok(Some(file));
-    }
-    if std::io::Error::last_os_error().kind() == std::io::ErrorKind::WouldBlock {
-        Ok(None)
-    } else {
-        Err("The filesystem cannot lease a guide worker. Existing work was preserved.".into())
-    }
+    crate::file_lease::try_exclusive(file)
+        .map_err(|_| "The filesystem cannot lease a guide worker. Existing work was preserved.".into())
 }
 #[cfg(not(unix))]
-fn lock_named(_storage: &Path, _name: &str) -> Result<Option<File>, String> {
+fn lock_named(_storage: &Path, _name: &str) -> Result<Option<crate::file_lease::Lease>, String> {
     Err("Guide transactions require a native Unix filesystem lease.".into())
 }
 #[cfg(not(unix))]
-pub(super) fn lease(_storage: &Path, _id: &str) -> Result<Option<File>, String> {
+pub(super) fn lease(_storage: &Path, _id: &str) -> Result<Option<crate::file_lease::Lease>, String> {
     Err("Repository guide workers require a native Unix filesystem lease.".into())
 }
 

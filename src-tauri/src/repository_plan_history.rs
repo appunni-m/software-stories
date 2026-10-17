@@ -507,8 +507,8 @@ fn publish(directory: &Path, target: &Path, bytes: &[u8]) -> Result<(), String> 
 }
 
 #[cfg(unix)]
-fn lock_history(directory: &Path) -> Result<File, String> {
-    use std::os::{fd::AsRawFd, unix::fs::OpenOptionsExt};
+fn lock_history(directory: &Path) -> Result<crate::file_lease::Lease, String> {
+    use std::os::unix::fs::OpenOptionsExt;
     let file = OpenOptions::new().read(true).write(true).create(true).truncate(false)
         .mode(0o600).custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
         .open(directory.join(".acceptance.lock"))
@@ -520,22 +520,13 @@ fn lock_history(directory: &Path) -> Result<File, String> {
     {
         return Err("The accepted plan writer lock is not a regular local file. Existing data was preserved.".to_owned());
     }
-    // SAFETY: file owns a live descriptor for the duration of this call and
-    // the returned File guard. flock(int, int) borrows that descriptor, takes
-    // no pointers, transfers no ownership and cannot unwind through Rust.
-    // LOCK_NB prevents blocking; closing the guard releases this advisory lock.
-    if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
-        return Err(if std::io::Error::last_os_error().kind() == std::io::ErrorKind::WouldBlock {
-            "Another native review owns accepted plan history. Refresh and retry after it finishes; no acceptance was written."
-        } else {
-            "The local filesystem writer lock could not be acquired. Existing history was preserved; use native storage that supports advisory locks."
-        }.to_owned());
-    }
-    Ok(file)
+    crate::file_lease::try_exclusive(file)
+        .map_err(|_| "The local filesystem writer lock could not be acquired. Existing history was preserved; use native storage that supports advisory locks.".to_owned())?
+        .ok_or_else(|| "Another native review owns accepted plan history. Refresh and retry after it finishes; no acceptance was written.".to_owned())
 }
 
 #[cfg(not(unix))]
-fn lock_history(_directory: &Path) -> Result<File, String> {
+fn lock_history(_directory: &Path) -> Result<crate::file_lease::Lease, String> {
     Err("Accepted plan writing requires the macOS/Unix native writer lock. Existing history was preserved.".to_owned())
 }
 

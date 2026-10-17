@@ -36,6 +36,7 @@ mod chapter_quality;
 mod generation_timing;
 mod local_export;
 mod local_read;
+mod file_lease;
 mod agent_context;
 mod evidence_ledger;
 mod native_citations;

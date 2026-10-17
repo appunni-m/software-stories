@@ -590,7 +590,7 @@ async fn run_command(
     app: AppHandle,
     storage: std::path::PathBuf,
     id: String,
-    lease: std::fs::File,
+    lease: crate::file_lease::Lease,
 ) -> Result<GuideSummary, String> {
     tauri::async_runtime::spawn_blocking(move||{
         let _lease=lease;

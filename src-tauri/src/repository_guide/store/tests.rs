@@ -51,6 +51,25 @@ fn worker_lease_excludes_a_second_worker_until_the_original_is_joined() {
     drop(worker);
     assert!(lease(&f.storage, &id).unwrap().is_some());
 }
+
+#[cfg(unix)]
+#[test]
+fn ending_the_owner_releases_a_lease_even_if_an_inherited_descriptor_remains() {
+    let f = Fixture::new();
+    let id = Uuid::new_v4().to_string();
+    let owner = lease(&f.storage, &id).unwrap().unwrap();
+    // dup and fork retain the same open-file-description lock. Simulate the
+    // inherited descriptor without forking a multithreaded Rust test process.
+    let inherited = owner.try_clone().unwrap();
+    assert!(lease(&f.storage, &id).unwrap().is_none());
+    drop(owner);
+    let next = lease(&f.storage, &id).unwrap();
+    assert!(next.is_some(), "an inherited descriptor must not extend the ended owner's lease");
+    drop(inherited);
+    assert!(lease(&f.storage, &id).unwrap().is_none());
+    drop(next);
+    assert!(lease(&f.storage, &id).unwrap().is_some());
+}
 #[test]
 fn damaged_contract_duplicate_runs_and_excess_attempts_fail_without_rewriting() {
     let f = Fixture::new();
