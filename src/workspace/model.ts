@@ -30,6 +30,31 @@ export interface Turn {
 }
 export interface Exploration { id: string; parentId: string | null; originTurnId: string | null; title: string; view: View; turns: Turn[]; file?: string; reveal?: Context; scrollTop?: number; scrollPositions?: Partial<Record<View, number>> }
 export interface WorkspaceState { version: 1; projectId: string; snapshotId: string; currentId: string; file: string | null; explorations: Exploration[]; grantId?: string }
+
+/** History describes an available result only when its exact revision loaded.
+ * A stopped question and an unavailable revision are still useful history. */
+export function historyEntry(turn: Turn, availableRevisions: ReadonlySet<string>): { text: string; action: string } {
+  const saved = !!turn.revisionId && availableRevisions.has(turn.revisionId)
+    || !!turn.publishedSections?.some((section) => availableRevisions.has(section.revisionId));
+  if (saved) {
+    const state = turn.status === 'queued' || turn.status === 'working' ? 'Adding more detail.'
+      : turn.status === 'partial' ? 'Partially completed.'
+      : turn.status === 'stopped' ? 'Stopped.'
+      : turn.status === 'interrupted' ? 'Interrupted.'
+      : turn.status === 'failed' ? 'Could not finish.' : 'Saved explanation.';
+    return { text: `${state}${turn.status === 'ready' ? '' : ' Saved sections are available.'}`, action: 'Open explanation' };
+  }
+  const text: Record<Turn['status'], string> = {
+    queued: 'Waiting to start…', working: 'Working on this question…',
+    partial: 'This question is incomplete. No saved section is available.',
+    failed: 'This question could not be completed.',
+    stopped: 'Stopped before an explanation was saved.',
+    interrupted: 'Interrupted before an explanation was saved.',
+    ready: 'The saved explanation is unavailable.',
+  };
+  return { text: text[turn.status], action: 'Open question' };
+}
+
 export function createWorkspace(projectId: string, snapshotId: string): WorkspaceState {
   return { version: 1, projectId, snapshotId, currentId: 'root', file: null,
     explorations: [{ id: 'root', parentId: null, originTurnId: null, title: 'Repository', view: 'guide', turns: [] }] };

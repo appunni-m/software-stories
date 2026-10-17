@@ -1,8 +1,38 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { addTurn, ancestors, chapterTarget, chooseFlowRevision, cleanAnswerNotes, cleanPublishedSections, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
+import { addTurn, ancestors, chapterTarget, chooseFlowRevision, cleanAnswerNotes, cleanPublishedSections, historyEntry, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
 const turn = (id,question='Explain the subtotal implementation') => ({id,question,context:[{path:'src/cart.ts',from:1,to:6}],status:'queued'});
+
+test('history never calls an empty or unavailable outcome a saved explanation',()=>{
+  const available = new Set(['revision:existing']);
+  for(const status of ['queued','working','ready','partial','failed','stopped','interrupted']) {
+    const entry=historyEntry({...turn('one'),status,revisionId:'revision:missing'},available);
+    assert.equal(entry.action,'Open question');
+    assert.doesNotMatch(entry.text,/Open the saved explanation|Saved sections are available/);
+    if(status==='stopped'||status==='interrupted')assert.match(entry.text,/before an explanation was saved/);
+  }
+  assert.match(historyEntry({...turn('one'),status:'working'},available).text,/Working/);
+});
+test('history preserves partial results only when an exact saved revision is available',()=>{
+  const available=new Set(['revision:existing']);
+  const partial={...turn('one'),status:'stopped',publishedSections:[{revisionId:'revision:existing'}]};
+  assert.deepEqual(historyEntry(partial,available),{text:'Stopped. Saved sections are available.',action:'Open explanation'});
+  assert.equal(historyEntry(partial,new Set()).action,'Open question');
+  assert.deepEqual(historyEntry({...turn('one'),status:'ready',revisionId:'revision:existing'},available),{text:'Saved explanation.',action:'Open explanation'});
+  for(const status of ['queued','working','partial','failed','interrupted']) {
+    assert.match(historyEntry({...partial,status},available).text,/Saved sections are available/);
+  }
+});
+test('repository search and explorer filters have independent inputs and branches count questions',()=>{
+  const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
+  assert.match(source,/\[fileFilter,setFileFilter\] = useState\(''\)/);
+  assert.match(source,/\[repositorySearch,setRepositorySearch\] = useState\(''\)/);
+  assert.match(source,/value=\{activity==='search'\?repositorySearch:fileFilter\}/);
+  assert.match(source,/!fileFilter\|\|p\.toLowerCase\(\)\.includes\(fileFilter\.toLowerCase\(\)\)/);
+  assert.doesNotMatch(source,/<small>\{e\.turns\.length\} answer/);
+  assert.match(source,/<small>\{e\.turns\.length\} question/);
+});
 test('follow-ups stack at the current level; only explicit exploration creates a branch',()=>{
   let s=createWorkspace('p','snap');s=addTurn(s,turn('one'),'guide');s=addTurn(s,turn('two'),'flow');
   assert.equal(s.explorations.length,1);assert.equal(s.currentId,'root');assert.equal(s.explorations[0].turns.length,2);
