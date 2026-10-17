@@ -223,7 +223,7 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
                 }}><BookOpen size={13}/><span>{r.title}</span><small>{r.lifecycle}</small></button>)}</details>}
               </Tabs.Content>
               <Tabs.Content value="flow">{flowRevisions.length>1&&<div className="dw-flow-choice"><label htmlFor="answer-flow-section">Explanation</label><select id="answer-flow-section" value={latestRevision?.revisionId??''} onChange={(event)=>{const revision=flowRevisions.find((r)=>r.revisionId===event.target.value);if(latestTurn&&revision?.sections[0])saveSection(latestTurn.id,'flow',revision.revisionId,revision.sections[0].sectionId);}}>{flowRevisions.map((revision)=><option key={revision.revisionId} value={revision.revisionId}>{revision.sections[0]?.title??revision.title}</option>)}</select></div>}{indexError&&!latestRevision&&<p role="status" className="dw-error">{indexError}</p>}{latestRevision?<EvidenceFlow revision={latestRevision} saved={latestTurn?.reading?.flow} onSection={(sectionId)=>{if(latestTurn)saveSection(latestTurn.id,'flow',latestRevision.revisionId,sectionId);}} theme={appearance} onOpen={(a)=>openFile(fromAnchor(a))}/>:source?<FileFlow index={index} edges={graph?.edges??[]} loading={indexBusy} path={source.path} onOpenFile={(p,_snapshot,range)=>openFile({path:p,from:range?.startLine,to:range?.endLine,sha256:range?.sourceSha256})}/>:<p>Open a file or ask a question to explore its flow.</p>}{current.turns.length>0&&<div className="dw-flow-conversation">{current.turns.map((turn)=><Answer key={turn.id} chapters={chapters} compact turn={turn} loading={chaptersLoading} revision={chapters.find((r)=>r.revisionId===turn.revisionId)} branches={state.explorations.filter((e)=>e.parentId===current.id&&e.originTurnId===turn.id)} onGo={go} onOpen={(a)=>openFile(fromAnchor(a))} onDestination={openDestination} onBranch={(question,context)=>branch(turn,question,context)} onStop={()=>stopQuestion(projectId,snapshotId,turn.id)} onRetry={()=>state.grantId?void runQuestion(projectId,snapshotId,turn.id,state.grantId):setConsentTurn(turn.id)} onReview={onReview} onRead={onRead} onSettings={onSettings} onSection={(revisionId,sectionId)=>saveSection(turn.id,'guide',revisionId,sectionId)}/>)}</div>}</Tabs.Content>
-              <Tabs.Content value="history"><div className="dw-history">{path.map((e)=><section key={e.id}><button className="dw-history-level" onClick={()=>go(e.id)}><MessageSquare size={13}/>{e.id==='root'?projectName:e.title}<small>Level {ancestors(state,e.id).length}</small></button>{e.turns.map((turn)=><article key={turn.id}><strong>{turn.question}</strong><p>{chapters.find((r)=>r.revisionId===turn.revisionId)?.sections[0]?.prose??(turn.status==='working'?'Working on this question…':turn.error?explanationErrorMessage(turn.error):'Open the saved explanation.')}</p><button className="dw-text-action" onClick={()=>{go(e.id);update((s)=>({...s,explorations:s.explorations.map((x)=>x.id===e.id?{...x,view:'guide'}:x)}));}}>Open explanation<ArrowRight size={13}/></button></article>)}</section>)}{!current.turns.length&&<p>Your questions and explanations will appear here.</p>}</div></Tabs.Content>
+              <Tabs.Content value="history"><div className="dw-history">{path.map((e)=><section key={e.id}><button className="dw-history-level" onClick={()=>go(e.id)}><MessageSquare size={13}/>{e.id==='root'?projectName:e.title}<small>Level {ancestors(state,e.id).length}</small></button>{e.turns.map((turn)=><article key={turn.id}><strong>{turn.question}</strong><p>{chapters.find((r)=>r.revisionId===turn.revisionId)?.sections[0]?.prose??(turn.status==='working'?'Working on this question…':turn.error?explanationErrorMessage(turn.error):'Open the saved explanation.')}</p><button className="dw-text-action" onClick={()=>{go(e.id);update((s)=>({...s,explorations:s.explorations.map((x)=>x.id===e.id?{...x,view:'guide'}:x)}));}}>Open explanation<ArrowRight size={13}/></button>{turn.runIds?.length ? <AnswerDiagnostics project={projectId} snapshot={snapshotId} runId={turn.runIds.at(-1)!}/> : null}</article>)}</section>)}{!current.turns.length&&<p>Your questions and explanations will appear here.</p>}</div></Tabs.Content>
             </div>
           </Tabs.Root></Panel>
         </Group>}
@@ -253,6 +253,21 @@ function Answer(props:AnswerProps){
       branches={index===sections.length-1?branches:[]}/>)}
     {sections.length===0&&!working&&<p className="dw-empty-answer">No section was published for this attempt. Earlier saved explanations are still in the library.</p>}
   </section>;
+}
+function AnswerDiagnostics({project,snapshot,runId}:{project:string;snapshot:string;runId:string}) {
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState<string|null>(null);
+  const download=async()=>{
+    setBusy(true);setError(null);
+    try{
+      const report=await invoke('load_workspace_answer_timing',{projectId:project,snapshotId:snapshot,runId});
+      const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)+'\n'],{type:'application/json'}));
+      const anchor=document.createElement('a');anchor.href=url;anchor.download='code-atlas-timing.json';anchor.hidden=true;
+      document.body.append(anchor);anchor.click();anchor.remove();window.setTimeout(()=>URL.revokeObjectURL(url),0);
+    }catch(failure){setError(errorMessageOr(failure,'Timing diagnostics could not be loaded. Your explanation is preserved.'));}
+    finally{setBusy(false);}
+  };
+  return <details className="dw-error-details"><summary>Diagnostics</summary><p>Download timings and counters to investigate a slow or incomplete answer. Source code and conversation text are excluded.</p><Button size="1" variant="soft" disabled={busy} onClick={()=>void download()}>{busy?'Preparing…':'Download timing report'}</Button>{error&&<p role="alert">{error}</p>}</details>;
 }
 function AnswerStorage(){
   const [open,setOpen]=useState(false);const [answers,setAnswers]=useState<AnswerSummary[]>([]);const [error,setError]=useState<string|null>(null);const [busy,setBusy]=useState<string|null>(null);

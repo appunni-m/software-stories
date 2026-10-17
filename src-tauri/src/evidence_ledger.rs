@@ -178,7 +178,7 @@ pub(crate) struct RangeRequest {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-enum CallState {
+pub(crate) enum CallState {
     Started,
     Prepared,
     Delivered,
@@ -608,6 +608,22 @@ impl Ledger {
         // An in-memory Instant cannot be resumed after process exit. Persisted
         // values describe this operation only; restart never reissues its calls.
         u64::try_from(self.context_started.elapsed().as_millis()).unwrap_or(u64::MAX)
+    }
+
+    /// Export only fixed tool states, byte counters and monotonic offsets.
+    /// A missing clock relation remains unknown; never infer it from wall time.
+    pub(crate) fn timing_diagnostics(&self, run_started: Instant) -> crate::generation_timing::ContextTiming {
+        crate::generation_timing::ContextTiming {
+            origin_elapsed_ms: self.context_started.checked_duration_since(run_started)
+                .and_then(|duration| u64::try_from(duration.as_millis()).ok()),
+            calls: self.record.calls.iter().map(|call| crate::generation_timing::ContextCall {
+                tool: call.tool, state: call.state.clone(),
+                started_ms: call.timing.as_ref().map(|timing| timing.started_ms),
+                prepared_ms: call.timing.as_ref().and_then(|timing| timing.prepared_ms),
+                finished_ms: call.timing.as_ref().and_then(|timing| timing.finished_ms),
+                source_bytes: call.source_bytes, metadata_bytes: call.metadata_bytes, wire_bytes: call.wire_bytes,
+            }).collect(),
+        }
     }
 
     fn pending(&self, token: &CallToken, tool: Tool) -> Result<(), String> {

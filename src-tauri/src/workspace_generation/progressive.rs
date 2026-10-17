@@ -309,6 +309,52 @@ pub(crate) fn list_workspace_answers(
     reading::list(&app_data_directory(&app)?, &project_id, &snapshot_id)
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TimingReport {
+    schema_version: u32,
+    kind: &'static str,
+    scope: &'static str,
+    run_id: String,
+    answer_outcome: Outcome,
+    worker_active: bool,
+    trace: Option<crate::generation_timing::Record>,
+    publications: Vec<PublicationTiming>,
+    unmeasured: [&'static str; 5],
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PublicationTiming { order: usize, context_elapsed_ms: u64, run_elapsed_ms: Option<u64> }
+
+pub(crate) fn timing_report(storage: &Path, run: &str, project: &str, snapshot: &str, active: bool) -> Result<TimingReport, String> {
+    let answer = reading::scoped(storage, run, project, snapshot)?;
+    Ok(TimingReport {
+        schema_version: 1, kind: "code-atlas-generation-timing",
+        scope: "Native observations only. A returned dispatch is not proof of a complete or useful answer. No source, question, account, executable path or model reasoning is included.",
+        run_id: run.into(),
+        answer_outcome: if !active && answer.outcome == Outcome::Working { Outcome::Interrupted } else { answer.outcome },
+        worker_active: active, trace: crate::generation_timing::inspect(storage, run)?,
+        publications: answer.sections.iter().map(|section| PublicationTiming {
+            order: section.order, context_elapsed_ms: section.published_elapsed_ms,
+            run_elapsed_ms: section.published_run_elapsed_ms,
+        }).collect(),
+        unmeasured: ["rendererQueue", "connectionPreparationBeforeManager", "rendererAdoption", "narrationReadiness", "providerWaitVersusModelReasoning"],
+    })
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) fn load_workspace_answer_timing(
+    app: AppHandle,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    run_id: String,
+    project_id: String,
+    snapshot_id: String,
+) -> Result<TimingReport, String> {
+    let storage = app_data_directory(&app)?;
+    manager.with_operation_state(&run_id, |active| timing_report(&storage, &run_id, &project_id, &snapshot_id, active))
+}
+
 #[tauri::command]
 pub(crate) fn list_workspace_answer_records(
     app: AppHandle,

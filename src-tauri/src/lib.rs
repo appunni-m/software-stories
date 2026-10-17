@@ -33,6 +33,7 @@ mod codex_identity;
 mod codex_commands;
 mod context_mcp;
 mod chapter_quality;
+mod generation_timing;
 mod agent_context;
 mod evidence_ledger;
 mod native_citations;
@@ -1991,6 +1992,7 @@ pub fn run() {
             workspace_generation::progressive::load_workspace_answer,
             workspace_generation::progressive::save_workspace_answer_section,
             workspace_generation::progressive::list_workspace_answers,
+            workspace_generation::progressive::load_workspace_answer_timing,
             workspace_generation::progressive::list_workspace_answer_records,
             workspace_generation::progressive::remove_workspace_answer_record,
             claude_commands::inspect_claude_agent_connection,

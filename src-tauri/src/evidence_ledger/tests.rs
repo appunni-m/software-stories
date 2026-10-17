@@ -2,6 +2,23 @@ use super::*;
 use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE};
 use serde_json::{Value, json};
 
+#[test]
+fn exported_tool_timings_relate_clocks_without_exposing_evidence_or_source() {
+    let f = Fixture::new();
+    let run_started = Instant::now() - Duration::from_millis(25);
+    let (mut ledger, runtime, cancel) = setup(&f);
+    read(&mut ledger, &f, &runtime, &cancel, &[request(&f, 0, SIMPLE_SOURCE.len())]);
+    let timing = ledger.timing_diagnostics(run_started);
+    assert!(timing.origin_elapsed_ms.unwrap() >= 25);
+    assert_eq!(timing.calls.len(), 1);
+    assert_eq!(timing.calls[0].state, CallState::Delivered);
+    assert!(timing.calls[0].started_ms <= timing.calls[0].prepared_ms);
+    assert!(timing.calls[0].prepared_ms <= timing.calls[0].finished_ms);
+    let text = serde_json::to_string(&timing).unwrap();
+    for forbidden in [SIMPLE_SOURCE, SIMPLE_PATH, "sha256", "evidence", "arguments", "contents"] { assert!(!text.contains(forbidden)); }
+    assert!(ledger.timing_diagnostics(Instant::now()).origin_elapsed_ms.is_none());
+}
+
 fn runtime() -> CodexReviewRuntime {
     CodexReviewRuntime {
         connection_id: Uuid::new_v4().to_string(),

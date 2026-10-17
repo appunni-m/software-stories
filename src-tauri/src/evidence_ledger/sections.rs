@@ -40,7 +40,7 @@ pub(crate) struct PublishedSection {
     pub(crate) preview: chapters::ChapterDraftPreview,
     pub(crate) published_elapsed_ms: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    published_run_elapsed_ms: Option<u64>,
+    pub(crate) published_run_elapsed_ms: Option<u64>,
     proposal_sha256: String,
     checkpoint_sha256: String,
     checkpoint: Record,

@@ -638,7 +638,33 @@ impl CodexAgentManager {
         F: Fn(CodexProgress),
     {
         validate_run(&input)?;
+        let trace = crate::generation_timing::Trace::new(storage_dir, &input.run_id, fingerprint,
+            &input.expected_runtime, &input.model, &input.effort, started_at);
+        let retrieval = input.retrieval.clone();
+        let result = self.run_owned_with_timing(storage_dir, input, fingerprint, started_at,
+            |event| { trace.progress(&event.phase); progress(event); }, validate, publish, &trace);
+        if let Some(session) = retrieval.as_ref().and_then(|session| session.lock().ok()) {
+            trace.context(session.ledger.timing_diagnostics(started_at));
+        }
+        trace.finish(result.as_ref().map(|_| ()).map_err(String::as_str));
+        result
+    }
+
+    fn run_owned_with_timing<T, U, F>(
+        &self,
+        storage_dir: &Path,
+        input: CodexRunInput,
+        fingerprint: &str,
+        started_at: Instant,
+        progress: F,
+        validate: impl FnOnce(CodexRunResult, &CodexResultAccess<'_>) -> T,
+        publish: impl FnOnce(T) -> U,
+        trace: &crate::generation_timing::Trace,
+    ) -> Result<U, String>
+    where F: Fn(CodexProgress),
+    {
         let mut slot = self.lock_process()?;
+        trace.event(crate::generation_timing::EventKind::RuntimeLockAcquired);
         let cancelled = Arc::new(AtomicBool::new(false));
         {
             // The same lock order in cancel() covers cancellation arriving
@@ -721,6 +747,7 @@ impl CodexAgentManager {
                     Ok(())
                 },
             )?;
+            trace.output(response.response_text.len());
             if self.observe_runtime(storage_dir, process)? != input.expected_runtime {
                 return Err(codex_identity::changed());
             }
@@ -745,7 +772,9 @@ impl CodexAgentManager {
                 &input.expected_runtime.executable_path,
             )?;
             let response = result?;
+            trace.event(crate::generation_timing::EventKind::ResultCallbackStarted);
             let validated = validate(response, &access);
+            trace.event(crate::generation_timing::EventKind::ResultCallbackReturned);
             // Serialize final publication with cancel(). Work after this point is
             // already published; a later cancel cannot retract a returned result.
             let mut active = self.0.active.lock().map_err(|_| BUSY)?;
@@ -762,7 +791,9 @@ impl CodexAgentManager {
                         .to_owned(),
                 );
             }
+            trace.event(crate::generation_timing::EventKind::PublicationStarted);
             let published = publish(validated);
+            trace.event(crate::generation_timing::EventKind::PublicationCallbackReturned);
             active.take();
             Ok(published)
         })();

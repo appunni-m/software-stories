@@ -1,6 +1,38 @@
 use super::*;
 use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE};
 
+#[test]
+fn timing_export_keeps_scope_and_legacy_unknowns_without_source_or_inference() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancel) = setup(&f);
+    let evidence = read(&mut ledger, &f, &runtime, &cancel);
+    let mut answer = start(&ledger, &f, &runtime, &cancel);
+    publish(&mut answer, &ledger, &proposal(&evidence, "entry", 0), &f, &runtime, &cancel);
+    let id = ledger.record.binding.operation_id.clone();
+    let project = &f.manifest.summary.project_id;
+    let snapshot = &f.manifest.summary.snapshot_id;
+    let answer_path = record_path(&f.storage, &id).unwrap();
+    let original = fs::read(&answer_path).unwrap();
+    let report = crate::workspace_generation::progressive::timing_report(&f.storage, &id, project, snapshot, false).unwrap();
+    let value = serde_json::to_value(report).unwrap();
+    assert_eq!(value["answerOutcome"], "interrupted");
+    assert!(value["trace"].is_null());
+    assert!(value["publications"][0]["runElapsedMs"].is_null());
+    assert_eq!(value["publications"].as_array().unwrap().len(), 1);
+    let text = value.to_string();
+    for forbidden in [SIMPLE_SOURCE, SIMPLE_PATH, "usr/local", "accountIdentitySha256", "excerpt", "question"] {
+        // The fixed scope sentence says "question"; it contains no question value.
+        if forbidden != "question" { assert!(!text.contains(forbidden)); }
+    }
+    assert!(value.get("question").is_none());
+    assert_eq!(original, fs::read(&answer_path).unwrap());
+    assert!(crate::workspace_generation::progressive::timing_report(&f.storage, &id, "other", snapshot, false).is_err());
+    assert!(crate::workspace_generation::progressive::timing_report(&f.storage, &id, project, "other", false).is_err());
+    let active = serde_json::to_value(crate::workspace_generation::progressive::timing_report(&f.storage, &id, project, snapshot, true).unwrap()).unwrap();
+    assert_eq!(active["answerOutcome"], "working");
+    assert_eq!(original, fs::read(&answer_path).unwrap());
+}
+
 fn setup(f: &Fixture) -> (Ledger, CodexReviewRuntime, AtomicBool) {
     let runtime = CodexReviewRuntime {
         connection_id: Uuid::new_v4().to_string(),
