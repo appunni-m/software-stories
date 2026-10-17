@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "commit": "5249b723719445813b8771a602ea5b96891d4450",
+  "snapshotId": "snap-1792140879637485000-11155-0",
+  "reviewMethod": "Manually selected principal journey declarations in the pinned source, then checked full-file hashes against the captured manifest; coordinates are computed from those independently selected declaration lines, not retrieval results. This set does not establish exhaustive format/branch coverage. Declaration spans exclude leading indentation because syntax chunks may start at the first declaration token.",
+  "broadQuestion": "How does Fontdone turn font bytes into a rendered glyph bitmap? Trace the real entry points, parsing, outline loading, hinting, and rasterization. Explain the important branches and show a flow with source links.",
+  "nameFreeQuestion": "Trace how a font buffer becomes a glyph image, including format selection, outline decoding, hinting, and pixel coverage.",
+  "expected": [
+    {
+      "id": "entry",
+      "path": "src/api.rs",
+      "query": "new_memory_face",
+      "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+      "startByte": 6302,
+      "endByte": 6325,
+      "startLine": 165,
+      "endLine": 165
+    },
+    {
+      "id": "format-branch",
+      "path": "src/font.rs",
+      "query": "memory_face",
+      "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+      "startByte": 147769,
+      "endByte": 147795,
+      "startLine": 4053,
+      "endLine": 4053
+    },
+    {
+      "id": "glyph-dispatch",
+      "path": "src/api.rs",
+      "query": "load_glyph_from_font",
+      "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+      "startByte": 24522,
+      "endByte": 24546,
+      "startLine": 706,
+      "endLine": 706
+    },
+    {
+      "id": "truetype-outline",
+      "path": "src/tt/glyf.rs",
+      "query": "load_glyph",
+      "sourceSha256": "2d922a23275e0c77247350548d0f332e43ac7fe58c33ed2e9df2c86f9fac1131",
+      "startByte": 5288,
+      "endByte": 5306,
+      "startLine": 148,
+      "endLine": 148
+    },
+    {
+      "id": "bytecode-hint",
+      "path": "src/tt/hinter/mod.rs",
+      "query": "hint_glyph",
+      "sourceSha256": "8810aacbb2388d3a632eb8f7e085211149ab6f2f61f9e34bd426a8b008cf36dc",
+      "startByte": 5639,
+      "endByte": 5664,
+      "startLine": 151,
+      "endLine": 151
+    },
+    {
+      "id": "render-dispatch",
+      "path": "src/api.rs",
+      "query": "render_loaded_glyph",
+      "sourceSha256": "a678e77fbf68186f8be91393a129263d9b78e2a342ddb8ee2e2bff1c1e5e0f54",
+      "startByte": 33308,
+      "endByte": 33335,
+      "startLine": 898,
+      "endLine": 898
+    },
+    {
+      "id": "outline-render",
+      "path": "src/render.rs",
+      "query": "render_loaded_outline",
+      "sourceSha256": "4e94ae93c44d0c3a29f2671f5f08af2530cf48a37d2ebc3dc0bdeb211abff33e",
+      "startByte": 9010,
+      "endByte": 9046,
+      "startLine": 307,
+      "endLine": 307
+    },
+    {
+      "id": "normal-raster",
+      "path": "src/render.rs",
+      "query": "render_normal",
+      "sourceSha256": "4e94ae93c44d0c3a29f2671f5f08af2530cf48a37d2ebc3dc0bdeb211abff33e",
+      "startByte": 11947,
+      "endByte": 11964,
+      "startLine": 402,
+      "endLine": 402
+    },
+    {
+      "id": "ffi-load",
+      "path": "src/ffi/handles.rs",
+      "query": "FT_Load_Glyph",
+      "sourceSha256": "3730ddab7817a19b503c177c0d5cf5c7d12cc66f809b9deda0ee3bc6a8bed49f",
+      "startByte": 586411,
+      "endByte": 586432,
+      "startLine": 15971,
+      "endLine": 15971
+    },
+    {
+      "id": "ffi-render",
+      "path": "src/ffi/handles.rs",
+      "query": "FT_Render_Glyph",
+      "sourceSha256": "3730ddab7817a19b503c177c0d5cf5c7d12cc66f809b9deda0ee3bc6a8bed49f",
+      "startByte": 591187,
+      "endByte": 591210,
+      "startLine": 16093,
+      "endLine": 16093
+    },
+    {
+      "id": "abi-load",
+      "path": "fontdone-c-abi/src/implementation.rs",
+      "query": "FT_Load_Glyph",
+      "sourceSha256": "0906979576dd8f8582b3e6dd2ec99b8333852ea635f3a894e8e81e1c42981693",
+      "startByte": 996420,
+      "endByte": 996452,
+      "startLine": 25374,
+      "endLine": 25374
+    },
+    {
+      "id": "abi-render",
+      "path": "fontdone-c-abi/src/implementation.rs",
+      "query": "FT_Render_Glyph",
+      "sourceSha256": "0906979576dd8f8582b3e6dd2ec99b8333852ea635f3a894e8e81e1c42981693",
+      "startByte": 1003628,
+      "endByte": 1003724,
+      "startLine": 25580,
+      "endLine": 25580
+    }
+  ]
+}

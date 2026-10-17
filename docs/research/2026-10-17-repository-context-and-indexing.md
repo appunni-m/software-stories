@@ -6,7 +6,7 @@ Research date: 17 October 2026. App inspected at `be49e35`, following the [Fontd
 
 Build a shared, local repository context service: an immutable inventory, syntax-aware source ranges, lexical search, and confidence-labelled relationships. Let the existing Codex app-server search and read those ranges through narrowly scoped tools. Generate independently saved explanation sections from the retrieved evidence, then attach visuals and Pocket narration.
 
-The first implementation should use our existing Tree-sitter parsers, **Tantivy** for ranked text search, and the ripgrep project's Rust search libraries for bounded fallback searches. Keep semantic embeddings and compiler indexes as optional improvements evaluated against retrieval failures. This is an architectural recommendation, **not implemented or benchmarked functionality**.
+The first implementation should use our existing Tree-sitter parsers, **Tantivy** for ranked text search, and the ripgrep project's Rust search libraries for bounded fallback searches. Keep semantic embeddings and compiler indexes as optional improvements evaluated against retrieval failures. The architecture below is a recommendation. A subsequent [local retrieval implementation checkpoint](../acceptance/2026-10-17-range-retrieval.md) has native measurements; the Codex retrieval loop and broad repository explanation remain unimplemented/unqualified.
 
 The studied systems offer repository-wide retrieval or exploration; their documentation does not establish exhaustive understanding of every file or execution path. Exclusions, language coverage, stale indexes and generated summaries still require explicit treatment.
 
@@ -126,4 +126,4 @@ Compare the existing selector, lexical ranges, lexical+relationship expansion, a
 
 Measure candidate and evidence recall, citation correctness, answer usefulness, missing branches, first validated answer latency, total time, source/output bytes and index size/update work. Preserve failed runs and partial coverage. Measure warm/cold paths separately with the same model/reasoning and no concurrent build. A proposed product target is a first useful validated answer within two minutes for the agreed Fontdone questions; this is a **target, not a measured capability or industry guarantee**.
 
-No new Codex inference, application test or package build was run for this research. Native large-repository and navigation failures remain open until implemented fixes pass their acceptance contracts.
+No new Codex inference, application test or package build was run for the research itself. Subsequent native retrieval tests and measurements are recorded separately in the [implementation checkpoint](../acceptance/2026-10-17-range-retrieval.md). The original broad-answer and navigation failures remain open until their full acceptance contracts pass.

@@ -17,6 +17,9 @@ tauri-build = { version = "2", features = [] }
 base64 = "0.22"
 bytes = "1"
 libc = "0.2"
+grep-regex = "=0.1.14"
+grep-searcher = "=0.1.17"
+tantivy = { version = "=0.26.2", default-features = false, features = ["mmap", "lz4-compression"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 rig-core = { version = "=0.44.0", default-features = false, features = ["reqwest", "rustls"] }
 serde = { version = "1", features = ["derive"] }

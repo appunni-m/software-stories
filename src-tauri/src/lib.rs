@@ -42,6 +42,8 @@ mod provider;
 mod provider_api;
 mod recovery;
 mod recovery_commands;
+mod repository_context;
+mod repository_context_commands;
 mod repository_plan;
 mod planned_chapter;
 mod chapter_origin;
@@ -1920,6 +1922,7 @@ pub fn run() {
         .manage(claude_connections::ClaudeConnections::default())
         .manage(SnapshotJobs::default())
         .manage(index::SnapshotIndexJobs::default())
+        .manage(repository_context_commands::RepositoryContextJobs::default())
         .manage(provider::PendingProviderReviews::default())
         .manage(provider::ProviderRequestCancellations::default())
         .manage(narration::PendingNarrationReviews::default())
@@ -1935,7 +1938,10 @@ pub fn run() {
             workspace::authorize_workspace_exploration,
             workspace::revoke_workspace_exploration,
             workspace::list_workspace_commits,
-            workspace::search_workspace_source,
+            repository_context_commands::search_workspace_source,
+            repository_context_commands::search_repository_code,
+            repository_context_commands::read_repository_range,
+            repository_context_commands::cancel_repository_context,
             source_discovery::prepare_source_discovery,
             source_discovery::get_documentation_notices,
             source_discovery::discard_source_discovery,

@@ -132,8 +132,9 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
   useEffect(()=>{
     let active=true;setSourceHits([]);setSearchLimited(false);setSearchError(null);setSearchBusy(false);
     if(term.length<2||term.length>120||!isNativeRuntime())return;
-    setSearchBusy(true);const timer=setTimeout(()=>{void invoke<{matches:{path:string;line:number;text:string}[];limited:boolean}>('search_workspace_source',{projectId,snapshotId,query:term}).then((result)=>{if(active){setSourceHits(result.matches);setSearchLimited(result.limited);}}).catch(()=>{if(active)setSearchError('Captured source search is unavailable. File and symbol results are still shown.');}).finally(()=>{if(active)setSearchBusy(false);});},250);
-    return()=>{active=false;clearTimeout(timer);};
+    const requestId=crypto.randomUUID();let dispatched=false;
+    setSearchBusy(true);const timer=setTimeout(()=>{dispatched=true;void invoke<{matches:{path:string;line:number;text:string}[];limited:boolean}>('search_workspace_source',{projectId,snapshotId,query:term,requestId}).then((result)=>{if(active){setSourceHits(result.matches);setSearchLimited(result.limited);}}).catch(()=>{if(active)setSearchError('Captured source search is unavailable. File and symbol results are still shown.');}).finally(()=>{if(active)setSearchBusy(false);});},250);
+    return()=>{active=false;clearTimeout(timer);if(dispatched)void invoke('cancel_repository_context',{requestId}).catch(()=>{});};
   },[term,projectId,snapshotId]);
   const results=useMemo(()=>{
     if(!term)return[];

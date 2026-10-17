@@ -35,4 +35,14 @@ Implement the local retrieval layer recommended by the [industry review](../rese
 
 ## Evidence
 
-Research and contracts only; not implemented. Parent Kata `0wdn` remains open. The concrete prior failure is in [Fontdone acceptance](../acceptance/2026-10-17-fontdone.md).
+Partial implementation: native range indexing/search/read commands and workspace search wiring are implemented. See the [interface and limits](../architecture/repository-retrieval.md) and [Fontdone measurements](../acceptance/2026-10-17-range-retrieval.md). Captured text from the three previously problematic large files is retrievable. The 12-span corpus gives 8/12 named global, 12/12 named file-scoped, and 2/12 broad lexical retrieval recall. These observations do not pass broad repository understanding.
+
+Remaining acceptance work:
+
+- Definition/reference/compact module-map commands and unresolved relationship labels.
+- Broader bounded substring/regex fallback, deterministic tie qualification at the candidate cap, full mid-operation cancellation/corruption boundaries, and global disk eviction.
+- Deduplicated overlapping evidence reads and tested aggregate source/structural/tool-call budgets before enabling agent tools. No Codex tool path is enabled by this checkpoint.
+- Efficient incremental Tantivy updates and a Fontdone one-file update measurement. The current fixture proves chunk-layout reuse, while every new generation still rehashes source and reinserts search documents.
+- Actual packaged local search without AI and the complete acceptance matrix. Codex's current whole-file selector is unchanged.
+
+Kata `a699`, parent `0wdn` and dependent `gk46` remain open. The [earlier broad explanation failure](../acceptance/2026-10-17-fontdone.md) is not resolved by this search checkpoint.

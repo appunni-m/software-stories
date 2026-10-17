@@ -37,3 +37,7 @@ Depends on [local range retrieval](69-local-range-retrieval.md). Prefer an app-o
 ## Evidence
 
 Research and contracts only; no capability/runtime acceptance claim. The current adapter rejects tools intentionally, so this requires a narrow new admission contract rather than simply enabling all tool events.
+
+## Retrieval foundation checkpoint — 17 October
+
+Native search/read/cancel commands now exist; see the [measured limitations](../acceptance/2026-10-17-range-retrieval.md). Broad single-query lexical retrieval found only 2/12 expected declarations. Named global retrieval missed FFI/C adapter declarations that file-scoped search recovered. The owned agent must inspect the module map, vary queries/scopes and follow validated relationships without asking the reader to select references. This is not implemented or enabled in Codex yet. `a699` remains the open prerequisite; retain the existing account/model constraints and qualify the complete evidence ledger before transmission.

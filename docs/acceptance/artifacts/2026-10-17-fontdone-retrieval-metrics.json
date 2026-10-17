@@ -1,0 +1,745 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-10-17T03:52:56.998914+00:00",
+  "checkpoint": "native local retrieval foundation; broad retrieval acceptance remains open",
+  "parentCommit": "cc3d4cc",
+  "build": "Rust debug; rustc 1.98.1 on local macOS; no concurrent build during observations",
+  "snapshotId": "snap-1792140879637485000-11155-0",
+  "sourceCommit": "5249b723719445813b8771a602ea5b96891d4450",
+  "method": "Cold means no compatible versioned retrieval index/layout cache, not a cleared OS page cache. Queries use 32 results. Service probes call the native service functions in the Rust test executable, not the packaged Tauri IPC/UI. Expected declarations were selected independently; broad queries are explicit lexical inputs, not an agent plan. No inference, narration or Fontdone execution.",
+  "observations": [
+    {
+      "kind": "FONTDONE_INDEX",
+      "value": {
+        "elapsedMs": 17428,
+        "reusedGeneration": false,
+        "coverage": {
+          "filesIndexed": 1621,
+          "filesUnavailable": 1147,
+          "bytesIndexed": 19296074,
+          "chunks": 3422,
+          "snapshotPathsSkipped": 25,
+          "syntaxFiles": 81,
+          "textFallbackFiles": 1540
+        },
+        "build": {
+          "elapsedMs": 16120,
+          "sourceBytesVerified": 19296074,
+          "filesChunked": 1597,
+          "filesChunkCacheReused": 24
+        }
+      }
+    },
+    {
+      "kind": "FONTDONE_SEARCH",
+      "value": {
+        "query": "memory_face",
+        "coverage": {
+          "filesIndexed": 1621,
+          "filesUnavailable": 1147,
+          "bytesIndexed": 19296074,
+          "chunks": 3422,
+          "snapshotPathsSkipped": 25,
+          "syntaxFiles": 81,
+          "textFallbackFiles": 1540
+        },
+        "elapsedMs": 64,
+        "resultBytes": 5367,
+        "limited": true,
+        "ranges": [
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "src/font.rs",
+            "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+            "startByte": 147769,
+            "endByte": 153921,
+            "startLine": 4053,
+            "endLine": 4186,
+            "chunkSha256": "41bb6b56f4827ea803d19868cb7e374f4d6f8f3549bf056ec8aef41cca9a3647",
+            "enclosing": null,
+            "parent": null,
+            "parser": {
+              "engine": "tree-sitter",
+              "engineVersion": "0.27.1",
+              "engineLanguageAbi": 15,
+              "grammar": "tree-sitter-rust",
+              "grammarVersion": "0.24.1",
+              "grammarAbi": 15
+            }
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "src/font.rs",
+            "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+            "startByte": 370325,
+            "endByte": 375700,
+            "startLine": 9753,
+            "endLine": 9917,
+            "chunkSha256": "4630ac5eab0cd0f5e4e7773bd7ee92fcb6ff5f0e2b5b91b0e83e1fd8f152c7a8",
+            "enclosing": null,
+            "parent": null,
+            "parser": {
+              "engine": "tree-sitter",
+              "engineVersion": "0.27.1",
+              "engineLanguageAbi": 15,
+              "grammar": "tree-sitter-rust",
+              "grammarVersion": "0.24.1",
+              "grammarAbi": 15
+            }
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "src/font.rs",
+            "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+            "startByte": 160891,
+            "endByte": 168375,
+            "startLine": 4368,
+            "endLine": 4542,
+            "chunkSha256": "225de89bc61824bd816561409cdf7cbd7c72e545559e556dbf39c54b17a9edb4",
+            "enclosing": null,
+            "parent": null,
+            "parser": {
+              "engine": "tree-sitter",
+              "engineVersion": "0.27.1",
+              "engineLanguageAbi": 15,
+              "grammar": "tree-sitter-rust",
+              "grammarVersion": "0.24.1",
+              "grammarAbi": 15
+            }
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "src/font.rs",
+            "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+            "startByte": 168375,
+            "endByte": 172671,
+            "startLine": 4542,
+            "endLine": 4660,
+            "chunkSha256": "57208851837e73e78931007339b69e89de071bf3ed7ed7b23c1a9015f3e38974",
+            "enclosing": null,
+            "parent": null,
+            "parser": {
+              "engine": "tree-sitter",
+              "engineVersion": "0.27.1",
+              "engineLanguageAbi": 15,
+              "grammar": "tree-sitter-rust",
+              "grammarVersion": "0.24.1",
+              "grammarAbi": 15
+            }
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "src/font.rs",
+            "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+            "startByte": 222252,
+            "endByte": 230408,
+            "startLine": 5864,
+            "endLine": 6076,
+            "chunkSha256": "9deb4ee171c5fcb577b8099a966eb3fedb08590bafb88d83decd14a4a925ff4a",
+            "enclosing": null,
+            "parent": null,
+            "parser": {
+              "engine": "tree-sitter",
+              "engineVersion": "0.27.1",
+              "engineLanguageAbi": 15,
+              "grammar": "tree-sitter-rust",
+              "grammarVersion": "0.24.1",
+              "grammarAbi": 15
+            }
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "src/font.rs",
+            "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+            "startByte": 180863,
+            "endByte": 188143,
+            "startLine": 4841,
+            "endLine": 5031,
+            "chunkSha256": "e55c21051906043aa60856f50a13a3cd86afd4f7fe9f2f3ba3b785ae45db38a9",
+            "enclosing": null,
+            "parent": null,
+            "parser": {
+              "engine": "tree-sitter",
+              "engineVersion": "0.27.1",
+              "engineLanguageAbi": 15,
+              "grammar": "tree-sitter-rust",
+              "grammarVersion": "0.24.1",
+              "grammarAbi": 15
+            }
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "src/font.rs",
+            "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+            "startByte": 153921,
+            "endByte": 160891,
+            "startLine": 4186,
+            "endLine": 4368,
+            "chunkSha256": "202ddb5b64d2593832c9f18cd6d0a71880087280c3ff163d7a534f79ab192911",
+            "enclosing": null,
+            "parent": null,
+            "parser": {
+              "engine": "tree-sitter",
+              "engineVersion": "0.27.1",
+              "engineLanguageAbi": 15,
+              "grammar": "tree-sitter-rust",
+              "grammarVersion": "0.24.1",
+              "grammarAbi": 15
+            }
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "src/font.rs",
+            "sourceSha256": "f4cd937adbfd668f91dbbd28933b7212e919e687364a38affcad7363635664a2",
+            "startByte": 172671,
+            "endByte": 180863,
+            "startLine": 4660,
+            "endLine": 4840,
+            "chunkSha256": "1bc0d32d71c8cb1f56176aee6af6f1f320a4241c464ba819dafe6c8a825139f8",
+            "enclosing": {
+              "symbolId": "sym:6fc8d1ba465eb6d184a316ae76fc490a2da1633118ddff36ca44c8b6d253b585",
+              "name": "truetype_face_with_load_mode_and_design_coords",
+              "qualifiedName": "impl:Font::truetype_face_with_load_mode_and_design_coords",
+              "startByte": 172671,
+              "endByte": 186428
+            },
+            "parent": null,
+            "parser": {
+              "engine": "tree-sitter",
+              "engineVersion": "0.27.1",
+              "engineLanguageAbi": 15,
+              "grammar": "tree-sitter-rust",
+              "grammarVersion": "0.24.1",
+              "grammarAbi": 15
+            }
+          }
+        ]
+      }
+    },
+    {
+      "kind": "FONTDONE_SEARCH",
+      "value": {
+        "query": "handle",
+        "coverage": {
+          "filesIndexed": 1621,
+          "filesUnavailable": 1147,
+          "bytesIndexed": 19296074,
+          "chunks": 3422,
+          "snapshotPathsSkipped": 25,
+          "syntaxFiles": 81,
+          "textFallbackFiles": 1540
+        },
+        "elapsedMs": 100,
+        "resultBytes": 3964,
+        "limited": true,
+        "ranges": [
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "src/ffi/handles.rs",
+            "sourceSha256": "3730ddab7817a19b503c177c0d5cf5c7d12cc66f809b9deda0ee3bc6a8bed49f",
+            "startByte": 163401,
+            "endByte": 171554,
+            "startLine": 4581,
+            "endLine": 4814,
+            "chunkSha256": "44ccbaa90f229efa6a2a179aee0d864eb56179146beccae54ef1d502b5cae284",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "src/ffi/handles.rs",
+            "sourceSha256": "3730ddab7817a19b503c177c0d5cf5c7d12cc66f809b9deda0ee3bc6a8bed49f",
+            "startByte": 228754,
+            "endByte": 236944,
+            "startLine": 6352,
+            "endLine": 6558,
+            "chunkSha256": "2f44bf53b0fd1cb23cc29cbaaccf91c5e312c830f30a467ef5d58152afdb1be5",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "src/ffi/handles.rs",
+            "sourceSha256": "3730ddab7817a19b503c177c0d5cf5c7d12cc66f809b9deda0ee3bc6a8bed49f",
+            "startByte": 57111,
+            "endByte": 65292,
+            "startLine": 1573,
+            "endLine": 1846,
+            "chunkSha256": "2d9eec8138006ff0ded1d03df5705454e05e0545aa7692690e10d21c397893d4",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "src/ffi/handles.rs",
+            "sourceSha256": "3730ddab7817a19b503c177c0d5cf5c7d12cc66f809b9deda0ee3bc6a8bed49f",
+            "startByte": 155223,
+            "endByte": 163401,
+            "startLine": 4307,
+            "endLine": 4580,
+            "chunkSha256": "fb4943faa37e41a11b8dcf1d045978785f04d2b898f490e2083c3c64d2ae40f1",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "src/ffi/handles.rs",
+            "sourceSha256": "3730ddab7817a19b503c177c0d5cf5c7d12cc66f809b9deda0ee3bc6a8bed49f",
+            "startByte": 269659,
+            "endByte": 277845,
+            "startLine": 7440,
+            "endLine": 7646,
+            "chunkSha256": "54b48c6ace755def16752d264e97841d79ed4fcc6d5611b35350b4b86a073cf5",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "src/ffi/handles.rs",
+            "sourceSha256": "3730ddab7817a19b503c177c0d5cf5c7d12cc66f809b9deda0ee3bc6a8bed49f",
+            "startByte": 408677,
+            "endByte": 416854,
+            "startLine": 11172,
+            "endLine": 11413,
+            "chunkSha256": "4f4723642ace635edc41cd6fe6d6457c44e34cc89a398a47bcc92f8eea21250a",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "src/ffi/handles.rs",
+            "sourceSha256": "3730ddab7817a19b503c177c0d5cf5c7d12cc66f809b9deda0ee3bc6a8bed49f",
+            "startByte": 8187,
+            "endByte": 16340,
+            "startLine": 187,
+            "endLine": 410,
+            "chunkSha256": "6f8070bffe3535b7b48da457058e4cf9fbe97f3672e211d8afe33b1e1b3941a9",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "src/ffi/handles.rs",
+            "sourceSha256": "3730ddab7817a19b503c177c0d5cf5c7d12cc66f809b9deda0ee3bc6a8bed49f",
+            "startByte": 122471,
+            "endByte": 130663,
+            "startLine": 3401,
+            "endLine": 3653,
+            "chunkSha256": "3825933b684d3251e2e92bee767bf6632028c2c3d25639dae54692f047ee784e",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          }
+        ]
+      }
+    },
+    {
+      "kind": "FONTDONE_SEARCH",
+      "value": {
+        "query": "font",
+        "coverage": {
+          "filesIndexed": 1621,
+          "filesUnavailable": 1147,
+          "bytesIndexed": 19296074,
+          "chunks": 3422,
+          "snapshotPathsSkipped": 25,
+          "syntaxFiles": 81,
+          "textFallbackFiles": 1540
+        },
+        "elapsedMs": 158,
+        "resultBytes": 4302,
+        "limited": true,
+        "ranges": [
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "fontdone-c-abi/src/implementation.rs",
+            "sourceSha256": "0906979576dd8f8582b3e6dd2ec99b8333852ea635f3a894e8e81e1c42981693",
+            "startByte": 424177,
+            "endByte": 432300,
+            "startLine": 10466,
+            "endLine": 10653,
+            "chunkSha256": "1249a255f74aa0445e450ee372de349993eacb12e7b206844074d75ebcc60fbb",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "fontdone-c-abi/src/implementation.rs",
+            "sourceSha256": "0906979576dd8f8582b3e6dd2ec99b8333852ea635f3a894e8e81e1c42981693",
+            "startByte": 261100,
+            "endByte": 269247,
+            "startLine": 6633,
+            "endLine": 6806,
+            "chunkSha256": "22ff4b5d76dc4ca8912e8051220fa92016daa8c90bc9a200c49504eb9008ae2f",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "fontdone-c-abi/src/implementation.rs",
+            "sourceSha256": "0906979576dd8f8582b3e6dd2ec99b8333852ea635f3a894e8e81e1c42981693",
+            "startByte": 318163,
+            "endByte": 326298,
+            "startLine": 7902,
+            "endLine": 8084,
+            "chunkSha256": "da927e730742987e254e2c54d848652088fe9b45f5d63f4e012beb4ed8657b10",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "fontdone-c-abi/src/implementation.rs",
+            "sourceSha256": "0906979576dd8f8582b3e6dd2ec99b8333852ea635f3a894e8e81e1c42981693",
+            "startByte": 220266,
+            "endByte": 228447,
+            "startLine": 5700,
+            "endLine": 5882,
+            "chunkSha256": "637530ce0aa8208922a5a1294e779012768aa646e1968954b8b6a2b70c9be917",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "fontdone-c-abi/src/implementation.rs",
+            "sourceSha256": "0906979576dd8f8582b3e6dd2ec99b8333852ea635f3a894e8e81e1c42981693",
+            "startByte": 277378,
+            "endByte": 285528,
+            "startLine": 6981,
+            "endLine": 7176,
+            "chunkSha256": "d70b64f7304c99548c0a9421b2584cf8248f5596c7bdf26ef8004d2d9a837098",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "fontdone-c-abi/src/implementation.rs",
+            "sourceSha256": "0906979576dd8f8582b3e6dd2ec99b8333852ea635f3a894e8e81e1c42981693",
+            "startByte": 358890,
+            "endByte": 367030,
+            "startLine": 8874,
+            "endLine": 9078,
+            "chunkSha256": "153db3d57e67179885f015bab3c605623b521f02a223437264e4429cdf2f31d5",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "fontdone-c-abi/src/implementation.rs",
+            "sourceSha256": "0906979576dd8f8582b3e6dd2ec99b8333852ea635f3a894e8e81e1c42981693",
+            "startByte": 367030,
+            "endByte": 375188,
+            "startLine": 9079,
+            "endLine": 9261,
+            "chunkSha256": "8708842adef62c7726deccabe014b66bca7f1ac9c66b3fa5b8dc6cbcdcde08dd",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          },
+          {
+            "snapshotId": "snap-1792140879637485000-11155-0",
+            "path": "fontdone-c-abi/src/implementation.rs",
+            "sourceSha256": "0906979576dd8f8582b3e6dd2ec99b8333852ea635f3a894e8e81e1c42981693",
+            "startByte": 244749,
+            "endByte": 252910,
+            "startLine": 6257,
+            "endLine": 6452,
+            "chunkSha256": "7f4a3d4b9351fcb78a09a65b84003fbaa7c217c880f3edf0e342a50f14c3fcca",
+            "enclosing": null,
+            "parent": null,
+            "parser": null
+          }
+        ]
+      }
+    },
+    {
+      "kind": "FONTDONE_WARM_MS",
+      "value": 1293
+    },
+    {
+      "kind": "FONTDONE_SERVICE",
+      "value": {
+        "diskLoadAndSearchMs": 1903,
+        "memoryCachedSearchMs": 256,
+        "coverage": {
+          "filesIndexed": 1621,
+          "filesUnavailable": 1147,
+          "bytesIndexed": 19296074,
+          "chunks": 3422,
+          "snapshotPathsSkipped": 25,
+          "syntaxFiles": 81,
+          "textFallbackFiles": 1540
+        },
+        "serializedMatchBytes": 20543,
+        "topPath": "src/font.rs",
+        "topLine": 4053
+      }
+    },
+    {
+      "kind": "FONTDONE_NAMED",
+      "value": {
+        "id": "entry",
+        "globalFound": true,
+        "scopedFound": true,
+        "globalMs": 151,
+        "scopedMs": 85,
+        "globalMatchBytes": 17863,
+        "scopedMatchBytes": 5110
+      }
+    },
+    {
+      "kind": "FONTDONE_NAMED",
+      "value": {
+        "id": "format-branch",
+        "globalFound": true,
+        "scopedFound": true,
+        "globalMs": 252,
+        "scopedMs": 250,
+        "globalMatchBytes": 20543,
+        "scopedMatchBytes": 20740
+      }
+    },
+    {
+      "kind": "FONTDONE_NAMED",
+      "value": {
+        "id": "glyph-dispatch",
+        "globalFound": true,
+        "scopedFound": true,
+        "globalMs": 236,
+        "scopedMs": 87,
+        "globalMatchBytes": 20830,
+        "scopedMatchBytes": 6271
+      }
+    },
+    {
+      "kind": "FONTDONE_NAMED",
+      "value": {
+        "id": "truetype-outline",
+        "globalFound": true,
+        "scopedFound": true,
+        "globalMs": 562,
+        "scopedMs": 75,
+        "globalMatchBytes": 22395,
+        "scopedMatchBytes": 3999
+      }
+    },
+    {
+      "kind": "FONTDONE_NAMED",
+      "value": {
+        "id": "bytecode-hint",
+        "globalFound": true,
+        "scopedFound": true,
+        "globalMs": 221,
+        "scopedMs": 71,
+        "globalMatchBytes": 21201,
+        "scopedMatchBytes": 2044
+      }
+    },
+    {
+      "kind": "FONTDONE_NAMED",
+      "value": {
+        "id": "render-dispatch",
+        "globalFound": true,
+        "scopedFound": true,
+        "globalMs": 204,
+        "scopedMs": 85,
+        "globalMatchBytes": 20290,
+        "scopedMatchBytes": 4996
+      }
+    },
+    {
+      "kind": "FONTDONE_NAMED",
+      "value": {
+        "id": "outline-render",
+        "globalFound": true,
+        "scopedFound": true,
+        "globalMs": 292,
+        "scopedMs": 99,
+        "globalMatchBytes": 20126,
+        "scopedMatchBytes": 8804
+      }
+    },
+    {
+      "kind": "FONTDONE_NAMED",
+      "value": {
+        "id": "normal-raster",
+        "globalFound": true,
+        "scopedFound": true,
+        "globalMs": 164,
+        "scopedMs": 95,
+        "globalMatchBytes": 22273,
+        "scopedMatchBytes": 8974
+      }
+    },
+    {
+      "kind": "FONTDONE_NAMED",
+      "value": {
+        "id": "ffi-load",
+        "globalFound": false,
+        "scopedFound": true,
+        "globalMs": 618,
+        "scopedMs": 342,
+        "globalMatchBytes": 18995,
+        "scopedMatchBytes": 16166
+      }
+    },
+    {
+      "kind": "FONTDONE_NAMED",
+      "value": {
+        "id": "ffi-render",
+        "globalFound": false,
+        "scopedFound": true,
+        "globalMs": 504,
+        "scopedMs": 349,
+        "globalMatchBytes": 18448,
+        "scopedMatchBytes": 15994
+      }
+    },
+    {
+      "kind": "FONTDONE_NAMED",
+      "value": {
+        "id": "abi-load",
+        "globalFound": false,
+        "scopedFound": true,
+        "globalMs": 621,
+        "scopedMs": 523,
+        "globalMatchBytes": 18995,
+        "scopedMatchBytes": 16860
+      }
+    },
+    {
+      "kind": "FONTDONE_NAMED",
+      "value": {
+        "id": "abi-render",
+        "globalFound": false,
+        "scopedFound": true,
+        "globalMs": 498,
+        "scopedMs": 544,
+        "globalMatchBytes": 18448,
+        "scopedMatchBytes": 16854
+      }
+    },
+    {
+      "kind": "FONTDONE_BROAD",
+      "value": {
+        "query": "font bytes rendered glyph bitmap entry parsing outline hinting rasterization",
+        "elapsedMs": 251,
+        "retrieved": [
+          "glyph-dispatch",
+          "render-dispatch"
+        ],
+        "expectedCount": 12,
+        "serializedMatchBytes": 20731,
+        "limited": true,
+        "namedGlobalRecall": "8/12"
+      }
+    },
+    {
+      "kind": "FONTDONE_BROAD",
+      "value": {
+        "query": "font buffer glyph image format outline hinting pixel coverage",
+        "elapsedMs": 220,
+        "retrieved": [
+          "glyph-dispatch",
+          "render-dispatch"
+        ],
+        "expectedCount": 12,
+        "serializedMatchBytes": 20280,
+        "limited": true,
+        "namedGlobalRecall": "8/12"
+      }
+    }
+  ],
+  "storageBytes": {
+    "currentGeneration": 5066370,
+    "chunkCacheAllVersions": 1893008,
+    "retrievalCacheIncludingPriorGenerations": 12025956
+  },
+  "fileCoverageReasons": {
+    "indexedText": 1621,
+    "secretLike": 6,
+    "unavailableText": 1141
+  },
+  "sourceFiles": [
+    {
+      "path": "src-tauri/Cargo.toml",
+      "sha256": "ce9103139d7eba4af49f5266921326aace0ac1a4e80d53454be884848e24c982"
+    },
+    {
+      "path": "src-tauri/Cargo.lock",
+      "sha256": "4e85b5145417d9fa56ff6df9f12c3d2268209a274b4e2688c9576be442c0d022"
+    },
+    {
+      "path": "src-tauri/src/repository_context.rs",
+      "sha256": "614fd2adbe3e3907051ac35c3e726784b4a8e520be0b37589d82cb89b57e68b2"
+    },
+    {
+      "path": "src-tauri/src/repository_context_commands.rs",
+      "sha256": "949d202a30c48cb4fc366927031d0f63f7a862dd19e12c350b790c35c95e85c8"
+    },
+    {
+      "path": "src-tauri/src/repository_context/tests.rs",
+      "sha256": "b474cddefef186c50c5f388e9cbd7ae4f89bf40c0085833b5b49e43a4e021370"
+    },
+    {
+      "path": "src-tauri/src/index.rs",
+      "sha256": "2f7c039d8dd694d8bc1ca453da13a82138c2e2febb292433f29cd81b7ac69b23"
+    },
+    {
+      "path": "src-tauri/src/workspace.rs",
+      "sha256": "91841c18e066339dab6cc09b3c5a5e32d08d9e640f064f351026a4f47b12b4c6"
+    },
+    {
+      "path": "src-tauri/src/lib.rs",
+      "sha256": "fea17f50a487cf94f5b5a98a2bcdb4c8f70931f97368d9de1c3b9210da88b110"
+    },
+    {
+      "path": "src/workspace/Workspace.tsx",
+      "sha256": "2890e99380131ff555b541582ce19ef57940c597b92955bfb68dab20b4b444e9"
+    },
+    {
+      "path": "docs/acceptance/fixtures/fontdone-retrieval-ranges.json",
+      "sha256": "e32a3863b6b8b3408168a07a1aafd0e8eddc9e5726097614a5bca47bc45284a8"
+    }
+  ],
+  "acceptance": {
+    "largeCapturedTextLocallyRetrievable": true,
+    "broadSingleQuerySufficient": false,
+    "codexToolsEnabled": false,
+    "packagedApplicationQualified": false,
+    "completeKataContract": false
+  },
+  "checks": {
+    "nativeDefaultSuite": {
+      "passed": 224,
+      "failed": 0,
+      "ignored": 6
+    },
+    "explicitFontdoneProfiles": {
+      "passed": 2,
+      "failed": 0
+    },
+    "frontendSuite": {
+      "passed": 136,
+      "failed": 0
+    },
+    "frontendBuild": "passed; existing bundle-size warning",
+    "cargoCheck": "passed; eight existing dead-code warnings",
+    "documentationAudit": {
+      "errors": 0,
+      "existingReviewNotes": 4
+    }
+  }
+}

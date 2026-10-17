@@ -3443,6 +3443,16 @@ pub fn save_snapshot_index(storage_dir: &Path, index: &SnapshotIndex) -> Result<
     result
 }
 
+/// A cheap cache invalidation hint. Source evidence still requires full blob/hash checks.
+pub(crate) fn snapshot_index_stamp(
+    storage: &Path,
+    project: &str,
+    snapshot: &str,
+) -> Option<(u64, std::time::SystemTime)> {
+    let metadata = fs::metadata(relationship_path(storage, project, snapshot).ok()?).ok()?;
+    Some((metadata.len(), metadata.modified().ok()?))
+}
+
 pub fn load_snapshot_index(
     storage_dir: &Path,
     project_id: &str,

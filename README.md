@@ -43,9 +43,11 @@ These are capabilities under development, not a finished or released product. **
 - [Current workspace design](docs/design/WORKSPACE_EXPLORATION.md) — interaction contract, standard components, preview and implementation tasks.
 - [Earlier screen proposals](docs/design/PROPOSED_SIMPLIFICATION.md) — historical Guide / Files / Changes references.
 
+The [repository retrieval checkpoint](docs/acceptance/2026-10-17-range-retrieval.md) records native range-search implementation and its measured limits. Important large files are searchable, but broad single-query recall is 2/12 expected spans; Codex generation still needs the planned retrieval tool loop.
+
 ## Local development
 
-The lockfile's Vite toolchain requires Node.js 20.19 or newer in the 20.x line, or 22.12 or newer. The Rust crate uses edition 2024, which requires Rust 1.85 or newer ([edition release](https://blog.rust-lang.org/2025/02/20/Rust-1.85.0.html)). The project does not set Cargo's `rust-version` or pin a Rust toolchain, so compatibility of the locked dependencies with Rust 1.85 has not been verified. Use current stable Rust with Cargo for native commands.
+The lockfile's Vite toolchain requires Node.js 20.19 or newer in the 20.x line, or 22.12 or newer. The Rust crate uses edition 2024 ([edition release](https://blog.rust-lang.org/2025/02/20/Rust-1.85.0.html)); locked Tantivy 0.26.2 declares Rust 1.86 as its minimum. The project does not set Cargo's `rust-version` or pin a toolchain, and the complete dependency graph has not been qualified at that floor. Use current stable Rust with Cargo for native commands (this checkpoint used rustc 1.98.1).
 
 ```sh
 npm ci
