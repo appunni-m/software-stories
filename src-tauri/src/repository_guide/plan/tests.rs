@@ -170,6 +170,33 @@ fn separate_opening_intent_binds_both_questions_and_preserves_the_complete_outli
 }
 
 #[test]
+fn scoped_opening_instructions_do_not_reintroduce_the_legacy_whole_question() {
+    let f = Fixture::new();
+    let r = crate::repository_guide::tests::fresh_record(&f);
+    let (_, _, fingerprint, instructions) = request(&r).unwrap();
+    assert!(!instructions.contains("The original learning question remains the guide's full scope."),
+        "the top-level opening question cannot also be declared the full-guide scope");
+    assert!(instructions.contains("guideContext.question"));
+    assert!(instructions.contains("Unclaimed callee internals and later selectors belong in the deeper outline"));
+    assert!(instructions.contains("If a published claim depends on an unverified helper"));
+    assert!(instructions.contains("never completes the whole guide"));
+    assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
+
+    let mut historical = r.clone();
+    historical.schema_version = 2;
+    historical.contract = OPENING_CONTRACT.into();
+    historical.opening.as_mut().unwrap().question = historical.question.clone();
+    historical.opening_context_sha256 = None;
+    let (_, _, old_fingerprint, old_instructions) = request(&historical).unwrap();
+    assert_eq!(old_instructions, opening::instructions());
+    assert!(old_instructions.contains("The original learning question remains the guide's full scope."));
+    assert_ne!(fingerprint, old_fingerprint);
+    assert!(instructions.len() < old_instructions.len() + 1000);
+    assert_eq!(MAX_UNITS + 1, 7);
+    assert_eq!(MAX_ATTEMPTS, 2);
+}
+
+#[test]
 fn production_opening_session_stores_the_separate_question_without_connecting_an_account() {
     let f = Fixture::new();
     let mut r = crate::repository_guide::tests::fresh_record(&f);
