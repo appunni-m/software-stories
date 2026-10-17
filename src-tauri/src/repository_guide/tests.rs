@@ -126,6 +126,26 @@ fn guide_reopens_without_research_and_source_scope_is_revalidated() {
     changed.plan.as_mut().unwrap().units[0].starting_ranges[0].start_byte += 1;
     assert!(checked_manifest(&f.storage, &changed).is_err());
 }
+
+#[test]
+fn saved_guide_listing_recovers_interruption_without_dispatch_or_replacing_the_plan() {
+    let f = Fixture::new();
+    let mut original = record(&f);
+    original.active_run_id = Some(original.planning_run_id.clone());
+    store::create(&f.storage, &original).unwrap();
+    let manager = codex_agent::CodexAgentManager::default();
+    let result = list_saved_guides(&f.storage, &original.project_id, &original.snapshot_id, &manager).unwrap();
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].status, Status::Interrupted);
+    let saved = store::read(&f.storage, &original.id).unwrap();
+    assert_eq!(saved.plan, original.plan);
+    assert!(saved.active_run_id.is_none());
+    assert!(saved.units.iter().all(|unit| unit.attempts.is_empty()));
+    let revision = saved.revision;
+    list_saved_guides(&f.storage, &original.project_id, &original.snapshot_id, &manager).unwrap();
+    assert_eq!(store::read(&f.storage, &original.id).unwrap().revision, revision);
+    assert!(!f.storage.join("evidence-ledgers").exists());
+}
 #[test]
 fn restart_recovers_only_metadata_and_explicit_continuation_uses_saved_progress() {
     let f = Fixture::new();

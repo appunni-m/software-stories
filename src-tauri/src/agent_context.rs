@@ -193,9 +193,14 @@ impl Session {
     /// Five read-only tools with the already-owned short citation ledger;
     /// unlike progressive answers this cannot publish explanation sections.
     #[cfg(unix)]
-    pub(crate) fn new_planning(storage: &Path, operation_id: &str,
-        manifest: snapshot::SnapshotManifest, runtime: &CodexReviewRuntime,
-        grant: &str, jobs: RepositoryContextJobs) -> Result<Self,String> {
+    pub(crate) fn new_planning(
+        storage: &Path,
+        operation_id: &str,
+        manifest: snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        grant: &str,
+        jobs: RepositoryContextJobs,
+    ) -> Result<Self, String> {
         Self::build(storage, operation_id, manifest, runtime, grant, jobs, true)
     }
 
@@ -826,11 +831,14 @@ impl Session {
         )? {
             crate::native_citations::Resolution::Invalid(mut issues) => {
                 if self.short_references && !self.is_progressive() {
-                    for issue in &mut issues { issue["citationVersion"]=json!(crate::native_citations::SHORT_VERSION); }
+                    for issue in &mut issues {
+                        issue["citationVersion"] = json!(crate::native_citations::SHORT_VERSION);
+                    }
                 }
                 Ok(Some(issues))
-            },
-            crate::native_citations::Resolution::Ready(_) if self.short_references && !self.is_progressive() => Ok(Some(vec![])),
+            }
+            crate::native_citations::Resolution::Ready(_)
+                if self.short_references && !self.is_progressive() => Ok(Some(vec![])),
             crate::native_citations::Resolution::Ready(resolved) => Ok(
                 crate::claim_alignment::diagnostics(resolved.text()).map(|mut issues| {
                     for issue in &mut issues {

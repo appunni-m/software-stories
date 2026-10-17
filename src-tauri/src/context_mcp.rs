@@ -266,8 +266,8 @@ pub(crate) fn write_owner_packet(
 
 /// Same five read-only tools; short IDs do not authorize section publication.
 pub(crate) fn tools_for_planning() -> Vec<Tool> {
-    let mut catalog=tools_for(true);
-    catalog.retain(|tool|tool.name!=PROPOSAL_TOOL);
+    let mut catalog = tools_for(true);
+    catalog.retain(|tool| tool.name != PROPOSAL_TOOL);
     catalog
 }
 
@@ -279,8 +279,11 @@ struct Adapter {
 }
 impl Adapter {
     fn catalog(&self) -> Vec<Tool> {
-        if self.short_references && !self.progressive { tools_for_planning() }
-        else { tools_for(self.progressive) }
+        if self.short_references && !self.progressive {
+            tools_for_planning()
+        } else {
+            tools_for(self.progressive)
+        }
     }
     #[cfg(unix)]
     fn call(&self, name: String, arguments: Value) -> Result<String, String> {
@@ -652,5 +655,33 @@ mod tests {
         assert!(read_packet(&mut bytes.as_slice(), 4).is_err());
         assert!(write_packet(&mut vec![], b"hello", 4).is_err());
         assert!(read_packet(&mut [0, 0, 0, 0].as_slice(), 5).is_err());
+    }
+
+    #[test]
+    fn planning_catalog_keeps_five_read_only_tools_and_short_reference_instructions() {
+        let legacy = tools();
+        let progressive = tools_for(true);
+        let planner = tools_for_planning();
+        assert_eq!(serde_json::to_value(tools_for(false)).unwrap(), serde_json::to_value(&legacy).unwrap());
+        assert_eq!(planner.len(), 5);
+        assert_eq!(progressive.len(), 6);
+        for (original, tool) in legacy.iter().zip(&planner) {
+            assert_eq!(tool.name, original.name);
+            assert_eq!(tool.input_schema, original.input_schema);
+            assert_eq!(serde_json::to_value(&tool.annotations).unwrap(), serde_json::to_value(&original.annotations).unwrap());
+            assert_eq!(tool.annotations.as_ref().unwrap().read_only_hint, Some(true));
+            if tool.name == "read_code" {
+                assert!(tool.description.as_ref().unwrap().contains("code:1"));
+                assert!(!original.description.as_ref().unwrap().contains("code:1"));
+            } else {
+                assert_eq!(tool.description, original.description);
+            }
+            let counterpart = progressive.iter().find(|t| t.name == tool.name).unwrap();
+            assert_eq!(serde_json::to_value(tool).unwrap(), serde_json::to_value(counterpart).unwrap());
+        }
+        let adapter = Adapter { progressive: false, short_references: true,
+            socket: PathBuf::from("/unused-test-socket"), token: "test-token".into() };
+        assert!(adapter.get_tool(PROPOSAL_TOOL).is_none());
+        assert_eq!(serde_json::to_value(adapter.catalog()).unwrap(), serde_json::to_value(planner).unwrap());
     }
 }

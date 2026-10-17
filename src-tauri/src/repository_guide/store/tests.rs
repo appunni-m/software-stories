@@ -28,6 +28,20 @@ fn private_records_reopen_and_conflicting_creates_preserve_original_bytes() {
         );
     }
 }
+
+#[test]
+fn legacy_guide_contract_reopens_without_rewriting_its_identity_or_bytes() {
+    let f = Fixture::new();
+    let mut old = record(&f);
+    old.contract = LEGACY_CONTRACT.into();
+    create(&f.storage, &old).unwrap();
+    let location = path(&f.storage, &old.id).unwrap();
+    let before = std::fs::read(&location).unwrap();
+    let restored = read(&f.storage, &old.id).unwrap();
+    assert_eq!(restored.contract, LEGACY_CONTRACT);
+    assert_eq!(restored.id, old.id);
+    assert_eq!(std::fs::read(location).unwrap(), before);
+}
 #[test]
 fn worker_lease_excludes_a_second_worker_until_the_original_is_joined() {
     let f = Fixture::new();

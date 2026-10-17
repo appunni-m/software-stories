@@ -60,7 +60,7 @@ struct StartingEvidence {
 fn schema() -> Value {
     let evidence = json!({"type":"array","minItems":1,"maxItems":4,"items":{
         "type":"object","additionalProperties":false,"required":["referenceId"],"properties":{
-            "referenceId":{"type":"string","maxLength":8}}}});
+            "referenceId":{"type":"string","maxLength":8,"pattern":"^code:[1-9][0-9]{0,2}$"}}}});
     let claims = json!({"type":"array","minItems":1,"maxItems":1,"items":{
         "type":"object","additionalProperties":false,"required":["evidence"],"properties":{"evidence":evidence}}});
     json!({"type":"object","additionalProperties":false,

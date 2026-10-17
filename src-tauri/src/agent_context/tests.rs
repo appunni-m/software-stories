@@ -60,6 +60,57 @@ fn investigated(f: &Fixture) -> Session {
     s
 }
 
+#[test]
+fn planning_uses_short_delivered_references_without_section_publication_or_second_correction() {
+    let f = Fixture::new();
+    let legacy = session(&f);
+    assert_eq!(legacy.configuration().unwrap()["args"][0], "--atlas-context-mcp");
+    let runtime = legacy.runtime.clone();
+    let grant = crate::workspace::save_retrieval_grant(
+        &f.storage, &f.manifest.summary.project_id, &f.manifest.summary.snapshot_id, &runtime,
+    ).unwrap();
+    let mut s = Session::new_planning(
+        &f.storage, &Uuid::new_v4().to_string(), f.manifest.clone(), &runtime, &grant,
+        RepositoryContextJobs::default(),
+    ).unwrap();
+    let config = s.configuration().unwrap();
+    assert_eq!(config["args"][0], "--atlas-plan-mcp");
+    assert_eq!(config["enabled_tools"], json!(mcp::TOOL_NAMES));
+    assert!(!s.is_progressive());
+    assert!(s.checked_tool(mcp::PROPOSAL_TOOL).is_err());
+    let file = f.manifest.files.iter().find(|file| file.path == SIMPLE_PATH).unwrap();
+    let (_, reply) = exchange(&mut s, "read_code", json!({"ranges":[{
+        "path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":0,"endByte":file.size_bytes
+    }]}));
+    let reply: Value = serde_json::from_str(&reply).unwrap();
+    let reference = reply["added"][0]["referenceId"].as_str().unwrap();
+    assert_eq!(reference, "code:1");
+    let response = |reference: &str, turn: &str| crate::codex_agent::CodexRunResult {
+        thread_id: "owned-thread".into(), turn_id: turn.into(),
+        model: "gpt-6-luna".into(), effort: "max".into(),
+        response_text: json!({"citationVersion":"nativeEvidenceV2","planVersion":"repositoryGuidePlanV1",
+            "title":"Follow the greeting journey","sections":[{"key":"entry",
+            "question":"How does the incoming name enter the greeting?","prerequisites":[],
+            "claims":[{"evidence":[{"referenceId":reference}]}]}],"omissions":[]}).to_string(),
+    };
+    let cancel = Arc::new(AtomicBool::new(false));
+    let initial = response("code:512", "first");
+    let issues = s.candidate_diagnostics(&initial, &cancel).unwrap().unwrap();
+    assert_eq!(issues, vec![json!({"location":"/sections/0/claims/0/evidence/0",
+        "citationProblem":"referenceUnavailable","citationVersion":"nativeEvidenceV2"})]);
+    let before = serde_json::to_value(s.ledger.admitted_ranges()).unwrap();
+    s.capture_candidate(&"d".repeat(64), &initial, 1, &cancel).unwrap();
+    s.begin_correction(&cancel).unwrap();
+    let corrected = response(reference, "second");
+    s.capture_candidate(&"d".repeat(64), &corrected, 2, &cancel).unwrap();
+    assert!(s.candidate_diagnostics(&corrected, &cancel).unwrap().unwrap().is_empty());
+    assert_eq!(before, serde_json::to_value(s.ledger.admitted_ranges()).unwrap());
+    assert!(s.begin_correction(&cancel).is_err());
+    assert!(s.event(&event("extra", "list_modules", &json!({"scope":null,"limit":4,"offset":0})), false).is_err());
+    // Reference admission never manufactures a progressive answer receipt.
+    assert!(!f.storage.join("answer-sections").exists());
+}
+
 fn candidate(s: &Session, corrected: bool) -> crate::codex_agent::CodexRunResult {
     crate::codex_agent::CodexRunResult {
         thread_id: "owned-thread".into(), turn_id: if corrected {"second"} else {"first"}.into(),

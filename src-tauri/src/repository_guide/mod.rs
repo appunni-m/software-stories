@@ -671,27 +671,41 @@ pub(crate) fn stop_repository_guide(
     Ok(())
 }
 #[tauri::command(rename_all = "camelCase")]
-pub(crate) fn list_repository_guides(
+pub(crate) async fn list_repository_guides(
     app: AppHandle,
     manager: State<'_, codex_agent::CodexAgentManager>,
     project_id: String,
     snapshot_id: String,
 ) -> Result<Vec<GuideSummary>, String> {
     let storage = app_data_directory(&app)?;
-    let records = store::list(&storage, &project_id, &snapshot_id)?;
+    let manager = manager.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        list_saved_guides(&storage, &project_id, &snapshot_id, &manager)
+    })
+    .await
+    .map_err(|_| "Saved guides could not be read. Nothing was regenerated.".to_owned())?
+}
+
+fn list_saved_guides(
+    storage: &Path,
+    project_id: &str,
+    snapshot_id: &str,
+    manager: &codex_agent::CodexAgentManager,
+) -> Result<Vec<GuideSummary>, String> {
+    let records = store::list(storage, project_id, snapshot_id)?;
     records
         .into_iter()
         .map(|record| {
-            let lease = store::lease(&storage, &record.id)?;
+            let lease = store::lease(storage, &record.id)?;
             let record = if lease.is_some()
                 && matches!(record.status, Status::Planning | Status::Building)
                 || lease.is_some() && record.active_run_id.is_some()
             {
-                reconcile(&storage, &record, &manager)?
+                reconcile(storage, &record, manager)?
             } else {
                 record
             };
-            summary(&storage, &record)
+            summary(storage, &record)
         })
         .collect()
 }
