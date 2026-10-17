@@ -1,0 +1,429 @@
+{
+  "case": "outline",
+  "question": "When does Outline::is_empty return true? Start with the exact predicate. Explain both conditions and what happens if the fields disagree, and explain what makes the result false.",
+  "projectId": "/Users/lazytrot/work/fontdone",
+  "snapshotId": "snap-1792140879637485000-11155-0",
+  "runId": "1909d994-29c8-45dc-8b1b-406fea00bce1",
+  "model": "gpt-6-luna",
+  "effort": "max",
+  "elapsedMs": 53087,
+  "phases": [
+    {
+      "phase": "preparing",
+      "elapsedMs": 419
+    },
+    {
+      "phase": "starting",
+      "elapsedMs": 832
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 48297
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 48839
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 49372
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 49946
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 50488
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 51004
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 51584
+    },
+    {
+      "phase": "generating",
+      "elapsedMs": 52169
+    },
+    {
+      "phase": "validating",
+      "elapsedMs": 52447
+    }
+  ],
+  "status": "complete",
+  "calls": [
+    {
+      "id": "63e2d6c4-80c8-457b-9f19-81f264168da5",
+      "tool": "definitions",
+      "argumentsSha256": "192c15628e4f7c4687ffb61aea0ac733cc23ecf7b8d0ceee9540e727da72e63c",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 2309,
+      "wireBytes": 2309,
+      "payloadSha256": "159ec7a8e73a2852635494ea933f1cab3bf1435822ccb5c15116a25cd290b2eb"
+    },
+    {
+      "id": "6fa32668-d8c5-4b7c-a615-fdc442099a8e",
+      "tool": "read",
+      "argumentsSha256": "2d373bf8f294aa6282fcece641acdca479c7d8f38ceac229b1124f916530dee6",
+      "state": "delivered",
+      "evidenceIds": [
+        "evidence:9edf47a63446a3a53c541d5a2b6317f262ed17dabae0e7cf0c6a2927709b0410"
+      ],
+      "sourceBytes": 93,
+      "metadataBytes": 623,
+      "wireBytes": 718,
+      "payloadSha256": "ccf1686ccb74e60f185ab3e3b8591193ae76366813d97ee61ad1819af779f21c"
+    },
+    {
+      "id": "e19063d6-afb7-46ef-8052-f00f45bc6bfd",
+      "tool": "definitions",
+      "argumentsSha256": "ef23549b79568bf0633c3e3d4023a9b06d7109ee630c21618af8d515fbadf852",
+      "state": "delivered",
+      "evidenceIds": [],
+      "sourceBytes": 0,
+      "metadataBytes": 9489,
+      "wireBytes": 9489,
+      "payloadSha256": "019ddd40d853ce061994a316d244d59c24ccb8ba928fc1600de35996d3b547e3"
+    },
+    {
+      "id": "843dd44f-97d9-4fba-9f5d-d2226baac532",
+      "tool": "read",
+      "argumentsSha256": "898e581b6843544c53c53b93a7d4e4622c2f715edf4c41df22bdd8377d65af0d",
+      "state": "delivered",
+      "evidenceIds": [
+        "evidence:ad7f4fdb2d16f6792ee3810b143f84746a00f024d806cf11758b7de3b40d86f0"
+      ],
+      "sourceBytes": 855,
+      "metadataBytes": 622,
+      "wireBytes": 1498,
+      "payloadSha256": "3d4c0369f65e2cebb25785ee3438f240fd58be40fd919fb752292f72de0e7fda"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "evidence:9edf47a63446a3a53c541d5a2b6317f262ed17dabae0e7cf0c6a2927709b0410",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/outline.rs",
+        "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+        "startByte": 1833,
+        "endByte": 1926,
+        "startLine": 49,
+        "endLine": 51,
+        "chunkSha256": "851a241536f7067cd05babfed6a3a2a823e3480391ac90afe40a89c187388e3d",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    },
+    {
+      "id": "evidence:ad7f4fdb2d16f6792ee3810b143f84746a00f024d806cf11758b7de3b40d86f0",
+      "range": {
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "path": "src/outline.rs",
+        "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+        "startByte": 957,
+        "endByte": 1812,
+        "startLine": 25,
+        "endLine": 46,
+        "chunkSha256": "b8a3f3b4d112b9b1664f7de8df3a11065fc1eff28cefe987adb5e90eb977adb8",
+        "enclosing": null,
+        "parent": null,
+        "parser": null
+      }
+    }
+  ],
+  "preview": {
+    "generationId": "generation:8abdfce1-ff1a-4679-ac9b-818d9fd4133c",
+    "revision": {
+      "schemaVersion": 4,
+      "chapterId": "chapter:overview",
+      "revisionId": "revision:9798de71-bddc-4fee-8787-6341a239680f",
+      "revisionNumber": 1,
+      "projectId": "/Users/lazytrot/work/fontdone",
+      "snapshotId": "snap-1792140879637485000-11155-0",
+      "target": {
+        "targetId": "target:overview",
+        "scope": {
+          "kind": "overview"
+        }
+      },
+      "title": "Outline::is_empty boolean predicate",
+      "lifecycle": "draft",
+      "validationStatus": "valid",
+      "createdAtUnixMs": 1792215593192,
+      "generationOrigin": {
+        "schemaVersion": 3,
+        "projectId": "/Users/lazytrot/work/fontdone",
+        "snapshotId": "snap-1792140879637485000-11155-0",
+        "targetPath": null,
+        "purpose": "repositoryOverview",
+        "requestId": "1909d994-29c8-45dc-8b1b-406fea00bce1",
+        "requestFingerprint": "52ce248989ade3207ef370f4b087f5a8894a5d315cd0d81d972be086f20b095f",
+        "requestBodySha256": "09a107f370185de03fd4af177ff45d7e46aef08a9b92b78670dfafcd05e3b284",
+        "contractVersion": "codex-retrieval-v1",
+        "settings": {
+          "backend": "codex",
+          "modelId": "gpt-6-luna",
+          "effort": "max",
+          "approvalPolicy": "never"
+        },
+        "sourceFiles": [
+          {
+            "path": "src/outline.rs",
+            "sha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+            "sizeBytes": 1929
+          }
+        ],
+        "sectionUpdate": null,
+        "plannedChapter": null,
+        "retrieval": {
+          "policy": "atlas-captured-ranges-v1-files12-source250000",
+          "ledgerSha256": "faffbffb05d61723c6e4e456e084694b2d7a5cd04f9883492a02acaacf867714",
+          "ranges": [
+            {
+              "snapshotId": "snap-1792140879637485000-11155-0",
+              "path": "src/outline.rs",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+              "startByte": 1833,
+              "endByte": 1926,
+              "startLine": 49,
+              "endLine": 51,
+              "chunkSha256": "851a241536f7067cd05babfed6a3a2a823e3480391ac90afe40a89c187388e3d",
+              "enclosing": null,
+              "parent": null,
+              "parser": null
+            },
+            {
+              "snapshotId": "snap-1792140879637485000-11155-0",
+              "path": "src/outline.rs",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+              "startByte": 957,
+              "endByte": 1812,
+              "startLine": 25,
+              "endLine": 46,
+              "chunkSha256": "b8a3f3b4d112b9b1664f7de8df3a11065fc1eff28cefe987adb5e90eb977adb8",
+              "enclosing": null,
+              "parent": null,
+              "parser": null
+            }
+          ]
+        },
+        "contentSha256": "4c9d33766742fcfc09273ff073a5a80b78577359c30ae95041870ae7b64b690a"
+      },
+      "sections": [
+        {
+          "sectionId": "section:f0b08b69-540e-46a8-857d-646b02b2795b",
+          "sectionRevisionId": "sectionrev:bd58eb09-3a1c-4039-82a9-ba5320cd44b3",
+          "order": 0,
+          "title": "Exact predicate",
+          "prose": "`is_empty` returns true if `points.is_empty()` is true or `n_contours == 0` is true. If those conditions disagree, the result is still true; it is false only when `points` is nonempty and `n_contours` is nonzero. The `Outline` declaration documents `n_contours` as the number of contours and `points` as the flattened points across them. They are distinct stored fields, matching the two separate tests in the predicate.",
+          "spokenText": "They are distinct stored fields, matching the two separate tests in the predicate.",
+          "claims": [
+            {
+              "claimId": "claim:a1be246a-e9fc-4d53-aec1-afef2ea0a016",
+              "category": {
+                "kind": "codeBehavior"
+              },
+              "prose": "`is_empty` returns true if `points.is_empty()` is true or `n_contours == 0` is true. If those conditions disagree, the result is still true; it is false only when `points` is nonempty and `n_contours` is nonzero.",
+              "anchors": [
+                {
+                  "anchorId": "anchor:b697b85e-58c9-4159-965e-e1dfa1cc2fcf",
+                  "path": "src/outline.rs",
+                  "symbolId": "sym:a27c4161cafa750152d2fdb059454851aaa45019d1d1b40f1f9b1383934f2b4b",
+                  "snapshotId": "snap-1792140879637485000-11155-0",
+                  "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+                  "startByte": 1833,
+                  "endByteInclusive": 1925,
+                  "startLine": 49,
+                  "endLine": 51,
+                  "startColumn": 5,
+                  "endColumn": 5,
+                  "excerpt": "pub fn is_empty(&self) -> bool {\n        self.points.is_empty() || self.n_contours == 0\n    }"
+                }
+              ],
+              "dependencies": [
+                {
+                  "kind": "sourceFile",
+                  "path": "src/outline.rs",
+                  "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d"
+                },
+                {
+                  "kind": "symbol",
+                  "path": "src/outline.rs",
+                  "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+                  "symbolId": "sym:a27c4161cafa750152d2fdb059454851aaa45019d1d1b40f1f9b1383934f2b4b"
+                }
+              ]
+            },
+            {
+              "claimId": "claim:afe2983d-24e7-432a-8c81-a376d2878d5b",
+              "category": {
+                "kind": "repositoryContext"
+              },
+              "prose": "The `Outline` declaration documents `n_contours` as the number of contours and `points` as the flattened points across them. They are distinct stored fields, matching the two separate tests in the predicate.",
+              "anchors": [
+                {
+                  "anchorId": "anchor:6d8894d3-0e56-4582-b07a-5ec02662b0f9",
+                  "path": "src/outline.rs",
+                  "symbolId": "sym:00eb83d9bd7adcc460c42cf5bf1ca9357c2f737edd95ef24ffeb5b1cd5df3f60",
+                  "snapshotId": "snap-1792140879637485000-11155-0",
+                  "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+                  "startByte": 978,
+                  "endByteInclusive": 1178,
+                  "startLine": 26,
+                  "endLine": 31,
+                  "startColumn": 1,
+                  "endColumn": 34,
+                  "excerpt": "    /// Number of contours.\n    pub n_contours: i32,\n    /// Endpoint index of each contour.\n    pub contours: Vec<i16>,\n    /// Flattened points across all contours.\n    pub points: Vec<OutlinePoint>,"
+                }
+              ],
+              "dependencies": [
+                {
+                  "kind": "sourceFile",
+                  "path": "src/outline.rs",
+                  "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d"
+                },
+                {
+                  "kind": "symbol",
+                  "path": "src/outline.rs",
+                  "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+                  "symbolId": "sym:00eb83d9bd7adcc460c42cf5bf1ca9357c2f737edd95ef24ffeb5b1cd5df3f60"
+                }
+              ]
+            }
+          ],
+          "dependencies": [
+            {
+              "kind": "sourceFile",
+              "path": "src/outline.rs",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d"
+            },
+            {
+              "kind": "symbol",
+              "path": "src/outline.rs",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+              "symbolId": "sym:a27c4161cafa750152d2fdb059454851aaa45019d1d1b40f1f9b1383934f2b4b"
+            },
+            {
+              "kind": "symbol",
+              "path": "src/outline.rs",
+              "sourceSha256": "041ef18b3895b7801bfb78766da6056245bceb976f0b08b81fa49510f2ed3c0d",
+              "symbolId": "sym:00eb83d9bd7adcc460c42cf5bf1ca9357c2f737edd95ef24ffeb5b1cd5df3f60"
+            }
+          ],
+          "visual": {
+            "schemaVersion": 2,
+            "kind": "dataFlow",
+            "title": "Conditions feeding the result",
+            "layoutHint": {
+              "direction": "leftToRight"
+            },
+            "nodes": [
+              {
+                "nodeId": "visualnode:cfe06237-8a95-4709-ba5f-4668015a4294",
+                "label": "Point condition",
+                "detail": "points.is_empty()",
+                "hotspotId": "visualhotspot:6703b3b7-5926-4750-af20-36793721b541",
+                "evidenceAnchorIds": [
+                  "anchor:b697b85e-58c9-4159-965e-e1dfa1cc2fcf"
+                ]
+              },
+              {
+                "nodeId": "visualnode:f4533531-eefe-4bf8-b1db-27d7b373d485",
+                "label": "Contour condition",
+                "detail": "n_contours == 0",
+                "hotspotId": "visualhotspot:7dde1389-bcf6-4e67-a01a-545da819d63d",
+                "evidenceAnchorIds": [
+                  "anchor:b697b85e-58c9-4159-965e-e1dfa1cc2fcf"
+                ]
+              },
+              {
+                "nodeId": "visualnode:c2afad43-a71c-4793-930e-ace633e2e363",
+                "label": "is_empty result",
+                "detail": "True if either condition holds",
+                "hotspotId": "visualhotspot:dc162a31-c601-42e7-9869-7b36595dd31c",
+                "evidenceAnchorIds": [
+                  "anchor:b697b85e-58c9-4159-965e-e1dfa1cc2fcf"
+                ]
+              }
+            ],
+            "edges": [
+              {
+                "edgeId": "visualedge:89a05dc1-a98d-4f49-a355-67023ff4cea6",
+                "fromNodeId": "visualnode:cfe06237-8a95-4709-ba5f-4668015a4294",
+                "toNodeId": "visualnode:c2afad43-a71c-4793-930e-ace633e2e363",
+                "label": "OR",
+                "evidenceAnchorIds": [
+                  "anchor:b697b85e-58c9-4159-965e-e1dfa1cc2fcf"
+                ]
+              },
+              {
+                "edgeId": "visualedge:e7e84598-765d-4dc3-b4c7-6824752d1a08",
+                "fromNodeId": "visualnode:f4533531-eefe-4bf8-b1db-27d7b373d485",
+                "toNodeId": "visualnode:c2afad43-a71c-4793-930e-ace633e2e363",
+                "label": "OR",
+                "evidenceAnchorIds": [
+                  "anchor:b697b85e-58c9-4159-965e-e1dfa1cc2fcf"
+                ]
+              }
+            ]
+          },
+          "hotspots": [
+            {
+              "hotspotId": "overviewfile:80747cae-2196-4662-9196-656961e9c445",
+              "label": "Open file: src/outline.rs",
+              "destination": {
+                "kind": "atlasFile",
+                "path": "src/outline.rs"
+              }
+            },
+            {
+              "hotspotId": "visualhotspot:6703b3b7-5926-4750-af20-36793721b541",
+              "label": "Open supporting code",
+              "destination": {
+                "kind": "codeLens",
+                "anchorId": "anchor:b697b85e-58c9-4159-965e-e1dfa1cc2fcf"
+              }
+            },
+            {
+              "hotspotId": "visualhotspot:7dde1389-bcf6-4e67-a01a-545da819d63d",
+              "label": "Open supporting code",
+              "destination": {
+                "kind": "codeLens",
+                "anchorId": "anchor:b697b85e-58c9-4159-965e-e1dfa1cc2fcf"
+              }
+            },
+            {
+              "hotspotId": "visualhotspot:dc162a31-c601-42e7-9869-7b36595dd31c",
+              "label": "Open supporting code",
+              "destination": {
+                "kind": "codeLens",
+                "anchorId": "anchor:b697b85e-58c9-4159-965e-e1dfa1cc2fcf"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "validation": {
+      "schemaVersion": 4,
+      "chapterId": "chapter:overview",
+      "revisionId": "revision:9798de71-bddc-4fee-8787-6341a239680f",
+      "snapshotId": "snap-1792140879637485000-11155-0",
+      "status": "valid",
+      "issues": []
+    },
+    "modelId": "gpt-6-luna",
+    "modelVersion": null,
+    "inputTokens": null,
+    "outputTokens": null,
+    "updateNotes": []
+  },
+  "error": null
+}

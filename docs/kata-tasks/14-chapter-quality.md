@@ -58,3 +58,12 @@ The [native acceptance record](../acceptance/2026-10-17-fontdone.md) preserves a
 - [ ] Qualify generated visuals on a nontrivial implementation path. All sections in the Outline sample had no generated visual; static file Flow cannot substitute.
 
 Keep this gate open, including human narration review and language/PR coverage. The exact successful draft and source-scope metadata are linked from the acceptance record.
+
+## Owned retrieval predicate and narration gap — October 17
+
+The [new owned-tool Outline draft](../acceptance/artifacts/2026-10-17-fontdone-agent-outline.json) answers the predicate directly in its first and only section and includes a three-node/two-edge source-linked OR diagram. Two anchors independently match the pinned source bytes, hash, line coordinates, unique quotes and admitted evidence. This is agent source inspection, not the required human binary-rubric review or broad narrative pass.
+
+- [ ] Align the owned retrieval instructions with `canonicalize_workspace_overview`: its separate `prose`/`spokenText` fields are discarded, and final narration is selected from anchored claim sentences. The current instructions ask for natural `spokenText` without explaining that presentation contract.
+- [ ] Ensure the supported spoken script carries the main answer. This sample's only spoken sentence is “They are distinct stored fields, matching the two separate tests in the predicate.” It omits the OR predicate and false case because the current heuristic prefers punctuation-free sentences. Preserve source grounding and inference labels while making the core explanation speakable; do not hide the defect by accepting any nonempty script.
+- [ ] Add deterministic coverage for a correct code-heavy main claim plus a peripheral plain-language sentence. Review the exact prepared script, then listen to Pocket output for the two conditions, disagreement and false case. A valid citation/diagram is insufficient.
+- [ ] Keep broad Fontdone parsing/loading/hinting/rasterization, multiple-language and PR narratives in the representative human-reviewed corpus. This small predicate does not resolve them.
