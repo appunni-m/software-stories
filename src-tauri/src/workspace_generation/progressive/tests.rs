@@ -467,7 +467,7 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v6:"));
+    assert!(instructions.contains("Teaching policy v8:"));
     assert!(instructions.starts_with(ANSWER_ROLE));
     assert!(instructions.contains("then investigate and publish deeper sections"));
     assert!(!instructions.contains("then focus on the remaining research outline"));
@@ -490,7 +490,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     let input = input(&f);
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema).unwrap();
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v7");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v8");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert_eq!(
         fingerprint,
@@ -503,7 +503,9 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert_eq!(contract["finalManifestVersion"], "answerManifestV2");
     assert_eq!(contract["finalManifestPolicy"], "all-latest-published-sections-v1");
     assert_eq!(contract["proposalVersion"], "answerSectionV6");
-    assert_eq!(contract["sceneAuthoringPolicy"], "claim-owned-scene-local-identities-v1");
+    assert_eq!(contract["sceneAuthoringPolicy"], "claim-owned-scene-local-identities-v2");
+    assert!(system_instructions().contains("at most eight nodes"));
+    assert!(system_instructions().contains("one edge of context"));
     assert_eq!(contract["identifierCompilationPolicy"], "explicit-prose-grounded-suffixes-v2");
     assert_eq!(contract["publicationOrderPolicy"], "investigation-local-next-order-v1");
     assert!(system_instructions().contains("proposalVersion:\"answerSectionV6\""));
@@ -548,11 +550,11 @@ fn narration_pacing_preserves_all_conditions_and_is_bound_to_the_request() {
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let mut contract = generation_contract(&input, &prompt, &schema).unwrap();
     let instructions = system_instructions();
-    assert!(instructions.contains("one decision and its consequence"));
-    assert!(instructions.contains("divide the complete behavior into focused claims/scenes"));
-    assert!(instructions.contains("Retain every relevant condition, alternative, error and source reference"));
-    assert!(instructions.contains("a shorter script never permits missing behavior"));
-    assert!(instructions.contains("do not invent a designer's motivation or claim an observed execution"));
+    assert!(instructions.contains("Focus scenes on one decision"));
+    assert!(instructions.contains("split stacked guards into claims"));
+    assert!(instructions.contains("at most eight nodes"));
+    assert!(instructions.contains("preserving all guards, outcomes and edges"));
+    assert!(instructions.contains("Never claim measured timings"));
     assert!(instructions.contains("state the general decision rule first"));
     assert!(instructions.contains("an example alone cannot replace the rule"));
     assert_eq!(contract["systemInstructions"], instructions);

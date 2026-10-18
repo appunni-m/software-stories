@@ -1844,6 +1844,14 @@ impl Validator<'_> {
             if let Err(error) = crate::scene_presentation::validate(presentation, &visual.nodes, claims) {
                 self.visual_issue(ChapterIssueCode::InvalidVisual, &error, section_id, None, None);
             }
+            if let Err(error) = crate::scene_presentation::validate_graph_density(
+                presentation,
+                &visual.nodes,
+                &visual.edges,
+                claims,
+            ) {
+                self.visual_issue(ChapterIssueCode::InvalidVisual, &error, section_id, None, None);
+            }
         }
         if visual.schema_version != VISUAL_SCHEMA_VERSION {
             self.visual_issue(

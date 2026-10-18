@@ -205,6 +205,26 @@ fn compiler_preserves_section_wide_limits_and_explicit_no_visual_fallback() {
 }
 
 #[test]
+fn authored_graph_scenes_are_limited_by_their_focused_visible_node_count() {
+    let mut readable = section("code:1");
+    readable["claims"][0]["scene"]["mode"] = json!("graph");
+    readable["claims"][0]["scene"]["elements"] = json!([]);
+    readable["claims"][0]["scene"]["edges"] = json!([]);
+    readable["claims"][0]["scene"]["nodes"] = json!((0..8).map(|index| json!({
+        "key":format!("step-{index}"),"label":format!("Step {index}"),"detail":"",
+        "references":["code:1"]
+    })).collect::<Vec<_>>());
+    assert!(compile(&readable).is_ok());
+
+    readable["claims"][0]["scene"]["nodes"].as_array_mut().unwrap().push(json!({
+        "key":"step-8","label":"Step 8","detail":"","references":["code:1"]
+    }));
+    assert_eq!(compile(&readable).err().unwrap(), vec![json!({
+        "location":"/section/claims/0/scene/nodes","code":"sceneAuthoringLimit"
+    })]);
+}
+
+#[test]
 fn claim_evidence_bounds_report_the_exact_field_without_removing_references() {
     for count in [0, 9] {
         for no_visual in [false, true] {

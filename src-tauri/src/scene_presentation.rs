@@ -4,6 +4,27 @@
 use crate::chapters::{ChapterClaim, VisualNode};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::{HashMap, HashSet};
+
+pub(crate) const MAX_FOCUSED_GRAPH_NODES: usize = 8;
+
+pub(crate) fn visible_graph_node_count(
+    node_count: usize,
+    focused: &HashSet<usize>,
+    edges: impl IntoIterator<Item = (usize, usize)>,
+) -> usize {
+    if focused.is_empty() {
+        return node_count;
+    }
+    let mut visible = focused.clone();
+    for (from, to) in edges {
+        if focused.contains(&from) || focused.contains(&to) {
+            visible.insert(from);
+            visible.insert(to);
+        }
+    }
+    visible.len()
+}
 
 mod quality;
 pub(crate) mod tree;
@@ -262,6 +283,56 @@ pub fn validate(
     Ok(())
 }
 
+/// A narrated graph scene must remain readable in the focused reader view.
+/// It shows nodes cited by the scene's claim plus one edge of context; when no
+/// node cites that claim, the reader falls back to the full graph.
+pub(crate) fn validate_graph_density(
+    presentation: &ScenePresentation,
+    nodes: &[VisualNode],
+    edges: &[crate::chapters::VisualEdge],
+    claims: &[ChapterClaim],
+) -> Result<(), String> {
+    let indices: HashMap<_, _> = nodes
+        .iter()
+        .enumerate()
+        .map(|(index, node)| (node.node_id.as_str(), index))
+        .collect();
+    for scene in &presentation.scenes {
+        if scene.mode != SceneMode::Graph {
+            continue;
+        }
+        let Some(claim) = claims.get(scene.claim_index) else {
+            continue;
+        };
+        let anchor_ids: HashSet<_> = claim
+            .anchors
+            .iter()
+            .map(|anchor| anchor.anchor_id.as_str())
+            .collect();
+        let focused: HashSet<_> = nodes
+            .iter()
+            .enumerate()
+            .filter(|(_, node)| {
+                node.evidence_anchor_ids
+                    .iter()
+                    .any(|id| anchor_ids.contains(id.as_str()))
+            })
+            .map(|(index, _)| index)
+            .collect();
+        let graph_edges = edges.iter().filter_map(|edge| {
+            Some((
+                *indices.get(edge.from_node_id.as_str())?,
+                *indices.get(edge.to_node_id.as_str())?,
+            ))
+        });
+        let count = visible_graph_node_count(nodes.len(), &focused, graph_edges);
+        if count > MAX_FOCUSED_GRAPH_NODES {
+            return Err("A focused graph scene may show at most eight nodes, including one edge of context. Split the explanation into narrower claims and scenes or use a meaningful composition; preserve all outcomes and the full map.".into());
+        }
+    }
+    Ok(())
+}
+
 /// Flat parent indices keep the model schema small and avoid recursive schemas.
 pub(crate) fn proposal_schema() -> Value {
     json!({"type":"object","additionalProperties":false,"required":["schemaVersion","scenes"],"properties":{
@@ -289,6 +360,46 @@ pub(crate) fn proposal_schema() -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn graph_density_matches_the_reader_focus_and_one_edge_context() {
+        let make = |context_count: usize| {
+            let (template_nodes, claims, mut presentation) = fixture();
+            let active_anchor = claims[0].anchors[0].anchor_id.clone();
+            let context_anchor = claims[1].anchors[0].anchor_id.clone();
+            let nodes = (0..=context_count)
+                .map(|index| {
+                    let mut node = template_nodes[0].clone();
+                    node.node_id = format!("density-{index}");
+                    node.evidence_anchor_ids = vec![if index == 0 {
+                        active_anchor.clone()
+                    } else {
+                        context_anchor.clone()
+                    }];
+                    node
+                })
+                .collect::<Vec<_>>();
+            let edges = (1..=context_count)
+                .map(|index| crate::chapters::VisualEdge {
+                    edge_id: format!("edge-{index}"),
+                    from_node_id: nodes[0].node_id.clone(),
+                    to_node_id: nodes[index].node_id.clone(),
+                    label: "related step".into(),
+                    evidence_anchor_ids: vec![active_anchor.clone()],
+                })
+                .collect::<Vec<_>>();
+            presentation.scenes[0].mode = SceneMode::Graph;
+            presentation.scenes[0].elements.clear();
+            (nodes, edges, claims, presentation)
+        };
+
+        let (nodes, edges, claims, presentation) = make(7);
+        assert!(validate_graph_density(&presentation, &nodes, &edges, &claims).is_ok());
+        let (nodes, edges, claims, presentation) = make(8);
+        assert!(validate_graph_density(&presentation, &nodes, &edges, &claims)
+            .unwrap_err()
+            .contains("at most eight nodes"));
+    }
 
     #[test]
     fn old_scene_versions_and_missing_current_narration_are_rejected() {

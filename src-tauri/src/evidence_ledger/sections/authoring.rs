@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 pub(crate) mod narration;
 
-pub(crate) const POLICY: &str = "claim-owned-scene-local-identities-v1";
+pub(crate) const POLICY: &str = "claim-owned-scene-local-identities-v2";
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -263,8 +263,24 @@ pub(super) fn compile(section: &Value) -> Result<Compiled, Vec<Value>> {
             "/section/claims".into(),
         ));
     }
+    let compiled_section = json!({"title":object["title"],"claims":canonical_claims,"visual":visual});
+    for (claim_index, scene) in compiled_section["visual"]["presentation"]["scenes"]
+        .as_array().into_iter().flatten().enumerate()
+    {
+        if scene["mode"] == "graph"
+            && crate::claim_alignment::graph_scene_node_count(&compiled_section, claim_index)
+                .is_some_and(|count| {
+                    count > crate::scene_presentation::MAX_FOCUSED_GRAPH_NODES
+                })
+        {
+            return Err(issue(
+                &format!("/section/claims/{claim_index}/scene/nodes"),
+                "sceneAuthoringLimit",
+            ));
+        }
+    }
     Ok(Compiled {
-        section: json!({"title":object["title"],"claims":canonical_claims,"visual":visual}),
+        section: compiled_section,
         locations,
         narration: None,
     })

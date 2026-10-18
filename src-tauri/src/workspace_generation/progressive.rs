@@ -33,7 +33,7 @@ Published sections are immutable drafts. A proposal reply names its generationId
 
 const MANIFEST_INSTRUCTIONS: &str = r#"Answer the requested scope; missing unrequested callers or downstream systems is not an incomplete topic. Finish only with the supplied answerManifestV2 JSON schema: {manifestVersion:"answerManifestV2",incompleteTopics:[...]}. The app retains every latest published section automatically, in its native publication order. Do not copy sectionKey or generationId into the final response or select a subset of sections. incompleteTopics names concrete requested boundaries you could not investigate. Rejected work is not completed work. Do not put explanations, source quotations, paths or new content in the final response. A final manifest cannot publish, remove or replace a section. No Markdown fences or extra fields."#;
 
-const SCENE_PACING_INSTRUCTIONS: &str = "Keep each scene centered on one decision and its consequence. When a claim stacks independent flag effects or guards, divide the complete behavior into focused claims/scenes. Retain every relevant condition, alternative, error and source reference; a shorter script never permits missing behavior. Carry its result into the next scene. Introduce unfamiliar terms with short plain-language labels. Explain practical consequences; do not invent a designer's motivation or claim an observed execution.";
+const SCENE_PACING_INSTRUCTIONS: &str = "Focus scenes on one decision; split stacked guards into claims and carry results forward. Graph scenes show at most eight nodes (claim-linked plus one edge of context; no links shows the full map). Split dense claims or use meaningful compositions, preserving all guards, outcomes and edges.";
 
 const PUBLICATION_ORDER_INSTRUCTIONS: &str = "Publication order is local to this investigation, including explicit guide continuations. Start its first new key at order:0 with previousGenerationId:null. Earlier saved-library headings are outside this ledger. Rejection publishes nothing and never advances order. Use the reply's nextNewSectionOrder; null permits only identifying or explicitly revising an existing key.";
 
@@ -83,7 +83,7 @@ fn generation_contract(input: &Input, prompt: &str, schema: &Value) -> Result<Va
         "answerSchemaVersion":sections::NARRATION_ANSWER_VERSION,
         "citationPolicy":"native-short-references-v2","proposalVersion":sections::NARRATION_PROPOSAL_VERSION,
         "sceneAuthoringPolicy":sections::authoring::POLICY,"identifierCompilationPolicy":crate::native_citations::names::GROUNDED_POLICY,
-        "presentationPolicy":"complete-claims-and-authored-narration-v4","storyPolicy":"ai-html-compositions-v3","teachingPolicy":provider::visual_scenes::TEACHING_POLICY_VERSION,"checkpointVersion":sections::NARRATION_CHECKPOINT_VERSION
+        "presentationPolicy":"complete-claims-and-authored-narration-v4","storyPolicy":"ai-html-compositions-v4","teachingPolicy":provider::visual_scenes::TEACHING_POLICY_VERSION,"checkpointVersion":sections::NARRATION_CHECKPOINT_VERSION
     }))
 }
 
@@ -96,7 +96,10 @@ fn request(
     let contract = serde_json::to_vec(&generation_contract(input, &prompt, &schema)?)
         .map_err(|_| "The progressive question contract could not be encoded.")?;
     if contract.len() > 32000 {
-        return Err("The question and references exceed the initial request limit.".into());
+        return Err(format!(
+            "The question and references use {} bytes, exceeding the 32,000-byte initial request limit.",
+            contract.len()
+        ));
     }
     Ok((prompt, schema, context::digest(&contract)))
 }

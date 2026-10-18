@@ -2200,7 +2200,7 @@ mod chapter_pipeline_tests {
                     selected_paths: vec![SIMPLE_PATH.to_owned()],
                     model_id: "gemini-3.8-flash".to_owned(), section_update: None,
                 }).unwrap().review;
-            assert!(review.system_instruction.contains("ai-html-compositions-v3"));
+            assert!(review.system_instruction.contains("ai-html-compositions-v4"));
             assert_current_narration_prompt(&review);
             let mut proposal = provider::visual_scenes::tests::composed_proposal(3);
             if overview { proposal.as_object_mut().unwrap().remove("evidenceLimits"); }
@@ -2301,7 +2301,7 @@ mod chapter_pipeline_tests {
         assert!(review.user_prompt.contains("joins every scene narration in claim order"));
         assert!(!review.user_prompt.contains("one to three"));
         assert!(!review.user_prompt.contains("sentences copied verbatim from that section's anchored claims"));
-        assert!(review.system_instruction.contains("Teaching policy v6:"));
+        assert!(review.system_instruction.contains("Teaching policy v8:"));
         assert!(review.system_instruction.contains("an example alone cannot replace the rule"));
     }
 
@@ -2623,7 +2623,7 @@ mod chapter_pipeline_tests {
         assert_eq!(codex_review.purpose,"sectionUpdate");
         assert_current_narration_prompt(&codex_review);
         assert_eq!(crate::claim_alignment::CorrectionPolicy::from_generation_config(&codex_review.generation_config),
-            crate::claim_alignment::CorrectionPolicy::ChapterScenesV5);
+            crate::claim_alignment::CorrectionPolicy::ChapterScenesV6);
         provider::revalidate_codex_request_review(&fixture.storage,&codex_review,&codex_runtime).unwrap();
 
         for disclosure in provider::provider_catalog() {

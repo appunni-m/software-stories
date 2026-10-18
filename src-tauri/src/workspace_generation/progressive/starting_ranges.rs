@@ -106,7 +106,10 @@ pub(super) fn request(
         32000
     };
     if bytes.len() > limit {
-        return Err("The question and references exceed the initial request limit.".into());
+        return Err(format!(
+            "The question and references use {} bytes, exceeding the {limit}-byte initial request limit.",
+            bytes.len()
+        ));
     }
     Ok((prompt, schema, context::digest(&bytes), instructions))
 }

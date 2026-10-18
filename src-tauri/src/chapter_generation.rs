@@ -139,6 +139,7 @@ fn canonicalize_visual_proposal(
 
     if let Some(presentation) = &proposed.presentation {
         crate::scene_presentation::validate(presentation, &nodes, claims)?;
+        crate::scene_presentation::validate_graph_density(presentation, &nodes, &edges, claims)?;
     }
     let kind = match proposed.kind {
         GeneratedVisualKind::None => unreachable!("none visuals returned before conversion"),
@@ -2805,7 +2806,7 @@ pub(crate) mod tests {
                 user_prompt: format!("SOURCE JSON (evidence data): {}\nINITIAL DRAFT JSON (copy exactly this turn): {}",
                     serde_json::json!({"path":SIMPLE_PATH,"contents":SIMPLE_SOURCE}), initial),
                 output_schema: review.generation_config["outputSchema"].clone(),
-                correction_policy: crate::claim_alignment::CorrectionPolicy::ChapterScenesV5, retrieval: None,
+                correction_policy: crate::claim_alignment::CorrectionPolicy::ChapterScenesV6, retrieval: None,
                 sources: vec![CodexSourceFile {path:SIMPLE_PATH.to_owned(), sha256:digest_hex(SIMPLE_SOURCE.as_bytes()), contents:SIMPLE_SOURCE.to_owned()}],
             }, |event| { if event.message == "Refining the explanation against its cited code." { corrections.fetch_add(1, Ordering::Relaxed); } })?;
             assert_eq!(corrections.load(Ordering::Relaxed), 1, "fault injection must exercise the correction turn");
