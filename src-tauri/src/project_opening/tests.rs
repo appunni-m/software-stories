@@ -43,6 +43,37 @@ fn cancelled_inspection_never_updates_recents_sessions_or_snapshot_data() {
 }
 
 #[test]
+fn cancellation_discards_staged_recent_projects_before_publication() {
+    let fixture = Fixture::new();
+    let sessions = ProjectSessions::default();
+    let jobs = RepositoryContextJobs::default();
+    let id = uuid::Uuid::new_v4().to_string();
+    let request = jobs.begin(&id).unwrap();
+    let inspected = project::inspect_selected_project(
+        &fixture.manifest.summary.project_id,
+        request.cancellation(),
+    );
+    let before = files(&fixture.storage);
+    let prepared =
+        project::prepare_inspected_project(&fixture.storage, inspected, request.cancellation());
+    assert!(
+        fs::read_dir(&fixture.storage).unwrap().any(|entry| entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .ends_with(".tmp")),
+        "recent-project metadata should be staged before the short commit boundary"
+    );
+
+    // Stop can acquire the request lock while the prepared disk update is held
+    // outside it; rejecting publication then drops the staged file.
+    jobs.cancel(&id).unwrap();
+    assert!(request.commit(|| prepared.publish()).is_err());
+    assert!(sessions.0.lock().unwrap().is_empty());
+    assert_eq!(files(&fixture.storage), before);
+}
+
+#[test]
 fn live_owner_publishes_one_project_without_changing_repository_or_saved_snapshots() {
     let fixture = Fixture::new();
     let path = Path::new(&fixture.manifest.summary.project_id);

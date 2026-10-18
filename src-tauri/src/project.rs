@@ -6,7 +6,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Mutex, MutexGuard, OnceLock, TryLockError};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 const GIT_INSPECTION_TIMEOUT: Duration = Duration::from_secs(5);
@@ -92,24 +92,116 @@ pub(crate) fn record_inspected_project(
     storage_dir: &Path,
     inspected: ProjectOpenResult,
 ) -> ProjectOpenResult {
+    prepare_inspected_project(storage_dir, inspected, &AtomicBool::new(false)).publish()
+}
+
+/// Stage the on-disk recent-project update before the request's short
+/// cancellation-serialized publication step. Dropping this value discards the
+/// staged file, so a stopped request cannot update Recents.
+pub(crate) fn prepare_inspected_project(
+    storage_dir: &Path,
+    inspected: ProjectOpenResult,
+    cancelled: &AtomicBool,
+) -> PreparedProjectOpen {
+    if cancelled.load(Ordering::Acquire) {
+        return PreparedProjectOpen::new(ProjectOpenResult::cancelled(), None);
+    }
     if inspected.status != ProjectOpenStatus::Opened {
-        return inspected;
+        return PreparedProjectOpen::new(inspected, None);
     }
     let Some(project) = inspected.project else {
-        return ProjectOpenResult::storage_error("The inspected project is unavailable.".into());
+        return PreparedProjectOpen::new(
+            ProjectOpenResult::storage_error("The inspected project is unavailable.".into()),
+            None,
+        );
     };
 
     let mut recent_project = project.clone();
     recent_project.selected_path = project.repository_root.clone();
-    match upsert_recent_project(storage_dir, recent_project) {
-        Ok(()) => ProjectOpenResult::opened(project),
-        Err(message) => ProjectOpenResult {
-            status: ProjectOpenStatus::StorageError,
-            project: Some(project),
-            selected_path: None,
-            message: Some(message),
-        },
+    match prepare_recent_project_upsert(storage_dir, recent_project, cancelled) {
+        Ok(write) => PreparedProjectOpen::new(ProjectOpenResult::opened(project), Some(write)),
+        Err(PrepareRecentError::Cancelled) => {
+            PreparedProjectOpen::new(ProjectOpenResult::cancelled(), None)
+        }
+        Err(PrepareRecentError::Storage(message)) => PreparedProjectOpen::new(
+            ProjectOpenResult {
+                status: ProjectOpenStatus::StorageError,
+                project: Some(project),
+                selected_path: None,
+                message: Some(message),
+            },
+            None,
+        ),
     }
+}
+
+pub(crate) struct PreparedProjectOpen {
+    result: ProjectOpenResult,
+    recent_write: Option<PreparedRecentWrite>,
+}
+
+impl PreparedProjectOpen {
+    fn new(result: ProjectOpenResult, recent_write: Option<PreparedRecentWrite>) -> Self {
+        Self {
+            result,
+            recent_write,
+        }
+    }
+
+    pub(crate) fn publish(self) -> ProjectOpenResult {
+        let Self {
+            mut result,
+            recent_write,
+        } = self;
+        if let Some(write) = recent_write {
+            if let Err(message) = write.publish() {
+                result = ProjectOpenResult {
+                    status: ProjectOpenStatus::StorageError,
+                    project: result.project,
+                    selected_path: None,
+                    message: Some(message),
+                };
+            }
+        }
+        result
+    }
+}
+
+struct PreparedRecentWrite {
+    temporary_path: Option<PathBuf>,
+    target_path: PathBuf,
+    _guard: MutexGuard<'static, ()>,
+    created_directory: Option<PathBuf>,
+}
+
+impl PreparedRecentWrite {
+    fn publish(mut self) -> Result<(), String> {
+        let temporary_path = self
+            .temporary_path
+            .as_deref()
+            .expect("prepared recent-project write has a temporary file");
+        fs::rename(temporary_path, &self.target_path)
+            .map_err(|error| format!("Recent projects could not be finalized: {error}"))?;
+        self.temporary_path = None;
+        self.created_directory = None;
+        Ok(())
+    }
+}
+
+impl Drop for PreparedRecentWrite {
+    fn drop(&mut self) {
+        if let Some(path) = self.temporary_path.take() {
+            let _ = fs::remove_file(path);
+        }
+        if let Some(path) = self.created_directory.take() {
+            let _ = fs::remove_dir(path);
+        }
+    }
+}
+
+enum PrepareRecentError {
+    Cancelled,
+    Storage(String),
 }
 
 pub fn open_recent_project(storage_dir: &Path, project_id: &str) -> ProjectOpenResult {
@@ -525,6 +617,7 @@ fn load_recent_projects(storage_dir: &Path) -> Result<Vec<RecentProject>, String
     Ok(projects)
 }
 
+#[cfg(test)]
 fn upsert_recent_project(storage_dir: &Path, project: RecentProject) -> Result<(), String> {
     with_recent_lock(|| {
         let mut projects = load_recent_projects(storage_dir)?;
@@ -532,6 +625,112 @@ fn upsert_recent_project(storage_dir: &Path, project: RecentProject) -> Result<(
         projects.insert(0, project);
         write_recent_projects(storage_dir, &projects)
     })
+}
+
+fn prepare_recent_project_upsert(
+    storage_dir: &Path,
+    project: RecentProject,
+    cancelled: &AtomicBool,
+) -> Result<PreparedRecentWrite, PrepareRecentError> {
+    let guard = lock_recent_projects_cancellable(cancelled)?;
+    let mut projects = load_recent_projects(storage_dir).map_err(PrepareRecentError::Storage)?;
+    if cancelled.load(Ordering::Acquire) {
+        return Err(PrepareRecentError::Cancelled);
+    }
+    projects.retain(|saved| saved.project_id != project.project_id);
+    projects.insert(0, project);
+    if projects.len() > MAX_RECENT_PROJECTS_COUNT {
+        return Err(PrepareRecentError::Storage(format!(
+            "Recent projects reached the supported limit of {MAX_RECENT_PROJECTS_COUNT} entries. Existing data was preserved."
+        )));
+    }
+    let bytes = serde_json::to_vec_pretty(&projects).map_err(|error| {
+        PrepareRecentError::Storage(format!("Recent projects could not be encoded: {error}"))
+    })?;
+    if bytes.len() > MAX_RECENT_PROJECTS_BYTES {
+        return Err(PrepareRecentError::Storage(
+            "Recent projects exceed the 16 MiB metadata limit. Existing data was preserved."
+                .to_owned(),
+        ));
+    }
+
+    let created_directory = (!storage_dir.exists()).then(|| storage_dir.to_path_buf());
+    if let Err(error) = fs::create_dir_all(storage_dir) {
+        if let Some(path) = &created_directory {
+            let _ = fs::remove_dir(path);
+        }
+        return Err(PrepareRecentError::Storage(format!(
+            "The local Code Atlas data folder could not be created: {error}"
+        )));
+    }
+    if cancelled.load(Ordering::Acquire) {
+        if let Some(path) = &created_directory {
+            let _ = fs::remove_dir(path);
+        }
+        return Err(PrepareRecentError::Cancelled);
+    }
+
+    let temporary_path = storage_dir.join(format!("recent-projects.{}.tmp", uuid::Uuid::new_v4()));
+    let prepared = PreparedRecentWrite {
+        temporary_path: Some(temporary_path.clone()),
+        target_path: recent_projects_path(storage_dir),
+        _guard: guard,
+        created_directory,
+    };
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary_path)
+        .map_err(|error| {
+            PrepareRecentError::Storage(format!("Recent projects could not be saved: {error}"))
+        })?;
+    for chunk in bytes.chunks(64 * 1024) {
+        if cancelled.load(Ordering::Acquire) {
+            drop(file);
+            return Err(PrepareRecentError::Cancelled);
+        }
+        file.write_all(chunk).map_err(|error| {
+            PrepareRecentError::Storage(format!("Recent projects could not be saved: {error}"))
+        })?;
+    }
+    file.sync_all().map_err(|error| {
+        PrepareRecentError::Storage(format!("Recent projects could not be saved: {error}"))
+    })?;
+    drop(file);
+    if cancelled.load(Ordering::Acquire) {
+        return Err(PrepareRecentError::Cancelled);
+    }
+    // Keep the prepared value alive until the request's cancellation-serialized
+    // rename; on error or cancellation its Drop removes the temporary file.
+    Ok(prepared)
+}
+
+fn lock_recent_projects_cancellable(
+    cancelled: &AtomicBool,
+) -> Result<MutexGuard<'static, ()>, PrepareRecentError> {
+    let lock = RECENT_PROJECTS_LOCK.get_or_init(|| Mutex::new(()));
+    loop {
+        if cancelled.load(Ordering::Acquire) {
+            return Err(PrepareRecentError::Cancelled);
+        }
+        match lock.try_lock() {
+            Ok(guard) => {
+                if cancelled.load(Ordering::Acquire) {
+                    drop(guard);
+                    return Err(PrepareRecentError::Cancelled);
+                }
+                return Ok(guard);
+            }
+            Err(TryLockError::WouldBlock) => {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            Err(TryLockError::Poisoned(_)) => {
+                return Err(PrepareRecentError::Storage(
+                    "Recent projects storage is temporarily unavailable.".to_owned(),
+                ));
+            }
+        }
+    }
 }
 
 fn write_recent_projects(storage_dir: &Path, projects: &[RecentProject]) -> Result<(), String> {

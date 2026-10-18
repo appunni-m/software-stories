@@ -16,8 +16,9 @@ fn publish(
     request: &Request,
     sessions: &ProjectSessions,
 ) -> Result<ProjectOpenResult, String> {
+    let prepared = project::prepare_inspected_project(storage, inspected, request.cancellation());
     match request.commit(|| {
-        let result = project::record_inspected_project(storage, inspected);
+        let result = prepared.publish();
         sessions.remember_result(&result);
         result
     }) {
