@@ -1,4 +1,5 @@
 import { cleanReaderProgress, cleanStoryProgress, cleanDiagramProgress, sameSection, withReaderProgress, type StoryProgress, type DiagramProgress, type ReaderProgress } from '../lib/readerProgress.ts';
+import { cleanAnswerVersions, ownsAnswerRevision, type AnswerVersion } from './answerVersions.ts';
 /** Flat, snapshot-scoped conversation state. Generated text lives in native revisions. */
 export type View = 'guide' | 'flow' | 'history';
 export interface Context { path: string; sha256?: string; from?: number; to?: number }
@@ -33,6 +34,7 @@ export interface Turn {
   guide?: Omit<RepositoryGuide, 'answers'>;
   reading?: Partial<Record<'guide' | 'flow', ReadingPosition>>;
   presentation?: ReaderProgress;
+  answerVersions?: AnswerVersion[];
   outcomeAt?: number;
   outcomeSequence?: number;
   outcomeNotice?: { read?: string; dismissed?: string };
@@ -106,9 +108,10 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
         t.runIds = Array.isArray(t.runIds) ? [...new Set(t.runIds.filter(validRunId))].slice(0, 32) : [];
         t.publishedSections = cleanPublishedSections(t.publishedSections).filter((s) => t.runIds!.includes(s.runId));
         t.notes = cleanAnswerNotes(t.notes);
+        if(t.answerVersions)t.answerVersions=cleanAnswerVersions(t.answerVersions,t);
         if(t.presentation){
           const p=cleanReaderProgress(t.presentation);
-          const owned=(revisionId:string)=>t.revisionId===revisionId||!!t.publishedSections?.some(s=>s.revisionId===revisionId);
+          const owned=(revisionId:string)=>ownsAnswerRevision(t,revisionId);
           t.presentation={stories:p.stories.filter(s=>owned(s.revisionId)),diagrams:p.diagrams.filter(s=>owned(s.revisionId))};
         }
         if (typeof t.outcomeAt !== 'number' || !Number.isSafeInteger(t.outcomeAt) || t.outcomeAt < 0) delete t.outcomeAt;
@@ -250,8 +253,8 @@ export function rememberSection(state: WorkspaceState, explorationId: string, tu
   const clean = cleanReadingPosition(position);
   const owner = state.explorations.find((e) => e.id === explorationId);
   const turn = owner?.turns.find((t) => t.id === turnId);
-  if (!clean || !turn || (turn.revisionId !== clean.revisionId && !turn.publishedSections?.some((s) => s.revisionId === clean.revisionId)) || (turn.reading?.[view]?.revisionId === clean.revisionId && turn.reading[view]?.sectionId === clean.sectionId)) return state;
-  return { ...state, explorations: state.explorations.map((e) => e.id !== explorationId ? e : { ...e, turns: e.turns.map((t) => t.id !== turnId ? t : { ...t, reading: { ...t.reading, [view]: clean } }) }) };
+  if (!clean || !turn || !ownsAnswerRevision(turn,clean.revisionId) || (turn.reading?.[view]?.revisionId === clean.revisionId && turn.reading[view]?.sectionId === clean.sectionId)) return state;
+  return { ...state, explorations: state.explorations.map((e) => e.id !== explorationId ? e : { ...e, turns: e.turns.map((t) => t.id !== turnId ? t : { ...t, reading: { ...t.reading, [view]: clean }, ...(t.answerVersions?{answerVersions:t.answerVersions.map(v=>v.revisionId===clean.revisionId?{...v,reading:{...v.reading,[view]:clean.sectionId}}:v)}:{}) }) }) };
 }
 export function rememberScroll(state: WorkspaceState, explorationId: string, view: View, top: number): WorkspaceState {
   if (!validScroll(top) || !['guide', 'flow', 'history'].includes(view)) return state;
@@ -272,7 +275,7 @@ export function rememberPresentation(state:WorkspaceState,explorationId:string,t
   if(kind!=='stories'&&kind!=='diagrams')return state;
   const next=kind==='stories'?cleanStoryProgress(value):cleanDiagramProgress(value);
   const turn=state.explorations.find(e=>e.id===explorationId)?.turns.find(t=>t.id===turnId);
-  if(!next||!turn||(turn.revisionId!==next.revisionId&&!turn.publishedSections?.some(s=>s.revisionId===next.revisionId)))return state;
+  if(!next||!turn||!ownsAnswerRevision(turn,next.revisionId))return state;
   const previous=cleanReaderProgress(turn.presentation);
   if(JSON.stringify(previous[kind].find(p=>sameSection(p,next)))===JSON.stringify(next))return state;
   const presentation:ReaderProgress=kind==='stories'?{...previous,stories:withReaderProgress(previous.stories,next as StoryProgress)}:{...previous,diagrams:withReaderProgress(previous.diagrams,next as DiagramProgress)};
@@ -281,7 +284,7 @@ export function rememberPresentation(state:WorkspaceState,explorationId:string,t
 /** A player opened from a card belongs to that focused question. Reopening an
  * unrelated saved chapter cannot write into another question's metadata. */
 export function presentationOwner(exploration:Exploration,revisionId:string):Turn|undefined {
-  const owns=(t:Turn)=>t.revisionId===revisionId||!!t.publishedSections?.some(s=>s.revisionId===revisionId);
+  const owns=(t:Turn)=>ownsAnswerRevision(t,revisionId);
   return exploration.turns.find(t=>t.id===exploration.focusedTurnId&&owns(t))??exploration.turns.slice().reverse().find(owns);
 }
 export function rankSourcePaths(paths: string[]): string[] {

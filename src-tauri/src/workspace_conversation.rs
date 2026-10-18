@@ -132,6 +132,57 @@ fn viewport(v: &Value) -> Result<(), String> {
     Ok(())
 }
 
+fn original_revision(owner: &serde_json::Map<String, Value>, revision: &str) -> bool {
+    owner.get("revisionId").and_then(Value::as_str) == Some(revision)
+        || owner
+            .get("publishedSections")
+            .and_then(Value::as_array)
+            .is_some_and(|s| {
+                s.iter()
+                    .any(|s| s.get("revisionId").and_then(Value::as_str) == Some(revision))
+            })
+}
+
+// These are bounded reader preferences, never chapter payloads or generation
+// receipts. The reader separately verifies accepted ancestry against history.
+fn answer_versions(v: &Value, owner: &serde_json::Map<String, Value>) -> Result<(), String> {
+    let entries = v.as_array().ok_or(UNAVAILABLE)?;
+    if entries.len() > 256 {
+        return Err(UNAVAILABLE.into());
+    }
+    let mut seen = HashSet::new();
+    let mut selected = HashSet::new();
+    for entry in entries {
+        let o = object(
+            entry,
+            &["originalRevisionId", "revisionId", "selected", "reading"],
+        )?;
+        let original = string(o, "originalRevisionId")?;
+        let revision = string(o, "revisionId")?;
+        let chosen = o
+            .get("selected")
+            .and_then(Value::as_bool)
+            .ok_or(UNAVAILABLE)?;
+        if !identifier(original)
+            || !identifier(revision)
+            || !original_revision(owner, original)
+            || !seen.insert((original, revision))
+            || (chosen && !selected.insert(original))
+        {
+            return Err(UNAVAILABLE.into());
+        }
+        if let Some(reading) = o.get("reading") {
+            if object(reading, &["guide", "flow"])?
+                .values()
+                .any(|v| !id(v))
+            {
+                return Err(UNAVAILABLE.into());
+            }
+        }
+    }
+    Ok(())
+}
+
 fn presentation(v: &Value, owner: &serde_json::Map<String, Value>) -> Result<(), String> {
     let o = object(v, &["stories", "diagrams"])?;
     for key in ["stories", "diagrams"] {
@@ -161,9 +212,9 @@ fn presentation(v: &Value, owner: &serde_json::Map<String, Value>) -> Result<(),
             let revision = string(p, "revisionId")?;
             let section = string(p, "sectionId")?;
             let section_revision = string(p, "sectionRevisionId")?;
-            let owned = owner.get("revisionId").and_then(Value::as_str) == Some(revision)
+            let owned = original_revision(owner, revision)
                 || owner
-                    .get("publishedSections")
+                    .get("answerVersions")
                     .and_then(Value::as_array)
                     .is_some_and(|s| {
                         s.iter()
@@ -222,6 +273,7 @@ fn turn(v: &Value) -> Result<&str, String> {
             "guideId",
             "reading",
             "presentation",
+            "answerVersions",
             "outcomeAt",
             "outcomeSequence",
             "outcomeNotice",
@@ -344,6 +396,9 @@ fn turn(v: &Value) -> Result<&str, String> {
         {
             return Err(UNAVAILABLE.into());
         }
+    }
+    if let Some(v) = o.get("answerVersions") {
+        answer_versions(v, o)?;
     }
     if let Some(v) = o.get("presentation") {
         presentation(v, o)?;

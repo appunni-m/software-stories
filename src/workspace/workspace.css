@@ -62,6 +62,9 @@
 .dw-answer-card {padding:18px;border:1px solid var(--border);border-radius:9px;background:var(--surface);}
 .dw-answer-heading {display:flex;align-items:center;gap:8px;color:var(--dim);font-size:11px;}
 .dw-answer-heading > div {display:flex;gap:4px;margin-left:auto;}
+.dw-answer-version {display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px;color:var(--dim);font-size:11px;}
+.dw-answer-version select {max-width:100%;min-width:0;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);font:inherit;padding:4px 6px;}
+.dw-answer-version span {color:var(--accent);}
 .dw-answer-card h3 {margin:12px 0 8px;font-size:18px;line-height:1.5;letter-spacing:-.015em;font-weight:600;color:var(--text);}
 .dw-prose {font-size:14px;line-height:1.85;margin:8px 0 14px;white-space:pre-wrap;color:var(--muted);}
 .dw-answer-note {font-size:12px;line-height:1.6;color:var(--muted);border-left:2px solid var(--dim);padding-left:10px;overflow-wrap:anywhere;}

@@ -32,7 +32,7 @@ export function workspaceStoreHarness(invoke,options={}) {
     },
     '../lib/connectionStore': { ensureCodexConnection: options.ensureCodexConnection??unexpected, readCodexSelection: options.readCodexSelection??unexpected },
   };
-  const allowed = new Set(['workspace/store.ts', 'workspace/model.ts', 'workspace/conversationPersistence.ts', 'workspace/outcomes.ts', 'workspace/queue.ts', 'workspace/refreshQueue.ts', 'lib/errorMessage.ts', 'lib/readerProgress.ts', 'lib/workspacePreferences.ts'].map((file) => resolve(root, file)));
+  const allowed = new Set(['workspace/store.ts', 'workspace/model.ts', 'workspace/answerVersions.ts', 'workspace/conversationPersistence.ts', 'workspace/outcomes.ts', 'workspace/queue.ts', 'workspace/refreshQueue.ts', 'lib/errorMessage.ts', 'lib/readerProgress.ts', 'lib/workspacePreferences.ts'].map((file) => resolve(root, file)));
   const modules = new Map();
   function load(path) {
     if (!allowed.has(path)) throw new Error(`Unexpected store dependency: ${path}`);

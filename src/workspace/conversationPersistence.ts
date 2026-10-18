@@ -1,5 +1,6 @@
 import {createWorkspace,decodeWorkspace,type WorkspaceState} from './model';
 import {cleanReaderProgress} from '../lib/readerProgress';
+import {cleanAnswerVersions} from './answerVersions';
 
 export interface ConversationRecord {schemaVersion:1;revision:number;state:WorkspaceState}
 export type ConversationAvailability='loading'|'ready'|'unavailable';
@@ -24,7 +25,7 @@ export function conversationSnapshot(state:WorkspaceState):WorkspaceState {
       file:e.file,reveal:e.reveal?context(e.reveal):undefined,codeOpen:e.codeOpen,fileFlow:e.fileFlow?{path:e.fileFlow.path,showAll:e.fileFlow.showAll}:undefined,focusedTurnId:e.focusedTurnId,scrollPositions:e.scrollPositions,
       turns:e.turns.map(t=>({id:t.id,question:t.question,context:t.context.map(context),status:t.status,revisionId:t.revisionId,
         generationId:t.generationId,error:t.error,runIds:t.runIds,publishedSections:t.publishedSections,notes:t.notes,
-        guideId:t.guideId,reading:t.reading,presentation:t.presentation?cleanReaderProgress(t.presentation):undefined,outcomeAt:t.outcomeAt,outcomeSequence:t.outcomeSequence,outcomeNotice:t.outcomeNotice}))}))}));
+        guideId:t.guideId,reading:t.reading,presentation:t.presentation?cleanReaderProgress(t.presentation):undefined,answerVersions:t.answerVersions?cleanAnswerVersions(t.answerVersions,t):undefined,outcomeAt:t.outcomeAt,outcomeSequence:t.outcomeSequence,outcomeNotice:t.outcomeNotice}))}))}));
 }
 
 /** One serial writer per scope. A failed attempt and subsequent edits are kept

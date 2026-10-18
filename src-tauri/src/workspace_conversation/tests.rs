@@ -64,6 +64,64 @@ fn exact_scene_audio_map_pane_and_flow_positions_round_trip_as_metadata() {
 }
 
 #[test]
+fn selected_answer_versions_and_independent_reading_round_trip_without_rewriting_receipts() {
+    let f = Fixture::new();
+    let mut s = presentation_state();
+    let t = &mut s["explorations"][0]["turns"][0];
+    t["answerVersions"] = json!([
+        {"originalRevisionId":"revision-one","revisionId":"revision-one","selected":false,"reading":{"guide":"section:two","flow":"section:one"}},
+        {"originalRevisionId":"revision-one","revisionId":"revision:accepted","selected":true,"reading":{"guide":"section:three"}}
+    ]);
+    t["presentation"]["stories"][0]["revisionId"] = json!("revision:accepted");
+    t["reading"]["guide"] = json!({"revisionId":"revision:accepted","sectionId":"section:three"});
+    let record = save(&f.0, "project", "snapshot", None, s.clone()).unwrap();
+    let loaded = load(&f.0, "project", "snapshot").unwrap().unwrap();
+    assert_eq!(loaded, record);
+    assert_eq!(loaded.state, s);
+    assert_eq!(
+        loaded.state["explorations"][0]["turns"][0]["revisionId"],
+        "revision-one"
+    );
+}
+
+#[test]
+fn invalid_answer_version_preferences_cannot_replace_a_valid_journal() {
+    let f = Fixture::new();
+    let mut good = presentation_state();
+    let entry = json!({"originalRevisionId":"revision-one","revisionId":"revision:accepted","selected":true,"reading":{"guide":"section:one"}});
+    good["explorations"][0]["turns"][0]["answerVersions"] = json!([entry.clone()]);
+    save(&f.0, "project", "snapshot", None, good.clone()).unwrap();
+    let before = fs::read(f.path()).unwrap();
+    let mut variants = vec![
+        Value::Null,
+        json!({}),
+        json!(vec![entry.clone(); 257]),
+        json!([entry.clone(), entry.clone()]),
+    ];
+    for (field, value) in [
+        ("originalRevisionId", json!("revision:unrelated")),
+        ("revisionId", json!("bad\nkey")),
+        ("selected", json!("yes")),
+        ("reading", json!({"guide":"bad\nsection"})),
+        ("reading", json!({"history":"section:one"})),
+        ("html", json!("<script>untrusted</script>")),
+    ] {
+        let mut bad = entry.clone();
+        bad[field] = value;
+        variants.push(json!([bad]));
+    }
+    let mut other = entry.clone();
+    other["revisionId"] = json!("revision:other");
+    variants.push(json!([entry, other])); // Two selected versions of one original.
+    for entries in variants {
+        let mut bad = good.clone();
+        bad["explorations"][0]["turns"][0]["answerVersions"] = entries;
+        assert!(save(&f.0, "project", "snapshot", Some(1), bad).is_err());
+        assert_eq!(fs::read(f.path()).unwrap(), before);
+    }
+}
+
+#[test]
 fn invalid_unowned_or_oversized_reader_positions_preserve_the_valid_journal() {
     let f = Fixture::new();
     let good = presentation_state();

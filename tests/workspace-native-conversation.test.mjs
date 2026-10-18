@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createWorkspace,addTurn,decodeWorkspace,rememberCodePane,rememberFileFlow,rememberPresentation} from '../src/workspace/model.ts';
 import {workspaceStoreHarness,deferred,flushLocalReads} from './helpers/workspace-store-harness.mjs';
+import {rememberAnswerVersion,answerReadingPosition,resolveAnswerRevision} from '../src/workspace/answerVersions.ts';
 
 const clone=value=>JSON.parse(JSON.stringify(value));
 const legacyKey=(p='project',s='snapshot')=>`code-atlas:workspace:v1:${p}:${s}`;
@@ -23,6 +24,22 @@ function backend(){
 }
 const scope=JSON.stringify(['project','snapshot']);
 const native=(b,storage=new Map())=>workspaceStoreHarness(b.invoke,{native:true,storage});
+
+test('a selected accepted edit and each version position survive the actual wire snapshot and native-only restart',async()=>{
+  const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');
+  const original={projectId:'project',snapshotId:'snapshot',chapterId:'chapter:one',target:{targetId:'target:one',scope:{kind:'overview'}},revisionId:'revision:original',revisionNumber:1,basedOnRevisionId:null,lifecycle:'draft',validationStatus:'valid',sections:[{sectionId:'section:one'}]};
+  const edit={...original,revisionId:'revision:edited',revisionNumber:2,basedOnRevisionId:original.revisionId,lifecycle:'accepted'};
+  let s=addTurn(h.store.getWorkspace('project','snapshot'),{id:'reader',question:'What happens?',context:[],status:'ready',revisionId:original.revisionId,reading:{guide:{revisionId:original.revisionId,sectionId:'section:original-last'}}},'guide');
+  s=rememberAnswerVersion(s,'root','reader',original.revisionId,edit.revisionId,[original,edit]);
+  s.explorations[0].turns[0].answerVersions[1].html='must not persist';
+  h.store.updateWorkspace('project','snapshot',()=>s);await h.store.flushAllWorkspaceConversations();
+  assert.doesNotMatch(JSON.stringify(b.records.get(scope)),/must not persist/);
+  const reopened=native(b);await reopened.store.prepareWorkspaceConversation('project','snapshot');
+  const turn=reopened.store.getWorkspace('project','snapshot').explorations[0].turns[0];
+  assert.equal(turn.revisionId,original.revisionId);assert.equal(resolveAnswerRevision(original,turn,[original,edit]).revisionId,edit.revisionId);
+  assert.equal(answerReadingPosition(turn,'guide',original.revisionId).sectionId,'section:original-last');
+  assert.ok(reopened.calls.every(c=>c.name==='load_workspace_conversation'));
+});
 
 test('close waits for all scopes and startup migration, then resumes deferred edits only on cancellation',async()=>{
   const b=backend(),h=native(b),held=deferred();b.controls.beforeSave=()=>held.promise;
