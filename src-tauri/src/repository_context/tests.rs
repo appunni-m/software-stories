@@ -92,6 +92,12 @@ fn large_parserless_c_adapter_is_searchable_without_a_whole_file_prompt() {
     );
     assert!(text.len() > 1_032_893);
     add_source(&mut fixture, "src/adapter.c", &text);
+    let repeated_calls = format!(
+        "{}pub extern \"C\" fn FT_Load_Glyph(face: Face, glyph: u32) {{}}\n",
+        "FT_Load_Glyph(face, glyph, flags);\n".repeat(42_000)
+    );
+    assert!(repeated_calls.len() > 1_032_893);
+    add_source(&mut fixture, "src/ffi-late.rs", &repeated_calls);
     let cancelled = AtomicBool::new(false);
     let budget = Budget::new(&cancelled);
     let prepared = prepare(
@@ -128,6 +134,53 @@ fn large_parserless_c_adapter_is_searchable_without_a_whole_file_prompt() {
     assert!(read.contents.contains("void render_glyph_bitmap"));
     assert_eq!(read.range.chunk_sha256, hit.range.chunk_sha256);
     assert_eq!(hit.line, 42_001);
+    let literal = search_pattern(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "FT_Load_Glyph",
+        None,
+        8,
+        &budget,
+        Instant::now(),
+        SearchMode::Code,
+    )
+    .unwrap();
+    assert!(
+        literal.matches.iter().any(|hit| hit.declaration_match),
+        "literal fallback results: {:?}",
+        literal
+            .matches
+            .iter()
+            .map(|hit| (hit.line, hit.declaration_match, hit.text.as_str()))
+            .collect::<Vec<_>>()
+    );
+    let named = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "FT_Load_Glyph",
+        None,
+        8,
+        &budget,
+    )
+    .unwrap();
+    let declaration = named
+        .matches
+        .iter()
+        .find(|hit| hit.declaration_match)
+        .unwrap_or_else(|| {
+            panic!(
+                "exact-name search should find the late parserless declaration: {:?}",
+                named
+                    .matches
+                    .iter()
+                    .map(|hit| (hit.line, hit.declaration_match, hit.text.as_str()))
+                    .collect::<Vec<_>>()
+            )
+        });
+    assert_eq!(declaration.range.path, "src/ffi-late.rs");
+    assert_eq!(declaration.line, 42_001);
     let component = search(
         &fixture.storage,
         &fixture.manifest,
@@ -140,6 +193,56 @@ fn large_parserless_c_adapter_is_searchable_without_a_whole_file_prompt() {
     .unwrap();
     assert_eq!(component.matches[0].range.path, "src/adapter.c");
     assert!(component.coverage.text_fallback_files > 0);
+}
+
+#[test]
+fn repository_wide_candidates_round_robin_paths_without_reordering_each_path() {
+    let paths = [
+        "src/a.rs", "src/a.rs", "src/a.rs", "src/b.rs", "src/b.rs", "src/c.rs",
+    ];
+    let candidates = vec![
+        (0, 0.99),
+        (1, 0.95),
+        (2, 0.90),
+        (3, 0.85),
+        (4, 0.80),
+        (5, 0.75),
+    ];
+    let diversified = diversify_by_path(candidates, &|id| paths[id].to_owned());
+    assert_eq!(
+        diversified
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect::<Vec<_>>(),
+        [0, 3, 5, 1, 4, 2]
+    );
+}
+
+#[test]
+fn fallback_identifier_declaration_recognizes_function_headers_not_calls() {
+    let declaration = "pub extern \"C\" fn FT_Load_Glyph(face: Face) {}";
+    let start = declaration.find("FT_Load_Glyph").unwrap();
+    assert!(function_declaration_at(
+        declaration,
+        start,
+        start + "FT_Load_Glyph".len()
+    ));
+    let call = "FT_Load_Glyph(face, glyph, flags);";
+    let start = call.find("FT_Load_Glyph").unwrap();
+    assert!(!function_declaration_at(
+        call,
+        start,
+        start + "FT_Load_Glyph".len()
+    ));
+    let prose = "Use FT_Load_Glyph(face, glyph, flags) for this operation.";
+    let start = prose.find("FT_Load_Glyph").unwrap();
+    assert!(!function_declaration_at(
+        prose,
+        start,
+        start + "FT_Load_Glyph".len()
+    ));
+    assert!(is_code_path("fontdone-c-abi/src/implementation.rs"));
+    assert!(!is_code_path("docs/guide.md"));
 }
 
 #[test]

@@ -1126,6 +1126,271 @@ pub(crate) fn validate_search(
     validate_search_mode(query, path, limit, SearchMode::Code)
 }
 
+fn is_identifier_query(query: &str) -> bool {
+    let mut chars = query.chars();
+    chars
+        .next()
+        .is_some_and(|first| first == '_' || first.is_ascii_alphabetic())
+        && chars.all(|c| c == '_' || c.is_ascii_alphanumeric())
+}
+
+fn is_code_path(path: &str) -> bool {
+    matches!(
+        Path::new(path)
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .map(str::to_ascii_lowercase)
+            .as_deref(),
+        Some(
+            "rs" | "c"
+                | "h"
+                | "cc"
+                | "cpp"
+                | "cxx"
+                | "m"
+                | "mm"
+                | "js"
+                | "jsx"
+                | "mjs"
+                | "cjs"
+                | "ts"
+                | "tsx"
+                | "mts"
+                | "cts"
+                | "py"
+                | "go"
+                | "java"
+                | "kt"
+                | "kts"
+                | "swift"
+                | "cs"
+                | "php"
+                | "rb"
+                | "scala"
+                | "sc"
+                | "hs"
+                | "lhs"
+                | "ex"
+                | "exs"
+                | "erl"
+                | "hrl"
+                | "clj"
+                | "cljs"
+                | "cljc"
+                | "lua"
+                | "pl"
+                | "pm"
+                | "sh"
+                | "bash"
+                | "zsh"
+                | "sql"
+        )
+    )
+}
+
+/// Recognize a small, language-neutral set of same-line function declaration forms.
+/// This gives parserless oversized source a useful exact-name result without treating
+/// call sites such as `self.name(...)` or `let value = name(...)` as definitions.
+fn function_declaration_at(source: &str, start: usize, end: usize) -> bool {
+    let line_start = source[..start].rfind('\n').map_or(0, |at| at + 1);
+    let line_end = source[end..]
+        .find('\n')
+        .map_or(source.len(), |offset| end + offset);
+    let Some(line) = source.get(line_start..line_end) else {
+        return false;
+    };
+    let Some(prefix) = line.get(..start - line_start) else {
+        return false;
+    };
+    let Some(suffix) = line.get(end - line_start..) else {
+        return false;
+    };
+    let prefix = prefix.trim();
+    let suffix = suffix.trim_start();
+    if prefix.is_empty()
+        || !suffix.starts_with('(')
+        || prefix.starts_with("//")
+        || prefix.starts_with("/*")
+        || prefix.starts_with('*')
+        || prefix.contains("::")
+        || prefix
+            .chars()
+            .any(|c| matches!(c, '=' | '.' | '!' | '{' | '}' | ';'))
+    {
+        return false;
+    }
+    if ["fn", "function", "def", "func"]
+        .iter()
+        .any(|marker| prefix.split_whitespace().any(|word| word == *marker))
+    {
+        return true;
+    }
+    let words = prefix.split_whitespace().collect::<Vec<_>>();
+    let type_word = words.last().is_some_and(|word| {
+        let word = word.trim_matches(|c| matches!(c, '*' | '&' | ':'));
+        matches!(
+            word,
+            "void"
+                | "char"
+                | "short"
+                | "int"
+                | "long"
+                | "float"
+                | "double"
+                | "bool"
+                | "size_t"
+                | "ssize_t"
+                | "u8"
+                | "u16"
+                | "u32"
+                | "u64"
+                | "usize"
+                | "i8"
+                | "i16"
+                | "i32"
+                | "i64"
+                | "isize"
+        ) || word.contains('_')
+            || [
+                "Error", "Handle", "Face", "Slot", "Glyph", "Font", "Bitmap", "Buffer", "Mode",
+                "Type", "Status", "Result", "State", "Value",
+            ]
+            .iter()
+            .any(|suffix| word.ends_with(suffix))
+    });
+    words.len() <= 5
+        && !words.is_empty()
+        && type_word
+        && !words.iter().any(|word| {
+            matches!(
+                *word,
+                "return" | "match" | "let" | "const" | "var" | "if" | "while" | "for"
+            )
+        })
+        && prefix
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c.is_whitespace() || "_*&<>:\"'".contains(c))
+}
+
+fn search_identifier_declarations(
+    storage: &Path,
+    manifest: &snapshot::SnapshotManifest,
+    prepared: &PreparedIndex,
+    query: &str,
+    path: Option<&str>,
+    limit: usize,
+    budget: &Budget<'_>,
+) -> Result<(Vec<SearchHit>, bool), String> {
+    let matcher = pattern_matcher(query, SearchMode::Code)?;
+    let mut files = prepared
+        .metadata
+        .files
+        .iter()
+        .filter(|file| {
+            file.chunks > 0
+                && file.parser.is_none()
+                && is_code_path(&file.path)
+                && path.is_none_or(|scope| {
+                    file.path == scope
+                        || file
+                            .path
+                            .strip_prefix(scope)
+                            .is_some_and(|rest| rest.starts_with('/'))
+                })
+        })
+        .collect::<Vec<_>>();
+    files.sort_by_key(|file| &file.path);
+    let mut ranges_by_path: HashMap<&str, Vec<&CodeRange>> = HashMap::new();
+    for range in &prepared.metadata.ranges {
+        ranges_by_path.entry(&range.path).or_default().push(range);
+    }
+    for ranges in ranges_by_path.values_mut() {
+        ranges.sort_by_key(|range| range.start_byte);
+    }
+    let mut declarations = vec![];
+    let mut limited = false;
+    let mut verified_bytes = 0u64;
+    'files: for file in files {
+        budget.check()?;
+        let captured = source(storage, manifest, &file.path)?;
+        verified_bytes = verified_bytes.saturating_add(captured.size_bytes);
+        if verified_bytes > MAX_SOURCE_BYTES {
+            return Err("The captured text exceeds the local code index byte limit.".to_owned());
+        }
+        if captured.sha256 != file.source_sha256 {
+            return Err("A code result belongs to a different source version.".to_owned());
+        }
+        let ranges = ranges_by_path
+            .get(file.path.as_str())
+            .ok_or("The code search index is invalid.")?;
+        let mut starts = None;
+        let mut cursor = 0;
+        loop {
+            budget.check()?;
+            let Some(found) = matcher
+                .find_at(captured.contents.as_bytes(), cursor)
+                .map_err(|_| "A captured code snippet could not be searched.".to_owned())?
+            else {
+                break;
+            };
+            if found.start() == found.end() {
+                return Err("Use a regular expression that matches at least one character.".to_owned());
+            }
+            if !captured.contents.is_char_boundary(found.start()) || !captured.contents.is_char_boundary(found.end()) {
+                return Err("The expression selected part of a UTF-8 character. Use a Unicode pattern.".to_owned());
+            }
+            if function_declaration_at(&captured.contents, found.start(), found.end()) {
+                if declarations.len() == limit {
+                    limited = true;
+                    break 'files;
+                }
+                let range = ranges
+                    .get(ranges.partition_point(|range| range.end_byte <= found.start()))
+                    .ok_or("The code search index is invalid.")?;
+                let original = captured
+                    .contents
+                    .get(range.start_byte..range.end_byte)
+                    .ok_or("The code search index is invalid.")?;
+                let lines = starts.get_or_insert_with(|| line_starts(&captured.contents));
+                if range.start_byte >= range.end_byte
+                    || range.end_byte - range.start_byte > CHUNK_BYTES
+                    || range.start_byte > found.start()
+                    || range.snapshot_id != manifest.summary.snapshot_id
+                    || range.source_sha256 != captured.sha256
+                    || range.chunk_sha256 != digest(original.as_bytes())
+                    || range.start_line != line_at(lines, range.start_byte)
+                    || range.end_line != line_at(lines, range.end_byte - 1)
+                {
+                    return Err(
+                        "A saved code range changed. Rebuild the local code index.".to_owned()
+                    );
+                }
+                let line_start = captured.contents[..found.start()]
+                    .rfind('\n')
+                    .map_or(0, |at| at + 1);
+                let line_end = captured.contents[found.end()..]
+                    .find('\n')
+                    .map_or(captured.contents.len(), |offset| found.end() + offset);
+                let text = captured.contents[line_start..line_end]
+                    .trim()
+                    .chars()
+                    .take(360)
+                    .collect();
+                declarations.push(SearchHit {
+                    range: (**range).clone(),
+                    line: line_at(lines, found.start()),
+                    text,
+                    exact_identifier: true,
+                    declaration_match: true,
+                    score: 0.0,
+                });
+            }
+            cursor = found.end();
+        }
+    }
+    Ok((declarations, limited))
+}
+
 /// Bounded literal or explicit regex search over verified captured text.
 /// Search one eligible immutable file at a time, retaining the existing byte,
 /// result and cancellation limits. A literal may cross an index chunk boundary.
@@ -1141,6 +1406,7 @@ fn search_pattern(
     mode: SearchMode,
 ) -> Result<SearchResult, String> {
     let matcher = pattern_matcher(query, mode)?;
+    let seek_declarations = mode == SearchMode::Code && is_identifier_query(query);
     let mut files = prepared
         .metadata
         .files
@@ -1192,10 +1458,17 @@ fn search_pattern(
             };
             budget.check()?;
             if found.start() == found.end() {
-                return Err("Use a regular expression that matches at least one character.".to_owned());
+                return Err(
+                    "Use a regular expression that matches at least one character.".to_owned(),
+                );
             }
-            if !captured.contents.is_char_boundary(found.start()) || !captured.contents.is_char_boundary(found.end()) {
-                return Err("The expression selected part of a UTF-8 character. Use a Unicode pattern.".to_owned());
+            if !captured.contents.is_char_boundary(found.start())
+                || !captured.contents.is_char_boundary(found.end())
+            {
+                return Err(
+                    "The expression selected part of a UTF-8 character. Use a Unicode pattern."
+                        .to_owned(),
+                );
             }
             if matches.len() == limit {
                 limited = true;
@@ -1260,17 +1533,29 @@ fn search_pattern(
                 .chars()
                 .take(360)
                 .collect::<String>();
-            matches.push(SearchHit {
+            let hit = SearchHit {
                 range: hit_range,
                 line: line_at(lines, found.start()),
                 text,
                 exact_identifier: false,
                 declaration_match: false,
                 score: 0.0,
-            });
+            };
+            matches.push(hit);
             // One result per non-overlapping evidence window, even on long lines.
             cursor = end;
         }
+    }
+    if seek_declarations {
+        let (mut declarations, declaration_limited) = search_identifier_declarations(
+            storage, manifest, prepared, query, path, limit, budget,
+        )?;
+        if !declarations.is_empty() {
+            declarations.append(&mut matches);
+            declarations.truncate(limit);
+            matches = declarations;
+        }
+        limited |= declaration_limited;
     }
     budget.check()?;
     let result_bytes = json(&matches)?.len();
@@ -1344,13 +1629,25 @@ pub(crate) fn search_with_mode(
         started,
         SearchMode::Code,
     )?;
-    let (strong, other): (Vec<_>, Vec<_>) = ranked
+    let (declarations, remaining): (Vec<_>, Vec<_>) = ranked
         .matches
         .into_iter()
-        .partition(|hit| hit.exact_identifier || hit.declaration_match);
+        .partition(|hit| hit.declaration_match);
+    let (exact, other): (Vec<_>, Vec<_>) =
+        remaining.into_iter().partition(|hit| hit.exact_identifier);
+    let (literal_declarations, literal_other): (Vec<_>, Vec<_>) = literal
+        .matches
+        .into_iter()
+        .partition(|hit| hit.declaration_match);
     let mut matches: Vec<SearchHit> = vec![];
     let mut limited = ranked.limited || literal.limited;
-    for hit in strong.into_iter().chain(literal.matches).chain(other) {
+    for hit in declarations
+        .into_iter()
+        .chain(literal_declarations)
+        .chain(exact)
+        .chain(literal_other)
+        .chain(other)
+    {
         budget.check()?;
         if matches.iter().any(|old| {
             old.range.snapshot_id == hit.range.snapshot_id
@@ -1502,6 +1799,19 @@ fn search_ranked(
                     .cmp(&prepared.metadata.ranges[*b].start_byte)
             })
     });
+    if path.is_none() {
+        let (declarations, remaining): (Vec<_>, Vec<_>) = ranked
+            .into_iter()
+            .partition(|(_, (_, declaration, _))| *declaration);
+        let (exact, other): (Vec<_>, Vec<_>) =
+            remaining.into_iter().partition(|(_, (exact, _, _))| *exact);
+        let path_for = |id: usize| prepared.metadata.ranges[id].path.clone();
+        ranked = diversify_by_path(declarations, &path_for)
+            .into_iter()
+            .chain(diversify_by_path(exact, &path_for))
+            .chain(other)
+            .collect();
+    }
     let limited = exact_limited || total > limit || ranked.len() > limit;
     let exact_terms = vec![query.rsplit("::").next().unwrap_or(query).to_owned()];
     let matcher = RegexMatcherBuilder::new()
@@ -1580,6 +1890,38 @@ fn search_ranked(
         elapsed_ms: started.elapsed().as_millis() as u64,
         result_bytes,
     })
+}
+
+/// Preserve relevance order while giving a repository-wide search one result
+/// from each path before returning additional ranges from already-represented files.
+fn diversify_by_path<T: Copy>(
+    candidates: Vec<(usize, T)>,
+    path_for: &impl Fn(usize) -> String,
+) -> Vec<(usize, T)> {
+    let mut groups: Vec<(String, Vec<(usize, T)>)> = Vec::new();
+    let mut group_by_path = HashMap::new();
+    for candidate in candidates {
+        let path = path_for(candidate.0);
+        let group = *group_by_path.entry(path.clone()).or_insert_with(|| {
+            groups.push((path, Vec::new()));
+            groups.len() - 1
+        });
+        groups[group].1.push(candidate);
+    }
+    let rounds = groups
+        .iter()
+        .map(|(_, group)| group.len())
+        .max()
+        .unwrap_or(0);
+    let mut diversified = Vec::new();
+    for round in 0..rounds {
+        for (_, group) in &groups {
+            if let Some(candidate) = group.get(round) {
+                diversified.push(*candidate);
+            }
+        }
+    }
+    diversified
 }
 
 #[cfg(test)]
