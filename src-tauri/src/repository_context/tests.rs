@@ -422,6 +422,39 @@ fn exact_identifiers_rank_before_components_and_ties_are_repeatable() {
 }
 
 #[test]
+fn mixed_search_keeps_literal_code_matches_when_lexical_results_exist() {
+    let mut fixture = Fixture::new();
+    add_source(&mut fixture, "lib/a-exact.txt", "needle\n");
+    add_source(
+        &mut fixture,
+        "lib/b-partial.txt",
+        "embeddedneedlefragment\n",
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let result = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "needle",
+        Some("lib"),
+        8,
+        &budget,
+    )
+    .unwrap();
+    assert_eq!(result.matches.len(), 2);
+    assert_eq!(result.matches[0].range.path, "lib/a-exact.txt");
+    assert!(
+        result
+            .matches
+            .iter()
+            .any(|hit| hit.range.path == "lib/b-partial.txt"
+                && hit.text.contains("embeddedneedlefragment"))
+    );
+}
+
+#[test]
 fn literal_code_operators_are_searchable_without_index_tokens() {
     let mut fixture = Fixture::new();
     add_source(
@@ -1024,4 +1057,346 @@ fn fontdone_local_index_profile() {
             .reused_generation
     );
     println!("FONTDONE_WARM_MS {}", warm.elapsed().as_millis());
+}
+
+#[test]
+fn regex_search_matches_captured_unicode_crlf_and_preserves_case_sensitive_syntax() {
+    let mut fixture = Fixture::new();
+    add_source(
+        &mut fixture,
+        "lib/patterns.txt",
+        "fn first() {}\r\nlet naïve_字形 = value::Ready;\r\nskip\n",
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let query = r"(?m)^let\s+naïve_字形\s*=\s*value::\S+;\r?$";
+    let result = search_with_mode(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        query,
+        Some("lib"),
+        8,
+        &budget,
+        SearchMode::Regex,
+    )
+    .unwrap();
+    assert_eq!(result.matches.len(), 1);
+    let hit = &result.matches[0];
+    assert_eq!(hit.line, 2);
+    assert!(hit.text.contains("naïve_字形"));
+    let read = read_range(
+        &fixture.storage,
+        &fixture.manifest,
+        &hit.range.path,
+        &hit.range.source_sha256,
+        hit.range.start_byte,
+        hit.range.end_byte,
+    )
+    .unwrap();
+    assert_eq!(read.range.chunk_sha256, hit.range.chunk_sha256);
+    for (query, count) in [(r"(?-i:Ready)", 1), (r"(?-i:ready)", 0), (".", 1)] {
+        assert_eq!(
+            search_with_mode(
+                &fixture.storage,
+                &fixture.manifest,
+                &prepared,
+                query,
+                Some("lib/patterns.txt"),
+                8,
+                &budget,
+                SearchMode::Regex
+            )
+            .unwrap()
+            .matches
+            .len(),
+            count
+        );
+    }
+}
+
+#[test]
+fn regex_search_rejects_malformed_empty_byte_splitting_and_oversized_patterns_safely() {
+    let mut fixture = Fixture::new();
+    add_source(&mut fixture, "lib/unicode.txt", "a café value\n");
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let mut patterns = vec![
+        "(".to_owned(),
+        r"(?=value)".into(),
+        r"(a)\1".into(),
+        "a*".into(),
+        r"\b".into(),
+        r"(?-u:\xA9)".into(),
+        "a{999999999}".into(),
+        "x".repeat(241),
+    ];
+    patterns.push(format!("{}a{}", "(".repeat(70), ")".repeat(70)));
+    for query in patterns {
+        let error = search_with_mode(
+            &fixture.storage,
+            &fixture.manifest,
+            &prepared,
+            &query,
+            Some("lib"),
+            8,
+            &budget,
+            SearchMode::Regex,
+        )
+        .err()
+        .expect("pattern must fail safely");
+        assert!(!error.contains("café"));
+        assert!(error.len() < 240);
+    }
+    assert!(
+        search_with_mode(
+            &fixture.storage,
+            &fixture.manifest,
+            &prepared,
+            "value",
+            Some("../outside"),
+            8,
+            &budget,
+            SearchMode::Regex
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn regex_is_explicit_and_literal_search_never_interprets_metacharacters() {
+    let mut fixture = Fixture::new();
+    add_source(
+        &mut fixture,
+        "lib/code.txt",
+        "value::Ready\nvalue::Busy\nvalue::(Ready|Busy)\n",
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let literal = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "::(Ready|Busy)",
+        Some("lib"),
+        8,
+        &budget,
+    )
+    .unwrap();
+    assert_eq!(literal.matches.len(), 1);
+    assert_eq!(literal.matches[0].line, 3);
+    let regex = search_with_mode(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "::(Ready|Busy)",
+        Some("lib"),
+        8,
+        &budget,
+        SearchMode::Regex,
+    )
+    .unwrap();
+    assert_eq!(regex.matches.len(), 1);
+    assert_eq!(regex.matches[0].line, 1);
+    assert!(regex.matches[0].text.contains("Ready"));
+}
+
+#[test]
+fn regex_cross_chunk_matches_keep_exact_nonoverlapping_ranges_and_reject_huge_matches() {
+    let mut fixture = Fixture::new();
+    let text = format!(
+        "{}Start\nFinish {}Start\nFinish\n",
+        "x".repeat(CHUNK_BYTES - 3),
+        "z".repeat(CHUNK_BYTES)
+    );
+    add_source(&mut fixture, "lib/boundary.txt", &text);
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let result = search_with_mode(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        r"Start\s+Finish",
+        Some("lib"),
+        8,
+        &budget,
+        SearchMode::Regex,
+    )
+    .unwrap();
+    assert_eq!(result.matches.len(), 2);
+    for hit in &result.matches {
+        let read = read_range(
+            &fixture.storage,
+            &fixture.manifest,
+            &hit.range.path,
+            &hit.range.source_sha256,
+            hit.range.start_byte,
+            hit.range.end_byte,
+        )
+        .unwrap();
+        assert!(read.contents.contains("Start\nFinish"));
+        assert_eq!(read.range.chunk_sha256, hit.range.chunk_sha256);
+    }
+    assert!(result.matches[0].range.end_byte <= result.matches[1].range.start_byte);
+    let large = "x".repeat(MAX_RANGE_BYTES + 1);
+    add_source(&mut fixture, "lib/huge.txt", &large);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let error = search_with_mode(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        r"(?s)^.+$",
+        Some("lib/huge.txt"),
+        8,
+        &budget,
+        SearchMode::Regex,
+    )
+    .err()
+    .unwrap();
+    assert!(error.contains("32 KiB"));
+}
+
+#[test]
+fn mixed_search_prioritizes_exact_identifiers_and_reports_discarded_literal_results() {
+    let mut fixture = Fixture::new();
+    add_source(&mut fixture, "lib/z-exact.txt", "needle\n");
+    add_source(
+        &mut fixture,
+        "lib/a-literal.txt",
+        "embeddedneedlefragment\n",
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let result = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "needle",
+        Some("lib"),
+        1,
+        &budget,
+    )
+    .unwrap();
+    assert_eq!(result.matches.len(), 1);
+    assert!(result.matches[0].exact_identifier);
+    assert_eq!(result.matches[0].range.path, "lib/z-exact.txt");
+    assert!(result.limited);
+    for _ in 0..3 {
+        let result = search(
+            &fixture.storage,
+            &fixture.manifest,
+            &prepared,
+            "needle",
+            Some("lib"),
+            8,
+            &budget,
+        )
+        .unwrap();
+        assert_eq!(result.matches.len(), 2);
+        assert!(!result.limited);
+        assert_eq!(result.matches[0].range.path, "lib/z-exact.txt");
+        assert_eq!(result.result_bytes, json(&result.matches).unwrap().len());
+    }
+}
+
+#[test]
+fn regex_search_retains_exclusions_cancellation_deadlines_snapshot_and_object_integrity() {
+    let mut fixture = Fixture::new();
+    add_source(&mut fixture, "lib/visible.txt", "value::Ready\n");
+    add_source(&mut fixture, "vendor/hidden.txt", "value::Ready\n");
+    add_source(&mut fixture, "secrets.env", "value::Ready\n");
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    for scope in ["vendor", "secrets.env"] {
+        assert!(
+            search_with_mode(
+                &fixture.storage,
+                &fixture.manifest,
+                &prepared,
+                "::Ready",
+                Some(scope),
+                8,
+                &budget,
+                SearchMode::Regex
+            )
+            .unwrap()
+            .matches
+            .is_empty()
+        );
+    }
+    cancelled.store(true, Ordering::Release);
+    assert_eq!(
+        search_with_mode(
+            &fixture.storage,
+            &fixture.manifest,
+            &prepared,
+            "::Ready",
+            None,
+            8,
+            &budget,
+            SearchMode::Regex
+        )
+        .err()
+        .unwrap(),
+        "Code search stopped."
+    );
+    cancelled.store(false, Ordering::Release);
+    let expired = Budget {
+        cancelled: &cancelled,
+        deadline: Instant::now() - Duration::from_secs(1),
+    };
+    assert!(
+        search_with_mode(
+            &fixture.storage,
+            &fixture.manifest,
+            &prepared,
+            "::Ready",
+            None,
+            8,
+            &expired,
+            SearchMode::Regex
+        )
+        .is_err()
+    );
+    let mut changed = fixture.manifest.clone();
+    changed.summary.snapshot_id.push_str("-different");
+    assert!(
+        search_with_mode(
+            &fixture.storage,
+            &changed,
+            &prepared,
+            "::Ready",
+            None,
+            8,
+            &budget,
+            SearchMode::Regex
+        )
+        .is_err()
+    );
+    let file = fixture
+        .manifest
+        .files
+        .iter()
+        .find(|file| file.path == "lib/visible.txt")
+        .unwrap();
+    fs::write(fixture.storage.join(&file.blob_path), "damaged").unwrap();
+    assert!(
+        search_with_mode(
+            &fixture.storage,
+            &fixture.manifest,
+            &prepared,
+            "::Ready",
+            None,
+            8,
+            &budget,
+            SearchMode::Regex
+        )
+        .is_err()
+    );
 }

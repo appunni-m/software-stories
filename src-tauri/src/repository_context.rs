@@ -5,7 +5,7 @@
 
 use crate::{bounded_file, index, snapshot};
 use grep_matcher::Matcher;
-use grep_regex::RegexMatcherBuilder;
+use grep_regex::{RegexMatcher, RegexMatcherBuilder};
 use grep_searcher::{Searcher, sinks::UTF8};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -919,19 +919,61 @@ fn scoped(
     }
 }
 
-pub(crate) fn validate_search(
+/// Regex is opt-in; existing callers retain ranked identifier and literal search.
+#[derive(Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum SearchMode {
+    #[default]
+    Code,
+    Regex,
+}
+
+fn pattern_matcher(query: &str, mode: SearchMode) -> Result<RegexMatcher, String> {
+    let matcher = RegexMatcherBuilder::new()
+        .case_insensitive(true)
+        .fixed_strings(mode == SearchMode::Code)
+        .size_limit(2 * 1024 * 1024)
+        .dfa_size_limit(2 * 1024 * 1024)
+        .nest_limit(64)
+        .build(query)
+        .map_err(|_| if mode == SearchMode::Regex {
+            "Unsupported regular expression. Check the pattern; look-around and backreferences are not supported."
+        } else { "Code search terms are invalid." }.to_owned())?;
+    if mode == SearchMode::Regex
+        && matcher
+            .find(b"")
+            .map_err(|_| "The regular expression could not be searched.".to_owned())?
+            .is_some()
+    {
+        return Err("Use a regular expression that matches at least one character.".to_owned());
+    }
+    Ok(matcher)
+}
+
+pub(crate) fn validate_search_mode(
     query: &str,
     path: Option<&str>,
     limit: usize,
+    mode: SearchMode,
 ) -> Result<Vec<String>, String> {
-    if !(2..=240).contains(&query.trim().chars().count())
+    let minimum = if mode == SearchMode::Regex { 1 } else { 2 };
+    if !(minimum..=240).contains(&query.trim().chars().count())
         || query.chars().any(char::is_control)
         || !(1..=32).contains(&limit)
     {
-        return Err("Search with 2–240 characters and at most 32 results.".to_owned());
+        return Err(if mode == SearchMode::Regex {
+            "Search with a 1–240 character regular expression and at most 32 results."
+        } else {
+            "Search with 2–240 characters and at most 32 results."
+        }
+        .to_owned());
     }
     if path.is_some_and(|p| !safe_path(p)) {
         return Err("Search within a captured file or folder.".to_owned());
+    }
+    if mode == SearchMode::Regex {
+        pattern_matcher(query.trim(), mode)?;
+        return Ok(vec![]);
     }
     let words = terms(query);
     if words.len() > 32 {
@@ -940,10 +982,18 @@ pub(crate) fn validate_search(
     Ok(words)
 }
 
-/// Literal fallback for code punctuation and substrings absent from the word index.
+pub(crate) fn validate_search(
+    query: &str,
+    path: Option<&str>,
+    limit: usize,
+) -> Result<Vec<String>, String> {
+    validate_search_mode(query, path, limit, SearchMode::Code)
+}
+
+/// Bounded literal or explicit regex search over verified captured text.
 /// Search one eligible immutable file at a time, retaining the existing byte,
 /// result and cancellation limits. A literal may cross an index chunk boundary.
-fn search_literal(
+fn search_pattern(
     storage: &Path,
     manifest: &snapshot::SnapshotManifest,
     prepared: &PreparedIndex,
@@ -952,12 +1002,9 @@ fn search_literal(
     limit: usize,
     budget: &Budget<'_>,
     started: Instant,
+    mode: SearchMode,
 ) -> Result<SearchResult, String> {
-    let matcher = RegexMatcherBuilder::new()
-        .case_insensitive(true)
-        .fixed_strings(true)
-        .build(query)
-        .map_err(|_| "Code search terms are invalid.".to_owned())?;
+    let matcher = pattern_matcher(query, mode)?;
     let mut files = prepared
         .metadata
         .files
@@ -1008,6 +1055,12 @@ fn search_literal(
                 break;
             };
             budget.check()?;
+            if found.start() == found.end() {
+                return Err("Use a regular expression that matches at least one character.".to_owned());
+            }
+            if !captured.contents.is_char_boundary(found.start()) || !captured.contents.is_char_boundary(found.end()) {
+                return Err("The expression selected part of a UTF-8 character. Use a Unicode pattern.".to_owned());
+            }
             if matches.len() == limit {
                 limited = true;
                 break 'files;
@@ -1036,7 +1089,7 @@ fn search_literal(
             let start = range.start_byte.max(cursor);
             let end = range.end_byte.max(found.end());
             if end.saturating_sub(start) > MAX_RANGE_BYTES {
-                return Err("A literal search result exceeds the code range limit.".to_owned());
+                return Err("A code match exceeds the 32 KiB range limit. Use a narrower pattern.".to_owned());
             }
             let contents = captured
                 .contents
@@ -1105,6 +1158,95 @@ pub(crate) fn search(
     limit: usize,
     budget: &Budget<'_>,
 ) -> Result<SearchResult, String> {
+    search_with_mode(
+        storage,
+        manifest,
+        prepared,
+        query,
+        path,
+        limit,
+        budget,
+        SearchMode::Code,
+    )
+}
+
+/// Exact identifiers precede literal code matches, then other lexical results.
+/// Merge evidence windows by immutable identity and overlap, never by display text.
+pub(crate) fn search_with_mode(
+    storage: &Path,
+    manifest: &snapshot::SnapshotManifest,
+    prepared: &PreparedIndex,
+    query: &str,
+    path: Option<&str>,
+    limit: usize,
+    budget: &Budget<'_>,
+    mode: SearchMode,
+) -> Result<SearchResult, String> {
+    let started = Instant::now();
+    budget.check()?;
+    if prepared.metadata.project_id != manifest.summary.project_id
+        || prepared.metadata.snapshot_id != manifest.summary.snapshot_id
+    {
+        return Err("The code index belongs to a different snapshot.".to_owned());
+    }
+    let words = validate_search_mode(query, path, limit, mode)?;
+    let query = query.trim();
+    if mode == SearchMode::Regex || words.is_empty() {
+        return search_pattern(
+            storage, manifest, prepared, query, path, limit, budget, started, mode,
+        );
+    }
+    let mut ranked = search_ranked(storage, manifest, prepared, query, path, limit, budget)?;
+    let literal = search_pattern(
+        storage,
+        manifest,
+        prepared,
+        query,
+        path,
+        limit,
+        budget,
+        started,
+        SearchMode::Code,
+    )?;
+    let (strong, other): (Vec<_>, Vec<_>) = ranked
+        .matches
+        .into_iter()
+        .partition(|hit| hit.exact_identifier || hit.declaration_match);
+    let mut matches: Vec<SearchHit> = vec![];
+    let mut limited = ranked.limited || literal.limited;
+    for hit in strong.into_iter().chain(literal.matches).chain(other) {
+        budget.check()?;
+        if matches.iter().any(|old| {
+            old.range.snapshot_id == hit.range.snapshot_id
+                && old.range.path == hit.range.path
+                && old.range.source_sha256 == hit.range.source_sha256
+                && old.range.start_byte < hit.range.end_byte
+                && hit.range.start_byte < old.range.end_byte
+        }) {
+            continue;
+        }
+        if matches.len() == limit {
+            limited = true;
+            continue;
+        }
+        matches.push(hit);
+    }
+    ranked.matches = matches;
+    ranked.limited = limited;
+    ranked.result_bytes = json(&ranked.matches)?.len();
+    ranked.elapsed_ms = started.elapsed().as_millis() as u64;
+    Ok(ranked)
+}
+
+fn search_ranked(
+    storage: &Path,
+    manifest: &snapshot::SnapshotManifest,
+    prepared: &PreparedIndex,
+    query: &str,
+    path: Option<&str>,
+    limit: usize,
+    budget: &Budget<'_>,
+) -> Result<SearchResult, String> {
     let started = Instant::now();
     budget.check()?;
     if prepared.metadata.project_id != manifest.summary.project_id
@@ -1114,11 +1256,6 @@ pub(crate) fn search(
     }
     let words = validate_search(query, path, limit)?;
     let query = query.trim();
-    if words.is_empty() {
-        return search_literal(
-            storage, manifest, prepared, query, path, limit, budget, started,
-        );
-    }
     let body = field(&prepared.index, "body")?;
     let path_field = field(&prepared.index, "path")?;
     let symbol_field = field(&prepared.index, "symbol")?;
@@ -1226,11 +1363,6 @@ pub(crate) fn search(
             .or_insert((exact, declaration, score));
     }
     let mut ranked = candidates.into_iter().collect::<Vec<_>>();
-    if ranked.is_empty() {
-        return search_literal(
-            storage, manifest, prepared, query, path, limit, budget, started,
-        );
-    }
     ranked.sort_by(|(a, (ae, ad, ascore)), (b, (be, bd, bscore))| {
         bd.cmp(ad)
             .then_with(|| be.cmp(ae))

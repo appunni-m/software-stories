@@ -1,0 +1,68 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { searchCapturedSource, searchExploration, workspaceSearchResults } from '../src/workspace/codeSearch.ts';
+
+function harness(request={}) {
+  const state={hits:['old'],limited:true,busy:false,error:'old'},calls=[],timers=new Map();let next=0,reply;
+  const promise=new Promise((resolve,reject)=>{reply={resolve,reject};});
+  const runtime={invoke:(command,args)=>{calls.push({command,args});return command==='search_workspace_source'?promise:Promise.resolve();},createId:()=>`request:${next}`,defer:run=>{timers.set(++next,run);return next;},clear:id=>timers.delete(id)};
+  const updates=Object.fromEntries(Object.keys(state).map(key=>[key,value=>{state[key]=value;}]));
+  const stop=searchCapturedSource({projectId:'p',snapshotId:'s',query:'needle',mode:'code',native:true,...request},updates,runtime);
+  return {state,calls,reply,stop,dispatch:()=>{for(const [id,run] of timers){timers.delete(id);run();}}};
+}
+const settle=()=>new Promise(resolve=>setImmediate(resolve));
+test('debounced cancellation before dispatch performs no native work and clears previous results',()=>{
+  const h=harness();assert.deepEqual(h.state,{hits:[],limited:false,busy:true,error:null});h.stop();h.dispatch();assert.deepEqual(h.calls,[]);
+});
+test('regex sends exact case and escapes with explicit mode; search never invokes AI',async()=>{
+  const query=String.raw`\S+::(Ready|Busy)`;const h=harness({query,mode:'regex'});h.dispatch();
+  assert.deepEqual(h.calls,[{command:'search_workspace_source',args:{projectId:'p',snapshotId:'s',query,mode:'regex',requestId:'request:0'}}]);
+  h.reply.resolve({matches:[{path:'a.rs',line:2,text:'value::Ready'}],limited:true});await settle();
+  assert.equal(h.state.busy,false);assert.equal(h.state.limited,true);assert.equal(h.state.hits[0].line,2);assert.equal(h.state.error,null);
+});
+test('cancellation after dispatch owns a native stop and rejects every late result',async()=>{
+  for(const reject of [false,true]){
+    const h=harness();h.dispatch();h.stop();const stopped=structuredClone(h.state);
+    if(reject)h.reply.reject(new Error('late native error'));else h.reply.resolve({matches:[{path:'old',line:1,text:'old'}],limited:true});await settle();
+    assert.deepEqual(h.state,stopped);assert.deepEqual(h.calls.at(-1),{command:'cancel_repository_context',args:{requestId:'request:0'}});
+  }
+});
+test('mode changes cannot let an older literal response replace regex results',async()=>{
+  const old=harness();old.dispatch();old.stop();const current=harness({mode:'regex',query:'.'});current.dispatch();current.reply.resolve({matches:[{path:'new',line:1,text:'regex'}],limited:false});await settle();
+  old.reply.resolve({matches:[{path:'old',line:1,text:'literal'}],limited:true});await settle();assert.equal(current.state.hits[0].path,'new');assert.deepEqual(old.state.hits,[]);
+});
+test('native regex findings remain actionable and ordinary search retains its fallback message',async()=>{
+  for(const mode of ['regex','code']){
+    const h=harness({mode});h.dispatch();h.reply.reject('Unsupported regular expression.');await settle();
+    assert.equal(h.state.busy,false);assert.deepEqual(h.state.hits,[]);assert.equal(h.state.error,mode==='regex'?'Unsupported regular expression.':'Captured source search is unavailable. File and symbol results are still shown.');
+  }
+});
+test('minimum lengths follow mode and Unicode code points; nonnative and excessive inputs do no work',()=>{
+  for(const request of [{native:false},{query:''},{query:'a'},{query:'x'.repeat(241)},{query:'🧭'.repeat(241),mode:'regex'}]){const h=harness(request);h.dispatch();assert.deepEqual(h.calls,[]);assert.equal(h.state.busy,false);}
+  for(const query of ['.','🧭'.repeat(240)]){const h=harness({query,mode:'regex'});h.dispatch();assert.equal(h.calls.length,1);h.stop();}
+});
+test('regex view contains only native captured matches, with no fuzzy or JavaScript interpretation',()=>{
+  const captured=[{path:'actual.rs',line:7,text:'value::Ready'}];
+  const hits=workspaceSearchResults({query:'[',mode:'regex',files:[{path:'['}],symbols:[{path:'fake',name:'[',anchor:{startLine:1,endLine:1}}],source:{path:'fake',contents:'['},captured});
+  assert.deepEqual(hits,[{path:'actual.rs',text:'value::Ready',from:7,to:7}]);
+});
+test('ordinary results keep native ranking before current-file lines, deduplicate and cap local matches',()=>{
+  const args={query:'NEEDLE',mode:'code',files:[{path:'needle.rs'}],symbols:[],source:{path:'current.rs',contents:'needle\n'.repeat(500)},captured:[{path:'native.rs',line:4,text:'needle'}, {path:'native.rs',line:4,text:'needle'}]};
+  const hits=workspaceSearchResults(args);assert.equal(hits[0].path,'needle.rs');assert.equal(hits[1].path,'native.rs');assert.equal(hits.length,34);assert.equal(hits.at(-1).from,32);
+});
+
+test('production search binds the helper, explicit pressed mode and Mac physical shortcut',async()=>{
+  const {readFileSync}=await import('node:fs');const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
+  assert.match(source,/searchMode:CodeSearchMode=activity==='search'&&repositoryRegex\?'regex':'code'/);
+  assert.match(source,/useEffect\(\(\)=>searchCapturedSource\(\{projectId,snapshotId,query:term,mode:searchMode,native:isNativeRuntime\(\)\}/);
+  assert.match(source,/aria-label="Use regular expression" aria-pressed=\{repositoryRegex\}/);
+  assert.match(source,/event\.altKey&&event\.code==='KeyR'/);
+  assert.match(source,/repositorySearch&&!searchBusy&&!searchError&&results\.length===0/);
+});
+
+test('explicit AI exploration uses regex matches as bounded starting ranges without running generation',()=>{
+  const hits=Array.from({length:10},(_,i)=>({path:`file-${Math.floor(i/2)}.rs`,line:i+1,text:'source'}));
+  const intent=searchExploration(String.raw`value::\S+`,'regex',hits);
+  assert.match(intent.question,/regular expression/);assert.equal(intent.context.length,4);assert.equal(new Set(intent.context.map(c=>c.path)).size,4);assert.ok(intent.context.every(c=>c.from===c.to));
+  assert.deepEqual(searchExploration('glyph','code',hits),{question:'Explain glyph',context:[]});
+});

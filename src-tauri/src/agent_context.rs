@@ -644,6 +644,7 @@ impl Session {
                     project_id: fresh.summary.project_id.clone(),
                     snapshot_id: fresh.summary.snapshot_id.clone(),
                     query: args.query,
+                    mode: context::SearchMode::Code,
                     path: query_scope.map(str::to_owned),
                     limit: args.limit.clamp(1, 32),
                 };

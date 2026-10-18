@@ -173,6 +173,8 @@ pub(crate) struct SearchInput {
     pub(crate) project_id: String,
     pub(crate) snapshot_id: String,
     pub(crate) query: String,
+    #[serde(default)]
+    pub(crate) mode: context::SearchMode,
     pub(crate) path: Option<String>,
     pub(crate) limit: usize,
 }
@@ -182,7 +184,7 @@ pub(crate) fn search_snapshot(
     input: &SearchInput,
     request: &Request,
 ) -> Result<context::SearchResult, String> {
-    context::validate_search(&input.query, input.path.as_deref(), input.limit)?;
+    context::validate_search_mode(&input.query, input.path.as_deref(), input.limit, input.mode)?;
     let budget = context::Budget::new(&request.cancelled);
     let mut work = loop {
         budget.check()?;
@@ -224,7 +226,7 @@ pub(crate) fn search_snapshot(
         .prepared
         .as_ref()
         .ok_or("Local code index is unavailable.")?;
-    let result = context::search(
+    let result = context::search_with_mode(
         storage,
         &manifest,
         prepared,
@@ -232,6 +234,7 @@ pub(crate) fn search_snapshot(
         input.path.as_deref(),
         input.limit,
         &budget,
+        input.mode,
     );
     if result.is_err() {
         work.tag = None;
@@ -322,6 +325,7 @@ pub(crate) async fn search_workspace_source(
     snapshot_id: String,
     query: String,
     request_id: String,
+    mode: Option<context::SearchMode>,
 ) -> Result<WorkspaceSearchResult, String> {
     sessions.get(&project_id)?;
     let storage = app_data_directory(&app)?;
@@ -332,6 +336,7 @@ pub(crate) async fn search_workspace_source(
             project_id,
             snapshot_id,
             query,
+            mode: mode.unwrap_or_default(),
             path: None,
             limit: 32,
         };
@@ -399,6 +404,37 @@ mod tests {
     }
 
     #[test]
+    fn native_regex_is_explicit_and_invalid_patterns_do_not_discard_the_cached_index() {
+        let fixture = crate::chapter_generation::tests::Fixture::new();
+        let jobs = RepositoryContextJobs::default();
+        let mut input: SearchInput = serde_json::from_value(serde_json::json!({
+                "requestId": Uuid::new_v4().to_string(), "projectId": fixture.manifest.summary.project_id,
+                "snapshotId": fixture.manifest.summary.snapshot_id, "query": "greeting", "path": null, "limit": 8,
+            })).unwrap();
+        assert!(input.mode == context::SearchMode::Code);
+        let request = jobs.begin(&input.request_id).unwrap();
+        assert!(
+            !search_snapshot(&fixture.storage, &input, &request)
+                .unwrap()
+                .matches
+                .is_empty()
+        );
+        input.mode = context::SearchMode::Regex;
+        input.query = "(".into();
+        assert!(
+            search_snapshot(&fixture.storage, &input, &request)
+                .err()
+                .unwrap()
+                .contains("regular expression")
+        );
+        assert!(jobs.0.work.lock().unwrap().prepared.is_some());
+        input.query = r"greet\w+".into();
+        let result = search_snapshot(&fixture.storage, &input, &request).unwrap();
+        assert!(!result.matches.is_empty());
+        assert!(result.reused_generation);
+    }
+
+    #[test]
     fn native_search_reuses_one_cached_generation_and_keeps_queries_scoped() {
         let fixture = crate::chapter_generation::tests::Fixture::new();
         let jobs = RepositoryContextJobs::default();
@@ -409,6 +445,7 @@ mod tests {
                 project_id: fixture.manifest.summary.project_id.clone(),
                 snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
                 query: query.to_owned(),
+                mode: context::SearchMode::Code,
                 path: None,
                 limit: 8,
             };
@@ -467,6 +504,7 @@ mod tests {
                 project_id: "/Users/lazytrot/work/fontdone".to_owned(),
                 snapshot_id: corpus.snapshot_id.clone(),
                 query: query.to_owned(),
+                mode: context::SearchMode::Code,
                 path: path.map(str::to_owned),
                 limit: 32,
             };
