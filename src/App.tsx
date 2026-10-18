@@ -2,6 +2,7 @@ import { createChapterHistory, type ChapterHistory } from './lib/chapterHistory'
 import { removeClaimAndReferences, replaceCitation } from './lib/chapterEditing';
 import { ChapterCitationEditor } from './ChapterCitationEditor';
 import { ChapterValidationIssues } from './ChapterValidationIssues';
+import { ChapterRebaseReview } from './ChapterRebaseReview';
 import { chapterIssueFeedback } from './lib/chapterValidationPresentation';
 import { useNoticeHistory } from './lib/useNoticeHistory';
 import { Theme } from '@radix-ui/themes';
@@ -4365,6 +4366,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState(Boolean(restoredDraft));
   const [candidate, setCandidate] = useState<ChapterRevision | null>(restoredDraft?.candidate ?? null);
+  const [rebasing, setRebasing] = useState(false);
   const [repairingAnchorId, setRepairingAnchorId] = useState<string | null>(null);
   const [validation, setValidation] = useState<ChapterValidationReport | null>(null);
   const [rejecting, setRejecting] = useState(false);
@@ -4553,6 +4555,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     if (!selectedRevision || !isLatestCurrent) return;
     setCandidate(structuredClone(selectedRevision));
     setEditing(true);
+    setRebasing(false);
     setValidation(null);
     setRejecting(false);
     setFeedback(null);
@@ -4560,7 +4563,16 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   const cancelEditing = () => {
     setEditing(false);
     setCandidate(null);
+    setRebasing(false);
     setValidation(null);
+  };
+  const applyRebase = (latest: ChapterRevision, rebased: ChapterRevision) => {
+    setSelectedRevisionId(latest.revisionId);
+    setCandidate(rebased);
+    setRebasing(false);
+    setValidation(null);
+    setFeedback({message:`Draft rebased onto r${latest.revisionNumber}. Review the merged content, then save it as a new revision.`,tone:'info'});
+    onSelectRevision(latest);
   };
   const validateCurrent = async () => {
     if (!activeDocument || busy) return;
@@ -4629,6 +4641,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       recordSavedRevision(saved.revision);
       setCandidate(null);
       setEditing(false);
+      setRebasing(false);
       setFeedback({
         message: saved.validation.status === 'valid'
           ? 'Draft saved as a new immutable revision.'
@@ -4658,6 +4671,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       setValidation(restored.validation);
       setEditing(false);
       setCandidate(null);
+      setRebasing(false);
       setRejecting(false);
       recordSavedRevision(restored.revision);
       onSelectRevision(restored.revision);
@@ -4854,6 +4868,15 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                       {editing && !isLatestCurrent && selectedTarget.latestCurrent && candidate && <StaleChapterDraftNotice
                         baseRevisionNumber={selectedRevision.revisionNumber}
                         latestRevisionNumber={selectedTarget.latestCurrent.revisionNumber}
+                        onRebase={() => setRebasing(true)}
+                      />}
+
+                      {editing && rebasing && !isLatestCurrent && selectedTarget.latestCurrent && candidate && <ChapterRebaseReview
+                        base={selectedRevision}
+                        latest={selectedTarget.latestCurrent}
+                        draft={candidate}
+                        onCancel={() => setRebasing(false)}
+                        onApply={revision => applyRebase(selectedTarget.latestCurrent!,revision)}
                       />}
 
                       {editing && !isLatestCurrent && selectedTarget.latestCurrent && <details className="chapter-revision-comparison">

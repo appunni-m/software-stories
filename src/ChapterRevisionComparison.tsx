@@ -53,13 +53,14 @@ export function StaleChapterDraftComparison({draft,latest}:{draft:ChapterRevisio
   </details>;
 }
 
-/** Explain the safe manual recovery path when a newer revision appears mid-edit. */
-export function StaleChapterDraftNotice({baseRevisionNumber,latestRevisionNumber}:{baseRevisionNumber:number;latestRevisionNumber:number}) {
+/** Offer an explicit rebase after a newer revision appears mid-edit. */
+export function StaleChapterDraftNotice({baseRevisionNumber,latestRevisionNumber,onRebase}:{baseRevisionNumber:number;latestRevisionNumber:number;onRebase?:()=>void}) {
   return <div className="chapter-studio-stale" role="status">
     <div>
       <strong>r{latestRevisionNumber} was saved while you were editing from r{baseRevisionNumber}.</strong>
-      <p>Your edits are still on screen, and Save is paused. Compare your draft with r{latestRevisionNumber} below. To continue from the newer version, note any edits you want to keep, cancel this draft, select r{latestRevisionNumber}, and start a new draft from it. Cancel discards these unsaved edits.</p>
+      <p>Your edits are still on screen, and Save is paused. Rebase carries over changes made in only one version and asks you to choose where both versions changed the same field. Nothing is saved until you review and save the new draft. Cancel discards these unsaved edits.</p>
     </div>
+    {onRebase&&<button className="secondary-button" type="button" onClick={onRebase}>Rebase onto r{latestRevisionNumber}</button>}
   </div>;
 }
 

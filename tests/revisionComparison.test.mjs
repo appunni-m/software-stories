@@ -18,7 +18,7 @@ runInThisContext(`(function(require,module,exports){${compiled}\n})`,{filename:f
 },component,component.exports);
 const render=(before,after)=>renderToStaticMarkup(createElement(component.exports.ChapterRevisionComparison,{before,after}));
 const renderStaleDraft=(draft,latest)=>renderToStaticMarkup(createElement(component.exports.StaleChapterDraftComparison,{draft,latest}));
-const renderStaleNotice=(baseRevisionNumber,latestRevisionNumber)=>renderToStaticMarkup(createElement(component.exports.StaleChapterDraftNotice,{baseRevisionNumber,latestRevisionNumber}));
+const renderStaleNotice=(baseRevisionNumber,latestRevisionNumber)=>renderToStaticMarkup(createElement(component.exports.StaleChapterDraftNotice,{baseRevisionNumber,latestRevisionNumber,onRebase:()=>{}}));
 
 test('stale-base recovery compares the preserved unsaved draft directly with the newest revision',()=>{
   const draft=baseRevision(),latest=structuredClone(draft);
@@ -30,14 +30,16 @@ test('stale-base recovery compares the preserved unsaved draft directly with the
   assert.doesNotMatch(html,/<details[^>]*\bopen(?:=|>)/);
 });
 
-test('stale-base recovery explains the manual path and the editor disables an outdated save',()=>{
+test('stale-base recovery offers a reviewed rebase and the editor disables an outdated save',()=>{
   const html=renderStaleNotice(2,3);
   assert.match(html,/r3 was saved while you were editing from r2/);
-  assert.match(html,/Your edits are still on screen, and Save is paused/);
+  assert.match(html,/Rebase carries over changes made in only one version/);
+  assert.match(html,/Rebase onto r3/);
   assert.match(html,/Cancel discards these unsaved edits/);
   assert.match(html,/role="status"/);
   const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
-  assert.match(app,/<StaleChapterDraftNotice[\s\S]*?latestRevisionNumber=\{selectedTarget\.latestCurrent\.revisionNumber\}/);
+  assert.match(app,/<StaleChapterDraftNotice[\s\S]*?onRebase=\{\(\) => setRebasing\(true\)\}/);
+  assert.match(app,/<ChapterRebaseReview[\s\S]*?onApply=\{revision => applyRebase\(/);
   assert.match(app,/disabled=\{busy \|\| !candidate \|\| !isLatestCurrent\}/);
 });
 
