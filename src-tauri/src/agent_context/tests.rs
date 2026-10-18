@@ -324,6 +324,9 @@ fn correction_reuses_only_admitted_evidence_and_preserves_both_candidates() {
         .unwrap()
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
+    assert_eq!(files.len(), 2);
+    assert!(files.iter().any(|file| file.file_name() == "store.lock"));
+    let files = files.into_iter().filter(|file| file.path().extension().is_some_and(|ext| ext == "json")).collect::<Vec<_>>();
     assert_eq!(files.len(), 1);
     let value: Value = serde_json::from_slice(&fs::read(files[0].path()).unwrap()).unwrap();
     assert_eq!(value["candidates"].as_array().unwrap().len(), 2);
@@ -358,7 +361,7 @@ fn aligned_initial_candidate_uses_no_recovery_slot_until_independent_rejection()
     .unwrap();
     let saved = fs::read_dir(f.storage.join("rejected-explanations"))
         .unwrap()
-        .next()
+        .find(|file| file.as_ref().is_ok_and(|file| file.path().extension().is_some_and(|ext| ext == "json")))
         .unwrap()
         .unwrap();
     let value: Value = serde_json::from_slice(&fs::read(saved.path()).unwrap()).unwrap();

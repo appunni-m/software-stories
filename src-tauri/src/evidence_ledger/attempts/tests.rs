@@ -2,7 +2,7 @@ use super::*;
 use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE};
 use serde_json::json;
 
-fn setup(f: &Fixture) -> Ledger {
+pub(super) fn setup(f: &Fixture) -> Ledger {
     let runtime = CodexReviewRuntime {
         connection_id: Uuid::new_v4().to_string(),
         executable_path: "/usr/local/bin/codex".into(),
@@ -61,7 +61,7 @@ fn setup(f: &Fixture) -> Ledger {
     ledger
 }
 
-fn candidate(corrected: bool) -> codex_agent::CodexRunResult {
+pub(super) fn candidate(corrected: bool) -> codex_agent::CodexRunResult {
     codex_agent::CodexRunResult {
         thread_id: "owned-thread".into(), turn_id: if corrected {"second"} else {"first"}.into(),
         model: "gpt-6-luna".into(), effort: "max".into(),
@@ -72,7 +72,7 @@ fn candidate(corrected: bool) -> codex_agent::CodexRunResult {
     }
 }
 
-fn record_path(f: &Fixture, l: &Ledger) -> PathBuf {
+pub(super) fn record_path(f: &Fixture, l: &Ledger) -> PathBuf {
     f.storage
         .join("rejected-explanations")
         .join(format!("{}.json", l.record.binding.operation_id))

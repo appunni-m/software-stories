@@ -43,6 +43,7 @@ mod local_read;
 mod file_lease;
 mod agent_context;
 mod evidence_ledger;
+mod rejected_answers;
 mod native_citations;
 mod git_evidence;
 mod index;
@@ -2004,6 +2005,9 @@ pub fn run() {
             workspace_conversation::load_workspace_conversation,
             workspace_conversation::save_workspace_conversation,
             app_notices::update_app_notices,
+            rejected_answers::list_rejected_answers,
+            rejected_answers::read_rejected_answer,
+            rejected_answers::trash_rejected_answer,
             agent_installation::pick_agent_installation_file,
             agent_handoff::build_agent_handoff_review,
             agent_handoff::export_agent_handoff,

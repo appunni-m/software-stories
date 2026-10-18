@@ -38,6 +38,39 @@ fn absent_read_creates_nothing_and_scope_keys_are_unambiguous() {
     assert!(location(&f.0, "project", "../escape").is_err());
 }
 
+#[test]
+fn recovery_question_labels_require_exact_unique_run_and_snapshot_ownership() {
+    let f = Fixture::new();
+    let run = uuid::Uuid::new_v4().to_string();
+    let other = uuid::Uuid::new_v4().to_string();
+    let mut s = state();
+    s["explorations"][0]["turns"][0]["runIds"] = json!([run]);
+    save(&f.0, "project", "snapshot", None, s.clone()).unwrap();
+    let before = fs::read(f.path()).unwrap();
+    let found = questions_for_runs(&f.0, "project", "snapshot", &[&run, &other]);
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[&run], s["explorations"][0]["turns"][0]["question"].as_str().unwrap());
+    assert!(questions_for_runs(&f.0, "other-project", "snapshot", &[&run]).is_empty());
+    assert!(questions_for_runs(&f.0, "project", "other-snapshot", &[&run]).is_empty());
+    assert_eq!(fs::read(f.path()).unwrap(), before);
+    let mut second = s["explorations"][0]["turns"][0].clone();
+    second["id"] = json!("second-turn"); second["question"] = json!("A different question");
+    s["explorations"][0]["turns"].as_array_mut().unwrap().push(second);
+    save(&f.0, "project", "snapshot", Some(1), s).unwrap();
+    assert!(questions_for_runs(&f.0, "project", "snapshot", &[&run]).is_empty());
+}
+
+#[test]
+fn missing_or_damaged_question_history_stays_unknown_without_writes() {
+    let f = Fixture::new();
+    let run = uuid::Uuid::new_v4().to_string();
+    assert!(questions_for_runs(&f.0, "project", "snapshot", &[&run]).is_empty());
+    assert_eq!(fs::read_dir(&f.0).unwrap().count(), 0);
+    f.put(b"{damaged conversation");
+    assert!(questions_for_runs(&f.0, "project", "snapshot", &[&run]).is_empty());
+    assert_eq!(fs::read(f.path()).unwrap(), b"{damaged conversation");
+}
+
 fn presentation_state() -> Value {
     let mut s = state();
     s["explorations"][0]["codeOpen"] = json!(false);

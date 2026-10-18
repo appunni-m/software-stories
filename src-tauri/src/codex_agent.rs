@@ -315,6 +315,14 @@ fn default_auto_connect() -> bool {
 }
 
 impl CodexAgentManager {
+    /// Local recovery mutations share the same ownership ordering as launch,
+    /// Stop and final publication. The callback cannot call this manager.
+    pub(crate) fn with_generation_state<T>(&self, read: impl FnOnce(bool) -> Result<T, String>) -> Result<T, String> {
+        let active = self.0.active.lock().map_err(|_| BUSY)?;
+        let workers = self.0.answer_workers.lock().map_err(|_| BUSY)?;
+        read(active.is_some() || !workers.is_empty())
+    }
+
     /// Observe ownership and reconcile persisted outcomes in the same ordering
     /// as Stop and publication. The callback cannot call this manager.
     pub(crate) fn with_operation_state<T>(&self, run_id: &str, read: impl FnOnce(bool) -> Result<T, String>) -> Result<T, String> {

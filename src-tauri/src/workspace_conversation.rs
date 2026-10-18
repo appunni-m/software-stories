@@ -575,6 +575,40 @@ fn load(storage: &Path, project: &str, snapshot: &str) -> Result<Option<Record>,
     validate(&record.state, project, snapshot)?;
     Ok(Some(record))
 }
+/// Read only the question labels for exact owned runs. Missing, damaged or
+/// ambiguous associations remain unknown; they never prevent record recovery.
+pub(crate) fn questions_for_runs(
+    storage: &Path,
+    project: &str,
+    snapshot: &str,
+    runs: &[&str],
+) -> HashMap<String, String> {
+    let Some(record) = load(storage, project, snapshot).ok().flatten() else {
+        return HashMap::new();
+    };
+    let wanted: HashSet<&str> = runs.iter().copied().collect();
+    let mut found = HashMap::new();
+    let mut ambiguous = HashSet::new();
+    for exploration in record.state["explorations"].as_array().into_iter().flatten() {
+        for turn in exploration["turns"].as_array().into_iter().flatten() {
+            for run in turn["runIds"]
+                .as_array().into_iter().flatten().filter_map(Value::as_str)
+            {
+                if wanted.contains(run) {
+                    if found.insert(
+                        run.to_owned(),
+                        turn["question"].as_str().unwrap_or_default().to_owned(),
+                    ).is_some() {
+                        ambiguous.insert(run.to_owned());
+                    }
+                }
+            }
+        }
+    }
+    found.retain(|run, question| !ambiguous.contains(run) && !question.trim().is_empty());
+    found
+}
+
 fn save(
     storage: &Path,
     project: &str,

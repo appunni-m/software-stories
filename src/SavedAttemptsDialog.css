@@ -1,0 +1,15 @@
+.saved-attempts-dialog { max-height: calc(100dvh - 32px); overflow: auto; }
+.saved-attempts-dialog p { overflow-wrap: anywhere; }
+.saved-attempts-error { color: var(--red-11); }
+.saved-attempts-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.saved-attempt-row { display: grid; gap: 4px; width: 100%; text-align: left; padding: 12px; border: 1px solid var(--gray-6); border-radius: var(--radius-2); background: var(--gray-2); color: var(--gray-12); font: inherit; cursor: pointer; overflow-wrap: anywhere; }
+.saved-attempt-row span { color: var(--gray-11); font-size: 12px; }
+.saved-attempt-question { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.saved-attempt-row:hover { background: var(--gray-3); }
+.saved-attempt-row[aria-pressed="true"] { border-color: var(--accent-8); background: var(--accent-3); }
+.saved-attempt-row:focus-visible { outline: 2px solid var(--accent-9); outline-offset: 2px; }
+.saved-attempt-row:disabled { opacity: .6; cursor: default; }
+.saved-attempt-review { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--gray-6); }
+.saved-attempt-review details { margin-top: 12px; }
+.saved-attempt-review summary { cursor: pointer; }
+.saved-attempt-text { max-height: 280px; padding: 12px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.6 ui-monospace, monospace; background: var(--gray-2); border-radius: var(--radius-2); }

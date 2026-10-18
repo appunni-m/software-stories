@@ -9,6 +9,7 @@ const MAX_RECORD: usize = 2 * 1024 * 1024;
 const MAX_OPERATIONS: usize = 8;
 const MAX_ENTRIES: usize = 32;
 static STORE: Mutex<()> = Mutex::new(());
+pub(crate) mod management;
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -130,6 +131,7 @@ impl Ledger {
             );
         }
         let directory = directory(&self.storage)?;
+        let _lease = management::lease(&directory)?;
         let path = directory.join(format!("{}.json", self.record.binding.operation_id));
         let mut visited = 0;
         let mut count = 0;
@@ -137,14 +139,17 @@ impl Ledger {
         for entry in
             fs::read_dir(&directory).map_err(|_| "Rejected explanation recovery is unreadable.")?
         {
-            visited += 1;
-            if visited > MAX_ENTRIES {
-                return Err("Rejected explanation recovery has too many entries.".into());
-            }
             let entry = entry.map_err(|_| "Rejected explanation recovery is unreadable.")?;
             // Interrupted staging files remain untouched, but count toward the
             // directory bound. Never follow a link or silently erase damage.
             let p = entry.path();
+            if p.file_name().and_then(|s| s.to_str()) == Some("store.lock") {
+                continue;
+            }
+            visited += 1;
+            if visited > MAX_ENTRIES {
+                return Err("Rejected explanation recovery has too many entries.".into());
+            }
             if p.file_name()
                 .and_then(|s| s.to_str())
                 .is_some_and(|s| s.starts_with(".settings-"))
@@ -163,7 +168,7 @@ impl Ledger {
         // Reserving MAX_RECORD per operation keeps the complete two-attempt
         // history within 16 MiB, even when other operations arrive meanwhile.
         if current.is_none() && count >= MAX_OPERATIONS {
-            return Err("Rejected explanation recovery is full. Remove an older saved rejection before another correction.".into());
+            return Err("Saved attempts are full. Open Saved attempts from Notifications to free space. Your saved explanations are unchanged.".into());
         }
         let evidence_sha256 = context::digest(
             &serde_json::to_vec(&self.admitted_ranges())
@@ -234,6 +239,10 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Candidates, Str
     let _guard = STORE
         .lock()
         .map_err(|_| "Rejected explanation recovery is busy.")?;
+    inspected(storage, operation).map(|(saved, _)| saved)
+}
+
+fn inspected(storage: &Path, operation: &str) -> Result<(Candidates, Record), String> {
     if !canonical_uuid(operation) {
         return Err("Invalid rejected explanation identity.".into());
     }
@@ -256,7 +265,7 @@ pub(crate) fn inspect(storage: &Path, operation: &str) -> Result<Candidates, Str
     if saved.binding != ledger.binding || saved.evidence_sha256 != evidence {
         return Err("Rejected explanation no longer matches its evidence operation.".into());
     }
-    Ok(saved)
+    Ok((saved, ledger))
 }
 
 #[cfg(test)]

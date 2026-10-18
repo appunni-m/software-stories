@@ -14,8 +14,9 @@ export interface WorkspaceNotification {
 }
 
 /** Background work never opens this panel or moves the reader's focus. */
-export function NotificationCenter({ items, availability = 'ready', open: controlledOpen, onOpenChange }: {
+export function NotificationCenter({ items, availability = 'ready', open: controlledOpen, onOpenChange, onReviewSavedAttempts }: {
   items: WorkspaceNotification[]; availability?: NotificationAvailability; open?: boolean; onOpenChange?: (open: boolean) => void;
+  onReviewSavedAttempts?: () => void;
 }) {
   const [localOpen, setLocalOpen] = useState(false);
   const open = controlledOpen ?? localOpen;
@@ -46,6 +47,9 @@ export function NotificationCenter({ items, availability = 'ready', open: contro
             action.run();
           }}>{action.label}</button>)}</div> : null}
         </li>)}</ul>}
+        {onReviewSavedAttempts && <footer className="notification-panel-footer"><button type="button" onClick={() => {
+          actionOpened.current = true; setOpen(false); onReviewSavedAttempts();
+        }}>Saved attempts</button></footer>}
       </Popover.Content>
     </Popover.Portal>
   </Popover.Root>;

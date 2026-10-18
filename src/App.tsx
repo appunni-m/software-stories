@@ -29,6 +29,7 @@ import { ConnectionsDialog } from './ConnectionsDialog';
 import { NotificationCenter, type WorkspaceNotification } from './NotificationCenter';
 import { ThemeControl } from './ThemeControl';
 import { KeyboardShortcuts } from './KeyboardShortcuts';
+import { SavedAttemptsDialog } from './SavedAttemptsDialog';
 import type { PrepareRepositoryPlanInput } from './lib/repositoryPlans';
 import type { PlannedChapterScope } from './lib/plannedChapters';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
@@ -256,6 +257,7 @@ function App() {
     return()=>{window.removeEventListener('code-atlas:workspace-notice',notify);window.removeEventListener('code-atlas:workspace-notice-resolved',resolved);};
   }, [setNotice,noticeHistory]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [savedAttemptsOpen, setSavedAttemptsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
@@ -1534,7 +1536,8 @@ function App() {
             availability={notificationAvailability({ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready',
               answers: answerAvailability, notices:noticeHistoryState.availability,
               refreshing: interruptionRefreshing || previewRefreshing, unavailable: interruptedOperationsUnavailable || pendingChapterPreviewsUnavailable })}
-            open={notificationsOpen} onOpenChange={setNotificationsOpen} />
+            open={notificationsOpen} onOpenChange={setNotificationsOpen}
+            onReviewSavedAttempts={runtime?.native ? () => setSavedAttemptsOpen(true) : undefined} />
           <button
             className="search-control"
             disabled={!navigation.current.snapshotId}
@@ -1862,6 +1865,8 @@ function App() {
           onRecoveryChanged={() => { void refreshPendingChapterPreviews(); }}
         />
       )}
+      {savedAttemptsOpen && <SavedAttemptsDialog onClose={() => setSavedAttemptsOpen(false)}
+        projectNames={Object.fromEntries(Object.entries(knownProjects).map(([id, project]) => [id, project.displayName]))} />}
     </div>
     </Theme>
   );

@@ -2,6 +2,11 @@ import { invoke } from '@tauri-apps/api/core';
 import { GitComparisonController } from './gitComparisonController';
 import { ProjectOpenController } from './projectOpenController';
 import { readGitHistory, type GitCommit } from './gitHistory';
+import type { SavedAttemptInventory, SavedAttemptReview } from './savedAttempts';
+
+export const listSavedAttempts = () => invoke<SavedAttemptInventory>('list_rejected_answers');
+export const readSavedAttempt = (entryId: string, reviewToken: string) => invoke<SavedAttemptReview>('read_rejected_answer', { entryId, reviewToken });
+export const trashSavedAttempt = (entryId: string, reviewToken: string) => invoke<void>('trash_rejected_answer', { entryId, reviewToken });
 
 export interface ApplicationStatus {
   productName: string;
