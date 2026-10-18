@@ -219,6 +219,45 @@ fn repository_wide_candidates_round_robin_paths_without_reordering_each_path() {
 }
 
 #[test]
+fn repository_wide_lexical_results_diversify_paths_before_the_result_limit() {
+    let mut fixture = Fixture::new();
+    let filler = "padding ".repeat(CHUNK_BYTES);
+    add_source(
+        &mut fixture,
+        "lib/a-many-ranges.txt",
+        &format!("render glyph padding\n{filler}\nrender glyph padding\n"),
+    );
+    let noise = (0..500)
+        .map(|number| format!("noise{number}"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    add_source(
+        &mut fixture,
+        "lib/b-one-range.txt",
+        &format!("render glyph padding {noise}\n"),
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+
+    let result = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "render glyph",
+        None,
+        2,
+        &budget,
+    )
+    .unwrap();
+
+    assert_eq!(result.matches.len(), 2);
+    assert_eq!(result.matches[0].range.path, "lib/a-many-ranges.txt");
+    assert_eq!(result.matches[1].range.path, "lib/b-one-range.txt");
+    assert!(result.limited);
+}
+
+#[test]
 fn fallback_identifier_declaration_recognizes_function_headers_not_calls() {
     let declaration = "pub extern \"C\" fn FT_Load_Glyph(face: Face) {}";
     let start = declaration.find("FT_Load_Glyph").unwrap();

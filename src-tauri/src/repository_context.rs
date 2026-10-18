@@ -1134,6 +1134,12 @@ fn is_identifier_query(query: &str) -> bool {
         && chars.all(|c| c == '_' || c.is_ascii_alphanumeric())
 }
 
+fn is_literal_operator_query(query: &str) -> bool {
+    ["::", "->", "=>", "==", "!=", "<=", ">=", "&&", "||"]
+        .iter()
+        .any(|operator| query.contains(operator))
+}
+
 fn is_code_path(path: &str) -> bool {
     matches!(
         Path::new(path)
@@ -1591,8 +1597,8 @@ pub(crate) fn search(
     )
 }
 
-/// Exact declarations and identifiers lead; ranked lexical results precede
-/// unranked substring fallback matches.
+/// Exact declarations and identifiers lead. Ranked lexical results precede
+/// substring fallback, except when a code operator asks for a literal match.
 /// Merge evidence windows by immutable identity and overlap, never by display text.
 pub(crate) fn search_with_mode(
     storage: &Path,
@@ -1640,14 +1646,19 @@ pub(crate) fn search_with_mode(
         .matches
         .into_iter()
         .partition(|hit| hit.declaration_match);
+    let (preferred_fallback, remaining_fallback) = if is_literal_operator_query(query) {
+        (literal_other, other)
+    } else {
+        (other, literal_other)
+    };
     let mut matches: Vec<SearchHit> = vec![];
     let mut limited = ranked.limited || literal.limited;
     for hit in declarations
         .into_iter()
         .chain(literal_declarations)
         .chain(exact)
-        .chain(other)
-        .chain(literal_other)
+        .chain(preferred_fallback)
+        .chain(remaining_fallback)
     {
         budget.check()?;
         if matches.iter().any(|old| {
@@ -1810,7 +1821,7 @@ fn search_ranked(
         ranked = diversify_by_path(declarations, &path_for)
             .into_iter()
             .chain(diversify_by_path(exact, &path_for))
-            .chain(other)
+            .chain(diversify_by_path(other, &path_for))
             .collect();
     }
     let limited = exact_limited || total > limit || ranked.len() > limit;
