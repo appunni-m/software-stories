@@ -1,6 +1,8 @@
 import { createChapterHistory, type ChapterHistory } from './lib/chapterHistory';
 import { removeClaimAndReferences, replaceCitation } from './lib/chapterEditing';
 import { ChapterCitationEditor } from './ChapterCitationEditor';
+import { ChapterValidationIssues } from './ChapterValidationIssues';
+import { chapterIssueFeedback } from './lib/chapterValidationPresentation';
 import { useNoticeHistory } from './lib/useNoticeHistory';
 import { Theme } from '@radix-ui/themes';
 import { useAppAppearance } from './lib/useAppAppearance';
@@ -4480,7 +4482,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       setFeedback({
         message: report.status === 'valid'
           ? 'Every cited range matches the captured source.'
-          : `${report.issues.length} issue${report.issues.length === 1 ? '' : 's'} need review before acceptance.`,
+          : chapterIssueFeedback(report.issues.length),
         tone: report.status === 'valid' ? 'success' : 'error',
       });
     } catch (error) {
@@ -4632,6 +4634,16 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   const removeClaim = (sectionId: string, claimId: string) => {
     setSection(sectionId, section => removeClaimAndReferences(section,claimId));
     setFeedback({message:'Claim and its linked visual cues removed. Review the section narration before saving.',tone:'info'});
+  };
+  const reviewIssueLocation = (sectionId: string, claimId: string | null) => {
+    const element = document.getElementById(claimId ? `studio-claim-${claimId}` : `studio-section-${sectionId}`);
+    element?.focus({ preventScroll: true });
+    element?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+  };
+  const repairIssueCitation = (anchor: ChapterSourceAnchor) => {
+    if (busy || !isLatestCurrent) return;
+    if (!editing) beginEditing();
+    setRepairingAnchorId(anchor.anchorId);
   };
 
   return (
@@ -4834,11 +4846,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                       </section>}
 
                       {feedback && <p className={`chapter-review-feedback tone-${feedback.tone}`} role="status">{feedback.message}</p>}
-                      {validation && validation.issues.length > 0 && <div className="chapter-review-issues" role="alert"><strong>Evidence or schema issues</strong><ul>{validation.issues.map((issue, index) => {
-                        const anchor = activeDocument.sections.flatMap((section) => section.claims.flatMap((claim) => claim.anchors)).find((item) => item.anchorId === issue.anchorId);
-                        const range = anchor ? `:${anchor.startLine}-${anchor.endLine}` : '';
-                        return <li key={`${issue.code}:${issue.sectionId}:${issue.visualItemId}:${issue.path}:${issue.anchorId}:${index}`}><span>{issue.code}</span> {issue.message}{issue.sectionId && <code>section {issue.sectionId}</code>}{issue.visualItemId && <code>visual item {issue.visualItemId}</code>}{issue.anchorId && <code>anchor {issue.anchorId}</code>}{issue.hotspotId && <code>hotspot {issue.hotspotId}</code>}{issue.path && <code>{issue.path}{range}</code>}{anchor && isLatestCurrent && <button className="text-button" disabled={busy} onClick={() => {if(!editing)beginEditing();setRepairingAnchorId(anchor.anchorId);}}>Repair citation</button>}</li>;
-                      })}</ul></div>}
+                      {validation && <ChapterValidationIssues revision={activeDocument} issues={validation.issues} busy={busy} canRepair={isLatestCurrent} onReview={reviewIssueLocation} onRepair={repairIssueCitation} />}
 
                       <div className="chapter-edit-title-row"><span>Chapter title</span>{editing && candidate ? <input disabled={busy} value={candidate.title} maxLength={200} onChange={(event) => { setCandidate({ ...candidate, title: event.target.value }); setValidation(null); }} aria-label="Chapter title" /> : null}</div>
                       {activeDocument.sections.map((section, index) => <article className={`chapter-studio-section${routeSectionId === section.sectionId ? ' is-route-focused' : ''}`} key={section.sectionId} id={`studio-section-${section.sectionId}`} tabIndex={-1} data-focus-key={`chapter-section:${section.sectionId}`}>
@@ -4847,7 +4855,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                         </div>
                         <div className="chapter-section-copy"><span>EXPLANATION</span>{editing && candidate ? <textarea disabled={busy} rows={3} value={section.prose} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, prose: event.target.value }))} aria-label={`Explanation for ${section.title}`} /> : <p>{section.prose}</p>}</div>
                         <div className="chapter-section-copy chapter-spoken-copy"><span>VOICE SCRIPT</span>{editing && candidate ? <textarea disabled={busy} rows={2} value={section.spokenText} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, spokenText: event.target.value }))} aria-label={`Spoken text for ${section.title}`} placeholder="Optional narration script" /> : <p>{section.spokenText || <em>No narration script saved.</em>}</p>}</div>
-                        {section.claims.map((claim: ChapterClaim) => <div className="chapter-claim-card" key={claim.claimId}>
+                        {section.claims.map((claim: ChapterClaim) => <div className="chapter-claim-card" key={claim.claimId} id={`studio-claim-${claim.claimId}`} tabIndex={-1}>
                           <div className="chapter-claim-heading"><span className={`claim-label claim-${claim.category.kind}`}>{claim.category.kind === 'codeBehavior' ? 'Code behavior' : claim.category.kind === 'repositoryContext' ? 'Repository context' : claim.category.visibleLabel || 'Inference'}</span>{editing && <button className="text-button chapter-remove-claim" disabled={busy || section.claims.length <= 1} title={section.claims.length <= 1 ? 'A section needs a claim. Repair its citation or reject the draft.' : 'Remove this claim and its linked visual cues.'} onClick={() => removeClaim(section.sectionId, claim.claimId)}><Trash2 size={12} /> Remove claim</button>}</div>
                           {editing && candidate ? <textarea disabled={busy} rows={2} value={claim.prose} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, claims: item.claims.map((saved) => saved.claimId === claim.claimId ? { ...saved, prose: event.target.value } : saved) }))} aria-label={`Claim ${section.claims.indexOf(claim) + 1} in ${section.title}`} /> : <p>{claim.prose}</p>}
                           {claim.category.kind === 'inference' && <p className="chapter-inference-basis"><strong>{claim.category.visibleLabel} basis:</strong> {claim.category.basis}</p>}

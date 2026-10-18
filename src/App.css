@@ -911,11 +911,21 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .chapter-citation code { overflow-wrap: anywhere; color: var(--accent); font: 8px var(--mono); }
 .chapter-citation .text-button { flex: 0 0 auto; }
 .chapter-citation pre { max-height: 230px; overflow: auto; margin: 0; padding: 7px; border-top: 1px solid var(--border); color: var(--muted); background: var(--canvas); font: 8px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
-.chapter-review-issues { margin: 8px 0; padding: 9px; border: 1px solid var(--danger-border); border-radius: 6px; background: var(--surface-raised); color: var(--danger); font-size: 8px; line-height: 1.5; }
+.chapter-review-issues { margin: 8px 0; padding: 12px; border: 1px solid var(--danger-border); border-radius: 6px; background: var(--surface-raised); color: var(--danger); font-size: 13px; line-height: 1.5; }
 .chapter-review-issues > strong { color: var(--danger); }
-.chapter-review-issues ul { display: grid; gap: 5px; margin: 7px 0 0; padding-left: 16px; }
-.chapter-review-issues li > span { color: var(--danger); font: 7px var(--mono); }
-.chapter-review-issues code { display: block; margin-top: 2px; color: var(--muted); font: 7px var(--mono); }
+.chapter-review-issues ul { display: grid; gap: 12px; margin: 10px 0 0; padding-left: 18px; }
+.chapter-review-issues li { min-width: 0; overflow-wrap: anywhere; }
+.chapter-review-issues .chapter-issue-location { display: block; color: var(--text); }
+.chapter-review-issues p { margin: 4px 0; }
+.chapter-review-issues code { color: var(--muted); font-family: var(--mono); }
+.chapter-review-issues li > code { display: block; margin-top: 4px; }
+.chapter-issue-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 4px 0; }
+.chapter-review-issues details { margin-top: 4px; color: var(--muted); }
+.chapter-review-issues summary { cursor: pointer; }
+.chapter-review-issues dl { margin: 4px 0; }
+.chapter-review-issues dl > div { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.chapter-review-issues dt { font-weight: 600; }
+.chapter-review-issues dd { margin: 0; }
 .chapter-review-feedback { margin: 7px 0; padding: 8px; border: 1px solid var(--accent-border); border-radius: 5px; background: var(--surface-raised); color: var(--accent); font-size: 8px; line-height: 1.5; }
 .chapter-review-feedback.tone-error { border-color: var(--danger-border); background: var(--surface-raised); color: var(--danger); }
 .chapter-review-feedback.tone-info { border-color: var(--border-strong); background: var(--surface-raised); color: var(--muted); }

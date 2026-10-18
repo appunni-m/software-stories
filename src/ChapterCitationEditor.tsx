@@ -36,10 +36,10 @@ export function ChapterCitationEditor({projectId,baseRevisionId,snapshotId,ancho
       <Dialog.Description size="2">Choose the code that supports this claim. Review its narration and visuals after changing the citation.</Dialog.Description>
       <form onSubmit={event=>void apply(event)}>
         <Flex direction="column" gap="3" mt="4">
-          <label><Text as="div" size="2" mb="1">File</Text><TextField.Root aria-label="Citation file" list={list} value={path} maxLength={4096} disabled={busy} required onChange={event=>setPath(event.target.value)}/><datalist id={list}>{paths.map(p=><option key={p} value={p}/>)}</datalist></label>
+          <label><Text as="div" size="2" mb="1">File</Text><TextField.Root aria-label="Citation file" list={list} value={path} maxLength={4096} disabled={busy} required onChange={event=>{setPath(event.target.value);setError(null);}}/><datalist id={list}>{paths.map(p=><option key={p} value={p}/>)}</datalist></label>
           <Flex gap="3" wrap="wrap">
-            <label><Text as="div" size="2" mb="1">From line</Text><TextField.Root aria-label="Citation from line" type="number" min="1" max="4294967295" step="1" required value={from} disabled={busy} onChange={event=>setFrom(event.target.value)}/></label>
-            <label><Text as="div" size="2" mb="1">To line</Text><TextField.Root aria-label="Citation to line" type="number" min="1" max="4294967295" step="1" required value={to} disabled={busy} onChange={event=>setTo(event.target.value)}/></label>
+            <label><Text as="div" size="2" mb="1">From line</Text><TextField.Root aria-label="Citation from line" type="number" min="1" max="4294967295" step="1" required value={from} disabled={busy} onChange={event=>{setFrom(event.target.value);setError(null);}}/></label>
+            <label><Text as="div" size="2" mb="1">To line</Text><TextField.Root aria-label="Citation to line" type="number" min="1" max="4294967295" step="1" required value={to} disabled={busy} onChange={event=>{setTo(event.target.value);setError(null);}}/></label>
           </Flex>
           {error&&<Text as="p" size="2" color="red" role="alert">{error}</Text>}
           <Flex justify="end" gap="3" mt="2"><Dialog.Close><Button type="button" variant="soft" color="gray">Cancel</Button></Dialog.Close><Button type="submit" disabled={busy||disabled}>{busy?'Reading source…':'Use these lines'}</Button></Flex>

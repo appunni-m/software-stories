@@ -5,6 +5,7 @@ import {runInThisContext} from 'node:vm';
 import ts from 'typescript';
 import {baseRevision} from './helpers/revision-history-fixture.mjs';
 import {removeClaimAndReferences} from '../src/lib/chapterEditing.ts';
+import {chapterIssueFeedback} from '../src/lib/chapterValidationPresentation.ts';
 
 // Execute the production callbacks with deterministic native/event boundaries.
 // This does not emulate rendering, focus or native storage validation.
@@ -38,11 +39,33 @@ function setup(){
     saveChapterEdits:async()=>result,restoreChapterRevision:async()=>result,acceptChapterDraft:async()=>result,rejectChapterDraft:async()=>saved,
     reload:async()=>{throw new Error('history read failed after persistence');},
     errorMessageOr:(error,fallback)=>error?.message??fallback,
+    chapterIssueFeedback,
   };
   bindings.recordSavedRevision=callback('recordSavedRevision',bindings);
   bindings.window.addEventListener('code-atlas:chapters-changed',event=>state.publications.push(event.detail));
   return {before,saved,state,bindings};
 }
+
+test('reviewing a finding focuses the current claim without navigation or candidate changes',()=>{
+  const calls=[],element={focus:options=>calls.push(['focus',options]),scrollIntoView:options=>calls.push(['scroll',options])};
+  const review=callback('reviewIssueLocation',{document:{getElementById:id=>{calls.push(['find',id]);return element;}}});
+  review('section:one','claim:two');
+  assert.deepEqual(calls,[['find','studio-claim-claim:two'],['focus',{preventScroll:true}],['scroll',{block:'nearest',behavior:'auto'}]]);
+  calls.length=0;review('section:one',null);assert.equal(calls[0][1],'studio-section-section:one');
+  assert.doesNotThrow(()=>callback('reviewIssueLocation',{document:{getElementById:()=>null}})('missing',null));
+});
+
+test('repairing a finding retains an existing candidate, starts a new edit only when needed, and blocks stale or busy actions',()=>{
+  for(const editing of [false,true]){
+    const calls=[],anchor=baseRevision().sections[0].claims[0].anchors[0];
+    const bindings={busy:false,isLatestCurrent:true,editing,beginEditing:()=>calls.push('edit'),setRepairingAnchorId:id=>calls.push(id)};
+    callback('repairIssueCitation',bindings)(anchor);
+    assert.deepEqual(calls,editing?[anchor.anchorId]:['edit',anchor.anchorId]);
+    for(const blocked of [{busy:true},{isLatestCurrent:false}]){
+      calls.length=0;callback('repairIssueCitation',{...bindings,...blocked})(anchor);assert.deepEqual(calls,[]);
+    }
+  }
+});
 function changed(target,detail){const event=new Event('code-atlas:chapters-changed');Object.defineProperty(event,'detail',{value:detail});target.dispatchEvent(event);}
 
 test('the real Remove claim callback updates linked scenes, cues and section dependencies together',()=>{
@@ -97,6 +120,14 @@ test('saving an outdated base reports the conflict and preserves the edit instea
 test('native save failure retains the unsaved candidate and never records a successful revision',async()=>{
   const {state,bindings}=setup(),candidate=state.candidate;bindings.saveChapterEdits=async()=>{throw new Error('native save rejected');};
   await callback('saveEdits',bindings)();assert.equal(state.candidate,candidate);assert.equal(state.editing,true);assert.deepEqual(state.recorded,[]);assert.deepEqual(state.navigation,[]);assert.equal(state.feedback.tone,'error');
+});
+
+test('the real Validate callback reports one issue with singular feedback and retains its full report',async()=>{
+  const {state,bindings}=setup();bindings.activeDocument=bindings.candidate;
+  const report={status:'invalid',issues:[{code:'invalidClaim',message:'A claim needs text.'}]};
+  bindings.validateSavedChapterRevision=async()=>report;
+  await callback('validateCurrent',bindings)();
+  assert.equal(state.validation,report);assert.equal(state.feedback.message,'1 issue needs review before acceptance.');assert.equal(state.feedback.tone,'error');
 });
 
 for(const editing of [false,true])test(`Validate uses ${editing?'the trusted saved base for an unsaved edit':'the native saved record without a renderer round-trip'}`,async()=>{
