@@ -298,7 +298,9 @@ export function DeveloperWorkspace(props:Props) {
   const activityButtons=[{id:'files',label:'Explorer',icon:Files},{id:'search',label:'Search',icon:Search},{id:'changes',label:'Changes',icon:GitBranch},{id:'history',label:'Explorations',icon:History}] as const;
   const renderExplorations=(parent:string|null,depth=0):ReactNode=>state.explorations.filter((e)=>e.parentId===parent).map((e)=>{
     const nested=renderExplorations(e.id,depth+1);
-    return <li key={e.id}><button aria-current={e.id===current.id?'page':undefined} className={e.id===current.id?'active':''} style={{paddingLeft:10+depth*12}} onClick={()=>go(e.id)}><MessageSquare size={13}/><span>{e.id==='root'?projectName:e.title}</span><small>{e.turns.length}</small></button><ul>{nested}</ul></li>;
+    const title=e.id==='root'?projectName:e.title;
+    const questionCount=`${e.turns.length} ${e.turns.length===1?'question':'questions'}`;
+    return <li key={e.id}><button title={title} aria-label={`${title}, ${questionCount}`} aria-current={e.id===current.id?'page':undefined} className={e.id===current.id?'active':''} style={{paddingLeft:10+depth*12}} onClick={()=>go(e.id)}><MessageSquare size={13}/><span>{title}</span><small title={`${questionCount} in this exploration`}>{e.turns.length}</small></button><ul>{nested}</ul></li>;
   });
   const fromAnchor=(a:ChapterSourceAnchor):Context=>({path:a.path,sha256:a.sourceSha256,from:a.startLine,to:a.endLine});
   return <ReaderProgressContext.Provider value={{
