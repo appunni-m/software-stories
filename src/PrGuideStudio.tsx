@@ -1,4 +1,4 @@
-import { readDirectApiSelection, readGenerationBackend, rememberDirectApiSelection } from './lib/generationPreferences';
+import { readDirectApiSelection, readGenerationBackend } from './lib/generationPreferences';
 import type { AgentGitRecovery } from './lib/agentRecovery';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, RotateCcw, Send, ShieldCheck, Sparkles } from 'lucide-react';
@@ -130,6 +130,7 @@ export function PrGuideStudio({
   const credentialInfo = credential?.status === 'ok' ? credential.data : null;
   const hasApiKey = credentialInfo?.apiKeyConfigured ?? false;
   const selectedModel = disclosure?.models.find((model) => model.modelId === modelId) ?? null;
+  const hasApiSelection = Boolean(providerId && selectedModel && disclosure);
   const canBuild = Boolean(
     isNativeRuntime()
       && comparison.status === 'ready'
@@ -137,9 +138,7 @@ export function PrGuideStudio({
       && backend === 'api'
       && selectedChanges.length > 0
       && selectedChanges.length <= 12
-      && disclosure
-      && selectedModel
-      && providerId
+      && hasApiSelection
       && modelId
       && !requestReview
       && !changeExplanationSelection
@@ -498,7 +497,7 @@ export function PrGuideStudio({
                     type="button"
                     className="secondary-button"
                     key={hunkIndex}
-                    disabled={backend === 'handoff' || (backend === 'api' && (!providerId || !modelId || !disclosure)) || building || sending || decisionBusy || Boolean(requestReview)}
+                    disabled={backend === 'handoff' || (backend === 'api' && !hasApiSelection) || building || sending || decisionBusy || Boolean(requestReview)}
                     onClick={() => explainHunk(change, hunkIndex)}
                   ><Sparkles size={13} /> {backend === 'claude-agent' ? 'Preview hunk request' : 'Explain hunk'} {hunkIndex + 1}</button>
                 ))}
@@ -520,26 +519,22 @@ export function PrGuideStudio({
       {backend === 'codex' && <div className="pr-guide-actions"><button className="primary-button" onClick={reviewCodexGuide} disabled={!selectedChanges.length || selectedChanges.length > 12 || building || sending || decisionBusy || Boolean(codexMode)}><FileDiff size={15} /> {accountOnly?'Explain changes':'Review with Codex'}</button></div>}
       {backend === 'claude-agent' && <div className="pr-guide-actions"><button className="secondary-button" onClick={previewClaudeGuide} disabled={!selectedChanges.length || selectedChanges.length > 12 || building || sending || decisionBusy || Boolean(claudeMode)}><FileDiff size={15} /> Preview guide request with Claude</button></div>}
       {backend === 'api' && <><div className="pr-guide-actions">
-        <label className="pr-guide-model">Direct API provider
-          <select value={providerId} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection)} onChange={(event) => { clearReview(); const nextProviderId = event.target.value; setProviderId(nextProviderId); setModelId(''); setCredential(null); rememberDirectApiSelection({ providerId: nextProviderId, modelId: '' }); }}>
-            <option value="">Choose a provider…</option>
-            {providerCatalog.map((provider) => <option key={provider.providerId} value={provider.providerId}>{provider.displayName}</option>)}
-          </select>
-        </label>
-        {providerId && providerCatalog.length > 0 && !providerCatalog.some((provider) => provider.providerId === providerId) && <p className="pr-guide-muted" role="status">The saved provider is no longer available. Choose another provider to update your connection.</p>}
-        <label className="pr-guide-model">{disclosure?.displayName ?? 'Model'}
-          <select value={modelId} disabled={!disclosure || building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection)} onChange={(event) => { clearReview(); const nextModelId = event.target.value; setModelId(nextModelId); rememberDirectApiSelection({ providerId, modelId: nextModelId }); }}>
-            <option value="">Choose a model…</option>
-            {(disclosure?.models ?? []).map((model) => <option key={model.modelId} value={model.modelId}>{model.displayName}</option>)}
-          </select>
-        </label>
-        {modelId && disclosure && !selectedModel && <p className="pr-guide-muted" role="status">The saved model is no longer available for this provider. Choose another model.</p>}
+        <p className="pr-guide-muted" role="status">
+          {informationLoading ? 'Loading Direct API connection…'
+            : informationError ? 'The Direct API connection could not be loaded. See the details below.'
+              : selectedModel ? `Using ${disclosure?.displayName} · ${selectedModel.displayName}${hasApiKey ? ' · API key saved in Keychain' : ' · API key not set up'}`
+                : 'No provider and model saved. Choose them once in Connections in the header.'}
+        </p>
+        <button className="secondary-button" type="button" onClick={onOpenProviderSettings} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection)}>
+          {hasApiSelection ? 'Change API connection' : 'Set up API connection'}
+        </button>
         <button className="primary-button" type="button" onClick={() => { void handleBuildReview(); }} disabled={!canBuild}>
           <FileDiff size={15} /> {building ? 'Building exact review…' : requestReview ? 'Request ready for review below' : 'Review exact provider request'}
         </button>
       </div>
-      {!providerId && <p className="pr-guide-muted" role="status">Choose a provider and model explicitly for this PR Guide. Selection makes no network request.</p>}
-      {informationLoading && <p className="pr-guide-muted" role="status">Loading direct API catalog locally…</p>}
+      {!hasApiKey && hasApiSelection && <p className="pr-guide-muted" role="status">Add this provider’s API key in Connections before sending. Keys stay in macOS Keychain.</p>}
+      {providerId && providerCatalog.length > 0 && !providerCatalog.some((provider) => provider.providerId === providerId) && <p className="pr-guide-muted" role="status">The saved provider is no longer available. Choose another provider in Connections.</p>}
+      {modelId && disclosure && !selectedModel && <p className="pr-guide-muted" role="status">The saved model is no longer available for this provider. Choose another model in Connections.</p>}
       {informationError && <p className="git-error-note" role="alert"><AlertTriangle size={15} /> {informationError}</p>}
       {credential?.status === 'error' && <p className="git-error-note" role="alert">{credential.error.message}</p>}
       </>}

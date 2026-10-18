@@ -69,7 +69,8 @@ describe('generation backend preference', () => {
     assert.match(prGuide, /window\.addEventListener\('code-atlas:connection-changed'/);
     assert.match(header, /code-atlas:direct-api-selection-changed/);
     assert.match(app, /rememberDirectApiSelection\(\{ providerId, modelId: nextModelId \}\)/);
-    assert.match(prGuide, /rememberDirectApiSelection\(\{ providerId, modelId: nextModelId \}\)/);
+    assert.match(prGuide, /onClick=\{onOpenProviderSettings\}/);
+    assert.doesNotMatch(prGuide, /<select value=\{providerId\}|<select value=\{modelId\}/);
     assert.match(prGuide, /backend === 'handoff' &&/);
     assert.doesNotMatch(prGuide, /Generate with\s*<select/);
   });
