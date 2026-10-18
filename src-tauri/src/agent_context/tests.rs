@@ -17,6 +17,21 @@ fn transport_setup_diagnostics_exclude_os_messages_and_private_paths() {
     );
 }
 
+#[test]
+fn only_literal_matcher_failures_get_correctable_query_feedback() {
+    assert_eq!(
+        recoverable_search_message(context::INVALID_LITERAL_SEARCH_QUERY),
+        Some(INVALID_LITERAL_SEARCH_MESSAGE)
+    );
+    for terminal in [
+        "Code search failed. Try rebuilding its local index.",
+        "A code result belongs to a different source version.",
+        "The captured source is unavailable.",
+    ] {
+        assert_eq!(recoverable_search_message(terminal), None);
+    }
+}
+
 fn session(f: &Fixture) -> Session {
     session_with_model(f, "gpt-6-luna", "max").0
 }

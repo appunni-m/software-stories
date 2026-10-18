@@ -1064,6 +1064,8 @@ pub(crate) enum SearchMode {
     Regex,
 }
 
+pub(crate) const INVALID_LITERAL_SEARCH_QUERY: &str = "Code search terms are invalid.";
+
 fn pattern_matcher(query: &str, mode: SearchMode) -> Result<RegexMatcher, String> {
     let matcher = RegexMatcherBuilder::new()
         .case_insensitive(true)
@@ -1074,7 +1076,7 @@ fn pattern_matcher(query: &str, mode: SearchMode) -> Result<RegexMatcher, String
         .build(query)
         .map_err(|_| if mode == SearchMode::Regex {
             "Unsupported regular expression. Check the pattern; look-around and backreferences are not supported."
-        } else { "Code search terms are invalid." }.to_owned())?;
+        } else { INVALID_LITERAL_SEARCH_QUERY }.to_owned())?;
     if mode == SearchMode::Regex
         && matcher
             .find(b"")
@@ -1830,12 +1832,12 @@ fn search_ranked(
         .case_insensitive(true)
         .fixed_strings(true)
         .build_literals(&words)
-        .map_err(|_| "Code search terms are invalid.".to_owned())?;
+        .map_err(|_| INVALID_LITERAL_SEARCH_QUERY.to_owned())?;
     let exact_matcher = RegexMatcherBuilder::new()
         .case_insensitive(true)
         .fixed_strings(true)
         .build_literals(&exact_terms)
-        .map_err(|_| "Code search terms are invalid.".to_owned())?;
+        .map_err(|_| INVALID_LITERAL_SEARCH_QUERY.to_owned())?;
     let mut matches = vec![];
     let mut sources = HashMap::new();
     for (id, (exact_identifier, declaration_match, score)) in ranked.into_iter().take(limit) {

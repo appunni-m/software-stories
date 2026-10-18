@@ -236,7 +236,9 @@ pub(crate) fn search_snapshot(
         &budget,
         input.mode,
     );
-    if result.is_err() {
+    // A bounded literal whose matcher cannot be built is a correctable query
+    // failure; the prepared snapshot index remains valid and reusable.
+    if matches!(&result, Err(error) if error.as_str() != context::INVALID_LITERAL_SEARCH_QUERY) {
         work.tag = None;
         work.prepared = None;
     }

@@ -71,6 +71,12 @@ fn parse<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, String> {
 fn scope(value: Option<&str>) -> Option<&str> {
     value.filter(|path| !matches!(*path, "" | "."))
 }
+const INVALID_LITERAL_SEARCH_MESSAGE: &str = "No code was returned. This literal query could not be matched within the bounded search. Retry once with a shorter identifier or phrase, keep punctuation literal, and narrow the captured scope if useful.";
+
+fn recoverable_search_message(error: &str) -> Option<&'static str> {
+    (error == context::INVALID_LITERAL_SEARCH_QUERY).then_some(INVALID_LITERAL_SEARCH_MESSAGE)
+}
+
 fn transport_setup_error(stage: &str, error: &std::io::Error) -> String {
     // Keep useful failure classification without forwarding OS/path messages.
     format!(
@@ -610,7 +616,27 @@ impl Session {
                     &self.storage,
                     &input,
                     &native_request,
-                )?;
+                );
+                let result = match result {
+                    Ok(result) => result,
+                    Err(error) => {
+                        if let Some(message) = recoverable_search_message(&error) {
+                            return self.ledger.deliver(
+                                token,
+                                Context::SearchError {
+                                    code: "invalidQuery",
+                                    message,
+                                },
+                                &[],
+                                &fresh,
+                                &self.runtime,
+                                cancelled,
+                                send,
+                            );
+                        }
+                        return Err(error);
+                    }
+                };
                 self.ledger.deliver(
                     token,
                     Context::Search((&result).into()),

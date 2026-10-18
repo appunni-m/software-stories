@@ -45,7 +45,7 @@ fn read_tools() -> Vec<Tool> {
     let definitions = [
         (
             "search_code",
-            "Search captured implementation text and exact identifiers. Returns candidate ranges and capture/index omissions. Refine queries and scope as needed; call read_code to inspect code before making claims.",
+            "Search captured implementation text and exact identifiers. Use 2 to 240 non-control characters after trimming, with at most 32 searchable terms; punctuation is literal. Returns candidate ranges and capture/index omissions. If an invalidQuery result says the literal matcher could not be built, retry once with a shorter identifier or phrase. Refine scope as needed; call read_code to inspect code before making claims.",
             json!({"query":query,"scope":scope,"limit":limit}),
         ),
         (
@@ -394,6 +394,14 @@ mod tests {
         let catalog = tools();
         assert_eq!(tool_names(), TOOL_NAMES.to_vec());
         assert_eq!(catalog.len(), 6);
+        let search = read_only
+            .iter()
+            .find(|tool| tool.name == "search_code")
+            .unwrap();
+        let search_description = search.description.as_deref().unwrap();
+        assert!(search_description.contains("2 to 240"));
+        assert!(search_description.contains("punctuation is literal"));
+        assert!(search_description.contains("retry with a shorter identifier"));
         for (base, answer) in read_only.iter().zip(&catalog[..5]) {
             assert_eq!(serde_json::to_value(base).unwrap(), serde_json::to_value(answer).unwrap());
         }
