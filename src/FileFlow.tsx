@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowDown, FileCode2 } from 'lucide-react';
 import type { SnapshotIndex } from './lib/commands';
 import type { SourceLineRange } from './lib/navigation';
@@ -6,14 +6,18 @@ import type { ProvenGraphEdge } from './lib/atlas';
 import { codeLensRangeFromIndexedAnchor } from './lib/codeLens';
 
 /** A focused view of verified static links, never a claimed execution trace. */
-export function FileFlow({ path, index, edges, loading, onOpenFile }: {
+export function FileFlow({ path, index, edges, loading, onOpenFile, showAll:storedShowAll, onShowAllChange }: {
   path: string | null;
   index: SnapshotIndex | null;
   edges: ProvenGraphEdge[];
   loading: boolean;
   onOpenFile: (path: string, snapshotId?: string, range?: SourceLineRange) => void;
+  showAll?:boolean;
+  onShowAllChange?:(showAll:boolean)=>void;
 }) {
-  const [showAll, setShowAll] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const showAll=storedShowAll??expanded;
+  useEffect(()=>setExpanded(false),[path]);
   const symbols = new Map(index?.symbols.map((symbol) => [symbol.symbolId, symbol]));
   const linked = edges.filter((edge) => ['calls', 'imports', 'testReference'].includes(edge.relationship.kind)
     && (symbols.get(edge.sourceId)?.path === path || symbols.get(edge.targetId)?.path === path));
@@ -42,6 +46,6 @@ export function FileFlow({ path, index, edges, loading, onOpenFile }: {
               </button>
             </article>;
           })}</div>}
-    {linked.length > 12 && <button className="text-button" onClick={() => setShowAll((value) => !value)}>{showAll ? 'Show fewer connections' : `Show all ${linked.length} connections`}</button>}
+    {linked.length > 12 && <button className="text-button" onClick={() => {if(onShowAllChange)onShowAllChange(!showAll);else setExpanded(!showAll);}}>{showAll ? 'Show fewer connections' : `Show all ${linked.length} connections`}</button>}
   </section>;
 }

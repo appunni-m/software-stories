@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {createWorkspace,addTurn,decodeWorkspace} from '../src/workspace/model.ts';
+import {createWorkspace,addTurn,decodeWorkspace,rememberCodePane,rememberFileFlow,rememberPresentation} from '../src/workspace/model.ts';
 import {workspaceStoreHarness,deferred,flushLocalReads} from './helpers/workspace-store-harness.mjs';
 
 const clone=value=>JSON.parse(JSON.stringify(value));
@@ -23,6 +23,26 @@ function backend(){
 }
 const scope=JSON.stringify(['project','snapshot']);
 const native=(b,storage=new Map())=>workspaceStoreHarness(b.invoke,{native:true,storage});
+
+test('native restart restores owned scenes, times, viewport, pane and expanded static links without browser preferences',async()=>{
+  const b=backend(),storage=new Map(),h=native(b,storage);await h.store.prepareWorkspaceConversation('project','snapshot');
+  const state=addTurn(h.store.getWorkspace('project','snapshot'),{id:'reader-turn',question:'Follow the parser',context:[],status:'ready',revisionId:'revision:one'},'guide');
+  const identity={revisionId:'revision:one',sectionId:'section:two',sectionRevisionId:'section-revision:two'};
+  const story={...identity,sceneId:'claim:second',positions:{'claim:first':12.4,'claim:second':3.2},fullMap:true,viewport:{x:-34,y:91,zoom:.6}};
+  h.store.updateWorkspace('project','snapshot',()=>state);
+  h.store.updateWorkspace('project','snapshot',s=>rememberCodePane(s,'root',false));
+  h.store.updateWorkspace('project','snapshot',s=>rememberFileFlow(s,'root','src/font.rs',true));
+  h.store.updateWorkspace('project','snapshot',s=>rememberPresentation(s,'root','reader-turn','stories',{...story,html:'must never be copied',autoPlay:true}));
+  h.store.updateWorkspace('project','snapshot',s=>rememberPresentation(s,'root','reader-turn','diagrams',{...identity,viewport:{x:100,y:-500,zoom:1.8}}));
+  await h.store.flushWorkspaceConversation('project','snapshot');
+  const metadata=JSON.stringify(b.records.get(scope));assert.doesNotMatch(metadata,/must never be copied|autoPlay|spokenText/);
+  storage.clear();storage.get=()=>{throw new Error('browser unavailable');};
+  const reopened=native(b,storage);await reopened.store.prepareWorkspaceConversation('project','snapshot');
+  const root=reopened.store.getWorkspace('project','snapshot').explorations[0];
+  assert.equal(root.codeOpen,false);assert.deepEqual(clone(root.fileFlow),{path:'src/font.rs',showAll:true});
+  assert.deepEqual(clone(root.turns[0].presentation.stories),[story]);assert.equal(root.turns[0].presentation.diagrams[0].viewport.zoom,1.8);
+  assert.ok(reopened.calls.every(c=>c.name==='load_workspace_conversation'),'restart reads local metadata without model, audio or indexing work');
+});
 
 test('migrates five nested levels and siblings once, retaining parent turns, source, sections and last views',async()=>{
   let state=createWorkspace('project','snapshot');state=addTurn(state,{id:'root-turn',question:'Read bytes',context:[{path:'src/font.rs',from:3,to:7}],status:'stopped',revisionId:'revision-one',reading:{guide:{revisionId:'revision-one',sectionId:'section:two'}}},'guide');

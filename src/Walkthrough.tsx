@@ -22,6 +22,7 @@ import {
 import { orderedSections, readerSelection, parseRememberedProgress, rememberedSectionRecord, resumeStorageKey, chooseSectionId } from './lib/walkthrough';
 import type { WorkspaceRoute } from './lib/navigation';
 import { VisualStory } from './VisualStory';
+import { useReaderSection } from './lib/ReaderProgressContext';
 import { OfflineExport } from './OfflineExport';
 import { errorMessageOr } from './lib/errorMessage';
 
@@ -96,9 +97,13 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
       return null;
     }
   }, [projectId, selectedRevision?.chapterId, selectedRevision?.revisionId]);
+  const ownedSection = useReaderSection(selectedRevision?.revisionId);
   const selectedSectionId = selectedRevision
-    ? chooseSectionId(sections, route.sectionId, rememberedProgress?.sectionId)
+    ? chooseSectionId(sections, route.sectionId, ownedSection?.sectionId ?? rememberedProgress?.sectionId)
     : null;
+  useEffect(()=>{
+    if(selectedSectionId)ownedSection?.onSectionChange(selectedSectionId);
+  },[selectedRevision?.revisionId,selectedSectionId]);
   const selectedSectionIndex = selectedSectionId ? sections.findIndex((section) => section.sectionId === selectedSectionId) : -1;
   const selectedSection = selectedSectionIndex >= 0 ? sections[selectedSectionIndex] : null;
   const latestRevision = selectedRevision ? acceptedLibrary.find((revision) => revision.chapterId === selectedRevision.chapterId) : null;

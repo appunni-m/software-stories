@@ -1,3 +1,4 @@
+import { cleanReaderProgress, cleanStoryProgress, cleanDiagramProgress, sameSection, withReaderProgress, type StoryProgress, type DiagramProgress, type ReaderProgress } from '../lib/readerProgress.ts';
 /** Flat, snapshot-scoped conversation state. Generated text lives in native revisions. */
 export type View = 'guide' | 'flow' | 'history';
 export interface Context { path: string; sha256?: string; from?: number; to?: number }
@@ -31,11 +32,12 @@ export interface Turn {
   guideId?: string;
   guide?: Omit<RepositoryGuide, 'answers'>;
   reading?: Partial<Record<'guide' | 'flow', ReadingPosition>>;
+  presentation?: ReaderProgress;
   outcomeAt?: number;
   outcomeSequence?: number;
   outcomeNotice?: { read?: string; dismissed?: string };
 }
-export interface Exploration { id: string; parentId: string | null; originTurnId: string | null; title: string; view: View; turns: Turn[]; focusedTurnId?: string; revealTurnId?: string; file?: string; reveal?: Context; scrollTop?: number; scrollPositions?: Partial<Record<View, number>> }
+export interface Exploration { id: string; parentId: string | null; originTurnId: string | null; title: string; view: View; turns: Turn[]; focusedTurnId?: string; revealTurnId?: string; file?: string; reveal?: Context; codeOpen?: boolean; fileFlow?: {path:string;showAll:boolean}; scrollTop?: number; scrollPositions?: Partial<Record<View, number>> }
 export interface WorkspaceState { version: 1; projectId: string; snapshotId: string; currentId: string; file: string | null; explorations: Exploration[]; grantId?: string }
 
 /** History describes an available result only when its exact revision loaded.
@@ -90,6 +92,9 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
       if (validScroll(e.scrollTop) && e.scrollPositions[e.view] === undefined) e.scrollPositions[e.view] = e.scrollTop;
       delete e.scrollTop;
       delete e.revealTurnId; // A reload restores reading, never moves keyboard focus.
+      if(typeof e.codeOpen!=='boolean')delete e.codeOpen;
+      if(!e.fileFlow||typeof e.fileFlow.path!=='string'||e.fileFlow.path.startsWith('/')||e.fileFlow.path.includes('\\')||e.fileFlow.path.split('/').some(p=>!p||p==='.'||p==='..')||/[\u0000-\u001f\u007f]/.test(e.fileFlow.path)||new TextEncoder().encode(e.fileFlow.path).length>4096||typeof e.fileFlow.showAll!=='boolean')delete e.fileFlow;
+      else e.fileFlow={path:e.fileFlow.path,showAll:e.fileFlow.showAll};
       if (!e.turns.some((t) => t.id === e.focusedTurnId)) delete e.focusedTurnId;
       for (const t of e.turns) {
         if (typeof t.id !== 'string' || typeof t.question !== 'string' || !Array.isArray(t.context)
@@ -101,6 +106,11 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
         t.runIds = Array.isArray(t.runIds) ? [...new Set(t.runIds.filter(validRunId))].slice(0, 32) : [];
         t.publishedSections = cleanPublishedSections(t.publishedSections).filter((s) => t.runIds!.includes(s.runId));
         t.notes = cleanAnswerNotes(t.notes);
+        if(t.presentation){
+          const p=cleanReaderProgress(t.presentation);
+          const owned=(revisionId:string)=>t.revisionId===revisionId||!!t.publishedSections?.some(s=>s.revisionId===revisionId);
+          t.presentation={stories:p.stories.filter(s=>owned(s.revisionId)),diagrams:p.diagrams.filter(s=>owned(s.revisionId))};
+        }
         if (typeof t.outcomeAt !== 'number' || !Number.isSafeInteger(t.outcomeAt) || t.outcomeAt < 0) delete t.outcomeAt;
         if (typeof t.outcomeSequence !== 'number' || !Number.isSafeInteger(t.outcomeSequence) || t.outcomeSequence < 0) delete t.outcomeSequence;
         const notice = t.outcomeNotice;
@@ -177,7 +187,7 @@ export function contextualGuideIntent(query: string, context: readonly Context[]
 export function cleanAnswerNotes(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return [...new Set(value.filter((note): note is string => typeof note === 'string'
-    && note.trim().length > 0 && note.length <= 1_000 && !/[\u0000-\u001f\u007f]/.test(note))
+    && note.trim().length > 0 && note.length <= 1_000 && !/[\u0000-\u001f\u007f-\u009f]/.test(note))
     .map((note) => note.trim()))].slice(0, 8);
 }
 
@@ -248,6 +258,31 @@ export function rememberScroll(state: WorkspaceState, explorationId: string, vie
   const owner = state.explorations.find((e) => e.id === explorationId);
   if (!owner || owner.scrollPositions?.[view] === top) return state;
   return { ...state, explorations: state.explorations.map((e) => e.id !== explorationId ? e : { ...e, scrollPositions: { ...e.scrollPositions, [view]: top } }) };
+}
+export function rememberCodePane(state:WorkspaceState,explorationId:string,codeOpen:boolean):WorkspaceState {
+  if(typeof codeOpen!=='boolean'||!state.explorations.some(e=>e.id===explorationId&&e.codeOpen!==codeOpen))return state;
+  return {...state,explorations:state.explorations.map(e=>e.id===explorationId?{...e,codeOpen}:e)};
+}
+export function rememberFileFlow(state:WorkspaceState,explorationId:string,path:string,showAll:boolean):WorkspaceState {
+  const owner=state.explorations.find(e=>e.id===explorationId);
+  if(!owner||typeof showAll!=='boolean'||typeof path!=='string'||!path||path.startsWith('/')||path.includes('\\')||path.split('/').some(p=>!p||p==='.'||p==='..')||/[\u0000-\u001f\u007f]/.test(path)||new TextEncoder().encode(path).length>4096||(owner.fileFlow?.path===path&&owner.fileFlow.showAll===showAll))return state;
+  return {...state,explorations:state.explorations.map(e=>e.id===explorationId?{...e,fileFlow:{path,showAll}}:e)};
+}
+export function rememberPresentation(state:WorkspaceState,explorationId:string,turnId:string,kind:'stories'|'diagrams',value:StoryProgress|DiagramProgress):WorkspaceState {
+  if(kind!=='stories'&&kind!=='diagrams')return state;
+  const next=kind==='stories'?cleanStoryProgress(value):cleanDiagramProgress(value);
+  const turn=state.explorations.find(e=>e.id===explorationId)?.turns.find(t=>t.id===turnId);
+  if(!next||!turn||(turn.revisionId!==next.revisionId&&!turn.publishedSections?.some(s=>s.revisionId===next.revisionId)))return state;
+  const previous=cleanReaderProgress(turn.presentation);
+  if(JSON.stringify(previous[kind].find(p=>sameSection(p,next)))===JSON.stringify(next))return state;
+  const presentation:ReaderProgress=kind==='stories'?{...previous,stories:withReaderProgress(previous.stories,next as StoryProgress)}:{...previous,diagrams:withReaderProgress(previous.diagrams,next as DiagramProgress)};
+  return {...state,explorations:state.explorations.map(e=>e.id!==explorationId?e:{...e,turns:e.turns.map(t=>t.id!==turnId?t:{...t,presentation})})};
+}
+/** A player opened from a card belongs to that focused question. Reopening an
+ * unrelated saved chapter cannot write into another question's metadata. */
+export function presentationOwner(exploration:Exploration,revisionId:string):Turn|undefined {
+  const owns=(t:Turn)=>t.revisionId===revisionId||!!t.publishedSections?.some(s=>s.revisionId===revisionId);
+  return exploration.turns.find(t=>t.id===exploration.focusedTurnId&&owns(t))??exploration.turns.slice().reverse().find(owns);
 }
 export function rankSourcePaths(paths: string[]): string[] {
   const score = (p: string) => (/(^|\/)(main|lib|index|app|server)\.(rs|tsx?|jsx?|py|go|swift)$/i.test(p) ? 100 : 0)

@@ -583,7 +583,13 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         className="walkthrough-narration-audio"
         preload="metadata"
         onPlay={() => { completionArmed.current = true; setIsPlaying(true); window.dispatchEvent(new CustomEvent('code-atlas:narration-playing', { detail: titleId })); }}
-        onPause={(event) => { setIsPlaying(false); if (!event.currentTarget.ended) completionArmed.current = false; }}
+        onPause={(event) => {
+          setIsPlaying(false);
+          if (!event.currentTarget.ended) {
+            completionArmed.current = false;
+            if(mountedRef.current)persistPlaybackPosition(event.currentTarget.currentTime);
+          }
+        }}
         onDurationChange={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
         onLoadedMetadata={(event) => {
           setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0);

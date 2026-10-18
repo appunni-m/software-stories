@@ -38,6 +38,98 @@ fn absent_read_creates_nothing_and_scope_keys_are_unambiguous() {
     assert!(location(&f.0, "project", "../escape").is_err());
 }
 
+fn presentation_state() -> Value {
+    let mut s = state();
+    s["explorations"][0]["codeOpen"] = json!(false);
+    s["explorations"][0]["fileFlow"] = json!({"path":"src/font.rs","showAll":true});
+    s["explorations"][0]["turns"][0]["revisionId"] = json!("revision-one");
+    s["explorations"][0]["turns"][0]["presentation"] = json!({
+        "stories":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","sceneId":"claim:second","positions":{"claim:first":12.4,"claim:second":3.2},"fullMap":true,"viewport":{"x":-34,"y":91,"zoom":0.6}}],
+        "diagrams":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","viewport":{"x":250,"y":-91,"zoom":1.7}}]
+    });
+    s
+}
+
+#[test]
+fn exact_scene_audio_map_pane_and_flow_positions_round_trip_as_metadata() {
+    let f = Fixture::new();
+    let s = presentation_state();
+    let record = save(&f.0, "project", "snapshot", None, s.clone()).unwrap();
+    assert_eq!(record.state, s);
+    assert_eq!(load(&f.0, "project", "snapshot").unwrap(), Some(record));
+    assert_eq!(fs::read_dir(f.path().parent().unwrap()).unwrap().count(), 2);
+    let bytes = fs::read_to_string(f.path()).unwrap();
+    assert!(!bytes.contains("autoPlay"));
+    assert!(!bytes.contains("spokenText"));
+}
+
+#[test]
+fn invalid_unowned_or_oversized_reader_positions_preserve_the_valid_journal() {
+    let f = Fixture::new();
+    let good = presentation_state();
+    save(&f.0, "project", "snapshot", None, good.clone()).unwrap();
+    let before = fs::read(f.path()).unwrap();
+    let mut cases = vec![];
+    for (pointer, value) in [
+        ("/explorations/0/codeOpen", json!("false")),
+        ("/explorations/0/fileFlow/path", json!("../outside")),
+        ("/explorations/0/fileFlow/showAll", Value::Null),
+        (
+            "/explorations/0/turns/0/presentation/stories/0/revisionId",
+            json!("revision:foreign"),
+        ),
+        (
+            "/explorations/0/turns/0/presentation/stories/0/sceneId",
+            json!("bad\nscene"),
+        ),
+        (
+            "/explorations/0/turns/0/presentation/stories/0/fullMap",
+            json!(1),
+        ),
+        (
+            "/explorations/0/turns/0/presentation/stories/0/positions/claim:first",
+            json!(-1),
+        ),
+        (
+            "/explorations/0/turns/0/presentation/stories/0/positions/claim:first",
+            json!(3601),
+        ),
+        (
+            "/explorations/0/turns/0/presentation/stories/0/viewport/zoom",
+            json!(0.09),
+        ),
+        (
+            "/explorations/0/turns/0/presentation/diagrams/0/viewport/x",
+            json!(10000001),
+        ),
+        (
+            "/explorations/0/turns/0/presentation/diagrams/0/viewport/zoom",
+            json!(4.01),
+        ),
+    ] {
+        let mut s = good.clone();
+        *s.pointer_mut(pointer).unwrap() = value;
+        cases.push(s);
+    }
+    let mut duplicate = good.clone();
+    let entries = duplicate["explorations"][0]["turns"][0]["presentation"]["stories"]
+        .as_array_mut()
+        .unwrap();
+    entries.push(entries[0].clone());
+    cases.push(duplicate);
+    let mut copied = good.clone();
+    copied["explorations"][0]["turns"][0]["presentation"]["stories"][0]["autoPlay"] = json!(true);
+    cases.push(copied);
+    let mut oversized = good.clone();
+    oversized["explorations"][0]["turns"][0]["presentation"]["stories"][0]["positions"] =
+        Value::Object((0..129).map(|i| (format!("claim:{i}"), json!(0))).collect());
+    cases.push(oversized);
+    for s in cases {
+        assert!(save(&f.0, "project", "snapshot", Some(1), s).is_err());
+        assert_eq!(fs::read(f.path()).unwrap(), before);
+    }
+}
+
 #[test]
 fn source_metadata_preserves_unicode_spaces_and_colons_without_opening_live_paths() {
     let f = Fixture::new();
@@ -223,6 +315,9 @@ fn native_admission_rejects_metadata_the_legacy_reader_would_drop() {
     let mut note = state();
     note["explorations"][0]["turns"][0]["notes"] = json!(["line one\nline two"]);
     cases.push(note);
+    let mut unicode_note = state();
+    unicode_note["explorations"][0]["turns"][0]["notes"] = json!(["🧭".repeat(501)]);
+    cases.push(unicode_note);
     for s in cases {
         assert!(save(&f.0, "project", "snapshot", Some(1), s).is_err());
         assert_eq!(fs::read(f.path()).unwrap(), before);

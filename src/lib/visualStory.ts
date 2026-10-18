@@ -1,5 +1,6 @@
 import type { ChapterSection, EvidenceLinkedVisualSpec } from './commands';
 import { sceneNarrations, validScenePresentation } from './scenePresentation.ts';
+import { cleanStoryProgress, sameSection, type SectionIdentity, type StoryProgress } from './readerProgress.ts';
 
 export interface StoryScene {
   id: string;
@@ -96,10 +97,28 @@ export function sceneNodeIds(visual: EvidenceLinkedVisualSpec, scene: StoryScene
 export function readStoryProgress(raw: string | null, scenes: StoryScene[]): { index: number; positions: [string, number][] } {
   let value: unknown;
   try { value = raw && raw.length <= 16_000 ? JSON.parse(raw) : null; } catch { value = null; }
+  return storyProgressFromValue(value,scenes);
+}
+
+function storyProgressFromValue(value:unknown,scenes:StoryScene[]): {index:number;positions:[string,number][]} {
   const record = value && typeof value === 'object' ? value as { sceneId?: unknown; positions?: unknown } : {};
   const positions = record.positions && typeof record.positions === 'object' ? record.positions as Record<string, unknown> : {};
   return { index: Math.max(0, scenes.findIndex((scene) => scene.id === record.sceneId)), positions: scenes.map((scene) => {
     const position = Object.hasOwn(positions, scene.id) ? positions[scene.id] : 0;
     return [scene.id, typeof position === 'number' && Number.isFinite(position) && position >= 0 && position <= 3600 ? position : 0];
   }) };
+}
+
+/** Native metadata wins over an old browser position, including an explicit
+ * zero. Its bounded object must not pass through the smaller legacy text cap. */
+export function readSectionStoryProgress(native:StoryProgress|undefined,legacy:string|null,identity:SectionIdentity,scenes:StoryScene[],fallbackPosition=0) {
+  let value:unknown=native;
+  if(native===undefined)try{value=legacy&&legacy.length<=16_000?JSON.parse(legacy):null;}catch{value=null;}
+  const clean=cleanStoryProgress(value);
+  const matching=clean&&sameSection(clean,identity)?clean:undefined;
+  const scoped=!!value&&typeof value==='object'&&Object.hasOwn(value,'revisionId');
+  const progress=native!==undefined||scoped?storyProgressFromValue(matching,scenes):readStoryProgress(legacy,scenes);
+  if(native===undefined&&scenes.length===1&&progress.positions[0]?.[1]===0&&Number.isFinite(fallbackPosition)&&fallbackPosition>0&&fallbackPosition<=3600)progress.positions[0][1]=fallbackPosition;
+  return {...progress,fullMap:matching?.fullMap??false,
+    viewport:matching?.sceneId===scenes[progress.index]?.id?matching.viewport:undefined};
 }

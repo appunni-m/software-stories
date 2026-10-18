@@ -116,6 +116,95 @@ fn context(v: &Value) -> Result<(), String> {
     Ok(())
 }
 
+fn viewport(v: &Value) -> Result<(), String> {
+    let o = object(v, &["x", "y", "zoom"])?;
+    if ["x", "y"].iter().any(|key| {
+        !o.get(*key)
+            .and_then(Value::as_f64)
+            .is_some_and(|n| n.is_finite() && n.abs() <= 10_000_000.0)
+    }) || !o
+        .get("zoom")
+        .and_then(Value::as_f64)
+        .is_some_and(|n| n.is_finite() && (0.1..=4.0).contains(&n))
+    {
+        return Err(UNAVAILABLE.into());
+    }
+    Ok(())
+}
+
+fn presentation(v: &Value, owner: &serde_json::Map<String, Value>) -> Result<(), String> {
+    let o = object(v, &["stories", "diagrams"])?;
+    for key in ["stories", "diagrams"] {
+        let Some(values) = o.get(key) else { continue };
+        let values = values.as_array().ok_or(UNAVAILABLE)?;
+        if values.len() > 256 {
+            return Err(UNAVAILABLE.into());
+        }
+        let mut seen = HashSet::new();
+        for p in values {
+            let p = object(
+                p,
+                if key == "stories" {
+                    &[
+                        "revisionId",
+                        "sectionId",
+                        "sectionRevisionId",
+                        "sceneId",
+                        "positions",
+                        "fullMap",
+                        "viewport",
+                    ]
+                } else {
+                    &["revisionId", "sectionId", "sectionRevisionId", "viewport"]
+                },
+            )?;
+            let revision = string(p, "revisionId")?;
+            let section = string(p, "sectionId")?;
+            let section_revision = string(p, "sectionRevisionId")?;
+            let owned = owner.get("revisionId").and_then(Value::as_str) == Some(revision)
+                || owner
+                    .get("publishedSections")
+                    .and_then(Value::as_array)
+                    .is_some_and(|s| {
+                        s.iter()
+                            .any(|s| s.get("revisionId").and_then(Value::as_str) == Some(revision))
+                    });
+            if !identifier(revision)
+                || !identifier(section)
+                || !identifier(section_revision)
+                || !owned
+                || !seen.insert((revision, section, section_revision))
+            {
+                return Err(UNAVAILABLE.into());
+            }
+            if key == "stories" {
+                if !p.get("sceneId").is_some_and(id)
+                    || !p.get("fullMap").is_some_and(Value::is_boolean)
+                {
+                    return Err(UNAVAILABLE.into());
+                }
+                let positions = p
+                    .get("positions")
+                    .and_then(Value::as_object)
+                    .ok_or(UNAVAILABLE)?;
+                if positions.len() > 128
+                    || positions
+                        .iter()
+                        .any(|(k, v)| !identifier(k) || !number(v, 3600))
+                {
+                    return Err(UNAVAILABLE.into());
+                }
+                if let Some(v) = p.get("viewport") {
+                    viewport(v)?;
+                }
+            } else {
+                viewport(p.get("viewport").ok_or(UNAVAILABLE)?)?;
+            }
+        }
+    }
+    Ok(())
+}
+
 fn turn(v: &Value) -> Result<&str, String> {
     let o = object(
         v,
@@ -132,6 +221,7 @@ fn turn(v: &Value) -> Result<&str, String> {
             "notes",
             "guideId",
             "reading",
+            "presentation",
             "outcomeAt",
             "outcomeSequence",
             "outcomeNotice",
@@ -231,7 +321,7 @@ fn turn(v: &Value) -> Result<&str, String> {
             || a.iter().any(|v| {
                 !v.as_str().is_some_and(|s| {
                     !s.trim().is_empty()
-                        && s.chars().count() <= 1000
+                        && s.encode_utf16().count() <= 1000
                         && !s.chars().any(char::is_control)
                 })
             })
@@ -254,6 +344,9 @@ fn turn(v: &Value) -> Result<&str, String> {
         {
             return Err(UNAVAILABLE.into());
         }
+    }
+    if let Some(v) = o.get("presentation") {
+        presentation(v, o)?;
     }
     Ok(name)
 }
@@ -306,6 +399,8 @@ fn validate(state: &Value, project: &str, snapshot: &str) -> Result<(), String> 
                 "focusedTurnId",
                 "file",
                 "reveal",
+                "codeOpen",
+                "fileFlow",
                 "scrollPositions",
             ],
         )?;
@@ -316,6 +411,7 @@ fn validate(state: &Value, project: &str, snapshot: &str) -> Result<(), String> 
             || !text(string(e, "title")?, 65536)
             || !["guide", "flow", "history"].contains(&string(e, "view")?)
             || !optional(e, "file", path)
+            || e.get("codeOpen").is_some_and(|v| !v.is_boolean())
             || (name == "root"
                 && (!e.get("parentId").is_some_and(Value::is_null)
                     || !e.get("originTurnId").is_some_and(Value::is_null)))
@@ -327,6 +423,13 @@ fn validate(state: &Value, project: &str, snapshot: &str) -> Result<(), String> 
         if let Some(v) = e.get("reveal") {
             if !v.is_null() {
                 context(v)?;
+            }
+        }
+        if let Some(v) = e.get("fileFlow") {
+            let v = object(v, &["path", "showAll"])?;
+            if !v.get("path").is_some_and(path) || !v.get("showAll").is_some_and(Value::is_boolean)
+            {
+                return Err(UNAVAILABLE.into());
             }
         }
         if let Some(v) = e.get("scrollPositions") {

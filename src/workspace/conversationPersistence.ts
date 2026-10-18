@@ -1,4 +1,5 @@
 import {createWorkspace,decodeWorkspace,type WorkspaceState} from './model';
+import {cleanReaderProgress} from '../lib/readerProgress';
 
 export interface ConversationRecord {schemaVersion:1;revision:number;state:WorkspaceState}
 export type ConversationAvailability='loading'|'ready'|'unavailable';
@@ -20,10 +21,10 @@ export function conversationSnapshot(state:WorkspaceState):WorkspaceState {
   const context=({path,sha256,from,to}:WorkspaceState['explorations'][number]['turns'][number]['context'][number])=>({path,sha256,from,to});
   return JSON.parse(JSON.stringify({version,projectId,snapshotId,currentId,file,grantId,
     explorations:state.explorations.map(e=>({id:e.id,parentId:e.parentId,originTurnId:e.originTurnId,title:e.title,view:e.view,
-      file:e.file,reveal:e.reveal?context(e.reveal):undefined,focusedTurnId:e.focusedTurnId,scrollPositions:e.scrollPositions,
+      file:e.file,reveal:e.reveal?context(e.reveal):undefined,codeOpen:e.codeOpen,fileFlow:e.fileFlow?{path:e.fileFlow.path,showAll:e.fileFlow.showAll}:undefined,focusedTurnId:e.focusedTurnId,scrollPositions:e.scrollPositions,
       turns:e.turns.map(t=>({id:t.id,question:t.question,context:t.context.map(context),status:t.status,revisionId:t.revisionId,
         generationId:t.generationId,error:t.error,runIds:t.runIds,publishedSections:t.publishedSections,notes:t.notes,
-        guideId:t.guideId,reading:t.reading,outcomeAt:t.outcomeAt,outcomeSequence:t.outcomeSequence,outcomeNotice:t.outcomeNotice}))}))}));
+        guideId:t.guideId,reading:t.reading,presentation:t.presentation?cleanReaderProgress(t.presentation):undefined,outcomeAt:t.outcomeAt,outcomeSequence:t.outcomeSequence,outcomeNotice:t.outcomeNotice}))}))}));
 }
 
 /** One serial writer per scope. A failed attempt and subsequent edits are kept
