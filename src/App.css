@@ -842,6 +842,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .chapter-studio-target-status, .chapter-review-status { width: max-content; padding: 3px 5px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--surface-raised); color: var(--muted); font: 7px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
 .chapter-studio-target-status.status-missing, .chapter-review-status.status-missing { border-color: var(--accent-border); background: var(--surface-raised); color: var(--warning); }
 .chapter-studio-target-status.status-draft, .chapter-review-status.status-draft { border-color: var(--warning-border); background: var(--surface-raised); color: var(--warning); }
+.chapter-studio-target-status.status-loading, .chapter-review-status.status-loading { color: var(--muted); }
+.chapter-studio-target-status.status-unavailable, .chapter-review-status.status-unavailable { border-color: var(--danger-border); background: var(--surface-raised); color: var(--danger); }
 .chapter-studio-target-status.status-rejected, .chapter-review-status.status-rejected { border-color: var(--danger-border); background: var(--surface-raised); color: var(--danger); }
 .chapter-studio-target-status.status-accepted, .chapter-review-status.status-accepted { border-color: var(--accent-border); background: var(--surface-raised); color: var(--accent); }
 .chapter-studio-target-status.status-stale, .chapter-review-status.status-stale { border-color: var(--border-strong); background: var(--surface-raised); color: var(--muted); }

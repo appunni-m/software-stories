@@ -174,7 +174,7 @@ import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, a
 import { classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, sourceLineTextRanges, splitCapturedSourceLines, splitSourceTextAtRange } from './lib/codeLens';
 import { loadShellStartupData, workspaceHeading } from './lib/shell';
 import { ChapterRevisionComparison, StaleChapterDraftComparison, StaleChapterDraftNotice } from './ChapterRevisionComparison';
-import { chapterStudioRowStatus, chapterStudioStatus, chapterStudioStatusLabel } from './lib/chapterStudioStatus';
+import { chapterStudioCanGenerate, chapterStudioRowStatus, chapterStudioStatus, chapterStudioStatusLabel } from './lib/chapterStudioStatus';
 import {
   addCoverageGroup,
   buildCoverageRows,
@@ -4336,8 +4336,12 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       const detail = (event as CustomEvent<{ projectId?: string; revision?: ChapterRevision }>).detail;
       const changedProject = detail?.projectId ?? detail?.revision?.projectId;
       if (changedProject && changedProject !== projectId) return;
+      const history = chapterHistory.current;
+      if (!history) return;
       // A background publication invalidates history, never the user's edit or selection.
-      void chapterHistory.current?.refresh();
+      setLoadError(null);
+      setLoading(true);
+      void history.refresh();
     };
     window.addEventListener('code-atlas:chapters-changed', refresh);
     return () => window.removeEventListener('code-atlas:chapters-changed', refresh);
@@ -4466,7 +4470,8 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       .sort((left, right) => right.revisionNumber - left.revisionNumber)[0] ?? null
     : null;
   const activeDocument = editing && candidate ? candidate : selectedRevision;
-  const status = chapterStudioStatus(Boolean(selectedTarget && !selectedTarget.missing), selectedRevision, snapshotId, selectedTarget?.latestCurrent ?? null);
+  const historyAvailability = loadError ? 'unavailable' : loading ? 'loading' : 'ready';
+  const status = chapterStudioStatus(historyAvailability, Boolean(selectedTarget && !selectedTarget.missing), selectedRevision, snapshotId, selectedTarget?.latestCurrent ?? null);
   const statusLabel = chapterStudioStatusLabel(status);
   const freshnessKey = selectedRevision?.lifecycle === 'accepted' && selectedRevision.snapshotId !== snapshotId
     ? `${selectedRevision.revisionId}:${snapshotId}`
@@ -4705,7 +4710,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
         </div>
 
         {loading && <p className="coverage-feedback" role="status">Loading repository chapters and revision history…</p>}
-        {loadError && <p className="coverage-storage-warning" role="alert">{loadError}<button className="text-button" onClick={() => { void chapterHistory.current?.refresh(); }}>Retry</button></p>}
+        {loadError && <p className="coverage-storage-warning" role="alert">{loadError}<button className="text-button" onClick={() => { setLoadError(null); setLoading(true); void chapterHistory.current?.refresh(); }}>Retry</button></p>}
         {!isNativeRuntime() && <p className="coverage-feedback" role="status">Chapter editing is available in the Mac app, where revisions are stored locally.</p>}
         {editing && <p className="coverage-feedback" role="status">Unsaved changes are kept while you inspect citations. File and revision selection is paused; save or cancel to switch.</p>}
 
@@ -4715,7 +4720,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
             <div className="chapter-studio-target-list">
               {visibleTargets.map((target) => {
                 const latest = target.latestCurrent ?? target.latestAny;
-                const rowStatus = chapterStudioRowStatus(!target.missing, target.latestCurrent);
+                const rowStatus = chapterStudioRowStatus(historyAvailability, !target.missing, target.latestCurrent);
                 const label = target.overview ? 'Repository overview' : target.paths.length === 1 ? target.paths[0] : `${target.paths[0]} + ${target.paths.length - 1} files`;
                 return <button
                   key={target.key}
@@ -4732,7 +4737,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                 >
                   <span className={`chapter-studio-target-status status-${rowStatus}`}>{rowStatus}</span>
                   <code title={label}>{label}</code>
-                  <small>{latest ? `${latest.title} · r${latest.revisionNumber}` : 'No chapter for this snapshot'}</small>
+                  <small>{latest ? `${latest.title} · r${latest.revisionNumber}` : rowStatus === 'loading' ? 'Checking saved revisions…' : rowStatus === 'unavailable' ? 'Saved history could not be read' : 'No chapter for this snapshot'}</small>
                 </button>;
               })}
               {visibleTargets.length === 0 && <p className="chapter-studio-no-results">No chapter targets match that search.</p>}
@@ -4744,7 +4749,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
               <>
                 <div className="chapter-review-heading">
                   <div><span className={`chapter-review-status status-${status}`}>{statusLabel}</span><h3>{selectedRevision?.title ?? (selectedTarget.overview ? 'Repository overview' : selectedTarget.paths.length === 1 ? selectedTarget.paths[0] : 'Grouped chapter')}</h3>{!selectedTarget.overview && <code>{selectedTarget.paths.join(' · ')}</code>}</div>
-                  {selectedTarget.missing || status === 'stale' ? <div className="chapter-review-actions">
+                  {chapterStudioCanGenerate(status) ? <div className="chapter-review-actions">
                     {!selectedTarget.overview && <button className="secondary-button" onClick={() => onOpenFile(selectedTarget.paths[0], selectedRevision?.snapshotId ?? selectedTarget.latestAny?.snapshotId)}><FileCode2 size={14} /> Open source</button>}
                     {selectedTarget.overview
                       ? <button className="primary-button" onClick={onGenerateOverview}><Sparkles size={14} /> Generate current overview</button>
@@ -4771,7 +4776,8 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                   <ChapterRevisionComparison before={previousRevision} after={selectedRevision} />
                 </details>}
 
-                {selectedTarget.missing ? <div className="chapter-studio-empty"><BookOpen size={20} /><strong>{selectedTarget.overview ? 'No repository overview has been saved for this snapshot.' : 'This file has no chapter in the selected snapshot.'}</strong><p>Start with the captured source; the generated draft stays local until you choose to save it.</p>{selectedTarget.overview && <button className="primary-button" onClick={onGenerateOverview}><Sparkles size={14} /> Create optional overview</button>}</div>
+                {status === 'loading' || status === 'unavailable' ? <div className="chapter-studio-empty"><BookOpen size={20} /><strong>{status === 'loading' ? 'Checking saved chapter history.' : 'Saved chapter history is unavailable.'}</strong><p>{status === 'loading' ? 'This file will be marked as needing an explanation only after its saved history is checked.' : 'Retry the history read above before creating a chapter, so an existing explanation is not mistaken for a missing one.'}</p></div>
+                    : selectedTarget.missing ? <div className="chapter-studio-empty"><BookOpen size={20} /><strong>{selectedTarget.overview ? 'No repository overview has been saved for this snapshot.' : 'This file has no chapter in the selected snapshot.'}</strong><p>Start with the captured source; the generated draft stays local until you choose to save it.</p>{selectedTarget.overview && <button className="primary-button" onClick={onGenerateOverview}><Sparkles size={14} /> Create optional overview</button>}</div>
                     : selectedRevision && activeDocument ? <>
                       {status === 'stale' && <div className="chapter-studio-stale"><TriangleAlert size={17} /><div><strong>This selected revision belongs to an older snapshot.</strong><p>Its citations stay pinned to snapshot {selectedRevision.snapshotId.slice(-12)}. Open a citation to inspect that exact captured code, or choose a current revision in the history above.</p></div></div>}
                       <div className="chapter-review-toolbar">

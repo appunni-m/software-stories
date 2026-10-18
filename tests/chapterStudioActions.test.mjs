@@ -26,13 +26,14 @@ function setup(){
   const before=baseRevision();before.projectId='p';before.snapshotId='s';
   const saved=structuredClone(before);saved.revisionId='revision:saved';saved.revisionNumber=2;
   const candidate=structuredClone(before);candidate.title='My unsaved edit';
-  const state={candidate,selected:before.revisionId,editing:true,feedback:null,refreshes:0,recorded:[],navigation:[],publications:[],busy:false};
+  const state={candidate,selected:before.revisionId,editing:true,feedback:null,refreshes:0,recorded:[],navigation:[],publications:[],busy:false,loading:false,loadError:null};
   const change=key=>value=>{state[key]=value;};
   const result={revision:saved,validation:{status:'valid',issues:[]}};
   const bindings={projectId:'p',snapshotId:'s',window:new EventTarget(),CustomEvent,candidate,selectedRevision:before,isLatestCurrent:true,busy:false,editing:false,
     selectedTarget:{latestCurrent:saved},studioMounted:{current:true},rejectReason:'Needs revision',
     chapterHistory:{current:{refresh:async()=>{state.refreshes++;},record:r=>state.recorded.push(r)}},
     setRefreshKey:()=>state.refreshes++,setSelectedTargetKey:change('target'),setSelectedRevisionId:change('selected'),
+    setLoading:change('loading'),setLoadError:change('loadError'),
     setEditing:change('editing'),setCandidate:change('candidate'),setValidation:change('validation'),setFeedback:change('feedback'),
     setRejecting:change('rejecting'),setRejectReason:change('reason'),setBusy:change('busy'),
     onSelectRevision:r=>state.navigation.push(r),
@@ -79,10 +80,11 @@ test('the real Remove claim callback updates linked scenes, cues and section dep
 });
 
 test('background chapter publication refreshes history without replacing an unsaved edit or selection',()=>{
-  const {state,bindings,saved}=setup(),candidate=state.candidate;
+  const {state,bindings,saved}=setup(),candidate=state.candidate;state.loadError='old read failure';
   const cleanup=callback('eventEffect',bindings)();
   changed(bindings.window,{projectId:'p',revision:saved});
   assert.equal(state.refreshes,1);assert.equal(state.selected,'revision:one');assert.equal(state.candidate,candidate);assert.equal(state.editing,true);assert.deepEqual(state.navigation,[]);
+  assert.equal(state.loading,true);assert.equal(state.loadError,null);
   cleanup();changed(bindings.window,{projectId:'p',revision:saved});assert.equal(state.refreshes,1);
 });
 
