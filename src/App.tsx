@@ -8,7 +8,7 @@ import { Theme } from '@radix-ui/themes';
 import { useAppAppearance } from './lib/useAppAppearance';
 import type { AppNoticeInput, AppNotice } from './lib/noticeHistory';
 import { getWorkspace, prepareWorkspaceConversation, retryWorkspaceConversation, updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
-import { markQuestionOutcome, openWorkspaceQuestion } from './workspace/outcomes';
+import { markQuestionOutcome, openWorkspaceQuestion, withSavedAnswerAvailability } from './workspace/outcomes';
 import { WorkspaceFrame } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
 import { startupProjectToRestore } from './lib/startupProjectRestore';
@@ -241,6 +241,7 @@ function App() {
   const [interruptionRefreshing, setInterruptionRefreshing] = useState(false);
   const [previewRefreshing, setPreviewRefreshing] = useState(false);
   const [answerRestoration, setAnswerRestoration] = useState<WorkspaceAnswerRestoration | null>(null);
+  const [notificationChapterHistory, setNotificationChapterHistory] = useState<{ projectId: string; snapshotId: string; revisionIds: string[] } | null>(null);
   const [repositoryContextAnnouncement, setRepositoryContextAnnouncement] = useState('');
   const announcedRepositoryContextRef = useRef<string | null>(null);
   const [runtime, setRuntime] = useState<ApplicationStatus | null>(null);
@@ -351,6 +352,34 @@ function App() {
   const currentCapture = currentProject ? captureByProject[currentProject.projectId] ?? null : null;
   const selectedSnapshot = currentSnapshots.find((snapshot) => snapshot.snapshotId === navigation.current.snapshotId) ?? null;
   const questionUpdates = useWorkspaceOutcomes(currentProject?.projectId, selectedSnapshot?.snapshotId);
+  useEffect(() => {
+    const projectId = currentProject?.projectId;
+    const snapshotId = selectedSnapshot?.snapshotId;
+    if (!isNativeRuntime() || !projectId || !snapshotId) {
+      setNotificationChapterHistory(null);
+      return;
+    }
+    let active = true;
+    setNotificationChapterHistory(null);
+    const refresh = () => {
+      void listChapterRevisions(projectId, snapshotId).then((revisions) => {
+        if (active) setNotificationChapterHistory({ projectId, snapshotId, revisionIds: revisions.map((revision) => revision.revisionId) });
+      }).catch(() => { if (active) setNotificationChapterHistory(null); });
+    };
+    const changed = (event: Event) => {
+      const detail = (event as CustomEvent<{ projectId?: string; revision?: ChapterRevision }>).detail;
+      if (detail?.projectId && detail.projectId !== projectId) return;
+      if (detail?.revision && (detail.revision.projectId !== projectId || detail.revision.snapshotId !== snapshotId)) return;
+      refresh();
+    };
+    refresh();
+    window.addEventListener('code-atlas:chapters-changed', changed);
+    return () => { active = false; window.removeEventListener('code-atlas:chapters-changed', changed); };
+  }, [currentProject?.projectId, selectedSnapshot?.snapshotId]);
+  const visibleQuestionUpdates = useMemo(() => notificationChapterHistory && notificationChapterHistory.projectId === currentProject?.projectId
+    && notificationChapterHistory.snapshotId === selectedSnapshot?.snapshotId
+    ? withSavedAnswerAvailability(questionUpdates, new Set(notificationChapterHistory.revisionIds))
+    : questionUpdates, [questionUpdates, notificationChapterHistory, currentProject?.projectId, selectedSnapshot?.snapshotId]);
   const answerAvailability = workspaceAnswerAvailability(isNativeRuntime(), currentProject?.projectId, selectedSnapshot?.snapshotId, answerRestoration);
   const readiness = workspaceReadiness({ recentsPending, projectOpening,
     projectId: navigation.current.projectId, projectAvailable: !!currentProject, snapshotId: navigation.current.snapshotId,
@@ -1423,7 +1452,7 @@ function App() {
   };
 
   const workspaceNotifications: WorkspaceNotification[] = [
-    ...questionUpdates.map((outcome): WorkspaceNotification => ({
+    ...visibleQuestionUpdates.map((outcome): WorkspaceNotification => ({
       id: `question:${outcome.turnId}`, title: outcome.title,
       message: `${currentProject?.displayName ?? 'Repository'} · ${outcome.question}`,
       read: outcome.read, tone: outcome.tone,

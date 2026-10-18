@@ -30,6 +30,7 @@ export function questionOutcomeKey(turn: Turn): string | null {
 
 export interface QuestionOutcome {
   explorationId: string; turnId: string; key: string; question: string;
+  answerRevisionIds: string[];
   title: string; read: boolean; tone: 'info' | 'warning' | 'error';
 }
 
@@ -42,6 +43,8 @@ export function questionOutcomes(state: WorkspaceState): QuestionOutcome[] {
     .sort((a, b) => (b.turn.outcomeAt ?? 0) - (a.turn.outcomeAt ?? 0) || b.order - a.order)
     .slice(0, 50).map(({ explorationId, turn, key }) => ({
       explorationId, turnId: turn.id, key: key!, question: turn.question,
+      answerRevisionIds: [...new Set([turn.revisionId, ...(turn.publishedSections ?? []).map((section) => section.revisionId),
+        ...(turn.answerVersions ?? []).map((version) => version.revisionId)].filter((id): id is string => Boolean(id)))],
       read: turn.outcomeNotice?.read === key,
       title: turn.status === 'ready' && hasAnswer(turn) ? 'Explanation ready'
         : turn.status === 'stopped' ? 'Question stopped'
@@ -49,6 +52,15 @@ export function questionOutcomes(state: WorkspaceState): QuestionOutcome[] {
         : turn.status === 'partial' && hasAnswer(turn) ? 'Explanation partly complete' : 'Question needs attention',
       tone: turn.status === 'ready' && hasAnswer(turn) ? 'info' : turn.status === 'failed' ? 'error' : 'warning',
     }));
+}
+
+/** Keep the notification honest when conversation metadata points at a
+ * revision that is no longer present in the snapshot's saved chapter list. */
+export function withSavedAnswerAvailability(outcomes: QuestionOutcome[], availableRevisionIds: ReadonlySet<string>): QuestionOutcome[] {
+  return outcomes.map((outcome) => outcome.answerRevisionIds.length > 0
+    && !outcome.answerRevisionIds.some((revisionId) => availableRevisionIds.has(revisionId))
+    ? { ...outcome, title: 'Saved explanation unavailable', tone: 'warning' }
+    : outcome);
 }
 
 /** Stable snapshots for React's external-store subscription. Source/scroll

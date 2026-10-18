@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { addTurn, createWorkspace, parseWorkspace } from '../src/workspace/model.ts';
-import { createQuestionOutcomeSelector, markQuestionOutcome, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns } from '../src/workspace/outcomes.ts';
+import { createQuestionOutcomeSelector, markQuestionOutcome, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
 
 const turn = (id, status = 'failed', extra = {}) => ({ id, question: `Question ${id}`, context: [], status, ...extra });
 const stateWith = (...turns) => ({ ...createWorkspace('project', 'snapshot'), explorations: [{ ...createWorkspace('project', 'snapshot').explorations[0], turns }] });
@@ -151,6 +151,19 @@ test('an incomplete question with no saved reference is not announced as a compl
     const [outcome] = questionOutcomes(stateWith(turn('one', status)));
     assert.equal(outcome.title, 'Question needs attention');
   }
+});
+
+test('notifications report a missing saved revision instead of claiming an explanation is ready', () => {
+  const state = stateWith(turn('one', 'ready', { revisionId: 'revision:missing' }));
+  const [outcome] = questionOutcomes(state);
+  const unavailable = withSavedAnswerAvailability([outcome], new Set(['revision:other']));
+  assert.equal(unavailable[0].title, 'Saved explanation unavailable');
+  assert.equal(unavailable[0].tone, 'warning');
+  assert.equal(unavailable[0].turnId, 'one');
+
+  const available = withSavedAnswerAvailability([outcome], new Set(['revision:missing']));
+  assert.equal(available[0].title, 'Explanation ready');
+  assert.equal(available[0].tone, 'info');
 });
 
 test('background completion changes neither the current branch, focused question, source nor reading positions', () => {
