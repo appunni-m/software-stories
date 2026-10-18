@@ -87,3 +87,27 @@ test('native save failure retains the unsaved candidate and never records a succ
   const {state,bindings}=setup(),candidate=state.candidate;bindings.saveChapterEdits=async()=>{throw new Error('native save rejected');};
   await callback('saveEdits',bindings)();assert.equal(state.candidate,candidate);assert.equal(state.editing,true);assert.deepEqual(state.recorded,[]);assert.deepEqual(state.navigation,[]);assert.equal(state.feedback.tone,'error');
 });
+
+for(const editing of [false,true])test(`Validate uses ${editing?'the trusted saved base for an unsaved edit':'strict saved-revision validation'}`,async()=>{
+  const {state,bindings,before}=setup();const requests=[];bindings.editing=editing;bindings.activeDocument=bindings.candidate;
+  bindings.validateChapterRevision=async(...args)=>{requests.push(args);return {status:'valid',issues:[]};};
+  await callback('validateCurrent',bindings)();
+  assert.equal(requests.length,1);assert.equal(requests[0][0],'p');assert.equal(requests[0][1],bindings.candidate);assert.equal(requests[0][2],editing?before.revisionId:undefined);assert.equal(state.feedback.tone,'success');
+});
+
+
+test('the actual edit validation and save transports carry base identity without changing provenance',async()=>{
+  const file=ts.createSourceFile('commands.ts',readFileSync(new URL('../src/lib/commands.ts',import.meta.url),'utf8'),ts.ScriptTarget.Latest,true);
+  const requests=[];const invoke=async(command,args)=>{requests.push({command,args});return {};};
+  function transport(name){
+    const node=file.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text===name);assert.ok(node);
+    const compiled=ts.transpileModule(node.getText(file),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
+    const exports={};runInThisContext(`(function(exports,invoke){${compiled}\n})`)(exports,invoke);return exports[name];
+  }
+  const candidate={...baseRevision(),generationOrigin:{testSentinel:'must be preserved for the native boundary'}};
+  const validate=transport('validateChapterRevision'),save=transport('saveChapterEdits');
+  await validate('p',candidate,'trusted-base');await validate('p',candidate);await save('p','trusted-base',candidate);
+  assert.deepEqual(requests.map(r=>r.command),['validate_chapter_revision','validate_chapter_revision','save_chapter_edits']);
+  assert.equal(requests[0].args.baseRevisionId,'trusted-base');assert.equal(Object.hasOwn(requests[1].args,'baseRevisionId'),false);assert.equal(requests[2].args.baseRevisionId,'trusted-base');
+  for(const request of requests)assert.deepEqual(JSON.parse(request.args.revisionJson),candidate);
+});

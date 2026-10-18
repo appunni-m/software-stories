@@ -4463,7 +4463,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     setBusy(true);
     setFeedback(null);
     try {
-      const report = await validateChapterRevision(projectId, activeDocument);
+      const report = await validateChapterRevision(projectId, activeDocument, editing ? selectedRevision?.revisionId : undefined);
       if (!studioMounted.current) return;
       setValidation(report);
       setFeedback({

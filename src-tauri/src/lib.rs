@@ -442,10 +442,15 @@ async fn validate_chapter_revision(
     sessions: State<'_, ProjectSessions>,
     project_id: String,
     revision_json: String,
+    base_revision_id: Option<String>,
 ) -> Result<chapters::ChapterValidationReport, String> {
     let _project = sessions.get(&project_id)?;
     let storage_dir = app_data_directory(&app)?;
     local_read::run(move || {
+        if let Some(base_id) = base_revision_id {
+            let proposal = chapters::decode_chapter_edit_proposal(revision_json.as_bytes())?;
+            return chapter_review::validate_edits(&storage_dir, &project_id, &base_id, proposal);
+        }
         let revision = chapters::decode_chapter_revision(revision_json.as_bytes())?;
         let manifest =
             snapshot::load_snapshot_manifest(&storage_dir, &project_id, &revision.snapshot_id)?;
@@ -498,7 +503,7 @@ fn save_chapter_edits(
     revision_json: String,
 ) -> Result<chapter_review::SavedChapterReview, String> {
     let _project = sessions.get(&project_id)?;
-    let proposal = chapters::decode_chapter_revision(revision_json.as_bytes())?;
+    let proposal = chapters::decode_chapter_edit_proposal(revision_json.as_bytes())?;
     chapter_review::save_edits(
         &app_data_directory(&app)?,
         &write_lock.0,

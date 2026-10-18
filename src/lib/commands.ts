@@ -1141,9 +1141,11 @@ export async function loadSnapshotIndex(projectId: string, snapshotId: string): 
 export async function validateChapterRevision(
   projectId: string,
   revision: ChapterRevision,
+  baseRevisionId?: string,
 ): Promise<ChapterValidationReport> {
   return invoke<ChapterValidationReport>('validate_chapter_revision', {
     projectId,
+    ...(baseRevisionId ? { baseRevisionId } : {}),
     revisionJson: JSON.stringify(revision),
   });
 }

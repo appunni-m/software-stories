@@ -28,32 +28,9 @@ pub fn save_edits(
         .lock()
         .map_err(|_| "The local chapter store is temporarily unavailable.".to_owned())?;
     let base = find_latest_base(storage_dir, project_id, base_revision_id)?;
-    if base.project_id != proposal.project_id
-        || base.snapshot_id != proposal.snapshot_id
-        || base.chapter_id != proposal.chapter_id
-        || base.target != proposal.target
-    {
-        return Err(
-            "Chapter edits must keep the selected project, snapshot, and target.".to_owned(),
-        );
-    }
-
+    let mut revision = prepare_edit(&base, proposal)?;
     let manifest = snapshot::load_snapshot_manifest(storage_dir, project_id, &base.snapshot_id)?;
     let snapshot_index = index::load_snapshot_index(storage_dir, project_id, &base.snapshot_id)?;
-    let mut revision = base.clone();
-    revision.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
-    revision.revision_id = new_id("revision");
-    revision.revision_number = base
-        .revision_number
-        .checked_add(1)
-        .ok_or_else(|| "The chapter revision number is exhausted.".to_owned())?;
-    revision.title = proposal.title;
-    revision.sections = version_edited_sections(&base, proposal.sections);
-    revision.lifecycle = RevisionLifecycle::Draft;
-    revision.validation_status = ValidationStatus::Unvalidated;
-    revision.created_at_unix_ms = unix_time_ms();
-    revision.based_on_revision_id = Some(base.revision_id.clone());
-    revision.decision_note = None;
 
     let validation = chapters::validate_chapter_revision(
         storage_dir,
@@ -71,6 +48,58 @@ pub fn save_edits(
         revision,
         validation,
     })
+}
+
+/// Read-only preview of the same derived content Save will independently
+/// revalidate under its write lock. No chapter or asset is written here.
+pub(crate) fn validate_edits(
+    storage_dir: &Path,
+    project_id: &str,
+    base_revision_id: &str,
+    proposal: ChapterRevision,
+) -> Result<chapters::ChapterValidationReport, String> {
+    let base = find_latest_base(storage_dir, project_id, base_revision_id)?;
+    let revision = prepare_edit(&base, proposal)?;
+    let manifest = snapshot::load_snapshot_manifest(storage_dir, project_id, &base.snapshot_id)?;
+    let snapshot_index = index::load_snapshot_index(storage_dir, project_id, &base.snapshot_id)?;
+    Ok(chapters::validate_chapter_revision(
+        storage_dir,
+        &manifest,
+        snapshot_index.as_ref(),
+        &revision,
+    ))
+}
+
+fn prepare_edit(
+    base: &ChapterRevision,
+    proposal: ChapterRevision,
+) -> Result<ChapterRevision, String> {
+    if base.project_id != proposal.project_id
+        || base.snapshot_id != proposal.snapshot_id
+        || base.chapter_id != proposal.chapter_id
+        || base.target != proposal.target
+    {
+        return Err(
+            "Chapter edits must keep the selected project, snapshot, and target.".to_owned(),
+        );
+    }
+
+    let mut revision = base.clone();
+    revision.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
+    revision.revision_id = new_id("revision");
+    revision.revision_number = base
+        .revision_number
+        .checked_add(1)
+        .ok_or_else(|| "The chapter revision number is exhausted.".to_owned())?;
+    revision.title = proposal.title;
+    revision.sections = version_edited_sections(base, proposal.sections);
+    revision.lifecycle = RevisionLifecycle::Draft;
+    revision.validation_status = ValidationStatus::Unvalidated;
+    revision.created_at_unix_ms = unix_time_ms();
+    revision.based_on_revision_id = Some(base.revision_id.clone());
+    revision.decision_note = None;
+
+    Ok(revision)
 }
 
 /// Restore immutable content from an earlier revision into a new draft based on
@@ -413,6 +442,184 @@ mod tests {
         let mut revision = revision;
         revision.validation_status = ValidationStatus::Valid;
         chapter_store::save_new_draft(&fixture.storage, revision).unwrap()
+    }
+
+    fn saved_agent_overview(fixture: &Fixture) -> ChapterRevision {
+        let mut revision = first_saved_draft(fixture);
+        revision.revision_id = new_id("revision");
+        revision.chapter_id = "chapter:overview".into();
+        revision.target.target_id = "target:overview".into();
+        revision.target.scope = chapters::ChapterTargetScope::Overview;
+        for section in &mut revision.sections {
+            section.prose = chapters::overview_claim_sentences(&section.claims).join(" ");
+            section.spoken_text = chapters::overview_narration_sentences(&section.claims).join(" ");
+        }
+        let sources = fixture.sources(&[SIMPLE_PATH]);
+        let range = crate::repository_context::read_range(
+            &fixture.storage,
+            &fixture.manifest,
+            SIMPLE_PATH,
+            &sources[0].sha256,
+            0,
+            crate::chapter_generation::tests::SIMPLE_SOURCE.len(),
+        )
+        .unwrap()
+        .range;
+        revision.generation_origin = Some(
+            crate::chapter_origin::ChapterGenerationOrigin::from_retrieval(
+                &Uuid::new_v4().to_string(),
+                &"a".repeat(64),
+                &"b".repeat(64),
+                vec![range],
+                &sources,
+                &revision,
+            )
+            .unwrap(),
+        );
+        chapter_store::save_new_draft(&fixture.storage, revision).unwrap()
+    }
+
+    #[test]
+    fn edited_agent_wire_content_validates_without_writing_and_saves_with_trusted_lineage() {
+        let fixture = Fixture::new();
+        let original = saved_agent_overview(&fixture);
+        let original_bytes = chapters::encode_chapter_revision(&original).unwrap();
+        let before =
+            chapter_store::list_for_project(&fixture.storage, &original.project_id).unwrap();
+        let mut proposal = original.clone();
+        proposal.sections[0].title.push_str(" — reviewed path");
+        // The immutable import path must continue rejecting modified originals.
+        let wire = serde_json::to_vec(&proposal).unwrap();
+        assert!(chapters::decode_chapter_revision(&wire).is_err());
+        let mut decoded = chapters::decode_chapter_edit_proposal(&wire).unwrap();
+        decoded.generation_origin.as_mut().unwrap().content_sha256 = "c".repeat(64);
+        let report = validate_edits(
+            &fixture.storage,
+            &original.project_id,
+            &original.revision_id,
+            decoded.clone(),
+        )
+        .unwrap();
+        assert_eq!(report.status, ValidationReportStatus::Valid, "{report:#?}");
+        assert_eq!(
+            chapter_store::list_for_project(&fixture.storage, &original.project_id).unwrap(),
+            before
+        );
+        let saved = save_edits(
+            &fixture.storage,
+            &Mutex::new(()),
+            &original.project_id,
+            &original.revision_id,
+            decoded,
+        )
+        .unwrap();
+        assert_eq!(saved.validation.status, ValidationReportStatus::Valid);
+        assert_eq!(saved.revision.generation_origin, original.generation_origin);
+        assert_eq!(
+            saved.revision.based_on_revision_id.as_deref(),
+            Some(original.revision_id.as_str())
+        );
+        assert_ne!(saved.revision.revision_id, original.revision_id);
+        let stored =
+            chapter_store::list_for_project(&fixture.storage, &original.project_id).unwrap();
+        assert_eq!(
+            chapters::encode_chapter_revision(
+                stored
+                    .iter()
+                    .find(|r| r.revision_id == original.revision_id)
+                    .unwrap()
+            )
+            .unwrap(),
+            original_bytes
+        );
+    }
+
+    #[test]
+    fn edited_agent_validation_reports_content_issues_and_rejects_stale_or_foreign_bases() {
+        let fixture = Fixture::new();
+        let original = saved_agent_overview(&fixture);
+        let mut proposal = original.clone();
+        proposal.sections[0].claims[0].anchors[0].source_sha256 = "0".repeat(64);
+        let wire = serde_json::to_vec(&proposal).unwrap();
+        let decoded = chapters::decode_chapter_edit_proposal(&wire).unwrap();
+        let report = validate_edits(
+            &fixture.storage,
+            &original.project_id,
+            &original.revision_id,
+            decoded.clone(),
+        )
+        .unwrap();
+        assert_eq!(report.status, ValidationReportStatus::Invalid);
+        assert!(!report.issues.is_empty());
+        assert!(
+            report
+                .issues
+                .iter()
+                .all(|i| !i.message.contains("generation metadata"))
+        );
+        let mut foreign = decoded.clone();
+        foreign.snapshot_id = "foreign-snapshot".into();
+        assert!(
+            validate_edits(
+                &fixture.storage,
+                &original.project_id,
+                &original.revision_id,
+                foreign
+            )
+            .is_err()
+        );
+        let invalid = save_edits(
+            &fixture.storage,
+            &Mutex::new(()),
+            &original.project_id,
+            &original.revision_id,
+            decoded.clone(),
+        )
+        .unwrap();
+        assert_eq!(invalid.validation.status, ValidationReportStatus::Invalid);
+        assert!(
+            accept_draft(
+                &fixture.storage,
+                &Mutex::new(()),
+                &original.project_id,
+                &invalid.revision.revision_id
+            )
+            .is_err()
+        );
+        assert!(
+            validate_edits(
+                &fixture.storage,
+                &original.project_id,
+                &original.revision_id,
+                decoded
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn edit_wire_decoder_retains_strict_json_schema_and_size_guards() {
+        let fixture = Fixture::new();
+        let original = saved_agent_overview(&fixture);
+        let encoded = serde_json::to_string(&original).unwrap();
+        let duplicate = encoded.replacen('{', "{\"schemaVersion\":4,", 1);
+        assert!(chapters::decode_chapter_edit_proposal(duplicate.as_bytes()).is_err());
+        let mut value = serde_json::to_value(&original).unwrap();
+        value["unknownRoot"] = true.into();
+        assert!(
+            chapters::decode_chapter_edit_proposal(&serde_json::to_vec(&value).unwrap()).is_err()
+        );
+        value.as_object_mut().unwrap().remove("unknownRoot");
+        value["schemaVersion"] = 99.into();
+        assert!(
+            chapters::decode_chapter_edit_proposal(&serde_json::to_vec(&value).unwrap()).is_err()
+        );
+        value["schemaVersion"] = 4.into();
+        value["generationOrigin"] = serde_json::Value::Null;
+        assert!(
+            chapters::decode_chapter_edit_proposal(&serde_json::to_vec(&value).unwrap()).is_err()
+        );
+        assert!(chapters::decode_chapter_edit_proposal(&vec![b' '; 4 * 1024 * 1024 + 1]).is_err());
     }
 
     #[test]

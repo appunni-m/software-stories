@@ -719,6 +719,16 @@ pub struct AnchorRemapResult {
 }
 
 pub fn decode_chapter_revision(bytes: &[u8]) -> Result<ChapterRevision, String> {
+    decode_chapter_payload(bytes, true)
+}
+
+/// Decode editable content at the review boundary. Only the trusted saved base
+/// supplies lineage; this proposal must never be imported or persisted directly.
+pub(crate) fn decode_chapter_edit_proposal(bytes: &[u8]) -> Result<ChapterRevision, String> {
+    decode_chapter_payload(bytes, false)
+}
+
+fn decode_chapter_payload(bytes: &[u8], verify_origin: bool) -> Result<ChapterRevision, String> {
     if bytes.len() > MAX_CHAPTER_JSON_BYTES {
         return Err("The chapter revision exceeds its 4 MB size limit.".to_owned());
     }
@@ -777,7 +787,9 @@ pub fn decode_chapter_revision(bytes: &[u8]) -> Result<ChapterRevision, String> 
     {
         return Err("Version 1 chapter revisions cannot contain review metadata.".to_owned());
     }
-    crate::chapter_origin::validate_revision_origin(&revision)?;
+    if verify_origin {
+        crate::chapter_origin::validate_revision_origin(&revision)?;
+    }
     validate_overview_revision_identity(&revision)?;
     Ok(revision)
 }
