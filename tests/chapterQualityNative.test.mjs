@@ -28,11 +28,11 @@ describe('current native chapter quality boundary', () => {
     assert.equal(artifact.humanQualityOrListeningPass, false);
   });
 
-  it('keeps the original five leaf-parent errors rejected', async () => {
+  it('rejects the unsupported saved scene format before accepting a candidate', async () => {
     const { artifact, sources } = await savedAttempt('2026-10-17-fontdone-file-teaching-v2-rejected.json');
     const result = validateCurrentProposal(artifact.responseText, sources, artifact.source.path);
     assert.equal(result.valid, false);
-    assert.match(result.message, /parent|container|leaf/i);
+    assert.match(result.message, /Current response schema|version 3/);
   });
 
   it('fails closed for source infrastructure errors instead of counting them as a candidate failure', async () => {

@@ -6,7 +6,7 @@ import { validScenePresentation } from '../src/lib/scenePresentation.ts';
 const anchor = { anchorId: 'anchor:one', excerpt: 'run()' };
 const visual = { nodes: [{ label: 'Example <input>', evidenceAnchorIds: ['anchor:one'] }] };
 const claims = [{ anchors: [anchor] }];
-const scene = (kind, value, parentKind = 'row') => ({ claimIndex: 0, title: 'An illustrative representation', mode: 'composition', elements: [
+const scene = (kind, value, parentKind = 'row') => ({ claimIndex: 0, title: 'An illustrative representation', narration: 'This representation shows the value in its supporting context.', mode: 'composition', elements: [
   { kind: parentKind, parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
   { kind, parentIndex: 0, nodeIndex: 0, tone: 'accent', value, valueOrigin: 'illustration' },
 ] });
@@ -16,9 +16,8 @@ it('offline composition preserves every supported data and layout primitive', ()
   for (const [kind, value] of Object.entries(values)) {
     for (const group of ['row', 'column', 'grid', 'panel', 'compare', 'stack']) {
       const authored = scene(kind, value, group);
-      for (const schemaVersion of [1, 2]) {
-        assert.ok(validScenePresentation({ schemaVersion, scenes: [authored] }, visual.nodes, claims));
-      }
+      assert.ok(validScenePresentation({ schemaVersion: 3, scenes: [authored] }, visual.nodes, claims));
+      for (const schemaVersion of [1, 2]) assert.equal(validScenePresentation({ schemaVersion, scenes: [authored] }, visual.nodes, claims), false);
       const markup = renderOfflineScene(authored, visual, () => '#evidence-1-1');
       assert.ok(markup.includes(`scene-${kind}`));
       assert.ok(markup.includes(`scene-${group}`));
@@ -37,7 +36,7 @@ it('offline composition preserves every supported data and layout primitive', ()
 
 it('payload markup stays escaped and only generated package destinations become links', () => {
   const authored = scene('code', '<script>bad()</script><img src=x onerror="bad()">');
-  assert.ok(validScenePresentation({ schemaVersion: 1, scenes: [authored] }, visual.nodes, claims));
+  assert.ok(validScenePresentation({ schemaVersion: 3, scenes: [authored] }, visual.nodes, claims));
   for (const destination of ['javascript:bad()', 'file:///private/source.rs', 'https://example.com', '#evidence" onclick="bad()']) {
     const markup = renderOfflineScene(authored, visual, () => destination);
     assert.doesNotMatch(markup, /<script|<img|href=|onclick=/);

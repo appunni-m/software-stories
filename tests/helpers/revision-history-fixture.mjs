@@ -1,5 +1,5 @@
 export const baseRevision = () => ({
-  schemaVersion: 1,
+  schemaVersion: 5,
   chapterId: 'chapter:atlas',
   revisionId: 'revision:one',
   revisionNumber: 1,
@@ -62,7 +62,7 @@ export const baseRevision = () => ({
 });
 
 export function sceneRevision(){
-  const revision=baseRevision();revision.schemaVersion=4;
+  const revision=baseRevision();revision.schemaVersion=5;
   const section=revision.sections[0];
   section.claims[0].anchors[0].excerpt='SOURCE_VALUE_OLD SOURCE_VALUE_NEW SOURCE_VALUE_ADDED';
   section.visual.nodes[1].evidenceAnchorIds=['anchor:route'];

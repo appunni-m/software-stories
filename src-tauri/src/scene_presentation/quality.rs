@@ -46,12 +46,11 @@ fn signature<'a>(
 }
 
 /// Return only bounded fixed positions; labels and values never enter findings.
-/// Historical version 1 scenes retain their original admission rules.
 pub(crate) fn repetition_positions(
     presentation: &ScenePresentation,
     labels: &[&str],
 ) -> Vec<(usize, usize)> {
-    if !matches!(presentation.schema_version, 2 | 3) || presentation.scenes.len() > 20 || labels.len() > 12 {
+    if presentation.schema_version != 3 || presentation.scenes.len() > 20 || labels.len() > 12 {
         return vec![];
     }
     let mut positions = Vec::new();

@@ -24,8 +24,7 @@ struct Grant {
     manifest_sha256: String,
     account_sha256: String,
     executable_sha256: String,
-    #[serde(default)]
-    retrieval_policy: Option<String>,
+    retrieval_policy: String,
 }
 
 fn grant_path(storage: &Path, id: &str) -> Result<PathBuf, String> {
@@ -75,7 +74,8 @@ fn checked_grant(
             .map_err(|_| "The exploration permission is unavailable.".to_owned())?,
     )
     .map_err(|_| "The exploration permission is invalid.".to_owned())?;
-    if grant.id != id
+    if grant.retrieval_policy != crate::evidence_ledger::POLICY
+        || grant.id != id
         || grant.project_id != project
         || grant.snapshot_id != snapshot
         || grant.account_sha256 != runtime.account_identity_sha256
@@ -87,7 +87,7 @@ fn checked_grant(
     Ok(grant)
 }
 
-/// A previous whole-file grant must not silently acquire tool permissions.
+/// Retrieval uses the same explicit current snapshot permission.
 pub(crate) fn check_retrieval_grant(
     storage: &Path,
     id: &str,
@@ -95,11 +95,7 @@ pub(crate) fn check_retrieval_grant(
     snapshot: &str,
     runtime: &CodexReviewRuntime,
 ) -> Result<(), String> {
-    let grant = checked_grant(storage, id, project, snapshot, runtime)?;
-    if grant.retrieval_policy.as_deref() != Some(crate::evidence_ledger::POLICY) {
-        return Err("This snapshot uses an older sharing permission. Allow bounded code exploration before using retrieval tools.".to_owned());
-    }
-    Ok(())
+    check_grant(storage, id, project, snapshot, runtime)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -144,7 +140,7 @@ pub(crate) fn save_retrieval_grant(
         manifest_sha256: manifest_digest(&storage, &project_id, &snapshot_id)?,
         account_sha256: runtime.account_identity_sha256.clone(),
         executable_sha256: runtime.executable_sha256.clone(),
-        retrieval_policy: Some(crate::evidence_ledger::POLICY.to_owned()),
+        retrieval_policy: crate::evidence_ledger::POLICY.to_owned(),
     };
     let path = grant_path(&storage, &id)?;
     codex_agent::ensure_private_directory(
@@ -247,7 +243,7 @@ mod tests {
             .unwrap(),
             account_sha256: runtime.account_identity_sha256.clone(),
             executable_sha256: runtime.executable_sha256.clone(),
-            retrieval_policy: None,
+            retrieval_policy: crate::evidence_ledger::POLICY.to_owned(),
         };
         fs::write(path, serde_json::to_vec(&grant).unwrap()).unwrap();
         id
@@ -300,7 +296,7 @@ mod tests {
         assert!(check_grant(&fixture.storage, &id, p, s, &runtime).is_err());
     }
     #[test]
-    fn legacy_permission_does_not_silently_enable_retrieval_tools() {
+    fn unsupported_permission_is_rejected_without_rewriting() {
         let fixture = Fixture::new();
         let runtime = runtime();
         let p = &fixture.manifest.summary.project_id;
@@ -311,12 +307,14 @@ mod tests {
             serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
         legacy.as_object_mut().unwrap().remove("retrievalPolicy");
         fs::write(&path, serde_json::to_vec(&legacy).unwrap()).unwrap();
-        check_grant(&fixture.storage, &old, p, s, &runtime).unwrap();
+        let original = fs::read(&path).unwrap();
+        assert!(check_grant(&fixture.storage, &old, p, s, &runtime).is_err());
         assert!(
             check_retrieval_grant(&fixture.storage, &old, p, s, &runtime)
                 .unwrap_err()
-                .contains("older sharing permission")
+                .contains("invalid")
         );
+        assert_eq!(fs::read(&path).unwrap(), original);
         let new = save_retrieval_grant(&fixture.storage, p, s, &runtime).unwrap();
         check_retrieval_grant(&fixture.storage, &new, p, s, &runtime).unwrap();
         assert!(check_retrieval_grant(&fixture.storage, &old, p, s, &runtime).is_err());

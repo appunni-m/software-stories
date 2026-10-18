@@ -43,7 +43,6 @@ mod local_read;
 mod file_lease;
 mod agent_context;
 mod evidence_ledger;
-mod rejected_answers;
 mod native_citations;
 mod git_evidence;
 mod index;
@@ -1878,15 +1877,6 @@ fn validate_chapter_draft_preview(
             &allowed_relationships,
             &result.response_text,
         ).map(|revision| (revision, Vec::new())),
-        ("repositoryOverview", None) if review.provider_id == "codex"
-            && review.generation_config.get("overviewPresentation").and_then(serde_json::Value::as_str) == Some("anchored-claims-v1") => chapter_generation::canonicalize_workspace_overview(
-            &review.project_id,
-            &manifest,
-            snapshot_index.as_ref(),
-            &sources,
-            &allowed_relationships,
-            &result.response_text,
-        ).map(|revision| (revision, Vec::new())),
         ("repositoryOverview", None) => chapter_generation::canonicalize_authored_repository_overview(
             &review.project_id,
             &manifest,
@@ -2005,9 +1995,6 @@ pub fn run() {
             workspace_conversation::load_workspace_conversation,
             workspace_conversation::save_workspace_conversation,
             app_notices::update_app_notices,
-            rejected_answers::list_rejected_answers,
-            rejected_answers::read_rejected_answer,
-            rejected_answers::trash_rejected_answer,
             agent_installation::pick_agent_installation_file,
             agent_handoff::build_agent_handoff_review,
             agent_handoff::export_agent_handoff,
@@ -2043,7 +2030,6 @@ pub fn run() {
             codex_commands::send_codex_pr_guide_request,
             codex_commands::send_codex_pr_change_request,
             codex_commands::cancel_codex_chapter_request,
-            workspace_generation::generate_workspace_answer,
             repository_guide::start_repository_guide,
             repository_guide::resume_repository_guide,
             repository_guide::stop_repository_guide,
@@ -2230,9 +2216,8 @@ mod chapter_pipeline_tests {
             assert_eq!(presentation.schema_version, 3);
             assert_eq!(presentation.scenes.len(), 1);
             assert!(chapter_store::list_for_project(&fixture.storage, &review.project_id).unwrap().is_empty());
-            // A historical shape still decodes, but cannot downgrade a fresh result.
+            // Unsupported scene versions fail instead of being upgraded.
             proposal["sections"][0]["visual"]["presentation"]["schemaVersion"] = serde_json::json!(1);
-            proposal["sections"][0]["visual"]["presentation"]["scenes"][0].as_object_mut().unwrap().remove("narration");
             let error = validate_chapter_draft_preview(
                 &fixture.storage, &review, response(&review, proposal.to_string())).err().unwrap();
             assert_eq!(error.kind, provider::ProviderFailureKind::MalformedProviderResponse);

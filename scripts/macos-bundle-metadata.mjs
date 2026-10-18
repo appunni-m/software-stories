@@ -29,10 +29,7 @@ async function metadata() {
     identifier: config.identifier,
     dataFormats: {
       chapterSchema: rustConstant(chapters, 'CHAPTER_SCHEMA_VERSION'),
-      legacyChapterSchema: rustConstant(chapters, 'LEGACY_CHAPTER_SCHEMA_VERSION'),
-      reviewChapterSchema: rustConstant(chapters, 'REVIEW_CHAPTER_SCHEMA_VERSION'),
       visualSchema: rustConstant(chapters, 'VISUAL_SCHEMA_VERSION'),
-      legacyVisualSchema: rustConstant(chapters, 'LEGACY_VISUAL_SCHEMA_VERSION'),
       visualRendererContract: rustConstant(chapters, 'VISUAL_RENDERER_CONTRACT_VERSION'),
       indexSchema: rustConstant(index, 'INDEX_SCHEMA_VERSION'),
       indexer: rustConstant(index, 'INDEXER_VERSION'),

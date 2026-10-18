@@ -21,15 +21,9 @@ pub struct ScenePresentation {
 pub struct PresentationScene {
     pub claim_index: usize,
     pub title: String,
-    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "present_narration")]
-    pub narration: Option<String>,
+    pub narration: String,
     pub mode: SceneMode,
     pub elements: Vec<SceneElement>,
-}
-
-// Absence preserves historical scene bytes; an explicit null is never a script.
-fn present_narration<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<String>, D::Error> {
-    String::deserialize(d).map(Some)
 }
 
 /// Authored speech stays separate from exact implementation claims. This checks
@@ -37,20 +31,17 @@ fn present_narration<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<St
 pub(crate) fn narration(
     presentation: &ScenePresentation,
     claims: &[ChapterClaim],
-) -> Result<Option<Vec<String>>, String> {
+) -> Result<Vec<String>, String> {
     if presentation.schema_version != 3 {
-        if presentation.scenes.iter().any(|s| s.narration.is_some()) {
-            return Err("Historical scenes cannot contain separate narration.".into());
-        }
-        return Ok(None);
+        return Err("A scene presentation must use schema version 3.".into());
     }
     if presentation.scenes.len() != claims.len() || claims.is_empty() || claims.len() > 20 {
         return Err("Scene narration needs one ordered scene for every claim.".into());
     }
     let mut scripts = Vec::with_capacity(claims.len());
     for (index, (scene, claim)) in presentation.scenes.iter().zip(claims).enumerate() {
-        let text = scene.narration.as_deref().unwrap_or("");
-        if scene.claim_index != index || claim.anchors.is_empty() || text.trim().is_empty() || text.len() > 4_000 {
+        let text = scene.narration.trim();
+        if scene.claim_index != index || claim.anchors.is_empty() || text.is_empty() || text.len() > 4_000 {
             return Err("Each scene needs bounded narration and its own consecutive anchored claim.".into());
         }
         let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
@@ -67,7 +58,7 @@ pub(crate) fn narration(
     if !(20..=4_000).contains(&scripts.join(" ").len()) {
         return Err("The complete scene narration must be 20–4,000 UTF-8 bytes; split the section without omitting behavior.".into());
     }
-    Ok(Some(scripts))
+    Ok(scripts)
 }
 
 /// Known proposal-reference mismatch, shared by chapter and progressive repair.
@@ -81,7 +72,7 @@ pub(crate) fn foreign_claim_positions(section: &Value) -> Vec<(usize, usize)> {
     let Ok(presentation) = serde_json::from_value::<ScenePresentation>(visual["presentation"].clone()) else {
         return vec![];
     };
-    if !matches!(presentation.schema_version, 1 | 2 | 3) || presentation.scenes.len() > 20 {
+    if presentation.schema_version != 3 || presentation.scenes.len() > 20 {
         return vec![];
     }
     let mut positions = Vec::new();
@@ -176,13 +167,13 @@ pub fn validate(
     nodes: &[VisualNode],
     claims: &[ChapterClaim],
 ) -> Result<(), String> {
-    if !matches!(presentation.schema_version, 1 | 2 | 3)
+    if presentation.schema_version != 3
         || presentation.scenes.len() != claims.len()
         || presentation.scenes.is_empty()
         || presentation.scenes.len() > 20
     {
         return Err(
-            "A scene presentation needs version 1, 2 or 3 and one scene for each claim, in claim order."
+            "A scene presentation needs version 3 and one scene for each claim, in claim order."
                 .into(),
         );
     }
@@ -300,25 +291,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn new_scene_policy_rejects_the_recorded_empty_self_transformation_but_keeps_legacy() {
-        let artifact: Value = serde_json::from_str(include_str!(
-            "../../docs/acceptance/artifacts/2026-10-17-fontdone-short-references-partial.json"
-        ))
-        .unwrap();
-        let revision: crate::chapters::ChapterRevision = serde_json::from_value(
-            artifact["answer"]["sections"][0]["preview"]["revision"].clone(),
-        )
-        .unwrap();
-        let section = &revision.sections[0];
-        let visual = section.visual.as_ref().unwrap().typed_visual().unwrap();
-        let mut presentation = visual.presentation.clone().unwrap();
-        // The original admitted guide is immutable and stays readable.
-        assert_eq!(presentation.schema_version, 1);
-        validate(&presentation, &visual.nodes, &section.claims).unwrap();
-        presentation.schema_version = 2;
-        assert!(validate(&presentation, &visual.nodes, &section.claims)
-            .unwrap_err()
-            .contains("distinct input/result labels or values"));
+    fn old_scene_versions_and_missing_current_narration_are_rejected() {
+        let (nodes, claims, mut presentation) = fixture();
+        for version in [1, 2] {
+            presentation.schema_version = version;
+            assert!(validate(&presentation, &nodes, &claims).is_err());
+            assert!(narration(&presentation, &claims).is_err());
+        }
+        presentation.schema_version = 3;
+        let mut value = serde_json::to_value(&presentation).unwrap();
+        value["scenes"][0].as_object_mut().unwrap().remove("narration");
+        assert!(serde_json::from_value::<ScenePresentation>(value).is_err());
     }
 
     fn fixture() -> (Vec<VisualNode>, Vec<ChapterClaim>, ScenePresentation) {
@@ -346,7 +329,7 @@ mod tests {
             .map(|(i, _)| PresentationScene {
                 claim_index: i,
                 title: format!("Scene {}", i + 1),
-                narration: None,
+                narration: "The operation handles the input and returns its result.".into(),
                 mode: SceneMode::Graph,
                 elements: vec![],
             })
@@ -364,7 +347,7 @@ mod tests {
             nodes,
             section.claims.clone(),
             ScenePresentation {
-                schema_version: 1,
+                schema_version: 3,
                 scenes,
             },
         )
@@ -383,21 +366,20 @@ mod tests {
     #[test]
     fn authored_speech_covers_every_claim_without_requiring_code_names_in_audio() {
         let (nodes, mut claims, mut presentation) = fixture();
-        presentation.schema_version = 3;
         for scene in &mut presentation.scenes {
-            scene.narration = Some("For example, the input passes this check; an invalid input keeps its original error.".into());
+            scene.narration = "For example, the input passes this check; an invalid input keeps its original error.".into();
         }
         claims[0].category = crate::chapters::ClaimCategory::Inference {
             visible_label: "Inference".into(), basis: "Based on the captured branch.".into(),
         };
         validate(&presentation, &nodes, &claims).unwrap();
-        let scripts = narration(&presentation, &claims).unwrap().unwrap();
+        let scripts = narration(&presentation, &claims).unwrap();
         assert_eq!(scripts.len(), claims.len());
         assert!(scripts[0].starts_with("Inference: For example"));
         assert!(scripts.iter().skip(1).all(|s| !s.starts_with("Inference:")));
         let encoded = serde_json::to_value(&presentation).unwrap();
         assert_eq!(serde_json::from_value::<ScenePresentation>(encoded).unwrap(), presentation);
-        for invalid in [None, Some(String::new()), Some("é".repeat(2_001))] {
+        for invalid in [String::new(), "é".repeat(2_001)] {
             let mut broken = presentation.clone();
             broken.scenes[0].narration = invalid;
             assert!(validate(&broken, &nodes, &claims).is_err());
@@ -406,33 +388,13 @@ mod tests {
         assert!(narration(&missing, &claims).is_err());
         let mut wrong = presentation.clone(); wrong.scenes[0].claim_index = 1;
         assert!(narration(&wrong, &claims).is_err());
-        for scene in &mut presentation.scenes { scene.narration = Some("é".repeat(600)); }
+        for scene in &mut presentation.scenes { scene.narration = "é".repeat(600); }
         assert!(narration(&presentation, &claims).is_err());
     }
 
     #[test]
-    fn legacy_scene_bytes_stay_unchanged_and_cannot_gain_a_new_script() {
-        let (nodes, claims, mut presentation) = fixture();
-        for version in [1, 2] {
-            presentation.schema_version = version;
-            let encoded = serde_json::to_string(&presentation).unwrap();
-            assert!(!encoded.contains("narration"));
-            let decoded: ScenePresentation = serde_json::from_str(&encoded).unwrap();
-            assert_eq!(serde_json::to_string(&decoded).unwrap(), encoded);
-            assert_eq!(narration(&presentation, &claims).unwrap(), None);
-            let mut changed = presentation.clone();
-            changed.scenes[0].narration = Some("This is not a historical script.".into());
-            assert!(validate(&changed, &nodes, &claims).is_err());
-            let mut explicit_null = serde_json::to_value(&presentation).unwrap();
-            explicit_null["scenes"][0]["narration"] = Value::Null;
-            assert!(serde_json::from_value::<ScenePresentation>(explicit_null).is_err());
-        }
-    }
-
-    #[test]
-    fn scene_v2_requires_a_visible_transition_but_allows_real_state_comparisons() {
+    fn current_scene_requires_a_visible_transition_but_allows_real_state_comparisons() {
         let (mut nodes, claims, mut presentation) = fixture();
-        presentation.schema_version = 2;
         let elements = json!([
             {"kind":"row","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
             {"kind":"card","parentIndex":0,"nodeIndex":3,"tone":"accent","value":"","valueOrigin":"none"},
@@ -464,8 +426,6 @@ mod tests {
             scene.elements.clear();
         }
         validate(&presentation, &nodes, &claims).unwrap();
-        presentation.schema_version = 3;
-        assert!(validate(&presentation, &nodes, &claims).is_err());
         assert_eq!(
             proposal_schema()["properties"]["schemaVersion"]["enum"],
             json!([3])

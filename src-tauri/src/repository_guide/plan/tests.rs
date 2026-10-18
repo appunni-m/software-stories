@@ -30,8 +30,7 @@ fn outline_keeps_research_questions_and_native_ranges_not_unverified_explanation
     assert!(!encoded.contains(SIMPLE_SOURCE));
     let schema = schema();
     assert_eq!(schema["properties"]["sections"]["maxItems"], 6);
-    assert!(INSTRUCTIONS.contains("Read large files by ranges"));
-    assert!(INSTRUCTIONS.contains("not an answer or file inventory"));
+    assert!(opening::instructions().contains("outline"));
 }
 #[test]
 fn outline_rejects_cycles_duplicate_questions_extra_prose_and_unknown_fields() {
@@ -75,65 +74,7 @@ fn unread_references_never_become_starting_paths() {
     ));
 }
 
-#[test]
-fn opening_request_retains_full_intent_and_binds_its_versioned_publication_contract() {
-    let f = Fixture::new();
-    let mut r = crate::repository_guide::tests::record(&f);
-    let (_, legacy_schema, legacy_digest, legacy_instructions) = request(&r).unwrap();
-    assert_eq!(legacy_schema, schema());
-    assert_eq!(legacy_instructions, INSTRUCTIONS);
-    r.schema_version = 3;
-    r.contract = INDEPENDENT_CONTRACT.into();
-    r.question = "How do café 🦀 bytes reach output, including rejected inputs?".into();
-    r.opening = Some(Attempt {
-        run_id: r.planning_run_id.clone(),
-        question: r.question.clone(),
-        summary: None,
-    });
-    let (prompt, output, digest, instructions) = request(&r).unwrap();
-    assert_eq!(
-        serde_json::from_str::<Value>(&prompt).unwrap()["question"],
-        r.question
-    );
-    assert_eq!(output, opening::schema(schema()));
-    assert_ne!(digest, legacy_digest);
-    assert!(instructions.contains("sceneAuthoringLimit"));
-    assert_eq!(request(&r).unwrap().2, digest);
-    r.question
-        .push_str(" Preserve every requested alternative.");
-    r.opening.as_mut().unwrap().question = r.question.clone();
-    assert_ne!(request(&r).unwrap().2, digest);
-    r.question = "\"".repeat(12000);
-    r.opening.as_mut().unwrap().question = r.question.clone();
-    let (prompt, _, _, _) = request(&r).unwrap();
-    assert_eq!(
-        serde_json::from_str::<Value>(&prompt).unwrap()["question"],
-        r.question
-    );
-    assert_eq!(MAX_UNITS, 6);
-    assert_eq!(MAX_ATTEMPTS, 2);
-}
 
-#[test]
-fn fresh_research_policy_is_fingerprinted_without_rewriting_historical_requests() {
-    let f = Fixture::new();
-    let mut r = crate::repository_guide::tests::fresh_record(&f);
-    r.schema_version = 3;
-    r.contract = INDEPENDENT_CONTRACT.into();
-    r.opening_context_sha256 = None;
-    r.opening.as_mut().unwrap().question = r.question.clone();
-    let (prompt, output, fresh_digest, fresh_instructions) = request(&r).unwrap();
-    assert!(fresh_instructions.ends_with(RESEARCH_INSTRUCTIONS));
-    r.schema_version = 2;
-    r.contract = OPENING_CONTRACT.into();
-    let (old_prompt, old_output, old_digest, old_instructions) = request(&r).unwrap();
-    assert_eq!(prompt, old_prompt);
-    assert_eq!(output, old_output);
-    assert_eq!(old_instructions, opening::instructions());
-    assert_ne!(fresh_digest, old_digest);
-    assert_eq!(request(&r).unwrap().2, old_digest);
-    assert_eq!(RESEARCH_POLICY, "ordered-independent-research-v1");
-}
 
 #[test]
 fn separate_opening_intent_binds_both_questions_and_preserves_the_complete_outline_scope() {
@@ -170,10 +111,10 @@ fn separate_opening_intent_binds_both_questions_and_preserves_the_complete_outli
 }
 
 #[test]
-fn scoped_opening_instructions_do_not_reintroduce_the_legacy_whole_question() {
+fn opening_instructions_keep_the_question_scoped() {
     let f = Fixture::new();
     let r = crate::repository_guide::tests::fresh_record(&f);
-    let (_, _, fingerprint, instructions) = request(&r).unwrap();
+    let (_, _, _, instructions) = request(&r).unwrap();
     assert!(!instructions.contains("The original learning question remains the guide's full scope."),
         "the top-level opening question cannot also be declared the full-guide scope");
     assert!(instructions.contains("guideContext.question"));
@@ -182,16 +123,6 @@ fn scoped_opening_instructions_do_not_reintroduce_the_legacy_whole_question() {
     assert!(instructions.contains("never completes the whole guide"));
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
 
-    let mut historical = r.clone();
-    historical.schema_version = 2;
-    historical.contract = OPENING_CONTRACT.into();
-    historical.opening.as_mut().unwrap().question = historical.question.clone();
-    historical.opening_context_sha256 = None;
-    let (_, _, old_fingerprint, old_instructions) = request(&historical).unwrap();
-    assert_eq!(old_instructions, opening::instructions());
-    assert!(old_instructions.contains("The original learning question remains the guide's full scope."));
-    assert_ne!(fingerprint, old_fingerprint);
-    assert!(instructions.len() < old_instructions.len() + 1000);
     assert_eq!(MAX_UNITS + 1, 7);
     assert_eq!(MAX_ATTEMPTS, 2);
 }
@@ -218,9 +149,7 @@ fn scoped_opening_keeps_one_transition_and_defers_later_entries_without_dropping
     assert_eq!(MAX_UNITS + 1, 7);
     assert_eq!(MAX_ATTEMPTS, 2);
 
-    let legacy = opening::instructions();
-    assert!(!legacy.contains("Choose exactly one entry point"));
-    assert!(legacy.contains("The original learning question remains the guide's full scope."));
+
 }
 
 #[test]

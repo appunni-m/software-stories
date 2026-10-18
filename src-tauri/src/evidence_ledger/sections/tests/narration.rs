@@ -1,15 +1,7 @@
 use super::*;
 
 fn narrated(reference: &str) -> Value {
-    let mut raw = authoring::tests::grounded_names_proposal(reference, "entry", 0);
-    raw["proposalVersion"] = json!(NARRATION_PROPOSAL_VERSION);
-    raw["section"]["visual"] = json!({"kind":"none","title":"","direction":"auto"});
-    raw["section"]["claims"][0]["scene"] = json!({
-        "title":"A name becomes a greeting", "mode":"narration",
-        "narration":"Start with a person's name. It is placed inside a greeting, so that name appears in the returned message.",
-        "nodes":[],"edges":[],"elements":[]
-    });
-    raw
+    authoring::tests::narrated_proposal(reference, "entry", 0)
 }
 
 fn start_narrated(
@@ -19,7 +11,7 @@ fn start_narrated(
     cancel: &AtomicBool,
 ) -> ActiveAnswer {
     ledger
-        .start_narrated_answer_sections(
+        .start_narration_answer_sections(
             "How is the greeting created?",
             &"d".repeat(64),
             &f.manifest,
@@ -50,7 +42,7 @@ fn all_nonvisual_claim_speech_is_published_and_replayed_without_manufacturing_a_
     publish(
         &mut answer,
         &ledger,
-        &raw.to_string(),
+        &raw,
         &f,
         &runtime,
         &cancel,
@@ -127,7 +119,7 @@ fn nonvisual_speech_is_required_at_every_claim_and_correction_keeps_spent_attemp
         publish(
             &mut answer,
             &ledger,
-            &good.to_string(),
+            &good,
             &f,
             &runtime,
             &cancel,
@@ -149,7 +141,7 @@ fn changing_only_authored_speech_requires_a_new_immutable_section_revision() {
     publish(
         &mut answer,
         &ledger,
-        &raw.to_string(),
+        &raw,
         &f,
         &runtime,
         &cancel,
@@ -174,7 +166,7 @@ fn changing_only_authored_speech_requires_a_new_immutable_section_revision() {
     publish(
         &mut answer,
         &ledger,
-        &changed.to_string(),
+        &changed,
         &f,
         &runtime,
         &cancel,
@@ -188,44 +180,6 @@ fn changing_only_authored_speech_requires_a_new_immutable_section_revision() {
     assert_ne!(
         saved.sections[0].preview.revision.sections[0].spoken_text,
         saved.sections[1].preview.revision.sections[0].spoken_text
-    );
-}
-
-#[test]
-fn old_nonvisual_proposals_keep_their_original_claim_copy_script_and_schema_on_replay() {
-    let f = Fixture::new();
-    let (mut ledger, runtime, cancel) = setup(&f);
-    let reference = read(&mut ledger, &f, &runtime, &cancel);
-    let mut answer = ledger
-        .start_grounded_names_answer_sections(
-            "How is the greeting created?",
-            &"d".repeat(64),
-            &f.manifest,
-            &runtime,
-            &cancel,
-        )
-        .unwrap();
-    let mut raw = narrated(&reference);
-    raw["proposalVersion"] = json!(GROUNDED_NAMES_PROPOSAL_VERSION);
-    raw["section"]["claims"][0]["scene"] = Value::Null;
-    publish(
-        &mut answer,
-        &ledger,
-        &raw.to_string(),
-        &f,
-        &runtime,
-        &cancel,
-    );
-    let before =
-        fs::read(record_path(&f.storage, &ledger.record.binding.operation_id).unwrap()).unwrap();
-    let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
-    let revision = &saved.sections[0].preview.revision;
-    assert_eq!(revision.schema_version, 4);
-    assert_eq!(saved.sections[0].checkpoint_version, 7);
-    assert_eq!(revision.sections[0].spoken_text, revision.sections[0].prose);
-    assert_eq!(
-        before,
-        fs::read(record_path(&f.storage, &ledger.record.binding.operation_id).unwrap()).unwrap()
     );
 }
 

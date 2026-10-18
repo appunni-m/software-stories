@@ -175,9 +175,9 @@ test('resolves explicit parent and valid creation time, without guessing missing
   assert.equal(orphan.createdAtUnixMs, null);
   assert.equal(orphan.createdAtIso, null);
 
-  const legacy = revisionHistoryMetadata({ ...child, basedOnRevisionId: null, createdAtUnixMs: -1 });
-  assert.equal(legacy.parentRevisionId, null);
-  assert.equal(legacy.createdAtUnixMs, null);
+  const missingLineage = revisionHistoryMetadata({ ...child, basedOnRevisionId: null, createdAtUnixMs: -1 });
+  assert.equal(missingLineage.parentRevisionId, null);
+  assert.equal(missingLineage.createdAtUnixMs, null);
 });
 
 

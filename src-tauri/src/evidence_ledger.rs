@@ -1,7 +1,6 @@
 //! Native admission for source transmitted through owned context tools.
 //! This records possible delivery before transport; it never resumes inference.
 
-pub(crate) mod attempts;
 pub(crate) mod sections;
 
 use crate::{
@@ -19,8 +18,8 @@ use std::{
 use uuid::Uuid;
 
 pub(crate) const POLICY: &str = "atlas-captured-ranges-v1-files12-source250000";
-pub(crate) const RETRIEVAL_CONTRACT: &str = "codex-retrieval-v2-native-citations";
 pub(crate) const PROGRESSIVE_CONTRACT: &str = "codex-retrieval-v3-answer-sections";
+pub(crate) const LEDGER_SCHEMA_VERSION: u32 = 3;
 const MAX_CALLS: usize = 64;
 const MAX_FILES: usize = 12;
 const MAX_SOURCE: usize = 250_000;
@@ -190,7 +189,6 @@ pub(crate) enum CallState {
 }
 
 /// Fixed native failure positions, never model text, paths or OS messages.
-/// Older receipts omitted this field; their cause remains unknown.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 enum RejectionCode {
@@ -281,8 +279,7 @@ struct Call {
     payload_sha256: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     budget_stop: Option<LimitReason>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    timing: Option<CallTiming>,
+    timing: CallTiming,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     rejection_code: Option<RejectionCode>,
 }
@@ -305,8 +302,7 @@ pub(crate) struct Record {
     status: Status,
     calls: Vec<Call>,
     evidence: Vec<Evidence>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    context_clock: Option<ContextClock>,
+    context_clock: ContextClock,
 }
 
 /// A token owns exactly one started attempt; callers cannot forge an ordinal.
@@ -325,7 +321,8 @@ pub(crate) struct Ledger {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Fragment {
-    id: String,
+    #[serde(skip)]
+    evidence_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     reference_id: Option<String>,
     range: context::CodeRange,
@@ -336,7 +333,6 @@ struct Fragment {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ReusedReference {
-    id: String,
     reference_id: String,
     citeable: bool,
 }
@@ -349,7 +345,8 @@ struct Response<'a> {
     call_id: &'a str,
     context: Option<&'a Context<'a>>,
     added: Vec<Fragment>,
-    already_available: Vec<String>,
+    #[serde(skip)]
+    evidence_ids: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     reused_references: Vec<ReusedReference>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -404,47 +401,12 @@ fn encode(record: &Record) -> Result<Vec<u8>, String> {
 }
 
 fn evidence_id(record: &Record, range: &context::CodeRange) -> Result<String, String> {
-    // Historical v1 IDs/digests stay byte-compatible. New IDs also bind the
-    // operation, grant, account/runtime and model, so foreign IDs never resolve.
-    let identity = if record.schema_version == 1 {
-        serde_json::to_vec(&(&record.binding.project_id, range))
-    } else {
-        serde_json::to_vec(&(
-            if record.schema_version == 2 {
-                RETRIEVAL_CONTRACT
-            } else {
-                PROGRESSIVE_CONTRACT
-            },
-            &record.binding,
-            range,
-        ))
-    }
-    .map_err(|_| "Evidence identity could not be encoded.")?;
+    let identity = serde_json::to_vec(&(PROGRESSIVE_CONTRACT, &record.binding, range))
+        .map_err(|_| "Evidence identity could not be encoded.")?;
     Ok(format!("evidence:{}", context::digest(&identity)))
 }
 
 impl Ledger {
-    pub(crate) fn new(
-        storage: &Path,
-        operation_id: &str,
-        manifest: &snapshot::SnapshotManifest,
-        grant_id: &str,
-        runtime: &CodexReviewRuntime,
-        model: &str,
-        effort: &str,
-    ) -> Result<Self, String> {
-        Self::new_version(
-            storage,
-            operation_id,
-            manifest,
-            grant_id,
-            runtime,
-            model,
-            effort,
-            2,
-        )
-    }
-
     pub(crate) fn new_progressive(
         storage: &Path,
         operation_id: &str,
@@ -452,28 +414,8 @@ impl Ledger {
         grant_id: &str,
         runtime: &CodexReviewRuntime,
     ) -> Result<Self, String> {
-        Self::new_version(
-            storage,
-            operation_id,
-            manifest,
-            grant_id,
-            runtime,
-            "gpt-6-luna",
-            "max",
-            3,
-        )
-    }
-
-    fn new_version(
-        storage: &Path,
-        operation_id: &str,
-        manifest: &snapshot::SnapshotManifest,
-        grant_id: &str,
-        runtime: &CodexReviewRuntime,
-        model: &str,
-        effort: &str,
-        version: u32,
-    ) -> Result<Self, String> {
+        let model = "gpt-6-luna";
+        let effort = "max";
         let path = path(storage, operation_id)?;
         if !runtime.valid_shape() || model != "gpt-6-luna" || effort != "max" {
             return Err(
@@ -488,7 +430,7 @@ impl Ledger {
             runtime,
         )?;
         let record = Record {
-            schema_version: version,
+            schema_version: LEDGER_SCHEMA_VERSION,
             policy: POLICY.to_owned(),
             binding: Binding {
                 operation_id: operation_id.to_owned(),
@@ -509,7 +451,7 @@ impl Ledger {
             status: Status::Active,
             calls: vec![],
             evidence: vec![],
-            context_clock: Some(ContextClock::CapturedCodeSessionV1),
+            context_clock: ContextClock::CapturedCodeSessionV1,
         };
         codex_agent::ensure_private_directory(
             path.parent().ok_or("Evidence storage is unavailable.")?,
@@ -570,8 +512,7 @@ impl Ledger {
         cancelled: &AtomicBool,
     ) -> Result<CallToken, String> {
         self.check(manifest, runtime, cancelled)?;
-        if (tool == Tool::ProposeSection && self.record.schema_version != 3)
-            || !hash(arguments_sha256)
+        if !hash(arguments_sha256)
             || self.record.calls.len() >= MAX_CALLS
             || self
                 .record
@@ -596,11 +537,11 @@ impl Ledger {
             wire_bytes: 0,
             payload_sha256: None,
             budget_stop: None,
-            timing: Some(CallTiming {
+            timing: CallTiming {
                 started_ms: self.context_elapsed_ms(),
                 prepared_ms: None,
                 finished_ms: None,
-            }),
+            },
             rejection_code: None,
         });
         self.save(next)?;
@@ -627,9 +568,9 @@ impl Ledger {
                 .map(|call| crate::generation_timing::ContextCall {
                     tool: call.tool,
                     state: call.state.clone(),
-                    started_ms: call.timing.as_ref().map(|timing| timing.started_ms),
-                    prepared_ms: call.timing.as_ref().and_then(|timing| timing.prepared_ms),
-                    finished_ms: call.timing.as_ref().and_then(|timing| timing.finished_ms),
+                    started_ms: Some(call.timing.started_ms),
+                    prepared_ms: call.timing.prepared_ms,
+                    finished_ms: call.timing.finished_ms,
                     source_bytes: call.source_bytes,
                     metadata_bytes: call.metadata_bytes,
                     wire_bytes: call.wire_bytes,
@@ -787,15 +728,11 @@ impl Ledger {
         }
         let mut response = Response {
             policy: POLICY,
-            citation_version: if self.record.schema_version == 3 {
-                crate::native_citations::SHORT_VERSION
-            } else {
-                crate::native_citations::VERSION
-            },
+            citation_version: crate::native_citations::SHORT_VERSION,
             call_id: &token.id,
             context: Some(context),
             added: vec![],
-            already_available: vec![],
+            evidence_ids: vec![],
             reused_references: vec![],
             read_error: None,
             budget: self.response_budget(),
@@ -877,7 +814,7 @@ impl Ledger {
                 // Do not clamp or substitute code for an invalid request. The
                 // agent can correct its own request within the original budget.
                 response.added.clear();
-                response.already_available.clear();
+                response.evidence_ids.clear();
                 response.reused_references.clear();
                 response.read_error = Some(ReadError {
                     code: "invalidRead",
@@ -893,39 +830,36 @@ impl Ledger {
                 .evidence
                 .iter()
                 .map(|e| (&e.id, &e.range))
-                .chain(response.added.iter().map(|e| (&e.id, &e.range)))
+                .chain(response.added.iter().map(|e| (&e.evidence_id, &e.range)))
                 .filter(|(_, r)| r.path == request.path && r.source_sha256 == request.source_sha256)
                 .collect::<Vec<_>>();
             let mut intervals = vec![];
             for (id, range) in previous {
                 if range.start_byte < request.end_byte && range.end_byte > request.start_byte {
                     intervals.push((range.start_byte, range.end_byte));
-                    if !response.already_available.contains(id) {
-                        response.already_available.push(id.clone());
-                        if self.record.schema_version == 3 {
-                            let reference_id = self
-                                .record
-                                .evidence
-                                .iter()
-                                .position(|e| e.id == *id)
-                                .map(crate::native_citations::short_reference)
-                                .or_else(|| {
-                                    response
-                                        .added
-                                        .iter()
-                                        .find(|f| &f.id == id)
-                                        .and_then(|f| f.reference_id.clone())
-                                })
-                                .ok_or("The reusable native reference is unavailable.")?;
-                            response.reused_references.push(ReusedReference {
-                                id: id.clone(),
-                                reference_id,
-                                citeable: source
-                                    .contents
-                                    .get(range.start_byte..range.end_byte)
-                                    .is_some_and(crate::native_citations::citeable),
-                            });
-                        }
+                    if !response.evidence_ids.contains(id) {
+                        response.evidence_ids.push(id.clone());
+                        let reference_id = self
+                            .record
+                            .evidence
+                            .iter()
+                            .position(|e| e.id == *id)
+                            .map(crate::native_citations::short_reference)
+                            .or_else(|| {
+                                response
+                                    .added
+                                    .iter()
+                                    .find(|f| &f.evidence_id == id)
+                                    .and_then(|f| f.reference_id.clone())
+                            })
+                            .ok_or("The reusable native reference is unavailable.")?;
+                        response.reused_references.push(ReusedReference {
+                            reference_id,
+                            citeable: source
+                                .contents
+                                .get(range.start_byte..range.end_byte)
+                                .is_some_and(crate::native_citations::citeable),
+                        });
                     }
                 }
             }
@@ -934,12 +868,10 @@ impl Ledger {
                     self.check(manifest, runtime, cancelled)?;
                     let read = context::range_from_source(source, from, to)?;
                     response.added.push(Fragment {
-                        id: evidence_id(&self.record, &read.range)?,
-                        reference_id: (self.record.schema_version == 3).then(|| {
-                            crate::native_citations::short_reference(
-                                self.record.evidence.len() + response.added.len(),
-                            )
-                        }),
+                        evidence_id: evidence_id(&self.record, &read.range)?,
+                        reference_id: Some(crate::native_citations::short_reference(
+                            self.record.evidence.len() + response.added.len(),
+                        )),
                         citeable: crate::native_citations::citeable(&read.contents),
                         range: read.range,
                         contents: read.contents,
@@ -947,7 +879,7 @@ impl Ledger {
                 }
             }
         }
-        response.already_available.sort();
+        response.evidence_ids.sort();
         Ok(response)
     }
 
@@ -1026,7 +958,7 @@ impl Ledger {
                 // Keep the turn alive so Codex can answer from prior evidence.
                 response.context = None;
                 response.added.clear();
-                response.already_available.clear();
+                response.evidence_ids.clear();
                 response.reused_references.clear();
                 response.read_error = None;
                 response.budget = self.response_budget();
@@ -1048,15 +980,13 @@ impl Ledger {
                 .last_mut()
                 .ok_or("The context call is unavailable.")?;
             call.state = CallState::Prepared;
-            if let Some(timing) = &mut call.timing {
-                timing.prepared_ms = Some(self.context_elapsed_ms());
-            }
+            call.timing.prepared_ms = Some(self.context_elapsed_ms());
             call.budget_stop = response.budget_stop;
-            call.evidence_ids = response.already_available.clone();
+            call.evidence_ids = response.evidence_ids.clone();
             for fragment in response.added {
-                call.evidence_ids.push(fragment.id.clone());
+                call.evidence_ids.push(fragment.evidence_id.clone());
                 next.evidence.push(Evidence {
-                    id: fragment.id,
+                    id: fragment.evidence_id,
                     range: fragment.range,
                 });
             }
@@ -1077,9 +1007,7 @@ impl Ledger {
                     if let Some(call) = next.calls.last_mut() {
                         call.state = CallState::Rejected;
                         call.rejection_code = Some(rejection_code(&error));
-                        if let Some(timing) = &mut call.timing {
-                            timing.finished_ms = Some(self.context_elapsed_ms());
-                        }
+                        call.timing.finished_ms = Some(self.context_elapsed_ms());
                     }
                     self.save(next)?;
                 }
@@ -1098,9 +1026,7 @@ impl Ledger {
         let mut delivered = self.record.clone();
         if let Some(call) = delivered.calls.last_mut() {
             call.state = CallState::Delivered;
-            if let Some(timing) = &mut call.timing {
-                timing.finished_ms = Some(self.context_elapsed_ms());
-            }
+            call.timing.finished_ms = Some(self.context_elapsed_ms());
         }
         if let Err(error) = self.save(delivered) {
             self.interrupt();
@@ -1115,9 +1041,7 @@ impl Ledger {
         if let Some(call) = self.record.calls.last_mut() {
             if matches!(call.state, CallState::Started | CallState::Prepared) {
                 call.state = CallState::Uncertain;
-                if let Some(timing) = &mut call.timing {
-                    timing.finished_ms = Some(finished_ms);
-                }
+                call.timing.finished_ms = Some(finished_ms);
             }
         }
         // A durable Prepared record is already enough to prevent replay on restart.
@@ -1166,45 +1090,6 @@ impl Ledger {
             .collect()
     }
 
-    /// Check exact quotes locally before the one correction. Complete captured
-    /// files stay in this process; feedback contains only bounded JSON positions
-    /// and fixed problem codes. This does not admit a revision or new context.
-    pub(crate) fn quote_diagnostics(
-        &self,
-        response: &str,
-        manifest: &snapshot::SnapshotManifest,
-        runtime: &CodexReviewRuntime,
-        cancelled: &AtomicBool,
-    ) -> Result<Option<Vec<serde_json::Value>>, String> {
-        let sources = self.validation_sources(manifest, runtime, cancelled)?;
-        let sources: HashMap<_, _> = sources.iter().map(|s| (s.path.as_str(), s)).collect();
-        let ranges = self.admitted_ranges();
-        let issues = crate::claim_alignment::quote_diagnostics(response, |path, quote| {
-            let Some(source) = sources.get(path) else {
-                return Some("pathNotAdmitted");
-            };
-            let start = match crate::chapter_generation::exact_quote_start(&source.contents, quote)
-            {
-                Ok(start) => start,
-                Err(crate::chapter_generation::QuoteProblem::Length) => return Some("quoteLength"),
-                Err(crate::chapter_generation::QuoteProblem::Missing) => {
-                    return Some("quoteNotExact");
-                }
-                Err(crate::chapter_generation::QuoteProblem::Ambiguous) => {
-                    return Some("quoteAmbiguous");
-                }
-            };
-            let covered = ranges
-                .iter()
-                .filter(|r| r.path == path && r.source_sha256 == source.sha256)
-                .map(|r| (r.start_byte, r.end_byte))
-                .collect();
-            (!gaps(start, start + quote.len(), covered).is_empty()).then_some("quoteNotAdmitted")
-        });
-        self.check(manifest, runtime, cancelled)?;
-        Ok(issues)
-    }
-
     pub(crate) fn resolve_citations(
         &self,
         response: &str,
@@ -1213,10 +1098,8 @@ impl Ledger {
         cancelled: &AtomicBool,
     ) -> Result<crate::native_citations::Resolution, String> {
         self.check(manifest, runtime, cancelled)?;
-        if !matches!(self.record.schema_version, 2 | 3) {
-            return Err(
-                "Historical evidence records cannot resume native citation generation.".into(),
-            );
+        if self.record.schema_version != LEDGER_SCHEMA_VERSION {
+            return Err("The evidence record uses an unsupported protocol version.".into());
         }
         let sources = self.validation_sources(manifest, runtime, cancelled)?;
         let sources: HashMap<_, _> = sources.iter().map(|s| (s.path.as_str(), s)).collect();
@@ -1244,10 +1127,7 @@ impl Ledger {
                 return Err("The native citation identity changed.".into());
             }
             let citation = crate::native_citations::Citation::checked(&evidence.range, source)?;
-            citations.insert(evidence.id.clone(), citation.clone());
-            if self.record.schema_version == 3 {
-                citations.insert(crate::native_citations::short_reference(index), citation);
-            }
+            citations.insert(crate::native_citations::short_reference(index), citation);
         }
         let result = crate::native_citations::resolve(response, |id| {
             citations.get(id).cloned().ok_or("referenceUnavailable")
@@ -1268,10 +1148,6 @@ impl Ledger {
             })
             .map(|e| e.range.clone())
             .collect()
-    }
-
-    pub(crate) fn record_sha256(&self) -> Result<String, String> {
-        Ok(context::digest(&encode(&self.record)?))
     }
 
     pub(crate) fn delivered_call(
@@ -1345,16 +1221,12 @@ fn gaps(start: usize, end: usize, mut intervals: Vec<(usize, usize)>) -> Vec<(us
 }
 
 fn valid_context_timings(record: &Record) -> bool {
-    // Legacy ledgers predate this clock. Missing data remains unknown rather
-    // than becoming a zero-duration measurement. New records require every call.
-    let Some(ContextClock::CapturedCodeSessionV1) = record.context_clock else {
-        return record.calls.iter().all(|call| call.timing.is_none());
-    };
+    if record.context_clock != ContextClock::CapturedCodeSessionV1 {
+        return false;
+    }
     let mut prior_finish = 0;
     for call in &record.calls {
-        let Some(timing) = &call.timing else {
-            return false;
-        };
+        let timing = &call.timing;
         if timing.started_ms < prior_finish
             || [
                 Some(timing.started_ms),
@@ -1503,7 +1375,7 @@ pub(crate) fn inspect(storage: &Path, operation_id: &str) -> Result<Record, Stri
 
 fn validate_record(record: &Record, operation_id: &str) -> Result<(), String> {
     if !canonical_uuid(operation_id)
-        || !matches!(record.schema_version, 1 | 2 | 3)
+        || record.schema_version != LEDGER_SCHEMA_VERSION
         || !valid_context_timings(&record)
         || record.policy != POLICY
         || record.binding.operation_id != operation_id
@@ -1541,7 +1413,6 @@ fn validate_record(record: &Record, operation_id: &str) -> Result<(), String> {
             != record.calls.len()
         || record.calls.iter().any(|c| {
             !canonical_uuid(&c.id)
-                || (c.tool == Tool::ProposeSection && record.schema_version != 3)
                 || !hash(&c.arguments_sha256)
                 || c.wire_bytes > MAX_RESPONSE
                 || c.source_bytes as u128 + c.metadata_bytes as u128 > c.wire_bytes as u128
@@ -1596,8 +1467,7 @@ fn validate_record(record: &Record, operation_id: &str) -> Result<(), String> {
                 || e.range.snapshot_id != record.binding.snapshot_id
                 || e.range.start_byte >= e.range.end_byte
                 || e.range.end_byte - e.range.start_byte > context::MAX_RANGE_BYTES
-                || (matches!(record.schema_version, 2 | 3)
-                    && e.range.end_byte - e.range.start_byte > crate::native_citations::MAX_SPAN)
+                || e.range.end_byte - e.range.start_byte > crate::native_citations::MAX_SPAN
                 || !evidence_id(&record, &e.range).is_ok_and(|id| id == e.id)
         })
     {

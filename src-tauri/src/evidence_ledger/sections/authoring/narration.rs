@@ -1,13 +1,14 @@
-//! Versioned speech for claims that need no visual. Old authoring/replay stays
-//! unchanged; fresh proposals map every claim to one authored spoken segment.
+//! The current authored speech mode for claims that need no visual.
 
 use super::{issue, Compiled, Scene};
 use crate::chapters::{ChapterRevision, ClaimCategory};
 use serde_json::{json, Value};
 
-pub(crate) fn compile(section: &Value) -> Result<Compiled, Vec<Value>> {
+pub(in crate::evidence_ledger::sections) fn compile(
+    section: &Value,
+) -> Result<Compiled, Vec<Value>> {
     if section["visual"]["kind"] != "none" {
-        return super::compile_native_names(section);
+        return super::compile_current_section(section);
     }
     let mut canonical = section.clone();
     let claims = canonical["claims"]
@@ -34,7 +35,7 @@ pub(crate) fn compile(section: &Value) -> Result<Compiled, Vec<Value>> {
         scripts.push(script.to_owned());
         claim["scene"] = Value::Null;
     }
-    let mut compiled = super::compile_native_names(&canonical)?;
+    let mut compiled = super::compile_current_section(&canonical)?;
     compiled.narration = Some(scripts);
     Ok(compiled)
 }
@@ -42,7 +43,7 @@ pub(crate) fn compile(section: &Value) -> Result<Compiled, Vec<Value>> {
 /// Keep one explicit script per claim without creating diagram nodes, HTML or
 /// source claims. Canonical source/identifier validation still runs separately.
 pub(crate) fn schema() -> Value {
-    let mut section = super::grounded_names_schema();
+    let mut section = super::section_schema();
     let scenes = &mut section["properties"]["claims"]["items"]["properties"]["scene"]["anyOf"];
     let visual_scene = scenes[0].clone();
     *scenes = json!([visual_scene, {
@@ -61,8 +62,7 @@ pub(crate) fn schema() -> Value {
 }
 
 impl Compiled {
-    /// Only the new checkpoint invokes this method. Old checkpoints retain the
-    /// old chapter schema and claim-copy fallback byte for byte on replay.
+    /// Convert a compiled current proposal to the current chapter schema.
     pub(crate) fn apply_authored_narration(
         &self,
         revision: &mut ChapterRevision,

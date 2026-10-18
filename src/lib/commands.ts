@@ -2,12 +2,8 @@ import { invoke } from '@tauri-apps/api/core';
 import { GitComparisonController } from './gitComparisonController';
 import { ProjectOpenController } from './projectOpenController';
 import { readGitHistory, type GitCommit } from './gitHistory';
-import type { SavedAttemptInventory, SavedAttemptReview } from './savedAttempts';
-
-export const listSavedAttempts = () => invoke<SavedAttemptInventory>('list_rejected_answers');
-export const readSavedAttempt = (entryId: string, reviewToken: string) => invoke<SavedAttemptReview>('read_rejected_answer', { entryId, reviewToken });
-export const trashSavedAttempt = (entryId: string, reviewToken: string) => invoke<void>('trash_rejected_answer', { entryId, reviewToken });
-
+import { CHAPTER_SCHEMA_VERSION } from './chapterSchema.ts';
+export { CHAPTER_SCHEMA_VERSION } from './chapterSchema.ts';
 export interface ApplicationStatus {
   productName: string;
   version: string;
@@ -464,24 +460,6 @@ export interface VisualLayoutHint {
   direction: VisualLayoutDirection;
 }
 
-export interface LegacyVisualSpec {
-  schemaVersion: 1;
-  kind: 'dataFlow' | 'sequence' | 'hierarchy';
-  title: string;
-  nodes: Array<{
-    nodeId: string;
-    label: string;
-    detail: string | null;
-    hotspotId: string | null;
-  }>;
-  edges: Array<{
-    edgeId: string;
-    fromNodeId: string;
-    toNodeId: string;
-    label: string;
-  }>;
-}
-
 export interface LinkedVisualNode {
   nodeId: string;
   label: string;
@@ -508,8 +486,7 @@ export interface EvidenceLinkedVisualSpec {
   presentation?: import('./scenePresentation').ScenePresentation;
 }
 
-/** Accepted v1 diagrams remain decodable and immutable; only v2 is interactive. */
-export type VisualSpec = LegacyVisualSpec | EvidenceLinkedVisualSpec;
+export type VisualSpec = EvidenceLinkedVisualSpec;
 
 export interface ChapterClaim {
   claimId: string;
@@ -533,7 +510,7 @@ export interface ChapterSection {
 }
 
 export interface ChapterRevision {
-  schemaVersion: number;
+  schemaVersion: typeof CHAPTER_SCHEMA_VERSION;
   chapterId: string;
   revisionId: string;
   revisionNumber: number;

@@ -1,13 +1,12 @@
 use super::*;
 
 fn compiled(prose: &str, fragments: &[&str]) -> Result<Resolved, Vec<Value>> {
-    compiled_with_policy(prose, fragments, Policy::ExactV1)
+    compiled_current(prose, fragments)
 }
 
-fn compiled_with_policy(
+fn compiled_current(
     prose: &str,
     fragments: &[&str],
-    policy: Policy,
 ) -> Result<Resolved, Vec<Value>> {
     let mut citations = std::collections::HashMap::new();
     for (index, fragment) in fragments.iter().enumerate() {
@@ -33,7 +32,7 @@ fn compiled_with_policy(
     match resolve(&raw, |id| {
         citations.get(id).cloned().ok_or("referenceUnavailable")
     }) {
-        Resolution::Ready(resolved) => compile_with_policy(resolved, policy),
+        Resolution::Ready(resolved) => compile_grounded(resolved),
         Resolution::Invalid(issues) => panic!("{issues:?}"),
     }
 }
@@ -51,7 +50,7 @@ fn grounded_suffixes_preserve_prose_and_prefer_the_longest_supported_literal_nam
         ("font-size", "set(\"font-size\", 12);", "font-size"),
     ] {
         let prose = format!("The `{prose_name}` operation returns `Result`.");
-        let resolved = compiled_with_policy(&prose, &[source], Policy::GroundedSuffixV2).unwrap();
+        let resolved = compiled_current(&prose, &[source]).unwrap();
         let value: Value = serde_json::from_str(resolved.text()).unwrap();
         let claim = &value["sections"][0]["claims"][0];
         assert_eq!(claim["identifiers"], json!([expected]));
@@ -62,7 +61,6 @@ fn grounded_suffixes_preserve_prose_and_prefer_the_longest_supported_literal_nam
         assert_eq!(resolved.claim_spans(0, 0).unwrap()[0].excerpt, source);
         // A literal suffix is metadata alignment, not proof of the surrounding
         // qualification, return type or any other semantic statement in prose.
-        assert!(compiled(&prose, &[source]).is_err());
     }
 }
 
@@ -88,7 +86,7 @@ fn grounded_suffixes_do_not_split_keys_match_partial_names_or_cover_unrelated_fr
         ("The greeting helper returns.", vec!["fn greeting() {}"]),
     ] {
         assert!(
-            compiled_with_policy(prose, &fragments, Policy::GroundedSuffixV2).is_err(),
+            compiled_current(prose, &fragments).is_err(),
             "{prose}"
         );
     }
@@ -96,7 +94,7 @@ fn grounded_suffixes_do_not_split_keys_match_partial_names_or_cover_unrelated_fr
 
 #[test]
 fn only_explicit_names_from_each_own_fragment_form_bounded_deterministic_metadata() {
-    assert_eq!(POLICY, "explicit-prose-names-own-fragments-v1");
+    assert_eq!(GROUNDED_POLICY, "explicit-prose-grounded-suffixes-v2");
     let prose = "The `greeting` helper calls `format_name` to create the message.";
     let fragments = [
         "fn greeting() { format_name(); }",
@@ -141,7 +139,7 @@ fn only_explicit_names_from_each_own_fragment_form_bounded_deterministic_metadat
 }
 
 #[test]
-fn natural_words_keywords_expressions_fences_and_partial_identifiers_do_not_ground_claims() {
+fn natural_words_keywords_expressions_fences_and_unclosed_names_are_not_grounded() {
     for prose in [
         "The value returns the result of greeting.",
         "The `return` keyword stops here.",
@@ -173,16 +171,6 @@ fn natural_words_keywords_expressions_fences_and_partial_identifiers_do_not_grou
     .unwrap();
     assert_eq!(findings[0]["location"], "/sections/0/claims/0/evidence/1");
     assert!(!serde_json::to_string(&findings).unwrap().contains("other"));
-    let findings = compiled(
-        "The `greeting` helper uses `unread_helper` to create the message.",
-        &["fn greeting() { return; }"],
-    )
-    .err()
-    .unwrap();
-    assert_eq!(
-        findings[0],
-        json!({"location":"/sections/0/claims/0/prose","code":"namedIdentifierEvidence"})
-    );
 }
 
 #[test]
@@ -220,7 +208,7 @@ fn unicode_qualified_names_and_configuration_keys_use_existing_whole_name_matchi
 }
 
 #[test]
-fn metadata_is_the_only_changed_field_and_explicit_old_metadata_is_not_silently_removed() {
+fn metadata_compilation_changes_only_identifier_metadata_and_rejects_supplied_values() {
     let contents = "fn greeting() { return; }";
     let source = SnapshotSource {
         snapshot_id: "snapshot".into(),
@@ -241,7 +229,7 @@ fn metadata_is_the_only_changed_field_and_explicit_old_metadata_is_not_silently_
     };
     let original: Value = serde_json::from_str(resolved.text()).unwrap();
     let compiled = resolved
-        .with_named_identifiers()
+        .with_grounded_named_identifiers()
         .unwrap_or_else(|f| panic!("{f:?}"));
     let mut value: Value = serde_json::from_str(compiled.text()).unwrap();
     value["sections"][0]["claims"][0]
@@ -255,7 +243,10 @@ fn metadata_is_the_only_changed_field_and_explicit_old_metadata_is_not_silently_
         panic!("checked source must resolve")
     };
     assert_eq!(
-        resolved.with_named_identifiers().err().unwrap()[0]["location"],
+        resolved
+            .with_grounded_named_identifiers()
+            .err()
+            .unwrap()[0]["location"],
         "/sections/0/claims/0/identifiers"
     );
 }

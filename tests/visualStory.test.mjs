@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
-import { readStoryProgress, sceneNodeIds, storyLayout, storyScenes } from '../src/lib/visualStory.ts';
+import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, storyLayout, storyScenes } from '../src/lib/visualStory.ts';
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
 const claims = [claim('entry', 'A request reaches handleRequest. The bytes are still untrusted.'), claim('check', 'If validate rejects those bytes, the caller receives an error. Otherwise processing continues.')];
@@ -87,16 +87,26 @@ describe('visual story scenes', () => {
 
   it('restores the exact scene and independent audio positions without resuming playback', () => {
     const scenes = storyScenes(section, visual);
-    const progress = readStoryProgress(JSON.stringify({ sceneId: 'check', positions: { entry: 12.4, check: 3.2, other: 14 }, autoPlay: true }), scenes);
-    assert.deepEqual(progress, { index: 1, positions: [['entry', 12.4], ['check', 3.2]] });
-    assert.equal('autoPlay' in progress, false);
+    const identity = { revisionId: 'revision:one', sectionId: 'section:one', sectionRevisionId: 'section-revision:one' };
+    const progress = readStoryProgress(JSON.stringify({ ...identity, sceneId: 'check', positions: { entry: 12.4, check: 3.2, other: 14 }, fullMap: false }), identity, scenes);
+    assert.deepEqual(progress, { ...identity, sceneId: 'check', positions: { entry: 12.4, check: 3.2, other: 14 }, fullMap: false });
+    const restored = readSectionStoryProgress(progress, identity, scenes);
+    assert.deepEqual(restored, { index: 1, positions: [['entry', 12.4], ['check', 3.2]], fullMap: false, viewport: undefined });
+    assert.equal('autoPlay' in restored, false);
   });
 
-  it('bounds corrupt or unrelated progress and never lets it select a foreign scene', () => {
+  it('rejects malformed or unscoped progress and never lets it select a foreign scene', () => {
     const scenes = storyScenes(section, visual);
-    for (const raw of [null, '{bad', '"text"', '0'.repeat(16_001)]) assert.deepEqual(readStoryProgress(raw, scenes), { index: 0, positions: [['entry', 0], ['check', 0]] });
-    assert.deepEqual(readStoryProgress(JSON.stringify({ sceneId: 'other', positions: { entry: -10, check: '12' } }), scenes), { index: 0, positions: [['entry', 0], ['check', 0]] });
-    assert.equal(readStoryProgress(JSON.stringify({ positions: { entry: 3601 } }), scenes).positions[0][1], 0);
+    const identity = { revisionId: 'revision:one', sectionId: 'section:one', sectionRevisionId: 'section-revision:one' };
+    for (const raw of [null, '{bad', '"text"', JSON.stringify({ sceneId: 'check', positions: { check: 4 } }), '0'.repeat(16_001)]) {
+      assert.equal(readStoryProgress(raw, identity, scenes), undefined);
+    }
+    const foreign = { ...identity, sceneId: 'other', positions: { entry: 0, check: 0 }, fullMap: false };
+    assert.equal(readStoryProgress(JSON.stringify(foreign), identity, scenes), undefined);
+    const extra = { ...identity, sceneId: 'check', positions: { entry: 0, check: 0 }, fullMap: false, autoPlay: true };
+    assert.equal(readStoryProgress(JSON.stringify(extra), identity, scenes), undefined);
+    const bad = { ...identity, sceneId: 'check', positions: { entry: 0, check: 3601 }, fullMap: false };
+    assert.equal(readStoryProgress(JSON.stringify(bad), identity, scenes), undefined);
   });
 });
 

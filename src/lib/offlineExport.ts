@@ -5,7 +5,8 @@ import type {
   ChapterSourceAnchor,
   EvidenceLinkedVisualSpec,
   NarrationAudio,
-} from './commands';
+} from './commands.ts';
+import { CHAPTER_SCHEMA_VERSION } from './chapterSchema.ts';
 import { inspectInteractiveVisual } from './visuals.ts';
 import { storyScenes } from './visualStory.ts';
 import { OFFLINE_SCENE_CSS, renderOfflineScene } from './offlineScene.ts';
@@ -256,7 +257,7 @@ export function isSafeOfflineSourcePath(path: string): boolean {
 }
 
 export function isOfflineExportableRevision(revision: ChapterRevision): boolean {
-  if (revision.lifecycle !== 'accepted' || !Array.isArray(revision.sections) || revision.sections.length === 0) return false;
+  if (revision.schemaVersion !== CHAPTER_SCHEMA_VERSION || revision.lifecycle !== 'accepted' || !Array.isArray(revision.sections) || revision.sections.length === 0) return false;
   const paths = targetPaths(revision);
   return paths.every(isSafeOfflineSourcePath);
 }

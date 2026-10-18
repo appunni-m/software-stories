@@ -8,10 +8,10 @@ pub(super) fn record(f: &Fixture) -> Record {
     let range = context::range_from_source(&source, 0, SIMPLE_SOURCE.len())
         .unwrap()
         .range;
-    Record {
+    let mut result = Record {
         revision: 0,
-        schema_version: 1,
-        contract: PLAN_ONLY_CONTRACT.into(),
+        schema_version: 5,
+        contract: CONTRACT.into(),
         id: Uuid::new_v4().to_string(),
         project_id: f.manifest.summary.project_id.clone(),
         snapshot_id: f.manifest.summary.snapshot_id.clone(),
@@ -22,7 +22,6 @@ pub(super) fn record(f: &Fixture) -> Record {
         opening: None,
         opening_context_sha256: None,
         opening_continuations: vec![],
-        upgrade: None,
         plan: Some(Plan {
             title: "A grounded repository guide".into(),
             units: vec![
@@ -53,7 +52,19 @@ pub(super) fn record(f: &Fixture) -> Record {
         ],
         status: Status::Building,
         active_run_id: None,
-    }
+    };
+    result.opening = Some(Attempt {
+        run_id: result.planning_run_id.clone(),
+        question: opening::LEARNING_QUESTION.into(),
+        summary: Some(Summary {
+            run_id: result.planning_run_id.clone(),
+            project_id: result.project_id.clone(), snapshot_id: result.snapshot_id.clone(),
+            question: opening::LEARNING_QUESTION.into(), outcome: Outcome::Interrupted,
+            sections: vec![], incomplete_topics: vec!["Synthetic terminal opening for unit-state tests.".into()],
+        }),
+    });
+    result.opening_context_sha256 = Some(opening::context_sha256(&result).unwrap());
+    result
 }
 pub(super) fn attempt(record: &Record, outcome: Outcome) -> Attempt {
     let run_id = Uuid::new_v4().to_string();
@@ -115,7 +126,6 @@ fn fresh_guide_researches_later_units_after_a_partial_reading_prerequisite() {
     let mut r = fresh_record(&f);
     let partial = attempt(&r, Outcome::Partial);
     r.units[0].attempts.push(partial);
-    assert!(!prerequisite_complete(&r, 1));
     assert!(unit_research_eligible(&r, 1), "a reading prerequisite is not permission to research captured code independently");
     assert!(!guide_complete(&r));
     assert_eq!(r.units[0].attempts.len(), 1);
@@ -169,26 +179,6 @@ fn independent_research_preserves_outline_order_attempt_limits_and_reading_edges
     assert_eq!(MAX_ATTEMPTS, 2);
 }
 
-#[test]
-fn previous_opening_guides_keep_their_prerequisite_gates_and_exact_saved_bytes() {
-    let f = Fixture::new();
-    let mut r = fresh_record(&f);
-    r.schema_version = 2;
-    r.contract = OPENING_CONTRACT.into();
-    r.opening_context_sha256 = None;
-    r.opening.as_mut().unwrap().question = r.question.clone();
-    let partial = attempt(&r, Outcome::Partial);
-    r.units[0].attempts.push(partial);
-    store::create(&f.storage, &r).unwrap();
-    let path = f.storage.join("repository-guides").join(format!("{}.json", r.id));
-    let before = std::fs::read(&path).unwrap();
-    let saved = store::read(&f.storage, &r.id).unwrap();
-    assert!(!independent_research(&saved));
-    assert!(!unit_research_eligible(&saved, 1));
-    assert!(!continuation(&f.storage, &saved, 1).unwrap().contains(RESEARCH_INSTRUCTIONS));
-    assert_eq!(std::fs::read(path).unwrap(), before);
-    assert_eq!(saved.units[0].attempts.len(), 1);
-}
 
 #[test]
 fn research_admission_preserves_stop_owner_revision_and_spent_attempts() {
@@ -226,19 +216,20 @@ fn research_admission_preserves_stop_owner_revision_and_spent_attempts() {
 }
 
 #[test]
-fn prerequisites_wait_for_a_complete_unit_and_completed_units_are_skipped() {
+fn reading_prerequisites_do_not_block_research_and_completed_units_are_skipped() {
     let f = Fixture::new();
     let mut record = record(&f);
-    assert!(prerequisite_complete(&record, 0));
-    assert!(!prerequisite_complete(&record, 1));
+    assert!(unit_research_eligible(&record, 0));
+    assert!(unit_research_eligible(&record, 1));
     let next = attempt(&record, Outcome::Partial);
     record.units[0].attempts.push(next);
     assert!(!unit_complete(&record.units[0]));
-    assert!(!prerequisite_complete(&record, 1));
+    assert!(unit_research_eligible(&record, 1));
     let next = attempt(&record, Outcome::Complete);
     record.units[0].attempts.push(next);
     assert!(unit_complete(&record.units[0]));
-    assert!(prerequisite_complete(&record, 1));
+    assert!(unit_research_eligible(&record, 1));
+    assert!(!unit_research_eligible(&record, 0));
     assert_eq!(MAX_UNITS, 6);
     assert_eq!(MAX_ATTEMPTS, 2);
 }
@@ -282,7 +273,9 @@ fn guide_reopens_without_research_and_source_scope_is_revalidated() {
     )
     .unwrap();
     let view = summary(&f.storage, &opened).unwrap();
-    assert!(view.answers.is_empty());
+    assert_eq!(view.answers.len(), 1);
+    assert_eq!(view.answers[0].run_id, record.planning_run_id);
+    assert!(view.answers[0].sections.is_empty());
     assert_eq!(view.units.len(), 2);
     assert_eq!(view.starting_files, 1);
     assert!(view.captured_files >= 1);
@@ -379,7 +372,9 @@ fn cached_metadata_cannot_hide_a_damaged_existing_answer_receipt() {
     r.units[0].attempts.push(a);
     store::create(&f.storage, &r).unwrap();
     assert!(!reading::exists(&f.storage, &run).unwrap());
-    assert_eq!(summary(&f.storage, &r).unwrap().answers.len(), 1);
+    let summaries = summary(&f.storage, &r).unwrap().answers;
+    assert_eq!(summaries.len(), 2); // Current guides always retain their opening.
+    assert!(summaries.iter().any(|answer| answer.run_id == run));
     let directory = f.storage.join("answer-sections");
     std::fs::create_dir_all(&directory).unwrap();
     let path = directory.join(format!("{run}.json"));

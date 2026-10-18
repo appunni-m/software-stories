@@ -1,5 +1,5 @@
 //! Current chapter requests share the reader's inert composition vocabulary.
-//! Saved guides and historical retrieval contracts keep their original policy.
+//! Stored content uses the same current visual and scene versions.
 
 use crate::chapters::{self, ChapterRevision};
 use serde_json::{json, Value};
@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v6";
 
 /// One speech contract for file, overview and selected-section user prompts.
-/// Keep compatibility fields complete rather than imposing a summary shortcut.
+/// Keep the full script and inspectable claim fields complete.
 pub(super) const SECTION_NARRATION_INSTRUCTIONS: &str = "Complete scene narration: when a presentation is supplied, spokenText joins every scene narration in claim order, including visible inference labels. It must preserve the full behavior, guards, alternatives, errors and uncertainty of all claims, not a summary or a chosen subset. With no presentation, write a complete natural spoken account of all claims, preserving every guard, alternative, error, inference label and uncertainty; do not read identifiers or punctuation by default. Keep the complete transport script within 20–1,000 UTF-8 bytes and the declared section shape; organize focused claims without dropping behavior. Natural scene speech need not repeat exact code names, declarations or punctuation. The app retains exact claims separately and assembles speech from all scenes; no one-to-three-sentence limit applies.";
 
 const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v3
@@ -265,21 +265,8 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn fresh_compositions_use_v3_without_changing_legacy_read_validation() {
+    fn current_compositions_use_v3_and_preserve_authored_narration() {
         let fixture = Fixture::new();
-        let legacy = revision(&fixture, composed_proposal(1));
-        let validation = chapters::validate_chapter_revision(
-            &fixture.storage,
-            &fixture.manifest,
-            Some(&fixture.index),
-            &legacy,
-        );
-        assert_eq!(validation.status, ValidationReportStatus::Valid);
-        let mut fresh = legacy.clone();
-        assert!(prepare_generated_sections(&mut fresh, None)
-            .unwrap_err()
-            .contains("version 3"));
-        assert_eq!(fresh, legacy);
         let mut current = revision(&fixture, composed_proposal(3));
         prepare_generated_sections(&mut current, None).unwrap();
         let validation = chapters::validate_chapter_revision(
@@ -308,9 +295,9 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn selective_preparation_preserves_every_carried_legacy_byte() {
+    fn selective_preparation_preserves_every_carried_section_byte() {
         let fixture = Fixture::new();
-        let mut draft = revision(&fixture, composed_proposal(1));
+        let mut draft = revision(&fixture, composed_proposal(3));
         let carried = chapters::encode_chapter_revision(&draft).unwrap();
         let mut selected = draft.sections[0].clone();
         selected.section_id.push_str("-selected");

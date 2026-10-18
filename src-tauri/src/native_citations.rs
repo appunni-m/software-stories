@@ -7,7 +7,6 @@ use crate::{
 };
 use serde_json::{Value, json};
 
-pub(crate) const VERSION: &str = "nativeEvidenceV1";
 pub(crate) const SHORT_VERSION: &str = "nativeEvidenceV2";
 pub(crate) const MAX_REFERENCES: usize = 512;
 pub(crate) const MAX_SPAN: usize = 1_000;
@@ -18,23 +17,16 @@ pub(crate) fn short_reference(index: usize) -> String {
     format!("code:{}", index + 1)
 }
 
-fn reference_shape(id: &str, short: bool) -> bool {
-    if short {
-        let Some(ordinal) = id.strip_prefix("code:") else {
-            return false;
-        };
-        return !ordinal.starts_with('0')
-            && ordinal.len() <= 3
-            && ordinal.bytes().all(|b| b.is_ascii_digit())
-            && ordinal
-                .parse::<usize>()
-                .is_ok_and(|n| (1..=MAX_REFERENCES).contains(&n));
-    }
-    id.len() == 73
-        && id.starts_with("evidence:")
-        && id[9..]
-            .bytes()
-            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+fn reference_shape(id: &str) -> bool {
+    let Some(ordinal) = id.strip_prefix("code:") else {
+        return false;
+    };
+    !ordinal.starts_with('0')
+        && ordinal.len() <= 3
+        && ordinal.bytes().all(|b| b.is_ascii_digit())
+        && ordinal
+            .parse::<usize>()
+            .is_ok_and(|n| (1..=MAX_REFERENCES).contains(&n))
 }
 
 #[derive(Clone, Debug)]
@@ -130,12 +122,8 @@ impl Resolved {
         self.spans.get(section)?.get(claim).map(Vec::as_slice)
     }
 
-    /// Compile only redundant metadata for the explicit new authoring protocol.
-    /// Trusted source spans and every authored content field remain unchanged.
-    pub(crate) fn with_named_identifiers(self) -> Result<Self, Vec<Value>> {
-        names::compile(self)
-    }
-
+    /// Compile bounded name metadata from authored prose and its own evidence.
+    /// This does not certify the claim's meaning or change its authored content.
     pub(crate) fn with_grounded_named_identifiers(self) -> Result<Self, Vec<Value>> {
         names::compile_grounded(self)
     }
@@ -155,37 +143,6 @@ fn invalid(location: &str, code: &'static str) -> Resolution {
     Resolution::Invalid(vec![issue(location, code)])
 }
 
-/// Fixed positions/codes for private recovery. Do not persist resolved quotes
-/// or additional source in diagnostic fields.
-pub(crate) fn fixed_findings(issues: &[Value]) -> Vec<Value> {
-    issues.iter().take(MAX_ISSUES).map(|finding| json!({
-        "location":finding["location"],
-        "citationProblem":finding.get("citationProblem").and_then(Value::as_str).unwrap_or("identifierAlignment"),
-    })).collect()
-}
-
-pub(crate) fn valid_findings(findings: &[Value]) -> bool {
-    findings.len() <= MAX_ISSUES
-        && findings.iter().all(|finding| {
-            finding.as_object().is_some_and(|o| o.len() == 2)
-                && finding["location"].as_str().is_some_and(|s| {
-                    s.len() <= 160 && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'/')
-                })
-                && finding["citationProblem"].as_str().is_some_and(|s| {
-                    matches!(
-                        s,
-                        "citationResponseLimit"
-                            | "citationShape"
-                            | "citationVersion"
-                            | "referenceShape"
-                            | "referenceUnavailable"
-                            | "citationExpansionLimit"
-                            | "identifierAlignment"
-                    )
-                })
-        })
-}
-
 /// Resolve only references in bounded claim evidence arrays. Keep the raw
 /// model response elsewhere; this expanded JSON is local validation input.
 pub(crate) fn resolve(
@@ -198,11 +155,9 @@ pub(crate) fn resolve(
     let Ok(mut value) = crate::strict_json::from_slice(response.as_bytes()) else {
         return invalid("", "citationShape");
     };
-    let short = match value.get("citationVersion").and_then(Value::as_str) {
-        Some(VERSION) => false,
-        Some(SHORT_VERSION) => true,
-        _ => return invalid("/citationVersion", "citationVersion"),
-    };
+    if value.get("citationVersion").and_then(Value::as_str) != Some(SHORT_VERSION) {
+        return invalid("/citationVersion", "citationVersion");
+    }
     value.as_object_mut().unwrap().remove("citationVersion");
     let Some(sections) = value.get_mut("sections").and_then(Value::as_array_mut) else {
         return invalid("/sections", "citationShape");
@@ -237,7 +192,7 @@ pub(crate) fn resolve(
                     .filter(|o| o.len() == 1)
                     .and_then(|o| o.get("referenceId"))
                     .and_then(Value::as_str)
-                    .filter(|id| reference_shape(id, short));
+                    .filter(|id| reference_shape(id));
                 let found = reference.ok_or("referenceShape").and_then(&mut lookup);
                 match found {
                     Ok(citation) => {

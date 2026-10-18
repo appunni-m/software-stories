@@ -3,8 +3,8 @@ use super::*;
 pub(crate) fn section(reference: &str) -> Value {
     json!({"title":"Formatting a greeting","claims":[{
         "category":"codeBehavior","aspect":"inputOutput",
-        "prose":"The greeting function formats the supplied name into a message. The returned greeting includes that name.",
-        "inferenceBasis":"","identifiers":["greeting"],"evidence":[{"referenceId":reference}],"relationshipIds":[],
+        "prose":"The `greeting` function formats the supplied `name` into a message. The returned greeting includes that name.",
+        "inferenceBasis":"","evidence":[{"referenceId":reference}],"relationshipIds":[],
         "scene":{"title":"From name to message","narration":"Start with a person's name. The function places it inside a greeting, so that name appears in the returned message.",
         "mode":"composition","nodes":[
             {"key":"input","label":"Name","detail":"","references":[reference]},
@@ -19,36 +19,38 @@ pub(crate) fn section(reference: &str) -> Value {
 }
 
 pub(crate) fn proposal(reference: &str, key: &str, order: usize) -> Value {
-    json!({"proposalVersion":super::super::SCENE_PROPOSAL_VERSION,"sectionKey":key,"order":order,
+    json!({"proposalVersion":crate::evidence_ledger::sections::NARRATION_PROPOSAL_VERSION,"sectionKey":key,"order":order,
         "previousGenerationId":null,"section":section(reference)})
 }
 
-pub(crate) fn native_names_proposal(reference: &str, key: &str, order: usize) -> Value {
+pub(crate) fn narrated_proposal(reference: &str, key: &str, order: usize) -> Value {
     let mut raw = proposal(reference, key, order);
-    raw["proposalVersion"] = json!(super::super::NATIVE_NAMES_PROPOSAL_VERSION);
-    let claim = &mut raw["section"]["claims"][0];
-    claim.as_object_mut().unwrap().remove("identifiers");
-    claim["prose"] = json!("The `greeting` function formats the supplied name into a message. The returned greeting includes that name.");
-    raw
-}
-
-pub(crate) fn grounded_names_proposal(reference: &str, key: &str, order: usize) -> Value {
-    let mut raw = native_names_proposal(reference, key, order);
-    raw["proposalVersion"] = json!(super::super::GROUNDED_NAMES_PROPOSAL_VERSION);
+    raw["section"]["visual"] = json!({"kind":"none","title":"","direction":"auto"});
+    raw["section"]["claims"][0]["scene"] = json!({
+        "title":"A name becomes a greeting",
+        "narration":"Start with a person's name. It is placed inside a greeting, so the name appears in the returned message.",
+        "mode":"narration","nodes":[],"edges":[],"elements":[]
+    });
     raw
 }
 
 #[test]
-fn grounded_name_schema_versions_only_the_prose_contract_and_still_rejects_provider_metadata() {
-    let old = native_names_schema();
-    let mut fresh = grounded_names_schema();
-    let validator = jsonschema::validator_for(&fresh).unwrap();
-    let mut raw = grounded_names_proposal("code:1", "entry", 0);
-    assert!(validator.is_valid(&raw["section"]));
+fn current_schema_rejects_provider_metadata_and_advertises_both_current_modes() {
+    let visual_schema = section_schema();
+    let narration_schema = narration::schema();
+    let visual_validator = jsonschema::validator_for(&visual_schema).unwrap();
+    let narration_validator = jsonschema::validator_for(&narration_schema).unwrap();
+    let visual = section("code:1");
+    let mut narrated = narrated_proposal("code:1", "entry", 0);
+    assert!(visual_validator.is_valid(&visual));
+    assert!(narration_validator.is_valid(&narrated["section"]));
+    let mut raw = proposal("code:1", "entry", 0);
+    assert!(visual_validator.is_valid(&raw["section"]));
     raw["section"]["claims"][0]["identifiers"] = json!(["greeting"]);
-    assert!(!validator.is_valid(&raw["section"]));
-    fresh["properties"]["claims"]["items"]["properties"]["prose"]["description"] = old["properties"]["claims"]["items"]["properties"]["prose"]["description"].clone();
-    assert_eq!(fresh, old);
+    assert!(!visual_validator.is_valid(&raw["section"]));
+    assert!(!narration_validator.is_valid(&raw["section"]));
+    narrated["section"]["claims"][0]["identifiers"] = json!(["greeting"]);
+    assert!(!narration_validator.is_valid(&narrated["section"]));
 }
 
 #[test]

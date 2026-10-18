@@ -2,14 +2,6 @@
 //! Saved records never recreate an active publisher or grant source access.
 
 use super::*;
-use std::collections::BTreeMap;
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub(crate) struct SectionIdentity {
-    pub(crate) section_key: String,
-    pub(crate) generation_id: String,
-}
 
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,20 +20,6 @@ impl Answer {
     /// Consumers must not mistake that recovery result for safe completion.
     pub(crate) fn has_recorded_failure(&self) -> bool {
         self.failure_code.is_some()
-    }
-
-    pub(super) fn latest_identities(&self) -> Vec<SectionIdentity> {
-        let mut latest = BTreeMap::new();
-        for section in &self.sections {
-            latest.insert(section.order, section);
-        }
-        latest
-            .values()
-            .map(|section| SectionIdentity {
-                section_key: section.key.clone(),
-                generation_id: section.preview.generation_id.clone(),
-            })
-            .collect()
     }
 
     pub(crate) fn summary(&self) -> Summary {
@@ -148,7 +126,7 @@ pub(crate) fn interrupt(storage: &Path, run: &str, outcome: Outcome) -> Result<S
 }
 
 /// Called by the joined worker with a fixed classification of its actual error.
-/// A historical terminal record is preserved; its missing cause stays unknown.
+/// An already terminal answer remains unchanged during recovery.
 pub(crate) fn interrupt_with_failure(
     storage: &Path,
     run: &str,

@@ -17,7 +17,7 @@ const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$/;
 
 export type InteractiveVisualResult =
   | { status: 'none' }
-  | { status: 'unavailable'; reason: 'legacy' | 'malformed' }
+  | { status: 'unavailable'; reason: 'malformed' }
   | {
       status: 'available';
       visual: EvidenceLinkedVisualSpec;
@@ -32,7 +32,6 @@ export function inspectInteractiveVisual(
   const raw: unknown = section.visual;
   if (raw == null) return { status: 'none' };
   if (!isRecord(raw)) return { status: 'unavailable', reason: 'malformed' };
-  if (raw.schemaVersion === 1) return { status: 'unavailable', reason: 'legacy' };
   if (raw.schemaVersion !== 2 || !isCurrentVisual(raw)) {
     return { status: 'unavailable', reason: 'malformed' };
   }

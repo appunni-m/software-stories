@@ -29,11 +29,6 @@ use plan::Plan;
 use recovering::reconcile;
 
 const CONTRACT: &str = "repository-guide-v6-bounded-opening-continuation";
-const SEPARATE_CONTRACT: &str = "repository-guide-v5-separate-opening-intent";
-const INDEPENDENT_CONTRACT: &str = "repository-guide-v4-independent-unit-research";
-const OPENING_CONTRACT: &str = "repository-guide-v3-opening-during-planning";
-const PLAN_ONLY_CONTRACT: &str = "repository-guide-v2-short-reference-planning";
-const LEGACY_CONTRACT: &str = "repository-guide-v1-owned-range-planning";
 const RESEARCH_POLICY: &str = "ordered-independent-research-v1";
 const RESEARCH_INSTRUCTIONS: &str = "Prerequisites describe reading order, not permission to investigate. Each outlined unit will research its own captured code in outline order even if an earlier explanation remains incomplete. Earlier questions and starting ranges supply leads, never implementation facts or inherited citations. Preserve requested alternatives and failures; independently verify every explanation. A partial unit stays partial and cannot establish a later unit's behavior.";
 const MAX_UNITS: usize = 6;
@@ -113,8 +108,6 @@ struct Record {
     opening_context_sha256: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     opening_continuations: Vec<Attempt>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    upgrade: Option<store::Upgrade>,
     plan: Option<Plan>,
     units: Vec<Unit>,
     status: Status,
@@ -209,29 +202,11 @@ fn guide_complete(record: &Record) -> bool {
             .is_some_and(|s| s.outcome == Outcome::Complete && !s.sections.is_empty())
     }) && record.units.iter().all(unit_complete)
 }
-fn prerequisite_complete(record: &Record, index: usize) -> bool {
-    record.plan.as_ref().is_some_and(|p| {
-        p.units[index].prerequisites.iter().all(|key| {
-            record
-                .units
-                .iter()
-                .any(|u| &u.key == key && unit_complete(u))
-        })
-    })
-}
-fn independent_research(record: &Record) -> bool {
-    matches!(store::original_contract(record),
-        (4, SEPARATE_CONTRACT) | (3, INDEPENDENT_CONTRACT))
-}
-fn separate_opening_intent(record: &Record) -> bool {
-    store::original_contract(record) == (4, SEPARATE_CONTRACT)
-}
 fn unit_research_eligible(record: &Record, index: usize) -> bool {
     record.status != Status::Stopped
         && record.units.get(index).is_some_and(|unit| {
             !unit_complete(unit) && unit.attempts.len() < MAX_ATTEMPTS
         })
-        && (independent_research(record) || prerequisite_complete(record, index))
 }
 
 fn begin_unit(
@@ -263,11 +238,10 @@ fn begin_unit(
 }
 
 fn check_research_outcome(
-    record: &Record,
+    _record: &Record,
     answer: &crate::evidence_ledger::sections::Answer,
 ) -> Result<(), String> {
-    if independent_research(record)
-        && answer.outcome != Outcome::Stopped
+    if answer.outcome != Outcome::Stopped
         && (answer.has_recorded_failure()
             || !matches!(answer.outcome, Outcome::Complete | Outcome::Partial))
     {
@@ -413,10 +387,8 @@ fn continuation(storage: &Path, record: &Record, index: usize) -> Result<String,
             .collect::<Vec<_>>()
             .join(" ")
     );
-    if independent_research(record) {
-        question.push('\n');
-        question.push_str(RESEARCH_INSTRUCTIONS);
-    }
+    question.push('\n');
+    question.push_str(RESEARCH_INSTRUCTIONS);
     if !record.units[index].attempts.is_empty() {
         let chapters = crate::chapter_store::list_for_snapshot(
             storage,
@@ -683,7 +655,7 @@ fn build_inner(
             Ok(())
         })?;
         changed(&summary(storage, &record)?);
-        if independent_research(&record) {
+        {
             if let Some(error) = operation_error {
                 return Err(error);
             }
@@ -743,7 +715,6 @@ fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Rec
         }),
         opening_context_sha256: None,
         opening_continuations: vec![],
-        upgrade: None,
         question: input.question,
         planning_run_id,
         plan: None,

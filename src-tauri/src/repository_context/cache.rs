@@ -77,6 +77,14 @@ pub(super) struct Cache {
     chunk_bytes: u64,
 }
 
+impl Drop for Cache {
+    fn drop(&mut self) {
+        // Process creation may temporarily inherit this open file description.
+        // Maintenance ends with this owner, even before the inherited handle closes.
+        let _ = self._maintenance.unlock();
+    }
+}
+
 fn directory(path: &Path) -> Result<(), String> {
     match fs::create_dir(path) {
         Ok(()) => Ok(()),
@@ -91,7 +99,8 @@ fn directory(path: &Path) -> Result<(), String> {
     }
 }
 
-// No clones: dropping the final handle releases the OS lock, including on process exit.
+// Ownership guards explicitly unlock at drop. O_CLOEXEC also closes inherited
+// handles at exec; process exit closes any remaining handles.
 fn lock_file(path: &Path) -> Result<File, String> {
     let mut options = OpenOptions::new();
     options.read(true).write(true).create(true).truncate(false);

@@ -8,8 +8,6 @@ const MAX_RECORD: usize = 256 * 1024;
 const MAX_ENTRIES: usize = 64;
 const MAX_BYTES: u64 = 8 * 1024 * 1024;
 pub(super) static STORE: Mutex<()> = Mutex::new(());
-mod upgrade;
-pub(super) use upgrade::{Upgrade, original_contract, prepare_continuation};
 
 fn directory(storage: &Path) -> Result<std::path::PathBuf, String> {
     let directory = storage.join("repository-guides");
@@ -28,7 +26,6 @@ pub(super) fn read(storage: &Path, id: &str) -> Result<Record, String> {
         .and_then(serde_json::from_value)
         .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
     validate(&record)?;
-    upgrade::verify(storage, &record)?;
     if record.id != id {
         return Err("The saved guide identity changed.".into());
     }
@@ -55,7 +52,6 @@ pub(super) fn save(storage: &Path, record: &Record, new: bool) -> Result<(), Str
 
 fn save_record(storage: &Path, record: &Record, new: bool) -> Result<(), String> {
     validate(record)?;
-    upgrade::verify(storage, record)?;
     let bytes = serde_json::to_vec(record).map_err(|_| "The guide could not be encoded.")?;
     if bytes.len() > MAX_RECORD {
         return Err("The guide record exceeds its local storage limit.".into());
@@ -235,10 +231,7 @@ pub(super) fn create(storage: &Path, record: &Record) -> Result<(), String> {
 }
 
 fn validate(record: &Record) -> Result<(), String> {
-    if !matches!(
-        (record.schema_version, record.contract.as_str()),
-        (5, CONTRACT) | (4, SEPARATE_CONTRACT) | (3, INDEPENDENT_CONTRACT) | (2, OPENING_CONTRACT) | (1, PLAN_ONLY_CONTRACT | LEGACY_CONTRACT)
-    ) || (record.schema_version >= 2) != record.opening.is_some()
+    if record.schema_version != 5 || record.contract != CONTRACT || record.opening.is_none()
         || !uuid(&record.id)
         || !uuid(&record.planning_run_id)
         || !uuid(&record.grant_id)
@@ -255,15 +248,7 @@ fn validate(record: &Record) -> Result<(), String> {
     {
         return Err("The saved repository guide has an incompatible contract.".into());
     }
-    if (record.schema_version != 5 && (!record.opening_continuations.is_empty() || record.upgrade.is_some()))
-        || record.opening_continuations.len() > 1
-        || record.upgrade.as_ref().is_some_and(|prior| {
-            !matches!((prior.schema_version, prior.contract.as_str()),
-                (4, SEPARATE_CONTRACT) | (3, INDEPENDENT_CONTRACT) | (2, OPENING_CONTRACT))
-                || prior.sha256.len() != 64
-                || !prior.sha256.bytes().all(|b| b.is_ascii_hexdigit())
-                || prior.revision >= record.revision
-        })
+    if record.opening_continuations.len() > 1
     {
         return Err("The guide's opening continuation contract changed.".into());
     }
@@ -376,3 +361,17 @@ fn validate_summary(record: &Record, attempt: &Attempt) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests;
+
+/// Continue an existing current guide without converting stored formats.
+pub(in crate::repository_guide) fn prepare_continuation(storage: &Path, id: &str, revision: u64) -> Result<Record, String> {
+    update(storage, id, |current| {
+        if current.revision != revision || current.active_run_id.is_some() {
+            return Err("The guide changed while continuation was being prepared. Inspect its saved progress before continuing.".into());
+        }
+        if opening_continuation::remaining_operations(current) == 0 {
+            return Err("This guide has no remaining investigations. Its saved sections and unfinished boundaries remain available.".into());
+        }
+        current.status = Status::Building;
+        Ok(())
+    })
+}

@@ -85,7 +85,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
   const sections = selectedRevision ? orderedSections(selectedRevision) : [];
 
   const rememberedProgress = useMemo(() => {
-    if (!selectedRevision) return null;
+    if (!selectedRevision || isNativeRuntime()) return null;
     try {
       return parseRememberedProgress(
         window.localStorage.getItem(resumeStorageKey(projectId, selectedRevision.chapterId, selectedRevision.revisionId)),
@@ -146,6 +146,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
   }, [selectedRevision?.revisionId, selectedSectionId, route.focusTarget]);
 
   const rememberSection = (revision: ChapterRevision, sectionId: string, playbackPosition = 0, transcriptPosition = 0) => {
+    if (isNativeRuntime()) return;
     try {
       window.localStorage.setItem(
         resumeStorageKey(projectId, revision.chapterId, revision.revisionId),
@@ -210,14 +211,16 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
 
   const selectChapter = (revision: ChapterRevision) => {
     let storedProgress: ReturnType<typeof parseRememberedProgress> = null;
-    try {
-      storedProgress = parseRememberedProgress(
-        window.localStorage.getItem(resumeStorageKey(projectId, revision.chapterId, revision.revisionId)),
-        projectId,
-        revision.chapterId,
-        revision.revisionId,
-      );
-    } catch { /* Progress is optional; start at the first section. */ }
+    if (!isNativeRuntime()) {
+      try {
+        storedProgress = parseRememberedProgress(
+          window.localStorage.getItem(resumeStorageKey(projectId, revision.chapterId, revision.revisionId)),
+          projectId,
+          revision.chapterId,
+          revision.revisionId,
+        );
+      } catch { /* Browser preview progress is optional; start at the first section. */ }
+    }
     const sectionId = chooseSectionId(orderedSections(revision), null, storedProgress?.sectionId);
     if (!sectionId) return;
     const playbackPosition = storedProgress?.sectionId === sectionId ? storedProgress.playbackPosition : 0;

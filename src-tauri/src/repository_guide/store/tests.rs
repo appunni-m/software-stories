@@ -30,19 +30,6 @@ fn private_records_reopen_and_conflicting_creates_preserve_original_bytes() {
 }
 
 #[test]
-fn legacy_guide_contract_reopens_without_rewriting_its_identity_or_bytes() {
-    let f = Fixture::new();
-    let mut old = record(&f);
-    old.contract = LEGACY_CONTRACT.into();
-    create(&f.storage, &old).unwrap();
-    let location = path(&f.storage, &old.id).unwrap();
-    let before = std::fs::read(&location).unwrap();
-    let restored = read(&f.storage, &old.id).unwrap();
-    assert_eq!(restored.contract, LEGACY_CONTRACT);
-    assert_eq!(restored.id, old.id);
-    assert_eq!(std::fs::read(location).unwrap(), before);
-}
-#[test]
 fn worker_lease_excludes_a_second_worker_until_the_original_is_joined() {
     let f = Fixture::new();
     let id = Uuid::new_v4().to_string();
@@ -83,7 +70,7 @@ fn damaged_contract_duplicate_runs_and_excess_attempts_fail_without_rewriting() 
     r.units[1].attempts.clear();
     r.contract = "unknown".into();
     assert!(validate(&r).is_err());
-    r.contract = PLAN_ONLY_CONTRACT.into();
+    r.contract = CONTRACT.into();
     for _ in 0..2 {
         let next = attempt(&r, Outcome::Partial);
         r.units[0].attempts.push(next);
@@ -99,7 +86,7 @@ fn fresh_independent_research_requires_its_own_schema_and_opening() {
     assert_eq!(fresh.schema_version, 5);
     assert_eq!(fresh.contract, CONTRACT);
     assert!(validate(&fresh).is_ok());
-    for (schema, contract) in [(2, CONTRACT), (3, CONTRACT), (4, INDEPENDENT_CONTRACT), (3, OPENING_CONTRACT), (1, CONTRACT), (4, PLAN_ONLY_CONTRACT)] {
+    for (schema, contract) in [(0, CONTRACT), (1, CONTRACT), (2, CONTRACT), (3, CONTRACT), (4, CONTRACT), (6, CONTRACT)] {
         let mut invalid = fresh.clone();
         invalid.schema_version = schema;
         invalid.contract = contract.into();
@@ -114,7 +101,7 @@ fn fresh_independent_research_requires_its_own_schema_and_opening() {
 }
 
 #[test]
-fn separate_opening_binding_rejects_changed_context_and_old_contracts_keep_their_bytes() {
+fn opening_binding_rejects_changed_context() {
     let f = Fixture::new();
     let fresh = crate::repository_guide::tests::fresh_record(&f);
     for kind in ["missing", "digest", "guideQuestion", "openingQuestion", "project", "snapshot", "run"] {
@@ -130,22 +117,6 @@ fn separate_opening_binding_rejects_changed_context_and_old_contracts_keep_their
             _ => unreachable!(),
         }
         assert!(validate(&invalid).is_err(), "{kind}");
-    }
-    for (schema_version, contract) in [(3, INDEPENDENT_CONTRACT), (2, OPENING_CONTRACT)] {
-        let mut old = crate::repository_guide::tests::fresh_record(&f);
-        old.schema_version = schema_version;
-        old.contract = contract.into();
-        old.opening_context_sha256 = None;
-        old.opening.as_mut().unwrap().question = old.question.clone();
-        create(&f.storage, &old).unwrap();
-        let location = path(&f.storage, &old.id).unwrap();
-        let before = std::fs::read(&location).unwrap();
-        assert!(!String::from_utf8_lossy(&before).contains("openingContextSha256"));
-        let restored = read(&f.storage, &old.id).unwrap();
-        assert_eq!(restored.contract, contract);
-        assert_eq!(opening::question(&restored).unwrap(), old.question);
-        assert_eq!(independent_research(&restored), schema_version == 3);
-        assert_eq!(std::fs::read(location).unwrap(), before);
     }
     let mut foreign = crate::repository_guide::tests::record(&f);
     foreign.opening_context_sha256 = fresh.opening_context_sha256;
@@ -210,4 +181,23 @@ fn complete_without_sections_and_foreign_cached_answer_lineage_are_rejected() {
     a.summary.as_mut().unwrap().project_id = "another repository".into();
     r.units[0].attempts.push(a);
     assert!(validate(&r).is_err());
+}
+
+#[test]
+fn unsupported_guide_versions_fail_without_rewriting_saved_bytes() {
+    let f = Fixture::new();
+    let record = record(&f);
+    create(&f.storage, &record).unwrap();
+    let location = path(&f.storage, &record.id).unwrap();
+    let current = serde_json::to_value(&record).unwrap();
+    for version in [0, 1, 2, 3, 4, 6] {
+        let mut unsupported = current.clone();
+        unsupported["schemaVersion"] = serde_json::json!(version);
+        let bytes = serde_json::to_vec(&unsupported).unwrap();
+        std::fs::write(&location, &bytes).unwrap();
+        assert!(read(&f.storage, &record.id).is_err(), "version {version}");
+        assert_eq!(std::fs::read(&location).unwrap(), bytes);
+    }
+    assert!(!f.storage.join("repository-guides/history").exists());
+    assert!(!f.storage.join("evidence-ledgers").exists());
 }

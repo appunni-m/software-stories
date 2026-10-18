@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react';
 import type { SectionIdentity, StoryProgress } from './readerProgress';
 
 /** The dedicated player shares its originating exploration's reading metadata.
- * Standalone readers without an owned conversation retain their legacy fallback. */
+ * Standalone browser previews keep their own section-scoped reader position. */
 interface ReaderProgressAccess {
   story:(identity:SectionIdentity)=>{
   progress:StoryProgress|undefined;

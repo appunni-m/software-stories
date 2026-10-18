@@ -269,6 +269,25 @@ fn pressure_reclaims_released_generations_in_the_current_scope_without_replacing
 }
 
 #[test]
+fn maintenance_owner_drop_releases_the_lock_while_an_inherited_handle_remains() {
+    let fixture = Fixture::new();
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let owner = open(&fixture.storage, "owner", &budget, Limits::default());
+    let inherited = owner._maintenance.try_clone().unwrap();
+    let lock_path = owner.root.join("maintenance.lock");
+    let contender = lock_file(&lock_path).unwrap();
+    assert!(matches!(contender.try_lock(), Err(TryLockError::WouldBlock)));
+    drop(owner);
+    assert!(contender.try_lock().is_ok(), "an inherited handle must not extend maintenance ownership");
+    let observer = lock_file(&lock_path).unwrap();
+    drop(inherited);
+    assert!(matches!(observer.try_lock(), Err(TryLockError::WouldBlock)));
+    contender.unlock().unwrap();
+    assert!(observer.try_lock().is_ok());
+}
+
+#[test]
 fn maintenance_wait_obeys_deadline_and_cancellation_without_removing_the_owner() {
     let fixture = Fixture::new();
     let cancelled = AtomicBool::new(false);

@@ -15,23 +15,18 @@ use std::{
 };
 
 pub(crate) const SERVER: &str = "code_atlas_context";
-pub(crate) const TOOL_NAMES: [&str; 5] = [
+pub(crate) const TOOL_NAMES: [&str; 6] = [
     "search_code",
     "read_code",
     "find_definitions",
     "find_relationships",
     "list_modules",
+    PROPOSAL_TOOL,
 ];
 pub(crate) const MAX_INPUT: usize = 8192;
 pub(crate) const PROPOSAL_TOOL: &str = "propose_answer_section";
-pub(crate) const MAX_PROGRESSIVE_INPUT: usize = 34_000;
-pub(crate) fn tool_names(progressive: bool) -> Vec<&'static str> {
-    let mut names = TOOL_NAMES.to_vec();
-    if progressive {
-        names.push(PROPOSAL_TOOL);
-    }
-    names
-}
+pub(crate) const MAX_PROPOSAL_INPUT: usize = 34_000;
+pub(crate) fn tool_names() -> Vec<&'static str> { TOOL_NAMES.to_vec() }
 pub(crate) const MAX_REPLY: usize = 128_000;
 
 #[derive(Deserialize, Serialize)]
@@ -42,7 +37,7 @@ pub(crate) struct Request {
     pub(crate) arguments: Value,
 }
 
-pub(crate) fn tools() -> Vec<Tool> {
+fn read_tools() -> Vec<Tool> {
     let scope = json!({"type":["string","null"],"description":"Exact captured file or folder path; null or dot searches the snapshot root. No absolute or parent paths."});
     let limit = json!({"type":"integer","minimum":1,"maximum":32,"description":"Desired page size, capped natively at 32; follow nextOffset for further pages."});
     let offset = json!({"type":"integer","minimum":0,"maximum":100000});
@@ -55,7 +50,7 @@ pub(crate) fn tools() -> Vec<Tool> {
         ),
         (
             "read_code",
-            "Read one to eight captured UTF-8 byte ranges, end exclusive, at most 32768 bytes each. Copy path, sourceSha256, startByte and endByte exactly from search or definitions; never guess a file's length. readError returns no code: correct the request or refine the search. Returns new code fragments of at most 1000 bytes with an id, original contents, range and citeable flag. Cite a citeable:true fragment using evidence:{referenceId:id}; do not copy or reformat source in the answer. Each ID refers to the entire fragment. alreadyAvailable contains reusable IDs from previous reads. Short/blank fragments are not citeable. The full file stays local.",
+            "Read one to eight captured UTF-8 byte ranges, end exclusive, at most 32768 bytes each. Copy path, sourceSha256, startByte and endByte exactly from search or definitions. readError returns no code: correct the request or refine the search. Returns new fragments of at most 1000 bytes with a short operation-scoped referenceId such as code:1, original contents, range and citeable. Cite only citeable:true fragments using evidence:{referenceId:fragment.referenceId}; copy that referenceId exactly. reusedReferences lists stable referenceId values for previously delivered fragments. Each reference names the entire exact fragment. Never invent an ID, copy source into the answer or cite discovery results. Short/blank fragments are not citeable; the full file stays local.",
             json!({"ranges":{"type":"array","minItems":1,"maxItems":8,"items":{"type":"object","additionalProperties":false,"properties":{"path":{"type":"string"},"sourceSha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},"startByte":{"type":"integer","minimum":0},"endByte":{"type":"integer","minimum":1}},"required":["path","sourceSha256","startByte","endByte"]}}}),
         ),
         (
@@ -82,17 +77,9 @@ pub(crate) fn tools() -> Vec<Tool> {
     }).collect()
 }
 
-/// The sixth tool saves an unaccepted local draft; it never edits a repository.
-/// The original five-tool catalog is retained verbatim for historical requests.
-pub(crate) fn tools_for(progressive: bool) -> Vec<Tool> {
-    let mut catalog = tools();
-    if !progressive {
-        return catalog;
-    }
-    // Keep historical five-tool descriptions/schemas unchanged. Only this
-    // explicit mode advertises the operation-local short citation transport.
-    catalog.iter_mut().find(|tool| tool.name == "read_code").unwrap().description = Some(
-        "Read one to eight captured UTF-8 byte ranges, end exclusive, at most 32768 bytes each. Copy path, sourceSha256, startByte and endByte exactly from search or definitions. readError returns no code: correct the request or refine the search. Returns new fragments of at most 1000 bytes with referenceId such as code:1, original contents, range and citeable. Cite only citeable:true fragments using evidence:{referenceId:fragment.referenceId}. Copy the short referenceId exactly; the longer id is native integrity metadata, not the citation field. reusedReferences lists stable referenceId values for already delivered fragments. Each reference names the entire exact fragment in this investigation. Never invent an ID, copy source into the answer or cite discovery results. Short/blank fragments are not citeable; the full file stays local.".into());
+/// The sixth tool saves a complete local draft; it never edits a repository.
+pub(crate) fn tools() -> Vec<Tool> {
+    let mut catalog = read_tools();
     let section = crate::evidence_ledger::sections::authoring::narration::schema();
     let schema = json!({"type":"object","additionalProperties":false,"properties":{
         "proposalVersion":{"type":"string","enum":[crate::evidence_ledger::sections::NARRATION_PROPOSAL_VERSION]},
@@ -209,14 +196,6 @@ pub(crate) fn read_owner_packet(
     stream: &mut std::os::unix::net::UnixStream,
     cancelled: &std::sync::atomic::AtomicBool,
 ) -> Result<Vec<u8>, String> {
-    read_owner_packet_for(stream, cancelled, false)
-}
-#[cfg(unix)]
-pub(crate) fn read_owner_packet_for(
-    stream: &mut std::os::unix::net::UnixStream,
-    cancelled: &std::sync::atomic::AtomicBool,
-    progressive: bool,
-) -> Result<Vec<u8>, String> {
     stream
         .set_nonblocking(true)
         .map_err(|_| "The context transport could not use nonblocking I/O.")?;
@@ -226,11 +205,7 @@ pub(crate) fn read_owner_packet_for(
             cancelled,
             deadline: std::time::Instant::now() + Duration::from_millis(200),
         },
-        if progressive {
-            MAX_PROGRESSIVE_INPUT
-        } else {
-            MAX_INPUT
-        },
+        MAX_PROPOSAL_INPUT,
     )
 }
 #[cfg(unix)]
@@ -253,32 +228,19 @@ pub(crate) fn write_owner_packet(
     )
 }
 
-/// Same five read-only tools; short IDs do not authorize section publication.
-pub(crate) fn tools_for_planning() -> Vec<Tool> {
-    let mut catalog = tools_for(true);
-    catalog.retain(|tool| tool.name != PROPOSAL_TOOL);
-    catalog
-}
-
 struct Adapter {
-    progressive: bool,
-    short_references: bool,
     socket: PathBuf,
     token: String,
 }
 impl Adapter {
     fn catalog(&self) -> Vec<Tool> {
-        if self.short_references && !self.progressive {
-            tools_for_planning()
-        } else {
-            tools_for(self.progressive)
-        }
+        tools()
     }
     #[cfg(unix)]
     fn call(&self, name: String, arguments: Value) -> Result<String, String> {
         use std::os::unix::net::UnixStream;
-        let limit = if self.progressive && name == PROPOSAL_TOOL {
-            MAX_PROGRESSIVE_INPUT
+        let limit = if name == PROPOSAL_TOOL {
+            MAX_PROPOSAL_INPUT
         } else {
             MAX_INPUT
         };
@@ -334,15 +296,13 @@ impl ServerHandler for Adapter {
         request: CallToolRequestParams,
         _: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
-        if !tool_names(self.progressive).contains(&request.name.as_ref()) {
+        if !tool_names().contains(&request.name.as_ref()) {
             return Err(ErrorData::invalid_params(
                 "Unknown captured-code tool.",
                 None,
             ));
         }
         let adapter = Self {
-            progressive: self.progressive,
-            short_references: self.short_references,
             socket: self.socket.clone(),
             token: self.token.clone(),
         };
@@ -362,10 +322,7 @@ impl ServerHandler for Adapter {
 
 pub(crate) fn run_if_requested() -> bool {
     let args = std::env::args_os().collect::<Vec<_>>();
-    if args
-        .get(1)
-        .is_none_or(|a| a != "--atlas-context-mcp" && a != "--atlas-answer-mcp" && a != "--atlas-plan-mcp")
-    {
+    if args.get(1).is_none_or(|a| a != "--atlas-answer-mcp") {
         return false;
     }
     let result = (|| {
@@ -390,8 +347,6 @@ pub(crate) fn run_if_requested() -> bool {
             let service = Adapter {
                 socket,
                 token,
-                progressive: args[1] == "--atlas-answer-mcp",
-                short_references: args[1] != "--atlas-context-mcp",
             }
             .serve(rmcp::transport::stdio())
             .await
@@ -434,31 +389,18 @@ mod tests {
     }
 
     #[test]
-    fn progressive_catalog_extends_only_the_explicit_versioned_mode() {
-        let legacy = tools();
-        let progressive = tools_for(true);
-        assert_eq!(
-            serde_json::to_value(tools_for(false)).unwrap(),
-            serde_json::to_value(&legacy).unwrap()
-        );
-        assert_eq!(progressive.len(), 6);
-        for (old, new) in legacy.iter().zip(&progressive[..5]) {
-            if old.name == "read_code" {
-                assert_eq!(old.input_schema, new.input_schema);
-                assert!(
-                    new.description
-                        .as_deref()
-                        .unwrap()
-                        .contains("reusedReferences")
-                );
-            } else {
-                assert_eq!(
-                    serde_json::to_value(old).unwrap(),
-                    serde_json::to_value(new).unwrap()
-                );
-            }
+    fn current_catalog_advertises_only_v6_proposals_and_short_references() {
+        let read_only = read_tools();
+        let catalog = tools();
+        assert_eq!(tool_names(), TOOL_NAMES.to_vec());
+        assert_eq!(catalog.len(), 6);
+        for (base, answer) in read_only.iter().zip(&catalog[..5]) {
+            assert_eq!(serde_json::to_value(base).unwrap(), serde_json::to_value(answer).unwrap());
         }
-        let proposal = &progressive[5];
+        let read = catalog.iter().find(|tool| tool.name == "read_code").unwrap();
+        assert!(read.description.as_deref().unwrap().contains("reusedReferences"));
+        assert!(read.description.as_deref().unwrap().contains("code:1"));
+        let proposal = &catalog[5];
         assert_eq!(proposal.name, PROPOSAL_TOOL);
         assert_eq!(
             proposal.annotations.as_ref().unwrap().read_only_hint,
@@ -537,29 +479,22 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn only_the_explicit_progressive_packet_reader_allows_the_larger_envelope() {
+    fn current_packet_reader_allows_the_proposal_envelope() {
         use std::{os::unix::net::UnixStream, sync::atomic::AtomicBool, thread, time::Instant};
         for attempt in 0..16 {
-            for length in [MAX_INPUT + 1, MAX_PROGRESSIVE_INPUT] {
-                for progressive in [false, true] {
-                    let payload = vec![b'x'; length];
-                    let (mut owner, mut peer) = UnixStream::pair().unwrap();
-                    let worker = thread::spawn(move || {
-                        write_packet(&mut peer, &payload, MAX_PROGRESSIVE_INPUT)
-                    });
-                    let started = Instant::now();
-                    let result =
-                        read_owner_packet_for(&mut owner, &AtomicBool::new(false), progressive);
-                    let elapsed = started.elapsed();
-                    drop(owner);
-                    let sent = worker.join().unwrap();
-                    if progressive {
-                        assert_eq!(result.unwrap_or_else(|error| panic!("{error}; attempt={attempt}; length={length}; elapsed={elapsed:?}; peer={sent:?}")).len(), length);
-                        assert!(sent.is_ok());
-                    } else {
-                        assert!(result.is_err());
-                    }
-                }
+            for length in [MAX_INPUT + 1, MAX_PROPOSAL_INPUT] {
+                let payload = vec![b'x'; length];
+                let (mut owner, mut peer) = UnixStream::pair().unwrap();
+                let worker = thread::spawn(move || {
+                    write_packet(&mut peer, &payload, MAX_PROPOSAL_INPUT)
+                });
+                let started = Instant::now();
+                let result = read_owner_packet(&mut owner, &AtomicBool::new(false));
+                let elapsed = started.elapsed();
+                drop(owner);
+                let sent = worker.join().unwrap();
+                assert_eq!(result.unwrap_or_else(|error| panic!("{error}; attempt={attempt}; length={length}; elapsed={elapsed:?}; peer={sent:?}")).len(), length);
+                assert!(sent.is_ok());
             }
         }
     }
@@ -649,14 +584,17 @@ mod tests {
     }
 
     #[test]
-    fn catalog_is_only_owned_read_only_tools_and_packets_are_bounded() {
+    fn catalog_has_five_read_tools_and_one_publication_tool() {
         let tools = tools();
-        assert_eq!(tools.len(), 5);
-        for tool in tools {
+        assert_eq!(tools.len(), 6);
+        for tool in &tools[..5] {
             assert!(TOOL_NAMES.contains(&tool.name.as_ref()));
             assert_eq!(tool.input_schema["additionalProperties"], false);
-            assert_eq!(tool.annotations.unwrap().read_only_hint, Some(true));
+            assert_eq!(tool.annotations.as_ref().unwrap().read_only_hint, Some(true));
         }
+        let publication = &tools[5];
+        assert_eq!(publication.name, PROPOSAL_TOOL);
+        assert_eq!(publication.annotations.as_ref().unwrap().read_only_hint, Some(false));
         let mut bytes = vec![];
         write_packet(&mut bytes, b"hello", 5).unwrap();
         assert_eq!(read_packet(&mut bytes.as_slice(), 5).unwrap(), b"hello");
@@ -666,30 +604,15 @@ mod tests {
     }
 
     #[test]
-    fn planning_catalog_keeps_five_read_only_tools_and_short_reference_instructions() {
-        let legacy = tools();
-        let progressive = tools_for(true);
-        let planner = tools_for_planning();
-        assert_eq!(serde_json::to_value(tools_for(false)).unwrap(), serde_json::to_value(&legacy).unwrap());
-        assert_eq!(planner.len(), 5);
-        assert_eq!(progressive.len(), 6);
-        for (original, tool) in legacy.iter().zip(&planner) {
-            assert_eq!(tool.name, original.name);
-            assert_eq!(tool.input_schema, original.input_schema);
-            assert_eq!(serde_json::to_value(&tool.annotations).unwrap(), serde_json::to_value(&original.annotations).unwrap());
-            assert_eq!(tool.annotations.as_ref().unwrap().read_only_hint, Some(true));
-            if tool.name == "read_code" {
-                assert!(tool.description.as_ref().unwrap().contains("code:1"));
-                assert!(!original.description.as_ref().unwrap().contains("code:1"));
-            } else {
-                assert_eq!(tool.description, original.description);
-            }
-            let counterpart = progressive.iter().find(|t| t.name == tool.name).unwrap();
-            assert_eq!(serde_json::to_value(tool).unwrap(), serde_json::to_value(counterpart).unwrap());
-        }
-        let adapter = Adapter { progressive: false, short_references: true,
-            socket: PathBuf::from("/unused-test-socket"), token: "test-token".into() };
-        assert!(adapter.get_tool(PROPOSAL_TOOL).is_none());
-        assert_eq!(serde_json::to_value(adapter.catalog()).unwrap(), serde_json::to_value(planner).unwrap());
+    fn adapter_exposes_the_same_single_current_catalog() {
+        let adapter = Adapter {
+            socket: PathBuf::from("/unused-test-socket"),
+            token: "test-token".into(),
+        };
+        assert!(adapter.get_tool(PROPOSAL_TOOL).is_some());
+        assert_eq!(
+            serde_json::to_value(adapter.catalog()).unwrap(),
+            serde_json::to_value(tools()).unwrap()
+        );
     }
 }

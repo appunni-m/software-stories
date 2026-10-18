@@ -17,10 +17,10 @@ export interface RepositoryGuide {
   revision: number;
   id: string; projectId: string; snapshotId: string; question: string; title: string;
   status: 'planning' | 'building' | 'ready' | 'partial' | 'stopped' | 'interrupted' | 'failed';
-  openingRunId?: string | null;
-  openingRunIds?: string[];
-  canContinue?: boolean;
-  continuationOperations?: number;
+  openingRunId: string | null;
+  openingRunIds: string[];
+  canContinue: boolean;
+  continuationOperations: number;
   units: { key: string; question: string; prerequisites: string[]; status: string; runIds: string[] }[];
   answers: AnswerSummary[]; omissions: string[]; capturedFiles: number; startingFiles: number;
 }
@@ -39,7 +39,7 @@ export interface Turn {
   outcomeSequence?: number;
   outcomeNotice?: { read?: string; dismissed?: string };
 }
-export interface Exploration { id: string; parentId: string | null; originTurnId: string | null; title: string; view: View; turns: Turn[]; focusedTurnId?: string; revealTurnId?: string; file?: string; reveal?: Context; codeOpen?: boolean; fileFlow?: {path:string;showAll:boolean}; scrollTop?: number; scrollPositions?: Partial<Record<View, number>> }
+export interface Exploration { id: string; parentId: string | null; originTurnId: string | null; title: string; view: View; turns: Turn[]; focusedTurnId?: string; revealTurnId?: string; file?: string; reveal?: Context; codeOpen?: boolean; fileFlow?: {path:string;showAll:boolean}; scrollPositions?: Partial<Record<View, number>> }
 export interface WorkspaceState { version: 1; projectId: string; snapshotId: string; currentId: string; file: string | null; explorations: Exploration[]; grantId?: string }
 
 /** History describes an available result only when its exact revision loaded.
@@ -79,7 +79,7 @@ export function ancestors(state: WorkspaceState, id = state.currentId): Explorat
 export function parseWorkspace(raw: string | null, projectId: string, snapshotId: string): WorkspaceState {
   return decodeWorkspace(raw,projectId,snapshotId) ?? createWorkspace(projectId,snapshotId);
 }
-/** Migration must distinguish a missing/corrupt preference from an empty tree. */
+/** The browser preview starts with an empty tree when its saved state is unavailable. */
 export function decodeWorkspace(raw: string | null, projectId: string, snapshotId: string): WorkspaceState | null {
   const fallback = () => null;
   try {
@@ -90,9 +90,8 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
     for (const e of value.explorations) {
       if (typeof e.id !== 'string' || typeof e.title !== 'string' || !['guide', 'flow', 'history'].includes(e.view) || !Array.isArray(e.turns)
         || (e.id === 'root' ? e.parentId !== null : !e.parentId || !ids.has(e.parentId))) return fallback();
+      if (Object.hasOwn(e, 'scrollTop')) return fallback();
       e.scrollPositions = cleanScrollPositions(e.scrollPositions);
-      if (validScroll(e.scrollTop) && e.scrollPositions[e.view] === undefined) e.scrollPositions[e.view] = e.scrollTop;
-      delete e.scrollTop;
       delete e.revealTurnId; // A reload restores reading, never moves keyboard focus.
       if(typeof e.codeOpen!=='boolean')delete e.codeOpen;
       if(!e.fileFlow||typeof e.fileFlow.path!=='string'||e.fileFlow.path.startsWith('/')||e.fileFlow.path.includes('\\')||e.fileFlow.path.split('/').some(p=>!p||p==='.'||p==='..')||/[\u0000-\u001f\u007f]/.test(e.fileFlow.path)||new TextEncoder().encode(e.fileFlow.path).length>4096||typeof e.fileFlow.showAll!=='boolean')delete e.fileFlow;
@@ -143,7 +142,7 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
  * a lost local-storage write. Never change the reader's view or section. */
 export function mergeRepositoryGuide(state: WorkspaceState, guide: RepositoryGuide): WorkspaceState {
   if (guide.projectId !== state.projectId || guide.snapshotId !== state.snapshotId || !validRunId(guide.id)) return state;
-  const runIds = [...new Set([...(guide.openingRunIds ?? [guide.openingRunId]), ...guide.units.flatMap((unit) => unit.runIds)].filter(validRunId))];
+  const runIds = [...new Set([...guide.openingRunIds, ...guide.units.flatMap((unit) => unit.runIds)].filter(validRunId))];
   const owner = state.explorations.find((e) => e.turns.some((t) => t.guideId === guide.id));
   const previous = owner?.turns.find((t) => t.guideId === guide.id)?.guide;
   if (previous && previous.revision > guide.revision) return state;
@@ -156,16 +155,15 @@ export function mergeRepositoryGuide(state: WorkspaceState, guide: RepositoryGui
   } : e.id !== 'root' ? e : { ...e, turns: [...e.turns, merge({ id: guide.id, question: guide.question, context: [], status: 'interrupted' })] }) };
 }
 
-/** Native lifetime accounting includes an unfinished opening. Older summaries
- * keep their previous unit-only behavior until native state is refreshed. */
+/** Native lifetime accounting includes an unfinished opening. */
 export function guideContinuationOperations(guide: Omit<RepositoryGuide, 'answers'> | undefined): number {
   if (!guide) return 0;
-  if (Number.isInteger(guide.continuationOperations) && guide.continuationOperations! >= 0 && guide.continuationOperations! <= 7) return guide.continuationOperations!;
-  return guide.units.filter((unit) => unit.status !== 'complete' && unit.runIds.length < 2).length;
+  return Number.isInteger(guide.continuationOperations) && guide.continuationOperations >= 0 && guide.continuationOperations <= 7
+    ? guide.continuationOperations : 0;
 }
 
 export function canContinueRepositoryGuide(guide: Omit<RepositoryGuide, 'answers'> | undefined): boolean {
-  return guide?.canContinue ?? guideContinuationOperations(guide) > 0;
+  return guide?.canContinue === true;
 }
 
 /** Canceling a review removes only its undispatched, empty UI card. Native

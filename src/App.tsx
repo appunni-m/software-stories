@@ -31,7 +31,6 @@ import { ConnectionsDialog } from './ConnectionsDialog';
 import { NotificationCenter, type WorkspaceNotification } from './NotificationCenter';
 import { ThemeControl } from './ThemeControl';
 import { KeyboardShortcuts } from './KeyboardShortcuts';
-import { SavedAttemptsDialog } from './SavedAttemptsDialog';
 import type { PrepareRepositoryPlanInput } from './lib/repositoryPlans';
 import type { PlannedChapterScope } from './lib/plannedChapters';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
@@ -259,7 +258,6 @@ function App() {
     return()=>{window.removeEventListener('code-atlas:workspace-notice',notify);window.removeEventListener('code-atlas:workspace-notice-resolved',resolved);};
   }, [setNotice,noticeHistory]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [savedAttemptsOpen, setSavedAttemptsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
@@ -320,7 +318,7 @@ function App() {
   const projectButtonRef = useRef<HTMLButtonElement>(null);
   const pickerReturnFocusRef = useRef<string | undefined>(undefined);
   const currentWorkspace = navigation.current.workspace;
-  useEffect(()=>{if(navigation.current.projectId){try{localStorage.setItem('code-atlas:last-project',navigation.current.projectId);}catch{/* Optional preference. */}}},[navigation.current.projectId]);
+  useEffect(()=>{if(!isNativeRuntime()&&navigation.current.projectId){try{localStorage.setItem('code-atlas:last-project',navigation.current.projectId);}catch{/* Optional browser-preview preference. */}}},[navigation.current.projectId]);
   const currentProject = navigation.current.projectId
     ? knownProjects[navigation.current.projectId] ?? recentProjects.find((project) => project.projectId === navigation.current.projectId) ?? null
     : null;
@@ -522,7 +520,7 @@ function App() {
     setRecoveredGitRequest(null);
     try {
       const recordedRequest = operation.providerRequest;
-      if (!recordedRequest) throw new Error('This older interruption record does not identify the request scope. Reopen the project and select the original file, section, source range or change before preparing a new request. The app will not assume it was a whole-file explanation.');
+      if (!recordedRequest) throw new Error('The current interruption record is missing its request scope. Reopen the project and select the original file, section, source range or change before preparing a new request. The app will not assume it was a whole-file explanation.');
       if (!['codex', 'claude-agent', 'gemini', 'openai', 'anthropic'].includes(recordedRequest.providerId)) throw new Error('The original backend is not connected to interruption recovery. Its scope stays in this notice; no API request was opened.');
       const opened = await openRecentProject(operation.projectId);
       if (!current()) return;
@@ -831,7 +829,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (navigation.current.projectId && navigation.current.snapshotId && currentWorkspace === 'atlas') {
+    if (!isNativeRuntime() && navigation.current.projectId && navigation.current.snapshotId && currentWorkspace === 'atlas') {
       rememberFileLocation(navigation.current.projectId, {
         snapshotId: navigation.current.snapshotId, path: navigation.current.relativePath,
       });
@@ -866,9 +864,11 @@ function App() {
         setRecentProjects((current) => [...current, ...projects.filter((project) => !current.some((item) => item.projectId === project.projectId))]);
         setKnownProjects((current) => ({ ...Object.fromEntries(projects.map((project) => [project.projectId, project])), ...current }));
         try {
-          const previous = localStorage.getItem('code-atlas:last-project');
-          if (automaticRestoreAllowed.current && previous && !navigationRef.current.current.projectId
-            && !isProjectOpeningBusy() && projects.some((project) => project.projectId === previous)) void openRecent(previous);
+          if (!isNativeRuntime()) {
+            const previous = localStorage.getItem('code-atlas:last-project');
+            if (automaticRestoreAllowed.current && previous && !navigationRef.current.current.projectId
+              && !isProjectOpeningBusy() && projects.some((project) => project.projectId === previous)) void openRecent(previous);
+          }
         } catch { /* Starting without an optional preference remains usable. */ }
       }
       setRecentsPending(false);
@@ -918,7 +918,7 @@ function App() {
         const sorted = newestSnapshotsFirst(snapshots);
         setSnapshotsByProject((current) => ({ ...current, [currentProject.projectId]: sorted }));
         setSnapshotHistoryLoad({ projectId: currentProject.projectId, status: 'ready' });
-        const saved = readFileLocation(currentProject.projectId);
+        const saved = isNativeRuntime() ? null : readFileLocation(currentProject.projectId);
         const snapshot = sorted.find((item) => item.snapshotId === saved?.snapshotId) ?? sorted[0];
         if (snapshot) {
           setNavigation((state) => state.current.projectId !== currentProject.projectId || state.current.snapshotId
@@ -1538,8 +1538,7 @@ function App() {
             availability={notificationAvailability({ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready',
               answers: answerAvailability, notices:noticeHistoryState.availability,
               refreshing: interruptionRefreshing || previewRefreshing, unavailable: interruptedOperationsUnavailable || pendingChapterPreviewsUnavailable })}
-            open={notificationsOpen} onOpenChange={setNotificationsOpen}
-            onReviewSavedAttempts={runtime?.native ? () => setSavedAttemptsOpen(true) : undefined} />
+            open={notificationsOpen} onOpenChange={setNotificationsOpen} />
           <button
             className="search-control"
             disabled={!navigation.current.snapshotId}
@@ -1622,7 +1621,7 @@ function App() {
               projectName={currentProject?.displayName ?? 'Repository'} workspace={currentWorkspace}
               routePath={navigation.current.relativePath} routeRange={navigation.current.sourceRange} routeSelection={navigation.current.atlasSelection}
               onWorkspace={chooseWorkspace} onSettings={openProviderSettings} onReview={reviewGuideRevision} onRead={openGuideRevision}
-              onRememberFile={(relativePath) => { if (currentProject && selectedSnapshot) rememberFileLocation(currentProject.projectId,{snapshotId:selectedSnapshot.snapshotId,path:relativePath}); }}
+              onRememberFile={(relativePath) => { if (!isNativeRuntime() && currentProject && selectedSnapshot) rememberFileLocation(currentProject.projectId,{snapshotId:selectedSnapshot.snapshotId,path:relativePath}); }}
               onCompare={(baseRef,headRef) => {
                 setNavigation((state)=>navigateToRoute(state,{...state.current,workspace:'changes',baseRef,headRef,selectedChangePath:undefined}));
                 if(currentProject){const projectId=currentProject.projectId;void compareLocalGitRevisions(projectId,baseRef,headRef).then((result)=>setGitComparisonsByProject((s)=>({...s,[projectId]:{baseRef,headRef,result}}))).catch((error: unknown)=>{if(error instanceof Error && error.name==='AbortError')return;setNotice({projectId,title:'Comparison unavailable',message:'Choose two local commits and try again.'});});}
@@ -1867,8 +1866,6 @@ function App() {
           onRecoveryChanged={() => { void refreshPendingChapterPreviews(); }}
         />
       )}
-      {savedAttemptsOpen && <SavedAttemptsDialog onClose={() => setSavedAttemptsOpen(false)}
-        projectNames={Object.fromEntries(Object.entries(knownProjects).map(([id, project]) => [id, project.displayName]))} />}
     </div>
     </Theme>
   );

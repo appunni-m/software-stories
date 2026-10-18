@@ -416,10 +416,8 @@ fn validate_preview(preview: &ChapterDraftPreview) -> Result<(), String> {
                 .to_owned(),
         );
     }
-    if !matches!(
-        preview.revision.schema_version,
-        chapters::GROUNDED_CHAPTER_SCHEMA_VERSION | chapters::CHAPTER_SCHEMA_VERSION
-    ) || preview.revision.lifecycle != RevisionLifecycle::Draft
+    if preview.revision.schema_version != chapters::CHAPTER_SCHEMA_VERSION
+        || preview.revision.lifecycle != RevisionLifecycle::Draft
         || preview.revision.validation_status != ValidationStatus::Valid
     {
         return Err(

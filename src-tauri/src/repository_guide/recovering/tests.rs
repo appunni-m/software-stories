@@ -145,57 +145,6 @@ fn unchanged_terminal_reconciliation_preserves_bytes_and_revision_even_at_the_li
     }
 }
 
-#[test]
-fn unchanged_legacy_reconciliation_archives_the_exact_pre_continue_bytes() {
-    let f = Fixture::new();
-    let mut original = crate::repository_guide::tests::fresh_record(&f);
-    original.schema_version = 4;
-    original.contract = SEPARATE_CONTRACT.into();
-    original.status = Status::Partial;
-    original.revision = 9;
-    let opening = original.opening.as_mut().unwrap();
-    // State-machine metadata only; no synthetic chapter or source evidence is admitted.
-    opening.summary = Some(Summary {
-        run_id: opening.run_id.clone(),
-        project_id: original.project_id.clone(),
-        snapshot_id: original.snapshot_id.clone(),
-        question: opening.question.clone(),
-        outcome: Outcome::Partial,
-        sections: vec![],
-        incomplete_topics: vec!["The original transition still needs investigation.".into()],
-    });
-    store::create(&f.storage, &original).unwrap();
-    let path = f
-        .storage
-        .join("repository-guides")
-        .join(format!("{}.json", original.id));
-    let bytes = format!("{}\n", serde_json::to_string_pretty(&original).unwrap()).into_bytes();
-    std::fs::write(&path, &bytes).unwrap();
-    let reconciled = reconcile(
-        &f.storage,
-        &original,
-        &codex_agent::CodexAgentManager::default(),
-    )
-    .unwrap();
-    assert_eq!(record_bytes(&f, &original), bytes);
-    let continued =
-        store::prepare_continuation(&f.storage, &original.id, reconciled.revision).unwrap();
-    let upgrade = continued.upgrade.as_ref().unwrap();
-    assert_eq!(upgrade.revision, original.revision);
-    assert_eq!(upgrade.sha256, context::digest(&bytes));
-    let archive = f
-        .storage
-        .join("repository-guide-history")
-        .join(format!("{}-{}.json", original.id, upgrade.sha256));
-    assert_eq!(std::fs::read(archive).unwrap(), bytes);
-    assert_eq!(continued.revision, original.revision + 1);
-    assert_eq!(continued.plan, original.plan);
-    assert_eq!(
-        serde_json::to_value(continued.opening).unwrap(),
-        serde_json::to_value(original.opening).unwrap()
-    );
-    assert!(!f.storage.join("codex-agent/runtime.json").exists());
-}
 
 fn pending(f: &Fixture) -> Record {
     let mut record = record(f);
@@ -235,7 +184,7 @@ fn empty_answer(f: &Fixture, record: &Record, question: &str) -> std::path::Path
     let run = &record.units[0].attempts[0].run_id;
     let ledger = Ledger::new_progressive(&f.storage, run, &f.manifest, &grant, &runtime).unwrap();
     ledger
-        .start_answer_sections(
+        .start_narration_answer_sections(
             question,
             &"d".repeat(64),
             &f.manifest,

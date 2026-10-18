@@ -6,7 +6,7 @@ export type RecordedAgentSettings = { backend: 'codex'; modelId: string; effort:
 
 /** Local dispatch lineage. This is not a cryptographic account attestation. */
 export interface ChapterGenerationOrigin {
-  schemaVersion: 1 | 2 | 3 | 4 | 5;
+  schemaVersion: 5;
   projectId: string;
   snapshotId: string;
   targetPath: string | null;
@@ -33,7 +33,7 @@ export function samePlannedTarget(left: PlannedChapterTarget | null | undefined,
 export function recordedRecoveryLabel(origin: ChapterGenerationOrigin | null | undefined,
   requestId: string | undefined, backend: 'codex' | 'claude-agent', target?: PlannedChapterTarget,
 ): string {
-  if (!origin) return 'Legacy or unrecorded request · possible file match';
+  if (!origin) return 'Unrecorded request · possible file match';
   const stepMatches = target ? samePlannedTarget(origin.plannedChapter?.target, target) : !origin.plannedChapter;
   if (origin.settings.backend === backend && origin.requestId === requestId && stepMatches) return 'Recorded request match';
   if (target && origin.settings.backend === backend && stepMatches) return 'Same recorded learning step · another request';

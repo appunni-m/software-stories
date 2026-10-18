@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { addTurn, ancestors, chapterTarget, chooseFlowRevision, cleanAnswerNotes, cleanPublishedSections, historyEntry, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
+import { addTurn, ancestors, chapterTarget, chooseFlowRevision, cleanAnswerNotes, cleanPublishedSections, decodeWorkspace, historyEntry, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
 const turn = (id,question='Explain the subtotal implementation') => ({id,question,context:[{path:'src/cart.ts',from:1,to:6}],status:'queued'});
 
 test('history never calls an empty or unavailable outcome a saved explanation',()=>{
@@ -194,11 +194,13 @@ test('invalid and oversized reader positions are discarded without losing saved 
   for(const bad of [-1,NaN,Infinity,10_000_001,'100'])assert.equal(rememberScroll(s,'root','guide',bad),s);
 });
 
-test('legacy scroll position migrates only to its previously selected view',()=>{
+test('current scroll positions persist and the removed scrollTop field is rejected',()=>{
   const s=createWorkspace('p','snap');s.explorations[0].view='history';s.explorations[0].scrollTop=123;
+  assert.equal(decodeWorkspace(JSON.stringify(s),'p','snap'),null);
   let restored=parseWorkspace(JSON.stringify(s),'p','snap');
-  assert.deepEqual(restored.explorations[0].scrollPositions,{history:123});assert.equal(restored.explorations[0].scrollTop,undefined);
+  assert.equal(restored.explorations[0].scrollPositions,undefined);
   s.explorations[0].scrollPositions={history:456};
+  delete s.explorations[0].scrollTop;
   restored=parseWorkspace(JSON.stringify(s),'p','snap');assert.equal(restored.explorations[0].scrollPositions.history,456);
 });
 

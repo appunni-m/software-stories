@@ -22,7 +22,7 @@ pub(super) fn request(
         }
     }
     if ranges.is_empty() && guide_intent.is_none() {
-        // Preserve the exact ordinary-question contract and historical prompt.
+        // Keep an unseeded question on the same current request contract.
         let (prompt, schema, fingerprint) = super::request(input, manifest)?;
         return Ok((prompt, schema, fingerprint, system_instructions()));
     }
@@ -172,7 +172,7 @@ mod tests {
         intent.unit_key = "opening".into();
         intent.unit_number = 0;
         intent.opening_continuation = Some(OpeningContinuation {
-            previous_run_id: Uuid::new_v4().to_string(), scoped: true,
+            previous_run_id: Uuid::new_v4().to_string(),
             incomplete_topics: vec!["The first guard's false alternative remains unexplored.".into()],
         });
         let (prompt, schema, fingerprint, instructions) = request(&f.storage, &input, &f.manifest, &[], Some(&intent)).unwrap();
@@ -191,13 +191,12 @@ mod tests {
         assert_eq!(fingerprint, context::digest(&serde_json::to_vec(&contract).unwrap()));
         assert_eq!(contract["sectionAttempts"], 8);
         assert_eq!(contract["uniqueSections"], 6);
-        assert_eq!(contract["tools"], serde_json::to_value(context_mcp::tools_for(true)).unwrap());
-        for field in ["owner", "scoped", "gaps"] {
+        assert_eq!(contract["tools"], serde_json::to_value(context_mcp::tools()).unwrap());
+        for field in ["owner", "gaps"] {
             let mut changed = intent.clone();
             let opening = changed.opening_continuation.as_mut().unwrap();
             match field {
                 "owner" => opening.previous_run_id = Uuid::new_v4().to_string(),
-                "scoped" => opening.scoped = false,
                 "gaps" => opening.incomplete_topics.push("The returned error is still unknown.".into()),
                 _ => unreachable!(),
             }
@@ -214,7 +213,7 @@ mod tests {
         original.unit_key = "opening".into();
         original.unit_number = 0;
         original.opening_continuation = Some(OpeningContinuation {
-            previous_run_id: Uuid::new_v4().to_string(), scoped: false, incomplete_topics: vec![],
+            previous_run_id: Uuid::new_v4().to_string(), incomplete_topics: vec![],
         });
         for field in ["owner", "number", "key", "missing", "count", "control", "long"] {
             let mut changed = original.clone();
@@ -271,7 +270,7 @@ mod tests {
         assert_eq!(contract["uniqueSections"], 6);
         assert_eq!(
             contract["tools"],
-            serde_json::to_value(context_mcp::tools_for(true)).unwrap()
+            serde_json::to_value(context_mcp::tools()).unwrap()
         );
         assert!(!f.storage.join("answer-sections").exists());
         assert!(!f.storage.join("evidence-ledgers").exists());
@@ -406,7 +405,7 @@ mod tests {
         assert_eq!(contract["uniqueSections"], 6);
         assert_eq!(
             contract["tools"],
-            serde_json::to_value(context_mcp::tools_for(true)).unwrap()
+            serde_json::to_value(context_mcp::tools()).unwrap()
         );
         assert_ne!(
             fingerprint,

@@ -49,7 +49,7 @@ const chapter = (diagram = visual(), { anchors = [anchor()], hotspots = [{
     hotspots,
   };
   return {
-    schemaVersion: 2,
+    schemaVersion: 5,
     chapterId: 'chapter:request',
     revisionId: 'revision:request',
     revisionNumber: 1,
@@ -73,12 +73,12 @@ describe('interactive diagram safety', () => {
     assert.equal(result.status === 'available' && result.hotspotsById.get('hotspot:code').destination.kind, 'codeLens');
   });
 
-  it('keeps absent and legacy diagrams out of the interactive renderer', () => {
+  it('keeps absent and unsupported diagrams out of the interactive renderer', () => {
     const revisionWithoutVisual = chapter(null);
     revisionWithoutVisual.sections[0].visual = null;
     assert.deepEqual(inspectInteractiveVisual(revisionWithoutVisual, revisionWithoutVisual.sections[0]), { status: 'none' });
     const old = chapter({ schemaVersion: 1, kind: 'dataFlow', title: 'Old', nodes: [], edges: [] });
-    assert.deepEqual(inspectInteractiveVisual(old, old.sections[0]), { status: 'unavailable', reason: 'legacy' });
+    assert.deepEqual(inspectInteractiveVisual(old, old.sections[0]), { status: 'unavailable', reason: 'malformed' });
   });
 
   it('rejects unknown, malformed, oversized, or executable-shaped diagram data as a whole', () => {

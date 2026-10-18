@@ -11,6 +11,7 @@ import {
 } from '../src/lib/narration.ts';
 
 const preferences = (overrides = {}) => ({
+  backend: 'gemini',
   spokenText: 'Explain the cacheKey.',
   voice: 'Kore',
   style: 'Warm',
@@ -31,7 +32,7 @@ describe('default code-name pronunciation', () => {
 
   it('never rewrites saved user scripts or explicit pronunciation choices', () => {
     const fallback = defaultNarrationText('memory_face rejects face_index.');
-    const saved = parseNarrationPreferences(JSON.stringify({ backend: 'pocket-tts', spokenText: 'My edited memory_face script.', lexicon: [{ name: 'memory_face', sayAs: 'memory face function', include: true }] }), fallback);
+    const saved = parseNarrationPreferences(JSON.stringify({ backend: 'pocket-tts', spokenText: 'My edited memory_face script.', voice: 'alba', style: '', lexicon: [{ name: 'memory_face', sayAs: 'memory face function', include: true }] }), fallback);
     assert.equal(saved.spokenText, 'My edited memory_face script.');
     assert.equal(applyPronunciationLexicon(saved.spokenText, saved.lexicon), 'My edited memory face function script.');
     assert.equal(parseNarrationPreferences(null, fallback).spokenText, 'memory face rejects face index.');
@@ -50,21 +51,19 @@ describe('default code-name pronunciation', () => {
 });
 
 describe('narration cache request snapshots', () => {
-  it('parses saved section preferences and falls back safely for malformed storage', () => {
-    assert.deepEqual(parseNarrationPreferences('{"spokenText":"Saved script","voice":"Puck","style":"Gentle","lexicon":[{"name":"foo","sayAs":"f oo","include":true},null]}', 'Chapter script'), {
+  it('accepts one explicit preference contract and rejects malformed or unsupported records', () => {
+    assert.deepEqual(parseNarrationPreferences('{"backend":"gemini","spokenText":"Saved script","voice":"Puck","style":"Gentle","lexicon":[{"name":"foo","sayAs":"f oo","include":true}]}', 'Chapter script'), {
       backend: 'gemini',
       spokenText: 'Saved script',
       voice: 'Puck',
       style: 'Gentle',
       lexicon: [{ name: 'foo', sayAs: 'f oo', include: true }],
     });
-    assert.deepEqual(parseNarrationPreferences('{broken', 'Chapter script'), {
-      backend: 'pocket-tts',
-      spokenText: 'Chapter script',
-      voice: DEFAULT_NARRATION_VOICE,
-      style: DEFAULT_NARRATION_STYLE,
-      lexicon: [],
-    });
+    assert.throws(() => parseNarrationPreferences('{broken', 'Chapter script'), /malformed/);
+    assert.throws(() => parseNarrationPreferences('{"spokenText":"Old script","voice":"Puck","style":"Gentle","lexicon":[]}', 'Chapter script'), /unsupported format/);
+    assert.throws(() => parseNarrationPreferences('{"googleVoice":"Puck","googleStyle":"Gentle","spokenText":"Old script","voice":"Puck","style":"Gentle","lexicon":[]}', 'Chapter script'), /unsupported format/);
+    assert.throws(() => parseNarrationPreferences('{"backend":"future-backend","spokenText":"Script","voice":"alba","style":"","lexicon":[]}', 'Chapter script'), /unsupported voice engine/);
+    assert.throws(() => parseNarrationPreferences('{"backend":"pocket-tts","spokenText":"Script","voice":"alba","style":"","lexicon":[null]}', 'Chapter script'), /malformed/);
     assert.deepEqual(parseNarrationPreferences(null, 'Chapter script'), {
       backend: 'pocket-tts',
       spokenText: 'Chapter script',
@@ -72,7 +71,6 @@ describe('narration cache request snapshots', () => {
       style: DEFAULT_NARRATION_STYLE,
       lexicon: [],
     });
-    assert.equal(parseNarrationPreferences('{"backend":"future-backend"}', 'Chapter script').backend, 'pocket-tts');
   });
 
   it('accepts cached audio only while the transcript and speech settings still match', () => {

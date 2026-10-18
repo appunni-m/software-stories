@@ -26,11 +26,8 @@ use uuid::Uuid;
 mod contracts;
 use contracts::RequestContract;
 
-#[cfg(test)]
-mod replay_tests;
 
-// Historical name: this versions immutable evidence/context serialization.
-// Request instructions/schema are versioned separately in `contracts`.
+// Immutable evidence/context serialization for the current planning request.
 const PROMPT_VERSION: &str = "grounded-repository-plan-v1";
 const MAX_STEPS: usize = 24;
 const MAX_RESPONSE_BYTES: usize = 1_000_000;
@@ -144,8 +141,6 @@ pub(crate) struct PreparedRepositoryPlanContext {
     estimated_input_tokens: usize,
     #[serde(skip)]
     input: PrepareRepositoryPlanInput,
-    #[serde(skip)]
-    contract: RequestContract,
 }
 
 impl PreparedRepositoryPlanContext {
@@ -236,15 +231,7 @@ pub(crate) fn prepare(
     storage: &Path,
     input: PrepareRepositoryPlanInput,
 ) -> Result<PreparedRepositoryPlanContext, String> {
-    prepare_with_contract(storage, input, RequestContract::CURRENT)
-}
-
-// Historical contract selection is private and used only by saved replay.
-fn prepare_with_contract(
-    storage: &Path,
-    input: PrepareRepositoryPlanInput,
-    contract: RequestContract,
-) -> Result<PreparedRepositoryPlanContext, String> {
+    let contract = RequestContract::CURRENT;
     if !valid_learning_question(&input.question) {
         return Err("Describe the learning question in 8–300 characters without leading/trailing whitespace or control characters.".to_owned());
     }
@@ -322,7 +309,6 @@ fn prepare_with_contract(
         request_body_sha256: format!("{:x}", Sha256::digest(&encoded)),
         estimated_input_tokens: encoded.len().div_ceil(4),
         input,
-        contract,
     })
 }
 
@@ -472,9 +458,6 @@ pub(crate) fn canonicalize(
     context: &PreparedRepositoryPlanContext,
     response: &[u8],
 ) -> Result<RepositoryPlanDraft, String> {
-    if context.contract != RequestContract::CURRENT {
-        return Err("Historical planning contracts can only reopen saved routes.".to_owned());
-    }
     canonicalize_with_identity(storage, context, response, None)
 }
 
@@ -487,7 +470,7 @@ fn canonicalize_with_identity(
     if response.is_empty() || response.len() > MAX_RESPONSE_BYTES {
         return Err(INVALID.to_owned());
     }
-    let fresh = prepare_with_contract(storage, context.input.clone(), context.contract)?;
+    let fresh = prepare(storage, context.input.clone())?;
     if fresh.context_sha256 != context.context_sha256
         || fresh.request_body_sha256 != context.request_body_sha256
         || fresh.inventory_sha256 != context.inventory_sha256
@@ -652,28 +635,11 @@ pub(crate) fn revalidate_saved(
     {
         return Err("The saved plan has an invalid native identity or creation time. Its local copy was preserved.".to_owned());
     }
-    let mut context = prepare(storage, input.clone()).map_err(|_| {
+    let context = prepare(storage, input.clone()).map_err(|_| {
         "The saved plan's original source or index is unavailable. Its local copy was preserved.".to_owned()
     })?;
     if context.review_scope() != *scope {
-        // Separate source identity from request policy without waiving either.
-        // All non-contract fields must match before trying a known old policy.
-        let mut source_scope = context.review_scope();
-        source_scope.planning_contract_sha256 = scope.planning_contract_sha256.clone();
-        if source_scope != *scope {
-            return Err("The saved plan's original question, inventory, source or index changed. Its local copy was preserved.".to_owned());
-        }
-        let mut historical = None;
-        for contract in RequestContract::HISTORICAL {
-            let candidate = prepare_with_contract(storage, input.clone(), contract).map_err(|_| {
-                "The saved plan's original source or index is unavailable. Its local copy was preserved.".to_owned()
-            })?;
-            if candidate.review_scope() == *scope {
-                historical = Some(candidate);
-                break;
-            }
-        }
-        context = historical.ok_or_else(|| "This saved route uses an unsupported planning contract. Its local copy was preserved; no generation was started.".to_owned())?;
+        return Err("The saved plan uses an unsupported planning contract or changed source context. Its local copy was preserved; regenerate the route.".to_owned());
     }
     let mut checked = canonicalize_with_identity(
         storage,

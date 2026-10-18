@@ -22,13 +22,13 @@ export function removeClaimAndReferences(section: ChapterSection, claimId: strin
   const hotspots = section.hotspots.filter(h => h.destination.kind !== 'codeLens' || anchors.has(h.destination.anchorId));
   const hotspotIds = new Set(hotspots.map(h => h.hotspotId));
   let visual = section.visual;
-  const schema = visual?.schemaVersion;
   const editable = visual && Array.isArray(visual.nodes) && Array.isArray(visual.edges)
-    && visual.nodes.every(n => n && typeof n === 'object' && (schema !== 2 || 'evidenceAnchorIds' in n && Array.isArray(n.evidenceAnchorIds)))
-    && visual.edges.every(e => e && typeof e === 'object' && (schema !== 2 || 'evidenceAnchorIds' in e && Array.isArray(e.evidenceAnchorIds)))
-    && (visual.schemaVersion !== 2 || !visual.presentation || Array.isArray(visual.presentation.scenes)
+    && visual.schemaVersion === 2
+    && visual.nodes.every(n => n && typeof n === 'object' && 'evidenceAnchorIds' in n && Array.isArray(n.evidenceAnchorIds))
+    && visual.edges.every(e => e && typeof e === 'object' && 'evidenceAnchorIds' in e && Array.isArray(e.evidenceAnchorIds))
+    && (!visual.presentation || visual.presentation.schemaVersion === 3 && Array.isArray(visual.presentation.scenes)
       && visual.presentation.scenes.every(s => s && Array.isArray(s.elements) && s.elements.every(e => e && typeof e === 'object')));
-  if (editable && visual?.schemaVersion === 2) {
+  if (editable && visual) {
     const nodeIndices = new Map<number,number>();
     const nodes = visual.nodes.flatMap((node,index) => {
       const evidenceAnchorIds = node.evidenceAnchorIds.filter(id => anchors.has(id));
@@ -45,10 +45,6 @@ export function removeClaimAndReferences(section: ChapterSection, claimId: strin
       .filter(scene => scene.claimIndex !== removed).map(scene => ({...scene,claimIndex:scene.claimIndex > removed ? scene.claimIndex - 1 : scene.claimIndex,
         elements:scene.elements.map(element => ({...element,nodeIndex:element.nodeIndex === null ? null : nodeIndices.get(element.nodeIndex) ?? -1}))}))} : undefined;
     visual = nodes.length ? {...visual,nodes,edges,...(presentation ? {presentation} : {})} : null;
-  } else if (editable && visual?.schemaVersion === 1) {
-    // Legacy visuals have no evidence links. Keep their content, removing only
-    // links whose exact citation was removed. Native edit validation still applies.
-    visual = {...visual,nodes:visual.nodes.map(node => ({...node,hotspotId:node.hotspotId && hotspotIds.has(node.hotspotId) ? node.hotspotId : null}))};
   }
   return {...section,claims,dependencies,hotspots,visual};
 }

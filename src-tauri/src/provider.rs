@@ -1084,7 +1084,7 @@ fn checked_index_excerpt<'a>(
     Some(excerpt)
 }
 
-fn generated_visual_response_schema(_legacy_evidence: &Value, scenes: bool) -> Value {
+fn generated_visual_response_schema() -> Value {
     // References bind to already-validated claims in this same section. The
     // model never retypes paths/quotes or supplies native anchor identities.
     let evidence = json!({
@@ -1126,7 +1126,7 @@ fn generated_visual_response_schema(_legacy_evidence: &Value, scenes: bool) -> V
         },
         "required": ["kind", "title", "direction", "nodes", "edges"]
     });
-    if scenes {
+    {
         schema["properties"]["presentation"] = visual_scenes::nullable_schema();
         schema["required"].as_array_mut().unwrap().push(json!("presentation"));
     }
@@ -1153,7 +1153,7 @@ fn file_chapter_response_schema() -> Value {
         },
         "required": ["category", "aspect", "prose", "inferenceBasis", "identifiers", "evidence", "relationshipIds"]
     });
-    let visual = generated_visual_response_schema(&evidence, true);
+    let visual = generated_visual_response_schema();
     let section = json!({
         "type": "OBJECT",
         "properties": {
@@ -1213,10 +1213,10 @@ fn section_update_generation_config() -> Value {
 }
 
 fn repository_overview_response_schema() -> Value {
-    repository_overview_schema(true)
+    repository_overview_schema()
 }
 
-fn repository_overview_schema(scenes: bool) -> Value {
+fn repository_overview_schema() -> Value {
     let text = json!({ "type": "STRING" });
     let evidence = json!({
         "type": "OBJECT",
@@ -1236,7 +1236,7 @@ fn repository_overview_schema(scenes: bool) -> Value {
         },
         "required": ["category", "aspect", "prose", "inferenceBasis", "identifiers", "evidence", "relationshipIds"]
     });
-    let visual = generated_visual_response_schema(&evidence, scenes);
+    let visual = generated_visual_response_schema();
     let section = json!({
         "type": "OBJECT",
         "properties": {
@@ -1268,16 +1268,15 @@ fn repository_overview_generation_config() -> Value {
     })
 }
 
-pub(crate) fn workspace_retrieval_schema()->Value {
-    // Immutable five-tool request/checkpoint contract. Scene-enabled chapter
-    // schemas must not change existing retrieval or progressive tool hashes.
-    let mut schema=repository_overview_schema(false);
+pub(crate) fn research_response_schema()->Value {
+    // Current agent transport resolves only native-delivered short IDs.
+    let mut schema=repository_overview_schema();
     // Agent responses select native-delivered IDs. Quotes, paths, offsets and
     // digests are resolved locally and cannot be supplied in this wire schema.
-    schema["properties"]["citationVersion"] = json!({"type":"STRING","enum":[crate::native_citations::VERSION]});
+    schema["properties"]["citationVersion"] = json!({"type":"STRING","enum":[crate::native_citations::SHORT_VERSION]});
     schema["required"].as_array_mut().unwrap().push(json!("citationVersion"));
     schema["properties"]["sections"]["items"]["properties"]["claims"]["items"]["properties"]["evidence"]["items"] = json!({
-        "type":"OBJECT","properties":{"referenceId":{"type":"STRING","pattern":"^evidence:[a-f0-9]{64}$"}},"required":["referenceId"]
+        "type":"OBJECT","properties":{"referenceId":{"type":"STRING","pattern":"^code:[1-9][0-9]{0,2}$"}},"required":["referenceId"]
     });
     crate::provider_api::lowercase_schema_types(&mut schema);
     close_agent_schema_objects(&mut schema);
@@ -8228,14 +8227,7 @@ mod tests {
     }
 
     #[test]
-    fn chapter_scene_narration_versions_new_proposals_without_changing_retrieval_schema() {
-        let legacy = workspace_retrieval_schema();
-        let tools = crate::context_mcp::tools_for(true);
-        assert_eq!(crate::repository_context::digest(&serde_json::to_vec(&legacy).unwrap()), "fd962326147fe3732af0c0e5c2d4d1535879a314d297b3996b72a14b6abf7689");
-        // The progressive catalog explicitly versions current-investigation
-        // order feedback, native name metadata and claim-owned scene identities/speech. The legacy retrieval
-        // schema above remains byte-identical.
-        assert_eq!(crate::repository_context::digest(&serde_json::to_vec(&tools).unwrap()), "4683ee94873a9b1ba2e6da09de8441ecbfcccc03f76fceabe56be38b2fdbad34");
+    fn current_scene_narration_schema_is_shared_by_file_overview_and_updates() {
         let file = file_chapter_response_schema();
         let overview = repository_overview_response_schema();
         let repair = section_update_generation_config();

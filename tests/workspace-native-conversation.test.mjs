@@ -6,7 +6,7 @@ import {workspaceStoreHarness,deferred,flushLocalReads} from './helpers/workspac
 import {rememberAnswerVersion,answerReadingPosition,resolveAnswerRevision} from '../src/workspace/answerVersions.ts';
 
 const clone=value=>JSON.parse(JSON.stringify(value));
-const legacyKey=(p='project',s='snapshot')=>`code-atlas:workspace:v1:${p}:${s}`;
+const browserWorkspaceKey=(p='project',s='snapshot')=>`code-atlas:workspace:v1:${p}:${s}`;
 function backend(){
   const records=new Map(),writes=[];const controls={load:null,beforeSave:null,afterSave:null};
   return {records,writes,controls,invoke:async(name,args)=>{
@@ -41,7 +41,7 @@ test('a selected accepted edit and each version position survive the actual wire
   assert.ok(reopened.calls.every(c=>c.name==='load_workspace_conversation'));
 });
 
-test('close waits for all scopes and startup migration, then resumes deferred edits only on cancellation',async()=>{
+test('close waits for startup reads and saves, then resumes deferred edits only on cancellation',async()=>{
   const b=backend(),h=native(b),held=deferred();b.controls.beforeSave=()=>held.promise;
   const opening=h.store.prepareWorkspaceConversation('project','snapshot');let finished=false;
   const barrier=h.store.flushAllWorkspaceConversations().then(()=>{finished=true;});await flushLocalReads();assert.equal(finished,false);
@@ -65,7 +65,7 @@ test('close refuses a blocked write without retry and initial read failure witho
   await assert.rejects(unopened.store.prepareWorkspaceConversation('project','snapshot'));await unopened.store.flushAllWorkspaceConversations();assert.equal(failed.writes.length,0);
 });
 
-test('a repository opening late cannot start a new migration after the close barrier froze scopes',async()=>{
+test('a repository opening late cannot start a new read after the close barrier froze scopes',async()=>{
   const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');
   const resume=h.store.beginWorkspaceClose(),calls=h.calls.length;let opened=false;
   const opening=h.store.prepareWorkspaceConversation('other','snapshot').then(()=>{opened=true;});
@@ -113,34 +113,43 @@ test('native restart restores owned scenes, times, viewport, pane and expanded s
   assert.ok(reopened.calls.every(c=>c.name==='load_workspace_conversation'),'restart reads local metadata without model, audio or indexing work');
 });
 
-test('migrates five nested levels and siblings once, retaining parent turns, source, sections and last views',async()=>{
+test('nested conversations retain parent turns, source, sections and last views in native storage',async()=>{
   let state=createWorkspace('project','snapshot');state=addTurn(state,{id:'root-turn',question:'Read bytes',context:[{path:'src/font.rs',from:3,to:7}],status:'stopped',revisionId:'revision-one',reading:{guide:{revisionId:'revision-one',sectionId:'section:two'}}},'guide');
   let parent='root-turn';for(let n=1;n<=5;n++){state=addTurn(state,{id:`turn-${n}`,question:`Depth ${n}`,context:[],status:'stopped'},['guide','flow','history'][n%3],{originTurnId:parent,id:`child-${n}`});parent=`turn-${n}`;}
   state={...state,currentId:'root'};state=addTurn(state,{id:'sibling-turn',question:'Sibling',context:[],status:'stopped'},'flow',{originTurnId:'root-turn',id:'sibling'});
-  const raw=JSON.stringify(state),storage=new Map([[legacyKey(),raw]]),b=backend(),h=native(b,storage);
-  await h.store.prepareWorkspaceConversation('project','snapshot');assert.equal(b.writes.length,1);assert.equal(storage.get(legacyKey()),raw,'migration preserves the original preference');
-  const migrated=clone(h.store.getWorkspace('project','snapshot'));assert.equal(migrated.explorations.length,7);assert.equal(migrated.currentId,'sibling');assert.equal(migrated.explorations[0].turns[0].reading.guide.sectionId,'section:two');
-  storage.clear();const reloaded=native(b,storage);await reloaded.store.prepareWorkspaceConversation('project','snapshot');assert.deepEqual(clone(reloaded.store.getWorkspace('project','snapshot')),migrated);assert.equal(b.writes.length,1,'existing native history is never imported again');
+  state=decodeWorkspace(JSON.stringify(state),'project','snapshot');assert.ok(state);
+  const b=backend(),h=native(b);
+  await h.store.prepareWorkspaceConversation('project','snapshot');
+  h.store.updateWorkspace('project','snapshot',()=>state);await h.store.flushWorkspaceConversation('project','snapshot');
+  const saved=clone(h.store.getWorkspace('project','snapshot'));assert.equal(saved.explorations.length,7);assert.equal(saved.currentId,'sibling');assert.equal(saved.explorations[0].turns[0].reading.guide.sectionId,'section:two');
+  const writesBeforeRestart=b.writes.length;const reloaded=native(b);await reloaded.store.prepareWorkspaceConversation('project','snapshot');assert.deepEqual(clone(reloaded.store.getWorkspace('project','snapshot')),saved);assert.equal(b.writes.length,writesBeforeRestart);
 });
 
-test('native history survives missing, corrupt and unavailable browser preferences',async()=>{
+test('native startup ignores browser workspace and last-file preferences',async()=>{
+  const oldState=createWorkspace('project','snapshot');oldState.file='src/old.rs';oldState.explorations[0].turns.push({id:'old-turn',question:'Old browser question',context:[],status:'stopped'});
+  const oldRaw=JSON.stringify(oldState),lastFile=JSON.stringify({snapshotId:'snapshot',path:'src/old.rs'});
+  const storage=new Map([[browserWorkspaceKey(),oldRaw],['code-atlas:last-file:project',lastFile]]),b=backend(),h=native(b,storage);
+  await h.store.prepareWorkspaceConversation('project','snapshot');
+  const current=h.store.getWorkspace('project','snapshot');
+  assert.equal(current.file,null);assert.deepEqual(clone(current.explorations[0].turns),[]);
+  assert.equal(b.records.get(scope).state.file,null);assert.equal(b.records.get(scope).state.explorations[0].turns.length,0);
+  assert.equal(storage.get(browserWorkspaceKey()),oldRaw);assert.equal(storage.get('code-atlas:last-file:project'),lastFile);
+});
+
+test('native history survives corrupt and unavailable browser preferences without reading them',async()=>{
   const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');h.store.appendQuestion('project','snapshot','Saved question',[],'history');await h.store.flushWorkspaceConversation('project','snapshot');
-  const storage=new Map([[legacyKey(),'{broken']]);storage.get=()=>{throw new Error('Browser preferences unavailable');};storage.set=()=>assert.fail('native updates must not write browser preferences');
+  const storage=new Map([[browserWorkspaceKey(),'{broken']]);storage.get=()=>{throw new Error('Browser preferences unavailable');};storage.set=()=>assert.fail('native updates must not write browser preferences');
   const restart=native(b,storage);await restart.store.prepareWorkspaceConversation('project','snapshot');assert.equal(restart.store.getWorkspace('project','snapshot').explorations[0].turns[0].question,'Saved question');
   restart.store.updateWorkspace('project','snapshot',s=>({...s,file:'src/new.rs'}));await restart.store.flushWorkspaceConversation('project','snapshot');assert.equal(b.records.get(scope).state.file,'src/new.rs');
 });
 
-test('imports a matching old last-file hint only before native history exists',async()=>{
-  const b=backend(),storage=new Map([['code-atlas:last-file:project',JSON.stringify({snapshotId:'snapshot',path:'src/legacy.rs'})]]),h=native(b,storage);
-  await h.store.prepareWorkspaceConversation('project','snapshot');assert.equal(h.store.getWorkspace('project','snapshot').file,'src/legacy.rs');
+test('native startup ignores browser workspace when localStorage throws',async()=>{
+  const storage=new Map([[browserWorkspaceKey(),'{broken']]);storage.get=()=>{throw new Error('Browser preferences unavailable');};
+  storage.set=()=>assert.fail('native startup and updates cannot write browser preferences');
+  const b=backend(),h=native(b,storage);await h.store.prepareWorkspaceConversation('project','snapshot');
+  assert.equal(h.store.getWorkspace('project','snapshot').file,null);
   h.store.updateWorkspace('project','snapshot',s=>({...s,file:'src/current.rs'}));await h.store.flushWorkspaceConversation('project','snapshot');
-  const restart=native(b,storage);await restart.store.prepareWorkspaceConversation('project','snapshot');assert.equal(restart.store.getWorkspace('project','snapshot').file,'src/current.rs');assert.equal(JSON.parse(storage.get('code-atlas:last-file:project')).path,'src/legacy.rs');
-});
-
-test('foreign or unsafe optional last-file hints cannot select another snapshot or block migration',async()=>{
-  for(const hint of [{snapshotId:'other',path:'src/foreign.rs'},{snapshotId:'snapshot',path:'../escape.rs'},{snapshotId:'snapshot',path:'/outside.rs'},{snapshotId:'snapshot',path:`${'界'.repeat(2000)}.rs`}]){
-    const b=backend(),h=native(b,new Map([['code-atlas:last-file:project',JSON.stringify(hint)]]));await h.store.prepareWorkspaceConversation('project','snapshot');assert.equal(h.store.getWorkspace('project','snapshot').file,null);
-  }
+  assert.equal(b.records.get(scope).state.file,'src/current.rs');
 });
 
 test('coalesces startup reads and prevents edits before the authoritative conversation opens',async()=>{
@@ -180,11 +189,12 @@ test('a different newer native writer is preserved while the current window reta
   assert.equal(b.records.get(scope).state.file,'src/other-window.rs');assert.equal(h.store.getWorkspace('project','snapshot').file,'src/this-window.rs');
 });
 
-test('malformed initial preferences and foreign/future native records are preserved without writing a fallback',async()=>{
-  for(const raw of ['{broken',JSON.stringify({...createWorkspace('project','snapshot'),version:2})]){
-    const b=backend(),storage=new Map([[legacyKey(),raw]]),h=native(b,storage);await assert.rejects(h.store.prepareWorkspaceConversation('project','snapshot'));assert.equal(b.writes.length,0);assert.equal(storage.get(legacyKey()),raw);
-  }
-  for(const record of [{schemaVersion:2,revision:1,state:createWorkspace('project','snapshot')},{schemaVersion:1,revision:1,state:createWorkspace('foreign','snapshot')}]){
+test('malformed or foreign native conversation records are preserved without replacement',async()=>{
+  for(const record of [
+    {schemaVersion:1,revision:1,state:{...createWorkspace('project','snapshot'),version:2}},
+    {schemaVersion:2,revision:1,state:createWorkspace('project','snapshot')},
+    {schemaVersion:1,revision:1,state:createWorkspace('foreign','snapshot')},
+  ]){
     const b=backend();b.records.set(scope,record);const h=native(b);await assert.rejects(h.store.prepareWorkspaceConversation('project','snapshot'));assert.deepEqual(b.records.get(scope),record);assert.equal(b.writes.length,0);
   }
 });
@@ -194,7 +204,7 @@ test('preparation failures retry only on request and scopes cannot replace each 
   b.controls.load=null;await h.store.prepareWorkspaceConversation('project','snapshot');await h.store.prepareWorkspaceConversation('other','snapshot');h.store.updateWorkspace('other','snapshot',s=>({...s,file:'other.rs'}));await h.store.flushWorkspaceConversation('other','snapshot');assert.equal(h.store.getWorkspace('project','snapshot').file,null);assert.equal(h.store.getWorkspace('other','snapshot').file,'other.rs');
 });
 
-test('tuple scopes stay independent even when colon-joined legacy keys collide',async()=>{
+test('tuple scopes stay independent even when project and snapshot names contain colons',async()=>{
   const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project:other','one');await h.store.prepareWorkspaceConversation('project','other:one');
   h.store.updateWorkspace('project:other','one',s=>({...s,file:'first.rs'}));h.store.updateWorkspace('project','other:one',s=>({...s,file:'second.rs'}));
   await Promise.all([h.store.flushWorkspaceConversation('project:other','one'),h.store.flushWorkspaceConversation('project','other:one')]);
@@ -203,7 +213,7 @@ test('tuple scopes stay independent even when colon-joined legacy keys collide',
 
 test('wire persistence excludes one-shot focus and native guide copies and restart never resends queued work',async()=>{
   const state=createWorkspace('project','snapshot');state.explorations[0].revealTurnId='turn-one';state.explorations[0].turns=[{id:'turn-one',question:'Queued work',context:[],status:'queued',guide:{privateCopy:true}}];
-  const b=backend(),h=native(b,new Map([[legacyKey(),JSON.stringify(state)]]));await h.store.prepareWorkspaceConversation('project','snapshot');const saved=b.records.get(scope).state;
+  const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');h.store.updateWorkspace('project','snapshot',()=>state);await h.store.flushWorkspaceConversation('project','snapshot');const saved=b.records.get(scope).state;
   assert.equal(saved.explorations[0].turns[0].status,'interrupted');assert.equal('revealTurnId' in saved.explorations[0],false);assert.equal('guide' in saved.explorations[0].turns[0],false);assert.equal(h.calls.some(c=>/generate|start_repository|resume_repository|authorize/.test(c.name)),false);assert.equal(decodeWorkspace('{broken','project','snapshot'),null);
   h.store.updateWorkspace('project','snapshot',s=>({...s,explorations:s.explorations.map(e=>({...e,revealTurnId:'turn-one',turns:e.turns.map(t=>({...t,guide:{privateCopy:true},context:[{path:'src/font.rs',sourceText:'not metadata'}]}))}))}));
   assert.equal(h.store.getWorkspace('project','snapshot').explorations[0].turns[0].guide.privateCopy,true);await h.store.flushWorkspaceConversation('project','snapshot');

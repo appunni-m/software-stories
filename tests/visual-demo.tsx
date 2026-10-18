@@ -41,7 +41,7 @@ const section: ChapterSection = {
   })),
   dependencies: [],
   visual: {
-    schemaVersion: 2, kind: 'dataFlow', title: 'Request to worker', layoutHint: { direction: 'leftToRight' },
+    schemaVersion: 5, kind: 'dataFlow', title: 'Request to worker', layoutHint: { direction: 'leftToRight' },
     nodes: [
       { nodeId: 'node:handler', label: 'handleRequest', detail: 'HTTP entry point', hotspotId: 'hotspot:handler', evidenceAnchorIds: ['anchor:handler'] },
       { nodeId: 'node:parser', label: 'parseInput', detail: 'Validates and normalizes the body', hotspotId: 'hotspot:parser', evidenceAnchorIds: ['anchor:parser'] },

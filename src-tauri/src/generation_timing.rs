@@ -98,7 +98,6 @@ pub(crate) struct Record {
     /// Latest cumulative thread usage reported by app-server, never an estimate
     /// or a sum of updates. Null means that no valid usage update was observed.
     token_usage: Option<ReportedUsage>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     runtime_turns: Vec<RuntimeTurn>,
     terminal: Option<End>,
     write_failures: u32,
@@ -150,7 +149,7 @@ fn read(path: &Path) -> Result<Record, String> {
 
 fn validate(record: &Record) -> Result<(), String> {
     let invalid = || "Timing diagnostics are invalid.".to_owned();
-    if !matches!(record.schema_version, 1 | 2)
+    if record.schema_version != 2
         || record.clock != "nativeCodexAdmissionV1"
         || !canonical_run(&record.run_id)
         || record.model_id != "gpt-6-luna"
@@ -161,8 +160,6 @@ fn validate(record: &Record) -> Result<(), String> {
             .as_ref()
             .is_some_and(|v| !hash(v))
         || record.events.len() > MAX_EVENTS
-        || (record.schema_version == 1
-            && (record.token_usage.is_some() || !record.runtime_turns.is_empty()))
         || record.output_bytes.is_some_and(|v| v > 300 * 1024)
         || record
             .events

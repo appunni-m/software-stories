@@ -3,10 +3,11 @@ import { Background, Controls, MarkerType, Position, ReactFlow } from '@xyflow/r
 import { ArrowLeft, ArrowRight, Code2, Maximize2, Network } from 'lucide-react';
 import { NarrationPlayer } from './NarrationPlayer';
 import { HtmlScene } from './HtmlScene';
-import type { ChapterHotspot, ChapterRevision, ChapterSection, ChapterSourceAnchor } from './lib/commands';
-import { defaultNarrationText } from './lib/narration';
+import { isNativeRuntime, type ChapterHotspot, type ChapterRevision, type ChapterSection, type ChapterSourceAnchor } from './lib/commands';
+import { defaultNarrationText, parseNarrationPreferences } from './lib/narration';
+import { narrationStorageKey } from './lib/narrationScope';
 import { inspectInteractiveVisual } from './lib/visuals';
-import { readSectionStoryProgress, sceneNodeIds, storyLayout, storyScenes } from './lib/visualStory';
+import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, storyLayout, storyScenes } from './lib/visualStory';
 import { cleanFlowViewport, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
 import { useReaderProgress } from './lib/ReaderProgressContext';
 import './visual-story.css';
@@ -31,8 +32,8 @@ interface Props {
 export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, onSettings, activeFocusTarget, restorePosition = 0, onPlaybackPositionChange, onTranscriptPositionChange, progress:explicitProgress, onProgressChange:explicitOnProgressChange }: Props) {
   const inspection = useMemo(() => inspectInteractiveVisual(revision, section), [revision, section]);
   const visual = inspection.status === 'available' ? inspection.visual : undefined;
-  const baseKey = `code-atlas:narration:${revision.projectId}:${revision.chapterId}:${revision.revisionId}:${section.sectionId}`;
-  const sceneKey = `code-atlas:story:${revision.revisionId}:${section.sectionRevisionId}`;
+  const baseKey = narrationStorageKey(revision.projectId,revision.chapterId,revision.revisionId,section.sectionId);
+  const sceneKey = `code-atlas:story:v2:${revision.revisionId}:${section.sectionRevisionId}`;
   const identity = {revisionId:revision.revisionId,sectionId:section.sectionId,sectionRevisionId:section.sectionRevisionId};
   const shared = useReaderProgress(identity);
   const progress = explicitProgress ?? shared?.progress;
@@ -40,16 +41,19 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const nativeProgress = progress && sameSection(progress,identity) ? progress : undefined;
   const savedScript = useMemo(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(baseKey) ?? 'null');
-      return typeof saved?.spokenText === 'string' && saved.spokenText !== defaultNarrationText(section.spokenText) ? saved.spokenText : undefined;
+      const defaultScript = defaultNarrationText(section.spokenText);
+      const saved = parseNarrationPreferences(localStorage.getItem(baseKey), defaultScript);
+      return saved.spokenText !== defaultScript ? saved.spokenText : undefined;
     } catch { return undefined; }
   }, [baseKey, section.spokenText]);
   const scenes = useMemo(() => storyScenes(section, visual, savedScript), [section, visual, savedScript]);
   const savedPosition = useMemo(() => {
-    let legacy:string|null=null;
-    if(!nativeProgress)try{legacy=localStorage.getItem(sceneKey);}catch{/* Native progress does not depend on browser preferences. */}
-    return readSectionStoryProgress(nativeProgress,legacy,identity,scenes,restorePosition);
-  }, [sceneKey, scenes]);
+    const stored = !nativeProgress && !isNativeRuntime()
+      ? (() => { try { return localStorage.getItem(sceneKey); } catch { return null; } })()
+      : null;
+    const browserProgress = stored ? readStoryProgress(stored, identity, scenes) : undefined;
+    return readSectionStoryProgress(nativeProgress ?? browserProgress,identity,scenes,restorePosition);
+  }, [sceneKey, scenes, nativeProgress, identity.revisionId, identity.sectionId, identity.sectionRevisionId, restorePosition]);
   const [index, setIndex] = useState(savedPosition.index);
   const activeScene = useRef(scenes[savedPosition.index].id);
   const positions = useRef(new Map(savedPosition.positions));
@@ -79,11 +83,8 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     if (position !== undefined && Number.isFinite(position)) positions.current.set(sceneId, Math.max(0,Math.min(3600,position)));
     const saved={...identity,sceneId:activeScene.current,positions:Object.fromEntries(positions.current),fullMap:mapView.current,...(canvasViewport.current?{viewport:canvasViewport.current}:{})};
     if(onProgressChange)onProgressChange(saved);
-    else try { localStorage.setItem(sceneKey, JSON.stringify(saved)); } catch { /* Standalone reading works without browser storage. */ }
+    else if(!isNativeRuntime())try { localStorage.setItem(sceneKey, JSON.stringify(saved)); } catch { /* Standalone reading works without browser storage. */ }
   };
-  // Import a legacy story position only until this exact section has native
-  // metadata. Reopening a story never starts audio or schedules synthesis.
-  useEffect(()=>{if(!nativeProgress&&onProgressChange)savePosition(scenes[savedPosition.index].id);},[sceneKey]);
 
   const select = (next: number, playing = false, nodeId: string | null = null) => {
     if (next < 0 || next >= scenes.length) return;

@@ -798,9 +798,9 @@ function validateEvidenceList(evidence, prose, identifiers, label, sources, targ
   return { targetAnchored };
 }
 
-// Historical human-authored rubric example only. Current model output must use
-// validateCurrentProposal and the native fresh-preview boundary.
-function validateAuthoredLegacyExample(proposal, label, sources, targetPath, allowedRelationshipIds = new Set()) {
+// Rubric examples contain claims for coverage scoring, not app records or model
+// responses. Generated output uses validateCurrentProposal and native admission.
+function validateRubricExample(proposal, label, sources, targetPath, allowedRelationshipIds = new Set()) {
   const claimIds = new Set();
   const textField = (value, minimum, maximum, fieldLabel) => {
     if (typeof value !== "string" || byteLength(value.trim()) < minimum || byteLength(value.trim()) > maximum) {
@@ -1133,9 +1133,9 @@ async function validateQualityGateExample(example, pinnedExample) {
   }
   exactQuoteAnchor(JSON.parse(simpleSourceLiteral), source.sourceExcerpt, "qualityGateExample source excerpt");
   const exampleSources = new Map([[source.path, { text: source.sourceExcerpt, sha256: source.sourceExcerptSha256 }]]);
-  const shallowClaimIds = new Set([...validateAuthoredLegacyExample(artifact.shallowCandidate, "qualityGateExample shallowCandidate", exampleSources, source.path)]
+  const shallowClaimIds = new Set([...validateRubricExample(artifact.shallowCandidate, "qualityGateExample shallowCandidate", exampleSources, source.path)]
     .map((claimId) => `shallowCandidate.${claimId}`));
-  validateAuthoredLegacyExample(artifact.repairedCandidate, "qualityGateExample repairedCandidate", exampleSources, source.path);
+  validateRubricExample(artifact.repairedCandidate, "qualityGateExample repairedCandidate", exampleSources, source.path);
   for (const [index, finding] of example.findings.entries()) {
     exactKeys(finding, ["category", "claimIds", "sourceRefs", "description"], `qualityGateExample finding ${index + 1}`);
     if (!allowedFailureCategories.has(finding.category) || !Array.isArray(finding.claimIds) || finding.claimIds.length === 0

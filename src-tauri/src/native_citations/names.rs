@@ -3,15 +3,7 @@
 
 use super::*;
 
-#[cfg(test)]
-pub(crate) const POLICY: &str = "explicit-prose-names-own-fragments-v1";
 pub(crate) const GROUNDED_POLICY: &str = "explicit-prose-grounded-suffixes-v2";
-
-#[derive(Clone, Copy, PartialEq)]
-enum Policy {
-    ExactV1,
-    GroundedSuffixV2,
-}
 
 fn issue(location: String, code: &str) -> Vec<Value> {
     vec![json!({"location":location,"code":code})]
@@ -67,14 +59,6 @@ fn candidates(prose: &str) -> Option<Vec<&str>> {
     (!result.is_empty()).then_some(result)
 }
 
-pub(super) fn compile(resolved: Resolved) -> Result<Resolved, Vec<Value>> {
-    compile_with_policy(resolved, Policy::ExactV1)
-}
-
-pub(super) fn compile_grounded(resolved: Resolved) -> Result<Resolved, Vec<Value>> {
-    compile_with_policy(resolved, Policy::GroundedSuffixV2)
-}
-
 fn variants(value: &str) -> Vec<&str> {
     let mut result = vec![value];
     for separator in ["::", "."] {
@@ -90,7 +74,7 @@ fn variants(value: &str) -> Vec<&str> {
     result
 }
 
-fn compile_with_policy(resolved: Resolved, policy: Policy) -> Result<Resolved, Vec<Value>> {
+pub(super) fn compile_grounded(resolved: Resolved) -> Result<Resolved, Vec<Value>> {
     let mut value: Value = serde_json::from_str(&resolved.text)
         .map_err(|_| issue(String::new(), "namedIdentifier"))?;
     let sections = value["sections"]
@@ -117,13 +101,7 @@ fn compile_with_policy(resolved: Resolved, policy: Policy) -> Result<Resolved, V
                 .ok_or_else(|| issue(format!("{base}/prose"), "namedIdentifier"))?;
             let grounded: Vec<_> = names
                 .iter()
-                .flat_map(|name| {
-                    if policy == Policy::GroundedSuffixV2 {
-                        variants(name)
-                    } else {
-                        vec![*name]
-                    }
-                })
+                .flat_map(|name| variants(name))
                 .collect();
             let spans = resolved
                 .claim_spans(si, ci)
@@ -145,19 +123,6 @@ fn compile_with_policy(resolved: Resolved, policy: Policy) -> Result<Resolved, V
                 if !selected.contains(chosen) {
                     selected.push(*chosen);
                 }
-            }
-            // V1 additionally demanded every formatted name appear verbatim.
-            // Keep that historical rule. V2 compiles only the canonical name
-            // invariant; prose may contain contextual qualifications/implicit
-            // states. No prose/fact is removed or certified by this metadata.
-            if policy == Policy::ExactV1
-                && names.iter().any(|name| {
-                    !spans.iter().any(|span| {
-                        crate::chapter_generation::contains_identifier(&span.excerpt, name)
-                    })
-                })
-            {
-                return Err(issue(format!("{base}/prose"), "namedIdentifierEvidence"));
             }
             object.insert("identifiers".into(), json!(selected));
         }

@@ -13,11 +13,11 @@ export interface SceneElement {
 export interface PresentationScene {
   claimIndex: number;
   title: string;
-  narration?: string;
+  narration: string;
   mode: 'composition' | 'graph';
   elements: SceneElement[];
 }
-export interface ScenePresentation { schemaVersion: 1 | 2 | 3; scenes: PresentationScene[] }
+export interface ScenePresentation { schemaVersion: 3; scenes: PresentationScene[] }
 export const containerKinds = new Set<string>(['row', 'column', 'grid', 'panel', 'compare', 'stack']);
 const kinds = new Set([...containerKinds, 'card', 'token', 'code', 'metric', 'bytes', 'matrix', 'table', 'text', 'arrow', 'divider']);
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -71,10 +71,10 @@ function repeatsTransformation(elements: SceneElement[], nodes: LinkedVisualNode
  * oversized tree. Strings are always text; the renderer never interprets HTML.
  */
 export function validScenePresentation(raw: unknown, nodes: LinkedVisualNode[], claims: ChapterClaim[]): raw is ScenePresentation {
-  if (!record(raw) || !exact(raw, ['schemaVersion', 'scenes']) || ![1, 2, 3].includes(raw.schemaVersion as number) || !Array.isArray(raw.scenes)
+  if (!record(raw) || !exact(raw, ['schemaVersion', 'scenes']) || raw.schemaVersion !== 3 || !Array.isArray(raw.scenes)
     || raw.scenes.length !== claims.length || raw.scenes.length < 1 || raw.scenes.length > 20) return false;
   const valid = raw.scenes.every((scene, claimIndex) => {
-    if (!record(scene) || !exact(scene, ['claimIndex', 'title', 'mode', 'elements', ...(raw.schemaVersion === 3 ? ['narration'] : [])]) || scene.claimIndex !== claimIndex
+    if (!record(scene) || !exact(scene, ['claimIndex', 'title', 'mode', 'elements', 'narration']) || scene.claimIndex !== claimIndex
       || typeof scene.title !== 'string' || !scene.title.trim() || bytes(scene.title) > 120
       || !['composition', 'graph'].includes(String(scene.mode)) || !Array.isArray(scene.elements)) return false;
     if (scene.mode === 'graph') return scene.elements.length === 0;
@@ -115,7 +115,7 @@ export function validScenePresentation(raw: unknown, nodes: LinkedVisualNode[], 
       if (e.kind === 'bytes' && (!e.value.trim() || e.value.trim().split(/\s+/u).length > 32)) return false;
     }
     return leaves >= 1 && leaves <= 12 && elements.every((e, i) => !containerKinds.has(e.kind) || counts[i] > 0)
-      && (raw.schemaVersion === 1 || !repeatsTransformation(elements as SceneElement[], nodes));
+      && !repeatsTransformation(elements as SceneElement[], nodes);
   });
-  return valid && (raw.schemaVersion !== 3 || sceneNarrations(raw as unknown as ScenePresentation, claims) !== null);
+  return valid && sceneNarrations(raw as unknown as ScenePresentation, claims) !== null;
 }

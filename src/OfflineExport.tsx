@@ -289,7 +289,7 @@ export function OfflineExport({ projectId, revisions }: OfflineExportProps) {
             <div className="provider-dialog-content offline-export-content">
               <section className="offline-export-callout" aria-label="Offline feature limits">
                 <FileCode2 size={16} />
-                <p><strong>What works offline:</strong> written sections, cited source excerpts when included, section navigation, HTML visual scenes, source outlines for graphs, manual scene navigation, and cached narration when selected. <strong>Not included:</strong> live Atlas or Code Lens destinations. Legacy or malformed diagrams show a message instead of running chapter-provided markup.</p>
+                <p><strong>What works offline:</strong> written sections, cited source excerpts when included, section navigation, HTML visual scenes, source outlines for graphs, manual scene navigation, and cached narration when selected. <strong>Not included:</strong> live Atlas or Code Lens destinations. Malformed diagrams show a message instead of running chapter-provided markup.</p>
               </section>
 
               <section className="offline-export-chapters" aria-labelledby="offline-export-chapters-title">

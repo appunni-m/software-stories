@@ -163,9 +163,7 @@ pub struct GitFileChange {
     pub base_size_bytes: Option<u64>,
     pub head_size_bytes: Option<u64>,
     pub hunks: Vec<GitDiffHunk>,
-    #[serde(default)]
     pub base_relationships: Vec<GitRelationshipEvidence>,
-    #[serde(default)]
     pub head_relationships: Vec<GitRelationshipEvidence>,
     pub skipped_reason: Option<String>,
 }
@@ -2355,23 +2353,17 @@ mod tests {
     }
 
     #[test]
-    fn older_pr_guide_file_change_records_default_relationship_evidence_to_empty() {
-        let change: GitFileChange = serde_json::from_value(serde_json::json!({
-            "kind": "modified",
-            "basePath": "src/lib.rs",
-            "headPath": "src/lib.rs",
-            "classification": "text",
-            "baseBlobId": null,
-            "headBlobId": null,
-            "baseSizeBytes": null,
-            "headSizeBytes": null,
-            "hunks": [],
-            "skippedReason": null
-        }))
-        .expect("older saved file evidence should remain readable");
-
-        assert!(change.base_relationships.is_empty());
-        assert!(change.head_relationships.is_empty());
+    fn incomplete_pr_guide_file_evidence_is_rejected() {
+        let raw = serde_json::json!({
+            "kind": "modified", "basePath": "src/lib.rs", "headPath": "src/lib.rs",
+            "classification": "text", "baseBlobId": null, "headBlobId": null,
+            "baseSizeBytes": null, "headSizeBytes": null, "hunks": [], "skippedReason": null
+        });
+        assert!(serde_json::from_value::<GitFileChange>(raw.clone()).is_err());
+        let mut current = raw;
+        current["baseRelationships"] = serde_json::json!([]);
+        current["headRelationships"] = serde_json::json!([]);
+        assert!(serde_json::from_value::<GitFileChange>(current).is_ok());
     }
 
     #[test]

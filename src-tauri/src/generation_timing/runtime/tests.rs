@@ -128,7 +128,7 @@ fn token_usage_accepts_only_reported_nonnegative_protocol_numbers() {
 }
 
 #[test]
-fn legacy_diagnostics_are_read_without_rewriting_or_backfilling_observations() {
+fn unsupported_diagnostics_are_rejected_without_rewriting() {
     let f = Fixture::new();
     let id = run();
     f.trace(&id, Instant::now()).finish(Ok(()));
@@ -138,11 +138,8 @@ fn legacy_diagnostics_are_read_without_rewriting_or_backfilling_observations() {
     value.as_object_mut().unwrap().remove("runtimeTurns");
     let original = serde_json::to_vec(&value).unwrap();
     fs::write(&file, &original).unwrap();
-    let record = inspect(&f.0, &id).unwrap().unwrap();
-    assert!(record.runtime_turns.is_empty());
-    assert!(record.token_usage.is_none());
+    assert!(inspect(&f.0, &id).is_err());
     assert_eq!(fs::read(&file).unwrap(), original);
-    assert_eq!(serde_json::to_value(record).unwrap(), value);
 }
 
 #[test]

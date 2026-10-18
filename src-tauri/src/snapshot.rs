@@ -147,14 +147,11 @@ impl Default for CapturedContentKind {
 #[serde(rename_all = "camelCase")]
 pub struct CapturedFile {
     pub path: String,
-    #[serde(default)]
     pub kind: InventoryPathKind,
     pub size_bytes: u64,
     pub sha256: String,
     pub blob_path: String,
-    #[serde(default)]
     pub content_kind: CapturedContentKind,
-    #[serde(default)]
     pub secret_like: bool,
 }
 
@@ -162,9 +159,7 @@ pub struct CapturedFile {
 #[serde(rename_all = "camelCase")]
 pub struct SkippedPath {
     pub path: String,
-    #[serde(default)]
     pub kind: InventoryPathKind,
-    #[serde(default)]
     pub size_bytes: Option<u64>,
     pub reason: String,
     pub details: String,
@@ -215,7 +210,6 @@ pub struct SnapshotManifest {
     pub repository_root: String,
     pub selected_path: String,
     pub capture_limits: CaptureLimits,
-    #[serde(default)]
     pub directories: Vec<InventoryDirectory>,
     pub files: Vec<CapturedFile>,
     pub skipped: Vec<SkippedPath>,
@@ -624,7 +618,7 @@ pub fn load_snapshot_manifest(
     })?;
     let manifest: SnapshotManifest = serde_json::from_slice(&bytes)
         .map_err(|error| format!("Snapshot details are invalid: {error}"))?;
-    if manifest.schema_version != 1 && manifest.schema_version != 2 {
+    if manifest.schema_version != 2 {
         return Err(format!(
             "Snapshot manifest schema {} is not supported by this app version.",
             manifest.schema_version
@@ -2310,12 +2304,8 @@ mod tests {
         legacy["schemaVersion"] = serde_json::json!(1);
         let legacy = serde_json::to_vec(&legacy).unwrap();
         fs::write(&path, &legacy).unwrap();
-        assert_eq!(
-            load_snapshot_manifest(&storage, &project.project_id, &manifest.summary.snapshot_id)
-                .unwrap()
-                .schema_version,
-            1
-        );
+        assert!(load_snapshot_manifest(&storage, &project.project_id, &manifest.summary.snapshot_id).is_err());
+        assert_eq!(fs::read(&path).unwrap(), legacy);
 
         let mut unsupported: serde_json::Value = serde_json::from_slice(&original).unwrap();
         unsupported["schemaVersion"] = serde_json::json!(99);

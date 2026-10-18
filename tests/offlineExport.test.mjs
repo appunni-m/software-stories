@@ -61,7 +61,7 @@ const section = ({ visual = typedVisual(), anchors = [sourceAnchor()], sectionId
 });
 
 const chapter = ({ revisionId = 'revision:one', lifecycle = 'accepted', target = { kind: 'overview' }, sections = [section()], title = 'Request flow' } = {}) => ({
-  schemaVersion: 2,
+  schemaVersion: 5,
   chapterId: `chapter:${revisionId}`,
   revisionId,
   revisionNumber: 3,
@@ -131,8 +131,8 @@ const sceneChapter = () => {
   ];
   first.visual.nodes[1].evidenceAnchorIds = ['anchor:return'];
   first.prose = first.spokenText = first.claims.map(claim => claim.prose).join(' ');
-  first.visual.presentation = { schemaVersion: 1, scenes: first.claims.map((_claim, claimIndex) => ({
-    claimIndex, title: claimIndex === 0 ? 'Incoming call' : 'Returned result', mode: 'composition', elements: [
+  first.visual.presentation = { schemaVersion: 3, scenes: first.claims.map((_claim, claimIndex) => ({
+    claimIndex, title: claimIndex === 0 ? 'Incoming call' : 'Returned result', narration: first.claims[claimIndex].prose, mode: 'composition', elements: [
       { kind: 'row', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
       { kind: 'code', parentIndex: 0, nodeIndex: claimIndex, tone: 'accent', value: 'run()', valueOrigin: 'source' },
     ],
@@ -146,21 +146,18 @@ const sceneTrack = (sceneId, exactText = `Reviewed ${sceneId}.`) => ({
 });
 
 describe('offline chapter export', () => {
-  it('exports current and historical scene versions without changing their data or source links', async () => {
-    for (const schemaVersion of [1, 2]) {
-      const accepted = sceneChapter();
-      accepted.sections[0].visual.presentation.schemaVersion = schemaVersion;
-      const before = structuredClone(accepted);
-      const result = await buildOfflineGuideHtml([accepted], {
-        selectedRevisionIds: [accepted.revisionId], includeExcerpts: true,
-        includeNarrationAudio: true, narrationAudio: [sceneTrack('claim:input'), sceneTrack('claim:return')],
-      });
-      assert.equal((result.html.match(/class="offline-story-scene"/g) ?? []).length, 2);
-      assert.equal((result.html.match(/<audio controls/g) ?? []).length, 2);
-      assert.match(result.html, /href="#evidence-1-1"/);
-      assert.match(result.html, /href="#section-1-1-scene-2"/);
-      assert.deepEqual(accepted, before);
-    }
+  it('exports current authored scenes with source links and matching cached tracks', async () => {
+    const accepted = sceneChapter();
+    const before = structuredClone(accepted);
+    const result = await buildOfflineGuideHtml([accepted], {
+      selectedRevisionIds: [accepted.revisionId], includeExcerpts: true,
+      includeNarrationAudio: true, narrationAudio: [sceneTrack('claim:input'), sceneTrack('claim:return')],
+    });
+    assert.equal((result.html.match(/class="offline-story-scene"/g) ?? []).length, 2);
+    assert.equal((result.html.match(/<audio controls/g) ?? []).length, 2);
+    assert.match(result.html, /href="#evidence-1-1"/);
+    assert.match(result.html, /href="#section-1-1-scene-2"/);
+    assert.deepEqual(accepted, before);
   });
   it('includes only selected accepted revisions and records revision and snapshot identities', async () => {
     const accepted = chapter();
@@ -211,8 +208,8 @@ describe('offline chapter export', () => {
 
   it('renders HTML compositions with local source links and manual scene navigation', async () => {
     const visual = typedVisual();
-    visual.presentation = { schemaVersion: 1, scenes: [{
-      claimIndex: 0, title: 'Request input', mode: 'composition', elements: [
+    visual.presentation = { schemaVersion: 3, scenes: [{
+      claimIndex: 0, title: 'Request input', narration: 'The request input reaches the route before the worker handles it.', mode: 'composition', elements: [
         { kind: 'row', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
         { kind: 'code', parentIndex: 0, nodeIndex: 0, tone: 'accent', value: 'run()', valueOrigin: 'source' },
       ],
@@ -492,6 +489,11 @@ describe('offline chapter export', () => {
     await assert.rejects(buildOfflineGuideHtml([chapter()], {
       selectedRevisionIds: ['revision:one', 'revision:one'], includeExcerpts: true,
     }), /selected more than once/);
+    const oldChapter = chapter(); oldChapter.schemaVersion = 4;
+    assert.equal(isOfflineExportableRevision(oldChapter), false);
+    await assert.rejects(buildOfflineGuideHtml([oldChapter], {
+      selectedRevisionIds: ['revision:one'], includeExcerpts: true,
+    }), /Only accepted/);
   });
 
   it('attaches each cached scene to its exact reviewed transcript and records independent hashes', async () => {

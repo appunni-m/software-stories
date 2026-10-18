@@ -31,14 +31,14 @@ fn combined_contract_keeps_the_same_scene_and_outline_boundaries() {
         schema["properties"]["openingAnswer"],
         workspace_generation::progressive::schema()
     );
-    let text = json!({"outline":{"marker":"not yet resolved"},"openingAnswer":{"manifestVersion":"answerManifestV1"}}).to_string();
+    let text = json!({"outline":{"marker":"not yet resolved"},"openingAnswer":{"manifestVersion":"answerManifestV2"}}).to_string();
     let (outline, manifest) = split(&text).unwrap();
     assert_eq!(
         serde_json::from_str::<Value>(&outline).unwrap()["marker"],
         "not yet resolved"
     );
-    assert!(manifest.contains("answerManifestV1"));
-    let raw_manifest = "{\n  \"manifestVersion\" : \"answerManifestV1\"\n}";
+    assert!(manifest.contains("answerManifestV2"));
+    let raw_manifest = "{\n  \"manifestVersion\" : \"answerManifestV2\"\n}";
     assert_eq!(
         split(&format!(
             "{{\"outline\":{{}},\"openingAnswer\":{raw_manifest}}}"
@@ -55,22 +55,22 @@ fn combined_contract_keeps_the_same_scene_and_outline_boundaries() {
         assert!(split(bad).is_err());
     }
     let instructions = instructions();
-    assert!(instructions.contains("first real input-to-decision/result transition"));
-    assert!(instructions.contains("SAME owned investigation and original budgets"));
+    assert!(instructions.contains("actual first input-to-decision/result transition"));
+    assert!(instructions.contains("SAME owned operation and original budgets"));
     assert!(instructions.contains("sceneAuthoringReference"));
     assert!(instructions.contains("Choose the representation that teaches the behavior"));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
-    assert!(instructions.contains("Do not make the first unit an exhaustive"));
-    assert!(!instructions.contains("Finish only with the supplied answerManifestV1"));
+    assert!(instructions.contains("make unit one an exhaustive catalogue"));
+    assert!(!instructions.contains("Finish only with the supplied answerManifestV2"));
     assert!(!instructions.contains("then investigate and publish deeper sections"));
-    assert!(instructions.contains("then focus on the remaining research outline"));
+    assert!(instructions.contains("then finish the deeper outline"));
     assert!(instructions.contains("A comment or default constructor does not prove later consumer behavior"));
     let base = crate::agent_context::PROGRESSIVE_BASE_INSTRUCTIONS;
     assert!(!base.contains("then investigate and publish deeper supported sections"));
     assert!(base.contains("operation's role and final schema"));
     assert!(base.contains("Respect the original source, call, proposal and time limits"));
     assert!(base.contains("Do not run commands, edit code, browse, delegate or access a live checkout"));
-    assert!(instructions.contains("including requested alternate paths and failures"));
+    assert!(instructions.contains("Preserve its requested alternatives, failure paths"));
     assert!(instructions.contains("Evidence proves the whole claim"));
     assert!(instructions.contains("At most six unique sections and eight total proposals"));
 }
@@ -101,7 +101,7 @@ fn fresh_opening_owns_a_separate_learning_question_without_losing_the_guide_ques
 }
 
 #[test]
-fn opening_cannot_be_forged_into_a_legacy_record_or_another_question() {
+fn opening_rejects_unsupported_records_and_changed_questions() {
     let f = Fixture::new();
     let original = pending(&f);
     for kind in [
@@ -116,7 +116,7 @@ fn opening_cannot_be_forged_into_a_legacy_record_or_another_question() {
         let mut r = original.clone();
         match kind {
             "schema" => r.schema_version = 1,
-            "contract" => r.contract = PLAN_ONLY_CONTRACT.into(),
+            "contract" => r.contract = "unsupported-guide-contract".into(),
             "owner" => r.opening.as_mut().unwrap().run_id = Uuid::new_v4().to_string(),
             "question" => r.opening.as_mut().unwrap().question.push_str("Changed"),
             "missing" => r.opening = None,
@@ -170,6 +170,10 @@ fn inactive_opening_recovers_locally_without_replanning_or_changing_stop() {
 }
 
 pub(in crate::repository_guide) fn publish(f: &Fixture, r: &Record) -> crate::evidence_ledger::sections::ActiveAnswer {
+    publish_for_question(f, r, question(r).unwrap())
+}
+
+pub(in crate::repository_guide) fn publish_for_question(f: &Fixture, r: &Record, learning_question: &str) -> crate::evidence_ledger::sections::ActiveAnswer {
     use crate::chapter_generation::tests::{SIMPLE_PATH, SIMPLE_SOURCE};
     use crate::{
         codex_identity::CodexReviewRuntime,
@@ -226,7 +230,7 @@ pub(in crate::repository_guide) fn publish(f: &Fixture, r: &Record) -> crate::ev
         .unwrap();
     let reference = delivered["added"][0]["referenceId"].as_str().unwrap();
     let mut answer = ledger
-        .start_native_manifest_answer_sections(question(r).unwrap(), &"d".repeat(64), &f.manifest, &runtime, &cancel)
+        .start_narration_answer_sections(learning_question, &"d".repeat(64), &f.manifest, &runtime, &cancel)
         .unwrap();
     let raw = crate::evidence_ledger::sections::authoring::tests::proposal(reference, "opening", 0)
         .to_string();
@@ -264,12 +268,7 @@ fn independent_research_continues_after_an_honest_boundary_but_not_a_failed_oper
         assert!(!answer.sections.is_empty(), "useful recovery sections are preserved");
         assert!(answer.has_recorded_failure());
         assert!(check_research_outcome(&r, &answer).is_err());
-        let mut historical = r.clone();
-        historical.schema_version = 2;
-        historical.contract = OPENING_CONTRACT.into();
-        historical.opening_context_sha256 = None;
-        historical.opening.as_mut().unwrap().question = historical.question.clone();
-        assert!(check_research_outcome(&historical, &answer).is_ok());
+
     }
 }
 
@@ -351,7 +350,7 @@ fn a_bad_final_result_preserves_published_opening_and_stop_without_replanning() 
     assert!(
         answer
             .finish_manifest(
-                r#"{"manifestVersion":"answerManifestV1","sections":[],"incompleteTopics":[]}"#,
+                r#"{"manifestVersion":"answerManifestV2","sections":[],"incompleteTopics":[]}"#,
                 false
             )
             .is_err()
@@ -425,29 +424,6 @@ fn completed_opening_does_not_complete_deeper_units_and_partial_opening_cannot_b
     assert!(store::save(&f.storage, &r, false).is_err());
 }
 
-#[test]
-fn both_plan_only_contracts_keep_their_original_bytes_and_have_no_opening() {
-    let f = Fixture::new();
-    for contract in [PLAN_ONLY_CONTRACT, LEGACY_CONTRACT] {
-        let mut r = record(&f);
-        r.contract = contract.into();
-        store::create(&f.storage, &r).unwrap();
-        let path = f
-            .storage
-            .join("repository-guides")
-            .join(format!("{}.json", r.id));
-        let before = std::fs::read(&path).unwrap();
-        assert!(
-            !String::from_utf8(before.clone())
-                .unwrap()
-                .contains("opening")
-        );
-        let restored = store::read(&f.storage, &r.id).unwrap();
-        assert!(restored.opening.is_none());
-        assert_eq!(serde_json::to_vec(&restored).unwrap(), before);
-        assert_eq!(std::fs::read(path).unwrap(), before);
-    }
-}
 
 #[test]
 fn failure_retention_cannot_clear_a_newer_investigation_owner() {

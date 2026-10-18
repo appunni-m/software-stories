@@ -3,7 +3,7 @@ import { CheckCircle2, PlugZap, Volume2, X } from 'lucide-react';
 import { CodexChapterDialog } from './CodexChapterDialog';
 import { cancelProviderRequest, getNarrationDisclosure, getPocketTtsStatus, getProviderCredentialStatus, removeProviderApiKey, setupPocketTts, storeProviderApiKey, type NarrationDisclosure, type PocketTtsStatus, type ProviderCredentialStatus } from './lib/commands';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
-import { saveVoiceConnection, useVoiceConnection } from './lib/voiceConnectionStore';
+import { readVoiceConnectionIssue, saveVoiceConnection, useVoiceConnection } from './lib/voiceConnectionStore';
 
 export function ConnectionsDialog({ native, initialSection = 'explanations', onClose }: { native: boolean; initialSection?: 'explanations' | 'voice'; onClose: () => void }) {
   const [section, setSection] = useState(initialSection);
@@ -37,10 +37,11 @@ function VoiceSettings({ native, onBusyChange }: { native: boolean; onBusyChange
   const [credential, setCredential] = useState<ProviderCredentialStatus | null>(null);
   const [key, setKey] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => readVoiceConnectionIssue());
   const [message, setMessage] = useState<string | null>(null);
   const setupId = useRef<string | null>(null);
   const alive = useRef(false);
+  useEffect(() => { setError(readVoiceConnectionIssue()); }, [settings.backend, settings.googleVoice, settings.googleStyle]);
   useEffect(() => { alive.current = true; return () => { alive.current = false; if (setupId.current) void cancelProviderRequest(setupId.current).catch(() => {}); }; }, []);
   useEffect(() => { onBusyChange(busy); }, [busy, onBusyChange]);
   useEffect(() => {

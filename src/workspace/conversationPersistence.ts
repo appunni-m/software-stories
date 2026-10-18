@@ -8,7 +8,6 @@ interface IO {
   projectId:string;snapshotId:string;
   load:()=>Promise<ConversationRecord|null>;
   save:(expectedRevision:number|null,state:WorkspaceState)=>Promise<ConversationRecord>;
-  legacy:()=>string|null;
   restore:(state:WorkspaceState)=>void;
   availability:()=>void;
   failed:()=>void;
@@ -18,10 +17,12 @@ const unavailable=()=>new Error('Your conversation could not be saved. Existing 
 
 /** Explicit wire fields exclude transient focus requests and native job copies. */
 export function conversationSnapshot(state:WorkspaceState):WorkspaceState {
-  const {version,projectId,snapshotId,currentId,file,grantId}=state;
+  const current=decodeWorkspace(JSON.stringify(state),state.projectId,state.snapshotId);
+  if(!current)throw unavailable();
+  const {version,projectId,snapshotId,currentId,file,grantId}=current;
   const context=({path,sha256,from,to}:WorkspaceState['explorations'][number]['turns'][number]['context'][number])=>({path,sha256,from,to});
   return JSON.parse(JSON.stringify({version,projectId,snapshotId,currentId,file,grantId,
-    explorations:state.explorations.map(e=>({id:e.id,parentId:e.parentId,originTurnId:e.originTurnId,title:e.title,view:e.view,
+    explorations:current.explorations.map(e=>({id:e.id,parentId:e.parentId,originTurnId:e.originTurnId,title:e.title,view:e.view,
       file:e.file,reveal:e.reveal?context(e.reveal):undefined,codeOpen:e.codeOpen,fileFlow:e.fileFlow?{path:e.fileFlow.path,showAll:e.fileFlow.showAll}:undefined,focusedTurnId:e.focusedTurnId,scrollPositions:e.scrollPositions,
       turns:e.turns.map(t=>({id:t.id,question:t.question,context:t.context.map(context),status:t.status,revisionId:t.revisionId,
         generationId:t.generationId,error:t.error,runIds:t.runIds,publishedSections:t.publishedSections,notes:t.notes,
@@ -50,12 +51,7 @@ export class ConversationPersistence {
     this.availability='loading';this.io.availability();
     this.starting=(async()=>{
       let record=await this.io.load();
-      if(!record){
-        const raw=this.io.legacy();
-        const state=raw===null?createWorkspace(this.io.projectId,this.io.snapshotId):decodeWorkspace(raw,this.io.projectId,this.io.snapshotId);
-        if(!state)throw unavailable(); // Preserve the original preference for recovery.
-        record=await this.io.save(null,conversationSnapshot(state));
-      }
+      if(!record)record=await this.io.save(null,conversationSnapshot(createWorkspace(this.io.projectId,this.io.snapshotId)));
       const state=this.record(record);this.revision=record.revision;this.availability='ready';
       this.io.restore(state);this.io.availability();
     })().catch(()=>{this.availability='unavailable';this.io.availability();throw unavailable();}).finally(()=>{this.starting=null;});
@@ -88,8 +84,7 @@ export class ConversationPersistence {
     while(this.active||this.pending||this.attempt)await this.drain();
   }
   async flushBeforeClose():Promise<void> {
-    // Initial hydration may still own a migration write. A failed initial read
-    // with no edits has nothing to lose and must not trap the startup screen.
+    // A failed initial read with no edits has nothing to flush and must not trap startup.
     if(this.starting)try{await this.starting;}catch{/* Original bytes are preserved by start. */}
     if(this.active||this.pending||this.attempt)await this.flush();
   }

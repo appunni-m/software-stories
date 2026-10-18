@@ -1,7 +1,8 @@
 use crate::chapter_freshness::{self, SectionFreshnessStatus};
 use crate::chapters::{
     self, ChapterClaim, ChapterRevision, ChapterSection, ChapterSourceAnchor, ChapterVisualPayload,
-    ClaimCategory, GeneratedChapterClaim, GeneratedChapterEvidence, GeneratedChapterEvidenceLimit,
+    ClaimCategory, GeneratedChapterClaim, GeneratedChapterEvidence,
+    GeneratedChapterEvidenceLimit,
     GeneratedChapterProposal, GeneratedChapterSection, HotspotDestination, RevisionLifecycle,
     SectionDependency, ValidationStatus,
 };
@@ -163,46 +164,19 @@ fn resolve_visual_evidence(
     claims: &[ChapterClaim],
 ) -> Result<Vec<String>, String> {
     if evidence.is_empty() || evidence.len() > 8 {
-        return Err("Every visual node and edge needs one to eight cited claim quotes.".to_owned());
+        return Err("Every visual node and edge needs one to eight claim evidence references.".to_owned());
     }
-    let mut seen_quotes = HashSet::new();
     let mut seen_references = HashSet::new();
     let mut anchor_ids = Vec::with_capacity(evidence.len());
     for item in evidence {
-        let matches = match item {
-            GeneratedVisualEvidence::Reference(reference) => {
-                if !seen_references.insert((reference.claim_index, reference.evidence_index)) {
-                    return Err("A visual item repeats the same claim evidence reference.".to_owned());
-                }
-                let anchor = claims.get(reference.claim_index as usize)
-                    .and_then(|claim| claim.anchors.get(reference.evidence_index as usize))
-                    .ok_or_else(|| "A visual evidence reference is outside this section's validated claim quotes.".to_owned())?;
-                vec![anchor]
-            }
-            GeneratedVisualEvidence::Quote(item) => {
-                if !seen_quotes.insert((item.path.as_str(), item.quote.as_str())) {
-                    return Err("A visual item repeats the same source quote.".to_owned());
-                }
-                claims.iter().flat_map(|claim| claim.anchors.iter())
-                    .filter(|anchor| anchor.path == item.path && anchor.excerpt == item.quote)
-                    .collect::<Vec<_>>()
-            }
-        };
-        let Some(first) = matches.first() else {
-            return Err(
-                "A visual node or edge cites a quote that is not attached to a validated claim."
-                    .to_owned(),
-            );
-        };
-        if matches.iter().skip(1).any(|anchor| {
-            anchor.source_sha256 != first.source_sha256
-                || anchor.start_byte != first.start_byte
-                || anchor.end_byte_inclusive != first.end_byte_inclusive
-        }) {
-            return Err("A visual quote maps to more than one source range.".to_owned());
+        if !seen_references.insert((item.claim_index, item.evidence_index)) {
+            return Err("A visual item repeats the same claim evidence reference.".to_owned());
         }
-        if !anchor_ids.contains(&first.anchor_id) {
-            anchor_ids.push(first.anchor_id.clone());
+        let anchor = claims.get(item.claim_index as usize)
+            .and_then(|claim| claim.anchors.get(item.evidence_index as usize))
+            .ok_or_else(|| "A visual evidence reference is outside this section's validated claim evidence.".to_owned())?;
+        if !anchor_ids.contains(&anchor.anchor_id) {
+            anchor_ids.push(anchor.anchor_id.clone());
         }
     }
     if anchor_ids.is_empty() {
@@ -240,19 +214,11 @@ struct GeneratedVisualEdge {
     evidence: Vec<GeneratedVisualEvidence>,
 }
 
-/// New output references the section's validated claim evidence directly.
-/// Legacy quoted proposals remain readable under their original exact checks.
-/// Stored diagrams still contain native anchor IDs, so no saved-format changes.
-#[derive(Clone, Debug, serde::Deserialize)]
-#[serde(untagged)]
-enum GeneratedVisualEvidence {
-    Reference(GeneratedVisualReference),
-    Quote(GeneratedChapterEvidence),
-}
-
+/// Visual proposals reference validated evidence through the section's claims.
+/// Stored diagrams contain the resolved native anchor IDs.
 #[derive(Clone, Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct GeneratedVisualReference {
+struct GeneratedVisualEvidence {
     claim_index: u32,
     evidence_index: u32,
 }
@@ -941,20 +907,7 @@ pub fn canonicalize_file_chapter(
     Ok(revision)
 }
 
-#[cfg(test)]
-pub fn canonicalize_repository_overview(
-    project_id: &str,
-    manifest: &SnapshotManifest,
-    index: Option<&SnapshotIndex>,
-    selected_sources: &[SnapshotSource],
-    allowed_relationship_ids: &HashSet<String>,
-    response_text: &str,
-) -> Result<ChapterRevision, String> {
-    canonicalize_overview(project_id, manifest, index, selected_sources, allowed_relationship_ids, response_text, OverviewPresentation::Supplied, None)
-}
-
 /// Fresh ordinary requests author narration separately from exact claim prose.
-/// Historical checkpoint canonicalizers below retain their original policies.
 pub(crate) fn canonicalize_authored_repository_overview(
     project_id: &str,
     manifest: &SnapshotManifest,
@@ -963,49 +916,21 @@ pub(crate) fn canonicalize_authored_repository_overview(
     allowed_relationship_ids: &HashSet<String>,
     response_text: &str,
 ) -> Result<ChapterRevision, String> {
-    canonicalize_overview(project_id, manifest, index, selected_sources, allowed_relationship_ids, response_text, OverviewPresentation::AuthoredNarrationV4, None)
-}
-
-/// Render workspace overview copy from exact validated claim sentences. The
-/// model's separate prose/narration are discarded, not certified or paraphrased.
-/// Evidence, relationship, visual and storage validators remain mandatory.
-pub(crate) fn canonicalize_workspace_overview(
-    project_id: &str,
-    manifest: &SnapshotManifest,
-    index: Option<&SnapshotIndex>,
-    selected_sources: &[SnapshotSource],
-    allowed_relationship_ids: &HashSet<String>,
-    response_text: &str,
-) -> Result<ChapterRevision, String> {
-    canonicalize_overview(project_id, manifest, index, selected_sources, allowed_relationship_ids, response_text, OverviewPresentation::ClaimSummaryV1, None)
-}
-
-pub(crate) fn canonicalize_cited_workspace_overview(
-    project_id: &str,
-    manifest: &SnapshotManifest,
-    index: Option<&SnapshotIndex>,
-    selected_sources: &[SnapshotSource],
-    response: &crate::native_citations::Resolved,
-) -> Result<ChapterRevision, String> {
-    canonicalize_overview(project_id, manifest, index, selected_sources, &HashSet::new(), response.text(), OverviewPresentation::ClaimSummaryV1, Some(response))
+    canonicalize_overview(
+        project_id,
+        manifest,
+        index,
+        selected_sources,
+        allowed_relationship_ids,
+        response_text,
+        None,
+    )
 }
 
 pub(crate) const COMPLETE_CLAIMS_LIMIT_ERROR: &str = "A complete answer section must contain 20 to 4,000 UTF-8 bytes of grounded sentences; split it into smaller complete sections without omitting behavior.";
 
-/// New progressive checkpoints retain every grounded sentence in both reading
-/// and speech. Historical checkpoints keep their original summary policy.
-pub(crate) fn canonicalize_complete_answer_section(
-    project_id: &str,
-    manifest: &SnapshotManifest,
-    index: Option<&SnapshotIndex>,
-    selected_sources: &[SnapshotSource],
-    response: &crate::native_citations::Resolved,
-) -> Result<ChapterRevision, String> {
-    canonicalize_overview(project_id, manifest, index, selected_sources, &HashSet::new(), response.text(), OverviewPresentation::CompleteClaimsV2, Some(response))
-}
-
-/// New checkpoints retain exact claims in details and the complete authored
-/// scene script in speech. Historical checkpoint reconstruction stays above.
+/// The progressive answer path keeps exact claim prose and applies authored
+/// narration after this evidence canonicalization step.
 pub(crate) fn canonicalize_narrated_answer_section(
     project_id: &str,
     manifest: &SnapshotManifest,
@@ -1013,17 +938,15 @@ pub(crate) fn canonicalize_narrated_answer_section(
     selected_sources: &[SnapshotSource],
     response: &crate::native_citations::Resolved,
 ) -> Result<ChapterRevision, String> {
-    canonicalize_overview(project_id, manifest, index, selected_sources, &HashSet::new(), response.text(), OverviewPresentation::SceneNarrationV3, Some(response))
-}
-
-#[derive(Clone, Copy)]
-enum OverviewPresentation {
-    #[cfg(test)]
-    Supplied,
-    ClaimSummaryV1,
-    CompleteClaimsV2,
-    SceneNarrationV3,
-    AuthoredNarrationV4,
+    canonicalize_overview(
+        project_id,
+        manifest,
+        index,
+        selected_sources,
+        &HashSet::new(),
+        response.text(),
+        Some(response),
+    )
 }
 
 fn canonicalize_overview(
@@ -1033,7 +956,6 @@ fn canonicalize_overview(
     selected_sources: &[SnapshotSource],
     allowed_relationship_ids: &HashSet<String>,
     response_text: &str,
-    presentation: OverviewPresentation,
     native_citations: Option<&crate::native_citations::Resolved>,
 ) -> Result<ChapterRevision, String> {
     if response_text.len() > chapters::MAX_GENERATED_RESPONSE_BYTES {
@@ -1121,53 +1043,22 @@ fn canonicalize_overview(
             visual: visual.map(Into::into),
             hotspots,
         };
-        if matches!(presentation, OverviewPresentation::CompleteClaimsV2 | OverviewPresentation::SceneNarrationV3 | OverviewPresentation::AuthoredNarrationV4) {
-            let complete = chapters::overview_claim_sentences(&section.claims).join(" ");
-            if !(20..=4_000).contains(&complete.len()) {
-                return Err(COMPLETE_CLAIMS_LIMIT_ERROR.to_owned());
-            }
-            // Never select a convenient subset: qualifiers, later error cases
-            // and inference labels must survive in the exact saved script.
-            section.prose = complete.clone();
-            section.spoken_text = if matches!(presentation, OverviewPresentation::AuthoredNarrationV4) {
-                chapters::authored_section_narration(&section)?.unwrap_or_else(|| section.spoken_text.clone())
-            } else if matches!(presentation, OverviewPresentation::SceneNarrationV3) {
-                chapters::authored_section_narration(&section)?.unwrap_or(complete)
-            } else { complete };
-        } else if matches!(presentation, OverviewPresentation::ClaimSummaryV1) {
-            let sentences = chapters::overview_claim_sentences(&section.claims);
-            // Keep whole sentences; never truncate into an unsupported fragment.
-            let mut prose = String::new();
-            for sentence in &sentences {
-                if prose.len() + sentence.len() + usize::from(!prose.is_empty()) > 4_000 { break; }
-                if !prose.is_empty() { prose.push(' '); }
-                prose.push_str(sentence);
-            }
-            let candidates = chapters::overview_narration_sentences(&section.claims);
-            let mut spoken = String::new();
-            for sentence in candidates.into_iter().take(3) {
-                if spoken.len() + sentence.len() + usize::from(!spoken.is_empty()) > 1_000 { break; }
-                if !spoken.is_empty() { spoken.push(' '); }
-                spoken.push_str(&sentence);
-            }
-            if prose.len() < 20 || spoken.is_empty() {
-                return Err("The anchored claims need complete, bounded sentences for overview reading and narration.".to_owned());
-            }
-            section.prose = prose;
-            section.spoken_text = spoken;
+        let complete = chapters::overview_claim_sentences(&section.claims).join(" ");
+        if !(20..=4_000).contains(&complete.len()) {
+            return Err(COMPLETE_CLAIMS_LIMIT_ERROR.to_owned());
         }
-        let schema_version = if matches!(presentation, OverviewPresentation::AuthoredNarrationV4) {
-            chapters::CHAPTER_SCHEMA_VERSION
-        } else { chapters::AGENT_CHAPTER_SCHEMA_VERSION };
-        if !chapters::overview_section_copy_supported(&section, schema_version) {
-            return Err("Every repository overview prose and narration sentence must be copied from an anchored claim; inference sentences must keep their visible label.".to_owned());
+        // Preserve every grounded claim in reading prose; authored narration is
+        // separately bounded and checked for visible inference labels.
+        section.prose = complete;
+        section.spoken_text = chapters::authored_section_narration(&section)?
+            .unwrap_or_else(|| section.spoken_text.clone());
+        if !chapters::overview_section_copy_supported(&section) {
+            return Err("Every repository overview needs complete claim prose and bounded narration; inference labels must remain visible.".to_owned());
         }
         sections.push(section);
     }
     Ok(ChapterRevision {
-        schema_version: if matches!(presentation, OverviewPresentation::AuthoredNarrationV4) {
-            chapters::CHAPTER_SCHEMA_VERSION
-        } else { chapters::AGENT_CHAPTER_SCHEMA_VERSION },
+        schema_version: chapters::CHAPTER_SCHEMA_VERSION,
         chapter_id: "chapter:overview".to_owned(),
         revision_id: generated_id("revision"),
         revision_number: 1,
@@ -2034,8 +1925,8 @@ pub(crate) mod tests {
             "nodes":[
                 {"label":"Template","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]},
                 {"label":"Returned greeting","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]}
-            ],"edges":[],"presentation":{"schemaVersion":1,"scenes":[{
-                "claimIndex":0,"title":"Put the name into the greeting","mode":"composition","elements":[
+            ],"edges":[],"presentation":{"schemaVersion":3,"scenes":[{
+                "claimIndex":0,"title":"Put the name into the greeting","narration":"The template formats the supplied name and returns the resulting greeting.","mode":"composition","elements":[
                     {"kind":"row","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
                     {"kind":"code","parentIndex":0,"nodeIndex":0,"tone":"accent","value":"Hello, ${name}","valueOrigin":"source"},
                     {"kind":"arrow","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
@@ -2087,7 +1978,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn legacy_visual_quotes_still_require_an_exact_validated_claim_quote() {
+    fn visual_evidence_uses_only_validated_claim_references() {
         let fixture = Fixture::new();
         let revision = canonicalize_file_chapter(
             &fixture.manifest.summary.project_id, &fixture.manifest, Some(&fixture.index),
@@ -2096,13 +1987,12 @@ pub(crate) mod tests {
         ).unwrap();
         let claims = &revision.sections[0].claims;
         let evidence: Vec<GeneratedVisualEvidence> = serde_json::from_value(serde_json::json!([
-            {"path":SIMPLE_PATH,"quote":SIMPLE_FUNCTION}
+            {"claimIndex":0,"evidenceIndex":0}
         ])).unwrap();
         assert_eq!(resolve_visual_evidence(&evidence, claims).unwrap(), vec![claims[0].anchors[0].anchor_id.clone()]);
-        let invented: Vec<GeneratedVisualEvidence> = serde_json::from_value(serde_json::json!([
-            {"path":SIMPLE_PATH,"quote":"made up source quote"}
-        ])).unwrap();
-        assert!(resolve_visual_evidence(&invented, claims).is_err());
+        assert!(serde_json::from_value::<GeneratedVisualEvidence>(serde_json::json!({
+            "path":SIMPLE_PATH,"quote":SIMPLE_FUNCTION
+        })).is_err());
     }
     const COMPLEX_SOURCE: &str = "import { normalizeName } from './names';\nexport function parseUser(input: string): string {\n    if (!input.trim()) {\n        throw new Error('user name is empty');\n    }\n    const normalized = normalizeName(input);\n    return normalized.toUpperCase();\n}\n";
     const SUPPORT_SOURCE: &str =
@@ -2774,7 +2664,7 @@ pub(crate) mod tests {
             sections: overview.sections,
         };
         assert!(
-            canonicalize_repository_overview(
+            canonicalize_authored_repository_overview(
                 &fixture.manifest.summary.project_id,
                 &fixture.manifest,
                 Some(&fixture.index),
@@ -2804,7 +2694,7 @@ pub(crate) mod tests {
             sections: file_proposal.sections,
         };
         let selected = fixture.sources(&[SIMPLE_PATH, SUPPORT_PATH]);
-        let revision = canonicalize_repository_overview(
+        let revision = canonicalize_authored_repository_overview(
             &fixture.manifest.summary.project_id,
             &fixture.manifest,
             Some(&fixture.index),
@@ -2828,7 +2718,7 @@ pub(crate) mod tests {
         let mut unknown = serde_json::to_value(&proposal).unwrap();
         unknown["evidenceLimits"] = serde_json::json!([]);
         assert!(
-            canonicalize_repository_overview(
+            canonicalize_authored_repository_overview(
                 &fixture.manifest.summary.project_id,
                 &fixture.manifest,
                 Some(&fixture.index),
@@ -2842,70 +2732,37 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn workspace_overview_renders_only_validated_claims_and_keeps_inference_labels() {
+    fn authored_overview_keeps_exact_claim_prose_and_separate_narration() {
         let fixture = Fixture::new();
         let mut file = simple_proposal();
-        file.sections[0].prose = "This invented independent summary must never reach the reader.".to_owned();
-        file.sections[0].spoken_text = "This invented narration must never be spoken.".to_owned();
-        file.sections[0].claims[0].category = "inference".to_owned();
-        file.sections[0].claims[0].inference_basis = "The selected implementation supports this structural interpretation.".to_owned();
+        file.sections[0].prose = "This independent summary is replaced by the validated claim.".to_owned();
+        file.sections[0].spoken_text = "The greeting returns a value after formatting the supplied name.".to_owned();
         let proposal = GeneratedOverviewProposal { title: file.title, sections: file.sections };
-        let response = serde_json::to_string(&proposal).unwrap();
         let selected = fixture.sources(&[SIMPLE_PATH, SUPPORT_PATH]);
-        // The existing external/legacy schema continues to reject unsupported copy.
-        assert!(canonicalize_repository_overview(&fixture.manifest.summary.project_id, &fixture.manifest,
-            Some(&fixture.index), &selected, &HashSet::new(), &response).is_err());
-        let revision = canonicalize_workspace_overview(&fixture.manifest.summary.project_id, &fixture.manifest,
-            Some(&fixture.index), &selected, &HashSet::new(), &response).unwrap();
-        assert_eq!(revision.sections[0].prose, format!("Inference: {}", proposal.sections[0].claims[0].prose));
-        assert_eq!(revision.sections[0].spoken_text, revision.sections[0].prose);
-        assert!(!revision.sections[0].prose.contains("invented"));
-        assert!(chapters::overview_section_copy_supported(&revision.sections[0], revision.schema_version));
+        let revision = canonicalize_authored_repository_overview(
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest,
+            Some(&fixture.index),
+            &selected,
+            &HashSet::new(),
+            &serde_json::to_string(&proposal).unwrap(),
+        ).unwrap();
+        assert_eq!(revision.schema_version, chapters::CHAPTER_SCHEMA_VERSION);
+        assert_eq!(revision.sections[0].prose, chapters::overview_claim_sentences(&revision.sections[0].claims).join(" "));
+        assert_eq!(revision.sections[0].spoken_text, proposal.sections[0].spoken_text);
+        assert!(!revision.sections[0].prose.contains("independent summary"));
+        assert!(chapters::overview_section_copy_supported(&revision.sections[0]));
         chapters::validate_overview_content(&revision).unwrap();
         fixture.assert_traceable(&revision, &[SIMPLE_PATH, SUPPORT_PATH]);
     }
 
     #[test]
-    fn workspace_narration_keeps_main_behavior_before_plain_context() {
-        let fixture = Fixture::new();
-        for (main, expected) in [
-            ("`greeting` formats `name`. It returns a greeting containing the supplied name.",
-             "It returns a greeting containing the supplied name."),
-            ("`greeting` formats `name` into a greeting.",
-             "`greeting` formats `name` into a greeting."),
-        ] {
-            let mut file = simple_proposal();
-            file.sections[0].claims[0].prose = main.to_owned();
-            let mut context = file.sections[0].claims[0].clone();
-            context.category = "repositoryContext".to_owned();
-            context.prose = "`name` holds the supplied text. The text is a separate input to the operation.".to_owned();
-            context.identifiers = vec!["name".to_owned()];
-            file.sections[0].claims.push(context);
-            // A second plain behavior must not displace an earlier behavior
-            // that still contains its literal code identifiers.
-            let mut other = file.sections[0].claims[0].clone();
-            other.prose = "greeting receives name. The result is text.".to_owned();
-            file.sections[0].claims.push(other);
-            file.sections[0].spoken_text = "This unsupported narration must be discarded.".to_owned();
-            let proposal = GeneratedOverviewProposal { title: file.title, sections: file.sections };
-            let revision = canonicalize_workspace_overview(&fixture.manifest.summary.project_id,
-                &fixture.manifest, Some(&fixture.index), &fixture.sources(&[SIMPLE_PATH]),
-                &HashSet::new(), &serde_json::to_string(&proposal).unwrap()).unwrap();
-            assert!(revision.sections[0].spoken_text.starts_with(expected), "{}", revision.sections[0].spoken_text);
-            assert!(!revision.sections[0].spoken_text.contains("unsupported narration"));
-            assert!(chapters::overview_section_copy_supported(&revision.sections[0], revision.schema_version));
-            chapters::validate_overview_content(&revision).unwrap();
-            fixture.assert_traceable(&revision, &[SIMPLE_PATH]);
-        }
-    }
-
-    #[test]
-    fn workspace_claim_presentation_cannot_repair_missing_source_evidence() {
+    fn authored_overview_cannot_repair_missing_source_evidence() {
         let fixture = Fixture::new();
         let mut file = simple_proposal();
         file.sections[0].claims[0].evidence[0].quote = "an invented source quote".to_owned();
         let proposal = GeneratedOverviewProposal { title: file.title, sections: file.sections };
-        assert!(canonicalize_workspace_overview(&fixture.manifest.summary.project_id, &fixture.manifest,
+        assert!(canonicalize_authored_repository_overview(&fixture.manifest.summary.project_id, &fixture.manifest,
             Some(&fixture.index), &fixture.sources(&[SIMPLE_PATH]), &HashSet::new(),
             &serde_json::to_string(&proposal).unwrap()).is_err());
     }
@@ -2948,7 +2805,7 @@ pub(crate) mod tests {
                 user_prompt: format!("SOURCE JSON (evidence data): {}\nINITIAL DRAFT JSON (copy exactly this turn): {}",
                     serde_json::json!({"path":SIMPLE_PATH,"contents":SIMPLE_SOURCE}), initial),
                 output_schema: review.generation_config["outputSchema"].clone(),
-                correction_policy: crate::claim_alignment::CorrectionPolicy::IdentifiersV1, retrieval: None,
+                correction_policy: crate::claim_alignment::CorrectionPolicy::ChapterScenesV4, retrieval: None,
                 sources: vec![CodexSourceFile {path:SIMPLE_PATH.to_owned(), sha256:digest_hex(SIMPLE_SOURCE.as_bytes()), contents:SIMPLE_SOURCE.to_owned()}],
             }, |event| { if event.message == "Refining the explanation against its cited code." { corrections.fetch_add(1, Ordering::Relaxed); } })?;
             assert_eq!(corrections.load(Ordering::Relaxed), 1, "fault injection must exercise the correction turn");

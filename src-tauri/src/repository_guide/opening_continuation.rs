@@ -25,17 +25,8 @@ pub(super) fn remaining_operations(record: &Record) -> usize {
         return 0;
     }
     let pending = |unit: &Unit| !unit_complete(unit) && unit.attempts.len() < MAX_ATTEMPTS;
-    let runnable = record.units.iter().enumerate().any(|(index, unit)| {
-        pending(unit) && (independent_research(record) || prerequisite_complete(record, index))
-    });
-    // A legacy prerequisite may become complete during this same continuation.
-    // Consent covers that upper bound as well as units eligible at admission.
     usize::from(remaining(record))
-        + if runnable {
-            record.units.iter().filter(|unit| pending(unit)).count()
-        } else {
-            0
-        }
+        + record.units.iter().filter(|unit| pending(unit)).count()
 }
 
 pub(super) fn eligible(record: &Record) -> bool {
@@ -65,7 +56,6 @@ fn intent(record: &Record) -> Result<workspace_generation::progressive::GuideInt
         research_boundaries: plan.omissions.clone(),
         opening_continuation: Some(workspace_generation::progressive::OpeningContinuation {
             previous_run_id: opening.run_id.clone(),
-            scoped: separate_opening_intent(record),
             incomplete_topics: summary.incomplete_topics.clone(),
         }),
     })

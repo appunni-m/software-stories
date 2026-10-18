@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {answerReadingPosition, answerRevisionOptions, cleanAnswerVersions, rememberAnswerVersion, resolveAnswerRevision} from '../src/workspace/answerVersions.ts';
 import {addTurn, createWorkspace, decodeWorkspace, mergePublishedSections, presentationOwner, rememberPresentation, rememberSection} from '../src/workspace/model.ts';
 
-const revision=(n,parent=null,more={})=>({schemaVersion:4,projectId:'project',snapshotId:'snapshot',chapterId:'chapter:cart',target:{targetId:'target:cart',scope:{kind:'file',path:'src/cart.ts'}},revisionId:`revision:${n}`,revisionNumber:n,basedOnRevisionId:parent,lifecycle:'draft',validationStatus:'valid',title:'Cart',sections:[{sectionId:'section:one',sectionRevisionId:`section-revision:${n}`}],...more});
+const revision=(n,parent=null,more={})=>({schemaVersion:5,projectId:'project',snapshotId:'snapshot',chapterId:'chapter:cart',target:{targetId:'target:cart',scope:{kind:'file',path:'src/cart.ts'}},revisionId:`revision:${n}`,revisionNumber:n,basedOnRevisionId:parent,lifecycle:'draft',validationStatus:'valid',title:'Cart',sections:[{sectionId:'section:one',sectionRevisionId:`section-revision:${n}`}],...more});
 const original=revision(4,'revision:3');
 const draft=revision(5,original.revisionId);
 const rejected=revision(6,draft.revisionId,{lifecycle:'rejected'});

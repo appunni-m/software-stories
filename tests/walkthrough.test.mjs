@@ -13,6 +13,7 @@ import {
 
 const section = (sectionId, order) => ({ sectionId, order });
 const revision = (revisionId, chapterId, revisionNumber, lifecycle = 'accepted', sections = []) => ({
+  schemaVersion: 5,
   revisionId,
   chapterId,
   revisionNumber,
@@ -55,16 +56,15 @@ describe('walkthrough resume record', () => {
     });
     assert.equal(parseRememberedSection(serialized, 'project/one', 'chapter', 'revision-3'), null);
     assert.equal(parseRememberedSection(serialized, 'another-project', 'chapter', 'revision-2'), null);
+    assert.match(resumeStorageKey('project/one', 'chapter', 'revision-2'), /^code-atlas\.walkthrough\.v2:/);
   });
 
   it('ignores missing, malformed, or incomplete progress', () => {
     assert.equal(parseRememberedSection(null, 'p', 'c', 'r'), null);
     assert.equal(parseRememberedSection('{oops', 'p', 'c', 'r'), null);
-    assert.equal(parseRememberedSection('{"version":1,"projectId":"p","chapterId":"c","revisionId":"r"}', 'p', 'c', 'r'), null);
+    assert.equal(parseRememberedSection('{"version":1,"projectId":"p","chapterId":"c","revisionId":"r","sectionId":"s"}', 'p', 'c', 'r'), null);
     assert.equal(parseRememberedProgress('{"version":2,"projectId":"p","chapterId":"c","revisionId":"r","sectionId":"s","playbackPosition":-1,"transcriptPosition":0}', 'p', 'c', 'r'), null);
-    assert.deepEqual(parseRememberedProgress('{"version":1,"projectId":"p","chapterId":"c","revisionId":"r","sectionId":"s"}', 'p', 'c', 'r'), {
-      sectionId: 's', playbackPosition: 0, transcriptPosition: 0,
-    });
+    assert.equal(parseRememberedProgress('{"version":2,"projectId":"p","chapterId":"c","revisionId":"r","sectionId":"s","playbackPosition":0,"transcriptPosition":0,"autoPlay":true}', 'p', 'c', 'r'), null);
   });
 });
 

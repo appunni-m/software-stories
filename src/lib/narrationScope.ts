@@ -5,7 +5,7 @@ import { storyScenes } from './visualStory.ts';
 export type ReadNarrationStorage = (key: string) => string | null;
 
 export function narrationStorageKey(projectId: string, chapterId: string, revisionId: string, sectionId: string): string {
-  return `code-atlas:narration:${projectId}:${chapterId}:${revisionId}:${sectionId}`;
+  return `code-atlas:narration:v2:${projectId}:${chapterId}:${revisionId}:${sectionId}`;
 }
 
 /** Player and export must inherit delivery settings without substituting a
@@ -13,8 +13,12 @@ export function narrationStorageKey(projectId: string, chapterId: string, revisi
  */
 export function scopedNarrationPreferences(read: ReadNarrationStorage, key: string, fallback: string, parentKey?: string): NarrationPreferencesSnapshot {
   const saved = read(key);
-  if (saved) return parseNarrationPreferences(saved, fallback);
-  const parent = parentKey ? parseNarrationPreferences(read(parentKey), fallback) : null;
+  if (saved !== null) return parseNarrationPreferences(saved, fallback);
+  let parent: NarrationPreferencesSnapshot | null = null;
+  if (parentKey) {
+    const value = read(parentKey);
+    if (value !== null) parent = parseNarrationPreferences(value, fallback);
+  }
   return parent ? { ...parent, spokenText: fallback } : parseNarrationPreferences(null, fallback);
 }
 
@@ -25,7 +29,7 @@ export interface NarrationScope {
 }
 
 /** Match the scopes actually used by VisualStory/NarrationPlayer. A custom
- * whole-section script or legacy summary stays one track, with no guessed cuts.
+ * whole-section script stays one track, with no guessed cuts.
  */
 export function sectionNarrationScopes(revision: ChapterRevision, section: ChapterSection, read: ReadNarrationStorage): NarrationScope[] {
   const baseKey = narrationStorageKey(revision.projectId, revision.chapterId, revision.revisionId, section.sectionId);

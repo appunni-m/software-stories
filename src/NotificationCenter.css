@@ -18,5 +18,3 @@
 .notification-item-actions button { padding: 5px 9px; color: var(--accent); border: 1px solid var(--border); background: transparent; border-radius: 5px; font: inherit; cursor: pointer; }
 .notification-item-actions button:hover { background: var(--surface-hover); }
 .notification-item-actions button:disabled { opacity: .5; cursor: default; }
-.notification-panel-footer { position: sticky; bottom: 0; padding: 8px 16px; border-top: 1px solid var(--border); background: var(--surface); }
-.notification-panel-footer button { padding: 6px 0; border: 0; background: transparent; color: var(--accent); font: inherit; cursor: pointer; }

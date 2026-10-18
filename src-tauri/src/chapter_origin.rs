@@ -108,7 +108,7 @@ impl ChapterGenerationOrigin {
             .map(|_| provider::planned_chapter_review_scope(review).map_err(|error| error.message))
             .transpose()?;
         let origin = Self {
-            schema_version: 2,
+            schema_version: 5,
             project_id: review.project_id.clone(),
             snapshot_id: review.snapshot_id.clone(),
             target_path: review.target_path.clone(),
@@ -148,7 +148,7 @@ impl ChapterGenerationOrigin {
         Ok(origin)
     }
 
-    pub(crate) fn from_retrieval(
+    pub(crate) fn from_answer_checkpoint(
         operation_id: &str,
         request_sha256: &str,
         ledger_sha256: &str,
@@ -161,7 +161,7 @@ impl ChapterGenerationOrigin {
                 .map_err(|_| "The retrieval origin could not be encoded.")?,
         );
         let origin = Self {
-            schema_version: 4,
+            schema_version: 5,
             project_id: revision.project_id.clone(),
             snapshot_id: revision.snapshot_id.clone(),
             target_path: None,
@@ -169,7 +169,7 @@ impl ChapterGenerationOrigin {
             request_id: operation_id.into(),
             request_fingerprint: fingerprint,
             request_body_sha256: request_sha256.into(),
-            contract_version: crate::evidence_ledger::RETRIEVAL_CONTRACT.into(),
+            contract_version: crate::evidence_ledger::PROGRESSIVE_CONTRACT.into(),
             settings: RecordedAgentSettings::Codex {
                 model_id: "gpt-6-luna".into(),
                 effort: "max".into(),
@@ -192,20 +192,6 @@ impl ChapterGenerationOrigin {
             }),
             content_sha256: content_digest(revision)?,
         };
-        origin.validate(revision)?;
-        Ok(origin)
-    }
-
-    /// A progressive receipt names an immutable delivered prefix, independently
-    /// of the mutable operation ledger or its later terminal state.
-    pub(crate) fn from_answer_checkpoint(
-        operation_id: &str, request_sha256: &str, checkpoint_sha256: &str,
-        ranges: Vec<crate::repository_context::CodeRange>,
-        sources: &[crate::snapshot::SnapshotSource], revision: &ChapterRevision,
-    ) -> Result<Self, String> {
-        let mut origin = Self::from_retrieval(operation_id, request_sha256, checkpoint_sha256, ranges, sources, revision)?;
-        origin.schema_version = 5;
-        origin.contract_version = crate::evidence_ledger::PROGRESSIVE_CONTRACT.into();
         origin.validate(revision)?;
         Ok(origin)
     }
@@ -260,7 +246,7 @@ impl ChapterGenerationOrigin {
         let retrieval_ok = if let Some(retrieval) = &self.retrieval {
             let mut ordered = retrieval.ranges.iter().collect::<Vec<_>>();
             ordered.sort_by_key(|r| (&r.path, r.start_byte));
-            matches!(self.schema_version, 3 | 4 | 5)
+            self.schema_version == 5
                 && backend == "codex"
                 && self.planned_chapter.is_none()
                 && self.section_update.is_none()
@@ -288,7 +274,7 @@ impl ChapterGenerationOrigin {
                         && r.end_line >= r.start_line
                         && r.start_byte < r.end_byte
                         && r.end_byte - r.start_byte <= 32768
-                        && (self.schema_version == 3 || r.end_byte - r.start_byte <= crate::native_citations::MAX_SPAN)
+                        && r.end_byte - r.start_byte <= crate::native_citations::MAX_SPAN
                         && self.source_files.iter().any(|s| {
                             s.path == r.path
                                 && s.sha256 == r.source_sha256
@@ -309,12 +295,10 @@ impl ChapterGenerationOrigin {
                     .iter()
                     .all(|s| retrieval.ranges.iter().any(|r| r.path == s.path))
         } else {
-            !matches!(self.schema_version, 3 | 4 | 5)
+            self.schema_version == 5
         };
         let expected_contract = if self.retrieval.is_some() {
-            if self.schema_version == 3 { "codex-retrieval-v1".to_owned() }
-            else if self.schema_version == 4 { crate::evidence_ledger::RETRIEVAL_CONTRACT.to_owned() }
-            else { crate::evidence_ledger::PROGRESSIVE_CONTRACT.to_owned() }
+            crate::evidence_ledger::PROGRESSIVE_CONTRACT.to_owned()
         } else if self.planned_chapter.is_some() {
             format!("{backend}-planned-chapter-v1")
         } else if backend == "codex" {
@@ -322,9 +306,9 @@ impl ChapterGenerationOrigin {
         } else {
             "claude-chapter-v1".to_owned()
         };
-        if !matches!(self.schema_version, 1 | 2 | 3 | 4 | 5)
+        if self.schema_version != 5
             || !retrieval_ok
-            || revision.schema_version < 4
+            || revision.schema_version != crate::chapters::CHAPTER_SCHEMA_VERSION
             || self.project_id != revision.project_id
             || !text(&self.project_id, 4096)
             || !text(&self.snapshot_id, 256)
@@ -383,8 +367,6 @@ impl ChapterGenerationOrigin {
 
     pub(crate) fn matches_content(&self, revision: &ChapterRevision) -> bool {
         content_digest(revision).is_ok_and(|hash| hash == self.content_sha256)
-            || (self.schema_version == 1
-                && legacy_content_digest(revision).is_ok_and(|hash| hash == self.content_sha256))
     }
 
     pub(crate) fn model_id(&self) -> &str {
@@ -402,7 +384,7 @@ pub(crate) fn validate_revision_origin(revision: &ChapterRevision) -> Result<(),
     Ok(())
 }
 
-/// Omitted metadata supports legacy records. Present null is invalid rather
+/// Direct API and manual drafts may omit metadata. Present null is invalid rather
 /// than silently losing the generation identity during recovery/import.
 pub(crate) fn deserialize_origin<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
@@ -440,188 +422,6 @@ fn digest_content(content: &impl Serialize) -> Result<String, String> {
     Ok(format!("{:x}", writer.hasher.finalize()))
 }
 
-/// Origin v1 predates camelCase enum fields. Reconstruct that exact bounded
-/// serialization for digest verification only; never rewrite stored bytes or
-/// treat a mismatched digest as valid. New origins use v2 and the current wire.
-fn legacy_content_digest(revision: &ChapterRevision) -> Result<String, String> {
-    use crate::chapters::*;
-    #[derive(Serialize)]
-    #[serde(tag = "kind", rename_all = "camelCase")]
-    enum Category<'a> {
-        CodeBehavior,
-        RepositoryContext,
-        Inference {
-            visible_label: &'a str,
-            basis: &'a str,
-        },
-    }
-    #[derive(Serialize)]
-    #[serde(tag = "kind", rename_all = "camelCase")]
-    enum Dependency<'a> {
-        SourceFile {
-            path: &'a str,
-            source_sha256: &'a str,
-        },
-        Symbol {
-            path: &'a str,
-            source_sha256: &'a str,
-            symbol_id: &'a str,
-        },
-        Relationship {
-            path: &'a str,
-            source_sha256: &'a str,
-            relationship_id: &'a str,
-        },
-    }
-    #[derive(Serialize)]
-    #[serde(tag = "kind", rename_all = "camelCase")]
-    enum Destination<'a> {
-        Section { section_id: &'a str },
-        CodeLens { anchor_id: &'a str },
-        AtlasFile { path: &'a str },
-        AtlasSymbol { path: &'a str, symbol_id: &'a str },
-        Relationship { relationship_id: &'a str },
-    }
-    #[derive(Serialize)]
-    #[serde(rename_all = "camelCase")]
-    struct Claim<'a> {
-        claim_id: &'a str,
-        category: Category<'a>,
-        prose: &'a str,
-        anchors: &'a [ChapterSourceAnchor],
-        dependencies: Vec<Dependency<'a>>,
-    }
-    #[derive(Serialize)]
-    #[serde(rename_all = "camelCase")]
-    struct Hotspot<'a> {
-        hotspot_id: &'a str,
-        label: &'a str,
-        destination: Destination<'a>,
-    }
-    #[derive(Serialize)]
-    #[serde(rename_all = "camelCase")]
-    struct Section<'a> {
-        section_id: &'a str,
-        section_revision_id: &'a str,
-        order: u32,
-        title: &'a str,
-        prose: &'a str,
-        spoken_text: &'a str,
-        claims: Vec<Claim<'a>>,
-        dependencies: Vec<Dependency<'a>>,
-        visual: &'a Option<ChapterVisualPayload>,
-        hotspots: Vec<Hotspot<'a>>,
-    }
-    #[derive(Serialize)]
-    #[serde(rename_all = "camelCase")]
-    struct Content<'a> {
-        project_id: &'a str,
-        snapshot_id: &'a str,
-        target: &'a ChapterTarget,
-        title: &'a str,
-        sections: Vec<Section<'a>>,
-    }
-    fn dependencies(values: &[SectionDependency]) -> Vec<Dependency<'_>> {
-        values
-            .iter()
-            .map(|value| match value {
-                SectionDependency::SourceFile {
-                    path,
-                    source_sha256,
-                } => Dependency::SourceFile {
-                    path,
-                    source_sha256,
-                },
-                SectionDependency::Symbol {
-                    path,
-                    source_sha256,
-                    symbol_id,
-                } => Dependency::Symbol {
-                    path,
-                    source_sha256,
-                    symbol_id,
-                },
-                SectionDependency::Relationship {
-                    path,
-                    source_sha256,
-                    relationship_id,
-                } => Dependency::Relationship {
-                    path,
-                    source_sha256,
-                    relationship_id,
-                },
-            })
-            .collect()
-    }
-    let sections = revision
-        .sections
-        .iter()
-        .map(|section| Section {
-            section_id: &section.section_id,
-            section_revision_id: &section.section_revision_id,
-            order: section.order,
-            title: &section.title,
-            prose: &section.prose,
-            spoken_text: &section.spoken_text,
-            claims: section
-                .claims
-                .iter()
-                .map(|claim| Claim {
-                    claim_id: &claim.claim_id,
-                    category: match &claim.category {
-                        ClaimCategory::CodeBehavior => Category::CodeBehavior,
-                        ClaimCategory::RepositoryContext => Category::RepositoryContext,
-                        ClaimCategory::Inference {
-                            visible_label,
-                            basis,
-                        } => Category::Inference {
-                            visible_label,
-                            basis,
-                        },
-                    },
-                    prose: &claim.prose,
-                    anchors: &claim.anchors,
-                    dependencies: dependencies(&claim.dependencies),
-                })
-                .collect(),
-            dependencies: dependencies(&section.dependencies),
-            visual: &section.visual,
-            hotspots: section
-                .hotspots
-                .iter()
-                .map(|hotspot| Hotspot {
-                    hotspot_id: &hotspot.hotspot_id,
-                    label: &hotspot.label,
-                    destination: match &hotspot.destination {
-                        HotspotDestination::Section { section_id } => {
-                            Destination::Section { section_id }
-                        }
-                        HotspotDestination::CodeLens { anchor_id } => {
-                            Destination::CodeLens { anchor_id }
-                        }
-                        HotspotDestination::AtlasFile { path } => Destination::AtlasFile { path },
-                        HotspotDestination::AtlasSymbol { path, symbol_id } => {
-                            Destination::AtlasSymbol { path, symbol_id }
-                        }
-                        HotspotDestination::Relationship { relationship_id } => {
-                            Destination::Relationship { relationship_id }
-                        }
-                    },
-                })
-                .collect(),
-        })
-        .collect();
-    digest_content(&Content {
-        project_id: &revision.project_id,
-        snapshot_id: &revision.snapshot_id,
-        target: &revision.target,
-        title: &revision.title,
-        sections,
-    })
-}
-
-/// Stream bounded serialization into the digest without cloning the chapter or
-/// retaining another serialized source/visual payload in memory.
 struct ContentDigestWriter {
     hasher: Sha256,
     bytes: usize,
@@ -660,120 +460,59 @@ fn digest(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE, simple_proposal};
 
-    #[test]
-    fn legacy_native_origin_remains_readable_without_rehashing_saved_content() {
-        // A real generated, synthetic-only v1 record from before the wire fix.
-        let revision: ChapterRevision =
-            serde_json::from_str(include_str!("../tests/fixtures/legacy-agent-chapter.json"))
-                .unwrap();
-        let origin = revision.generation_origin.as_ref().unwrap();
-        assert_eq!(origin.schema_version, 1);
-        assert_ne!(content_digest(&revision).unwrap(), origin.content_sha256);
-        assert_eq!(
-            legacy_content_digest(&revision).unwrap(),
-            origin.content_sha256
-        );
-        validate_revision_origin(&revision).unwrap();
-        let serialized = serde_json::to_string(&revision).unwrap();
-        assert!(serialized.contains("anchorId"));
-        assert!(!serialized.contains("anchor_id"));
-        let roundtrip: ChapterRevision = serde_json::from_str(&serialized).unwrap();
-        validate_revision_origin(&roundtrip).unwrap();
-        let mut changed = revision.clone();
-        changed.sections[0].prose.push_str(" An unsupported edit.");
-        assert!(validate_revision_origin(&changed).is_err());
+    fn chapter(f: &Fixture) -> ChapterRevision {
+        crate::chapter_generation::canonicalize_file_chapter(&f.manifest.summary.project_id, &f.manifest,
+            Some(&f.index), SIMPLE_PATH, &f.sources(&[SIMPLE_PATH]), &std::collections::HashSet::new(),
+            &serde_json::to_string(&simple_proposal()).unwrap()).unwrap()
     }
 
     #[test]
-    fn v2_origin_requires_current_content_digest() {
-        let mut revision: ChapterRevision =
-            serde_json::from_str(include_str!("../tests/fixtures/legacy-agent-chapter.json"))
-                .unwrap();
-        let current = content_digest(&revision).unwrap();
-        revision.generation_origin.as_mut().unwrap().schema_version = 2;
-        assert!(validate_revision_origin(&revision).is_err());
-        revision.generation_origin.as_mut().unwrap().content_sha256 = current;
-        validate_revision_origin(&revision).unwrap();
-        revision.sections[0]
-            .spoken_text
-            .push_str(" Changed narration.");
-        assert!(validate_revision_origin(&revision).is_err());
-    }
-
-    #[test]
-    fn retrieval_origin_records_ranges_of_large_local_sources_and_rejects_tampering() {
-        use crate::{
-            chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE},
-            repository_context as context,
+    fn current_agent_origin_has_one_wire_version_and_detects_content_changes() {
+        let f = Fixture::new();
+        let revision = chapter(&f);
+        let runtime = crate::codex_identity::CodexReviewRuntime {
+            connection_id: Uuid::new_v4().to_string(), executable_path: "/usr/local/bin/codex".into(),
+            executable_sha256: "a".repeat(64), account_identity_sha256: "b".repeat(64), account_revision: 1,
         };
-        let mut fixture = Fixture::new();
-        fixture.recapture_with_source(
-            SIMPLE_PATH,
-            &format!(
-                "{SIMPLE_SOURCE}{}",
-                "// large captured body\n".repeat(30000)
-            ),
-        );
-        let sources = fixture.sources(&[SIMPLE_PATH]);
-        assert!(sources[0].size_bytes > 512000);
-        let read = context::read_range(
-            &fixture.storage,
-            &fixture.manifest,
-            SIMPLE_PATH,
-            &sources[0].sha256,
-            0,
-            SIMPLE_SOURCE.len(),
-        )
-        .unwrap();
-        let mut revision: ChapterRevision =
-            serde_json::from_str(include_str!("../tests/fixtures/legacy-agent-chapter.json"))
-                .unwrap();
-        revision.project_id = fixture.manifest.summary.project_id.clone();
-        revision.snapshot_id = fixture.manifest.summary.snapshot_id.clone();
-        revision.target.scope = ChapterTargetScope::Overview;
-        revision.generation_origin = None;
-        revision.generation_origin = Some(
-            ChapterGenerationOrigin::from_retrieval(
-                &Uuid::new_v4().to_string(),
-                &"c".repeat(64),
-                &"d".repeat(64),
-                vec![read.range],
-                &sources,
-                &revision,
-            )
-            .unwrap(),
-        );
-        let encoded = serde_json::to_vec(&revision).unwrap();
-        let roundtrip: ChapterRevision = serde_json::from_slice(&encoded).unwrap();
-        validate_revision_origin(&roundtrip).unwrap();
-        assert_eq!(roundtrip.generation_origin.as_ref().unwrap().schema_version,4);
-        // Historical quote-based retrieval receipts keep their contract and
-        // bytes, and remain independently readable without any inference.
-        let mut historical=roundtrip.clone();
-        let origin=historical.generation_origin.as_mut().unwrap();
-        origin.schema_version=3;
-        origin.contract_version="codex-retrieval-v1".into();
-        let historical_bytes=serde_json::to_vec(&historical).unwrap();
-        let historical_roundtrip:ChapterRevision=serde_json::from_slice(&historical_bytes).unwrap();
-        validate_revision_origin(&historical_roundtrip).unwrap();
-        assert_eq!(serde_json::to_vec(&historical_roundtrip).unwrap(),historical_bytes);
-        for mode in 0..4 {
-            let mut changed = roundtrip.clone();
-            let receipt = changed
-                .generation_origin
-                .as_mut()
-                .unwrap()
-                .retrieval
-                .as_mut()
-                .unwrap();
-            match mode {
-                0 => receipt.ledger_sha256 = "e".repeat(64),
-                1 => receipt.ranges.push(receipt.ranges[0].clone()),
-                2 => receipt.ranges[0].start_line = 0,
-                _ => receipt.ranges[0].end_byte = sources[0].size_bytes as usize + 1,
-            }
-            assert!(validate_revision_origin(&changed).is_err());
+        let review = provider::build_codex_chapter_review(&f.storage, &provider::BuildCodexReviewInput {
+            project_id: revision.project_id.clone(), snapshot_id: revision.snapshot_id.clone(),
+            target_path: Some(SIMPLE_PATH.into()), selected_paths: vec![SIMPLE_PATH.into()],
+            model_id: "gpt-6-luna".into(), effort: "max".into(), approval_policy: "never".into(),
+            section_update: None, question: None, focus: vec![], workspace_grant: None,
+        }, &runtime).unwrap().review;
+        let origin = ChapterGenerationOrigin::from_agent_review(&review, &revision).unwrap();
+        assert_eq!(origin.schema_version, 5);
+        assert_eq!(serde_json::from_slice::<ChapterGenerationOrigin>(&serde_json::to_vec(&origin).unwrap()).unwrap(), origin);
+        for version in [0,1,2,3,4,6] {
+            let mut unsupported = origin.clone(); unsupported.schema_version = version;
+            assert!(unsupported.validate(&revision).is_err());
         }
+        let mut changed = revision.clone(); changed.title.push_str(" changed");
+        assert!(!origin.matches_content(&changed));
+        assert!(origin.validate(&changed).is_err());
+        changed.based_on_revision_id = Some(revision.revision_id.clone());
+        assert!(origin.validate(&changed).is_ok());
+    }
+
+    #[test]
+    fn current_checkpoint_origin_limits_each_delivered_fragment_and_rejects_tampering() {
+        let f = Fixture::new();
+        let mut revision = chapter(&f);
+        revision.chapter_id = "chapter:overview".into();
+        revision.target.target_id = "target:overview".into();
+        revision.target.scope = ChapterTargetScope::Overview;
+        let sources = f.sources(&[SIMPLE_PATH]);
+        let range = crate::repository_context::range_from_source(&sources[0], 0, SIMPLE_SOURCE.len()).unwrap().range;
+        let origin = ChapterGenerationOrigin::from_answer_checkpoint(&Uuid::new_v4().to_string(), &"a".repeat(64),
+            &"b".repeat(64), vec![range], &sources, &revision).unwrap();
+        assert_eq!(origin.schema_version, 5);
+        assert_eq!(origin.contract_version, crate::evidence_ledger::PROGRESSIVE_CONTRACT);
+        assert!(origin.validate(&revision).is_ok());
+        let mut changed = origin.clone(); changed.retrieval.as_mut().unwrap().ranges[0].end_byte = 1001;
+        assert!(changed.validate(&revision).is_err());
+        let mut changed = origin.clone(); changed.retrieval.as_mut().unwrap().ledger_sha256 = "c".repeat(64);
+        assert!(changed.validate(&revision).is_err());
     }
 }

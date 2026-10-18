@@ -5,20 +5,30 @@ export interface VoiceConnection {
   googleVoice: string;
   googleStyle: string;
 }
-export const VOICE_CONNECTION_KEY = 'code-atlas:voice-connection:v1';
+export const VOICE_CONNECTION_KEY = 'code-atlas:voice-connection:v2';
 export const DEFAULT_VOICE_CONNECTION: VoiceConnection = { backend: 'pocket-tts', googleVoice: 'Kore', googleStyle: '' };
 
 /** Global delivery settings never inherit a cloud choice from a saved section. */
 export function parseVoiceConnection(serialized: string | null): VoiceConnection {
-  try {
-    const value = JSON.parse(serialized ?? 'null');
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return { ...DEFAULT_VOICE_CONNECTION };
-    return {
-      backend: value.backend === 'gemini' ? 'gemini' : 'pocket-tts',
-      googleVoice: typeof value.googleVoice === 'string' && /^[A-Za-z]{1,40}$/.test(value.googleVoice) ? value.googleVoice : 'Kore',
-      googleStyle: typeof value.googleStyle === 'string' && new TextEncoder().encode(value.googleStyle).length <= 160 ? value.googleStyle : '',
-    };
-  } catch { return { ...DEFAULT_VOICE_CONNECTION }; }
+  if (serialized === null) return { ...DEFAULT_VOICE_CONNECTION };
+  let value: unknown;
+  try { value = JSON.parse(serialized); }
+  catch { throw new Error('Saved voice settings are malformed. Choose a voice engine in Connections.'); }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Saved voice settings are malformed. Choose a voice engine in Connections.');
+  }
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).length !== 3 || !['backend', 'googleVoice', 'googleStyle'].every(key => Object.hasOwn(record, key))) {
+    throw new Error('Saved voice settings use an unsupported format. Choose a voice engine in Connections.');
+  }
+  if (record.backend !== 'pocket-tts' && record.backend !== 'gemini') {
+    throw new Error('Saved voice settings use an unsupported voice engine. Choose Pocket TTS or Gemini in Connections.');
+  }
+  if (typeof record.googleVoice !== 'string' || !/^[A-Za-z]{1,40}$/u.test(record.googleVoice)
+    || typeof record.googleStyle !== 'string' || new TextEncoder().encode(record.googleStyle).byteLength > 160) {
+    throw new Error('Saved voice settings are malformed. Choose a supported voice in Connections.');
+  }
+  return { backend: record.backend, googleVoice: record.googleVoice, googleStyle: record.googleStyle };
 }
 
 /** Keep section text/pronunciation edits; Connections owns delivery for every section. */

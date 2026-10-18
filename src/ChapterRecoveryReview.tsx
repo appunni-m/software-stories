@@ -8,7 +8,7 @@ import {
 } from './lib/commands';
 
 /** Local history inspection distinguishes recorded request/step lineage from
- * legacy filename candidates. Neither is an account attestation. */
+ * current chapters that have no recorded request origin. Neither is an account attestation. */
 export function ChapterRecoveryReview({ native, projectId, snapshotId, targetPath, locked, requestId, backend, plannedTarget,
   onReady, onOpenPreview,
 }: {
@@ -61,7 +61,7 @@ export function ChapterRecoveryReview({ native, projectId, snapshotId, targetPat
 
   return <section className="provider-review-card" aria-labelledby="recovered-chapter-title">
     <h3 id="recovered-chapter-title">Check earlier results first</h3>
-    <p>A lost reply may leave a preview or saved draft. New records distinguish the original request and learning step; older records remain possible file matches. Recorded lineage does not prove account identity or that a later edit is the original result.</p>
+    <p>A lost reply may leave a preview or saved draft. Records with request lineage can be matched to the original request and learning step; chapters without that lineage are unrecorded possible matches for this target. Recorded lineage does not prove account identity or that a later edit is the original result.</p>
     {loading && <p role="status">Reading local previews and chapter history…</p>}
     {error && <p role="alert">Local result history could not be read. Reload it before preparing another request.</p>}
     {!loading && !error && <>

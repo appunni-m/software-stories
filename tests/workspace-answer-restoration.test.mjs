@@ -129,6 +129,7 @@ test('guide events invalidate the saved guide instead of publishing their older 
   const listed = deferred(); const started = deferred(); let lists = 0;
   const guide = { projectId: 'project', snapshotId: 'snapshot', id: '44444444-4444-4444-8444-444444444444', revision: 2,
     question: answer.question, title: 'Current saved guide', status: 'ready', units: [], openingRunId: scope.runId,
+    openingRunIds: [scope.runId], canContinue: false, continuationOperations: 0,
     answers: [answer], omissions: [], capturedFiles: 1, startingFiles: 1 };
   const h = workspaceStoreHarness(async (name, args) => {
     if (name === 'list_repository_guides') { if (++lists === 1) { started.resolve(); return listed.promise; } return [guide]; }

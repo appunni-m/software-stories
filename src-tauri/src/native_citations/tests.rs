@@ -10,7 +10,7 @@ fn source(text: &str) -> SnapshotSource {
     }
 }
 fn draft(id: &str) -> String {
-    json!({"citationVersion":VERSION,"sections":[{"claims":[{"evidence":[{"referenceId":id}]}]}]})
+    json!({"citationVersion":SHORT_VERSION,"sections":[{"claims":[{"evidence":[{"referenceId":id}]}]}]})
         .to_string()
 }
 fn ready(resolution: Resolution) -> Resolved {
@@ -60,9 +60,16 @@ fn short_reference_transport_keeps_exact_bytes_and_does_not_guess_unknown_ids() 
     );
     assert_eq!(
         issues(resolve(
-            &raw.replace("nativeEvidenceV2", VERSION),
-            |_| panic!("Legacy protocol cannot accept a short ID")
+            &raw.replace("nativeEvidenceV2", "nativeEvidenceV1"),
+            |_| panic!("Unsupported protocol cannot reach lookup")
         ))[0]["citationProblem"],
+        "citationVersion"
+    );
+    let long_id = format!("evidence:{}", "a".repeat(64));
+    assert_eq!(
+        issues(resolve(&draft(&long_id), |_| {
+            panic!("Long evidence IDs cannot reach lookup")
+        }))[0]["citationProblem"],
         "referenceShape"
     );
 }
@@ -87,7 +94,7 @@ fn exact_coordinates_resolve_the_second_repeated_occurrence_without_substring_gu
         Err(crate::chapter_generation::QuoteProblem::Ambiguous)
     );
     let resolved = ready(resolve(
-        &draft(&format!("evidence:{}", "a".repeat(64))),
+        &draft(&"code:1".to_owned()),
         |_| Ok(citation.clone()),
     ));
     let span = &resolved.claim_spans(0, 0).unwrap()[0];
@@ -121,7 +128,7 @@ fn comment_bytes_cannot_be_omitted_or_reflowed_by_a_native_reference() {
         .unwrap()
         .range;
     let citation = Citation::checked(&range, &source).unwrap();
-    let id = format!("evidence:{}", "b".repeat(64));
+    let id = "code:2".to_owned();
     let resolved = ready(resolve(&draft(&id), |_| Ok(citation.clone())));
     let json: Value = serde_json::from_str(resolved.text()).unwrap();
     assert_eq!(
@@ -184,12 +191,12 @@ fn partitions_preserve_large_unicode_crlf_and_long_line_source_exactly() {
 
 #[test]
 fn malformed_foreign_and_oversized_references_have_bounded_source_free_findings() {
-    let id = format!("evidence:{}", "c".repeat(64));
+    let long_id = format!("evidence:{}", "c".repeat(64));
     for input in [
         "{}".to_owned(),
         draft("../secret"),
-        draft(&id).replace(VERSION, "future"),
-        draft(&id).replace("\"referenceId\":", "\"quote\":"),
+        draft(&long_id).replace(SHORT_VERSION, "future"),
+        draft(&long_id).replace("\"referenceId\":", "\"quote\":"),
         "{\"citationVersion\":\"nativeEvidenceV1\",\"citationVersion\":\"nativeEvidenceV1\"}"
             .to_owned(),
     ] {
@@ -197,9 +204,10 @@ fn malformed_foreign_and_oversized_references_have_bounded_source_free_findings(
         assert!(found.len() <= MAX_ISSUES);
         assert!(!serde_json::to_string(&found).unwrap().contains("secret"));
     }
+    let id = "code:1";
     let claim = json!({"evidence":vec![json!({"referenceId":id});8]});
     let input =
-        json!({"citationVersion":VERSION,"sections":vec![json!({"claims":vec![claim;20]});12]})
+        json!({"citationVersion":SHORT_VERSION,"sections":vec![json!({"claims":vec![claim;20]});12]})
             .to_string();
     let found = issues(resolve(&input, |_| Err("referenceUnavailable")));
     assert_eq!(found.len(), MAX_ISSUES);

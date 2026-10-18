@@ -109,7 +109,7 @@ export function compareChapterRevisions(
   };
 }
 
-/** Resolve explicit parent and creation-time metadata without guessing legacy lineage. */
+/** Resolve recorded parent and creation-time metadata without inferring missing lineage. */
 export function revisionHistoryMetadata(
   revision: ChapterRevision,
   history: readonly ChapterRevision[] = [],

@@ -136,7 +136,7 @@ fn prepare_edit(
     }
 
     let mut revision = base.clone();
-    revision.schema_version = revision.schema_version.max(chapters::CHAPTER_SCHEMA_VERSION);
+    revision.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
     revision.revision_id = new_id("revision");
     revision.revision_number = base
         .revision_number
@@ -193,7 +193,7 @@ pub fn restore_revision(
     let target_index = index::load_snapshot_index(storage_dir, project_id, &base.snapshot_id)?;
 
     let mut restored = source.clone();
-    restored.schema_version = restored.schema_version.max(chapters::CHAPTER_SCHEMA_VERSION);
+    restored.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
     restored.revision_id = new_id("revision");
     restored.revision_number = base
         .revision_number
@@ -320,7 +320,7 @@ pub fn accept_draft(
     let manifest = snapshot::load_snapshot_manifest(storage_dir, project_id, &draft.snapshot_id)?;
     let snapshot_index = index::load_snapshot_index(storage_dir, project_id, &draft.snapshot_id)?;
     let mut accepted = draft.clone();
-    accepted.schema_version = accepted.schema_version.max(chapters::CHAPTER_SCHEMA_VERSION);
+    accepted.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
     accepted.revision_id = new_id("revision");
     accepted.revision_number = draft
         .revision_number
@@ -373,7 +373,7 @@ pub fn reject_draft(
         return Err("Only the latest saved draft can be rejected.".to_owned());
     }
     let mut rejected = draft.clone();
-    rejected.schema_version = rejected.schema_version.max(chapters::CHAPTER_SCHEMA_VERSION);
+    rejected.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
     rejected.revision_id = new_id("revision");
     rejected.revision_number = draft
         .revision_number
@@ -581,7 +581,7 @@ mod tests {
         revision.target.scope = chapters::ChapterTargetScope::Overview;
         for section in &mut revision.sections {
             section.prose = chapters::overview_claim_sentences(&section.claims).join(" ");
-            section.spoken_text = chapters::overview_narration_sentences(&section.claims).join(" ");
+            section.spoken_text = section.prose.clone();
         }
         let sources = fixture.sources(&[SIMPLE_PATH]);
         let range = crate::repository_context::read_range(
@@ -595,7 +595,7 @@ mod tests {
         .unwrap()
         .range;
         revision.generation_origin = Some(
-            crate::chapter_origin::ChapterGenerationOrigin::from_retrieval(
+            crate::chapter_origin::ChapterGenerationOrigin::from_answer_checkpoint(
                 &Uuid::new_v4().to_string(),
                 &"a".repeat(64),
                 &"b".repeat(64),
@@ -776,6 +776,12 @@ mod tests {
             chapters::decode_chapter_edit_proposal(&serde_json::to_vec(&value).unwrap()).is_err()
         );
         value["schemaVersion"] = 4.into();
+        assert!(
+            chapters::decode_chapter_edit_proposal(&serde_json::to_vec(&value).unwrap())
+                .unwrap_err()
+                .contains("not supported")
+        );
+        value["schemaVersion"] = chapters::CHAPTER_SCHEMA_VERSION.into();
         value["generationOrigin"] = serde_json::Value::Null;
         assert!(
             chapters::decode_chapter_edit_proposal(&serde_json::to_vec(&value).unwrap()).is_err()

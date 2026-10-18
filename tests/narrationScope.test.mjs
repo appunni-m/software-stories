@@ -13,6 +13,7 @@ const section = () => ({
 const revision = { projectId: 'project:one', chapterId: 'chapter:one', revisionId: 'revision:one' };
 const baseKey = narrationStorageKey(revision.projectId, revision.chapterId, revision.revisionId, 'section:one');
 const read = values => key => values[key] ?? null;
+const preferences = (values = {}) => JSON.stringify({ backend: 'pocket-tts', spokenText: '', voice: 'alba', style: '', lexicon: [], ...values });
 
 it('authored narration without a visual uses one exact cache scope and preserves explicit script edits', () => {
   const current = { ...section(), visual: null,
@@ -24,14 +25,14 @@ it('authored narration without a visual uses one exact cache scope and preserves
   assert.equal(scopes[0].preferences.spokenText, current.spokenText);
   assert.equal(scopes[0].preferences.backend, 'pocket-tts');
   const script = 'My edited recording starts with the prefix decision and follows the bytes into the chosen reader.';
-  const edited = sectionNarrationScopes(revision, current, read({ [baseKey]: JSON.stringify({ backend: 'pocket-tts', spokenText: script }) }));
+  const edited = sectionNarrationScopes(revision, current, read({ [baseKey]: preferences({ spokenText: script }) }));
   assert.equal(edited[0].preferences.spokenText, script);
   assert.deepEqual(current, original);
 });
 
 it('export uses the player scene keys and inherits delivery without a whole-section script', () => {
   const parent = { backend: 'pocket-tts', spokenText: 'memory face checks the prefix. pfr face receives the original data.',
-    lexicon: [{ name: 'pfr', sayAs: 'P F R', include: true }] };
+    voice: 'alba', style: '', lexicon: [{ name: 'pfr', sayAs: 'P F R', include: true }] };
   const scopes = sectionNarrationScopes(revision, section(), read({ [baseKey]: JSON.stringify(parent) }));
   assert.deepEqual(scopes.map(scope => scope.sceneId), ['claim:prefix', 'claim:call']);
   assert.equal(scopes[0].preferences.spokenText, 'memory face checks the prefix.');
@@ -40,19 +41,20 @@ it('export uses the player scene keys and inherits delivery without a whole-sect
 });
 
 it('saved scene scripts remain independent and a custom whole script stays whole', () => {
-  const values = { [`${baseKey}:scene:claim:call`]: JSON.stringify({ backend: 'pocket-tts', spokenText: 'My reviewed second scene.' }) };
+  const values = { [`${baseKey}:scene:claim:call`]: preferences({ spokenText: 'My reviewed second scene.' }) };
   const scopes = sectionNarrationScopes(revision, section(), read(values));
   assert.equal(scopes[1].preferences.spokenText, 'My reviewed second scene.');
-  values[baseKey] = JSON.stringify({ backend: 'pocket-tts', spokenText: 'My complete custom story.' });
+  values[baseKey] = preferences({ spokenText: 'My complete custom story.' });
   const whole = sectionNarrationScopes(revision, section(), read(values));
   assert.equal(whole.length, 1);
   assert.equal(whole[0].sceneId, undefined);
   assert.equal(whole[0].preferences.spokenText, 'My complete custom story.');
 });
 
-it('legacy summaries are not split and unreadable storage cannot guess cache settings', () => {
-  const legacy = section(); legacy.spokenText = 'A short summary.';
-  assert.equal(sectionNarrationScopes(revision, legacy, read({})).length, 1);
+it('short authored scripts stay whole and unreadable storage cannot guess cache settings', () => {
+  const short = section(); short.spokenText = 'A short summary.';
+  assert.equal(sectionNarrationScopes(revision, short, read({})).length, 1);
+  assert.throws(() => sectionNarrationScopes(revision, section(), read({ [baseKey]: '' })), /malformed/);
   assert.throws(() => sectionNarrationScopes(revision, section(), () => { throw new Error('Storage unavailable'); }), /Storage unavailable/);
   assert.equal(scopedNarrationPreferences(read({}), 'scene', 'Scene fallback', baseKey).spokenText, 'Scene fallback');
 });
@@ -66,7 +68,7 @@ it('natural scene scripts use identical scopes in player and export and retain p
   const scopes = sectionNarrationScopes(revision, current, read({}));
   assert.deepEqual(scopes.map(s => s.sceneId), ['claim:prefix', 'claim:call']);
   assert.deepEqual(scopes.map(s => s.preferences.spokenText), scripts);
-  const edited = sectionNarrationScopes(revision, current, read({ [`${baseKey}:scene:claim:call`]: JSON.stringify({ backend: 'pocket-tts', spokenText: 'My second-scene script.' }) }));
+  const edited = sectionNarrationScopes(revision, current, read({ [`${baseKey}:scene:claim:call`]: preferences({ spokenText: 'My second-scene script.' }) }));
   assert.equal(edited[1].preferences.spokenText, 'My second-scene script.');
   assert.equal(edited[0].preferences.spokenText, scripts[0]);
 });

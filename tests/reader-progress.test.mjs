@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {cleanFlowViewport,cleanReaderProgress,cleanStoryProgress,sameSection,withReaderProgress} from '../src/lib/readerProgress.ts';
-import {readSectionStoryProgress} from '../src/lib/visualStory.ts';
+import {readSectionStoryProgress,readStoryProgress} from '../src/lib/visualStory.ts';
 import {createWorkspace,addTurn,cleanAnswerNotes,decodeWorkspace,presentationOwner,rememberCodePane,rememberFileFlow,rememberPresentation} from '../src/workspace/model.ts';
 
 const identity={revisionId:'revision:one',sectionId:'section:one',sectionRevisionId:'section-revision:one'};
@@ -22,26 +22,26 @@ test('presentation records contain only bounded metadata and exact immutable sec
   assert.equal(story.positions['claim:first'],12.4,'cleaning must not mutate input');
 });
 
-test('native zero and scene selection take precedence over stale browser progress without autoplay',()=>{
+test('native zero and scene selection restore without autoplay or unscoped fallback',()=>{
   const scenes=[{id:'claim:first'},{id:'claim:second'}];
-  const stale=JSON.stringify({...story,sceneId:'claim:first',positions:{'claim:first':500,'claim:second':900}});
-  const saved=readSectionStoryProgress({...story,positions:{'claim:first':0,'claim:second':0}},stale,identity,scenes);
+  const saved=readSectionStoryProgress({...story,positions:{'claim:first':0,'claim:second':0}},identity,scenes);
   assert.deepEqual(saved,{index:1,positions:[['claim:first',0],['claim:second',0]],fullMap:true,viewport:story.viewport});
   assert.equal('autoPlay' in saved,false);
-  const changed=readSectionStoryProgress(story,stale,{...identity,sectionRevisionId:'section-revision:changed'},scenes);
+  const changed=readSectionStoryProgress(story,{...identity,sectionRevisionId:'section-revision:changed'},scenes);
   assert.deepEqual(changed,{index:0,positions:[['claim:first',0],['claim:second',0]],fullMap:false,viewport:undefined});
-  const removed=readSectionStoryProgress(story,null,identity,[scenes[0]]);assert.equal(removed.index,0);assert.equal(removed.viewport,undefined);
-  const legacy=readSectionStoryProgress(undefined,stale,identity,scenes);assert.equal(legacy.index,0);assert.equal(legacy.viewport.x,-34);
+  const removed=readSectionStoryProgress(story,identity,[scenes[0]]);assert.equal(removed.index,0);assert.equal(removed.viewport,undefined);
+  const unscoped=JSON.stringify({sceneId:'claim:second',positions:{'claim:second':12}});
+  assert.equal(readStoryProgress(unscoped,identity,scenes),undefined);
   const whole=[{id:'claim:second'}];
-  assert.equal(readSectionStoryProgress(undefined,null,identity,whole,19.5).positions[0][1],19.5);
-  assert.equal(readSectionStoryProgress({...story,positions:{'claim:second':0}},null,identity,whole,19.5).positions[0][1],0,'explicit native zero wins over a legacy route fallback');
+  assert.equal(readSectionStoryProgress(undefined,identity,whole,19.5).positions[0][1],19.5);
+  assert.equal(readSectionStoryProgress({...story,positions:{'claim:second':0}},identity,whole,19.5).positions[0][1],0,'explicit native zero wins over a route fallback');
 });
 
-test('valid bounded native progress is not discarded by the smaller legacy preference text cap',()=>{
+test('valid bounded native progress does not pass through a browser string parser',()=>{
   const scenes=Array.from({length:128},(_,i)=>({id:`claim:${i}:${'x'.repeat(200)}`}));
   const metadata={...story,sceneId:scenes[127].id,positions:Object.fromEntries(scenes.map((s,i)=>[s.id,i]))};
   assert.ok(JSON.stringify(metadata).length>16000);
-  const result=readSectionStoryProgress(metadata,'{broken',identity,scenes);
+  const result=readSectionStoryProgress(metadata,identity,scenes);
   assert.equal(result.index,127);assert.equal(result.positions[127][1],127);assert.deepEqual(result.viewport,story.viewport);
 });
 
@@ -97,7 +97,7 @@ test('a dedicated player uses the focused owner and cannot write into an unrelat
   assert.equal(presentationOwner(exploration,'revision:missing'),undefined);
 });
 
-test('invalid optional legacy presentation does not erase valid conversation history',()=>{
+test('invalid optional presentation metadata does not erase valid conversation history',()=>{
   const state=addTurn(createWorkspace('project','snapshot'),ready('one'),'guide');
   state.explorations[0].codeOpen='false';state.explorations[0].fileFlow={path:'../outside',showAll:true};
   state.explorations[0].turns[0].presentation={stories:[story,{...story,revisionId:'revision:foreign'}],diagrams:[{...diagram,viewport:{x:0,y:0,zoom:Infinity}}]};
@@ -119,8 +119,9 @@ test('real reading components bind scoped progress without persisting an autopla
   assert.match(workspace,/defaultViewport=\{viewport\} fitView=\{!viewport\}/);
   assert.match(workspace,/rememberFileFlow\(s,current\.id,source\.path,showAll\)/);
   assert.match(visual,/useReaderProgress\(identity\)/);
-  assert.match(visual,/if\(!nativeProgress\)try\{legacy=localStorage/);
-  assert.match(visual,/readSectionStoryProgress\(nativeProgress,legacy,identity,scenes,restorePosition\)/);
+  assert.match(visual,/!nativeProgress && !isNativeRuntime\(\)/);
+  assert.match(visual,/else if\(!isNativeRuntime\(\)\)try \{ localStorage\.setItem/);
+  assert.doesNotMatch(visual,/if\(!nativeProgress&&onProgressChange\)/,'browser progress is never imported into an owned conversation');
   const reader=readFileSync(new URL('../src/Walkthrough.tsx',import.meta.url),'utf8');
   assert.match(reader,/useReaderSection\(selectedRevision\?\.revisionId\)/);
   assert.match(reader,/ownedSection\?\.sectionId \?\? rememberedProgress\?\.sectionId/);

@@ -45,32 +45,37 @@ export function parseNarrationPreferences(
     style: DEFAULT_NARRATION_STYLE,
     lexicon: [],
   };
-  if (!serialized) return fallback;
+  if (serialized === null) return fallback;
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(serialized) as Partial<NarrationPreferencesSnapshot>;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return fallback;
-    // Existing saved preferences predate local TTS and retain their explicit
-    // cloud voice. Invalid or future backend values must not select cloud TTS.
-    const legacyCloudPreferences = parsed.backend === undefined
-      && typeof parsed.spokenText === 'string'
-      && typeof parsed.voice === 'string'
-      && typeof parsed.style === 'string'
-      && Array.isArray(parsed.lexicon);
-    const backend: NarrationBackend = parsed.backend === 'gemini' || legacyCloudPreferences ? 'gemini' : 'pocket-tts';
-    return {
-      backend,
-      spokenText: typeof parsed.spokenText === 'string' ? parsed.spokenText : fallbackText,
-      // Pocket supports one pinned voice and no style prompt. Normalize old or
-      // malformed values so hidden style settings cannot block a local review.
-      voice: backend === 'pocket-tts' ? DEFAULT_NARRATION_VOICE : typeof parsed.voice === 'string' ? parsed.voice : 'Kore',
-      style: backend === 'pocket-tts' ? DEFAULT_NARRATION_STYLE : typeof parsed.style === 'string' ? parsed.style : 'Clear, calm, conversational.',
-      lexicon: Array.isArray(parsed.lexicon)
-        ? parsed.lexicon.filter(isPronunciationEntry).slice(0, 12)
-        : [],
-    };
+    parsed = JSON.parse(serialized);
   } catch {
-    return fallback;
+    throw new Error('Saved narration preferences are malformed. The accepted transcript remains available.');
   }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Saved narration preferences are malformed. The accepted transcript remains available.');
+  }
+  const value = parsed as Record<string, unknown>;
+  const keys = ['backend', 'spokenText', 'voice', 'style', 'lexicon'];
+  if (Object.keys(value).length !== keys.length || !keys.every(key => Object.hasOwn(value, key))) {
+    throw new Error('Saved narration preferences use an unsupported format. The accepted transcript remains available.');
+  }
+  if (value.backend !== 'pocket-tts' && value.backend !== 'gemini') {
+    throw new Error('Saved narration settings use an unsupported voice engine. Choose Pocket TTS or Gemini in Connections.');
+  }
+  if (typeof value.spokenText !== 'string' || new TextEncoder().encode(value.spokenText).byteLength > 16_000
+    || typeof value.voice !== 'string' || typeof value.style !== 'string'
+    || !Array.isArray(value.lexicon) || value.lexicon.length > 12
+    || !value.lexicon.every(isPronunciationEntry)) {
+    throw new Error('Saved narration preferences are malformed. The accepted transcript remains available.');
+  }
+  if (value.backend === 'pocket-tts'
+    ? value.voice !== DEFAULT_NARRATION_VOICE || value.style !== DEFAULT_NARRATION_STYLE
+    : !/^[A-Za-z]{1,40}$/u.test(value.voice) || new TextEncoder().encode(value.style).byteLength > 160) {
+    throw new Error('Saved narration preferences do not match the selected voice engine. Choose a supported voice in Connections.');
+  }
+  return { backend: value.backend as NarrationBackend, spokenText: value.spokenText,
+    voice: value.voice, style: value.style, lexicon: value.lexicon as NarrationPreferencesSnapshot['lexicon'] };
 }
 
 /** Apply the enabled, whole-identifier pronunciation substitutions used by TTS. */
@@ -110,7 +115,7 @@ export function narrationPreferencesMatch(
   left: NarrationPreferencesSnapshot,
   right: NarrationPreferencesSnapshot,
 ): boolean {
-  return (left.backend ?? 'gemini') === (right.backend ?? 'gemini')
+  return left.backend === right.backend
     && applyPronunciationLexicon(left.spokenText.trim(), left.lexicon)
       === applyPronunciationLexicon(right.spokenText.trim(), right.lexicon)
     && left.voice === right.voice
@@ -122,8 +127,9 @@ function isIdentifierCharacter(character: string | undefined): boolean {
 }
 
 function isPronunciationEntry(value: unknown): value is NarrationPreferencesSnapshot['lexicon'][number] {
-  return Boolean(value && typeof value === 'object'
-    && typeof (value as NarrationPreferencesSnapshot['lexicon'][number]).name === 'string'
-    && typeof (value as NarrationPreferencesSnapshot['lexicon'][number]).sayAs === 'string'
-    && typeof (value as NarrationPreferencesSnapshot['lexicon'][number]).include === 'boolean');
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const entry = value as Record<string, unknown>;
+  return Object.keys(entry).length === 3 && Object.hasOwn(entry, 'name') && Object.hasOwn(entry, 'sayAs')
+    && Object.hasOwn(entry, 'include') && typeof entry.name === 'string' && typeof entry.sayAs === 'string'
+    && typeof entry.include === 'boolean';
 }

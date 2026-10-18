@@ -1,6 +1,6 @@
 import type { ChapterSection, EvidenceLinkedVisualSpec } from './commands';
 import { sceneNarrations, validScenePresentation } from './scenePresentation.ts';
-import { cleanStoryProgress, sameSection, type SectionIdentity, type StoryProgress } from './readerProgress.ts';
+import { cleanStoryProgress, sameSection, type FlowViewport, type SectionIdentity, type StoryProgress } from './readerProgress.ts';
 
 export interface StoryScene {
   id: string;
@@ -94,31 +94,40 @@ export function sceneNodeIds(visual: EvidenceLinkedVisualSpec, scene: StoryScene
   return ids;
 }
 
-export function readStoryProgress(raw: string | null, scenes: StoryScene[]): { index: number; positions: [string, number][] } {
+export function readStoryProgress(raw: string | null, identity: SectionIdentity, scenes: StoryScene[]): StoryProgress | undefined {
   let value: unknown;
   try { value = raw && raw.length <= 16_000 ? JSON.parse(raw) : null; } catch { value = null; }
-  return storyProgressFromValue(value,scenes);
+  if (!isCurrentStoryProgress(value)) return undefined;
+  const clean = cleanStoryProgress(value);
+  return clean && sameSection(clean, identity) && scenes.some(scene => scene.id === clean.sceneId) ? clean : undefined;
 }
 
-function storyProgressFromValue(value:unknown,scenes:StoryScene[]): {index:number;positions:[string,number][]} {
-  const record = value && typeof value === 'object' ? value as { sceneId?: unknown; positions?: unknown } : {};
-  const positions = record.positions && typeof record.positions === 'object' ? record.positions as Record<string, unknown> : {};
-  return { index: Math.max(0, scenes.findIndex((scene) => scene.id === record.sceneId)), positions: scenes.map((scene) => {
+function sectionStoryProgress(progress: StoryProgress | undefined, scenes: StoryScene[]): { index: number; positions: [string, number][]; fullMap: boolean; viewport?: FlowViewport } {
+  const positions = progress?.positions ?? {};
+  return { index: Math.max(0, scenes.findIndex((scene) => scene.id === progress?.sceneId)), positions: scenes.map((scene) => {
     const position = Object.hasOwn(positions, scene.id) ? positions[scene.id] : 0;
-    return [scene.id, typeof position === 'number' && Number.isFinite(position) && position >= 0 && position <= 3600 ? position : 0];
-  }) };
+    return [scene.id, position] as [string, number];
+  }), fullMap: progress?.fullMap ?? false,
+    viewport: progress?.sceneId === scenes.find((scene) => scene.id === progress?.sceneId)?.id ? progress?.viewport : undefined };
 }
 
-/** Native metadata wins over an old browser position, including an explicit
- * zero. Its bounded object must not pass through the smaller legacy text cap. */
-export function readSectionStoryProgress(native:StoryProgress|undefined,legacy:string|null,identity:SectionIdentity,scenes:StoryScene[],fallbackPosition=0) {
-  let value:unknown=native;
-  if(native===undefined)try{value=legacy&&legacy.length<=16_000?JSON.parse(legacy):null;}catch{value=null;}
-  const clean=cleanStoryProgress(value);
-  const matching=clean&&sameSection(clean,identity)?clean:undefined;
-  const scoped=!!value&&typeof value==='object'&&Object.hasOwn(value,'revisionId');
-  const progress=native!==undefined||scoped?storyProgressFromValue(matching,scenes):readStoryProgress(legacy,scenes);
-  if(native===undefined&&scenes.length===1&&progress.positions[0]?.[1]===0&&Number.isFinite(fallbackPosition)&&fallbackPosition>0&&fallbackPosition<=3600)progress.positions[0][1]=fallbackPosition;
-  return {...progress,fullMap:matching?.fullMap??false,
-    viewport:matching?.sceneId===scenes[progress.index]?.id?matching.viewport:undefined};
+/** Restore only the one current, section-scoped record. Unknown or previous
+ * shapes start at the first scene without carrying guessed playback state. */
+export function readSectionStoryProgress(progress:StoryProgress|undefined,identity:SectionIdentity,scenes:StoryScene[],fallbackPosition=0) {
+  const clean = cleanStoryProgress(progress);
+  const matching = clean && sameSection(clean, identity) && scenes.some(scene => scene.id === clean.sceneId) ? clean : undefined;
+  const result = sectionStoryProgress(matching, scenes);
+  if(scenes.length===1&&(!matching||!Object.hasOwn(matching.positions,scenes[0].id))&&Number.isFinite(fallbackPosition)&&fallbackPosition>0&&fallbackPosition<=3600)result.positions[0][1]=fallbackPosition;
+  result.viewport = matching?.sceneId===scenes[result.index]?.id?matching.viewport:undefined;
+  return result;
+}
+
+function isCurrentStoryProgress(value: unknown): value is StoryProgress {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  const expected = ['revisionId', 'sectionId', 'sectionRevisionId', 'sceneId', 'positions', 'fullMap'];
+  const actual = Object.keys(record);
+  return actual.every(key => expected.includes(key) || key === 'viewport')
+    && expected.every(key => Object.hasOwn(record, key))
+    && (record.viewport === undefined || Object.hasOwn(record, 'viewport'));
 }

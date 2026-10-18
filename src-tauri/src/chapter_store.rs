@@ -89,11 +89,7 @@ fn append_revision(
     revision: &mut ChapterRevision,
     review: bool,
 ) -> Result<ChapterRevision, String> {
-    if !matches!(
-        revision.schema_version,
-        1 | 2 | chapters::GROUNDED_CHAPTER_SCHEMA_VERSION
-            | chapters::AGENT_CHAPTER_SCHEMA_VERSION | chapters::CHAPTER_SCHEMA_VERSION
-    ) {
+    if revision.schema_version != chapters::CHAPTER_SCHEMA_VERSION {
         return Err("The chapter revision uses an unsupported schema version.".to_owned());
     }
     if !review && revision.based_on_revision_id.is_some() {
@@ -379,6 +375,9 @@ fn read_revision_bytes(path: &Path, remaining_bytes: usize) -> Result<Vec<u8>, S
 }
 
 fn validate_revision_identity(revision: &ChapterRevision) -> Result<(), String> {
+    if revision.schema_version != chapters::CHAPTER_SCHEMA_VERSION {
+        return Err("The chapter revision uses an unsupported schema version.".to_owned());
+    }
     if revision.project_id.trim().is_empty()
         || !valid_id(&revision.snapshot_id)
         || !valid_id(&revision.target.target_id)
@@ -401,45 +400,33 @@ fn validate_revision_identity(revision: &ChapterRevision) -> Result<(), String> 
     if matches!(
         &revision.target.scope,
         crate::chapters::ChapterTargetScope::Overview
-    ) && (!matches!(
-        revision.schema_version,
-        chapters::GROUNDED_CHAPTER_SCHEMA_VERSION | chapters::AGENT_CHAPTER_SCHEMA_VERSION
-            | chapters::CHAPTER_SCHEMA_VERSION
-    ) || revision.target.target_id != "target:overview"
+    ) && (revision.target.target_id != "target:overview"
         || revision.chapter_id != "chapter:overview")
     {
-        return Err(
-            "An overview chapter must use schema version 3, 4 or 5 and its stable overview identities."
-                .to_owned(),
-        );
+        return Err("An overview chapter must use its stable overview identities.".to_owned());
     }
     crate::chapter_origin::validate_revision_origin(revision)?;
     chapters::validate_overview_content(revision)?;
-    if revision.schema_version >= 2 {
-        if revision.lifecycle != RevisionLifecycle::Draft && revision.based_on_revision_id.is_none()
-        {
-            return Err("A reviewed revision must identify the revision it follows.".to_owned());
-        }
-        if revision
-            .based_on_revision_id
+    if revision.lifecycle != RevisionLifecycle::Draft && revision.based_on_revision_id.is_none() {
+        return Err("A reviewed revision must identify the revision it follows.".to_owned());
+    }
+    if revision
+        .based_on_revision_id
+        .as_deref()
+        .is_some_and(|parent| !valid_id(parent) || parent == revision.revision_id)
+    {
+        return Err("The chapter revision has an invalid parent identity.".to_owned());
+    }
+    if revision.lifecycle == RevisionLifecycle::Rejected
+        && revision
+            .decision_note
             .as_deref()
-            .is_some_and(|parent| !valid_id(parent) || parent == revision.revision_id)
-        {
-            return Err("The chapter revision has an invalid parent identity.".to_owned());
-        }
-        if revision.lifecycle == RevisionLifecycle::Rejected
-            && revision
-                .decision_note
-                .as_deref()
-                .is_none_or(|note| note.trim().is_empty() || note.len() > 4_000)
-        {
-            return Err("A rejected revision needs a reason of at most 4,000 bytes.".to_owned());
-        }
-        if revision.lifecycle != RevisionLifecycle::Rejected && revision.decision_note.is_some() {
-            return Err("Only a rejected revision can carry a decision reason.".to_owned());
-        }
-    } else if revision.based_on_revision_id.is_some() || revision.decision_note.is_some() {
-        return Err("Version 1 chapter revisions cannot contain review metadata.".to_owned());
+            .is_none_or(|note| note.trim().is_empty() || note.len() > 4_000)
+    {
+        return Err("A rejected revision needs a reason of at most 4,000 bytes.".to_owned());
+    }
+    if revision.lifecycle != RevisionLifecycle::Rejected && revision.decision_note.is_some() {
+        return Err("Only a rejected revision can carry a decision reason.".to_owned());
     }
     Ok(())
 }
@@ -661,7 +648,7 @@ mod tests {
 
     fn draft(snapshot: &str, revision_id: &str) -> ChapterRevision {
         ChapterRevision {
-            schema_version: 1,
+            schema_version: chapters::CHAPTER_SCHEMA_VERSION,
             chapter_id: "chapter:file:test".to_owned(),
             revision_id: revision_id.to_owned(),
             revision_number: 1,
@@ -706,7 +693,7 @@ mod tests {
     }
 
     #[test]
-    fn overview_identity_is_fixed_and_schema_three_only() {
+    fn overview_identity_is_fixed_and_current_schema_only() {
         let temp = TempDir::new();
         let mut overview = draft("snapshot-overview", "revision:overview");
         overview.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
@@ -722,7 +709,7 @@ mod tests {
             order: 0,
             title: "Repository entry point".to_owned(),
             prose: overview_copy.clone(),
-            spoken_text: String::new(),
+            spoken_text: overview_copy.clone(),
             claims: vec![chapters::ChapterClaim {
                 claim_id: "claim:overview".to_owned(),
                 category: chapters::ClaimCategory::CodeBehavior,
@@ -764,7 +751,7 @@ mod tests {
                 "target:other",
                 chapters::CHAPTER_SCHEMA_VERSION,
             ),
-            ("chapter:overview", "target:overview", 2),
+            ("chapter:overview", "target:overview", 4),
         ] {
             let mut invalid = overview.clone();
             invalid.revision_id = format!("revision:invalid-{schema_version}-{chapter_id}");
@@ -829,16 +816,21 @@ mod tests {
 
     #[test]
     fn loading_rejects_acceptance_or_rejection_from_non_draft_history() {
-        // A schema-v1 accepted revision remains a valid legacy payload, but a v2
-        // review transition cannot claim it as the draft being accepted.
+        // Accepted and rejected revisions may only follow a saved draft.
         let temp = TempDir::new();
-        let mut accepted_parent = draft("snapshot-1", "revision:accepted-parent");
-        accepted_parent.lifecycle = RevisionLifecycle::Accepted;
+        let seed = draft("snapshot-1", "revision:seed");
+        write_revision(&temp.0, &seed);
+        let accepted_parent = reviewed_child(
+            &seed,
+            "revision:accepted-parent",
+            2,
+            RevisionLifecycle::Accepted,
+        );
         write_revision(&temp.0, &accepted_parent);
         let accepted_child = reviewed_child(
             &accepted_parent,
             "revision:accepted-child",
-            2,
+            3,
             RevisionLifecycle::Accepted,
         );
         write_revision(&temp.0, &accepted_child);
@@ -1132,17 +1124,27 @@ mod tests {
     #[test]
     fn accepted_revision_bytes_survive_new_drafts_and_failed_generation_saves() {
         let temp = TempDir::new();
-        let mut accepted = draft("snapshot-1", "revision:accepted");
-        accepted.lifecycle = RevisionLifecycle::Accepted;
-        let path = write_revision(&temp.0, &accepted);
+        let seed = save_new_draft(&temp.0, draft("snapshot-1", "revision:seed")).unwrap();
+        let accepted = append_review_revision(
+            &temp.0,
+            reviewed_child(
+                &seed,
+                "revision:accepted",
+                2,
+                RevisionLifecycle::Accepted,
+            ),
+        )
+        .unwrap();
+        let path = target_directory(&temp.0, &accepted.project_id, &accepted.target.target_id)
+            .join(format!("{}.json", accepted.revision_id));
         let bytes = fs::read(&path).unwrap();
         let next = save_new_draft(&temp.0, draft("snapshot-2", "revision:next")).unwrap();
-        assert_eq!(next.revision_number, 2);
+        assert_eq!(next.revision_number, 3);
         assert!(save_new_draft(&temp.0, accepted.clone()).is_err());
         assert_eq!(fs::read(path).unwrap(), bytes);
         assert_eq!(
             list_for_snapshot(&temp.0, "project-test", "snapshot-1").unwrap(),
-            vec![accepted]
+            vec![seed, accepted]
         );
     }
 

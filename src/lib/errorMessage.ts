@@ -9,9 +9,9 @@ export function errorMessageOr(error: unknown, fallback: string): string {
   return fallback;
 }
 
-/** Keep persisted legacy validation IDs out of the reading workspace. */
+/** Keep current source-validation identifiers out of the reading workspace. */
 export function explanationErrorMessage(error: string): string {
-  if (/does not name (?:its declared identifier|its declared source identifier)|does not connect (?:identifier|source identifier)|AI draft still did not connect/.test(error)) {
+  if (/^The AI explanation does not (?:name its declared source identifier|connect source identifier) '[^']+'(?: to its cited code)?\. No draft was saved\.$/u.test(error)) {
     return 'The AI draft did not connect its explanation to the cited code, so it was not saved. Try this question again.';
   }
   return error;

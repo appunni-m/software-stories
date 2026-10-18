@@ -6,6 +6,7 @@ const runId='c9410fba-7b55-42c5-b6e2-061c538bfcf2';
 const generationId='generation:776b022e-d466-455b-8594-d8a808e20f58';
 const section={runId,key:'input',order:0,generationId,revisionId:'revision:one',supersedes:null,contextElapsedMs:15,runElapsedMs:20};
 const guide=()=>({revision:1,id:guideId,projectId:'p',snapshotId:'s',question:'How does this project work?',title:'The input journey',status:'building',
+  openingRunId:null,openingRunIds:[],canContinue:false,continuationOperations:0,
   units:[{key:'input',question:'How does input arrive?',prerequisites:[],status:'working',runIds:[runId]},
     {key:'output',question:'How does output leave?',prerequisites:['input'],status:'pending',runIds:[]}],
   answers:[{runId,projectId:'p',snapshotId:'s',question:'How does input arrive?',outcome:'working',sections:[section],incompleteTopics:[]}],
@@ -61,7 +62,7 @@ test('contextual guide keeps explicit source and nested intent',()=>{
 });
 test('an opening answer belongs to the guide before its outline exists and survives restart',()=>{
   const opening={...section,runId:guideId};
-  const planning={...guide(),revision:0,status:'planning',openingRunId:guideId,units:[],
+  const planning={...guide(),revision:0,status:'planning',openingRunId:guideId,openingRunIds:[guideId],units:[],
     answers:[{runId:guideId,projectId:'p',snapshotId:'s',question:'How does this project work?',outcome:'working',sections:[opening],incompleteTopics:[]}]};
   let state=mergeRepositoryGuide(createWorkspace('p','s'),planning);
   const turn=state.explorations[0].turns[0];
@@ -69,7 +70,7 @@ test('an opening answer belongs to the guide before its outline exists and survi
   assert.equal(turn.status,'working');assert.equal(turn.guide.units.length,0);
   state=parseWorkspace(JSON.stringify(state),'p','s');
   assert.deepEqual(state.explorations[0].turns[0].publishedSections,[opening]);
-  const outline={...guide(),openingRunId:guideId,answers:[...planning.answers,...guide().answers]};
+  const outline={...guide(),openingRunId:guideId,openingRunIds:[guideId],answers:[...planning.answers,...guide().answers]};
   state=mergeRepositoryGuide(state,outline);
   assert.equal(state.explorations[0].turns.length,1);
   assert.deepEqual(state.explorations[0].turns[0].runIds,[guideId,runId]);
@@ -83,7 +84,7 @@ test('an opening answer belongs to the guide before its outline exists and survi
 test('an independently scoped opening preserves the original guide card question and section ownership',()=>{
   const original='How do font bytes become bitmap pixels, including alternate formats and errors?';
   const opening={...section,runId:guideId};
-  const planning={...guide(),question:original,revision:0,status:'planning',openingRunId:guideId,units:[],
+  const planning={...guide(),question:original,revision:0,status:'planning',openingRunId:guideId,openingRunIds:[guideId],units:[],
     answers:[{runId:guideId,projectId:'p',snapshotId:'s',question:'How does the actual first input transition return or propagate a result?',outcome:'partial',sections:[opening],incompleteTopics:['A guard remains unresolved.']}]};
   let state=mergeRepositoryGuide(createWorkspace('p','s'),planning);
   assert.equal(state.explorations[0].turns[0].question,original);
@@ -91,7 +92,7 @@ test('an independently scoped opening preserves the original guide card question
   state=parseWorkspace(JSON.stringify(state),'p','s');
   assert.equal(state.explorations[0].turns[0].question,original);
   assert.deepEqual(state.explorations[0].turns[0].runIds,[guideId]);
-  const deeper={...guide(),question:original,openingRunId:guideId,answers:[...planning.answers,...guide().answers]};
+  const deeper={...guide(),question:original,openingRunId:guideId,openingRunIds:[guideId],answers:[...planning.answers,...guide().answers]};
   state=mergeRepositoryGuide(state,deeper);
   assert.equal(state.explorations[0].turns.length,1);
   assert.equal(state.explorations[0].turns[0].question,original);
@@ -122,12 +123,13 @@ test('an opening follow-up retains both owners, earlier sections and the reader 
   assert.deepEqual(reopened.explorations[0].turns[0].reading.guide,position);
 });
 
-test('Continue remains available for an unfinished opening after all deeper units complete',()=>{
+test('continuation uses the explicit current opening allowance after all deeper units complete',()=>{
   const complete=guide();complete.units.forEach((unit)=>{unit.status='complete';});
   assert.equal(canContinueRepositoryGuide({...complete,canContinue:true,continuationOperations:1}),true);
   assert.equal(guideContinuationOperations({...complete,continuationOperations:1}),1);
   assert.equal(canContinueRepositoryGuide({...complete,canContinue:false,continuationOperations:0}),false);
   assert.equal(canContinueRepositoryGuide(complete),false);
-  assert.equal(guideContinuationOperations({...guide(),continuationOperations:99}),2);
+  assert.equal(guideContinuationOperations({...guide(),continuationOperations:99}),0);
+  assert.equal(canContinueRepositoryGuide({...complete,canContinue:undefined}),false);
   assert.equal(canContinueRepositoryGuide(undefined),false);
 });

@@ -36,7 +36,7 @@ import {
 } from './lib/narration';
 import { narrationStorageKey, scopedNarrationPreferences } from './lib/narrationScope';
 import { applyVoiceConnection } from './lib/voiceConnection';
-import { openVoiceConnections, readVoiceConnection, useVoiceConnection } from './lib/voiceConnectionStore';
+import { openVoiceConnections, readVoiceConnection, readVoiceConnectionIssue, useVoiceConnection } from './lib/voiceConnectionStore';
 import type { ChapterSection } from './lib/commands';
 import {appCloseCoordinator} from './lib/closeCoordinator';
 
@@ -75,8 +75,10 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   const baseStorageKey = narrationStorageKey(projectId, chapterId, revisionId, section.sectionId);
   const storageKey = clip ? `${baseStorageKey}:scene:${clip.id}` : baseStorageKey;
   const fallbackScript = useMemo(() => defaultNarrationText(clip?.text ?? section.spokenText), [clip?.text, section.spokenText]);
-  const preferences = useMemo(() => readPreferences(storageKey, fallbackScript, clip ? baseStorageKey : undefined), [storageKey, fallbackScript, baseStorageKey, !!clip]);
+  const preferenceLoad = useMemo(() => readPreferences(storageKey, fallbackScript, clip ? baseStorageKey : undefined), [storageKey, fallbackScript, baseStorageKey, !!clip]);
+  const preferences = preferenceLoad.preferences;
   const [draft, setDraft] = useState<NarrationPreferences>(preferences);
+  const [preferenceWarning, setPreferenceWarning] = useState<string | null>(preferenceLoad.warning);
   const voiceConnection = useVoiceConnection();
   const localNarration = draft.backend === 'pocket-tts';
   const [pocketStatus, setPocketStatus] = useState<PocketTtsStatus | null>(null);
@@ -129,7 +131,9 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   }, [titleId]);
 
   useEffect(() => {
-    setDraft(readPreferences(storageKey, fallbackScript, clip ? baseStorageKey : undefined));
+    const loaded = readPreferences(storageKey, fallbackScript, clip ? baseStorageKey : undefined);
+    setDraft(loaded.preferences);
+    setPreferenceWarning(loaded.warning);
     setReview(null);
     setTrack(null);
     setCurrentTime(0);
@@ -259,12 +263,9 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     setDraft((value) => {
       const next = update(value);
       try {
-        // Keep engine-specific delivery settings when switching away, including
-        // Google preferences saved before Pocket TTS was introduced.
-        window.localStorage.setItem(`${storageKey}:${value.backend}`, JSON.stringify(value));
-        window.localStorage.setItem(`${storageKey}:${next.backend}`, JSON.stringify(next));
         window.localStorage.setItem(storageKey, JSON.stringify(next));
       } catch { /* Speech editing still works without storage. */ }
+      setPreferenceWarning(null);
       return next;
     });
     if (review) void discardNarrationRequestReview(review.reviewId).catch(() => {});
@@ -758,17 +759,21 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
           )}
         </div>
       )}
+      {preferenceWarning && <p className="walkthrough-narration-note" role="status">{preferenceWarning}</p>}
+      {readVoiceConnectionIssue() && <p className="walkthrough-narration-note" role="status">{readVoiceConnectionIssue()}</p>}
       {!disclosure && informationError && <p className="walkthrough-narration-note" role="status">{informationError}</p>}
       {error && <p className="walkthrough-narration-error" role="alert"><AlertCircle size={14} /> {error}</p>}
     </section>
   );
 }
 
-function readPreferences(storageKey: string, fallbackText: string, parentKey?: string): NarrationPreferences {
+function readPreferences(storageKey: string, fallbackText: string, parentKey?: string): { preferences: NarrationPreferences; warning: string | null } {
   try {
-    return applyVoiceConnection(scopedNarrationPreferences(key => window.localStorage.getItem(key), storageKey, fallbackText, parentKey), readVoiceConnection());
-  } catch { /* Default to the accepted chapter script when storage is unavailable. */ }
-  return applyVoiceConnection(parseNarrationPreferences(null, fallbackText), readVoiceConnection());
+    return { preferences: applyVoiceConnection(scopedNarrationPreferences(key => window.localStorage.getItem(key), storageKey, fallbackText, parentKey), readVoiceConnection()), warning: null };
+  } catch (error) {
+    const warning = error instanceof Error ? error.message : 'Saved narration preferences could not be read. The accepted transcript remains available.';
+    return { preferences: applyVoiceConnection(parseNarrationPreferences(null, fallbackText), readVoiceConnection()), warning };
+  }
 }
 
 function replaceLexiconEntry(entries: NarrationPronunciationEntry[], index: number, entry: NarrationPronunciationEntry) {

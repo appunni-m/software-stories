@@ -11,12 +11,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 pub const CHAPTER_SCHEMA_VERSION: u32 = 5;
-pub(crate) const AGENT_CHAPTER_SCHEMA_VERSION: u32 = 4;
-pub(crate) const GROUNDED_CHAPTER_SCHEMA_VERSION: u32 = 3;
-const LEGACY_CHAPTER_SCHEMA_VERSION: u32 = 1;
-const REVIEW_CHAPTER_SCHEMA_VERSION: u32 = 2;
 pub(crate) const VISUAL_SCHEMA_VERSION: u32 = 2;
-const LEGACY_VISUAL_SCHEMA_VERSION: u32 = 1;
 pub const VISUAL_RENDERER_CONTRACT_VERSION: u32 = 2;
 const MAX_CHAPTER_JSON_BYTES: usize = 4 * 1024 * 1024;
 const MAX_ANCHOR_JSON_BYTES: usize = 128 * 1024;
@@ -393,23 +388,24 @@ pub enum ClaimCategory {
     CodeBehavior,
     RepositoryContext,
     Inference {
-        #[serde(rename = "visibleLabel", alias = "visible_label")]
+        #[serde(rename = "visibleLabel")]
         visible_label: String,
         basis: String,
     },
 }
 
-/// Exact implementation prose stays grounded in claims. Version-3 scenes and
-/// schema-5 sections without presentations may supply authored speech. Old
-/// scripts keep their original policy. This does not certify paraphrase semantics.
-pub fn overview_section_copy_supported(section: &ChapterSection, schema_version: u32) -> bool {
+/// Exact implementation prose stays grounded in claims. Authored narration may
+/// be supplied separately when no scene presentation is present. This does not
+/// certify paraphrase semantics.
+pub fn overview_section_copy_supported(section: &ChapterSection) -> bool {
     if section.claims.is_empty() {
         return false;
     }
     let supported_sentences = overview_claim_sentences(&section.claims).into_iter().collect::<HashSet<_>>();
     let copied = |text: &str| sentence_fragments(text).iter().all(|s| supported_sentences.contains(s));
     copied(&section.prose) && !sentence_fragments(&section.prose).is_empty()
-        && ((schema_version == CHAPTER_SCHEMA_VERSION && section_has_standalone_narration(section))
+        && (20..=4_000).contains(&section.spoken_text.trim().len())
+        && (section_has_standalone_narration(section)
             || copied(&section.spoken_text)
             || authored_section_narration(section).ok().flatten().as_deref() == Some(section.spoken_text.as_str()))
 }
@@ -429,8 +425,9 @@ fn section_has_standalone_narration(section: &ChapterSection) -> bool {
 pub(crate) fn authored_section_narration(section: &ChapterSection) -> Result<Option<String>, String> {
     let Some(presentation) = section.visual.as_ref().and_then(|v| v.typed_visual())
         .and_then(|v| v.presentation.as_ref()) else { return Ok(None); };
-    crate::scene_presentation::narration(presentation, &section.claims)
-        .map(|scripts| scripts.map(|scripts| scripts.join(" ")))
+    Ok(Some(
+        crate::scene_presentation::narration(presentation, &section.claims)?.join(" "),
+    ))
 }
 
 /// Ordered, complete reader-visible sentences from anchored claims only.
@@ -457,34 +454,15 @@ pub(crate) fn overview_claim_sentences(claims: &[ChapterClaim]) -> Vec<String> {
     sentences
 }
 
-/// Prefer the actual behavior over peripheral context. If a behavior claim
-/// lacks plain language, retain its exact sentences rather than silently
-/// replacing the answer with a more speakable side observation.
-pub(crate) fn overview_narration_sentences(claims: &[ChapterClaim]) -> Vec<String> {
-    let natural = |s: &String| !s.contains(['`', '_', '{', '}', '(', ')', '/', '\\']) && !s.contains("::");
-    let behavior = claims.iter().filter(|c| matches!(c.category, ClaimCategory::CodeBehavior))
-        .flat_map(|c| {
-            let sentences = overview_claim_sentences(std::slice::from_ref(c));
-            let plain = sentences.iter().filter(|s| natural(s)).cloned().collect::<Vec<_>>();
-            if plain.is_empty() { sentences } else { plain }
-        }).collect::<Vec<_>>();
-    let all = overview_claim_sentences(claims);
-    let mut sentences = if behavior.is_empty() {
-        let plain = all.iter().filter(|s| natural(s)).cloned().collect::<Vec<_>>();
-        if plain.is_empty() { all.clone() } else { plain }
-    } else { behavior };
-    for sentence in all.into_iter().filter(natural) {
-        if !sentences.contains(&sentence) { sentences.push(sentence); }
-    }
-    sentences
-}
-
 /// Validate the content-only invariants that must hold at every storage
 /// boundary, even when a caller has not yet loaded the immutable snapshot to
 /// perform full anchor verification.
 pub fn validate_overview_content(revision: &ChapterRevision) -> Result<(), String> {
     if !matches!(&revision.target.scope, ChapterTargetScope::Overview) {
         return Ok(());
+    }
+    if revision.schema_version != CHAPTER_SCHEMA_VERSION {
+        return Err("A repository overview must use the current chapter schema.".to_owned());
     }
     if revision.sections.is_empty() {
         return Err(
@@ -513,7 +491,7 @@ pub fn validate_overview_content(revision: &ChapterRevision) -> Result<(), Strin
         }) {
             return Err("Every repository overview claim needs readable prose, and inferences need a visible label and basis.".to_owned());
         }
-        if !overview_section_copy_supported(section, revision.schema_version) {
+        if !overview_section_copy_supported(section) {
             return Err("Overview prose and narration must use complete sentences from anchored claims, with inference labels preserved.".to_owned());
         }
     }
@@ -549,21 +527,21 @@ fn sentence_fragments(text: &str) -> Vec<String> {
 pub enum SectionDependency {
     SourceFile {
         path: String,
-        #[serde(rename = "sourceSha256", alias = "source_sha256")]
+        #[serde(rename = "sourceSha256")]
         source_sha256: String,
     },
     Symbol {
         path: String,
-        #[serde(rename = "sourceSha256", alias = "source_sha256")]
+        #[serde(rename = "sourceSha256")]
         source_sha256: String,
-        #[serde(rename = "symbolId", alias = "symbol_id")]
+        #[serde(rename = "symbolId")]
         symbol_id: String,
     },
     Relationship {
         path: String,
-        #[serde(rename = "sourceSha256", alias = "source_sha256")]
+        #[serde(rename = "sourceSha256")]
         source_sha256: String,
-        #[serde(rename = "relationshipId", alias = "relationship_id")]
+        #[serde(rename = "relationshipId")]
         relationship_id: String,
     },
 }
@@ -597,11 +575,11 @@ pub struct ChapterHotspot {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum HotspotDestination {
-    Section { #[serde(rename = "sectionId", alias = "section_id")] section_id: String },
-    CodeLens { #[serde(rename = "anchorId", alias = "anchor_id")] anchor_id: String },
+    Section { #[serde(rename = "sectionId")] section_id: String },
+    CodeLens { #[serde(rename = "anchorId")] anchor_id: String },
     AtlasFile { path: String },
-    AtlasSymbol { path: String, #[serde(rename = "symbolId", alias = "symbol_id")] symbol_id: String },
-    Relationship { #[serde(rename = "relationshipId", alias = "relationship_id")] relationship_id: String },
+    AtlasSymbol { path: String, #[serde(rename = "symbolId")] symbol_id: String },
+    Relationship { #[serde(rename = "relationshipId")] relationship_id: String },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -758,50 +736,16 @@ fn decode_chapter_payload(bytes: &[u8], verify_origin: bool) -> Result<ChapterRe
         .and_then(serde_json::Value::as_u64)
         .and_then(|version| u32::try_from(version).ok())
         .ok_or_else(|| "The chapter revision has no supported schema version.".to_owned())?;
-    if !matches!(
-        schema_version,
-        LEGACY_CHAPTER_SCHEMA_VERSION
-            | REVIEW_CHAPTER_SCHEMA_VERSION
-            | GROUNDED_CHAPTER_SCHEMA_VERSION
-            | AGENT_CHAPTER_SCHEMA_VERSION
-            | CHAPTER_SCHEMA_VERSION
-    ) {
+    if schema_version != CHAPTER_SCHEMA_VERSION {
         return Err(format!(
             "Chapter schema version {schema_version} is not supported by this app."
         ));
     }
-    if schema_version < AGENT_CHAPTER_SCHEMA_VERSION
-        && value
-            .as_object()
-            .is_some_and(|object| object.contains_key("generationOrigin"))
-    {
-        return Err(
-            "Chapter versions before 4 cannot contain agent generation metadata.".to_owned(),
-        );
-    }
     if chapter_contains_executable_visual_fields(&value) {
         return Err("Chapter visuals cannot contain HTML or script fields.".to_owned());
     }
-    if schema_version == LEGACY_CHAPTER_SCHEMA_VERSION
-        && value.as_object().is_some_and(|object| {
-            object.contains_key("basedOnRevisionId") || object.contains_key("decisionNote")
-        })
-    {
-        return Err("Version 1 chapter revisions cannot contain review metadata.".to_owned());
-    }
-    if schema_version == LEGACY_CHAPTER_SCHEMA_VERSION && legacy_visual_contains_v2_fields(&value) {
-        return Err(
-            "Version 1 chapter visuals cannot contain version 2 layout or evidence-link fields."
-                .to_owned(),
-        );
-    }
     let revision: ChapterRevision = serde_json::from_value(value)
         .map_err(|_| "The chapter revision does not match its declared schema.".to_owned())?;
-    if revision.schema_version == LEGACY_CHAPTER_SCHEMA_VERSION
-        && (revision.based_on_revision_id.is_some() || revision.decision_note.is_some())
-    {
-        return Err("Version 1 chapter revisions cannot contain review metadata.".to_owned());
-    }
     if verify_origin {
         crate::chapter_origin::validate_revision_origin(&revision)?;
     }
@@ -835,44 +779,8 @@ fn visual_contains_executable_fields(value: &serde_json::Value) -> bool {
     }
 }
 
-fn legacy_visual_contains_v2_fields(value: &serde_json::Value) -> bool {
-    value
-        .get("sections")
-        .and_then(serde_json::Value::as_array)
-        .is_some_and(|sections| {
-            sections.iter().any(|section| {
-                let Some(visual) = section.get("visual").and_then(serde_json::Value::as_object)
-                else {
-                    return false;
-                };
-                visual.contains_key("layoutHint")
-                    || ["nodes", "edges"].iter().any(|field| {
-                        visual
-                            .get(*field)
-                            .and_then(serde_json::Value::as_array)
-                            .is_some_and(|items| {
-                                items.iter().any(|item| {
-                                    item.as_object().is_some_and(|object| {
-                                        object.contains_key("evidenceAnchorIds")
-                                    })
-                                })
-                            })
-                    })
-            })
-        })
-}
-
 pub fn encode_chapter_revision(revision: &ChapterRevision) -> Result<Vec<u8>, String> {
-    if !matches!(
-        revision.schema_version,
-        LEGACY_CHAPTER_SCHEMA_VERSION
-            | REVIEW_CHAPTER_SCHEMA_VERSION
-            | GROUNDED_CHAPTER_SCHEMA_VERSION
-            | AGENT_CHAPTER_SCHEMA_VERSION
-            | CHAPTER_SCHEMA_VERSION
-    ) || (revision.schema_version == LEGACY_CHAPTER_SCHEMA_VERSION
-        && (revision.based_on_revision_id.is_some() || revision.decision_note.is_some()))
-    {
+    if revision.schema_version != CHAPTER_SCHEMA_VERSION {
         return Err("The chapter revision uses an unsupported schema version.".to_owned());
     }
     crate::chapter_origin::validate_revision_origin(revision)?;
@@ -887,17 +795,11 @@ pub fn encode_chapter_revision(revision: &ChapterRevision) -> Result<Vec<u8>, St
 
 fn validate_overview_revision_identity(revision: &ChapterRevision) -> Result<(), String> {
     if matches!(&revision.target.scope, ChapterTargetScope::Overview)
-        && (!matches!(
-            revision.schema_version,
-            GROUNDED_CHAPTER_SCHEMA_VERSION | AGENT_CHAPTER_SCHEMA_VERSION
-            | CHAPTER_SCHEMA_VERSION
-        ) || revision.target.target_id != "target:overview"
+        && (revision.schema_version != CHAPTER_SCHEMA_VERSION
+            || revision.target.target_id != "target:overview"
             || revision.chapter_id != "chapter:overview")
     {
-        return Err(
-            "An overview chapter must use schema version 3, 4 or 5 and its stable overview identities."
-                .to_owned(),
-        );
+        return Err("An overview chapter must use the current schema and its stable overview identities.".to_owned());
     }
     Ok(())
 }
@@ -1080,14 +982,7 @@ pub fn validate_chapter_revision(
         source_bytes_loaded: 0,
         issues: Vec::new(),
     };
-    if !matches!(
-        revision.schema_version,
-        LEGACY_CHAPTER_SCHEMA_VERSION
-            | REVIEW_CHAPTER_SCHEMA_VERSION
-            | GROUNDED_CHAPTER_SCHEMA_VERSION
-            | AGENT_CHAPTER_SCHEMA_VERSION
-            | CHAPTER_SCHEMA_VERSION
-    ) {
+    if revision.schema_version != CHAPTER_SCHEMA_VERSION {
         validator.issue(
             ChapterIssueCode::UnsupportedSchemaVersion,
             "This chapter schema version is not supported.",
@@ -1159,66 +1054,55 @@ pub fn validate_chapter_revision(
             None,
         );
     }
-    if revision.schema_version >= REVIEW_CHAPTER_SCHEMA_VERSION {
-        match revision.based_on_revision_id.as_deref() {
-            Some(parent_id) => {
-                validate_id(&mut validator, parent_id, None, None, None);
-                if parent_id == revision.revision_id {
-                    validator.issue(
-                        ChapterIssueCode::InvalidRevision,
-                        "A revision cannot be based on itself.",
-                        None,
-                        None,
-                        None,
-                        None,
-                    );
-                }
-            }
-            None if matches!(
-                revision.lifecycle,
-                RevisionLifecycle::Accepted | RevisionLifecycle::Rejected
-            ) =>
-            {
+    match revision.based_on_revision_id.as_deref() {
+        Some(parent_id) => {
+            validate_id(&mut validator, parent_id, None, None, None);
+            if parent_id == revision.revision_id {
                 validator.issue(
                     ChapterIssueCode::InvalidRevision,
-                    "An accepted or rejected revision must identify its parent revision.",
+                    "A revision cannot be based on itself.",
                     None,
                     None,
                     None,
                     None,
                 );
             }
-            None => {}
         }
-        if revision.lifecycle == RevisionLifecycle::Rejected
-            && revision
-                .decision_note
-                .as_deref()
-                .is_none_or(|note| note.trim().is_empty() || note.len() > 4_000)
+        None if matches!(
+            revision.lifecycle,
+            RevisionLifecycle::Accepted | RevisionLifecycle::Rejected
+        ) =>
         {
             validator.issue(
                 ChapterIssueCode::InvalidRevision,
-                "A rejected revision needs a reason of at most 4,000 bytes.",
+                "An accepted or rejected revision must identify its parent revision.",
                 None,
                 None,
                 None,
                 None,
             );
         }
-        if revision.lifecycle != RevisionLifecycle::Rejected && revision.decision_note.is_some() {
-            validator.issue(
-                ChapterIssueCode::InvalidRevision,
-                "Only a rejected revision can carry a decision reason.",
-                None,
-                None,
-                None,
-                None,
-            );
-        }
-    } else if revision.based_on_revision_id.is_some() || revision.decision_note.is_some() {
+        None => {}
+    }
+    if revision.lifecycle == RevisionLifecycle::Rejected
+        && revision
+            .decision_note
+            .as_deref()
+            .is_none_or(|note| note.trim().is_empty() || note.len() > 4_000)
+    {
         validator.issue(
             ChapterIssueCode::InvalidRevision,
-            "Version 1 chapter revisions cannot contain review metadata.",
+            "A rejected revision needs a reason of at most 4,000 bytes.",
+            None,
+            None,
+            None,
+            None,
+        );
+    }
+    if revision.lifecycle != RevisionLifecycle::Rejected && revision.decision_note.is_some() {
+        validator.issue(
+            ChapterIssueCode::InvalidRevision,
+            "Only a rejected revision can carry a decision reason.",
             None,
             None,
             None,
@@ -1227,16 +1111,13 @@ pub fn validate_chapter_revision(
     }
     validate_target(&mut validator, &revision.target);
     if matches!(&revision.target.scope, ChapterTargetScope::Overview)
-        && (!matches!(
-            revision.schema_version,
-            GROUNDED_CHAPTER_SCHEMA_VERSION | AGENT_CHAPTER_SCHEMA_VERSION
-            | CHAPTER_SCHEMA_VERSION
-        ) || revision.target.target_id != "target:overview"
+        && (revision.schema_version != CHAPTER_SCHEMA_VERSION
+            || revision.target.target_id != "target:overview"
             || revision.chapter_id != "chapter:overview")
     {
         validator.issue(
             ChapterIssueCode::InvalidTarget,
-            "An overview chapter must use schema version 3, 4 or 5 and its stable overview identities.",
+            "An overview chapter must use the current schema and its stable overview identities.",
             None,
             None,
             None,
@@ -1481,7 +1362,7 @@ pub fn validate_chapter_revision(
             }
         }
 
-        if is_overview && !overview_section_copy_supported(section, revision.schema_version) {
+        if is_overview && !overview_section_copy_supported(section) {
             validator.issue(
                 ChapterIssueCode::InvalidClaim,
                 "Overview prose and narration must use complete sentences from anchored claims, with inference labels preserved.",
@@ -1556,8 +1437,6 @@ pub fn validate_chapter_revision(
                     &section_anchor_ids,
                     &mut ids,
                     section_id,
-                    revision.lifecycle == RevisionLifecycle::Accepted
-                        && revision.validation_status == ValidationStatus::Valid,
                 );
             } else {
                 validator.visual_issue(
@@ -1957,7 +1836,6 @@ impl Validator<'_> {
         section_anchor_ids: &HashSet<String>,
         revision_ids: &mut HashSet<String>,
         section_id: Option<&str>,
-        allow_legacy_visual: bool,
     ) {
         if let Some(presentation) = &visual.presentation {
             if visual.schema_version != VISUAL_SCHEMA_VERSION {
@@ -1967,19 +1845,16 @@ impl Validator<'_> {
                 self.visual_issue(ChapterIssueCode::InvalidVisual, &error, section_id, None, None);
             }
         }
-        let is_legacy = visual.schema_version == LEGACY_VISUAL_SCHEMA_VERSION;
-        let legacy_is_read_only_compatible = is_legacy && allow_legacy_visual;
-        let is_current = visual.schema_version == VISUAL_SCHEMA_VERSION;
-
-        if !is_current && !legacy_is_read_only_compatible {
+        if visual.schema_version != VISUAL_SCHEMA_VERSION {
             self.visual_issue(
                 ChapterIssueCode::InvalidVisual,
-                "New or edited diagrams must use visual schema version 2; version 1 remains readable only on an already accepted revision.",
+                "A diagram must use the current visual schema version 2.",
                 section_id,
                 None,
                 None,
             );
         }
+        let is_current = visual.schema_version == VISUAL_SCHEMA_VERSION;
         if visual.title.trim().is_empty() || visual.title.len() > MAX_VISUAL_TITLE_BYTES {
             self.visual_issue(
                 ChapterIssueCode::InvalidVisual,
@@ -2011,25 +1886,6 @@ impl Validator<'_> {
             self.visual_issue(
                 ChapterIssueCode::InvalidVisual,
                 "A version 2 visual must declare an app-owned layout direction.",
-                section_id,
-                None,
-                None,
-            );
-        }
-        if is_legacy
-            && (visual.layout_hint.is_some()
-                || visual
-                    .nodes
-                    .iter()
-                    .any(|node| !node.evidence_anchor_ids.is_empty())
-                || visual
-                    .edges
-                    .iter()
-                    .any(|edge| !edge.evidence_anchor_ids.is_empty()))
-        {
-            self.visual_issue(
-                ChapterIssueCode::InvalidVisual,
-                "A version 1 visual cannot contain version 2 layout or evidence-link fields.",
                 section_id,
                 None,
                 None,
@@ -3089,7 +2945,7 @@ mod tests {
     }
 
     #[test]
-    fn chapter_enum_fields_match_frontend_and_read_legacy_snake_case() {
+    fn chapter_enum_fields_match_frontend_and_reject_snake_case_aliases() {
         let destinations = [
             (HotspotDestination::Section { section_id: "section:one".to_owned() }, "sectionId", "section_id"),
             (HotspotDestination::CodeLens { anchor_id: "anchor:one".to_owned() }, "anchorId", "anchor_id"),
@@ -3100,21 +2956,23 @@ mod tests {
             let mut value = serde_json::to_value(&destination).unwrap();
             assert!(value.get(camel).is_some());
             assert!(value.get(legacy).is_none());
+            assert_eq!(serde_json::from_value::<HotspotDestination>(value.clone()).unwrap(), destination);
             let id = value.as_object_mut().unwrap().remove(camel).unwrap();
-            value[legacy] = id;
-            assert_eq!(serde_json::from_value::<HotspotDestination>(value).unwrap(), destination);
+            let mut old_shape = value;
+            old_shape[legacy] = id;
+            assert!(serde_json::from_value::<HotspotDestination>(old_shape).is_err());
         }
         let category = ClaimCategory::Inference { visible_label: "Inference".to_owned(), basis: "Selected source interpretation".to_owned() };
         let value = serde_json::to_value(&category).unwrap();
         assert_eq!(value["visibleLabel"], "Inference");
-        let legacy = serde_json::json!({"kind":"inference","visible_label":"Inference","basis":"Selected source interpretation"});
-        assert_eq!(serde_json::from_value::<ClaimCategory>(legacy).unwrap(), category);
+        let old_shape = serde_json::json!({"kind":"inference","visible_label":"Inference","basis":"Selected source interpretation"});
+        assert!(serde_json::from_value::<ClaimCategory>(old_shape).is_err());
         let dependency = SectionDependency::Symbol { path: "a.ts".to_owned(), source_sha256: "hash".to_owned(), symbol_id: "symbol:one".to_owned() };
         let value = serde_json::to_value(&dependency).unwrap();
         assert_eq!(value["sourceSha256"], "hash");
         assert_eq!(value["symbolId"], "symbol:one");
-        let legacy = serde_json::json!({"kind":"symbol","path":"a.ts","source_sha256":"hash","symbol_id":"symbol:one"});
-        assert_eq!(serde_json::from_value::<SectionDependency>(legacy).unwrap(), dependency);
+        let old_shape = serde_json::json!({"kind":"symbol","path":"a.ts","source_sha256":"hash","symbol_id":"symbol:one"});
+        assert!(serde_json::from_value::<SectionDependency>(old_shape).is_err());
     }
 
     #[test]
@@ -3270,24 +3128,30 @@ mod tests {
         });
         assert!(issue.is_some(), "{report:#?}");
 
-        let mut unknown_visual_version = base.clone();
-        let Some(visual) = unknown_visual_version.sections[0]
-            .visual
-            .as_mut()
-            .and_then(ChapterVisualPayload::typed_visual_mut)
-        else {
-            panic!("fixture should contain a typed visual");
-        };
-        visual.schema_version = VISUAL_SCHEMA_VERSION + 1;
-        let report =
-            validate_chapter_revision(&storage, &manifest, Some(&index), &unknown_visual_version);
-        assert!(
-            report.issues.iter().any(|issue| {
-                issue.code == ChapterIssueCode::InvalidVisual
-                    && issue.message.contains("schema version 2")
-            }),
-            "{report:#?}"
-        );
+        for unsupported_version in [1, VISUAL_SCHEMA_VERSION + 1] {
+            let mut unsupported_visual_version = base.clone();
+            let Some(visual) = unsupported_visual_version.sections[0]
+                .visual
+                .as_mut()
+                .and_then(ChapterVisualPayload::typed_visual_mut)
+            else {
+                panic!("fixture should contain a typed visual");
+            };
+            visual.schema_version = unsupported_version;
+            let report = validate_chapter_revision(
+                &storage,
+                &manifest,
+                Some(&index),
+                &unsupported_visual_version,
+            );
+            assert!(
+                report.issues.iter().any(|issue| {
+                    issue.code == ChapterIssueCode::InvalidVisual
+                        && issue.message.contains("schema version 2")
+                }),
+                "{report:#?}"
+            );
+        }
 
         let mut oversized_visual = base.clone();
         let Some(visual) = oversized_visual.sections[0]
@@ -3416,18 +3280,14 @@ mod tests {
     }
 
     #[test]
-    fn chapter_decoder_rejects_duplicate_keys_at_every_depth_and_v1_review_keys() {
+    fn chapter_decoder_rejects_duplicate_keys_and_unsupported_schema_versions() {
         let temporary = TestDirectory::new();
         let (_root, storage, project, manifest, index) = fixture(&temporary);
         let revision = valid_revision(&storage, &project, &manifest, &index);
         let encoded = String::from_utf8(encode_chapter_revision(&revision).unwrap()).unwrap();
 
         for duplicate in [
-            encoded.replacen(
-                "\"schemaVersion\":",
-                "\"schemaVersion\":2,\"schemaVersion\":",
-                1,
-            ),
+            encoded.replacen("\"schemaVersion\":", "\"schemaVersion\":5,\"schemaVersion\":", 1),
             encoded.replacen(
                 "\"targetId\":",
                 "\"targetId\":\"target:shadow\",\"targetId\":",
@@ -3443,34 +3303,23 @@ mod tests {
             assert!(error.contains("duplicate JSON object key"), "{error}");
         }
 
-        let mut legacy = revision;
-        legacy.schema_version = LEGACY_CHAPTER_SCHEMA_VERSION;
-        let mut legacy_json: serde_json::Value =
-            serde_json::from_slice(&encode_chapter_revision(&legacy).unwrap()).unwrap();
-        legacy_json["basedOnRevisionId"] = serde_json::Value::Null;
-        assert!(
-            decode_chapter_revision(&serde_json::to_vec(&legacy_json).unwrap())
-                .unwrap_err()
-                .contains("cannot contain review metadata")
-        );
-
-        let mut v1_visual_with_new_field = serde_json::from_slice::<serde_json::Value>(
-            &encode_chapter_revision(&valid_revision(&storage, &project, &manifest, &index))
-                .unwrap(),
+        let current = serde_json::from_slice::<serde_json::Value>(
+            &encode_chapter_revision(&revision).unwrap(),
         )
         .unwrap();
-        v1_visual_with_new_field["schemaVersion"] =
-            serde_json::json!(LEGACY_CHAPTER_SCHEMA_VERSION);
-        v1_visual_with_new_field["sections"][0]["visual"]["layoutHint"] = serde_json::Value::Null;
-        assert!(
-            decode_chapter_revision(&serde_json::to_vec(&v1_visual_with_new_field).unwrap())
-                .unwrap_err()
-                .contains("version 2 layout or evidence-link fields")
-        );
+        for unsupported in [1, 2, 3, 4, 6] {
+            let mut value = current.clone();
+            value["schemaVersion"] = serde_json::json!(unsupported);
+            let bytes = serde_json::to_vec(&value).unwrap();
+            assert!(decode_chapter_revision(&bytes).is_err(), "schema {unsupported}");
+            let mut revision = valid_revision(&storage, &project, &manifest, &index);
+            revision.schema_version = unsupported;
+            assert!(encode_chapter_revision(&revision).is_err(), "schema {unsupported}");
+        }
     }
 
     #[test]
-    fn v2_accepted_and_rejected_validation_requires_a_valid_parent_id() {
+    fn current_accepted_and_rejected_validation_requires_a_valid_parent_id() {
         let temporary = TestDirectory::new();
         let (_root, storage, project, manifest, index) = fixture(&temporary);
         let base = valid_revision(&storage, &project, &manifest, &index);
@@ -3501,62 +3350,6 @@ mod tests {
             let report = validate_chapter_revision(&storage, &manifest, Some(&index), &revision);
             assert_eq!(report.status, ValidationReportStatus::Valid, "{report:#?}");
         }
-    }
-
-    #[test]
-    fn legacy_v1_accepted_revision_round_trips_without_review_metadata() {
-        let temporary = TestDirectory::new();
-        let (_root, storage, project, manifest, index) = fixture(&temporary);
-        let mut revision = valid_revision(&storage, &project, &manifest, &index);
-        revision.schema_version = LEGACY_CHAPTER_SCHEMA_VERSION;
-        revision.lifecycle = RevisionLifecycle::Accepted;
-        revision.validation_status = ValidationStatus::Valid;
-        revision.based_on_revision_id = None;
-        revision.decision_note = None;
-        for section in &mut revision.sections {
-            if let Some(visual) = section
-                .visual
-                .as_mut()
-                .and_then(ChapterVisualPayload::typed_visual_mut)
-            {
-                visual.schema_version = LEGACY_VISUAL_SCHEMA_VERSION;
-                visual.layout_hint = None;
-                for node in &mut visual.nodes {
-                    node.evidence_anchor_ids.clear();
-                }
-                for edge in &mut visual.edges {
-                    edge.evidence_anchor_ids.clear();
-                }
-            }
-        }
-        let before = serde_json::to_value(&revision).unwrap();
-        let decoded =
-            decode_chapter_revision(&encode_chapter_revision(&revision).unwrap()).unwrap();
-        assert_eq!(decoded, revision);
-        let after: serde_json::Value =
-            serde_json::from_slice(&encode_chapter_revision(&decoded).unwrap()).unwrap();
-        assert_eq!(before, after);
-        assert_eq!(
-            validate_chapter_revision(&storage, &manifest, Some(&index), &decoded).status,
-            ValidationReportStatus::Valid
-        );
-    }
-
-    #[test]
-    fn version_two_review_revision_round_trips_unchanged() {
-        let temporary = TestDirectory::new();
-        let (_root, storage, project, manifest, index) = fixture(&temporary);
-        let mut revision = valid_revision(&storage, &project, &manifest, &index);
-        revision.schema_version = REVIEW_CHAPTER_SCHEMA_VERSION;
-        revision.based_on_revision_id = Some("revision:parent".to_owned());
-        let before = serde_json::to_value(&revision).unwrap();
-
-        let decoded =
-            decode_chapter_revision(&encode_chapter_revision(&revision).unwrap()).unwrap();
-        assert_eq!(decoded, revision);
-        let after: serde_json::Value =
-            serde_json::from_slice(&encode_chapter_revision(&decoded).unwrap()).unwrap();
-        assert_eq!(before, after);
     }
 
     #[test]

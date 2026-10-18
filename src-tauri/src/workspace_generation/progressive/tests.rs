@@ -29,10 +29,6 @@ fn progressive_contract_is_small_binds_intent_and_never_requests_a_final_rewrite
     assert!(schema["properties"]["sections"]["items"]["properties"]
         .get("claims")
         .is_none());
-    assert_ne!(
-        digest,
-        super::super::request(&input, &f.manifest).unwrap().2
-    );
     input.question.push_str(" Include failure paths.");
     assert_ne!(request(&input, &f.manifest).unwrap().2, digest);
     input.model_id = "gpt-5.6-luna".into();
@@ -71,7 +67,7 @@ fn empty_saved_answer(f: &Fixture, input: &Input) -> std::path::PathBuf {
     let ledger =
         Ledger::new_progressive(&f.storage, &input.run_id, &f.manifest, &grant, &runtime).unwrap();
     ledger
-        .start_answer_sections(
+        .start_narration_answer_sections(
             &input.question,
             &"d".repeat(64),
             &f.manifest,
@@ -512,15 +508,15 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert_eq!(contract["policy"], crate::evidence_ledger::POLICY);
     assert_eq!(
         contract["tools"],
-        serde_json::to_value(context_mcp::tools_for(true)).unwrap()
+        serde_json::to_value(context_mcp::tools()).unwrap()
     );
     assert_eq!(contract["outputSchema"], schema);
-    let mut historical = contract.clone();
-    historical.as_object_mut().unwrap().remove("teachingPolicy");
-    historical["systemInstructions"] = json!(INSTRUCTIONS);
+    let mut without_teaching_policy = contract.clone();
+    without_teaching_policy.as_object_mut().unwrap().remove("teachingPolicy");
+    without_teaching_policy["systemInstructions"] = json!(INSTRUCTIONS);
     assert_ne!(
         fingerprint,
-        context::digest(&serde_json::to_vec(&historical).unwrap())
+        context::digest(&serde_json::to_vec(&without_teaching_policy).unwrap())
     );
     assert!(serde_json::to_vec(&contract).unwrap().len() < 32000);
 }

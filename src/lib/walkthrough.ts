@@ -1,4 +1,5 @@
-import type { ChapterRevision, ChapterSection } from './commands';
+import { CHAPTER_SCHEMA_VERSION } from './chapterSchema.ts';
+import type { ChapterRevision, ChapterSection } from './commands.ts';
 
 export function orderedSections(revision: ChapterRevision): ChapterSection[] {
   return [...revision.sections].sort((left, right) => left.order - right.order || left.sectionId.localeCompare(right.sectionId));
@@ -8,7 +9,7 @@ export function orderedSections(revision: ChapterRevision): ChapterSection[] {
 export function latestAcceptedRevisions(revisions: ChapterRevision[]): ChapterRevision[] {
   const latest = new Map<string, ChapterRevision>();
   for (const revision of revisions) {
-    if (revision.lifecycle !== 'accepted' || revision.sections.length === 0) continue;
+    if (revision.schemaVersion !== CHAPTER_SCHEMA_VERSION || revision.lifecycle !== 'accepted' || revision.sections.length === 0) continue;
     const previous = latest.get(revision.chapterId);
     if (!previous
       || revision.revisionNumber > previous.revisionNumber
@@ -24,8 +25,9 @@ export function latestAcceptedRevisions(revisions: ChapterRevision[]): ChapterRe
 
 /** Explicit draft previews never widen the accepted library used by exports. */
 export function readerSelection(revisions: ChapterRevision[], chapterId?: string | null, revisionId?: string | null) {
-  const exportable = latestAcceptedRevisions(revisions);
-  const exact = chapterId && revisionId ? revisions.find((r) => r.chapterId === chapterId && r.revisionId === revisionId && (r.lifecycle === 'draft' || r.lifecycle === 'accepted') && r.sections.length > 0) ?? null : null;
+  const current = revisions.filter(revision => revision.schemaVersion === CHAPTER_SCHEMA_VERSION);
+  const exportable = latestAcceptedRevisions(current);
+  const exact = chapterId && revisionId ? current.find((r) => r.chapterId === chapterId && r.revisionId === revisionId && (r.lifecycle === 'draft' || r.lifecycle === 'accepted') && r.sections.length > 0) ?? null : null;
   const selected = revisionId ? exact : exportable.find((r) => r.chapterId === chapterId) ?? null;
   const library = exact?.lifecycle === 'draft' ? [exact, ...exportable.filter((r) => r.chapterId !== exact.chapterId)] : exportable;
   return { selected, library, exportable };
@@ -43,7 +45,7 @@ export function chooseSectionId(
 }
 
 export function resumeStorageKey(projectId: string, chapterId: string, revisionId: string): string {
-  return `code-atlas.walkthrough.v1:${encodeURIComponent(projectId)}:${encodeURIComponent(chapterId)}:${encodeURIComponent(revisionId)}`;
+  return `code-atlas.walkthrough.v2:${encodeURIComponent(projectId)}:${encodeURIComponent(chapterId)}:${encodeURIComponent(revisionId)}`;
 }
 
 export interface RememberedWalkthroughProgress {
@@ -61,14 +63,16 @@ export function parseRememberedProgress(
   if (!serialized) return null;
   try {
     const value = JSON.parse(serialized) as Record<string, unknown>;
-    if ((value.version !== 1 && value.version !== 2)
+    const expected = ['version', 'projectId', 'chapterId', 'revisionId', 'sectionId', 'playbackPosition', 'transcriptPosition'];
+    if (Object.keys(value).length !== expected.length || !expected.every(key => Object.hasOwn(value, key))
+      || value.version !== 2
       || value.projectId !== projectId
       || value.chapterId !== chapterId
       || value.revisionId !== revisionId
       || typeof value.sectionId !== 'string'
       || value.sectionId.length === 0) return null;
-    const playbackPosition = value.version === 2 ? value.playbackPosition : 0;
-    const transcriptPosition = value.version === 2 ? value.transcriptPosition : 0;
+    const playbackPosition = value.playbackPosition;
+    const transcriptPosition = value.transcriptPosition;
     if (typeof playbackPosition !== 'number' || !Number.isFinite(playbackPosition) || playbackPosition < 0
       || typeof transcriptPosition !== 'number' || !Number.isFinite(transcriptPosition) || transcriptPosition < 0) return null;
     return { sectionId: value.sectionId, playbackPosition, transcriptPosition };

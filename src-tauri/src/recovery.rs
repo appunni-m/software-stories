@@ -52,7 +52,7 @@ pub struct InterruptedProviderRequest {
     pub(crate) planned_chapter: Option<crate::planned_chapter::PlannedChapterScope>,
 }
 
-// Absence supports older ordinary notices. A present null/invalid scope is a
+// An ordinary request omits planned scope. A present null/invalid scope is a
 // damaged planned request, never permission to reopen a generic file chapter.
 fn read_planned_chapter_scope<'de, D: serde::Deserializer<'de>>(
     deserializer: D,

@@ -5,11 +5,10 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { cancelCodexChapterRequest, getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, loadSnapshotIndex, startSnapshotIndexing, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
 import {ConversationPersistence,type ConversationRecord} from './conversationPersistence';
-import {readFileLocation} from '../lib/workspacePreferences';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
 import { createQuestionOutcomeSelector, recordQuestionOutcomes, type QuestionOutcome } from './outcomes';
-import { addTurn, cleanAnswerNotes, createWorkspace, learningQuestion, mergePublishedSections, mergeRepositoryGuide, parseWorkspace, type RepositoryGuide, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
+import { addTurn, cleanAnswerNotes, learningQuestion, mergePublishedSections, mergeRepositoryGuide, parseWorkspace, type RepositoryGuide, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
 
 const indexLoads = new Map<string, Promise<SnapshotIndex>>();
 /** One local index build per snapshot, shared by reading and questions. No model call. */
@@ -43,7 +42,7 @@ const unsavedWorkspaceEpisodes = new Map<string,string>();
 const listeners = new Set<() => void>();
 const jobs = new Map<string, { cancelled: boolean; runId: string | null }>();
 const key = (project:string,snapshot:string) => JSON.stringify([project,snapshot]);
-const legacyKey = (project: string, snapshot: string) => `code-atlas:workspace:v1:${project}:${snapshot}`;
+const browserPreviewKey = (project: string, snapshot: string) => `code-atlas:workspace:v1:${project}:${snapshot}`;
 const conversations=new Map<string,ConversationPersistence>();
 const closingMessage='Code Atlas is closing. This question can be tried again.';
 let closingWorkspace=false;
@@ -68,14 +67,7 @@ function savedConversation(project:string,snapshot:string):ConversationPersisten
   if(!entry){entry=new ConversationPersistence({projectId:project,snapshotId:snapshot,
     load:()=>invoke<ConversationRecord|null>('load_workspace_conversation',{projectId:project,snapshotId:snapshot}),
     save:(expectedRevision,state)=>invoke<ConversationRecord>('save_workspace_conversation',{projectId:project,snapshotId:snapshot,expectedRevision,state}),
-    legacy:()=>{
-      const raw=localStorage.getItem(legacyKey(project,snapshot));if(raw!==null)return raw;
-      const saved=readFileLocation(project),path=saved?.path;
-      if(saved?.snapshotId===snapshot&&path&&new TextEncoder().encode(path).length<=4096&&!/[\\\u0000-\u001f\u007f]/.test(path)&&!path.split('/').some(part=>!part||part==='.'||part==='..')){
-        return JSON.stringify({...createWorkspace(project,snapshot),file:path});
-      }
-      return null;
-    },restore:state=>{states.set(id,state);listeners.forEach(notify=>notify());},
+    restore:state=>{states.set(id,state);listeners.forEach(notify=>notify());},
     availability:()=>listeners.forEach(notify=>notify()),
     failed:()=>reportUnsavedConversation(project,snapshot,true),saved:()=>resolveUnsavedConversation(project,snapshot),
   });conversations.set(id,entry);}return entry;
@@ -102,7 +94,7 @@ export function useConversationAvailability(project:string,snapshot:string){
 }
 export function getWorkspace(project: string, snapshot: string): WorkspaceState {
   const id = key(project, snapshot);
-  if (!states.has(id)) { let raw = null; try { raw = localStorage.getItem(legacyKey(project,snapshot)); } catch { /* Storage failure never sends or loses native revisions. */ } states.set(id, parseWorkspace(raw, project, snapshot)); }
+  if (!states.has(id)) { let raw = null; if(!isNativeRuntime())try { raw = localStorage.getItem(browserPreviewKey(project,snapshot)); } catch { /* Browser preview remains usable when storage is unavailable. */ } states.set(id, parseWorkspace(raw, project, snapshot)); }
   return states.get(id)!;
 }
 export function updateWorkspace(project: string, snapshot: string, update: (state: WorkspaceState) => WorkspaceState) {
@@ -113,7 +105,7 @@ export function updateWorkspace(project: string, snapshot: string, update: (stat
   states.set(id, next);
   if(isNativeRuntime())savedConversation(project,snapshot).enqueue(next);
   else try {
-    localStorage.setItem(legacyKey(project,snapshot), JSON.stringify(next));
+    localStorage.setItem(browserPreviewKey(project,snapshot), JSON.stringify(next));
     resolveUnsavedConversation(project,snapshot);
   } catch {reportUnsavedConversation(project,snapshot);}
   listeners.forEach((notify) => notify());
