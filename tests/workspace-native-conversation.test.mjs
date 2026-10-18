@@ -113,7 +113,7 @@ test('native restart restores owned scenes, times, viewport, pane and expanded s
   const b=backend(),storage=new Map(),h=native(b,storage);await h.store.prepareWorkspaceConversation('project','snapshot');
   const state=addTurn(h.store.getWorkspace('project','snapshot'),{id:'reader-turn',question:'Follow the parser',context:[],status:'ready',revisionId:'revision:one'},'guide');
   const identity={revisionId:'revision:one',sectionId:'section:two',sectionRevisionId:'section-revision:two'};
-  const story={...identity,sceneId:'claim:second',positions:{'claim:first':12.4,'claim:second':3.2},fullMap:true,viewport:{x:-34,y:91,zoom:.6}};
+  const story={...identity,sceneId:'claim:second',positions:{'claim:first':12.4,'claim:second':3.2},fullMap:true,viewport:{x:-34,y:91,zoom:.6},focusLayoutVersion:2};
   h.store.updateWorkspace('project','snapshot',()=>state);
   h.store.updateWorkspace('project','snapshot',s=>rememberCodePane(s,'root',false));
   h.store.updateWorkspace('project','snapshot',s=>rememberFileFlow(s,'root','src/font.rs',true));

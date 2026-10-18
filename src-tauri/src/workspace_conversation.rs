@@ -232,7 +232,9 @@ fn presentation(v: &Value, owner: &serde_json::Map<String, Value>) -> Result<(),
             if key == "stories" {
                 if !p.get("sceneId").is_some_and(id)
                     || !p.get("fullMap").is_some_and(Value::is_boolean)
-                    || p.get("focusLayoutVersion").is_some_and(|v| v.as_u64() != Some(2))
+                    || !p
+                        .get("focusLayoutVersion")
+                        .is_some_and(|v| v.as_u64() == Some(2))
                 {
                     return Err(UNAVAILABLE.into());
                 }
