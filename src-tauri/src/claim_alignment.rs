@@ -426,6 +426,79 @@ mod tests {
     }
 
     #[test]
+    fn combined_identifier_scene_link_and_layout_findings_use_one_preserved_candidate() {
+        use crate::provider::visual_scenes::tests::composed_proposal;
+
+        let mut initial = composed_proposal(3);
+        let mut second_claim = initial["sections"][0]["claims"][0].clone();
+        second_claim["identifiers"] = json!(["greeting", "name", "missing_identifier"]);
+        initial["sections"][0]["claims"].as_array_mut().unwrap().push(second_claim);
+        let claims_before = initial["sections"][0]["claims"].clone();
+        let mut second_scene =
+            initial["sections"][0]["visual"]["presentation"]["scenes"][0].clone();
+        second_scene["claimIndex"] = json!(1);
+        second_scene["elements"][3]["parentIndex"] = json!(1);
+        initial["sections"][0]["visual"]["presentation"]["scenes"]
+            .as_array_mut()
+            .unwrap()
+            .push(second_scene);
+
+        let input = initial.to_string();
+        let findings = chapter_diagnostics(&input).unwrap();
+        assert!(
+            findings
+                .iter()
+                .any(|finding| finding.get("missingFromProse").is_some())
+        );
+        assert!(
+            findings
+                .iter()
+                .any(|finding| finding["sceneProblem"] == "sceneEvidence")
+        );
+        assert!(
+            findings
+                .iter()
+                .any(|finding| finding["sceneProblem"] == "containerParent")
+        );
+
+        let correction_attempts = Cell::new(0);
+        let corrected =
+            correct_once_checked(
+                true,
+                input.clone(),
+                |text| Ok(chapter_diagnostics(text)),
+                |feedback| {
+                    correction_attempts.set(correction_attempts.get() + 1);
+                    assert!(feedback.contains("Each identifiers entry must occur literally"));
+                    assert!(feedback.contains("sceneEvidence"));
+                    assert!(feedback.contains("containerParent"));
+                    initial["sections"][0]["claims"][1]["identifiers"] =
+                        json!(["greeting", "name"]);
+                    for node in initial["sections"][0]["visual"]["nodes"]
+                        .as_array_mut()
+                        .unwrap()
+                    {
+                        node["evidence"]
+                            .as_array_mut()
+                            .unwrap()
+                            .push(json!({"claimIndex":1,"evidenceIndex":0}));
+                    }
+                    initial["sections"][0]["visual"]["presentation"]["scenes"][1]["elements"][3]
+                        ["parentIndex"] = json!(0);
+                    Ok(initial.to_string())
+                },
+            )
+            .unwrap();
+
+        let mut expected_claims = claims_before;
+        expected_claims[1]["identifiers"] = json!(["greeting", "name"]);
+        let candidate: Value = serde_json::from_str(&corrected).unwrap();
+        assert_eq!(candidate["sections"][0]["claims"], expected_claims);
+        assert!(chapter_diagnostics(&corrected).unwrap().is_empty());
+        assert_eq!(correction_attempts.get(), 1);
+    }
+
+    #[test]
     fn fixed_chapters_check_exact_quotes_and_scene_evidence_in_the_same_single_correction() {
         use crate::chapter_generation::tests::{SIMPLE_PATH, SIMPLE_SOURCE};
         let mut proposal = crate::provider::visual_scenes::tests::composed_proposal(3);
