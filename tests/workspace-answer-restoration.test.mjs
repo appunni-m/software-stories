@@ -47,12 +47,14 @@ test('a burst of scoped section events requires one fresh serial read', { timeou
     if (name === 'load_workspace_answer') return answer;
     assert.fail(`Unexpected command ${name}`);
   }));
-  const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot');
+  const availability = [];
+  const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot', (state) => availability.push(state));
   const initial = h.store.restoreWorkspaceAnswers('project', 'snapshot'); await started.promise;
   for (let i = 0; i < 40; i++) h.emit('workspace-answer-section', scope);
   await flushLocalReads(); listed.resolve([]);
   await initial; await flushLocalReads();
   assert.equal(lists, 2); assert.equal(maxActive, 1);
+  assert.deepEqual(availability, ['loading', 'ready']);
   assert.equal(turns(h)[0].publishedSections.length, 1); stop();
 });
 
@@ -90,11 +92,13 @@ test('a native invalidation supersedes a failing initial read without replaying 
     if (name === 'load_workspace_answer') return answer;
     assert.fail(`Unexpected command ${name}`);
   }));
-  const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot');
+  const availability = [];
+  const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot', (state) => availability.push(state));
   const initial = h.store.restoreWorkspaceAnswers('project', 'snapshot'); await started.promise;
   h.emit('workspace-answer-finished', scope); await flushLocalReads(); listed.reject(new Error('superseded read failed'));
   await initial; await flushLocalReads();
-  assert.equal(lists, 2); assert.equal(turns(h)[0].status, 'ready'); stop();
+  assert.equal(lists, 2); assert.equal(turns(h)[0].status, 'ready');
+  assert.deepEqual(availability, ['loading', 'ready']); stop();
 });
 
 test('a genuine restoration failure rejects without automatic retry and an explicit read can recover', async () => {
@@ -153,10 +157,83 @@ test('different repository scopes restore independently and cannot share answers
     if (name === 'load_workspace_answer') { assert.equal(args.projectId, 'one'); return firstAnswer; }
     assert.fail(`Unexpected command ${name}`);
   }));
+  const firstStatus = []; const secondStatus = [];
+  const stopFirst = await h.store.watchWorkspaceAnswers('one', 'snapshot', (state) => firstStatus.push(state));
+  const stopSecond = await h.store.watchWorkspaceAnswers('two', 'snapshot', (state) => secondStatus.push(state));
   const first = h.store.restoreWorkspaceAnswers('one', 'snapshot'); await started.promise;
   await h.store.restoreWorkspaceAnswers('two', 'snapshot');
+  assert.deepEqual(firstStatus, ['loading']);
+  assert.deepEqual(secondStatus, ['loading', 'ready']);
   assert.equal(turns(h, 'one').length, 0); assert.equal(turns(h, 'two').length, 0);
   listed.resolve([firstAnswer]); await first;
   assert.equal(turns(h, 'one')[0].publishedSections.length, 1);
   assert.equal(turns(h, 'two').length, 0);
+  assert.deepEqual(firstStatus, ['loading', 'ready']); stopFirst(); stopSecond();
+});
+
+test('a background read failure is visible, preserves answers and clears only after a fresh local read', async () => {
+  let lists = 0; let fail = false; const availability = [];
+  const h = workspaceStoreHarness(nativeReads(async (name) => {
+    if (name === 'list_workspace_answers') { lists++; if (fail) throw new Error('private local diagnostic'); return [answer]; }
+    if (name === 'load_workspace_answer') return answer;
+    assert.fail(`Unexpected command ${name}`);
+  }));
+  const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot', (state) => availability.push(state));
+  await h.store.restoreWorkspaceAnswers('project', 'snapshot');
+  assert.deepEqual(availability, ['loading', 'ready']); availability.length = 0;
+  const saved = JSON.stringify(turns(h));
+  fail = true; h.emit('workspace-answer-section', scope); await flushLocalReads();
+  assert.deepEqual(availability, ['loading', 'unavailable']);
+  assert.equal(JSON.stringify(turns(h)), saved); assert.equal(lists, 2);
+  await flushLocalReads(); assert.equal(lists, 2);
+  fail = false; await h.store.restoreWorkspaceAnswers('project', 'snapshot');
+  assert.deepEqual(availability, ['loading', 'unavailable', 'loading', 'ready']);
+  assert.equal(lists, 3); assert.equal(JSON.stringify(turns(h)), saved); stop();
+});
+
+test('a previous completion cannot replace a newer loading state for another observer', { timeout: 2000 }, async () => {
+  const listed = deferred(); const started = deferred(); let lists = 0; let next = null;
+  const firstStatus = []; const secondStatus = [];
+  const h = workspaceStoreHarness(nativeReads(async (name) => {
+    if (name === 'list_workspace_answers') { if (++lists === 2) { started.resolve(); return listed.promise; } return []; }
+    assert.fail(`Unexpected command ${name}`);
+  }));
+  const stopFirst = await h.store.watchWorkspaceAnswers('project', 'snapshot', (state) => {
+    firstStatus.push(state);
+    if (state === 'ready' && lists === 1) next = h.store.restoreWorkspaceAnswers('project', 'snapshot');
+  });
+  const stopSecond = await h.store.watchWorkspaceAnswers('project', 'snapshot', (state) => secondStatus.push(state));
+  await h.store.restoreWorkspaceAnswers('project', 'snapshot'); await started.promise;
+  assert.deepEqual(firstStatus, ['loading', 'ready', 'loading']);
+  assert.deepEqual(secondStatus, ['loading', 'loading']);
+  listed.resolve([]); await next;
+  assert.equal(secondStatus.at(-1), 'ready'); stopFirst(); stopSecond();
+});
+
+test('disposing a watcher during a failed read suppresses every late availability callback', async () => {
+  const listed = deferred(); const started = deferred(); const availability = [];
+  const h = workspaceStoreHarness(nativeReads(async (name) => {
+    if (name === 'list_workspace_answers') { started.resolve(); return listed.promise; }
+    assert.fail(`Unexpected command ${name}`);
+  }));
+  const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot', (state) => availability.push(state));
+  const pending = h.store.restoreWorkspaceAnswers('project', 'snapshot'); await started.promise;
+  stop(); listed.reject(new Error('local failure after navigation'));
+  await assert.rejects(pending, /local failure after navigation/);
+  assert.deepEqual(availability, ['loading']); assert.equal(h.listenerCount(), 0);
+});
+
+test('a late failure in one scope cannot change another workspace availability', async () => {
+  const listed = deferred(); const started = deferred(); const firstStatus = []; const secondStatus = [];
+  const h = workspaceStoreHarness(nativeReads(async (name, args) => {
+    if (name === 'list_workspace_answers') { if (args.projectId === 'one') { started.resolve(); return listed.promise; } return []; }
+    assert.fail(`Unexpected command ${name}`);
+  }));
+  const stopFirst = await h.store.watchWorkspaceAnswers('one', 'snapshot', (state) => firstStatus.push(state));
+  const stopSecond = await h.store.watchWorkspaceAnswers('two', 'snapshot', (state) => secondStatus.push(state));
+  const first = h.store.restoreWorkspaceAnswers('one', 'snapshot'); await started.promise;
+  await h.store.restoreWorkspaceAnswers('two', 'snapshot');
+  listed.reject(new Error('old scope failure')); await assert.rejects(first, /old scope failure/);
+  assert.deepEqual(firstStatus, ['loading', 'unavailable']);
+  assert.deepEqual(secondStatus, ['loading', 'ready']); stopFirst(); stopSecond();
 });

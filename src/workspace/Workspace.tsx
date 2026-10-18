@@ -117,14 +117,16 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
     let closed=false;let unlisten:(()=>void)|undefined;
     if(isNativeRuntime()) {
       onAnswerRestoration({projectId,snapshotId,availability:'loading'});
-      void watchWorkspaceAnswers(projectId,snapshotId).then(async(stop)=>{
+      void watchWorkspaceAnswers(projectId,snapshotId,(availability)=>{
+        if(!closed)onAnswerRestoration({projectId,snapshotId,availability});
+      }).then((stop)=>{
         if(closed){stop();return;}
         unlisten=stop;
-        await restoreWorkspaceAnswers(projectId,snapshotId);
-        if(!closed)onAnswerRestoration({projectId,snapshotId,availability:'ready'});
-      }).catch((failure)=>{if(!closed){
+        // The scoped observer owns initial and background availability. A
+        // late initial promise must not overwrite a newer refresh status.
+        void restoreWorkspaceAnswers(projectId,snapshotId).catch(()=>{});
+      }).catch(()=>{if(!closed){
         onAnswerRestoration({projectId,snapshotId,availability:'unavailable'});
-        setChapterError(errorMessageOr(failure,'Saved answers could not be restored.'));
       }});
     }
     return()=>{closed=true;unlisten?.();};

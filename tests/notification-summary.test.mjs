@@ -108,7 +108,9 @@ describe('notification totals', () => {
     assert.match(app, /onAnswerRestoration=\{setAnswerRestoration\}/);
     assert.match(app, /id: 'answers-unavailable'[\s\S]*?setWorkspaceReload/);
     const workspace = await readFile(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
-    assert.match(workspace, /await restoreWorkspaceAnswers\(projectId,snapshotId\);\s+if\(!closed\)onAnswerRestoration\(\{projectId,snapshotId,availability:'ready'\}\)/);
+    assert.match(workspace, /watchWorkspaceAnswers\(projectId,snapshotId,\(availability\)=>\{\s+if\(!closed\)onAnswerRestoration\(\{projectId,snapshotId,availability\}\)/);
+    assert.doesNotMatch(workspace, /if\(!closed\)onAnswerRestoration\(\{projectId,snapshotId,availability:'ready'\}\)/);
+    assert.doesNotMatch(workspace, /setChapterError\(errorMessageOr\(failure,'Saved answers could not be restored\.'/);
     assert.match(workspace, /onAnswerRestoration\(\{projectId,snapshotId,availability:'unavailable'\}\)/);
     assert.match(app, /refreshing: interruptionRefreshing \|\| previewRefreshing, unavailable: interruptedOperationsUnavailable \|\| pendingChapterPreviewsUnavailable/);
     assert.match(app, /interruptionLookup.run\(listInterruptedOperations/);

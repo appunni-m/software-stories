@@ -135,9 +135,33 @@ async function reconcileAnswer(project: string, snapshot: string, turnId: string
 }
 interface Restoration { queue: RefreshQueue; check: () => void }
 const restorations = new Map<string, Restoration>();
+type RestorationAvailability = 'loading' | 'ready' | 'unavailable';
+interface RestorationObservers { callbacks: Set<(availability: RestorationAvailability) => void>; version: number }
+const restorationObservers = new Map<string, RestorationObservers>();
+function observeRestoration(scope: string, callback: (availability: RestorationAvailability) => void): () => void {
+  let observers = restorationObservers.get(scope);
+  if (!observers) { observers = {callbacks:new Set(),version:0}; restorationObservers.set(scope,observers); }
+  const group = observers;
+  group.callbacks.add(callback);
+  return () => {
+    group.callbacks.delete(callback);
+    if (!group.callbacks.size && restorationObservers.get(scope) === group) restorationObservers.delete(scope);
+  };
+}
+function publishRestoration(scope: string, availability: RestorationAvailability) {
+  const observers = restorationObservers.get(scope);
+  if (!observers) return;
+  const version = ++observers.version;
+  for (const callback of [...observers.callbacks]) {
+    // A listener can begin a newer read. Do not deliver the older idle state
+    // afterward to another observer of that same repository/snapshot.
+    if (observers.version !== version) break;
+    if (observers.callbacks.has(callback)) callback(availability);
+  }
+}
 /** A reloaded webview can observe a still-owned native worker. Reading its
  * events does not dispatch a question; Stop uses the persisted native run ID. */
-export async function watchWorkspaceAnswers(project: string, snapshot: string): Promise<() => void> {
+export async function watchWorkspaceAnswers(project: string, snapshot: string, onAvailability?: (availability: RestorationAvailability) => void): Promise<() => void> {
   let closed = false;
   const refresh = (scope: {projectId:string;snapshotId:string;runId:string}) => {
     if (closed || scope.projectId !== project || scope.snapshotId !== snapshot) return;
@@ -155,7 +179,8 @@ export async function watchWorkspaceAnswers(project: string, snapshot: string): 
         // latest guide instead of allowing an older event payload to win.
         void restoreWorkspaceAnswers(project,snapshot).catch(() => {});
       });
-      return () => {closed=true;section();finished();guide();};
+      const unobserve = onAvailability ? observeRestoration(key(project,snapshot),(availability) => { if (!closed) onAvailability(availability); }) : undefined;
+      return () => {closed=true;unobserve?.();section();finished();guide();};
     } catch (error) { finished(); throw error; }
   } catch (error) { section(); throw error; }
 }
@@ -163,6 +188,7 @@ export async function watchWorkspaceAnswers(project: string, snapshot: string): 
 export function restoreWorkspaceAnswers(project: string, snapshot: string): Promise<void> {
   const scope = key(project,snapshot);
   let restoration = restorations.get(scope);
+  const started = !restoration;
   if (!restoration) {
     let failure: { value: unknown } | null = null;
     const entry: Restoration = {
@@ -170,7 +196,10 @@ export function restoreWorkspaceAnswers(project: string, snapshot: string): Prom
         load: () => readSavedWorkspaceAnswers(project,snapshot),
         onValue: () => { failure = null; },
         onError: (value) => { failure = {value}; },
-        onIdle: () => { if (restorations.get(scope) === entry) restorations.delete(scope); },
+        onIdle: () => { if (restorations.get(scope) === entry) {
+          restorations.delete(scope);
+          publishRestoration(scope,failure ? 'unavailable' : 'ready');
+        } },
       }),
       check: () => { if (failure) throw failure.value; },
     };
@@ -178,7 +207,9 @@ export function restoreWorkspaceAnswers(project: string, snapshot: string): Prom
   }
   // A concurrent invalidation schedules one fresh serial read. Every caller
   // waits for that read and receives its final failure; no error retries itself.
-  return restoration.queue.refresh().then(restoration.check);
+  const pending = restoration.queue.refresh();
+  if (started) publishRestoration(scope,'loading');
+  return pending.then(restoration.check);
 }
 async function readSavedWorkspaceAnswers(project: string, snapshot: string): Promise<void> {
   await restoreRepositoryGuides(project,snapshot);
