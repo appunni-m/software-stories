@@ -15,6 +15,7 @@ import type { AtlasHotspotSelection, SourceLineRange, Workspace as WorkspaceId }
 import { ancestors, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, discardUnstartedGuide, historyEntry, chooseFlowRevision, rankSourcePaths, rememberScroll, rememberSection, sectionPosition, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
 import { appendQuestion, appendRepositoryGuide, authorizeWorkspace, ensureWorkspaceIndex, revokeWorkspace, restoreWorkspaceAnswers, runQuestion, runRepositoryGuide, stopQuestion, updateWorkspace, useWorkspace, watchWorkspaceAnswers } from './store';
 import { useConnectionState } from '../lib/connectionStore';
+import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
 import { errorMessageOr, explanationErrorMessage } from '../lib/errorMessage';
 import { createRefreshQueue, type RefreshQueue } from './refreshQueue';
 import { openWorkspaceQuestion, visibleConversationTurns } from './outcomes';
@@ -27,13 +28,14 @@ interface Props {
   children:ReactNode; onWorkspace:(workspace:WorkspaceId)=>void; onSettings:()=>void;
   onReview:(revision:ChapterRevision)=>void; onRead:(revision:ChapterRevision)=>void;
   onCompare:(base:string,head:string)=>void; onRememberFile:(path:string)=>void;
+  onAnswerRestoration:(state:WorkspaceAnswerRestoration)=>void;
 }
 const label = (c:Context) => `${c.path.split('/').at(-1)}${c.from ? `:${c.from}${c.to !== c.from ? `–${c.to}` : ''}` : ''}`;
 
 /** The production workspace consumes native snapshots and revision references, never example data. */
 export function WorkspaceFrame({manifest,...props}:Omit<Props,'manifest'>&{manifest:SnapshotManifest|null}) { return manifest ? <DeveloperWorkspace key={`${manifest.summary.projectId}:${manifest.summary.snapshotId}`} {...props} manifest={manifest}/> : <>{props.children}</>; }
 
-export function DeveloperWorkspace({manifest,projectName,workspace,routePath,routeRange,routeSelection,children,onWorkspace,onSettings,onReview,onRead,onCompare,onRememberFile}:Props) {
+export function DeveloperWorkspace({manifest,projectName,workspace,routePath,routeRange,routeSelection,children,onWorkspace,onSettings,onReview,onRead,onCompare,onRememberFile,onAnswerRestoration}:Props) {
   const {projectId,snapshotId} = manifest.summary;
   const state = useWorkspace(projectId,snapshotId);
   const connection=useConnectionState();
@@ -113,9 +115,20 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
   },[projectId,snapshotId]);
   useEffect(()=>{
     let closed=false;let unlisten:(()=>void)|undefined;
-    if(isNativeRuntime())void watchWorkspaceAnswers(projectId,snapshotId).then((stop)=>{if(closed){stop();return;}unlisten=stop;return restoreWorkspaceAnswers(projectId,snapshotId);}).catch((failure)=>{if(!closed)setChapterError(errorMessageOr(failure,'Saved answers could not be restored.'));});
+    if(isNativeRuntime()) {
+      onAnswerRestoration({projectId,snapshotId,availability:'loading'});
+      void watchWorkspaceAnswers(projectId,snapshotId).then(async(stop)=>{
+        if(closed){stop();return;}
+        unlisten=stop;
+        await restoreWorkspaceAnswers(projectId,snapshotId);
+        if(!closed)onAnswerRestoration({projectId,snapshotId,availability:'ready'});
+      }).catch((failure)=>{if(!closed){
+        onAnswerRestoration({projectId,snapshotId,availability:'unavailable'});
+        setChapterError(errorMessageOr(failure,'Saved answers could not be restored.'));
+      }});
+    }
     return()=>{closed=true;unlisten?.();};
-  },[projectId,snapshotId]);
+  },[projectId,snapshotId,onAnswerRestoration]);
   useEffect(()=>{let active=true; if(isNativeRuntime()) void ensureWorkspaceIndex(projectId,snapshotId).then((value)=>{if(active){setIndex(value);setIndexError(null);}}).catch((failure)=>{if(active)setIndexError(errorMessageOr(failure,'Code relationships could not be loaded.'));}).finally(()=>{if(active)setIndexBusy(false);}); return()=>{active=false;};},[projectId,snapshotId]);
   useEffect(()=>{if(!state.file && sourcePaths.length) update((s)=>({...s,file:routePath && sourcePaths.includes(routePath)?routePath:sourcePaths[0]}));},[state.file,sourcePaths]);
   useEffect(()=>{if(routePath && sourcePaths.includes(routePath)){update((s)=>({...s,file:routePath}));setCodeOpen(true);setReveal({path:routePath,from:routeRange?.startLine,to:routeRange?.endLine,sha256:routeRange?.sourceSha256});}},[routePath,routeRange]);

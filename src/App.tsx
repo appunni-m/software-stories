@@ -2,7 +2,7 @@ import { updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
 import { markQuestionOutcome, openWorkspaceQuestion } from './workspace/outcomes';
 import { WorkspaceFrame } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
-import { interruptedNotificationMessage, notificationAvailability, previewNotificationMessage } from './lib/notificationSummary';
+import { interruptedNotificationMessage, notificationAvailability, previewNotificationMessage, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
 import { LatestLocalRead } from './lib/latestLocalRead';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
 import { GenerationRecord } from './GenerationRecord';
@@ -226,6 +226,7 @@ function App() {
   const [startupNotificationsComplete, setStartupNotificationsComplete] = useState(false);
   const [interruptionRefreshing, setInterruptionRefreshing] = useState(false);
   const [previewRefreshing, setPreviewRefreshing] = useState(false);
+  const [answerRestoration, setAnswerRestoration] = useState<WorkspaceAnswerRestoration | null>(null);
   const [repositoryContextAnnouncement, setRepositoryContextAnnouncement] = useState('');
   const announcedRepositoryContextRef = useRef<string | null>(null);
   const [runtime, setRuntime] = useState<ApplicationStatus | null>(null);
@@ -311,6 +312,7 @@ function App() {
   const currentCapture = currentProject ? captureByProject[currentProject.projectId] ?? null : null;
   const selectedSnapshot = currentSnapshots.find((snapshot) => snapshot.snapshotId === navigation.current.snapshotId) ?? null;
   const questionUpdates = useWorkspaceOutcomes(currentProject?.projectId, selectedSnapshot?.snapshotId);
+  const answerAvailability = workspaceAnswerAvailability(isNativeRuntime(), currentProject?.projectId, selectedSnapshot?.snapshotId, answerRestoration);
   const readiness = workspaceReadiness({ recentsPending, projectOpening,
     projectId: navigation.current.projectId, projectAvailable: !!currentProject, snapshotId: navigation.current.snapshotId,
     history: snapshotHistoryLoad, manifest: snapshotManifestLoad });
@@ -1362,6 +1364,9 @@ function App() {
         if (currentProject && selectedSnapshot) updateWorkspace(currentProject.projectId,selectedSnapshot.snapshotId,(s)=>markQuestionOutcome(s,outcome.explorationId,outcome.turnId,outcome.key,'dismissed'));
       } }],
     })),
+    ...(answerAvailability === 'unavailable' ? [{ id: 'answers-unavailable', title: 'Saved answers could not be loaded',
+      message: 'Try opening this workspace again. Your saved explanations have not been discarded.', tone: 'error' as const,
+      actions: [{ label: 'Try again', run: () => { setSnapshotManifestLoad(null); setWorkspaceReload((value) => value + 1); } }] }] : []),
     ...(runtimeError ? [{ id: 'runtime', title: 'Some app features are unavailable', message: 'Try connecting to the local app again.', tone: 'error' as const,
       actions: [{ label: 'Retry', run: loadRuntime }] }] : []),
     ...(notice ? [{ id: 'workspace-notice', title: notice.title, message: notice.message, tone: notice.tone,
@@ -1503,6 +1508,7 @@ function App() {
           <ThemeControl />
           <NotificationCenter items={workspaceNotifications}
             availability={notificationAvailability({ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready',
+              answers: answerAvailability,
               refreshing: interruptionRefreshing || previewRefreshing, unavailable: interruptedOperationsUnavailable || pendingChapterPreviewsUnavailable })}
             open={notificationsOpen} onOpenChange={setNotificationsOpen} />
           <button
@@ -1583,6 +1589,7 @@ function App() {
                 </> : <p role="status">{readiness === 'restoring' ? 'Opening your workspace…' : `Opening ${currentProject?.displayName ?? 'your workspace'}…`}</p>}
               </div>
             ) : <WorkspaceFrame manifest={snapshotManifest?.summary.snapshotId === selectedSnapshot?.snapshotId ? snapshotManifest : null}
+              onAnswerRestoration={setAnswerRestoration}
               projectName={currentProject?.displayName ?? 'Repository'} workspace={currentWorkspace}
               routePath={navigation.current.relativePath} routeRange={navigation.current.sourceRange} routeSelection={navigation.current.atlasSelection}
               onWorkspace={chooseWorkspace} onSettings={openProviderSettings} onReview={reviewGuideRevision} onRead={openGuideRevision}

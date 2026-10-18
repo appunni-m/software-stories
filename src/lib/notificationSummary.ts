@@ -1,11 +1,25 @@
+import type { InterruptedOperation, PendingChapterPreviewSummary } from './commands.ts';
+
 export type NotificationAvailability = 'loading' | 'ready' | 'unavailable';
+export interface WorkspaceAnswerRestoration {
+  projectId: string; snapshotId: string; availability: NotificationAvailability;
+}
+
+/** A previously restored scope cannot stand in for the newly selected answers. */
+export function workspaceAnswerAvailability(
+  native: boolean, projectId: string | undefined, snapshotId: string | undefined,
+  restored: WorkspaceAnswerRestoration | null,
+): NotificationAvailability {
+  if (!native || !projectId || !snapshotId) return 'ready';
+  return restored?.projectId === projectId && restored.snapshotId === snapshotId ? restored.availability : 'loading';
+}
 
 /** A complete unread total requires both global lookups and the selected workspace. */
 export function notificationAvailability(input: {
-  startupComplete: boolean; workspaceReady: boolean; refreshing: boolean; unavailable: boolean;
+  startupComplete: boolean; workspaceReady: boolean; answers: NotificationAvailability; refreshing: boolean; unavailable: boolean;
 }): NotificationAvailability {
-  if (!input.startupComplete || !input.workspaceReady || input.refreshing) return 'loading';
-  return input.unavailable ? 'unavailable' : 'ready';
+  if (!input.startupComplete || !input.workspaceReady || input.answers === 'loading' || input.refreshing) return 'loading';
+  return input.unavailable || input.answers === 'unavailable' ? 'unavailable' : 'ready';
 }
 
 export function notificationSummary(items: readonly { read?: boolean }[], availability: NotificationAvailability) {
@@ -25,9 +39,6 @@ export function notificationSummary(items: readonly { read?: boolean }[], availa
     announcement: unread > 0 ? `${count} available in Notifications.` : '', status: null,
   };
 }
-import type { InterruptedOperation, PendingChapterPreviewSummary } from './commands.ts';
-
-
 const interruptedPurpose = {
   fileChapter: 'File explanation', repositoryOverview: 'Repository guide', sectionUpdate: 'Section update',
   codeLensExplanation: 'Selected code', prGuide: 'Change guide', prChangeExplanation: 'Changed code', repositoryPlan: 'Repository question',

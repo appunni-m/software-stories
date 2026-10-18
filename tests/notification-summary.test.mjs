@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
-import { interruptedNotificationMessage, notificationAvailability, notificationSummary, previewNotificationMessage } from '../src/lib/notificationSummary.ts';
+import { interruptedNotificationMessage, notificationAvailability, notificationSummary, previewNotificationMessage, workspaceAnswerAvailability } from '../src/lib/notificationSummary.ts';
 
-const ready = { startupComplete: true, workspaceReady: true, refreshing: false, unavailable: false };
+const ready = { startupComplete: true, workspaceReady: true, answers: 'ready', refreshing: false, unavailable: false };
 const unread = Array.from({ length: 34 }, () => ({}));
 
 describe('notification totals', () => {
   it('waits for each contributor and the selected workspace before reporting a total', () => {
-    for (const partial of [{ startupComplete: false }, { workspaceReady: false }, { refreshing: true }]) {
+    for (const partial of [{ startupComplete: false }, { workspaceReady: false }, { answers: 'loading' }, { refreshing: true }]) {
       const availability = notificationAvailability({ ...ready, ...partial });
       assert.equal(availability, 'loading');
       for (const items of [[], unread.slice(0, 23), unread]) {
@@ -31,6 +31,23 @@ describe('notification totals', () => {
     assert.match(summary.status, /try again/);
     assert.doesNotMatch(summary.announcement, /23|unread|caught up/);
     assert.equal(notificationAvailability({ ...ready, unavailable: true, refreshing: true }), 'loading');
+  });
+
+  it('waits for native answers to restore after a snapshot opens, including scope switches', () => {
+    const previous = { projectId: 'old', snapshotId: 'old', availability: 'ready' };
+    for (const restored of [null, previous, { projectId: 'p', snapshotId: 'old', availability: 'ready' }, { projectId: 'p', snapshotId: 's', availability: 'loading' }]) {
+      const answers = workspaceAnswerAvailability(true, 'p', 's', restored);
+      assert.equal(answers, 'loading');
+      assert.equal(notificationSummary(unread, notificationAvailability({ ...ready, answers })).announcement, '');
+    }
+    assert.equal(workspaceAnswerAvailability(true, 'p', 's', { projectId: 'p', snapshotId: 's', availability: 'ready' }), 'ready');
+  });
+
+  it('exposes answer-restore failure while leaving empty or nonnative workspaces usable', () => {
+    const answers = workspaceAnswerAvailability(true, 'p', 's', { projectId: 'p', snapshotId: 's', availability: 'unavailable' });
+    assert.equal(notificationAvailability({ ...ready, answers }), 'unavailable');
+    assert.equal(workspaceAnswerAvailability(false, 'p', 's', null), 'ready');
+    assert.equal(workspaceAnswerAvailability(true, undefined, undefined, null), 'ready');
   });
 
   it('counts only unread entries, handles singular/empty and bounds the visible badge', () => {
@@ -87,6 +104,12 @@ describe('notification totals', () => {
     assert.match(component, /items.length === 0 \? availability === 'ready' &&/);
     assert.match(component, /modal=\{false\}/);
     assert.match(app, /availability=\{notificationAvailability\(\{ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready'/);
+    assert.match(app, /answers: answerAvailability/);
+    assert.match(app, /onAnswerRestoration=\{setAnswerRestoration\}/);
+    assert.match(app, /id: 'answers-unavailable'[\s\S]*?setWorkspaceReload/);
+    const workspace = await readFile(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+    assert.match(workspace, /await restoreWorkspaceAnswers\(projectId,snapshotId\);\s+if\(!closed\)onAnswerRestoration\(\{projectId,snapshotId,availability:'ready'\}\)/);
+    assert.match(workspace, /onAnswerRestoration\(\{projectId,snapshotId,availability:'unavailable'\}\)/);
     assert.match(app, /refreshing: interruptionRefreshing \|\| previewRefreshing, unavailable: interruptedOperationsUnavailable \|\| pendingChapterPreviewsUnavailable/);
     assert.match(app, /interruptionLookup.run\(listInterruptedOperations/);
     assert.match(app, /previewLookup.run\(listPendingGeneratedChapterPreviews/);
