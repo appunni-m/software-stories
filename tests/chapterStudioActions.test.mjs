@@ -26,7 +26,7 @@ function setup(){
   const before=baseRevision();before.projectId='p';before.snapshotId='s';
   const saved=structuredClone(before);saved.revisionId='revision:saved';saved.revisionNumber=2;
   const candidate=structuredClone(before);candidate.title='My unsaved edit';
-  const state={candidate,selected:before.revisionId,editing:true,feedback:null,refreshes:0,recorded:[],navigation:[],publications:[],busy:false,loading:false,loadError:null};
+  const state={candidate,selected:before.revisionId,editing:true,rebasing:false,feedback:null,refreshes:0,recorded:[],navigation:[],publications:[],busy:false,loading:false,loadError:null};
   const change=key=>value=>{state[key]=value;};
   const result={revision:saved,validation:{status:'valid',issues:[]}};
   const bindings={projectId:'p',snapshotId:'s',window:new EventTarget(),CustomEvent,candidate,selectedRevision:before,isLatestCurrent:true,busy:false,editing:false,
@@ -34,7 +34,7 @@ function setup(){
     chapterHistory:{current:{refresh:async()=>{state.refreshes++;},record:r=>{state.recorded.push(r);state.refreshes++;}}},
     setRefreshKey:()=>state.refreshes++,setSelectedTargetKey:change('target'),setSelectedRevisionId:change('selected'),
     setLoading:change('loading'),setLoadError:change('loadError'),
-    setEditing:change('editing'),setCandidate:change('candidate'),setValidation:change('validation'),setFeedback:change('feedback'),
+    setEditing:change('editing'),setCandidate:change('candidate'),setRebasing:change('rebasing'),setValidation:change('validation'),setFeedback:change('feedback'),
     setRejecting:change('rejecting'),setRejectReason:change('reason'),setBusy:change('busy'),
     onSelectRevision:r=>state.navigation.push(r),
     saveChapterEdits:async()=>result,restoreChapterRevision:async()=>result,acceptChapterDraft:async()=>result,rejectChapterDraft:async()=>saved,
