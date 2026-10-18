@@ -13,6 +13,14 @@ fn runtime() -> CodexReviewRuntime {
 }
 
 fn setup(f: &Fixture) -> (Ledger, CodexReviewRuntime, AtomicBool) {
+    setup_with_model(f, "gpt-6-luna", "max")
+}
+
+fn setup_with_model(
+    f: &Fixture,
+    model: &str,
+    effort: &str,
+) -> (Ledger, CodexReviewRuntime, AtomicBool) {
     let runtime = runtime();
     let grant = workspace::save_retrieval_grant(
         &f.storage,
@@ -27,9 +35,34 @@ fn setup(f: &Fixture) -> (Ledger, CodexReviewRuntime, AtomicBool) {
         &f.manifest,
         &grant,
         &runtime,
+        model,
+        effort,
     )
     .unwrap();
     (ledger, runtime, AtomicBool::new(false))
+}
+
+#[test]
+fn selected_model_and_effort_are_bound_to_saved_workspace_answers() {
+    let f = Fixture::new();
+    let (ledger, runtime, cancelled) = setup_with_model(&f, "gpt-5.6-luna", "medium");
+    assert_eq!(ledger.record.binding.model, "gpt-5.6-luna");
+    assert_eq!(ledger.record.binding.effort, "medium");
+    let operation_id = ledger.record.binding.operation_id.clone();
+    ledger
+        .start_narration_answer_sections(
+            "How does greeting produce its result?",
+            &"d".repeat(64),
+            &f.manifest,
+            &runtime,
+            &cancelled,
+        )
+        .unwrap();
+
+    let answer = serde_json::to_value(sections::inspect(&f.storage, &operation_id).unwrap())
+        .unwrap();
+    assert_eq!(answer["binding"]["model"], "gpt-5.6-luna");
+    assert_eq!(answer["binding"]["effort"], "medium");
 }
 
 fn request(f: &Fixture, start_byte: usize, end_byte: usize) -> RangeRequest {

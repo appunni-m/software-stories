@@ -363,7 +363,6 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     check(); patchTurn(project,snapshot,id,{status:'working',error:undefined});
     await ensureCodexConnection(true); check();
     const selection = readCodexSelection();
-    if (selection.modelId !== 'gpt-6-luna' || selection.effort !== 'max') throw new Error('Choose GPT-6 Luna with max reasoning in the connection settings.');
     const runId = crypto.randomUUID(); job.runId = runId;
     patchTurn(project,snapshot,id,{runIds:[...(turn.runIds ?? []),runId]});
     await flushWorkspaceConversation(project,snapshot);check();

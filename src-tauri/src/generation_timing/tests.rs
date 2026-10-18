@@ -89,6 +89,26 @@ fn native_events_keep_one_clock_unknown_usage_and_no_sensitive_fields() {
 }
 
 #[test]
+fn timing_diagnostics_preserve_the_selected_model_and_effort() {
+    let f = Fixture::new();
+    let id = run();
+    let trace = Trace::new(
+        &f.0,
+        &id,
+        &"c".repeat(64),
+        &runtime(),
+        "gpt-5.6-luna",
+        "medium",
+        Instant::now(),
+    );
+    trace.finish(Ok(()));
+
+    let record = inspect(&f.0, &id).unwrap().unwrap();
+    assert_eq!(record.model_id, "gpt-5.6-luna");
+    assert_eq!(record.reasoning_effort, "medium");
+}
+
+#[test]
 fn abandoned_and_failed_runs_are_retained_without_inference_or_success_claims() {
     let f = Fixture::new();
     let id = run();

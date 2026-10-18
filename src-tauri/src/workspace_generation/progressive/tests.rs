@@ -32,7 +32,8 @@ fn progressive_contract_is_small_binds_intent_and_never_requests_a_final_rewrite
     input.question.push_str(" Include failure paths.");
     assert_ne!(request(&input, &f.manifest).unwrap().2, digest);
     input.model_id = "gpt-5.6-luna".into();
-    assert!(request(&input, &f.manifest).is_err());
+    input.effort = "medium".into();
+    assert_ne!(request(&input, &f.manifest).unwrap().2, digest);
 }
 
 #[test]
@@ -64,8 +65,16 @@ fn empty_saved_answer(f: &Fixture, input: &Input) -> std::path::PathBuf {
         &runtime,
     )
     .unwrap();
-    let ledger =
-        Ledger::new_progressive(&f.storage, &input.run_id, &f.manifest, &grant, &runtime).unwrap();
+    let ledger = Ledger::new_progressive(
+        &f.storage,
+        &input.run_id,
+        &f.manifest,
+        &grant,
+        &runtime,
+        &input.model_id,
+        &input.effort,
+    )
+    .unwrap();
     ledger
         .start_narration_answer_sections(
             &input.question,

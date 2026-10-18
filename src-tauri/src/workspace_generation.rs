@@ -42,8 +42,10 @@ fn question_prompt(
     manifest: &snapshot::SnapshotManifest,
 ) -> Result<String, String> {
     if Uuid::parse_str(&input.run_id).is_err()
-        || input.model_id != "gpt-6-luna"
-        || input.effort != "max"
+        || input.model_id.trim().is_empty()
+        || input.model_id.len() > 200
+        || input.effort.trim().is_empty()
+        || input.effort.len() > 32
         || input.question.trim().is_empty()
         || input.question.len() > 12000
         || input.references.len() > 12

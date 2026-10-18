@@ -205,6 +205,8 @@ pub(crate) fn run_with_starting_ranges(
         jobs,
         &input.question,
         &fingerprint,
+        &input.model_id,
+        &input.effort,
         notify,
     )?));
     if let Err(error) = journal.record(

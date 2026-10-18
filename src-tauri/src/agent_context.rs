@@ -157,6 +157,8 @@ impl Session {
         jobs: RepositoryContextJobs,
         question: &str,
         request_sha256: &str,
+        model: &str,
+        effort: &str,
         notify: Arc<dyn Fn(crate::evidence_ledger::sections::SectionNotice) + Send + Sync>,
     ) -> Result<Self, String> {
         Self::build(
@@ -168,6 +170,8 @@ impl Session {
             jobs,
             question,
             request_sha256,
+            model,
+            effort,
             notify,
         )
     }
@@ -182,9 +186,19 @@ impl Session {
         jobs: RepositoryContextJobs,
         question: &str,
         request_sha256: &str,
+        model: &str,
+        effort: &str,
         notify: Arc<dyn Fn(crate::evidence_ledger::sections::SectionNotice) + Send + Sync>,
     ) -> Result<Self, String> {
-        let ledger = Ledger::new_progressive(storage, operation_id, &manifest, grant, runtime)?;
+        let ledger = Ledger::new_progressive(
+            storage,
+            operation_id,
+            &manifest,
+            grant,
+            runtime,
+            model,
+            effort,
+        )?;
         let answer = ledger.start_narration_answer_sections(
             question,
             request_sha256,

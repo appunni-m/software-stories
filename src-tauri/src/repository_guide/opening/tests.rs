@@ -197,6 +197,8 @@ pub(in crate::repository_guide) fn publish_for_question(f: &Fixture, r: &Record,
         &f.manifest,
         &grant,
         &runtime,
+        "gpt-6-luna",
+        "max",
     )
     .unwrap();
     let call = ledger

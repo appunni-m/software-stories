@@ -182,7 +182,16 @@ fn empty_answer(f: &Fixture, record: &Record, question: &str) -> std::path::Path
     )
     .unwrap();
     let run = &record.units[0].attempts[0].run_id;
-    let ledger = Ledger::new_progressive(&f.storage, run, &f.manifest, &grant, &runtime).unwrap();
+    let ledger = Ledger::new_progressive(
+        &f.storage,
+        run,
+        &f.manifest,
+        &grant,
+        &runtime,
+        "gpt-6-luna",
+        "max",
+    )
+    .unwrap();
     ledger
         .start_narration_answer_sections(
             question,

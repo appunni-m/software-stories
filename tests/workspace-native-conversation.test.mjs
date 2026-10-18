@@ -93,6 +93,22 @@ test('closing during account lookup stops dispatch and failed-close recovery lea
   resume();assert.equal(h.store.getWorkspace('project','snapshot').explorations[0].turns[0].status,'interrupted');
 });
 
+test('incremental workspace questions use the saved model and reasoning effort',async()=>{
+  const b=backend();let generation;
+  const h=workspaceStoreHarness(async(name,args)=>{
+    if(name==='generate_progressive_workspace_answer'){
+      generation=args;
+      return {runId:args.input.runId,projectId:args.input.projectId,snapshotId:args.input.snapshotId,question:args.input.question,outcome:'complete',sections:[],incompleteTopics:[]};
+    }
+    return b.invoke(name,args);
+  },{native:true,ensureCodexConnection:async()=>{},readCodexSelection:()=>({modelId:'gpt-5.6-luna',effort:'medium'})});
+  await h.store.prepareWorkspaceConversation('project','snapshot');
+  const id=h.store.appendQuestion('project','snapshot','Explain the subtotal check',[],'guide');
+  await h.store.runQuestion('project','snapshot',id,'grant');
+  assert.equal(generation.input.modelId,'gpt-5.6-luna');
+  assert.equal(generation.input.effort,'medium');
+});
+
 test('native restart restores owned scenes, times, viewport, pane and expanded static links without browser preferences',async()=>{
   const b=backend(),storage=new Map(),h=native(b,storage);await h.store.prepareWorkspaceConversation('project','snapshot');
   const state=addTurn(h.store.getWorkspace('project','snapshot'),{id:'reader-turn',question:'Follow the parser',context:[],status:'ready',revisionId:'revision:one'},'guide');

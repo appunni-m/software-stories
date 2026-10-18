@@ -406,6 +406,10 @@ fn evidence_id(record: &Record, range: &context::CodeRange) -> Result<String, St
     Ok(format!("evidence:{}", context::digest(&identity)))
 }
 
+fn valid_model_effort(model: &str, effort: &str) -> bool {
+    !model.trim().is_empty() && model.len() <= 200 && !effort.trim().is_empty() && effort.len() <= 32
+}
+
 impl Ledger {
     pub(crate) fn new_progressive(
         storage: &Path,
@@ -413,14 +417,12 @@ impl Ledger {
         manifest: &snapshot::SnapshotManifest,
         grant_id: &str,
         runtime: &CodexReviewRuntime,
+        model: &str,
+        effort: &str,
     ) -> Result<Self, String> {
-        let model = "gpt-6-luna";
-        let effort = "max";
         let path = path(storage, operation_id)?;
-        if !runtime.valid_shape() || model != "gpt-6-luna" || effort != "max" {
-            return Err(
-                "Use the connected Codex account with GPT-6 Luna and max reasoning.".to_owned(),
-            );
+        if !runtime.valid_shape() || !valid_model_effort(model, effort) {
+            return Err("The selected model or reasoning effort is invalid.".to_owned());
         }
         workspace::check_retrieval_grant(
             storage,
@@ -1382,8 +1384,7 @@ fn validate_record(record: &Record, operation_id: &str) -> Result<(), String> {
         || record.calls.len() > MAX_CALLS
         || record.evidence.len() > MAX_FRAGMENTS
         || !record.binding.runtime.valid_shape()
-        || record.binding.model != "gpt-6-luna"
-        || record.binding.effort != "max"
+        || !valid_model_effort(&record.binding.model, &record.binding.effort)
         || !canonical_uuid(&record.binding.grant_id)
         || !hash(&record.binding.manifest_sha256)
         || record

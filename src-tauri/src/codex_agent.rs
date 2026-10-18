@@ -1910,13 +1910,15 @@ fn validate_run(input: &CodexRunInput) -> Result<(), String> {
     }
     if input.run_id.is_empty()
         || input.run_id.len() > 256
-        || input.model.is_empty()
-        || input.model.len() > 200
-        || input.effort.is_empty()
-        || input.effort.len() > 32
     {
-        return Err("The Codex request identity, model or reasoning effort is invalid.".to_owned());
+        return Err("The Codex request identity is invalid.".to_owned());
     }
+    validate_model_source_mode(
+        &input.model,
+        &input.effort,
+        input.retrieval.is_some(),
+        input.sources.len(),
+    )?;
     if input.approval_policy != "never" {
         return Err("This explanation route supports only read-only generation with approvals disabled. It cannot grant command, write or network permission.".to_owned());
     }
@@ -1936,11 +1938,6 @@ fn validate_run(input: &CodexRunInput) -> Result<(), String> {
             > 128 * 1024
     {
         return Err("The explanation output schema is invalid or too large.".to_owned());
-    }
-    if input.retrieval.is_some()
-        && (!input.sources.is_empty() || input.model != "gpt-6-luna" || input.effort != "max")
-    {
-        return Err("Captured-code generation requires GPT-6 Luna/max, an empty initial source bundle and a single investigation.".into());
     }
     if (input.sources.is_empty() && input.retrieval.is_none())
         || input.sources.len() > MAX_SOURCE_FILES
@@ -1967,6 +1964,22 @@ fn validate_run(input: &CodexRunInput) -> Result<(), String> {
         if total > MAX_CONTEXT_BYTES || hex_digest(source.contents.as_bytes()) != source.sha256 {
             return Err("The Codex source manifest changed or exceeds 256 KB. Build a fresh reviewed request.".to_owned());
         }
+    }
+    Ok(())
+}
+
+fn validate_model_source_mode(
+    model: &str,
+    effort: &str,
+    retrieval: bool,
+    source_count: usize,
+) -> Result<(), String> {
+    if model.trim().is_empty() || model.len() > 200 || effort.trim().is_empty() || effort.len() > 32
+    {
+        return Err("The Codex model or reasoning effort is invalid.".to_owned());
+    }
+    if retrieval && source_count > 0 {
+        return Err("Captured-code generation requires an empty initial source bundle and a single investigation.".into());
     }
     Ok(())
 }
@@ -2663,6 +2676,14 @@ fn hex_digest(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn retrieval_accepts_a_configured_model_and_effort_without_staged_source_files() {
+        assert!(validate_model_source_mode("gpt-5.6-luna", "medium", true, 0).is_ok());
+        assert!(validate_model_source_mode("gpt-5.6-luna", "medium", true, 1).is_err());
+        assert!(validate_model_source_mode("", "medium", true, 0).is_err());
+        assert!(validate_model_source_mode("gpt-5.6-luna", "x".repeat(33).as_str(), true, 0).is_err());
+    }
 
     #[test]
     fn streaming_runtime_digest_keeps_sha256_and_fail_closed_contract() {

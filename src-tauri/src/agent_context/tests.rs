@@ -18,6 +18,10 @@ fn transport_setup_diagnostics_exclude_os_messages_and_private_paths() {
 }
 
 fn session(f: &Fixture) -> Session {
+    session_with_model(f, "gpt-6-luna", "max").0
+}
+
+fn session_with_model(f: &Fixture, model: &str, effort: &str) -> (Session, String) {
     let runtime = CodexReviewRuntime {
         connection_id: Uuid::new_v4().to_string(),
         executable_path: "/usr/local/bin/codex".into(),
@@ -43,13 +47,26 @@ fn session(f: &Fixture) -> Session {
         RepositoryContextJobs::default(),
         "How does a requested name become the greeting?",
         &fingerprint,
+        model,
+        effort,
         Arc::new(|_| {}),
     )
     .unwrap();
     let (_manager, owner, _) =
         crate::codex_agent::section_owner_for_test(&operation_id, &fingerprint, &runtime);
     session.bind_section_owner(owner).unwrap();
-    session
+    (session, operation_id)
+}
+
+#[test]
+fn native_session_binds_the_selected_model_and_effort() {
+    let f = Fixture::new();
+    let (_session, operation_id) = session_with_model(&f, "gpt-5.6-luna", "medium");
+    let answer =
+        serde_json::to_value(crate::evidence_ledger::sections::inspect(&f.storage, &operation_id).unwrap())
+            .unwrap();
+    assert_eq!(answer["binding"]["model"], "gpt-5.6-luna");
+    assert_eq!(answer["binding"]["effort"], "medium");
 }
 
 #[test]
@@ -588,6 +605,8 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
         RepositoryContextJobs::default(),
         "How is the greeting created?",
         &fingerprint,
+        "gpt-6-luna",
+        "max",
         Arc::new(move |notice| {
             // The callback can independently inspect an already durable section;
             // it is never given an uncommitted preview or raw source payload.

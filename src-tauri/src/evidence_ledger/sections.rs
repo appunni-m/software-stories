@@ -1127,8 +1127,7 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
     if value.schema_version != NARRATION_ANSWER_VERSION
         || value.binding.operation_id != operation
         || !value.binding.runtime.valid_shape()
-        || value.binding.model != "gpt-6-luna"
-        || value.binding.effort != "max"
+        || !super::valid_model_effort(&value.binding.model, &value.binding.effort)
         || !canonical_uuid(&value.binding.grant_id)
         || !hash(&value.binding.manifest_sha256)
         || !hash(&value.request_sha256)

@@ -504,6 +504,8 @@ mod tests {
             &f.manifest,
             &input.grant_id,
             &runtime,
+            &input.model_id,
+            &input.effort,
         )
         .unwrap();
         assert!(ledger.admitted_ranges().is_empty());

@@ -24,6 +24,8 @@ fn setup(f: &Fixture) -> (Ledger, CodexReviewRuntime, AtomicBool) {
         &f.manifest,
         &grant,
         &runtime,
+        "gpt-6-luna",
+        "max",
     )
     .unwrap();
     (ledger, runtime, AtomicBool::new(false))

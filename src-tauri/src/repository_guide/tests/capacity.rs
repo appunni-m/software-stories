@@ -22,7 +22,15 @@ fn runtime(f: &Fixture) -> (CodexReviewRuntime, String) {
 }
 
 fn retain(f: &Fixture, run: &str, runtime: &CodexReviewRuntime, grant: &str) -> Result<(), String> {
-    let ledger = Ledger::new_progressive(&f.storage, run, &f.manifest, grant, runtime)?;
+    let ledger = Ledger::new_progressive(
+        &f.storage,
+        run,
+        &f.manifest,
+        grant,
+        runtime,
+        "gpt-6-luna",
+        "max",
+    )?;
     ledger.start_narration_answer_sections(
         "How does the captured implementation transform its input?",
         &"d".repeat(64),
@@ -212,6 +220,8 @@ fn simultaneous_standalone_answers_cannot_consume_the_same_final_collection() {
                 &manifest,
                 &grant,
                 &runtime,
+                "gpt-6-luna",
+                "max",
             )
             .unwrap();
             barrier.wait();

@@ -176,7 +176,7 @@ fn new_session(
 ) -> Result<agent_context::Session, String> {
     agent_context::Session::new_progressive(
         storage, &job.planning_run_id, manifest, runtime, &job.grant_id,
-        jobs, opening::question(job)?, fingerprint, notify,
+        jobs, opening::question(job)?, fingerprint, "gpt-6-luna", "max", notify,
     )
 }
 

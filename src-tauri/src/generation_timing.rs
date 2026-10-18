@@ -152,8 +152,10 @@ fn validate(record: &Record) -> Result<(), String> {
     if record.schema_version != 2
         || record.clock != "nativeCodexAdmissionV1"
         || !canonical_run(&record.run_id)
-        || record.model_id != "gpt-6-luna"
-        || record.reasoning_effort != "max"
+        || record.model_id.trim().is_empty()
+        || record.model_id.len() > 200
+        || record.reasoning_effort.trim().is_empty()
+        || record.reasoning_effort.len() > 32
         || !hash(&record.runtime_identity_sha256)
         || record
             .request_fingerprint
