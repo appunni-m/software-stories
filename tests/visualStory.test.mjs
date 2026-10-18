@@ -13,6 +13,12 @@ const visual = {
 };
 
 describe('visual story scenes', () => {
+  it('keeps HTML visual values intact at word boundaries before breaking long tokens', () => {
+    const styles = readFileSync(new URL('../src/html-scene.css', import.meta.url), 'utf8');
+    const valueRule = styles.match(/\.html-scene-value\s*\{([^}]+)\}/u)?.[1] ?? '';
+    assert.match(valueRule, /overflow-wrap:\s*break-word/u);
+  });
+
   it('keeps authored speech without a visual whole, with every claim source still reachable', () => {
     const spokenText = 'First the incoming bytes reach a trust check. Rejected input returns an error; only accepted input moves on.';
     const current = { ...section, visual: null, spokenText };
