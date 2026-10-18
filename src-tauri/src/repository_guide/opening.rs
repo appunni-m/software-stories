@@ -35,6 +35,7 @@ pub(super) fn context_sha256(job: &Record) -> Result<String, String> {
         "policy":SCOPED_POLICY,"guideId":job.id,"runId":job.planning_run_id,
         "projectId":job.project_id,"snapshotId":job.snapshot_id,
         "guideQuestion":job.question,"openingQuestion":LEARNING_QUESTION,
+        "model":job.model_id,"effort":job.reasoning_effort,
     })).map_err(|_| "The opening learning intent could not be encoded.")?;
     Ok(context::digest(&bytes))
 }

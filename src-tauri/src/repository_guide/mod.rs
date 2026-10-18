@@ -28,7 +28,11 @@ mod store;
 use plan::Plan;
 use recovering::reconcile;
 
-const CONTRACT: &str = "repository-guide-v6-bounded-opening-continuation";
+const LEGACY_CONTRACT: &str = "repository-guide-v6-bounded-opening-continuation";
+const CONTRACT: &str = "repository-guide-v7-selected-model";
+const RECORD_SCHEMA_VERSION: u32 = 6;
+const DEFAULT_MODEL_ID: &str = "gpt-6-luna";
+const DEFAULT_REASONING_EFFORT: &str = "max";
 const RESEARCH_POLICY: &str = "ordered-independent-research-v1";
 const RESEARCH_INSTRUCTIONS: &str = "Prerequisites describe reading order, not permission to investigate. Each outlined unit will research its own captured code in outline order even if an earlier explanation remains incomplete. Earlier questions and starting ranges supply leads, never implementation facts or inherited citations. Preserve requested alternatives and failures; independently verify every explanation. A partial unit stays partial and cannot establish a later unit's behavior.";
 const MAX_UNITS: usize = 6;
@@ -101,6 +105,8 @@ struct Record {
     manifest_sha256: String,
     grant_id: String,
     question: String,
+    model_id: String,
+    reasoning_effort: String,
     planning_run_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     opening: Option<Attempt>,
@@ -148,6 +154,28 @@ fn uuid(id: &str) -> bool {
 }
 fn text(s: &str, min: usize, max: usize) -> bool {
     (min..=max).contains(&s.len()) && s.trim() == s && !s.chars().any(char::is_control)
+}
+fn model_text(s: &str, max: usize) -> bool {
+    text(s, 1, max)
+        && s.bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"-_.:/".contains(&byte))
+}
+fn validate_model_selection(
+    models: &[codex_agent::CodexModel],
+    model_id: &str,
+    effort: &str,
+) -> Result<(), String> {
+    if models.iter().any(|model| {
+        model.model_id == model_id
+            && model
+                .supported_reasoning_efforts
+                .iter()
+                .any(|supported| supported == effort)
+    }) {
+        Ok(())
+    } else {
+        Err("The selected Codex model or reasoning effort is no longer available. Choose an available option in Connections.".into())
+    }
 }
 fn key(s: &str) -> bool {
     !s.is_empty()
@@ -615,8 +643,8 @@ fn build_inner(
                 grant_id: record.grant_id.clone(),
                 question: question.clone(),
                 references,
-                model_id: "gpt-6-luna".into(),
-                effort: "max".into(),
+                model_id: record.model_id.clone(),
+                effort: record.reasoning_effort.clone(),
             },
             &record.plan.as_ref().unwrap().units[index].starting_ranges,
             Some(&guide_intent),
@@ -692,6 +720,8 @@ pub(crate) struct Start {
     snapshot_id: String,
     grant_id: String,
     question: String,
+    model_id: String,
+    reasoning_effort: String,
     consent: bool,
 }
 
@@ -699,7 +729,7 @@ fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Rec
     let planning_run_id = input.id.clone();
     let mut record = Record {
         revision: 0,
-        schema_version: 5,
+        schema_version: RECORD_SCHEMA_VERSION,
         contract: CONTRACT.into(),
         id: input.id,
         project_id: input.project_id,
@@ -708,6 +738,8 @@ fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Rec
             &serde_json::to_vec(&manifest).map_err(|_| "The inventory could not be encoded.")?,
         ),
         grant_id: input.grant_id,
+        model_id: input.model_id,
+        reasoning_effort: input.reasoning_effort,
         opening: Some(Attempt {
             run_id: planning_run_id.clone(),
             question: opening::LEARNING_QUESTION.into(),
@@ -737,6 +769,8 @@ pub(crate) async fn start_repository_guide(
         || !uuid(&input.id)
         || !uuid(&input.grant_id)
         || !text(&input.question, 1, 12000)
+        || !model_text(&input.model_id, 200)
+        || !model_text(&input.reasoning_effort, 32)
     {
         return Err("Review and allow this repository guide first.".into());
     }
@@ -753,6 +787,10 @@ pub(crate) async fn start_repository_guide(
         &input.snapshot_id,
         &runtime,
     )?;
+    let models = app
+        .state::<codex_agent::CodexAgentManager>()
+        .models(&storage)?;
+    validate_model_selection(&models, &input.model_id, &input.reasoning_effort)?;
     let record = new_record(input, &manifest)?;
     let lease =
         store::lease(&storage, &record.id)?.ok_or("This guide already has a native worker.")?;

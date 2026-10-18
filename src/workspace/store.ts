@@ -333,11 +333,11 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
     if (job.cancelled) return;
     if(closingWorkspace)throw new Error(closingMessage);
     const selection = readCodexSelection();
-    if (selection.modelId !== 'gpt-6-luna' || selection.effort !== 'max') throw new Error('Choose GPT-6 Luna with max reasoning in the connection settings.');
     job.runId = turn.guideId;
     const guide = await invoke<RepositoryGuide>(resume ? 'resume_repository_guide' : 'start_repository_guide', resume
       ? {id:turn.guideId,projectId:project,snapshotId:snapshot,consent:true}
-      : {input:{id:turn.guideId,projectId:project,snapshotId:snapshot,grantId,question:turn.question,consent:true}});
+      : {input:{id:turn.guideId,projectId:project,snapshotId:snapshot,grantId,question:turn.question,
+          modelId:selection.modelId,reasoningEffort:selection.effort,consent:true}});
     await reconcileGuide(project,snapshot,guide);
   } catch (failure) {
     try { await restoreRepositoryGuides(project,snapshot); } catch { /* Preserve saved cards and the original error. */ }

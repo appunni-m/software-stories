@@ -10,7 +10,7 @@ pub(super) fn record(f: &Fixture) -> Record {
         .range;
     let mut result = Record {
         revision: 0,
-        schema_version: 5,
+        schema_version: RECORD_SCHEMA_VERSION,
         contract: CONTRACT.into(),
         id: Uuid::new_v4().to_string(),
         project_id: f.manifest.summary.project_id.clone(),
@@ -18,6 +18,8 @@ pub(super) fn record(f: &Fixture) -> Record {
         manifest_sha256: context::digest(&serde_json::to_vec(&f.manifest).unwrap()),
         grant_id: Uuid::new_v4().to_string(),
         question: "How does this project work?".into(),
+        model_id: DEFAULT_MODEL_ID.into(),
+        reasoning_effort: DEFAULT_REASONING_EFFORT.into(),
         planning_run_id: Uuid::new_v4().to_string(),
         opening: None,
         opening_context_sha256: None,
@@ -110,6 +112,8 @@ pub(super) fn fresh_record(f: &Fixture) -> Record {
             snapshot_id: previous.snapshot_id,
             grant_id: previous.grant_id,
             question: previous.question,
+            model_id: DEFAULT_MODEL_ID.into(),
+            reasoning_effort: DEFAULT_REASONING_EFFORT.into(),
             consent: true,
         },
         &f.manifest,
@@ -130,6 +134,52 @@ fn fresh_guide_researches_later_units_after_a_partial_reading_prerequisite() {
     assert!(!guide_complete(&r));
     assert_eq!(r.units[0].attempts.len(), 1);
     assert!(r.units[1].attempts.is_empty());
+}
+
+#[test]
+fn selected_account_model_is_persisted_and_bound_to_the_guide_contract() {
+    let f = Fixture::new();
+    let previous = record(&f);
+    let selected = new_record(
+        Start {
+            id: Uuid::new_v4().to_string(),
+            project_id: previous.project_id.clone(),
+            snapshot_id: previous.snapshot_id.clone(),
+            grant_id: previous.grant_id.clone(),
+            question: previous.question.clone(),
+            model_id: "gpt-5.6-luna".into(),
+            reasoning_effort: "medium".into(),
+            consent: true,
+        },
+        &f.manifest,
+    )
+    .unwrap();
+
+    assert_eq!(selected.model_id, "gpt-5.6-luna");
+    assert_eq!(selected.reasoning_effort, "medium");
+    let mut default_settings = selected.clone();
+    default_settings.model_id = DEFAULT_MODEL_ID.into();
+    default_settings.reasoning_effort = DEFAULT_REASONING_EFFORT.into();
+    default_settings.opening_context_sha256 =
+        Some(opening::context_sha256(&default_settings).unwrap());
+    let (_, _, default_fingerprint, _) = plan::request(&default_settings).unwrap();
+    let (_, _, selected_fingerprint, _) = plan::request(&selected).unwrap();
+    assert_ne!(default_fingerprint, selected_fingerprint);
+}
+
+#[test]
+fn selected_model_must_match_the_live_codex_catalog_and_effort() {
+    let models = [codex_agent::CodexModel {
+        model_id: "gpt-5.6-luna".into(),
+        display_name: "GPT-5.6 Luna".into(),
+        default_reasoning_effort: Some("medium".into()),
+        supported_reasoning_efforts: vec!["low".into(), "medium".into(), "high".into(), "max".into()],
+        is_default: false,
+    }];
+
+    assert!(validate_model_selection(&models, "gpt-5.6-luna", "medium").is_ok());
+    assert!(validate_model_selection(&models, "gpt-5.6-luna", "ultra").is_err());
+    assert!(validate_model_selection(&models, "gpt-6-luna", "max").is_err());
 }
 
 #[test]
@@ -435,7 +485,8 @@ fn fontdone_repository_guide_account_probe() {
     } else {
         let grant_id = workspace::save_retrieval_grant(&storage, project, snapshot_id, &runtime).unwrap();
         new_record(Start { id:Uuid::new_v4().to_string(), project_id:project.into(), snapshot_id:snapshot_id.into(),
-            grant_id, question:"How does Fontdone turn font bytes into a rendered glyph bitmap? Build a coherent guide through real entry points, parsing, outline loading, hinting, rasterization, output and important failure paths. Include alternate supported font representations where they change this journey; name any boundaries that remain unexplored.".into(), consent:true }, &manifest).unwrap()
+            grant_id, question:"How does Fontdone turn font bytes into a rendered glyph bitmap? Build a coherent guide through real entry points, parsing, outline loading, hinting, rasterization, output and important failure paths. Include alternate supported font representations where they change this journey; name any boundaries that remain unexplored.".into(),
+            model_id:DEFAULT_MODEL_ID.into(), reasoning_effort:DEFAULT_REASONING_EFFORT.into(), consent:true }, &manifest).unwrap()
     };
     let _lease = store::lease(&storage, &record.id).unwrap().unwrap();
     if resume_id.is_none() {

@@ -30,6 +30,32 @@ fn private_records_reopen_and_conflicting_creates_preserve_original_bytes() {
 }
 
 #[test]
+fn current_saved_guides_gain_default_model_metadata_without_rewriting_on_read() {
+    let f = Fixture::new();
+    let record = crate::repository_guide::tests::fresh_record(&f);
+    let mut legacy = serde_json::to_value(&record).unwrap();
+    legacy["schemaVersion"] = serde_json::json!(5);
+    legacy["contract"] = serde_json::json!(LEGACY_CONTRACT);
+    legacy.as_object_mut().unwrap().remove("modelId");
+    legacy.as_object_mut().unwrap().remove("reasoningEffort");
+    let legacy_bytes = serde_json::to_vec(&legacy).unwrap();
+    let record_path = path(&f.storage, &record.id).unwrap();
+    std::fs::write(&record_path, &legacy_bytes).unwrap();
+
+    let migrated = read(&f.storage, &record.id).unwrap();
+
+    assert_eq!(migrated.schema_version, RECORD_SCHEMA_VERSION);
+    assert_eq!(migrated.contract, CONTRACT);
+    assert_eq!(migrated.model_id, DEFAULT_MODEL_ID);
+    assert_eq!(migrated.reasoning_effort, DEFAULT_REASONING_EFFORT);
+    assert_eq!(
+        migrated.opening_context_sha256.as_deref(),
+        Some(opening::context_sha256(&migrated).unwrap().as_str())
+    );
+    assert_eq!(std::fs::read(record_path).unwrap(), legacy_bytes);
+}
+
+#[test]
 fn worker_lease_excludes_a_second_worker_until_the_original_is_joined() {
     let f = Fixture::new();
     let id = Uuid::new_v4().to_string();
@@ -83,10 +109,10 @@ fn damaged_contract_duplicate_runs_and_excess_attempts_fail_without_rewriting() 
 fn fresh_independent_research_requires_its_own_schema_and_opening() {
     let f = Fixture::new();
     let fresh = crate::repository_guide::tests::fresh_record(&f);
-    assert_eq!(fresh.schema_version, 5);
+    assert_eq!(fresh.schema_version, RECORD_SCHEMA_VERSION);
     assert_eq!(fresh.contract, CONTRACT);
     assert!(validate(&fresh).is_ok());
-    for (schema, contract) in [(0, CONTRACT), (1, CONTRACT), (2, CONTRACT), (3, CONTRACT), (4, CONTRACT), (6, CONTRACT)] {
+    for (schema, contract) in [(0, CONTRACT), (1, CONTRACT), (2, CONTRACT), (3, CONTRACT), (4, CONTRACT), (5, CONTRACT), (7, CONTRACT)] {
         let mut invalid = fresh.clone();
         invalid.schema_version = schema;
         invalid.contract = contract.into();
@@ -190,7 +216,7 @@ fn unsupported_guide_versions_fail_without_rewriting_saved_bytes() {
     create(&f.storage, &record).unwrap();
     let location = path(&f.storage, &record.id).unwrap();
     let current = serde_json::to_value(&record).unwrap();
-    for version in [0, 1, 2, 3, 4, 6] {
+    for version in [0, 1, 2, 3, 4, 5, 7] {
         let mut unsupported = current.clone();
         unsupported["schemaVersion"] = serde_json::json!(version);
         let bytes = serde_json::to_vec(&unsupported).unwrap();

@@ -30,7 +30,7 @@ pub(super) fn remaining_operations(record: &Record) -> usize {
 }
 
 pub(super) fn eligible(record: &Record) -> bool {
-    record.schema_version == 5
+    record.schema_version == RECORD_SCHEMA_VERSION
         && record.contract == CONTRACT
         && record.status == Status::Building
         && record.active_run_id.is_none()
@@ -141,8 +141,8 @@ pub(super) fn run(
             grant_id: record.grant_id.clone(),
             question: opening::question(&record)?.into(),
             references: vec![],
-            model_id: "gpt-6-luna".into(),
-            effort: "max".into(),
+            model_id: record.model_id.clone(),
+            effort: record.reasoning_effort.clone(),
         },
         &[],
         Some(&intent),

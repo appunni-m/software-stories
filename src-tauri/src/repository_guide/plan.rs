@@ -137,7 +137,7 @@ fn canonicalize(resolved: &native_citations::Resolved) -> Result<Plan, String> {
     })
 }
 
-fn request(job: &Record) -> Result<(String, Value, String, String), String> {
+pub(super) fn request(job: &Record) -> Result<(String, Value, String, String), String> {
     let question = opening::question(job)?;
     let prompt = serde_json::to_string(&json!({"question":question,"snapshotId":job.snapshot_id,
         "scope":"all eligible captured implementation, researched by ranges; never select whole files for transmission",
@@ -149,7 +149,7 @@ fn request(job: &Record) -> Result<(String, Value, String, String), String> {
         "runId":job.planning_run_id,"guideId":job.id,"grantId":job.grant_id,"manifestSha256":job.manifest_sha256,
         "instructions":instructions,"prompt":prompt,"schema":schema,"tools":context_mcp::tools(),
         "correctionPolicy":"owned-section-proposals-no-final-rewrite-v1","openingPolicy":opening::policy(job),
-        "model":"gpt-6-luna","effort":"max","maxUnits":MAX_UNITS,"maxAttemptsPerUnit":MAX_ATTEMPTS,
+        "model":job.model_id,"effort":job.reasoning_effort,"maxUnits":MAX_UNITS,"maxAttemptsPerUnit":MAX_ATTEMPTS,
         "unitResearchPolicy":RESEARCH_POLICY,"openingIntentSha256":job.opening_context_sha256,
         "sourcePolicy":crate::evidence_ledger::POLICY,"baseInstructions":agent_context::PROGRESSIVE_BASE_INSTRUCTIONS,
         "sceneAuthoringPolicy":crate::evidence_ledger::sections::authoring::POLICY,
@@ -176,7 +176,7 @@ fn new_session(
 ) -> Result<agent_context::Session, String> {
     agent_context::Session::new_progressive(
         storage, &job.planning_run_id, manifest, runtime, &job.grant_id,
-        jobs, opening::question(job)?, fingerprint, "gpt-6-luna", "max", notify,
+        jobs, opening::question(job)?, fingerprint, &job.model_id, &job.reasoning_effort, notify,
     )
 }
 
@@ -209,8 +209,8 @@ pub(super) fn run(
         codex_agent::CodexRunInput {
             run_id: job.planning_run_id.clone(),
             expected_runtime: runtime.clone(),
-            model: "gpt-6-luna".into(),
-            effort: "max".into(),
+            model: job.model_id.clone(),
+            effort: job.reasoning_effort.clone(),
             approval_policy: "never".into(),
             system_instruction: instructions,
             user_prompt: prompt,

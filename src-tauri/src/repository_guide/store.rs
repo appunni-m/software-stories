@@ -22,9 +22,23 @@ fn path(storage: &Path, id: &str) -> Result<std::path::PathBuf, String> {
 }
 pub(super) fn read(storage: &Path, id: &str) -> Result<Record, String> {
     let bytes = crate::repository_plan_store::read_bounded_file(&path(storage, id)?, MAX_RECORD)?;
-    let record: Record = crate::strict_json::from_slice(&bytes)
-        .and_then(serde_json::from_value)
+    let mut value: serde_json::Value = crate::strict_json::from_slice(&bytes)
         .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
+    let migrate_v6 = value.get("schemaVersion").and_then(serde_json::Value::as_u64) == Some(5)
+        && value.get("contract").and_then(serde_json::Value::as_str) == Some(LEGACY_CONTRACT)
+        && value.get("modelId").is_none()
+        && value.get("reasoningEffort").is_none();
+    if migrate_v6 {
+        value["schemaVersion"] = serde_json::json!(RECORD_SCHEMA_VERSION);
+        value["contract"] = serde_json::json!(CONTRACT);
+        value["modelId"] = serde_json::json!(DEFAULT_MODEL_ID);
+        value["reasoningEffort"] = serde_json::json!(DEFAULT_REASONING_EFFORT);
+    }
+    let mut record: Record = serde_json::from_value(value)
+        .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
+    if migrate_v6 {
+        record.opening_context_sha256 = Some(super::opening::context_sha256(&record)?);
+    }
     validate(&record)?;
     if record.id != id {
         return Err("The saved guide identity changed.".into());
@@ -231,13 +245,17 @@ pub(super) fn create(storage: &Path, record: &Record) -> Result<(), String> {
 }
 
 fn validate(record: &Record) -> Result<(), String> {
-    if record.schema_version != 5 || record.contract != CONTRACT || record.opening.is_none()
+    if record.schema_version != RECORD_SCHEMA_VERSION
+        || record.contract != CONTRACT
+        || record.opening.is_none()
         || !uuid(&record.id)
         || !uuid(&record.planning_run_id)
         || !uuid(&record.grant_id)
         || !text(&record.question, 1, 12000)
         || record.project_id.is_empty()
         || record.snapshot_id.is_empty()
+        || !model_text(&record.model_id, 200)
+        || !model_text(&record.reasoning_effort, 32)
         || record.manifest_sha256.len() != 64
         || !record
             .manifest_sha256

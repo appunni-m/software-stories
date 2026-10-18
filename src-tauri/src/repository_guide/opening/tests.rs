@@ -10,6 +10,8 @@ pub(in crate::repository_guide) fn pending(f: &Fixture) -> Record {
             snapshot_id: previous.snapshot_id,
             grant_id: previous.grant_id,
             question: previous.question,
+            model_id: DEFAULT_MODEL_ID.into(),
+            reasoning_effort: DEFAULT_REASONING_EFFORT.into(),
             consent: true,
         },
         &f.manifest,
