@@ -1,8 +1,9 @@
 /** Presentation metadata only. None of these records grants access or starts playback. */
 export interface SectionIdentity { revisionId:string; sectionId:string; sectionRevisionId:string }
 export interface FlowViewport { x:number; y:number; zoom:number }
+export const FOCUSED_STORY_LAYOUT_VERSION = 2 as const;
 export interface StoryProgress extends SectionIdentity {
-  sceneId:string; positions:Record<string,number>; fullMap:boolean; viewport?:FlowViewport;
+  sceneId:string; positions:Record<string,number>; fullMap:boolean; viewport?:FlowViewport; focusLayoutVersion?:typeof FOCUSED_STORY_LAYOUT_VERSION;
 }
 export interface DiagramProgress extends SectionIdentity { viewport:FlowViewport }
 export interface ReaderProgress { stories:StoryProgress[]; diagrams:DiagramProgress[] }
@@ -21,12 +22,19 @@ export function cleanFlowViewport(value:unknown):FlowViewport|undefined {
 }
 export function cleanStoryProgress(value:unknown):StoryProgress|undefined {
   if(!object(value)||!identity(value)||!id(value.sceneId)||typeof value.fullMap!=='boolean'||!object(value.positions))return undefined;
+  if(value.focusLayoutVersion!==undefined&&value.focusLayoutVersion!==FOCUSED_STORY_LAYOUT_VERSION)return undefined;
   const entries=Object.entries(value.positions);
   if(entries.length>128||entries.some(([key,n])=>!id(key)||typeof n!=='number'||!Number.isFinite(n)||n<0||n>3600))return undefined;
   const viewport=value.viewport===undefined?undefined:cleanFlowViewport(value.viewport);
   if(value.viewport!==undefined&&!viewport)return undefined;
+  // Before focused layouts were recomputed from the visible subgraph, a
+  // saved focused viewport could point at coordinates no longer in the scene.
+  // Preserve old map viewports, but refit old focused scenes once.
+  const compatibleViewport=value.fullMap||value.focusLayoutVersion===FOCUSED_STORY_LAYOUT_VERSION?viewport:undefined;
   return {revisionId:value.revisionId,sectionId:value.sectionId,sectionRevisionId:value.sectionRevisionId,
-    sceneId:value.sceneId,positions:Object.fromEntries(entries) as Record<string,number>,fullMap:value.fullMap,...(viewport?{viewport}:{})};
+    sceneId:value.sceneId,positions:Object.fromEntries(entries) as Record<string,number>,fullMap:value.fullMap,
+    ...(value.focusLayoutVersion===FOCUSED_STORY_LAYOUT_VERSION?{focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION}:{}),
+    ...(compatibleViewport?{viewport:compatibleViewport}:{})};
 }
 export function cleanDiagramProgress(value:unknown):DiagramProgress|undefined {
   if(!object(value)||!identity(value))return undefined;

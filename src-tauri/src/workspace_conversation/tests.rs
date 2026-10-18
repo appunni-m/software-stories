@@ -97,6 +97,28 @@ fn exact_scene_audio_map_pane_and_flow_positions_round_trip_as_metadata() {
 }
 
 #[test]
+fn focused_story_layout_version_is_bounded_and_backward_compatible() {
+    let f = Fixture::new();
+    let mut s = presentation_state();
+    let stories = s["explorations"][0]["turns"][0]["presentation"]["stories"]
+        .as_array_mut()
+        .unwrap();
+    stories[0]["focusLayoutVersion"] = json!(2);
+    let record = save(&f.0, "project", "snapshot", None, s.clone()).unwrap();
+    assert_eq!(record.state, s);
+
+    let before = fs::read(f.path()).unwrap();
+    s["explorations"][0]["turns"][0]["presentation"]["stories"][0]["focusLayoutVersion"] =
+        json!(1);
+    assert!(save(&f.0, "project", "snapshot", Some(record.revision), s).is_err());
+    assert_eq!(fs::read(f.path()).unwrap(), before);
+
+    // Old records without the viewport-layout marker remain readable.
+    let old = presentation_state();
+    assert!(save(&f.0, "project", "snapshot", Some(record.revision), old).is_ok());
+}
+
+#[test]
 fn selected_answer_versions_and_independent_reading_round_trip_without_rewriting_receipts() {
     let f = Fixture::new();
     let mut s = presentation_state();

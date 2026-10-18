@@ -1,6 +1,6 @@
 import type { ChapterSection, EvidenceLinkedVisualSpec } from './commands';
 import { sceneNarrations, validScenePresentation } from './scenePresentation.ts';
-import { cleanStoryProgress, sameSection, type FlowViewport, type SectionIdentity, type StoryProgress } from './readerProgress.ts';
+import { cleanStoryProgress, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type SectionIdentity, type StoryProgress } from './readerProgress.ts';
 
 export interface StoryScene {
   id: string;
@@ -133,9 +133,11 @@ export function readSectionStoryProgress(progress:StoryProgress|undefined,identi
 function isCurrentStoryProgress(value: unknown): value is StoryProgress {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
-  const expected = ['revisionId', 'sectionId', 'sectionRevisionId', 'sceneId', 'positions', 'fullMap'];
+  const required = ['revisionId', 'sectionId', 'sectionRevisionId', 'sceneId', 'positions', 'fullMap'];
+  const allowed = [...required, 'viewport', 'focusLayoutVersion'];
   const actual = Object.keys(record);
-  return actual.every(key => expected.includes(key) || key === 'viewport')
-    && expected.every(key => Object.hasOwn(record, key))
+  return actual.every(key => allowed.includes(key))
+    && required.every(key => Object.hasOwn(record, key))
+    && (record.focusLayoutVersion === undefined || record.focusLayoutVersion === FOCUSED_STORY_LAYOUT_VERSION)
     && (record.viewport === undefined || Object.hasOwn(record, 'viewport'));
 }

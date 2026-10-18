@@ -37,6 +37,24 @@ test('native zero and scene selection restore without autoplay or unscoped fallb
   assert.equal(readSectionStoryProgress({...story,positions:{'claim:second':0}},identity,whole,19.5).positions[0][1],0,'explicit native zero wins over a route fallback');
 });
 
+test('focused graph viewport migration refits old scenes but preserves map and current focused positions',()=>{
+  const scenes=[{id:'claim:second'}];
+  const oldFocused={...story,fullMap:false};
+  assert.deepEqual(readSectionStoryProgress(oldFocused,identity,scenes),{
+    index:0,positions:[['claim:second',3.2]],fullMap:false,viewport:undefined,
+  });
+  assert.deepEqual(readSectionStoryProgress({...oldFocused,focusLayoutVersion:2},identity,scenes),{
+    index:0,positions:[['claim:second',3.2]],fullMap:false,viewport:story.viewport,
+  });
+  assert.deepEqual(readSectionStoryProgress({...story,focusLayoutVersion:2},identity,scenes),{
+    index:0,positions:[['claim:second',3.2]],fullMap:true,viewport:story.viewport,
+  });
+  const browserProgress=readStoryProgress(JSON.stringify({...oldFocused,focusLayoutVersion:2}),identity,scenes);
+  assert.equal(browserProgress.focusLayoutVersion,2);
+  assert.deepEqual(browserProgress.viewport,story.viewport);
+  assert.equal(cleanStoryProgress({...oldFocused,focusLayoutVersion:1}),undefined);
+});
+
 test('valid bounded native progress does not pass through a browser string parser',()=>{
   const scenes=Array.from({length:128},(_,i)=>({id:`claim:${i}:${'x'.repeat(200)}`}));
   const metadata={...story,sceneId:scenes[127].id,positions:Object.fromEntries(scenes.map((s,i)=>[s.id,i]))};

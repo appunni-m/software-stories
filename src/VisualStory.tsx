@@ -8,7 +8,7 @@ import { defaultNarrationText, parseNarrationPreferences } from './lib/narration
 import { narrationStorageKey } from './lib/narrationScope';
 import { inspectInteractiveVisual } from './lib/visuals';
 import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, storyLayout, storyScenes } from './lib/visualStory';
-import { cleanFlowViewport, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
+import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
 import { useReaderProgress } from './lib/ReaderProgressContext';
 import './visual-story.css';
 
@@ -81,7 +81,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const hotspot = inspection.status === 'available' && focus?.hotspotId ? inspection.hotspotsById.get(focus.hotspotId) : undefined;
   const savePosition = (sceneId: string, position?: number) => {
     if (position !== undefined && Number.isFinite(position)) positions.current.set(sceneId, Math.max(0,Math.min(3600,position)));
-    const saved={...identity,sceneId:activeScene.current,positions:Object.fromEntries(positions.current),fullMap:mapView.current,...(canvasViewport.current?{viewport:canvasViewport.current}:{})};
+    const saved={...identity,sceneId:activeScene.current,positions:Object.fromEntries(positions.current),fullMap:mapView.current,focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION,...(canvasViewport.current?{viewport:canvasViewport.current}:{})};
     if(onProgressChange)onProgressChange(saved);
     else if(!isNativeRuntime())try { localStorage.setItem(sceneKey, JSON.stringify(saved)); } catch { /* Standalone reading works without browser storage. */ }
   };
