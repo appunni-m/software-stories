@@ -31,7 +31,7 @@ function setup(){
   const result={revision:saved,validation:{status:'valid',issues:[]}};
   const bindings={projectId:'p',snapshotId:'s',window:new EventTarget(),CustomEvent,candidate,selectedRevision:before,isLatestCurrent:true,busy:false,editing:false,
     selectedTarget:{latestCurrent:saved},studioMounted:{current:true},rejectReason:'Needs revision',
-    chapterHistory:{current:{refresh:async()=>{state.refreshes++;},record:r=>state.recorded.push(r)}},
+    chapterHistory:{current:{refresh:async()=>{state.refreshes++;},record:r=>{state.recorded.push(r);state.refreshes++;}}},
     setRefreshKey:()=>state.refreshes++,setSelectedTargetKey:change('target'),setSelectedRevisionId:change('selected'),
     setLoading:change('loading'),setLoadError:change('loadError'),
     setEditing:change('editing'),setCandidate:change('candidate'),setValidation:change('validation'),setFeedback:change('feedback'),
@@ -79,11 +79,11 @@ test('the real Remove claim callback updates linked scenes, cues and section dep
   assert.ok(result.visual===null||result.visual.nodes.every(n=>n.evidenceAnchorIds.every(a=>remaining.has(a))));
 });
 
-test('background chapter publication refreshes history without replacing an unsaved edit or selection',()=>{
+test('background chapter publication records its native receipt and refreshes without replacing an unsaved edit or selection',()=>{
   const {state,bindings,saved}=setup(),candidate=state.candidate;state.loadError='old read failure';
   const cleanup=callback('eventEffect',bindings)();
   changed(bindings.window,{projectId:'p',revision:saved});
-  assert.equal(state.refreshes,1);assert.equal(state.selected,'revision:one');assert.equal(state.candidate,candidate);assert.equal(state.editing,true);assert.deepEqual(state.navigation,[]);
+  assert.equal(state.refreshes,1);assert.deepEqual(state.recorded,[saved]);assert.equal(state.selected,'revision:one');assert.equal(state.candidate,candidate);assert.equal(state.editing,true);assert.deepEqual(state.navigation,[]);
   assert.equal(state.loading,true);assert.equal(state.loadError,null);
   cleanup();changed(bindings.window,{projectId:'p',revision:saved});assert.equal(state.refreshes,1);
 });
@@ -92,6 +92,13 @@ test('another repository publication does not refresh or navigate the current ed
   const {state,bindings,saved}=setup();callback('eventEffect',bindings)();
   changed(bindings.window,{projectId:'other',revision:{...saved,projectId:'other'}});
   assert.equal(state.refreshes,0);assert.deepEqual(state.navigation,[]);
+});
+
+test('a scoped invalidation without a revision receipt still refreshes history',()=>{
+  const {state,bindings}=setup(),cleanup=callback('eventEffect',bindings)();
+  changed(bindings.window,{projectId:'p'});
+  assert.equal(state.refreshes,1);assert.deepEqual(state.recorded,[]);assert.equal(state.loading,true);
+  cleanup();
 });
 
 for(const name of ['saveEdits','restoreSelectedRevision','accept','reject']){

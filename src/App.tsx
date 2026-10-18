@@ -4341,7 +4341,8 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       // A background publication invalidates history, never the user's edit or selection.
       setLoadError(null);
       setLoading(true);
-      void history.refresh();
+      if (detail?.revision?.projectId === projectId) history.record(detail.revision);
+      else void history.refresh();
     };
     window.addEventListener('code-atlas:chapters-changed', refresh);
     return () => window.removeEventListener('code-atlas:chapters-changed', refresh);
