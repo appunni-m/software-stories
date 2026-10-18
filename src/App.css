@@ -2122,6 +2122,35 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .dw-tool-content :is(.primary-button,.secondary-button,.text-button) {font-size:12px;min-height:32px;}
 .dw-tool-content :is(.git-ref-card,.git-changes-list,.git-comparison-result) {border-radius:8px;}
 
+/* The packaged Changes workspace keeps file navigation beside the selected diff. */
+.git-compact-comparison {display:grid;grid-template-rows:auto minmax(0,1fr);gap:8px;min-height:0;}
+.git-compact-surfaces {display:flex;align-items:center;gap:4px;width:fit-content;padding:3px;border:1px solid var(--border);border-radius:7px;background:var(--surface);}
+.git-compact-surfaces button {min-height:30px;padding:0 12px;border:0;border-radius:5px;color:var(--muted);background:transparent;font:inherit;font-size:12px;cursor:pointer;}
+.git-compact-surfaces button[aria-pressed="true"] {color:var(--text);background:var(--surface-raised);box-shadow:0 0 0 1px var(--border-strong);}
+.git-compact-surfaces button:focus-visible,.git-compact-files button:focus-visible {outline:2px solid var(--accent);outline-offset:2px;}
+.git-compact-browser {height:clamp(360px,58vh,740px);min-height:0;display:grid;grid-template-columns:minmax(190px,260px) minmax(0,1fr);overflow:hidden;border:1px solid var(--border);border-radius:8px;background:var(--surface);}
+.git-compact-browser[hidden],.git-compact-pr-guide[hidden] {display:none!important;}
+.git-compact-files {min-width:0;min-height:0;display:flex;flex-direction:column;gap:3px;overflow:auto;padding:8px;border-right:1px solid var(--border);background:var(--canvas);}
+.git-compact-files > header {display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 7px 9px;color:var(--muted);font-size:11px;}
+.git-compact-files > header span {font:11px var(--mono);}
+.git-compact-files > button {min-width:0;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:5px 8px;padding:8px;border:1px solid transparent;border-radius:6px;color:var(--text);background:transparent;text-align:left;cursor:pointer;}
+.git-compact-files > button:hover {background:var(--surface-hover);}
+.git-compact-files > button.active,.git-compact-files > button[aria-pressed="true"] {border-color:var(--border-strong);background:var(--surface-raised);}
+.git-compact-files > button code {min-width:0;overflow:hidden;color:var(--text);font:12px var(--mono);text-overflow:ellipsis;white-space:nowrap;}
+.git-compact-files > button small {grid-column:2;color:var(--muted);font-size:10px;}
+.git-compact-files .git-change-kind {font-size:9px;}
+.git-compact-detail {min-width:0;min-height:0;overflow:auto;padding:10px;}
+.git-compact-detail > .git-change-card {background:transparent;}
+.git-compact-detail .git-change-static-title {margin:0;border-bottom:1px solid var(--border);background:var(--surface-raised);cursor:default;}
+.git-compact-detail .git-change-static-title:hover {background:var(--surface-raised);}
+.git-compact-detail .git-change-detail {border-top:0;}
+.git-compact-pr-guide {min-width:0;}
+@media(max-width:850px) {
+  .git-compact-browser {height:clamp(430px,64vh,760px);grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(100px,150px) minmax(0,1fr);}
+  .git-compact-files {display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));align-content:start;border-right:0;border-bottom:1px solid var(--border);}
+  .git-compact-files > header {grid-column:1/-1;}
+}
+
 /* Connections is the sole home for engine, account and delivery configuration. */
 .connections-dialog { width: min(700px, 100%); }
 .connections-dialog .provider-dialog-header h2 { margin-top: 0; }

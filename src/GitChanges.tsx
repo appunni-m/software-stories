@@ -223,6 +223,7 @@ function ComparisonResults({
   onRecoveryReviewReady?: (operationId: string) => void;
 }) {
   const [focusedCitation, setFocusedCitation] = useState<{ identity: string; hunkIndex: number } | null>(null);
+  const [compactSurface, setCompactSurface] = useState<'diff' | 'pr-guide'>('diff');
   const isPartial = comparison.status === 'limited';
   const resultLabel = comparison.status === 'ready'
     ? `${comparison.changes.length} changed ${comparison.changes.length === 1 ? 'file' : 'files'}`
@@ -231,6 +232,26 @@ function ComparisonResults({
       : isPartial
         ? 'Partial comparison'
         : comparison.status === 'cancelled' ? 'Comparison stopped' : 'Comparison unavailable';
+  const activeChange = comparison.changes.find((change) => changeIdentity(change) === selectedChangePath) ?? comparison.changes[0];
+  const activeIdentity = activeChange ? changeIdentity(activeChange) : undefined;
+  const activePath = activeChange?.headPath ?? activeChange?.basePath ?? 'Unknown path';
+  const prGuide = <Suspense fallback={<p className="pr-guide-muted" role="status">Loading PR Guide review controls…</p>}>
+    <PrGuideStudio accountOnly={compact}
+      key={JSON.stringify([projectId, baseRef, headRef, comparison.comparisonId])}
+      projectId={projectId}
+      baseRef={baseRef}
+      headRef={headRef}
+      comparison={comparison}
+      onFocusChange={(identity, hunkIndex) => {
+        if (identity && hunkIndex !== undefined) setFocusedCitation({ identity, hunkIndex });
+        if (compact) setCompactSurface('diff');
+        onSelectChange(identity);
+      }}
+      onOpenProviderSettings={onOpenProviderSettings}
+      recovery={recovery}
+      onRecoveryReviewReady={onRecoveryReviewReady}
+    />
+  </Suspense>;
 
   return (
     <section className="git-comparison-results" aria-labelledby="git-results-title">
@@ -259,6 +280,39 @@ function ComparisonResults({
       )}
       {comparison.changes.length === 0 && comparison.status !== 'chooseAgain' && comparison.status !== 'error' ? (
         <p className="git-no-changes">These commits have no file changes in the comparison result.</p>
+      ) : comparison.changes.length > 0 && compact ? (
+        <div className="git-compact-comparison">
+          <div className="git-compact-surfaces">
+            <button type="button" aria-pressed={compactSurface === 'diff'} onClick={() => setCompactSurface('diff')}>Diff</button>
+            <button type="button" aria-pressed={compactSurface === 'pr-guide'} onClick={() => setCompactSurface('pr-guide')}>PR Guide</button>
+          </div>
+          <div className="git-compact-browser" hidden={compactSurface !== 'diff'}>
+            <nav className="git-compact-files" aria-label="Changed files">
+              <header><strong>Files changed</strong><span>{comparison.changes.length}</span></header>
+              {comparison.changes.map((change) => {
+                const identity = changeIdentity(change);
+                const path = change.headPath ?? change.basePath ?? 'Unknown path';
+                const selected = identity === activeIdentity;
+                return <button type="button" key={identity} className={selected ? 'active' : ''} aria-pressed={selected} onClick={() => { setFocusedCitation(null); onSelectChange(identity); }}>
+                  <span className={`git-change-kind kind-${change.kind.toLowerCase()}`}>{change.kind}</span>
+                  <code title={path}>{path}</code>
+                  <small>{change.hunks.length} {change.hunks.length === 1 ? 'hunk' : 'hunks'} · {formatClassification(change.classification)}</small>
+                </button>;
+              })}
+            </nav>
+            <section className="git-compact-detail" aria-label={`Diff for ${activePath}`}>
+              {activeChange ? <ChangeDisclosure
+                change={activeChange}
+                relationshipImpact={comparison.relationshipImpact}
+                expanded
+                interactive={false}
+                focusedHunkIndex={focusedCitation && focusedCitation.identity === activeIdentity ? focusedCitation.hunkIndex : undefined}
+                onToggle={() => undefined}
+              /> : <p className="git-no-changes">Select a changed file to inspect its diff.</p>}
+            </section>
+          </div>
+          <div className="git-compact-pr-guide" hidden={compactSurface !== 'pr-guide'}>{prGuide}</div>
+        </div>
       ) : (
         <div className="git-change-list" role="group" aria-label="Changed files">
           {comparison.changes.map((change) => {
@@ -275,22 +329,7 @@ function ComparisonResults({
           })}
         </div>
       )}
-      <Suspense fallback={<p className="pr-guide-muted" role="status">Loading PR Guide review controls…</p>}>
-        <PrGuideStudio accountOnly={compact}
-          key={JSON.stringify([projectId, baseRef, headRef, comparison.comparisonId])}
-          projectId={projectId}
-          baseRef={baseRef}
-          headRef={headRef}
-          comparison={comparison}
-          onFocusChange={(identity, hunkIndex) => {
-            if (identity && hunkIndex !== undefined) setFocusedCitation({ identity, hunkIndex });
-            onSelectChange(identity);
-          }}
-          onOpenProviderSettings={onOpenProviderSettings}
-          recovery={recovery}
-          onRecoveryReviewReady={onRecoveryReviewReady}
-        />
-      </Suspense>
+      {compact && comparison.changes.length > 0 ? null : prGuide}
     </section>
   );
 }
@@ -304,9 +343,20 @@ function CommitIdentity({ label, ref }: { label: string; ref: { requested: strin
   );
 }
 
-function ChangeDisclosure({ change, relationshipImpact, expanded, focusedHunkIndex, onToggle }: { change: GitFileChange; relationshipImpact: GitComparisonResult['relationshipImpact']; expanded: boolean; focusedHunkIndex?: number; onToggle: () => void }) {
+function ChangeDisclosure({ change, relationshipImpact, expanded, interactive = true, focusedHunkIndex, onToggle }: { change: GitFileChange; relationshipImpact: GitComparisonResult['relationshipImpact']; expanded: boolean; interactive?: boolean; focusedHunkIndex?: number; onToggle: () => void }) {
   const path = change.headPath ?? change.basePath ?? 'Unknown path';
   const cardRef = useRef<HTMLElement>(null);
+  const heading = <>
+    <span className="git-change-kind">{change.kind}</span>
+    <span className="git-change-paths">
+      <code>{change.basePath ?? '∅'}</code>
+      {change.basePath !== change.headPath && <span aria-hidden="true">→</span>}
+      {change.basePath !== change.headPath && <code>{change.headPath ?? '∅'}</code>}
+      {change.basePath === change.headPath && <span className="git-change-same-path"><code>{path}</code></span>}
+    </span>
+    <span className={`git-evidence-classification classification-${change.classification}`}>{formatClassification(change.classification)}</span>
+    <span className="git-change-count">{change.hunks.length} {change.hunks.length === 1 ? 'hunk' : 'hunks'}</span>
+  </>;
 
   useEffect(() => {
     if (!expanded || focusedHunkIndex === undefined) return;
@@ -318,17 +368,9 @@ function ChangeDisclosure({ change, relationshipImpact, expanded, focusedHunkInd
 
   return (
     <article ref={cardRef} className={`git-change-card${expanded ? ' expanded' : ''}`}>
-      <button className="git-change-toggle" aria-expanded={expanded} onClick={onToggle}>
-        <span className="git-change-kind">{change.kind}</span>
-        <span className="git-change-paths">
-          <code>{change.basePath ?? '∅'}</code>
-          {change.basePath !== change.headPath && <span aria-hidden="true">→</span>}
-          {change.basePath !== change.headPath && <code>{change.headPath ?? '∅'}</code>}
-          {change.basePath === change.headPath && <span className="git-change-same-path"><code>{path}</code></span>}
-        </span>
-        <span className={`git-evidence-classification classification-${change.classification}`}>{formatClassification(change.classification)}</span>
-        <span className="git-change-count">{change.hunks.length} {change.hunks.length === 1 ? 'hunk' : 'hunks'}</span>
-      </button>
+      {interactive
+        ? <button className="git-change-toggle" aria-expanded={expanded} onClick={onToggle}>{heading}</button>
+        : <h3 className="git-change-toggle git-change-static-title">{heading}</h3>}
       {expanded && (
         <div className="git-change-detail">
           {change.skippedReason && <p className="git-stale-result" role="status">{change.skippedReason}</p>}
