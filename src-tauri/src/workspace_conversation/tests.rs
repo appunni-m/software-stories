@@ -199,6 +199,37 @@ fn reference_bounds_are_checked_without_requiring_live_source_or_authorizing_it(
 }
 
 #[test]
+fn native_admission_rejects_metadata_the_legacy_reader_would_drop() {
+    let f = Fixture::new();
+    save(&f.0, "project", "snapshot", None, state()).unwrap();
+    let before = fs::read(f.path()).unwrap();
+    let run = "abcdefab-1234-5678-9abc-123456789abc";
+    let mut good = state();
+    good["explorations"][0]["turns"][0]["runIds"] = json!([run]);
+    good["explorations"][0]["turns"][0]["publishedSections"] = json!([{"runId":run,"key":"opening","order":0,"generationId":format!("generation:{run}"),"revisionId":"revision:one","supersedes":null,"contextElapsedMs":2,"runElapsedMs":null}]);
+    assert!(validate(&good, "project", "snapshot").is_ok());
+    let mut cases = vec![];
+    for key in ["supersedes", "runElapsedMs"] {
+        let mut s = good.clone();
+        s["explorations"][0]["turns"][0]["publishedSections"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove(key);
+        cases.push(s);
+    }
+    let mut upper = state();
+    upper["explorations"][0]["turns"][0]["guideId"] = json!(run.to_uppercase());
+    cases.push(upper);
+    let mut note = state();
+    note["explorations"][0]["turns"][0]["notes"] = json!(["line one\nline two"]);
+    cases.push(note);
+    for s in cases {
+        assert!(save(&f.0, "project", "snapshot", Some(1), s).is_err());
+        assert_eq!(fs::read(f.path()).unwrap(), before);
+    }
+}
+
+#[test]
 fn corrupt_future_duplicate_scope_and_oversized_storage_are_preserved() {
     let f = Fixture::new();
     let good = save(&f.0, "project", "snapshot", None, state()).unwrap();

@@ -87,7 +87,7 @@ fn integer(v: &Value, max: u64) -> bool {
 }
 fn uuid(v: &Value) -> bool {
     v.as_str()
-        .is_some_and(|s| uuid::Uuid::parse_str(s).is_ok() && s.len() == 36)
+        .is_some_and(|s| uuid::Uuid::parse_str(s).is_ok_and(|id| id.to_string() == s))
 }
 fn generation(v: &Value) -> bool {
     v.as_str()
@@ -212,6 +212,8 @@ fn turn(v: &Value) -> Result<&str, String> {
                     .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
                 || string(p, "key")?.is_empty()
                 || string(p, "key")?.len() > 80
+                || !p.contains_key("supersedes")
+                || !p.contains_key("runElapsedMs")
                 || !optional(p, "supersedes", generation)
                 || !p
                     .get("contextElapsedMs")
@@ -225,7 +227,15 @@ fn turn(v: &Value) -> Result<&str, String> {
     }
     if let Some(v) = o.get("notes") {
         let a = v.as_array().ok_or(UNAVAILABLE)?;
-        if a.len() > 8 || a.iter().any(|v| !v.as_str().is_some_and(|s| text(s, 4000))) {
+        if a.len() > 8
+            || a.iter().any(|v| {
+                !v.as_str().is_some_and(|s| {
+                    !s.trim().is_empty()
+                        && s.chars().count() <= 1000
+                        && !s.chars().any(char::is_control)
+                })
+            })
+        {
             return Err(UNAVAILABLE.into());
         }
     }
