@@ -9,6 +9,8 @@ export interface NotificationGroupingItem {
   id: string;
   groupKey?: string;
   bucket?: NotificationBucket;
+  /** Overrides mixed historical severities when the caller knows the group's current state. */
+  groupBucket?: NotificationBucket;
   countLabel?: string;
   read?: boolean;
 }
@@ -36,7 +38,8 @@ export function groupNotifications<T extends NotificationGroupingItem>(items: re
   }
   return [...grouped].map(([id, entries]) => ({
     id,
-    bucket: entries.some((item) => item.bucket === 'attention') ? 'attention' : 'updates',
+    bucket: entries.find((item) => item.groupBucket)?.groupBucket
+      ?? (entries.some((item) => item.bucket === 'attention') ? 'attention' : 'updates'),
     countLabel: entries[0]?.countLabel ?? 'updates',
     unreadCount: entries.filter((item) => item.read === false).length,
     items: entries,

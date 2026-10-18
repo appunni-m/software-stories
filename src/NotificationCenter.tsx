@@ -11,6 +11,7 @@ export interface WorkspaceNotification {
   tone?: 'info' | 'warning' | 'error';
   read?: boolean;
   bucket?: NotificationBucket;
+  groupBucket?: NotificationBucket;
   groupKey?: string;
   countLabel?: string;
   detail?: string;

@@ -1457,7 +1457,7 @@ function App() {
       id: `question:${outcome.turnId}`, title: outcome.title,
       message: `${currentProject?.displayName ?? 'Repository'} · ${outcome.question}`,
       groupKey: currentProject && selectedSnapshot ? notificationGroupKey('question', currentProject.projectId, selectedSnapshot.snapshotId, outcome.question) : undefined,
-      bucket: notificationBucketForOutcome(outcome.tone), countLabel: 'attempts',
+      bucket: notificationBucketForOutcome(outcome.tone), groupBucket: notificationBucketForOutcome(outcome.tone), countLabel: 'attempts',
       read: outcome.read, tone: outcome.tone,
       actions: [{ label: 'Open question', movesFocus: true, run: () => {
         if (!currentProject || !selectedSnapshot) return;
@@ -1506,8 +1506,8 @@ function App() {
       actions: [{ label: 'Try again', run: () => { void refreshPendingChapterPreviews(); } }] }] : []),
     ...pendingChapterPreviews.map((preview): WorkspaceNotification => ({
       id: `preview:${preview.generationId}`, title: preview.unavailableReason ? 'An explanation needs attention' : 'An explanation is ready',
-      groupKey: preview.projectId && preview.snapshotId ? notificationGroupKey('preview',preview.projectId,preview.snapshotId,preview.title,preview.targetPath??'') : undefined,
-      bucket: 'attention', countLabel: 'drafts',
+      groupKey: preview.projectId && preview.snapshotId ? notificationGroupKey('preview',preview.projectId,preview.snapshotId,preview.title,preview.targetPath??'',preview.unavailableReason?'unavailable':'ready') : undefined,
+      bucket: notificationBucketForOutcome(preview.unavailableReason ? 'warning' : 'info'), countLabel: 'drafts',
       message: previewNotificationMessage(preview, preview.projectId ? knownProjects[preview.projectId]?.displayName : undefined), tone: preview.unavailableReason ? 'warning' : 'info',
       actions: [{ label: 'Open explanation', disabled: Boolean(preview.unavailableReason), opensDialog: true, run: () => {
         recoveredPreviewReturnFocusRef.current = document.querySelector<HTMLButtonElement>('[data-focus-key="notifications"]');

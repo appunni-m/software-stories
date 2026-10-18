@@ -20,6 +20,11 @@ describe('notification totals', () => {
     assert.equal(groups[0].items[0].action(), 'latest');
     assert.equal(groups[0].items[1].action(), 'earlier');
     assert.deepEqual(groups.slice(1).map((group) => group.items.length), [1, 1, 1]);
+    const resolved = groupNotifications([
+      { id: 'latest-ready', groupKey: 'same-question', bucket: 'updates', groupBucket: 'updates' },
+      { id: 'older-failed', groupKey: 'same-question', bucket: 'attention', groupBucket: 'updates' },
+    ]);
+    assert.equal(resolved[0].bucket, 'updates');
     assert.equal(groupNotifications([
       { id: 'recovery-1', groupKey: 'recovery', bucket: 'attention' },
       { id: 'recovery-2', groupKey: 'recovery', bucket: 'attention' },
@@ -154,6 +159,8 @@ describe('notification totals', () => {
     assert.match(component, /modal=\{false\}/);
     assert.match(app, /availability=\{notificationAvailability\(\{ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready'/);
     assert.match(app, /bucket: notificationBucketForOutcome\(outcome\.tone\)/);
+    assert.match(app, /groupBucket: notificationBucketForOutcome\(outcome\.tone\)/);
+    assert.match(app, /bucket: notificationBucketForOutcome\(preview\.unavailableReason \? 'warning' : 'info'\)/);
     assert.match(app, /answers: answerAvailability/);
     assert.match(app, /onAnswerRestoration=\{setAnswerRestoration\}/);
     assert.match(app, /id: 'answers-unavailable'[\s\S]*?setWorkspaceReload/);
