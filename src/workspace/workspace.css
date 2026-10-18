@@ -64,6 +64,9 @@
 .dw-user-question > svg {flex-shrink:0;margin-top:4px;color:var(--dim);}
 .dw-user-question h2 {font-size:14px;line-height:1.6;font-weight:500;margin:0;overflow-wrap:anywhere;}
 .dw-answer-card {padding:18px;border:1px solid var(--border);border-radius:9px;background:var(--surface);}
+.dw-answer-card-unavailable {display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 12px;}
+.dw-unavailable-status {margin:0;color:var(--muted);font-size:12px;line-height:1.5;}
+.dw-answer-card-unavailable .rt-Button {flex:0 0 auto;}
 .dw-answer-heading {display:flex;align-items:center;gap:8px;color:var(--dim);font-size:11px;}
 .dw-answer-heading > div {display:flex;gap:4px;margin-left:auto;}
 .dw-answer-version {display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px;color:var(--dim);font-size:11px;}
@@ -144,6 +147,7 @@
 .developer-workspace .preview-editor-footer {display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--border);padding:7px 12px;font-size:10px;color:var(--dim);}
 .developer-workspace .preview-selection-tools {position:absolute;bottom:46px;left:20px;display:flex;gap:6px;padding:6px;background:var(--surface);box-shadow:0 4px 20px color-mix(in srgb,var(--shadow) 25%,transparent);border:1px solid var(--border);border-radius:7px;z-index:2;}
 @media(max-width:950px){.dw-answer-scroll{padding:16px 12px 32px;}.dw-answer-card{padding:14px;}.dw-composer{padding-left:12px;padding-right:12px;}.dw-flow-canvas{height:300px;}}
+@media(max-width:680px){.dw-answer-card-unavailable{padding:8px 10px;}.dw-answer-card-unavailable .rt-Button{margin-left:auto;}}
 @media(max-width:680px){.dw-activity{flex-basis:40px;}.dw-activity button{width:39px;}.dw-panels>[data-panel]:first-child{display:none;}.dw-reading>[data-panel]:first-child:not(:last-child){display:none;}.dw-reading>.dw-separator{display:none;}.dw-answer-scroll{padding:12px 10px;}.dw-viewbar .rt-TabsTriggerInner{font-size:11px;}.dw-composer{padding:6px 10px 10px;}}
 @media(prefers-reduced-motion:reduce){.developer-workspace *{scroll-behavior:auto!important;animation:none!important;transition:none!important;}}
 .developer-workspace .dw-narrow-toggle {display:none;}

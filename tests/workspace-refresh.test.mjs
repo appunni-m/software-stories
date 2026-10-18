@@ -109,6 +109,16 @@ test('progressive cards stop loading when a completed history read cannot find t
   assert.doesNotMatch(workspace, /loading=\{props\.loading\|\|!chapters\?\.some/);
 });
 
+test('an unavailable answer stays a compact status beside its recovery action', () => {
+  const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
+  assert.match(workspace, /const unavailable=!revision&&availability==='unavailable'/);
+  assert.match(workspace, /className=\{`dw-answer-card\$\{unavailable\?' dw-answer-card-unavailable':''\}`\}/);
+  assert.match(workspace, /<p className="dw-unavailable-status" role="status">Saved explanation unavailable\.<\/p>/);
+  assert.match(workspace, /<Button size="1" variant="soft" onClick=\{onRetry\}>Explain again<\/Button>/);
+  assert.match(styles, /\.dw-answer-card-unavailable\s*\{display:flex;align-items:center/);
+});
+
 test('saved chapter arrivals do not reload the immutable snapshot index or reset the reader', () => {
   const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   const effect = source.split('\n').find((line) => line.includes('ensureWorkspaceIndex(projectId,snapshotId)'));
