@@ -12,11 +12,11 @@
 .story-stage { height: clamp(300px, calc(100vh - 480px), 560px); min-width: 0; background: var(--canvas); }
 .story-html-stage { overflow: auto; }
 .visual-story .react-flow { --xy-background-color: var(--canvas); --xy-background-pattern-dots-color: var(--border-strong); --xy-node-background-color: var(--surface); --xy-node-color: var(--text); --xy-node-border: 1px solid var(--border-strong); --xy-edge-stroke: var(--muted); --xy-edge-label-color: var(--muted); --xy-edge-label-background-color: var(--surface); --xy-controls-button-background-color: var(--surface); --xy-controls-button-color: var(--text); --xy-controls-button-border-color: var(--border); }
-.visual-story .react-flow__node { padding: 12px; font: 500 14px/1.45 -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 7px; overflow-wrap: anywhere; box-shadow: none; }
+.visual-story .react-flow__node { box-sizing: border-box; padding: 12px; font: 500 14px/1.45 -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 7px; overflow-wrap: break-word; word-break: normal; box-shadow: none; }
 .visual-story .story-node-active { border: 2px solid var(--accent); background: var(--surface-raised); }
 .visual-story .story-node-focus { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
 .visual-story .story-node-context { border-style: dashed; color: var(--muted); }
-.visual-story .story-node-button { border: 0; background: transparent; color: inherit; width: 100%; padding: 0; text-align: center; font: inherit; overflow-wrap: anywhere; }
+.visual-story .story-node-button { box-sizing: border-box; border: 0; background: transparent; color: inherit; width: 100%; max-width: 100%; padding: 0; text-align: center; white-space: normal; font: inherit; overflow-wrap: break-word; word-break: normal; }
 .visual-story .story-edge-active path { stroke: var(--accent); stroke-width: 2; }
 .visual-story .react-flow__edge-text { font-size: 11px; }
 .story-focus-bar { min-height: 44px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 7px 12px; border-top: 1px solid var(--border); }

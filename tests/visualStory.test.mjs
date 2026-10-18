@@ -19,6 +19,18 @@ describe('visual story scenes', () => {
     assert.match(valueRule, /overflow-wrap:\s*break-word/u);
   });
 
+  it('keeps graph node labels readable at word boundaries before breaking long identifiers', () => {
+    const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
+    const nodeRule = styles.match(/\.visual-story \.react-flow__node\s*\{([^}]+)\}/u)?.[1] ?? '';
+    const buttonRule = styles.match(/\.visual-story \.story-node-button\s*\{([^}]+)\}/u)?.[1] ?? '';
+    for (const rule of [nodeRule, buttonRule]) {
+      assert.match(rule, /overflow-wrap:\s*break-word/u);
+      assert.match(rule, /word-break:\s*normal/u);
+      assert.doesNotMatch(rule, /overflow-wrap:\s*anywhere/u);
+    }
+    assert.match(buttonRule, /white-space:\s*normal/u);
+  });
+
   it('keeps authored speech without a visual whole, with every claim source still reachable', () => {
     const spokenText = 'First the incoming bytes reach a trust check. Rejected input returns an error; only accepted input moves on.';
     const current = { ...section, visual: null, spokenText };
