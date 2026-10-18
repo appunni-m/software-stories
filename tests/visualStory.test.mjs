@@ -13,6 +13,18 @@ const visual = {
 };
 
 describe('visual story scenes', () => {
+  it('keeps authored speech without a visual whole, with every claim source still reachable', () => {
+    const spokenText = 'First the incoming bytes reach a trust check. Rejected input returns an error; only accepted input moves on.';
+    const current = { ...section, visual: null, spokenText };
+    assert.deepEqual(storyScenes(current), [{ id: section.sectionId, narration: spokenText,
+      anchorIds: ['a:entry', 'a:check'], nodeIds: [] }]);
+    assert.equal(current.claims, claims);
+    assert.notEqual(spokenText, claims.map(c => c.prose).join(' '));
+    const edited = 'My revised account keeps both outcomes: rejection returns an error and acceptance allows processing.';
+    assert.equal(storyScenes(current, undefined, edited)[0].narration, edited);
+    assert.equal(current.spokenText, spokenText);
+  });
+
   it('retains the entire grounded narration, including every condition and later consequence', () => {
     const scenes = storyScenes(section, visual);
     assert.equal(scenes.length, 2);

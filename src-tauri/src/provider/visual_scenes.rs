@@ -8,11 +8,11 @@ pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v6";
 
 /// One speech contract for file, overview and selected-section user prompts.
 /// Keep compatibility fields complete rather than imposing a summary shortcut.
-pub(super) const SECTION_NARRATION_INSTRUCTIONS: &str = "Complete scene narration: when a presentation is supplied, spokenText joins every scene narration in claim order, including visible inference labels. It must preserve the full behavior, guards, alternatives, errors and uncertainty of all claims, not a summary or a chosen subset. With no presentation, copy all complete claim sentences instead. Keep the complete transport script within 20–1,000 UTF-8 bytes and the declared section shape; organize focused claims without dropping behavior. Natural scene speech need not repeat exact code names, declarations or punctuation. The app retains exact claims separately and assembles speech from all scenes; no one-to-three-sentence limit applies.";
+pub(super) const SECTION_NARRATION_INSTRUCTIONS: &str = "Complete scene narration: when a presentation is supplied, spokenText joins every scene narration in claim order, including visible inference labels. It must preserve the full behavior, guards, alternatives, errors and uncertainty of all claims, not a summary or a chosen subset. With no presentation, write a complete natural spoken account of all claims, preserving every guard, alternative, error, inference label and uncertainty; do not read identifiers or punctuation by default. Keep the complete transport script within 20–1,000 UTF-8 bytes and the declared section shape; organize focused claims without dropping behavior. Natural scene speech need not repeat exact code names, declarations or punctuation. The app retains exact claims separately and assembles speech from all scenes; no one-to-three-sentence limit applies.";
 
 const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v3
 Author a causal illustrated answer. Keep exact implementation claims as inspectable source-grounded details; every declared identifier still appears literally in its claim. Write separate natural narration on each scene to explain that claim's meaning, not its spelling. Usually use 2–5 short claims/scenes per section. Speech follows the input, why a choice or guard matters, and the consequence, including all alternative/error conditions. Refer to the short visual labels, introduce useful invented inputs as examples, and connect scenes causally. Do not read declarations, helper names, type constructors, paths, call syntax or punctuation by default. A user explicitly asking about a name or syntax may need that name spoken. Do not change or omit a claim's conditions, exceptions, inference or uncertainty when paraphrasing. The app prefixes inference narration with its visible label. Exact source links remain available. Narration is AI-authored, not automatic code-name removal or proof of semantic equivalence.
-The app assembles full details from all validated claims and speech from all ordered scene narrations; it never selects a convenient subset. Keep each complete section's details and speech within 4,000 UTF-8 bytes or split it without dropping behavior. Separate prose/spokenText transport fields remain required under their documented bounds: prose copies complete claim sentences, spokenText copies the complete scene narration. With no visual presentation, use complete claim sentences for both fields."#;
+The app assembles full details from all validated claims and speech from all ordered scene narrations; it never selects a convenient subset. Keep each complete section's details and speech within 4,000 UTF-8 bytes or split it without dropping behavior. Separate prose/spokenText transport fields remain required under their documented bounds: prose copies complete claim sentences, spokenText copies the complete scene narration. With no visual presentation, prose still copies all complete claim sentences; spokenText is the complete natural account of those claims, with inference labels preserved."#;
 
 const BEHAVIOR_TEACHING: &str = r#"Teaching policy v6: For behavior, open with the problem and a useful input-to-result example. Explain work and consequences, not signatures or field lists. Narrate meaning, not syntax; exact identifiers stay inspectable and need speaking only if asked. Preserve guards, alternatives, errors and uncertainty. For conditional claims, state the general decision rule first; an example alone cannot replace the rule. Explain actual selectors, including zero versus any nonzero value, and empty results retaining or resetting location. Teach prediction of unshown inputs; never invent a guard."#;
 
@@ -91,7 +91,16 @@ pub(crate) fn prepare_generated_sections(
         if !(20..=4_000).contains(&complete.len()) {
             return Err("The complete grounded narration must be 20–4,000 UTF-8 bytes. Split the section without omitting behavior. No draft was saved.".into());
         }
-        let narration = chapters::authored_section_narration(section)?.unwrap_or_else(|| complete.clone());
+        let narration = chapters::authored_section_narration(section)?.unwrap_or_else(|| section.spoken_text.trim().to_owned());
+        if !(20..=4_000).contains(&narration.len()) {
+            return Err("The complete authored narration must be 20–4,000 UTF-8 bytes. Split the section without omitting behavior. No draft was saved.".into());
+        }
+        if section.claims.iter().any(|claim| match &claim.category {
+            chapters::ClaimCategory::Inference { visible_label, .. } => !narration.contains(&format!("{}:", visible_label.trim())),
+            _ => false,
+        }) {
+            return Err("Authored narration must retain every visible inference label. No draft was saved.".into());
+        }
         scripts.push((index, complete, narration));
     }
     // Do not expose even a locally half-prepared revision on a later failure.
@@ -99,6 +108,7 @@ pub(crate) fn prepare_generated_sections(
         revision.sections[index].prose = details;
         revision.sections[index].spoken_text = script;
     }
+    revision.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
     Ok(())
 }
 
@@ -152,7 +162,7 @@ pub(crate) mod tests {
     fn ordinary_prompt_binds_the_versioned_scene_narration_policy() {
         assert_eq!(
             crate::repository_context::digest(super::instructions().as_bytes()),
-            "c629a4e5b2735f079749a981f1d1ce1e725bcf1b9b5add8ab920eb00b3e58659"
+            "f369e68fbc841456b14199c7f52db8c4c65e7a69ba0b649338df4db321e7c7cd"
         );
         assert!(super::instructions().contains(super::BEHAVIOR_TEACHING));
         assert!(super::instructions().contains(super::OUTCOME_TEACHING));
@@ -221,8 +231,10 @@ pub(crate) mod tests {
             "greeting can provide a small display message without changing other state.".into();
         draft.sections[0].claims.push(inference);
         let expected = chapters::overview_claim_sentences(&draft.sections[0].claims).join(" ");
+        let authored = "A name becomes a friendly greeting. Inference: that message could be used for display; the captured function alone does not show where it is used.";
+        draft.sections[0].spoken_text = authored.into();
         prepare_generated_sections(&mut draft, None).unwrap();
-        assert_eq!(draft.sections[0].spoken_text, expected);
+        assert_eq!(draft.sections[0].spoken_text, authored);
         assert_eq!(draft.sections[0].prose, expected);
         assert!(expected.contains("Inference: greeting"));
         assert_eq!(draft.sections[1], silent);
@@ -237,6 +249,19 @@ pub(crate) mod tests {
             ValidationReportStatus::Valid,
             "{validation:?}"
         );
+    }
+
+    #[test]
+    fn invalid_standalone_narration_never_leaves_a_half_prepared_revision() {
+        let fixture = Fixture::new();
+        for speech in ["too short".to_owned(), "é".repeat(2_001)] {
+            let mut draft = revision(&fixture, serde_json::to_value(simple_proposal()).unwrap());
+            draft.sections[0].visual = None;
+            draft.sections[0].spoken_text = speech;
+            let original = draft.clone();
+            assert!(prepare_generated_sections(&mut draft, None).is_err());
+            assert_eq!(draft, original);
+        }
     }
 
     #[test]

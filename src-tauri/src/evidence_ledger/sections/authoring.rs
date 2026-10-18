@@ -5,6 +5,8 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 
+pub(crate) mod narration;
+
 pub(crate) const POLICY: &str = "claim-owned-scene-local-identities-v1";
 
 #[derive(Deserialize)]
@@ -61,6 +63,7 @@ fn nullable_key<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<String>
 pub(super) struct Compiled {
     pub(super) section: Value,
     locations: Vec<(String, String)>,
+    narration: Option<Vec<String>>,
 }
 
 impl Compiled {
@@ -263,6 +266,7 @@ pub(super) fn compile(section: &Value) -> Result<Compiled, Vec<Value>> {
     Ok(Compiled {
         section: json!({"title":object["title"],"claims":canonical_claims,"visual":visual}),
         locations,
+        narration: None,
     })
 }
 

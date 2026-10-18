@@ -93,16 +93,16 @@ pub(crate) fn tools_for(progressive: bool) -> Vec<Tool> {
     // explicit mode advertises the operation-local short citation transport.
     catalog.iter_mut().find(|tool| tool.name == "read_code").unwrap().description = Some(
         "Read one to eight captured UTF-8 byte ranges, end exclusive, at most 32768 bytes each. Copy path, sourceSha256, startByte and endByte exactly from search or definitions. readError returns no code: correct the request or refine the search. Returns new fragments of at most 1000 bytes with referenceId such as code:1, original contents, range and citeable. Cite only citeable:true fragments using evidence:{referenceId:fragment.referenceId}. Copy the short referenceId exactly; the longer id is native integrity metadata, not the citation field. reusedReferences lists stable referenceId values for already delivered fragments. Each reference names the entire exact fragment in this investigation. Never invent an ID, copy source into the answer or cite discovery results. Short/blank fragments are not citeable; the full file stays local.".into());
-    let section = crate::evidence_ledger::sections::authoring::grounded_names_schema();
+    let section = crate::evidence_ledger::sections::authoring::narration::schema();
     let schema = json!({"type":"object","additionalProperties":false,"properties":{
-        "proposalVersion":{"type":"string","enum":[crate::evidence_ledger::sections::GROUNDED_NAMES_PROPOSAL_VERSION]},
+        "proposalVersion":{"type":"string","enum":[crate::evidence_ledger::sections::NARRATION_PROPOSAL_VERSION]},
         "sectionKey":{"type":"string","minLength":1,"maxLength":80,"pattern":"^[a-z0-9-]+$"},
         "order":{"type":"integer","minimum":0,"maximum":5},
         "previousGenerationId":{"type":["string","null"],"maxLength":64},
         "section":section
     },"required":["proposalVersion","sectionKey","order","previousGenerationId","section"]});
     catalog.push(Tool::new(PROPOSAL_TOOL,
-        "Publish one complete cited draft section while continuing the same investigation. Lead with the answer to the question, then publish deeper sections as useful. Only delivered citeable read_code evidence IDs are allowed. The app validates all claims and visual evidence atomically; a rejected section returns fixed findings and publishes nothing. Six unique keys, eight proposal attempts total, within the original 64-call/ten-minute budget. New keys use 1–80 lowercase ASCII letters, digits or hyphens only, never underscores, and this investigation's next zero-based order; previousGenerationId is null. The first new key is order:0 even in an explicit guide continuation; saved-library sections are outside this investigation. A rejection never advances order. Every reply supplies nextNewSectionOrder: use that exact value, or null when all six unique keys are occupied. A sectionKeyFormat finding identifies this key constraint. Reuse the same key and exact content to identify an existing section; changed content requires its latest returned generationId and preserves the older revision. At most 32768 structured argument bytes. Do not include prose or spokenText outside claims. Each claim owns a scene with complete natural narration, local node/element keys and references from its own evidence list. Native code resolves keys; do not write shared numeric indexes or visual.presentation. Section-wide limits remain 12 nodes and 20 edges, with 48 elements per scene. Exact claim prose remains inspectable and is not read aloud. With visual.kind:none every claim.scene is explicitly null and complete ordered claims are the fallback speech. presentationLimit means split complete text into sections within 20–4000 UTF-8 bytes, never silently drop behavior. No repository mutation, source access, acceptance, audio synthesis or playback occurs through this tool.",
+        "Publish one complete draft section using delivered citeable read_code references. Native validation is atomic; rejection publishes nothing. Six unique keys, eight attempts, original 64-call/ten-minute budget. A new key uses 1–80 lowercase ASCII letters/digits/hyphens, no underscores, previousGenerationId:null and exactly nextNewSectionOrder from the reply (initially 0, including continuations). Rejection never advances order. Repeat exact content to recover its identity; a revision keeps key/order and names its latest generationId. Maximum 32768 argument bytes. section contains only title,claims,visual. Each claim owns complete narration and local scene keys/evidence; native code resolves identities. Use at most 12 nodes/20 edges per section and 48 elements per scene. With visual.kind:none use mode:narration, a title, 20–1000 bytes of speech and empty nodes/edges/elements for every claim. All speech is joined in order with inference labels, capped at 4000 bytes; exact claims stay inspectable. Preserve every guard, alternative, error and uncertainty. This tool cannot read more source, mutate the repository, accept drafts or synthesize/play audio.",
         schema.as_object().cloned().unwrap_or_default())
         .with_annotations(ToolAnnotations::default().read_only(false).destructive(false).idempotent(false).open_world(false)));
     catalog
@@ -466,7 +466,7 @@ mod tests {
         );
         assert_eq!(
             proposal.input_schema["properties"]["proposalVersion"]["enum"][0],
-            crate::evidence_ledger::sections::GROUNDED_NAMES_PROPOSAL_VERSION
+            crate::evidence_ledger::sections::NARRATION_PROPOSAL_VERSION
         );
         let section = &proposal.input_schema["properties"]["section"];
         assert!(section["properties"].get("prose").is_none());
@@ -482,7 +482,7 @@ mod tests {
                 ["referenceId"]["pattern"],
             "^code:[1-9][0-9]{0,2}$"
         );
-        assert_eq!(*section, crate::evidence_ledger::sections::authoring::grounded_names_schema());
+        assert_eq!(*section, crate::evidence_ledger::sections::authoring::narration::schema());
         assert!(section["properties"]["claims"]["items"]["properties"].get("identifiers").is_none());
         let visual = &section["properties"]["visual"];
         assert_eq!(visual["required"], json!(["kind", "title", "direction"]));

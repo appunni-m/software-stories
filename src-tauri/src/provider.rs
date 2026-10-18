@@ -33,10 +33,10 @@ const OPENAI_DISCLOSURE_VERSION: &str = "openai-disclosure-2026-10-13-v1";
 const ANTHROPIC_DISCLOSURE_VERSION: &str = "anthropic-disclosure-2026-10-13-v1";
 #[cfg(test)]
 const DISCLOSURE_VERSION: &str = GEMINI_DISCLOSURE_VERSION;
-const PROMPT_VERSION: &str = "structured-file-chapter-v9";
+const PROMPT_VERSION: &str = "structured-file-chapter-v10";
 pub(crate) const FILE_PROMPT_VERSION: &str = PROMPT_VERSION;
-const OVERVIEW_PROMPT_VERSION: &str = "structured-repository-overview-v9";
-const SECTION_UPDATE_PROMPT_VERSION: &str = "structured-single-section-update-v7";
+const OVERVIEW_PROMPT_VERSION: &str = "structured-repository-overview-v10";
+const SECTION_UPDATE_PROMPT_VERSION: &str = "structured-single-section-update-v8";
 const FILE_CHAPTER_PURPOSE: &str = "fileChapter";
 const REPOSITORY_OVERVIEW_PURPOSE: &str = "repositoryOverview";
 const REPOSITORY_PLAN_PURPOSE: &str = "repositoryPlan";
@@ -2684,8 +2684,8 @@ pub(crate) fn build_codex_chapter_review(
         transport.config["workspaceQuestion"] = json!(question);
         transport.config["workspaceFocus"] = json!(input.focus);
         if input.target_path.is_none() && input.section_update.is_none() {
-            context.system_instruction.push_str(" The workspace composes displayed prose and narration directly from your validated claim sentences. Make claim prose an ordered, coherent explanation of the question. Include a complete natural-language sentence without code syntax in each section's claims for narration. Separate prose and spokenText fields are required by the transport schema but are not used for workspace overview presentation.");
-            transport.config["overviewPresentation"] = json!("anchored-claims-v1");
+            context.system_instruction.push_str(" The workspace keeps every validated claim in inspectable prose. Author separate natural spokenText for sections without a presentation, or narration for every presentation scene. Preserve every claim's conditions, outcomes and uncertainty in speech; exact code names remain in the claims and source links.");
+            transport.config["overviewPresentation"] = json!("authored-narration-v2");
         }
     } else if !input.focus.is_empty() {
         return Err(failure(ProviderFailureKind::InvalidReview, "Selected lines require a learning question."));
@@ -8235,7 +8235,7 @@ mod tests {
         // The progressive catalog explicitly versions current-investigation
         // order feedback, native name metadata and claim-owned scene identities/speech. The legacy retrieval
         // schema above remains byte-identical.
-        assert_eq!(crate::repository_context::digest(&serde_json::to_vec(&tools).unwrap()), "6446e37db48aac740b6c8fe449d5744716893696834be2c07d79a88e245ee584");
+        assert_eq!(crate::repository_context::digest(&serde_json::to_vec(&tools).unwrap()), "4683ee94873a9b1ba2e6da09de8441ecbfcccc03f76fceabe56be38b2fdbad34");
         let file = file_chapter_response_schema();
         let overview = repository_overview_response_schema();
         let repair = section_update_generation_config();

@@ -1887,7 +1887,7 @@ fn validate_chapter_draft_preview(
             &allowed_relationships,
             &result.response_text,
         ).map(|revision| (revision, Vec::new())),
-        ("repositoryOverview", None) => chapter_generation::canonicalize_repository_overview(
+        ("repositoryOverview", None) => chapter_generation::canonicalize_authored_repository_overview(
             &review.project_id,
             &manifest,
             snapshot_index.as_ref(),
@@ -2159,6 +2159,48 @@ pub fn run() {
 mod chapter_pipeline_tests {
     use super::*;
     use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, simple_proposal};
+
+    #[test]
+    fn fresh_narration_without_visuals_survives_file_direct_overview_and_codex_question_paths() {
+        let fixture = Fixture::new();
+        for (overview, codex) in [(false, false), (true, false), (true, true)] {
+            let selected_paths = vec![SIMPLE_PATH.to_owned()];
+            let review = if codex {
+                let runtime = codex_identity::CodexReviewRuntime {
+                    connection_id: uuid::Uuid::new_v4().to_string(), executable_path: "/usr/local/bin/codex".into(),
+                    executable_sha256: "a".repeat(64), account_identity_sha256: "b".repeat(64), account_revision: 1,
+                };
+                let review = provider::build_codex_chapter_review(&fixture.storage,
+                    &provider::BuildCodexReviewInput {
+                        project_id: fixture.manifest.summary.project_id.clone(), snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                        target_path: None, selected_paths, model_id: "gpt-6-luna".into(), effort: "max".into(), approval_policy: "never".into(),
+                        section_update: None, question: Some("How does a name become a greeting?".into()), focus: vec![], workspace_grant: None,
+                    }, &runtime).unwrap().review;
+                assert_eq!(review.generation_config["overviewPresentation"], "authored-narration-v2");
+                assert!(!review.system_instruction.contains("not used for workspace overview presentation"));
+                review
+            } else {
+                provider::build_request_review(&fixture.storage, &provider::BuildProviderReviewInput {
+                    project_id: fixture.manifest.summary.project_id.clone(), snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                    target_path: if overview { None } else { Some(SIMPLE_PATH.to_owned()) }, selected_paths,
+                    model_id: "gemini-3.8-flash".into(), section_update: None,
+                }).unwrap().review
+            };
+            let mut proposal = provider::visual_scenes::tests::composed_proposal(3);
+            if overview { proposal.as_object_mut().unwrap().remove("evidenceLimits"); }
+            proposal["sections"][0]["visual"] = serde_json::json!({"kind":"none","title":"","direction":"auto","nodes":[],"edges":[],"presentation":null});
+            let speech = "Start with a person's name. The greeting wraps that name in a friendly message and returns it to the caller.";
+            proposal["sections"][0]["spokenText"] = serde_json::json!(speech);
+            let claim = proposal["sections"][0]["claims"][0]["prose"].as_str().unwrap().to_owned();
+            let prepared = validate_chapter_draft_preview(&fixture.storage, &review, response(&review, proposal.to_string())).unwrap();
+            assert_eq!(prepared.revision.schema_version, 5);
+            assert_eq!(prepared.revision.sections[0].spoken_text, speech);
+            assert_eq!(prepared.revision.sections[0].prose, claim);
+            assert!(prepared.revision.sections[0].visual.is_none());
+            assert_eq!(prepared.validation.status, chapters::ValidationReportStatus::Valid);
+            assert!(chapter_store::list_for_project(&fixture.storage, &review.project_id).unwrap().is_empty());
+        }
+    }
 
     #[test]
     fn fresh_file_and_overview_previews_validate_scenes_and_keep_complete_narration() {

@@ -10,7 +10,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
-pub const CHAPTER_SCHEMA_VERSION: u32 = 4;
+pub const CHAPTER_SCHEMA_VERSION: u32 = 5;
+pub(crate) const AGENT_CHAPTER_SCHEMA_VERSION: u32 = 4;
 pub(crate) const GROUNDED_CHAPTER_SCHEMA_VERSION: u32 = 3;
 const LEGACY_CHAPTER_SCHEMA_VERSION: u32 = 1;
 const REVIEW_CHAPTER_SCHEMA_VERSION: u32 = 2;
@@ -398,18 +399,31 @@ pub enum ClaimCategory {
     },
 }
 
-/// Exact implementation prose stays grounded in claims. Version-3 scenes may
-/// supply their separate, explicitly mapped script; old scripts keep the
-/// original sentence-copy policy. Neither check certifies paraphrase semantics.
-pub fn overview_section_copy_supported(section: &ChapterSection) -> bool {
+/// Exact implementation prose stays grounded in claims. Version-3 scenes and
+/// schema-5 sections without presentations may supply authored speech. Old
+/// scripts keep their original policy. This does not certify paraphrase semantics.
+pub fn overview_section_copy_supported(section: &ChapterSection, schema_version: u32) -> bool {
     if section.claims.is_empty() {
         return false;
     }
     let supported_sentences = overview_claim_sentences(&section.claims).into_iter().collect::<HashSet<_>>();
     let copied = |text: &str| sentence_fragments(text).iter().all(|s| supported_sentences.contains(s));
     copied(&section.prose) && !sentence_fragments(&section.prose).is_empty()
-        && (copied(&section.spoken_text)
+        && ((schema_version == CHAPTER_SCHEMA_VERSION && section_has_standalone_narration(section))
+            || copied(&section.spoken_text)
             || authored_section_narration(section).ok().flatten().as_deref() == Some(section.spoken_text.as_str()))
+}
+
+/// Schema 5 permits complete authored speech without decorative visuals.
+/// This checks bounds and visible inference labels, not semantic equivalence.
+fn section_has_standalone_narration(section: &ChapterSection) -> bool {
+    let no_presentation = section.visual.as_ref().and_then(|v| v.typed_visual())
+        .is_none_or(|visual| visual.presentation.is_none());
+    no_presentation && (20..=4_000).contains(&section.spoken_text.trim().len())
+        && section.claims.iter().all(|claim| match &claim.category {
+            ClaimCategory::Inference { visible_label, .. } => section.spoken_text.contains(&format!("{}:", visible_label.trim())),
+            _ => true,
+        })
 }
 
 pub(crate) fn authored_section_narration(section: &ChapterSection) -> Result<Option<String>, String> {
@@ -499,7 +513,7 @@ pub fn validate_overview_content(revision: &ChapterRevision) -> Result<(), Strin
         }) {
             return Err("Every repository overview claim needs readable prose, and inferences need a visible label and basis.".to_owned());
         }
-        if !overview_section_copy_supported(section) {
+        if !overview_section_copy_supported(section, revision.schema_version) {
             return Err("Overview prose and narration must use complete sentences from anchored claims, with inference labels preserved.".to_owned());
         }
     }
@@ -749,13 +763,14 @@ fn decode_chapter_payload(bytes: &[u8], verify_origin: bool) -> Result<ChapterRe
         LEGACY_CHAPTER_SCHEMA_VERSION
             | REVIEW_CHAPTER_SCHEMA_VERSION
             | GROUNDED_CHAPTER_SCHEMA_VERSION
+            | AGENT_CHAPTER_SCHEMA_VERSION
             | CHAPTER_SCHEMA_VERSION
     ) {
         return Err(format!(
             "Chapter schema version {schema_version} is not supported by this app."
         ));
     }
-    if schema_version < CHAPTER_SCHEMA_VERSION
+    if schema_version < AGENT_CHAPTER_SCHEMA_VERSION
         && value
             .as_object()
             .is_some_and(|object| object.contains_key("generationOrigin"))
@@ -853,6 +868,7 @@ pub fn encode_chapter_revision(revision: &ChapterRevision) -> Result<Vec<u8>, St
         LEGACY_CHAPTER_SCHEMA_VERSION
             | REVIEW_CHAPTER_SCHEMA_VERSION
             | GROUNDED_CHAPTER_SCHEMA_VERSION
+            | AGENT_CHAPTER_SCHEMA_VERSION
             | CHAPTER_SCHEMA_VERSION
     ) || (revision.schema_version == LEGACY_CHAPTER_SCHEMA_VERSION
         && (revision.based_on_revision_id.is_some() || revision.decision_note.is_some()))
@@ -873,12 +889,13 @@ fn validate_overview_revision_identity(revision: &ChapterRevision) -> Result<(),
     if matches!(&revision.target.scope, ChapterTargetScope::Overview)
         && (!matches!(
             revision.schema_version,
-            GROUNDED_CHAPTER_SCHEMA_VERSION | CHAPTER_SCHEMA_VERSION
+            GROUNDED_CHAPTER_SCHEMA_VERSION | AGENT_CHAPTER_SCHEMA_VERSION
+            | CHAPTER_SCHEMA_VERSION
         ) || revision.target.target_id != "target:overview"
             || revision.chapter_id != "chapter:overview")
     {
         return Err(
-            "An overview chapter must use schema version 3 or 4 and its stable overview identities."
+            "An overview chapter must use schema version 3, 4 or 5 and its stable overview identities."
                 .to_owned(),
         );
     }
@@ -1068,6 +1085,7 @@ pub fn validate_chapter_revision(
         LEGACY_CHAPTER_SCHEMA_VERSION
             | REVIEW_CHAPTER_SCHEMA_VERSION
             | GROUNDED_CHAPTER_SCHEMA_VERSION
+            | AGENT_CHAPTER_SCHEMA_VERSION
             | CHAPTER_SCHEMA_VERSION
     ) {
         validator.issue(
@@ -1211,13 +1229,14 @@ pub fn validate_chapter_revision(
     if matches!(&revision.target.scope, ChapterTargetScope::Overview)
         && (!matches!(
             revision.schema_version,
-            GROUNDED_CHAPTER_SCHEMA_VERSION | CHAPTER_SCHEMA_VERSION
+            GROUNDED_CHAPTER_SCHEMA_VERSION | AGENT_CHAPTER_SCHEMA_VERSION
+            | CHAPTER_SCHEMA_VERSION
         ) || revision.target.target_id != "target:overview"
             || revision.chapter_id != "chapter:overview")
     {
         validator.issue(
             ChapterIssueCode::InvalidTarget,
-            "An overview chapter must use schema version 3 or 4 and its stable overview identities.",
+            "An overview chapter must use schema version 3, 4 or 5 and its stable overview identities.",
             None,
             None,
             None,
@@ -1462,7 +1481,7 @@ pub fn validate_chapter_revision(
             }
         }
 
-        if is_overview && !overview_section_copy_supported(section) {
+        if is_overview && !overview_section_copy_supported(section, revision.schema_version) {
             validator.issue(
                 ChapterIssueCode::InvalidClaim,
                 "Overview prose and narration must use complete sentences from anchored claims, with inference labels preserved.",

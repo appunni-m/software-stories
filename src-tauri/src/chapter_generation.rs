@@ -941,6 +941,7 @@ pub fn canonicalize_file_chapter(
     Ok(revision)
 }
 
+#[cfg(test)]
 pub fn canonicalize_repository_overview(
     project_id: &str,
     manifest: &SnapshotManifest,
@@ -950,6 +951,19 @@ pub fn canonicalize_repository_overview(
     response_text: &str,
 ) -> Result<ChapterRevision, String> {
     canonicalize_overview(project_id, manifest, index, selected_sources, allowed_relationship_ids, response_text, OverviewPresentation::Supplied, None)
+}
+
+/// Fresh ordinary requests author narration separately from exact claim prose.
+/// Historical checkpoint canonicalizers below retain their original policies.
+pub(crate) fn canonicalize_authored_repository_overview(
+    project_id: &str,
+    manifest: &SnapshotManifest,
+    index: Option<&SnapshotIndex>,
+    selected_sources: &[SnapshotSource],
+    allowed_relationship_ids: &HashSet<String>,
+    response_text: &str,
+) -> Result<ChapterRevision, String> {
+    canonicalize_overview(project_id, manifest, index, selected_sources, allowed_relationship_ids, response_text, OverviewPresentation::AuthoredNarrationV4, None)
 }
 
 /// Render workspace overview copy from exact validated claim sentences. The
@@ -1004,10 +1018,12 @@ pub(crate) fn canonicalize_narrated_answer_section(
 
 #[derive(Clone, Copy)]
 enum OverviewPresentation {
+    #[cfg(test)]
     Supplied,
     ClaimSummaryV1,
     CompleteClaimsV2,
     SceneNarrationV3,
+    AuthoredNarrationV4,
 }
 
 fn canonicalize_overview(
@@ -1105,7 +1121,7 @@ fn canonicalize_overview(
             visual: visual.map(Into::into),
             hotspots,
         };
-        if matches!(presentation, OverviewPresentation::CompleteClaimsV2 | OverviewPresentation::SceneNarrationV3) {
+        if matches!(presentation, OverviewPresentation::CompleteClaimsV2 | OverviewPresentation::SceneNarrationV3 | OverviewPresentation::AuthoredNarrationV4) {
             let complete = chapters::overview_claim_sentences(&section.claims).join(" ");
             if !(20..=4_000).contains(&complete.len()) {
                 return Err(COMPLETE_CLAIMS_LIMIT_ERROR.to_owned());
@@ -1113,7 +1129,9 @@ fn canonicalize_overview(
             // Never select a convenient subset: qualifiers, later error cases
             // and inference labels must survive in the exact saved script.
             section.prose = complete.clone();
-            section.spoken_text = if matches!(presentation, OverviewPresentation::SceneNarrationV3) {
+            section.spoken_text = if matches!(presentation, OverviewPresentation::AuthoredNarrationV4) {
+                chapters::authored_section_narration(&section)?.unwrap_or_else(|| section.spoken_text.clone())
+            } else if matches!(presentation, OverviewPresentation::SceneNarrationV3) {
                 chapters::authored_section_narration(&section)?.unwrap_or(complete)
             } else { complete };
         } else if matches!(presentation, OverviewPresentation::ClaimSummaryV1) {
@@ -1138,13 +1156,18 @@ fn canonicalize_overview(
             section.prose = prose;
             section.spoken_text = spoken;
         }
-        if !chapters::overview_section_copy_supported(&section) {
+        let schema_version = if matches!(presentation, OverviewPresentation::AuthoredNarrationV4) {
+            chapters::CHAPTER_SCHEMA_VERSION
+        } else { chapters::AGENT_CHAPTER_SCHEMA_VERSION };
+        if !chapters::overview_section_copy_supported(&section, schema_version) {
             return Err("Every repository overview prose and narration sentence must be copied from an anchored claim; inference sentences must keep their visible label.".to_owned());
         }
         sections.push(section);
     }
     Ok(ChapterRevision {
-        schema_version: chapters::CHAPTER_SCHEMA_VERSION,
+        schema_version: if matches!(presentation, OverviewPresentation::AuthoredNarrationV4) {
+            chapters::CHAPTER_SCHEMA_VERSION
+        } else { chapters::AGENT_CHAPTER_SCHEMA_VERSION },
         chapter_id: "chapter:overview".to_owned(),
         revision_id: generated_id("revision"),
         revision_number: 1,
@@ -2837,7 +2860,7 @@ pub(crate) mod tests {
         assert_eq!(revision.sections[0].prose, format!("Inference: {}", proposal.sections[0].claims[0].prose));
         assert_eq!(revision.sections[0].spoken_text, revision.sections[0].prose);
         assert!(!revision.sections[0].prose.contains("invented"));
-        assert!(chapters::overview_section_copy_supported(&revision.sections[0]));
+        assert!(chapters::overview_section_copy_supported(&revision.sections[0], revision.schema_version));
         chapters::validate_overview_content(&revision).unwrap();
         fixture.assert_traceable(&revision, &[SIMPLE_PATH, SUPPORT_PATH]);
     }
@@ -2870,7 +2893,7 @@ pub(crate) mod tests {
                 &HashSet::new(), &serde_json::to_string(&proposal).unwrap()).unwrap();
             assert!(revision.sections[0].spoken_text.starts_with(expected), "{}", revision.sections[0].spoken_text);
             assert!(!revision.sections[0].spoken_text.contains("unsupported narration"));
-            assert!(chapters::overview_section_copy_supported(&revision.sections[0]));
+            assert!(chapters::overview_section_copy_supported(&revision.sections[0], revision.schema_version));
             chapters::validate_overview_content(&revision).unwrap();
             fixture.assert_traceable(&revision, &[SIMPLE_PATH]);
         }

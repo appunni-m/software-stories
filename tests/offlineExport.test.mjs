@@ -100,6 +100,29 @@ const narrationWav = () => {
   return wav;
 };
 
+it('exports schema-5 authored speech without a visual, with its exact transcript and cached audio', async () => {
+  const current = chapter({ sections: [section({ visual: null })] });
+  current.schemaVersion = 5;
+  current.sections[0].spokenText = 'A request reaches the handler. The worker takes over the next part of the work, and control returns to the caller.';
+  const original = structuredClone(current);
+  const exactText = current.sections[0].spokenText;
+  const audio = { chapterRevisionId: current.revisionId, sectionId: current.sections[0].sectionId,
+    exactText, audio: { fingerprint: 'b'.repeat(64), mimeType: 'audio/wav', audioBase64: narrationWav().toString('base64'), cacheHit: true } };
+  const preview = buildOfflineExportPreview([current], [current.revisionId], true, [audio]);
+  assert.equal(preview.chapters[0].sections[0].spokenText, exactText);
+  assert.equal(preview.chapters[0].sections[0].narrationTranscript, exactText);
+  const result = await buildOfflineGuideHtml([current], { selectedRevisionIds: [current.revisionId],
+    includeExcerpts: true, includeNarrationAudio: true, narrationAudio: [audio], exportedAtUnixMs: 10 });
+  assert.ok(result.html.includes(exactText));
+  assert.ok(result.html.includes('The handler calls the worker.'));
+  assert.equal(result.manifest.assets.filter(a => a.kind === 'typedVisual').length, 0);
+  assert.equal(result.manifest.assets.filter(a => a.kind === 'narrationAudio').length, 1);
+  const transcript = result.manifest.assets.find(a => a.kind === 'narrationTranscript');
+  assert.equal(transcript.sha256, createHash('sha256').update(exactText).digest('hex'));
+  assert.equal(transcript.byteLength, Buffer.byteLength(exactText));
+  assert.deepEqual(current, original);
+});
+
 const sceneChapter = () => {
   const first = section();
   first.claims = [

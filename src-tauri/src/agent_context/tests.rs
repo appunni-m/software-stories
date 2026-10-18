@@ -247,7 +247,7 @@ fn failed_reference_correction_retains_its_reason_without_source() {
         .unwrap();
     let path = fs::read_dir(f.storage.join("rejected-explanations"))
         .unwrap()
-        .next()
+        .find(|entry| entry.as_ref().is_ok_and(|file| file.path().extension().is_some_and(|ext| ext == "json")))
         .unwrap()
         .unwrap()
         .path();
@@ -920,7 +920,7 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
             // The callback can independently inspect an already durable section;
             // it is never given an uncommitted preview or raw source payload.
             let saved = sections::inspect(&storage, &notice.run_id).unwrap();
-            assert_eq!(serde_json::to_value(&saved).unwrap()["schemaVersion"], 6);
+            assert_eq!(serde_json::to_value(&saved).unwrap()["schemaVersion"], 7);
             assert!(
                 saved
                     .sections
@@ -964,8 +964,9 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
     );
     let read_reply: Value = serde_json::from_str(&read_reply).unwrap();
     let reference = read_reply["added"][0]["referenceId"].as_str().unwrap();
-    let raw =
-        sections::authoring::tests::grounded_names_proposal(reference, "entry", 0).to_string();
+    let mut raw = sections::authoring::tests::grounded_names_proposal(reference, "entry", 0);
+    raw["proposalVersion"] = json!(sections::NARRATION_PROPOSAL_VERSION);
+    let raw = raw.to_string();
     let args: Value = serde_json::from_str(&raw).unwrap();
     let mut wrong_order = args.clone();
     wrong_order["order"] = json!(5);
@@ -1031,6 +1032,7 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
         generation
     );
     let mut bad = sections::authoring::tests::grounded_names_proposal(reference, "deeper", 1);
+    bad["proposalVersion"] = json!(sections::NARRATION_PROPOSAL_VERSION);
     bad["section"]["claims"][0]["evidence"][0]["referenceId"] =
         json!(format!("evidence:{}", "f".repeat(64)));
     let (_, text) =
@@ -1060,7 +1062,8 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
     // Simulate an observed scope change after durable commit, before notice or
     // reply. The section is inspectable, but no successful callback or reply
     // may escape and no automatic inference/tool replay is started.
-    let late = sections::authoring::tests::grounded_names_proposal(reference, "late", 1);
+    let mut late = sections::authoring::tests::grounded_names_proposal(reference, "late", 1);
+    late["proposalVersion"] = json!(sections::NARRATION_PROPOSAL_VERSION);
     let started = event(&Uuid::new_v4().to_string(), mcp::PROPOSAL_TOOL, &late);
     s.event(&started, false).unwrap();
     let mut peer = UnixStream::connect(s.directory.join("context.sock")).unwrap();

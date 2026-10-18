@@ -14,6 +14,21 @@ const revision = { projectId: 'project:one', chapterId: 'chapter:one', revisionI
 const baseKey = narrationStorageKey(revision.projectId, revision.chapterId, revision.revisionId, 'section:one');
 const read = values => key => values[key] ?? null;
 
+it('authored narration without a visual uses one exact cache scope and preserves explicit script edits', () => {
+  const current = { ...section(), visual: null,
+    spokenText: 'The prefix chooses a reader. That reader receives the original input, including all remaining bytes.' };
+  const original = structuredClone(current);
+  const scopes = sectionNarrationScopes({ ...revision, schemaVersion: 5 }, current, read({}));
+  assert.equal(scopes.length, 1);
+  assert.equal(scopes[0].sceneId, undefined);
+  assert.equal(scopes[0].preferences.spokenText, current.spokenText);
+  assert.equal(scopes[0].preferences.backend, 'pocket-tts');
+  const script = 'My edited recording starts with the prefix decision and follows the bytes into the chosen reader.';
+  const edited = sectionNarrationScopes(revision, current, read({ [baseKey]: JSON.stringify({ backend: 'pocket-tts', spokenText: script }) }));
+  assert.equal(edited[0].preferences.spokenText, script);
+  assert.deepEqual(current, original);
+});
+
 it('export uses the player scene keys and inherits delivery without a whole-section script', () => {
   const parent = { backend: 'pocket-tts', spokenText: 'memory face checks the prefix. pfr face receives the original data.',
     lexicon: [{ name: 'pfr', sayAs: 'P F R', include: true }] };

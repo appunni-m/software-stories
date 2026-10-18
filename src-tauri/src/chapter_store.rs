@@ -91,7 +91,8 @@ fn append_revision(
 ) -> Result<ChapterRevision, String> {
     if !matches!(
         revision.schema_version,
-        1 | 2 | chapters::GROUNDED_CHAPTER_SCHEMA_VERSION | chapters::CHAPTER_SCHEMA_VERSION
+        1 | 2 | chapters::GROUNDED_CHAPTER_SCHEMA_VERSION
+            | chapters::AGENT_CHAPTER_SCHEMA_VERSION | chapters::CHAPTER_SCHEMA_VERSION
     ) {
         return Err("The chapter revision uses an unsupported schema version.".to_owned());
     }
@@ -402,12 +403,13 @@ fn validate_revision_identity(revision: &ChapterRevision) -> Result<(), String> 
         crate::chapters::ChapterTargetScope::Overview
     ) && (!matches!(
         revision.schema_version,
-        chapters::GROUNDED_CHAPTER_SCHEMA_VERSION | chapters::CHAPTER_SCHEMA_VERSION
+        chapters::GROUNDED_CHAPTER_SCHEMA_VERSION | chapters::AGENT_CHAPTER_SCHEMA_VERSION
+            | chapters::CHAPTER_SCHEMA_VERSION
     ) || revision.target.target_id != "target:overview"
         || revision.chapter_id != "chapter:overview")
     {
         return Err(
-            "An overview chapter must use schema version 3 or 4 and its stable overview identities."
+            "An overview chapter must use schema version 3, 4 or 5 and its stable overview identities."
                 .to_owned(),
         );
     }

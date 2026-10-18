@@ -136,7 +136,7 @@ fn prepare_edit(
     }
 
     let mut revision = base.clone();
-    revision.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
+    revision.schema_version = revision.schema_version.max(chapters::CHAPTER_SCHEMA_VERSION);
     revision.revision_id = new_id("revision");
     revision.revision_number = base
         .revision_number
@@ -193,7 +193,7 @@ pub fn restore_revision(
     let target_index = index::load_snapshot_index(storage_dir, project_id, &base.snapshot_id)?;
 
     let mut restored = source.clone();
-    restored.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
+    restored.schema_version = restored.schema_version.max(chapters::CHAPTER_SCHEMA_VERSION);
     restored.revision_id = new_id("revision");
     restored.revision_number = base
         .revision_number
@@ -320,7 +320,7 @@ pub fn accept_draft(
     let manifest = snapshot::load_snapshot_manifest(storage_dir, project_id, &draft.snapshot_id)?;
     let snapshot_index = index::load_snapshot_index(storage_dir, project_id, &draft.snapshot_id)?;
     let mut accepted = draft.clone();
-    accepted.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
+    accepted.schema_version = accepted.schema_version.max(chapters::CHAPTER_SCHEMA_VERSION);
     accepted.revision_id = new_id("revision");
     accepted.revision_number = draft
         .revision_number
@@ -373,7 +373,7 @@ pub fn reject_draft(
         return Err("Only the latest saved draft can be rejected.".to_owned());
     }
     let mut rejected = draft.clone();
-    rejected.schema_version = chapters::CHAPTER_SCHEMA_VERSION;
+    rejected.schema_version = rejected.schema_version.max(chapters::CHAPTER_SCHEMA_VERSION);
     rejected.revision_id = new_id("revision");
     rejected.revision_number = draft
         .revision_number
@@ -606,6 +606,38 @@ mod tests {
             .unwrap(),
         );
         chapter_store::save_new_draft(&fixture.storage, revision).unwrap()
+    }
+
+    #[test]
+    fn authored_nonvisual_narration_survives_edit_accept_restore_and_reject_immutably() {
+        let fixture = Fixture::new();
+        let original = saved_agent_overview(&fixture);
+        let original_bytes = chapters::encode_chapter_revision(&original).unwrap();
+        let mut proposal = original.clone();
+        proposal.sections[0].visual = None;
+        let speech = "Start with a person's name. It becomes part of a friendly greeting that is returned to the caller.";
+        proposal.sections[0].spoken_text = speech.into();
+        let lock = Mutex::new(());
+        let edited = save_edits(&fixture.storage, &lock, &original.project_id, &original.revision_id, proposal).unwrap();
+        assert_eq!(edited.validation.status, ValidationReportStatus::Valid);
+        assert_eq!(edited.revision.schema_version, 5);
+        let edited_bytes = chapters::encode_chapter_revision(&edited.revision).unwrap();
+        let accepted = accept_draft(&fixture.storage, &lock, &original.project_id, &edited.revision.revision_id).unwrap();
+        assert_eq!(accepted.validation.status, ValidationReportStatus::Valid);
+        let accepted_bytes = chapters::encode_chapter_revision(&accepted.revision).unwrap();
+        let restored = restore_revision(&fixture.storage, &lock, &original.project_id, &accepted.revision.revision_id, &edited.revision.revision_id).unwrap();
+        let rejected = reject_draft(&fixture.storage, &lock, &original.project_id, &restored.revision.revision_id, "Keep the narrated draft for review.").unwrap();
+        for revision in [&edited.revision, &accepted.revision, &restored.revision, &rejected] {
+            assert_eq!(revision.schema_version, 5);
+            assert_eq!(revision.sections[0].spoken_text, speech);
+            assert!(revision.sections[0].visual.is_none());
+            let bytes = chapters::encode_chapter_revision(revision).unwrap();
+            assert_eq!(chapters::decode_chapter_revision(&bytes).unwrap(), *revision);
+        }
+        let history = chapter_store::list_for_project(&fixture.storage, &original.project_id).unwrap();
+        for (revision, bytes) in [(&original, original_bytes), (&edited.revision, edited_bytes), (&accepted.revision, accepted_bytes)] {
+            assert_eq!(chapters::encode_chapter_revision(history.iter().find(|r| r.revision_id == revision.revision_id).unwrap()).unwrap(), bytes);
+        }
     }
 
     #[test]

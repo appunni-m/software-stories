@@ -11,6 +11,9 @@ pub(crate) const PROPOSAL_VERSION: &str = "answerSectionV2";
 pub(crate) const SCENE_PROPOSAL_VERSION: &str = "answerSectionV3";
 pub(crate) const NATIVE_NAMES_PROPOSAL_VERSION: &str = "answerSectionV4";
 pub(crate) const GROUNDED_NAMES_PROPOSAL_VERSION: &str = "answerSectionV5";
+pub(crate) const NARRATION_PROPOSAL_VERSION: &str = "answerSectionV6";
+pub(crate) const NARRATION_ANSWER_VERSION: u32 = 7;
+pub(crate) const NARRATION_CHECKPOINT_VERSION: u32 = 8;
 pub(crate) const NATIVE_MANIFEST_VERSION: &str = "answerManifestV2";
 pub(crate) const NATIVE_MANIFEST_POLICY: &str = "all-latest-published-sections-v1";
 pub(crate) const NATIVE_MANIFEST_ANSWER_VERSION: u32 = 4;
@@ -298,7 +301,7 @@ fn wrapped(proposal: &Proposal) -> Result<String, String> {
     );
     let citation_version = if matches!(
         proposal.proposal_version.as_str(),
-        PROPOSAL_VERSION | SCENE_PROPOSAL_VERSION | NATIVE_NAMES_PROPOSAL_VERSION | GROUNDED_NAMES_PROPOSAL_VERSION
+        PROPOSAL_VERSION | SCENE_PROPOSAL_VERSION | NATIVE_NAMES_PROPOSAL_VERSION | GROUNDED_NAMES_PROPOSAL_VERSION | NARRATION_PROPOSAL_VERSION
     ) {
         native_citations::SHORT_VERSION
     } else {
@@ -319,7 +322,9 @@ fn finding(code: &str) -> Vec<Value> {
 fn wrapped_authored(
     proposal: &mut Proposal,
 ) -> Result<(String, Option<authoring::Compiled>), Vec<Value>> {
-    let compiled = if matches!(proposal.proposal_version.as_str(), NATIVE_NAMES_PROPOSAL_VERSION | GROUNDED_NAMES_PROPOSAL_VERSION) {
+    let compiled = if proposal.proposal_version == NARRATION_PROPOSAL_VERSION {
+        Some(authoring::narration::compile(&proposal.section)?)
+    } else if matches!(proposal.proposal_version.as_str(), NATIVE_NAMES_PROPOSAL_VERSION | GROUNDED_NAMES_PROPOSAL_VERSION) {
         Some(authoring::compile_native_names(&proposal.section)?)
     } else if proposal.proposal_version == SCENE_PROPOSAL_VERSION {
         Some(authoring::compile(&proposal.section)?)
@@ -345,9 +350,9 @@ fn resolved_authored(
         native_citations::Resolution::Invalid(issues) => Err(issues.iter().take(64)
             .map(|issue| json!({"location":section_location(issue),"code":"citation"})).collect()),
         native_citations::Resolution::Ready(resolved)
-            if matches!(proposal.proposal_version.as_str(), NATIVE_NAMES_PROPOSAL_VERSION | GROUNDED_NAMES_PROPOSAL_VERSION) =>
+            if matches!(proposal.proposal_version.as_str(), NATIVE_NAMES_PROPOSAL_VERSION | GROUNDED_NAMES_PROPOSAL_VERSION | NARRATION_PROPOSAL_VERSION) =>
         {
-            let compiled = if proposal.proposal_version == GROUNDED_NAMES_PROPOSAL_VERSION {
+            let compiled = if matches!(proposal.proposal_version.as_str(), GROUNDED_NAMES_PROPOSAL_VERSION | NARRATION_PROPOSAL_VERSION) {
                 resolved.with_grounded_named_identifiers()
             } else { resolved.with_named_identifiers() };
             compiled.map_err(|issues| issues.iter()
@@ -493,7 +498,7 @@ fn scene_version_findings(section: &Value, checkpoint_version: u32) -> Vec<Value
             presentation.is_null() || matches!(presentation["schemaVersion"].as_u64(), Some(1 | 2))
         }
         3 => presentation["schemaVersion"].as_u64() == Some(2),
-        4 | 5 | 6 | 7 => presentation["schemaVersion"].as_u64() == Some(3),
+        4 | 5 | 6 | 7 | 8 => presentation["schemaVersion"].as_u64() == Some(3),
         _ => false,
     };
     if !supported {
@@ -633,8 +638,8 @@ fn valid_findings(findings: &[Value], schema_version: u32) -> bool {
                     s.len() <= 160 && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'/')
                 })
                 && v["code"].as_str().is_some_and(|s| {
-                    (matches!(schema_version, NATIVE_NAMES_ANSWER_VERSION | GROUNDED_NAMES_ANSWER_VERSION) && matches!(s, "namedIdentifier" | "namedIdentifierEvidence"))
-                        || (matches!(schema_version, 3 | 4 | 5 | 6)
+                    (matches!(schema_version, NATIVE_NAMES_ANSWER_VERSION | GROUNDED_NAMES_ANSWER_VERSION | NARRATION_ANSWER_VERSION) && matches!(s, "namedIdentifier" | "namedIdentifierEvidence"))
+                        || (matches!(schema_version, 3 | 4 | 5 | 6 | 7)
                         && matches!(
                             s,
                             "sceneAuthoringShape"
@@ -741,11 +746,19 @@ impl Ledger {
         )
     }
 
+    #[cfg(test)]
     pub(crate) fn start_grounded_names_answer_sections(
         &self, question: &str, request_sha256: &str,
         manifest: &snapshot::SnapshotManifest, runtime: &CodexReviewRuntime, cancelled: &AtomicBool,
     ) -> Result<ActiveAnswer, String> {
         self.start_versioned_answer_sections(question, request_sha256, manifest, runtime, cancelled, GROUNDED_NAMES_ANSWER_VERSION)
+    }
+
+    pub(crate) fn start_narrated_answer_sections(
+        &self, question: &str, request_sha256: &str,
+        manifest: &snapshot::SnapshotManifest, runtime: &CodexReviewRuntime, cancelled: &AtomicBool,
+    ) -> Result<ActiveAnswer, String> {
+        self.start_versioned_answer_sections(question, request_sha256, manifest, runtime, cancelled, NARRATION_ANSWER_VERSION)
     }
 
     fn start_versioned_answer_sections(
@@ -789,15 +802,16 @@ impl Ledger {
 
 impl Answer {
     fn uses_scene_authoring(&self) -> bool {
-        matches!(self.schema_version, 3 | 4 | 5 | 6)
+        matches!(self.schema_version, 3 | 4 | 5 | 6 | 7)
     }
 
     fn uses_native_manifest(&self) -> bool {
-        matches!(self.schema_version, NATIVE_MANIFEST_ANSWER_VERSION | NATIVE_NAMES_ANSWER_VERSION | GROUNDED_NAMES_ANSWER_VERSION)
+        matches!(self.schema_version, NATIVE_MANIFEST_ANSWER_VERSION | NATIVE_NAMES_ANSWER_VERSION | GROUNDED_NAMES_ANSWER_VERSION | NARRATION_ANSWER_VERSION)
     }
 
     fn supports_checkpoint(&self, checkpoint: u32) -> bool {
         match self.schema_version {
+            NARRATION_ANSWER_VERSION => checkpoint == NARRATION_CHECKPOINT_VERSION,
             GROUNDED_NAMES_ANSWER_VERSION => checkpoint == GROUNDED_NAMES_CHECKPOINT_VERSION,
             NATIVE_NAMES_ANSWER_VERSION => checkpoint == NATIVE_NAMES_CHECKPOINT_VERSION,
             3 | 4 => checkpoint == SCENE_CHECKPOINT_VERSION,
@@ -808,6 +822,7 @@ impl Answer {
 
     fn proposal_version(&self) -> &'static str {
         match self.schema_version {
+            NARRATION_ANSWER_VERSION => NARRATION_PROPOSAL_VERSION,
             GROUNDED_NAMES_ANSWER_VERSION => GROUNDED_NAMES_PROPOSAL_VERSION,
             NATIVE_NAMES_ANSWER_VERSION => NATIVE_NAMES_PROPOSAL_VERSION,
             3 | 4 => SCENE_PROPOSAL_VERSION,
@@ -996,7 +1011,9 @@ impl ActiveAnswer {
             manifest,
             runtime,
             cancelled,
-            if self.value.schema_version == GROUNDED_NAMES_ANSWER_VERSION {
+            if self.value.schema_version == NARRATION_ANSWER_VERSION {
+                NARRATION_CHECKPOINT_VERSION
+            } else if self.value.schema_version == GROUNDED_NAMES_ANSWER_VERSION {
                 GROUNDED_NAMES_CHECKPOINT_VERSION
             } else if self.value.schema_version == NATIVE_NAMES_ANSWER_VERSION {
                 NATIVE_NAMES_CHECKPOINT_VERSION
@@ -1112,7 +1129,12 @@ impl ActiveAnswer {
                                             syntax.as_ref(),
                                             &sources,
                                             &resolved,
-                                        ) {
+                                        ).and_then(|mut revision| {
+                                            if checkpoint_version == NARRATION_CHECKPOINT_VERSION {
+                                                compiled.as_ref().ok_or("Authored narration metadata is unavailable.")?.apply_authored_narration(&mut revision)?;
+                                            }
+                                            Ok(revision)
+                                        }) {
                                             Err(error) if error == chapter_generation::COMPLETE_CLAIMS_LIMIT_ERROR => findings = finding("presentationLimit"),
                                             Err(_) => {
                                                 findings = visual_evidence_findings(&proposal.section);
@@ -1373,7 +1395,7 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
         .map_err(|_| "Invalid saved answer".to_owned())
         .and_then(|v| serde_json::from_value(v).map_err(|_| "Invalid saved answer".to_owned()))
         .map_err(|_| "The saved answer is damaged; it was preserved.")?;
-    if !matches!(value.schema_version, 1 | 2 | 3 | 4 | 5 | 6)
+    if !matches!(value.schema_version, 1 | 2 | 3 | 4 | 5 | 6 | 7)
         || value.binding.operation_id != operation
         || !value.binding.runtime.valid_shape()
         || value.binding.model != "gpt-6-luna"
@@ -1526,7 +1548,7 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
         {
             return Err("The section differs from its owned proposal.".into());
         }
-        let (response, _) = wrapped_authored(&mut proposal)
+        let (response, compiled) = wrapped_authored(&mut proposal)
             .map_err(|_| "The published scene identities are inconsistent.")?;
         let sources = record_ranges(checkpoint)
             .iter()
@@ -1578,13 +1600,16 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
         } else {
             chapter_generation::canonicalize_complete_answer_section
         };
-        let rebuilt = canonicalize(
+        let mut rebuilt = canonicalize(
             &value.binding.project_id,
             &manifest,
             syntax.as_ref(),
             &sources,
             &resolved,
         )?;
+        if section.checkpoint_version == NARRATION_CHECKPOINT_VERSION {
+            compiled.as_ref().ok_or("Authored narration metadata is unavailable.")?.apply_authored_narration(&mut rebuilt)?;
+        }
         if normalized_revision(&rebuilt)? != normalized_revision(&section.preview.revision)? {
             return Err("The saved section differs from its canonical proposal.".into());
         }
