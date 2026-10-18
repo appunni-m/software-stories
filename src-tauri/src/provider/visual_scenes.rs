@@ -4,7 +4,7 @@
 use crate::chapters::{self, ChapterRevision};
 use serde_json::{json, Value};
 
-pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v6";
+pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v7";
 
 /// One speech contract for file, overview and selected-section user prompts.
 /// Keep the full script and inspectable claim fields complete.
@@ -14,11 +14,11 @@ const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v3
 Author a causal illustrated answer. Keep exact implementation claims as inspectable source-grounded details; every declared identifier still appears literally in its claim. Write separate natural narration on each scene to explain that claim's meaning, not its spelling. Usually use 2–5 short claims/scenes per section. Speech follows the input, why a choice or guard matters, and the consequence, including all alternative/error conditions. Refer to the short visual labels, introduce useful invented inputs as examples, and connect scenes causally. Do not read declarations, helper names, type constructors, paths, call syntax or punctuation by default. A user explicitly asking about a name or syntax may need that name spoken. Do not change or omit a claim's conditions, exceptions, inference or uncertainty when paraphrasing. The app prefixes inference narration with its visible label. Exact source links remain available. Narration is AI-authored, not automatic code-name removal or proof of semantic equivalence.
 The app assembles full details from all validated claims and speech from all ordered scene narrations; it never selects a convenient subset. Keep each complete section's details and speech within 4,000 UTF-8 bytes or split it without dropping behavior. Separate prose/spokenText transport fields remain required under their documented bounds: prose copies complete claim sentences, spokenText copies the complete scene narration. With no visual presentation, prose still copies all complete claim sentences; spokenText is the complete natural account of those claims, with inference labels preserved."#;
 
-const BEHAVIOR_TEACHING: &str = r#"Teaching policy v6: For behavior, open with the problem and a useful input-to-result example. Explain work and consequences, not signatures or field lists. Narrate meaning, not syntax; exact identifiers stay inspectable and need speaking only if asked. Preserve guards, alternatives, errors and uncertainty. For conditional claims, state the general decision rule first; an example alone cannot replace the rule. Explain actual selectors, including zero versus any nonzero value, and empty results retaining or resetting location. Teach prediction of unshown inputs; never invent a guard."#;
+const BEHAVIOR_TEACHING: &str = r#"Teaching policy v7: For behavior, open with the problem and a useful input-to-result example. Explain work and consequences, not signatures or field lists. Narrate meaning, not syntax; exact identifiers stay inspectable and need speaking only if asked. Preserve guards, alternatives, errors and uncertainty. For conditional claims, state the general decision rule first; an example alone cannot replace the rule. Explain actual selectors, including zero versus any nonzero value, and empty results retaining or resetting location. Teach prediction of unshown inputs; never invent a guard."#;
 
 const EVIDENCE_MEANING: &str = r#"Trace every earlier guard and failure: lookup and byte-range extraction can fail before a parser runs. Parser fallback starts after those checks. Distinguish missing entries, inaccessible bytes, malformed contents and parsing in claims, visuals and narration. A comment or default constructor does not prove later consumer behavior. For downstream effects, cite that consumer's implementation plus producer and conditions; otherwise leave them unexplored. References and identifiers do not prove meaning."#;
 
-const REPRESENTATION_CHOICES: &str = r#"Choose the representation that teaches the behavior: bytes for signatures, before/after transformations, comparisons/tables for alternatives, state stacks, raster matrices, graphs for real paths. Avoid code-card templates: different source tokens alone do not establish a transformation. Independent resources belong in comparisons, not conversion arrows. Show guards; never make a branch-specific helper unconditional. Label defensible invented examples; never claim observed execution."#;
+const REPRESENTATION_CHOICES: &str = r#"Choose the representation that teaches the behavior: bytes for signatures, before/after transformations, comparisons/tables for alternatives, state stacks, raster matrices, graphs for real paths. A single caption or text card is not a visual composition: show a source-supported relationship such as input-to-result, guarded alternatives, or state change, or choose none. A single matrix, byte strip, table or metric may stand alone when that primitive itself explains the claim. Avoid code-card templates: different source tokens alone do not establish a transformation. Independent resources belong in comparisons, not conversion arrows. Show guards; never make a branch-specific helper unconditional. Label defensible invented examples; never claim observed execution."#;
 
 const OUTCOME_TEACHING: &str = r#"Show decisions or consequences as values, quantities, changed state or alternatives; a copied expression is not its effect. Unless syntax is requested, use at most one code element in a scene. For alternatives, give each outcome its own accurately named node or table row and guard. Distinguish clipped offsets from empty returns. Narrate example assumptions; no unconditional conclusion from one input."#;
 
@@ -162,7 +162,7 @@ pub(crate) mod tests {
     fn ordinary_prompt_binds_the_versioned_scene_narration_policy() {
         assert_eq!(
             crate::repository_context::digest(super::instructions().as_bytes()),
-            "f369e68fbc841456b14199c7f52db8c4c65e7a69ba0b649338df4db321e7c7cd"
+            "2753cde0d86c56e8b10c90ca61ed6a6ef0030560e587bf89c000d931d115b4fd"
         );
         assert!(super::instructions().contains(super::BEHAVIOR_TEACHING));
         assert!(super::instructions().contains(super::OUTCOME_TEACHING));
@@ -194,6 +194,8 @@ pub(crate) mod tests {
         assert!(shared.contains(REPRESENTATION_CHOICES));
         assert!(shared.contains("different source tokens alone do not establish a transformation"));
         assert!(shared.contains("Independent resources"));
+        assert!(shared.contains("A single caption or text card is not a visual composition"));
+        assert!(shared.contains("A single matrix, byte strip, table or metric may stand alone"));
         assert!(shared.contains("Narration and collapsed details must not carry a missing branch by themselves"));
         assert!(shared.contains("Source-backed meaning can be expressed in concise node labels and details"));
         assert!(!shared.contains("parentIndex"));

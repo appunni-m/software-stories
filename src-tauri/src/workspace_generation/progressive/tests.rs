@@ -490,7 +490,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     let input = input(&f);
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema).unwrap();
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v6");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v7");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert_eq!(
         fingerprint,
