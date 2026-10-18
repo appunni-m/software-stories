@@ -101,5 +101,10 @@ export function rememberAnswerVersion(state: WorkspaceState, explorationId: stri
     }
   }
   if (JSON.stringify(previous) === JSON.stringify(versions) && JSON.stringify(reading) === JSON.stringify(turn.reading)) return state;
-  return {...state, explorations:state.explorations.map(e => e.id !== explorationId ? e : {...e, turns:e.turns.map(t => t.id !== turnId ? t : {...t, answerVersions:versions, reading})})};
+  const next: Turn = {...turn, answerVersions:versions, reading};
+  if (next.presentation) next.presentation = {
+    stories:next.presentation.stories.filter(p => ownsAnswerRevision(next,p.revisionId)),
+    diagrams:next.presentation.diagrams.filter(p => ownsAnswerRevision(next,p.revisionId)),
+  };
+  return {...state, explorations:state.explorations.map(e => e.id !== explorationId ? e : {...e, turns:e.turns.map(t => t.id !== turnId ? t : next)})};
 }

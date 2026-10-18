@@ -91,3 +91,18 @@ test('Flow follows an explicit version switch in its current part and keeps anot
   turn(s).reading.flow={revisionId:'revision:other-part',sectionId:'section:other'};
   s=select(s,original.revisionId);assert.equal(turn(s).reading.flow.revisionId,'revision:other-part');
 });
+
+test('bounded version retention removes orphan progress so the native journal can still save',()=>{
+  const revisions=Array.from({length:257},(_,i)=>revision(i+5,original.revisionId,{lifecycle:'accepted'}));
+  const [oldest]=revisions,current=revisions[255],next=revisions[256];
+  let s=workspace();const t=turn(s);
+  t.answerVersions=revisions.slice(0,256).map(r=>({originalRevisionId:original.revisionId,revisionId:r.revisionId,selected:r===current,reading:{guide:'section:one'}}));
+  const progress=r=>({revisionId:r.revisionId,sectionId:'section:one',sectionRevisionId:`section-revision:${r.revisionNumber}`,sceneId:'claim:one',positions:{},fullMap:false});
+  t.presentation={stories:[progress(original),progress(oldest),progress(current)],diagrams:[{...progress(oldest),viewport:{x:0,y:0,zoom:1}}]};
+  const before=JSON.stringify(s);s=select(s,next.revisionId,[original,...revisions]);
+  assert.equal(turn(s).answerVersions.length,256);assert.equal(resolveAnswerRevision(original,turn(s),[original,...revisions]),next);
+  assert.deepEqual(turn(s).presentation.stories.map(p=>p.revisionId),[original.revisionId,current.revisionId]);
+  assert.deepEqual(turn(s).presentation.diagrams,[]);
+  assert.ok(!turn(s).answerVersions.some(v=>v.revisionId===oldest.revisionId));
+  assert.equal(JSON.parse(before).explorations[0].turns[0].presentation.stories.length,3,'input and chapter history are untouched');
+});
