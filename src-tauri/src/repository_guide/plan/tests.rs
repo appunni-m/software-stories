@@ -197,6 +197,33 @@ fn scoped_opening_instructions_do_not_reintroduce_the_legacy_whole_question() {
 }
 
 #[test]
+fn scoped_opening_keeps_one_transition_and_defers_later_entries_without_dropping_scope() {
+    let f = Fixture::new();
+    let r = crate::repository_guide::tests::fresh_record(&f);
+    let before = serde_json::to_vec(&r).unwrap();
+    let binding = opening::context_sha256(&r).unwrap();
+    let (prompt, schema, fingerprint, instructions) = request(&r).unwrap();
+    assert!(instructions.contains("Choose exactly one entry point"));
+    assert!(instructions.contains("wrappers and predicate helpers"));
+    assert!(instructions.contains("Normally publish one focused opening section"));
+    assert!(instructions.contains("later API entry points, selectors and flag normalization"));
+    assert!(instructions.contains("revisit source for genuinely new behavior"));
+    assert!(instructions.contains("Never discard a publication or hide an unresolved condition"));
+    assert!(instructions.contains("Native publication, evidence and lifetime budgets are unchanged"));
+    assert_eq!(serde_json::from_str::<Value>(&prompt).unwrap()["guideContext"]["question"], r.question);
+    assert_eq!(schema, opening::schema_for(&r, super::schema()));
+    assert_eq!(request(&r).unwrap().2, fingerprint);
+    assert_eq!(opening::context_sha256(&r).unwrap(), binding);
+    assert_eq!(serde_json::to_vec(&r).unwrap(), before);
+    assert_eq!(MAX_UNITS + 1, 7);
+    assert_eq!(MAX_ATTEMPTS, 2);
+
+    let legacy = opening::instructions();
+    assert!(!legacy.contains("Choose exactly one entry point"));
+    assert!(legacy.contains("The original learning question remains the guide's full scope."));
+}
+
+#[test]
 fn production_opening_session_stores_the_separate_question_without_connecting_an_account() {
     let f = Fixture::new();
     let mut r = crate::repository_guide::tests::fresh_record(&f);

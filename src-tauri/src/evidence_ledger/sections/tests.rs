@@ -1848,6 +1848,37 @@ fn failure_diagnostics_reject_unknown_null_and_nonterminal_metadata() {
 }
 
 #[test]
+fn operation_deadline_retains_only_its_fixed_code_and_never_rewrites_terminal_history() {
+    let f = Fixture::new();
+    let (ledger, runtime, cancelled) = setup(&f);
+    let answer = start(&ledger, &f, &runtime, &cancelled);
+    let run = &ledger.record.binding.operation_id;
+    let error = "The Codex operation exceeded ten minutes, including result validation. No late response was published.";
+    let summary = reading::interrupt_with_failure(
+        &f.storage,
+        run,
+        Outcome::Failed,
+        Some(FailureCode::from_error(error)),
+    ).unwrap();
+    assert_eq!(summary.outcome, Outcome::Failed);
+    assert!(summary.sections.is_empty());
+    let saved = fs::read(&answer.path).unwrap();
+    let value: Value = serde_json::from_slice(&saved).unwrap();
+    assert_eq!(value["failureCode"], "runTimeout");
+    assert!(!String::from_utf8_lossy(&saved).contains(error));
+    assert!(serde_json::to_value(summary).unwrap().get("failureCode").is_none());
+    assert_eq!(FailureCode::from_error(&format!("{error} /private/customer/source.rs")), FailureCode::Unknown);
+
+    // Reopening an older unknown outcome must not invent this newer diagnosis.
+    let mut historical = value;
+    historical["failureCode"] = json!("unknown");
+    let historical = serde_json::to_vec(&historical).unwrap();
+    fs::write(&answer.path, &historical).unwrap();
+    reading::interrupt_with_failure(&f.storage, run, Outcome::Failed, Some(FailureCode::RunTimeout)).unwrap();
+    assert_eq!(fs::read(&answer.path).unwrap(), historical);
+}
+
+#[test]
 fn known_terminal_failures_use_only_fixed_classifications() {
     for (message, code) in [
         (
@@ -1876,6 +1907,22 @@ fn known_terminal_failures_use_only_fixed_classifications() {
         ),
         (
             "The Codex run exceeded ten minutes and was stopped. Review again before retrying.",
+            FailureCode::RunTimeout,
+        ),
+        (
+            "The Codex operation exceeded ten minutes, including result validation. No late response was published.",
+            FailureCode::RunTimeout,
+        ),
+        (
+            "The Codex operation exceeded ten minutes before dispatch. Prepare a fresh review.",
+            FailureCode::RunTimeout,
+        ),
+        (
+            "The Codex operation exceeded ten minutes before creating a thread. No generation was started.",
+            FailureCode::RunTimeout,
+        ),
+        (
+            "The Codex operation exceeded ten minutes before starting the model turn. No generation was started.",
             FailureCode::RunTimeout,
         ),
         (

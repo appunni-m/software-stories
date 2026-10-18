@@ -518,6 +518,34 @@ fn build(
     adopt: impl Fn(&SectionNotice) -> Result<(), String>,
     changed: impl Fn(&GuideSummary),
 ) -> Result<GuideSummary, String> {
+    let result = build_inner(
+        storage, id, continue_opening, manager, jobs, journal,
+        progress, notify, adopt, &changed,
+    );
+    if result.is_err() {
+        // Keep the original operation error even if local cleanup fails. The
+        // next read can still reconcile without dispatching another request.
+        if let Ok(record) = recovering::settle_failed_build(storage, id, manager) {
+            if let Ok(saved) = summary(storage, &record) {
+                changed(&saved);
+            }
+        }
+    }
+    result
+}
+
+fn build_inner(
+    storage: &Path,
+    id: &str,
+    continue_opening: bool,
+    manager: &codex_agent::CodexAgentManager,
+    jobs: RepositoryContextJobs,
+    journal: &recovery::InterruptionJournal,
+    progress: impl Fn(codex_agent::CodexProgress),
+    notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
+    adopt: impl Fn(&SectionNotice) -> Result<(), String>,
+    changed: impl Fn(&GuideSummary),
+) -> Result<GuideSummary, String> {
     let mut record = store::read(storage, id)?;
     crate::evidence_ledger::sections::capacity::with_guide_reservation(
         storage,
@@ -783,7 +811,6 @@ async fn run_command(
             |section|{if saved_section(&storage, section)? { return Ok(()); } let lock=app.state::<crate::ChapterStoreLock>();let _guard=lock.0.lock().map_err(|_|"Chapter storage is unavailable.")?;
                 reading::adopt(&storage,&section.run_id,&section.project_id,&section.snapshot_id,&section.generation_id)?;Ok(())},
             |guide|{let _=app.emit("repository-guide-changed",guide);});
-        if result.is_err(){let _=store::update(&storage,&id,|record|{if record.status!=Status::Stopped{record.status=Status::Partial;}Ok(())});}
         result
     }).await.map_err(|_|"The guide worker stopped unexpectedly. Inspect saved work before explicitly resuming; nothing was replayed.".to_owned())?
 }

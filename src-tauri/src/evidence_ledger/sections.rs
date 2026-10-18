@@ -107,7 +107,11 @@ impl FailureCode {
             "Context delivery is uncertain. This operation stopped; no automatic retry is allowed." => {
                 Self::ContextDelivery
             }
-            "The Codex run exceeded ten minutes and was stopped. Review again before retrying." => {
+            "The Codex run exceeded ten minutes and was stopped. Review again before retrying."
+            | "The Codex operation exceeded ten minutes, including result validation. No late response was published."
+            | "The Codex operation exceeded ten minutes before dispatch. Prepare a fresh review."
+            | "The Codex operation exceeded ten minutes before creating a thread. No generation was started."
+            | "The Codex operation exceeded ten minutes before starting the model turn. No generation was started." => {
                 Self::RunTimeout
             }
             error if error == crate::codex_identity::changed() => Self::RuntimeIdentity,

@@ -2,6 +2,121 @@ use super::*;
 use crate::chapter_generation::tests::Fixture;
 use crate::repository_guide::tests::{attempt, record};
 
+mod saved_failure;
+
+#[test]
+fn failed_build_retires_its_owner_without_changing_attempts_or_the_saved_outline() {
+    let f = Fixture::new();
+    let mut original = record(&f);
+    let failed = attempt(&original, Outcome::Failed);
+    original.active_run_id = Some(failed.run_id.clone());
+    original.units[0].attempts.push(failed);
+    store::create(&f.storage, &original).unwrap();
+    let units = serde_json::to_value(&original.units).unwrap();
+    let plan = original.plan.clone();
+    let manager = codex_agent::CodexAgentManager::default();
+    let saved = settle_failed_build(&f.storage, &original.id, &manager).unwrap();
+    assert_eq!(saved.status, Status::Partial);
+    assert!(saved.active_run_id.is_none());
+    assert_eq!(saved.revision, original.revision + 1);
+    assert_eq!(saved.plan, plan);
+    assert_eq!(serde_json::to_value(&saved.units).unwrap(), units);
+    assert_eq!(saved.units[0].attempts.len(), 1);
+    assert!(saved.units[1].attempts.is_empty());
+    let bytes = record_bytes(&f, &saved);
+    let again = settle_failed_build(&f.storage, &saved.id, &manager).unwrap();
+    assert_eq!(again.revision, saved.revision);
+    assert_eq!(record_bytes(&f, &saved), bytes);
+    assert!(!f.storage.join("codex-agent/runtime.json").exists());
+}
+
+#[test]
+fn failed_build_cannot_retire_an_operation_that_still_has_a_native_worker() {
+    let f = Fixture::new();
+    let original = pending(&f);
+    let manager = codex_agent::CodexAgentManager::default();
+    let run = original.active_run_id.as_ref().unwrap();
+    let worker = manager.hold_answer_worker(run).unwrap();
+    let bytes = record_bytes(&f, &original);
+    assert!(settle_failed_build(&f.storage, &original.id, &manager).is_err());
+    assert_eq!(record_bytes(&f, &original), bytes);
+    drop(worker);
+    let retired = settle_failed_build(&f.storage, &original.id, &manager).unwrap();
+    assert_eq!(retired.status, Status::Partial);
+    assert!(retired.active_run_id.is_none());
+    assert_eq!(retired.units[0].attempts.len(), 1);
+    assert_eq!(retired.units[0].attempts[0].summary.as_ref().unwrap().outcome, Outcome::Interrupted);
+}
+
+#[test]
+fn a_terminal_receipt_does_not_allow_failure_cleanup_before_worker_retirement() {
+    let f = Fixture::new();
+    let mut original = record(&f);
+    let failed = attempt(&original, Outcome::Failed);
+    original.active_run_id = Some(failed.run_id.clone());
+    original.units[0].attempts.push(failed);
+    store::create(&f.storage, &original).unwrap();
+    let manager = codex_agent::CodexAgentManager::default();
+    let worker = manager.hold_answer_worker(original.active_run_id.as_ref().unwrap()).unwrap();
+    let bytes = record_bytes(&f, &original);
+    assert!(settle_failed_build(&f.storage, &original.id, &manager).is_err());
+    assert!(reconcile(&f.storage, &original, &manager).is_err());
+    assert_eq!(record_bytes(&f, &original), bytes);
+    drop(worker);
+    let retired = settle_failed_build(&f.storage, &original.id, &manager).unwrap();
+    assert_eq!(retired.status, Status::Partial);
+    assert_eq!(retired.units[0].attempts.len(), 1);
+    assert!(retired.active_run_id.is_none());
+}
+
+#[test]
+fn failure_cleanup_keeps_stop_and_noop_terminal_bytes_at_the_revision_limit() {
+    for status in [Status::Stopped, Status::Partial, Status::Interrupted, Status::Failed] {
+        let f = Fixture::new();
+        let mut original = record(&f);
+        original.status = status.clone();
+        original.revision = u64::MAX;
+        store::create(&f.storage, &original).unwrap();
+        let bytes = record_bytes(&f, &original);
+        let saved = settle_failed_build(&f.storage, &original.id, &codex_agent::CodexAgentManager::default()).unwrap();
+        assert_eq!(saved.status, status);
+        assert_eq!(saved.revision, u64::MAX);
+        assert_eq!(record_bytes(&f, &original), bytes);
+    }
+    let f = Fixture::new();
+    let mut original = pending(&f);
+    original.status = Status::Stopped;
+    store::update(&f.storage, &original.id, |r| { r.status = Status::Stopped; Ok(()) }).unwrap();
+    let saved = settle_failed_build(&f.storage, &original.id, &codex_agent::CodexAgentManager::default()).unwrap();
+    assert_eq!(saved.status, Status::Stopped);
+    assert!(saved.active_run_id.is_none());
+    assert_eq!(saved.units[0].attempts.len(), 1);
+}
+
+#[test]
+fn real_build_preflight_failure_notifies_partial_without_starting_or_replaying_an_attempt() {
+    let f = Fixture::new();
+    let original = record(&f);
+    store::create(&f.storage, &original).unwrap();
+    let observations = Mutex::new(Vec::new());
+    let manager = codex_agent::CodexAgentManager::default();
+    let result = build(
+        &f.storage, &original.id, false, &manager,
+        RepositoryContextJobs::default(), &recovery::InterruptionJournal::default(),
+        |_| {}, Arc::new(|_| panic!("no section may publish during failed preflight")),
+        |_| panic!("no section may be adopted during failed preflight"),
+        |guide| observations.lock().unwrap().push(guide.status.clone()),
+    );
+    assert!(result.is_err());
+    assert_eq!(*observations.lock().unwrap(), vec![Status::Partial]);
+    let saved = store::read(&f.storage, &original.id).unwrap();
+    assert_eq!(saved.status, Status::Partial);
+    assert!(saved.active_run_id.is_none());
+    assert!(saved.units.iter().all(|u| u.attempts.is_empty()));
+    assert_eq!(saved.plan, original.plan);
+    assert!(!f.storage.join("codex-agent/runtime.json").exists());
+}
+
 #[test]
 fn unchanged_terminal_reconciliation_preserves_bytes_and_revision_even_at_the_limit() {
     for revision in [17, u64::MAX] {
@@ -230,7 +345,7 @@ fn guide_source_validation_does_not_hold_stop_ownership() {
         cancelled.send(stopping.cancel(&run)).unwrap();
     });
     let mut stopped_during_validation = false;
-    let recovered = reconcile_with_reader(&f.storage, &record, &manager, |_| {
+    let recovered = reconcile_with_reader(&f.storage, &record, &manager, Status::Interrupted, |_| {
         ready.send(()).unwrap();
         stopped_during_validation = result.recv_timeout(Duration::from_secs(1)).unwrap_or(false);
         Err("Controlled source replay failure; saved bytes remain unchanged.".into())
@@ -262,7 +377,7 @@ fn changed_answer_receipts_are_reread_with_a_fixed_bound_and_never_overwrite_sto
     let original = record_bytes(&f, &record);
     let manager = codex_agent::CodexAgentManager::default();
     let mut reads = 0;
-    let changed = reconcile_with_reader(&f.storage, &record, &manager, |_| {
+    let changed = reconcile_with_reader(&f.storage, &record, &manager, Status::Interrupted, |_| {
         reads += 1;
         Ok(Some(observed.clone()))
     });
@@ -271,7 +386,7 @@ fn changed_answer_receipts_are_reread_with_a_fixed_bound_and_never_overwrite_sto
     assert_eq!(std::fs::read(&path).unwrap(), stopped);
     assert_eq!(record_bytes(&f, &record), original);
     let mut reads = 0;
-    let recovered = reconcile_with_reader(&f.storage, &record, &manager, |_| {
+    let recovered = reconcile_with_reader(&f.storage, &record, &manager, Status::Interrupted, |_| {
         reads += 1;
         if reads == 1 {
             Ok(Some(observed.clone()))
@@ -306,7 +421,7 @@ fn a_missing_observation_cannot_hide_a_new_receipt() {
     empty_answer(&f, &record, &attempt.question);
     let manager = codex_agent::CodexAgentManager::default();
     let mut reads = 0;
-    let recovered = reconcile_with_reader(&f.storage, &record, &manager, |_| {
+    let recovered = reconcile_with_reader(&f.storage, &record, &manager, Status::Interrupted, |_| {
         reads += 1;
         if reads == 1 {
             Ok(None)

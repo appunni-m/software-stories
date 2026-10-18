@@ -537,6 +537,28 @@ fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
 }
 
 #[test]
+fn narration_pacing_preserves_all_conditions_and_is_bound_to_the_request() {
+    let f = Fixture::new();
+    let input = input(&f);
+    let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
+    let mut contract = generation_contract(&input, &prompt, &schema).unwrap();
+    let instructions = system_instructions();
+    assert!(instructions.contains("one decision and its consequence"));
+    assert!(instructions.contains("divide the complete behavior into focused claims/scenes"));
+    assert!(instructions.contains("Retain every relevant condition, alternative, error and source reference"));
+    assert!(instructions.contains("a shorter script never permits missing behavior"));
+    assert!(instructions.contains("do not invent a designer's motivation or claim an observed execution"));
+    assert!(instructions.contains("state the general decision rule first"));
+    assert!(instructions.contains("an example alone cannot replace the rule"));
+    assert_eq!(contract["systemInstructions"], instructions);
+    assert_eq!(fingerprint, context::digest(&serde_json::to_vec(&contract).unwrap()));
+    contract["systemInstructions"] = json!(instructions.replace(&format!("\n\n{SCENE_PACING_INSTRUCTIONS}"), ""));
+    assert_ne!(fingerprint, context::digest(&serde_json::to_vec(&contract).unwrap()));
+    assert_eq!(contract["sectionAttempts"], 8);
+    assert_eq!(contract["uniqueSections"], 6);
+}
+
+#[test]
 fn progressive_teaching_rules_fit_the_existing_request_metadata_limit() {
     let f = Fixture::new();
     let input = input(&f);
