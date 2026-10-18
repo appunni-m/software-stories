@@ -34,6 +34,16 @@ test('the target list reports its newest current version while the review pane m
   assert.equal(chapterStudioRowStatus('unavailable', false, null), 'unavailable');
 });
 
+test('known older-snapshot chapters stay stale during an unavailable current-history read', () => {
+  const currentSnapshot = 'snapshot-current';
+  const knownOlder = revision('snapshot-old', 'accepted', 'older-accepted');
+
+  assert.equal(chapterStudioStatus('unavailable', true, knownOlder, currentSnapshot, null), 'stale');
+  assert.equal(chapterStudioRowStatus('unavailable', true, null), 'stale');
+  assert.equal(chapterStudioStatusLabel('stale'), 'Older snapshot');
+  assert.equal(chapterStudioCanGenerate('unavailable', 'stale'), false);
+});
+
 test('Chapter Studio offers generation only when a completed read proves missing or stale history', () => {
   for (const status of ['loading', 'unavailable', 'draft', 'rejected', 'accepted']) {
     assert.equal(chapterStudioCanGenerate('ready', status), false, `${status} must not start generation`);
