@@ -208,3 +208,29 @@ fn saved_answer_schema_version_6_is_not_replayed() {
     fs::write(&answer.path, serde_json::to_vec(&value).unwrap()).unwrap();
     assert!(inspect(&f.storage, &ledger.record.binding.operation_id).is_err());
 }
+
+#[test]
+fn current_answer_listing_skips_unsupported_old_records_without_modifying_them() {
+    let f = Fixture::new();
+    let (ledger, runtime, cancel) = setup(&f);
+    let current = start(&ledger, &f, &runtime, &cancel);
+    let old_run = Uuid::new_v4().to_string();
+    let old_path = f
+        .storage
+        .join("answer-sections")
+        .join(format!("{old_run}.json"));
+    let old_bytes = br#"{"schemaVersion":1,"unsupported":"preserve verbatim"}"#;
+    fs::write(&old_path, old_bytes).unwrap();
+
+    let listed = reading::list(
+        &f.storage,
+        &f.manifest.summary.project_id,
+        &f.manifest.summary.snapshot_id,
+    )
+    .unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].run_id, ledger.record.binding.operation_id);
+    assert_eq!(listed[0].run_id, current.value.binding.operation_id);
+    assert_eq!(fs::read(&old_path).unwrap(), old_bytes);
+    assert!(inspect(&f.storage, &old_run).is_err());
+}

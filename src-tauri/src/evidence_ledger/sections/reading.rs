@@ -254,7 +254,20 @@ pub(crate) fn list_all(storage: &Path) -> Result<Vec<Summary>, String> {
                 .file_stem()
                 .and_then(|v| v.to_str())
                 .ok_or("Invalid saved answer identity.")?;
-            let answer = inspect(storage, run)?;
+            let bytes = read_record_bytes(storage, run)?;
+            let envelope: serde_json::Value = crate::strict_json::from_slice(&bytes)
+                .map_err(|_| "The saved answer is damaged; it was preserved.")?;
+            if envelope
+                .get("schemaVersion")
+                .and_then(serde_json::Value::as_u64)
+                != Some(NARRATION_ANSWER_VERSION as u64)
+            {
+                // Current answer listings are strict-schema only. Older or
+                // future records remain byte-for-byte in place and are not
+                // decoded, migrated, or allowed to block current work.
+                continue;
+            }
+            let answer = replay_answer(storage, run, &bytes)?;
             result.push(answer.summary());
         }
     }
