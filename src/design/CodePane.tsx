@@ -55,6 +55,22 @@ export function CodePane({ path, contents, theme, reveal, onExplain, onAttach, o
     const to = view.state.doc.line(Math.min(reveal.to ?? reveal.from ?? 1, view.state.doc.lines)).to;
     view.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: 'center' }) });
   }, [reveal, path, contents, theme]);
+  useEffect(() => {
+    const view = editor.current;
+    if (!view || !reveal || reveal.path !== path || !reveal.from) return;
+    const line = reveal.from;
+    let frame = 0;
+    const restoreCitation = () => {
+      cancelAnimationFrame(frame);
+      const position = view.state.doc.line(Math.min(line, view.state.doc.lines)).from;
+      frame = requestAnimationFrame(() => {
+        if (view.dom.isConnected) view.dispatch({ effects: EditorView.scrollIntoView(position, { y: 'center' }) });
+      });
+    };
+    const observer = new MutationObserver(restoreCitation);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-app-zoom'] });
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+  }, [reveal, path, contents, theme]);
   return <section className="preview-code-pane" aria-label="Code">
     <div className="preview-editor-tab"><Code2 size={14} /><span>{path.split('/').at(-1)}</span><Tooltip content="Close code pane"><IconButton size="1" variant="ghost" aria-label="Close code pane" onClick={onClose}><X size={14} /></IconButton></Tooltip></div>
     <div className="preview-code-path">{path.split('/').join('  /  ')}</div>
