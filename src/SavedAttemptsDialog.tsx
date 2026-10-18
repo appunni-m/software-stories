@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { AlertDialog, Button, Dialog, Flex, Text } from '@radix-ui/themes';
 import { SavedAttempts, type SavedAttemptEntry } from './lib/savedAttempts';
 import { listSavedAttempts, readSavedAttempt, trashSavedAttempt } from './lib/commands';
@@ -16,6 +16,8 @@ export function SavedAttemptsDialog({ onClose, projectNames }: { onClose: () => 
   const [controller] = useState(() => new SavedAttempts({ list: listSavedAttempts, read: readSavedAttempt, trash: trashSavedAttempt }));
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
   const [confirm, setConfirm] = useState<SavedAttemptEntry | null>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+  const trashButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const unregister = appCloseCoordinator.register({ freeze: () => controller.beginClose(), flush: () => controller.flush() });
     void controller.refresh(); return () => { unregister(); controller.dispose(); };
@@ -23,7 +25,7 @@ export function SavedAttemptsDialog({ onClose, projectNames }: { onClose: () => 
   const selected = state.inventory?.entries.find(entry => entry.id === state.selectedId);
   const label = (entry: SavedAttemptEntry) => entry.available ? projectNames[entry.projectId ?? ''] ?? 'Saved repository' : 'Unreadable saved attempt';
   return <Dialog.Root open onOpenChange={open => { if (!open && !state.removing) onClose(); }}>
-    <Dialog.Content maxWidth="760px" className="saved-attempts-dialog" onCloseAutoFocus={event => {
+    <Dialog.Content ref={dialog} maxWidth="760px" className="saved-attempts-dialog" onCloseAutoFocus={event => {
       event.preventDefault(); document.querySelector<HTMLElement>('[data-focus-key="notifications"]')?.focus();
     }}>
       <Dialog.Title>Saved attempts</Dialog.Title>
@@ -42,12 +44,12 @@ export function SavedAttemptsDialog({ onClose, projectNames }: { onClose: () => 
         <button type="button" aria-pressed={entry.id === state.selectedId} className="saved-attempt-row"
           disabled={state.loading || state.removing || state.requiresRefresh || !entry.reviewToken} onClick={() => void controller.select(entry)}>
           <strong className="saved-attempt-question">{entry.question ?? label(entry)}</strong>
-          <span>{label(entry)} · {entry.startedAtUnixMs ? new Date(entry.startedAtUnixMs).toLocaleString() : 'Date unavailable'} · {Math.ceil(entry.bytes / 1024)} KB{entry.available ? ` · ${entry.candidateCount} ${entry.candidateCount === 1 ? 'version' : 'versions'}` : ''}</span>
+          <span>{entry.question ? `${label(entry)} · ` : ''}{entry.startedAtUnixMs ? new Date(entry.startedAtUnixMs).toLocaleString() : 'Date unavailable'} · {Math.ceil(entry.bytes / 1024)} KB{entry.available ? ` · ${entry.candidateCount} ${entry.candidateCount === 1 ? 'version' : 'versions'}` : ''}</span>
         </button>
       </li>)}</ul>
       {selected && <section className="saved-attempt-review" aria-label="Selected saved attempt" aria-busy={state.reviewing}>
         <Flex justify="between" align="center" gap="3" wrap="wrap"><Text as="p" weight="bold">{label(selected)}</Text>
-          <Button color="red" variant="soft" size="2" disabled={!controller.canRemove(selected)} onClick={() => setConfirm(selected)}>Move to Trash</Button>
+          <Button ref={trashButton} color="red" variant="soft" size="2" disabled={!controller.canRemove(selected)} onClick={() => setConfirm(selected)}>Move to Trash</Button>
         </Flex>
         {!selected.available && <p>This saved output could not be verified. You can move this file to Trash to free space.</p>}
         {selected.question ? <details><summary>Original question</summary><p>{selected.question}</p></details> : <p>The original question isn’t available in saved conversation history.</p>}
@@ -61,7 +63,10 @@ export function SavedAttemptsDialog({ onClose, projectNames }: { onClose: () => 
       </section>}
       <Flex justify="end" mt="4"><Button disabled={state.removing} onClick={onClose}>Done</Button></Flex>
       <AlertDialog.Root open={confirm !== null} onOpenChange={open => { if (!open) setConfirm(null); }}>
-        <AlertDialog.Content maxWidth="440px">
+        <AlertDialog.Content maxWidth="440px" onCloseAutoFocus={event => {
+          event.preventDefault();
+          (controller.getSnapshot().removing ? dialog.current : trashButton.current)?.focus();
+        }}>
           <AlertDialog.Title>Move this attempt to Trash?</AlertDialog.Title>
           <AlertDialog.Description>You can recover the file from Trash in Finder. This won’t remove a saved explanation or retry generation.</AlertDialog.Description>
           <Flex gap="3" justify="end" mt="4"><AlertDialog.Cancel><Button variant="soft" color="gray">Cancel</Button></AlertDialog.Cancel>

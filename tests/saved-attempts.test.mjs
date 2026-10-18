@@ -129,6 +129,7 @@ describe('saved attempt recovery', () => {
     assert.match(ui, /AlertDialog\.Title>Move this attempt to Trash/);
     assert.match(ui, /<pre className="saved-attempt-text">\{expanded \? text/);
     assert.match(ui, /appCloseCoordinator\.register/); assert.match(ui, /data-focus-key="notifications"/);
+    assert.match(ui, /ref=\{trashButton\}/); assert.match(ui, /controller\.getSnapshot\(\)\.removing \? dialog\.current : trashButton\.current/);
     assert.match(notifications, /onReviewSavedAttempts\(\)/);
     assert.doesNotMatch(ui, /dangerouslySetInnerHTML|iframe|innerHTML|eval\(/);
     assert.doesNotMatch(native, /\.start\(|\.status\(|thread\/|turn\/|save_retrieval_grant|reset/);
