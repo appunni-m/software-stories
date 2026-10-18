@@ -13,7 +13,7 @@ import { projectProvenRelationshipGraph } from '../lib/atlas';
 import { inspectInteractiveVisual } from '../lib/visuals';
 import type { AtlasHotspotSelection, SourceLineRange, Workspace as WorkspaceId } from '../lib/navigation';
 import { ancestors, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, discardUnstartedGuide, historyEntry, chooseFlowRevision, rankSourcePaths, rememberScroll, rememberSection, sectionPosition, type AnswerSummary, type Context, type Exploration, type ReadingPosition, type Turn, type View } from './model';
-import { appendQuestion, appendRepositoryGuide, authorizeWorkspace, ensureWorkspaceIndex, revokeWorkspace, restoreWorkspaceAnswers, runQuestion, runRepositoryGuide, stopQuestion, updateWorkspace, useWorkspace, watchWorkspaceAnswers } from './store';
+import { appendQuestion, appendRepositoryGuide, authorizeWorkspace, ensureWorkspaceIndex, prepareWorkspaceConversation, revokeWorkspace, restoreWorkspaceAnswers, runQuestion, runRepositoryGuide, stopQuestion, updateWorkspace, useConversationAvailability, useWorkspace, watchWorkspaceAnswers } from './store';
 import { useConnectionState } from '../lib/connectionStore';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
 import { errorMessageOr, explanationErrorMessage } from '../lib/errorMessage';
@@ -33,7 +33,21 @@ interface Props {
 const label = (c:Context) => `${c.path.split('/').at(-1)}${c.from ? `:${c.from}${c.to !== c.from ? `–${c.to}` : ''}` : ''}`;
 
 /** The production workspace consumes native snapshots and revision references, never example data. */
-export function WorkspaceFrame({manifest,...props}:Omit<Props,'manifest'>&{manifest:SnapshotManifest|null}) { return manifest ? <DeveloperWorkspace key={`${manifest.summary.projectId}:${manifest.summary.snapshotId}`} {...props} manifest={manifest}/> : <>{props.children}</>; }
+export function WorkspaceFrame({manifest,...props}:Omit<Props,'manifest'>&{manifest:SnapshotManifest|null}) { return manifest ? <SavedWorkspace key={`${manifest.summary.projectId}:${manifest.summary.snapshotId}`} {...props} manifest={manifest}/> : <>{props.children}</>; }
+
+function SavedWorkspace(props:Props){
+  const {projectId,snapshotId}=props.manifest.summary;
+  const availability=useConversationAvailability(projectId,snapshotId);
+  useEffect(()=>{
+    let active=true;
+    if(isNativeRuntime()){
+      props.onAnswerRestoration({projectId,snapshotId,availability:'loading'});
+      void prepareWorkspaceConversation(projectId,snapshotId).catch(()=>{if(active)props.onAnswerRestoration({projectId,snapshotId,availability:'unavailable'});});
+    }
+    return()=>{active=false;};
+  },[projectId,snapshotId,props.onAnswerRestoration]);
+  return availability==='ready'?<DeveloperWorkspace {...props}/>:<div className="dw-source-empty" role="status">{availability==='loading'?<><LoaderCircle size={18}/><p>Opening your workspace…</p></>:<p>Your saved conversation couldn’t be opened. Try again from Notifications.</p>}</div>;
+}
 
 export function DeveloperWorkspace({manifest,projectName,workspace,routePath,routeRange,routeSelection,children,onWorkspace,onSettings,onReview,onRead,onCompare,onRememberFile,onAnswerRestoration}:Props) {
   const {appearance:themeAppearance}=useThemeContext();

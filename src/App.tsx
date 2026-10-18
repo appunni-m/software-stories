@@ -2,7 +2,7 @@ import { useNoticeHistory } from './lib/useNoticeHistory';
 import { Theme } from '@radix-ui/themes';
 import { useAppAppearance } from './lib/useAppAppearance';
 import type { AppNoticeInput, AppNotice } from './lib/noticeHistory';
-import { getWorkspace, updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
+import { getWorkspace, prepareWorkspaceConversation, retryWorkspaceConversation, updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
 import { markQuestionOutcome, openWorkspaceQuestion } from './workspace/outcomes';
 import { WorkspaceFrame } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
@@ -240,9 +240,9 @@ function App() {
   const setNotice=useCallback((input:AppNoticeInput)=>{void noticeHistory.publish({...input,occurrenceId:input.occurrenceId??crypto.randomUUID()});},[noticeHistory]);
   useEffect(() => {
     const notify = (event: Event) => {
-      const detail=(event as CustomEvent<{title:string;message:string;projectId?:string;snapshotId?:string;explorationId?:string;occurrenceId?:string}>).detail;
+      const detail=(event as CustomEvent<AppNoticeInput&{explorationId?:string}>).detail;
       if(detail) setNotice({title:detail.title,message:detail.message,projectId:detail.projectId,snapshotId:detail.snapshotId,occurrenceId:detail.occurrenceId,
-        target:detail.projectId&&detail.snapshotId&&detail.explorationId?{kind:'openExploration',explorationId:detail.explorationId}:null});
+        target:detail.target??(detail.projectId&&detail.snapshotId&&detail.explorationId?{kind:'openExploration',explorationId:detail.explorationId}:null)});
     };
     const resolved=(event:Event)=>{
       const detail=(event as CustomEvent<{projectId:string;snapshotId:string;occurrenceId:string}>).detail;
@@ -1342,11 +1342,16 @@ function App() {
     };
   }, [navigation.current.focusTarget, navigation.current.workspace, navigation.current.chapterRevisionId, navigation.current.sectionId]);
 
-  const openNoticeTarget=(item:AppNotice)=>{
+  const noticeNavigationRequest=useRef(0);
+  const openNoticeTarget=async(item:AppNotice)=>{
+    const request=++noticeNavigationRequest.current, navigationAtStart=navigationRef.current;
     const {target,projectId,snapshotId}=item.input;
     if(target?.kind==='openRepository'){void pickLocalRepository('notifications');return;}
     if(target?.kind==='retryRecents'){void retryRecentProjectsLoad();return;}
+    if(target?.kind==='retryConversation'&&projectId&&snapshotId){try{await retryWorkspaceConversation(projectId,snapshotId);}catch{/* The same scoped notice remains available for retry. */}return;}
     if(target?.kind==='openExploration'&&projectId&&snapshotId){
+      try{await prepareWorkspaceConversation(projectId,snapshotId);}catch{setNotice({title:'Saved exploration is unavailable',message:'Your saved conversation could not be opened. Existing explanations are preserved.',projectId,snapshotId});return;}
+      if(request!==noticeNavigationRequest.current||navigationAtStart!==navigationRef.current)return;
       if(!getWorkspace(projectId,snapshotId).explorations.some(e=>e.id===target.explorationId)){
         setNotice({title:'Saved exploration is unavailable',message:'Open this repository to find its saved explanations.',projectId,snapshotId});return;
       }
@@ -1379,7 +1384,7 @@ function App() {
     ...noticeHistoryState.items.map((item):WorkspaceNotification=>({
       id:`app-notice:${item.id}`,title:item.input.title,tone:item.input.tone,read:item.read,
       message:`${item.input.projectId?`${knownProjects[item.input.projectId]?.displayName??'Saved repository'} · `:''}${item.input.message}`,
-      actions:[...(item.input.target?[{label:item.input.target.kind==='openRepository'?'Choose a folder':item.input.target.kind==='retryRecents'?'Try again':'Open explanation',
+      actions:[...(item.input.target?[{label:item.input.target.kind==='openRepository'?'Choose a folder':['retryRecents','retryConversation'].includes(item.input.target.kind)?'Try again':'Open explanation',
         movesFocus:item.input.target.kind==='openExploration',opensDialog:item.input.target.kind==='openRepository',
         run:()=>{noticeHistory.read(item.id);openNoticeTarget(item);}}]:[]),
         ...(!item.read?[{label:'Mark read',run:()=>noticeHistory.read(item.id)}]:[]),

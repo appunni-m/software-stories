@@ -5,6 +5,12 @@ import {NoticeHistory,emptyNoticeHistory,normalizeNotice,noticeKey,projectNotice
 import {notificationAvailability} from '../src/lib/notificationSummary.ts';
 
 const input={title:'Saved update',message:'Font bytes → pixels',projectId:'project-one',snapshotId:'snap-one',target:{kind:'openExploration',explorationId:'root'}};
+test('conversation retry is a scoped local action and requires both repository and snapshot',()=>{
+  const action={kind:'retryConversation'};
+  assert.deepEqual(normalizeNotice({...input,target:action}).target,action);
+  assert.throws(()=>normalizeNotice({title:'Save failed',message:'Try again',target:action}));
+  assert.throws(()=>normalizeNotice({title:'Save failed',message:'Try again',projectId:'project',target:action}));
+});
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 const deferred=()=>{let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
 function settled(history){

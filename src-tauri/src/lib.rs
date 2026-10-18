@@ -10,6 +10,7 @@
 
 mod bounded_file;
 mod app_notices;
+mod workspace_conversation;
 mod bounded_process;
 mod chapter_freshness;
 mod claim_alignment;
@@ -1946,6 +1947,8 @@ pub fn run() {
         .manage(ChapterStoreLock::default())
         .invoke_handler(tauri::generate_handler![
             app_notices::list_app_notices,
+            workspace_conversation::load_workspace_conversation,
+            workspace_conversation::save_workspace_conversation,
             app_notices::update_app_notices,
             agent_installation::pick_agent_installation_file,
             agent_handoff::build_agent_handoff_review,

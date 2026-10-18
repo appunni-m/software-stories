@@ -3,7 +3,8 @@ import { createRefreshQueue, type RefreshQueue } from './refreshQueue';
 import { useRef, useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { cancelCodexChapterRequest, getSnapshotIndexProgress, listChapterRevisions, loadSnapshotIndex, startSnapshotIndexing, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
+import { cancelCodexChapterRequest, getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, loadSnapshotIndex, startSnapshotIndexing, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
+import {ConversationPersistence,type ConversationRecord} from './conversationPersistence';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
 import { createQuestionOutcomeSelector, recordQuestionOutcomes, type QuestionOutcome } from './outcomes';
@@ -12,7 +13,7 @@ import { addTurn, cleanAnswerNotes, learningQuestion, mergePublishedSections, me
 const indexLoads = new Map<string, Promise<SnapshotIndex>>();
 /** One local index build per snapshot, shared by reading and questions. No model call. */
 export function ensureWorkspaceIndex(project: string, snapshot: string): Promise<SnapshotIndex> {
-  const id = `${project}:${snapshot}`;
+  const id = key(project,snapshot);
   const existing = indexLoads.get(id);
   if (existing) return existing;
   const pending = (async () => {
@@ -40,26 +41,51 @@ const states = new Map<string, WorkspaceState>();
 const unsavedWorkspaceEpisodes = new Map<string,string>();
 const listeners = new Set<() => void>();
 const jobs = new Map<string, { cancelled: boolean; runId: string | null }>();
-const key = (project: string, snapshot: string) => `code-atlas:workspace:v1:${project}:${snapshot}`;
+const key = (project:string,snapshot:string) => JSON.stringify([project,snapshot]);
+const legacyKey = (project: string, snapshot: string) => `code-atlas:workspace:v1:${project}:${snapshot}`;
+const conversations=new Map<string,ConversationPersistence>();
+function savedConversation(project:string,snapshot:string):ConversationPersistence {
+  const id=key(project,snapshot);let entry=conversations.get(id);
+  if(!entry){entry=new ConversationPersistence({projectId:project,snapshotId:snapshot,
+    load:()=>invoke<ConversationRecord|null>('load_workspace_conversation',{projectId:project,snapshotId:snapshot}),
+    save:(expectedRevision,state)=>invoke<ConversationRecord>('save_workspace_conversation',{projectId:project,snapshotId:snapshot,expectedRevision,state}),
+    legacy:()=>localStorage.getItem(legacyKey(project,snapshot)),restore:state=>{states.set(id,state);listeners.forEach(notify=>notify());},
+    availability:()=>listeners.forEach(notify=>notify()),
+    failed:()=>reportUnsavedConversation(project,snapshot,true),saved:()=>resolveUnsavedConversation(project,snapshot),
+  });conversations.set(id,entry);}return entry;
+}
+function resolveUnsavedConversation(project:string,snapshot:string){
+  const id=key(project,snapshot),occurrenceId=unsavedWorkspaceEpisodes.get(id);
+  if(occurrenceId){unsavedWorkspaceEpisodes.delete(id);window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice-resolved',{detail:{projectId:project,snapshotId:snapshot,occurrenceId}}));}
+}
+function reportUnsavedConversation(project:string,snapshot:string,native=false){
+  const id=key(project,snapshot);if(unsavedWorkspaceEpisodes.has(id))return;
+  const occurrenceId=crypto.randomUUID();unsavedWorkspaceEpisodes.set(id,occurrenceId);
+  window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice',{detail:{title:'Conversation could not be saved',
+    message:native?'Your changes remain in this window. Try saving them again. Generated explanations are preserved.':'Local workspace storage is unavailable. Generated explanations remain in the native library.',
+    projectId:project,snapshotId:snapshot,occurrenceId,...(native?{target:{kind:'retryConversation'}}:{})}}));
+}
+export function prepareWorkspaceConversation(project:string,snapshot:string):Promise<void>{return isNativeRuntime()?savedConversation(project,snapshot).start():Promise.resolve();}
+export function flushWorkspaceConversation(project:string,snapshot:string):Promise<void>{return isNativeRuntime()?savedConversation(project,snapshot).flush():Promise.resolve();}
+export function retryWorkspaceConversation(project:string,snapshot:string):Promise<void>{return isNativeRuntime()?savedConversation(project,snapshot).retry():Promise.resolve();}
+export function useConversationAvailability(project:string,snapshot:string){
+  return useSyncExternalStore(notify=>{listeners.add(notify);return()=>{listeners.delete(notify);};},()=>isNativeRuntime()?savedConversation(project,snapshot).availability:'ready');
+}
 export function getWorkspace(project: string, snapshot: string): WorkspaceState {
   const id = key(project, snapshot);
-  if (!states.has(id)) { let raw = null; try { raw = localStorage.getItem(id); } catch { /* Storage failure never sends or loses native revisions. */ } states.set(id, parseWorkspace(raw, project, snapshot)); }
+  if (!states.has(id)) { let raw = null; try { raw = localStorage.getItem(legacyKey(project,snapshot)); } catch { /* Storage failure never sends or loses native revisions. */ } states.set(id, parseWorkspace(raw, project, snapshot)); }
   return states.get(id)!;
 }
 export function updateWorkspace(project: string, snapshot: string, update: (state: WorkspaceState) => WorkspaceState) {
+  if(isNativeRuntime()&&savedConversation(project,snapshot).availability!=='ready')throw new Error('The saved conversation is still opening.');
   const id = key(project, snapshot); const previous = getWorkspace(project, snapshot); const next = recordQuestionOutcomes(previous, update(previous), Date.now());
   if (next === previous) return;
   states.set(id, next);
-  try {
-    localStorage.setItem(id, JSON.stringify(next));
-    const occurrenceId=unsavedWorkspaceEpisodes.get(id);
-    if(occurrenceId){unsavedWorkspaceEpisodes.delete(id);window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice-resolved',{detail:{projectId:project,snapshotId:snapshot,occurrenceId}}));}
-  } catch {
-    if(!unsavedWorkspaceEpisodes.has(id)){
-      const occurrenceId=crypto.randomUUID();unsavedWorkspaceEpisodes.set(id,occurrenceId);
-      window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice', { detail: { title: 'Conversation could not be saved', message: 'Local workspace storage is unavailable. Generated explanations remain in the native library.',projectId:project,snapshotId:snapshot,occurrenceId } }));
-    }
-  }
+  if(isNativeRuntime())savedConversation(project,snapshot).enqueue(next);
+  else try {
+    localStorage.setItem(legacyKey(project,snapshot), JSON.stringify(next));
+    resolveUnsavedConversation(project,snapshot);
+  } catch {reportUnsavedConversation(project,snapshot);}
   listeners.forEach((notify) => notify());
 }
 export function useWorkspace(project: string, snapshot: string) {
@@ -71,7 +97,7 @@ export function useWorkspaceOutcomes(project?: string, snapshot?: string): Quest
   const select = useRef<ReturnType<typeof createQuestionOutcomeSelector> | null>(null);
   if (!select.current) select.current = createQuestionOutcomeSelector();
   return useSyncExternalStore((notify) => { listeners.add(notify); return () => { listeners.delete(notify); }; }, () => {
-    const state = project && snapshot ? getWorkspace(project, snapshot) : undefined;
+    const state = project && snapshot && (!isNativeRuntime()||savedConversation(project,snapshot).availability==='ready') ? getWorkspace(project, snapshot) : undefined;
     return select.current!(state);
   });
 }
@@ -222,6 +248,7 @@ export function restoreWorkspaceAnswers(project: string, snapshot: string): Prom
   return pending.then(restoration.check);
 }
 async function readSavedWorkspaceAnswers(project: string, snapshot: string): Promise<void> {
+  await prepareWorkspaceConversation(project,snapshot);
   await restoreRepositoryGuides(project,snapshot);
   const saved = await invoke<AnswerSummary[]>('list_workspace_answers',{projectId:project,snapshotId:snapshot});
   for (const entry of saved) {
@@ -276,6 +303,7 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
   try {
     if (job.cancelled) return;
     patchTurn(project,snapshot,id,{status:'working',error:undefined});
+    await flushWorkspaceConversation(project,snapshot);
     await ensureCodexConnection(true);
     if (job.cancelled) return;
     const selection = readCodexSelection();
@@ -310,6 +338,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     if (selection.modelId !== 'gpt-6-luna' || selection.effort !== 'max') throw new Error('Choose GPT-6 Luna with max reasoning in the connection settings.');
     const runId = crypto.randomUUID(); job.runId = runId;
     patchTurn(project,snapshot,id,{runIds:[...(turn.runIds ?? []),runId]});
+    await flushWorkspaceConversation(project,snapshot);check();
     // Subscribe before dispatch. Events carry identities only; the native save
     // command verifies the full checkpoint before any content is rendered.
     unlisten = await listen<PublishedSection & {projectId:string;snapshotId:string}>('workspace-answer-section',({payload}) => {

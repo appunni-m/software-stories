@@ -1,5 +1,5 @@
 /** Saved UI outcomes contain navigation targets, never callbacks or consent. */
-export type NoticeTarget = {kind:'openRepository'} | {kind:'retryRecents'} | {kind:'openExploration';explorationId:string};
+export type NoticeTarget = {kind:'openRepository'} | {kind:'retryRecents'} | {kind:'retryConversation'} | {kind:'openExploration';explorationId:string};
 export interface AppNoticeInput {
   title:string; message:string; tone?:'info'|'warning'|'error';
   projectId?:string|null; snapshotId?:string|null; target?:NoticeTarget|null; occurrenceId?:string|null;
@@ -30,6 +30,9 @@ export function normalizeNotice(input:AppNoticeInput):SavedNoticeInput {
     if(target.kind==='openExploration') {
       if(!validId(target.explorationId) || !target.explorationId || !normalized.projectId || !normalized.snapshotId) throw new Error('Invalid exploration context');
       normalized.target={kind:'openExploration',explorationId:target.explorationId};
+    } else if(target.kind==='retryConversation') {
+      if(!normalized.projectId||!normalized.snapshotId)throw new Error('Invalid conversation context');
+      normalized.target={kind:target.kind};
     } else if(target.kind==='openRepository' || target.kind==='retryRecents') normalized.target={kind:target.kind};
     else throw new Error('Invalid update action');
   }

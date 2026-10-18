@@ -73,7 +73,11 @@ export function ancestors(state: WorkspaceState, id = state.currentId): Explorat
   return result;
 }
 export function parseWorkspace(raw: string | null, projectId: string, snapshotId: string): WorkspaceState {
-  const fallback = () => createWorkspace(projectId, snapshotId);
+  return decodeWorkspace(raw,projectId,snapshotId) ?? createWorkspace(projectId,snapshotId);
+}
+/** Migration must distinguish a missing/corrupt preference from an empty tree. */
+export function decodeWorkspace(raw: string | null, projectId: string, snapshotId: string): WorkspaceState | null {
+  const fallback = () => null;
   try {
     const value = JSON.parse(raw ?? 'null') as WorkspaceState;
     if (!value || value.version !== 1 || value.projectId !== projectId || value.snapshotId !== snapshotId || !Array.isArray(value.explorations) || !value.explorations.length || value.explorations.length > 2000) return fallback();
