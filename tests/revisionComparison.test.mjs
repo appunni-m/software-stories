@@ -17,6 +17,17 @@ runInThisContext(`(function(require,module,exports){${compiled}\n})`,{filename:f
   assert.equal(name,'react/jsx-runtime','comparison must remain a pure read-only view');return nativeRequire(name);
 },component,component.exports);
 const render=(before,after)=>renderToStaticMarkup(createElement(component.exports.ChapterRevisionComparison,{before,after}));
+const renderStaleDraft=(draft,latest)=>renderToStaticMarkup(createElement(component.exports.StaleChapterDraftComparison,{draft,latest}));
+
+test('stale-base recovery compares the preserved unsaved draft directly with the newest revision',()=>{
+  const draft=baseRevision(),latest=structuredClone(draft);
+  draft.title='My preserved local edit';latest.title='A newer saved explanation';latest.revisionNumber=3;
+  const html=renderStaleDraft(draft,latest);
+  assert.match(html,/Compare your unsaved draft with r3/);
+  assert.match(html,/My preserved local edit/);assert.match(html,/A newer saved explanation/);
+  assert.match(html,/Your draft and both saved revisions remain unchanged/);
+  assert.doesNotMatch(html,/<details[^>]*\bopen(?:=|>)/);
+});
 
 test('the real comparison component renders named scenes and elements with source values hidden',()=>{
   const before=sceneRevision(),after=structuredClone(before),scene=after.sections[0].visual.presentation.scenes[0];

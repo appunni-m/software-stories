@@ -42,6 +42,17 @@ export function ChapterRevisionComparison({before,after}:{before:ChapterRevision
     {!!diff.changes.length&&<div className="chapter-revision-diff-group"><h5>Content · {diff.counts.total} change{diff.counts.total===1?'':'s'}</h5>{diff.changes.map((change,index)=><DiffRow key={`${change.path}:${change.field}:${index}`} value={changeRow(change,before,after)}/>)}</div>}
   </div>;
 }
+
+/** Read-only comparison that keeps an unsaved candidate visible beside the
+ * newest saved revision after a concurrent chapter publication. */
+export function StaleChapterDraftComparison({draft,latest}:{draft:ChapterRevision;latest:ChapterRevision}) {
+  return <details className="chapter-revision-comparison">
+    <summary>Compare your unsaved draft with r{latest.revisionNumber}</summary>
+    <p>This read-only comparison shows how your unsaved draft differs from the newest saved revision. Your draft and both saved revisions remain unchanged.</p>
+    <ChapterRevisionComparison before={draft} after={latest} />
+  </details>;
+}
+
 function DiffRow({value}:{value:DiffValue}) {
   return <div className="chapter-revision-diff-row">
     <strong>{value.field}{value.context&&<small>{value.context}</small>}</strong>

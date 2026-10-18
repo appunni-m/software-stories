@@ -173,7 +173,7 @@ import {
 import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, atlasTreeKeyboardAction, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport, type AtlasViewport, type ProvenGraphEdge } from './lib/atlas';
 import { classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, sourceLineTextRanges, splitCapturedSourceLines, splitSourceTextAtRange } from './lib/codeLens';
 import { loadShellStartupData, workspaceHeading } from './lib/shell';
-import { ChapterRevisionComparison } from './ChapterRevisionComparison';
+import { ChapterRevisionComparison, StaleChapterDraftComparison } from './ChapterRevisionComparison';
 import {
   addCoverageGroup,
   buildCoverageRows,
@@ -4811,6 +4811,11 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                         <p>Your unsaved edit is preserved. Compare the saved versions before deciding how to apply your changes.</p>
                         <ChapterRevisionComparison before={selectedRevision} after={selectedTarget.latestCurrent} />
                       </details>}
+
+                      {editing && !isLatestCurrent && selectedTarget.latestCurrent && candidate && <StaleChapterDraftComparison
+                        draft={candidate}
+                        latest={selectedTarget.latestCurrent}
+                      />}
 
                       {rejecting && selectedRevision.lifecycle === 'draft' && <form className="chapter-rejection-form" onSubmit={(event) => { void reject(event); }}>
                         <label><span>Why is this draft rejected?</span><textarea disabled={busy} autoFocus rows={2} maxLength={4000} value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} placeholder="Record what needs to change. The draft remains in history." required /></label>
