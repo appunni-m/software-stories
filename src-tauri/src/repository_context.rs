@@ -1591,7 +1591,8 @@ pub(crate) fn search(
     )
 }
 
-/// Exact identifiers precede literal code matches, then other lexical results.
+/// Exact declarations and identifiers lead; ranked lexical results precede
+/// unranked substring fallback matches.
 /// Merge evidence windows by immutable identity and overlap, never by display text.
 pub(crate) fn search_with_mode(
     storage: &Path,
@@ -1645,8 +1646,8 @@ pub(crate) fn search_with_mode(
         .into_iter()
         .chain(literal_declarations)
         .chain(exact)
-        .chain(literal_other)
         .chain(other)
+        .chain(literal_other)
     {
         budget.check()?;
         if matches.iter().any(|old| {

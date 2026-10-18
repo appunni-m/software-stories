@@ -570,6 +570,31 @@ fn mixed_search_keeps_literal_code_matches_when_lexical_results_exist() {
 }
 
 #[test]
+fn ranked_lexical_results_precede_unranked_substring_fallbacks() {
+    let mut fixture = Fixture::new();
+    add_source(&mut fixture, "lib/a-literal.txt", "prerender_marker\n");
+    add_source(&mut fixture, "lib/z-ranked.rs", "fn render_glyph() {}\n");
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+
+    let result = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "render glyph",
+        None,
+        1,
+        &budget,
+    )
+    .unwrap();
+
+    assert_eq!(result.matches.len(), 1);
+    assert_eq!(result.matches[0].range.path, "lib/z-ranked.rs");
+    assert!(!result.matches[0].exact_identifier);
+}
+
+#[test]
 fn literal_code_operators_are_searchable_without_index_tokens() {
     let mut fixture = Fixture::new();
     add_source(
