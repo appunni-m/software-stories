@@ -1,10 +1,11 @@
 import { createQuestionQueue } from './queue';
-import { useSyncExternalStore } from 'react';
+import { useRef, useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { cancelCodexChapterRequest, getSnapshotIndexProgress, listChapterRevisions, loadSnapshotIndex, startSnapshotIndexing, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
+import { createQuestionOutcomeSelector, recordQuestionOutcomes, type QuestionOutcome } from './outcomes';
 import { addTurn, cleanAnswerNotes, learningQuestion, mergePublishedSections, mergeRepositoryGuide, parseWorkspace, type RepositoryGuide, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
 
 const indexLoads = new Map<string, Promise<SnapshotIndex>>();
@@ -44,7 +45,7 @@ export function getWorkspace(project: string, snapshot: string): WorkspaceState 
   return states.get(id)!;
 }
 export function updateWorkspace(project: string, snapshot: string, update: (state: WorkspaceState) => WorkspaceState) {
-  const id = key(project, snapshot); const previous = getWorkspace(project, snapshot); const next = update(previous);
+  const id = key(project, snapshot); const previous = getWorkspace(project, snapshot); const next = recordQuestionOutcomes(previous, update(previous), Date.now());
   if (next === previous) return;
   states.set(id, next);
   try { localStorage.setItem(id, JSON.stringify(next)); } catch { window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice', { detail: { title: 'Conversation could not be saved', message: 'Local workspace storage is full. Generated explanations remain in the native library.' } })); }
@@ -52,6 +53,16 @@ export function updateWorkspace(project: string, snapshot: string, update: (stat
 }
 export function useWorkspace(project: string, snapshot: string) {
   return useSyncExternalStore((notify) => { listeners.add(notify); return () => { listeners.delete(notify); }; }, () => getWorkspace(project,snapshot));
+}
+/** Scrolling/code selection must not rerender the entire application header.
+ * Subscribe to outcomes only; no empty project scope is created. */
+export function useWorkspaceOutcomes(project?: string, snapshot?: string): QuestionOutcome[] {
+  const select = useRef<ReturnType<typeof createQuestionOutcomeSelector> | null>(null);
+  if (!select.current) select.current = createQuestionOutcomeSelector();
+  return useSyncExternalStore((notify) => { listeners.add(notify); return () => { listeners.delete(notify); }; }, () => {
+    const state = project && snapshot ? getWorkspace(project, snapshot) : undefined;
+    return select.current!(state);
+  });
 }
 function patchTurn(project: string, snapshot: string, id: string, patch: Partial<Turn>) {
   updateWorkspace(project, snapshot, (s) => ({ ...s, explorations: s.explorations.map((e) => ({ ...e, turns: e.turns.map((t) => t.id === id ? { ...t, ...patch } : t) })) }));
@@ -214,7 +225,6 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
       ? {id:turn.guideId,projectId:project,snapshotId:snapshot,consent:true}
       : {input:{id:turn.guideId,projectId:project,snapshotId:snapshot,grantId,question:turn.question,consent:true}});
     await reconcileGuide(project,snapshot,guide);
-    window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice',{detail:{title:guide.status==='ready'?'Guide ready':'Guide progress saved',message:guide.title,projectId:project,snapshotId:snapshot}}));
   } catch (failure) {
     try { await restoreRepositoryGuides(project,snapshot); } catch { /* Preserve saved cards and the original error. */ }
     patchTurn(project,snapshot,id,{status:job.cancelled?'stopped':'partial',error:errorMessageOr(failure,'The guide could not be completed. Saved sections remain available.')});
@@ -257,10 +267,6 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     }});
     await adoption;
     const revision = await reconcileAnswer(project,snapshot,id,summary);
-    window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice',{detail:{
-      title:summary.outcome === 'complete' ? 'Explanation ready' : 'Saved explanation available',
-      message:turn.question,projectId:project,snapshotId:snapshot,explorationId:owner.id,
-    }}));
     return revision;
   } catch (failure) {
     await adoption;

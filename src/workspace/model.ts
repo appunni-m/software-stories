@@ -31,8 +31,11 @@ export interface Turn {
   guideId?: string;
   guide?: Omit<RepositoryGuide, 'answers'>;
   reading?: Partial<Record<'guide' | 'flow', ReadingPosition>>;
+  outcomeAt?: number;
+  outcomeSequence?: number;
+  outcomeNotice?: { read?: string; dismissed?: string };
 }
-export interface Exploration { id: string; parentId: string | null; originTurnId: string | null; title: string; view: View; turns: Turn[]; file?: string; reveal?: Context; scrollTop?: number; scrollPositions?: Partial<Record<View, number>> }
+export interface Exploration { id: string; parentId: string | null; originTurnId: string | null; title: string; view: View; turns: Turn[]; focusedTurnId?: string; revealTurnId?: string; file?: string; reveal?: Context; scrollTop?: number; scrollPositions?: Partial<Record<View, number>> }
 export interface WorkspaceState { version: 1; projectId: string; snapshotId: string; currentId: string; file: string | null; explorations: Exploration[]; grantId?: string }
 
 /** History describes an available result only when its exact revision loaded.
@@ -82,6 +85,8 @@ export function parseWorkspace(raw: string | null, projectId: string, snapshotId
       e.scrollPositions = cleanScrollPositions(e.scrollPositions);
       if (validScroll(e.scrollTop) && e.scrollPositions[e.view] === undefined) e.scrollPositions[e.view] = e.scrollTop;
       delete e.scrollTop;
+      delete e.revealTurnId; // A reload restores reading, never moves keyboard focus.
+      if (!e.turns.some((t) => t.id === e.focusedTurnId)) delete e.focusedTurnId;
       for (const t of e.turns) {
         if (typeof t.id !== 'string' || typeof t.question !== 'string' || !Array.isArray(t.context)
           || !['queued','working','ready','partial','failed','stopped','interrupted'].includes(t.status)
@@ -92,6 +97,15 @@ export function parseWorkspace(raw: string | null, projectId: string, snapshotId
         t.runIds = Array.isArray(t.runIds) ? [...new Set(t.runIds.filter(validRunId))].slice(0, 32) : [];
         t.publishedSections = cleanPublishedSections(t.publishedSections).filter((s) => t.runIds!.includes(s.runId));
         t.notes = cleanAnswerNotes(t.notes);
+        if (typeof t.outcomeAt !== 'number' || !Number.isSafeInteger(t.outcomeAt) || t.outcomeAt < 0) delete t.outcomeAt;
+        if (typeof t.outcomeSequence !== 'number' || !Number.isSafeInteger(t.outcomeSequence) || t.outcomeSequence < 0) delete t.outcomeSequence;
+        const notice = t.outcomeNotice;
+        delete t.outcomeNotice;
+        if (notice && typeof notice === 'object' && !Array.isArray(notice)) {
+          const clean: NonNullable<Turn['outcomeNotice']> = {};
+          for (const field of ['read', 'dismissed'] as const) if (typeof notice[field] === 'string' && /^[a-f0-9]{16}$/.test(notice[field]!)) clean[field] = notice[field];
+          if (Object.keys(clean).length) t.outcomeNotice = clean;
+        }
         t.reading = {};
         if (reading && typeof reading === 'object' && !Array.isArray(reading)) {
           for (const view of ['guide', 'flow'] as const) {
@@ -246,7 +260,7 @@ export function addTurn(state: WorkspaceState, turn: Turn, view: View, branch?: 
     currentId = branch.id;
     explorations = [...explorations, {id:currentId,parentId:state.currentId,originTurnId:branch.originTurnId,title:turn.question,view,turns:[],file:turn.context[0]?.path??state.file??undefined,reveal:turn.context[0]}];
   }
-  return {...state,currentId,file:branch?turn.context[0]?.path??state.file:state.file,explorations:explorations.map((e)=>e.id===currentId?{...e,view,turns:[...e.turns,turn]}:e)};
+  return {...state,currentId,file:branch?turn.context[0]?.path??state.file:state.file,explorations:explorations.map((e)=>e.id===currentId?{...e,view,focusedTurnId:turn.id,turns:[...e.turns,turn]}:e)};
 }
 
 /** Keep recent intent with a follow-up; code evidence is selected and validated separately. */

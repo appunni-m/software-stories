@@ -1,4 +1,5 @@
-import { updateWorkspace } from './workspace/store';
+import { updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
+import { markQuestionOutcome, openWorkspaceQuestion } from './workspace/outcomes';
 import { WorkspaceFrame } from './workspace/Workspace';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
 import { GenerationRecord } from './GenerationRecord';
@@ -297,6 +298,7 @@ function App() {
   const currentSnapshots = currentProject ? snapshotsByProject[currentProject.projectId] ?? [] : [];
   const currentCapture = currentProject ? captureByProject[currentProject.projectId] ?? null : null;
   const selectedSnapshot = currentSnapshots.find((snapshot) => snapshot.snapshotId === navigation.current.snapshotId) ?? null;
+  const questionUpdates = useWorkspaceOutcomes(currentProject?.projectId, selectedSnapshot?.snapshotId);
   const copy = workspaceHeading(currentWorkspace, !!snapshotManifest && snapshotManifest.summary.snapshotId === selectedSnapshot?.snapshotId);
 
   useEffect(() => {
@@ -1319,6 +1321,18 @@ function App() {
   }, [navigation.current.focusTarget, navigation.current.workspace, navigation.current.chapterRevisionId, navigation.current.sectionId]);
 
   const workspaceNotifications: WorkspaceNotification[] = [
+    ...questionUpdates.map((outcome): WorkspaceNotification => ({
+      id: `question:${outcome.turnId}`, title: outcome.title,
+      message: `${currentProject?.displayName ?? 'Repository'} · ${outcome.question}`,
+      read: outcome.read, tone: outcome.tone,
+      actions: [{ label: 'Open question', movesFocus: true, run: () => {
+        if (!currentProject || !selectedSnapshot) return;
+        updateWorkspace(currentProject.projectId,selectedSnapshot.snapshotId,(s)=>openWorkspaceQuestion(s,outcome.explorationId,outcome.turnId));
+        setNavigation((s)=>navigateToRoute(s,{workspace:'guide-plan',projectId:currentProject.projectId,snapshotId:selectedSnapshot.snapshotId}));
+      } }, { label: 'Dismiss', run: () => {
+        if (currentProject && selectedSnapshot) updateWorkspace(currentProject.projectId,selectedSnapshot.snapshotId,(s)=>markQuestionOutcome(s,outcome.explorationId,outcome.turnId,outcome.key,'dismissed'));
+      } }],
+    })),
     ...(runtimeError ? [{ id: 'runtime', title: 'Some app features are unavailable', message: 'Try connecting to the local app again.', tone: 'error' as const,
       actions: [{ label: 'Retry', run: loadRuntime }] }] : []),
     ...(notice ? [{ id: 'workspace-notice', title: notice.title, message: notice.message, tone: notice.tone,
