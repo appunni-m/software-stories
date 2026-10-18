@@ -133,7 +133,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     {visual && htmlScenes.length > 0 ? <div className="story-stage story-html-stage" role="group" aria-label={visual.title}>
       {htmlScenes.map((item) => <HtmlScene key={item.claimIndex} scene={item} visual={visual} onOpenNode={chooseNode} focusedNode={focusedNode}/>)}
     </div> : visual ? <div className="story-stage" role="group" aria-label={visual.title}>
-      <ReactFlow key={`${section.sectionRevisionId}:${index}:${fullMap}`} nodes={nodes} edges={edges} defaultViewport={canvasViewport.current} fitView={!canvasViewport.current} fitViewOptions={{ padding: .12, maxZoom: 1.1 }}
+      <ReactFlow key={`${section.sectionRevisionId}:${index}:${fullMap}`} nodes={nodes} edges={edges} defaultViewport={canvasViewport.current} fitView={!canvasViewport.current} fitViewOptions={{ padding: .06, maxZoom: 1.1 }}
         onMoveEnd={(_event,viewport)=>{const clean=cleanFlowViewport(viewport);if(clean&&activeScene.current===scene.id&&mapView.current===fullMap){canvasViewport.current=clean;savePosition(scene.id);}}}
         minZoom={.18} maxZoom={1.8} nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false} elementsSelectable={false} deleteKeyCode={null} zoomOnScroll={false} preventScrolling={false} colorMode="system">
         <Background gap={24} /><Controls showInteractive={false} />
