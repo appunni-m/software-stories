@@ -595,3 +595,22 @@ fn a_base_lease_pins_its_original_scope_instead_of_the_new_snapshot_scope() {
         .join(Uuid::new_v4().to_string());
     assert!(next.lease(&other_project).is_err());
 }
+
+#[test]
+fn reader_owner_drop_unlocks_both_leases_even_with_inherited_file_descriptions() {
+    let fixture = Fixture::new();
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let cache = open(&fixture.storage, "inherited-reader", &budget, Limits::default());
+    let generation = cache.directory.join(Uuid::new_v4().to_string());
+    directory(&generation).unwrap();
+    let reader = cache.lease(&generation).unwrap();
+    let inherited_generation = reader._generation.try_clone().unwrap();
+    let inherited_scope = reader._scope.try_clone().unwrap();
+    assert!(exclusive(&generation.join("readers.lock")).unwrap().is_none());
+    assert!(exclusive(&cache.directory.join("readers.lock")).unwrap().is_none());
+    drop(reader);
+    assert!(exclusive(&generation.join("readers.lock")).unwrap().is_some());
+    assert!(exclusive(&cache.directory.join("readers.lock")).unwrap().is_some());
+    drop((inherited_generation, inherited_scope));
+}

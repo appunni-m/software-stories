@@ -44,6 +44,16 @@ pub(super) struct ReadLease {
     _scope: File,
 }
 
+impl Drop for ReadLease {
+    fn drop(&mut self) {
+        // A concurrent process spawn can briefly inherit the same open file
+        // descriptions. End this reader's ownership now, even while those
+        // handles remain open; closing File alone waits for the last handle.
+        let _ = self._generation.unlock();
+        let _ = self._scope.unlock();
+    }
+}
+
 #[derive(Clone)]
 struct Entry {
     bytes: u64,
