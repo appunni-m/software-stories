@@ -48,6 +48,7 @@ mod pocket_tts;
 mod pr_guide;
 mod pr_guide_store;
 mod project;
+mod project_opening;
 mod provider;
 mod provider_api;
 mod recovery;
@@ -80,7 +81,6 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
-use tauri_plugin_dialog::DialogExt;
 
 #[derive(Clone, Default)]
 struct ProjectSessions(Arc<Mutex<HashMap<String, RecentProject>>>);
@@ -133,53 +133,6 @@ fn app_data_directory(app: &AppHandle) -> Result<PathBuf, String> {
     app.path()
         .app_data_dir()
         .map_err(|error| format!("Code Atlas could not locate its local data folder: {error}"))
-}
-
-#[tauri::command(rename_all = "camelCase")]
-async fn pick_project_folder(
-    app: AppHandle,
-    sessions: State<'_, ProjectSessions>,
-) -> Result<ProjectOpenResult, String> {
-    let Some(selected_path) = app
-        .dialog()
-        .file()
-        .set_title("Choose a local Git repository")
-        .blocking_pick_folder()
-    else {
-        return Ok(ProjectOpenResult::cancelled());
-    };
-
-    let path = match selected_path.into_path() {
-        Ok(path) => path,
-        Err(error) => {
-            return Ok(ProjectOpenResult::invalid_selected_path(format!(
-                "The selected folder path could not be read: {error}"
-            )));
-        }
-    };
-
-    let result = match app_data_directory(&app) {
-        Ok(storage_dir) => {
-            project::inspect_and_record_project(&storage_dir, &path.display().to_string())
-        }
-        Err(message) => ProjectOpenResult::storage_error(message),
-    };
-    sessions.remember_result(&result);
-    Ok(result)
-}
-
-#[tauri::command(rename_all = "camelCase")]
-fn open_recent_project(
-    app: AppHandle,
-    sessions: State<'_, ProjectSessions>,
-    project_id: String,
-) -> ProjectOpenResult {
-    let result = match app_data_directory(&app) {
-        Ok(storage_dir) => project::open_recent_project(&storage_dir, &project_id),
-        Err(message) => ProjectOpenResult::storage_error(message),
-    };
-    sessions.remember_result(&result);
-    result
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -2066,8 +2019,8 @@ pub fn run() {
             repository_plan_commands::resolve_repository_plan_notice,
             get_application_status,
             get_capture_limits,
-            pick_project_folder,
-            open_recent_project,
+            project_opening::pick_project_folder,
+            project_opening::open_recent_project,
             list_recent_projects,
             remove_recent_project,
             list_project_snapshots,

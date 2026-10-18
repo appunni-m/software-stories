@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { GitComparisonController } from './gitComparisonController';
+import { ProjectOpenController } from './projectOpenController';
 
 export interface ApplicationStatus {
   productName: string;
@@ -988,12 +989,22 @@ export async function discardInterruptedOperation(operationId: string): Promise<
   await invoke<void>('discard_interrupted_operation', { operationId });
 }
 
-export async function pickProjectFolder(): Promise<ProjectOpenResult> {
-  return invoke<ProjectOpenResult>('pick_project_folder');
+const projectOpening = new ProjectOpenController({
+  open: (input) => input.type === 'picker'
+    ? invoke<ProjectOpenResult>('pick_project_folder', { requestId: input.requestId })
+    : invoke<ProjectOpenResult>('open_recent_project', { requestId: input.requestId, projectId: input.projectId }),
+  cancel: (requestId) => invoke('cancel_repository_context', { requestId }),
+});
+export const isProjectOpeningBusy = projectOpening.isBusy;
+export const subscribeProjectOpening = projectOpening.subscribe;
+export const stopProjectOpening = projectOpening.cancel;
+
+export async function pickProjectFolder(signal?: AbortSignal): Promise<ProjectOpenResult> {
+  return projectOpening.open({ type: 'picker' }, signal);
 }
 
-export async function openRecentProject(projectId: string): Promise<ProjectOpenResult> {
-  return invoke<ProjectOpenResult>('open_recent_project', { projectId });
+export async function openRecentProject(projectId: string, signal?: AbortSignal): Promise<ProjectOpenResult> {
+  return projectOpening.open({ type: 'recent', projectId }, signal);
 }
 
 const gitComparisons = new GitComparisonController({

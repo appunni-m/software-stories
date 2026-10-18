@@ -5,6 +5,7 @@ use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -58,6 +59,7 @@ pub enum ProjectOpenStatus {
 
 #[derive(Debug)]
 enum InspectionError {
+    Cancelled,
     InvalidDirectory { path: String, message: String },
     PermissionDenied { path: String, message: String },
     NotGitRepository { path: String },
@@ -68,9 +70,33 @@ enum InspectionError {
 static RECENT_PROJECTS_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 pub fn inspect_and_record_project(storage_dir: &Path, selected_path: &str) -> ProjectOpenResult {
-    let project = match inspect_project(selected_path) {
-        Ok(project) => project,
-        Err(error) => return error.into_result(),
+    record_inspected_project(
+        storage_dir,
+        inspect_selected_project(selected_path, &AtomicBool::new(false)),
+    )
+}
+
+/// Inspection reads metadata only. The caller owns the separate publication
+/// boundary that writes Recents and remembers the active native session.
+pub(crate) fn inspect_selected_project(
+    selected_path: &str,
+    cancelled: &AtomicBool,
+) -> ProjectOpenResult {
+    match inspect_project_cancellable(selected_path, cancelled) {
+        Ok(project) => ProjectOpenResult::opened(project),
+        Err(error) => error.into_result(),
+    }
+}
+
+pub(crate) fn record_inspected_project(
+    storage_dir: &Path,
+    inspected: ProjectOpenResult,
+) -> ProjectOpenResult {
+    if inspected.status != ProjectOpenStatus::Opened {
+        return inspected;
+    }
+    let Some(project) = inspected.project else {
+        return ProjectOpenResult::storage_error("The inspected project is unavailable.".into());
     };
 
     let mut recent_project = project.clone();
@@ -87,6 +113,20 @@ pub fn inspect_and_record_project(storage_dir: &Path, selected_path: &str) -> Pr
 }
 
 pub fn open_recent_project(storage_dir: &Path, project_id: &str) -> ProjectOpenResult {
+    record_inspected_project(
+        storage_dir,
+        inspect_recent_project(storage_dir, project_id, &AtomicBool::new(false)),
+    )
+}
+
+pub(crate) fn inspect_recent_project(
+    storage_dir: &Path,
+    project_id: &str,
+    cancelled: &AtomicBool,
+) -> ProjectOpenResult {
+    if cancelled.load(Ordering::Acquire) {
+        return ProjectOpenResult::cancelled();
+    }
     let projects = match load_recent_projects(storage_dir) {
         Ok(projects) => projects,
         Err(message) => {
@@ -114,7 +154,7 @@ pub fn open_recent_project(storage_dir: &Path, project_id: &str) -> ProjectOpenR
         };
     };
 
-    inspect_and_record_project(storage_dir, &project.selected_path)
+    inspect_selected_project(&project.selected_path, cancelled)
 }
 
 pub fn list_recent_projects(storage_dir: &Path) -> Result<Vec<RecentProject>, String> {
@@ -136,7 +176,17 @@ pub fn remove_recent_project(
     })
 }
 
+#[cfg(test)]
 fn inspect_project(selected_path: &str) -> Result<RecentProject, InspectionError> {
+    inspect_project_cancellable(selected_path, &AtomicBool::new(false))
+}
+
+fn inspect_project_cancellable(
+    selected_path: &str,
+    cancelled: &AtomicBool,
+) -> Result<RecentProject, InspectionError> {
+    let operation_deadline = Instant::now() + PROJECT_INSPECTION_DEADLINE;
+    check_inspection(cancelled)?;
     let input_path = Path::new(selected_path);
     let canonical_selected_path =
         fs::canonicalize(input_path).map_err(|error| directory_error(input_path, error))?;
@@ -153,12 +203,13 @@ fn inspect_project(selected_path: &str) -> Result<RecentProject, InspectionError
     // Opening the directory checks access without enumerating entries or reading source bytes.
     File::open(&canonical_selected_path)
         .map_err(|error| directory_error(&canonical_selected_path, error))?;
-    let operation_deadline = Instant::now() + PROJECT_INSPECTION_DEADLINE;
+    check_inspection(cancelled)?;
 
-    let worktree_output = git_output(
+    let worktree_output = git_output_with_cancel(
         &canonical_selected_path,
         &["rev-parse", "--is-inside-work-tree"],
         operation_deadline,
+        Some(cancelled),
     )?;
     if !worktree_output.status.success() {
         let message = output_message(&worktree_output);
@@ -175,10 +226,11 @@ fn inspect_project(selected_path: &str) -> Result<RecentProject, InspectionError
         });
     }
 
-    let root_output = git_output(
+    let root_output = git_output_with_cancel(
         &canonical_selected_path,
         &["rev-parse", "--show-toplevel"],
         operation_deadline,
+        Some(cancelled),
     )?;
     if !root_output.status.success() {
         let message = output_message(&root_output);
@@ -207,11 +259,13 @@ fn inspect_project(selected_path: &str) -> Result<RecentProject, InspectionError
         &canonical_root,
         &["symbolic-ref", "--quiet", "--short", "HEAD"],
         operation_deadline,
+        cancelled,
     )?;
     let head = git_optional(
         &canonical_root,
         &["rev-parse", "--verify", "HEAD"],
         operation_deadline,
+        cancelled,
     )?;
     let display_name = canonical_root
         .file_name()
@@ -220,6 +274,7 @@ fn inspect_project(selected_path: &str) -> Result<RecentProject, InspectionError
         .unwrap_or("Repository")
         .to_owned();
 
+    check_inspection(cancelled)?;
     Ok(RecentProject {
         // Canonical root identity survives relaunch and is independent of the display name.
         project_id: repository_root.clone(),
@@ -248,10 +303,28 @@ fn directory_error(path: &Path, error: io::Error) -> InspectionError {
     }
 }
 
+fn check_inspection(cancelled: &AtomicBool) -> Result<(), InspectionError> {
+    if cancelled.load(Ordering::Acquire) {
+        Err(InspectionError::Cancelled)
+    } else {
+        Ok(())
+    }
+}
+
+#[cfg(test)]
 fn git_output(
     path: &Path,
     args: &[&str],
     operation_deadline: Instant,
+) -> Result<Output, InspectionError> {
+    git_output_with_cancel(path, args, operation_deadline, None)
+}
+
+fn git_output_with_cancel(
+    path: &Path,
+    args: &[&str],
+    operation_deadline: Instant,
+    cancelled: Option<&AtomicBool>,
 ) -> Result<Output, InspectionError> {
     let mut command = git_command();
     command.args(args).current_dir(path);
@@ -265,9 +338,12 @@ fn git_output(
             stderr_bytes: GIT_METADATA_OUTPUT_LIMIT,
             stdin_bytes: 0,
         },
-        None,
+        cancelled,
     )
-    .map_err(|error| match error.start_error() {
+    .map_err(|error| {
+        match error {
+        bounded_process::RunError::Cancelled => InspectionError::Cancelled,
+        error => match error.start_error() {
         Some(start) if start.kind() == io::ErrorKind::NotFound => InspectionError::GitUnavailable {
             message:
                 "Git was not found. Install Git or the Xcode Command Line Tools, then try again."
@@ -277,6 +353,8 @@ fn git_output(
             path: path.display().to_string(),
             message: format!("Git could not inspect this folder: {error}"),
         },
+        },
+    }
     })
 }
 
@@ -314,8 +392,9 @@ fn git_optional(
     path: &Path,
     args: &[&str],
     operation_deadline: Instant,
+    cancelled: &AtomicBool,
 ) -> Result<Option<String>, InspectionError> {
-    let output = git_output(path, args, operation_deadline)?;
+    let output = git_output_with_cancel(path, args, operation_deadline, Some(cancelled))?;
     if !output.status.success() {
         return Ok(None);
     }
@@ -350,6 +429,7 @@ fn git_output_error(path: &Path, message: String) -> InspectionError {
 impl InspectionError {
     fn into_result(self) -> ProjectOpenResult {
         match self {
+            Self::Cancelled => ProjectOpenResult::cancelled(),
             Self::InvalidDirectory { path, message } => ProjectOpenResult::failure(
                 ProjectOpenStatus::InvalidDirectory,
                 Some(path),

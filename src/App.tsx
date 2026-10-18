@@ -5,7 +5,7 @@ import { GenerationRecord } from './GenerationRecord';
 import { FileFlow } from './FileFlow';
 import { readGenerationBackend, rememberGenerationBackend, type GenerationBackend } from './lib/generationPreferences';
 import type { AgentGitRecovery } from './lib/agentRecovery';
-import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { type CodexChapterDialogMode } from './CodexChapterDialog';
 import { CodexContextDialog } from './CodexContextDialog';
@@ -64,6 +64,9 @@ import {
   listPendingGeneratedChapterPreviews,
   loadPendingGeneratedChapterPreview,
   pickProjectFolder,
+  isProjectOpeningBusy,
+  subscribeProjectOpening,
+  stopProjectOpening,
   openRecentProject,
   discardInterruptedOperation,
   removeRecentProject,
@@ -231,7 +234,10 @@ function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
-  const [projectBusy, setProjectBusy] = useState(false);
+  const [projectMetadataBusy, setProjectMetadataBusy] = useState(false);
+  const projectOpening = useSyncExternalStore(subscribeProjectOpening, isProjectOpeningBusy);
+  const projectBusy = projectOpening || projectMetadataBusy;
+  useEffect(() => () => stopProjectOpening(), []);
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
   const [knownProjects, setKnownProjects] = useState<Record<string, RecentProject>>({});
   const [snapshotsByProject, setSnapshotsByProject] = useState<Record<string, SnapshotSummary[]>>({});
@@ -454,6 +460,7 @@ function App() {
           message: 'The interrupted capture was not resumed. Existing snapshots remain available while this new capture runs.',
         });
       } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
         setNotice({
           title: 'A fresh capture started; old recovery data remains',
           message: errorMessageOr(error, 'The old staging bytes could not be cleared. The interrupted item remains available to discard.'),
@@ -608,6 +615,7 @@ function App() {
           : 'This was a Git change explanation. Reopen the original local comparison and selected files or hunk before reviewing a fresh request. No chapter request was opened.', tone: 'warning' });
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
       if (current()) setNotice({
         title: 'A fresh request review could not open',
         message: errorMessageOr(error, 'Reopen the repository and review a new exact-context request.'),
@@ -689,7 +697,6 @@ function App() {
     }
 
     try {
-      setProjectBusy(true);
       const result = await pickProjectFolder();
       if (result.status === 'cancelled') {
         const returnFocus = pickerReturnFocusRef.current;
@@ -702,6 +709,7 @@ function App() {
       }
       handleProjectOpenResult(result);
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
       setNotice({
         title: 'Could not open the folder picker',
         message: errorMessageOr(error, 'The native folder picker did not respond.'),
@@ -709,18 +717,16 @@ function App() {
         action: () => { void openLocalRepository(); },
         tone: 'error',
       });
-    } finally {
-      setProjectBusy(false);
     }
   };
 
   const openRecent = async (projectId: string) => {
     pickerReturnFocusRef.current = 'project-button';
     setProjectMenuOpen(false);
-    setProjectBusy(true);
     try {
       handleProjectOpenResult(await openRecentProject(projectId));
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
       setNotice({
         title: 'Could not open this recent project',
         message: errorMessageOr(error, 'Local project metadata could not be read.'),
@@ -728,14 +734,12 @@ function App() {
         action: () => { void openLocalRepository(); },
         tone: 'error',
       });
-    } finally {
-      setProjectBusy(false);
     }
   };
 
   const forgetRecent = async (project: RecentProject) => {
     setProjectMenuOpen(false);
-    setProjectBusy(true);
+    setProjectMetadataBusy(true);
     try {
       setRecentProjects(await removeRecentProject(project.projectId));
       setNotice({
@@ -750,7 +754,7 @@ function App() {
         tone: 'error',
       });
     } finally {
-      setProjectBusy(false);
+      setProjectMetadataBusy(false);
     }
   };
 
@@ -1364,9 +1368,10 @@ function App() {
             aria-haspopup="menu"
           >
             <FolderOpen size={16} />
-            <span>{projectBusy ? 'Opening repository…' : currentProject?.displayName ?? 'Open a local repository'}</span>
+            <span>{projectOpening ? 'Opening repository…' : projectMetadataBusy ? 'Updating repositories…' : currentProject?.displayName ?? 'Open a local repository'}</span>
             <ChevronDown size={14} className="muted-icon" />
           </button>
+          {projectOpening && <button className="icon-button" aria-label="Stop opening repository" title="Stop opening repository" onClick={stopProjectOpening}><X size={16}/></button>}
           {projectMenuOpen && (
             <div className="project-menu" role="menu" aria-label="Local repositories">
               <div className="menu-label">LOCAL REPOSITORIES</div>

@@ -110,7 +110,7 @@ impl RepositoryContextJobs {
         })
     }
 
-    fn cancel(&self, id: &str) -> Result<(), String> {
+    pub(crate) fn cancel(&self, id: &str) -> Result<(), String> {
         if Uuid::parse_str(id).is_err() {
             return Err("A valid code-search request ID is required.".to_owned());
         }
@@ -138,6 +138,25 @@ impl RepositoryContextJobs {
 }
 
 impl Request {
+    /// Serialize a short local publication with cancellation. Expensive source
+    /// or Git work must finish before entering this commit boundary.
+    pub(crate) fn commit<T>(&self, publish: impl FnOnce() -> T) -> Result<T, String> {
+        let requests = self
+            .jobs
+            .0
+            .requests
+            .lock()
+            .map_err(|_| "The local request owner is unavailable.".to_owned())?;
+        if !requests.get(&self.id).is_some_and(|entry| {
+            entry.owned
+                && Arc::ptr_eq(&entry.cancelled, &self.cancelled)
+                && !entry.cancelled.load(Ordering::Acquire)
+        }) {
+            return Err("The local request was stopped before publication.".into());
+        }
+        Ok(publish())
+    }
+
     pub(crate) fn cancellation(&self) -> &AtomicBool {
         &self.cancelled
     }
