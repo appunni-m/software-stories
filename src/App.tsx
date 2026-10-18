@@ -11,6 +11,7 @@ import { getWorkspace, prepareWorkspaceConversation, retryWorkspaceConversation,
 import { markQuestionOutcome, openWorkspaceQuestion } from './workspace/outcomes';
 import { WorkspaceFrame } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
+import { startupProjectToRestore } from './lib/startupProjectRestore';
 import { interruptedNotificationMessage, notificationAvailability, previewNotificationMessage, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
 import { LatestLocalRead } from './lib/latestLocalRead';
 import { requiresBoundedFileExplanation } from './lib/largeFileExplanation';
@@ -338,7 +339,7 @@ function App() {
   const projectButtonRef = useRef<HTMLButtonElement>(null);
   const pickerReturnFocusRef = useRef<string | undefined>(undefined);
   const currentWorkspace = navigation.current.workspace;
-  useEffect(()=>{if(!isNativeRuntime()&&navigation.current.projectId){try{localStorage.setItem('code-atlas:last-project',navigation.current.projectId);}catch{/* Optional browser-preview preference. */}}},[navigation.current.projectId]);
+  useEffect(()=>{if(navigation.current.projectId){try{localStorage.setItem('code-atlas:last-project',navigation.current.projectId);}catch{/* Optional last-project preference. */}}},[navigation.current.projectId]);
   const currentProject = navigation.current.projectId
     ? knownProjects[navigation.current.projectId] ?? recentProjects.find((project) => project.projectId === navigation.current.projectId) ?? null
     : null;
@@ -884,11 +885,14 @@ function App() {
         setRecentProjects((current) => [...current, ...projects.filter((project) => !current.some((item) => item.projectId === project.projectId))]);
         setKnownProjects((current) => ({ ...Object.fromEntries(projects.map((project) => [project.projectId, project])), ...current }));
         try {
-          if (!isNativeRuntime()) {
-            const previous = localStorage.getItem('code-atlas:last-project');
-            if (automaticRestoreAllowed.current && previous && !navigationRef.current.current.projectId
-              && !isProjectOpeningBusy() && projects.some((project) => project.projectId === previous)) void openRecent(previous);
-          }
+          const restoreProjectId = startupProjectToRestore({
+            persistedProjectId: localStorage.getItem('code-atlas:last-project'),
+            recentProjectIds: projects.map((project) => project.projectId),
+            automaticRestoreAllowed: automaticRestoreAllowed.current,
+            currentProjectId: navigationRef.current.current.projectId,
+            projectOpening: isProjectOpeningBusy(),
+          });
+          if (restoreProjectId) void openRecent(restoreProjectId);
         } catch { /* Starting without an optional preference remains usable. */ }
       }
       setRecentsPending(false);
