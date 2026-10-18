@@ -256,3 +256,35 @@ fn invalid_read_batches_return_fixed_feedback_without_partial_evidence() {
         assert!(!text.contains(private));
     }
 }
+
+fn comfortable_response_budget() -> ResponseBudget {
+    ResponseBudget {
+        remaining: RemainingBudget {
+            calls: FINALIZATION_CALL_RESERVE + 1,
+            files: MAX_FILES,
+            source_bytes: 4_000,
+            metadata_bytes: 16_000,
+            wire_bytes: MAX_WIRE,
+            fragments: MAX_FRAGMENTS,
+            time_ms: FINALIZATION_TIME_RESERVE.as_millis() as u64,
+        },
+        feedback_bytes_reserved: 0,
+        finish_now: false,
+    }
+}
+
+#[test]
+fn finish_now_preserves_six_calls_or_sixty_seconds_for_final_manifest() {
+    let budget = comfortable_response_budget();
+    assert!(!requires_finalization_now(false, &budget));
+
+    let mut calls_reserved = comfortable_response_budget();
+    calls_reserved.remaining.calls = FINALIZATION_CALL_RESERVE;
+    assert!(requires_finalization_now(false, &calls_reserved));
+
+    let mut time_reserved = comfortable_response_budget();
+    time_reserved.remaining.time_ms = FINALIZATION_TIME_RESERVE.as_millis() as u64 - 1;
+    assert!(requires_finalization_now(false, &time_reserved));
+
+    assert!(requires_finalization_now(true, &budget));
+}

@@ -21,6 +21,8 @@ pub(crate) const POLICY: &str = "atlas-captured-ranges-v1-files12-source250000";
 pub(crate) const PROGRESSIVE_CONTRACT: &str = "codex-retrieval-v3-answer-sections";
 pub(crate) const LEDGER_SCHEMA_VERSION: u32 = 3;
 const MAX_CALLS: usize = 64;
+const FINALIZATION_CALL_RESERVE: usize = 6;
+const FINALIZATION_TIME_RESERVE: Duration = Duration::from_secs(60);
 const MAX_FILES: usize = 12;
 const MAX_SOURCE: usize = 250_000;
 const MAX_METADATA: usize = 256_000;
@@ -70,6 +72,14 @@ struct ResponseBudget {
     finish_now: bool,
 }
 
+fn requires_finalization_now(budget_stop: bool, budget: &ResponseBudget) -> bool {
+    budget_stop
+        || budget.remaining.calls <= FINALIZATION_CALL_RESERVE
+        || budget.remaining.metadata_bytes < 16_000
+        || budget.remaining.source_bytes < 4_000
+        || budget.remaining.time_ms < FINALIZATION_TIME_RESERVE.as_millis() as u64
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Binding {
@@ -112,6 +122,8 @@ pub(crate) enum Context<'a> {
         findings: &'a [serde_json::Value],
         #[serde(rename = "remainingAttempts")]
         remaining_attempts: usize,
+        #[serde(rename = "remainingCorrections")]
+        remaining_corrections: usize,
         #[serde(rename = "nextNewSectionOrder")]
         next_new_section_order: Option<usize>,
     },
@@ -692,11 +704,8 @@ impl Ledger {
                 .ok_or("Context accounting is invalid.")?,
         );
         response.budget.remaining.wire_bytes = base_wire.saturating_sub(first.len());
-        response.budget.finish_now = response.budget_stop.is_some()
-            || response.budget.remaining.calls <= 6
-            || response.budget.remaining.metadata_bytes < 16_000
-            || response.budget.remaining.source_bytes < 4_000
-            || response.budget.remaining.time_ms < 60_000;
+        response.budget.finish_now =
+            requires_finalization_now(response.budget_stop.is_some(), &response.budget);
         let bytes =
             serde_json::to_vec(response).map_err(|_| "Context response encoding failed.")?;
         let metadata = bytes

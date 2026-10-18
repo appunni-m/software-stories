@@ -206,3 +206,101 @@ fn narration_limits_include_all_claims_and_publish_nothing_on_failure() {
     assert_eq!(saved.attempts.len(), 1);
     assert_eq!(saved.attempts[0].arguments, raw.to_string());
 }
+
+#[test]
+fn correction_slots_are_shared_bounded_and_exact_successful_replays_are_free() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancel) = setup(&f);
+    let reference = read(&mut ledger, &f, &runtime, &cancel);
+    let mut answer = start_narrated(&ledger, &f, &runtime, &cancel);
+
+    let mut first_bad = narrated(&reference);
+    first_bad["section"]["claims"][0]["evidence"][0]["referenceId"] = json!("code:999");
+    let rejected = answer
+        .prepare(&ledger, &first_bad.to_string(), &f.manifest, &runtime, &cancel)
+        .unwrap();
+    assert_eq!(rejected.findings[0]["code"], "citation");
+    answer
+        .commit(&ledger, rejected, &f.manifest, &runtime, &cancel)
+        .unwrap();
+    assert_eq!(answer.remaining_attempts(), 7);
+    assert_eq!(answer.remaining_corrections(), 2);
+
+    let first_good = narrated(&reference);
+    let prepared = answer
+        .prepare(&ledger, &first_good.to_string(), &f.manifest, &runtime, &cancel)
+        .unwrap();
+    assert!(prepared.findings.is_empty());
+    let first_generation = prepared.generation_id.clone().unwrap();
+    answer
+        .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
+        .unwrap();
+    assert_eq!(answer.remaining_corrections(), 1);
+
+    let replay = answer
+        .prepare(&ledger, &first_good.to_string(), &f.manifest, &runtime, &cancel)
+        .unwrap();
+    assert_eq!(replay.generation_id.as_deref(), Some(first_generation.as_str()));
+    assert!(replay.findings.is_empty());
+    answer
+        .commit(&ledger, replay, &f.manifest, &runtime, &cancel)
+        .unwrap();
+    assert_eq!(answer.remaining_corrections(), 1);
+
+    let mut second_bad = narrated(&reference);
+    second_bad["sectionKey"] = json!("related");
+    second_bad["order"] = json!(1);
+    second_bad["section"]["claims"][0]["evidence"][0]["referenceId"] = json!("code:999");
+    let rejected = answer
+        .prepare(&ledger, &second_bad.to_string(), &f.manifest, &runtime, &cancel)
+        .unwrap();
+    assert_eq!(rejected.findings[0]["code"], "citation");
+    answer
+        .commit(&ledger, rejected, &f.manifest, &runtime, &cancel)
+        .unwrap();
+    assert_eq!(answer.remaining_corrections(), 1);
+
+    let mut second_good = narrated(&reference);
+    second_good["sectionKey"] = json!("related");
+    second_good["order"] = json!(1);
+    publish(&mut answer, &ledger, &second_good, &f, &runtime, &cancel);
+    assert_eq!(answer.remaining_corrections(), 0);
+    assert_eq!(answer.value.sections.len(), 2);
+}
+
+#[test]
+fn correction_limit_is_retained_and_eight_proposals_remain_the_hard_ceiling() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancel) = setup(&f);
+    let reference = read(&mut ledger, &f, &runtime, &cancel);
+    let mut answer = start_narrated(&ledger, &f, &runtime, &cancel);
+    let mut rejected = narrated(&reference);
+    rejected["section"]["claims"][0]["evidence"][0]["referenceId"] = json!("code:999");
+
+    for attempt in 0..8 {
+        let prepared = answer
+            .prepare(&ledger, &rejected.to_string(), &f.manifest, &runtime, &cancel)
+            .unwrap();
+        if attempt < 2 {
+            assert_eq!(prepared.findings[0]["code"], "citation");
+        } else {
+            assert_eq!(prepared.findings, finding("proposalCorrectionLimit"));
+        }
+        answer
+            .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
+            .unwrap();
+    }
+
+    assert_eq!(answer.remaining_attempts(), 0);
+    assert_eq!(answer.remaining_corrections(), 1);
+    assert!(answer
+        .prepare(&ledger, &rejected.to_string(), &f.manifest, &runtime, &cancel)
+        .is_err());
+
+    let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
+    assert_eq!(saved.attempts.len(), 8);
+    assert!(saved.sections.is_empty());
+    assert!(saved.attempts.iter().all(|attempt| attempt.arguments.len() <= MAX_PROPOSAL_BYTES));
+    let retained_argument_bytes = saved.attempts.iter().map(|attempt| attempt.arguments.len()).sum::<usize>();
+    assert!(retained_argument_bytes <= MAX_ATTEMPTS * MAX_PROPOSAL_BYTES);
+}

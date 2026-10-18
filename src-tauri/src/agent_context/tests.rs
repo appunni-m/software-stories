@@ -672,8 +672,10 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
     );
     assert_eq!(rejected["context"]["result"]["nextNewSectionOrder"], 0);
     assert_eq!(rejected["context"]["result"]["remainingAttempts"], 7);
+    assert_eq!(rejected["context"]["result"]["remainingCorrections"], 2);
     assert!(notices.lock().unwrap().is_empty());
     let mut out_of_bounds = args.clone();
+    out_of_bounds["sectionKey"] = json!("another-key");
     out_of_bounds["order"] = json!(6);
     let (_, rejected) = exchange_owned_ordered(
         &mut s,
@@ -689,6 +691,7 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
     );
     assert_eq!(rejected["context"]["result"]["nextNewSectionOrder"], 0);
     assert_eq!(rejected["context"]["result"]["remainingAttempts"], 6);
+    assert_eq!(rejected["context"]["result"]["remainingCorrections"], 2);
     assert!(notices.lock().unwrap().is_empty());
     let (_, text) = exchange_owned_ordered(
         &mut s,
@@ -709,6 +712,7 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
             .is_empty()
     );
     assert_eq!(response["context"]["result"]["remainingAttempts"], 5);
+    assert_eq!(response["context"]["result"]["remainingCorrections"], 2);
     assert_eq!(response["context"]["result"]["nextNewSectionOrder"], 1);
     assert_eq!(notices.lock().unwrap()[0].generation_id, generation);
     assert!(notices.lock().unwrap()[0].run_elapsed_ms.is_some());

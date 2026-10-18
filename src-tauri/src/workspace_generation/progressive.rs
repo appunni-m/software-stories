@@ -37,6 +37,8 @@ const SCENE_PACING_INSTRUCTIONS: &str = "Keep each scene centered on one decisio
 
 const PUBLICATION_ORDER_INSTRUCTIONS: &str = "Publication order is local to this investigation, including explicit guide continuations. Start its first new key at order:0 with previousGenerationId:null. Earlier saved-library headings are outside this ledger. Rejection publishes nothing and never advances order. Use the reply's nextNewSectionOrder; null permits only identifying or explicitly revising an existing key.";
 
+const PROPOSAL_ALLOCATION_INSTRUCTIONS: &str = "Use remainingCorrections. Two of eight proposals are shared corrections, at most one per key. Exact successful replays count as attempts but not corrections. proposalCorrectionLimit ends that key. At finishNow, stop tools and return the final manifest from evidence already read.";
+
 const REFERENCE_REPAIR_INSTRUCTIONS: &str = "sceneAuthoringReference identifies a duplicate, absent or ambiguous reference at its claim-owned scene position. Each node/edge must cite unique references from its own claim; different items may share a reference. Correct the reference or remove only its duplicate entry, preserving the claim, supported behavior and chosen representation. Keep a useful composition; this finding never requires a graph.";
 
 fn system_instructions() -> String {
@@ -47,7 +49,7 @@ fn system_instructions() -> String {
 /// The operation supplies its research role and final result independently.
 pub(crate) fn instructions_for_role(role: &str, final_instructions: &str) -> String {
     format!(
-        "{role}\n\n{INSTRUCTIONS}\n\n{SCENE_PACING_INSTRUCTIONS}\n\n{final_instructions}\n\n{}\n\n{PUBLICATION_ORDER_INSTRUCTIONS}\n\n{REFERENCE_REPAIR_INSTRUCTIONS}",
+        "{role}\n\n{INSTRUCTIONS}\n\n{SCENE_PACING_INSTRUCTIONS}\n\n{PROPOSAL_ALLOCATION_INSTRUCTIONS}\n\n{final_instructions}\n\n{}\n\n{PUBLICATION_ORDER_INSTRUCTIONS}\n\n{REFERENCE_REPAIR_INSTRUCTIONS}",
         provider::visual_scenes::teaching_instructions()
     )
 }

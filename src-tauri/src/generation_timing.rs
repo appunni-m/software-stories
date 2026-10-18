@@ -123,6 +123,15 @@ fn hash(value: &str) -> bool {
 fn canonical_run(run: &str) -> bool {
     uuid::Uuid::parse_str(run).is_ok_and(|id| id.to_string() == run)
 }
+
+fn safe_model_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 200
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"-_.:/+".contains(&byte))
+}
+
 fn path(storage: &Path, run: &str) -> Result<PathBuf, String> {
     if !canonical_run(run) {
         return Err("The timing identity is invalid.".into());
@@ -152,8 +161,7 @@ fn validate(record: &Record) -> Result<(), String> {
     if record.schema_version != 2
         || record.clock != "nativeCodexAdmissionV1"
         || !canonical_run(&record.run_id)
-        || record.model_id.trim().is_empty()
-        || record.model_id.len() > 200
+        || !safe_model_id(&record.model_id)
         || record.reasoning_effort.trim().is_empty()
         || record.reasoning_effort.len() > 32
         || !hash(&record.runtime_identity_sha256)

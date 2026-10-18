@@ -14,6 +14,10 @@ pub(crate) const NATIVE_MANIFEST_VERSION: &str = "answerManifestV2";
 pub(crate) const NATIVE_MANIFEST_POLICY: &str = "all-latest-published-sections-v1";
 const MAX_SECTIONS: usize = 6;
 const MAX_ATTEMPTS: usize = 8;
+// Six first proposals plus two shared correction attempts. Exact successful
+// replays still count as proposals, but do not consume a correction attempt.
+const MAX_CORRECTIONS: usize = MAX_ATTEMPTS - MAX_SECTIONS;
+const MAX_CORRECTIONS_PER_KEY: usize = 1;
 const MAX_ANSWERS: usize = 8;
 const MAX_RECORD_BYTES: usize = 4 * 1024 * 1024;
 const MAX_DIRECTORY_ENTRIES: usize = MAX_ANSWERS * crate::repository_guide::MAX_GUIDE_ANSWER_RECORDS + 32;
@@ -561,6 +565,7 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "sectionOrder"
                             | "sectionConflict"
                             | "sectionLimit"
+                            | "proposalCorrectionLimit"
                             | "citation"
                             | "presentationLimit"
                             | "visualField"
@@ -616,6 +621,107 @@ impl Ledger {
 }
 
 impl Answer {
+    fn proposal_key(arguments: &str) -> Option<String> {
+        crate::strict_json::from_slice(arguments.as_bytes())
+            .ok()?
+            .get("sectionKey")?
+            .as_str()
+            .map(str::to_owned)
+    }
+
+    fn has_proposal_key(&self, key: &Option<String>) -> bool {
+        self.attempts
+            .iter()
+            .any(|attempt| Self::proposal_key(&attempt.arguments) == *key)
+    }
+
+    fn exact_successful_replay(&self, key: &Option<String>, proposal_sha256: &str) -> bool {
+        self.attempts.iter().any(|attempt| {
+            attempt.generation_id.is_some()
+                && attempt.proposal_sha256 == proposal_sha256
+                && Self::proposal_key(&attempt.arguments) == *key
+        })
+    }
+
+    fn has_substantive_attempt_for_key(&self, key: &Option<String>) -> bool {
+        self.attempts.iter().any(|attempt| {
+            Self::proposal_key(&attempt.arguments) == *key
+                && (attempt.generation_id.is_some()
+                    || Self::correction_required(
+                        &attempt.findings,
+                        attempt.generation_id.as_deref(),
+                    ))
+        })
+    }
+
+    fn correction_required(findings: &[Value], generation_id: Option<&str>) -> bool {
+        if findings.is_empty() {
+            return generation_id.is_some();
+        }
+        findings.iter().any(|finding| {
+            finding["code"].as_str().is_some_and(|code| {
+                !matches!(
+                    code,
+                    "proposalShape"
+                        | "unsupportedProposalVersion"
+                        | "sectionKeyFormat"
+                        | "sectionOrder"
+                        | "sectionConflict"
+                        | "sectionLimit"
+                        | "proposalCorrectionLimit"
+                )
+            })
+        })
+    }
+
+    fn corrections_for_key(&self, key: &Option<String>) -> usize {
+        let mut seen = false;
+        let mut substantive_seen = false;
+        let mut corrections = 0;
+        for (index, attempt) in self.attempts.iter().enumerate() {
+            if Self::proposal_key(&attempt.arguments) != *key {
+                continue;
+            }
+            if seen {
+                let successful_replay = attempt.generation_id.as_ref().is_some_and(|generation| {
+                    self.attempts[..index].iter().any(|prior| {
+                        prior.generation_id.as_ref() == Some(generation)
+                            && prior.proposal_sha256 == attempt.proposal_sha256
+                    })
+                });
+                if substantive_seen
+                    && !successful_replay
+                    && Self::correction_required(
+                        &attempt.findings,
+                        attempt.generation_id.as_deref(),
+                    )
+                {
+                    corrections += 1;
+                }
+            }
+            substantive_seen |= attempt.generation_id.is_some()
+                || Self::correction_required(
+                    &attempt.findings,
+                    attempt.generation_id.as_deref(),
+                );
+            seen = true;
+        }
+        corrections
+    }
+
+    fn corrections_used(&self) -> usize {
+        let keys = self
+            .attempts
+            .iter()
+            .map(|attempt| Self::proposal_key(&attempt.arguments))
+            .collect::<BTreeSet<_>>();
+        keys.iter().map(|key| self.corrections_for_key(key)).sum()
+    }
+
+    fn remaining_corrections(&self) -> usize {
+        MAX_CORRECTIONS.saturating_sub(self.corrections_used())
+    }
+
     fn supports_checkpoint(&self, checkpoint: u32) -> bool {
         self.schema_version == NARRATION_ANSWER_VERSION
             && checkpoint == NARRATION_CHECKPOINT_VERSION
@@ -739,6 +845,10 @@ impl ActiveAnswer {
         MAX_ATTEMPTS.saturating_sub(self.value.attempts.len())
     }
 
+    pub(crate) fn remaining_corrections(&self) -> usize {
+        self.value.remaining_corrections()
+    }
+
     pub(crate) fn next_new_section_order(&self) -> Option<usize> {
         let next = self
             .value
@@ -795,6 +905,11 @@ impl ActiveAnswer {
             .transpose()?
             .unwrap_or_else(|| context::digest(arguments.as_bytes()));
         let proposal_sha256 = context::digest(arguments.as_bytes());
+        let proposal_key = Answer::proposal_key(arguments);
+        let repeated_key = self.value.has_proposal_key(&proposal_key);
+        let successful_replay = self
+            .value
+            .exact_successful_replay(&proposal_key, &proposal_sha256);
         let mut next = self.value.clone();
         let mut generation_id = None;
         let mut findings = finding("proposalShape");
@@ -936,6 +1051,20 @@ impl ActiveAnswer {
                     }
                 }
             }
+        }
+        let requires_correction = repeated_key
+            && !successful_replay
+            && self.value.has_substantive_attempt_for_key(&proposal_key)
+            && Answer::correction_required(&findings, generation_id.as_deref());
+        if requires_correction
+            && (self.value.corrections_for_key(&proposal_key) >= MAX_CORRECTIONS_PER_KEY
+                || self.value.corrections_used() >= MAX_CORRECTIONS)
+        {
+            // Validation may have prepared a new immutable revision. Enforce
+            // the correction reserve before admitting or recording its ID.
+            next.sections.truncate(self.value.sections.len());
+            generation_id = None;
+            findings = finding("proposalCorrectionLimit");
         }
         next.attempts.push(Attempt {
             arguments: arguments.into(),

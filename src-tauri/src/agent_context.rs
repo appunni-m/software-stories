@@ -560,6 +560,7 @@ impl Session {
                     generation_id: generation.as_deref(),
                     findings: &findings,
                     remaining_attempts: mode.answer.remaining_attempts(),
+                    remaining_corrections: mode.answer.remaining_corrections(),
                     next_new_section_order: mode.answer.next_new_section_order(),
                 },
                 &[],
