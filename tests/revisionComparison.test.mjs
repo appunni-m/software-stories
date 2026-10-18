@@ -18,6 +18,7 @@ runInThisContext(`(function(require,module,exports){${compiled}\n})`,{filename:f
 },component,component.exports);
 const render=(before,after)=>renderToStaticMarkup(createElement(component.exports.ChapterRevisionComparison,{before,after}));
 const renderStaleDraft=(draft,latest)=>renderToStaticMarkup(createElement(component.exports.StaleChapterDraftComparison,{draft,latest}));
+const renderStaleNotice=(baseRevisionNumber,latestRevisionNumber)=>renderToStaticMarkup(createElement(component.exports.StaleChapterDraftNotice,{baseRevisionNumber,latestRevisionNumber}));
 
 test('stale-base recovery compares the preserved unsaved draft directly with the newest revision',()=>{
   const draft=baseRevision(),latest=structuredClone(draft);
@@ -27,6 +28,17 @@ test('stale-base recovery compares the preserved unsaved draft directly with the
   assert.match(html,/My preserved local edit/);assert.match(html,/A newer saved explanation/);
   assert.match(html,/Your draft and both saved revisions remain unchanged/);
   assert.doesNotMatch(html,/<details[^>]*\bopen(?:=|>)/);
+});
+
+test('stale-base recovery explains the manual path and the editor disables an outdated save',()=>{
+  const html=renderStaleNotice(2,3);
+  assert.match(html,/r3 was saved while you were editing from r2/);
+  assert.match(html,/Your edits are still on screen, and Save is paused/);
+  assert.match(html,/Cancel discards these unsaved edits/);
+  assert.match(html,/role="status"/);
+  const app=readFileSync(new URL('../src/App.tsx',import.meta.url),'utf8');
+  assert.match(app,/<StaleChapterDraftNotice[\s\S]*?latestRevisionNumber=\{selectedTarget\.latestCurrent\.revisionNumber\}/);
+  assert.match(app,/disabled=\{busy \|\| !candidate \|\| !isLatestCurrent\}/);
 });
 
 test('the real comparison component renders named scenes and elements with source values hidden',()=>{

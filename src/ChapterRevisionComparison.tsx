@@ -53,6 +53,16 @@ export function StaleChapterDraftComparison({draft,latest}:{draft:ChapterRevisio
   </details>;
 }
 
+/** Explain the safe manual recovery path when a newer revision appears mid-edit. */
+export function StaleChapterDraftNotice({baseRevisionNumber,latestRevisionNumber}:{baseRevisionNumber:number;latestRevisionNumber:number}) {
+  return <div className="chapter-studio-stale" role="status">
+    <div>
+      <strong>r{latestRevisionNumber} was saved while you were editing from r{baseRevisionNumber}.</strong>
+      <p>Your edits are still on screen, and Save is paused. Compare your draft with r{latestRevisionNumber} below. To continue from the newer version, note any edits you want to keep, cancel this draft, select r{latestRevisionNumber}, and start a new draft from it. Cancel discards these unsaved edits.</p>
+    </div>
+  </div>;
+}
+
 function DiffRow({value}:{value:DiffValue}) {
   return <div className="chapter-revision-diff-row">
     <strong>{value.field}{value.context&&<small>{value.context}</small>}</strong>

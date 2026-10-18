@@ -173,7 +173,7 @@ import {
 import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, atlasTreeKeyboardAction, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport, type AtlasViewport, type ProvenGraphEdge } from './lib/atlas';
 import { classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, sourceLineTextRanges, splitCapturedSourceLines, splitSourceTextAtRange } from './lib/codeLens';
 import { loadShellStartupData, workspaceHeading } from './lib/shell';
-import { ChapterRevisionComparison, StaleChapterDraftComparison } from './ChapterRevisionComparison';
+import { ChapterRevisionComparison, StaleChapterDraftComparison, StaleChapterDraftNotice } from './ChapterRevisionComparison';
 import { chapterStudioRowStatus, chapterStudioStatus, chapterStudioStatusLabel } from './lib/chapterStudioStatus';
 import {
   addCoverageGroup,
@@ -4780,7 +4780,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                           <div className="chapter-review-actions">
                             <button className="text-button" onClick={cancelEditing} disabled={busy}>Cancel</button>
                             <button className="secondary-button" onClick={() => { void validateCurrent(); }} disabled={busy}><Check size={14} /> Validate</button>
-                            <button className="primary-button" onClick={() => { void saveEdits(); }} disabled={busy || !candidate}><Save size={14} /> Save as new draft</button>
+                            <button className="primary-button" onClick={() => { void saveEdits(); }} disabled={busy || !candidate || !isLatestCurrent} title={!isLatestCurrent ? 'A newer revision exists. Compare the drafts before continuing.' : undefined}><Save size={14} /> {isLatestCurrent ? 'Save as new draft' : 'Newer version exists'}</button>
                           </div>
                         </> : <>
                           <span className="chapter-validation-summary">{selectedRevision.lifecycle === 'accepted' ? 'Accepted revision is read-only.' : selectedRevision.lifecycle === 'rejected' ? `Rejected · ${selectedRevision.decisionNote ?? 'Reason not recorded'}` : `Evidence status: ${selectedRevision.validationStatus}`}</span>
@@ -4798,6 +4798,11 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                           </div>
                         </>}
                       </div>
+
+                      {editing && !isLatestCurrent && selectedTarget.latestCurrent && candidate && <StaleChapterDraftNotice
+                        baseRevisionNumber={selectedRevision.revisionNumber}
+                        latestRevisionNumber={selectedTarget.latestCurrent.revisionNumber}
+                      />}
 
                       {editing && !isLatestCurrent && selectedTarget.latestCurrent && <details className="chapter-revision-comparison">
                         <summary>A newer saved revision is available. Compare versions</summary>
