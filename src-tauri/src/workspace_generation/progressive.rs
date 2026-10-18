@@ -9,8 +9,8 @@ use crate::evidence_ledger::sections::{
 };
 use tauri::Manager;
 
-mod starting_ranges;
 mod guide_intent;
+mod starting_ranges;
 pub(crate) use guide_intent::{GuideIntent, OpeningContinuation};
 
 const ANSWER_ROLE: &str = r#"Investigate the learning question using captured implementation code and publish useful sections through propose_answer_section. Start from the attached identifier/range if supplied. For a broad question find an entry point and follow the actual input, transformations, state, output and failure paths. Preserve the requested causal order: begin at the input named in the question, then move downstream. An early section can teach the first real transition while deeper stages remain under investigation; do not start at a downstream API and explain its prerequisites later. Read promising code early; do not delay the main answer for a whole-repository inventory.
@@ -170,7 +170,15 @@ pub(crate) fn run(
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
 ) -> Result<Summary, String> {
     run_with_starting_ranges(
-        storage, input, &[], None, manager, jobs, journal, progress, notify,
+        storage,
+        input,
+        &[],
+        None,
+        manager,
+        jobs,
+        journal,
+        progress,
+        notify,
     )
 }
 
@@ -411,7 +419,13 @@ struct PublicationTiming {
     native_ready_run_elapsed_ms: Option<u64>,
 }
 
-pub(crate) fn timing_report(storage: &Path, run: &str, project: &str, snapshot: &str, active: bool) -> Result<TimingReport, String> {
+pub(crate) fn timing_report(
+    storage: &Path,
+    run: &str,
+    project: &str,
+    snapshot: &str,
+    active: bool,
+) -> Result<TimingReport, String> {
     let answer = reading::scoped(storage, run, project, snapshot)?;
     Ok(TimingReport {
         schema_version: 2, kind: "code-atlas-generation-timing",
@@ -438,8 +452,12 @@ pub(crate) async fn load_workspace_answer_timing(
     let storage = app_data_directory(&app)?;
     let manager = manager.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        manager.with_operation_state(&run_id, |active| timing_report(&storage, &run_id, &project_id, &snapshot_id, active))
-    }).await.map_err(|_| "Timing diagnostics could not be loaded.")?
+        manager.with_operation_state(&run_id, |active| {
+            timing_report(&storage, &run_id, &project_id, &snapshot_id, active)
+        })
+    })
+    .await
+    .map_err(|_| "Timing diagnostics could not be loaded.")?
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -450,18 +468,29 @@ pub(crate) async fn save_workspace_answer_timing(
     project_id: String,
     snapshot_id: String,
 ) -> Result<bool, String> {
-    let report = load_workspace_answer_timing(app.clone(), manager, run_id, project_id, snapshot_id).await?;
-    let bytes = serde_json::to_vec_pretty(&report).map_err(|_| "Timing diagnostics could not be encoded.")?;
-    crate::local_export::save(app, "code-atlas-timing.json".into(), "json", bytes, 256 * 1024).await
+    let report =
+        load_workspace_answer_timing(app.clone(), manager, run_id, project_id, snapshot_id).await?;
+    let bytes = serde_json::to_vec_pretty(&report)
+        .map_err(|_| "Timing diagnostics could not be encoded.")?;
+    crate::local_export::save(
+        app,
+        "code-atlas-timing.json".into(),
+        "json",
+        bytes,
+        256 * 1024,
+    )
+    .await
 }
 
 #[tauri::command]
 pub(crate) fn list_workspace_answer_records(
     app: AppHandle,
     manager: State<'_, codex_agent::CodexAgentManager>,
-) -> Result<Vec<Summary>, String> {
+) -> Result<reading::ManagementListing, String> {
     let storage = app_data_directory(&app)?;
-    reading::list_all(&storage)?
+    let mut listing = reading::list_for_management(&storage)?;
+    listing.records = listing
+        .records
         .into_iter()
         .map(|summary| {
             manager.with_operation_state(&summary.run_id, |active| {
@@ -472,7 +501,8 @@ pub(crate) fn list_workspace_answer_records(
                 }
             })
         })
-        .collect()
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(listing)
 }
 
 #[tauri::command(rename_all = "camelCase")]

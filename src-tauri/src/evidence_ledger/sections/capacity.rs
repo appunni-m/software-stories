@@ -118,8 +118,23 @@ pub(super) fn check(
                     continue;
                 }
                 let bytes = read_bytes(&path)?;
-                let answer: Answer = crate::strict_json::from_slice(&bytes)
-                    .and_then(serde_json::from_value)
+                let envelope: serde_json::Value = crate::strict_json::from_slice(&bytes)
+                    .map_err(|_| "A saved answer is damaged; it was preserved.")?;
+                let schema_version = envelope
+                    .get("schemaVersion")
+                    .and_then(serde_json::Value::as_u64)
+                    .ok_or("A saved answer has no valid schema version; it was preserved.")?;
+                if schema_version < NARRATION_ANSWER_VERSION as u64 {
+                    // Unsupported historical records stay byte-for-byte on
+                    // disk, but do not reserve capacity for current work.
+                    continue;
+                }
+                if schema_version > NARRATION_ANSWER_VERSION as u64 {
+                    return Err(
+                        "A newer saved answer exists. Update Code Atlas before starting another investigation.".into(),
+                    );
+                }
+                let answer: Answer = serde_json::from_value(envelope)
                     .map_err(|_| "A saved answer is damaged; it was preserved.")?;
                 if !canonical_uuid(&answer.binding.operation_id)
                     || path.file_stem().and_then(|name| name.to_str())

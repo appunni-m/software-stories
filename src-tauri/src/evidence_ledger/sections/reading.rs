@@ -15,6 +15,13 @@ pub(crate) struct Summary {
     pub(crate) incomplete_topics: Vec<String>,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ManagementListing {
+    pub(crate) records: Vec<Summary>,
+    pub(crate) unavailable_count: usize,
+}
+
 impl Answer {
     /// A saved partial can retain useful sections after a failed operation.
     /// Consumers must not mistake that recovery result for safe completion.
@@ -136,7 +143,8 @@ pub(crate) fn interrupt_with_failure(
     if !matches!(
         outcome,
         Outcome::Stopped | Outcome::Interrupted | Outcome::Partial | Outcome::Failed
-    ) || (failure == Some(FailureCode::Stopped) && outcome != Outcome::Stopped) {
+    ) || (failure == Some(FailureCode::Stopped) && outcome != Outcome::Stopped)
+    {
         return Err("The answer recovery outcome is invalid.".into());
     }
     let mut answer = inspect(storage, run)?;
@@ -273,4 +281,55 @@ pub(crate) fn list_all(storage: &Path) -> Result<Vec<Summary>, String> {
     }
     result.sort_by(|a, b| a.run_id.cmp(&b.run_id));
     Ok(result)
+}
+
+/// List only independently verified records for the explicit storage manager.
+/// An unavailable record remains untouched and cannot hide other safe cleanup choices.
+pub(crate) fn list_for_management(storage: &Path) -> Result<ManagementListing, String> {
+    let paths = fs::read_dir(directory(storage)?)
+        .map_err(|_| "Saved answers could not be inspected.")?
+        .take(MAX_DIRECTORY_ENTRIES + 1)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| "Saved answers could not be inspected.")?;
+    if paths.len() > MAX_DIRECTORY_ENTRIES {
+        return Err("The saved answer directory exceeds its limit.".into());
+    }
+
+    let mut records = Vec::new();
+    let mut unavailable_count = 0;
+    for entry in paths {
+        let path = entry.path();
+        if !path.extension().is_some_and(|value| value == "json") {
+            continue;
+        }
+        let Some(run) = path.file_stem().and_then(|value| value.to_str()) else {
+            unavailable_count += 1;
+            continue;
+        };
+        let Ok(bytes) = read_record_bytes(storage, run) else {
+            unavailable_count += 1;
+            continue;
+        };
+        let Ok(envelope) = crate::strict_json::from_slice(&bytes) else {
+            unavailable_count += 1;
+            continue;
+        };
+        if envelope
+            .get("schemaVersion")
+            .and_then(serde_json::Value::as_u64)
+            != Some(NARRATION_ANSWER_VERSION as u64)
+        {
+            unavailable_count += 1;
+            continue;
+        }
+        match replay_answer(storage, run, &bytes) {
+            Ok(answer) => records.push(answer.summary()),
+            Err(_) => unavailable_count += 1,
+        }
+    }
+    records.sort_by(|left, right| left.run_id.cmp(&right.run_id));
+    Ok(ManagementListing {
+        records,
+        unavailable_count,
+    })
 }

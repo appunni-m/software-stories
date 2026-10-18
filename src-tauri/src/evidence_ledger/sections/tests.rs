@@ -118,10 +118,19 @@ fn current_answer_publication_replays_schema_5_with_authored_narration() {
     let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
     assert_eq!(saved.schema_version, NARRATION_ANSWER_VERSION);
     assert_eq!(saved.sections.len(), 1);
-    assert_eq!(saved.sections[0].checkpoint_version, NARRATION_CHECKPOINT_VERSION);
-    assert_eq!(saved.sections[0].checkpoint.schema_version, LEDGER_SCHEMA_VERSION);
+    assert_eq!(
+        saved.sections[0].checkpoint_version,
+        NARRATION_CHECKPOINT_VERSION
+    );
+    assert_eq!(
+        saved.sections[0].checkpoint.schema_version,
+        LEDGER_SCHEMA_VERSION
+    );
     let revision = &saved.sections[0].preview.revision;
-    assert_eq!(revision.schema_version, crate::chapters::CHAPTER_SCHEMA_VERSION);
+    assert_eq!(
+        revision.schema_version,
+        crate::chapters::CHAPTER_SCHEMA_VERSION
+    );
     assert!(revision.sections[0].visual.is_none());
     assert_eq!(
         revision.sections[0].spoken_text,
@@ -137,11 +146,23 @@ fn old_proposal_answer_checkpoint_and_ledger_versions_are_rejected() {
     let reference = read(&mut ledger, &f, &runtime, &cancel);
     let mut answer = start(&ledger, &f, &runtime, &cancel);
 
-    for version in ["answerSectionV1", "answerSectionV2", "answerSectionV3", "answerSectionV4", "answerSectionV5"] {
+    for version in [
+        "answerSectionV1",
+        "answerSectionV2",
+        "answerSectionV3",
+        "answerSectionV4",
+        "answerSectionV5",
+    ] {
         let mut proposal = authoring::tests::narrated_proposal(&reference, "entry", 0);
         proposal["proposalVersion"] = json!(version);
         let prepared = answer
-            .prepare(&ledger, &proposal.to_string(), &f.manifest, &runtime, &cancel)
+            .prepare(
+                &ledger,
+                &proposal.to_string(),
+                &f.manifest,
+                &runtime,
+                &cancel,
+            )
             .unwrap();
         assert_eq!(
             prepared.findings,
@@ -152,10 +173,11 @@ fn old_proposal_answer_checkpoint_and_ledger_versions_are_rejected() {
             .unwrap();
     }
 
-    assert!((1..NARRATION_CHECKPOINT_VERSION).all(|version| {
-        !answer.value.supports_checkpoint(version)
-    }));
-    assert!(answer.value.supports_checkpoint(NARRATION_CHECKPOINT_VERSION));
+    assert!((1..NARRATION_CHECKPOINT_VERSION)
+        .all(|version| { !answer.value.supports_checkpoint(version) }));
+    assert!(answer
+        .value
+        .supports_checkpoint(NARRATION_CHECKPOINT_VERSION));
     assert!(answer.value.sections.is_empty());
 
     for version in [1, 2] {
@@ -182,7 +204,8 @@ fn only_answer_manifest_v2_can_complete_current_publications() {
 
     assert!(answer
         .finish_manifest(
-            &json!({"manifestVersion":"answerManifestV1","sections":[],"incompleteTopics":[]}).to_string(),
+            &json!({"manifestVersion":"answerManifestV1","sections":[],"incompleteTopics":[]})
+                .to_string(),
             false,
         )
         .is_err());
@@ -235,4 +258,71 @@ fn current_answer_listing_skips_unsupported_old_records_without_modifying_them()
     assert_eq!(listed[0].run_id, current.value.binding.operation_id);
     assert_eq!(fs::read(&old_path).unwrap(), old_bytes);
     assert!(inspect(&f.storage, &old_run).is_err());
+}
+
+#[test]
+fn legacy_answers_do_not_consume_current_capacity_or_change_on_check() {
+    let f = Fixture::new();
+    let (ledger, runtime, cancel) = setup(&f);
+    let current = start(&ledger, &f, &runtime, &cancel);
+    let mut legacy = current.value.clone();
+    legacy.schema_version = 1;
+
+    let directory = f.storage.join("answer-sections");
+    let mut originals = Vec::new();
+    for _ in 0..MAX_ANSWERS {
+        let run = Uuid::new_v4().to_string();
+        legacy.binding.operation_id = run.clone();
+        let path = directory.join(format!("{run}.json"));
+        let bytes = encode_answer(&legacy).unwrap();
+        fs::write(&path, &bytes).unwrap();
+        originals.push((path, bytes));
+    }
+
+    capacity::check(&f.storage, None, None).unwrap();
+    for (path, bytes) in originals {
+        assert_eq!(fs::read(path).unwrap(), bytes);
+    }
+}
+
+#[test]
+fn newer_answer_schema_blocks_current_capacity_without_rewriting_it() {
+    let f = Fixture::new();
+    let (ledger, runtime, cancel) = setup(&f);
+    let current = start(&ledger, &f, &runtime, &cancel);
+    let mut future = current.value.clone();
+    future.schema_version = NARRATION_ANSWER_VERSION + 1;
+    let bytes = encode_answer(&future).unwrap();
+    fs::write(&current.path, &bytes).unwrap();
+
+    let error = capacity::check(&f.storage, None, None).unwrap_err();
+    assert!(error.contains("newer saved answer"), "{error}");
+    assert_eq!(fs::read(current.path).unwrap(), bytes);
+}
+
+#[test]
+fn answer_manager_lists_verified_records_when_another_current_record_is_unavailable() {
+    let f = Fixture::new();
+    let (ledger, runtime, cancel) = setup(&f);
+    let current = start(&ledger, &f, &runtime, &cancel);
+    let invalid_run = Uuid::new_v4().to_string();
+    let invalid_path = f
+        .storage
+        .join("answer-sections")
+        .join(format!("{invalid_run}.json"));
+    let invalid_bytes = serde_json::to_vec(&json!({
+        "schemaVersion": NARRATION_ANSWER_VERSION,
+        "unsupported": "preserve verbatim"
+    }))
+    .unwrap();
+    fs::write(&invalid_path, &invalid_bytes).unwrap();
+
+    let listing = reading::list_for_management(&f.storage).unwrap();
+    assert_eq!(listing.records.len(), 1);
+    assert_eq!(
+        listing.records[0].run_id,
+        current.value.binding.operation_id
+    );
+    assert_eq!(listing.unavailable_count, 1);
+    assert_eq!(fs::read(invalid_path).unwrap(), invalid_bytes);
 }
