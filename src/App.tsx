@@ -174,6 +174,7 @@ import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, a
 import { classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, sourceLineTextRanges, splitCapturedSourceLines, splitSourceTextAtRange } from './lib/codeLens';
 import { loadShellStartupData, workspaceHeading } from './lib/shell';
 import { ChapterRevisionComparison, StaleChapterDraftComparison } from './ChapterRevisionComparison';
+import { chapterStudioRowStatus, chapterStudioStatus, chapterStudioStatusLabel } from './lib/chapterStudioStatus';
 import {
   addCoverageGroup,
   buildCoverageRows,
@@ -4465,16 +4466,8 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       .sort((left, right) => right.revisionNumber - left.revisionNumber)[0] ?? null
     : null;
   const activeDocument = editing && candidate ? candidate : selectedRevision;
-  const status = !selectedTarget || selectedTarget.missing
-    ? 'missing'
-    : selectedRevision
-      ? selectedRevision.snapshotId === snapshotId ? selectedRevision.lifecycle : 'stale'
-      : selectedTarget.latestCurrent?.lifecycle ?? 'stale';
-  const statusLabel = status === 'missing' ? 'Needs explanation'
-    : status === 'stale' ? 'Older snapshot'
-      : status === 'draft' ? 'Draft'
-        : status === 'rejected' ? 'Rejected'
-          : 'Accepted';
+  const status = chapterStudioStatus(Boolean(selectedTarget && !selectedTarget.missing), selectedRevision, snapshotId, selectedTarget?.latestCurrent ?? null);
+  const statusLabel = chapterStudioStatusLabel(status);
   const freshnessKey = selectedRevision?.lifecycle === 'accepted' && selectedRevision.snapshotId !== snapshotId
     ? `${selectedRevision.revisionId}:${snapshotId}`
     : null;
@@ -4722,7 +4715,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
             <div className="chapter-studio-target-list">
               {visibleTargets.map((target) => {
                 const latest = target.latestCurrent ?? target.latestAny;
-                const rowStatus = target.missing ? 'missing' : target.latestCurrent?.lifecycle ?? 'stale';
+                const rowStatus = chapterStudioRowStatus(!target.missing, target.latestCurrent);
                 const label = target.overview ? 'Repository overview' : target.paths.length === 1 ? target.paths[0] : `${target.paths[0]} + ${target.paths.length - 1} files`;
                 return <button
                   key={target.key}
