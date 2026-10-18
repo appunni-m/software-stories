@@ -25,10 +25,11 @@ const MAX_SECTIONS: usize = 6;
 const MAX_ATTEMPTS: usize = 8;
 const MAX_ANSWERS: usize = 8;
 const MAX_RECORD_BYTES: usize = 4 * 1024 * 1024;
-const MAX_DIRECTORY_ENTRIES: usize = 32;
+const MAX_DIRECTORY_ENTRIES: usize = MAX_ANSWERS * crate::repository_guide::MAX_GUIDE_ANSWER_RECORDS + 32;
 static STORE: Mutex<()> = Mutex::new(());
 
 pub(crate) mod authoring;
+pub(crate) mod capacity;
 pub(crate) mod reading;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -223,34 +224,6 @@ fn read_bytes(path: &Path) -> Result<Vec<u8>, String> {
     }
     bounded_file::read(path, MAX_RECORD_BYTES)
         .map_err(|_| "The saved answer is unreadable or too large.".into())
-}
-
-fn check_capacity(directory: &Path) -> Result<(), String> {
-    let mut count = 0;
-    let mut entries = 0;
-    for entry in fs::read_dir(directory).map_err(|_| "Saved answers could not be inspected.")? {
-        entries += 1;
-        if entries > MAX_DIRECTORY_ENTRIES {
-            return Err(
-                "Saved answers reached their directory limit. Existing work was preserved.".into(),
-            );
-        }
-        let path = entry
-            .map_err(|_| "Saved answers could not be inspected.")?
-            .path();
-        if path.extension().is_some_and(|x| x == "json") {
-            // Reject damaged/unexpected entries rather than evicting or silently
-            // resetting them. Each record reserves its full 4 MiB capacity.
-            let bytes = read_bytes(&path)?;
-            let _: Answer = serde_json::from_slice(&bytes)
-                .map_err(|_| "A saved answer is damaged; it was preserved.")?;
-            count += 1;
-        }
-    }
-    if count >= MAX_ANSWERS {
-        return Err("Eight answers are retained locally. Manage saved answers before starting another investigation.".into());
-    }
-    Ok(())
 }
 
 fn checkpoint(ledger: &Ledger) -> Result<Record, String> {
@@ -790,7 +763,8 @@ impl Ledger {
         }
         let path = record_path(&self.storage, &self.record.binding.operation_id)?;
         let _guard = STORE.lock().map_err(|_| "Answer storage is unavailable.")?;
-        check_capacity(path.parent().ok_or("Answer storage is unavailable.")?)?;
+        let _capacity = capacity::lease(&self.storage)?;
+        capacity::check(&self.storage, None, Some(&self.record.binding))?;
         let value = Answer {
             schema_version,
             binding: self.record.binding.clone(),

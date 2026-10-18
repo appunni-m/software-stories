@@ -1,6 +1,8 @@
 use super::*;
 use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE};
 
+mod capacity;
+
 pub(super) fn record(f: &Fixture) -> Record {
     let source = context::source(&f.storage, &f.manifest, SIMPLE_PATH).unwrap();
     let range = context::range_from_source(&source, 0, SIMPLE_SOURCE.len())
@@ -354,6 +356,9 @@ fn recovery_preserves_a_concurrent_stop() {
         Ok(())
     })
     .unwrap();
+    let path = f.storage.join("repository-guides")
+        .join(format!("{}.json", record.id));
+    let stopped_bytes = std::fs::read(&path).unwrap();
     let recovered = reconcile(
         &f.storage,
         &record,
@@ -361,7 +366,8 @@ fn recovery_preserves_a_concurrent_stop() {
     )
     .unwrap();
     assert_eq!(recovered.status, Status::Stopped);
-    assert_eq!(recovered.revision, 2);
+    assert_eq!(recovered.revision, 1);
+    assert_eq!(std::fs::read(path).unwrap(), stopped_bytes);
 }
 
 #[test]

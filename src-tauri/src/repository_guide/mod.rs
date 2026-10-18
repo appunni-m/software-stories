@@ -38,6 +38,37 @@ const RESEARCH_POLICY: &str = "ordered-independent-research-v1";
 const RESEARCH_INSTRUCTIONS: &str = "Prerequisites describe reading order, not permission to investigate. Each outlined unit will research its own captured code in outline order even if an earlier explanation remains incomplete. Earlier questions and starting ranges supply leads, never implementation facts or inherited citations. Preserve requested alternatives and failures; independently verify every explanation. A partial unit stays partial and cannot establish a later unit's behavior.";
 const MAX_UNITS: usize = 6;
 const MAX_ATTEMPTS: usize = 2;
+pub(crate) const MAX_GUIDE_ANSWER_RECORDS: usize = 2 + MAX_UNITS * MAX_ATTEMPTS;
+
+/// Storage accounting only. This does not authorize retrieval or inference.
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct AnswerReservation {
+    pub(crate) guide_id: String,
+    pub(crate) project_id: String,
+    pub(crate) snapshot_id: String,
+    pub(crate) manifest_sha256: String,
+    pub(crate) run_ids: Vec<String>,
+}
+
+fn answer_reservation(record: &Record) -> AnswerReservation {
+    AnswerReservation {
+        guide_id: record.id.clone(),
+        project_id: record.project_id.clone(),
+        snapshot_id: record.snapshot_id.clone(),
+        manifest_sha256: record.manifest_sha256.clone(),
+        run_ids: record
+            .opening
+            .iter()
+            .chain(&record.opening_continuations)
+            .chain(record.units.iter().flat_map(|unit| &unit.attempts))
+            .map(|attempt| attempt.run_id.clone())
+            .collect(),
+    }
+}
+
+pub(crate) fn answer_reservations(storage: &Path) -> Result<Vec<AnswerReservation>, String> {
+    store::answer_reservations(storage)
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -488,6 +519,11 @@ fn build(
     changed: impl Fn(&GuideSummary),
 ) -> Result<GuideSummary, String> {
     let mut record = store::read(storage, id)?;
+    crate::evidence_ledger::sections::capacity::with_guide_reservation(
+        storage,
+        &answer_reservation(&record),
+        || Ok(()),
+    )?;
     checked_manifest(storage, &record)?;
     if record.plan.is_none() {
         if record.status != Status::Planning {
@@ -783,6 +819,11 @@ pub(crate) async fn resume_repository_guide(
         &project_id,
         &snapshot_id,
         &runtime,
+    )?;
+    crate::evidence_ledger::sections::capacity::with_guide_reservation(
+        &storage,
+        &answer_reservation(&record),
+        || Ok(()),
     )?;
     store::prepare_continuation(&storage, &id, expected_revision)?;
     run_command(app, storage, id, lease, true).await

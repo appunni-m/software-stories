@@ -528,6 +528,9 @@ fn saved_partial_opening_recovery_probe() {
     let mut report = options.open(root.join("native-review.json")).unwrap();
     let _lease = store::lease(&storage, id).unwrap().unwrap();
     let original = store::read(&storage, id).unwrap();
+    crate::evidence_ledger::sections::capacity::with_guide_reservation(
+        &storage, &answer_reservation(&original), || Ok(()),
+    ).unwrap();
     assert!(matches!(original.schema_version, 2..=4));
     assert_eq!(original.status, Status::Partial);
     assert!(original.plan.is_some());
@@ -545,7 +548,13 @@ fn saved_partial_opening_recovery_probe() {
     );
     let before = summary(&storage, &original).unwrap();
     let raw = std::fs::read(storage.join("repository-guides").join(format!("{id}.json"))).unwrap();
-    let prepared = store::prepare_continuation(&storage, id, original.revision).unwrap();
+    let reconciled = reconcile(&storage, &original, &codex_agent::CodexAgentManager::default()).unwrap();
+    assert_eq!(reconciled.revision, original.revision);
+    assert_eq!(
+        std::fs::read(storage.join("repository-guides").join(format!("{id}.json"))).unwrap(),
+        raw
+    );
+    let prepared = store::prepare_continuation(&storage, id, reconciled.revision).unwrap();
     assert_eq!(
         prepared.upgrade.as_ref().unwrap().sha256,
         context::digest(&raw)
@@ -622,6 +631,8 @@ fn saved_partial_opening_recovery_probe() {
         "openingQuestionUnchanged":true,"originalGuideQuestionUnchanged":true,
         "outlineUnchanged":true,"priorUnitAttemptsUnchanged":true,"priorOpeningUnchanged":true,
         "priorSections":before_sections.len(),"originalBytesArchived":true,
+        "unchangedOpeningPreservesBytes":true,"unchangedOpeningPreservesRevision":true,
+        "wholeGuideAnswerCapacityReserved":true,"maximumGuideInvestigations":MAX_GUIDE_ANSWER_RECORDS,
         "admittedFollowUps":1,"recoveredOutcome":"interrupted","openingReplayPermitted":false,
         "inferenceDispatched":false,"completeAnswerQualified":false,
         "semanticReview":false,"nativeUiReview":false,"voiceReview":false,

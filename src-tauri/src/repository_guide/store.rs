@@ -42,6 +42,18 @@ pub(super) fn exists(storage: &Path, id: &str) -> Result<bool, String> {
     }
 }
 pub(super) fn save(storage: &Path, record: &Record, new: bool) -> Result<(), String> {
+    if new {
+        validate(record)?;
+        return crate::evidence_ledger::sections::capacity::with_guide_reservation(
+            storage,
+            &answer_reservation(record),
+            || save_record(storage, record, true),
+        );
+    }
+    save_record(storage, record, false)
+}
+
+fn save_record(storage: &Path, record: &Record, new: bool) -> Result<(), String> {
     validate(record)?;
     upgrade::verify(storage, record)?;
     let bytes = serde_json::to_vec(record).map_err(|_| "The guide could not be encoded.")?;
@@ -120,6 +132,22 @@ pub(super) fn list(storage: &Path, project: &str, snapshot: &str) -> Result<Vec<
     Ok(records)
 }
 
+pub(super) fn answer_reservations(storage: &Path) -> Result<Vec<AnswerReservation>, String> {
+    let directory = storage.join("repository-guides");
+    match fs::symlink_metadata(&directory) {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(vec![]),
+        Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {}
+        _ => return Err("Guide storage could not be checked. Existing work was preserved.".into()),
+    }
+    scan(&directory)?
+        .into_iter()
+        .filter_map(|(name, _)| {
+            name.strip_suffix(".json")
+                .map(|id| read(storage, id).map(|record| answer_reservation(&record)))
+        })
+        .collect()
+}
+
 /// Native owner explicitly releases the lease on return or unwind.
 #[cfg(unix)]
 pub(super) fn lease(storage: &Path, id: &str) -> Result<Option<crate::file_lease::Lease>, String> {
@@ -173,11 +201,26 @@ pub(super) fn update(
     id: &str,
     change: impl FnOnce(&mut Record) -> Result<(), String>,
 ) -> Result<Record, String> {
+    update_if_changed(storage, id, |record| {
+        change(record)?;
+        Ok(true)
+    })
+}
+
+/// The callback returns false when the transaction should preserve the existing
+/// bytes and revision. Callers must leave the record unchanged in that case.
+pub(super) fn update_if_changed(
+    storage: &Path,
+    id: &str,
+    change: impl FnOnce(&mut Record) -> Result<bool, String>,
+) -> Result<Record, String> {
     let _guard = STORE.lock().map_err(|_| "Guide storage is unavailable.")?;
     let _transaction=lock_named(storage,".transactions.lock")?.ok_or("Another native guide transaction is active. Retry the local action; no inference was started.")?;
     let mut record = read(storage, id)?;
     let revision = record.revision;
-    change(&mut record)?;
+    if !change(&mut record)? {
+        return Ok(record);
+    }
     record.revision = revision
         .checked_add(1)
         .ok_or("The guide revision limit was reached. Existing work was preserved.")?;

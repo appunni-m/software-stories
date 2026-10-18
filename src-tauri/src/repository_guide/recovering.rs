@@ -88,11 +88,11 @@ fn reconcile_with_reader(
     if matches!(next.status, Status::Planning | Status::Building) {
         next.status = Status::Interrupted;
     }
-    store::update(storage, &record.id, |current| {
+    store::update_if_changed(storage, &record.id, |current| {
         if current.revision != record.revision {
             // Stop wins without copying any stale attempts, plan or owner.
             if current.status == Status::Stopped {
-                return Ok(());
+                return Ok(false);
             }
             return Err(
                 "The guide changed while opening. Open it again; saved progress was preserved."
@@ -102,8 +102,19 @@ fn reconcile_with_reader(
         if current.status == Status::Stopped {
             next.status = Status::Stopped;
         }
+        // Compare after checking the persisted revision: a no-op open must
+        // preserve the original bytes, including the revision later archived
+        // by an explicit continuation.
+        let saved = serde_json::to_value(&*current)
+            .map_err(|_| "The saved guide could not be compared. Existing work was preserved.")?;
+        let recovered = serde_json::to_value(&next).map_err(
+            |_| "The recovered guide could not be compared. Existing work was preserved.",
+        )?;
+        if saved == recovered {
+            return Ok(false);
+        }
         *current = next;
-        Ok(())
+        Ok(true)
     })
 }
 
