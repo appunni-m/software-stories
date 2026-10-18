@@ -99,10 +99,60 @@ pub(crate) fn correct_once_checked<T>(
         return Ok(initial);
     };
     let corrected = correct(&prompt)?;
-    if diagnose(&corrected)?.is_some_and(|issues| !issues.is_empty()) {
-        return Err(STILL_INVALID.to_owned());
+    match diagnose(&corrected)? {
+        Some(issues) if !issues.is_empty() => Err(correction_failure(&issues)),
+        _ => Ok(corrected),
     }
-    Ok(corrected)
+}
+
+/// Turn native validation categories into plain feedback without exposing
+/// model text, repository paths, source excerpts, or raw diagnostic values.
+fn correction_failure(issues: &[Value]) -> String {
+    let has_quote_problem = issues
+        .iter()
+        .any(|issue| issue.get("quoteProblem").is_some());
+    let has_identifier_problem = issues.iter().any(|issue| {
+        [
+            "missingFromProse",
+            "missingFromQuotes",
+            "quotesWithoutDeclaredIdentifier",
+        ]
+            .iter()
+            .any(|field| {
+                issue
+                    .get(*field)
+                    .and_then(Value::as_array)
+                    .is_some_and(|values| !values.is_empty())
+            })
+    });
+    let has_scene_problem = issues
+        .iter()
+        .any(|issue| issue.get("sceneProblem").is_some());
+    let has_reference_problem = issues
+        .iter()
+        .any(|issue| issue.get("citationProblem").is_some());
+
+    let mut reasons = Vec::with_capacity(4);
+    if has_quote_problem {
+        reasons.push("a code citation still does not match the reviewed source");
+    }
+    if has_identifier_problem {
+        reasons.push("claim names still do not line up between the explanation and cited code");
+    }
+    if has_scene_problem {
+        reasons.push("a visual layout or its source link still has a consistency problem");
+    }
+    if has_reference_problem {
+        reasons.push("a source reference still cannot be confirmed");
+    }
+    if reasons.is_empty() {
+        return STILL_INVALID.to_owned();
+    }
+
+    format!(
+        "The explanation still failed checks after one correction: {}. No draft was published. Your previous work is preserved.",
+        reasons.join("; ")
+    )
 }
 
 /// Diagnose only the lexical contract that the source validator already checks.
@@ -530,7 +580,7 @@ mod tests {
                 |_| Ok("still bad")
             )
             .unwrap_err(),
-            STILL_INVALID
+            "The explanation still failed checks after one correction: a code citation still does not match the reviewed source. No draft was published. Your previous work is preserved."
         );
     }
 
@@ -590,13 +640,13 @@ mod tests {
             "A helper records an operation path.",
             "record_pipeline_operation_path",
         );
-        assert_eq!(
-            correct_once(true, initial.clone(), String::as_str, |_| Ok(
-                initial.clone()
-            ))
-            .unwrap_err(),
-            STILL_INVALID
-        );
+        let failure = correct_once(true, initial.clone(), String::as_str, |_| {
+            Ok(initial.clone())
+        })
+        .unwrap_err();
+        assert!(failure.contains("claim names still do not line up"));
+        assert!(failure.contains("No draft was published"));
+        assert!(!failure.contains("record_pipeline_operation_path"));
         assert_eq!(
             correct_once(true, initial, String::as_str, |_| Err(
                 "cancelled".to_owned()
@@ -604,6 +654,26 @@ mod tests {
             .unwrap_err(),
             "cancelled"
         );
+    }
+
+    #[test]
+    fn failed_repair_feedback_combines_only_safe_categories() {
+        let failure = correction_failure(&[
+            json!({"location":"/private/source.ts","quoteProblem":"quoteNotExact"}),
+            json!({"location":"/sections/0/claims/0","missingFromProse":["private_identifier"]}),
+            json!({"location":"/visual","sceneProblem":"invalidParent"}),
+            json!({"location":"/private/anchor","citationProblem":"referenceUnavailable"}),
+        ]);
+        assert!(failure.contains("code citation still does not match"));
+        assert!(failure.contains("claim names still do not line up"));
+        assert!(failure.contains("visual layout or its source link"));
+        assert!(failure.contains("source reference still cannot be confirmed"));
+        assert!(failure.contains("No draft was published"));
+        assert!(!failure.contains("/private/source.ts"));
+        assert!(!failure.contains("private_identifier"));
+
+        let fallback = correction_failure(&[json!({"unrecognized":"private model output"})]);
+        assert_eq!(fallback, STILL_INVALID);
     }
 
     #[test]
