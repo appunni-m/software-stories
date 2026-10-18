@@ -84,14 +84,14 @@ fn identifiers_keep_original_snake_camel_acronym_and_unicode_parts() {
 }
 
 #[test]
-fn large_unsupported_text_is_searchable_without_parser_or_whole_file_prompt() {
+fn large_parserless_c_adapter_is_searchable_without_a_whole_file_prompt() {
     let mut fixture = Fixture::new();
     let text = format!(
-        "{}\ndef enormous_memory_face(buffer):\n    return renderGlyphBitmap(buffer)\n",
-        "# filler with other code\n".repeat(26_000)
+        "{}void render_glyph_bitmap(void) {{}}\n",
+        "/* filler with other code */\n".repeat(42_000)
     );
-    assert!(text.len() > 512 * 1024);
-    add_source(&mut fixture, "lib/renderer.py", &text);
+    assert!(text.len() > 1_032_893);
+    add_source(&mut fixture, "src/adapter.c", &text);
     let cancelled = AtomicBool::new(false);
     let budget = Budget::new(&cancelled);
     let prepared = prepare(
@@ -105,14 +105,14 @@ fn large_unsupported_text_is_searchable_without_parser_or_whole_file_prompt() {
         &fixture.storage,
         &fixture.manifest,
         &prepared,
-        "enormous_memory_face",
+        "render_glyph_bitmap",
         None,
         8,
         &budget,
     )
     .unwrap();
     let hit = &result.matches[0];
-    assert_eq!(hit.range.path, "lib/renderer.py");
+    assert_eq!(hit.range.path, "src/adapter.c");
     assert!(hit.exact_identifier);
     assert!(hit.range.parser.is_none());
     assert!(hit.range.end_byte - hit.range.start_byte <= CHUNK_BYTES);
@@ -125,20 +125,20 @@ fn large_unsupported_text_is_searchable_without_parser_or_whole_file_prompt() {
         hit.range.end_byte,
     )
     .unwrap();
-    assert!(read.contents.contains("def enormous_memory_face"));
+    assert!(read.contents.contains("void render_glyph_bitmap"));
     assert_eq!(read.range.chunk_sha256, hit.range.chunk_sha256);
-    assert_eq!(hit.line, 26_002);
+    assert_eq!(hit.line, 42_001);
     let component = search(
         &fixture.storage,
         &fixture.manifest,
         &prepared,
         "glyph bitmap",
-        Some("lib"),
+        Some("src"),
         8,
         &budget,
     )
     .unwrap();
-    assert_eq!(component.matches[0].range.path, "lib/renderer.py");
+    assert_eq!(component.matches[0].range.path, "src/adapter.c");
     assert!(component.coverage.text_fallback_files > 0);
 }
 
