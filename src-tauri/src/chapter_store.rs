@@ -585,7 +585,7 @@ fn create_storage_directories(
 }
 
 fn storage_directories(storage_dir: &Path, project_id: &str) -> Vec<PathBuf> {
-    let chapters = storage_dir.join("chapters");
+    let chapters = current_chapter_store_directory(storage_dir);
     let project = chapters.join(digest(project_id.as_bytes()));
     vec![
         storage_dir.to_owned(),
@@ -596,10 +596,16 @@ fn storage_directories(storage_dir: &Path, project_id: &str) -> Vec<PathBuf> {
 }
 
 fn project_targets_directory(storage_dir: &Path, project_id: &str) -> PathBuf {
-    storage_dir
-        .join("chapters")
+    current_chapter_store_directory(storage_dir)
         .join(digest(project_id.as_bytes()))
         .join("targets")
+}
+
+/// Each strict chapter schema owns a fresh store. Unsupported records from an
+/// earlier product schema remain untouched in `chapters`; current operations
+/// never decode them, migrate them, or let them block new local work.
+fn current_chapter_store_directory(storage_dir: &Path) -> PathBuf {
+    storage_dir.join(format!("chapters-v{}", chapters::CHAPTER_SCHEMA_VERSION))
 }
 
 fn target_directory(storage_dir: &Path, project_id: &str, target_id: &str) -> PathBuf {
@@ -669,6 +675,42 @@ mod tests {
             generation_origin: None,
             sections: Vec::new(),
         }
+    }
+
+    #[test]
+    fn current_schema_store_ignores_unsupported_old_chapters_without_modifying_them() {
+        let temp = TempDir::new();
+        let legacy = temp
+            .0
+            .join("chapters")
+            .join(digest(b"project-test"))
+            .join("targets")
+            .join("target:file:test")
+            .join("revision:legacy.json");
+        fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+        let legacy_bytes = br#"{"schemaVersion":4,"unsupported":"preserve verbatim"}"#;
+        fs::write(&legacy, legacy_bytes).unwrap();
+
+        assert!(
+            list_for_project(&temp.0, "project-test")
+                .unwrap()
+                .is_empty()
+        );
+        let current =
+            save_new_draft(&temp.0, draft("snapshot-current", "revision:current")).unwrap();
+        assert_eq!(
+            list_for_project(&temp.0, "project-test").unwrap(),
+            vec![current.clone()]
+        );
+        assert_eq!(
+            fs::read(
+                target_directory(&temp.0, "project-test", "target:file:test")
+                    .join("revision:current.json")
+            )
+            .unwrap(),
+            chapters::encode_chapter_revision(&current).unwrap(),
+        );
+        assert_eq!(fs::read(&legacy).unwrap(), legacy_bytes);
     }
 
     #[test]
