@@ -63,22 +63,30 @@ export function storyScenes(section: ChapterSection, visual?: EvidenceLinkedVisu
 /** A bounded layered drawing preserves the declared edges, including cycles and branches.
  * Drawing order has no runtime meaning. Unresolved cyclic nodes use authored order.
  */
-export function storyLayout(visual: EvidenceLinkedVisualSpec) {
-  const remaining = new Set(visual.nodes.map((node) => node.nodeId));
+export function storyLayout(visual: EvidenceLinkedVisualSpec, includedNodeIds?: ReadonlySet<string>) {
+  // Focused scenes must be laid out from their own visible subgraph. Laying
+  // out the full chapter and filtering afterward leaves invisible branches
+  // contributing to the viewport bounds, which shrinks the narrated content.
+  const nodes = includedNodeIds
+    ? visual.nodes.filter((node) => includedNodeIds.has(node.nodeId))
+    : visual.nodes;
+  const nodeIds = new Set(nodes.map((node) => node.nodeId));
+  const edges = visual.edges.filter((edge) => nodeIds.has(edge.fromNodeId) && nodeIds.has(edge.toNodeId));
+  const remaining = new Set(nodeIds);
   const rank = new Map<string, number>();
   while (remaining.size) {
-    const ready = [...remaining].filter((id) => visual.edges.filter((edge) => edge.toNodeId === id && edge.fromNodeId !== id).every((edge) => !remaining.has(edge.fromNodeId)));
+    const ready = [...remaining].filter((id) => edges.filter((edge) => edge.toNodeId === id && edge.fromNodeId !== id).every((edge) => !remaining.has(edge.fromNodeId)));
     if (!ready.length) { for (const id of remaining) rank.set(id, rank.size); break; }
     for (const id of ready) {
-      const parents = visual.edges.filter((edge) => edge.toNodeId === id && edge.fromNodeId !== id);
+      const parents = edges.filter((edge) => edge.toNodeId === id && edge.fromNodeId !== id);
       rank.set(id, Math.max(0, ...parents.map((edge) => (rank.get(edge.fromNodeId) ?? -1) + 1)));
       remaining.delete(id);
     }
   }
   const horizontal = visual.layoutHint.direction !== 'topToBottom';
-  return visual.nodes.map((node) => {
+  return nodes.map((node) => {
     const level = rank.get(node.nodeId) ?? 0;
-    const siblings = visual.nodes.filter((other) => rank.get(other.nodeId) === level);
+    const siblings = nodes.filter((other) => rank.get(other.nodeId) === level);
     const across = (siblings.findIndex((other) => other.nodeId === node.nodeId) - (siblings.length - 1) / 2) * 132;
     return { id: node.nodeId, position: horizontal ? { x: level * 245, y: across } : { x: across * 1.8, y: level * 94 } };
   });

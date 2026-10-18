@@ -65,6 +65,18 @@ describe('visual story scenes', () => {
     assert.ok(nodes.get('error').y > nodes.get('check').y);
   });
 
+  it('fits a focused scene to its visible subgraph instead of hidden chapter branches', () => {
+    const full = storyLayout(visual);
+    const focused = storyLayout(visual, new Set(['check', 'error', 'result']));
+    const fullY = full.map((node) => node.position.y);
+    const focusedY = focused.map((node) => node.position.y);
+
+    assert.deepEqual(focused.map((node) => node.id), ['check', 'error', 'result']);
+    assert.equal(Math.min(...focusedY), 0);
+    assert.ok(Math.max(...focusedY) < Math.max(...fullY));
+    assert.equal(focused.find((node) => node.id === 'error').position.y, focused.find((node) => node.id === 'result').position.y);
+  });
+
   it('terminates deterministically for cycles, self loops and disconnected diagrams', () => {
     const cyclic = { ...visual, edges: [...visual.edges, { edgeId: 'cycle', fromNodeId: 'check', toNodeId: 'entry' }, { edgeId: 'self', fromNodeId: 'result', toNodeId: 'result' }] };
     assert.deepEqual(storyLayout(cyclic), storyLayout(cyclic));

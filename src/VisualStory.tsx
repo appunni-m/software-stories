@@ -102,7 +102,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     const source = anchors.find((item) => node?.evidenceAnchorIds.includes(item.anchorId));
     if (source) onOpenAnchor(source, `reader-visual-citation:${id}:${source.anchorId}`);
   };
-  const nodes = visual ? storyLayout(visual).filter((node) => visibleIds.has(node.id)).map((node) => {
+  const nodes = visual ? storyLayout(visual, visibleIds).map((node) => {
     const data = visual.nodes.find((item) => item.nodeId === node.id)!;
     return { ...node, sourcePosition: visual.layoutHint.direction === 'topToBottom' ? Position.Bottom : Position.Right,
       targetPosition: visual.layoutHint.direction === 'topToBottom' ? Position.Top : Position.Left,
