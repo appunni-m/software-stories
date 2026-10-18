@@ -114,6 +114,33 @@ test('a genuine restoration failure rejects without automatic retry and an expli
   assert.equal(lists, 2); assert.equal(turns(h)[0].status, 'ready');
 });
 
+test('one unreadable saved run does not block later valid answers from restoring', async () => {
+  const secondRun = '55555555-5555-4555-8555-555555555555';
+  const secondSection = { ...section, runId: secondRun, generationId: 'generation:66666666-6666-4666-8666-666666666666', revisionId: 'revision-two' };
+  const secondAnswer = { ...answer, runId: secondRun, question: 'What uses the result?', sections: [secondSection] };
+  let broken = true; const availability = [];
+  const h = workspaceStoreHarness(nativeReads(async (name, args) => {
+    if (name === 'list_workspace_answers') return [answer, secondAnswer];
+    if (name === 'load_workspace_answer' && args.runId === scope.runId && broken) throw new Error('saved receipt is unavailable');
+    if (name === 'load_workspace_answer') return args.runId === secondRun ? secondAnswer : answer;
+    assert.fail(`Unexpected command ${name}`);
+  }));
+  const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot', (state) => availability.push(state));
+  await assert.rejects(h.store.restoreWorkspaceAnswers('project', 'snapshot'), /saved receipt is unavailable/);
+  assert.deepEqual(availability, ['loading', 'unavailable']);
+  assert.equal(turns(h).length, 2);
+  assert.equal(turns(h)[0].publishedSections.length, 0);
+  assert.equal(turns(h)[1].status, 'ready');
+  assert.equal(turns(h)[1].publishedSections[0].revisionId, 'revision-two');
+
+  broken = false;
+  await h.store.restoreWorkspaceAnswers('project', 'snapshot');
+  assert.deepEqual(availability, ['loading', 'unavailable', 'loading', 'ready']);
+  assert.equal(turns(h)[0].status, 'ready');
+  assert.equal(turns(h)[1].publishedSections[0].revisionId, 'revision-two');
+  stop();
+});
+
 test('wrong-scope events and events after disposal cannot restore another workspace', async () => {
   const h = workspaceStoreHarness(() => assert.fail('Unexpected native read'));
   const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot');

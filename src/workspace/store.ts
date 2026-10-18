@@ -273,6 +273,8 @@ async function readSavedWorkspaceAnswers(project: string, snapshot: string): Pro
   await prepareWorkspaceConversation(project,snapshot);
   await restoreRepositoryGuides(project,snapshot);
   const saved = await invoke<AnswerSummary[]>('list_workspace_answers',{projectId:project,snapshotId:snapshot});
+  let failed = false;
+  let firstFailure: unknown;
   for (const entry of saved) {
     let turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.runIds?.includes(entry.runId));
     if (turn?.guideId) continue;
@@ -283,9 +285,18 @@ async function readSavedWorkspaceAnswers(project: string, snapshot: string): Pro
       const restored = turn;
       updateWorkspace(project,snapshot,(state) => ({...state,explorations:state.explorations.map((e) => e.id === 'root' ? {...e,turns:[...e.turns,restored]} : e)}));
     }
-    const summary = await invoke<AnswerSummary>('load_workspace_answer',{projectId:project,snapshotId:snapshot,runId:entry.runId});
-    await reconcileAnswer(project,snapshot,turn.id,summary);
+    try {
+      const summary = await invoke<AnswerSummary>('load_workspace_answer',{projectId:project,snapshotId:snapshot,runId:entry.runId});
+      await reconcileAnswer(project,snapshot,turn.id,summary);
+    } catch (error) {
+      // One damaged or concurrently removed receipt must not prevent later
+      // independently saved answers from being restored. Keep the overall
+      // scope unavailable so Notifications still offers a local retry.
+      if (!failed) firstFailure = error;
+      failed = true;
+    }
   }
+  if (failed) throw firstFailure;
 }
 /** Explicitly remove a terminal investigation receipt after its drafts have
  * been saved. Questions, source links and chapter revisions remain readable. */
