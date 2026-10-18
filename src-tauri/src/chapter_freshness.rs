@@ -2770,6 +2770,66 @@ mod tests {
     }
 
     #[test]
+    fn unavailable_target_index_is_needs_review_with_unavailable_cross_snapshot_evidence() {
+        let storage = TempStorage::new();
+        let old_text = "fn cited() { let value = 7; }\n";
+        let new_text = "fn cited() { let value = 8; }\n";
+        let old_manifest = manifest("old", vec![put_file(&storage.0, "src/cited.rs", old_text)]);
+        let new_manifest = manifest("new", vec![put_file(&storage.0, "src/cited.rs", new_text)]);
+        let old_index = index(
+            "old",
+            &old_manifest,
+            vec![symbol(
+                "src/cited.rs",
+                "sym-cited",
+                "cited",
+                old_text,
+                false,
+            )],
+            Vec::new(),
+            &HashSet::new(),
+        );
+        let accepted = revision(vec![anchored_section(
+            "changed-citation",
+            "src/cited.rs",
+            old_text,
+            "sym-cited",
+            "value = 7;",
+        )]);
+
+        let report = classify_chapter_freshness(
+            &storage.0,
+            &old_manifest,
+            Some(&old_index),
+            &new_manifest,
+            None,
+            &accepted,
+        )
+        .unwrap();
+
+        assert!(matches!(
+            report.indexes.from.status,
+            FreshnessIndexStatus::Complete
+        ));
+        assert!(matches!(
+            report.indexes.to.status,
+            FreshnessIndexStatus::Unavailable
+        ));
+        assert_eq!(
+            report.sections[0].status,
+            SectionFreshnessStatus::NeedsReview
+        );
+        assert_eq!(
+            report.sections[0].evidence_state,
+            EvidenceState::Unavailable
+        );
+        assert!(report.sections[0].source_changes.is_empty());
+        assert!(report.sections[0].reasons.iter().any(|reason| {
+            reason.code == "indexIncomplete" && reason.path.as_deref() == Some("src/cited.rs")
+        }));
+    }
+
+    #[test]
     fn no_symbol_anchor_is_current_when_unchanged_and_stale_when_deleted() {
         let storage = TempStorage::new();
         let text = "fn cited() { let value = 7; }\n";
