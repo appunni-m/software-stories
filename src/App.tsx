@@ -19,7 +19,7 @@ import { requiresBoundedFileExplanation } from './lib/largeFileExplanation';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
 import { GenerationRecord } from './GenerationRecord';
 import { FileFlow } from './FileFlow';
-import { readGenerationBackend, rememberGenerationBackend, type GenerationBackend } from './lib/generationPreferences';
+import { readDirectApiSelection, readGenerationBackend, rememberDirectApiSelection, rememberGenerationBackend, type GenerationBackend } from './lib/generationPreferences';
 import type { AgentGitRecovery } from './lib/agentRecovery';
 import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { listen } from '@tauri-apps/api/event';
@@ -1151,7 +1151,7 @@ function App() {
     setToolsOpen(false);
     setProjectMenuOpen(false);
     setSnapshotMenuOpen(false);
-    setProviderDialog({ kind: 'settings', backend: 'codex' });
+    setProviderDialog({ kind: 'settings' });
   };
 
   const reviewFileWithProvider = (targetPath: string, selectedPaths?: string[]) => {
@@ -2009,7 +2009,7 @@ function ProviderDialog(props: ProviderDialogProps) {
     return () => window.removeEventListener('keydown', close);
   }, [backend, props.onClose]);
   const choose = (next: GenerationBackend) => { rememberGenerationBackend(next); setBackend(next); };
-  if (props.mode.kind === 'settings' && props.mode.backend !== 'api') return <ConnectionsDialog native={props.native} initialSection={props.mode.section} onClose={props.onClose}/>;
+  if (props.mode.kind === 'settings' && backend === 'codex') return <ConnectionsDialog native={props.native} initialSection={props.mode.section} onClose={props.onClose} onChooseBackend={() => setBackend('choose')}/>;
   if (backend === 'api') return <DirectApiDialog {...props} onChooseBackend={() => setBackend('choose')} />;
   if (backend === 'claude-setup') return <ClaudeConnectionDialog native={props.native}
     reviewMode={props.mode.kind === 'settings' ? 'settings' : props.mode}
@@ -2069,7 +2069,7 @@ function ProviderDialog(props: ProviderDialogProps) {
 
 function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenCodeLensCitation, onChooseBackend }: ProviderDialogProps & { onChooseBackend: () => void }) {
   const [providerCatalog, setProviderCatalog] = useState<ProviderDisclosure[]>([]);
-  const [providerId, setProviderId] = useState('');
+  const [providerId, setProviderId] = useState(() => readDirectApiSelection().providerId);
   const [disclosure, setDisclosure] = useState<ProviderDisclosure | null>(null);
   const [credential, setCredential] = useState<ProviderCommandResult<ProviderCredentialStatus> | null>(null);
   const [informationLoading, setInformationLoading] = useState(native);
@@ -2077,7 +2077,7 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
   const [keyDraft, setKeyDraft] = useState('');
   const [keyBusy, setKeyBusy] = useState(false);
   const [keyMessage, setKeyMessage] = useState<string | null>(null);
-  const [modelId, setModelId] = useState('');
+  const [modelId, setModelId] = useState(() => readDirectApiSelection().modelId);
   const [requestReview, setRequestReview] = useState<ProviderRequestReview | null>(null);
   const [snapshotManifest, setSnapshotManifest] = useState<SnapshotManifest | null>(null);
   const [snapshotManifestError, setSnapshotManifestError] = useState<string | null>(null);
@@ -2178,6 +2178,16 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
       .finally(() => { if (active) setInformationLoading(false); });
     return () => { active = false; };
   }, [native]);
+
+  useEffect(() => {
+    const refreshSelection = () => {
+      const saved = readDirectApiSelection();
+      setProviderId(saved.providerId);
+      setModelId(saved.modelId);
+    };
+    window.addEventListener('code-atlas:direct-api-selection-changed', refreshSelection);
+    return () => window.removeEventListener('code-atlas:direct-api-selection-changed', refreshSelection);
+  }, []);
 
   useEffect(() => {
     if (!native || !providerId) {
@@ -2308,6 +2318,7 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
     setUnavailableModel(null);
     setRequestError(null);
     setModelId(nextModelId);
+    rememberDirectApiSelection({ providerId, modelId: nextModelId });
   };
 
   const handleProviderChange = (nextProviderId: string) => {
@@ -2324,6 +2335,7 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
     setCredential(null);
     setModelId('');
     setProviderId(nextProviderId);
+    rememberDirectApiSelection({ providerId: nextProviderId, modelId: '' });
   };
 
   const handleContextFileChange = (path: string, checked: boolean) => {
@@ -2497,7 +2509,7 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
   };
 
   const requestReady = Boolean(
-    providerId && modelId && requestReview && hasApiKey && consent.privacyAndDataUseAcknowledged
+    providerId && modelId && disclosure?.models.some((model) => model.modelId === modelId) && requestReview && hasApiKey && consent.privacyAndDataUseAcknowledged
       && consent.billingUncertaintyAcknowledged && consent.adultSupportedRegionAcknowledged
       && unavailableModel !== modelId,
   );
@@ -2539,6 +2551,8 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
               </select>
             </label>
             {!providerId && <p className="provider-small-note" role="status">Choose a provider explicitly for this task. Provider choice does not send a request or select a model automatically.</p>}
+            {providerId && providerCatalog.length > 0 && !providerCatalog.some((provider) => provider.providerId === providerId) && <p className="provider-small-note" role="status">The saved provider is no longer available. Choose another provider to update your connection.</p>}
+            {modelId && disclosure && !disclosure.models.some((model) => model.modelId === modelId) && <p className="provider-small-note" role="status">The saved model is no longer available for this provider. Choose another model.</p>}
             {disclosure && <details className="provider-key-card" open={!hasApiKey || !reviewMode}>
               <summary>{disclosure.displayName} API key · {credentialInfo?.keychainAvailable ? (hasApiKey ? 'stored in Keychain' : 'Keychain ready') : 'Keychain unavailable'}</summary>
               <div className="provider-key-content">

@@ -1,4 +1,4 @@
-import { readGenerationBackend, rememberGenerationBackend } from './lib/generationPreferences';
+import { readDirectApiSelection, readGenerationBackend, rememberDirectApiSelection } from './lib/generationPreferences';
 import type { AgentGitRecovery } from './lib/agentRecovery';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, BookOpenCheck, Check, CircleDollarSign, FileDiff, RotateCcw, Send, ShieldCheck, Sparkles } from 'lucide-react';
@@ -38,6 +38,11 @@ const NO_CONSENT: ProviderConsent = {
   adultSupportedRegionAcknowledged: false,
 };
 
+function readPrGuideBackend(): 'codex' | 'claude-agent' | 'api' | 'handoff' {
+  const saved = readGenerationBackend();
+  return saved === 'api' ? 'api' : saved === 'claude-setup' ? 'claude-agent' : saved;
+}
+
 interface PrGuideStudioProps {
   accountOnly?: boolean;
   projectId: string;
@@ -61,17 +66,17 @@ export function PrGuideStudio({
   recovery,
   onRecoveryReviewReady,
 }: PrGuideStudioProps) {
-  const [backend, setBackend] = useState<'codex' | 'claude-agent' | 'api'>(() => { const saved = accountOnly ? 'codex' : readGenerationBackend(); return saved === 'api' ? 'api' : saved === 'claude-setup' ? 'claude-agent' : 'codex'; });
+  const [backend, setBackend] = useState<'codex' | 'claude-agent' | 'api' | 'handoff'>(() => readPrGuideBackend());
   const [codexMode, setCodexMode] = useState<CodexChapterDialogMode | null>(null);
   const [claudeMode, setClaudeMode] = useState<ClaudeOperationReviewMode | 'settings' | null>(null);
   const [recoveryHistoryChecked, setRecoveryHistoryChecked] = useState(false);
   const [providerCatalog, setProviderCatalog] = useState<ProviderDisclosure[]>([]);
-  const [providerId, setProviderId] = useState('');
+  const [providerId, setProviderId] = useState(() => readDirectApiSelection().providerId);
   const [disclosure, setDisclosure] = useState<ProviderDisclosure | null>(null);
   const [credential, setCredential] = useState<ProviderCommandResult<ProviderCredentialStatus> | null>(null);
   const [informationLoading, setInformationLoading] = useState(isNativeRuntime());
   const [informationError, setInformationError] = useState<string | null>(null);
-  const [modelId, setModelId] = useState('');
+  const [modelId, setModelId] = useState(() => readDirectApiSelection().modelId);
   const [selectedKeys, setSelectedKeys] = useState<string[]>(()=>accountOnly?comparison.changes.filter(isGuideEligible).slice(0,12).map(changeKey):[]);
   const [requestReview, setRequestReview] = useState<ProviderRequestReview | null>(null);
   const requestReviewRef = useRef<ProviderRequestReview | null>(null);
@@ -106,6 +111,21 @@ export function PrGuideStudio({
   const matchingRecovery = recovery && recovery.mode.projectId === projectId
     && recoveryRefs && recoveryRefs.comparisonId === comparison.comparisonId && recoveryRefs.baseRef === baseRef && recoveryRefs.headRef === headRef ? recovery : null;
 
+  useEffect(() => {
+    const refreshBackend = () => setBackend(readPrGuideBackend());
+    const refreshDirectApiSelection = () => {
+      const saved = readDirectApiSelection();
+      setProviderId(saved.providerId);
+      setModelId(saved.modelId);
+    };
+    window.addEventListener('code-atlas:connection-changed', refreshBackend);
+    window.addEventListener('code-atlas:direct-api-selection-changed', refreshDirectApiSelection);
+    return () => {
+      window.removeEventListener('code-atlas:connection-changed', refreshBackend);
+      window.removeEventListener('code-atlas:direct-api-selection-changed', refreshDirectApiSelection);
+    };
+  }, []);
+
   useEffect(() => { setRecoveryHistoryChecked(false); }, [recovery?.operationId, history.length]);
   const credentialInfo = credential?.status === 'ok' ? credential.data : null;
   const hasApiKey = credentialInfo?.apiKeyConfigured ?? false;
@@ -118,6 +138,7 @@ export function PrGuideStudio({
       && selectedChanges.length > 0
       && selectedChanges.length <= 12
       && disclosure
+      && selectedModel
       && providerId
       && modelId
       && !requestReview
@@ -434,7 +455,8 @@ export function PrGuideStudio({
         <div><span className="git-changes-kicker">SEPARATE, REVIEWABLE HISTORY</span><h2 id="pr-guide-title">Build a PR Guide</h2></div>
         <span className="git-readonly-badge"><BookOpenCheck size={14} /> Local draft</span>
       </div>
-      <p className="pr-guide-muted">{accountOnly?'Explain this commit using the connection in the header. Files with complete, bounded source changes are included automatically; review the diff before sharing it.':'Choose a backend, select changed files, inspect the exact diff sent, then review every claim against its base/head hunk. Accepting or rejecting saves a PR Guide revision; it never changes Git refs or file chapter history.'}</p>
+      <p className="pr-guide-muted">{accountOnly?'Explain this commit using the connection in the header. Files with complete, bounded source changes are included automatically; review the diff before sharing it.':'Select changed files, inspect the exact diff sent, then review every claim against its base/head hunk. Accepting or rejecting saves a PR Guide revision; it never changes Git refs or file chapter history.'}</p>
+      {backend === 'handoff' && <p className="pr-guide-notice" role="status">Manual agent handoff is not available for PR Guides yet. Change the AI connection in the header to use a supported option.</p>}
       {matchingRecovery && <section className="provider-review-card" aria-labelledby="recovered-git-title">
         <h3 id="recovered-git-title">Review interrupted {matchingRecovery.backend === 'codex' ? 'Codex' : 'Claude'} work</h3>
         <p>{matchingRecovery.mode.kind === 'pr-guide'
@@ -454,14 +476,6 @@ export function PrGuideStudio({
             else setClaudeMode(matchingRecovery.mode);
           }}>Review original scope with {matchingRecovery.backend === 'codex' ? 'Codex' : 'Claude'}</button>
       </section>}
-      {!accountOnly&&<label className="pr-guide-model">Generate with
-        <select value={backend} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection) || Boolean(codexMode) || Boolean(claudeMode)}
-          onChange={(event) => { clearReview(); const selected = event.target.value as typeof backend; rememberGenerationBackend(selected === 'claude-agent' ? 'claude-setup' : selected); setBackend(selected); }}>
-          <option value="codex">Codex · ChatGPT account</option>
-          <option value="claude-agent">Claude Agent · local review (generation pending)</option>
-          <option value="api">Direct API · optional</option>
-        </select>
-      </label>}
       {!accountOnly && backend === 'codex' && <p className="pr-guide-muted">Use your Codex account without an API key. Choose model and reasoning, review the exact patches, then generate. Plan quota applies.</p>}
       {backend === 'claude-agent' && <div className="pr-guide-notice" role="status"><div><p>Preview a guide or hunk request with Claude’s supported settings and the exact local diff. Automatic Claude generation remains unfinished; this review sends no source to an agent.</p>
         <button className="secondary-button" onClick={() => setClaudeMode('settings')}>Claude installation and defaults</button></div></div>}
@@ -484,7 +498,7 @@ export function PrGuideStudio({
                     type="button"
                     className="secondary-button"
                     key={hunkIndex}
-                    disabled={(backend === 'api' && (!providerId || !modelId || !disclosure)) || building || sending || decisionBusy || Boolean(requestReview)}
+                    disabled={backend === 'handoff' || (backend === 'api' && (!providerId || !modelId || !disclosure)) || building || sending || decisionBusy || Boolean(requestReview)}
                     onClick={() => explainHunk(change, hunkIndex)}
                   ><Sparkles size={13} /> {backend === 'claude-agent' ? 'Preview hunk request' : 'Explain hunk'} {hunkIndex + 1}</button>
                 ))}
@@ -507,17 +521,19 @@ export function PrGuideStudio({
       {backend === 'claude-agent' && <div className="pr-guide-actions"><button className="secondary-button" onClick={previewClaudeGuide} disabled={!selectedChanges.length || selectedChanges.length > 12 || building || sending || decisionBusy || Boolean(claudeMode)}><FileDiff size={15} /> Preview guide request with Claude</button></div>}
       {backend === 'api' && <><div className="pr-guide-actions">
         <label className="pr-guide-model">Direct API provider
-          <select value={providerId} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection)} onChange={(event) => { clearReview(); setProviderId(event.target.value); setModelId(''); setCredential(null); }}>
+          <select value={providerId} disabled={building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection)} onChange={(event) => { clearReview(); const nextProviderId = event.target.value; setProviderId(nextProviderId); setModelId(''); setCredential(null); rememberDirectApiSelection({ providerId: nextProviderId, modelId: '' }); }}>
             <option value="">Choose a provider…</option>
             {providerCatalog.map((provider) => <option key={provider.providerId} value={provider.providerId}>{provider.displayName}</option>)}
           </select>
         </label>
+        {providerId && providerCatalog.length > 0 && !providerCatalog.some((provider) => provider.providerId === providerId) && <p className="pr-guide-muted" role="status">The saved provider is no longer available. Choose another provider to update your connection.</p>}
         <label className="pr-guide-model">{disclosure?.displayName ?? 'Model'}
-          <select value={modelId} disabled={!disclosure || building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection)} onChange={(event) => { clearReview(); setModelId(event.target.value); }}>
+          <select value={modelId} disabled={!disclosure || building || sending || decisionBusy || Boolean(requestReview) || Boolean(changeExplanationSelection)} onChange={(event) => { clearReview(); const nextModelId = event.target.value; setModelId(nextModelId); rememberDirectApiSelection({ providerId, modelId: nextModelId }); }}>
             <option value="">Choose a model…</option>
             {(disclosure?.models ?? []).map((model) => <option key={model.modelId} value={model.modelId}>{model.displayName}</option>)}
           </select>
         </label>
+        {modelId && disclosure && !selectedModel && <p className="pr-guide-muted" role="status">The saved model is no longer available for this provider. Choose another model.</p>}
         <button className="primary-button" type="button" onClick={() => { void handleBuildReview(); }} disabled={!canBuild}>
           <FileDiff size={15} /> {building ? 'Building exact review…' : requestReview ? 'Request ready for review below' : 'Review exact provider request'}
         </button>

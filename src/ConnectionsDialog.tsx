@@ -5,7 +5,7 @@ import { cancelProviderRequest, getNarrationDisclosure, getPocketTtsStatus, getP
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import { readVoiceConnectionIssue, saveVoiceConnection, useVoiceConnection } from './lib/voiceConnectionStore';
 
-export function ConnectionsDialog({ native, initialSection = 'explanations', onClose }: { native: boolean; initialSection?: 'explanations' | 'voice'; onClose: () => void }) {
+export function ConnectionsDialog({ native, initialSection = 'explanations', onClose, onChooseBackend }: { native: boolean; initialSection?: 'explanations' | 'voice'; onClose: () => void; onChooseBackend: () => void }) {
   const [section, setSection] = useState(initialSection);
   const [busy, setBusy] = useState(false);
   const dialogRef = useRef<HTMLElement>(null);
@@ -26,7 +26,7 @@ export function ConnectionsDialog({ native, initialSection = 'explanations', onC
       <button aria-pressed={section === 'voice'} disabled={busy} onClick={() => setSection('voice')}><Volume2 size={16}/>Voice</button>
     </nav>
     {section === 'explanations' ? <CodexChapterDialog mode="settings" native={native} embeddedSettings onSettingsBusyChange={setBusy} onClose={onClose}/> : <VoiceSettings native={native} onBusyChange={setBusy}/>}
-    <footer className="provider-dialog-footer"><span className="provider-small-note">Saved on this Mac</span><button className="primary-button" disabled={busy} onClick={onClose}>Done</button></footer>
+    <footer className="provider-dialog-footer"><span className="provider-small-note">Saved on this Mac</span><div className="provider-draft-actions"><button className="secondary-button" disabled={busy} onClick={onChooseBackend}>Change AI connection</button><button className="primary-button" disabled={busy} onClick={onClose}>Done</button></div></footer>
   </section></div>;
 }
 
