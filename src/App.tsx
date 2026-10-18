@@ -1,4 +1,6 @@
 import { useNoticeHistory } from './lib/useNoticeHistory';
+import { Theme } from '@radix-ui/themes';
+import { useAppAppearance } from './lib/useAppAppearance';
 import type { AppNoticeInput, AppNotice } from './lib/noticeHistory';
 import { getWorkspace, updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
 import { markQuestionOutcome, openWorkspaceQuestion } from './workspace/outcomes';
@@ -219,6 +221,7 @@ const projectResultTitles: Record<ProjectOpenStatus, string> = {
 
 
 function App() {
+  const appearance=useAppAppearance();
   const [navigation, setNavigation] = useState<NavigationState>(initialNavigationState);
   const navigationRef = useRef(navigation);
   navigationRef.current = navigation;
@@ -1405,6 +1408,7 @@ function App() {
   ];
 
   return (
+    <Theme asChild appearance={appearance} accentColor="blue" grayColor="slate" radius="medium">
     <div className={`app-window${selectedSnapshot ? ' has-snapshot' : ''}${readiness !== 'ready' ? ' is-restoring' : ''}`}>
       <KeyboardShortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen}/>
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
@@ -1851,6 +1855,7 @@ function App() {
         />
       )}
     </div>
+    </Theme>
   );
 }
 

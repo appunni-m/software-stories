@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Badge, Button, Dialog, Flex, IconButton, Tabs, TextField, Theme, Tooltip } from '@radix-ui/themes';
+import { Badge, Button, Dialog, Flex, IconButton, Tabs, TextField, Theme, Tooltip, useThemeContext } from '@radix-ui/themes';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { Background, Controls, MarkerType, ReactFlow } from '@xyflow/react';
 import { ArrowLeft, ArrowRight, ArrowUp, BookOpen, ChevronDown, ChevronRight, Code2, FileCode2, Files, Folder, GitBranch, GitCommitHorizontal, History, LoaderCircle, MessageSquare, Network, Paperclip, Pencil, Play, Search, ShieldCheck, Square, X } from 'lucide-react';
@@ -36,6 +36,8 @@ const label = (c:Context) => `${c.path.split('/').at(-1)}${c.from ? `:${c.from}$
 export function WorkspaceFrame({manifest,...props}:Omit<Props,'manifest'>&{manifest:SnapshotManifest|null}) { return manifest ? <DeveloperWorkspace key={`${manifest.summary.projectId}:${manifest.summary.snapshotId}`} {...props} manifest={manifest}/> : <>{props.children}</>; }
 
 export function DeveloperWorkspace({manifest,projectName,workspace,routePath,routeRange,routeSelection,children,onWorkspace,onSettings,onReview,onRead,onCompare,onRememberFile,onAnswerRestoration}:Props) {
+  const {appearance:themeAppearance}=useThemeContext();
+  const appearance=themeAppearance==='light'?'light':'dark';
   const {projectId,snapshotId} = manifest.summary;
   const state = useWorkspace(projectId,snapshotId);
   const connection=useConnectionState();
@@ -79,7 +81,6 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
   const [consentError,setConsentError] = useState<string|null>(null);
   const [sharingOpen,setSharingOpen] = useState(false);
   const [searchFocused,setSearchFocused] = useState(false);
-  const [appearance,setAppearance] = useState<'dark'|'light'>(()=>document.documentElement.dataset.theme==='light' || (!['light','dark'].includes(document.documentElement.dataset.theme??'') && matchMedia('(prefers-color-scheme: light)').matches) ? 'light':'dark');
   const composer = useRef<HTMLTextAreaElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const answerScroll = useRef<HTMLDivElement>(null);
@@ -92,12 +93,6 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
   const setView = (view:View) => update((s)=>({...s,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,view}:e)}));
   const saveSection = (turnId:string,view:'guide'|'flow',revisionId:string,sectionId:string) => update((s)=>rememberSection(s,current.id,turnId,view,{revisionId,sectionId}));
   const refreshChapters = () => chapterRefresh.current?.refresh();
-  useEffect(()=>{
-    const observer = new MutationObserver(()=>setAppearance(document.documentElement.dataset.theme==='light' || (!['light','dark'].includes(document.documentElement.dataset.theme??'') && matchMedia('(prefers-color-scheme: light)').matches) ? 'light':'dark'));
-    observer.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-    const media=matchMedia('(prefers-color-scheme: light)'); const changed=()=>{if (!['light','dark'].includes(document.documentElement.dataset.theme??'')) setAppearance(media.matches?'light':'dark');};media.addEventListener('change',changed);
-    return ()=>{observer.disconnect();media.removeEventListener('change',changed);};
-  },[]);
   useEffect(()=>{
     if(!isNativeRuntime()){setChaptersLoading(false);return;}
     setChaptersLoading(true);
@@ -244,7 +239,7 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
     return <li key={e.id}><button aria-current={e.id===current.id?'page':undefined} className={e.id===current.id?'active':''} style={{paddingLeft:10+depth*12}} onClick={()=>go(e.id)}><MessageSquare size={13}/><span>{e.id==='root'?projectName:e.title}</span><small>{e.turns.length}</small></button><ul>{nested}</ul></li>;
   });
   const fromAnchor=(a:ChapterSourceAnchor):Context=>({path:a.path,sha256:a.sourceSha256,from:a.startLine,to:a.endLine});
-  return <Theme appearance={appearance} accentColor="blue" grayColor="slate" radius="medium" className={`developer-workspace dw-narrow-${narrowPane}`}>
+  return <Theme accentColor="blue" grayColor="slate" radius="medium" className={`developer-workspace dw-narrow-${narrowPane}`}>
     <nav className="dw-activity" aria-label="Repository tools">{activityButtons.map(({id,label:caption,icon:Icon})=><Tooltip content={caption} key={id}><button className={(workspace==='changes'?id==='changes':activity===id)?'active':''} aria-label={caption} aria-pressed={workspace==='changes'?id==='changes':activity===id} onClick={()=>{setActivity(id);setNarrowPane('explorer');if(id==='changes')onWorkspace('changes');else onWorkspace('guide-plan');if(id==='search')requestAnimationFrame(()=>search.current?.focus());}}><Icon size={21}/></button></Tooltip>)}<div className="dw-activity-bottom"><Tooltip content="Repository sharing"><button aria-label="Repository sharing" onClick={()=>setSharingOpen(true)}><ShieldCheck size={19}/></button></Tooltip></div></nav>
     <Group orientation="horizontal" className="dw-panels">
       <Panel id="repository-sidebar" defaultSize="220px" minSize="160px" maxSize="400px">
