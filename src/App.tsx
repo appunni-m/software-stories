@@ -12,7 +12,7 @@ import { markQuestionOutcome, openWorkspaceQuestion, withSavedAnswerAvailability
 import { WorkspaceFrame } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
 import { startupProjectToRestore } from './lib/startupProjectRestore';
-import { interruptedNotificationMessage, notificationAvailability, previewNotificationMessage, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
+import { interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationGroupKey, previewNotificationMessage, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
 import { LatestLocalRead } from './lib/latestLocalRead';
 import { requiresBoundedFileExplanation } from './lib/largeFileExplanation';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
@@ -1455,6 +1455,8 @@ function App() {
     ...visibleQuestionUpdates.map((outcome): WorkspaceNotification => ({
       id: `question:${outcome.turnId}`, title: outcome.title,
       message: `${currentProject?.displayName ?? 'Repository'} · ${outcome.question}`,
+      groupKey: currentProject && selectedSnapshot ? notificationGroupKey('question', currentProject.projectId, selectedSnapshot.snapshotId, outcome.question) : undefined,
+      bucket: outcome.read ? 'updates' : 'attention', countLabel: 'attempts',
       read: outcome.read, tone: outcome.tone,
       actions: [{ label: 'Open question', movesFocus: true, run: () => {
         if (!currentProject || !selectedSnapshot) return;
@@ -1465,15 +1467,18 @@ function App() {
       } }],
     })),
     ...(answerAvailability === 'unavailable' ? [{ id: 'answers-unavailable', title: 'Saved answers could not be loaded',
-      message: 'Try opening this workspace again. Your saved explanations have not been discarded.', tone: 'error' as const,
+      message: 'Try opening this workspace again. Your saved explanations have not been discarded.', tone: 'error' as const, bucket: 'attention' as const,
       actions: [{ label: 'Try again', run: () => { setSnapshotManifestLoad(null); setWorkspaceReload((value) => value + 1); } }] }] : []),
     ...(runtimeError ? [{ id: 'runtime', title: 'Some app features are unavailable', message: 'Try connecting to the local app again.', tone: 'error' as const,
+      bucket: 'attention' as const,
       actions: [{ label: 'Retry', run: loadRuntime }] }] : []),
     ...(noticeHistoryState.availability==='unavailable'?[{id:'notices-unavailable',title:'Saved updates are unavailable',
-      message:'Existing explanations have not been discarded. Try again to load or save these updates.',tone:'warning' as const,
+      message:'Existing explanations have not been discarded. Try again to load or save these updates.',tone:'warning' as const,bucket:'attention' as const,
       actions:[{label:'Try again',run:()=>noticeHistory.retry()}]}]:[]),
     ...noticeHistoryState.items.map((item):WorkspaceNotification=>({
       id:`app-notice:${item.id}`,title:item.input.title,tone:item.input.tone,read:item.read,
+      groupKey:notificationGroupKey('saved-notice',item.input.projectId??'global',item.input.snapshotId??'',item.input.title,item.input.message,JSON.stringify(item.input.target??null)),
+      bucket:item.read?'updates':'attention',countLabel:'notices',
       message:`${item.input.projectId?`${knownProjects[item.input.projectId]?.displayName??'Saved repository'} · `:''}${item.input.message}`,
       actions:[...(item.input.target?[{label:item.input.target.kind==='openRepository'?'Choose a folder':['retryRecents','retryConversation'].includes(item.input.target.kind)?'Try again':'Open explanation',
         movesFocus:item.input.target.kind==='openExploration',opensDialog:item.input.target.kind==='openRepository',
@@ -1482,19 +1487,26 @@ function App() {
         {label:'Dismiss',run:()=>noticeHistory.dismiss(item.id)}],
     })),
     ...(interruptedOperationsUnavailable ? [{ id: 'recovery-unavailable', title: 'Recent work could not be loaded', message: 'Your saved explanations are still available.', tone: 'error' as const,
+      bucket: 'attention' as const,
       actions: [{ label: 'Try again', run: () => { void refreshInterruptedOperations(); } }] }] : []),
-    ...interruptedOperations.map((operation): WorkspaceNotification => ({
+    ...interruptedOperations.slice().sort((a,b)=>b.startedAtUnixMs-a.startedAtUnixMs).map((operation): WorkspaceNotification => ({
       id: `interrupted:${operation.operationId}`, tone: 'warning',
+      bucket: 'attention', groupKey: interruptedNotificationGroupKey(operation),
+      countLabel: operation.providerRequest?.repositoryPlan?.question ? 'attempts' : 'recoveries',
+      detail: `Started ${new Date(operation.startedAtUnixMs).toLocaleString()}`,
       title: operation.kind === 'capture' ? 'Repository update interrupted' : 'Explanation interrupted',
       message: interruptedNotificationMessage(operation, knownProjects[operation.projectId]?.displayName),
       actions: [{ label: operation.kind === 'capture' ? 'Try update again' : 'Open work', disabled: recoveryBusyId !== null,
         run: () => { void (operation.kind === 'capture' ? retryInterruptedCapture(operation) : reviewInterruptedGeneration(operation)); } },
-        { label: 'Dismiss', disabled: recoveryBusyId !== null, run: () => { void discardRecovery(operation); } }],
+        { label: 'Discard recovery', disabled: recoveryBusyId !== null, run: () => { void discardRecovery(operation); } }],
     })),
     ...(pendingChapterPreviewsUnavailable ? [{ id: 'previews-unavailable', title: 'Saved previews could not be loaded', message: 'Try again to find your unfinished explanations.', tone: 'error' as const,
+      bucket: 'attention' as const,
       actions: [{ label: 'Try again', run: () => { void refreshPendingChapterPreviews(); } }] }] : []),
     ...pendingChapterPreviews.map((preview): WorkspaceNotification => ({
       id: `preview:${preview.generationId}`, title: preview.unavailableReason ? 'An explanation needs attention' : 'An explanation is ready',
+      groupKey: preview.projectId && preview.snapshotId ? notificationGroupKey('preview',preview.projectId,preview.snapshotId,preview.title,preview.targetPath??'') : undefined,
+      bucket: 'attention', countLabel: 'drafts',
       message: previewNotificationMessage(preview, preview.projectId ? knownProjects[preview.projectId]?.displayName : undefined), tone: preview.unavailableReason ? 'warning' : 'info',
       actions: [{ label: 'Open explanation', disabled: Boolean(preview.unavailableReason), opensDialog: true, run: () => {
         recoveredPreviewReturnFocusRef.current = document.querySelector<HTMLButtonElement>('[data-focus-key="notifications"]');

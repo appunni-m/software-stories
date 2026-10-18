@@ -1,6 +1,45 @@
 import type { InterruptedOperation, PendingChapterPreviewSummary } from './commands.ts';
 
 export type NotificationAvailability = 'loading' | 'ready' | 'unavailable';
+export type NotificationBucket = 'attention' | 'updates';
+export interface NotificationGroupingItem {
+  id: string;
+  groupKey?: string;
+  bucket?: NotificationBucket;
+  countLabel?: string;
+  read?: boolean;
+}
+export interface NotificationGroup<T extends NotificationGroupingItem> {
+  id: string;
+  bucket: NotificationBucket;
+  countLabel: string;
+  unreadCount: number;
+  items: T[];
+}
+
+/** Stable, in-memory key for grouping the same question within the same scope. */
+export function notificationGroupKey(...parts: string[]): string {
+  return JSON.stringify(parts.map((part) => part.normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase()));
+}
+
+/** Group display rows without changing their persisted identities or actions. */
+export function groupNotifications<T extends NotificationGroupingItem>(items: readonly T[]): NotificationGroup<T>[] {
+  const grouped = new Map<string, T[]>();
+  for (const item of items) {
+    const key = item.groupKey ?? `item:${item.id}`;
+    const group = grouped.get(key);
+    if (group) group.push(item);
+    else grouped.set(key, [item]);
+  }
+  return [...grouped].map(([id, entries]) => ({
+    id,
+    bucket: entries.some((item) => item.bucket === 'attention') ? 'attention' : 'updates',
+    countLabel: entries[0]?.countLabel ?? 'updates',
+    unreadCount: entries.filter((item) => item.read === false).length,
+    items: entries,
+  }));
+}
+
 export interface WorkspaceAnswerRestoration {
   projectId: string; snapshotId: string; availability: NotificationAvailability;
 }
@@ -57,6 +96,16 @@ export function interruptedNotificationMessage(operation: InterruptedOperation, 
   const purpose = operation.providerRequest?.purpose;
   const context = question?.trim() || operation.targetPath?.trim() || (purpose && interruptedPurpose[purpose]) || 'Unfinished explanation';
   return `${repository} · ${brief(context)}`;
+}
+
+/** Prefer the exact question when the recovery record retains it; otherwise
+ * keep a safer file/operation-scope group instead of merging unrelated work. */
+export function interruptedNotificationGroupKey(operation: InterruptedOperation): string {
+  const request = operation.providerRequest;
+  const question = request?.repositoryPlan?.question?.trim();
+  if (question) return notificationGroupKey('interrupted-question', operation.projectId, operation.snapshotId, question);
+  const scope = operation.targetPath || request?.selectedPaths.join(', ') || request?.purpose || operation.kind;
+  return notificationGroupKey('interrupted-scope', operation.projectId, operation.snapshotId, scope);
 }
 
 export function previewNotificationMessage(preview: PendingChapterPreviewSummary, projectName?: string): string {

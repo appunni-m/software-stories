@@ -1,12 +1,45 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
-import { interruptedNotificationMessage, notificationAvailability, notificationSummary, previewNotificationMessage, workspaceAnswerAvailability } from '../src/lib/notificationSummary.ts';
+import { groupNotifications, interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationGroupKey, notificationSummary, previewNotificationMessage, workspaceAnswerAvailability } from '../src/lib/notificationSummary.ts';
 
 const ready = { startupComplete: true, workspaceReady: true, answers: 'ready', refreshing: false, unavailable: false };
 const unread = Array.from({ length: 34 }, () => ({}));
 
 describe('notification totals', () => {
+  it('groups repeated question outcomes without losing attempt identities or actions', () => {
+    const latest = { id: 'turn-2', groupKey: notificationGroupKey('question', 'repo', 'snap', '  Explain   cart totals '), bucket: 'attention', countLabel: 'attempts', read: false, action: () => 'latest' };
+    const earlier = { id: 'turn-1', groupKey: notificationGroupKey('question', 'repo', 'snap', 'explain cart totals'), bucket: 'updates', countLabel: 'attempts', read: true, action: () => 'earlier' };
+    const otherSnapshot = { id: 'turn-3', groupKey: notificationGroupKey('question', 'repo', 'other-snap', 'explain cart totals'), bucket: 'updates', countLabel: 'attempts', read: true };
+    const ungroupedA = { id: 'one-off-a' }, ungroupedB = { id: 'one-off-b' };
+    const groups = groupNotifications([latest, earlier, otherSnapshot, ungroupedA, ungroupedB]);
+    assert.equal(groups.length, 4);
+    assert.equal(groups[0].bucket, 'attention');
+    assert.equal(groups[0].unreadCount, 1);
+    assert.deepEqual(groups[0].items, [latest, earlier]);
+    assert.equal(groups[0].items[0].action(), 'latest');
+    assert.equal(groups[0].items[1].action(), 'earlier');
+    assert.deepEqual(groups.slice(1).map((group) => group.items.length), [1, 1, 1]);
+    assert.equal(groupNotifications([
+      { id: 'recovery-1', groupKey: 'recovery', bucket: 'attention' },
+      { id: 'recovery-2', groupKey: 'recovery', bucket: 'attention' },
+    ])[0].unreadCount, 0);
+  });
+
+  it('groups interruption recovery by exact plan question or conservative source scope', () => {
+    const operation = { operationId: 'a', kind: 'providerGeneration', projectId: 'repo', snapshotId: 'snap', targetPath: null,
+      startedAtUnixMs: 1, providerRequest: { providerId: 'codex', purpose: 'repositoryPlan', selectedPaths: [],
+        repositoryPlan: { question: 'How does loading work?' } } };
+    const sameQuestion = { ...operation, operationId: 'b', providerRequest: { ...operation.providerRequest, repositoryPlan: { question: ' How does\nloading work? ' } } };
+    const differentQuestion = { ...operation, operationId: 'c', providerRequest: { ...operation.providerRequest, repositoryPlan: { question: 'How does rendering work?' } } };
+    assert.equal(interruptedNotificationGroupKey(operation), interruptedNotificationGroupKey(sameQuestion));
+    assert.notEqual(interruptedNotificationGroupKey(operation), interruptedNotificationGroupKey(differentQuestion));
+    assert.notEqual(interruptedNotificationGroupKey(operation), interruptedNotificationGroupKey({ ...operation, snapshotId: 'new-snapshot' }));
+    const scoped = { ...operation, targetPath: 'src/font.rs', providerRequest: { ...operation.providerRequest, purpose: 'fileChapter', repositoryPlan: null } };
+    assert.equal(interruptedNotificationGroupKey(scoped), interruptedNotificationGroupKey({ ...scoped, operationId: 'd' }));
+    assert.notEqual(interruptedNotificationGroupKey(scoped), interruptedNotificationGroupKey({ ...scoped, targetPath: 'src/outline.rs' }));
+  });
+
   it('waits for each contributor and the selected workspace before reporting a total', () => {
     for (const partial of [{ startupComplete: false }, { workspaceReady: false }, { answers: 'loading' }, { refreshing: true }]) {
       const availability = notificationAvailability({ ...ready, ...partial });
@@ -101,7 +134,10 @@ describe('notification totals', () => {
     assert.match(component, /notificationSummary\(items, availability\)/);
     assert.match(component, /aria-label=\{summary.label\} aria-busy=\{availability === 'loading'\}/);
     assert.match(component, /role="status" aria-live="polite" aria-atomic="true">\{summary.announcement\}/);
-    assert.match(component, /items.length === 0 \? availability === 'ready' &&/);
+    assert.match(component, /groups.length === 0 \? availability === 'ready' &&/);
+    assert.match(component, /renderSection\('Needs attention', attentionGroups\)/);
+    assert.match(component, /renderSection\('Recent updates', updateGroups\)/);
+    assert.match(component, /Show \{earlier.length\} earlier \{group.countLabel\}/);
     assert.match(component, /modal=\{false\}/);
     assert.match(app, /availability=\{notificationAvailability\(\{ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready'/);
     assert.match(app, /answers: answerAvailability/);
@@ -119,6 +155,8 @@ describe('notification totals', () => {
     assert.match(app, /if \(interruptionLookup.owns\(recoveryVersion\)\)/);
     assert.match(app, /interruptionLookup.invalidate\(\);\s+previewLookup.invalidate\(\);/);
     assert.match(app, /interruptedNotificationMessage\(operation, knownProjects\[operation.projectId\]\?\.displayName\)/);
+    assert.match(app, /interruptedNotificationGroupKey\(operation\)/);
+    assert.match(app, /label: 'Discard recovery'/);
     const css = await readFile(new URL('../src/NotificationCenter.css', import.meta.url), 'utf8');
     assert.match(css, /\.notification-panel-header \{ position: sticky; top: 0;/);
   });
