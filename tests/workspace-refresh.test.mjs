@@ -84,10 +84,19 @@ test('an invalidation at the completion boundary is not lost', async () => {
 
 test('the production workspace owns and disposes the tested chapter refresh queue', () => {
   const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
-  assert.match(source, /createRefreshQueue<ChapterRevision\[\]>\(\{/);
+  assert.match(source, /createChapterHistory\(\{/);
   assert.match(source, /load:\(\)=>listChapterRevisions\(projectId,snapshotId\)/);
   assert.match(source, /chapterRefresh\.current=queue/);
   assert.match(source, /queue\.dispose\(\);if\(chapterRefresh\.current===queue\)chapterRefresh\.current=null/);
+});
+
+test('the Guide renders saved chapter receipts as soon as a read succeeds or a native write is acknowledged', () => {
+  const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+  const store = readFileSync(new URL('../src/workspace/store.ts', import.meta.url), 'utf8');
+  assert.match(workspace, /onLoaded:\(\)=>setChaptersLoading\(false\)/);
+  assert.match(workspace, /queue\.record\(revision\)/);
+  assert.match(workspace, /revision\.snapshotId===snapshotId/);
+  assert.match(store, /detail:\{projectId:project,revision\}/);
 });
 
 test('saved chapter arrivals do not reload the immutable snapshot index or reset the reader', () => {

@@ -19,7 +19,7 @@ import { appendQuestion, appendRepositoryGuide, authorizeWorkspace, ensureWorksp
 import { useConnectionState } from '../lib/connectionStore';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
 import { errorMessageOr, explanationErrorMessage } from '../lib/errorMessage';
-import { createRefreshQueue, type RefreshQueue } from './refreshQueue';
+import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory';
 import { openWorkspaceQuestion, visibleConversationTurns } from './outcomes';
 import { listWorkspaceCommits } from '../lib/commands';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, resolveAnswerRevision } from './answerVersions';
@@ -114,7 +114,7 @@ export function DeveloperWorkspace(props:Props) {
   const search = useRef<HTMLInputElement>(null);
   const explorer = useRef<HTMLDivElement>(null);
   const answerScroll = useRef<HTMLDivElement>(null);
-  const chapterRefresh = useRef<RefreshQueue|null>(null);
+  const chapterRefresh = useRef<ChapterHistory|null>(null);
   const restoringScroll = useRef(true);
   const tool = ['changes','walkthrough','chapter-studio'].includes(workspace);
   const showChanges = activity==='changes'||workspace==='changes';
@@ -128,15 +128,26 @@ export function DeveloperWorkspace(props:Props) {
   useEffect(()=>{
     if(!isNativeRuntime()){setChaptersLoading(false);return;}
     setChaptersLoading(true);
-    const queue=createRefreshQueue<ChapterRevision[]>({
+    const queue=createChapterHistory({
+      projectId,
       load:()=>listChapterRevisions(projectId,snapshotId),
       onValue:(result)=>{setChapters(result);setChapterError(null);},
-      onError:(failure)=>setChapterError(errorMessageOr(failure,'Saved explanations could not be loaded.')),
+      onLoaded:()=>setChaptersLoading(false),
+      onError:(failure)=>{setChapterError(errorMessageOr(failure,'Saved explanations could not be loaded.'));setChaptersLoading(false);},
       onIdle:()=>setChaptersLoading(false),
     });
     chapterRefresh.current=queue;
     void queue.refresh();
-    const changed=(event:Event)=>{const project=(event as CustomEvent<{projectId?:string}>).detail?.projectId;if(!project||project===projectId)void queue.refresh();};
+    const changed=(event:Event)=>{
+      const detail=(event as CustomEvent<{projectId?:string;revision?:ChapterRevision}>).detail;
+      if(detail?.projectId&&detail.projectId!==projectId)return;
+      const revision=detail?.revision;
+      if(revision?.projectId===projectId&&revision.snapshotId===snapshotId&&revision.revisionId){
+        setChapterError(null);
+        setChaptersLoading(false);
+        queue.record(revision);
+      }else void queue.refresh();
+    };
     window.addEventListener('code-atlas:chapters-changed',changed);
     return()=>{queue.dispose();if(chapterRefresh.current===queue)chapterRefresh.current=null;window.removeEventListener('code-atlas:chapters-changed',changed);};
   },[projectId,snapshotId]);

@@ -173,7 +173,7 @@ async function adoptSection(project: string, snapshot: string, turnId: string, s
   updateWorkspace(project,snapshot,(state) => ({...state,explorations:state.explorations.map((e) => ({...e,
     turns:e.turns.map((t) => t.id === turnId ? mergePublishedSections(t,[section]) : t),
   }))}));
-  window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project}}));
+  window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project,revision}}));
   return revision;
 }
 async function reconcileAnswer(project: string, snapshot: string, turnId: string, summary: AnswerSummary) {
