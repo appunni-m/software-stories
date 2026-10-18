@@ -1,3 +1,4 @@
+import { createChapterHistory, type ChapterHistory } from './lib/chapterHistory';
 import { useNoticeHistory } from './lib/useNoticeHistory';
 import { Theme } from '@radix-ui/themes';
 import { useAppAppearance } from './lib/useAppAppearance';
@@ -4253,7 +4254,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   const [revisions, setRevisions] = useState<ChapterRevision[]>([]);
   const [loading, setLoading] = useState(isNativeRuntime());
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const chapterHistory = useRef<ChapterHistory | null>(null);
   const [selectedTargetKey, setSelectedTargetKey] = useState(restoredDraft?.targetKey ?? '');
   const [selectedRevisionId, setSelectedRevisionId] = useState<string | null>(routeRevisionId ?? restoredDraft?.baseRevisionId ?? null);
   const [query, setQuery] = useState('');
@@ -4271,19 +4272,15 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
 
   useEffect(() => {
     const refresh = (event: Event) => {
-      setRefreshKey((value) => value + 1);
-      const revision = (event as CustomEvent<{ revision?: ChapterRevision }>).detail?.revision;
-      if (!revision || revision.projectId !== projectId || revision.snapshotId !== snapshotId) return;
-      setSelectedTargetKey(revision.target.scope.kind === 'overview' ? 'overview' : revision.target.targetId);
-      setSelectedRevisionId(revision.revisionId);
-      setEditing(false);
-      setCandidate(null);
-      setValidation(null);
-      onSelectRevision(revision);
+      const detail = (event as CustomEvent<{ projectId?: string; revision?: ChapterRevision }>).detail;
+      const changedProject = detail?.projectId ?? detail?.revision?.projectId;
+      if (changedProject && changedProject !== projectId) return;
+      // A background publication invalidates history, never the user's edit or selection.
+      void chapterHistory.current?.refresh();
     };
     window.addEventListener('code-atlas:chapters-changed', refresh);
     return () => window.removeEventListener('code-atlas:chapters-changed', refresh);
-  }, [onSelectRevision, projectId, snapshotId]);
+  }, [projectId]);
 
   useEffect(() => {
     if (!editing || !candidate || !selectedRevisionId || !selectedTargetKey) {
@@ -4307,15 +4304,20 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
 
   useEffect(() => {
     if (!isNativeRuntime()) return;
-    let active = true;
     setLoading(true);
     setLoadError(null);
-    void listProjectChapterRevisions(projectId)
-      .then((saved) => { if (active) setRevisions(saved); })
-      .catch((error) => { if (active) setLoadError(errorMessageOr(error, 'Saved chapter history could not be loaded.')); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [projectId, refreshKey]);
+    const history = createChapterHistory({
+      projectId,
+      load: () => listProjectChapterRevisions(projectId),
+      onValue: setRevisions,
+      onLoaded: () => setLoadError(null),
+      onError: (error) => setLoadError(errorMessageOr(error, 'Saved chapter history could not be refreshed. Saved revisions and unsaved edits are preserved.')),
+      onIdle: () => setLoading(false),
+    });
+    chapterHistory.current = history;
+    void history.refresh();
+    return () => { history.dispose(); if (chapterHistory.current === history) chapterHistory.current = null; };
+  }, [projectId]);
 
   const targets = useMemo<ChapterStudioTarget[]>(() => {
     const result: ChapterStudioTarget[] = [];
@@ -4431,18 +4433,17 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     return () => cancelAnimationFrame(frame);
   }, [activeDocument?.revisionId, routeSectionId]);
 
-  const reload = async (selectId?: string) => {
-    const saved = await listProjectChapterRevisions(projectId);
-    if (!studioMounted.current) return;
-    setRevisions(saved);
-    if (selectId) setSelectedRevisionId(selectId);
-  };
   const setSection = (sectionId: string, update: (section: ChapterSection) => ChapterSection) => {
     setCandidate((current) => current ? ({
       ...current,
       sections: current.sections.map((section) => section.sectionId === sectionId ? update(section) : section),
     }) : current);
     setValidation(null);
+  };
+  const recordSavedRevision = (revision: ChapterRevision) => {
+    chapterHistory.current?.record(revision);
+    setSelectedRevisionId(revision.revisionId);
+    window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed', { detail: { projectId } }));
   };
   const beginEditing = () => {
     if (!selectedRevision || !isLatestCurrent) return;
@@ -4508,15 +4509,18 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       .sort((left, right) => left.localeCompare(right));
   };
   const saveEdits = async () => {
-    if (!candidate || !selectedRevision || !isLatestCurrent || busy) return;
+    if (!candidate || !selectedRevision || busy) return;
+    if (!isLatestCurrent) {
+      setFeedback({ message: 'A newer revision is available. Your unsaved edit is preserved; review the newer version before creating another draft.', tone: 'info' });
+      return;
+    }
     setBusy(true);
     setFeedback(null);
     try {
       const saved = await saveChapterEdits(projectId, selectedRevision.revisionId, candidate);
       if (!studioMounted.current) return;
       setValidation(saved.validation);
-      await reload(saved.revision.revisionId);
-      if (!studioMounted.current) return;
+      recordSavedRevision(saved.revision);
       setCandidate(null);
       setEditing(false);
       setFeedback({
@@ -4549,8 +4553,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       setEditing(false);
       setCandidate(null);
       setRejecting(false);
-      await reload(restored.revision.revisionId);
-      if (!studioMounted.current) return;
+      recordSavedRevision(restored.revision);
       onSelectRevision(restored.revision);
       setFeedback({
         message: restored.validation.status === 'valid'
@@ -4573,8 +4576,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
       const accepted = await acceptChapterDraft(projectId, selectedRevision.revisionId);
       if (!studioMounted.current) return;
       setValidation(accepted.validation);
-      await reload(accepted.revision.revisionId);
-      if (!studioMounted.current) return;
+      recordSavedRevision(accepted.revision);
       onSelectRevision(accepted.revision);
       setFeedback({ message: 'Accepted. The draft and accepted revision remain in history.', tone: 'success' });
     } catch (error) {
@@ -4591,8 +4593,8 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     setFeedback(null);
     try {
       const rejected = await rejectChapterDraft(projectId, selectedRevision.revisionId, rejectReason);
-      await reload(rejected.revisionId);
       if (!studioMounted.current) return;
+      recordSavedRevision(rejected);
       onSelectRevision(rejected);
       setRejecting(false);
       setRejectReason('');
@@ -4638,7 +4640,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
         </div>
 
         {loading && <p className="coverage-feedback" role="status">Loading repository chapters and revision history…</p>}
-        {loadError && <p className="coverage-storage-warning" role="alert">{loadError}<button className="text-button" onClick={() => setRefreshKey((value) => value + 1)}>Retry</button></p>}
+        {loadError && <p className="coverage-storage-warning" role="alert">{loadError}<button className="text-button" onClick={() => { void chapterHistory.current?.refresh(); }}>Retry</button></p>}
         {!isNativeRuntime() && <p className="coverage-feedback" role="status">Chapter editing is available in the Mac app, where revisions are stored locally.</p>}
         {editing && <p className="coverage-feedback" role="status">Unsaved changes are kept while you inspect citations. File and revision selection is paused; save or cancel to switch.</p>}
 
@@ -4731,6 +4733,12 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                           </div>
                         </>}
                       </div>
+
+                      {editing && !isLatestCurrent && selectedTarget.latestCurrent && <details className="chapter-revision-comparison">
+                        <summary>A newer saved revision is available. Compare versions</summary>
+                        <p>Your unsaved edit is preserved. Compare the saved versions before deciding how to apply your changes.</p>
+                        <ChapterRevisionComparison before={selectedRevision} after={selectedTarget.latestCurrent} />
+                      </details>}
 
                       {rejecting && selectedRevision.lifecycle === 'draft' && <form className="chapter-rejection-form" onSubmit={(event) => { void reject(event); }}>
                         <label><span>Why is this draft rejected?</span><textarea disabled={busy} autoFocus rows={2} maxLength={4000} value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} placeholder="Record what needs to change. The draft remains in history." required /></label>
