@@ -2,68 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { compareChapterRevisions, revisionHistoryMetadata } from '../src/lib/revisionHistory.ts';
 
-const baseRevision = () => ({
-  schemaVersion: 1,
-  chapterId: 'chapter:atlas',
-  revisionId: 'revision:one',
-  revisionNumber: 1,
-  projectId: 'project:demo',
-  snapshotId: 'snapshot:one',
-  target: { targetId: 'target:one', scope: { kind: 'overview' } },
-  title: 'How the request moves',
-  lifecycle: 'draft',
-  validationStatus: 'valid',
-  createdAtUnixMs: 1_791_292_800_000,
-  sections: [{
-    sectionId: 'section:request',
-    sectionRevisionId: 'section-revision:one',
-    order: 0,
-    title: 'Request entry point',
-    prose: 'The handler receives the request.',
-    spokenText: 'A request enters here.',
-    claims: [{
-      claimId: 'claim:entry',
-      category: { kind: 'codeBehavior' },
-      prose: 'The route dispatches the request.',
-      anchors: [{
-        anchorId: 'anchor:route',
-        path: 'src/routes.ts',
-        symbolId: 'symbol:route',
-        snapshotId: 'snapshot:one',
-        sourceSha256: 'a'.repeat(64),
-        startByte: 10,
-        endByteInclusive: 42,
-        startLine: 2,
-        endLine: 4,
-        startColumn: 1,
-        endColumn: 5,
-        excerpt: 'SAFE_EXCERPT_SENTINEL: route(request) { return dispatch(request); }',
-      }],
-      dependencies: [{ kind: 'symbol', path: 'src/routes.ts', sourceSha256: 'b'.repeat(64), symbolId: 'symbol:route' }],
-    }],
-    dependencies: [
-      { kind: 'sourceFile', path: 'src/routes.ts', sourceSha256: 'c'.repeat(64) },
-      { kind: 'symbol', path: 'src/routes.ts', sourceSha256: 'd'.repeat(64), symbolId: 'symbol:route' },
-      { kind: 'relationship', path: 'src/routes.ts', sourceSha256: 'e'.repeat(64), relationshipId: 'relationship:dispatch' },
-    ],
-    visual: {
-      schemaVersion: 2,
-      kind: 'dataFlow',
-      title: 'Request flow',
-      layoutHint: { direction: 'leftToRight' },
-      nodes: [
-        { nodeId: 'node:request', label: 'Request', detail: 'Incoming HTTP request', hotspotId: 'hotspot:route', evidenceAnchorIds: ['anchor:route'] },
-        { nodeId: 'node:handler', label: 'Handler', detail: null, hotspotId: null, evidenceAnchorIds: [] },
-      ],
-      edges: [{ edgeId: 'edge:request-handler', fromNodeId: 'node:request', toNodeId: 'node:handler', label: 'dispatches', evidenceAnchorIds: ['anchor:route'] }],
-    },
-    hotspots: [{
-      hotspotId: 'hotspot:route',
-      label: 'Open route code',
-      destination: { kind: 'codeLens', anchorId: 'anchor:route' },
-    }],
-  }],
-});
+import {baseRevision,sceneRevision} from './helpers/revision-history-fixture.mjs';
 
 function hasField(diff, entity, field) {
   return diff.changes.some((change) => change.entity === entity && change.field === field);
@@ -239,4 +178,72 @@ test('resolves explicit parent and valid creation time, without guessing missing
   const legacy = revisionHistoryMetadata({ ...child, basedOnRevisionId: null, createdAtUnixMs: -1 });
   assert.equal(legacy.parentRevisionId, null);
   assert.equal(legacy.createdAtUnixMs, null);
+});
+
+
+test('current HTML scene revisions identify narration and each changed element field without exposing captured values',()=>{
+  const before=sceneRevision(),after=structuredClone(before);
+  const scene=after.sections[0].visual.presentation.scenes[0];
+  scene.title='The route accepts a request';scene.narration='Follow the request into the route, then watch the handler receive it.';
+  Object.assign(scene.elements[1],{kind:'token',nodeIndex:1,tone:'positive',value:'SOURCE_VALUE_NEW'});
+  const diff=compareChapterRevisions(before,after);
+  for(const field of ['title','narration'])assert.ok(hasField(diff,'scene',field),`missing scene ${field}`);
+  for(const field of ['kind','nodeIndex','nodeId','tone','value'])assert.ok(hasField(diff,'sceneElement',field),`missing element ${field}`);
+  assert.doesNotMatch(JSON.stringify(diff),/SOURCE_VALUE_(OLD|NEW)/);
+  assert.match(diff.changes.find(c=>c.entity==='sceneElement'&&c.field==='value').beforeSummary,/contents hidden/);
+});
+
+test('changing visual node order cannot compare identical when a scene indexes those nodes',()=>{
+  const before=sceneRevision(),after=structuredClone(before);after.sections[0].visual.nodes.reverse();
+  const diff=compareChapterRevisions(before,after);
+  assert.equal(diff.identical,false);
+  assert.ok(hasField(diff,'visual','nodeOrder'));
+  assert.ok(hasField(diff,'sceneElement','nodeId'));
+  const order=diff.changes.find(c=>c.entity==='visual'&&c.field==='nodeOrder');
+  assert.match(order.beforeSummary,/Request.*Handler/);assert.match(order.afterSummary,/Handler.*Request/);
+});
+
+test('presentation and scene additions/removals include individual records and hide source-backed element values',()=>{
+  const withScenes=sceneRevision(),plain=structuredClone(withScenes);delete plain.sections[0].visual.presentation;
+  for(const [before,after,kind] of [[plain,withScenes,'added'],[withScenes,plain,'removed']]){
+    const diff=compareChapterRevisions(before,after);
+    assert.ok(diff.changes.some(c=>c.entity==='presentation'&&c.kind===kind));
+    assert.ok(diff.changes.some(c=>c.entity==='scene'&&c.kind===kind));
+    assert.doesNotMatch(JSON.stringify(diff),/SOURCE_VALUE_OLD/);
+  }
+  const changed=structuredClone(withScenes);changed.sections[0].visual.presentation.scenes[0].elements.push({kind:'token',parentIndex:0,nodeIndex:1,tone:'neutral',value:'SOURCE_VALUE_ADDED',valueOrigin:'source'});
+  const diff=compareChapterRevisions(withScenes,changed);
+  assert.ok(diff.changes.some(c=>c.entity==='sceneElement'&&c.kind==='added'));
+  assert.doesNotMatch(JSON.stringify(diff),/SOURCE_VALUE_ADDED/);
+});
+
+test('scene matching follows claim identity when ordered claims and their scenes move together',()=>{
+  const before=sceneRevision(),section=before.sections[0];
+  const claim=structuredClone(section.claims[0]);claim.claimId='claim:handler';claim.prose='The handler completes the dispatch.';section.claims.push(claim);
+  const scene=structuredClone(section.visual.presentation.scenes[0]);Object.assign(scene,{claimIndex:1,title:'The handler completes',narration:'The handler completes the dispatch after the route receives the request.'});section.visual.presentation.scenes.push(scene);
+  const after=structuredClone(before),next=after.sections[0];next.claims.reverse();next.visual.presentation.scenes.reverse();next.visual.presentation.scenes.forEach((s,i)=>s.claimIndex=i);
+  const diff=compareChapterRevisions(before,after);
+  assert.ok(hasField(diff,'section','claimOrder'));
+  assert.equal(diff.changes.filter(c=>c.entity==='scene'&&c.field==='claimIndex').length,2);
+  assert.equal(diff.changes.filter(c=>c.entity==='scene'&&['title','narration'].includes(c.field)).length,0);
+});
+
+test('an inference basis edit is visible even when its category and visible label stay the same',()=>{
+  const before=baseRevision();before.sections[0].claims[0].category={kind:'inference',visibleLabel:'Likely purpose',basis:'The call is conditional.'};
+  const after=structuredClone(before);after.sections[0].claims[0].category.basis='The return value controls the next call.';
+  const diff=compareChapterRevisions(before,after);
+  assert.ok(hasField(diff,'claim','inferenceBasis'));
+  const change=diff.changes.find(c=>c.field==='inferenceBasis');assert.match(change.beforeSummary,/conditional/);assert.match(change.afterSummary,/return value/);
+});
+
+test('scene source-value redaction follows both sides of an origin or element-kind change',()=>{
+  const before=sceneRevision(),after=structuredClone(before);
+  Object.assign(after.sections[0].visual.presentation.scenes[0].elements[1],{kind:'text',valueOrigin:'illustration',value:'SOURCE_VALUE_NEW'});
+  const diff=compareChapterRevisions(before,after);
+  assert.ok(hasField(diff,'sceneElement','valueOrigin'));
+  assert.doesNotMatch(JSON.stringify(diff),/SOURCE_VALUE_(OLD|NEW)/);
+  const authored=sceneRevision();Object.assign(authored.sections[0].visual.presentation.scenes[0].elements[1],{kind:'token',valueOrigin:'illustration',value:'one request'});
+  const edited=structuredClone(authored);edited.sections[0].visual.presentation.scenes[0].elements[1].value='two requests';
+  const change=compareChapterRevisions(authored,edited).changes.find(c=>c.entity==='sceneElement'&&c.field==='value');
+  assert.match(change.beforeSummary,/one request/);assert.match(change.afterSummary,/two requests/);
 });

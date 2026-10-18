@@ -7,6 +7,7 @@ import type {
   SectionDependency,
   VisualSpec,
 } from './commands.ts';
+import type { PresentationScene, SceneElement, ScenePresentation } from './scenePresentation.ts';
 
 export type RevisionChangeKind = 'added' | 'removed' | 'changed';
 export type RevisionChangeEntity =
@@ -18,6 +19,9 @@ export type RevisionChangeEntity =
   | 'visual'
   | 'visualNode'
   | 'visualEdge'
+  | 'presentation'
+  | 'scene'
+  | 'sceneElement'
   | 'hotspot';
 
 /** A content-safe description of one difference between two immutable revisions. */
@@ -30,6 +34,9 @@ export interface RevisionChange {
   summary: string;
   beforeSummary?: string;
   afterSummary?: string;
+  /** Expandable authored text only; captured excerpts and element values never enter these fields. */
+  beforeDetail?: string;
+  afterDetail?: string;
 }
 
 export interface RevisionDiffCounts {
@@ -61,8 +68,8 @@ export interface RevisionHistoryMetadata {
 }
 
 /**
- * Compare chapter content by its stable IDs. Returned changes contain summaries only;
- * source excerpts are never copied into the diff result.
+ * Compare chapter content by its stable IDs. Long authored text can be expanded;
+ * captured source excerpts and source-backed scene values remain hidden.
  */
 export function compareChapterRevisions(
   before: ChapterRevision,
@@ -141,6 +148,8 @@ function compareSection(
   compareField(changes, 'section', path, 'title', before.title, after.title, before.sectionId);
   compareField(changes, 'section', path, 'prose', before.prose, after.prose, before.sectionId);
   compareField(changes, 'section', path, 'spokenText', before.spokenText, after.spokenText, before.sectionId);
+  compareField(changes, 'section', path, 'claimOrder', before.claims.map(c=>c.claimId), after.claims.map(c=>c.claimId), before.sectionId,
+    (_value,side)=>orderedSummary((side==='before'?before:after).claims.map(c=>c.prose)));
 
   compareKeyed(
     before.claims ?? [], after.claims ?? [],
@@ -150,7 +159,7 @@ function compareSection(
   );
 
   compareDependencies(before.dependencies ?? [], after.dependencies ?? [], `${path}/dependencies`, changes);
-  compareVisual(before.visual, after.visual, `${path}/visual`, changes);
+  compareVisual(before.visual, after.visual, `${path}/visual`, changes, before.claims, after.claims);
 
   compareKeyed(
     before.hotspots ?? [], after.hotspots ?? [],
@@ -161,7 +170,9 @@ function compareSection(
 }
 
 function compareClaim(before: ChapterClaim, after: ChapterClaim, path: string, changes: RevisionChange[]): void {
-  compareField(changes, 'claim', path, 'category', before.category, after.category, before.claimId);
+  compareField(changes, 'claim', path, 'category', before.category.kind, after.category.kind, before.claimId);
+  compareField(changes, 'claim', path, 'inferenceLabel', before.category.kind==='inference'?before.category.visibleLabel:null, after.category.kind==='inference'?after.category.visibleLabel:null, before.claimId);
+  compareField(changes, 'claim', path, 'inferenceBasis', before.category.kind==='inference'?before.category.basis:null, after.category.kind==='inference'?after.category.basis:null, before.claimId);
   compareField(changes, 'claim', path, 'prose', before.prose, after.prose, before.claimId);
   compareKeyed(
     before.anchors ?? [], after.anchors ?? [],
@@ -224,7 +235,13 @@ function compareVisual(
   after: VisualSpec | null | undefined,
   path: string,
   changes: RevisionChange[],
+  beforeClaims: ChapterClaim[],
+  afterClaims: ChapterClaim[],
 ): void {
+  const presentation=(visual:VisualSpec|null|undefined)=>visual&&'presentation' in visual?visual.presentation??null:null;
+  // A scene indexes visual nodes, so an unchanged presentation can render a
+  // different label/evidence after the node array moves. Compare both together.
+  comparePresentation(presentation(before),presentation(after),`${path}/presentation`,changes,beforeClaims,afterClaims,before?.nodes??[],after?.nodes??[]);
   if (sameValue(before ?? null, after ?? null)) return;
   if (!before) {
     changes.push({ kind: 'added', entity: 'visual', path, summary: `Added ${visualSummary(after!)}.` , afterSummary: visualSummary(after!) });
@@ -239,7 +256,8 @@ function compareVisual(
   compareField(changes, 'visual', path, 'kind', before.kind, after.kind);
   compareField(changes, 'visual', path, 'title', before.title, after.title);
   compareField(changes, 'visual', path, 'layoutHint', 'layoutHint' in before ? before.layoutHint : null, 'layoutHint' in after ? after.layoutHint : null);
-  compareField(changes, 'visual', path, 'presentation', 'presentation' in before ? before.presentation : null, 'presentation' in after ? after.presentation : null);
+  compareField(changes, 'visual', path, 'nodeOrder', before.nodes.map(n=>n.nodeId), after.nodes.map(n=>n.nodeId), undefined,
+    (_value,side)=>orderedSummary((side==='before'?before:after).nodes.map(n=>n.label)));
 
   compareKeyed(
     before.nodes ?? [], after.nodes ?? [],
@@ -272,6 +290,44 @@ function compareVisual(
   );
 }
 
+function orderedSummary(labels: string[]): string {
+  return labels.length?labels.slice(0,6).map(label=>`“${safeText(label,48)}”`).join(' → ')+(labels.length>6?` → … (${labels.length} total)`:''):'(none)';
+}
+
+function comparePresentation(
+  before:ScenePresentation|null,after:ScenePresentation|null,path:string,changes:RevisionChange[],
+  beforeClaims:ChapterClaim[],afterClaims:ChapterClaim[],beforeNodes:VisualSpec['nodes'],afterNodes:VisualSpec['nodes'],
+):void {
+  if(!before&&!after)return;
+  if(!before||!after){
+    const value=(before??after)!;
+    changes.push({kind:before?'removed':'added',entity:'presentation',path,summary:`${before?'Removed':'Added'} visual presentation (${value.scenes.length} scenes).`,
+      ...(before?{beforeSummary:`${value.scenes.length} scenes`}:{afterSummary:`${value.scenes.length} scenes`})});
+  }else compareField(changes,'presentation',path,'schemaVersion',before.schemaVersion,after.schemaVersion);
+  const sceneKey=(scene:PresentationScene,claims:ChapterClaim[])=>claims[scene.claimIndex]?.claimId??`scene:${scene.claimIndex}`;
+  const sceneSummary=(scene:PresentationScene)=>`scene “${safeText(scene.title)}” (${scene.mode}; ${scene.elements.length} elements)`;
+  compareKeyed(before?.scenes??[],after?.scenes??[],s=>sceneKey(s,beforeClaims),s=>sceneKey(s,afterClaims),sceneSummary,sceneSummary,'scene',`${path}/scenes`,changes,(oldScene,newScene,scenePath)=>{
+    const id=sceneKey(oldScene,beforeClaims);
+    for(const field of ['claimIndex','title','mode','narration'] as const)compareField(changes,'scene',scenePath,field,oldScene[field]??null,newScene[field]??null,id);
+    // Elements have positional identity in the validated presentation schema.
+    // Report their exact positions rather than inventing stable element IDs.
+    const indexed=(elements:SceneElement[])=>elements.map((element,index)=>({element,index}));
+    const summarize=({element,index}:{element:SceneElement;index:number})=>`element ${index+1} (${element.kind}; ${element.valueOrigin==='source'?'captured value hidden':element.valueOrigin})`;
+    compareKeyed(indexed(oldScene.elements),indexed(newScene.elements),e=>String(e.index),e=>String(e.index),summarize,summarize,'sceneElement',`${scenePath}/elements`,changes,(oldEntry,newEntry,elementPath)=>{
+      const oldElement=oldEntry.element,newElement=newEntry.element,elementId=String(oldEntry.index);
+      for(const field of ['kind','parentIndex','nodeIndex','tone','valueOrigin'] as const)compareField(changes,'sceneElement',elementPath,field,oldElement[field],newElement[field],elementId);
+      compareField(changes,'sceneElement',elementPath,'nodeId',oldElement.nodeIndex===null?null:beforeNodes[oldElement.nodeIndex]?.nodeId??null,newElement.nodeIndex===null?null:afterNodes[newElement.nodeIndex]?.nodeId??null,elementId,
+        (_value,side)=>{
+          const element=side==='before'?oldElement:newElement,nodes=side==='before'?beforeNodes:afterNodes;
+          return element.nodeIndex===null?'(none)':`“${safeText(nodes[element.nodeIndex]?.label??'Unavailable node')}”`;
+        });
+      const hideValue=[oldElement,newElement].some(e=>e.valueOrigin==='source'||e.kind==='code');
+      compareField(changes,'sceneElement',elementPath,'value',oldElement.value,newElement.value,elementId,
+        hideValue?value=>`value (${typeof value==='string'?value.length:0} characters; contents hidden)`:undefined);
+    });
+  });
+}
+
 function compareHotspot(before: ChapterHotspot, after: ChapterHotspot, path: string, changes: RevisionChange[]): void {
   compareField(changes, 'hotspot', path, 'label', before.label, after.label, before.hotspotId);
   compareField(changes, 'hotspot', path, 'destination', before.destination, after.destination, before.hotspotId);
@@ -285,10 +341,11 @@ function compareField(
   before: unknown,
   after: unknown,
   id?: string,
+  summarize?: (value:unknown,side:'before'|'after')=>string,
 ): void {
   if (sameValue(before, after)) return;
-  const beforeSummary = safeValueSummary(field, before);
-  const afterSummary = safeValueSummary(field, after);
+  const beforeSummary = summarize?summarize(before,'before'):safeValueSummary(field, before);
+  const afterSummary = summarize?summarize(after,'after'):safeValueSummary(field, after);
   changes.push({
     kind: 'changed',
     entity,
@@ -298,7 +355,41 @@ function compareField(
     summary: `${fieldLabel(field)} changed: ${beforeSummary} → ${afterSummary}.`,
     beforeSummary,
     afterSummary,
+    ...(['prose','spokenText','narration','inferenceBasis','detail'].includes(field)?{
+      ...(typeof before==='string'&&before.length>88?{beforeDetail:before}:{}),
+      ...(typeof after==='string'&&after.length>88?{afterDetail:after}:{}),
+    }:{}),
   });
+}
+
+/** Human locations for comparison rows. Native IDs remain in the model for
+ * identity matching, while the reader sees their section and scene names. */
+export function revisionChangeContext(change:RevisionChange,before:ChapterRevision,after:ChapterRevision):string {
+  const revisions=change.kind==='removed'?[before,after]:[after,before];
+  for(const revision of revisions){
+    const section=revision.sections.find(s=>change.path===`sections/${s.sectionId}`||change.path.startsWith(`sections/${s.sectionId}/`));
+    if(!section)continue;
+    const context=[section.title];
+    const visual=section.visual;
+    if(visual&&'presentation' in visual){
+      const scene=visual.presentation?.scenes.find(s=>{
+        const key=section.claims[s.claimIndex]?.claimId??`scene:${s.claimIndex}`;
+        const prefix=`sections/${section.sectionId}/visual/presentation/scenes/${key}`;
+        return change.path===prefix||change.path.startsWith(`${prefix}/`);
+      });
+      if(scene)context.push(scene.title);
+    }
+    if(change.entity==='sceneElement'&&change.id!==undefined&&/^\d+$/.test(change.id))context.push(`Element ${Number(change.id)+1}`);
+    else if(change.entity==='visualNode'){
+      const node=visual?.nodes.find(n=>n.nodeId===change.id);if(node)context.push(node.label);
+    }
+    else if(change.entity==='claim'||change.entity==='anchor'||change.entity==='dependency'){
+      const claim=section.claims.findIndex(c=>change.path===`sections/${section.sectionId}/claims/${c.claimId}`||change.path.startsWith(`sections/${section.sectionId}/claims/${c.claimId}/`));
+      if(claim>=0)context.push(`Claim ${claim+1}`);
+    }
+    return context.map(value=>safeText(value,120)).join(' / ');
+  }
+  return 'Chapter';
 }
 
 function compareKeyed<T>(
@@ -390,6 +481,7 @@ function safeValueSummary(field: string, value: unknown): string {
   if (field === 'excerpt' && typeof value === 'string') return `source excerpt (${value.length} characters; contents hidden)`;
   if (field === 'sourceSha256' && typeof value === 'string') return `SHA-256 ${value.slice(0, 12)}${value.length > 12 ? '…' : ''}`;
   if (typeof value === 'string') return `“${safeText(value)}”`;
+  if (typeof value === 'number' && ['claimIndex','nodeIndex','parentIndex'].includes(field)) return String(value+1);
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   if (Array.isArray(value)) {
     const identifiers = value.filter((item): item is string => typeof item === 'string');

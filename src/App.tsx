@@ -166,7 +166,7 @@ import {
 import { ATLAS_MAX_ZOOM, ATLAS_MIN_ZOOM, ATLAS_ZOOM_STEP, atlasRowIndexStatus, atlasRowIndexStatusLabel, atlasTreeKeyboardAction, buildInventoryTree, filterInventoryTreeRows, filterProvenRelationshipEdges, fitAtlasViewport, flattenInventoryTree, normalizeAtlasViewport, panAtlasViewport, projectProvenRelationshipGraph, summarizeAtlasPathIndexCounts, virtualRowWindow, zoomAtlasViewport, type AtlasViewport, type ProvenGraphEdge } from './lib/atlas';
 import { classifyCodeLensUnavailableState, codeLensRangeFromChapterAnchor, codeLensRangeFromIndexedAnchor, codeLensRelationshipLabel, highlightSourceLines, resolveCodeLensCitation, sourceLineTextRanges, splitCapturedSourceLines, splitSourceTextAtRange } from './lib/codeLens';
 import { loadShellStartupData, workspaceHeading } from './lib/shell';
-import { compareChapterRevisions, type RevisionChange } from './lib/revisionHistory';
+import { ChapterRevisionComparison } from './ChapterRevisionComparison';
 import {
   addCoverageGroup,
   buildCoverageRows,
@@ -4212,82 +4212,6 @@ function ChapterSourceDiff({ projectId, change }: { projectId: string; change: C
       <pre className="chapter-source-diff-lines" role="group" aria-label="Captured source diff">{diff.lines.map((line, index) => <span className={`diff-${line.kind}`} key={`${line.kind}:${line.oldLine}:${line.newLine}:${index}`}>{line.kind === 'removed' ? '−' : line.kind === 'added' ? '+' : ' '} {String(line.oldLine ?? line.newLine ?? '').padStart(4, ' ')} │ {line.text}{'\n'}</span>)}</pre>
     </>}
   </details>;
-}
-
-interface RevisionDiffValue {
-  field: string;
-  before: string;
-  after: string;
-  path?: string;
-}
-
-function revisionEntityLabel(entity: RevisionChange['entity']): string {
-  switch (entity) {
-    case 'chapter': return 'chapter';
-    case 'section': return 'section';
-    case 'claim': return 'claim';
-    case 'anchor': return 'source reference';
-    case 'dependency': return 'dependency';
-    case 'visual': return 'diagram';
-    case 'visualNode': return 'diagram node';
-    case 'visualEdge': return 'diagram edge';
-    case 'hotspot': return 'hotspot';
-  }
-  return String(entity);
-}
-
-function revisionFieldLabel(field: string): string {
-  const labels: Record<string, string> = {
-    startByte: 'start byte',
-    endByteInclusive: 'end byte',
-    startLine: 'start line',
-    endLine: 'end line',
-    startColumn: 'start column',
-    endColumn: 'end column',
-    sourceSha256: 'source hash',
-    evidenceAnchorIds: 'source references',
-    spokenText: 'spoken narration',
-    targetScope: 'target',
-  };
-  return labels[field] ?? field.replace(/[A-Z]/g, (letter) => ` ${letter.toLowerCase()}`);
-}
-
-function revisionChangeRow(change: RevisionChange): RevisionDiffValue {
-  const action = change.kind[0].toUpperCase() + change.kind.slice(1);
-  const identity = change.id ? ` · ${change.id}` : '';
-  const field = change.field ? ` · ${revisionFieldLabel(change.field)}` : '';
-  return {
-    field: `${action} ${revisionEntityLabel(change.entity)}${field}${identity}`,
-    path: change.path,
-    before: change.beforeSummary ?? '—',
-    after: change.afterSummary ?? '—',
-  };
-}
-
-function ChapterRevisionComparison({ before, after }: { before: ChapterRevision; after: ChapterRevision }) {
-  const contentDiff = compareChapterRevisions(before, after);
-  const chapterFields: RevisionDiffValue[] = [
-    ...(before.title !== after.title ? [{ field: 'Chapter title', before: before.title, after: after.title }] : []),
-    ...(before.snapshotId !== after.snapshotId ? [{ field: 'Source snapshot', before: before.snapshotId, after: after.snapshotId }] : []),
-    ...(before.lifecycle !== after.lifecycle ? [{ field: 'Status', before: before.lifecycle, after: after.lifecycle }] : []),
-    ...(before.basedOnRevisionId !== after.basedOnRevisionId ? [{ field: 'Parent revision', before: before.basedOnRevisionId ?? '—', after: after.basedOnRevisionId ?? '—' }] : []),
-  ];
-  const contentRows = contentDiff.changes.map(revisionChangeRow);
-  if (chapterFields.length === 0 && contentRows.length === 0) {
-    return <p className="chapter-revision-no-diff">No chapter content, claims, citations, dependencies, or assets changed between these revisions.</p>;
-  }
-  return <div className="chapter-revision-diff">
-    {chapterFields.length > 0 && <div className="chapter-revision-diff-group"><h5>Chapter</h5>{chapterFields.map((field) => <RevisionDiffRow key={field.field} value={field} />)}</div>}
-    {contentRows.length > 0 && <div className="chapter-revision-diff-group"><h5>Content · {contentDiff.counts.total} change{contentDiff.counts.total === 1 ? '' : 's'}</h5>{contentRows.map((field, index) => <RevisionDiffRow key={`${field.path}:${field.field}:${index}`} value={field} />)}</div>}
-  </div>;
-}
-
-function RevisionDiffRow({ value }: { value: RevisionDiffValue }) {
-  return <div className="chapter-revision-diff-row">
-    <strong>{value.field}{value.path && <small>{value.path}</small>}</strong>
-    <div><span>Before</span><pre>{value.before}</pre></div>
-    <div><span>After</span><pre>{value.after}</pre></div>
-  </div>;
 }
 
 function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeRevisionId, routeSectionId, onSelectRevision, onClearRevisionRoute, onOpenFile, onGoPlan, onGenerate, onRegenerateSection, onGenerateOverview }: {

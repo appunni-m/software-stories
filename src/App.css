@@ -2151,3 +2151,16 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .topbar .connection-header-label {display:none;}
   .topbar .connection-header-value {padding-left:0;border-left:0;}
 }
+/* Revision review gives authored changes readable space and folds long text. */
+.chapter-revision-diff {gap:12px;padding:0 0 12px;}
+.chapter-revision-diff-group {padding:12px;border-radius:8px;}
+.chapter-revision-diff-group h5 {margin-bottom:12px;color:var(--text);font-size:13px;}
+.chapter-revision-diff-row {grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px;padding:12px 0;}
+.chapter-revision-diff-row > strong {grid-column:1 / -1;color:var(--text);font-size:12px;}
+.chapter-revision-diff-row > strong small {margin-top:4px;font-family:inherit;font-size:12px;line-height:1.5;}
+.chapter-revision-diff-row > div > span {font:11px/1.5 var(--mono);}
+.chapter-revision-diff-row pre {font:12px/1.65 var(--mono);}
+.chapter-revision-full-text {margin-top:4px;font-size:12px;line-height:1.65;}
+.chapter-revision-full-text > summary {cursor:pointer;overflow-wrap:anywhere;}
+.chapter-revision-full-text > pre {font-family:inherit;}
+@media(max-width:850px){.chapter-revision-diff-row{grid-template-columns:minmax(0,1fr);}}
