@@ -17,7 +17,7 @@ const STILL_INVALID: &str = "The explanation still did not match its cited code 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum CorrectionPolicy {
     Disabled,
-    ChapterScenesV4,
+    ChapterScenesV5,
 }
 
 impl CorrectionPolicy {
@@ -25,7 +25,7 @@ impl CorrectionPolicy {
         if config.get("claimAlignmentCorrection").is_none()
             && config.get("candidateCorrection") == Some(&chapter_correction_config())
         {
-            Self::ChapterScenesV4
+            Self::ChapterScenesV5
         } else {
             Self::Disabled
         }
@@ -33,7 +33,7 @@ impl CorrectionPolicy {
 }
 
 pub(crate) fn chapter_correction_config() -> Value {
-    json!({"policy":"chapter-scenes-and-identifiers-v4","maxAttempts":1})
+    json!({"policy":"chapter-scenes-and-identifiers-v5","maxAttempts":1})
 }
 
 /// Chapter-specific preflight; full source and storage admission remain separate.
@@ -213,7 +213,7 @@ fn prompt_for_issues(mut issues: Vec<Value>) -> Option<String> {
     }
     issues.truncate(MAX_ISSUES);
     let scene_feedback = if issues.iter().any(|issue| issue.get("sceneProblem").is_some()) {
-        " For sceneProblem findings, repair the complete scene using the original claims and evidence. A sceneEvidence finding points to a content nodeIndex whose node cites a different claim. Choose or author a node citing this scene's own claim and evidence; do not borrow another scene's source, drop the claim or invent a citation. A narrationRequired finding needs nonempty scene narration, at most 4,000 UTF-8 bytes, covering the same claim with all guards, alternatives and uncertainty in natural speech. Keep exact implementation identifiers in the claim; do not read them merely to pass grounding. A narrationLength finding requires 20–4,000 UTF-8 bytes across the complete ordered script; split without dropping behavior. Inference labels are added by the app. A tree has exactly one root; every other parentIndex names an earlier container. Only row, column, grid, panel, compare and stack are containers. Card, token, code, metric, bytes, matrix, table and text are content leaves; arrow and divider are decoration. Containers/decorations use nodeIndex:null, value:\"\", valueOrigin:none. Keep source-linked content in content leaves. Respect 48 elements, six nesting levels, twelve children per group and 1–12 content leaves; remove no supported behavior to evade these limits. Fix layout structure without patching evidence or inventing new values. The full visual/source validator still runs after this one correction."
+        " For sceneProblem findings, keep claims and their evidence arrays in their current order so claimIndex and evidenceIndex remain stable. First fix reported identifier and exact-quote problems within those existing claims and evidence entries; do not remove or reorder supported claims. Next repair each scene's node evidence so it cites that scene's own claim and evidence. Finally repair composition layout without changing the claim or evidence links. A sceneEvidence finding points to a content nodeIndex whose node cites a different claim. Choose or author a node citing this scene's own claim and evidence; do not borrow another scene's source, drop the claim or invent a citation. A narrationRequired finding needs nonempty scene narration, at most 4,000 UTF-8 bytes, covering the same claim with all guards, alternatives and uncertainty in natural speech. Keep exact implementation identifiers in the claim; do not read them merely to pass grounding. A narrationLength finding requires 20–4,000 UTF-8 bytes across the complete ordered script; split without dropping behavior. Inference labels are added by the app. A tree has exactly one root; every other parentIndex names an earlier container. Only row, column, grid, panel, compare and stack are containers. Card, token, code, metric, bytes, matrix, table and text are content leaves; arrow and divider are decoration. Containers/decorations use nodeIndex:null, value:\"\", valueOrigin:none. Keep source-linked content in content leaves. Respect 48 elements, six nesting levels, twelve children per group and 1–12 content leaves; remove no supported behavior to evade these limits. Fix layout structure without patching evidence or inventing new values. The full visual/source validator still runs after this one correction."
     } else { "" };
     let problem_types = if scene_feedback.is_empty() { "identifier or exact-quote" } else { "identifier, exact-quote or composition-structure" };
     let feedback = json!({"issues": issues, "limit": MAX_ISSUES}).to_string();
@@ -344,13 +344,14 @@ mod tests {
     fn correction_policy_requires_the_exact_reviewed_version_and_one_attempt() {
         use CorrectionPolicy::*;
         let current = json!({"candidateCorrection":chapter_correction_config()});
-        assert_eq!(CorrectionPolicy::from_generation_config(&current), ChapterScenesV4);
+        assert_eq!(CorrectionPolicy::from_generation_config(&current), ChapterScenesV5);
         let legacy = json!({"workspaceQuestion":"Which path runs?", "claimAlignmentCorrection":{"policy":"identifier-alignment-v1","maxAttempts":1}});
         assert_eq!(CorrectionPolicy::from_generation_config(&legacy), Disabled);
         for changed in [
             json!({}),
             json!({"candidateCorrection":{"policy":"chapter-layout-and-identifiers-v2","maxAttempts":1}}),
             json!({"candidateCorrection":{"policy":"chapter-scenes-and-identifiers-v3","maxAttempts":1}}),
+            json!({"candidateCorrection":{"policy":"chapter-scenes-and-identifiers-v4","maxAttempts":1}}),
             json!({"candidateCorrection":{"policy":"chapter-scenes-and-identifiers-v4","maxAttempts":2}}),
             json!({"candidateCorrection":{"policy":"future","maxAttempts":1}}),
             json!({"candidateCorrection":{"policy":"chapter-scenes-and-identifiers-v4","maxAttempts":1,"extra":true}}),
@@ -472,6 +473,10 @@ mod tests {
                     assert!(feedback.contains("Each identifiers entry must occur literally"));
                     assert!(feedback.contains("sceneEvidence"));
                     assert!(feedback.contains("containerParent"));
+                let identifier_repair = feedback.find("First fix reported identifier").unwrap();
+                let link_repair = feedback.find("Next repair each scene's node evidence").unwrap();
+                let layout_repair = feedback.find("Finally repair composition layout").unwrap();
+                assert!(identifier_repair < link_repair && link_repair < layout_repair);
                     initial["sections"][0]["claims"][1]["identifiers"] =
                         json!(["greeting", "name"]);
                     for node in initial["sections"][0]["visual"]["nodes"]

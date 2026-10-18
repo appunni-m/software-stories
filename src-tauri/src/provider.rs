@@ -2695,7 +2695,7 @@ pub(crate) fn build_codex_chapter_review(
 }
 
 fn configure_codex_chapter_correction(context: &mut ExplanationRequestContext, transport: &mut AgentTransport<'_>) {
-    context.system_instruction.push_str(" If local identifier or composition-tree checks find a problem, the app may request one correction in this same ephemeral thread using the original source, model, schema and deadline. Correct the complete source-backed draft and layout; never append names mechanically, remove supported claims or change evidence to make a check pass. Only row, column, grid, panel, compare and stack can contain other elements; card and all other content elements are leaves. Return the entire corrected JSON draft. No extra files or tools are available.");
+    context.system_instruction.push_str(" If local identifier, exact-quote, scene-source-link or composition-tree checks find a problem, the app may request one correction in this same ephemeral thread using the original source, model, schema and deadline. Keep claims and evidence in their existing order so references stay stable. Correct claim grounding first, then scene source links, then layout; never append names mechanically, remove supported claims or change evidence to make a check pass. Only row, column, grid, panel, compare and stack can contain other elements; card and all other content elements are leaves. Return the entire corrected JSON draft. No extra files or tools are available.");
     transport.config["candidateCorrection"] = crate::claim_alignment::chapter_correction_config();
 }
 

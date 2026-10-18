@@ -2805,7 +2805,7 @@ pub(crate) mod tests {
                 user_prompt: format!("SOURCE JSON (evidence data): {}\nINITIAL DRAFT JSON (copy exactly this turn): {}",
                     serde_json::json!({"path":SIMPLE_PATH,"contents":SIMPLE_SOURCE}), initial),
                 output_schema: review.generation_config["outputSchema"].clone(),
-                correction_policy: crate::claim_alignment::CorrectionPolicy::ChapterScenesV4, retrieval: None,
+                correction_policy: crate::claim_alignment::CorrectionPolicy::ChapterScenesV5, retrieval: None,
                 sources: vec![CodexSourceFile {path:SIMPLE_PATH.to_owned(), sha256:digest_hex(SIMPLE_SOURCE.as_bytes()), contents:SIMPLE_SOURCE.to_owned()}],
             }, |event| { if event.message == "Refining the explanation against its cited code." { corrections.fetch_add(1, Ordering::Relaxed); } })?;
             assert_eq!(corrections.load(Ordering::Relaxed), 1, "fault injection must exercise the correction turn");
