@@ -283,16 +283,32 @@ impl Session {
 
     pub(crate) fn finish_answer_manifest(&mut self, text: &str) -> Result<(), String> {
         let stopped = self.ledger.budget_stopped();
-        let progressive = self.progressive.as_mut().ok_or("This investigation does not publish sections.")?;
-        let owner = progressive.owner.as_ref().ok_or("This investigation has no native publication owner.")?;
-        if owner.cancelled() { return Err("This investigation was stopped. Published sections are preserved.".into()); }
-        let fresh = snapshot::load_snapshot_manifest(&self.storage, &self.manifest.summary.project_id, &self.manifest.summary.snapshot_id)?;
-        self.ledger.complete(&fresh, &self.runtime, owner.cancellation_flag())?;
+        let progressive = self
+            .progressive
+            .as_mut()
+            .ok_or("This investigation does not publish sections.")?;
+        let owner = progressive
+            .owner
+            .as_ref()
+            .ok_or("This investigation has no native publication owner.")?;
+        if owner.cancelled() {
+            return Err("This investigation was stopped. Published sections are preserved.".into());
+        }
+        let fresh = snapshot::load_snapshot_manifest(
+            &self.storage,
+            &self.manifest.summary.project_id,
+            &self.manifest.summary.snapshot_id,
+        )?;
+        self.ledger
+            .complete(&fresh, &self.runtime, owner.cancellation_flag())?;
         progressive.answer.finish_manifest(text, stopped)
     }
 
     pub(crate) fn answer_cancelled(&self) -> bool {
-        self.progressive.as_ref().and_then(|s| s.owner.as_ref()).is_some_and(|o| o.cancelled())
+        self.progressive
+            .as_ref()
+            .and_then(|s| s.owner.as_ref())
+            .is_some_and(|o| o.cancelled())
     }
 
     fn checked_tool(&self, name: &str) -> Result<Tool, String> {
@@ -572,7 +588,10 @@ impl Session {
                     .commit(&self.ledger, prepared, &fresh, &self.runtime, cancelled)?;
                 gate()?;
                 self.ledger.check(&fresh, &self.runtime, cancelled)?;
-                if let Some(id) = generation.as_deref() { mode.answer.record_publication_time(id, owner.elapsed_ms())?; }
+                if let Some(id) = generation.as_deref() {
+                    mode.answer
+                        .record_publication_time(id, owner.elapsed_ms())?;
+                }
                 Ok(())
             })?;
             if let Some(notice) = generation.as_deref().and_then(|id| mode.answer.notice(id)) {
@@ -617,7 +636,7 @@ impl Session {
                 {
                     return self.ledger.deliver(token, Context::SearchError {
                         code: "invalidQuery",
-                        message: "No code or search results were returned. Use 2–240 printable characters with one to 32 searchable terms. Code punctuation is literal. Prefer a code identifier or a short phrase and narrow the captured scope when needed.",
+                        message: "No code or search results were returned. Use 2–240 printable characters and at most 32 searchable terms. Code punctuation is literal. Prefer a code identifier or a short phrase and narrow the captured scope when needed.",
                     }, &[], &fresh, &self.runtime, cancelled, send);
                 }
                 let input = repository_context_commands::SearchInput {
@@ -646,10 +665,17 @@ impl Session {
             Tool::Read => {
                 let args: Read = match parse(request.arguments) {
                     Ok(args) => args,
-                    Err(_) => return self.ledger.deliver(
-                        token, Context::ReadArgumentsError {}, &[], &fresh,
-                        &self.runtime, cancelled, send,
-                    ),
+                    Err(_) => {
+                        return self.ledger.deliver(
+                            token,
+                            Context::ReadArgumentsError {},
+                            &[],
+                            &fresh,
+                            &self.runtime,
+                            cancelled,
+                            send,
+                        );
+                    }
                 };
                 self.ledger.deliver(
                     token,
@@ -845,7 +871,10 @@ impl Session {
                 Ok(Some(issues))
             }
             crate::native_citations::Resolution::Ready(_)
-                if self.short_references && !self.is_progressive() => Ok(Some(vec![])),
+                if self.short_references && !self.is_progressive() =>
+            {
+                Ok(Some(vec![]))
+            }
             crate::native_citations::Resolution::Ready(resolved) => Ok(
                 crate::claim_alignment::diagnostics(resolved.text()).map(|mut issues| {
                     for issue in &mut issues {

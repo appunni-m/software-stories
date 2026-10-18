@@ -4,6 +4,7 @@
 //! Immutable generations are published only after both metadata and Tantivy commit succeed.
 
 use crate::{bounded_file, index, snapshot};
+use grep_matcher::Matcher;
 use grep_regex::RegexMatcherBuilder;
 use grep_searcher::{Searcher, sinks::UTF8};
 use serde::{Deserialize, Serialize};
@@ -933,10 +934,166 @@ pub(crate) fn validate_search(
         return Err("Search within a captured file or folder.".to_owned());
     }
     let words = terms(query);
-    if words.is_empty() || words.len() > 32 {
+    if words.len() > 32 {
         return Err("Use up to 32 searchable terms.".to_owned());
     }
     Ok(words)
+}
+
+/// Literal fallback for code punctuation and substrings absent from the word index.
+/// Search one eligible immutable file at a time, retaining the existing byte,
+/// result and cancellation limits. A literal may cross an index chunk boundary.
+fn search_literal(
+    storage: &Path,
+    manifest: &snapshot::SnapshotManifest,
+    prepared: &PreparedIndex,
+    query: &str,
+    path: Option<&str>,
+    limit: usize,
+    budget: &Budget<'_>,
+    started: Instant,
+) -> Result<SearchResult, String> {
+    let matcher = RegexMatcherBuilder::new()
+        .case_insensitive(true)
+        .fixed_strings(true)
+        .build(query)
+        .map_err(|_| "Code search terms are invalid.".to_owned())?;
+    let mut files = prepared
+        .metadata
+        .files
+        .iter()
+        .filter(|file| {
+            file.chunks > 0
+                && path.is_none_or(|scope| {
+                    file.path == scope
+                        || file
+                            .path
+                            .strip_prefix(scope)
+                            .is_some_and(|rest| rest.starts_with('/'))
+                })
+        })
+        .collect::<Vec<_>>();
+    files.sort_by_key(|file| &file.path);
+    let mut ranges_by_path: HashMap<&str, Vec<&CodeRange>> = HashMap::new();
+    for range in &prepared.metadata.ranges {
+        ranges_by_path.entry(&range.path).or_default().push(range);
+    }
+    for ranges in ranges_by_path.values_mut() {
+        ranges.sort_by_key(|range| range.start_byte);
+    }
+    let mut matches = vec![];
+    let mut limited = false;
+    let mut verified_bytes = 0u64;
+    'files: for file in files {
+        budget.check()?;
+        let captured = source(storage, manifest, &file.path)?;
+        verified_bytes = verified_bytes.saturating_add(captured.size_bytes);
+        if verified_bytes > MAX_SOURCE_BYTES {
+            return Err("The captured text exceeds the local code index byte limit.".to_owned());
+        }
+        if captured.sha256 != file.source_sha256 {
+            return Err("A code result belongs to a different source version.".to_owned());
+        }
+        let ranges = ranges_by_path
+            .get(file.path.as_str())
+            .ok_or("The code search index is invalid.")?;
+        let mut starts = None;
+        let mut cursor = 0;
+        loop {
+            budget.check()?;
+            let Some(found) = matcher
+                .find_at(captured.contents.as_bytes(), cursor)
+                .map_err(|_| "A captured code snippet could not be searched.".to_owned())?
+            else {
+                break;
+            };
+            budget.check()?;
+            if matches.len() == limit {
+                limited = true;
+                break 'files;
+            }
+            let range = ranges
+                .get(ranges.partition_point(|range| range.end_byte <= found.start()))
+                .ok_or("The code search index is invalid.")?;
+            if range.start_byte >= range.end_byte || range.end_byte - range.start_byte > CHUNK_BYTES
+            {
+                return Err("The code search index is invalid.".to_owned());
+            }
+            let lines = starts.get_or_insert_with(|| line_starts(&captured.contents));
+            let original = captured
+                .contents
+                .get(range.start_byte..range.end_byte)
+                .ok_or("The code search index is invalid.")?;
+            if range.start_byte > found.start()
+                || range.snapshot_id != manifest.summary.snapshot_id
+                || range.source_sha256 != captured.sha256
+                || range.chunk_sha256 != digest(original.as_bytes())
+                || range.start_line != line_at(lines, range.start_byte)
+                || range.end_line != line_at(lines, range.end_byte - 1)
+            {
+                return Err("A saved code range changed. Rebuild the local code index.".to_owned());
+            }
+            let start = range.start_byte.max(cursor);
+            let end = range.end_byte.max(found.end());
+            if end.saturating_sub(start) > MAX_RANGE_BYTES {
+                return Err("A literal search result exceeds the code range limit.".to_owned());
+            }
+            let contents = captured
+                .contents
+                .get(start..end)
+                .ok_or("The code range must lie on UTF-8 boundaries inside this file.")?;
+            let mut hit_range = (**range).clone();
+            hit_range.start_byte = start;
+            hit_range.start_line = line_at(lines, start);
+            hit_range.end_byte = end;
+            hit_range.end_line = line_at(lines, end - 1);
+            hit_range.chunk_sha256 = digest(contents.as_bytes());
+            hit_range.enclosing = hit_range.enclosing.filter(|symbol| {
+                symbol.start_byte <= hit_range.start_byte && end <= symbol.end_byte
+            });
+            hit_range.parent = hit_range.parent.filter(|symbol| {
+                symbol.start_byte <= hit_range.start_byte && end <= symbol.end_byte
+            });
+            let line_start = captured.contents[..found.start()]
+                .rfind('\n')
+                .map_or(0, |at| at + 1);
+            let before = &captured.contents[line_start..found.start()];
+            let snippet_start = before
+                .char_indices()
+                .rev()
+                .nth(79)
+                .map_or(line_start, |(at, _)| line_start + at)
+                .max(start);
+            let text = captured.contents[snippet_start..end]
+                .lines()
+                .next()
+                .unwrap_or("")
+                .chars()
+                .take(360)
+                .collect::<String>();
+            matches.push(SearchHit {
+                range: hit_range,
+                line: line_at(lines, found.start()),
+                text,
+                exact_identifier: false,
+                declaration_match: false,
+                score: 0.0,
+            });
+            // One result per non-overlapping evidence window, even on long lines.
+            cursor = end;
+        }
+    }
+    budget.check()?;
+    let result_bytes = json(&matches)?.len();
+    Ok(SearchResult {
+        matches,
+        limited,
+        coverage: prepared.metadata.coverage.clone(),
+        reused_generation: prepared.reused_generation,
+        build: prepared.metadata.build.clone(),
+        elapsed_ms: started.elapsed().as_millis() as u64,
+        result_bytes,
+    })
 }
 
 pub(crate) fn search(
@@ -957,6 +1114,11 @@ pub(crate) fn search(
     }
     let words = validate_search(query, path, limit)?;
     let query = query.trim();
+    if words.is_empty() {
+        return search_literal(
+            storage, manifest, prepared, query, path, limit, budget, started,
+        );
+    }
     let body = field(&prepared.index, "body")?;
     let path_field = field(&prepared.index, "path")?;
     let symbol_field = field(&prepared.index, "symbol")?;
@@ -1064,6 +1226,11 @@ pub(crate) fn search(
             .or_insert((exact, declaration, score));
     }
     let mut ranked = candidates.into_iter().collect::<Vec<_>>();
+    if ranked.is_empty() {
+        return search_literal(
+            storage, manifest, prepared, query, path, limit, budget, started,
+        );
+    }
     ranked.sort_by(|(a, (ae, ad, ascore)), (b, (be, bd, bscore))| {
         bd.cmp(ad)
             .then_with(|| be.cmp(ae))

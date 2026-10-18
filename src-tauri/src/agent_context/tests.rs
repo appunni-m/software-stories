@@ -64,49 +64,97 @@ fn investigated(f: &Fixture) -> Session {
 fn planning_uses_short_delivered_references_without_section_publication_or_second_correction() {
     let f = Fixture::new();
     let legacy = session(&f);
-    assert_eq!(legacy.configuration().unwrap()["args"][0], "--atlas-context-mcp");
+    assert_eq!(
+        legacy.configuration().unwrap()["args"][0],
+        "--atlas-context-mcp"
+    );
     let runtime = legacy.runtime.clone();
     let grant = crate::workspace::save_retrieval_grant(
-        &f.storage, &f.manifest.summary.project_id, &f.manifest.summary.snapshot_id, &runtime,
-    ).unwrap();
+        &f.storage,
+        &f.manifest.summary.project_id,
+        &f.manifest.summary.snapshot_id,
+        &runtime,
+    )
+    .unwrap();
     let mut s = Session::new_planning(
-        &f.storage, &Uuid::new_v4().to_string(), f.manifest.clone(), &runtime, &grant,
+        &f.storage,
+        &Uuid::new_v4().to_string(),
+        f.manifest.clone(),
+        &runtime,
+        &grant,
         RepositoryContextJobs::default(),
-    ).unwrap();
+    )
+    .unwrap();
     let config = s.configuration().unwrap();
     assert_eq!(config["args"][0], "--atlas-plan-mcp");
     assert_eq!(config["enabled_tools"], json!(mcp::TOOL_NAMES));
     assert!(!s.is_progressive());
     assert!(s.checked_tool(mcp::PROPOSAL_TOOL).is_err());
-    let file = f.manifest.files.iter().find(|file| file.path == SIMPLE_PATH).unwrap();
-    let (_, reply) = exchange(&mut s, "read_code", json!({"ranges":[{
-        "path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":0,"endByte":file.size_bytes
-    }]}));
+    let file = f
+        .manifest
+        .files
+        .iter()
+        .find(|file| file.path == SIMPLE_PATH)
+        .unwrap();
+    let (_, reply) = exchange(
+        &mut s,
+        "read_code",
+        json!({"ranges":[{
+            "path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":0,"endByte":file.size_bytes
+        }]}),
+    );
     let reply: Value = serde_json::from_str(&reply).unwrap();
     let reference = reply["added"][0]["referenceId"].as_str().unwrap();
     assert_eq!(reference, "code:1");
     let response = |reference: &str, turn: &str| crate::codex_agent::CodexRunResult {
-        thread_id: "owned-thread".into(), turn_id: turn.into(),
-        model: "gpt-6-luna".into(), effort: "max".into(),
-        response_text: json!({"citationVersion":"nativeEvidenceV2","planVersion":"repositoryGuidePlanV1",
+        thread_id: "owned-thread".into(),
+        turn_id: turn.into(),
+        model: "gpt-6-luna".into(),
+        effort: "max".into(),
+        response_text:
+            json!({"citationVersion":"nativeEvidenceV2","planVersion":"repositoryGuidePlanV1",
             "title":"Follow the greeting journey","sections":[{"key":"entry",
             "question":"How does the incoming name enter the greeting?","prerequisites":[],
-            "claims":[{"evidence":[{"referenceId":reference}]}]}],"omissions":[]}).to_string(),
+            "claims":[{"evidence":[{"referenceId":reference}]}]}],"omissions":[]})
+            .to_string(),
     };
     let cancel = Arc::new(AtomicBool::new(false));
     let initial = response("code:512", "first");
     let issues = s.candidate_diagnostics(&initial, &cancel).unwrap().unwrap();
-    assert_eq!(issues, vec![json!({"location":"/sections/0/claims/0/evidence/0",
-        "citationProblem":"referenceUnavailable","citationVersion":"nativeEvidenceV2"})]);
+    assert_eq!(
+        issues,
+        vec![json!({"location":"/sections/0/claims/0/evidence/0",
+        "citationProblem":"referenceUnavailable","citationVersion":"nativeEvidenceV2"})]
+    );
     let before = serde_json::to_value(s.ledger.admitted_ranges()).unwrap();
-    s.capture_candidate(&"d".repeat(64), &initial, 1, &cancel).unwrap();
+    s.capture_candidate(&"d".repeat(64), &initial, 1, &cancel)
+        .unwrap();
     s.begin_correction(&cancel).unwrap();
     let corrected = response(reference, "second");
-    s.capture_candidate(&"d".repeat(64), &corrected, 2, &cancel).unwrap();
-    assert!(s.candidate_diagnostics(&corrected, &cancel).unwrap().unwrap().is_empty());
-    assert_eq!(before, serde_json::to_value(s.ledger.admitted_ranges()).unwrap());
+    s.capture_candidate(&"d".repeat(64), &corrected, 2, &cancel)
+        .unwrap();
+    assert!(
+        s.candidate_diagnostics(&corrected, &cancel)
+            .unwrap()
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(
+        before,
+        serde_json::to_value(s.ledger.admitted_ranges()).unwrap()
+    );
     assert!(s.begin_correction(&cancel).is_err());
-    assert!(s.event(&event("extra", "list_modules", &json!({"scope":null,"limit":4,"offset":0})), false).is_err());
+    assert!(
+        s.event(
+            &event(
+                "extra",
+                "list_modules",
+                &json!({"scope":null,"limit":4,"offset":0})
+            ),
+            false
+        )
+        .is_err()
+    );
     // Reference admission never manufactures a progressive answer receipt.
     assert!(!f.storage.join("answer-sections").exists());
 }
@@ -530,9 +578,21 @@ fn invalid_range_returns_no_code_and_an_agent_can_correct_it() {
 fn malformed_typed_read_arguments_return_owned_feedback_before_a_corrected_read() {
     let f = Fixture::new();
     let mut s = session(&f);
-    let file = f.manifest.files.iter().find(|file| file.path == SIMPLE_PATH).unwrap();
+    let file = f
+        .manifest
+        .files
+        .iter()
+        .find(|file| file.path == SIMPLE_PATH)
+        .unwrap();
     let valid = json!({"path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":0,"endByte":file.size_bytes});
-    for arguments in [Value::Null, json!({}), json!({"ranges":"secret_descriptor_payload"}), json!({"ranges":[{"path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":"0","endByte":file.size_bytes}]}), json!({"ranges":[{"path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":-1,"endByte":file.size_bytes}]}), json!({"ranges":[valid.clone()],"extra":"secret_descriptor_payload"})] {
+    for arguments in [
+        Value::Null,
+        json!({}),
+        json!({"ranges":"secret_descriptor_payload"}),
+        json!({"ranges":[{"path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":"0","endByte":file.size_bytes}]}),
+        json!({"ranges":[{"path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":-1,"endByte":file.size_bytes}]}),
+        json!({"ranges":[valid.clone()],"extra":"secret_descriptor_payload"}),
+    ] {
         let (_, text) = exchange(&mut s, "read_code", arguments);
         let result: Value = serde_json::from_str(&text).unwrap();
         assert_eq!(result["readError"]["code"], "invalidReadArguments");
@@ -550,9 +610,14 @@ fn malformed_typed_read_arguments_return_owned_feedback_before_a_corrected_read(
 fn invalid_read_batches_return_owned_feedback_then_allow_a_corrected_read() {
     let f = Fixture::new();
     let mut s = session(&f);
-    let file = f.manifest.files.iter().find(|file| file.path == SIMPLE_PATH).unwrap();
+    let file = f
+        .manifest
+        .files
+        .iter()
+        .find(|file| file.path == SIMPLE_PATH)
+        .unwrap();
     let range = json!({"path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":0,"endByte":file.size_bytes});
-    for ranges in [vec![], vec![range.clone();9]] {
+    for ranges in [vec![], vec![range.clone(); 9]] {
         let (_, text) = exchange(&mut s, "read_code", json!({"ranges":ranges}));
         let result: Value = serde_json::from_str(&text).unwrap();
         assert_eq!(result["readError"]["code"], "invalidRangeCount");
@@ -568,12 +633,25 @@ fn invalid_read_batches_return_owned_feedback_then_allow_a_corrected_read() {
 fn malformed_read_descriptors_keep_the_owned_tool_exchange_correctable() {
     let f = Fixture::new();
     let mut s = session(&f);
-    let file = f.manifest.files.iter().find(|file| file.path == SIMPLE_PATH).unwrap();
+    let file = f
+        .manifest
+        .files
+        .iter()
+        .find(|file| file.path == SIMPLE_PATH)
+        .unwrap();
     let range = json!({"path":SIMPLE_PATH,"sourceSha256":file.sha256,"startByte":0,"endByte":file.size_bytes});
-    for (field, value) in [("path", "../private-source.ts"), ("sourceSha256", "not-a-source-digest"), ("path", "uncaptured-source.ts")] {
+    for (field, value) in [
+        ("path", "../private-source.ts"),
+        ("sourceSha256", "not-a-source-digest"),
+        ("path", "uncaptured-source.ts"),
+    ] {
         let mut invalid = range.clone();
         invalid[field] = json!(value);
-        let (_, text) = exchange(&mut s, "read_code", json!({"ranges":[range.clone(), invalid]}));
+        let (_, text) = exchange(
+            &mut s,
+            "read_code",
+            json!({"ranges":[range.clone(), invalid]}),
+        );
         let reply: Value = serde_json::from_str(&text).unwrap();
         assert_eq!(reply["readError"]["code"], "invalidRead");
         assert!(reply["added"].as_array().unwrap().is_empty());
@@ -622,7 +700,7 @@ fn invalid_query_returns_bounded_feedback_and_can_be_corrected() {
         "x".to_owned(),
         "\nprivate query".to_owned(),
         "x".repeat(241),
-        "{}".to_owned(),
+        "private\tquery".to_owned(),
         (0..33)
             .map(|i| format!("term{i}"))
             .collect::<Vec<_>>()
@@ -653,6 +731,29 @@ fn invalid_query_returns_bounded_feedback_and_can_be_corrected() {
             .unwrap()
             .is_empty()
     );
+    s.check_complete().unwrap();
+}
+
+#[test]
+fn literal_punctuation_is_a_valid_bounded_agent_search() {
+    let f = Fixture::new();
+    let mut s = session(&f);
+    for query in ["{}", "::", "()"] {
+        let (_, text) = exchange(
+            &mut s,
+            "search_code",
+            json!({"query":query,"scope":null,"limit":4}),
+        );
+        let result: Value = serde_json::from_str(&text).unwrap();
+        assert_eq!(result["context"]["kind"], "search");
+        assert!(
+            result["context"]["result"]["matches"]
+                .as_array()
+                .unwrap()
+                .len()
+                <= 4
+        );
+    }
     s.check_complete().unwrap();
 }
 
@@ -860,7 +961,8 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
     );
     let read_reply: Value = serde_json::from_str(&read_reply).unwrap();
     let reference = read_reply["added"][0]["referenceId"].as_str().unwrap();
-    let raw = sections::authoring::tests::grounded_names_proposal(reference, "entry", 0).to_string();
+    let raw =
+        sections::authoring::tests::grounded_names_proposal(reference, "entry", 0).to_string();
     let args: Value = serde_json::from_str(&raw).unwrap();
     let mut wrong_order = args.clone();
     wrong_order["order"] = json!(5);

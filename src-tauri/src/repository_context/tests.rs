@@ -393,7 +393,7 @@ fn exact_identifiers_rank_before_components_and_ties_are_repeatable() {
         )
         .is_err()
     );
-    for bad in ["", "\n", "  ", "x", "()"] {
+    for bad in ["", "\n", "  ", "x", "ok\nno"] {
         assert!(
             search(
                 &fixture.storage,
@@ -415,6 +415,305 @@ fn exact_identifiers_rank_before_components_and_ties_are_repeatable() {
             "render",
             None,
             33,
+            &budget
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn literal_code_operators_are_searchable_without_index_tokens() {
+    let mut fixture = Fixture::new();
+    add_source(
+        &mut fixture,
+        "lib/operators.txt",
+        "fn sample() -> bool {\r\n    left == right && item::ready()\r\n}\r\n",
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    for (query, line) in [("::", 2), ("->", 1), ("==", 2), ("()", 1), ("&&", 2)] {
+        let result = search(
+            &fixture.storage,
+            &fixture.manifest,
+            &prepared,
+            query,
+            Some("lib/operators.txt"),
+            8,
+            &budget,
+        )
+        .unwrap();
+        assert_eq!(result.matches.len(), 1, "{query}");
+        let hit = &result.matches[0];
+        assert_eq!(hit.line, line, "{query}");
+        assert!(hit.text.contains(query));
+        assert!(!hit.exact_identifier && !hit.declaration_match);
+        let read = read_range(
+            &fixture.storage,
+            &fixture.manifest,
+            &hit.range.path,
+            &hit.range.source_sha256,
+            hit.range.start_byte,
+            hit.range.end_byte,
+        )
+        .unwrap();
+        assert_eq!(read.range.chunk_sha256, hit.range.chunk_sha256);
+        assert!(read.contents.contains(query));
+    }
+}
+
+#[test]
+fn literal_fallback_finds_partial_identifiers_and_unicode_in_large_unsupported_text() {
+    let mut fixture = Fixture::new();
+    let text = format!(
+        "{}def renderGlyphBitmap():\r\n    return '字形🦀Ünicode'\r\n",
+        "# unrelated filler padding\r\n".repeat(26_000)
+    );
+    assert!(text.len() > 512 * 1024);
+    add_source(&mut fixture, "lib/renderer.py", &text);
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    for (query, expected_line, snippet) in [
+        ("lyphBit", 26_001, "renderGlyphBitmap"),
+        ("🦀ü", 26_002, "字形🦀Ünicode"),
+    ] {
+        let result = search(
+            &fixture.storage,
+            &fixture.manifest,
+            &prepared,
+            query,
+            Some("lib"),
+            8,
+            &budget,
+        )
+        .unwrap();
+        let hit = &result.matches[0];
+        assert_eq!(hit.range.path, "lib/renderer.py");
+        assert_eq!(hit.line, expected_line);
+        assert!(hit.text.contains(snippet));
+        assert!(hit.range.parser.is_none());
+        assert!(result.coverage.text_fallback_files > 0);
+        assert!(hit.range.end_byte - hit.range.start_byte <= MAX_RANGE_BYTES);
+    }
+}
+
+#[test]
+fn literal_matches_cross_chunk_boundaries_without_overlapping_returned_ranges() {
+    let mut fixture = Fixture::new();
+    add_source(
+        &mut fixture,
+        "lib/long.txt",
+        &format!("{}:: y :: 字形", "x".repeat(CHUNK_BYTES - 1)),
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let result = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "::",
+        Some("lib/long.txt"),
+        8,
+        &budget,
+    )
+    .unwrap();
+    assert_eq!(result.matches.len(), 2);
+    assert_eq!(result.matches[0].range.end_byte, CHUNK_BYTES + 1);
+    assert!(result.matches[0].range.end_byte <= result.matches[1].range.start_byte);
+    for hit in result.matches {
+        assert_eq!(hit.line, 1);
+        assert!(hit.text.contains("::"));
+        let read = read_range(
+            &fixture.storage,
+            &fixture.manifest,
+            &hit.range.path,
+            &hit.range.source_sha256,
+            hit.range.start_byte,
+            hit.range.end_byte,
+        )
+        .unwrap();
+        assert!(read.contents.contains("::"));
+        assert_eq!(read.range.chunk_sha256, hit.range.chunk_sha256);
+    }
+}
+
+#[test]
+fn literal_fallback_is_deterministic_scoped_bounded_and_never_interprets_regex() {
+    let mut fixture = Fixture::new();
+    for path in ["library/first.txt", "lib/b.txt", "lib/a.txt"] {
+        add_source(&mut fixture, path, "left::right\n");
+    }
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let mut prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let first = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "::",
+        Some("lib"),
+        1,
+        &budget,
+    )
+    .unwrap();
+    assert_eq!(first.matches.len(), 1);
+    assert_eq!(first.matches[0].range.path, "lib/a.txt");
+    assert!(first.limited);
+    assert_eq!(first.result_bytes, json(&first.matches).unwrap().len());
+    prepared.metadata.files.reverse();
+    prepared.metadata.ranges.reverse();
+    let repeat = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "::",
+        Some("lib"),
+        1,
+        &budget,
+    )
+    .unwrap();
+    assert_eq!(
+        json(&first.matches).unwrap(),
+        json(&repeat.matches).unwrap()
+    );
+    for (query, scope) in [(".*", "lib"), ("::", "missing")] {
+        let empty = search(
+            &fixture.storage,
+            &fixture.manifest,
+            &prepared,
+            query,
+            Some(scope),
+            8,
+            &budget,
+        )
+        .unwrap();
+        assert!(empty.matches.is_empty());
+        assert!(!empty.limited);
+    }
+}
+
+#[test]
+fn literal_fallback_retains_snapshot_filtering_cancellation_deadline_and_hash_checks() {
+    let mut fixture = Fixture::new();
+    add_source(&mut fixture, "lib/visible.txt", "left::right\n");
+    add_source(&mut fixture, "vendor/private.txt", "left::right\n");
+    add_source(&mut fixture, "secrets.env", "left::right\n");
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    for scope in ["vendor", "secrets.env"] {
+        assert!(
+            search(
+                &fixture.storage,
+                &fixture.manifest,
+                &prepared,
+                "::",
+                Some(scope),
+                8,
+                &budget
+            )
+            .unwrap()
+            .matches
+            .is_empty()
+        );
+    }
+    cancelled.store(true, Ordering::Release);
+    assert_eq!(
+        search(
+            &fixture.storage,
+            &fixture.manifest,
+            &prepared,
+            "::",
+            None,
+            8,
+            &budget
+        )
+        .err()
+        .unwrap(),
+        "Code search stopped."
+    );
+    cancelled.store(false, Ordering::Release);
+    let expired = Budget {
+        cancelled: &cancelled,
+        deadline: Instant::now() - Duration::from_secs(1),
+    };
+    assert_eq!(
+        search(
+            &fixture.storage,
+            &fixture.manifest,
+            &prepared,
+            "::",
+            None,
+            8,
+            &expired
+        )
+        .err()
+        .unwrap(),
+        "Code search reached its local time limit."
+    );
+    fixture.manifest.summary.snapshot_id.push_str("-other");
+    assert!(
+        search(
+            &fixture.storage,
+            &fixture.manifest,
+            &prepared,
+            "::",
+            None,
+            8,
+            &budget
+        )
+        .is_err()
+    );
+    fixture
+        .manifest
+        .summary
+        .snapshot_id
+        .truncate(fixture.manifest.summary.snapshot_id.len() - 6);
+    let file = fixture
+        .manifest
+        .files
+        .iter()
+        .find(|file| file.path == "lib/visible.txt")
+        .unwrap();
+    fs::write(fixture.storage.join(&file.blob_path), "tampered::text\n").unwrap();
+    assert!(
+        search(
+            &fixture.storage,
+            &fixture.manifest,
+            &prepared,
+            "::",
+            Some("lib/visible.txt"),
+            8,
+            &budget
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn literal_fallback_rejects_corrupted_matching_range_metadata() {
+    let mut fixture = Fixture::new();
+    add_source(&mut fixture, "lib/visible.txt", "left::right\n");
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let mut prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    prepared
+        .metadata
+        .ranges
+        .iter_mut()
+        .find(|range| range.path == "lib/visible.txt")
+        .unwrap()
+        .chunk_sha256 = "0".repeat(64);
+    assert!(
+        search(
+            &fixture.storage,
+            &fixture.manifest,
+            &prepared,
+            "::",
+            Some("lib/visible.txt"),
+            8,
             &budget
         )
         .is_err()
