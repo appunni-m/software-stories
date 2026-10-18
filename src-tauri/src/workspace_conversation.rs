@@ -45,7 +45,6 @@ fn relative(s: &str) -> bool {
         && !s
             .split('/')
             .any(|p| p.is_empty() || matches!(p, "." | ".."))
-        && !s.split('/').next().is_some_and(|p| p.contains(':'))
 }
 fn object<'a>(v: &'a Value, fields: &[&str]) -> Result<&'a serde_json::Map<String, Value>, String> {
     let o = v.as_object().ok_or(UNAVAILABLE)?;

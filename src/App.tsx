@@ -914,8 +914,7 @@ function App() {
         const snapshot = sorted.find((item) => item.snapshotId === saved?.snapshotId) ?? sorted[0];
         if (snapshot) {
           setNavigation((state) => state.current.projectId !== currentProject.projectId || state.current.snapshotId
-            ? state : replaceCurrentRoute(state, { ...state.current, snapshotId: snapshot.snapshotId,
-              relativePath: saved?.snapshotId === snapshot.snapshotId ? saved.path : undefined }));
+            ? state : replaceCurrentRoute(state, { ...state.current, snapshotId: snapshot.snapshotId }));
         }
       })
       .catch(() => {

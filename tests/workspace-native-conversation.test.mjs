@@ -41,6 +41,19 @@ test('native history survives missing, corrupt and unavailable browser preferenc
   restart.store.updateWorkspace('project','snapshot',s=>({...s,file:'src/new.rs'}));await restart.store.flushWorkspaceConversation('project','snapshot');assert.equal(b.records.get(scope).state.file,'src/new.rs');
 });
 
+test('imports a matching old last-file hint only before native history exists',async()=>{
+  const b=backend(),storage=new Map([['code-atlas:last-file:project',JSON.stringify({snapshotId:'snapshot',path:'src/legacy.rs'})]]),h=native(b,storage);
+  await h.store.prepareWorkspaceConversation('project','snapshot');assert.equal(h.store.getWorkspace('project','snapshot').file,'src/legacy.rs');
+  h.store.updateWorkspace('project','snapshot',s=>({...s,file:'src/current.rs'}));await h.store.flushWorkspaceConversation('project','snapshot');
+  const restart=native(b,storage);await restart.store.prepareWorkspaceConversation('project','snapshot');assert.equal(restart.store.getWorkspace('project','snapshot').file,'src/current.rs');assert.equal(JSON.parse(storage.get('code-atlas:last-file:project')).path,'src/legacy.rs');
+});
+
+test('foreign or unsafe optional last-file hints cannot select another snapshot or block migration',async()=>{
+  for(const hint of [{snapshotId:'other',path:'src/foreign.rs'},{snapshotId:'snapshot',path:'../escape.rs'},{snapshotId:'snapshot',path:'/outside.rs'},{snapshotId:'snapshot',path:`${'界'.repeat(2000)}.rs`}]){
+    const b=backend(),h=native(b,new Map([['code-atlas:last-file:project',JSON.stringify(hint)]]));await h.store.prepareWorkspaceConversation('project','snapshot');assert.equal(h.store.getWorkspace('project','snapshot').file,null);
+  }
+});
+
 test('coalesces startup reads and prevents edits before the authoritative conversation opens',async()=>{
   const b=backend(),read=deferred(),h=native(b);b.controls.load=()=>read.promise;
   const first=h.store.prepareWorkspaceConversation('project','snapshot'),second=h.store.prepareWorkspaceConversation('project','snapshot');assert.equal(first,second);
@@ -122,4 +135,5 @@ test('the production workspace gates mounting and generation on durable conversa
   assert.match(store,/await prepareWorkspaceConversation\(project,snapshot\)/);
   for(const [start,end,command] of [['export async function runRepositoryGuide','export async function runQuestion',"'start_repository_guide'"],['export async function runQuestion',null,"'generate_progressive_workspace_answer'"]]){const code=store.slice(store.indexOf(start),end?store.indexOf(end):undefined);const save=code.indexOf('await flushWorkspaceConversation'),dispatch=code.indexOf(command);assert.ok(save>=0&&dispatch>save,'the question/run reference must be durable before dispatch');}
   assert.match(native,/workspace_conversation::load_workspace_conversation/);assert.match(native,/workspace_conversation::save_workspace_conversation/);
+  assert.doesNotMatch(app,/relativePath: saved\?\.snapshotId === snapshot\.snapshotId \? saved\.path/,'a stale browser hint cannot override the native selection after hydration');
 });

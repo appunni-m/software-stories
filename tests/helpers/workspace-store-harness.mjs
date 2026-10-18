@@ -13,7 +13,7 @@ export function workspaceStoreHarness(invoke,options={}) {
   const storage = options.storage??new Map();
   const unexpected = () => { throw new Error('Unexpected model or indexing operation during local restoration'); };
   const context = vm.createContext({
-    crypto, CustomEvent, Error, console, setTimeout, clearTimeout, queueMicrotask,
+    crypto, CustomEvent, Error, TextEncoder, console, setTimeout, clearTimeout, queueMicrotask,
     window: new EventTarget(),
     localStorage: { getItem: (key) => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) },
   });
@@ -32,7 +32,7 @@ export function workspaceStoreHarness(invoke,options={}) {
     },
     '../lib/connectionStore': { ensureCodexConnection: options.ensureCodexConnection??unexpected, readCodexSelection: options.readCodexSelection??unexpected },
   };
-  const allowed = new Set(['workspace/store.ts', 'workspace/model.ts', 'workspace/conversationPersistence.ts', 'workspace/outcomes.ts', 'workspace/queue.ts', 'workspace/refreshQueue.ts', 'lib/errorMessage.ts'].map((file) => resolve(root, file)));
+  const allowed = new Set(['workspace/store.ts', 'workspace/model.ts', 'workspace/conversationPersistence.ts', 'workspace/outcomes.ts', 'workspace/queue.ts', 'workspace/refreshQueue.ts', 'lib/errorMessage.ts', 'lib/workspacePreferences.ts'].map((file) => resolve(root, file)));
   const modules = new Map();
   function load(path) {
     if (!allowed.has(path)) throw new Error(`Unexpected store dependency: ${path}`);

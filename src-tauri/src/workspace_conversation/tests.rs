@@ -39,6 +39,19 @@ fn absent_read_creates_nothing_and_scope_keys_are_unambiguous() {
 }
 
 #[test]
+fn source_metadata_preserves_unicode_spaces_and_colons_without_opening_live_paths() {
+    let f = Fixture::new();
+    let mut s = state();
+    s["file"] = json!("字型:demo/font file.rs");
+    s["explorations"][0]["turns"][0]["context"][0]["path"] = json!("字型:demo/font file.rs");
+    let stored = save(&f.0, "project", "snapshot", None, s.clone()).unwrap();
+    assert_eq!(stored.state, s);
+    assert!(fs::read_dir(&f.0)
+        .unwrap()
+        .all(|e| e.unwrap().file_name() == "workspace-conversations"));
+}
+
+#[test]
 fn five_levels_siblings_views_sections_and_source_survive_without_copying_answers() {
     let f = Fixture::new();
     let mut value = state();

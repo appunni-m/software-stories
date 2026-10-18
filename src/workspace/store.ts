@@ -5,10 +5,11 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { cancelCodexChapterRequest, getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, loadSnapshotIndex, startSnapshotIndexing, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
 import {ConversationPersistence,type ConversationRecord} from './conversationPersistence';
+import {readFileLocation} from '../lib/workspacePreferences';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
 import { createQuestionOutcomeSelector, recordQuestionOutcomes, type QuestionOutcome } from './outcomes';
-import { addTurn, cleanAnswerNotes, learningQuestion, mergePublishedSections, mergeRepositoryGuide, parseWorkspace, type RepositoryGuide, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
+import { addTurn, cleanAnswerNotes, createWorkspace, learningQuestion, mergePublishedSections, mergeRepositoryGuide, parseWorkspace, type RepositoryGuide, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
 
 const indexLoads = new Map<string, Promise<SnapshotIndex>>();
 /** One local index build per snapshot, shared by reading and questions. No model call. */
@@ -49,7 +50,14 @@ function savedConversation(project:string,snapshot:string):ConversationPersisten
   if(!entry){entry=new ConversationPersistence({projectId:project,snapshotId:snapshot,
     load:()=>invoke<ConversationRecord|null>('load_workspace_conversation',{projectId:project,snapshotId:snapshot}),
     save:(expectedRevision,state)=>invoke<ConversationRecord>('save_workspace_conversation',{projectId:project,snapshotId:snapshot,expectedRevision,state}),
-    legacy:()=>localStorage.getItem(legacyKey(project,snapshot)),restore:state=>{states.set(id,state);listeners.forEach(notify=>notify());},
+    legacy:()=>{
+      const raw=localStorage.getItem(legacyKey(project,snapshot));if(raw!==null)return raw;
+      const saved=readFileLocation(project),path=saved?.path;
+      if(saved?.snapshotId===snapshot&&path&&new TextEncoder().encode(path).length<=4096&&!/[\\\u0000-\u001f\u007f]/.test(path)&&!path.split('/').some(part=>!part||part==='.'||part==='..')){
+        return JSON.stringify({...createWorkspace(project,snapshot),file:path});
+      }
+      return null;
+    },restore:state=>{states.set(id,state);listeners.forEach(notify=>notify());},
     availability:()=>listeners.forEach(notify=>notify()),
     failed:()=>reportUnsavedConversation(project,snapshot,true),saved:()=>resolveUnsavedConversation(project,snapshot),
   });conversations.set(id,entry);}return entry;
@@ -62,7 +70,7 @@ function reportUnsavedConversation(project:string,snapshot:string,native=false){
   const id=key(project,snapshot);if(unsavedWorkspaceEpisodes.has(id))return;
   const occurrenceId=crypto.randomUUID();unsavedWorkspaceEpisodes.set(id,occurrenceId);
   window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice',{detail:{title:'Conversation could not be saved',
-    message:native?'Your changes remain in this window. Try saving them again. Generated explanations are preserved.':'Local workspace storage is unavailable. Generated explanations remain in the native library.',
+    message:native?'Some conversation changes could not be saved. Existing explanations are preserved.':'Local workspace storage is unavailable. Generated explanations remain in the native library.',
     projectId:project,snapshotId:snapshot,occurrenceId,...(native?{target:{kind:'retryConversation'}}:{})}}));
 }
 export function prepareWorkspaceConversation(project:string,snapshot:string):Promise<void>{return isNativeRuntime()?savedConversation(project,snapshot).start():Promise.resolve();}
