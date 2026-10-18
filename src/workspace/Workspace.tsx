@@ -18,9 +18,10 @@ import { useConnectionState } from '../lib/connectionStore';
 import { errorMessageOr, explanationErrorMessage } from '../lib/errorMessage';
 import { createRefreshQueue, type RefreshQueue } from './refreshQueue';
 import { openWorkspaceQuestion, visibleConversationTurns } from './outcomes';
+import { listWorkspaceCommits } from '../lib/commands';
+import type { GitCommit } from '../lib/gitHistory';
 import './workspace.css';
 
-interface Commit { oid:string; parents:string[]; subject:string; author:string; timestamp:string }
 interface Props {
   manifest: SnapshotManifest; projectName:string; workspace:WorkspaceId; routePath?:string; routeRange?:SourceLineRange; routeSelection?:AtlasHotspotSelection;
   children:ReactNode; onWorkspace:(workspace:WorkspaceId)=>void; onSettings:()=>void;
@@ -63,9 +64,12 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
   const [index,setIndex] = useState<SnapshotIndex|null>(null);
   const [indexBusy,setIndexBusy] = useState(true);
   const [indexError,setIndexError] = useState<string|null>(null);
-  const [commits,setCommits] = useState<Commit[]>([]);
+  const [commits,setCommits] = useState<GitCommit[]>([]);
   const [gitError,setGitError] = useState<string|null>(null);
   const [gitBusy,setGitBusy] = useState(false);
+  const [gitStopped,setGitStopped] = useState(false);
+  const [gitReload,setGitReload] = useState(0);
+  const gitRequest = useRef<AbortController|null>(null);
   const [consentTurn,setConsentTurn] = useState<string|null>(null);
   const [guideConsent,setGuideConsent] = useState<{id:string;resume:boolean}|null>(null);
   const continuationCount = guideContinuationOperations(state.explorations.flatMap((e)=>e.turns).find((t)=>t.guideId===guideConsent?.id)?.guide);
@@ -80,6 +84,7 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
   const chapterRefresh = useRef<RefreshQueue|null>(null);
   const restoringScroll = useRef(true);
   const tool = ['changes','walkthrough','chapter-studio'].includes(workspace);
+  const showChanges = activity==='changes'||workspace==='changes';
   const update = (fn:(s:typeof state)=>typeof state) => updateWorkspace(projectId,snapshotId,fn);
   const go = (id:string) => { update((s)=>({...s,currentId:id,file:s.explorations.find((e)=>e.id===id)?.file??s.file})); setNarrowPane('explanation');onWorkspace('guide-plan'); };
   const setView = (view:View) => update((s)=>({...s,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,view}:e)}));
@@ -140,10 +145,15 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
     });
     return()=>{cancelAnimationFrame(restore);cancelAnimationFrame(release);};
   },[current.id,current.view,current.revealTurnId,chaptersLoading,tool]);
-  useEffect(()=>{if(!isNativeRuntime())return;let active=true;setGitBusy(true);setGitError(null);
-    void invoke<Commit[]>('list_workspace_commits',{projectId}).then((value)=>{if(active)setCommits(value);}).catch((failure)=>{if(active)setGitError(errorMessageOr(failure,'Git history is unavailable.'));}).finally(()=>{if(active)setGitBusy(false);});
-    return()=>{active=false;};
-  },[projectId]);
+  useEffect(()=>{
+    if(!isNativeRuntime()||!showChanges)return;
+    let active=true;const controller=new AbortController();gitRequest.current=controller;
+    setGitBusy(true);setGitStopped(false);setGitError(null);
+    void listWorkspaceCommits(projectId,controller.signal).then((value)=>{if(active)setCommits(value);}).catch((failure)=>{
+      if(active&&!controller.signal.aborted)setGitError(errorMessageOr(failure,'Git history is unavailable.'));
+    }).finally(()=>{if(active)setGitBusy(false);if(gitRequest.current===controller)gitRequest.current=null;});
+    return()=>{active=false;controller.abort();if(gitRequest.current===controller)gitRequest.current=null;};
+  },[projectId,showChanges,gitReload]);
   function openFile(context:Context) { update((s)=>({...s,file:context.path,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,file:context.path,reveal:context}:e)}));setReveal(context);setNarrowPane('source');setCodeOpen(true);onRememberFile(context.path);setSearchFocused(false); }
   function attach(context:Context) {setAttachments((all)=>all.some((c)=>c.path===context.path&&c.from===context.from&&c.to===context.to)?all:[...all,context]);composer.current?.focus();}
   function ask(question:string,view:View=current.view==='flow'?'flow':'guide',context=attachments,parentTurn?:string){
@@ -224,8 +234,8 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
     <Group orientation="horizontal" className="dw-panels">
       <Panel id="repository-sidebar" defaultSize="220px" minSize="160px" maxSize="400px">
         <aside className="dw-sidebar" aria-label="Repository sidebar">
-          <header><strong>{activity==='changes'?'Source control':activity==='search'?'Search':activity==='history'?'Explorations':'Explorer'}</strong></header>
-          {activity==='changes'?<><div className="dw-sidebar-section">Commit history <span>{commits.length ? `${commits.length} recent`:''}</span></div><div className="dw-commits">{gitBusy&&<p role="status">Loading commits…</p>}{gitError&&<p role="alert">{gitError}</p>}{commits.map((c)=><button key={c.oid} className="dw-commit" disabled={!c.parents.length} title={c.parents.length?`${c.subject}\n${c.oid}`:`${c.subject} — initial commit; parent comparison unavailable`} onClick={()=>{if(!c.parents.length)return;onCompare(c.parents[0],c.oid);setNarrowPane('explanation');onWorkspace('changes');}}><span className={`dw-commit-line ${c.parents.length>1?'merge':''}`}><GitCommitHorizontal size={16}/></span><span><strong>{c.subject||'Untitled commit'}</strong><small>{c.author} · {c.oid.slice(0,7)}{c.parents.length>1?' · merge':!c.parents.length?' · initial commit':''}</small></span></button>)}</div></>:activity==='history'?<ul className="dw-explorations">{renderExplorations(null)}</ul>:<>
+          <header><strong>{showChanges?'Source control':activity==='search'?'Search':activity==='history'?'Explorations':'Explorer'}</strong></header>
+          {showChanges?<><div className="dw-sidebar-section">Commit history <span>{commits.length ? `${commits.length} recent`:''}</span><Button size="1" variant="ghost" disabled={gitBusy} onClick={()=>setGitReload((value)=>value+1)}>Refresh</Button></div><div className="dw-commits">{gitBusy&&<p role="status">Loading commits… <Button size="1" variant="ghost" onClick={()=>{gitRequest.current?.abort();setGitBusy(false);setGitStopped(true);}}>Stop</Button></p>}{gitStopped&&<p role="status">Loading stopped.{commits.length>0?' Your previous history is still available.':''}</p>}{gitError&&<p role="alert">{gitError}</p>}{commits.map((c)=><button key={c.oid} className="dw-commit" disabled={!c.parents.length} title={c.parents.length?`${c.subject}\n${c.oid}`:`${c.subject} — initial commit; parent comparison unavailable`} onClick={()=>{if(!c.parents.length)return;onCompare(c.parents[0],c.oid);setNarrowPane('explanation');onWorkspace('changes');}}><span className={`dw-commit-line ${c.parents.length>1?'merge':''}`}><GitCommitHorizontal size={16}/></span><span><strong>{c.subject||'Untitled commit'}</strong><small>{c.author} · {c.oid.slice(0,7)}{c.parents.length>1?' · merge':!c.parents.length?' · initial commit':''}</small></span></button>)}</div></>:activity==='history'?<ul className="dw-explorations">{renderExplorations(null)}</ul>:<>
             <div className="dw-sidebar-search"><TextField.Root ref={search} size="1" value={activity==='search'?repositorySearch:fileFilter} placeholder={activity==='search'?'Files, symbols, code…':'Find a file…'} aria-label={activity==='search'?'Search repository':'Filter files'} onChange={(e)=>(activity==='search'?setRepositorySearch:setFileFilter)(e.target.value)}><TextField.Slot><Search size={13}/></TextField.Slot></TextField.Root></div>
             {activity==='search'?<div className="dw-search-results"><small>Files, symbols and captured code</small>{searchBusy&&<p role="status">Searching…</p>}{searchLimited&&<p>Search limit reached. Refine your search to find more.</p>}{searchError&&<p role="status">{searchError}</p>}{repositorySearch&&results.length===0&&<p>No matching code in this search.</p>}{results.map((r,i)=><button key={i} onClick={()=>openFile(r)}><FileCode2 size={14}/><span><strong>{r.text}</strong><small>{r.path}{r.from?`:${r.from}`:''}</small></span></button>)}{repositorySearch&&<Button size="1" variant="soft" onClick={()=>ask(repositorySearch.length<8?`Explain ${repositorySearch}`:repositorySearch)}><MessageSquare size={13}/>Explore with AI</Button>}</div>:<><div className="dw-sidebar-section">{projectName}</div><nav className="dw-file-list" aria-label="Captured files">{renderFolder('')}</nav><div className="dw-sidebar-section dw-explorations-heading"><History size={13}/>Explorations</div><ul className="dw-explorations">{renderExplorations(null)}</ul></>}
           </>}

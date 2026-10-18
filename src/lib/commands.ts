@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { GitComparisonController } from './gitComparisonController';
 import { ProjectOpenController } from './projectOpenController';
+import { readGitHistory, type GitCommit } from './gitHistory';
 
 export interface ApplicationStatus {
   productName: string;
@@ -1011,6 +1012,13 @@ const gitComparisons = new GitComparisonController({
   compare: (input) => invoke<GitComparisonResult>('compare_local_git_revisions', input),
   cancel: (requestId) => invoke('cancel_repository_context', { requestId }),
 });
+
+export function listWorkspaceCommits(projectId: string, signal?: AbortSignal): Promise<GitCommit[]> {
+  return readGitHistory({
+    read: (input) => invoke<GitCommit[]>('list_workspace_commits', input),
+    cancel: (requestId) => invoke('cancel_repository_context', { requestId }),
+  }, projectId, signal);
+}
 
 export const subscribeLocalGitComparisons = gitComparisons.subscribe;
 export function isLocalGitComparisonBusy(projectId: string | null): boolean {

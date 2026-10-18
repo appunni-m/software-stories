@@ -1,18 +1,19 @@
 //! Snapshot-scoped exploration permissions and bounded, read-only Git history.
 
 use crate::{
-    ProjectSessions, app_data_directory, bounded_process, codex_agent,
-    codex_identity::CodexReviewRuntime, project, snapshot,
+    ProjectSessions, app_data_directory, codex_agent, codex_identity::CodexReviewRuntime,
+    repository_context_commands::RepositoryContextJobs, snapshot,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     fs,
     path::{Path, PathBuf},
-    time::{Duration, Instant},
 };
 use tauri::{AppHandle, State};
 use uuid::Uuid;
+
+mod git_history;
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -170,7 +171,7 @@ pub(crate) fn revoke_workspace_exploration(
     })
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct GitCommit {
     oid: String,
@@ -183,60 +184,14 @@ pub(crate) struct GitCommit {
 #[tauri::command(rename_all = "camelCase")]
 pub(crate) async fn list_workspace_commits(
     sessions: State<'_, ProjectSessions>,
+    jobs: State<'_, RepositoryContextJobs>,
     project_id: String,
+    request_id: String,
 ) -> Result<Vec<GitCommit>, String> {
+    let request = jobs.begin(&request_id).map_err(|_| "Git history could not start. Try again.".to_owned())?;
     let project = sessions.get(&project_id)?;
     tauri::async_runtime::spawn_blocking(move || {
-        let mut command = project::git_command();
-        command
-            .current_dir(&project.repository_root)
-            .env("GIT_OPTIONAL_LOCKS", "0")
-            .env("GIT_NO_LAZY_FETCH", "1")
-            .args([
-                "--no-pager",
-                "log",
-                "--all",
-                "--date-order",
-                "--max-count=80",
-                "--format=%H%x00%P%x00%s%x00%an%x00%aI%x00",
-                "--",
-            ]);
-        let output = bounded_process::run(
-            &mut command,
-            None,
-            bounded_process::Limits {
-                command_timeout: Duration::from_secs(8),
-                operation_deadline: Instant::now() + Duration::from_secs(10),
-                stdout_bytes: 512_000,
-                stderr_bytes: 8192,
-                stdin_bytes: 0,
-            },
-            None,
-        )
-        .map_err(|_| "Git history could not be read within its local limits.".to_owned())?;
-        if !output.status.success() {
-            return Err(
-                "Git history is unavailable. This repository may have no commits yet.".to_owned(),
-            );
-        }
-        let text = String::from_utf8_lossy(&output.stdout);
-        let fields: Vec<&str> = text.split('\0').collect();
-        Ok(fields
-            .chunks_exact(5)
-            .filter_map(|row| {
-                let oid = row[0].trim();
-                if !matches!(oid.len(), 40 | 64) || !oid.bytes().all(|b| b.is_ascii_hexdigit()) {
-                    return None;
-                }
-                Some(GitCommit {
-                    oid: oid.to_owned(),
-                    parents: row[1].split_whitespace().map(str::to_owned).collect(),
-                    subject: row[2].chars().take(300).collect(),
-                    author: row[3].chars().take(120).collect(),
-                    timestamp: row[4].to_owned(),
-                })
-            })
-            .collect())
+        git_history::list(Path::new(&project.repository_root), request.cancellation())
     })
     .await
     .map_err(|_| "Git history stopped unexpectedly.".to_owned())?
