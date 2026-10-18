@@ -8,6 +8,48 @@ use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 const MAIN: &str = "main";
 const DEADLINE: Duration = Duration::from_secs(20);
 const UNAVAILABLE: &str = "Code Atlas stayed open to preserve unsaved changes.";
+const QUIT_MENU: &str = "code-atlas:quit-after-saving";
+
+/// Muda's predefined macOS Quit sends `terminate:` directly to NSApplication,
+/// bypassing Tauri's ExitRequested event. Keep the standard menu, but replace
+/// that item so both its click and Cmd+Q pass through the local save handshake.
+pub(crate) fn menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    let menu = tauri::menu::Menu::default(app)?;
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::menu::{MenuItem, PredefinedMenuItem};
+        let unavailable =
+            || std::io::Error::other("The guarded application menu could not be installed.");
+        let items = menu.items()?;
+        let application = items
+            .first()
+            .and_then(|item| item.as_submenu())
+            .ok_or_else(unavailable)?;
+        let items = application.items()?;
+        let position = items.len().checked_sub(1).ok_or_else(unavailable)?;
+        let original = items[position]
+            .as_predefined_menuitem()
+            .ok_or_else(unavailable)?;
+        let title = original.text()?;
+        if title != PredefinedMenuItem::quit(app, None)?.text()? {
+            return Err(unavailable().into());
+        }
+        application.remove_at(position)?;
+        application.insert(
+            &MenuItem::with_id(app, QUIT_MENU, title, true, Some("CmdOrCtrl+Q"))?,
+            position,
+        )?;
+    }
+    Ok(menu)
+}
+
+pub(crate) fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
+    if event.id().as_ref() == QUIT_MENU {
+        // AppHandle::exit emits ExitRequested; never call NSApplication's
+        // predefined terminate action, which cannot await the renderer.
+        app.exit(0);
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 enum Intent {

@@ -1932,6 +1932,8 @@ pub fn run_quality_helper() -> bool { chapter_quality::run_if_requested() }
 pub fn run() {
     tauri::Builder::default()
         .manage(app_close::AppCloseGuard::default())
+        .menu(app_close::menu)
+        .on_menu_event(app_close::handle_menu_event)
         .plugin(tauri_plugin_dialog::init())
         .manage(ProjectSessions::default())
         .manage(codex_agent::CodexAgentManager::default())
