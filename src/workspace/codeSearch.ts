@@ -3,6 +3,19 @@ import { errorMessageOr } from '../lib/errorMessage.ts';
 export type CodeSearchMode = 'code' | 'regex';
 export interface SourceMatch { path:string; line:number; text:string }
 export interface CodeSearchHit { path:string; text:string; from?:number; to?:number }
+
+/** Offer AI only after a valid search settles without any local or captured matches. */
+export function shouldOfferExploreWithAI(
+  query:string,
+  mode:CodeSearchMode,
+  busy:boolean,
+  error:string|null,
+  resultCount:number,
+):boolean {
+  const length=[...query.trim()].length;
+  return length>=(mode==='regex'?1:2)&&length<=240&&!busy&&!error&&resultCount===0;
+}
+
 interface SearchUpdates {
   hits:(hits:SourceMatch[])=>void; limited:(limited:boolean)=>void;
   busy:(busy:boolean)=>void; error:(error:string|null)=>void;

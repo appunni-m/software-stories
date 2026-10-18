@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { searchCapturedSource, searchExploration, workspaceSearchResults } from '../src/workspace/codeSearch.ts';
+import { searchCapturedSource, searchExploration, shouldOfferExploreWithAI, workspaceSearchResults } from '../src/workspace/codeSearch.ts';
 
 function harness(request={}) {
   const state={hits:['old'],limited:true,busy:false,error:'old'},calls=[],timers=new Map();let next=0,reply;
@@ -75,6 +75,19 @@ test('production search binds the helper, explicit pressed mode and Mac physical
   assert.match(source,/aria-label="Use regular expression" aria-pressed=\{repositoryRegex\}/);
   assert.match(source,/event\.altKey&&event\.code==='KeyR'/);
   assert.match(source,/repositorySearch&&!searchBusy&&!searchError&&results\.length===0/);
+  assert.match(source,/shouldOfferExploreWithAI\(repositorySearch,searchMode,searchBusy,searchError,results\.length\)/);
+  assert.match(source,/shouldOfferExploreWithAI\(query,searchMode,searchBusy,searchError,results\.length\)/);
+});
+
+test('Explore with AI appears only when a settled search has no matches or search error',()=>{
+  assert.equal(shouldOfferExploreWithAI('memory_face','code',true,null,0),false);
+  assert.equal(shouldOfferExploreWithAI('memory_face','code',false,'Search failed',0),false);
+  assert.equal(shouldOfferExploreWithAI('memory_face','code',false,null,1),false);
+  assert.equal(shouldOfferExploreWithAI('memory_face','code',false,null,0),true);
+  assert.equal(shouldOfferExploreWithAI('a','code',false,null,0),false);
+  assert.equal(shouldOfferExploreWithAI('.','regex',false,null,0),true);
+  assert.equal(shouldOfferExploreWithAI('x'.repeat(241),'code',false,null,0),false);
+  assert.equal(shouldOfferExploreWithAI('   ','code',false,null,0),false);
 });
 
 test('explicit AI exploration uses regex matches as bounded starting ranges without running generation',()=>{
