@@ -1,4 +1,5 @@
 import { createQuestionQueue } from './queue';
+import { createRefreshQueue, type RefreshQueue } from './refreshQueue';
 import { useRef, useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -132,16 +133,17 @@ async function reconcileAnswer(project: string, snapshot: string, turnId: string
     notes:cleanAnswerNotes(summary.incompleteTopics),error:undefined});
   return revision;
 }
-const restorations = new Map<string, Promise<void>>();
+interface Restoration { queue: RefreshQueue; check: () => void }
+const restorations = new Map<string, Restoration>();
 /** A reloaded webview can observe a still-owned native worker. Reading its
  * events does not dispatch a question; Stop uses the persisted native run ID. */
 export async function watchWorkspaceAnswers(project: string, snapshot: string): Promise<() => void> {
-  let closed = false; let pending = Promise.resolve();
+  let closed = false;
   const refresh = (scope: {projectId:string;snapshotId:string;runId:string}) => {
     if (closed || scope.projectId !== project || scope.snapshotId !== snapshot) return;
     const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.runIds?.includes(scope.runId));
     if (turn && jobs.has(turn.id) && !turn.guideId) return;
-    pending = pending.then(async () => { if (!closed) await restoreWorkspaceAnswers(project,snapshot); }).catch(() => {});
+    void restoreWorkspaceAnswers(project,snapshot).catch(() => {});
   };
   const section = await listen<Pick<AnswerSummary,'projectId'|'snapshotId'|'runId'>>('workspace-answer-section',({payload}) => refresh(payload));
   try {
@@ -149,7 +151,9 @@ export async function watchWorkspaceAnswers(project: string, snapshot: string): 
     try {
       const guide = await listen<RepositoryGuide>('repository-guide-changed',({payload}) => {
         if (closed || payload.projectId !== project || payload.snapshotId !== snapshot) return;
-        pending = pending.then(() => reconcileGuide(project,snapshot,payload)).catch(() => {});
+        // Events invalidate saved data. Reading it again also verifies the
+        // latest guide instead of allowing an older event payload to win.
+        void restoreWorkspaceAnswers(project,snapshot).catch(() => {});
       });
       return () => {closed=true;section();finished();guide();};
     } catch (error) { finished(); throw error; }
@@ -158,25 +162,40 @@ export async function watchWorkspaceAnswers(project: string, snapshot: string): 
 /** Restart recovery is local reading only. It never reconnects or replays AI. */
 export function restoreWorkspaceAnswers(project: string, snapshot: string): Promise<void> {
   const scope = key(project,snapshot);
-  const existing = restorations.get(scope); if (existing) return existing;
-  const pending = (async () => {
-    await restoreRepositoryGuides(project,snapshot);
-    const saved = await invoke<AnswerSummary[]>('list_workspace_answers',{projectId:project,snapshotId:snapshot});
-    for (const entry of saved) {
-      let turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.runIds?.includes(entry.runId));
-      if (turn?.guideId) continue;
-      if (turn && jobs.has(turn.id)) continue;
-      if (!turn) {
-        const id = crypto.randomUUID();
-        turn = {id,question:entry.question,context:[],status:'interrupted',runIds:[entry.runId],publishedSections:[]};
-        const restored = turn;
-        updateWorkspace(project,snapshot,(state) => ({...state,explorations:state.explorations.map((e) => e.id === 'root' ? {...e,turns:[...e.turns,restored]} : e)}));
-      }
-      const summary = await invoke<AnswerSummary>('load_workspace_answer',{projectId:project,snapshotId:snapshot,runId:entry.runId});
-      await reconcileAnswer(project,snapshot,turn.id,summary);
+  let restoration = restorations.get(scope);
+  if (!restoration) {
+    let failure: { value: unknown } | null = null;
+    const entry: Restoration = {
+      queue: createRefreshQueue<void>({
+        load: () => readSavedWorkspaceAnswers(project,snapshot),
+        onValue: () => { failure = null; },
+        onError: (value) => { failure = {value}; },
+        onIdle: () => { if (restorations.get(scope) === entry) restorations.delete(scope); },
+      }),
+      check: () => { if (failure) throw failure.value; },
+    };
+    restorations.set(scope,entry); restoration = entry;
+  }
+  // A concurrent invalidation schedules one fresh serial read. Every caller
+  // waits for that read and receives its final failure; no error retries itself.
+  return restoration.queue.refresh().then(restoration.check);
+}
+async function readSavedWorkspaceAnswers(project: string, snapshot: string): Promise<void> {
+  await restoreRepositoryGuides(project,snapshot);
+  const saved = await invoke<AnswerSummary[]>('list_workspace_answers',{projectId:project,snapshotId:snapshot});
+  for (const entry of saved) {
+    let turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.runIds?.includes(entry.runId));
+    if (turn?.guideId) continue;
+    if (turn && jobs.has(turn.id)) continue;
+    if (!turn) {
+      const id = crypto.randomUUID();
+      turn = {id,question:entry.question,context:[],status:'interrupted',runIds:[entry.runId],publishedSections:[]};
+      const restored = turn;
+      updateWorkspace(project,snapshot,(state) => ({...state,explorations:state.explorations.map((e) => e.id === 'root' ? {...e,turns:[...e.turns,restored]} : e)}));
     }
-  })().finally(() => restorations.delete(scope));
-  restorations.set(scope,pending); return pending;
+    const summary = await invoke<AnswerSummary>('load_workspace_answer',{projectId:project,snapshotId:snapshot,runId:entry.runId});
+    await reconcileAnswer(project,snapshot,turn.id,summary);
+  }
 }
 /** Explicitly remove a terminal investigation receipt after its drafts have
  * been saved. Questions, source links and chapter revisions remain readable. */
