@@ -19,14 +19,13 @@ use std::{
 };
 use tantivy::{
     Index, IndexWriter, Term,
-    collector::{Count, TopDocs},
     query::{BooleanQuery, BoostQuery, Occur, Query, TermQuery},
-    schema::{Field, IndexRecordOption, STORED, STRING, Schema, TEXT, TantivyDocument, Value},
+    schema::{FAST, Field, IndexRecordOption, STORED, STRING, Schema, TEXT, TantivyDocument, Value},
 };
 use uuid::Uuid;
 
-const VERSION: &str = "atlas-ranges-v2-identifiers-v1-policy-v2";
-// The layout algorithm and source policy did not change with stored document IDs.
+const VERSION: &str = "atlas-ranges-v3-identifiers-v1-policy-v2";
+// Search identity/ordering fields do not change source policy or chunk layouts.
 const CHUNK_VERSION: &str = "atlas-ranges-v1-identifiers-v1-policy-v2";
 pub(crate) const CHUNK_BYTES: usize = 8192;
 const MAX_CHUNKS: usize = 50_000;
@@ -325,7 +324,8 @@ pub(crate) fn source(
 fn schema() -> Schema {
     let mut schema = Schema::builder();
     schema.add_text_field("range_key", STRING | STORED);
-    schema.add_text_field("source_path", STRING);
+    schema.add_text_field("source_path", STRING | FAST);
+    schema.add_u64_field("start_byte", FAST);
     schema.add_text_field("body", TEXT);
     schema.add_text_field("path", TEXT);
     schema.add_text_field("scope", STRING);
@@ -540,13 +540,25 @@ fn load_generation(
     let range_key = field(&index, "range_key").ok()?;
     let mut seen = BTreeSet::new();
     for (ordinal, segment) in searcher.segment_readers().iter().enumerate() {
+        let paths = segment.fast_fields().str("source_path").ok()??;
+        let starts = segment.fast_fields().u64("start_byte").ok()?;
+        let mut path = String::new();
         for doc_id in segment.doc_ids_alive() {
             budget.check().ok()?;
             let doc = searcher
                 .doc::<TantivyDocument>(tantivy::DocAddress::new(ordinal as u32, doc_id))
                 .ok()?;
             let key = doc.get_first(range_key)?.as_str()?;
-            if !ranges_by_key.contains_key(key) || !seen.insert(key.to_owned()) {
+            let range = metadata.ranges.get(*ranges_by_key.get(key)?)?;
+            let mut path_values = paths.ords().values_for_doc(doc_id);
+            let mut start_values = starts.values_for_doc(doc_id);
+            if !paths.ord_to_str(path_values.next()?, &mut path).ok()?
+                || path_values.next().is_some()
+                || start_values.next()? != range.start_byte as u64
+                || start_values.next().is_some()
+                || path != range.path
+                || !seen.insert(key.to_owned())
+            {
                 return None;
             }
         }
@@ -642,6 +654,7 @@ fn prepare_cached(
         .map_err(|_| "Local code index writer is unavailable.".to_owned())?;
     let range_key = field(&index, "range_key")?;
     let source_path = field(&index, "source_path")?;
+    let start_byte = field(&index, "start_byte")?;
     let body = field(&index, "body")?;
     let path_field = field(&index, "path")?;
     let exact = field(&index, "exact")?;
@@ -812,6 +825,7 @@ fn prepare_cached(
                 let mut doc = TantivyDocument::default();
                 doc.add_text(range_key, &key);
                 doc.add_text(source_path, &file.path);
+                doc.add_u64(start_byte, chunk.start_byte as u64);
                 doc.add_text(body, terms(text).join(" "));
                 doc.add_text(path_field, terms(&file.path).join(" "));
                 for word in text
@@ -1399,11 +1413,7 @@ fn search_ranked(
         .reader()
         .map_err(|_| "Code search index could not be opened. Try rebuilding it.".to_owned())?;
     let searcher = reader.searcher();
-    let (mut found, total) = searcher
-        .search(
-            &lexical,
-            &(TopDocs::with_limit(MAX_CANDIDATES).order_by_score(), Count),
-        )
+    let (mut found, total) = ranking::candidates(&searcher, &lexical)
         .map_err(|_| "Code search failed. Try rebuilding its local index.".to_owned())?;
     let exact_query = if query.split_whitespace().count() == 1 {
         let last = query.rsplit("::").next().unwrap_or(query).to_lowercase();
@@ -1422,11 +1432,7 @@ fn search_ranked(
     let mut declaration_docs = BTreeSet::new();
     let mut exact_limited = false;
     if let Some(exact) = exact_query {
-        let (hits, count) = searcher
-            .search(
-                &exact,
-                &(TopDocs::with_limit(MAX_CANDIDATES).order_by_score(), Count),
-            )
+        let (hits, count) = ranking::candidates(&searcher, &exact)
             .map_err(|_| "Exact identifier search failed.".to_owned())?;
         exact_limited = count > MAX_CANDIDATES;
         for (score, address) in hits {
@@ -1445,11 +1451,7 @@ fn search_ranked(
             &prepared.index,
             path,
         )?;
-        let (hits, count) = searcher
-            .search(
-                &declarations,
-                &(TopDocs::with_limit(MAX_CANDIDATES).order_by_score(), Count),
-            )
+        let (hits, count) = ranking::candidates(&searcher, &declarations)
             .map_err(|_| "Declaration search failed.".to_owned())?;
         exact_limited |= count > MAX_CANDIDATES;
         for (score, address) in hits {
@@ -1585,3 +1587,4 @@ mod tests;
 
 mod cache;
 mod incremental;
+mod ranking;
