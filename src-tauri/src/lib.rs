@@ -10,6 +10,7 @@
 
 mod bounded_file;
 mod app_notices;
+mod app_close;
 mod workspace_conversation;
 mod bounded_process;
 mod chapter_freshness;
@@ -1930,6 +1931,7 @@ pub fn run_quality_helper() -> bool { chapter_quality::run_if_requested() }
 /// Panics if the application cannot start.
 pub fn run() {
     tauri::Builder::default()
+        .manage(app_close::AppCloseGuard::default())
         .plugin(tauri_plugin_dialog::init())
         .manage(ProjectSessions::default())
         .manage(codex_agent::CodexAgentManager::default())
@@ -1946,6 +1948,8 @@ pub fn run() {
         .manage(recovery::InterruptionJournal::default())
         .manage(ChapterStoreLock::default())
         .invoke_handler(tauri::generate_handler![
+            app_close::register_app_close_guard,
+            app_close::complete_app_close,
             app_notices::list_app_notices,
             workspace_conversation::load_workspace_conversation,
             workspace_conversation::save_workspace_conversation,
@@ -2086,6 +2090,7 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("failed to build Code Atlas")
         .run(|app, event| {
+            app_close::handle_event(app, &event);
             if matches!(event, tauri::RunEvent::Exit) {
                 app.state::<codex_agent::CodexAgentManager>().shutdown();
                 app.state::<claude_worker::ClaudeWorkerManager>().shutdown();

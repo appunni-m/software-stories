@@ -30,6 +30,35 @@ function fixture({load,update}={}){
   return {api,calls,history:new NoticeHistory(api),saved:()=>structuredClone(data)};
 }
 
+test('close flush includes a publication still hashing and its held native write',async()=>{
+  const gate=deferred();let updates=0;
+  const f=fixture({update:async()=>{updates++;await gate.promise;return emptyNoticeHistory();}});
+  const publishing=f.history.publish(input);const resume=f.history.beginClose();let done=false;
+  const saving=f.history.flush().then(()=>{done=true;});await publishing;await flush();assert.equal(done,false);assert.equal(updates,1);
+  gate.resolve();await saving;assert.equal(done,true);resume();
+});
+
+test('late notification edits wait for close cancellation and failed close cannot retry storage automatically',async()=>{
+  const f=fixture();await f.history.publish(input);await f.history.flush();const id=f.history.getSnapshot().items[0].id;
+  const resume=f.history.beginClose();f.history.read(id);await f.history.publish({...input,message:'Late background result'});
+  await f.history.flush();assert.equal(f.saved().items.length,1);assert.equal(f.saved().items[0].read,false);
+  resume();resume();await f.history.flush();assert.equal(f.saved().items.length,2);assert.equal(f.saved().items.find(x=>x.id===id).read,true);
+  const failed=fixture({update:async()=>{throw new Error('controlled unavailable storage');}});await failed.history.publish(input);await settled(failed.history);
+  const calls=failed.calls.length;await assert.rejects(failed.history.flush());await flush();assert.equal(failed.calls.length,calls);
+});
+
+test('an earlier conversation save can resolve its notice during close and persist that resolution',async()=>{
+  const f=fixture(),scoped={...input,occurrenceId:'save-episode'};
+  await f.history.publish(scoped);await f.history.flush();const resume=f.history.beginClose();
+  f.history.resolveOccurrence('project-one','snap-one','save-episode');await f.history.flush();
+  assert.equal(f.saved().items.length,0);assert.equal(f.saved().dismissed.length,1);resume();
+});
+
+test('an initial unreadable notification journal with no edits can close without replacing or retrying it',async()=>{
+  const f=fixture({load:async()=>{throw new Error('unreadable original');}});f.history.start();await settled(f.history);
+  await f.history.flush();assert.equal(f.calls.length,1);assert.equal(f.calls[0].kind,'load');
+});
+
 test('canonical Unicode identity matches the independent native golden value',async()=>{
   assert.equal(await noticeKey(normalizeNotice(input)),'d18911fbf06bfa438a39042ba1c956a52025741c0dd8cfab89be057b27879517');
   assert.deepEqual(Object.keys(normalizeNotice({title:'A',message:'B'})),['title','message','tone','projectId','snapshotId','target','occurrenceId']);

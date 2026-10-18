@@ -65,6 +65,10 @@ export class NoticeHistory {
   private base=emptyNoticeHistory();
   private pending:Pending[]=[];
   private preparing=new Set<{input:SavedNoticeInput;cancelled:boolean}>();
+  private publications=new Set<Promise<void>>();
+  private active:Promise<void>|null=null;
+  private closing=false;
+  private deferred:(()=>void)[]=[];
   private listeners=new Set<()=>void>();
   private started=false;
   private running=false;
@@ -79,7 +83,13 @@ export class NoticeHistory {
     for(const callback of this.listeners) callback();
   }
   start() {if(this.started)return;this.started=true;this.pending.unshift({kind:'load'});this.run();}
-  async publish(input:AppNoticeInput):Promise<void> {
+  publish(input:AppNoticeInput):Promise<void> {
+    if(this.closing){this.deferred.push(()=>{void this.publish(input);});return Promise.resolve();}
+    const task=this.publishNow(input);this.publications.add(task);
+    void task.finally(()=>{this.publications.delete(task);});
+    return task;
+  }
+  private async publishNow(input:AppNoticeInput):Promise<void> {
     let preparing:{input:SavedNoticeInput;cancelled:boolean}|undefined;
     try {
       const normalized=normalizeNotice(input);preparing={input:normalized,cancelled:false};this.preparing.add(preparing);
@@ -96,16 +106,47 @@ export class NoticeHistory {
   resolveOccurrence(projectId:string,snapshotId:string,occurrenceId:string) {
     const matches=(input:SavedNoticeInput)=>input.projectId===projectId&&input.snapshotId===snapshotId&&input.occurrenceId===occurrenceId;
     for(const entry of this.preparing)if(matches(entry.input))entry.cancelled=true;
-    for(const item of projectNotices(this.base,this.pending).items)if(matches(item.input))this.dismiss(item.id);
+    // A save completing during close can resolve its old failure notice. This
+    // acknowledgment belongs to the already admitted write, not a new UI edit.
+    for(const item of projectNotices(this.base,this.pending).items)if(matches(item.input))this.enqueueNow({kind:'dismiss',id:item.id});
   }
   read(id:string) {this.enqueue({kind:'read',id});}
   dismiss(id:string) {this.enqueue({kind:'dismiss',id});}
-  retry() {this.blocked=false;if(!this.pending.length)this.pending.push({kind:'load'});this.run();}
-  private enqueue(operation:NoticeOperation) {this.start();this.pending.push({operation});this.emit();this.run();}
+  retry() {if(this.closing)return;this.blocked=false;if(!this.pending.length)this.pending.push({kind:'load'});this.run();}
+  beginClose():()=>void {
+    if(this.closing)throw new Error('Closing is already in progress.');
+    this.closing=true;let resumed=false;
+    return()=>{
+      if(resumed)return;resumed=true;this.closing=false;
+      const deferred=this.deferred;this.deferred=[];
+      for(const update of deferred)update();
+    };
+  }
+  async flush():Promise<void> {
+    for(;;){
+      if(this.blocked){
+        if(this.pending.some(entry=>'operation' in entry)||this.publications.size)throw new Error('Your updates could not be saved.');
+        return; // An initial read failure has not changed any saved updates.
+      }
+      await Promise.all([...this.publications]);
+      if(this.blocked)throw new Error('Your updates could not be saved.');
+      if(this.active)await this.active;
+      else if(this.pending.length)this.run();
+      else if(!this.publications.size)return;
+    }
+  }
+  private enqueue(operation:NoticeOperation) {
+    if(this.closing){this.deferred.push(()=>this.enqueue(operation));return;}
+    this.enqueueNow(operation);
+  }
+  private enqueueNow(operation:NoticeOperation) {
+    this.start();this.pending.push({operation});this.emit();this.run();
+  }
   private run() {
     if(this.running||this.blocked)return;
     this.running=true;this.emit();
-    void this.drain();
+    const finishing=this.drain().finally(()=>{if(this.active===finishing)this.active=null;});
+    this.active=finishing;
   }
   private async drain() {
     try {

@@ -86,6 +86,12 @@ export class ConversationPersistence {
     if(this.availability!=='ready'||this.blocked)throw unavailable();
     while(this.active||this.pending||this.attempt)await this.drain();
   }
+  async flushBeforeClose():Promise<void> {
+    // Initial hydration may still own a migration write. A failed initial read
+    // with no edits has nothing to lose and must not trap the startup screen.
+    if(this.starting)try{await this.starting;}catch{/* Original bytes are preserved by start. */}
+    if(this.active||this.pending||this.attempt)await this.flush();
+  }
   async retry():Promise<void> {
     await this.start();this.blocked=false;await this.flush();
   }

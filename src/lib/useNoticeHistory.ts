@@ -2,6 +2,7 @@ import {useEffect,useState,useSyncExternalStore} from 'react';
 import {invoke} from '@tauri-apps/api/core';
 import {isNativeRuntime} from './commands';
 import {emptyNoticeHistory,NoticeHistory,noticeKey,projectNotices,type NoticeHistoryData} from './noticeHistory';
+import {appCloseCoordinator} from './closeCoordinator';
 
 export function useNoticeHistory() {
   const [history]=useState(()=>{
@@ -15,6 +16,9 @@ export function useNoticeHistory() {
     return new NoticeHistory({load:()=>invoke<NoticeHistoryData>('list_app_notices'),
       update:(operation)=>invoke<NoticeHistoryData>('update_app_notices',{operation})});
   });
-  useEffect(()=>{history.start();},[history]);
+  useEffect(()=>{
+    const unregister=appCloseCoordinator.register({flushOrder:1,freeze:()=>history.beginClose(),flush:()=>history.flush()});
+    history.start();return unregister;
+  },[history]);
   return {history,state:useSyncExternalStore(history.subscribe,history.getSnapshot,history.getSnapshot)};
 }

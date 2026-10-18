@@ -45,6 +45,24 @@ const jobs = new Map<string, { cancelled: boolean; runId: string | null }>();
 const key = (project:string,snapshot:string) => JSON.stringify([project,snapshot]);
 const legacyKey = (project: string, snapshot: string) => `code-atlas:workspace:v1:${project}:${snapshot}`;
 const conversations=new Map<string,ConversationPersistence>();
+const closingMessage='Code Atlas is closing. This question can be tried again.';
+let closingWorkspace=false;
+let deferredCloseUpdates:(()=>void)[]=[];
+/** Freeze after reader capture. Late native-job reconciliation is replayed if
+ * close fails; its source artifacts/run references already live natively. */
+export function beginWorkspaceClose():()=>void {
+  if(closingWorkspace)throw new Error('Closing is already in progress.');
+  closingWorkspace=true;
+  let resumed=false;
+  return()=>{
+    if(resumed)return;resumed=true;closingWorkspace=false;
+    const updates=deferredCloseUpdates;deferredCloseUpdates=[];
+    for(const update of updates)update();
+  };
+}
+export async function flushAllWorkspaceConversations():Promise<void> {
+  await Promise.all([...conversations.values()].map(entry=>entry.flushBeforeClose()));
+}
 function savedConversation(project:string,snapshot:string):ConversationPersistence {
   const id=key(project,snapshot);let entry=conversations.get(id);
   if(!entry){entry=new ConversationPersistence({projectId:project,snapshotId:snapshot,
@@ -73,7 +91,10 @@ function reportUnsavedConversation(project:string,snapshot:string,native=false){
     message:native?'Some conversation changes could not be saved. Existing explanations are preserved.':'Local workspace storage is unavailable. Generated explanations remain in the native library.',
     projectId:project,snapshotId:snapshot,occurrenceId,...(native?{target:{kind:'retryConversation'}}:{})}}));
 }
-export function prepareWorkspaceConversation(project:string,snapshot:string):Promise<void>{return isNativeRuntime()?savedConversation(project,snapshot).start():Promise.resolve();}
+export function prepareWorkspaceConversation(project:string,snapshot:string):Promise<void>{
+  if(closingWorkspace)return new Promise((resolve,reject)=>{deferredCloseUpdates.push(()=>{void prepareWorkspaceConversation(project,snapshot).then(resolve,reject);});});
+  return isNativeRuntime()?savedConversation(project,snapshot).start():Promise.resolve();
+}
 export function flushWorkspaceConversation(project:string,snapshot:string):Promise<void>{return isNativeRuntime()?savedConversation(project,snapshot).flush():Promise.resolve();}
 export function retryWorkspaceConversation(project:string,snapshot:string):Promise<void>{return isNativeRuntime()?savedConversation(project,snapshot).retry():Promise.resolve();}
 export function useConversationAvailability(project:string,snapshot:string){
@@ -85,6 +106,7 @@ export function getWorkspace(project: string, snapshot: string): WorkspaceState 
   return states.get(id)!;
 }
 export function updateWorkspace(project: string, snapshot: string, update: (state: WorkspaceState) => WorkspaceState) {
+  if(closingWorkspace){deferredCloseUpdates.push(()=>updateWorkspace(project,snapshot,update));return;}
   if(isNativeRuntime()&&savedConversation(project,snapshot).availability!=='ready')throw new Error('The saved conversation is still opening.');
   const id = key(project, snapshot); const previous = getWorkspace(project, snapshot); const next = recordQuestionOutcomes(previous, update(previous), Date.now());
   if (next === previous) return;
@@ -304,16 +326,20 @@ async function restoreRepositoryGuides(project: string, snapshot: string) {
  * restored metadata never calls this function. */
 export async function runRepositoryGuide(project: string, snapshot: string, id: string, grantId: string, resume = false) {
   if (jobs.has(id)) return;
+  if(closingWorkspace){patchTurn(project,snapshot,id,{status:'interrupted',error:closingMessage});return;}
   const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === id);
   if (!turn?.guideId) return;
   const job = {cancelled:false,runId:null as string|null};jobs.set(id,job);
   const release = await enterQuestionQueue();
   try {
     if (job.cancelled) return;
+    if(closingWorkspace)throw new Error(closingMessage);
     patchTurn(project,snapshot,id,{status:'working',error:undefined});
     await flushWorkspaceConversation(project,snapshot);
+    if(closingWorkspace)throw new Error(closingMessage);
     await ensureCodexConnection(true);
     if (job.cancelled) return;
+    if(closingWorkspace)throw new Error(closingMessage);
     const selection = readCodexSelection();
     if (selection.modelId !== 'gpt-6-luna' || selection.effort !== 'max') throw new Error('Choose GPT-6 Luna with max reasoning in the connection settings.');
     job.runId = turn.guideId;
@@ -323,18 +349,20 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
     await reconcileGuide(project,snapshot,guide);
   } catch (failure) {
     try { await restoreRepositoryGuides(project,snapshot); } catch { /* Preserve saved cards and the original error. */ }
-    patchTurn(project,snapshot,id,{status:job.cancelled?'stopped':'partial',error:errorMessageOr(failure,'The guide could not be completed. Saved sections remain available.')});
+    const message=errorMessageOr(failure,'The guide could not be completed. Saved sections remain available.');
+    patchTurn(project,snapshot,id,{status:job.cancelled?'stopped':message===closingMessage?'interrupted':'partial',error:message});
   } finally { release();jobs.delete(id); }
 }
 /** Module-owned operation: changing tab, file, repository or opening settings does not cancel it. */
 export async function runQuestion(project: string, snapshot: string, id: string, grantId: string): Promise<ChapterRevision | null> {
   if (jobs.has(id)) return null;
+  if(closingWorkspace){patchTurn(project,snapshot,id,{status:'interrupted',error:closingMessage});return null;}
   const owner = getWorkspace(project,snapshot).explorations.find((e) => e.turns.some((t) => t.id === id));
   const turn = owner?.turns.find((t) => t.id === id);
   if (!turn || !owner) return null;
   if ((turn.runIds?.length ?? 0) >= 32) { patchTurn(project,snapshot,id,{error:'This question has reached its retry limit. Ask a follow-up to continue.'}); return null; }
   const job = {cancelled:false,runId:null as string | null}; jobs.set(id,job);
-  const check = () => {if (job.cancelled) throw new Error('Stopped');};
+  const check = () => {if (job.cancelled)throw new Error('Stopped');if(closingWorkspace)throw new Error(closingMessage);};
   patchTurn(project,snapshot,id,{status:'queued',error:undefined});
   const release = await enterQuestionQueue();
   let unlisten: (() => void) | undefined;
@@ -378,7 +406,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
       const message = errorMessageOr(failure,'This question could not be completed. Saved sections remain available.');
       if (/permission|allow.*explor|snapshot or Codex account changed/i.test(message)) updateWorkspace(project,snapshot,(s) => ({...s,grantId:undefined}));
       const saved = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === id)?.publishedSections;
-      patchTurn(project,snapshot,id,{status:job.cancelled ? 'stopped' : saved?.length ? 'partial' : 'failed',error:job.cancelled ? undefined : message});
+      patchTurn(project,snapshot,id,{status:job.cancelled ? 'stopped' : message===closingMessage ? 'interrupted' : saved?.length ? 'partial' : 'failed',error:job.cancelled ? undefined : message});
     }
     return null;
   } finally { unlisten?.(); release(); jobs.delete(id); }

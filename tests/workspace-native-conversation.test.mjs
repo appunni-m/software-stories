@@ -24,6 +24,58 @@ function backend(){
 const scope=JSON.stringify(['project','snapshot']);
 const native=(b,storage=new Map())=>workspaceStoreHarness(b.invoke,{native:true,storage});
 
+test('close waits for all scopes and startup migration, then resumes deferred edits only on cancellation',async()=>{
+  const b=backend(),h=native(b),held=deferred();b.controls.beforeSave=()=>held.promise;
+  const opening=h.store.prepareWorkspaceConversation('project','snapshot');let finished=false;
+  const barrier=h.store.flushAllWorkspaceConversations().then(()=>{finished=true;});await flushLocalReads();assert.equal(finished,false);
+  held.resolve();await opening;await barrier;b.controls.beforeSave=null;
+  await h.store.prepareWorkspaceConversation('other','snapshot');
+  h.store.updateWorkspace('project','snapshot',s=>({...s,file:'src/current.rs'}));
+  h.store.updateWorkspace('other','snapshot',s=>({...s,file:'src/other.rs'}));
+  const resume=h.store.beginWorkspaceClose();h.store.updateWorkspace('project','snapshot',s=>({...s,file:'src/late.rs'}));
+  await h.store.flushAllWorkspaceConversations();assert.equal(b.records.get(scope).state.file,'src/current.rs');
+  assert.equal(b.records.get(JSON.stringify(['other','snapshot'])).state.file,'src/other.rs');
+  assert.equal(h.store.getWorkspace('project','snapshot').file,'src/current.rs');
+  resume();resume();await h.store.flushAllWorkspaceConversations();assert.equal(b.records.get(scope).state.file,'src/late.rs');
+});
+
+test('close refuses a blocked write without retry and initial read failure without edits does not trap startup',async()=>{
+  const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');
+  b.controls.beforeSave=()=>{throw new Error('controlled save fault');};h.store.updateWorkspace('project','snapshot',s=>({...s,file:'src/pending.rs'}));
+  await assert.rejects(h.store.flushAllWorkspaceConversations());const count=b.writes.length;
+  await assert.rejects(h.store.flushAllWorkspaceConversations());assert.equal(b.writes.length,count);
+  const failed=backend();failed.controls.load=()=>{throw new Error('controlled load fault');};const unopened=native(failed);
+  await assert.rejects(unopened.store.prepareWorkspaceConversation('project','snapshot'));await unopened.store.flushAllWorkspaceConversations();assert.equal(failed.writes.length,0);
+});
+
+test('a repository opening late cannot start a new migration after the close barrier froze scopes',async()=>{
+  const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');
+  const resume=h.store.beginWorkspaceClose(),calls=h.calls.length;let opened=false;
+  const opening=h.store.prepareWorkspaceConversation('other','snapshot').then(()=>{opened=true;});
+  await h.store.flushAllWorkspaceConversations();await flushLocalReads();assert.equal(opened,false);assert.equal(h.calls.length,calls);
+  resume();await opening;assert.equal(opened,true);assert.equal(b.records.size,2);
+});
+
+test('closing cannot dispatch a newly queued question or repository guide',async()=>{
+  const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');
+  const question=h.store.appendQuestion('project','snapshot','Existing question',[],'guide');
+  const guide=h.store.appendRepositoryGuide('project','snapshot','Existing guide');await h.store.flushAllWorkspaceConversations();
+  const resume=h.store.beginWorkspaceClose();
+  assert.equal(await h.store.runQuestion('project','snapshot',question,'grant'),null);
+  await h.store.runRepositoryGuide('project','snapshot',guide,'grant');
+  assert.ok(h.calls.every(c=>['load_workspace_conversation','save_workspace_conversation'].includes(c.name)));
+  resume();assert.ok(h.store.getWorkspace('project','snapshot').explorations[0].turns.every(t=>t.status==='interrupted'));
+});
+
+test('closing during account lookup stops dispatch and failed-close recovery leaves an explicit interrupted question',async()=>{
+  const b=backend(),lookup=deferred();const h=workspaceStoreHarness(b.invoke,{native:true,ensureCodexConnection:()=>lookup.promise,readCodexSelection:()=>({modelId:'gpt-6-luna',effort:'max'})});
+  await h.store.prepareWorkspaceConversation('project','snapshot');const id=h.store.appendQuestion('project','snapshot','Queued before close',[],'guide');
+  const running=h.store.runQuestion('project','snapshot',id,'grant');await flushLocalReads();
+  const resume=h.store.beginWorkspaceClose();await h.store.flushAllWorkspaceConversations();lookup.resolve();await running;
+  assert.ok(h.calls.every(c=>['load_workspace_conversation','save_workspace_conversation'].includes(c.name)));
+  resume();assert.equal(h.store.getWorkspace('project','snapshot').explorations[0].turns[0].status,'interrupted');
+});
+
 test('native restart restores owned scenes, times, viewport, pane and expanded static links without browser preferences',async()=>{
   const b=backend(),storage=new Map(),h=native(b,storage);await h.store.prepareWorkspaceConversation('project','snapshot');
   const state=addTurn(h.store.getWorkspace('project','snapshot'),{id:'reader-turn',question:'Follow the parser',context:[],status:'ready',revisionId:'revision:one'},'guide');

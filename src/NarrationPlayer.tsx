@@ -38,6 +38,7 @@ import { narrationStorageKey, scopedNarrationPreferences } from './lib/narration
 import { applyVoiceConnection } from './lib/voiceConnection';
 import { openVoiceConnections, readVoiceConnection, useVoiceConnection } from './lib/voiceConnectionStore';
 import type { ChapterSection } from './lib/commands';
+import {appCloseCoordinator} from './lib/closeCoordinator';
 
 interface NarrationPlayerProps {
   projectId: string;
@@ -545,6 +546,18 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     lastRoutePositionRef.current = position;
     onPlaybackPositionChange(position);
   };
+
+  useEffect(()=>appCloseCoordinator.register({
+    capture:()=>{
+      const player=audioRef.current;
+      // An unloaded audio element reports zero; it must not erase a saved time.
+      if(mountedRef.current&&player&&player.readyState>=1&&restoreTimeRef.current===null){
+        persistPlaybackPosition(player.currentTime);
+        completionArmed.current=false;player.pause();
+      }
+    },
+    flush:()=>Promise.resolve(),
+  }),[storageKey,onPlaybackPositionChange]);
 
   const handleTimeUpdate = () => {
     const player = audioRef.current;
