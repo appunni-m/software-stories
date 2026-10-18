@@ -168,6 +168,8 @@ pub(crate) struct PreparedIndex {
     index: Index,
     metadata: Metadata,
     pub(crate) reused_generation: bool,
+    // Drop after Index: its directory remains protected for every later reader().
+    _lease: cache::ReadLease,
 }
 
 #[derive(PartialEq, Eq)]
@@ -462,7 +464,8 @@ fn root(storage: &Path, project: &str, snapshot_id: &str) -> PathBuf {
         .join(digest(snapshot_id.as_bytes()))
 }
 
-fn load_generation(directory: &Path, fingerprint: &str) -> Option<PreparedIndex> {
+fn load_generation(cache: &cache::Cache, fingerprint: &str) -> Option<PreparedIndex> {
+    let directory = &cache.directory;
     let pointer: Pointer =
         serde_json::from_slice(&bounded_file::read(&directory.join("current.json"), 4096).ok()?)
             .ok()?;
@@ -511,13 +514,19 @@ fn load_generation(directory: &Path, fingerprint: &str) -> Option<PreparedIndex>
         index,
         metadata,
         reused_generation: true,
+        _lease: cache.lease(&generation).ok()?,
     })
 }
 
-struct Staging(PathBuf);
+struct Staging {
+    path: PathBuf,
+    published: bool,
+}
 impl Drop for Staging {
     fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
+        if !self.published {
+            let _ = fs::remove_dir_all(&self.path);
+        }
     }
 }
 
@@ -543,24 +552,37 @@ pub(crate) fn prepare(
     }) {
         return Err("The syntax index belongs to a different snapshot.".to_owned());
     }
-    let fingerprint = fingerprint(manifest, syntax)?;
-    let directory = root(
+    let cache = cache::Cache::open(
         storage,
         &manifest.summary.project_id,
         &manifest.summary.snapshot_id,
-    );
-    if let Some(prepared) = load_generation(&directory, &fingerprint) {
+        budget,
+    )?;
+    prepare_cached(storage, manifest, syntax, budget, cache)
+}
+
+fn prepare_cached(
+    storage: &Path,
+    manifest: &snapshot::SnapshotManifest,
+    syntax: Option<&index::SnapshotIndex>,
+    budget: &Budget<'_>,
+    mut cache: cache::Cache,
+) -> Result<PreparedIndex, String> {
+    let fingerprint = fingerprint(manifest, syntax)?;
+    let directory = cache.directory.clone();
+    if let Some(prepared) = load_generation(&cache, &fingerprint) {
         budget.check()?;
         return Ok(prepared);
     }
     let started = Instant::now();
-    fs::create_dir_all(&directory)
-        .map_err(|_| "Local code index storage is unavailable.".to_owned())?;
     let generation_id = Uuid::new_v4().to_string();
-    let staging = Staging(directory.join(format!("staging-{generation_id}")));
-    fs::create_dir(&staging.0)
+    let mut staging = Staging {
+        path: directory.join(format!("staging-{generation_id}")),
+        published: false,
+    };
+    fs::create_dir(&staging.path)
         .map_err(|_| "Local code index storage is unavailable.".to_owned())?;
-    let index = Index::create_in_dir(&staging.0, schema())
+    let index = Index::create_in_dir(&staging.path, schema())
         .map_err(|_| "Local code index could not be created.".to_owned())?;
     let mut writer: IndexWriter = index
         .writer_with_num_threads(1, 30_000_000)
@@ -572,9 +594,6 @@ pub(crate) fn prepare(
     let scope = field(&index, "scope")?;
     let declaration = field(&index, "declaration")?;
     let symbol_field = field(&index, "symbol")?;
-    let cache_dir = storage.join("repository-context").join("chunk-cache");
-    fs::create_dir_all(&cache_dir)
-        .map_err(|_| "Local code chunk storage is unavailable.".to_owned())?;
     let mut metadata = Metadata {
         version: VERSION.to_owned(),
         fingerprint: fingerprint.clone(),
@@ -658,7 +677,7 @@ pub(crate) fn prepare(
             &symbols,
             &coverage.parser,
         ))?);
-        let cache_path = cache_dir.join(format!("{key}.json"));
+        let cache_path = cache.chunk_path(&key);
         let cached = bounded_file::read(&cache_path, MAX_CACHE_BYTES)
             .ok()
             .and_then(|b| serde_json::from_slice::<ChunkCache>(&b).ok())
@@ -668,11 +687,12 @@ pub(crate) fn prepare(
                     && json(&c.chunks).is_ok_and(|bytes| digest(&bytes) == c.chunks_sha256)
             });
         // Validate the complete partition and coordinates against freshly hash-checked source.
-        let local_chunks = if let Some(cache) =
+        let local_chunks = if let Some(cached_chunk) =
             cached.filter(|cache| valid_chunks(&cache.chunks, &source.contents))
         {
             metadata.build.files_chunk_cache_reused += 1;
-            cache.chunks
+            cache.chunk_used(&key);
+            cached_chunk.chunks
         } else {
             metadata.build.files_chunked += 1;
             let chunks = chunks(&source.contents, &symbols, budget)?;
@@ -683,11 +703,7 @@ pub(crate) fn prepare(
                 chunks: chunks.clone(),
             })?;
             if encoded.len() <= MAX_CACHE_BYTES {
-                let temporary = cache_dir.join(format!("{key}-{}.tmp", Uuid::new_v4()));
-                if write_new(&temporary, &encoded).is_ok() {
-                    let _ = fs::rename(&temporary, &cache_path);
-                }
-                let _ = fs::remove_file(temporary);
+                cache.save_chunk(&key, &encoded, budget)?;
             }
             chunks
         };
@@ -771,7 +787,7 @@ pub(crate) fn prepare(
     if encoded.len() > MAX_METADATA_BYTES {
         return Err("Local code index metadata exceeds its size limit.".to_owned());
     }
-    write_new(&staging.0.join("ranges.json"), &encoded)?;
+    write_new(&staging.path.join("ranges.json"), &encoded)?;
     let pointer = Pointer {
         generation: generation_id.clone(),
         fingerprint,
@@ -780,43 +796,38 @@ pub(crate) fn prepare(
     let previous = bounded_file::read(&directory.join("current.json"), 4096)
         .ok()
         .and_then(|b| serde_json::from_slice::<Pointer>(&b).ok());
+    // Reclaim only unleased older generations. The current pointer survives every
+    // fallible capacity/build step, including an all-readers-pinned cache.
+    cache.trim_generations(
+        &generation_id,
+        previous.as_ref().map(|p| p.generation.as_str()),
+        budget,
+    )?;
+    let encoded_pointer = json(&pointer)?;
+    cache.reserve_publication(&staging.path, encoded_pointer.len(), budget)?;
     // No reader can see staging. Rename on the same volume, then replace the tiny pointer.
     let published = directory.join(&generation_id);
-    fs::rename(&staging.0, &published)
+    fs::rename(&staging.path, &published)
         .map_err(|_| "Local code index could not be published.".to_owned())?;
+    staging.path = published.clone();
+    let index = Index::open_in_dir(&published)
+        .map_err(|_| "Published code index is unavailable.".to_owned())?;
+    let lease = cache.lease(&published)?;
     let temporary = directory.join(format!("pointer-{generation_id}.tmp"));
-    if let Err(error) = write_new(&temporary, &json(&pointer)?).and_then(|_| {
+    if let Err(error) = write_new(&temporary, &encoded_pointer).and_then(|_| {
         budget.check()?;
         fs::rename(&temporary, directory.join("current.json"))
             .map_err(|_| "Local code index could not be published.".to_owned())
     }) {
         let _ = fs::remove_file(temporary);
-        let _ = fs::remove_dir_all(published);
         return Err(error);
     }
-    // Keep the previous generation until the next build. Native operations are serialized;
-    // a crash leaves either complete pointer intact, and immutable snapshots can be rebuilt.
-    for entry in fs::read_dir(&directory)
-        .into_iter()
-        .flatten()
-        .flatten()
-        .take(128)
-    {
-        if entry.file_type().is_ok_and(|t| t.is_dir())
-            && entry.file_name() != generation_id.as_str()
-            && !previous
-                .as_ref()
-                .is_some_and(|p| entry.file_name() == p.generation.as_str())
-            && Uuid::parse_str(&entry.file_name().to_string_lossy()).is_ok()
-        {
-            let _ = fs::remove_dir_all(entry.path());
-        }
-    }
+    staging.published = true;
     Ok(PreparedIndex {
-        index: Index::open_in_dir(published)
-            .map_err(|_| "Published code index is unavailable.".to_owned())?,
+        index,
         metadata,
         reused_generation: false,
+        _lease: lease,
     })
 }
 
@@ -1460,3 +1471,5 @@ fn search_ranked(
 
 #[cfg(test)]
 mod tests;
+
+mod cache;
