@@ -11,6 +11,7 @@
 mod bounded_file;
 mod app_notices;
 mod app_close;
+mod app_zoom;
 mod workspace_conversation;
 mod bounded_process;
 mod chapter_freshness;
@@ -1932,6 +1933,7 @@ pub fn run_quality_helper() -> bool { chapter_quality::run_if_requested() }
 pub fn run() {
     tauri::Builder::default()
         .manage(app_close::AppCloseGuard::default())
+        .manage(app_zoom::AppZoom::default())
         .menu(app_close::menu)
         .on_menu_event(app_close::handle_menu_event)
         .plugin(tauri_plugin_dialog::init())
@@ -1952,6 +1954,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             app_close::register_app_close_guard,
             app_close::complete_app_close,
+            app_zoom::restore_app_zoom,
+            app_zoom::change_app_zoom,
             app_notices::list_app_notices,
             workspace_conversation::load_workspace_conversation,
             workspace_conversation::save_workspace_conversation,

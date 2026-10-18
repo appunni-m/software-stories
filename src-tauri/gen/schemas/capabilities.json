@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Base capability for the Code Atlas application window.","local":true,"windows":["main"],"permissions":["core:default","core:webview:allow-set-webview-zoom"]}}
+{"default":{"identifier":"default","description":"Base capability for the Code Atlas application window.","local":true,"windows":["main"],"permissions":["core:default"]}}

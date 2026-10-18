@@ -9,7 +9,7 @@
 .dw-activity-bottom {margin-top:auto;}
 .dw-panels {flex:1;min-height:0;min-width:0;}
 .dw-sidebar {display:flex;flex-direction:column;height:100%;overflow:auto;background:var(--surface);}
-.dw-sidebar > header {height:40px;flex:0 0 40px;display:flex;align-items:center;padding:0 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted);}
+.dw-sidebar > header {height:40px;flex:0 0 40px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted);}
 .dw-sidebar-search {padding:10px 10px 6px;}
 .dw-sidebar-section {display:flex;align-items:center;gap:7px;padding:12px 12px 6px;font-size:11px;font-weight:600;color:var(--muted);}
 .dw-sidebar-section > span {margin-left:auto;font-weight:400;}
@@ -169,3 +169,7 @@
 .dw-guide-outline li { padding: 5px 0; font-size: 13px; }
 .dw-guide-outline li small { display: block; color: var(--gray-10); }
 .dw-guide-outline p { font-size: 12px; line-height: 1.5; }
+
+/* The sidebar replaces the reader only at narrow widths; always offer a way back. */
+.developer-workspace .dw-sidebar-back {display:none;}
+@media(max-width:680px){.developer-workspace .dw-sidebar-back{display:inline-flex;}}

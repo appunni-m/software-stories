@@ -3,6 +3,7 @@ import {Button,Dialog,Flex,Table} from '@radix-ui/themes';
 const shortcuts=[
   ['Guide','⌘1'],['Flow','⌘2'],['Chat history','⌘3'],['Search files and code','⌘P / ⌘K'],
   ['Ask a question','⌘L'],['Explain selected code','⌘I'],['Parent exploration','⌥←'],['Zoom in / out (20% steps)','⌘= / ⌘−'],
+  ['Actual size (100%)','⌘0'],
 ];
 
 /** Help is an explicit view, not a saved background outcome. */

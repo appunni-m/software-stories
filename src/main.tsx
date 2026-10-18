@@ -2,6 +2,7 @@ import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import { AppErrorBoundary } from './AppErrorBoundary';
 import {installAppCloseGuard} from './lib/appClose';
+import {installAppZoom} from './lib/appZoom';
 import '@radix-ui/themes/styles.css';
 import '@xyflow/react/dist/style.css';
 import './App.css';
@@ -11,6 +12,7 @@ const root = ReactDOM.createRoot(document.getElementById('root')!);
 async function start() {
   try {
     await installAppCloseGuard();
+    await installAppZoom();
     root.render(<AppErrorBoundary><App /></AppErrorBoundary>);
   } catch {
     root.render(<main className="app-error-fallback" role="alert"><div className="app-error-card">

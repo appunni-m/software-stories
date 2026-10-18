@@ -40,6 +40,7 @@ pub(crate) fn menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wr
             position,
         )?;
     }
+    crate::app_zoom::extend_menu(app, &menu)?;
     Ok(menu)
 }
 
@@ -48,6 +49,8 @@ pub(crate) fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) 
         // AppHandle::exit emits ExitRequested; never call NSApplication's
         // predefined terminate action, which cannot await the renderer.
         app.exit(0);
+    } else {
+        crate::app_zoom::handle_menu_event(app, &event);
     }
 }
 

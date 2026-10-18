@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Base capability for the Code Atlas application window.",
   "windows": ["main"],
-  "permissions": ["core:default", "core:webview:allow-set-webview-zoom"]
+  "permissions": ["core:default"]
 }

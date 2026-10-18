@@ -212,8 +212,12 @@ describe('desktop shell acceptance contract', () => {
     assert.equal(config.app.windows[0].resizable, true);
     assert.ok(config.app.windows[0].minWidth >= 1024);
     assert.ok(config.app.windows[0].minHeight >= 680);
-    assert.equal(config.app.windows[0].zoomHotkeysEnabled, true);
-    assert.deepEqual(capability.permissions, ['core:default', 'core:webview:allow-set-webview-zoom']);
+    // Menus, keyboard and restoration share the native zoom owner. Disable the
+    // injected polyfill and its renderer permission to avoid competing levels.
+    assert.equal(config.app.windows[0].zoomHotkeysEnabled, false);
+    assert.deepEqual(capability.permissions, ['core:default']);
+    const bootstrap=await readFile(new URL('../src/main.tsx',import.meta.url),'utf8');
+    assert.match(bootstrap,/await installAppZoom\(\);/);
 
     const source = await readFile(new URL('../src/KeyboardShortcuts.tsx', import.meta.url), 'utf8');
     assert.match(source, /Zoom in \/ out \(20% steps\)/);
