@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRefreshQueue } from '../src/workspace/refreshQueue.ts';
+import { savedAnswerAvailability } from '../src/workspace/outcomes.ts';
 
 const deferred = () => {
   let resolve, reject;
@@ -97,6 +98,15 @@ test('the Guide renders saved chapter receipts as soon as a read succeeds or a n
   assert.match(workspace, /queue\.record\(revision\)/);
   assert.match(workspace, /revision\.snapshotId===snapshotId/);
   assert.match(store, /detail:\{projectId:project,revision\}/);
+});
+
+test('progressive cards stop loading when a completed history read cannot find their saved revision', () => {
+  const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+  assert.equal(savedAnswerAvailability(true, false), 'loading');
+  assert.equal(savedAnswerAvailability(false, true), 'available');
+  assert.equal(savedAnswerAvailability(false, false), 'unavailable');
+  assert.match(workspace, /loading=\{props\.loading\} revision=\{chapters\?\.find/);
+  assert.doesNotMatch(workspace, /loading=\{props\.loading\|\|!chapters\?\.some/);
 });
 
 test('saved chapter arrivals do not reload the immutable snapshot index or reset the reader', () => {

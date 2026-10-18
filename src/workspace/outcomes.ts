@@ -3,6 +3,12 @@ import type { Exploration, Turn, WorkspaceState } from './model';
 const active = (turn: Turn) => turn.status === 'queued' || turn.status === 'working';
 const hasAnswer = (turn: Turn) => Boolean(turn.revisionId || turn.publishedSections?.length);
 
+/** A missing saved revision is unavailable only after the snapshot history read finishes. */
+export function savedAnswerAvailability(historyLoading: boolean, revisionAvailable: boolean): 'loading' | 'available' | 'unavailable' {
+  if (historyLoading) return 'loading';
+  return revisionAvailable ? 'available' : 'unavailable';
+}
+
 /** Empty past attempts stay in History. Preserve the selected question and
  * branch owners, including branches whose original investigation failed. */
 export function visibleConversationTurns(state: WorkspaceState, exploration: Exploration): Turn[] {

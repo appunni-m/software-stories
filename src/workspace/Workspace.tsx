@@ -20,7 +20,7 @@ import { useConnectionState } from '../lib/connectionStore';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
 import { errorMessageOr, explanationErrorMessage } from '../lib/errorMessage';
 import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory';
-import { openWorkspaceQuestion, visibleConversationTurns } from './outcomes';
+import { openWorkspaceQuestion, savedAnswerAvailability, visibleConversationTurns } from './outcomes';
 import { listWorkspaceCommits } from '../lib/commands';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, resolveAnswerRevision } from './answerVersions';
 import type { GitCommit } from '../lib/gitHistory';
@@ -365,7 +365,7 @@ function Answer(props:AnswerProps){
     {capacityError&&<AnswerStorage/>}
     {turn.error&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}
     {sections.map((section,index)=><AnswerSection {...props} key={`${section.runId}:${section.generationId}`} hideQuestion
-      loading={props.loading||!chapters?.some((r)=>r.revisionId===section.revisionId)} revision={chapters?.find((r)=>r.revisionId===section.revisionId)}
+      loading={props.loading} revision={chapters?.find((r)=>r.revisionId===section.revisionId)}
       turn={{...turn,status:'ready',revisionId:section.revisionId,notes:[],error:undefined}}
       branches={index===sections.length-1?branches:[]}/>)}
     {sections.length===0&&!working&&<p className="dw-empty-answer">No section was published for this attempt. Earlier saved explanations are still in the library.</p>}
@@ -403,6 +403,7 @@ function AnswerStorage(){
 function AnswerSection({turn,revision:original,chapters=[],loading,branches,compact,hideQuestion,onGo,onOpen,onBranch,onStop,onRetry,onReview,onRead,onSettings,onDestination,onSection,onStoryProgress,onVersion}:AnswerProps){
   const versions=original?answerRevisionOptions(original,chapters):[];
   const revision=original?resolveAnswerRevision(original,turn,chapters):undefined;
+  const availability=savedAnswerAvailability(Boolean(loading),Boolean(revision));
   const position=revision?sectionPosition(revision.revisionId,revision.sections,answerReadingPosition(turn,'guide',revision.revisionId)):0;
   const section=revision?.sections[position];
   const selectSection=(index:number)=>{
@@ -413,7 +414,7 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
   const knownEvidenceError=!!turn.error&&readableError!==turn.error;
   const contexts=section?.claims.flatMap((c)=>c.anchors).slice(0,3).map((a)=>({path:a.path,sha256:a.sourceSha256,from:a.startLine,to:a.endLine}))??turn.context;
   return <article className="dw-turn" data-question-id={hideQuestion?undefined:turn.id} tabIndex={hideQuestion?undefined:-1} aria-label={`Question: ${turn.question}`}>{!hideQuestion&&<div className="dw-user-question"><MessageSquare size={14}/><h2>{turn.question}</h2></div>}<div className="dw-answer-card">
-    {turn.status==='working'||turn.status==='queued'?<div className="dw-working" role="status"><LoaderCircle size={16}/><span>Building your explanation…</span><Button size="1" variant="ghost" color="gray" onClick={onStop}><Square size={12}/>Stop</Button></div>:turn.status==='failed'||turn.status==='interrupted'||turn.status==='stopped'?<><p className="dw-error">{turn.status==='stopped'?'Stopped. Saved explanations are preserved.':turn.status==='interrupted'?'This question was interrupted. Saved explanations are preserved.':knownEvidenceError?readableError:'This explanation could not be completed. Your saved work is preserved.'}</p>{turn.error&&!knownEvidenceError&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}<Button size="1" variant="soft" onClick={onRetry}>Try this question again</Button></>:!revision?loading?<p role="status">Loading saved explanation…</p>:<><p>This saved explanation is unavailable. Your question is preserved.</p><Button size="1" variant="soft" onClick={onRetry}>Explain this question again</Button></>:section?<>
+    {turn.status==='working'||turn.status==='queued'?<div className="dw-working" role="status"><LoaderCircle size={16}/><span>Building your explanation…</span><Button size="1" variant="ghost" color="gray" onClick={onStop}><Square size={12}/>Stop</Button></div>:turn.status==='failed'||turn.status==='interrupted'||turn.status==='stopped'?<><p className="dw-error">{turn.status==='stopped'?'Stopped. Saved explanations are preserved.':turn.status==='interrupted'?'This question was interrupted. Saved explanations are preserved.':knownEvidenceError?readableError:'This explanation could not be completed. Your saved work is preserved.'}</p>{turn.error&&!knownEvidenceError&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}<Button size="1" variant="soft" onClick={onRetry}>Try this question again</Button></>:!revision?availability==='loading'?<p role="status">Loading saved explanation…</p>:<><p>This saved explanation is unavailable. Your question is preserved.</p><Button size="1" variant="soft" onClick={onRetry}>Explain this question again</Button></>:section?<>
       <div className="dw-answer-heading"><span>{compact?'Explanation':`${position+1} / ${revision.sections.length}`}</span>{revision.lifecycle!=='accepted'&&<Badge size="1" color="gray">{revision.lifecycle==='rejected'?'Rejected':'Draft'}</Badge>}<div><Tooltip content="Edit this explanation"><IconButton size="1" variant="ghost" color="gray" aria-label={`Edit ${revision.title}`} onClick={()=>onReview(revision)}><Pencil size={13}/></IconButton></Tooltip><Tooltip content="Open interactive player"><IconButton size="1" variant="ghost" color="gray" aria-label={`Play ${revision.title}`} onClick={()=>onRead(revision)}><Play size={13}/></IconButton></Tooltip></div></div>
       {versions.length>1&&original&&<label className="dw-answer-version">Version<select aria-label={`Answer version for ${original.title}`} value={revision.revisionId} onChange={event=>onVersion(original.revisionId,event.target.value)}>{versions.map((r,index)=><option key={r.revisionId} value={r.revisionId}>{index===0?'Original':'Accepted'} · r{r.revisionNumber}{index===versions.length-1?' · latest accepted':''}</option>)}</select>{revision.revisionId!==versions.at(-1)?.revisionId&&<span>Updated version available</span>}</label>}
       {turn.notes?.map((note)=><p key={note} className="dw-answer-note" role="status">{note}</p>)}
