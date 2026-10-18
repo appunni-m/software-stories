@@ -112,6 +112,42 @@ describe('desktop shell acceptance contract', () => {
     assert.doesNotMatch(source, /className="notice-banner notice-warning interrupted-work"/);
   });
 
+  it('makes local Recents available before slower recovery lookups finish', async () => {
+    let releaseRecovery;
+    const recovery = new Promise((resolve) => { releaseRecovery = resolve; });
+    let received;
+    const recentsReady = new Promise((resolve) => { received = resolve; });
+    let finished = false;
+    const pending = loadShellStartupData({
+      getApplicationStatus: async () => ({ native: true }),
+      getCaptureLimits: async () => ({}),
+      listRecentProjects: async () => [{ projectId: 'saved' }],
+      listInterruptedOperations: () => recovery,
+      listPendingGeneratedChapterPreviews: async () => [],
+    }, received).then((value) => { finished = true; return value; });
+    assert.deepEqual(await recentsReady, [{ projectId: 'saved' }]);
+    assert.equal(finished, false);
+    releaseRecovery([]);
+    assert.equal((await pending).recentProjectsUnavailable, false);
+  });
+
+  it('releases the initial view when Recents fails even while recovery is pending', async () => {
+    let releaseRecovery;
+    const recovery = new Promise((resolve) => { releaseRecovery = resolve; });
+    let received;
+    const recentsReady = new Promise((resolve) => { received = resolve; });
+    const pending = loadShellStartupData({
+      getApplicationStatus: async () => ({ native: true }),
+      getCaptureLimits: async () => ({}),
+      listRecentProjects: async () => { throw new Error('local storage unavailable'); },
+      listInterruptedOperations: () => recovery,
+      listPendingGeneratedChapterPreviews: async () => [],
+    }, received);
+    assert.equal(await recentsReady, null);
+    releaseRecovery([]);
+    assert.equal((await pending).recentProjectsUnavailable, true);
+  });
+
   it('restores persisted previews for local review with only explicit save or discard actions', async () => {
     const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
     const commands = await readFile(new URL('../src/lib/commands.ts', import.meta.url), 'utf8');

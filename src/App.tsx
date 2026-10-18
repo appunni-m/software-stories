@@ -1,6 +1,7 @@
 import { updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
 import { markQuestionOutcome, openWorkspaceQuestion } from './workspace/outcomes';
 import { WorkspaceFrame } from './workspace/Workspace';
+import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
 import { GenerationRecord } from './GenerationRecord';
 import { FileFlow } from './FileFlow';
@@ -240,10 +241,15 @@ function App() {
   const projectBusy = projectOpening || projectMetadataBusy;
   useEffect(() => () => stopProjectOpening(), []);
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
+  const [recentsPending, setRecentsPending] = useState(true);
+  const automaticRestoreAllowed = useRef(true);
   const [knownProjects, setKnownProjects] = useState<Record<string, RecentProject>>({});
   const [snapshotsByProject, setSnapshotsByProject] = useState<Record<string, SnapshotSummary[]>>({});
   const [captureByProject, setCaptureByProject] = useState<Record<string, SnapshotProgress>>({});
   const [snapshotManifest, setSnapshotManifest] = useState<SnapshotManifest | null>(null);
+  const [snapshotHistoryLoad, setSnapshotHistoryLoad] = useState<SnapshotHistoryLoad | null>(null);
+  const [snapshotManifestLoad, setSnapshotManifestLoad] = useState<SnapshotManifestLoad | null>(null);
+  const [workspaceReload, setWorkspaceReload] = useState(0);
   const [snapshotMenuOpen, setSnapshotMenuOpen] = useState(false);
   const [snapshotBusy, setSnapshotBusy] = useState(false);
   const [captureLimits, setCaptureLimits] = useState<CaptureLimits | null>(null);
@@ -299,9 +305,16 @@ function App() {
   const currentCapture = currentProject ? captureByProject[currentProject.projectId] ?? null : null;
   const selectedSnapshot = currentSnapshots.find((snapshot) => snapshot.snapshotId === navigation.current.snapshotId) ?? null;
   const questionUpdates = useWorkspaceOutcomes(currentProject?.projectId, selectedSnapshot?.snapshotId);
-  const copy = workspaceHeading(currentWorkspace, !!snapshotManifest && snapshotManifest.summary.snapshotId === selectedSnapshot?.snapshotId);
+  const readiness = workspaceReadiness({ recentsPending, projectOpening,
+    projectId: navigation.current.projectId, projectAvailable: !!currentProject, snapshotId: navigation.current.snapshotId,
+    history: snapshotHistoryLoad, manifest: snapshotManifestLoad });
+  const workspaceUnavailable = readiness === 'project-error' || readiness === 'history-error' || readiness === 'snapshot-error';
+  const copy = readiness === 'ready'
+    ? workspaceHeading(currentWorkspace, !!snapshotManifest && snapshotManifest.summary.snapshotId === selectedSnapshot?.snapshotId)
+    : { eyebrow: 'WORKSPACE', title: workspaceUnavailable ? 'Your saved workspace could not open.' : 'Opening your workspace.', subtitle: '' };
 
   useEffect(() => {
+    if (readiness !== 'ready') return;
     if (navigation.current.projectId && !currentProject) return;
     if (navigation.current.snapshotId && !selectedSnapshot) return;
 
@@ -331,6 +344,7 @@ function App() {
     navigation.current.projectId,
     navigation.current.snapshotId,
     selectedSnapshot,
+    readiness,
   ]);
 
   const navigationActions = useMemo(
@@ -681,6 +695,7 @@ function App() {
   };
 
   const openLocalRepository = async () => {
+    automaticRestoreAllowed.current = false;
     const activeElement = document.activeElement;
     const activeFocus = activeElement instanceof HTMLElement ? activeElement.dataset.focusKey : undefined;
     pickerReturnFocusRef.current = activeElement instanceof HTMLElement && activeElement.closest('.project-menu')
@@ -723,6 +738,7 @@ function App() {
   };
 
   const openRecent = async (projectId: string) => {
+    automaticRestoreAllowed.current = false;
     pickerReturnFocusRef.current = 'project-button';
     setProjectMenuOpen(false);
     try {
@@ -824,7 +840,26 @@ function App() {
   useEffect(() => {
     let active = true;
     const recoveryVersion = interruptionLookupVersion.current;
-    void loadShellStartupData({ getApplicationStatus, getCaptureLimits, listRecentProjects, listInterruptedOperations, listPendingGeneratedChapterPreviews }).then((startup) => {
+    void loadShellStartupData({ getApplicationStatus, getCaptureLimits, listRecentProjects, listInterruptedOperations, listPendingGeneratedChapterPreviews }, (projects) => {
+      if (!active) return;
+      if (projects === null) {
+        setNotice({
+          title: 'Recent projects could not be loaded',
+          message: 'The workspace is still available. Retry the local Recents lookup or choose a repository to add it again.',
+          actionLabel: 'Retry', action: () => { void retryRecentProjectsLoad(); }, tone: 'error',
+        });
+      } else {
+        // Preserve a repository opened by the user while the startup lookup ran.
+        setRecentProjects((current) => [...current, ...projects.filter((project) => !current.some((item) => item.projectId === project.projectId))]);
+        setKnownProjects((current) => ({ ...Object.fromEntries(projects.map((project) => [project.projectId, project])), ...current }));
+        try {
+          const previous = localStorage.getItem('code-atlas:last-project');
+          if (automaticRestoreAllowed.current && previous && !navigationRef.current.current.projectId
+            && !isProjectOpeningBusy() && projects.some((project) => project.projectId === previous)) void openRecent(previous);
+        } catch { /* Starting without an optional preference remains usable. */ }
+      }
+      setRecentsPending(false);
+    }).then((startup) => {
       if (!active) return;
       setRuntime(startup.applicationStatus);
       setRuntimeError(startup.applicationStatusUnavailable ? 'The desktop bridge did not respond. The workspace is still available.' : null);
@@ -835,22 +870,6 @@ function App() {
       }
       setPendingChapterPreviews(startup.pendingChapterPreviews ?? []);
       setPendingChapterPreviewsUnavailable(startup.pendingChapterPreviewsUnavailable);
-      if (startup.recentProjectsUnavailable || startup.recentProjects === null) {
-        setNotice({
-          title: 'Recent projects could not be loaded',
-          message: 'The workspace is still available. Retry the local Recents lookup or choose a repository to add it again.',
-          actionLabel: 'Retry',
-          action: () => { void retryRecentProjectsLoad(); },
-          tone: 'error',
-        });
-      } else {
-        setRecentProjects(startup.recentProjects);
-        setKnownProjects(Object.fromEntries(startup.recentProjects.map((project) => [project.projectId, project])));
-        try {
-          const previous = localStorage.getItem('code-atlas:last-project');
-          if (previous && !navigationRef.current.current.projectId && startup.recentProjects.some((project)=>project.projectId===previous)) void openRecent(previous);
-        } catch { /* Starting without an optional preference remains usable. */ }
-      }
     });
     return () => { active = false; };
   }, []);
@@ -875,11 +894,13 @@ function App() {
       return;
     }
     let active = true;
+    setSnapshotHistoryLoad({ projectId: currentProject.projectId, status: 'loading' });
     void listProjectSnapshots(currentProject.projectId)
       .then(({ snapshots }) => {
         if (!active) return;
         const sorted = newestSnapshotsFirst(snapshots);
         setSnapshotsByProject((current) => ({ ...current, [currentProject.projectId]: sorted }));
+        setSnapshotHistoryLoad({ projectId: currentProject.projectId, status: 'ready' });
         const saved = readFileLocation(currentProject.projectId);
         const snapshot = sorted.find((item) => item.snapshotId === saved?.snapshotId) ?? sorted[0];
         if (snapshot) {
@@ -890,12 +911,13 @@ function App() {
         }
       })
       .catch((error) => {
+        if (active) setSnapshotHistoryLoad({ projectId: currentProject.projectId, status: 'error' });
         if (active && isNativeRuntime()) {
           setNotice({ title: 'Snapshot history could not be loaded', message: errorMessageOr(error, 'Local snapshot history is unavailable.'), tone: 'error' });
         }
       });
     return () => { active = false; };
-  }, [currentProject?.projectId]);
+  }, [currentProject?.projectId, workspaceReload]);
 
   useEffect(() => {
     if (!currentProject || !navigation.current.snapshotId) {
@@ -904,13 +926,18 @@ function App() {
     }
     setSnapshotManifest(null);
     let active = true;
+    const scope = { projectId: currentProject.projectId, snapshotId: navigation.current.snapshotId };
+    setSnapshotManifestLoad({ ...scope, status: 'loading' });
     void loadSnapshotManifest(currentProject.projectId, navigation.current.snapshotId)
-      .then((manifest) => { if (active) setSnapshotManifest(manifest); })
+      .then((manifest) => { if (active) { setSnapshotManifest(manifest); setSnapshotManifestLoad({ ...scope, status: 'ready' }); } })
       .catch((error) => {
-        if (active) setNotice({ title: 'Snapshot details could not be opened', message: errorMessageOr(error, 'The immutable snapshot manifest is unavailable.'), tone: 'error' });
+        if (active) {
+          setSnapshotManifestLoad({ ...scope, status: 'error' });
+          setNotice({ title: 'Snapshot details could not be opened', message: errorMessageOr(error, 'The immutable snapshot manifest is unavailable.'), tone: 'error' });
+        }
       });
     return () => { active = false; };
-  }, [currentProject?.projectId, navigation.current.snapshotId]);
+  }, [currentProject?.projectId, navigation.current.snapshotId, workspaceReload]);
 
   useEffect(() => {
     const route = navigation.current;
@@ -1361,7 +1388,7 @@ function App() {
   ];
 
   return (
-    <div className={`app-window${selectedSnapshot ? ' has-snapshot' : ''}`}>
+    <div className={`app-window${selectedSnapshot ? ' has-snapshot' : ''}${readiness !== 'ready' ? ' is-restoring' : ''}`}>
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {repositoryContextAnnouncement}
       </div>
@@ -1382,7 +1409,7 @@ function App() {
             aria-haspopup="menu"
           >
             <FolderOpen size={16} />
-            <span>{projectOpening ? 'Opening repository…' : projectMetadataBusy ? 'Updating repositories…' : currentProject?.displayName ?? 'Open a local repository'}</span>
+            <span>{projectOpening ? 'Opening repository…' : projectMetadataBusy ? 'Updating repositories…' : currentProject?.displayName ?? (recentsPending ? 'Opening workspace…' : 'Open a local repository')}</span>
             <ChevronDown size={14} className="muted-icon" />
           </button>
           {projectOpening && <button className="icon-button" aria-label="Stop opening repository" title="Stop opening repository" onClick={stopProjectOpening}><X size={16}/></button>}
@@ -1533,14 +1560,25 @@ function App() {
             </div>
           </div>
 
-          <section className={`workspace-content view-${currentWorkspace}`} aria-labelledby="workspace-title">
+          <section className={`workspace-content view-${currentWorkspace}${readiness !== 'ready' ? ' workspace-restoring' : ''}`} aria-labelledby="workspace-title">
             <div className="workspace-heading">
               <div className="eyebrow"><span className="eyebrow-mark" />{copy.eyebrow}</div>
               <h1 id="workspace-title" tabIndex={-1} data-focus-key={`heading:${currentWorkspace}`}>{copy.title}</h1>
               <p>{copy.subtitle}</p>
             </div>
 
-            <WorkspaceFrame manifest={snapshotManifest?.summary.snapshotId === selectedSnapshot?.snapshotId ? snapshotManifest : null}
+            {readiness !== 'ready' ? (
+              <div className="workspace-restore-state">
+                {workspaceUnavailable ? <>
+                  <h2>Your saved workspace could not open.</h2>
+                  <p>Your saved explanations are still on this Mac.</p>
+                  <div className="workspace-restore-actions">
+                    {readiness !== 'project-error' && <button className="secondary-button" onClick={() => { setSnapshotHistoryLoad(null); setSnapshotManifestLoad(null); setWorkspaceReload((value) => value + 1); }}>Try again</button>}
+                    <button className="secondary-button" onClick={() => { void openLocalRepository(); }}>Open a repository</button>
+                  </div>
+                </> : <p role="status">{readiness === 'restoring' ? 'Opening your workspace…' : `Opening ${currentProject?.displayName ?? 'your workspace'}…`}</p>}
+              </div>
+            ) : <WorkspaceFrame manifest={snapshotManifest?.summary.snapshotId === selectedSnapshot?.snapshotId ? snapshotManifest : null}
               projectName={currentProject?.displayName ?? 'Repository'} workspace={currentWorkspace}
               routePath={navigation.current.relativePath} routeRange={navigation.current.sourceRange} routeSelection={navigation.current.atlasSelection}
               onWorkspace={chooseWorkspace} onSettings={openProviderSettings} onReview={reviewGuideRevision} onRead={openGuideRevision}
@@ -1737,7 +1775,7 @@ function App() {
               <WorkflowEmptyState kind="studio" onGoPlan={() => chooseWorkspace('guide-plan')} />
             )}
 
-            </WorkspaceFrame>
+            </WorkspaceFrame>}
             <footer className="workspace-footer">
               <span>{currentProject?.displayName ?? 'Code Atlas'}</span>
               <span>{currentWorkspace === 'changes' ? 'Local changes' : selectedSnapshot?.branch ?? ''}</span>

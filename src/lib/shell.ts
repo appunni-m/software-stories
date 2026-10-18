@@ -86,11 +86,18 @@ async function settle<T>(load: () => Promise<T>): Promise<Settled<T>> {
  * Load only the local data needed to open the shell. This command contract does
  * not include repository inspection, credentials, AI providers, or narration.
  */
-export async function loadShellStartupData(commands: ShellStartupCommands): Promise<ShellStartupData> {
+export async function loadShellStartupData(
+  commands: ShellStartupCommands,
+  onRecentProjects?: (projects: RecentProject[] | null) => void,
+): Promise<ShellStartupData> {
   const [status, captureLimits, recentProjects, interruptedOperations, pendingChapterPreviews] = await Promise.all([
     settle(commands.getApplicationStatus),
     settle(commands.getCaptureLimits),
-    settle(commands.listRecentProjects),
+    settle(commands.listRecentProjects).then((result) => {
+      // Opening a saved workspace must not wait for recovery/preview enumeration.
+      onRecentProjects?.(result.ok ? result.value : null);
+      return result;
+    }),
     settle(commands.listInterruptedOperations),
     settle(commands.listPendingGeneratedChapterPreviews),
   ]);
