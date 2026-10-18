@@ -19,6 +19,8 @@ pub(super) fn record(f: &Fixture) -> Record {
         planning_run_id: Uuid::new_v4().to_string(),
         opening: None,
         opening_context_sha256: None,
+        opening_continuations: vec![],
+        upgrade: None,
         plan: Some(Plan {
             title: "A grounded repository guide".into(),
             units: vec![
@@ -442,6 +444,10 @@ fn fontdone_repository_guide_account_probe() {
             Ok(())
         }).unwrap();
     }
+    let record = if resume_id.is_some() {
+        let reconciled = reconcile(&storage, &record, &manager).unwrap();
+        store::prepare_continuation(&storage, &record.id, reconciled.revision).unwrap()
+    } else { record };
     let started = Instant::now();
     let observations = Arc::new(Mutex::new(Vec::new()));
     let observed = Arc::clone(&observations);
@@ -449,6 +455,7 @@ fn fontdone_repository_guide_account_probe() {
     let result = build(
         &storage,
         &record.id,
+        resume_id.is_some(),
         &manager,
         RepositoryContextJobs::default(),
         &recovery::InterruptionJournal::default(),

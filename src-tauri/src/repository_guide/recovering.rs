@@ -31,6 +31,7 @@ fn reconcile_with_reader(
     for attempt in next
         .opening
         .iter_mut()
+        .chain(&mut next.opening_continuations)
         .chain(next.units.iter_mut().flat_map(|unit| &mut unit.attempts))
     {
         if attempt

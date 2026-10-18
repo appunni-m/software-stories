@@ -169,7 +169,7 @@ fn inactive_opening_recovers_locally_without_replanning_or_changing_stop() {
     assert!(!f.storage.join("codex-agent/runtime.json").exists());
 }
 
-fn publish(f: &Fixture, r: &Record) -> crate::evidence_ledger::sections::ActiveAnswer {
+pub(in crate::repository_guide) fn publish(f: &Fixture, r: &Record) -> crate::evidence_ledger::sections::ActiveAnswer {
     use crate::chapter_generation::tests::{SIMPLE_PATH, SIMPLE_SOURCE};
     use crate::{
         codex_identity::CodexReviewRuntime,

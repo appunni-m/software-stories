@@ -96,7 +96,7 @@ fn damaged_contract_duplicate_runs_and_excess_attempts_fail_without_rewriting() 
 fn fresh_independent_research_requires_its_own_schema_and_opening() {
     let f = Fixture::new();
     let fresh = crate::repository_guide::tests::fresh_record(&f);
-    assert_eq!(fresh.schema_version, 4);
+    assert_eq!(fresh.schema_version, 5);
     assert_eq!(fresh.contract, CONTRACT);
     assert!(validate(&fresh).is_ok());
     for (schema, contract) in [(2, CONTRACT), (3, CONTRACT), (4, INDEPENDENT_CONTRACT), (3, OPENING_CONTRACT), (1, CONTRACT), (4, PLAN_ONLY_CONTRACT)] {

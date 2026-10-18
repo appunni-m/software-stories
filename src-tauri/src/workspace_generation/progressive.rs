@@ -11,7 +11,7 @@ use tauri::Manager;
 
 mod starting_ranges;
 mod guide_intent;
-pub(crate) use guide_intent::GuideIntent;
+pub(crate) use guide_intent::{GuideIntent, OpeningContinuation};
 
 const ANSWER_ROLE: &str = r#"Investigate the learning question using captured implementation code and publish useful sections through propose_answer_section. Start from the attached identifier/range if supplied. For a broad question find an entry point and follow the actual input, transformations, state, output and failure paths. Preserve the requested causal order: begin at the input named in the question, then move downstream. An early section can teach the first real transition while deeper stages remain under investigation; do not start at a downstream API and explain its prerequisites later. Read promising code early; do not delay the main answer for a whole-repository inventory.
 

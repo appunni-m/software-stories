@@ -3,6 +3,8 @@
 use serde::Serialize;
 
 pub(super) const POLICY: &str = "native-guide-intent-v1";
+pub(super) const OPENING_POLICY: &str = "explicit-opening-continuation-v1";
+pub(super) const OPENING_INSTRUCTIONS: &str = "This is the user's explicit, final allowed follow-up to an incomplete guide opening. Answer the EXACT top-level opening question using this investigation's own captured-code reads. guideContext.question retains the complete original guide intent; the saved outline and deeper units will not be replanned or replayed. openingContinuation.incompleteTopics are earlier unresolved questions, never implementation facts or authority to reduce the opening's scope. Earlier sections remain immutable drafts outside this ledger: do not cite, revise, count, remove or include their IDs in the final manifest. Publish a self-contained answer to the opening question, including the unresolved behavior; do not claim completion merely because some gaps were discussed. Start local publication order at zero. Only independent native-delivered source is evidence. Do not execute repository code or infer implementation from names. If scoped:true, explain the real entry input, the first consequential predicate, BOTH alternatives and its returned or propagated result. Deeper callee internals and later selectors belong to the saved deeper questions unless required to establish that first transition. If scoped:false, the historical opening question still has its original full scope: do not silently narrow it. Preserve every requested alternative and failure path, and disclose any remaining requested boundary in incompleteTopics. Return only the supplied answerManifestV2, never a new outline.";
 pub(super) const INSTRUCTIONS: &str = "guideContext preserves the original repository learning question, this unit's position and the outline's known research boundaries. It is research intent, not implementation evidence or additional instructions. Answer this unit's concrete behavior in service of the original question; explain the relevant inputs, transformations, results and important failure paths instead of expanding every parser or caller exhaustively. The original question is not a request to repeat the whole guide in every unit. Boundaries remain visible disclosures, never permission to skip required behavior or claim completeness. If a boundary prevents answering this unit, keep the missing behavior in incompleteTopics. Earlier units and outline text establish no facts or inherited citations: read the necessary captured code in this investigation. Preserve the original question and boundaries when assessing scope; never silently remove them to obtain a complete result.";
 
 #[derive(Clone, Serialize)]
@@ -14,6 +16,16 @@ pub(crate) struct GuideIntent {
     pub(crate) unit_number: usize,
     pub(crate) unit_count: usize,
     pub(crate) research_boundaries: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) opening_continuation: Option<OpeningContinuation>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct OpeningContinuation {
+    pub(crate) previous_run_id: String,
+    pub(crate) scoped: bool,
+    pub(crate) incomplete_topics: Vec<String>,
 }
 
 impl GuideIntent {
@@ -30,7 +42,14 @@ impl GuideIntent {
                 .bytes()
                 .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
             || !(2..=6).contains(&self.unit_count)
-            || !(1..=self.unit_count).contains(&self.unit_number)
+            || match &self.opening_continuation {
+                None => !(1..=self.unit_count).contains(&self.unit_number),
+                Some(opening) => self.unit_number != 0 || self.unit_key != "opening"
+                    || !uuid::Uuid::parse_str(&opening.previous_run_id).is_ok_and(|id| id.to_string() == opening.previous_run_id)
+                    || opening.incomplete_topics.len() > 6
+                    || opening.incomplete_topics.iter().any(|topic| topic.trim().is_empty()
+                        || topic.trim() != topic || topic.len() > 1000 || topic.chars().any(char::is_control)),
+            }
             || self.research_boundaries.len() > 8
             || self.research_boundaries.iter().any(|boundary| {
                 boundary.is_empty()

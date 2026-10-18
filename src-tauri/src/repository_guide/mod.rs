@@ -21,13 +21,15 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use uuid::Uuid;
 
 mod opening;
+mod opening_continuation;
 mod plan;
 mod recovering;
 mod store;
 use plan::Plan;
 use recovering::reconcile;
 
-const CONTRACT: &str = "repository-guide-v5-separate-opening-intent";
+const CONTRACT: &str = "repository-guide-v6-bounded-opening-continuation";
+const SEPARATE_CONTRACT: &str = "repository-guide-v5-separate-opening-intent";
 const INDEPENDENT_CONTRACT: &str = "repository-guide-v4-independent-unit-research";
 const OPENING_CONTRACT: &str = "repository-guide-v3-opening-during-planning";
 const PLAN_ONLY_CONTRACT: &str = "repository-guide-v2-short-reference-planning";
@@ -78,6 +80,10 @@ struct Record {
     opening: Option<Attempt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     opening_context_sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    opening_continuations: Vec<Attempt>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    upgrade: Option<store::Upgrade>,
     plan: Option<Plan>,
     units: Vec<Unit>,
     status: Status,
@@ -96,6 +102,9 @@ pub(crate) struct GuideSummary {
     units: Vec<UnitSummary>,
     answers: Vec<Summary>,
     opening_run_id: Option<String>,
+    opening_run_ids: Vec<String>,
+    can_continue: bool,
+    continuation_operations: usize,
     omissions: Vec<String>,
     captured_files: usize,
     starting_files: usize,
@@ -163,7 +172,7 @@ fn unit_complete(unit: &Unit) -> bool {
         .is_some_and(|s| s.outcome == Outcome::Complete && !s.sections.is_empty())
 }
 fn guide_complete(record: &Record) -> bool {
-    record.opening.as_ref().is_none_or(|a| {
+    opening_continuation::latest(record).is_none_or(|a| {
         a.summary
             .as_ref()
             .is_some_and(|s| s.outcome == Outcome::Complete && !s.sections.is_empty())
@@ -180,11 +189,11 @@ fn prerequisite_complete(record: &Record, index: usize) -> bool {
     })
 }
 fn independent_research(record: &Record) -> bool {
-    matches!((record.schema_version, record.contract.as_str()),
-        (4, CONTRACT) | (3, INDEPENDENT_CONTRACT))
+    matches!(store::original_contract(record),
+        (4, SEPARATE_CONTRACT) | (3, INDEPENDENT_CONTRACT))
 }
 fn separate_opening_intent(record: &Record) -> bool {
-    record.schema_version == 4 && record.contract == CONTRACT
+    store::original_contract(record) == (4, SEPARATE_CONTRACT)
 }
 fn unit_research_eligible(record: &Record, index: usize) -> bool {
     record.status != Status::Stopped
@@ -271,6 +280,7 @@ fn summary(storage: &Path, record: &Record) -> Result<GuideSummary, String> {
     for attempt in record
         .opening
         .iter()
+        .chain(&record.opening_continuations)
         .chain(record.units.iter().flat_map(|u| &u.attempts))
     {
         match if reading::exists(storage, &attempt.run_id)? {
@@ -335,7 +345,11 @@ fn summary(storage: &Path, record: &Record) -> Result<GuideSummary, String> {
         status: record.status.clone(),
         units,
         answers,
-        opening_run_id: record.opening.as_ref().map(|a| a.run_id.clone()),
+        opening_run_id: opening_continuation::latest(record).map(|a| a.run_id.clone()),
+        opening_run_ids: record.opening.iter().chain(&record.opening_continuations)
+            .map(|a| a.run_id.clone()).collect(),
+        can_continue: opening_continuation::remaining_operations(record) > 0,
+        continuation_operations: opening_continuation::remaining_operations(record),
         omissions: plan.map_or_else(Vec::new, |p| p.omissions.clone()),
         captured_files: manifest
             .files
@@ -417,6 +431,7 @@ fn unit_intent(
         unit_number: index + 1,
         unit_count: plan.units.len(),
         research_boundaries: plan.omissions.clone(),
+        opening_continuation: None,
     })
 }
 fn save_outline(
@@ -463,6 +478,7 @@ fn save_outline(
 fn build(
     storage: &Path,
     id: &str,
+    continue_opening: bool,
     manager: &codex_agent::CodexAgentManager,
     jobs: RepositoryContextJobs,
     journal: &recovery::InterruptionJournal,
@@ -507,6 +523,12 @@ fn build(
             adopt(section)?;
         }
         changed(&summary(storage, &record)?);
+    }
+    if continue_opening && opening_continuation::eligible(&record) {
+        record = opening_continuation::run(
+            storage, &record, manager, jobs.clone(), journal, &progress,
+            Arc::clone(&notify), &adopt, &changed,
+        )?;
     }
     for index in 0..record.units.len() {
         record = store::read(storage, id)?;
@@ -641,7 +663,7 @@ fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Rec
     let planning_run_id = input.id.clone();
     let mut record = Record {
         revision: 0,
-        schema_version: 4,
+        schema_version: 5,
         contract: CONTRACT.into(),
         id: input.id,
         project_id: input.project_id,
@@ -656,6 +678,8 @@ fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Rec
             summary: None,
         }),
         opening_context_sha256: None,
+        opening_continuations: vec![],
+        upgrade: None,
         question: input.question,
         planning_run_id,
         plan: None,
@@ -703,13 +727,14 @@ pub(crate) async fn start_repository_guide(
         current.active_run_id = Some(current.planning_run_id.clone());
         Ok(())
     })?;
-    run_command(app, storage, id, lease).await
+    run_command(app, storage, id, lease, false).await
 }
 async fn run_command(
     app: AppHandle,
     storage: std::path::PathBuf,
     id: String,
     lease: crate::file_lease::Lease,
+    continue_opening: bool,
 ) -> Result<GuideSummary, String> {
     tauri::async_runtime::spawn_blocking(move||{
         let _lease=lease;
@@ -717,7 +742,7 @@ async fn run_command(
         let jobs=app.state::<RepositoryContextJobs>().inner().clone();
         let journal=app.state::<recovery::InterruptionJournal>().inner().clone();
         let emitter=app.clone();
-        let result=build(&storage,&id,&manager,jobs,&journal,|p|{let _=app.emit("codex-agent-progress",p);},
+        let result=build(&storage,&id,continue_opening,&manager,jobs,&journal,|p|{let _=app.emit("codex-agent-progress",p);},
             Arc::new(move|section|{let _=emitter.emit("workspace-answer-section",section);}),
             |section|{if saved_section(&storage, section)? { return Ok(()); } let lock=app.state::<crate::ChapterStoreLock>();let _guard=lock.0.lock().map_err(|_|"Chapter storage is unavailable.")?;
                 reading::adopt(&storage,&section.run_id,&section.project_id,&section.snapshot_id,&section.generation_id)?;Ok(())},
@@ -759,14 +784,8 @@ pub(crate) async fn resume_repository_guide(
         &snapshot_id,
         &runtime,
     )?;
-    store::update(&storage, &id, |current| {
-        if current.revision != expected_revision {
-            return Err("The guide changed while continuation was being prepared. Inspect its saved progress before continuing.".into());
-        }
-        current.status = Status::Building;
-        Ok(())
-    })?;
-    run_command(app, storage, id, lease).await
+    store::prepare_continuation(&storage, &id, expected_revision)?;
+    run_command(app, storage, id, lease, true).await
 }
 #[tauri::command(rename_all = "camelCase")]
 pub(crate) fn stop_repository_guide(
@@ -777,21 +796,25 @@ pub(crate) fn stop_repository_guide(
     snapshot_id: String,
 ) -> Result<(), String> {
     let storage = app_data_directory(&app)?;
-    if !store::exists(&storage, &id)? {
-        manager.cancel(&id);
+    stop_saved_guide(&storage, &manager, &id, &project_id, &snapshot_id)
+}
+
+fn stop_saved_guide(storage: &Path, manager: &codex_agent::CodexAgentManager,
+    id: &str, project_id: &str, snapshot_id: &str) -> Result<(), String> {
+    if !store::exists(storage, id)? {
+        manager.cancel(id);
         return Ok(());
     }
-    let existing = store::read(&storage, &id)?;
-    if existing.project_id != project_id || existing.snapshot_id != snapshot_id {
-        return Err("This guide belongs to another repository snapshot.".into());
-    }
-    if let Some(run) = &existing.active_run_id {
-        manager.cancel(run);
-    }
-    store::update(&storage, &id, |record| {
+    // Admit Stop and select the current owner in the same transaction. Reading
+    // an owner first could miss a just-admitted investigation between actions.
+    let stopped = store::update(storage, id, |record| {
+        if record.project_id != project_id || record.snapshot_id != snapshot_id {
+            return Err("This guide belongs to another repository snapshot.".into());
+        }
         record.status = Status::Stopped;
         Ok(())
     })?;
+    if let Some(run) = &stopped.active_run_id { manager.cancel(run); }
     Ok(())
 }
 #[tauri::command(rename_all = "camelCase")]

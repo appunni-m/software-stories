@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createWorkspace, addTurn, contextualGuideIntent, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
+import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
 const guideId='ea6054f9-c7ce-4489-a928-b48697371565';
 const runId='c9410fba-7b55-42c5-b6e2-061c538bfcf2';
 const generationId='generation:776b022e-d466-455b-8594-d8a808e20f58';
@@ -96,4 +96,38 @@ test('an independently scoped opening preserves the original guide card question
   assert.equal(state.explorations[0].turns.length,1);
   assert.equal(state.explorations[0].turns[0].question,original);
   assert.deepEqual(state.explorations[0].turns[0].publishedSections,[opening,section]);
+});
+
+test('an opening follow-up retains both owners, earlier sections and the reader position',()=>{
+  const followUp='5af0e9f9-b14a-450e-8156-277b9c4b7632';
+  const opening={...section,runId:guideId};
+  const original={...guide(),openingRunId:guideId,openingRunIds:[guideId],canContinue:true,continuationOperations:1,
+    answers:[{...guide().answers[0],runId:guideId,sections:[opening]}]};
+  let state=mergeRepositoryGuide(createWorkspace('p','s'),original);
+  const position={revisionId:opening.revisionId,sectionId:'section:kept'};
+  state.explorations[0].turns[0].reading={guide:position};
+  state.explorations[0].view='flow';
+  const continued={...original,revision:8,openingRunId:followUp,openingRunIds:[guideId,followUp],canContinue:false,continuationOperations:0,
+    answers:[...original.answers,{...guide().answers[0],runId:followUp,sections:[]}]};
+  state=mergeRepositoryGuide(state,continued);
+  const turn=state.explorations[0].turns[0];
+  assert.deepEqual(turn.runIds,[guideId,followUp,runId]);
+  assert.deepEqual(turn.publishedSections,[opening]);
+  assert.deepEqual(turn.reading.guide,position);
+  assert.equal(state.explorations[0].view,'flow');
+  assert.equal(turn.guide.canContinue,false);
+  const reopened=parseWorkspace(JSON.stringify(state),'p','s');
+  assert.deepEqual(reopened.explorations[0].turns[0].runIds,[guideId,followUp,runId]);
+  assert.deepEqual(reopened.explorations[0].turns[0].publishedSections,[opening]);
+  assert.deepEqual(reopened.explorations[0].turns[0].reading.guide,position);
+});
+
+test('Continue remains available for an unfinished opening after all deeper units complete',()=>{
+  const complete=guide();complete.units.forEach((unit)=>{unit.status='complete';});
+  assert.equal(canContinueRepositoryGuide({...complete,canContinue:true,continuationOperations:1}),true);
+  assert.equal(guideContinuationOperations({...complete,continuationOperations:1}),1);
+  assert.equal(canContinueRepositoryGuide({...complete,canContinue:false,continuationOperations:0}),false);
+  assert.equal(canContinueRepositoryGuide(complete),false);
+  assert.equal(guideContinuationOperations({...guide(),continuationOperations:99}),2);
+  assert.equal(canContinueRepositoryGuide(undefined),false);
 });

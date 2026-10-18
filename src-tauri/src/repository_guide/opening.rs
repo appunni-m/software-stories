@@ -144,4 +144,4 @@ pub(super) fn retain_failure(storage: &Path, job: &Record) -> Result<(), String>
 }
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;

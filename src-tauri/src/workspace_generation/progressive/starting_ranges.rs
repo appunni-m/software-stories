@@ -17,6 +17,9 @@ pub(super) fn request(
 ) -> Result<(String, Value, String, String), String> {
     if let Some(intent) = guide_intent {
         intent.validate()?;
+        if intent.opening_continuation.as_ref().is_some_and(|opening| opening.previous_run_id == input.run_id) {
+            return Err("The opening continuation must own a new investigation.".into());
+        }
     }
     if ranges.is_empty() && guide_intent.is_none() {
         // Preserve the exact ordinary-question contract and historical prompt.
@@ -62,6 +65,9 @@ pub(super) fn request(
     if let Some(intent) = guide_intent {
         prompt["guideContext"] = json!(intent);
         prompt["guideContextPolicy"] = json!(guide_intent::POLICY);
+        if intent.opening_continuation.is_some() {
+            prompt["openingContinuationPolicy"] = json!(guide_intent::OPENING_POLICY);
+        }
     }
     let prompt =
         serde_json::to_string(&prompt).map_err(|_| "The question could not be encoded.")?;
@@ -73,6 +79,9 @@ pub(super) fn request(
     if guide_intent.is_some() {
         instructions.push_str(&format!("\n\n{}", guide_intent::INSTRUCTIONS));
     }
+    if guide_intent.is_some_and(|intent| intent.opening_continuation.is_some()) {
+        instructions.push_str(&format!("\n\n{}", guide_intent::OPENING_INSTRUCTIONS));
+    }
     let mut contract = generation_contract(input, &prompt, &schema)?;
     contract["systemInstructions"] = json!(instructions);
     if !ranges.is_empty() {
@@ -80,6 +89,9 @@ pub(super) fn request(
     }
     if guide_intent.is_some() {
         contract["guideContextPolicy"] = json!(guide_intent::POLICY);
+    }
+    if guide_intent.is_some_and(|intent| intent.opening_continuation.is_some()) {
+        contract["openingContinuationPolicy"] = json!(guide_intent::OPENING_POLICY);
     }
     let bytes = serde_json::to_vec(&contract)
         .map_err(|_| "The progressive question contract could not be encoded.")?;
@@ -148,7 +160,78 @@ mod tests {
             unit_number: 1,
             unit_count: 2,
             research_boundaries: vec!["Runtime execution was not observed.".into()],
+            opening_continuation: None,
         }
+    }
+
+    #[test]
+    fn opening_follow_up_binds_both_questions_gaps_owner_and_original_budgets() {
+        let f = Fixture::new();
+        let (input, _) = prepared(&f);
+        let mut intent = guide_intent();
+        intent.unit_key = "opening".into();
+        intent.unit_number = 0;
+        intent.opening_continuation = Some(OpeningContinuation {
+            previous_run_id: Uuid::new_v4().to_string(), scoped: true,
+            incomplete_topics: vec!["The first guard's false alternative remains unexplored.".into()],
+        });
+        let (prompt, schema, fingerprint, instructions) = request(&f.storage, &input, &f.manifest, &[], Some(&intent)).unwrap();
+        let value: Value = serde_json::from_str(&prompt).unwrap();
+        assert_eq!(value["question"], input.question);
+        assert_eq!(value["guideContext"], json!(intent));
+        assert_eq!(value["openingContinuationPolicy"], guide_intent::OPENING_POLICY);
+        assert!(instructions.contains(guide_intent::OPENING_INSTRUCTIONS));
+        assert!(!prompt.contains(SIMPLE_SOURCE));
+        assert!(value.get("startingRanges").is_none());
+        assert!(schema["properties"].get("outline").is_none());
+        let mut contract = generation_contract(&input, &prompt, &schema).unwrap();
+        contract["systemInstructions"] = json!(instructions);
+        contract["guideContextPolicy"] = json!(guide_intent::POLICY);
+        contract["openingContinuationPolicy"] = json!(guide_intent::OPENING_POLICY);
+        assert_eq!(fingerprint, context::digest(&serde_json::to_vec(&contract).unwrap()));
+        assert_eq!(contract["sectionAttempts"], 8);
+        assert_eq!(contract["uniqueSections"], 6);
+        assert_eq!(contract["tools"], serde_json::to_value(context_mcp::tools_for(true)).unwrap());
+        for field in ["owner", "scoped", "gaps"] {
+            let mut changed = intent.clone();
+            let opening = changed.opening_continuation.as_mut().unwrap();
+            match field {
+                "owner" => opening.previous_run_id = Uuid::new_v4().to_string(),
+                "scoped" => opening.scoped = false,
+                "gaps" => opening.incomplete_topics.push("The returned error is still unknown.".into()),
+                _ => unreachable!(),
+            }
+            assert_ne!(request(&f.storage, &input, &f.manifest, &[], Some(&changed)).unwrap().2, fingerprint);
+        }
+        assert!(!f.storage.join("answer-sections").exists());
+    }
+
+    #[test]
+    fn invalid_opening_follow_up_cannot_borrow_an_owner_or_expand_context_bounds() {
+        let f = Fixture::new();
+        let (input, _) = prepared(&f);
+        let mut original = guide_intent();
+        original.unit_key = "opening".into();
+        original.unit_number = 0;
+        original.opening_continuation = Some(OpeningContinuation {
+            previous_run_id: Uuid::new_v4().to_string(), scoped: false, incomplete_topics: vec![],
+        });
+        for field in ["owner", "number", "key", "missing", "count", "control", "long"] {
+            let mut changed = original.clone();
+            match field {
+                "owner" => changed.opening_continuation.as_mut().unwrap().previous_run_id = input.run_id.clone(),
+                "number" => changed.unit_number = 1,
+                "key" => changed.unit_key = "unit".into(),
+                "missing" => changed.opening_continuation = None,
+                "count" => changed.opening_continuation.as_mut().unwrap().incomplete_topics = vec!["gap".into(); 7],
+                "control" => changed.opening_continuation.as_mut().unwrap().incomplete_topics = vec!["gap\nother".into()],
+                "long" => changed.opening_continuation.as_mut().unwrap().incomplete_topics = vec!["é".repeat(501)],
+                _ => unreachable!(),
+            }
+            assert!(request(&f.storage, &input, &f.manifest, &[], Some(&changed)).is_err(), "{field}");
+        }
+        assert!(!f.storage.join("answer-sections").exists());
+        assert!(!f.storage.join("evidence-ledgers").exists());
     }
 
     #[test]

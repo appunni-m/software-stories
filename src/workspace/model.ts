@@ -16,6 +16,9 @@ export interface RepositoryGuide {
   id: string; projectId: string; snapshotId: string; question: string; title: string;
   status: 'planning' | 'building' | 'ready' | 'partial' | 'stopped' | 'interrupted' | 'failed';
   openingRunId?: string | null;
+  openingRunIds?: string[];
+  canContinue?: boolean;
+  continuationOperations?: number;
   units: { key: string; question: string; prerequisites: string[]; status: string; runIds: string[] }[];
   answers: AnswerSummary[]; omissions: string[]; capturedFiles: number; startingFiles: number;
 }
@@ -109,7 +112,7 @@ export function parseWorkspace(raw: string | null, projectId: string, snapshotId
  * a lost local-storage write. Never change the reader's view or section. */
 export function mergeRepositoryGuide(state: WorkspaceState, guide: RepositoryGuide): WorkspaceState {
   if (guide.projectId !== state.projectId || guide.snapshotId !== state.snapshotId || !validRunId(guide.id)) return state;
-  const runIds = [...new Set([guide.openingRunId, ...guide.units.flatMap((unit) => unit.runIds)].filter(validRunId))];
+  const runIds = [...new Set([...(guide.openingRunIds ?? [guide.openingRunId]), ...guide.units.flatMap((unit) => unit.runIds)].filter(validRunId))];
   const owner = state.explorations.find((e) => e.turns.some((t) => t.guideId === guide.id));
   const previous = owner?.turns.find((t) => t.guideId === guide.id)?.guide;
   if (previous && previous.revision > guide.revision) return state;
@@ -120,6 +123,18 @@ export function mergeRepositoryGuide(state: WorkspaceState, guide: RepositoryGui
   return { ...state, explorations: state.explorations.map((e) => owner ? e.id !== owner.id ? e : {
     ...e, turns: e.turns.map((t) => t.guideId === guide.id ? merge(t) : t),
   } : e.id !== 'root' ? e : { ...e, turns: [...e.turns, merge({ id: guide.id, question: guide.question, context: [], status: 'interrupted' })] }) };
+}
+
+/** Native lifetime accounting includes an unfinished opening. Older summaries
+ * keep their previous unit-only behavior until native state is refreshed. */
+export function guideContinuationOperations(guide: Omit<RepositoryGuide, 'answers'> | undefined): number {
+  if (!guide) return 0;
+  if (Number.isInteger(guide.continuationOperations) && guide.continuationOperations! >= 0 && guide.continuationOperations! <= 7) return guide.continuationOperations!;
+  return guide.units.filter((unit) => unit.status !== 'complete' && unit.runIds.length < 2).length;
+}
+
+export function canContinueRepositoryGuide(guide: Omit<RepositoryGuide, 'answers'> | undefined): boolean {
+  return guide?.canContinue ?? guideContinuationOperations(guide) > 0;
 }
 
 /** Canceling a review removes only its undispatched, empty UI card. Native

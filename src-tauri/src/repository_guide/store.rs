@@ -8,6 +8,8 @@ const MAX_RECORD: usize = 256 * 1024;
 const MAX_ENTRIES: usize = 64;
 const MAX_BYTES: u64 = 8 * 1024 * 1024;
 pub(super) static STORE: Mutex<()> = Mutex::new(());
+mod upgrade;
+pub(super) use upgrade::{Upgrade, original_contract, prepare_continuation};
 
 fn directory(storage: &Path) -> Result<std::path::PathBuf, String> {
     let directory = storage.join("repository-guides");
@@ -26,6 +28,7 @@ pub(super) fn read(storage: &Path, id: &str) -> Result<Record, String> {
         .and_then(serde_json::from_value)
         .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
     validate(&record)?;
+    upgrade::verify(storage, &record)?;
     if record.id != id {
         return Err("The saved guide identity changed.".into());
     }
@@ -40,6 +43,7 @@ pub(super) fn exists(storage: &Path, id: &str) -> Result<bool, String> {
 }
 pub(super) fn save(storage: &Path, record: &Record, new: bool) -> Result<(), String> {
     validate(record)?;
+    upgrade::verify(storage, record)?;
     let bytes = serde_json::to_vec(record).map_err(|_| "The guide could not be encoded.")?;
     if bytes.len() > MAX_RECORD {
         return Err("The guide record exceeds its local storage limit.".into());
@@ -190,7 +194,7 @@ pub(super) fn create(storage: &Path, record: &Record) -> Result<(), String> {
 fn validate(record: &Record) -> Result<(), String> {
     if !matches!(
         (record.schema_version, record.contract.as_str()),
-        (4, CONTRACT) | (3, INDEPENDENT_CONTRACT) | (2, OPENING_CONTRACT) | (1, PLAN_ONLY_CONTRACT | LEGACY_CONTRACT)
+        (5, CONTRACT) | (4, SEPARATE_CONTRACT) | (3, INDEPENDENT_CONTRACT) | (2, OPENING_CONTRACT) | (1, PLAN_ONLY_CONTRACT | LEGACY_CONTRACT)
     ) || (record.schema_version >= 2) != record.opening.is_some()
         || !uuid(&record.id)
         || !uuid(&record.planning_run_id)
@@ -208,6 +212,18 @@ fn validate(record: &Record) -> Result<(), String> {
     {
         return Err("The saved repository guide has an incompatible contract.".into());
     }
+    if (record.schema_version != 5 && (!record.opening_continuations.is_empty() || record.upgrade.is_some()))
+        || record.opening_continuations.len() > 1
+        || record.upgrade.as_ref().is_some_and(|prior| {
+            !matches!((prior.schema_version, prior.contract.as_str()),
+                (4, SEPARATE_CONTRACT) | (3, INDEPENDENT_CONTRACT) | (2, OPENING_CONTRACT))
+                || prior.sha256.len() != 64
+                || !prior.sha256.bytes().all(|b| b.is_ascii_hexdigit())
+                || prior.revision >= record.revision
+        })
+    {
+        return Err("The guide's opening continuation contract changed.".into());
+    }
     if let Some(opening) = &record.opening {
         opening::question(record)?;
         validate_summary(record, opening)?;
@@ -215,6 +231,19 @@ fn validate(record: &Record) -> Result<(), String> {
         return Err("The saved guide has learning intent without an opening.".into());
     }
     let mut runs = std::collections::HashSet::from([record.planning_run_id.as_str()]);
+    for attempt in &record.opening_continuations {
+        if record.plan.is_none()
+            || record.opening.as_ref().and_then(|a| a.summary.as_ref()).is_none_or(|s| {
+                matches!(s.outcome, Outcome::Complete | Outcome::Working)
+            })
+            || !uuid(&attempt.run_id)
+            || !runs.insert(&attempt.run_id)
+            || attempt.question != opening::question(record)?
+        {
+            return Err("The guide's opening continuation owner or spent budget changed.".into());
+        }
+        validate_summary(record, attempt)?;
+    }
     if let Some(plan) = &record.plan {
         if !(2..=MAX_UNITS).contains(&plan.units.len())
             || record.units.len() != plan.units.len()
