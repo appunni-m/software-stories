@@ -84,6 +84,18 @@ pub(crate) fn extend_menu(
     ])
 }
 
+fn zoom_label(app: &AppHandle) -> Option<tauri::menu::MenuItem<tauri::Wry>> {
+    // Menu::get searches immediate children. The label belongs to View.
+    for item in app.menu()?.items().ok()? {
+        if let Some(item) = item.as_submenu().and_then(|view| view.get(LEVEL)) {
+            if let Some(label) = item.as_menuitem() {
+                return Some(label.clone());
+            }
+        }
+    }
+    None
+}
+
 /// Called only on the event-loop thread. Do not hold this lock across dispatch
 /// from a worker: menu callbacks must never wait on a worker awaiting that thread.
 fn apply(app: &AppHandle, window: &WebviewWindow, change: Change) -> Result<u16, String> {
@@ -95,10 +107,8 @@ fn apply(app: &AppHandle, window: &WebviewWindow, change: Change) -> Result<u16,
         .map_err(|_| UNAVAILABLE)?;
     *current = percent;
     // A missing menu display must not report that an already applied zoom failed.
-    if let Some(item) = app.menu().and_then(|menu| menu.get(LEVEL)) {
-        if let Some(item) = item.as_menuitem() {
-            let _ = item.set_text(format!("Zoom: {percent}%"));
-        }
+    if let Some(item) = zoom_label(app) {
+        let _ = item.set_text(format!("Zoom: {percent}%"));
     }
     let _ = window.emit("code-atlas:zoom-changed", ZoomChanged { percent });
     Ok(percent)

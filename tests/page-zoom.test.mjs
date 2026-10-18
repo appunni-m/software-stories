@@ -26,6 +26,7 @@ test('the packaged app has one zoom owner, installs it before reading and preser
   assert.match(bridge,/code-atlas:zoom-changed/);assert.match(bridge,/localStorage\.setItem\(APP_ZOOM_KEY/);
   assert.doesNotMatch(bridge,/\.then\(remember\)/,'an older RPC reply cannot overwrite the ordered native event');
   assert.match(native,/window\s*\.set_zoom\(f64::from\(percent\) \/ 100\.\)/);
+  assert.match(native,/item\.as_submenu\(\)\.and_then\(\|view\| view\.get\(LEVEL\)\)/,'the label is inside View, not an immediate app menu item');
   assert.match(native,/app\.run_on_main_thread/);assert.match(native,/Zoom: \{percent\}%/);
   assert.match(native,/CmdOrCtrl\+Equal/);assert.match(native,/CmdOrCtrl\+Minus/);assert.match(native,/CmdOrCtrl\+0/);
   assert.match(close,/crate::app_zoom::extend_menu\(app, &menu\)/);assert.match(close,/app\.exit\(0\)/);
