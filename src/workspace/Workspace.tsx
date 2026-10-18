@@ -30,6 +30,8 @@ import './workspace.css';
 
 interface Props {
   manifest: SnapshotManifest; projectName:string; workspace:WorkspaceId; routePath?:string; routeRange?:SourceLineRange; routeSelection?:AtlasHotspotSelection;
+  pendingLargeFileExplanation?: { id:string; projectId:string; snapshotId:string; targetPath:string; paths:string[]; question:string } | null;
+  onPendingLargeFileExplanationConsumed?:(id:string)=>void;
   children:ReactNode; onWorkspace:(workspace:WorkspaceId)=>void; onSettings:()=>void;
   onReview:(revision:ChapterRevision)=>void; onRead:(revision:ChapterRevision)=>void;
   onCompare:(base:string,head:string)=>void; onRememberFile:(path:string)=>void;
@@ -54,7 +56,8 @@ function SavedWorkspace(props:Props){
   return availability==='ready'?<DeveloperWorkspace {...props}/>:<div className="dw-source-empty" role="status">{availability==='loading'?<><LoaderCircle size={18}/><p>Opening your workspace…</p></>:<p>Your saved conversation couldn’t be opened. Try again from Notifications.</p>}</div>;
 }
 
-export function DeveloperWorkspace({manifest,projectName,workspace,routePath,routeRange,routeSelection,children,onWorkspace,onSettings,onReview,onRead,onCompare,onRememberFile,onAnswerRestoration}:Props) {
+export function DeveloperWorkspace(props:Props) {
+  const {manifest,projectName,workspace,routePath,routeRange,routeSelection,children,onWorkspace,onSettings,onReview,onRead,onCompare,onRememberFile,onAnswerRestoration}=props;
   const {appearance:themeAppearance}=useThemeContext();
   const appearance=themeAppearance==='light'?'light':'dark';
   const {projectId,snapshotId} = manifest.summary;
@@ -105,6 +108,8 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
   const [consentError,setConsentError] = useState<string|null>(null);
   const [sharingOpen,setSharingOpen] = useState(false);
   const [searchFocused,setSearchFocused] = useState(false);
+  const handledLargeFileExplanation = useRef<string|null>(null);
+  const requestedConnectionForLargeFileExplanation = useRef<string|null>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const explorer = useRef<HTMLDivElement>(null);
@@ -202,6 +207,38 @@ export function DeveloperWorkspace({manifest,projectName,workspace,routePath,rou
     requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));
   }
   function explain(context:Context){ask(`Explain what ${label(context)} does and how it works.`,current.view==='flow'?'flow':'guide',[{...context,sha256:source?.path===context.path?source.sha256:context.sha256}]);}
+  useEffect(()=>{
+    const pending=props.pendingLargeFileExplanation;
+    if(!pending||props.workspace!=='guide-plan'||pending.projectId!==projectId||pending.snapshotId!==snapshotId
+      ||handledLargeFileExplanation.current===pending.id)return;
+    if(!connection.status?.authenticated){
+      if(requestedConnectionForLargeFileExplanation.current!==pending.id){
+        requestedConnectionForLargeFileExplanation.current=pending.id;
+        props.onSettings();
+      }
+      return;
+    }
+    const contexts=[...new Set(pending.paths)].slice(0,12).flatMap((path)=>{
+      const file=props.manifest.files.find((candidate)=>candidate.path===path&&candidate.kind==='file'
+        &&candidate.contentKind==='text'&&!candidate.secretLike);
+      return file?[{path:file.path,sha256:file.sha256}]:[];
+    });
+    if(!contexts.some((context)=>context.path===pending.targetPath)){
+      handledLargeFileExplanation.current=pending.id;
+      setConsentError('This file is not available as readable text in the selected snapshot.');
+      props.onPendingLargeFileExplanationConsumed?.(pending.id);
+      return;
+    }
+    handledLargeFileExplanation.current=pending.id;
+    requestedConnectionForLargeFileExplanation.current=null;
+    const turnId=appendQuestion(projectId,snapshotId,pending.question,contexts,'guide');
+    setQuery('');setAttachments([]);setSearchFocused(false);setNarrowPane('explanation');
+    if(state.grantId)void runQuestion(projectId,snapshotId,turnId,state.grantId);
+    else{setConsentError(null);setConsentTurn(turnId);}
+    props.onPendingLargeFileExplanationConsumed?.(pending.id);
+    requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));
+  },[props.pendingLargeFileExplanation,props.workspace,props.manifest.files,props.onSettings,
+    props.onPendingLargeFileExplanationConsumed,projectId,snapshotId,connection.status?.authenticated,state.grantId]);
   function buildGuide() {
     if(!connection.status?.authenticated){onSettings();return;}
     const id=appendRepositoryGuide(projectId,snapshotId,'How does this project work, from its entry points through its main behavior and failure paths?');

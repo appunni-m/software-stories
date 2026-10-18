@@ -13,6 +13,7 @@ import { WorkspaceFrame } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
 import { interruptedNotificationMessage, notificationAvailability, previewNotificationMessage, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
 import { LatestLocalRead } from './lib/latestLocalRead';
+import { requiresBoundedFileExplanation } from './lib/largeFileExplanation';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
 import { GenerationRecord } from './GenerationRecord';
 import { FileFlow } from './FileFlow';
@@ -295,6 +296,14 @@ function App() {
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [providerDialog, setProviderDialog] = useState<ProviderDialogMode | null>(null);
   const [planningDialog, setPlanningDialog] = useState<RepositoryPlanningScope | null>(null);
+  const [pendingLargeFileExplanation, setPendingLargeFileExplanation] = useState<{
+    id: string;
+    projectId: string;
+    snapshotId: string;
+    targetPath: string;
+    paths: string[];
+    question: string;
+  } | null>(null);
   const planningReturnFocus = useRef<HTMLElement | null>(null);
   const closePlanningDialog = useCallback(() => {
     setPlanningDialog(null);
@@ -313,6 +322,16 @@ function App() {
       setPlanningDialog(null);
     }
   }, [planningDialog, navigation.current.workspace, navigation.current.projectId, navigation.current.snapshotId]);
+  useEffect(() => {
+    if (!pendingLargeFileExplanation) return;
+    const route = navigation.current;
+    if (route.workspace !== 'guide-plan' || route.projectId !== pendingLargeFileExplanation.projectId
+      || route.snapshotId !== pendingLargeFileExplanation.snapshotId
+      || route.relativePath !== pendingLargeFileExplanation.targetPath) {
+      setPendingLargeFileExplanation(null);
+    }
+  }, [pendingLargeFileExplanation, navigation.current.workspace, navigation.current.projectId,
+    navigation.current.snapshotId, navigation.current.relativePath]);
   const providerReturnFocusRef = useRef<HTMLElement | null>(null);
   const recoveredPreviewReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const projectButtonRef = useRef<HTMLButtonElement>(null);
@@ -1105,6 +1124,37 @@ function App() {
       setNotice({ title: 'A snapshot is required', message: 'Capture a repository snapshot before preparing an exact-context request.' });
       return;
     }
+    const sourceManifest = snapshotManifest?.summary.snapshotId === selectedSnapshot.snapshotId ? snapshotManifest : null;
+    const target = sourceManifest?.files.find((file) => file.path === targetPath);
+    if (isNativeRuntime() && sourceManifest && requiresBoundedFileExplanation(target)) {
+      const paths = [...new Set([targetPath, ...(selectedPaths ?? [])])]
+        .filter((path) => sourceManifest.files.some((file) => file.path === path && file.kind === 'file'
+          && file.contentKind === 'text' && !file.secretLike))
+        .slice(0, 12);
+      const id = crypto.randomUUID();
+      setPendingLargeFileExplanation({
+        id,
+        projectId: currentProject.projectId,
+        snapshotId: selectedSnapshot.snapshotId,
+        targetPath,
+        paths,
+        question: `Explain ${targetPath} from the captured implementation. Trace its inputs, transformations, outputs, errors, and relevant callers using bounded source ranges. Cite actual code and say what remains unverified.`,
+      });
+      setProviderDialog(null);
+      setToolsOpen(false);
+      setNavigation((state) => navigateToRoute(state, {
+        ...state.current,
+        workspace: 'guide-plan',
+        projectId: currentProject.projectId,
+        snapshotId: selectedSnapshot.snapshotId,
+        relativePath: targetPath,
+        sourceRange: undefined,
+        sourceRangeIssue: undefined,
+        atlasSelection: undefined,
+        focusTarget: 'workspace-composer',
+      }));
+      return;
+    }
     providerReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setToolsOpen(false);
     setProviderDialog({
@@ -1617,6 +1667,8 @@ function App() {
                 </> : <p role="status">{readiness === 'restoring' ? 'Opening your workspace…' : `Opening ${currentProject?.displayName ?? 'your workspace'}…`}</p>}
               </div>
             ) : <WorkspaceFrame manifest={snapshotManifest?.summary.snapshotId === selectedSnapshot?.snapshotId ? snapshotManifest : null}
+              pendingLargeFileExplanation={pendingLargeFileExplanation}
+              onPendingLargeFileExplanationConsumed={(id) => setPendingLargeFileExplanation((current) => current?.id === id ? null : current)}
               onAnswerRestoration={setAnswerRestoration}
               projectName={currentProject?.displayName ?? 'Repository'} workspace={currentWorkspace}
               routePath={navigation.current.relativePath} routeRange={navigation.current.sourceRange} routeSelection={navigation.current.atlasSelection}
