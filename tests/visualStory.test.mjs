@@ -13,6 +13,14 @@ const visual = {
 };
 
 describe('visual story scenes', () => {
+  it('gives the visual enough bounded height on large windows and scales down responsively', () => {
+    const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
+    const desktopRule = styles.match(/\.story-stage\s*\{([^}]+)\}/u)?.[1] ?? '';
+    const smallScreenRule = styles.match(/@media\s*\(max-width:\s*680px\)\s*\{\s*\.story-stage\s*\{([^}]+)\}/u)?.[1] ?? '';
+    assert.match(desktopRule, /height:\s*clamp\(320px,\s*48vh,\s*720px\)/u);
+    assert.match(smallScreenRule, /height:\s*clamp\(260px,\s*42vh,\s*520px\)/u);
+  });
+
   it('keeps HTML visual values intact at word boundaries before breaking long tokens', () => {
     const styles = readFileSync(new URL('../src/html-scene.css', import.meta.url), 'utf8');
     const valueRule = styles.match(/\.html-scene-value\s*\{([^}]+)\}/u)?.[1] ?? '';

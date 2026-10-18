@@ -9,7 +9,7 @@
 .story-scene-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); }
 .story-scene-dots [aria-current="step"] span { width: 18px; border-radius: 3px; background: var(--accent); }
 .story-map-toggle, .story-focus-bar button { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; font: inherit; font-size: 12px; background: var(--surface-raised); }
-.story-stage { height: clamp(300px, calc(100vh - 480px), 560px); min-width: 0; background: var(--canvas); }
+.story-stage { height: clamp(320px, 48vh, 720px); min-width: 0; background: var(--canvas); }
 .story-html-stage { overflow: auto; }
 .visual-story .react-flow { --xy-background-color: var(--canvas); --xy-background-pattern-dots-color: var(--border-strong); --xy-node-background-color: var(--surface); --xy-node-color: var(--text); --xy-node-border: 1px solid var(--border-strong); --xy-edge-stroke: var(--muted); --xy-edge-label-color: var(--muted); --xy-edge-label-background-color: var(--surface); --xy-controls-button-background-color: var(--surface); --xy-controls-button-color: var(--text); --xy-controls-button-border-color: var(--border); }
 .visual-story .react-flow__node { box-sizing: border-box; padding: 12px; font: 500 14px/1.45 -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 7px; overflow-wrap: break-word; word-break: normal; box-shadow: none; }
@@ -40,5 +40,5 @@
 .story-details p { font-size: 13px; line-height: 1.7; color: var(--muted); }
 .story-sources { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0; }
 .story-sources button { background: var(--surface-raised); border: 1px solid var(--border); padding: 6px; border-radius: 4px; font: 11px var(--mono); overflow-wrap: anywhere; text-align: left; }
-@media (max-width: 680px) { .story-stage { height: 330px; } .story-playbar { grid-template-columns: 26px minmax(0,1fr) 26px; padding-inline: 2px; } .story-toolbar { gap: 4px; } }
+@media (max-width: 680px) { .story-stage { height: clamp(260px, 42vh, 520px); } .story-playbar { grid-template-columns: 26px minmax(0,1fr) 26px; padding-inline: 2px; } .story-toolbar { gap: 4px; } }
 @media (prefers-reduced-motion: reduce) { .visual-story *, .visual-story *::before, .visual-story *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
