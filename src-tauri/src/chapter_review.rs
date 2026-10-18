@@ -17,6 +17,25 @@ pub struct SavedChapterReview {
     pub validation: chapters::ChapterValidationReport,
 }
 
+/// Validate the immutable native record without a renderer JSON round-trip.
+/// Historical revisions remain inspectable; project ownership is enforced by
+/// the store. This read does not reserve a base for a later save or acceptance.
+pub(crate) fn validate_saved(
+    storage_dir: &Path,
+    project_id: &str,
+    revision_id: &str,
+) -> Result<chapters::ChapterValidationReport, String> {
+    let revision = chapter_store::list_for_project(storage_dir, project_id)?
+        .into_iter()
+        .find(|revision| revision.revision_id == revision_id)
+        .ok_or_else(|| "This saved chapter is no longer available. Reload its history.".to_owned())?;
+    let manifest = snapshot::load_snapshot_manifest(storage_dir, project_id, &revision.snapshot_id)?;
+    let snapshot_index = index::load_snapshot_index(storage_dir, project_id, &revision.snapshot_id)?;
+    Ok(chapters::validate_chapter_revision(
+        storage_dir, &manifest, snapshot_index.as_ref(), &revision,
+    ))
+}
+
 /// Read-only citation repair scoped to a trusted saved chapter and its snapshot.
 pub(crate) fn repair_citation(
     storage_dir: &Path,
@@ -474,6 +493,24 @@ mod tests {
         let mut revision = revision;
         revision.validation_status = ValidationStatus::Valid;
         chapter_store::save_new_draft(&fixture.storage, revision).unwrap()
+    }
+
+    #[test]
+    fn saved_validation_preserves_native_integer_ranges_and_historical_project_ownership() {
+        let fixture = Fixture::new();
+        let base = first_saved_draft(&fixture);
+        let mut proposal = base.clone();
+        proposal.sections[0].claims[0].anchors[0].end_byte_inclusive = u64::MAX;
+        let invalid = save_edits(&fixture.storage, &Mutex::new(()), &base.project_id, &base.revision_id, proposal).unwrap();
+        let before = chapter_store::list_for_project(&fixture.storage, &base.project_id).unwrap();
+        let report = validate_saved(&fixture.storage, &base.project_id, &invalid.revision.revision_id).unwrap();
+        assert_eq!(report.status, ValidationReportStatus::Invalid);
+        assert!(!report.issues.is_empty());
+        assert_eq!(validate_saved(&fixture.storage, &base.project_id, &base.revision_id).unwrap().status, ValidationReportStatus::Valid);
+        assert!(validate_saved(&fixture.storage, "foreign", &invalid.revision.revision_id).is_err());
+        assert!(validate_saved(&fixture.storage, &base.project_id, "revision:missing").is_err());
+        assert_eq!(chapter_store::list_for_project(&fixture.storage, &base.project_id).unwrap(), before);
+        assert_eq!(before.iter().find(|r| r.revision_id == invalid.revision.revision_id).unwrap().sections[0].claims[0].anchors[0].end_byte_inclusive, u64::MAX);
     }
 
     #[test]

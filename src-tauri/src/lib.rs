@@ -437,6 +437,18 @@ async fn load_snapshot_index(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+async fn validate_saved_chapter_revision(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    project_id: String,
+    revision_id: String,
+) -> Result<chapters::ChapterValidationReport, String> {
+    let _project = sessions.get(&project_id)?;
+    let storage_dir = app_data_directory(&app)?;
+    local_read::run(move || chapter_review::validate_saved(&storage_dir, &project_id, &revision_id)).await
+}
+
+#[tauri::command(rename_all = "camelCase")]
 async fn validate_chapter_revision(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
@@ -2085,6 +2097,7 @@ pub fn run() {
             get_snapshot_index_progress,
             load_snapshot_index,
             validate_chapter_revision,
+            validate_saved_chapter_revision,
             list_chapter_revisions,
             list_project_chapter_revisions,
             save_chapter_edits,

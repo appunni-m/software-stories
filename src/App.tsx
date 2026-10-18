@@ -130,6 +130,7 @@ import {
   listChapterRevisions,
   listProjectChapterRevisions,
   validateChapterRevision,
+  validateSavedChapterRevision,
   saveChapterEdits,
   restoreChapterRevision,
   acceptChapterDraft,
@@ -4466,7 +4467,9 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     setBusy(true);
     setFeedback(null);
     try {
-      const report = await validateChapterRevision(projectId, activeDocument, editing ? selectedRevision?.revisionId : undefined);
+      const report = editing
+        ? await validateChapterRevision(projectId, activeDocument, selectedRevision?.revisionId)
+        : await validateSavedChapterRevision(projectId, activeDocument.revisionId);
       if (!studioMounted.current) return;
       setValidation(report);
       setFeedback({

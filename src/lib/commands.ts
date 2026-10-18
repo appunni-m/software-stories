@@ -1150,6 +1150,10 @@ export async function validateChapterRevision(
   });
 }
 
+export async function validateSavedChapterRevision(projectId: string, revisionId: string): Promise<ChapterValidationReport> {
+  return invoke<ChapterValidationReport>('validate_saved_chapter_revision', {projectId,revisionId});
+}
+
 export async function repairChapterCitation(projectId: string, baseRevisionId: string, anchorId: string, relativePath: string, startLine: number, endLine: number): Promise<ChapterSourceAnchor> {
   return invoke<ChapterSourceAnchor>('repair_chapter_citation', {projectId,baseRevisionId,anchorId,relativePath,startLine,endLine});
 }

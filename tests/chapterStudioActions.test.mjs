@@ -99,11 +99,21 @@ test('native save failure retains the unsaved candidate and never records a succ
   await callback('saveEdits',bindings)();assert.equal(state.candidate,candidate);assert.equal(state.editing,true);assert.deepEqual(state.recorded,[]);assert.deepEqual(state.navigation,[]);assert.equal(state.feedback.tone,'error');
 });
 
-for(const editing of [false,true])test(`Validate uses ${editing?'the trusted saved base for an unsaved edit':'strict saved-revision validation'}`,async()=>{
+for(const editing of [false,true])test(`Validate uses ${editing?'the trusted saved base for an unsaved edit':'the native saved record without a renderer round-trip'}`,async()=>{
   const {state,bindings,before}=setup();const requests=[];bindings.editing=editing;bindings.activeDocument=bindings.candidate;
-  bindings.validateChapterRevision=async(...args)=>{requests.push(args);return {status:'valid',issues:[]};};
+  bindings.validateChapterRevision=async(...args)=>{assert.ok(editing);requests.push(args);return {status:'valid',issues:[]};};
+  bindings.validateSavedChapterRevision=async(...args)=>{assert.ok(!editing);requests.push(args);return {status:'valid',issues:[]};};
   await callback('validateCurrent',bindings)();
-  assert.equal(requests.length,1);assert.equal(requests[0][0],'p');assert.equal(requests[0][1],bindings.candidate);assert.equal(requests[0][2],editing?before.revisionId:undefined);assert.equal(state.feedback.tone,'success');
+  assert.deepEqual(requests,editing?[['p',bindings.candidate,before.revisionId]]:[['p',bindings.candidate.revisionId]]);assert.equal(state.feedback.tone,'success');
+});
+
+test('saved validation transport carries only project and revision identity',async()=>{
+  const file=ts.createSourceFile('commands.ts',readFileSync(new URL('../src/lib/commands.ts',import.meta.url),'utf8'),ts.ScriptTarget.Latest,true);
+  const node=file.statements.find(n=>ts.isFunctionDeclaration(n)&&n.name?.text==='validateSavedChapterRevision');assert.ok(node);
+  const compiled=ts.transpileModule(node.getText(file),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
+  const requests=[],exports={};runInThisContext(`(function(exports,invoke){${compiled}\n})`)(exports,async(command,args)=>{requests.push({command,args});return {status:'invalid',issues:[]};});
+  await exports.validateSavedChapterRevision('p','revision:invalid');
+  assert.deepEqual(requests,[{command:'validate_saved_chapter_revision',args:{projectId:'p',revisionId:'revision:invalid'}}]);
 });
 
 
