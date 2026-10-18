@@ -1811,7 +1811,7 @@ fn publish_chapter_candidate(
     if matches!(publication, PreviewPublication::AgentOwned) {
         // No memory insertion or eviction occurs unless durable publication
         // succeeds. Uncertain file publication remains discoverable on disk.
-        // Both local locks use try_lock under the agent cancellation owner.
+        // The agent manager serializes cancellation across this final commit.
         return drafts.try_publish(pending_revision, |generation_id| {
             let preview = preview(generation_id);
             pending_chapter_previews::try_save(storage_dir, &preview)?;

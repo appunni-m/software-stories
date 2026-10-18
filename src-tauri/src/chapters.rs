@@ -94,16 +94,16 @@ impl PendingChapterDrafts {
         ))
     }
 
-    /// Persist under a nonblocking memory-store guard before registering the
-    /// new preview or evicting any prior one. The callback cannot call this
-    /// store; its durable publisher must also acquire its lock nonblocking.
+    /// Persist under the memory-store guard before registering the new preview
+    /// or evicting any prior one. The callback cannot call this store; it must
+    /// finish durable publication before the preview becomes visible.
     pub(crate) fn try_publish<T>(
         &self,
         revision: ChapterRevision,
         publish: impl FnOnce(String) -> Result<T, String>,
     ) -> Result<T, String> {
-        let mut pending = self.0.try_lock().map_err(|_| {
-            "The generated draft preview store is busy. No new preview was registered.".to_owned()
+        let mut pending = self.0.lock().map_err(|_| {
+            "The generated draft preview store is temporarily unavailable.".to_owned()
         })?;
         let generation_id = format!("generation:{}", Uuid::new_v4());
         let published = publish(generation_id.clone())?;

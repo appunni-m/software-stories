@@ -46,9 +46,7 @@ pub fn save(storage_dir: &Path, preview: &ChapterDraftPreview) -> Result<(), Str
 
 /// Called only from an admitted agent's final publication callback.
 pub(crate) fn try_save(storage_dir: &Path, preview: &ChapterDraftPreview) -> Result<(), String> {
-    let _guard = PREVIEW_STORE_LOCK.try_lock().map_err(|_| {
-        "Generated preview recovery is busy. No recovery copy was published; inspect pending previews before a fresh request.".to_owned()
-    })?;
+    let _guard = lock_store()?;
     save_locked(storage_dir, preview)
 }
 
@@ -65,9 +63,11 @@ fn save_locked(storage_dir: &Path, preview: &ChapterDraftPreview) -> Result<(), 
 
     let directory = preview_directory(storage_dir)?;
     let existing = read_all(&directory)?;
-    for entry in &existing {
-        let _ = decode_preview(&entry.bytes_vec, &entry.path)?;
-    }
+    // An unsupported or malformed earlier preview remains available for its
+    // recovery notice, but it must not prevent saving an unrelated new draft.
+    // `read_all` still enforces regular files, canonical names and bounded
+    // storage before capacity is calculated; the new preview is validated
+    // above before publication.
     if existing.len() >= MAX_PREVIEW_COUNT {
         return Err("Too many generated previews are saved locally. Save or discard one before generating another.".to_owned());
     }
@@ -563,6 +563,46 @@ mod tests {
                 .unwrap_err()
                 .contains("2 MB")
         );
+        let _ = fs::remove_dir_all(directory);
+    }
+
+    #[test]
+    fn unsupported_existing_preview_does_not_block_a_new_agent_preview() {
+        let directory = temporary_storage();
+        let mut unsupported = preview();
+        unsupported.revision.schema_version = chapters::CHAPTER_SCHEMA_VERSION - 1;
+        let unsupported_id = unsupported.generation_id.clone();
+        let unsupported_path = record_path(&directory, &unsupported_id).unwrap();
+        let unsupported_bytes = serde_json::to_vec(&PreviewFile {
+            schema_version: PREVIEW_SCHEMA_VERSION,
+            preview: unsupported,
+        })
+        .unwrap();
+        fs::write(&unsupported_path, &unsupported_bytes).unwrap();
+
+        let pending = chapters::PendingChapterDrafts::default();
+        let candidate = preview();
+        let mut published = candidate.clone();
+        let saved = pending.try_publish(candidate.revision.clone(), |generation_id| {
+            published.generation_id = generation_id;
+            try_save(&directory, &published)?;
+            Ok(published.clone())
+        });
+
+        let saved = saved.expect("an unsupported unrelated preview must not block publication");
+        assert_eq!(pending.get(&saved.generation_id).unwrap(), candidate.revision);
+        assert_eq!(load(&directory, &saved.generation_id).unwrap(), saved);
+        assert_eq!(fs::read(&unsupported_path).unwrap(), unsupported_bytes);
+
+        let summaries = list(&directory).unwrap();
+        assert_eq!(summaries.len(), 2);
+        assert!(summaries.iter().any(|entry| {
+            entry.generation_id == unsupported_id && entry.unavailable_reason.is_some()
+        }));
+        assert!(summaries.iter().any(|entry| {
+            entry.generation_id == saved.generation_id && entry.unavailable_reason.is_none()
+        }));
+
         let _ = fs::remove_dir_all(directory);
     }
 
