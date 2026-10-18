@@ -53,6 +53,10 @@ export function workspaceStoreHarness(invoke) {
     store: load(resolve(root, 'workspace/store.ts')), calls, storage,
     emit(name, payload) { for (const callback of listeners.get(name) ?? []) callback({ payload }); },
     listenerCount() { return [...listeners.values()].reduce((sum, items) => sum + items.size, 0); },
+    onWindowEvent(name, callback) {
+      context.window.addEventListener(name, callback);
+      return () => context.window.removeEventListener(name, callback);
+    },
   };
 }
 

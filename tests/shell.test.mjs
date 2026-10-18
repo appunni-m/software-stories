@@ -104,7 +104,8 @@ describe('desktop shell acceptance contract', () => {
 
   it('keeps recovery actions in the notification center without occupying the workspace', async () => {
     const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
-    assert.match(source, /title: 'Recent projects could not be loaded'[\s\S]*?actionLabel: 'Retry'[\s\S]*?retryRecentProjectsLoad/);
+    assert.match(source, /title: 'Recent projects could not be loaded'[\s\S]*?target: \{kind:'retryRecents'\}/);
+    assert.match(source, /target\?\.kind==='retryRecents'\)\{void retryRecentProjectsLoad\(\)/);
     assert.match(source, /<NotificationCenter items=\{workspaceNotifications\}/);
     assert.match(source, /Try update again/);
     assert.match(source, /retryInterruptedCapture\(operation\) : reviewInterruptedGeneration\(operation\)/);
@@ -214,7 +215,19 @@ describe('desktop shell acceptance contract', () => {
     assert.equal(config.app.windows[0].zoomHotkeysEnabled, true);
     assert.deepEqual(capability.permissions, ['core:default', 'core:webview:allow-set-webview-zoom']);
 
-    const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
-    assert.match(source, /⌘= zoom in · ⌘− zoom out \(20% steps\)/);
+    const source = await readFile(new URL('../src/KeyboardShortcuts.tsx', import.meta.url), 'utf8');
+    assert.match(source, /Zoom in \/ out \(20% steps\)/);
+    assert.match(source, /⌘= \/ ⌘−/);
+  });
+
+  it('opens standard keyboard help explicitly without adding a saved notification', async () => {
+    const [app,help]=await Promise.all(['../src/App.tsx','../src/KeyboardShortcuts.tsx'].map(path=>readFile(new URL(path,import.meta.url),'utf8')));
+    assert.doesNotMatch(app,/showComingSoon/);
+    assert.match(app,/<KeyboardShortcuts open=\{shortcutsOpen\} onOpenChange=\{setShortcutsOpen\}/);
+    assert.match(app,/if \(shortcutsOpen\) return;/);
+    assert.match(help,/<Dialog.Root open=\{open\} onOpenChange=\{onOpenChange\}/);
+    assert.match(help,/<Dialog.Title>Keyboard shortcuts/);
+    assert.match(help,/data-focus-key="tools-button"/);
+    assert.doesNotMatch(help,/noticeHistory|invoke|fetch/);
   });
 });

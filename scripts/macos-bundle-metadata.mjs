@@ -20,8 +20,8 @@ async function source(path) {
 }
 
 async function metadata() {
-  const [chapters, index, recovery] = await Promise.all([
-    source('chapters.rs'), source('index.rs'), source('recovery.rs'),
+  const [chapters, index, recovery, notices] = await Promise.all([
+    source('chapters.rs'), source('index.rs'), source('recovery.rs'), source('app_notices.rs'),
   ]);
   return {
     productName: config.productName,
@@ -37,6 +37,7 @@ async function metadata() {
       indexSchema: rustConstant(index, 'INDEX_SCHEMA_VERSION'),
       indexer: rustConstant(index, 'INDEXER_VERSION'),
       interruptedOperationJournal: rustConstant(recovery, 'JOURNAL_SCHEMA_VERSION'),
+      appNoticeHistory: rustConstant(notices, 'NOTICE_HISTORY_SCHEMA_VERSION'),
     },
   };
 }

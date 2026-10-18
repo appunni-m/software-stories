@@ -37,6 +37,7 @@ export function ensureWorkspaceIndex(project: string, snapshot: string): Promise
 }
 
 const states = new Map<string, WorkspaceState>();
+const unsavedWorkspaceEpisodes = new Map<string,string>();
 const listeners = new Set<() => void>();
 const jobs = new Map<string, { cancelled: boolean; runId: string | null }>();
 const key = (project: string, snapshot: string) => `code-atlas:workspace:v1:${project}:${snapshot}`;
@@ -49,7 +50,16 @@ export function updateWorkspace(project: string, snapshot: string, update: (stat
   const id = key(project, snapshot); const previous = getWorkspace(project, snapshot); const next = recordQuestionOutcomes(previous, update(previous), Date.now());
   if (next === previous) return;
   states.set(id, next);
-  try { localStorage.setItem(id, JSON.stringify(next)); } catch { window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice', { detail: { title: 'Conversation could not be saved', message: 'Local workspace storage is full. Generated explanations remain in the native library.' } })); }
+  try {
+    localStorage.setItem(id, JSON.stringify(next));
+    const occurrenceId=unsavedWorkspaceEpisodes.get(id);
+    if(occurrenceId){unsavedWorkspaceEpisodes.delete(id);window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice-resolved',{detail:{projectId:project,snapshotId:snapshot,occurrenceId}}));}
+  } catch {
+    if(!unsavedWorkspaceEpisodes.has(id)){
+      const occurrenceId=crypto.randomUUID();unsavedWorkspaceEpisodes.set(id,occurrenceId);
+      window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice', { detail: { title: 'Conversation could not be saved', message: 'Local workspace storage is unavailable. Generated explanations remain in the native library.',projectId:project,snapshotId:snapshot,occurrenceId } }));
+    }
+  }
   listeners.forEach((notify) => notify());
 }
 export function useWorkspace(project: string, snapshot: string) {

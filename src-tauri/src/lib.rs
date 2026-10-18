@@ -9,6 +9,7 @@
 #![deny(missing_docs)]
 
 mod bounded_file;
+mod app_notices;
 mod bounded_process;
 mod chapter_freshness;
 mod claim_alignment;
@@ -1944,6 +1945,8 @@ pub fn run() {
         .manage(recovery::InterruptionJournal::default())
         .manage(ChapterStoreLock::default())
         .invoke_handler(tauri::generate_handler![
+            app_notices::list_app_notices,
+            app_notices::update_app_notices,
             agent_installation::pick_agent_installation_file,
             agent_handoff::build_agent_handoff_review,
             agent_handoff::export_agent_handoff,

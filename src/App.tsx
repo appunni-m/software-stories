@@ -1,4 +1,6 @@
-import { updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
+import { useNoticeHistory } from './lib/useNoticeHistory';
+import type { AppNoticeInput, AppNotice } from './lib/noticeHistory';
+import { getWorkspace, updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
 import { markQuestionOutcome, openWorkspaceQuestion } from './workspace/outcomes';
 import { WorkspaceFrame } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
@@ -21,6 +23,7 @@ import { ConnectionHeader } from './ConnectionHeader';
 import { ConnectionsDialog } from './ConnectionsDialog';
 import { NotificationCenter, type WorkspaceNotification } from './NotificationCenter';
 import { ThemeControl } from './ThemeControl';
+import { KeyboardShortcuts } from './KeyboardShortcuts';
 import type { PrepareRepositoryPlanInput } from './lib/repositoryPlans';
 import type { PlannedChapterScope } from './lib/plannedChapters';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
@@ -193,7 +196,6 @@ import {
   type WorkspaceRoute,
 } from './lib/navigation';
 
-type Notice = { title: string; message: string; actionLabel?: string; action?: () => void; tone?: 'info' | 'warning' | 'error' } | null;
 type ProviderDialogMode = (
   | { kind: 'settings'; backend?: 'api' | 'codex'; section?: 'explanations' | 'voice'; recoveryOperationId?: string }
   | { kind: 'review'; projectId: string; snapshotId: string; targetPath: string; selectedPaths?: string[]; recoveryOperationId?: string }
@@ -231,17 +233,24 @@ function App() {
   const announcedRepositoryContextRef = useRef<string | null>(null);
   const [runtime, setRuntime] = useState<ApplicationStatus | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<Notice>(null);
+  const {history:noticeHistory,state:noticeHistoryState}=useNoticeHistory();
+  const setNotice=useCallback((input:AppNoticeInput)=>{void noticeHistory.publish({...input,occurrenceId:input.occurrenceId??crypto.randomUUID()});},[noticeHistory]);
   useEffect(() => {
-    const notify = (event: Event) => { const detail=(event as CustomEvent<{title:string;message:string;projectId?:string;snapshotId?:string;explorationId?:string}>).detail;
-      if(detail) setNotice({...detail,...(detail.projectId&&detail.snapshotId&&detail.explorationId?{actionLabel:'Open explanation',action:()=>{
-        updateWorkspace(detail.projectId!,detail.snapshotId!,(s)=>({...s,currentId:s.explorations.some((e)=>e.id===detail.explorationId)?detail.explorationId!:'root'}));
-        setNavigation((s)=>navigateToRoute(s,{workspace:'guide-plan',projectId:detail.projectId!,snapshotId:detail.snapshotId!}));
-      }}:{})}); };
-    window.addEventListener('code-atlas:workspace-notice',notify);return()=>window.removeEventListener('code-atlas:workspace-notice',notify);
-  }, []);
+    const notify = (event: Event) => {
+      const detail=(event as CustomEvent<{title:string;message:string;projectId?:string;snapshotId?:string;explorationId?:string;occurrenceId?:string}>).detail;
+      if(detail) setNotice({title:detail.title,message:detail.message,projectId:detail.projectId,snapshotId:detail.snapshotId,occurrenceId:detail.occurrenceId,
+        target:detail.projectId&&detail.snapshotId&&detail.explorationId?{kind:'openExploration',explorationId:detail.explorationId}:null});
+    };
+    const resolved=(event:Event)=>{
+      const detail=(event as CustomEvent<{projectId:string;snapshotId:string;occurrenceId:string}>).detail;
+      if(detail)noticeHistory.resolveOccurrence(detail.projectId,detail.snapshotId,detail.occurrenceId);
+    };
+    window.addEventListener('code-atlas:workspace-notice',notify);window.addEventListener('code-atlas:workspace-notice-resolved',resolved);
+    return()=>{window.removeEventListener('code-atlas:workspace-notice',notify);window.removeEventListener('code-atlas:workspace-notice-resolved',resolved);};
+  }, [setNotice,noticeHistory]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [projectMetadataBusy, setProjectMetadataBusy] = useState(false);
   const projectOpening = useSyncExternalStore(subscribeProjectOpening, isProjectOpeningBusy);
@@ -378,17 +387,17 @@ function App() {
   };
 
   async function retryRecentProjectsLoad() {
+    const resolving=noticeHistoryState.items.filter(item=>item.input.target?.kind==='retryRecents').map(item=>item.id);
     try {
       const recent = await listRecentProjects();
       setRecentProjects(recent);
       setKnownProjects(Object.fromEntries(recent.map((project) => [project.projectId, project])));
-      setNotice(null);
+      resolving.forEach(id=>noticeHistory.dismiss(id));
     } catch (error) {
       setNotice({
         title: 'Recent projects could not be loaded',
-        message: errorMessageOr(error, 'The local project list is unavailable.'),
-        actionLabel: 'Retry',
-        action: () => { void retryRecentProjectsLoad(); },
+        message: 'The local project list is unavailable.',
+        target: {kind:'retryRecents'},
         tone: 'error',
       });
     }
@@ -408,7 +417,7 @@ function App() {
     } catch (error) {
       setNotice({
         title: 'Recovery notice could not be cleared',
-        message: errorMessageOr(error, 'The old request notice remains. The new request still requires fresh review and consent.'),
+        message: 'The old request notice remains. The new request still requires fresh review and consent.',
         tone: 'error',
       });
     }
@@ -427,9 +436,9 @@ function App() {
       void refreshPendingChapterPreviews();
       if (recoveredPreviewId === summary.generationId) setRecoveredPreviewId(null);
     } catch (error) {
-      setNotice({
+      setNotice({projectId:summary.projectId,
         title: 'Saved preview could not be discarded',
-        message: errorMessageOr(error, 'The local recovery copy is still available.'),
+        message: 'The local recovery copy is still available.',
         tone: 'error',
       });
     }
@@ -445,7 +454,7 @@ function App() {
     } catch (error) {
       setNotice({
         title: 'Recovery notice could not be cleared',
-        message: errorMessageOr(error, 'The local recovery record could not be updated.'),
+        message: 'The local recovery record could not be updated.',
         tone: 'error',
       });
     } finally {
@@ -470,22 +479,22 @@ function App() {
         await discardInterruptedOperation(operation.operationId);
         setInterruptedOperations((current) => current.filter((item) => item.operationId !== operation.operationId));
         void refreshInterruptedOperations();
-        setNotice({
+        setNotice({projectId:operation.projectId,snapshotId:operation.snapshotId,
           title: 'A fresh capture has started',
           message: 'The interrupted capture was not resumed. Existing snapshots remain available while this new capture runs.',
         });
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return;
-        setNotice({
+        setNotice({projectId:operation.projectId,snapshotId:operation.snapshotId,
           title: 'A fresh capture started; old recovery data remains',
-          message: errorMessageOr(error, 'The old staging bytes could not be cleared. The interrupted item remains available to discard.'),
+          message: 'The old staging bytes could not be cleared. The interrupted item remains available to discard.',
           tone: 'warning',
         });
       }
     } catch (error) {
-      setNotice({
+      setNotice({projectId:operation.projectId,snapshotId:operation.snapshotId,
         title: 'Capture retry could not start',
-        message: errorMessageOr(error, 'Open the repository and try a new capture again.'),
+        message: 'Open the repository and try a new capture again.',
         tone: 'error',
       });
     } finally {
@@ -625,15 +634,15 @@ function App() {
         setProviderDialog({ kind: 'overview', projectId: operation.projectId, snapshotId: operation.snapshotId,
           selectedPaths: request.selectedPaths, recoveryOperationId: operation.operationId, recoveryBackend });
       } else {
-        setNotice({ title: 'Select the original evidence again', message: request.purpose === 'codeLensExplanation'
+        setNotice({projectId:operation.projectId,snapshotId:operation.snapshotId, title: 'Select the original evidence again', message: request.purpose === 'codeLensExplanation'
           ? 'This was a source-range explanation. Select its exact range in Files and review a fresh request; a whole-file request was not opened.'
           : 'This was a Git change explanation. Reopen the original local comparison and selected files or hunk before reviewing a fresh request. No chapter request was opened.', tone: 'warning' });
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
-      if (current()) setNotice({
+      if (current()) setNotice({projectId:operation.projectId,snapshotId:operation.snapshotId,
         title: 'A fresh request review could not open',
-        message: errorMessageOr(error, 'Reopen the repository and review a new exact-context request.'),
+        message: 'Reopen the repository and review a new exact-context request.',
         tone: 'error',
       });
     } finally {
@@ -665,18 +674,14 @@ function App() {
       const project = result.project;
       setRecentProjects((current) => [project, ...current.filter((recent) => recent.projectId !== project.projectId)]);
       activateProject(project);
-      setNotice({
-        title: 'Repository selected',
-        message: `Git root: ${project.repositoryRoot}. ${project.branch ? `Branch ${project.branch}. ` : ''}${project.head ? `HEAD ${project.head.slice(0, 10)}. ` : 'No commit is available yet. '}No source files have been read.`,
-      });
       return;
     }
 
     if (result.status === 'storageError' && result.project) {
       activateProject(result.project);
-      setNotice({
+      setNotice({projectId:result.project.projectId,
         title: 'Repository ready for this session',
-        message: `${result.message ?? 'Code Atlas could not save this path to Recents.'} You can continue now; it will not appear after relaunch unless you open it again.`,
+        message: `Code Atlas could not save this repository to Recents. You can continue now; it will not appear after relaunch unless you open it again.`,
         tone: 'warning',
       });
       return;
@@ -686,20 +691,19 @@ function App() {
 
     setNotice({
       title: result.status === 'opened' ? 'The project response was incomplete' : projectResultTitles[result.status],
-      message: `${result.message ?? 'Choose another folder to continue.'} Your current project selection has not changed.`,
-      actionLabel: 'Choose another folder',
-      action: () => { void openLocalRepository(); },
+      message: 'Choose another folder to continue. Your current repository selection has not changed.',
+      target: {kind:'openRepository'},
       tone: 'error',
     });
   };
 
-  const openLocalRepository = async () => {
+  const pickLocalRepository = async (returnFocusKey?: string) => {
     automaticRestoreAllowed.current = false;
     const activeElement = document.activeElement;
     const activeFocus = activeElement instanceof HTMLElement ? activeElement.dataset.focusKey : undefined;
-    pickerReturnFocusRef.current = activeElement instanceof HTMLElement && activeElement.closest('.project-menu')
+    pickerReturnFocusRef.current = returnFocusKey ?? (activeElement instanceof HTMLElement && activeElement.closest('.project-menu')
       ? 'project-button'
-      : activeFocus;
+      : activeFocus);
     setProjectMenuOpen(false);
     setToolsOpen(false);
 
@@ -728,13 +732,14 @@ function App() {
       if (error instanceof DOMException && error.name === 'AbortError') return;
       setNotice({
         title: 'Could not open the folder picker',
-        message: errorMessageOr(error, 'The native folder picker did not respond.'),
-        actionLabel: 'Try again',
-        action: () => { void openLocalRepository(); },
+        message: 'The native folder picker did not respond.',
+        target: {kind:'openRepository'},
         tone: 'error',
       });
     }
   };
+
+  const openLocalRepository = () => pickLocalRepository();
 
   const openRecent = async (projectId: string) => {
     automaticRestoreAllowed.current = false;
@@ -744,11 +749,10 @@ function App() {
       handleProjectOpenResult(await openRecentProject(projectId));
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
-      setNotice({
+      setNotice({projectId,
         title: 'Could not open this recent project',
-        message: errorMessageOr(error, 'Local project metadata could not be read.'),
-        actionLabel: 'Choose a folder',
-        action: () => { void openLocalRepository(); },
+        message: 'Local project metadata could not be read.',
+        target: {kind:'openRepository'},
         tone: 'error',
       });
     }
@@ -759,15 +763,15 @@ function App() {
     setProjectMetadataBusy(true);
     try {
       setRecentProjects(await removeRecentProject(project.projectId));
-      setNotice({
+      setNotice({projectId:project.projectId,
         title: 'Removed from Recents',
         message: `${project.displayName} was removed from Code Atlas. Its repository folder and files were left untouched.`,
       });
       projectButtonRef.current?.focus();
     } catch (error) {
-      setNotice({
+      setNotice({projectId:project.projectId,
         title: 'Could not update Recents',
-        message: errorMessageOr(error, 'The local project list could not be updated.'),
+        message: 'The local project list could not be updated.',
         tone: 'error',
       });
     } finally {
@@ -785,7 +789,6 @@ function App() {
       return;
     }
     setSnapshotBusy(true);
-    setNotice(null);
     try {
       const start = await startSnapshot(currentProject.projectId);
       const progress = await getSnapshotProgress(start.snapshotId);
@@ -793,9 +796,9 @@ function App() {
         setCaptureByProject((current) => ({ ...current, [currentProject.projectId]: progress }));
       }
     } catch (error) {
-      setNotice({
+      setNotice({projectId:currentProject.projectId,
         title: 'Snapshot could not start',
-        message: errorMessageOr(error, 'The local capture service did not respond.'),
+        message: 'The local capture service did not respond.',
         tone: 'error',
       });
     } finally {
@@ -808,9 +811,9 @@ function App() {
     try {
       await cancelSnapshot(currentCapture.snapshotId);
     } catch (error) {
-      setNotice({
+      setNotice({projectId:currentCapture.projectId,snapshotId:currentCapture.snapshotId,
         title: 'Capture could not be cancelled',
-        message: errorMessageOr(error, 'The capture may have already finished.'),
+        message: 'The capture may have already finished.',
         tone: 'error',
       });
     }
@@ -833,7 +836,6 @@ function App() {
       focusTarget: `heading:${state.current.workspace}`,
     }));
     setSnapshotMenuOpen(false);
-    setNotice((current) => current?.title === 'Repository selected' ? null : current);
   };
 
   useEffect(() => {
@@ -846,7 +848,7 @@ function App() {
         setNotice({
           title: 'Recent projects could not be loaded',
           message: 'The workspace is still available. Retry the local Recents lookup or choose a repository to add it again.',
-          actionLabel: 'Retry', action: () => { void retryRecentProjectsLoad(); }, tone: 'error',
+          target: {kind:'retryRecents'}, tone: 'error',
         });
       } else {
         // Preserve a repository opened by the user while the startup lookup ran.
@@ -911,13 +913,12 @@ function App() {
           setNavigation((state) => state.current.projectId !== currentProject.projectId || state.current.snapshotId
             ? state : replaceCurrentRoute(state, { ...state.current, snapshotId: snapshot.snapshotId,
               relativePath: saved?.snapshotId === snapshot.snapshotId ? saved.path : undefined }));
-          setNotice((current) => current?.title === 'Repository selected' ? null : current);
         }
       })
-      .catch((error) => {
+      .catch(() => {
         if (active) setSnapshotHistoryLoad({ projectId: currentProject.projectId, status: 'error' });
         if (active && isNativeRuntime()) {
-          setNotice({ title: 'Snapshot history could not be loaded', message: errorMessageOr(error, 'Local snapshot history is unavailable.'), tone: 'error' });
+          setNotice({projectId:currentProject.projectId, title: 'Snapshot history could not be loaded', message: 'Local snapshot history is unavailable.', tone: 'error' });
         }
       });
     return () => { active = false; };
@@ -934,10 +935,10 @@ function App() {
     setSnapshotManifestLoad({ ...scope, status: 'loading' });
     void loadSnapshotManifest(currentProject.projectId, navigation.current.snapshotId)
       .then((manifest) => { if (active) { setSnapshotManifest(manifest); setSnapshotManifestLoad({ ...scope, status: 'ready' }); } })
-      .catch((error) => {
+      .catch(() => {
         if (active) {
           setSnapshotManifestLoad({ ...scope, status: 'error' });
-          setNotice({ title: 'Snapshot details could not be opened', message: errorMessageOr(error, 'The immutable snapshot manifest is unavailable.'), tone: 'error' });
+          setNotice({...scope, title: 'Snapshot details could not be opened', message: 'The immutable snapshot manifest is unavailable.', tone: 'error' });
         }
       });
     return () => { active = false; };
@@ -1004,6 +1005,7 @@ function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (shortcutsOpen) return;
       if (event.key === 'Escape') {
         if (providerDialog || planningDialog) {
           event.preventDefault();
@@ -1020,9 +1022,6 @@ function App() {
           event.preventDefault();
           setToolsOpen(false);
           document.querySelector<HTMLElement>('[data-focus-key="tools-button"]')?.focus();
-        } else if (notice) {
-          event.preventDefault();
-          setNotice(null);
         }
         return;
       }
@@ -1071,15 +1070,7 @@ function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [navigation.current.snapshotId, navigationActions, notice, openLocalRepository, projectMenuOpen, providerDialog, planningDialog, snapshotMenuOpen, toolsOpen]);
-
-  const showComingSoon = (title: string, message: string) => {
-    setNotice({ title, message });
-    setNotificationsOpen(true);
-    setToolsOpen(false);
-    setProjectMenuOpen(false);
-    setSnapshotMenuOpen(false);
-  };
+  }, [navigation.current.snapshotId, navigationActions, openLocalRepository, projectMenuOpen, providerDialog, planningDialog, snapshotMenuOpen, shortcutsOpen, toolsOpen]);
 
   useEffect(() => {
     const open = () => {
@@ -1153,7 +1144,6 @@ function App() {
 
   const chooseWorkspace = (workspace: Workspace) => {
     navigationActions.workspace(workspace);
-    setNotice(null);
     setToolsOpen(false);
     setProjectMenuOpen(false);
   };
@@ -1201,7 +1191,6 @@ function App() {
         ? replaceCurrentRoute(origin, destination)
         : navigateToRoute(origin, destination);
     });
-    setNotice(null);
   };
 
   const openWalkthroughSource = (anchor: ChapterSourceAnchor, context: ReaderRouteContext) => {
@@ -1232,7 +1221,6 @@ function App() {
         focusTarget: 'heading:atlas',
       });
     });
-    setNotice(null);
   };
 
   const openWalkthroughAtlas = (destination: HotspotDestination, context: ReaderRouteContext) => {
@@ -1351,6 +1339,19 @@ function App() {
     };
   }, [navigation.current.focusTarget, navigation.current.workspace, navigation.current.chapterRevisionId, navigation.current.sectionId]);
 
+  const openNoticeTarget=(item:AppNotice)=>{
+    const {target,projectId,snapshotId}=item.input;
+    if(target?.kind==='openRepository'){void pickLocalRepository('notifications');return;}
+    if(target?.kind==='retryRecents'){void retryRecentProjectsLoad();return;}
+    if(target?.kind==='openExploration'&&projectId&&snapshotId){
+      if(!getWorkspace(projectId,snapshotId).explorations.some(e=>e.id===target.explorationId)){
+        setNotice({title:'Saved exploration is unavailable',message:'Open this repository to find its saved explanations.',projectId,snapshotId});return;
+      }
+      updateWorkspace(projectId,snapshotId,state=>({...state,currentId:target.explorationId}));
+      setNavigation(state=>navigateToRoute(state,{workspace:'guide-plan',projectId,snapshotId,focusTarget:'workspace-composer'}));
+    }
+  };
+
   const workspaceNotifications: WorkspaceNotification[] = [
     ...questionUpdates.map((outcome): WorkspaceNotification => ({
       id: `question:${outcome.turnId}`, title: outcome.title,
@@ -1369,8 +1370,18 @@ function App() {
       actions: [{ label: 'Try again', run: () => { setSnapshotManifestLoad(null); setWorkspaceReload((value) => value + 1); } }] }] : []),
     ...(runtimeError ? [{ id: 'runtime', title: 'Some app features are unavailable', message: 'Try connecting to the local app again.', tone: 'error' as const,
       actions: [{ label: 'Retry', run: loadRuntime }] }] : []),
-    ...(notice ? [{ id: 'workspace-notice', title: notice.title, message: notice.message, tone: notice.tone,
-      actions: [...(notice.action ? [{ label: notice.actionLabel ?? 'Continue', run: notice.action }] : []), { label: 'Dismiss', run: () => setNotice(null) }] }] : []),
+    ...(noticeHistoryState.availability==='unavailable'?[{id:'notices-unavailable',title:'Saved updates are unavailable',
+      message:'Existing explanations have not been discarded. Try again to load or save these updates.',tone:'warning' as const,
+      actions:[{label:'Try again',run:()=>noticeHistory.retry()}]}]:[]),
+    ...noticeHistoryState.items.map((item):WorkspaceNotification=>({
+      id:`app-notice:${item.id}`,title:item.input.title,tone:item.input.tone,read:item.read,
+      message:`${item.input.projectId?`${knownProjects[item.input.projectId]?.displayName??'Saved repository'} · `:''}${item.input.message}`,
+      actions:[...(item.input.target?[{label:item.input.target.kind==='openRepository'?'Choose a folder':item.input.target.kind==='retryRecents'?'Try again':'Open explanation',
+        movesFocus:item.input.target.kind==='openExploration',opensDialog:item.input.target.kind==='openRepository',
+        run:()=>{noticeHistory.read(item.id);openNoticeTarget(item);}}]:[]),
+        ...(!item.read?[{label:'Mark read',run:()=>noticeHistory.read(item.id)}]:[]),
+        {label:'Dismiss',run:()=>noticeHistory.dismiss(item.id)}],
+    })),
     ...(interruptedOperationsUnavailable ? [{ id: 'recovery-unavailable', title: 'Recent work could not be loaded', message: 'Your saved explanations are still available.', tone: 'error' as const,
       actions: [{ label: 'Try again', run: () => { void refreshInterruptedOperations(); } }] }] : []),
     ...interruptedOperations.map((operation): WorkspaceNotification => ({
@@ -1395,6 +1406,7 @@ function App() {
 
   return (
     <div className={`app-window${selectedSnapshot ? ' has-snapshot' : ''}${readiness !== 'ready' ? ' is-restoring' : ''}`}>
+      <KeyboardShortcuts open={shortcutsOpen} onOpenChange={setShortcutsOpen}/>
       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {repositoryContextAnnouncement}
       </div>
@@ -1508,7 +1520,7 @@ function App() {
           <ThemeControl />
           <NotificationCenter items={workspaceNotifications}
             availability={notificationAvailability({ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready',
-              answers: answerAvailability,
+              answers: answerAvailability, notices:noticeHistoryState.availability,
               refreshing: interruptionRefreshing || previewRefreshing, unavailable: interruptedOperationsUnavailable || pendingChapterPreviewsUnavailable })}
             open={notificationsOpen} onOpenChange={setNotificationsOpen} />
           <button
@@ -1543,7 +1555,7 @@ function App() {
                 <button role="menuitem" data-focus-key="tools-button" onClick={() => chooseWorkspace('chapter-studio')}>
                   <BookOpen size={16} /> <span>Review a draft</span>
                 </button>
-                <button role="menuitem" onClick={() => { setToolsOpen(false); showComingSoon('Keyboard shortcuts', '⌘1 Guide · ⌘2 Flow · ⌘3 Chat history · ⌘P / ⌘K Search · ⌘L Ask · ⌘I Explain selected code · ⌥← Parent exploration · ⌘= zoom in · ⌘− zoom out (20% steps)'); }}><CircleHelp size={16} /><span>Keyboard shortcuts</span></button>
+                <button role="menuitem" onClick={() => { setToolsOpen(false); setShortcutsOpen(true); }}><CircleHelp size={16} /><span>Keyboard shortcuts</span></button>
               </div>
             )}
           </div>
@@ -1596,7 +1608,7 @@ function App() {
               onRememberFile={(relativePath) => { if (currentProject && selectedSnapshot) rememberFileLocation(currentProject.projectId,{snapshotId:selectedSnapshot.snapshotId,path:relativePath}); }}
               onCompare={(baseRef,headRef) => {
                 setNavigation((state)=>navigateToRoute(state,{...state.current,workspace:'changes',baseRef,headRef,selectedChangePath:undefined}));
-                if(currentProject){const projectId=currentProject.projectId;void compareLocalGitRevisions(projectId,baseRef,headRef).then((result)=>setGitComparisonsByProject((s)=>({...s,[projectId]:{baseRef,headRef,result}}))).catch((error: unknown)=>{if(error instanceof Error && error.name==='AbortError')return;setNotice({title:'Comparison unavailable',message:'Choose two local commits and try again.'});});}
+                if(currentProject){const projectId=currentProject.projectId;void compareLocalGitRevisions(projectId,baseRef,headRef).then((result)=>setGitComparisonsByProject((s)=>({...s,[projectId]:{baseRef,headRef,result}}))).catch((error: unknown)=>{if(error instanceof Error && error.name==='AbortError')return;setNotice({projectId,title:'Comparison unavailable',message:'Choose two local commits and try again.'});});}
               }}>
             {currentWorkspace === 'atlas' && selectedSnapshot && snapshotManifest ? (
               <>

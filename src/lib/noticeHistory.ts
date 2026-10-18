@@ -1,0 +1,117 @@
+/** Saved UI outcomes contain navigation targets, never callbacks or consent. */
+export type NoticeTarget = {kind:'openRepository'} | {kind:'retryRecents'} | {kind:'openExploration';explorationId:string};
+export interface AppNoticeInput {
+  title:string; message:string; tone?:'info'|'warning'|'error';
+  projectId?:string|null; snapshotId?:string|null; target?:NoticeTarget|null; occurrenceId?:string|null;
+}
+export interface SavedNoticeInput {
+  title:string; message:string; tone:'info'|'warning'|'error';
+  projectId:string|null; snapshotId:string|null; target:NoticeTarget|null; occurrenceId:string|null;
+}
+export interface AppNotice {id:string;input:SavedNoticeInput;createdAtUnixMs:number;read:boolean}
+export interface NoticeHistoryData {schemaVersion:1;items:AppNotice[];dismissed:string[]}
+export type NoticeOperation = {kind:'publish';input:SavedNoticeInput} | {kind:'read'|'dismiss';id:string};
+type Pending = {kind:'load'} | {operation:NoticeOperation;item?:AppNotice};
+export interface NoticeHistorySnapshot {items:AppNotice[];availability:'loading'|'ready'|'unavailable'}
+export interface NoticeHistoryApi {load():Promise<NoticeHistoryData>;update(operation:NoticeOperation):Promise<NoticeHistoryData>}
+export const emptyNoticeHistory = ():NoticeHistoryData => ({schemaVersion:1,items:[],dismissed:[]});
+
+export function normalizeNotice(input:AppNoticeInput):SavedNoticeInput {
+  const text=(value:string,max:number) => Array.from(value.replace(/\s+/g,' ').trim()).slice(0,max).join('');
+  const normalized:SavedNoticeInput={title:text(input.title,100),message:text(input.message,700),tone:input.tone??'info',
+    projectId:input.projectId??null,snapshotId:input.snapshotId??null,target:input.target??null,occurrenceId:input.occurrenceId??null};
+  const validId=(id:string|null) => id===null || /^[A-Za-z0-9_.:-]{1,256}$/.test(id);
+  if(!normalized.title || !normalized.message || /[\u0000-\u001f\u007f-\u009f]/u.test(normalized.title+normalized.message)
+    || !['info','warning','error'].includes(normalized.tone)
+    || (normalized.projectId!==null && (!normalized.projectId.trim() || new TextEncoder().encode(normalized.projectId).length>4096 || /[\u0000-\u001f\u007f-\u009f]/u.test(normalized.projectId))) || !validId(normalized.snapshotId)
+    || !validId(normalized.occurrenceId) || (normalized.snapshotId!==null && normalized.projectId===null)) throw new Error('Invalid update context');
+  const target=normalized.target;
+  if(target) {
+    if(target.kind==='openExploration') {
+      if(!validId(target.explorationId) || !target.explorationId || !normalized.projectId || !normalized.snapshotId) throw new Error('Invalid exploration context');
+      normalized.target={kind:'openExploration',explorationId:target.explorationId};
+    } else if(target.kind==='openRepository' || target.kind==='retryRecents') normalized.target={kind:target.kind};
+    else throw new Error('Invalid update action');
+  }
+  return normalized;
+}
+
+/** Field order and nulls match native Input serialization; native checks again. */
+export async function noticeKey(input:SavedNoticeInput):Promise<string> {
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(input)));
+  return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
+}
+
+export function projectNotices(base:NoticeHistoryData,pending:readonly Pending[]):NoticeHistoryData {
+  let items=[...base.items];const dismissed=new Set(base.dismissed);
+  for(const entry of pending) {
+    if('kind' in entry) continue;
+    const op=entry.operation;
+    if(op.kind==='publish') {
+      if(entry.item && !dismissed.has(entry.item.id) && !items.some(item=>item.id===entry.item!.id)) items.push(entry.item);
+    } else if(op.kind==='read') items=items.map(item=>item.id===op.id?{...item,read:true}:item);
+    else {items=items.filter(item=>item.id!==op.id);dismissed.add(op.id);}
+  }
+  return {schemaVersion:1,items,dismissed:[...dismissed]};
+}
+
+/** All native reads/writes are serial. Failed operations stay queued for an
+ * explicit local retry; optimistic notices remain visible without claiming
+ * their acknowledgments have been durably saved. */
+export class NoticeHistory {
+  private base=emptyNoticeHistory();
+  private pending:Pending[]=[];
+  private preparing=new Set<{input:SavedNoticeInput;cancelled:boolean}>();
+  private listeners=new Set<()=>void>();
+  private started=false;
+  private running=false;
+  private blocked=false;
+  private snapshot:NoticeHistorySnapshot={items:[],availability:'loading'};
+  private api:NoticeHistoryApi;
+  constructor(api:NoticeHistoryApi) {this.api=api;}
+  subscribe=(callback:()=>void) => {this.listeners.add(callback);return()=>{this.listeners.delete(callback);};};
+  getSnapshot=() => this.snapshot;
+  private emit() {
+    this.snapshot={items:projectNotices(this.base,this.pending).items.slice().reverse(),availability:this.blocked?'unavailable':this.running||this.pending.length?'loading':'ready'};
+    for(const callback of this.listeners) callback();
+  }
+  start() {if(this.started)return;this.started=true;this.pending.unshift({kind:'load'});this.run();}
+  async publish(input:AppNoticeInput):Promise<void> {
+    let preparing:{input:SavedNoticeInput;cancelled:boolean}|undefined;
+    try {
+      const normalized=normalizeNotice(input);preparing={input:normalized,cancelled:false};this.preparing.add(preparing);
+      const id=await noticeKey(normalized);
+      if(preparing.cancelled)return;
+      this.start();
+      const current=projectNotices(this.base,this.pending);
+      if(current.dismissed.includes(id)||current.items.some(item=>item.id===id))return;
+      this.pending.push({operation:{kind:'publish',input:normalized},item:{id,input:normalized,createdAtUnixMs:Date.now(),read:false}});
+      this.emit();this.run();
+    } catch {this.blocked=true;this.emit();}
+    finally {if(preparing)this.preparing.delete(preparing);}
+  }
+  resolveOccurrence(projectId:string,snapshotId:string,occurrenceId:string) {
+    const matches=(input:SavedNoticeInput)=>input.projectId===projectId&&input.snapshotId===snapshotId&&input.occurrenceId===occurrenceId;
+    for(const entry of this.preparing)if(matches(entry.input))entry.cancelled=true;
+    for(const item of projectNotices(this.base,this.pending).items)if(matches(item.input))this.dismiss(item.id);
+  }
+  read(id:string) {this.enqueue({kind:'read',id});}
+  dismiss(id:string) {this.enqueue({kind:'dismiss',id});}
+  retry() {this.blocked=false;if(!this.pending.length)this.pending.push({kind:'load'});this.run();}
+  private enqueue(operation:NoticeOperation) {this.start();this.pending.push({operation});this.emit();this.run();}
+  private run() {
+    if(this.running||this.blocked)return;
+    this.running=true;this.emit();
+    void this.drain();
+  }
+  private async drain() {
+    try {
+      while(this.pending.length) {
+        const next=this.pending[0];
+        const value=await ('kind' in next?this.api.load():this.api.update(next.operation));
+        this.base=value;this.pending.shift();this.emit();
+      }
+    } catch {this.blocked=true;}
+    finally {this.running=false;this.emit();}
+  }
+}

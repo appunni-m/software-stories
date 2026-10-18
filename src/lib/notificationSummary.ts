@@ -16,10 +16,10 @@ export function workspaceAnswerAvailability(
 
 /** A complete unread total requires both global lookups and the selected workspace. */
 export function notificationAvailability(input: {
-  startupComplete: boolean; workspaceReady: boolean; answers: NotificationAvailability; refreshing: boolean; unavailable: boolean;
+  startupComplete: boolean; workspaceReady: boolean; answers: NotificationAvailability; notices?: NotificationAvailability; refreshing: boolean; unavailable: boolean;
 }): NotificationAvailability {
-  if (!input.startupComplete || !input.workspaceReady || input.answers === 'loading' || input.refreshing) return 'loading';
-  return input.unavailable || input.answers === 'unavailable' ? 'unavailable' : 'ready';
+  if (!input.startupComplete || !input.workspaceReady || input.answers === 'loading' || input.notices === 'loading' || input.refreshing) return 'loading';
+  return input.unavailable || input.answers === 'unavailable' || input.notices === 'unavailable' ? 'unavailable' : 'ready';
 }
 
 export function notificationSummary(items: readonly { read?: boolean }[], availability: NotificationAvailability) {
