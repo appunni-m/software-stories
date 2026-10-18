@@ -990,6 +990,65 @@ pub fn anchor_from_index(
     })
 }
 
+/// Build an exact whole-line citation from already verified captured bytes.
+/// Neither a live file nor caller-supplied hash/excerpt participates.
+pub(crate) fn anchor_from_lines(
+    source: &SnapshotSource,
+    snapshot_index: Option<&SnapshotIndex>,
+    anchor_id: &str,
+    start_line: u32,
+    end_line: u32,
+) -> Result<ChapterSourceAnchor, String> {
+    if !is_valid_id(anchor_id) || start_line == 0 || end_line < start_line {
+        return Err("Choose a valid citation and an ordered range of source lines.".to_owned());
+    }
+    let mut offset = 0usize;
+    let mut start = None;
+    let mut end = None;
+    for (i, line) in source.contents.split_inclusive('\n').enumerate() {
+        let number = i + 1;
+        if number == start_line as usize {
+            start = Some(offset);
+        }
+        offset += line.len();
+        if number == end_line as usize {
+            end = Some(offset);
+            break;
+        }
+    }
+    let (Some(start), Some(end)) = (start, end) else {
+        return Err("The selected line range is outside the captured file.".to_owned());
+    };
+    if end <= start || end - start > MAX_EXCERPT_BYTES {
+        return Err("Choose a nonempty source range of at most 64 KiB.".to_owned());
+    }
+    let symbol = snapshot_index
+        .filter(|i| i.snapshot_id == source.snapshot_id)
+        .and_then(|i| {
+            i.symbols
+                .iter()
+                .filter(|s| {
+                    s.path == source.path
+                        && s.anchor.source_sha256 == source.sha256
+                        && s.anchor.start_byte <= start
+                        && s.anchor.end_byte >= end
+                })
+                .min_by_key(|s| s.anchor.end_byte.saturating_sub(s.anchor.start_byte))
+        });
+    let indexed = IndexedSourceAnchor {
+        path: source.path.clone(),
+        source_sha256: source.sha256.clone(),
+        start_byte: start,
+        end_byte: end,
+        start_line: start_line as usize,
+        end_line: end_line as usize,
+        start_column: 1,
+        end_column: 1,
+    };
+    anchor_from_index(&indexed, &source.snapshot_id, symbol, anchor_id, source)
+        .map_err(|issue| issue.message)
+}
+
 pub fn validate_chapter_revision(
     storage_dir: &Path,
     manifest: &SnapshotManifest,
@@ -2625,6 +2684,36 @@ mod tests {
     use std::process::Command;
     use std::sync::atomic::AtomicBool;
     use uuid::Uuid;
+
+    #[test]
+    fn line_citations_use_exact_utf8_crlf_and_final_line_bytes() {
+        let text="let café = 1;\r\nnext(\"🧭\");\nlast";
+        let source=SnapshotSource {snapshot_id:"snapshot:lines".into(),path:"src/lines.rs".into(),sha256:sha256_hex(text.as_bytes()),size_bytes:text.len() as u64,contents:text.into()};
+        let anchor=anchor_from_lines(&source,None,"anchor:lines",2,2).unwrap();
+        let first=text.split_inclusive('\n').next().unwrap();let selected=text.split_inclusive('\n').nth(1).unwrap();
+        assert_eq!(anchor.start_byte,first.len() as u64);
+        assert_eq!(anchor.end_byte_inclusive,(first.len()+selected.len()-1) as u64);
+        assert_eq!(anchor.excerpt,selected);assert_eq!(anchor.start_line,2);assert_eq!(anchor.end_line,2);
+        assert_eq!(anchor.end_column,selected.len() as u32);
+        verify_anchor_against_source(&anchor,&source).unwrap();
+        let last=anchor_from_lines(&source,None,"anchor:last",3,3).unwrap();assert_eq!(last.excerpt,"last");
+        verify_anchor_against_source(&last,&source).unwrap();
+        assert!(anchor_from_lines(&source,None,"anchor:last",4,4).is_err());
+        let mut damaged=source.clone();damaged.sha256="f".repeat(64);assert!(anchor_from_lines(&damaged,None,"anchor:bad",1,1).is_err());
+    }
+
+    #[test]
+    fn line_citations_reject_invalid_identity_ranges_and_oversized_excerpts() {
+        let source=SnapshotSource {snapshot_id:"snapshot:lines".into(),path:"src/lines.rs".into(),sha256:sha256_hex(b"\n"),size_bytes:1,contents:"\n".into()};
+        assert_eq!(anchor_from_lines(&source,None,"anchor:blank",1,1).unwrap().excerpt,"\n");
+        for (id,from,to) in [("bad/id",1,1),("anchor:zero",0,1),("anchor:reverse",2,1),("anchor:missing",2,2),("anchor:huge",1,u32::MAX)] {
+            assert!(anchor_from_lines(&source,None,id,from,to).is_err());
+        }
+        for len in [0,MAX_EXCERPT_BYTES+1] {
+            let text="x".repeat(len);let too_large=SnapshotSource{contents:text.clone(),sha256:sha256_hex(text.as_bytes()),size_bytes:len as u64,..source.clone()};
+            assert!(anchor_from_lines(&too_large,None,"anchor:limit",1,1).is_err());
+        }
+    }
 
     const FIXTURE_SOURCE: &str =
         "pub fn answer() -> i32 { compute() }\nfn compute() -> i32 { 42 }\n";

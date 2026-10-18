@@ -687,6 +687,33 @@ fn discard_generated_chapter_draft(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+async fn repair_chapter_citation(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    project_id: String,
+    base_revision_id: String,
+    anchor_id: String,
+    relative_path: String,
+    start_line: u32,
+    end_line: u32,
+) -> Result<chapters::ChapterSourceAnchor, String> {
+    let _project = sessions.get(&project_id)?;
+    let storage = app_data_directory(&app)?;
+    local_read::run(move || {
+        chapter_review::repair_citation(
+            &storage,
+            &project_id,
+            &base_revision_id,
+            &anchor_id,
+            &relative_path,
+            start_line,
+            end_line,
+        )
+    })
+    .await
+}
+
+#[tauri::command(rename_all = "camelCase")]
 fn remap_chapter_anchor(
     app: AppHandle,
     sessions: State<'_, ProjectSessions>,
@@ -2069,6 +2096,7 @@ pub fn run() {
             load_pending_generated_chapter_preview,
             discard_generated_chapter_draft,
             remap_chapter_anchor,
+            repair_chapter_citation,
             assess_chapter_freshness,
             compare_local_git_revisions,
             list_pr_guide_revisions,

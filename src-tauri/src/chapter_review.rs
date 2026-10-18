@@ -17,6 +17,38 @@ pub struct SavedChapterReview {
     pub validation: chapters::ChapterValidationReport,
 }
 
+/// Read-only citation repair scoped to a trusted saved chapter and its snapshot.
+pub(crate) fn repair_citation(
+    storage_dir: &Path,
+    project_id: &str,
+    base_revision_id: &str,
+    anchor_id: &str,
+    relative_path: &str,
+    start_line: u32,
+    end_line: u32,
+) -> Result<chapters::ChapterSourceAnchor, String> {
+    let base = find_latest_base(storage_dir, project_id, base_revision_id)?;
+    if !base
+        .sections
+        .iter()
+        .flat_map(|s| &s.claims)
+        .flat_map(|c| &c.anchors)
+        .any(|a| a.anchor_id == anchor_id)
+    {
+        return Err("This citation does not belong to the selected saved chapter.".to_owned());
+    }
+    let source =
+        snapshot::read_snapshot_source(storage_dir, project_id, &base.snapshot_id, relative_path)?;
+    let snapshot_index = index::load_snapshot_index(storage_dir, project_id, &base.snapshot_id)?;
+    chapters::anchor_from_lines(
+        &source,
+        snapshot_index.as_ref(),
+        anchor_id,
+        start_line,
+        end_line,
+    )
+}
+
 pub fn save_edits(
     storage_dir: &Path,
     write_lock: &Mutex<()>,
@@ -442,6 +474,66 @@ mod tests {
         let mut revision = revision;
         revision.validation_status = ValidationStatus::Valid;
         chapter_store::save_new_draft(&fixture.storage, revision).unwrap()
+    }
+
+    #[test]
+    fn citation_repair_reads_only_the_saved_snapshot_and_never_writes_a_revision() {
+        let fixture = Fixture::new();
+        let base = first_saved_draft(&fixture);
+        let previous = chapter_store::list_for_project(&fixture.storage,&base.project_id).unwrap();
+        let anchor = &base.sections[0].claims[0].anchors[0];
+        let source = fixture.sources(&[SIMPLE_PATH]).remove(0);
+        // Editing the working copy cannot replace captured evidence.
+        std::fs::write(Path::new(&base.project_id).join(SIMPLE_PATH),"unrelated live bytes").unwrap();
+        let repaired = repair_citation(&fixture.storage,&base.project_id,&base.revision_id,&anchor.anchor_id,SIMPLE_PATH,3,3).unwrap();
+        assert_eq!(repaired.anchor_id,anchor.anchor_id);
+        assert_eq!(repaired.snapshot_id,base.snapshot_id);
+        assert_eq!(repaired.source_sha256,source.sha256);
+        assert_eq!(repaired.excerpt,source.contents.split_inclusive('\n').nth(2).unwrap());
+        assert!(repaired.symbol_id.is_some());
+        assert_eq!(chapter_store::list_for_project(&fixture.storage,&base.project_id).unwrap(),previous);
+        for (project,owner,id,path,from,to) in [
+            ("foreign",base.revision_id.as_str(),anchor.anchor_id.as_str(),SIMPLE_PATH,1,1),
+            (base.project_id.as_str(),"revision:missing",anchor.anchor_id.as_str(),SIMPLE_PATH,1,1),
+            (base.project_id.as_str(),base.revision_id.as_str(),"anchor:foreign",SIMPLE_PATH,1,1),
+            (base.project_id.as_str(),base.revision_id.as_str(),anchor.anchor_id.as_str(),"../outside",1,1),
+            (base.project_id.as_str(),base.revision_id.as_str(),anchor.anchor_id.as_str(),SIMPLE_PATH,0,1),
+            (base.project_id.as_str(),base.revision_id.as_str(),anchor.anchor_id.as_str(),SIMPLE_PATH,1,u32::MAX),
+        ] { assert!(repair_citation(&fixture.storage,project,owner,id,path,from,to).is_err()); }
+        assert_eq!(chapter_store::list_for_project(&fixture.storage,&base.project_id).unwrap(),previous);
+    }
+
+    #[test]
+    fn citation_repair_rejects_stale_bases_and_damaged_captured_objects() {
+        let fixture = Fixture::new();let base=first_saved_draft(&fixture);
+        let anchor=&base.sections[0].claims[0].anchors[0];
+        let mut proposal=base.clone();proposal.title="A newer draft".into();
+        let newer=save_edits(&fixture.storage,&Mutex::new(()),&base.project_id,&base.revision_id,proposal).unwrap();
+        assert!(repair_citation(&fixture.storage,&base.project_id,&base.revision_id,&anchor.anchor_id,SIMPLE_PATH,1,1).is_err());
+        let source=fixture.sources(&[SIMPLE_PATH]).remove(0);
+        let blob=fixture.storage.join("objects/sha256").join(&source.sha256[..2]).join(&source.sha256[2..]);
+        std::fs::write(blob,"damaged").unwrap();
+        assert!(repair_citation(&fixture.storage,&base.project_id,&newer.revision.revision_id,&anchor.anchor_id,SIMPLE_PATH,1,1).is_err());
+        assert_eq!(chapter_store::list_for_project(&fixture.storage,&base.project_id).unwrap().len(),2);
+    }
+
+    #[test]
+    fn invalid_citation_is_repaired_saved_and_accepted_without_changing_prior_revisions() {
+        let fixture=Fixture::new();let base=first_saved_draft(&fixture);let original=chapters::encode_chapter_revision(&base).unwrap();
+        let mut proposal=base.clone();proposal.sections[0].claims[0].anchors[0].end_byte_inclusive=u64::MAX;
+        let invalid=save_edits(&fixture.storage,&Mutex::new(()),&base.project_id,&base.revision_id,proposal).unwrap();
+        assert_eq!(invalid.validation.status,ValidationReportStatus::Invalid);
+        assert!(accept_draft(&fixture.storage,&Mutex::new(()),&base.project_id,&invalid.revision.revision_id).is_err());
+        let anchor_id=invalid.revision.sections[0].claims[0].anchors[0].anchor_id.clone();
+        let anchor=repair_citation(&fixture.storage,&base.project_id,&invalid.revision.revision_id,&anchor_id,SIMPLE_PATH,2,4).unwrap();
+        let mut proposal=invalid.revision.clone();proposal.sections[0].claims[0].anchors[0]=anchor;
+        let repaired=save_edits(&fixture.storage,&Mutex::new(()),&base.project_id,&invalid.revision.revision_id,proposal).unwrap();
+        assert_eq!(repaired.validation.status,ValidationReportStatus::Valid,"{:?}",repaired.validation);
+        let accepted=accept_draft(&fixture.storage,&Mutex::new(()),&base.project_id,&repaired.revision.revision_id).unwrap();
+        assert_eq!(accepted.revision.lifecycle,RevisionLifecycle::Accepted);
+        let history=chapter_store::list_for_project(&fixture.storage,&base.project_id).unwrap();assert_eq!(history.len(),4);
+        assert_eq!(chapters::encode_chapter_revision(history.iter().find(|r|r.revision_id==base.revision_id).unwrap()).unwrap(),original);
+        assert_eq!(history.iter().find(|r|r.revision_id==invalid.revision.revision_id).unwrap().validation_status,ValidationStatus::Invalid);
     }
 
     fn saved_agent_overview(fixture: &Fixture) -> ChapterRevision {

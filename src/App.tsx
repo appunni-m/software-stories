@@ -1,4 +1,6 @@
 import { createChapterHistory, type ChapterHistory } from './lib/chapterHistory';
+import { removeClaimAndReferences, replaceCitation } from './lib/chapterEditing';
+import { ChapterCitationEditor } from './ChapterCitationEditor';
 import { useNoticeHistory } from './lib/useNoticeHistory';
 import { Theme } from '@radix-ui/themes';
 import { useAppAppearance } from './lib/useAppAppearance';
@@ -4260,6 +4262,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState(Boolean(restoredDraft));
   const [candidate, setCandidate] = useState<ChapterRevision | null>(restoredDraft?.candidate ?? null);
+  const [repairingAnchorId, setRepairingAnchorId] = useState<string | null>(null);
   const [validation, setValidation] = useState<ChapterValidationReport | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
@@ -4618,10 +4621,10 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
     });
     setValidation(null);
   };
-  const removeClaim = (sectionId: string, claimId: string) => setSection(sectionId, (section) => ({
-    ...section,
-    claims: section.claims.filter((claim) => claim.claimId !== claimId),
-  }));
+  const removeClaim = (sectionId: string, claimId: string) => {
+    setSection(sectionId, section => removeClaimAndReferences(section,claimId));
+    setFeedback({message:'Claim and its linked visual cues removed. Review the section narration before saving.',tone:'info'});
+  };
 
   return (
     <div className="empty-workspace chapter-studio-screen">
@@ -4826,7 +4829,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                       {validation && validation.issues.length > 0 && <div className="chapter-review-issues" role="alert"><strong>Evidence or schema issues</strong><ul>{validation.issues.map((issue, index) => {
                         const anchor = activeDocument.sections.flatMap((section) => section.claims.flatMap((claim) => claim.anchors)).find((item) => item.anchorId === issue.anchorId);
                         const range = anchor ? `:${anchor.startLine}-${anchor.endLine}` : '';
-                        return <li key={`${issue.code}:${issue.sectionId}:${issue.visualItemId}:${issue.path}:${issue.anchorId}:${index}`}><span>{issue.code}</span> {issue.message}{issue.sectionId && <code>section {issue.sectionId}</code>}{issue.visualItemId && <code>visual item {issue.visualItemId}</code>}{issue.anchorId && <code>anchor {issue.anchorId}</code>}{issue.hotspotId && <code>hotspot {issue.hotspotId}</code>}{issue.path && <code>{issue.path}{range}</code>}</li>;
+                        return <li key={`${issue.code}:${issue.sectionId}:${issue.visualItemId}:${issue.path}:${issue.anchorId}:${index}`}><span>{issue.code}</span> {issue.message}{issue.sectionId && <code>section {issue.sectionId}</code>}{issue.visualItemId && <code>visual item {issue.visualItemId}</code>}{issue.anchorId && <code>anchor {issue.anchorId}</code>}{issue.hotspotId && <code>hotspot {issue.hotspotId}</code>}{issue.path && <code>{issue.path}{range}</code>}{anchor && isLatestCurrent && <button className="text-button" disabled={busy} onClick={() => {if(!editing)beginEditing();setRepairingAnchorId(anchor.anchorId);}}>Repair citation</button>}</li>;
                       })}</ul></div>}
 
                       <div className="chapter-edit-title-row"><span>Chapter title</span>{editing && candidate ? <input disabled={busy} value={candidate.title} maxLength={200} onChange={(event) => { setCandidate({ ...candidate, title: event.target.value }); setValidation(null); }} aria-label="Chapter title" /> : null}</div>
@@ -4837,11 +4840,11 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
                         <div className="chapter-section-copy"><span>EXPLANATION</span>{editing && candidate ? <textarea disabled={busy} rows={3} value={section.prose} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, prose: event.target.value }))} aria-label={`Explanation for ${section.title}`} /> : <p>{section.prose}</p>}</div>
                         <div className="chapter-section-copy chapter-spoken-copy"><span>VOICE SCRIPT</span>{editing && candidate ? <textarea disabled={busy} rows={2} value={section.spokenText} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, spokenText: event.target.value }))} aria-label={`Spoken text for ${section.title}`} placeholder="Optional narration script" /> : <p>{section.spokenText || <em>No narration script saved.</em>}</p>}</div>
                         {section.claims.map((claim: ChapterClaim) => <div className="chapter-claim-card" key={claim.claimId}>
-                          <div className="chapter-claim-heading"><span className={`claim-label claim-${claim.category.kind}`}>{claim.category.kind === 'codeBehavior' ? 'Code behavior' : claim.category.kind === 'repositoryContext' ? 'Repository context' : claim.category.visibleLabel || 'Inference'}</span>{editing && <button className="text-button chapter-remove-claim" disabled={busy} onClick={() => removeClaim(section.sectionId, claim.claimId)}><Trash2 size={12} /> Remove claim</button>}</div>
-                          {editing && candidate ? <textarea disabled={busy} rows={2} value={claim.prose} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, claims: item.claims.map((saved) => saved.claimId === claim.claimId ? { ...saved, prose: event.target.value } : saved) }))} aria-label={`Claim ${claim.claimId}`} /> : <p>{claim.prose}</p>}
+                          <div className="chapter-claim-heading"><span className={`claim-label claim-${claim.category.kind}`}>{claim.category.kind === 'codeBehavior' ? 'Code behavior' : claim.category.kind === 'repositoryContext' ? 'Repository context' : claim.category.visibleLabel || 'Inference'}</span>{editing && <button className="text-button chapter-remove-claim" disabled={busy || section.claims.length <= 1} title={section.claims.length <= 1 ? 'A section needs a claim. Repair its citation or reject the draft.' : 'Remove this claim and its linked visual cues.'} onClick={() => removeClaim(section.sectionId, claim.claimId)}><Trash2 size={12} /> Remove claim</button>}</div>
+                          {editing && candidate ? <textarea disabled={busy} rows={2} value={claim.prose} onChange={(event) => setSection(section.sectionId, (item) => ({ ...item, claims: item.claims.map((saved) => saved.claimId === claim.claimId ? { ...saved, prose: event.target.value } : saved) }))} aria-label={`Claim ${section.claims.indexOf(claim) + 1} in ${section.title}`} /> : <p>{claim.prose}</p>}
                           {claim.category.kind === 'inference' && <p className="chapter-inference-basis"><strong>{claim.category.visibleLabel} basis:</strong> {claim.category.basis}</p>}
                           <div className="chapter-citations"><span>EXACT SOURCE</span>{claim.anchors.length === 0 ? <small>No source range is attached to this claim.</small> : claim.anchors.map((anchor) => <div className="chapter-citation" key={anchor.anchorId}>
-                            <div><code>{anchor.path}:{anchor.startLine}-{anchor.endLine}</code><button className="text-button" onClick={() => { onSelectRevision(selectedRevision, section.sectionId); onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor)); }}><FileCode2 size={12} /> Open source</button></div>
+                            <div><code>{anchor.path}:{anchor.startLine}-{anchor.endLine}</code><button className="text-button" onClick={() => { onSelectRevision(selectedRevision, section.sectionId); onOpenFile(anchor.path, anchor.snapshotId, codeLensRangeFromChapterAnchor(anchor)); }}><FileCode2 size={12} /> Open source</button>{editing && candidate && <ChapterCitationEditor projectId={projectId} baseRevisionId={selectedRevision.revisionId} snapshotId={candidate.snapshotId} anchor={anchor} paths={manifest.files.filter(file => file.contentKind !== 'binary').map(file => file.path)} disabled={busy} open={repairingAnchorId === anchor.anchorId} onOpenChange={open => setRepairingAnchorId(open ? anchor.anchorId : null)} onApply={replacement => {setSection(section.sectionId, item => replaceCitation(item,anchor.anchorId,replacement));setFeedback({message:'Source link updated in your draft. Review the claim, narration and visuals, then validate before saving.',tone:'info'});}} />}</div>
                             <pre>{anchor.excerpt}</pre>
                           </div>)}</div>
                         </div>)}

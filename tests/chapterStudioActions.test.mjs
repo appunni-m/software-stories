@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {runInThisContext} from 'node:vm';
 import ts from 'typescript';
 import {baseRevision} from './helpers/revision-history-fixture.mjs';
+import {removeClaimAndReferences} from '../src/lib/chapterEditing.ts';
 
 // Execute the production callbacks with deterministic native/event boundaries.
 // This does not emulate rendering, focus or native storage validation.
@@ -43,6 +44,16 @@ function setup(){
   return {before,saved,state,bindings};
 }
 function changed(target,detail){const event=new Event('code-atlas:chapters-changed');Object.defineProperty(event,'detail',{value:detail});target.dispatchEvent(event);}
+
+test('the real Remove claim callback updates linked scenes, cues and section dependencies together',()=>{
+  const s=baseRevision().sections[0];
+  s.claims.push({...structuredClone(s.claims[0]),claimId:'claim:retained',anchors:[{...s.claims[0].anchors[0],anchorId:'anchor:retained'}]});
+  let result;
+  callback('removeClaim',{setSection:(_id,update)=>{result=update(s);},removeClaimAndReferences,setFeedback:()=>{}})(s.sectionId,s.claims[0].claimId);
+  const remaining=new Set(result.claims.flatMap(c=>c.anchors.map(a=>a.anchorId)));
+  assert.ok(result.hotspots.every(h=>h.destination.kind!=='codeLens'||remaining.has(h.destination.anchorId)));
+  assert.ok(result.visual===null||result.visual.nodes.every(n=>n.evidenceAnchorIds.every(a=>remaining.has(a))));
+});
 
 test('background chapter publication refreshes history without replacing an unsaved edit or selection',()=>{
   const {state,bindings,saved}=setup(),candidate=state.candidate;

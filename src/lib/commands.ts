@@ -1150,6 +1150,10 @@ export async function validateChapterRevision(
   });
 }
 
+export async function repairChapterCitation(projectId: string, baseRevisionId: string, anchorId: string, relativePath: string, startLine: number, endLine: number): Promise<ChapterSourceAnchor> {
+  return invoke<ChapterSourceAnchor>('repair_chapter_citation', {projectId,baseRevisionId,anchorId,relativePath,startLine,endLine});
+}
+
 export async function listChapterRevisions(projectId: string, snapshotId: string): Promise<ChapterRevision[]> {
   return invoke<ChapterRevision[]>('list_chapter_revisions', { projectId, snapshotId });
 }
