@@ -47,8 +47,12 @@ export function workspaceSearchResults({query,mode,files,symbols,source,captured
   const term=query.toLowerCase();
   const local:CodeSearchHit[]=[];
   if(mode==='code'){
+    const symbolMatches=symbols.filter(symbol=>symbol.name.toLowerCase().includes(term)).slice().sort((left,right)=>{
+      const rank=(name:string)=>name.toLowerCase()===term?0:name.toLowerCase().startsWith(term)?1:2;
+      return rank(left.name)-rank(right.name)||left.name.localeCompare(right.name)||left.path.localeCompare(right.path);
+    });
+    local.push(...symbolMatches.slice(0,8).map(symbol=>({path:symbol.path,text:symbol.name,from:symbol.anchor.startLine,to:symbol.anchor.endLine})));
     local.push(...files.filter(file=>file.path.toLowerCase().includes(term)).slice(0,8).map(file=>({path:file.path,text:file.path})));
-    local.push(...symbols.filter(symbol=>symbol.name.toLowerCase().includes(term)).slice(0,8).map(symbol=>({path:symbol.path,text:symbol.name,from:symbol.anchor.startLine,to:symbol.anchor.endLine})));
   }
   const all=mode==='regex'?code:[...local,...code];
   if(mode==='code'&&source){

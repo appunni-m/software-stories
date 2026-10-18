@@ -51,6 +51,23 @@ test('ordinary results keep native ranking before current-file lines, deduplicat
   const hits=workspaceSearchResults(args);assert.equal(hits[0].path,'needle.rs');assert.equal(hits[1].path,'native.rs');assert.equal(hits.length,34);assert.equal(hits.at(-1).from,32);
 });
 
+test('an exact symbol declaration leads partial symbol and fixture-file matches',()=>{
+  const hits=workspaceSearchResults({query:'memory_face',mode:'code',files:[
+    {path:'tests/fixtures/ft_new_memory_face.json'},
+    {path:'src/font.rs'},
+  ],symbols:[
+    {path:'src/api.rs',name:'new_memory_face',anchor:{startLine:165,endLine:180}},
+    {path:'src/font.rs',name:'memory_face',anchor:{startLine:4053,endLine:4115}},
+    {path:'src/other.rs',name:'memory_face_wrapper',anchor:{startLine:10,endLine:20}},
+  ],source:null,captured:[]});
+  assert.deepEqual(hits.slice(0,4).map(hit=>[hit.path,hit.text]),[
+    ['src/font.rs','memory_face'],
+    ['src/other.rs','memory_face_wrapper'],
+    ['src/api.rs','new_memory_face'],
+    ['tests/fixtures/ft_new_memory_face.json','tests/fixtures/ft_new_memory_face.json'],
+  ]);
+});
+
 test('production search binds the helper, explicit pressed mode and Mac physical shortcut',async()=>{
   const {readFileSync}=await import('node:fs');const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
   assert.match(source,/searchMode:CodeSearchMode=activity==='search'&&repositoryRegex\?'regex':'code'/);
