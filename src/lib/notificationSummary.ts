@@ -2,6 +2,9 @@ import type { InterruptedOperation, PendingChapterPreviewSummary } from './comma
 
 export type NotificationAvailability = 'loading' | 'ready' | 'unavailable';
 export type NotificationBucket = 'attention' | 'updates';
+export function notificationBucketForOutcome(tone: 'info' | 'warning' | 'error'): NotificationBucket {
+  return tone === 'info' ? 'updates' : 'attention';
+}
 export interface NotificationGroupingItem {
   id: string;
   groupKey?: string;

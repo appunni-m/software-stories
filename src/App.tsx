@@ -13,7 +13,7 @@ import { markQuestionOutcome, openWorkspaceQuestion, withSavedAnswerAvailability
 import { WorkspaceFrame } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
 import { startupProjectToRestore } from './lib/startupProjectRestore';
-import { interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationGroupKey, previewNotificationMessage, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
+import { interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, previewNotificationMessage, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
 import { LatestLocalRead } from './lib/latestLocalRead';
 import { requiresBoundedFileExplanation } from './lib/largeFileExplanation';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
@@ -1457,7 +1457,7 @@ function App() {
       id: `question:${outcome.turnId}`, title: outcome.title,
       message: `${currentProject?.displayName ?? 'Repository'} · ${outcome.question}`,
       groupKey: currentProject && selectedSnapshot ? notificationGroupKey('question', currentProject.projectId, selectedSnapshot.snapshotId, outcome.question) : undefined,
-      bucket: outcome.read ? 'updates' : 'attention', countLabel: 'attempts',
+      bucket: notificationBucketForOutcome(outcome.tone), countLabel: 'attempts',
       read: outcome.read, tone: outcome.tone,
       actions: [{ label: 'Open question', movesFocus: true, run: () => {
         if (!currentProject || !selectedSnapshot) return;

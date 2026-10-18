@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
-import { groupNotifications, interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationGroupKey, notificationSummary, previewNotificationMessage, workspaceAnswerAvailability } from '../src/lib/notificationSummary.ts';
+import { groupNotifications, interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, notificationSummary, previewNotificationMessage, workspaceAnswerAvailability } from '../src/lib/notificationSummary.ts';
 
 const ready = { startupComplete: true, workspaceReady: true, answers: 'ready', refreshing: false, unavailable: false };
 const unread = Array.from({ length: 34 }, () => ({}));
@@ -24,6 +24,19 @@ describe('notification totals', () => {
       { id: 'recovery-1', groupKey: 'recovery', bucket: 'attention' },
       { id: 'recovery-2', groupKey: 'recovery', bucket: 'attention' },
     ])[0].unreadCount, 0);
+  });
+
+  it('puts unread successful answers in Recent updates and unresolved outcomes in Needs attention', () => {
+    assert.equal(notificationBucketForOutcome('info'), 'updates');
+    assert.equal(notificationBucketForOutcome('warning'), 'attention');
+    assert.equal(notificationBucketForOutcome('error'), 'attention');
+    const grouped = groupNotifications([
+      { id: 'ready', groupKey: 'ready', bucket: notificationBucketForOutcome('info'), read: false },
+      { id: 'failed', groupKey: 'failed', bucket: notificationBucketForOutcome('error'), read: false },
+    ]);
+    assert.deepEqual(grouped.map((group) => [group.id, group.bucket, group.unreadCount]), [
+      ['ready', 'updates', 1], ['failed', 'attention', 1],
+    ]);
   });
 
   it('groups interruption recovery by exact plan question or conservative source scope', () => {
@@ -140,6 +153,7 @@ describe('notification totals', () => {
     assert.match(component, /Show \{earlier.length\} earlier \{group.countLabel\}/);
     assert.match(component, /modal=\{false\}/);
     assert.match(app, /availability=\{notificationAvailability\(\{ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready'/);
+    assert.match(app, /bucket: notificationBucketForOutcome\(outcome\.tone\)/);
     assert.match(app, /answers: answerAvailability/);
     assert.match(app, /onAnswerRestoration=\{setAnswerRestoration\}/);
     assert.match(app, /id: 'answers-unavailable'[\s\S]*?setWorkspaceReload/);
