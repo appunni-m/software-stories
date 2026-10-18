@@ -23,6 +23,8 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 
+mod runtime_events;
+
 const MAX_FRAME_BYTES: usize = 2 * 1024 * 1024;
 const MAX_OPERATION_BYTES: usize = 32 * 1024 * 1024;
 const MAX_RESPONSE_BYTES: usize = 300 * 1024;
@@ -759,6 +761,7 @@ impl CodexAgentManager {
                 started_at,
                 &progress,
                 fingerprint,
+                trace,
                 |process| {
                     if self.observe_runtime(storage_dir, process)? != input.expected_runtime {
                         return Err(codex_identity::changed());
@@ -1303,6 +1306,7 @@ impl ServerProcess {
         started_at: Instant,
         progress: &F,
         fingerprint: &str,
+        trace: &crate::generation_timing::Trace,
         mut before_correction: impl FnMut(&mut Self) -> Result<(), String>,
     ) -> Result<CodexRunResult, String>
     where
@@ -1400,6 +1404,8 @@ impl ServerProcess {
             cancelled,
             started_at,
             progress,
+            trace,
+            1,
         )?;
         if let Some(retrieval) = &input.retrieval {
             let mut session = retrieval.lock().map_err(|_| "Captured-code tools are unavailable.")?;
@@ -1441,7 +1447,7 @@ impl ServerProcess {
                     "Refining the explanation against its cited code.",
                 ));
                 let corrected = self.generate_turn(
-                    input, stage, &thread_id, prompt, cancelled, started_at, progress,
+                    input, stage, &thread_id, prompt, cancelled, started_at, progress, trace, 2,
                 )?;
                 if let Some(retrieval) = &input.retrieval {
                     retrieval
@@ -1478,6 +1484,8 @@ impl ServerProcess {
         cancelled: &Arc<AtomicBool>,
         started_at: Instant,
         progress: &F,
+        trace: &crate::generation_timing::Trace,
+        turn_index: u8,
     ) -> Result<CodexRunResult, String>
     where
         F: Fn(CodexProgress),
@@ -1496,6 +1504,7 @@ impl ServerProcess {
             None,
             "Starting the reviewed explanation request.",
         ));
+        trace.turn_requested(turn_index);
         let request_id = self.send_request("turn/start", json!({
             "threadId": thread_id, "input": [{"type": "text", "text": prompt}],
             "cwd": stage, "model": input.model, "effort": input.effort, "approvalPolicy": "never",
@@ -1504,6 +1513,7 @@ impl ServerProcess {
         }))?;
         let mut cancel_at = None;
         let mut turn_id = None::<String>;
+        let mut before_ack = std::collections::VecDeque::<Value>::new();
         let mut response_bytes = 0;
         let mut last_progress = Instant::now();
         let mut messages = HashMap::<String, String>::new();
@@ -1549,7 +1559,12 @@ impl ServerProcess {
                         Ok(())
                     })?;
             }
-            let Some(message) = self.receive(Duration::from_millis(100), &mut response_bytes)?
+            let next = if turn_id.is_some() && !before_ack.is_empty() {
+                before_ack.pop_front()
+            } else {
+                self.receive(Duration::from_millis(100), &mut response_bytes)?
+            };
+            let Some(message) = next
             else {
                 continue;
             };
@@ -1584,6 +1599,19 @@ impl ServerProcess {
                     continue;
                 }
             }
+            // A notification can precede the turn/start response. Defer only
+            // scoped turn events until that response establishes ownership;
+            // stale events from a previous correction cannot fail this turn.
+            // receive() already charges these frames to the operation byte
+            // limit, so deferral does not create an unbounded event buffer.
+            if turn_id.is_none()
+                && params.get("threadId").and_then(Value::as_str) == Some(thread_id)
+                && (params.get("turnId").and_then(Value::as_str).is_some()
+                    || params.pointer("/turn/id").and_then(Value::as_str).is_some())
+            {
+                before_ack.push_back(message);
+                continue;
+            }
             if let (Some(current), Some(other)) =
                 (&turn_id, params.get("turnId").and_then(Value::as_str))
             {
@@ -1591,6 +1619,7 @@ impl ServerProcess {
                     continue;
                 }
             }
+            runtime_events::observe(trace, turn_index, method, params, thread_id, turn_id.as_deref())?;
             match method {
                 "configWarning" | "warning" if benign_config_warning(&message) => {},
                 "configWarning" | "warning" => return Err("Codex reported a configuration or runtime warning. The run was stopped rather than using uncertain settings.".to_owned()),
@@ -2619,6 +2648,9 @@ fn bounded_string(value: &Value, key: &str, limit: usize) -> Result<String, Stri
 }
 
 fn rpc_failure(method: &str, response: &Value) -> String {
+    if let Some(message) = runtime_events::classified_failure(response.get("error").unwrap_or(response)) {
+        return message;
+    }
     // Inspect error classes without exposing model output, selected source,
     // URLs containing OAuth codes, or runtime diagnostics in the UI/logs.
     let class = response.to_string().to_ascii_lowercase();
@@ -2638,7 +2670,7 @@ fn rpc_failure(method: &str, response: &Value) -> String {
         UPGRADE.to_owned()
     } else {
         format!(
-            "Codex could not complete {method}. The request was not retried and existing chapters were preserved."
+            "Codex could not complete {method}. Code Atlas did not start another operation; existing chapters were preserved."
         )
     }
 }

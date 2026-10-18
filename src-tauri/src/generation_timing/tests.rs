@@ -3,14 +3,14 @@ use crate::codex_identity::CodexReviewRuntime;
 use serde_json::{Value, json};
 use std::time::Duration;
 
-struct Fixture(PathBuf);
+pub(super) struct Fixture(pub(super) PathBuf);
 impl Fixture {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let root = std::env::temp_dir().join(format!("atlas-timing-test-{}", uuid::Uuid::new_v4()));
         codex_agent::ensure_private_directory(&root).unwrap();
         Self(root)
     }
-    fn trace(&self, run: &str, started: Instant) -> Trace {
+    pub(super) fn trace(&self, run: &str, started: Instant) -> Trace {
         Trace::new(
             &self.0,
             run,
@@ -36,7 +36,7 @@ fn runtime() -> CodexReviewRuntime {
         account_revision: 1,
     }
 }
-fn run() -> String {
+pub(super) fn run() -> String {
     uuid::Uuid::new_v4().to_string()
 }
 
@@ -156,7 +156,7 @@ fn diagnostics_reject_corruption_duplicates_unexpected_content_and_identity_chan
     let original = fs::read(&file).unwrap();
     let original_value: Value = serde_json::from_slice(&original).unwrap();
     for (key, bad) in [
-        ("schemaVersion", json!(2)),
+        ("schemaVersion", json!(3)),
         ("modelId", json!("private source")),
         ("events", json!([])),
         ("clock", json!("wall clock")),

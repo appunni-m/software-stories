@@ -7,8 +7,12 @@ use std::{
     fs,
     path::{Path, PathBuf},
     sync::Mutex,
-    time::Instant,
+    time::{Duration, Instant},
 };
+
+mod runtime;
+pub(crate) use runtime::{RuntimeEventKind, TokenUsageSnapshot};
+use runtime::{ReportedUsage, RuntimeTurn};
 
 const MAX_RECORDS: usize = 32;
 const MAX_EVENTS: usize = 128;
@@ -91,8 +95,11 @@ pub(crate) struct Record {
     events: Vec<Event>,
     context: Option<ContextTiming>,
     output_bytes: Option<usize>,
-    /// This adapter does not receive authoritative token usage. Null is unknown.
-    token_usage: Option<()>,
+    /// Latest cumulative thread usage reported by app-server, never an estimate
+    /// or a sum of updates. Null means that no valid usage update was observed.
+    token_usage: Option<ReportedUsage>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    runtime_turns: Vec<RuntimeTurn>,
     terminal: Option<End>,
     write_failures: u32,
     truncated: bool,
@@ -101,6 +108,7 @@ pub(crate) struct Record {
 struct State {
     path: PathBuf,
     record: Record,
+    last_write: Instant,
 }
 pub(crate) struct Trace {
     started: Instant,
@@ -142,7 +150,7 @@ fn read(path: &Path) -> Result<Record, String> {
 
 fn validate(record: &Record) -> Result<(), String> {
     let invalid = || "Timing diagnostics are invalid.".to_owned();
-    if record.schema_version != 1
+    if !matches!(record.schema_version, 1 | 2)
         || record.clock != "nativeCodexAdmissionV1"
         || !canonical_run(&record.run_id)
         || record.model_id != "gpt-6-luna"
@@ -153,7 +161,8 @@ fn validate(record: &Record) -> Result<(), String> {
             .as_ref()
             .is_some_and(|v| !hash(v))
         || record.events.len() > MAX_EVENTS
-        || record.token_usage.is_some()
+        || (record.schema_version == 1
+            && (record.token_usage.is_some() || !record.runtime_turns.is_empty()))
         || record.output_bytes.is_some_and(|v| v > 300 * 1024)
         || record
             .events
@@ -162,6 +171,7 @@ fn validate(record: &Record) -> Result<(), String> {
     {
         return Err(invalid());
     }
+    runtime::validate(record)?;
     let mut previous = 0;
     for event in &record.events {
         if event.elapsed_ms < previous || event.elapsed_ms > MAX_ELAPSED {
@@ -300,7 +310,7 @@ impl Trace {
         let state = (|| -> Result<State, String> {
             let _guard = STORE.lock().map_err(|_| "Timing storage is unavailable.")?;
             let record = Record {
-                schema_version: 1,
+                schema_version: 2,
                 clock: "nativeCodexAdmissionV1".into(),
                 run_id: run.into(),
                 request_fingerprint: (!fingerprint.is_empty()).then(|| fingerprint.into()),
@@ -317,6 +327,7 @@ impl Trace {
                 context: None,
                 output_bytes: None,
                 token_usage: None,
+                runtime_turns: vec![],
                 terminal: None,
                 write_failures: 0,
                 truncated: false,
@@ -327,7 +338,11 @@ impl Trace {
             let path = reserve(storage, run)?;
             codex_agent::create_private_file(&path, &bytes)
                 .map_err(|_| "A fresh timing record could not be created.")?;
-            Ok(State { path, record })
+            Ok(State {
+                path,
+                record,
+                last_write: Instant::now(),
+            })
         })()
         .ok();
         Self {
@@ -337,6 +352,10 @@ impl Trace {
     }
 
     fn update(&self, mutate: impl FnOnce(&mut Record) -> bool) {
+        self.update_with_flush(false, mutate);
+    }
+
+    fn update_with_flush(&self, throttle: bool, mutate: impl FnOnce(&mut Record) -> bool) {
         let Ok(mut guard) = self.state.lock() else {
             return;
         };
@@ -349,6 +368,12 @@ impl Trace {
         if !mutate(&mut state.record) {
             return;
         }
+        // Streamed deltas can arrive many times a second. Keep bounded counters
+        // in memory and flush at most once a second; phase/terminal writes also
+        // flush them. Diagnostic IO must not slow every model token.
+        if throttle && state.last_write.elapsed() < Duration::from_secs(1) {
+            return;
+        }
         let result = serde_json::to_vec(&state.record)
             .ok()
             .filter(|b| b.len() <= MAX_BYTES)
@@ -357,6 +382,7 @@ impl Trace {
         if result.is_err() {
             state.record.write_failures = state.record.write_failures.saturating_add(1);
         }
+        state.last_write = Instant::now();
     }
 
     pub(crate) fn event(&self, kind: EventKind) {
