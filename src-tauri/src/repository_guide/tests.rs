@@ -502,12 +502,19 @@ fn fontdone_repository_guide_account_probe() {
         },
     );
     let saved = store::read(&storage, &record.id).unwrap();
-    let runs = std::iter::once(saved.planning_run_id.as_str()).chain(
-        saved
-            .units
-            .iter()
-            .flat_map(|u| u.attempts.iter().map(|a| a.run_id.as_str())),
-    );
+    let runs = std::iter::once(saved.planning_run_id.as_str())
+        .chain(
+            saved
+                .opening_continuations
+                .iter()
+                .map(|attempt| attempt.run_id.as_str()),
+        )
+        .chain(
+            saved
+                .units
+                .iter()
+                .flat_map(|unit| unit.attempts.iter().map(|attempt| attempt.run_id.as_str())),
+        );
     let ledgers = runs
         .map(|run| {
             (
