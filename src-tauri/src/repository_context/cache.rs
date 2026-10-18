@@ -489,13 +489,49 @@ impl Cache {
     }
 
     pub(super) fn lease(&self, generation: &Path) -> Result<ReadLease, String> {
+        let scope = generation.parent().ok_or(UNAVAILABLE)?;
+        if scope.parent() != self.directory.parent()
+            || !scope
+                .file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(sha_name)
+            || !generation
+                .file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(uuid_name)
+        {
+            return Err(UNAVAILABLE.into());
+        }
         if !fs::symlink_metadata(generation).is_ok_and(|m| m.is_dir()) {
             return Err(UNAVAILABLE.into());
         }
         Ok(ReadLease {
             _generation: shared(&generation.join("readers.lock"))?,
-            _scope: shared(&self.directory.join("readers.lock"))?,
+            _scope: shared(&scope.join("readers.lock"))?,
         })
+    }
+
+    /// Prefer the selected scope, then recent snapshots of this same project.
+    /// A base is still admitted independently against its metadata and index.
+    pub(super) fn candidate_scopes(&self, budget: &Budget<'_>) -> Result<Vec<PathBuf>, String> {
+        let mut candidates = self
+            .scopes(budget)?
+            .into_iter()
+            .filter(|p| p.parent() == self.directory.parent())
+            .map(|p| {
+                let used = fs::symlink_metadata(p.join("last-used"))
+                    .map(|m| modified(&m))
+                    .unwrap_or(SystemTime::UNIX_EPOCH);
+                (p, used)
+            })
+            .collect::<Vec<_>>();
+        candidates.sort_by(|(a, at), (b, bt)| {
+            (b == &self.directory)
+                .cmp(&(a == &self.directory))
+                .then_with(|| bt.cmp(at))
+                .then_with(|| a.cmp(b))
+        });
+        Ok(candidates.into_iter().take(8).map(|(p, _)| p).collect())
     }
 
     pub(super) fn reserve_publication(

@@ -559,3 +559,39 @@ fn cross_process_lease_probe() {
         }
     }
 }
+
+#[test]
+fn a_base_lease_pins_its_original_scope_instead_of_the_new_snapshot_scope() {
+    let fixture = Fixture::new();
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let original = open(&fixture.storage, "original", &budget, Limits::default());
+    let original_scope = original.directory.clone();
+    let generation = original_scope.join(Uuid::new_v4().to_string());
+    directory(&generation).unwrap();
+    drop(original);
+    let next = open(&fixture.storage, "next", &budget, Limits::default());
+    let lease = next.lease(&generation).unwrap();
+    assert!(
+        exclusive(&original_scope.join("readers.lock"))
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        exclusive(&next.directory.join("readers.lock"))
+            .unwrap()
+            .is_some()
+    );
+    drop(lease);
+    assert!(
+        exclusive(&original_scope.join("readers.lock"))
+            .unwrap()
+            .is_some()
+    );
+    let other_project = next
+        .root
+        .join("b".repeat(64))
+        .join("c".repeat(64))
+        .join(Uuid::new_v4().to_string());
+    assert!(next.lease(&other_project).is_err());
+}

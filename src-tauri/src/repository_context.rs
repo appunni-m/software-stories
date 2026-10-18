@@ -25,7 +25,9 @@ use tantivy::{
 };
 use uuid::Uuid;
 
-const VERSION: &str = "atlas-ranges-v1-identifiers-v1-policy-v2";
+const VERSION: &str = "atlas-ranges-v2-identifiers-v1-policy-v2";
+// The layout algorithm and source policy did not change with stored document IDs.
+const CHUNK_VERSION: &str = "atlas-ranges-v1-identifiers-v1-policy-v2";
 pub(crate) const CHUNK_BYTES: usize = 8192;
 const MAX_CHUNKS: usize = 50_000;
 const MAX_SOURCE_BYTES: u64 = 100 * 1024 * 1024;
@@ -111,6 +113,7 @@ struct FileCoverage {
     chunks: usize,
     parser: Option<index::ParserVersion>,
     reason: Option<String>,
+    index_key: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -132,6 +135,12 @@ pub(crate) struct BuildStats {
     pub(crate) source_bytes_verified: u64,
     pub(crate) files_chunked: usize,
     pub(crate) files_chunk_cache_reused: usize,
+    pub(crate) files_documents_reused: usize,
+    pub(crate) documents_reused: usize,
+    pub(crate) documents_added: usize,
+    pub(crate) documents_deleted: usize,
+    pub(crate) segment_bytes_copied: u64,
+    pub(crate) incremental_base_snapshot: Option<String>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -142,6 +151,7 @@ struct Metadata {
     snapshot_id: String,
     project_id: String,
     ranges: Vec<CodeRange>,
+    document_keys: Vec<String>,
     files: Vec<FileCoverage>,
     coverage: Coverage,
     build: BuildStats,
@@ -167,6 +177,8 @@ struct ChunkCache {
 pub(crate) struct PreparedIndex {
     index: Index,
     metadata: Metadata,
+    ranges_by_key: HashMap<String, usize>,
+    generation: PathBuf,
     pub(crate) reused_generation: bool,
     // Drop after Index: its directory remains protected for every later reader().
     _lease: cache::ReadLease,
@@ -312,7 +324,8 @@ pub(crate) fn source(
 
 fn schema() -> Schema {
     let mut schema = Schema::builder();
-    schema.add_u64_field("ordinal", STORED);
+    schema.add_text_field("range_key", STRING | STORED);
+    schema.add_text_field("source_path", STRING);
     schema.add_text_field("body", TEXT);
     schema.add_text_field("path", TEXT);
     schema.add_text_field("scope", STRING);
@@ -464,12 +477,17 @@ fn root(storage: &Path, project: &str, snapshot_id: &str) -> PathBuf {
         .join(digest(snapshot_id.as_bytes()))
 }
 
-fn load_generation(cache: &cache::Cache, fingerprint: &str) -> Option<PreparedIndex> {
-    let directory = &cache.directory;
+fn load_generation(
+    cache: &cache::Cache,
+    directory: &Path,
+    fingerprint: Option<&str>,
+    budget: &Budget<'_>,
+) -> Option<PreparedIndex> {
+    budget.check().ok()?;
     let pointer: Pointer =
         serde_json::from_slice(&bounded_file::read(&directory.join("current.json"), 4096).ok()?)
             .ok()?;
-    if pointer.fingerprint != fingerprint
+    if fingerprint.is_some_and(|f| pointer.fingerprint != f)
         || Uuid::parse_str(&pointer.generation).ok()?.to_string() != pointer.generation
     {
         return None;
@@ -481,8 +499,10 @@ fn load_generation(cache: &cache::Cache, fingerprint: &str) -> Option<PreparedIn
     }
     let metadata: Metadata = serde_json::from_slice(&bytes).ok()?;
     if metadata.version != VERSION
-        || metadata.fingerprint != fingerprint
+        || metadata.fingerprint != pointer.fingerprint
         || metadata.ranges.len() > MAX_CHUNKS
+        || directory.file_name()?.to_str()? != digest(metadata.snapshot_id.as_bytes())
+        || directory.parent()?.file_name()?.to_str()? != digest(metadata.project_id.as_bytes())
     {
         return None;
     }
@@ -503,16 +523,39 @@ fn load_generation(cache: &cache::Cache, fingerprint: &str) -> Option<PreparedIn
     if index.schema() != schema() {
         return None;
     }
+    // A corrupt managed-file inventory must never become a writer's GC input.
+    let managed = index.directory().list_managed_files();
+    if managed.len() > 100_000 || managed.iter().any(|p| !incremental::safe_component(p)) {
+        return None;
+    }
     if !index.validate_checksum().ok()?.is_empty() {
         return None;
     }
     let reader = index.reader().ok()?;
-    if reader.searcher().num_docs() as usize != metadata.ranges.len() {
+    let searcher = reader.searcher();
+    if searcher.num_docs() as usize != metadata.ranges.len() {
         return None;
+    }
+    let ranges_by_key = incremental::lookup(&metadata)?;
+    let range_key = field(&index, "range_key").ok()?;
+    let mut seen = BTreeSet::new();
+    for (ordinal, segment) in searcher.segment_readers().iter().enumerate() {
+        for doc_id in segment.doc_ids_alive() {
+            budget.check().ok()?;
+            let doc = searcher
+                .doc::<TantivyDocument>(tantivy::DocAddress::new(ordinal as u32, doc_id))
+                .ok()?;
+            let key = doc.get_first(range_key)?.as_str()?;
+            if !ranges_by_key.contains_key(key) || !seen.insert(key.to_owned()) {
+                return None;
+            }
+        }
     }
     Some(PreparedIndex {
         index,
         metadata,
+        ranges_by_key,
+        generation: generation.clone(),
         reused_generation: true,
         _lease: cache.lease(&generation).ok()?,
     })
@@ -570,11 +613,12 @@ fn prepare_cached(
 ) -> Result<PreparedIndex, String> {
     let fingerprint = fingerprint(manifest, syntax)?;
     let directory = cache.directory.clone();
-    if let Some(prepared) = load_generation(&cache, &fingerprint) {
+    if let Some(prepared) = load_generation(&cache, &directory, Some(&fingerprint), budget) {
         budget.check()?;
         return Ok(prepared);
     }
     let started = Instant::now();
+    let base = incremental::base(&cache, budget)?;
     let generation_id = Uuid::new_v4().to_string();
     let mut staging = Staging {
         path: directory.join(format!("staging-{generation_id}")),
@@ -582,12 +626,22 @@ fn prepare_cached(
     };
     fs::create_dir(&staging.path)
         .map_err(|_| "Local code index storage is unavailable.".to_owned())?;
-    let index = Index::create_in_dir(&staging.path, schema())
-        .map_err(|_| "Local code index could not be created.".to_owned())?;
+    let copied = if let Some(base) = &base {
+        incremental::copy(base, &staging.path, budget)?
+    } else {
+        0
+    };
+    let index = if base.is_some() {
+        Index::open_in_dir(&staging.path)
+    } else {
+        Index::create_in_dir(&staging.path, schema())
+    }
+    .map_err(|_| "Local code index could not be created.".to_owned())?;
     let mut writer: IndexWriter = index
         .writer_with_num_threads(1, 30_000_000)
         .map_err(|_| "Local code index writer is unavailable.".to_owned())?;
-    let ordinal = field(&index, "ordinal")?;
+    let range_key = field(&index, "range_key")?;
+    let source_path = field(&index, "source_path")?;
     let body = field(&index, "body")?;
     let path_field = field(&index, "path")?;
     let exact = field(&index, "exact")?;
@@ -600,12 +654,17 @@ fn prepare_cached(
         project_id: manifest.summary.project_id.clone(),
         snapshot_id: manifest.summary.snapshot_id.clone(),
         ranges: vec![],
+        document_keys: vec![],
         files: vec![],
         coverage: Coverage {
             snapshot_paths_skipped: manifest.skipped.len(),
             ..Default::default()
         },
-        build: BuildStats::default(),
+        build: BuildStats {
+            segment_bytes_copied: copied,
+            incremental_base_snapshot: base.as_ref().map(|b| b.metadata.snapshot_id.clone()),
+            ..BuildStats::default()
+        },
     };
     let mut files = manifest.files.iter().collect::<Vec<_>>();
     files.sort_by_key(|f| &f.path);
@@ -619,6 +678,17 @@ fn prepare_cached(
         }
     }
     let mut admitted_bytes = 0u64;
+    let mut admitted_paths = BTreeSet::new();
+    let base_files = base
+        .as_ref()
+        .map(|b| {
+            b.metadata
+                .files
+                .iter()
+                .map(|f| (f.path.as_str(), f))
+                .collect::<HashMap<_, _>>()
+        })
+        .unwrap_or_default();
     for file in files {
         budget.check()?;
         let mut coverage = FileCoverage {
@@ -628,6 +698,7 @@ fn prepare_cached(
             chunks: 0,
             parser: None,
             reason: exclusion(file).map(str::to_owned),
+            index_key: None,
         };
         if coverage.reason.is_some() {
             metadata.files.push(coverage);
@@ -672,7 +743,7 @@ fn prepare_cached(
             })
             .and_then(|f| f.parser.clone());
         let key = digest(&json(&(
-            VERSION,
+            CHUNK_VERSION,
             &source.sha256,
             &symbols,
             &coverage.parser,
@@ -682,7 +753,7 @@ fn prepare_cached(
             .ok()
             .and_then(|b| serde_json::from_slice::<ChunkCache>(&b).ok())
             .filter(|c| {
-                c.version == VERSION
+                c.version == CHUNK_VERSION
                     && c.key == key
                     && json(&c.chunks).is_ok_and(|bytes| digest(&bytes) == c.chunks_sha256)
             });
@@ -697,7 +768,7 @@ fn prepare_cached(
             metadata.build.files_chunked += 1;
             let chunks = chunks(&source.contents, &symbols, budget)?;
             let encoded = json(&ChunkCache {
-                version: VERSION.to_owned(),
+                version: CHUNK_VERSION.to_owned(),
                 key: key.clone(),
                 chunks_sha256: digest(&json(&chunks)?),
                 chunks: chunks.clone(),
@@ -711,39 +782,67 @@ fn prepare_cached(
         if metadata.ranges.len().saturating_add(local_chunks.len()) > MAX_CHUNKS {
             return Err("The captured text exceeds the local code range limit.".to_owned());
         }
-        for chunk in local_chunks {
+        let file_key =
+            incremental::file_key(&file.path, &source.sha256, &coverage.parser, &symbols)?;
+        let keys = local_chunks
+            .iter()
+            .map(|c| {
+                incremental::document_key(&file_key, c.start_byte, c.end_byte, &c.chunk_sha256)
+            })
+            .collect::<Vec<_>>();
+        coverage.index_key = Some(file_key);
+        let old_file = base_files.get(file.path.as_str());
+        let reused = old_file.is_some_and(|old| {
+            old.index_key == coverage.index_key && old.chunks == local_chunks.len()
+        }) && base
+            .as_ref()
+            .is_some_and(|base| keys.iter().all(|key| base.ranges_by_key.contains_key(key)));
+        admitted_paths.insert(file.path.as_str());
+        if reused {
+            metadata.build.files_documents_reused += 1;
+            metadata.build.documents_reused += local_chunks.len();
+        } else if let Some(old) = old_file.filter(|old| old.chunks > 0) {
+            writer.delete_term(Term::from_field_text(source_path, &file.path));
+            metadata.build.documents_deleted += old.chunks;
+        }
+        for (chunk, key) in local_chunks.into_iter().zip(keys) {
             budget.check()?;
-            let text = &source.contents[chunk.start_byte..chunk.end_byte];
-            let mut doc = TantivyDocument::default();
-            doc.add_u64(ordinal, metadata.ranges.len() as u64);
-            doc.add_text(body, terms(text).join(" "));
-            doc.add_text(path_field, terms(&file.path).join(" "));
-            for word in text
-                .split(|c: char| !c.is_alphanumeric() && c != '_')
-                .filter(|w| !w.is_empty() && w.len() <= 240)
-                .map(str::to_lowercase)
-                .collect::<BTreeSet<_>>()
-            {
-                doc.add_text(exact, word);
-            }
-            for symbol in &symbols {
-                if symbol.anchor.start_byte >= chunk.start_byte
-                    && symbol.anchor.start_byte < chunk.end_byte
+            if !reused {
+                let text = &source.contents[chunk.start_byte..chunk.end_byte];
+                let mut doc = TantivyDocument::default();
+                doc.add_text(range_key, &key);
+                doc.add_text(source_path, &file.path);
+                doc.add_text(body, terms(text).join(" "));
+                doc.add_text(path_field, terms(&file.path).join(" "));
+                for word in text
+                    .split(|c: char| !c.is_alphanumeric() && c != '_')
+                    .filter(|w| !w.is_empty() && w.len() <= 240)
+                    .map(str::to_lowercase)
+                    .collect::<BTreeSet<_>>()
                 {
-                    doc.add_text(exact, symbol.qualified_name.to_lowercase());
-                    doc.add_text(exact, symbol.name.to_lowercase());
-                    doc.add_text(declaration, symbol.qualified_name.to_lowercase());
-                    doc.add_text(declaration, symbol.name.to_lowercase());
-                    doc.add_text(symbol_field, terms(&symbol.qualified_name).join(" "));
+                    doc.add_text(exact, word);
                 }
+                for symbol in &symbols {
+                    if symbol.anchor.start_byte >= chunk.start_byte
+                        && symbol.anchor.start_byte < chunk.end_byte
+                    {
+                        doc.add_text(exact, symbol.qualified_name.to_lowercase());
+                        doc.add_text(exact, symbol.name.to_lowercase());
+                        doc.add_text(declaration, symbol.qualified_name.to_lowercase());
+                        doc.add_text(declaration, symbol.name.to_lowercase());
+                        doc.add_text(symbol_field, terms(&symbol.qualified_name).join(" "));
+                    }
+                }
+                doc.add_text(scope, &file.path);
+                for (offset, _) in file.path.match_indices('/') {
+                    doc.add_text(scope, &file.path[..offset]);
+                }
+                writer
+                    .add_document(doc)
+                    .map_err(|_| "A captured code range could not be indexed.".to_owned())?;
+                metadata.build.documents_added += 1;
             }
-            doc.add_text(scope, &file.path);
-            for (offset, _) in file.path.match_indices('/') {
-                doc.add_text(scope, &file.path[..offset]);
-            }
-            writer
-                .add_document(doc)
-                .map_err(|_| "A captured code range could not be indexed.".to_owned())?;
+            metadata.document_keys.push(key);
             metadata.ranges.push(CodeRange {
                 snapshot_id: manifest.summary.snapshot_id.clone(),
                 path: file.path.clone(),
@@ -759,6 +858,14 @@ fn prepare_cached(
             });
         }
         metadata.files.push(coverage);
+    }
+    for old in base_files
+        .values()
+        .filter(|old| old.chunks > 0 && !admitted_paths.contains(old.path.as_str()))
+    {
+        budget.check()?;
+        writer.delete_term(Term::from_field_text(source_path, &old.path));
+        metadata.build.documents_deleted += old.chunks;
     }
     budget.check()?;
     writer
@@ -783,6 +890,8 @@ fn prepare_cached(
     }
     metadata.coverage.chunks = metadata.ranges.len();
     metadata.build.elapsed_ms = started.elapsed().as_millis() as u64;
+    let ranges_by_key =
+        incremental::lookup(&metadata).ok_or("Local code range identities are invalid.")?;
     let encoded = json(&metadata)?;
     if encoded.len() > MAX_METADATA_BYTES {
         return Err("Local code index metadata exceeds its size limit.".to_owned());
@@ -825,6 +934,8 @@ fn prepare_cached(
     staging.published = true;
     Ok(PreparedIndex {
         index,
+        ranges_by_key,
+        generation: published,
         metadata,
         reused_generation: false,
         _lease: lease,
@@ -1348,16 +1459,16 @@ fn search_ranked(
         }
     }
     budget.check()?;
-    let ordinal = field(&prepared.index, "ordinal")?;
+    let range_key = field(&prepared.index, "range_key")?;
     let mut candidates = HashMap::new();
     for (score, address) in found {
         let doc = searcher
             .doc::<TantivyDocument>(address)
             .map_err(|_| "A code search result is unavailable.".to_owned())?;
         let id = doc
-            .get_first(ordinal)
-            .and_then(|v| v.as_u64())
-            .and_then(|v| usize::try_from(v).ok())
+            .get_first(range_key)
+            .and_then(|v| v.as_str())
+            .and_then(|key| prepared.ranges_by_key.get(key).copied())
             .ok_or("The code search index is invalid.")?;
         if id >= prepared.metadata.ranges.len() {
             return Err("The code search index is invalid.".to_owned());
@@ -1473,3 +1584,4 @@ fn search_ranked(
 mod tests;
 
 mod cache;
+mod incremental;

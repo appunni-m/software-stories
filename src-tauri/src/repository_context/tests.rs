@@ -1,7 +1,7 @@
 use super::*;
 use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH};
 
-fn add_source(fixture: &mut Fixture, path: &str, text: &str) {
+pub(super) fn add_source(fixture: &mut Fixture, path: &str, text: &str) {
     let sha256 = digest(text.as_bytes());
     let blob_path = format!("objects/sha256/{}/{}", &sha256[..2], &sha256[2..]);
     let absolute = fixture.storage.join(&blob_path);
@@ -287,6 +287,18 @@ fn one_changed_file_reuses_other_chunk_layouts_but_rehashes_all_source() {
     )
     .unwrap();
     assert_eq!(updated.metadata.build.files_chunked, 1);
+    assert_eq!(updated.metadata.build.documents_added, 1);
+    assert_eq!(updated.metadata.build.documents_deleted, 1);
+    assert_eq!(
+        updated.metadata.build.files_documents_reused + 1,
+        updated.metadata.coverage.files_indexed
+    );
+    assert_eq!(
+        updated.metadata.build.documents_reused + 1,
+        updated.metadata.coverage.chunks
+    );
+    assert!(updated.metadata.build.incremental_base_snapshot.is_some());
+    assert!(updated.metadata.build.segment_bytes_copied > 0);
     assert_eq!(
         updated.metadata.build.files_chunk_cache_reused + 1,
         updated.metadata.coverage.files_indexed
