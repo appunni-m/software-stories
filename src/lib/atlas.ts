@@ -27,7 +27,7 @@ export type AtlasTreeKeyboardAction =
 
 /** Maps standard tree keys to a roving focus, expand/collapse, or activation action. */
 export function atlasTreeKeyboardAction(
-  items: readonly FlattenedInventoryRow[],
+  items: readonly Pick<FlattenedInventoryRow, 'path' | 'depth' | 'hasChildren' | 'expanded'>[],
   index: number,
   key: string,
 ): AtlasTreeKeyboardAction {

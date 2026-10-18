@@ -29,7 +29,7 @@ test('repository search and explorer filters have independent inputs and branche
   assert.match(source,/\[fileFilter,setFileFilter\] = useState\(''\)/);
   assert.match(source,/\[repositorySearch,setRepositorySearch\] = useState\(''\)/);
   assert.match(source,/value=\{activity==='search'\?repositorySearch:fileFilter\}/);
-  assert.match(source,/!fileFilter\|\|p\.toLowerCase\(\)\.includes\(fileFilter\.toLowerCase\(\)\)/);
+  assert.match(source,/<WorkspaceExplorer paths=\{sourcePaths\} query=\{fileFilter\}/);
   assert.doesNotMatch(source,/<small>\{e\.turns\.length\} answer/);
   assert.match(source,/<small>\{e\.turns\.length\} question/);
 });
