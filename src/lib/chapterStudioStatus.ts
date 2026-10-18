@@ -41,7 +41,10 @@ export function chapterStudioStatusLabel(status: ChapterStudioStatus): string {
   }
 }
 
-/** Generation is safe only after history proves the target is missing or stale. */
-export function chapterStudioCanGenerate(status: ChapterStudioStatus): boolean {
-  return status === 'missing' || status === 'stale';
+/** Generation is safe only after a successful read proves the target is missing or stale. */
+export function chapterStudioCanGenerate(
+  availability: ChapterHistoryAvailability,
+  status: ChapterStudioStatus,
+): boolean {
+  return availability === 'ready' && (status === 'missing' || status === 'stale');
 }

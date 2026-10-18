@@ -4749,7 +4749,7 @@ function ChapterStudioScreen({ projectId, manifest, rows, routeChapterId, routeR
               <>
                 <div className="chapter-review-heading">
                   <div><span className={`chapter-review-status status-${status}`}>{statusLabel}</span><h3>{selectedRevision?.title ?? (selectedTarget.overview ? 'Repository overview' : selectedTarget.paths.length === 1 ? selectedTarget.paths[0] : 'Grouped chapter')}</h3>{!selectedTarget.overview && <code>{selectedTarget.paths.join(' · ')}</code>}</div>
-                  {chapterStudioCanGenerate(status) ? <div className="chapter-review-actions">
+                  {chapterStudioCanGenerate(historyAvailability, status) ? <div className="chapter-review-actions">
                     {!selectedTarget.overview && <button className="secondary-button" onClick={() => onOpenFile(selectedTarget.paths[0], selectedRevision?.snapshotId ?? selectedTarget.latestAny?.snapshotId)}><FileCode2 size={14} /> Open source</button>}
                     {selectedTarget.overview
                       ? <button className="primary-button" onClick={onGenerateOverview}><Sparkles size={14} /> Generate current overview</button>

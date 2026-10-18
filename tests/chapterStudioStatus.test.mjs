@@ -36,8 +36,12 @@ test('the target list reports its newest current version while the review pane m
 
 test('Chapter Studio offers generation only when a completed read proves missing or stale history', () => {
   for (const status of ['loading', 'unavailable', 'draft', 'rejected', 'accepted']) {
-    assert.equal(chapterStudioCanGenerate(status), false, `${status} must not start generation`);
+    assert.equal(chapterStudioCanGenerate('ready', status), false, `${status} must not start generation`);
   }
-  assert.equal(chapterStudioCanGenerate('missing'), true);
-  assert.equal(chapterStudioCanGenerate('stale'), true);
+  assert.equal(chapterStudioCanGenerate('ready', 'missing'), true);
+  assert.equal(chapterStudioCanGenerate('ready', 'stale'), true);
+  for (const availability of ['loading', 'unavailable']) {
+    assert.equal(chapterStudioCanGenerate(availability, 'missing'), false);
+    assert.equal(chapterStudioCanGenerate(availability, 'stale'), false);
+  }
 });
