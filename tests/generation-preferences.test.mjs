@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
-import { readDirectApiSelection, readGenerationBackend, rememberDirectApiSelection, rememberGenerationBackend } from '../src/lib/generationPreferences.ts';
+import { readDirectApiSelection, readGenerationBackend, rememberDirectApiSelection, rememberGenerationBackend, repositoryPlanningBackend } from '../src/lib/generationPreferences.ts';
 
 describe('generation backend preference', () => {
   const withStorage = (storage, run) => {
@@ -34,6 +34,15 @@ describe('generation backend preference', () => {
       assert.equal(readGenerationBackend(), 'codex');
       assert.doesNotThrow(() => rememberGenerationBackend('api'));
     });
+  });
+
+  it('uses the saved supported agent for repository plans without substituting another backend', () => {
+    assert.equal(repositoryPlanningBackend('codex'), 'codex');
+    assert.equal(repositoryPlanningBackend('claude-setup'), 'claude-agent');
+    assert.equal(repositoryPlanningBackend('claude-agent'), 'claude-agent');
+    assert.equal(repositoryPlanningBackend('api'), null);
+    assert.equal(repositoryPlanningBackend('handoff'), null);
+    assert.equal(repositoryPlanningBackend(undefined), null);
   });
 
   it('remembers non-secret direct API provider and model defaults', () => {

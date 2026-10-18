@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import { readGenerationBackend, rememberGenerationBackend } from './lib/generationPreferences';
+import { readGenerationBackend, rememberGenerationBackend, repositoryPlanningBackend } from './lib/generationPreferences';
 import { SourceDiscoveryDialog } from './SourceDiscoveryDialog';
 import type { SourceDiscoveryResult } from './lib/sourceDiscovery';
 import { CodexChapterDialog } from './CodexChapterDialog';
@@ -26,7 +26,9 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onRecoveryRes
   onRecoveryResultReady?: (operationId: string) => void;
   onOpenPendingPreview?: (generationId: string) => void;
 }) {
-  const [backend, setBackend] = useState<'codex' | 'claude-agent' | null>(() => scope.recoveryOperationId ? null : readGenerationBackend() === 'claude-setup' ? 'claude-agent' : 'codex');
+  const [backend, setBackend] = useState<'codex' | 'claude-agent' | null>(() => repositoryPlanningBackend(
+    scope.recoveryOperationId ? scope.recoveryBackend : readGenerationBackend(),
+  ));
   // Chapter recovery has the existing candidate-preview/history check inside
   // each agent. Planning has its separate saved-plan acknowledgement here.
   const [checkedEarlier, setCheckedEarlier] = useState(!scope.recoveryOperationId || scope.kind === 'planned-chapter');
@@ -48,6 +50,9 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onRecoveryRes
     return <SourceDiscoveryDialog scope={scope} onClose={onClose} onReady={setDiscovery} />;
   }
   const effectiveScope = discoveredPaths ? { ...scope, selectedPaths: discoveredPaths } : scope;
+  const savedBackend = readGenerationBackend();
+  const unsupportedSavedConnection = !scope.recoveryOperationId && (savedBackend === 'api' || savedBackend === 'handoff');
+  const savedConnectionName = savedBackend === 'api' ? 'Direct API' : 'Claude Code handoff';
   const planned = scope.kind === 'planned-chapter' ? scope.plannedChapter : null;
   const mode = planned ? { kind: 'review' as const, projectId: scope.projectId, snapshotId: scope.snapshotId,
     targetPath: planned.primaryPath, selectedPaths: planned.selectedPaths, plannedChapter: planned,
@@ -59,6 +64,7 @@ export function RepositoryPlanningDialog({ scope, native, onClose, onRecoveryRes
       <button className="icon-button" onClick={onClose} aria-label={planned ? 'Close chapter agent selection' : 'Close planning'}><X size={17} /></button></header>
     <div className="provider-dialog-content">
       <p>{scope.selectedPaths.length} captured files · source and account settings are reviewed before anything is sent. {planned ? 'Generate one chapter answering this accepted step. Review and acceptance remain separate.' : 'This makes an unaccepted reading plan; chapters are generated separately.'}</p>
+      {unsupportedSavedConnection && <p className="provider-small-note" role="status">Repository plans need a connected coding agent. Your saved connection is {savedConnectionName}; choosing Codex or Claude Agent here updates the shared connection shown in the header.</p>}
       {scope.recoveryOperationId && !planned && <section className="provider-review-card"><h3>Check earlier plans first</h3>
         <p>The original question and files were restored locally. A result may already be saved even if the earlier reply was lost. Close this dialog to inspect Learning plans before another request. Your recovery notice stays available.</p>
         <label className="provider-consent"><input type="checkbox" checked={checkedEarlier} onChange={(event) => setCheckedEarlier(event.target.checked)} />I checked earlier results and want to prepare a fresh request.</label>

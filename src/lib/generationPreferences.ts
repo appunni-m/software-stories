@@ -1,5 +1,6 @@
 /** Workspace preferences contain no credentials, source, or consent. */
 export type GenerationBackend = 'codex' | 'claude-setup' | 'handoff' | 'api';
+export type RepositoryPlanningBackend = 'codex' | 'claude-agent';
 const key = 'code-atlas:generation-backend';
 const directApiSelectionKey = 'code-atlas:direct-api-selection';
 
@@ -43,4 +44,12 @@ export function readGenerationBackend(): GenerationBackend {
 export function rememberGenerationBackend(backend: GenerationBackend): void {
   try { localStorage.setItem(key, backend); } catch { /* The current session still works. */ }
   if (typeof window !== 'undefined') window.dispatchEvent(new Event('code-atlas:connection-changed'));
+}
+
+/** Repository plans can only use the connected coding agents. Never silently
+ * turn a saved API or manual-handoff preference into a Codex request. */
+export function repositoryPlanningBackend(backend: GenerationBackend | RepositoryPlanningBackend | undefined): RepositoryPlanningBackend | null {
+  if (backend === 'codex') return 'codex';
+  if (backend === 'claude-setup' || backend === 'claude-agent') return 'claude-agent';
+  return null;
 }
