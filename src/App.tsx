@@ -2,6 +2,8 @@ import { updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
 import { markQuestionOutcome, openWorkspaceQuestion } from './workspace/outcomes';
 import { WorkspaceFrame } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
+import { interruptedNotificationMessage, notificationAvailability, previewNotificationMessage } from './lib/notificationSummary';
+import { LatestLocalRead } from './lib/latestLocalRead';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
 import { GenerationRecord } from './GenerationRecord';
 import { FileFlow } from './FileFlow';
@@ -219,7 +221,11 @@ function App() {
   const navigationRef = useRef(navigation);
   navigationRef.current = navigation;
   const interruptedReviewToken = useRef(0);
-  const interruptionLookupVersion = useRef(0);
+  const [interruptionLookup] = useState(() => new LatestLocalRead());
+  const [previewLookup] = useState(() => new LatestLocalRead());
+  const [startupNotificationsComplete, setStartupNotificationsComplete] = useState(false);
+  const [interruptionRefreshing, setInterruptionRefreshing] = useState(false);
+  const [previewRefreshing, setPreviewRefreshing] = useState(false);
   const [repositoryContextAnnouncement, setRepositoryContextAnnouncement] = useState('');
   const announcedRepositoryContextRef = useRef<string | null>(null);
   const [runtime, setRuntime] = useState<ApplicationStatus | null>(null);
@@ -386,17 +392,10 @@ function App() {
     }
   }
 
-  const refreshInterruptedOperations = useCallback(async () => {
-    const version = ++interruptionLookupVersion.current;
-    try {
-      const operations = await listInterruptedOperations();
-      if (version !== interruptionLookupVersion.current) return;
-      setInterruptedOperations(operations);
-      setInterruptedOperationsUnavailable(false);
-    } catch {
-      if (version === interruptionLookupVersion.current) setInterruptedOperationsUnavailable(true);
-    }
-  }, []);
+  const refreshInterruptedOperations = useCallback(() => interruptionLookup.run(listInterruptedOperations, {
+    value: (operations) => { setInterruptedOperations(operations); setInterruptedOperationsUnavailable(false); },
+    error: () => setInterruptedOperationsUnavailable(true), pending: setInterruptionRefreshing,
+  }), [interruptionLookup]);
 
   const completeRecoveredProviderReview = useCallback(async (operationId: string) => {
     try {
@@ -413,19 +412,17 @@ function App() {
     }
   }, [refreshInterruptedOperations]);
 
-  const refreshPendingChapterPreviews = useCallback(async () => {
-    try {
-      setPendingChapterPreviews(await listPendingGeneratedChapterPreviews());
-      setPendingChapterPreviewsUnavailable(false);
-    } catch {
-      setPendingChapterPreviewsUnavailable(true);
-    }
-  }, []);
+  const refreshPendingChapterPreviews = useCallback(() => previewLookup.run(listPendingGeneratedChapterPreviews, {
+    value: (previews) => { setPendingChapterPreviews(previews); setPendingChapterPreviewsUnavailable(false); },
+    error: () => setPendingChapterPreviewsUnavailable(true), pending: setPreviewRefreshing,
+  }), [previewLookup]);
 
   const discardPendingPreview = async (summary: PendingChapterPreviewSummary) => {
     try {
       await discardGeneratedChapterDraft(summary.generationId);
+      previewLookup.invalidate();
       setPendingChapterPreviews((current) => current.filter((item) => item.generationId !== summary.generationId));
+      void refreshPendingChapterPreviews();
       if (recoveredPreviewId === summary.generationId) setRecoveredPreviewId(null);
     } catch (error) {
       setNotice({
@@ -839,7 +836,8 @@ function App() {
 
   useEffect(() => {
     let active = true;
-    const recoveryVersion = interruptionLookupVersion.current;
+    const recoveryVersion = interruptionLookup.capture();
+    const previewVersion = previewLookup.capture();
     void loadShellStartupData({ getApplicationStatus, getCaptureLimits, listRecentProjects, listInterruptedOperations, listPendingGeneratedChapterPreviews }, (projects) => {
       if (!active) return;
       if (projects === null) {
@@ -864,12 +862,15 @@ function App() {
       setRuntime(startup.applicationStatus);
       setRuntimeError(startup.applicationStatusUnavailable ? 'The desktop bridge did not respond. The workspace is still available.' : null);
       setCaptureLimits(startup.captureLimits);
-      if (recoveryVersion === interruptionLookupVersion.current) {
+      if (interruptionLookup.owns(recoveryVersion)) {
         setInterruptedOperations(startup.interruptedOperations ?? []);
         setInterruptedOperationsUnavailable(startup.interruptedOperationsUnavailable);
       }
-      setPendingChapterPreviews(startup.pendingChapterPreviews ?? []);
-      setPendingChapterPreviewsUnavailable(startup.pendingChapterPreviewsUnavailable);
+      if (previewLookup.owns(previewVersion)) {
+        setPendingChapterPreviews(startup.pendingChapterPreviews ?? []);
+        setPendingChapterPreviewsUnavailable(startup.pendingChapterPreviewsUnavailable);
+      }
+      setStartupNotificationsComplete(true);
     });
     return () => { active = false; };
   }, []);
@@ -884,7 +885,8 @@ function App() {
       window.removeEventListener('code-atlas:pending-chapter-previews-changed', refresh);
       window.removeEventListener('code-atlas:repository-plans-changed', refreshPlans);
       window.removeEventListener('code-atlas:agent-recovery-changed', refreshPlans);
-      ++interruptionLookupVersion.current;
+      interruptionLookup.invalidate();
+      previewLookup.invalidate();
     };
   }, [refreshInterruptedOperations, refreshPendingChapterPreviews]);
 
@@ -1369,8 +1371,7 @@ function App() {
     ...interruptedOperations.map((operation): WorkspaceNotification => ({
       id: `interrupted:${operation.operationId}`, tone: 'warning',
       title: operation.kind === 'capture' ? 'Repository update interrupted' : 'Explanation interrupted',
-      message: operation.kind === 'capture' ? 'You can keep reading the previous version or try the update again.'
-        : operation.providerRequest?.repositoryPlan?.question ?? 'Your saved work is preserved. Open it to continue.',
+      message: interruptedNotificationMessage(operation, knownProjects[operation.projectId]?.displayName),
       actions: [{ label: operation.kind === 'capture' ? 'Try update again' : 'Open work', disabled: recoveryBusyId !== null,
         run: () => { void (operation.kind === 'capture' ? retryInterruptedCapture(operation) : reviewInterruptedGeneration(operation)); } },
         { label: 'Dismiss', disabled: recoveryBusyId !== null, run: () => { void discardRecovery(operation); } }],
@@ -1379,7 +1380,7 @@ function App() {
       actions: [{ label: 'Try again', run: () => { void refreshPendingChapterPreviews(); } }] }] : []),
     ...pendingChapterPreviews.map((preview): WorkspaceNotification => ({
       id: `preview:${preview.generationId}`, title: preview.unavailableReason ? 'An explanation needs attention' : 'An explanation is ready',
-      message: `${preview.title}${preview.targetPath ? ` · ${preview.targetPath}` : ''}`, tone: preview.unavailableReason ? 'warning' : 'info',
+      message: previewNotificationMessage(preview, preview.projectId ? knownProjects[preview.projectId]?.displayName : undefined), tone: preview.unavailableReason ? 'warning' : 'info',
       actions: [{ label: 'Open explanation', disabled: Boolean(preview.unavailableReason), opensDialog: true, run: () => {
         recoveredPreviewReturnFocusRef.current = document.querySelector<HTMLButtonElement>('[data-focus-key="notifications"]');
         setRecoveredPreviewId(preview.generationId);
@@ -1500,7 +1501,10 @@ function App() {
         <div className="topbar-actions">
           <ConnectionHeader onOpen={openProviderSettings} />
           <ThemeControl />
-          <NotificationCenter items={workspaceNotifications} open={notificationsOpen} onOpenChange={setNotificationsOpen} />
+          <NotificationCenter items={workspaceNotifications}
+            availability={notificationAvailability({ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready',
+              refreshing: interruptionRefreshing || previewRefreshing, unavailable: interruptedOperationsUnavailable || pendingChapterPreviewsUnavailable })}
+            open={notificationsOpen} onOpenChange={setNotificationsOpen} />
           <button
             className="search-control"
             disabled={!navigation.current.snapshotId}
