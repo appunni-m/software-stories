@@ -30,32 +30,6 @@ fn private_records_reopen_and_conflicting_creates_preserve_original_bytes() {
 }
 
 #[test]
-fn current_saved_guides_gain_default_model_metadata_without_rewriting_on_read() {
-    let f = Fixture::new();
-    let record = crate::repository_guide::tests::fresh_record(&f);
-    let mut legacy = serde_json::to_value(&record).unwrap();
-    legacy["schemaVersion"] = serde_json::json!(5);
-    legacy["contract"] = serde_json::json!(LEGACY_CONTRACT);
-    legacy.as_object_mut().unwrap().remove("modelId");
-    legacy.as_object_mut().unwrap().remove("reasoningEffort");
-    let legacy_bytes = serde_json::to_vec(&legacy).unwrap();
-    let record_path = path(&f.storage, &record.id).unwrap();
-    std::fs::write(&record_path, &legacy_bytes).unwrap();
-
-    let migrated = read(&f.storage, &record.id).unwrap();
-
-    assert_eq!(migrated.schema_version, RECORD_SCHEMA_VERSION);
-    assert_eq!(migrated.contract, CONTRACT);
-    assert_eq!(migrated.model_id, DEFAULT_MODEL_ID);
-    assert_eq!(migrated.reasoning_effort, DEFAULT_REASONING_EFFORT);
-    assert_eq!(
-        migrated.opening_context_sha256.as_deref(),
-        Some(opening::context_sha256(&migrated).unwrap().as_str())
-    );
-    assert_eq!(std::fs::read(record_path).unwrap(), legacy_bytes);
-}
-
-#[test]
 fn worker_lease_excludes_a_second_worker_until_the_original_is_joined() {
     let f = Fixture::new();
     let id = Uuid::new_v4().to_string();
@@ -224,6 +198,19 @@ fn unsupported_guide_versions_fail_without_rewriting_saved_bytes() {
         assert!(read(&f.storage, &record.id).is_err(), "version {version}");
         assert_eq!(std::fs::read(&location).unwrap(), bytes);
     }
+    let mut prior_contract = current;
+    prior_contract["schemaVersion"] = serde_json::json!(5);
+    prior_contract["contract"] =
+        serde_json::json!("repository-guide-v6-bounded-opening-continuation");
+    prior_contract.as_object_mut().unwrap().remove("modelId");
+    prior_contract
+        .as_object_mut()
+        .unwrap()
+        .remove("reasoningEffort");
+    let prior_bytes = serde_json::to_vec(&prior_contract).unwrap();
+    std::fs::write(&location, &prior_bytes).unwrap();
+    assert!(read(&f.storage, &record.id).is_err());
+    assert_eq!(std::fs::read(&location).unwrap(), prior_bytes);
     assert!(!f.storage.join("repository-guides/history").exists());
     assert!(!f.storage.join("evidence-ledgers").exists());
 }

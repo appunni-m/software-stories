@@ -22,23 +22,9 @@ fn path(storage: &Path, id: &str) -> Result<std::path::PathBuf, String> {
 }
 pub(super) fn read(storage: &Path, id: &str) -> Result<Record, String> {
     let bytes = crate::repository_plan_store::read_bounded_file(&path(storage, id)?, MAX_RECORD)?;
-    let mut value: serde_json::Value = crate::strict_json::from_slice(&bytes)
+    let record: Record = crate::strict_json::from_slice(&bytes)
+        .and_then(serde_json::from_value)
         .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
-    let migrate_v6 = value.get("schemaVersion").and_then(serde_json::Value::as_u64) == Some(5)
-        && value.get("contract").and_then(serde_json::Value::as_str) == Some(LEGACY_CONTRACT)
-        && value.get("modelId").is_none()
-        && value.get("reasoningEffort").is_none();
-    if migrate_v6 {
-        value["schemaVersion"] = serde_json::json!(RECORD_SCHEMA_VERSION);
-        value["contract"] = serde_json::json!(CONTRACT);
-        value["modelId"] = serde_json::json!(DEFAULT_MODEL_ID);
-        value["reasoningEffort"] = serde_json::json!(DEFAULT_REASONING_EFFORT);
-    }
-    let mut record: Record = serde_json::from_value(value)
-        .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
-    if migrate_v6 {
-        record.opening_context_sha256 = Some(super::opening::context_sha256(&record)?);
-    }
     validate(&record)?;
     if record.id != id {
         return Err("The saved guide identity changed.".into());

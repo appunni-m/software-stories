@@ -28,10 +28,11 @@ mod store;
 use plan::Plan;
 use recovering::reconcile;
 
-const LEGACY_CONTRACT: &str = "repository-guide-v6-bounded-opening-continuation";
 const CONTRACT: &str = "repository-guide-v7-selected-model";
 const RECORD_SCHEMA_VERSION: u32 = 6;
+#[cfg(test)]
 const DEFAULT_MODEL_ID: &str = "gpt-6-luna";
+#[cfg(test)]
 const DEFAULT_REASONING_EFFORT: &str = "max";
 const RESEARCH_POLICY: &str = "ordered-independent-research-v1";
 const RESEARCH_INSTRUCTIONS: &str = "Prerequisites describe reading order, not permission to investigate. Each outlined unit will research its own captured code in outline order even if an earlier explanation remains incomplete. Earlier questions and starting ranges supply leads, never implementation facts or inherited citations. Preserve requested alternatives and failures; independently verify every explanation. A partial unit stays partial and cannot establish a later unit's behavior.";
