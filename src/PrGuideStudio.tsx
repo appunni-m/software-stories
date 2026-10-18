@@ -97,6 +97,7 @@ export function PrGuideStudio({
   const [changeExplanationSelection, setChangeExplanationSelection] = useState<{ change: GitFileChange; hunkIndex: number } | null>(null);
 
   const eligibleChanges = useMemo(() => comparison.changes.filter(isGuideEligible), [comparison.changes]);
+  const unavailableChanges = useMemo(() => comparison.changes.filter((change) => !isGuideEligible(change)), [comparison.changes]);
   const selectedChanges = useMemo(
     () => eligibleChanges.filter((change) => selectedKeys.includes(changeKey(change))),
     [eligibleChanges, selectedKeys],
@@ -433,7 +434,7 @@ export function PrGuideStudio({
         <div><span className="git-changes-kicker">SEPARATE, REVIEWABLE HISTORY</span><h2 id="pr-guide-title">Build a PR Guide</h2></div>
         <span className="git-readonly-badge"><BookOpenCheck size={14} /> Local draft</span>
       </div>
-      <p className="pr-guide-muted">{accountOnly?'Explain this commit using the connection in the header. Changed text files are included automatically; review the diff before sharing it.':'Choose a backend, select changed files, inspect the exact diff sent, then review every claim against its base/head hunk. Accepting or rejecting saves a PR Guide revision; it never changes Git refs or file chapter history.'}</p>
+      <p className="pr-guide-muted">{accountOnly?'Explain this commit using the connection in the header. Files with complete, bounded source changes are included automatically; review the diff before sharing it.':'Choose a backend, select changed files, inspect the exact diff sent, then review every claim against its base/head hunk. Accepting or rejecting saves a PR Guide revision; it never changes Git refs or file chapter history.'}</p>
       {matchingRecovery && <section className="provider-review-card" aria-labelledby="recovered-git-title">
         <h3 id="recovered-git-title">Review interrupted {matchingRecovery.backend === 'codex' ? 'Codex' : 'Claude'} work</h3>
         <p>{matchingRecovery.mode.kind === 'pr-guide'
@@ -466,7 +467,7 @@ export function PrGuideStudio({
         <button className="secondary-button" onClick={() => setClaudeMode('settings')}>Claude installation and defaults</button></div></div>}
       <details className="pr-guide-included-files" open={accountOnly?undefined:true}><summary>{selectedChanges.length} changed {selectedChanges.length===1?'file':'files'} included{eligibleChanges.length>12?' · selection limited to 12':''}</summary><fieldset className="pr-guide-file-picker" disabled={building || sending || decisionBusy || Boolean(changeExplanationSelection) || Boolean(codexMode) || Boolean(claudeMode)}>
         <legend>Select changed files · {selectedChanges.length} of 12</legend>
-        {eligibleChanges.length === 0 ? <p>No changed file has a complete bounded text diff to explain.</p> : eligibleChanges.map((change) => {
+        {eligibleChanges.length === 0 ? <p>No changed file has a complete, bounded source diff for a PR Guide.</p> : eligibleChanges.map((change) => {
           const key = changeKey(change);
           const checked = selectedKeys.includes(key);
           const pathLabel = labelChange(change);
@@ -492,6 +493,16 @@ export function PrGuideStudio({
           );
         })}
       </fieldset></details>
+      {eligibleChanges.length === 0 && <p className="pr-guide-muted" role="status">Open Diff to inspect the changed files and why they were left out of this guide.</p>}
+      {unavailableChanges.length > 0 && <details className="pr-guide-included-files pr-guide-unavailable-files">
+        <summary>{unavailableChanges.length} changed {unavailableChanges.length === 1 ? 'file' : 'files'} available only in Diff</summary>
+        <div className="pr-guide-unavailable-list">
+          {unavailableChanges.map((change) => <div className="pr-guide-unavailable-item" key={changeKey(change)}>
+            <code>{labelChange(change)}</code>
+            <small>{guideExclusionReason(change)}</small>
+          </div>)}
+        </div>
+      </details>}
       {backend === 'codex' && <div className="pr-guide-actions"><button className="primary-button" onClick={reviewCodexGuide} disabled={!selectedChanges.length || selectedChanges.length > 12 || building || sending || decisionBusy || Boolean(codexMode)}><FileDiff size={15} /> {accountOnly?'Explain changes':'Review with Codex'}</button></div>}
       {backend === 'claude-agent' && <div className="pr-guide-actions"><button className="secondary-button" onClick={previewClaudeGuide} disabled={!selectedChanges.length || selectedChanges.length > 12 || building || sending || decisionBusy || Boolean(claudeMode)}><FileDiff size={15} /> Preview guide request with Claude</button></div>}
       {backend === 'api' && <><div className="pr-guide-actions">
@@ -916,6 +927,17 @@ function isGuideEligible(change: GitFileChange): boolean {
   return (change.classification === 'text' || change.classification === 'parserUncertain')
     && change.hunks.length > 0
     && !change.skippedReason;
+}
+
+function guideExclusionReason(change: GitFileChange): string {
+  if (change.classification === 'oversized') return 'The change is too large to include in a guide.';
+  if (change.classification === 'binary') return 'This change is not readable text.';
+  if (change.classification === 'parserUncertain') return 'The source structure could not be checked reliably.';
+  if (change.classification === 'unsupported' && change.skippedReason?.startsWith('No bundled Tree-sitter grammar')) {
+    return 'This file type cannot be safely explained yet.';
+  }
+  if (change.classification === 'unsupported') return 'This file cannot be safely included.';
+  return 'A complete line-by-line change is not available.';
 }
 
 function changeKey(change: SelectedGitChangeIdentity): string {
