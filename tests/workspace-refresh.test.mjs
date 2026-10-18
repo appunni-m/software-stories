@@ -115,8 +115,10 @@ test('an unavailable answer stays a compact status beside its recovery action', 
   assert.match(workspace, /const unavailable=!revision&&availability==='unavailable'/);
   assert.match(workspace, /className=\{`dw-answer-card\$\{unavailable\?' dw-answer-card-unavailable':''\}`\}/);
   assert.match(workspace, /<p className="dw-unavailable-status" role="status">Saved explanation unavailable\.<\/p>/);
+  assert.match(workspace, /<details className="dw-unavailable-question"><summary>View the original question<\/summary><p>\{turn\.question\}<\/p><\/details>/);
   assert.match(workspace, /<Button size="1" variant="soft" onClick=\{onRetry\}>Explain again<\/Button>/);
   assert.match(styles, /\.dw-answer-card-unavailable\s*\{display:flex;align-items:center/);
+  assert.match(styles, /\.dw-unavailable-question\s*\{margin:0 0 7px/);
 });
 
 test('saved chapter arrivals do not reload the immutable snapshot index or reset the reader', () => {
