@@ -328,5 +328,17 @@ fn answer_manager_lists_verified_records_when_another_current_record_is_unavaila
         current.value.binding.operation_id
     );
     assert_eq!(listing.unavailable_count, 1);
+    let workspace_answers = reading::list(
+        &f.storage,
+        &f.manifest.summary.project_id,
+        &f.manifest.summary.snapshot_id,
+    )
+    .unwrap();
+    assert_eq!(workspace_answers.len(), 1);
+    assert_eq!(
+        workspace_answers[0].run_id,
+        current.value.binding.operation_id,
+        "an unavailable receipt must not hide another independently verified answer"
+    );
     assert_eq!(fs::read(invalid_path).unwrap(), invalid_bytes);
 }

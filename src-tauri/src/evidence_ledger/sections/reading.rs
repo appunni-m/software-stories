@@ -239,48 +239,13 @@ pub(crate) fn remove(
 }
 
 pub(crate) fn list(storage: &Path, project: &str, snapshot: &str) -> Result<Vec<Summary>, String> {
-    Ok(list_all(storage)?
+    // One damaged or unsupported receipt must not hide other verified answers.
+    // Management uses this same bounded replay and preserves unavailable bytes.
+    Ok(list_for_management(storage)?
+        .records
         .into_iter()
         .filter(|s| s.project_id == project && s.snapshot_id == snapshot)
         .collect())
-}
-
-pub(crate) fn list_all(storage: &Path) -> Result<Vec<Summary>, String> {
-    let paths = fs::read_dir(directory(storage)?)
-        .map_err(|_| "Saved answers could not be inspected.")?
-        .take(MAX_DIRECTORY_ENTRIES + 1)
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|_| "Saved answers could not be inspected.")?;
-    if paths.len() > MAX_DIRECTORY_ENTRIES {
-        return Err("The saved answer directory exceeds its limit.".into());
-    }
-    let mut result = vec![];
-    for entry in paths {
-        let path = entry.path();
-        if path.extension().is_some_and(|v| v == "json") {
-            let run = path
-                .file_stem()
-                .and_then(|v| v.to_str())
-                .ok_or("Invalid saved answer identity.")?;
-            let bytes = read_record_bytes(storage, run)?;
-            let envelope: serde_json::Value = crate::strict_json::from_slice(&bytes)
-                .map_err(|_| "The saved answer is damaged; it was preserved.")?;
-            if envelope
-                .get("schemaVersion")
-                .and_then(serde_json::Value::as_u64)
-                != Some(NARRATION_ANSWER_VERSION as u64)
-            {
-                // Current answer listings are strict-schema only. Older or
-                // future records remain byte-for-byte in place and are not
-                // decoded, migrated, or allowed to block current work.
-                continue;
-            }
-            let answer = replay_answer(storage, run, &bytes)?;
-            result.push(answer.summary());
-        }
-    }
-    result.sort_by(|a, b| a.run_id.cmp(&b.run_id));
-    Ok(result)
 }
 
 /// List only independently verified records for the explicit storage manager.
