@@ -26,6 +26,7 @@ import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, re
 import type { GitCommit } from '../lib/gitHistory';
 import { searchCapturedSource, searchExploration, shouldOfferExploreWithAI, workspaceSearchResults, type CodeSearchMode } from './codeSearch';
 import { linearFlowSteps } from './flowPresentation';
+import { layoutFlowNodes } from './flowLayout';
 import { WorkspaceExplorer } from './WorkspaceExplorer';
 import './workspace.css';
 
@@ -452,11 +453,11 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
   const viewport=progress?.find(p=>sameSection(p,identity))?.viewport;
   const {visual,anchorsById}=result;
   const linearSteps=linearFlowSteps(visual);
-  const horizontal=visual.layoutHint.direction==='leftToRight';
-  const nodes=visual.nodes.map((n,i)=>{
+  const positions=layoutFlowNodes(visual.nodes,visual.edges,visual.layoutHint.direction);
+  const nodes=visual.nodes.map((n)=>{
     const anchor=n.evidenceAnchorIds[0]?anchorsById.get(n.evidenceAnchorIds[0]):undefined;
     const label=<><strong>{n.label}</strong>{n.detail&&<small>{n.detail}</small>}</>;
-    return {id:n.nodeId,position:{x:horizontal?i*290:0,y:horizontal?0:i*130},
+    return {id:n.nodeId,position:positions.get(n.nodeId)??{x:0,y:0},
       data:{label:anchor?<button type="button" className="dw-flow-source nodrag nopan" aria-label={`Open source for ${n.label}`} onClick={()=>onOpen(anchor)}>{label}</button>:label},style:{width:250}};
   });
   const edges=visual.edges.map((e)=>({id:e.edgeId,source:e.fromNodeId,target:e.toNodeId,label:e.label??undefined,markerEnd:{type:MarkerType.ArrowClosed}}));

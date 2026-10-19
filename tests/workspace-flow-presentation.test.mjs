@@ -35,6 +35,7 @@ test('the production Flow renders sequence steps with evidence links and preserv
   const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
   assert.match(source, /const linearSteps=linearFlowSteps\(visual\)/);
+  assert.match(source, /const positions=layoutFlowNodes\(visual\.nodes,visual\.edges,visual\.layoutHint\.direction\)/);
   assert.match(source, /className="dw-linear-flow" aria-label=\{`Steps in \$\{visual\.title\}`\}/);
   assert.match(source, /className="dw-linear-flow-step" aria-label=\{`Step \$\{index\+1\}: \$\{node\.label\}\. Open source \$\{sourceLabel\}`\}/);
   assert.match(source, /<ReactFlow key=\{`\$\{revision\.revisionId\}:\$\{selected\}`\}/);
