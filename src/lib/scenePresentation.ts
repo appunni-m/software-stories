@@ -25,6 +25,20 @@ const exact = (v: Record<string, unknown>, keys: string[]) => Object.keys(v).len
 const bytes = (s: string) => new TextEncoder().encode(s).length;
 const index = (v: unknown, bound: number): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 && v < bound;
 
+/** Keep the visual cue's meaning available when the composition is explored
+ * with a keyboard or screen reader, even while its prose stays collapsed.
+ */
+export function sceneNodeAccessibleLabel(node: Pick<LinkedVisualNode, 'label' | 'detail'>, value: string, illustrated: boolean): string {
+  const sentence = (text: string) => text.trim().replace(/[.!?]+$/u, '');
+  return [
+    sentence(node.label),
+    value ? sentence(`Shown value: ${value}`) : '',
+    node.detail ? sentence(`Meaning: ${node.detail}`) : '',
+    illustrated ? 'Illustrative example' : '',
+    'Open supporting code',
+  ].filter(Boolean).join('. ');
+}
+
 /** Identity/coverage checks only; semantic faithfulness requires review against
  * the exact claim. Keep every scene and prefix inferred speech visibly. */
 export function sceneNarrations(presentation: ScenePresentation, claims: ChapterClaim[]): string[] | null {

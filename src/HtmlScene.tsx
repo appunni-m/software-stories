@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { ArrowDown, Code2 } from 'lucide-react';
 import type { EvidenceLinkedVisualSpec } from './lib/commands';
-import { containerKinds, type PresentationScene } from './lib/scenePresentation';
+import { containerKinds, sceneNodeAccessibleLabel, type PresentationScene } from './lib/scenePresentation';
 import './html-scene.css';
 
 /** The AI composes HTML from bounded layout/data primitives. React owns every
@@ -32,7 +32,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
     return <div key={index} className={`${className}${focusedNode === node.nodeId ? ' is-focused' : ''}`}
       role="button" tabIndex={0} title={node.detail ?? undefined}
       data-focus-key={`reader-visual-citation:${node.nodeId}:${node.evidenceAnchorIds[0]}`}
-      aria-label={`${node.label}${value ? `: ${value}` : ''}${illustrated ? ', illustrative example' : ''}. Open supporting code`}
+      aria-label={sceneNodeAccessibleLabel(node, value, illustrated)}
       onClick={() => onOpenNode(node.nodeId)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenNode(node.nodeId); } }}>
       <span className="html-scene-label">{node.label}<Code2 size={12}/></span>
       {body}

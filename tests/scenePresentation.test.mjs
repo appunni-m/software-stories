@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { validScenePresentation } from '../src/lib/scenePresentation.ts';
+import { sceneNodeAccessibleLabel, validScenePresentation } from '../src/lib/scenePresentation.ts';
 import { inspectInteractiveVisual } from '../src/lib/visuals.ts';
 
 const claims = [{ claimId: 'claim:one', anchors: [{ anchorId: 'anchor:one', excerpt: 'return `Hello, ${name}`;' }] }];
@@ -9,6 +9,14 @@ const element = (kind, value = '', valueOrigin = 'none', parentIndex = null) => 
 const presentation = (elements = [element('code', 'Hello, ${name}', 'source')]) => ({ schemaVersion: 3, scenes: [{ claimIndex: 0, title: 'An incoming name becomes a greeting', narration: 'A name becomes a greeting with the same prefix for every input.', mode: 'composition', elements }] });
 
 describe('AI-authored HTML scene contract', () => {
+  it('makes each source-linked visual cue meaningful to keyboard and screen-reader users', () => {
+    assert.equal(sceneNodeAccessibleLabel({
+      label: 'PFR0 prefix check',
+      detail: 'The source checks whether data starts with b"PFR0".',
+    }, 'PFR0', true), 'PFR0 prefix check. Shown value: PFR0. Meaning: The source checks whether data starts with b"PFR0". Illustrative example. Open supporting code');
+    assert.equal(sceneNodeAccessibleLabel({ label: 'Return target', detail: null }, '', false), 'Return target. Open supporting code');
+  });
+
   it('current scenes allow meaningful values and roles while rejecting presentation-only changes', () => {
     const root = { ...element('row'), nodeIndex: null };
     const arrow = { ...element('arrow', '', 'none', 0), nodeIndex: null };
