@@ -17,7 +17,8 @@ export function shouldOfferExploreWithAI(
 }
 
 interface SearchUpdates {
-  hits:(hits:SourceMatch[])=>void; limited:(limited:boolean)=>void;
+  hits:(hits:SourceMatch[],append:boolean)=>void; limited:(limited:boolean)=>void;
+  nextOffset:(nextOffset:number|null)=>void;
   busy:(busy:boolean)=>void; error:(error:string|null)=>void;
 }
 interface SearchRuntime {
@@ -27,11 +28,13 @@ interface SearchRuntime {
 
 /** One debounced owned read. Cleanup invalidates replies before native cancellation. */
 export function searchCapturedSource(
-  request:{projectId:string;snapshotId:string;query:string;mode:CodeSearchMode;native:boolean},
+  request:{projectId:string;snapshotId:string;query:string;mode:CodeSearchMode;native:boolean;offset?:number},
   updates:SearchUpdates,
   runtime:SearchRuntime,
 ):()=>void {
-  updates.hits([]);updates.limited(false);updates.error(null);updates.busy(false);
+  const offset=request.offset??0;
+  if(offset===0){updates.hits([],false);updates.limited(false);updates.nextOffset(null);}
+  updates.error(null);updates.busy(false);
   const length=[...request.query].length;
   if(!request.native||length<(request.mode==='regex'?1:2)||length>240)return()=>{};
   const requestId=(runtime.createId??(()=>crypto.randomUUID()))();
@@ -41,8 +44,8 @@ export function searchCapturedSource(
   updates.busy(true);
   const timer=defer(()=>{dispatched=true;void(async()=>{
     try{
-      const result=await runtime.invoke('search_workspace_source',{projectId:request.projectId,snapshotId:request.snapshotId,query:request.query,mode:request.mode,requestId}) as {matches:SourceMatch[];limited:boolean};
-      if(active){updates.hits(result.matches);updates.limited(result.limited);}
+      const result=await runtime.invoke('search_workspace_source',{projectId:request.projectId,snapshotId:request.snapshotId,query:request.query,mode:request.mode,requestId,offset}) as {matches:SourceMatch[];limited:boolean;nextOffset?:number|null};
+      if(active){updates.hits(result.matches,offset>0);updates.limited(result.limited);updates.nextOffset(result.nextOffset??null);}
     }catch(error){if(active)updates.error(request.mode==='regex'?errorMessageOr(error,'This regular expression could not be searched.'):'Captured source search is unavailable. File and symbol results are still shown.');}
     finally{if(active)updates.busy(false);}
   })();});

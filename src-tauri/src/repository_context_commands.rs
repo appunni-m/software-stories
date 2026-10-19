@@ -312,6 +312,7 @@ pub(crate) async fn read_repository_range(
 pub(crate) struct WorkspaceSearchResult {
     matches: Vec<WorkspaceSearchHit>,
     limited: bool,
+    next_offset: Option<usize>,
     unavailable_files: usize,
 }
 
@@ -332,6 +333,7 @@ pub(crate) async fn search_workspace_source(
     query: String,
     request_id: String,
     mode: Option<context::SearchMode>,
+    offset: Option<usize>,
 ) -> Result<WorkspaceSearchResult, String> {
     sessions.get(&project_id)?;
     let storage = app_data_directory(&app)?;
@@ -345,7 +347,7 @@ pub(crate) async fn search_workspace_source(
             mode: mode.unwrap_or_default(),
             path: None,
             limit: 32,
-            offset: 0,
+            offset: offset.unwrap_or(0),
         };
         let result = search_snapshot(&storage, &input, &request)?;
         Ok(WorkspaceSearchResult {
@@ -359,6 +361,7 @@ pub(crate) async fn search_workspace_source(
                 })
                 .collect(),
             limited: result.limited,
+            next_offset: result.next_offset,
             unavailable_files: result.coverage.files_unavailable,
         })
     })
