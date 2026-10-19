@@ -467,7 +467,7 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v9:"));
+    assert!(instructions.contains("Teaching policy v10:"));
     assert!(instructions.contains("visible cue"));
     assert!(instructions.contains("at most two short, natural sentences per scene"));
     assert!(instructions.starts_with(ANSWER_ROLE));
@@ -492,7 +492,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     let input = input(&f);
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema).unwrap();
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v9");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v10");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert_eq!(
         fingerprint,
@@ -537,8 +537,8 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
 #[test]
 fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Choose the representation that teaches the behavior"));
-    assert!(instructions.contains("different source tokens alone do not establish a transformation"));
+    assert!(instructions.contains("Choose: bytes, transformations, comparisons/tables"));
+    assert!(instructions.contains("Source tokens alone are not transformations"));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
     assert!(instructions.contains("compare the claim with its narration, visible labels, node details and values"));
     assert!(instructions.contains("Narration and collapsed details must not carry a missing branch by themselves"));
