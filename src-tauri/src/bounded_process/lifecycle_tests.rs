@@ -7,9 +7,17 @@ use std::path::PathBuf;
 const ROLE: &str = "CODE_ATLAS_TEST_PIPE_ROLE";
 const SOCKET: &str = "CODE_ATLAS_TEST_PIPE_SOCKET";
 const STREAMS: &str = "CODE_ATLAS_TEST_PIPE_STREAMS";
+const READY: &str = "CODE_ATLAS_TEST_PIPE_READY";
+const HOLD_PARENT: &str = "CODE_ATLAS_TEST_PIPE_HOLD_PARENT";
 const FIXTURE_TEST: &str = "bounded_process::lifecycle_tests::retained_pipe_fixture";
 
-fn fixture_command(role: &str, socket: &std::path::Path, streams: &str) -> Command {
+fn fixture_command(
+    role: &str,
+    socket: &std::path::Path,
+    streams: &str,
+    ready: &std::path::Path,
+    hold_parent: bool,
+) -> Command {
     let mut command = Command::new(std::env::current_exe().unwrap());
     command
         .args([
@@ -21,7 +29,9 @@ fn fixture_command(role: &str, socket: &std::path::Path, streams: &str) -> Comma
         ])
         .env(ROLE, role)
         .env(SOCKET, socket)
-        .env(STREAMS, streams);
+        .env(STREAMS, streams)
+        .env(READY, ready)
+        .env(HOLD_PARENT, if hold_parent { "1" } else { "0" });
     command
 }
 
@@ -85,19 +95,20 @@ fn read_control(
 }
 
 // This entry point only runs as an explicitly selected subprocess. The
-// descendant exits on a socket release/EOF or its own finite read timeout.
-// Tests never signal a PID after the runner has reaped its direct child.
+// descendant exits on a socket release/EOF or is killed with its same-group
+// parent. Tests never signal a PID after the runner has reaped its leader.
 #[test]
 #[ignore = "Owned subprocess fixture, invoked explicitly by the lifecycle tests."]
 fn retained_pipe_fixture() {
     let role = std::env::var(ROLE).expect("fixture role is required");
     let socket = PathBuf::from(std::env::var_os(SOCKET).expect("fixture socket is required"));
+    let ready = PathBuf::from(std::env::var_os(READY).expect("fixture readiness path is required"));
     let streams = std::env::var(STREAMS).unwrap();
     let mut connection = UnixStream::connect(&socket).unwrap();
     if role == "parent" {
         hello(&mut connection, b'p');
         drop(connection);
-        let mut descendant = fixture_command("descendant", &socket, &streams);
+        let mut descendant = fixture_command("descendant", &socket, &streams, &ready, false);
         descendant
             .stdin(if streams == "stdin" {
                 Stdio::inherit()
@@ -115,6 +126,22 @@ fn retained_pipe_fixture() {
                 Stdio::null()
             });
         drop(descendant.spawn().unwrap());
+        let ready_deadline = Instant::now() + Duration::from_secs(2);
+        while !ready.exists() {
+            assert!(
+                Instant::now() < ready_deadline,
+                "descendant did not become ready"
+            );
+            thread::sleep(Duration::from_millis(2));
+        }
+        if std::env::var(HOLD_PARENT).as_deref() == Ok("1") {
+            let hold_deadline = Instant::now() + Duration::from_secs(6);
+            let release = ready.with_extension("release");
+            while !release.exists() {
+                assert!(Instant::now() < hold_deadline, "parent release timed out");
+                thread::sleep(Duration::from_millis(2));
+            }
+        }
         std::process::exit(7);
     }
     assert_eq!(role, "descendant");
@@ -127,6 +154,7 @@ fn retained_pipe_fixture() {
         std::io::stderr().flush().unwrap();
     }
     hello(&mut connection, b'd');
+    fs::write(&ready, b"ready").unwrap();
     let mut release = [0];
     let released = read_control(&mut connection, &mut release, Duration::from_secs(5)).is_ok();
     if released {
@@ -155,8 +183,14 @@ impl Fixture {
         }
     }
 
-    fn command(&self, streams: &str) -> Command {
-        fixture_command("parent", &self.directory.join("control"), streams)
+    fn command(&self, streams: &str, hold_parent: bool) -> Command {
+        fixture_command(
+            "parent",
+            &self.directory.join("control"),
+            streams,
+            &self.directory.join("ready"),
+            hold_parent,
+        )
     }
 
     fn observe(&self) -> (u32, HeldDescendant) {
@@ -213,6 +247,14 @@ impl HeldDescendant {
         }
         Ok(())
     }
+
+    fn expect_closed(&mut self) {
+        if let Some(mut stream) = self.0.take() {
+            let error = read_control(&mut stream, &mut [0], Duration::from_secs(2))
+                .expect_err("the owned process group should close the descendant socket");
+            assert_eq!(error.kind(), io::ErrorKind::UnexpectedEof);
+        }
+    }
 }
 
 impl Drop for HeldDescendant {
@@ -240,7 +282,19 @@ fn observe_reaped_parent(pid: u32) {
         );
         thread::sleep(Duration::from_millis(2));
     }
-    panic!("the runner must reap its direct child while the descendant still holds a pipe");
+    panic!("the runner must reap its direct child");
+}
+
+fn observe_live_parent(pid: u32) {
+    let output = Command::new("/bin/ps")
+        .args(["-p", &pid.to_string(), "-o", "pid="])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "live process observation failed");
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap().trim(),
+        pid.to_string()
+    );
 }
 
 fn limits(timeout: Duration) -> Limits {
@@ -258,42 +312,42 @@ fn input(streams: &str) -> Option<Vec<u8>> {
 }
 
 #[test]
-fn inherited_output_and_incomplete_stdin_keep_the_original_deadline_after_reaping() {
+fn child_exit_terminates_same_group_pipe_holders_before_deadline() {
     for streams in ["stdout", "stderr", "stdin"] {
         let fixture = Fixture::new();
-        let mut command = fixture.command(streams);
+        let mut command = fixture.command(streams, false);
         let limits = limits(Duration::from_secs(3));
         let started = Instant::now();
         thread::scope(|scope| {
             let worker = scope.spawn(|| run(&mut command, input(streams), limits, None));
             let (parent, mut descendant) = fixture.observe();
             observe_reaped_parent(parent);
-            assert!(
-                !worker.is_finished(),
-                "the retained {streams} must prevent completion"
-            );
             let result = worker.join().unwrap();
-            assert!(
-                matches!(result, Err(RunError::TimedOut)),
-                "{streams}: {result:?}"
-            );
-            assert!(started.elapsed() < Duration::from_secs(5));
-            descendant.release().unwrap();
+            if streams == "stdin" {
+                assert!(
+                    matches!(result, Err(RunError::Write(error)) if error.kind() == io::ErrorKind::BrokenPipe)
+                );
+            } else {
+                let output = result.unwrap_or_else(|error| panic!("{streams}: {error}"));
+                assert_eq!(output.status.code(), Some(7));
+            }
+            assert!(started.elapsed() < Duration::from_secs(2));
+            descendant.expect_closed();
         });
     }
 }
 
 #[test]
-fn cancellation_after_reaping_interrupts_each_inherited_pipe() {
+fn cancellation_terminates_live_child_and_same_group_pipe_holder() {
     for streams in ["stdout", "stderr", "stdin"] {
         let fixture = Fixture::new();
-        let mut command = fixture.command(streams);
+        let mut command = fixture.command(streams, true);
         let limits = limits(Duration::from_secs(4));
         let cancel = AtomicBool::new(false);
         thread::scope(|scope| {
             let worker = scope.spawn(|| run(&mut command, input(streams), limits, Some(&cancel)));
             let (parent, mut descendant) = fixture.observe();
-            observe_reaped_parent(parent);
+            observe_live_parent(parent);
             let held_until = Instant::now() + Duration::from_millis(40);
             while Instant::now() < held_until {
                 assert!(
@@ -310,29 +364,31 @@ fn cancellation_after_reaping_interrupts_each_inherited_pipe() {
                 "{streams}: {result:?}"
             );
             assert!(stopped_at.elapsed() < Duration::from_secs(2));
-            descendant.release().unwrap();
+            observe_reaped_parent(parent);
+            descendant.expect_closed();
         });
     }
 }
 
 #[test]
-fn a_reaped_nonzero_parent_still_waits_for_both_output_eofs() {
+fn a_reaped_nonzero_parent_keeps_captured_output_and_closes_pipe_holders() {
     let fixture = Fixture::new();
-    let mut command = fixture.command("both");
+    let mut command = fixture.command("both", false);
     let limits = limits(Duration::from_secs(4));
     thread::scope(|scope| {
         let worker = scope.spawn(|| run(&mut command, None, limits, None));
         let (parent, mut descendant) = fixture.observe();
         observe_reaped_parent(parent);
-        assert!(!worker.is_finished());
-        descendant.release().unwrap();
         let output = worker.join().unwrap().unwrap();
         assert_eq!(output.status.code(), Some(7));
-        assert!(output
-            .stdout
-            .windows(12)
-            .any(|bytes| bytes == b"held stdout\n"));
+        assert!(
+            output
+                .stdout
+                .windows(12)
+                .any(|bytes| bytes == b"held stdout\n")
+        );
         assert_eq!(output.stderr, b"held stderr\n");
+        descendant.expect_closed();
     });
 }
 

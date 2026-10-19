@@ -291,6 +291,7 @@ fn externally_reaped_child_is_marked_unowned_before_drop() {
     let mut running = RunningChild {
         child,
         reaped: false,
+        process_group: None,
     };
     let error = running.poll().unwrap_err();
     assert!(matches!(

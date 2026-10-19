@@ -2,12 +2,16 @@
 //!
 //! One supervisor owns all three nonblocking pipes. No pipe worker can remain
 //! blocked or detached when cancellation, a deadline or an IO error wins.
-//! Child startup and OS kill/reap are still OS operations, not hard real-time
-//! guarantees. This runner does not provide an escaped-descendant boundary.
+//! The runner also owns a fresh process group and kills same-group descendants
+//! when the child exits or an operation aborts. A descendant that deliberately
+//! changes process group, session or credentials can escape. Child startup and
+//! OS kill/reap are not hard real-time guarantees.
 
 use std::io::{self, Read, Write};
 #[cfg(unix)]
 use std::os::fd::{AsFd, AsRawFd};
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, Output, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -33,6 +37,7 @@ pub(crate) enum RunError {
     Write(io::Error),
     Cancelled,
     TimedOut,
+    Cleanup(io::Error),
     OutputLimit,
     InputLimit,
 }
@@ -55,6 +60,12 @@ impl std::fmt::Display for RunError {
             Self::Write(error) => write!(formatter, "Git input could not be written: {error}"),
             Self::Cancelled => formatter.write_str("Git operation was cancelled."),
             Self::TimedOut => formatter.write_str("Git operation reached its time limit."),
+            Self::Cleanup(error) => {
+                write!(
+                    formatter,
+                    "Git child cleanup could not be confirmed: {error}"
+                )
+            }
             Self::OutputLimit => formatter.write_str("Git output exceeded its size limit."),
             Self::InputLimit => formatter.write_str("Git input exceeded its size limit."),
         }
@@ -105,8 +116,14 @@ fn run_with_pipe_setup(
         })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    // Give this invocation a process group so cancellation also closes pipes
+    // held by ordinary descendants. A child that deliberately starts a new
+    // group/session is outside this ownership boundary.
+    command.process_group(0);
+    let spawned = command.spawn().map_err(RunError::Start)?;
     let mut child = RunningChild {
-        child: command.spawn().map_err(RunError::Start)?,
+        process_group: Some(spawned.id()),
+        child: spawned,
         reaped: false,
     };
     let mut stdout = child
@@ -303,26 +320,86 @@ fn nonblocking(pipe: &dyn AsFd) -> io::Result<()> {
 struct RunningChild {
     child: Child,
     reaped: bool,
+    process_group: Option<u32>,
 }
 
 #[cfg(unix)]
 impl RunningChild {
     fn poll(&mut self) -> Result<Option<std::process::ExitStatus>, RunError> {
-        match self.child.try_wait() {
+        if self.reaped {
+            return Ok(None);
+        }
+        // Keep the leader unreaped while its isolated process group is
+        // terminated; otherwise the OS could reuse its PID before the group
+        // cleanup signal is delivered.
+        let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+        // SAFETY: info is a uniquely borrowed output record. P_PID selects
+        // this owned child and WNOWAIT preserves its identity for cleanup.
+        let observed = unsafe {
+            libc::waitid(
+                libc::P_PID,
+                self.child.id() as libc::id_t,
+                &mut info,
+                libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+            )
+        };
+        if observed < 0 {
+            let error = io::Error::last_os_error();
+            if error.kind() == io::ErrorKind::Interrupted {
+                return Ok(None);
+            }
+            // ECHILD means ownership is gone; never signal an identity another
+            // waiter may already have released and the OS may have reused.
+            if error.raw_os_error() == Some(libc::ECHILD) {
+                self.reaped = true;
+            }
+            return Err(RunError::Wait(error));
+        }
+        if info.si_signo == 0 {
+            return Ok(None);
+        }
+        if info.si_signo != libc::SIGCHLD {
+            return Err(RunError::Wait(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "Git returned an unexpected child status record",
+            )));
+        }
+        self.kill_group(true).map_err(RunError::Cleanup)?;
+        match self.child.wait() {
             Ok(status) => {
-                self.reaped |= status.is_some();
-                Ok(status)
+                self.reaped = true;
+                Ok(Some(status))
             }
             Err(error) => {
-                // ECHILD means the identity is no longer owned by this wait
-                // handle. Do not signal a PID that another waiter may have
-                // released and the OS may already have reused.
                 if error.raw_os_error() == Some(libc::ECHILD) {
                     self.reaped = true;
                 }
                 Err(RunError::Wait(error))
             }
         }
+    }
+
+    fn kill_group(&self, exited: bool) -> io::Result<()> {
+        let Some(process_group) = self.process_group else {
+            return Ok(());
+        };
+        let process_group = i32::try_from(process_group)
+            .map_err(|_| io::Error::other("invalid owned process group"))?;
+        // SAFETY: this is called while the Child identity remains unreaped;
+        // process_group(0) created the isolated group, so a negative ID cannot
+        // refer to the application process or be reused before this signal.
+        if unsafe { libc::kill(-process_group, libc::SIGKILL) } < 0 {
+            let error = io::Error::last_os_error();
+            // On macOS, a group containing only its exited zombie leader can
+            // report EPERM because there is no signalable member. When the
+            // leader is still live, EPERM remains a cleanup failure.
+            if error.raw_os_error() != Some(libc::ESRCH)
+                && !(exited && error.raw_os_error() == Some(libc::EPERM))
+            {
+                return Err(error);
+            }
+        }
+        Ok(())
     }
 }
 
@@ -333,8 +410,10 @@ impl Drop for RunningChild {
             if self.poll().is_ok_and(|status| status.is_some()) || self.reaped {
                 return;
             }
-            // Child owns the process identity until wait/try_wait reaps it.
-            // No naked PID or group signal is retained after that point.
+            // poll may still report a live child; cancel its group first so
+            // inherited pipes close, then retain direct-child cleanup as a
+            // fallback if group signalling failed.
+            let _ = self.kill_group(false);
             let _ = self.child.kill();
             let _ = self.child.wait();
         }
@@ -350,8 +429,8 @@ mod lifecycle_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
 
     fn limits(timeout: Duration) -> Limits {
         Limits {
