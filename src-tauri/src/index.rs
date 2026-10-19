@@ -13,7 +13,7 @@ use tree_sitter::{Language, Node, ParseOptions, Parser, Point};
 use uuid::Uuid;
 
 const INDEX_SCHEMA_VERSION: u32 = 1;
-const INDEXER_VERSION: &str = "atlas-symbol-index-v2";
+const INDEXER_VERSION: &str = "atlas-symbol-index-v3";
 const TREE_SITTER_RUNTIME_VERSION: &str = "0.27.1";
 pub(crate) const MAX_INDEXED_FILES: usize = 5_000;
 pub(crate) const MAX_SOURCE_BYTES_PER_FILE: u64 = 512 * 1024;
@@ -235,6 +235,7 @@ struct CallCandidate {
     path: String,
     source_id: String,
     binding: Option<BindingTarget>,
+    rust_self_method: Option<(String, String)>,
     is_test: bool,
     name: String,
     direct_identifier: bool,
@@ -1983,6 +1984,26 @@ fn call_candidate(
 ) -> CallCandidate {
     let function = node.child_by_field_name("function");
     let function_kind = function.map(|function| function.kind()).unwrap_or_default();
+    let rust_self_method = if language == SupportedLanguage::Rust {
+        function.and_then(|function| {
+            if function.kind() != "scoped_identifier" {
+                return None;
+            }
+            let method_text = node_text(function, source);
+            let method = method_text.strip_prefix("Self::")?;
+            if method.is_empty() || method.contains(':') || method.contains('<') {
+                return None;
+            }
+            let implementation = context
+                .scopes
+                .iter()
+                .rposition(|scope| scope.starts_with("impl:"))?;
+            let implementation_scope = context.scopes[..=implementation].join("::");
+            Some((implementation_scope, method.to_owned()))
+        })
+    } else {
+        None
+    };
     let (label, direct_identifier, unresolved_reason) = match function {
         Some(function) if function.kind() == "identifier" => {
             (node_text(function, source), true, None)
@@ -2032,6 +2053,7 @@ fn call_candidate(
             .unwrap_or(file_id)
             .to_owned(),
         binding: None,
+        rust_self_method,
         is_test: context.owner_is_test || file_is_test,
         name: safe_name,
         direct_identifier,
@@ -2367,7 +2389,26 @@ fn resolve_calls(
         .map(|candidate| {
             let mut target = None;
             let mut unresolved_reason = candidate.unresolved_reason.clone();
-            if candidate.direct_identifier {
+            if let Some((implementation_scope, method_name)) = &candidate.rust_self_method {
+                let qualified_name = format!("{implementation_scope}::{method_name}");
+                let mut matches = symbols.values().filter(|symbol| {
+                    symbol.path == candidate.path
+                        && symbol.kind == SymbolKind::Method
+                        && symbol.qualified_name == qualified_name
+                });
+                match (matches.next(), matches.next()) {
+                    (Some(symbol), None) => {
+                        target = Some(symbol.symbol_id.clone());
+                        unresolved_reason = None;
+                    }
+                    (Some(_), Some(_)) => {
+                        unresolved_reason = Some("multiple_self_method_matches_in_impl".to_owned());
+                    }
+                    (None, _) => {
+                        unresolved_reason = Some("self_method_not_found_in_impl".to_owned());
+                    }
+                }
+            } else if candidate.direct_identifier {
                 match candidate.binding {
                     Some(BindingTarget::Symbol(symbol_id)) if symbols.contains_key(&symbol_id) => {
                         target = Some(symbol_id);
@@ -2757,6 +2798,14 @@ mod tests {
                 "pub(crate) fn crate_only() {}\n",
                 "pub fn public_api() {}\n",
                 "pub mod nested { pub fn inline_item() {} pub(super) fn restricted_item() {} }\n",
+                "struct Face;\n",
+                "impl Face {\n",
+                "    fn self_calls(&self) {\n",
+                "        Self::helper();\n",
+                "        Self::missing();\n",
+                "    }\n",
+                "    fn helper() {}\n",
+                "}\n",
             ),
         );
         commit_fixture(&root, "lexical resolution fixtures");
@@ -2970,6 +3019,29 @@ mod tests {
         let nested_call = call_at_line(&index, "src/main.rs", 8, "nested");
         assert_eq!(nested_call.confidence, RelationshipConfidence::High);
         assert_eq!(nested_call.target_path.as_deref(), Some("src/main.rs"));
+        let self_method_call = call_at_line(&index, "src/main.rs", 15, "Self::helper");
+        let self_method = index
+            .symbols
+            .iter()
+            .find(|symbol| {
+                symbol.path == "src/main.rs"
+                    && symbol.kind == SymbolKind::Method
+                    && symbol.name == "helper"
+                    && symbol.qualified_name == "impl:Face::helper"
+            })
+            .expect("the inherent helper method should be indexed");
+        assert_eq!(self_method_call.confidence, RelationshipConfidence::High);
+        assert_eq!(
+            self_method_call.target_id.as_deref(),
+            Some(self_method.symbol_id.as_str())
+        );
+        assert_unresolved_call(
+            &index,
+            "src/main.rs",
+            16,
+            "Self::missing",
+            "self_method_not_found_in_impl",
+        );
 
         let duplicate_rust_symbols = index
             .symbols
