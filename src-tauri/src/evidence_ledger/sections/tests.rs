@@ -261,7 +261,7 @@ fn current_answer_listing_skips_unsupported_old_records_without_modifying_them()
 }
 
 #[test]
-fn legacy_answers_do_not_consume_current_capacity_or_change_on_check() {
+fn legacy_answers_count_toward_the_total_limit_and_remain_unchanged_on_check() {
     let f = Fixture::new();
     let (ledger, runtime, cancel) = setup(&f);
     let current = start(&ledger, &f, &runtime, &cancel);
@@ -270,7 +270,7 @@ fn legacy_answers_do_not_consume_current_capacity_or_change_on_check() {
 
     let directory = f.storage.join("answer-sections");
     let mut originals = Vec::new();
-    for _ in 0..MAX_ANSWERS {
+    for _ in 0..MAX_ANSWER_RECORDS - 1 {
         let run = Uuid::new_v4().to_string();
         legacy.binding.operation_id = run.clone();
         let path = directory.join(format!("{run}.json"));
@@ -280,6 +280,10 @@ fn legacy_answers_do_not_consume_current_capacity_or_change_on_check() {
     }
 
     capacity::check(&f.storage, None, None).unwrap();
+    let mut next = current.value.binding.clone();
+    next.operation_id = Uuid::new_v4().to_string();
+    let error = capacity::check(&f.storage, None, Some(&next)).unwrap_err();
+    assert!(error.contains("1,000 answer records"), "{error}");
     for (path, bytes) in originals {
         assert_eq!(fs::read(path).unwrap(), bytes);
     }

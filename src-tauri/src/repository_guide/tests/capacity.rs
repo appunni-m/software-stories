@@ -122,13 +122,13 @@ fn a_guide_retains_all_fourteen_owned_investigations_with_seven_other_answers() 
     for (path, bytes) in prior {
         assert_eq!(after.get(&path), Some(&bytes));
     }
-    assert!(retain(&f, &Uuid::new_v4().to_string(), &runtime, &grant).is_err());
-    assert_eq!(answer_bytes(&f), after);
+    retain(&f, &Uuid::new_v4().to_string(), &runtime, &grant).unwrap();
+    assert_eq!(answer_bytes(&f).len(), after.len() + 1);
     assert!(!f.storage.join("codex-agent/runtime.json").exists());
 }
 
 #[test]
-fn guide_capacity_is_admitted_before_any_account_operation_and_preserves_existing_answers() {
+fn guide_capacity_reservation_is_persisted_before_any_account_operation() {
     let f = Fixture::new();
     let (runtime, grant) = runtime(&f);
     for _ in 0..8 {
@@ -137,8 +137,8 @@ fn guide_capacity_is_admitted_before_any_account_operation_and_preserves_existin
     let prior = answer_bytes(&f);
     let mut guide = fresh_record(&f);
     guide.grant_id = grant;
-    assert!(store::create(&f.storage, &guide).is_err());
-    assert!(!store::exists(&f.storage, &guide.id).unwrap());
+    store::create(&f.storage, &guide).unwrap();
+    assert!(store::exists(&f.storage, &guide.id).unwrap());
     assert_eq!(answer_bytes(&f), prior);
     assert!(!f.storage.join("codex-agent/runtime.json").exists());
 }
@@ -154,10 +154,10 @@ fn a_new_guide_reserves_its_future_children_before_the_first_answer_exists() {
     let mut guide = fresh_record(&f);
     guide.grant_id = grant.clone();
     store::create(&f.storage, &guide).unwrap();
-    assert!(retain(&f, &Uuid::new_v4().to_string(), &runtime, &grant).is_err());
-    assert_eq!(answer_bytes(&f), prior);
+    retain(&f, &Uuid::new_v4().to_string(), &runtime, &grant).unwrap();
+    assert_eq!(answer_bytes(&f).len(), prior.len() + 1);
     retain(&f, &guide.planning_run_id, &runtime, &grant).unwrap();
-    assert_eq!(answer_bytes(&f).len(), 8);
+    assert_eq!(answer_bytes(&f).len(), prior.len() + 2);
 }
 
 #[test]
@@ -198,7 +198,7 @@ fn a_competing_capacity_lease_prevents_guide_creation_without_spending_an_attemp
 }
 
 #[test]
-fn simultaneous_standalone_answers_cannot_consume_the_same_final_collection() {
+fn simultaneous_standalone_answers_keep_their_independent_receipts() {
     let f = Fixture::new();
     let (runtime, grant) = runtime(&f);
     for _ in 0..7 {
@@ -242,9 +242,9 @@ fn simultaneous_standalone_answers_cannot_consume_the_same_final_collection() {
         .map(|worker| worker.join().unwrap())
         .filter(|success| *success)
         .count();
-    assert_eq!(successes, 1);
+    assert_eq!(successes, 2);
     let after = answer_bytes(&f);
-    assert_eq!(after.len(), 8);
+    assert_eq!(after.len(), 9);
     for (path, bytes) in prior {
         assert_eq!(after.get(&path), Some(&bytes));
     }

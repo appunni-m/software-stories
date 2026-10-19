@@ -6,6 +6,12 @@ use super::*;
 use crate::repository_guide::{AnswerReservation, MAX_GUIDE_ANSWER_RECORDS};
 use std::collections::HashMap;
 
+fn reserved_records(guide_count: usize, standalone_count: usize) -> Option<usize> {
+    guide_count
+        .checked_mul(MAX_GUIDE_ANSWER_RECORDS)?
+        .checked_add(standalone_count)
+}
+
 #[cfg(unix)]
 pub(super) fn lease(storage: &Path) -> Result<crate::file_lease::Lease, String> {
     use std::os::unix::fs::OpenOptionsExt;
@@ -93,7 +99,7 @@ pub(super) fn check(
             }
         }
     }
-    let mut collections = reservations.len();
+    let mut standalone_records = 0usize;
     let directory = storage.join("answer-sections");
     match fs::symlink_metadata(&directory) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
@@ -120,13 +126,26 @@ pub(super) fn check(
                 let bytes = read_bytes(&path)?;
                 let envelope: serde_json::Value = crate::strict_json::from_slice(&bytes)
                     .map_err(|_| "A saved answer is damaged; it was preserved.")?;
+                let operation_id = path
+                    .file_stem()
+                    .and_then(|name| name.to_str())
+                    .ok_or("A saved answer identity is invalid; it was preserved.")?;
+                if !canonical_uuid(operation_id) {
+                    return Err("A saved answer identity is invalid; it was preserved.".into());
+                }
                 let schema_version = envelope
                     .get("schemaVersion")
                     .and_then(serde_json::Value::as_u64)
                     .ok_or("A saved answer has no valid schema version; it was preserved.")?;
                 if schema_version < NARRATION_ANSWER_VERSION as u64 {
-                    // Unsupported historical records stay byte-for-byte on
-                    // disk, but do not reserve capacity for current work.
+                    // Historical receipts stay byte-for-byte on disk and
+                    // count toward the same total. Guide-owned paths are
+                    // already covered by that guide's fourteen reserved slots.
+                    if !owners.contains_key(operation_id) {
+                        standalone_records = standalone_records
+                            .checked_add(1)
+                            .ok_or("Saved answer capacity could not be counted.")?;
+                    }
                     continue;
                 }
                 if schema_version > NARRATION_ANSWER_VERSION as u64 {
@@ -136,10 +155,7 @@ pub(super) fn check(
                 }
                 let answer: Answer = serde_json::from_value(envelope)
                     .map_err(|_| "A saved answer is damaged; it was preserved.")?;
-                if !canonical_uuid(&answer.binding.operation_id)
-                    || path.file_stem().and_then(|name| name.to_str())
-                        != Some(answer.binding.operation_id.as_str())
-                {
+                if answer.binding.operation_id != operation_id {
                     return Err(
                         "A saved answer identity changed. Existing work was preserved.".into(),
                     );
@@ -154,7 +170,9 @@ pub(super) fn check(
                 if let Some(owner) = owners.get(answer.binding.operation_id.as_str()) {
                     owned(&answer.binding, owner)?;
                 } else {
-                    collections += 1;
+                    standalone_records = standalone_records
+                        .checked_add(1)
+                        .ok_or("Saved answer capacity could not be counted.")?;
                 }
             }
         }
@@ -169,14 +187,35 @@ pub(super) fn check(
         if let Some(owner) = owners.get(binding.operation_id.as_str()) {
             owned(binding, owner)?;
         } else {
-            collections += 1;
+            standalone_records = standalone_records
+                .checked_add(1)
+                .ok_or("Saved answer capacity could not be counted.")?;
         }
     }
-    // Eight collections; a guide reserves all fourteen 4 MiB records up front.
-    // The maximum answer payload is therefore 448 MiB, regardless of how many
-    // operations run concurrently. Standalone answers still reserve 4 MiB each.
-    if collections > MAX_ANSWERS {
-        return Err("Saved explanations reached their storage limit. Existing answers and guides were preserved; no new investigation was started.".into());
+    // One thousand record slots total. Every guide reserves all fourteen
+    // possible 4 MiB receipts up front; standalone and historical receipts
+    // each consume one slot. This bounds retained answer payloads at 4,000 MiB
+    // (about 3.9 GiB) without preallocating it, regardless of concurrent work.
+    let reserved = reserved_records(reservations.len(), standalone_records)
+        .ok_or("Saved answer capacity could not be counted.")?;
+    if reserved > MAX_ANSWER_RECORDS {
+        return Err("Saved explanations reached their storage limit of 1,000 answer records. Existing answers and guides were preserved; no new investigation was started.".into());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn guide_lifetime_allowances_and_standalone_receipts_share_one_thousand_slots() {
+        assert_eq!(reserved_records(2, 972), Some(1_000));
+        assert_eq!(reserved_records(2, 973), Some(1_001));
+    }
+
+    #[test]
+    fn answer_capacity_arithmetic_rejects_overflow() {
+        assert_eq!(reserved_records(usize::MAX, 1), None);
+    }
 }
