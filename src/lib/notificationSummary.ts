@@ -114,6 +114,16 @@ export function interruptedNotificationGroupKey(operation: InterruptedOperation)
   return notificationGroupKey('interrupted-scope', operation.projectId, operation.snapshotId, scope);
 }
 
+/** Keep recoveries for the currently open repository ahead of other projects. */
+export function sortInterruptedOperations(
+  operations: readonly InterruptedOperation[], selectedProjectId?: string,
+): InterruptedOperation[] {
+  return [...operations].sort((a, b) => {
+    const projectOrder = Number(a.projectId !== selectedProjectId) - Number(b.projectId !== selectedProjectId);
+    return projectOrder || b.startedAtUnixMs - a.startedAtUnixMs || a.operationId.localeCompare(b.operationId);
+  });
+}
+
 export function previewNotificationMessage(preview: PendingChapterPreviewSummary, projectName?: string): string {
   return [brief(projectName?.trim() || 'Other repository', 80), brief(preview.title), preview.targetPath ? brief(preview.targetPath) : ''].filter(Boolean).join(' · ');
 }

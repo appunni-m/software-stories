@@ -13,7 +13,7 @@ import { markQuestionOutcome, openWorkspaceQuestion, withSavedAnswerAvailability
 import { WorkspaceFrame } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
 import { startupProjectToRestore } from './lib/startupProjectRestore';
-import { interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, previewNotificationMessage, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
+import { interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, previewNotificationMessage, sortInterruptedOperations, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
 import { LatestLocalRead } from './lib/latestLocalRead';
 import { requiresBoundedFileExplanation } from './lib/largeFileExplanation';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
@@ -1500,7 +1500,7 @@ function App() {
     ...(interruptedOperationsUnavailable ? [{ id: 'recovery-unavailable', title: 'Recent work could not be loaded', message: 'Your saved explanations are still available.', tone: 'error' as const,
       bucket: 'attention' as const,
       actions: [{ label: 'Try again', run: () => { void refreshInterruptedOperations(); } }] }] : []),
-    ...interruptedOperations.slice().sort((a,b)=>b.startedAtUnixMs-a.startedAtUnixMs).map((operation): WorkspaceNotification => ({
+    ...sortInterruptedOperations(interruptedOperations,currentProject?.projectId).map((operation): WorkspaceNotification => ({
       id: `interrupted:${operation.operationId}`, tone: 'warning',
       bucket: 'attention', groupKey: interruptedNotificationGroupKey(operation),
       countLabel: operation.providerRequest?.repositoryPlan?.question ? 'attempts' : 'recoveries',

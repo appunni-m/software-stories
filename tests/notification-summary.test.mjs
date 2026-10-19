@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
-import { groupNotifications, interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, notificationSummary, previewNotificationMessage, workspaceAnswerAvailability } from '../src/lib/notificationSummary.ts';
+import { groupNotifications, interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, notificationSummary, previewNotificationMessage, sortInterruptedOperations, workspaceAnswerAvailability } from '../src/lib/notificationSummary.ts';
 
 const ready = { startupComplete: true, workspaceReady: true, answers: 'ready', refreshing: false, unavailable: false };
 const unread = Array.from({ length: 34 }, () => ({}));
@@ -56,6 +56,17 @@ describe('notification totals', () => {
     const scoped = { ...operation, targetPath: 'src/font.rs', providerRequest: { ...operation.providerRequest, purpose: 'fileChapter', repositoryPlan: null } };
     assert.equal(interruptedNotificationGroupKey(scoped), interruptedNotificationGroupKey({ ...scoped, operationId: 'd' }));
     assert.notEqual(interruptedNotificationGroupKey(scoped), interruptedNotificationGroupKey({ ...scoped, targetPath: 'src/outline.rs' }));
+  });
+
+  it('shows recoveries for the selected repository first without changing records', () => {
+    const other = { operationId: 'z', projectId: 'other', snapshotId: 'a', startedAtUnixMs: 30 };
+    const selectedOlder = { operationId: 'b', projectId: 'selected', snapshotId: 'b', startedAtUnixMs: 10 };
+    const selectedNewer = { operationId: 'a', projectId: 'selected', snapshotId: 'a', startedAtUnixMs: 20 };
+    const operations = [other, selectedOlder, selectedNewer];
+    const before = [...operations];
+    assert.deepEqual(sortInterruptedOperations(operations, 'selected'), [selectedNewer, selectedOlder, other]);
+    assert.deepEqual(operations, before);
+    assert.deepEqual(sortInterruptedOperations(operations).map((operation) => operation.operationId), ['z', 'a', 'b']);
   });
 
   it('waits for each contributor and the selected workspace before reporting a total', () => {
@@ -177,6 +188,7 @@ describe('notification totals', () => {
     assert.match(app, /interruptionLookup.invalidate\(\);\s+previewLookup.invalidate\(\);/);
     assert.match(app, /interruptedNotificationMessage\(operation, knownProjects\[operation.projectId\]\?\.displayName\)/);
     assert.match(app, /interruptedNotificationGroupKey\(operation\)/);
+    assert.match(app, /sortInterruptedOperations\(interruptedOperations,currentProject\?\.projectId\)/);
     assert.match(app, /label: 'Discard recovery'/);
     const css = await readFile(new URL('../src/NotificationCenter.css', import.meta.url), 'utf8');
     assert.match(css, /\.notification-panel-header \{ position: sticky; top: 0;/);
