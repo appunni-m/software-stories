@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { searchCapturedSource, searchExploration, shouldOfferExploreWithAI, workspaceSearchResults } from '../src/workspace/codeSearch.ts';
+import { searchCapturedSource, searchExploration, searchLimitMessage, shouldOfferExploreWithAI, workspaceSearchResults } from '../src/workspace/codeSearch.ts';
 
 function harness(request={}) {
   const state={hits:['old'],limited:true,nextOffset:32,busy:false,error:'old'},calls=[],timers=new Map();let next=0,reply;
@@ -89,6 +89,7 @@ test('production search binds the helper, explicit pressed mode and Mac physical
   assert.match(source,/nextOffset:setSearchNextOffset/);
   assert.match(source,/Load more matches/);
   assert.match(source,/searchNextOffset!==null&&results\.length<80/);
+  assert.match(source,/<p role="status">\{searchLimitMessage\(results\.length\)\}<\/p>/);
   assert.match(source,/aria-label="Use regular expression" aria-pressed=\{repositoryRegex\}/);
   assert.match(source,/event\.altKey&&event\.code==='KeyR'/);
   assert.match(source,/repositorySearch&&!searchBusy&&!searchError&&results\.length===0/);
@@ -105,6 +106,11 @@ test('Explore with AI appears only when a settled search has no matches or searc
   assert.equal(shouldOfferExploreWithAI('.','regex',false,null,0),true);
   assert.equal(shouldOfferExploreWithAI('x'.repeat(241),'code',false,null,0),false);
   assert.equal(shouldOfferExploreWithAI('   ','code',false,null,0),false);
+});
+
+test('a capped search reports the number of visible matches accessibly',()=>{
+  assert.equal(searchLimitMessage(1),'Search limit reached (1 result shown). Refine your search to find more.');
+  assert.equal(searchLimitMessage(80),'Search limit reached (80 results shown). Refine your search to find more.');
 });
 
 test('explicit AI exploration uses regex matches as bounded starting ranges without running generation',()=>{

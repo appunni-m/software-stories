@@ -16,6 +16,12 @@ export function shouldOfferExploreWithAI(
   return length>=(mode==='regex'?1:2)&&length<=240&&!busy&&!error&&resultCount===0;
 }
 
+/** Tell readers how much of a capped result set is currently visible. */
+export function searchLimitMessage(resultCount:number):string {
+  const count=resultCount===1?'1 result shown':`${resultCount} results shown`;
+  return `Search limit reached (${count}). Refine your search to find more.`;
+}
+
 interface SearchUpdates {
   hits:(hits:SourceMatch[],append:boolean)=>void; limited:(limited:boolean)=>void;
   nextOffset:(nextOffset:number|null)=>void;
