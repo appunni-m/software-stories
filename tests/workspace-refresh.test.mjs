@@ -115,11 +115,19 @@ test('an unavailable answer stays a compact status beside its recovery action', 
   assert.match(workspace, /const unavailable=!revision&&availability==='unavailable'/);
   assert.match(workspace, /className=\{`dw-answer-card\$\{unavailable\?' dw-answer-card-unavailable':''\}`\}/);
   assert.match(workspace, /<p className="dw-unavailable-status" role="status">Saved explanation unavailable\.<\/p>/);
-  assert.match(workspace, /<details className="dw-unavailable-question"><summary><span>Question: \{turn\.question\}<\/span><\/summary><p>\{turn\.question\}<\/p><\/details>/);
+  assert.match(workspace, /\{!hideQuestion&&<QuestionDisclosure question=\{turn\.question\}\/>\}/);
   assert.match(workspace, /<Button size="1" variant="soft" onClick=\{onRetry\}>Explain again<\/Button>/);
   assert.match(styles, /\.dw-answer-card-unavailable\s*\{display:flex;align-items:center/);
-  assert.match(styles, /\.dw-unavailable-question\s*\{margin:0 0 7px;min-width:0;max-width:100%/);
-  assert.match(styles, /\.dw-unavailable-question summary > span\s*\{display:-webkit-box;overflow:hidden/);
+  assert.match(styles, /\.dw-user-question summary \{display:flex;align-items:center;gap:7px;width:max-content/);
+});
+
+test('long answer questions stay collapsed until the reader asks to see them', () => {
+  const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+  const styles = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
+  assert.equal((workspace.match(/<QuestionDisclosure question=\{turn\.question\}\/>/g) ?? []).length, 2);
+  assert.match(workspace, /function QuestionDisclosure\(\{question\}:\{question:string\}\)[\s\S]*?<details className="dw-user-question"><summary><MessageSquare size=\{14\}\/><span>Question<\/span><ChevronRight size=\{13\}\/><\/summary><p>\{question\}<\/p><\/details>/);
+  assert.match(styles, /\.dw-user-question summary \{display:flex;align-items:center;gap:7px;width:max-content/);
+  assert.match(styles, /\.dw-user-question > p \{max-width:900px;margin:7px 0 0/);
 });
 
 test('saved chapter arrivals do not reload the immutable snapshot index or reset the reader', () => {

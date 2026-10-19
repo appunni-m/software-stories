@@ -367,6 +367,9 @@ export function DeveloperWorkspace(props:Props) {
 }
 
 interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean;onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onStop:()=>void;onRetry:()=>void;onReview:(r:ChapterRevision)=>void;onRead:(r:ChapterRevision)=>void;onSettings:()=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void}
+function QuestionDisclosure({question}:{question:string}){
+  return <details className="dw-user-question"><summary><MessageSquare size={14}/><span>Question</span><ChevronRight size={13}/></summary><p>{question}</p></details>;
+}
 function Answer(props:AnswerProps){
   const {turn,chapters,branches}=props;
   if(!turn.runIds?.length&&!turn.guideId)return <AnswerSection {...props}/>;
@@ -376,7 +379,7 @@ function Answer(props:AnswerProps){
   const capacityError=!!turn.error&&/retained locally|saved answers|(?:answer|saved explanations).*storage limit|answer.*directory limit/i.test(turn.error);
   const progressText=questionProgressText(turn);
   return <section className="dw-progressive-answer" data-question-id={turn.id} tabIndex={-1} aria-label={`Question: ${turn.question}`}>
-    <div className="dw-user-question"><MessageSquare size={14}/><h2>{turn.question}</h2></div>
+    <QuestionDisclosure question={turn.question}/>
     <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={props.onStop}><Square size={12}/>Stop</Button></>:turn.status==='ready'?null:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?'Some details could not be completed.':'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span>{(!turn.guideId||canContinueRepositoryGuide(turn.guide))&&<Button size="1" variant="ghost" onClick={props.onRetry}>{turn.guideId?'Continue guide':'Try again'}</Button>}</>}</div>
     {turn.guide&&turn.guide.units.length>0&&<details className="dw-guide-outline"><summary>{turn.guide.title}<span>{turn.guide.units.filter((u)=>u.status==='complete').length}/{turn.guide.units.length} parts</span></summary><ol>{turn.guide.units.map((unit)=><li key={unit.key}><span>{unit.question}</span><small>{unit.status}</small></li>)}</ol><p>{turn.guide.capturedFiles} captured files are available to investigate. {turn.guide.startingFiles} starting files helped form this outline; this is not an explained-file count.</p>{turn.guide.omissions.map((note)=><p key={note}>{note}</p>)}</details>}
     {turn.notes?.map((note)=><p className="dw-answer-note" key={note}>{note}</p>)}
@@ -443,9 +446,7 @@ function AnswerSection({turn,revision:original,chapters=[],loading,branches,comp
   const progressText=questionProgressText(turn);
   const contexts=section?.claims.flatMap((c)=>c.anchors).slice(0,3).map((a)=>({path:a.path,sha256:a.sourceSha256,from:a.startLine,to:a.endLine}))??turn.context;
   return <article className="dw-turn" data-question-id={hideQuestion?undefined:turn.id} tabIndex={hideQuestion?undefined:-1} aria-label={unavailable?'Question with unavailable saved explanation':`Question: ${turn.question}`}>
-    {unavailable
-      ? !hideQuestion&&<details className="dw-unavailable-question"><summary><span>Question: {turn.question}</span></summary><p>{turn.question}</p></details>
-      : !hideQuestion&&<div className="dw-user-question"><MessageSquare size={14}/><h2>{turn.question}</h2></div>}
+    {!hideQuestion&&<QuestionDisclosure question={turn.question}/>}
     <div className={`dw-answer-card${unavailable?' dw-answer-card-unavailable':''}`}>
     {progressText?<div className="dw-working" role="status"><LoaderCircle size={16}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={onStop}><Square size={12}/>Stop</Button></div>:turn.status==='failed'||turn.status==='interrupted'||turn.status==='stopped'?<><p className="dw-error">{turn.status==='stopped'?'Stopped. Saved explanations are preserved.':turn.status==='interrupted'?'This question was interrupted. Saved explanations are preserved.':knownEvidenceError?readableError:'This explanation could not be completed. Your saved work is preserved.'}</p>{turn.error&&!knownEvidenceError&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}<Button size="1" variant="soft" onClick={onRetry}>Try this question again</Button></>:!revision?availability==='loading'?<p role="status">Loading saved explanation…</p>:<><p className="dw-unavailable-status" role="status">Saved explanation unavailable.</p><Button size="1" variant="soft" onClick={onRetry}>Explain again</Button></>:section?<>
       <div className="dw-answer-heading"><span>{compact?'Explanation':`${position+1} / ${revision.sections.length}`}</span>{revision.lifecycle!=='accepted'&&<Badge size="1" color="gray">{revision.lifecycle==='rejected'?'Rejected':'Draft'}</Badge>}<div><Tooltip content="Edit this explanation"><IconButton size="1" variant="ghost" color="gray" aria-label={`Edit ${revision.title}`} onClick={()=>onReview(revision)}><Pencil size={13}/></IconButton></Tooltip><Tooltip content="Open interactive player"><IconButton size="1" variant="ghost" color="gray" aria-label={`Play ${revision.title}`} onClick={()=>onRead(revision)}><Play size={13}/></IconButton></Tooltip></div></div>
