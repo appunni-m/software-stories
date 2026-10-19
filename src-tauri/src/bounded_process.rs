@@ -71,6 +71,19 @@ pub(crate) fn run(
     limits: Limits,
     cancel: Option<&AtomicBool>,
 ) -> Result<Output, RunError> {
+    run_with_pipe_setup(command, input, limits, cancel, nonblocking)
+}
+
+/// Keep pipe-setup errors inside the same child-ownership scope as the IO loop.
+/// The injected setup operation also lets tests force a post-spawn OS failure.
+#[cfg(unix)]
+fn run_with_pipe_setup(
+    command: &mut Command,
+    input: Option<Vec<u8>>,
+    limits: Limits,
+    cancel: Option<&AtomicBool>,
+    mut set_nonblocking: impl FnMut(&dyn AsFd) -> io::Result<()>,
+) -> Result<Output, RunError> {
     if input
         .as_ref()
         .is_some_and(|bytes| bytes.len() > limits.stdin_bytes)
@@ -116,10 +129,10 @@ pub(crate) fn run(
         } else {
             None
         };
-    nonblocking(&stdout).map_err(RunError::Read)?;
-    nonblocking(&stderr).map_err(RunError::Read)?;
+    set_nonblocking(&stdout).map_err(RunError::Read)?;
+    set_nonblocking(&stderr).map_err(RunError::Read)?;
     if let Some(pipe) = &stdin {
-        nonblocking(pipe).map_err(RunError::Write)?;
+        set_nonblocking(pipe).map_err(RunError::Write)?;
     }
     let input = input.unwrap_or_default();
     if input.is_empty() {
@@ -270,7 +283,7 @@ fn read_chunk(
 }
 
 #[cfg(unix)]
-fn nonblocking(pipe: &impl AsFd) -> io::Result<()> {
+fn nonblocking(pipe: &dyn AsFd) -> io::Result<()> {
     let fd = pipe.as_fd().as_raw_fd();
     // SAFETY: the descriptor is borrowed from a live owned child pipe for both
     // calls. F_GETFL takes no variadic argument or pointer; failure is checked.
@@ -337,8 +350,8 @@ mod lifecycle_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
     use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
 
     fn limits(timeout: Duration) -> Limits {
         Limits {
