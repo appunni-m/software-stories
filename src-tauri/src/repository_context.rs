@@ -33,6 +33,7 @@ const MAX_SOURCE_BYTES: u64 = 100 * 1024 * 1024;
 const MAX_METADATA_BYTES: usize = 32 * 1024 * 1024;
 const MAX_CACHE_BYTES: usize = 4 * 1024 * 1024;
 const MAX_CANDIDATES: usize = 256;
+pub(crate) const MAX_SEARCH_PAGE_SIZE: usize = 32;
 pub(crate) const MAX_RANGE_BYTES: usize = 32_768;
 
 pub(crate) fn digest(bytes: &[u8]) -> String {
@@ -235,6 +236,7 @@ pub(crate) struct SearchHit {
 pub(crate) struct SearchResult {
     pub(crate) matches: Vec<SearchHit>,
     pub(crate) limited: bool,
+    pub(crate) next_offset: Option<usize>,
     pub(crate) coverage: Coverage,
     pub(crate) reused_generation: bool,
     pub(crate) build: BuildStats,
@@ -1128,6 +1130,16 @@ pub(crate) fn validate_search(
     validate_search_mode(query, path, limit, SearchMode::Code)
 }
 
+pub(crate) fn validate_search_page(limit: usize, offset: usize) -> Result<usize, String> {
+    if !(1..=MAX_SEARCH_PAGE_SIZE).contains(&limit) {
+        return Err("Search pages contain between 1 and 32 results.".to_owned());
+    }
+    offset
+        .checked_add(limit)
+        .filter(|end| *end <= MAX_CANDIDATES)
+        .ok_or_else(|| "Search page is outside the 256-result candidate window.".to_owned())
+}
+
 fn is_identifier_query(query: &str) -> bool {
     let mut chars = query.chars();
     chars
@@ -1570,6 +1582,7 @@ fn search_pattern(
     Ok(SearchResult {
         matches,
         limited,
+        next_offset: None,
         coverage: prepared.metadata.coverage.clone(),
         reused_generation: prepared.reused_generation,
         build: prepared.metadata.build.clone(),
@@ -1612,6 +1625,24 @@ pub(crate) fn search_with_mode(
     budget: &Budget<'_>,
     mode: SearchMode,
 ) -> Result<SearchResult, String> {
+    search_with_mode_page(
+        storage, manifest, prepared, query, path, limit, 0, budget, mode,
+    )
+}
+
+/// Return a stable page from the bounded, deterministic search candidate set.
+/// The extra sentinel result tells the caller whether another page exists.
+pub(crate) fn search_with_mode_page(
+    storage: &Path,
+    manifest: &snapshot::SnapshotManifest,
+    prepared: &PreparedIndex,
+    query: &str,
+    path: Option<&str>,
+    limit: usize,
+    offset: usize,
+    budget: &Budget<'_>,
+    mode: SearchMode,
+) -> Result<SearchResult, String> {
     let started = Instant::now();
     budget.check()?;
     if prepared.metadata.project_id != manifest.summary.project_id
@@ -1620,20 +1651,32 @@ pub(crate) fn search_with_mode(
         return Err("The code index belongs to a different snapshot.".to_owned());
     }
     let words = validate_search_mode(query, path, limit, mode)?;
+    let page_end = validate_search_page(limit, offset)?;
+    let fetch_limit = page_end.saturating_add(1).min(MAX_CANDIDATES);
     let query = query.trim();
     if mode == SearchMode::Regex || words.is_empty() {
-        return search_pattern(
-            storage, manifest, prepared, query, path, limit, budget, started, mode,
-        );
+        let mut result = search_pattern(
+            storage, manifest, prepared, query, path, fetch_limit, budget, started, mode,
+        )?;
+        let has_more = result.limited || result.matches.len() > page_end;
+        result.next_offset = (page_end < MAX_CANDIDATES
+            && result.matches.len() > page_end)
+            .then_some(page_end);
+        result.matches = result.matches.into_iter().skip(offset).take(limit).collect();
+        result.limited = has_more;
+        result.result_bytes = json(&result.matches)?.len();
+        return Ok(result);
     }
-    let mut ranked = search_ranked(storage, manifest, prepared, query, path, limit, budget)?;
+    let mut ranked = search_ranked(
+        storage, manifest, prepared, query, path, fetch_limit, budget,
+    )?;
     let literal = search_pattern(
         storage,
         manifest,
         prepared,
         query,
         path,
-        limit,
+        fetch_limit,
         budget,
         started,
         SearchMode::Code,
@@ -1672,14 +1715,24 @@ pub(crate) fn search_with_mode(
         }) {
             continue;
         }
-        if matches.len() == limit {
+        if matches.len() == fetch_limit {
             limited = true;
             continue;
         }
         matches.push(hit);
     }
+    let has_more = limited || matches.len() > page_end;
+    let next_offset = (page_end < MAX_CANDIDATES && matches.len() > page_end)
+        .then_some(page_end);
     ranked.matches = matches;
-    ranked.limited = limited;
+    ranked.next_offset = next_offset;
+    ranked.limited = has_more;
+    ranked.matches = ranked
+        .matches
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .collect();
     ranked.result_bytes = json(&ranked.matches)?.len();
     ranked.elapsed_ms = started.elapsed().as_millis() as u64;
     Ok(ranked)
@@ -1701,7 +1754,7 @@ fn search_ranked(
     {
         return Err("The code index belongs to a different snapshot.".to_owned());
     }
-    let words = validate_search(query, path, limit)?;
+    let words = terms(query);
     let query = query.trim();
     let body = field(&prepared.index, "body")?;
     let path_field = field(&prepared.index, "path")?;
@@ -1898,6 +1951,7 @@ fn search_ranked(
     Ok(SearchResult {
         matches,
         limited,
+        next_offset: None,
         coverage: prepared.metadata.coverage.clone(),
         reused_generation: prepared.reused_generation,
         build: prepared.metadata.build.clone(),

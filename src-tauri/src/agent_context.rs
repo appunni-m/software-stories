@@ -33,6 +33,8 @@ struct Search {
     query: String,
     scope: Option<String>,
     limit: usize,
+    #[serde(default)]
+    offset: usize,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -611,6 +613,7 @@ impl Session {
                     mode: context::SearchMode::Code,
                     path: query_scope.map(str::to_owned),
                     limit: args.limit.clamp(1, 32),
+                    offset: args.offset,
                 };
                 let result = repository_context_commands::search_snapshot(
                     &self.storage,

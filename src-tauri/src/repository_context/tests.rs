@@ -1384,6 +1384,82 @@ fn regex_is_explicit_and_literal_search_never_interprets_metacharacters() {
 }
 
 #[test]
+fn search_pages_are_stable_complete_and_bounded_by_the_candidate_window() {
+    assert_eq!(validate_search_page(32, 224).unwrap(), 256);
+    assert_eq!(validate_search_page(1, 255).unwrap(), 256);
+    assert!(validate_search_page(32, 225).is_err());
+    assert!(validate_search_page(0, 0).is_err());
+    assert!(validate_search_page(33, 0).is_err());
+
+    let mut fixture = Fixture::new();
+    for ordinal in 0..40 {
+        add_source(
+            &mut fixture,
+            &format!("src/module-{ordinal:02}.txt"),
+            "needle\n",
+        );
+    }
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+
+    let first = search_with_mode_page(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "needle",
+        None,
+        16,
+        0,
+        &budget,
+        SearchMode::Code,
+    )
+    .unwrap();
+    let second = search_with_mode_page(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "needle",
+        None,
+        16,
+        first.next_offset.unwrap(),
+        &budget,
+        SearchMode::Code,
+    )
+    .unwrap();
+    let third = search_with_mode_page(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "needle",
+        None,
+        16,
+        second.next_offset.unwrap(),
+        &budget,
+        SearchMode::Code,
+    )
+    .unwrap();
+
+    assert_eq!(first.matches.len(), 16);
+    assert_eq!(first.next_offset, Some(16));
+    assert!(first.limited);
+    assert_eq!(second.matches.len(), 16);
+    assert_eq!(second.next_offset, Some(32));
+    assert!(second.limited);
+    assert_eq!(third.matches.len(), 8);
+    assert_eq!(third.next_offset, None);
+    assert!(!third.limited);
+    let paths = first
+        .matches
+        .iter()
+        .chain(&second.matches)
+        .chain(&third.matches)
+        .map(|hit| hit.range.path.as_str())
+        .collect::<std::collections::HashSet<_>>();
+    assert_eq!(paths.len(), 40);
+}
+
+#[test]
 fn regex_cross_chunk_matches_keep_exact_nonoverlapping_ranges_and_reject_huge_matches() {
     let mut fixture = Fixture::new();
     let text = format!(

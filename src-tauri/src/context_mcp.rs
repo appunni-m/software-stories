@@ -41,12 +41,13 @@ fn read_tools() -> Vec<Tool> {
     let scope = json!({"type":["string","null"],"description":"Exact captured file or folder path; null or dot searches the snapshot root. No absolute or parent paths."});
     let limit = json!({"type":"integer","minimum":1,"maximum":32,"description":"Desired page size, capped natively at 32; follow nextOffset for further pages."});
     let offset = json!({"type":"integer","minimum":0,"maximum":100000});
+    let search_offset = json!({"type":"integer","minimum":0,"maximum":255});
     let query = json!({"type":"string","minLength":2,"maxLength":240});
     let definitions = [
         (
             "search_code",
-            "Search captured implementation text and exact identifiers. Use 2 to 240 non-control characters after trimming, with at most 32 searchable terms; punctuation is literal. Returns candidate ranges and capture/index omissions. If an invalidQuery result says the literal matcher could not be built, retry once with a shorter identifier or phrase. Refine scope as needed; call read_code to inspect code before making claims.",
-            json!({"query":query,"scope":scope,"limit":limit}),
+            "Search captured implementation text and exact identifiers. Use 2 to 240 non-control characters after trimming, with at most 32 searchable terms; punctuation is literal. Set offset to 0 for the first page; when nextOffset is present, pass it as offset to inspect more ranked results. Pages contain at most 32 results and the bounded candidate window contains at most 256. Returns candidate ranges and capture/index omissions. If an invalidQuery result says the literal matcher could not be built, retry once with a shorter identifier or phrase. Refine scope as needed; call read_code to inspect code before making claims.",
+            json!({"query":query,"scope":scope,"limit":limit,"offset":search_offset}),
         ),
         (
             "read_code",
@@ -402,6 +403,13 @@ mod tests {
         assert!(search_description.contains("2 to 240"));
         assert!(search_description.contains("punctuation is literal"));
         assert!(search_description.contains("retry with a shorter identifier"));
+        assert!(search_description.contains("pass it as offset"));
+        assert_eq!(search.input_schema["properties"]["offset"]["maximum"], 255);
+        assert!(search.input_schema["required"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|value| value == "offset"));
         for (base, answer) in read_only.iter().zip(&catalog[..5]) {
             assert_eq!(serde_json::to_value(base).unwrap(), serde_json::to_value(answer).unwrap());
         }

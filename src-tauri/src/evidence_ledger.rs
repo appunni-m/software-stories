@@ -137,6 +137,8 @@ pub(crate) enum Context<'a> {
 pub(crate) struct SearchMetadata<'a> {
     matches: Vec<SearchCandidate<'a>>,
     limited: bool,
+    #[serde(rename = "nextOffset")]
+    next_offset: Option<usize>,
     coverage: &'a context::Coverage,
 }
 
@@ -163,6 +165,7 @@ impl<'a> From<&'a context::SearchResult> for SearchMetadata<'a> {
                 })
                 .collect(),
             limited: result.limited,
+            next_offset: result.next_offset,
             coverage: &result.coverage,
         }
     }

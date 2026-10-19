@@ -177,6 +177,8 @@ pub(crate) struct SearchInput {
     pub(crate) mode: context::SearchMode,
     pub(crate) path: Option<String>,
     pub(crate) limit: usize,
+    #[serde(default)]
+    pub(crate) offset: usize,
 }
 
 pub(crate) fn search_snapshot(
@@ -185,6 +187,7 @@ pub(crate) fn search_snapshot(
     request: &Request,
 ) -> Result<context::SearchResult, String> {
     context::validate_search_mode(&input.query, input.path.as_deref(), input.limit, input.mode)?;
+    context::validate_search_page(input.limit, input.offset)?;
     let budget = context::Budget::new(&request.cancelled);
     let mut work = loop {
         budget.check()?;
@@ -226,13 +229,14 @@ pub(crate) fn search_snapshot(
         .prepared
         .as_ref()
         .ok_or("Local code index is unavailable.")?;
-    let result = context::search_with_mode(
+    let result = context::search_with_mode_page(
         storage,
         &manifest,
         prepared,
         &input.query,
         input.path.as_deref(),
         input.limit,
+        input.offset,
         &budget,
         input.mode,
     );
@@ -341,6 +345,7 @@ pub(crate) async fn search_workspace_source(
             mode: mode.unwrap_or_default(),
             path: None,
             limit: 32,
+            offset: 0,
         };
         let result = search_snapshot(&storage, &input, &request)?;
         Ok(WorkspaceSearchResult {
@@ -450,6 +455,7 @@ mod tests {
                 mode: context::SearchMode::Code,
                 path: None,
                 limit: 8,
+                offset: 0,
             };
             let result = search_snapshot(&fixture.storage, &input, &request).unwrap();
             assert!(!result.matches.is_empty());
@@ -509,6 +515,7 @@ mod tests {
                 mode: context::SearchMode::Code,
                 path: path.map(str::to_owned),
                 limit: 32,
+                offset: 0,
             };
             let started = Instant::now();
             let result = search_snapshot(&storage, &input, &request).unwrap();
