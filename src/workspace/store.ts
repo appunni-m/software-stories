@@ -3,10 +3,12 @@ import { createRefreshQueue, type RefreshQueue } from './refreshQueue';
 import { useRef, useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { cancelCodexChapterRequest, getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, loadSnapshotIndex, startSnapshotIndexing, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
+import { cancelCodexChapterRequest, getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, loadSnapshotIndex, prewarmLocalNarration, startSnapshotIndexing, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
 import {ConversationPersistence,type ConversationRecord} from './conversationPersistence';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
+import { readVoiceConnection, readVoiceConnectionIssue } from '../lib/voiceConnectionStore';
+import { localNarrationPrewarmInputs } from './narrationPrewarm';
 import { createQuestionOutcomeSelector, recordQuestionOutcomes, type QuestionOutcome } from './outcomes';
 import { addTurn, cleanAnswerNotes, learningQuestion, mergePublishedSections, mergeRepositoryGuide, parseWorkspace, type RepositoryGuide, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
 
@@ -169,9 +171,21 @@ export function stopQuestion(project: string, snapshot: string, id: string) {
   patchTurn(project,snapshot,id,{ status:'stopped', error: undefined });
 }
 const enterQuestionQueue = createQuestionQueue();
+function prewarmRevisionNarration(revision: ChapterRevision) {
+  if (!isNativeRuntime() || readVoiceConnectionIssue()) return;
+  const connection = readVoiceConnection();
+  if (connection.backend !== 'pocket-tts') return;
+  const read = (key: string) => {
+    try { return window.localStorage.getItem(key); }
+    catch { return null; }
+  };
+  for (const input of localNarrationPrewarmInputs(revision, connection, read)) {
+    void prewarmLocalNarration(input).catch(() => {});
+  }
+}
 /** Store section references only after the native draft is independently read
  * and saved. Retrying adoption cannot trigger another model request. */
-async function adoptSection(project: string, snapshot: string, turnId: string, section: PublishedSection): Promise<ChapterRevision> {
+async function adoptSection(project: string, snapshot: string, turnId: string, section: PublishedSection, prewarmAudio = false): Promise<ChapterRevision> {
   const revision = await invoke<ChapterRevision>('save_workspace_answer_section', {
     projectId:project,snapshotId:snapshot,runId:section.runId,generationId:section.generationId,
   });
@@ -180,16 +194,17 @@ async function adoptSection(project: string, snapshot: string, turnId: string, s
     turns:e.turns.map((t) => t.id === turnId ? mergePublishedSections(t,[section]) : t),
   }))}));
   window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project,revision}}));
+  if (prewarmAudio) prewarmRevisionNarration(revision);
   return revision;
 }
-async function reconcileAnswer(project: string, snapshot: string, turnId: string, summary: AnswerSummary) {
+async function reconcileAnswer(project: string, snapshot: string, turnId: string, summary: AnswerSummary, prewarmAudio = false) {
   if (summary.projectId !== project || summary.snapshotId !== snapshot) throw new Error('The saved answer belongs to another snapshot.');
   const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === turnId);
   if (!turn?.runIds?.includes(summary.runId)) throw new Error('The saved answer belongs to another question.');
   let revision: ChapterRevision | null = null;
   const failures: unknown[] = [];
   for (const section of summary.sections) {
-    try { revision = await adoptSection(project,snapshot,turnId,section); } catch (error) { failures.push(error); }
+    try { revision = await adoptSection(project,snapshot,turnId,section,prewarmAudio); } catch (error) { failures.push(error); }
   }
   if (failures.length) throw failures[0];
   const owner = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === turnId);
@@ -314,7 +329,7 @@ export function appendRepositoryGuide(project: string, snapshot: string, questio
   patchTurn(project,snapshot,id,{guideId:crypto.randomUUID()});
   return id;
 }
-async function reconcileGuide(project: string, snapshot: string, guide: RepositoryGuide) {
+async function reconcileGuide(project: string, snapshot: string, guide: RepositoryGuide, prewarmAudio = false) {
   if (guide.projectId !== project || guide.snapshotId !== snapshot) throw new Error('This guide belongs to another snapshot.');
   updateWorkspace(project,snapshot,(state) => mergeRepositoryGuide(state,guide));
   const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.guideId === guide.id);
@@ -323,7 +338,7 @@ async function reconcileGuide(project: string, snapshot: string, guide: Reposito
   // all immutable drafts in the library; never regenerate it to restore cards.
   const saved = await listChapterRevisions(project,snapshot);
   for (const answer of guide.answers) for (const section of answer.sections) {
-    if (!saved.some((r) => r.revisionId === section.revisionId)) await adoptSection(project,snapshot,turn.id,section);
+    if (!saved.some((r) => r.revisionId === section.revisionId)) await adoptSection(project,snapshot,turn.id,section,prewarmAudio);
   }
   window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project}}));
 }
@@ -355,7 +370,7 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
       ? {id:turn.guideId,projectId:project,snapshotId:snapshot,consent:true}
       : {input:{id:turn.guideId,projectId:project,snapshotId:snapshot,grantId,question:turn.question,
           modelId:selection.modelId,reasoningEffort:selection.effort,consent:true}});
-    await reconcileGuide(project,snapshot,guide);
+    await reconcileGuide(project,snapshot,guide,true);
   } catch (failure) {
     try { await restoreRepositoryGuides(project,snapshot); } catch { /* Preserve saved cards and the original error. */ }
     const message=errorMessageOr(failure,'The guide could not be completed. Saved sections remain available.');
@@ -387,7 +402,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     // command verifies the full checkpoint before any content is rendered.
     unlisten = await listen<PublishedSection & {projectId:string;snapshotId:string}>('workspace-answer-section',({payload}) => {
       if (payload.runId !== runId || payload.projectId !== project || payload.snapshotId !== snapshot) return;
-      adoption = adoption.then(async () => { await adoptSection(project,snapshot,id,payload); }).catch(() => {
+      adoption = adoption.then(async () => { await adoptSection(project,snapshot,id,payload,true); }).catch(() => {
         // Final reconciliation retries local adoption after a lost event/reply.
         // Existing cards stay visible throughout; inference is never replayed.
       });
@@ -399,7 +414,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
       references:turn.context.map((c) => ({path:c.path,sha256:c.sha256 ?? null,from:c.from ?? null,to:c.to ?? null})),...selection,
     }});
     await adoption;
-    const revision = await reconcileAnswer(project,snapshot,id,summary);
+    const revision = await reconcileAnswer(project,snapshot,id,summary,true);
     return revision;
   } catch (failure) {
     await adoption;
@@ -407,7 +422,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     if (job.runId) {
       try {
         const summary = await invoke<AnswerSummary>('load_workspace_answer',{projectId:project,snapshotId:snapshot,runId:job.runId});
-        await reconcileAnswer(project,snapshot,id,summary); recovered = true;
+        await reconcileAnswer(project,snapshot,id,summary,true); recovered = true;
       } catch { /* Preserve existing cards even if local inspection fails. */ }
     }
     if (!recovered) {

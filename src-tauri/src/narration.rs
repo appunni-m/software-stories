@@ -12,14 +12,15 @@ use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::future::Future;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
-use tokio::sync::oneshot;
+use tokio::sync::{oneshot, watch};
 use uuid::Uuid;
 
 const MODEL_ID: &str = "gemini-3.8-flash-lite-tts";
@@ -34,6 +35,8 @@ const MAX_TTS_REQUEST_TEXT_BYTES: usize = 4_000;
 const MAX_STYLE_BYTES: usize = 160;
 const MAX_LEXICON_ENTRIES: usize = 12;
 const MAX_RESPONSE_BYTES: usize = 12 * 1024 * 1024;
+const MAX_PREWARM_JOBS: usize = 16;
+const MAX_PREWARM_STATUS_ENTRIES: usize = 128;
 
 const PREBUILT_VOICES: &[&str] = &[
     "Zephyr",
@@ -195,6 +198,286 @@ pub struct NarrationAudio {
     pub cache_hit: bool,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum NarrationPrewarmState {
+    Idle,
+    Preparing,
+    Ready,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NarrationPrewarmStatus {
+    pub state: NarrationPrewarmState,
+    pub cached_audio_available: bool,
+}
+
+#[derive(Clone, Default)]
+pub struct NarrationPrewarmQueue(Arc<Mutex<PrewarmQueueState>>);
+
+#[derive(Default)]
+struct PrewarmQueueState {
+    closed: bool,
+    worker_running: bool,
+    pending: VecDeque<String>,
+    entries: HashMap<String, PrewarmQueueEntry>,
+}
+
+type PrewarmWork = Pin<Box<dyn Future<Output = bool> + Send + 'static>>;
+
+struct PrewarmQueueEntry {
+    state: NarrationPrewarmState,
+    cancellation: Option<oneshot::Sender<()>>,
+    updates: watch::Sender<NarrationPrewarmState>,
+    work: Option<PrewarmWork>,
+}
+
+struct PrewarmSchedule {
+    state: NarrationPrewarmState,
+    accepted: bool,
+}
+
+impl NarrationPrewarmQueue {
+    fn schedule<F, Fut>(
+        &self,
+        cache_key: String,
+        work: F,
+    ) -> Result<PrewarmSchedule, ProviderFailure>
+    where
+        F: FnOnce(oneshot::Receiver<()>) -> Fut + Send + 'static,
+        Fut: Future<Output = bool> + Send + 'static,
+    {
+        let (cancel_sender, cancel_receiver) = oneshot::channel();
+        let (updates, _) = watch::channel(NarrationPrewarmState::Preparing);
+        let work: PrewarmWork = Box::pin(work(cancel_receiver));
+        let mut start_worker = false;
+        {
+            let mut queue = self.0.lock().map_err(|_| {
+                failure(
+                    ProviderFailureKind::ReviewUnavailable,
+                    "Background narration is unavailable. The written explanation remains ready.",
+                )
+            })?;
+            if queue.closed {
+                return Ok(PrewarmSchedule {
+                    state: NarrationPrewarmState::Unavailable,
+                    accepted: false,
+                });
+            }
+            if let Some(existing) = queue.entries.get(&cache_key) {
+                if existing.state == NarrationPrewarmState::Preparing {
+                    return Ok(PrewarmSchedule {
+                        state: existing.state,
+                        accepted: false,
+                    });
+                }
+            }
+            queue.entries.remove(&cache_key);
+            let pending = queue
+                .entries
+                .values()
+                .filter(|entry| entry.state == NarrationPrewarmState::Preparing)
+                .count();
+            if pending >= MAX_PREWARM_JOBS {
+                remember_prewarm_state(&mut queue, &cache_key, NarrationPrewarmState::Unavailable);
+                return Ok(PrewarmSchedule {
+                    state: NarrationPrewarmState::Unavailable,
+                    accepted: false,
+                });
+            }
+            make_prewarm_status_room(&mut queue);
+            queue.entries.insert(
+                cache_key.clone(),
+                PrewarmQueueEntry {
+                    state: NarrationPrewarmState::Preparing,
+                    cancellation: Some(cancel_sender),
+                    updates,
+                    work: Some(work),
+                },
+            );
+            queue.pending.push_back(cache_key.clone());
+            if !queue.worker_running {
+                queue.worker_running = true;
+                start_worker = true;
+            }
+        }
+
+        if start_worker {
+            let queue = self.clone();
+            tauri::async_runtime::spawn(async move { queue.run_pending().await });
+        }
+        Ok(PrewarmSchedule {
+            state: NarrationPrewarmState::Preparing,
+            accepted: true,
+        })
+    }
+
+    async fn run_pending(&self) {
+        loop {
+            let next = {
+                let Ok(mut queue) = self.0.lock() else {
+                    return;
+                };
+                if queue.closed {
+                    queue.worker_running = false;
+                    return;
+                }
+                loop {
+                    let Some(cache_key) = queue.pending.pop_front() else {
+                        queue.worker_running = false;
+                        return;
+                    };
+                    let Some(entry) = queue.entries.get_mut(&cache_key) else {
+                        continue;
+                    };
+                    if entry.state != NarrationPrewarmState::Preparing {
+                        continue;
+                    }
+                    if let Some(work) = entry.work.take() {
+                        break (cache_key, work);
+                    }
+                }
+            };
+            let (cache_key, work) = next;
+            let ready = matches!(tauri::async_runtime::spawn(work).await, Ok(true));
+            let state = if ready {
+                NarrationPrewarmState::Ready
+            } else {
+                NarrationPrewarmState::Unavailable
+            };
+            self.finish(&cache_key, state);
+        }
+    }
+
+    fn status(&self, cache_key: &str) -> Option<NarrationPrewarmState> {
+        self.0
+            .lock()
+            .ok()
+            .and_then(|queue| queue.entries.get(cache_key).map(|entry| entry.state))
+    }
+
+    fn finish(&self, cache_key: &str, state: NarrationPrewarmState) {
+        if let Ok(mut queue) = self.0.lock() {
+            if let Some(entry) = queue.entries.get_mut(cache_key) {
+                if entry.state == NarrationPrewarmState::Preparing {
+                    entry.state = state;
+                    entry.cancellation.take();
+                    entry.updates.send_replace(state);
+                }
+            }
+        }
+    }
+
+    async fn wait_for(
+        &self,
+        cache_key: &str,
+        cancellation: &mut oneshot::Receiver<()>,
+    ) -> Result<Option<NarrationPrewarmState>, ProviderFailure> {
+        let mut updates = {
+            let queue = self.0.lock().map_err(|_| {
+                failure(
+                    ProviderFailureKind::ReviewUnavailable,
+                    "The narration status is unavailable. The on-demand audio path remains available.",
+                )
+            })?;
+            let Some(entry) = queue.entries.get(cache_key) else {
+                return Ok(None);
+            };
+            if entry.state != NarrationPrewarmState::Preparing {
+                return Ok(Some(entry.state));
+            }
+            entry.updates.subscribe()
+        };
+
+        loop {
+            let state = *updates.borrow_and_update();
+            if state != NarrationPrewarmState::Preparing {
+                check_audio_request_cancellation(cancellation)?;
+                return Ok(Some(state));
+            }
+            tokio::select! {
+                biased;
+                _ = &mut *cancellation => return Err(failure(
+                    ProviderFailureKind::RequestCancelled,
+                    "The audio wait was cancelled. The transcript and any completed cached audio remain available.",
+                )),
+                result = updates.changed() => {
+                    if result.is_err() {
+                        return Ok(Some(NarrationPrewarmState::Unavailable));
+                    }
+                }
+            }
+        }
+    }
+
+    fn prioritize(&self, cache_key: &str) {
+        if let Ok(mut queue) = self.0.lock()
+            && let Some(position) = queue.pending.iter().position(|key| key == cache_key)
+            && let Some(key) = queue.pending.remove(position)
+        {
+            queue.pending.push_front(key);
+        }
+    }
+
+    pub fn shutdown(&self) {
+        let mut cancellations = Vec::new();
+        if let Ok(mut queue) = self.0.lock() {
+            queue.closed = true;
+            queue.pending.clear();
+            for entry in queue.entries.values_mut() {
+                if entry.state == NarrationPrewarmState::Preparing {
+                    entry.state = NarrationPrewarmState::Unavailable;
+                    entry
+                        .updates
+                        .send_replace(NarrationPrewarmState::Unavailable);
+                    if let Some(cancellation) = entry.cancellation.take() {
+                        cancellations.push(cancellation);
+                    }
+                    entry.work.take();
+                }
+            }
+            queue.worker_running = false;
+        }
+        for cancellation in cancellations {
+            let _ = cancellation.send(());
+        }
+    }
+}
+
+fn make_prewarm_status_room(queue: &mut PrewarmQueueState) {
+    while queue.entries.len() >= MAX_PREWARM_STATUS_ENTRIES {
+        let completed = queue
+            .entries
+            .iter()
+            .find(|(_, entry)| entry.state != NarrationPrewarmState::Preparing)
+            .map(|(key, _)| key.clone());
+        let Some(completed) = completed else {
+            break;
+        };
+        queue.entries.remove(&completed);
+    }
+}
+
+fn remember_prewarm_state(
+    queue: &mut PrewarmQueueState,
+    cache_key: &str,
+    state: NarrationPrewarmState,
+) {
+    make_prewarm_status_room(queue);
+    let (updates, _) = watch::channel(state);
+    queue.entries.insert(
+        cache_key.to_owned(),
+        PrewarmQueueEntry {
+            state,
+            cancellation: None,
+            updates,
+            work: None,
+        },
+    );
+}
+
 #[derive(Clone)]
 struct PendingNarrationReview {
     review: NarrationRequestReview,
@@ -309,10 +592,24 @@ fn build_review_for_backend(
     input: BuildNarrationReviewInput,
     local: bool,
 ) -> ProviderCommandResult<NarrationRequestReview> {
-    let input = match validate_input_for_backend(input, local) {
-        Ok(input) => input,
+    let review = match create_review(storage_dir, input, local) {
+        Ok(review) => review,
         Err(error) => return ProviderCommandResult::failed(error),
     };
+    match reviews.insert(PendingNarrationReview {
+        review: review.clone(),
+    }) {
+        Ok(()) => ProviderCommandResult::ok(review),
+        Err(error) => ProviderCommandResult::failed(error),
+    }
+}
+
+fn create_review(
+    storage_dir: &Path,
+    input: BuildNarrationReviewInput,
+    local: bool,
+) -> Result<NarrationRequestReview, ProviderFailure> {
+    let input = validate_input_for_backend(input, local)?;
     let model_id = if local {
         crate::pocket_tts::MODEL_ID
     } else {
@@ -325,10 +622,10 @@ fn build_review_for_backend(
     };
     let exact_text = apply_lexicon(&input.spoken_text, &input.lexicon);
     if exact_text.trim().is_empty() || exact_text.len() > MAX_SPOKEN_TEXT_BYTES {
-        return ProviderCommandResult::error(
+        return Err(failure(
             ProviderFailureKind::InvalidReview,
             "Pronunciation substitutions must leave this section's narration between 1 and 16,000 UTF-8 bytes.",
-        );
+        ));
     }
     let request_segments = split_spoken_text(&exact_text, MAX_TTS_REQUEST_TEXT_BYTES);
     let spoken_text_sha256 = sha256(exact_text.as_bytes());
@@ -344,7 +641,7 @@ fn build_review_for_backend(
     let fingerprint = request_fingerprint(&cache_key, disclosure_version, &request_segments);
     let cached_audio_available = read_cached_audio(storage_dir, &cache_key).is_some();
     let expires_at_unix_ms = now_unix_ms().saturating_add(REVIEW_LIFETIME_MS);
-    let review = NarrationRequestReview {
+    Ok(NarrationRequestReview {
         review_id: Uuid::new_v4().to_string(),
         exact_text,
         request_segments,
@@ -358,13 +655,95 @@ fn build_review_for_backend(
         cache_key,
         cached_audio_available,
         expires_at_unix_ms,
+    })
+}
+
+pub fn prewarm_local_audio(
+    storage_dir: &Path,
+    reviews: &PendingNarrationReviews,
+    queue: &NarrationPrewarmQueue,
+    input: BuildNarrationReviewInput,
+) -> ProviderCommandResult<NarrationPrewarmStatus> {
+    let review = match create_review(storage_dir, input, true) {
+        Ok(review) => review,
+        Err(error) => return ProviderCommandResult::failed(error),
     };
-    match reviews.insert(PendingNarrationReview {
-        review: review.clone(),
-    }) {
-        Ok(()) => ProviderCommandResult::ok(review),
-        Err(error) => ProviderCommandResult::failed(error),
+    if review.cached_audio_available {
+        queue.finish(&review.cache_key, NarrationPrewarmState::Ready);
+        return ProviderCommandResult::ok(NarrationPrewarmStatus {
+            state: NarrationPrewarmState::Ready,
+            cached_audio_available: true,
+        });
     }
+    let cache_key = review.cache_key.clone();
+    let review_id = review.review_id.clone();
+    let fingerprint = review.fingerprint.clone();
+    let task_review = review.clone();
+    let storage = storage_dir.to_path_buf();
+    let task_reviews = reviews.clone();
+    let task_key = cache_key.clone();
+    let schedule = queue.schedule(cache_key.clone(), move |mut cancellation| async move {
+        if task_reviews
+            .insert(PendingNarrationReview {
+                review: task_review,
+            })
+            .is_err()
+        {
+            return false;
+        }
+        let consent = NarrationConsent {
+            terms_and_request_acknowledged: false,
+        };
+        matches!(
+            synthesize_reviewed_audio(
+                &storage,
+                &task_reviews,
+                &review_id,
+                &fingerprint,
+                &consent,
+                &mut cancellation,
+            )
+            .await,
+            ProviderCommandResult::Ok { .. }
+        ) && read_cached_audio(&storage, &task_key).is_some()
+    });
+    let schedule = match schedule {
+        Ok(schedule) => schedule,
+        Err(error) => return ProviderCommandResult::failed(error),
+    };
+    ProviderCommandResult::ok(NarrationPrewarmStatus {
+        state: schedule.state,
+        cached_audio_available: schedule.accepted && schedule.state == NarrationPrewarmState::Ready,
+    })
+}
+
+pub fn local_audio_preparation_status(
+    storage_dir: &Path,
+    queue: &NarrationPrewarmQueue,
+    input: BuildNarrationReviewInput,
+) -> ProviderCommandResult<NarrationPrewarmStatus> {
+    let review = match create_review(storage_dir, input, true) {
+        Ok(review) => review,
+        Err(error) => return ProviderCommandResult::failed(error),
+    };
+    if review.cached_audio_available {
+        queue.finish(&review.cache_key, NarrationPrewarmState::Ready);
+        return ProviderCommandResult::ok(NarrationPrewarmStatus {
+            state: NarrationPrewarmState::Ready,
+            cached_audio_available: true,
+        });
+    }
+    let state = match queue.status(&review.cache_key) {
+        Some(NarrationPrewarmState::Preparing) => NarrationPrewarmState::Preparing,
+        Some(NarrationPrewarmState::Idle) | None => NarrationPrewarmState::Idle,
+        Some(NarrationPrewarmState::Ready | NarrationPrewarmState::Unavailable) => {
+            NarrationPrewarmState::Unavailable
+        }
+    };
+    ProviderCommandResult::ok(NarrationPrewarmStatus {
+        state,
+        cached_audio_available: false,
+    })
 }
 
 pub fn discard_request_review(reviews: &PendingNarrationReviews, review_id: &str) {
@@ -388,6 +767,41 @@ pub fn load_reviewed_audio(
             "The reviewed narration has no local audio cache. Review it again before generating audio.",
         ),
     }
+}
+
+pub async fn load_prewarmed_audio_if_ready(
+    storage_dir: &Path,
+    reviews: &PendingNarrationReviews,
+    queue: &NarrationPrewarmQueue,
+    review_id: &str,
+    fingerprint: &str,
+    cancellation: &mut oneshot::Receiver<()>,
+) -> Option<ProviderCommandResult<NarrationAudio>> {
+    let pending = reviews.get(review_id, fingerprint).ok()?;
+    if pending.review.model_id != crate::pocket_tts::MODEL_ID {
+        return None;
+    }
+    queue.prioritize(&pending.review.cache_key);
+    let state = match queue
+        .wait_for(&pending.review.cache_key, cancellation)
+        .await
+    {
+        Ok(Some(state)) => state,
+        Ok(None) => return None,
+        Err(error) => return Some(ProviderCommandResult::failed(error)),
+    };
+    if state != NarrationPrewarmState::Ready {
+        return None;
+    }
+    let bytes = read_cached_audio(storage_dir, &pending.review.cache_key)?;
+    if let Err(error) = check_audio_request_cancellation(cancellation) {
+        return Some(ProviderCommandResult::failed(error));
+    }
+    Some(ProviderCommandResult::ok(audio_result(
+        &pending.review,
+        bytes,
+        true,
+    )))
 }
 
 pub async fn synthesize_reviewed_audio(
@@ -1264,6 +1678,188 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[tokio::test]
+    async fn prewarm_jobs_coalesce_and_manual_play_moves_a_queued_job_forward() {
+        let queue = NarrationPrewarmQueue::default();
+        let (first_started_tx, first_started_rx) = oneshot::channel();
+        let (second_started_tx, mut second_started_rx) = oneshot::channel();
+        let (third_started_tx, mut third_started_rx) = oneshot::channel();
+        let (first_release_tx, first_release_rx) = oneshot::channel();
+        let (second_release_tx, second_release_rx) = oneshot::channel();
+        let (third_release_tx, third_release_rx) = oneshot::channel();
+
+        let first = queue
+            .schedule("first".into(), move |mut cancellation| async move {
+                let _ = first_started_tx.send(());
+                tokio::select! {
+                    _ = &mut cancellation => false,
+                    _ = first_release_rx => true,
+                }
+            })
+            .expect("first prewarm should be accepted");
+        let second = queue
+            .schedule("second".into(), move |mut cancellation| async move {
+                let _ = second_started_tx.send(());
+                tokio::select! {
+                    _ = &mut cancellation => false,
+                    _ = second_release_rx => true,
+                }
+            })
+            .expect("second prewarm should be accepted");
+        let third = queue
+            .schedule("third".into(), move |mut cancellation| async move {
+                let _ = third_started_tx.send(());
+                tokio::select! {
+                    _ = &mut cancellation => false,
+                    _ = third_release_rx => true,
+                }
+            })
+            .expect("third prewarm should be accepted");
+        assert!(first.accepted && second.accepted && third.accepted);
+        first_started_rx
+            .await
+            .expect("one background task should own the dispatcher");
+        assert!(matches!(
+            second_started_rx.try_recv(),
+            Err(oneshot::error::TryRecvError::Empty)
+        ));
+        assert!(matches!(
+            third_started_rx.try_recv(),
+            Err(oneshot::error::TryRecvError::Empty)
+        ));
+
+        let duplicate = queue
+            .schedule("second".into(), |_| async {
+                panic!("a duplicate fingerprint must not start a second worker")
+            })
+            .expect("duplicate status should be observable");
+        assert!(!duplicate.accepted);
+        assert_eq!(duplicate.state, NarrationPrewarmState::Preparing);
+        queue.prioritize("third");
+        first_release_tx
+            .send(())
+            .expect("the first prewarm should still be active");
+        third_started_rx
+            .await
+            .expect("manual playback should promote its queued prewarm");
+        third_release_tx
+            .send(())
+            .expect("the promoted prewarm should finish");
+        second_started_rx
+            .await
+            .expect("the remaining queued prewarm should continue");
+        second_release_tx
+            .send(())
+            .expect("the remaining prewarm should finish");
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while queue.status("second") == Some(NarrationPrewarmState::Preparing) {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("the final queued task should reach a terminal state");
+        assert_eq!(queue.status("first"), Some(NarrationPrewarmState::Ready));
+        assert_eq!(queue.status("second"), Some(NarrationPrewarmState::Ready));
+        assert_eq!(queue.status("third"), Some(NarrationPrewarmState::Ready));
+    }
+
+    #[tokio::test]
+    async fn full_prewarms_remain_bounded_and_shutdown_cancels_all_pending_work() {
+        let queue = NarrationPrewarmQueue::default();
+        let (active_started_tx, active_started_rx) = oneshot::channel();
+        let mut keys = vec!["active".to_owned()];
+        queue
+            .schedule("active".into(), move |cancellation| async move {
+                let _ = active_started_tx.send(());
+                let _ = cancellation.await;
+                false
+            })
+            .expect("first prewarm should be accepted");
+        active_started_rx
+            .await
+            .expect("the first prewarm should begin");
+
+        for index in 1..MAX_PREWARM_JOBS {
+            let key = format!("pending-{index}");
+            let schedule = queue
+                .schedule(key.clone(), |cancellation| async move {
+                    let _ = cancellation.await;
+                    false
+                })
+                .expect("bounded prewarm should be scheduled");
+            assert!(schedule.accepted);
+            keys.push(key);
+        }
+        let overflow = queue
+            .schedule("overflow".into(), |_| async { true })
+            .expect("queue saturation is an unavailable status, not an error");
+        assert!(!overflow.accepted);
+        assert_eq!(overflow.state, NarrationPrewarmState::Unavailable);
+
+        queue.shutdown();
+        for key in keys {
+            assert_eq!(queue.status(&key), Some(NarrationPrewarmState::Unavailable));
+        }
+    }
+
+    #[tokio::test]
+    async fn a_panicking_preparation_fails_cleanly_and_does_not_strand_later_audio() {
+        let queue = NarrationPrewarmQueue::default();
+        queue
+            .schedule("broken".into(), |_| async {
+                panic!("synthetic worker failure")
+            })
+            .expect("failed work should still be admitted to the bounded queue");
+        queue
+            .schedule("healthy".into(), |_| async { true })
+            .expect("the next clip should remain queued");
+
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while queue.status("healthy") != Some(NarrationPrewarmState::Ready) {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("a worker failure must not strand later clips");
+        assert_eq!(
+            queue.status("broken"),
+            Some(NarrationPrewarmState::Unavailable)
+        );
+        assert_eq!(queue.status("healthy"), Some(NarrationPrewarmState::Ready));
+    }
+
+    #[test]
+    fn local_audio_preparation_status_matches_the_canonical_cache_key() {
+        let storage = TestStorage::new();
+        let queue = NarrationPrewarmQueue::default();
+        let reviews = PendingNarrationReviews::default();
+        let input = BuildNarrationReviewInput {
+            spoken_text: "The parser returns a result for the next step.".into(),
+            voice: crate::pocket_tts::VOICE.into(),
+            style: String::new(),
+            lexicon: Vec::new(),
+        };
+        let idle = local_audio_preparation_status(&storage.0, &queue, input.clone());
+        let ProviderCommandResult::Ok { data } = idle else {
+            panic!("valid local narration should have a preparation status");
+        };
+        assert_eq!(data.state, NarrationPrewarmState::Idle);
+        assert!(!data.cached_audio_available);
+
+        let review = match build_local_request_review(&storage.0, &reviews, input.clone()) {
+            ProviderCommandResult::Ok { data } => data,
+            ProviderCommandResult::Error { error } => panic!("review should build: {error:?}"),
+        };
+        write_cached_audio(&storage.0, &review.cache_key, &valid_test_wav(7))
+            .expect("valid local audio should be cached");
+        let ready = local_audio_preparation_status(&storage.0, &queue, input);
+        let ProviderCommandResult::Ok { data } = ready else {
+            panic!("cached local narration should have a preparation status");
+        };
+        assert_eq!(data.state, NarrationPrewarmState::Ready);
+        assert!(data.cached_audio_available);
     }
 
     #[tokio::test]

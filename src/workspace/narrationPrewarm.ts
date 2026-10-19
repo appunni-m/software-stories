@@ -1,0 +1,30 @@
+import type { ChapterRevision, NarrationSynthesisInput } from '../lib/commands';
+import { sectionNarrationScopes, type ReadNarrationStorage } from '../lib/narrationScope.ts';
+import { applyVoiceConnection, type VoiceConnection } from '../lib/voiceConnection.ts';
+
+/** Build only local Pocket requests for the exact section/scene scripts the player uses. */
+export function localNarrationPrewarmInputs(
+  revision: ChapterRevision,
+  connection: VoiceConnection,
+  read: ReadNarrationStorage,
+): NarrationSynthesisInput[] {
+  if (connection.backend !== 'pocket-tts') return [];
+  const requests: NarrationSynthesisInput[] = [];
+  for (const section of revision.sections) {
+    try {
+      for (const scope of sectionNarrationScopes(revision, section, read)) {
+        const preferences = applyVoiceConnection(scope.preferences, connection);
+        if (preferences.backend !== 'pocket-tts') continue;
+        requests.push({
+          spokenText: preferences.spokenText,
+          voice: preferences.voice,
+          style: preferences.style,
+          lexicon: preferences.lexicon,
+        });
+      }
+    } catch {
+      // An unreadable preference cannot safely identify audio; skip this scope.
+    }
+  }
+  return requests;
+}

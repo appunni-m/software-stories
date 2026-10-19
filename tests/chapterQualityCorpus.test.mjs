@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -8,6 +9,7 @@ import { describe, it } from 'node:test';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const checker = resolve(root, 'scripts/check-chapter-quality.mjs');
 const manifestPath = resolve(root, 'benchmarks/chapter-quality/corpus/manifest.json');
+const hasQualityGateExample = existsSync(resolve(root, 'benchmarks/chapter-quality/review/QUALITY_GATE_EXAMPLE.json'));
 
 async function withTemporaryCorpus(run) {
   const tempDirectory = await mkdtemp(join(root, 'tests', '.chapter-quality-corpus-'));
@@ -21,7 +23,7 @@ async function withTemporaryCorpus(run) {
 }
 
 describe('offline chapter-quality corpus checker', () => {
-  it('accepts the checked-in corpus against the current parser-language contract', () => {
+  it('accepts the checked-in corpus against the current parser-language contract', { skip: !hasQualityGateExample && 'Optional benchmark example is absent from this worktree.' }, () => {
     const result = spawnSync(process.execPath, [checker, '--corpus'], { cwd: root, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.match(result.stdout, /6 cases across 3 synthetic repositories/);

@@ -29,8 +29,16 @@ export function workspaceStoreHarness(invoke,options={}) {
       isNativeRuntime:()=>options.native??false,
       listChapterRevisions: async () => [], cancelCodexChapterRequest: unexpected,
       getSnapshotIndexProgress: unexpected, loadSnapshotIndex: unexpected, startSnapshotIndexing: unexpected,
+      prewarmLocalNarration: options.prewarmLocalNarration ?? (async () => ({ status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } })),
     },
     '../lib/connectionStore': { ensureCodexConnection: options.ensureCodexConnection??unexpected, readCodexSelection: options.readCodexSelection??unexpected },
+    '../lib/voiceConnectionStore': {
+      readVoiceConnection: options.readVoiceConnection ?? (() => ({ backend: 'pocket-tts', googleVoice: 'Kore', googleStyle: '' })),
+      readVoiceConnectionIssue: options.readVoiceConnectionIssue ?? (() => null),
+    },
+    './narrationPrewarm': {
+      localNarrationPrewarmInputs: options.localNarrationPrewarmInputs ?? (() => []),
+    },
   };
   const allowed = new Set(['workspace/store.ts', 'workspace/model.ts', 'workspace/answerVersions.ts', 'workspace/conversationPersistence.ts', 'workspace/outcomes.ts', 'workspace/queue.ts', 'workspace/refreshQueue.ts', 'lib/errorMessage.ts', 'lib/readerProgress.ts', 'lib/workspacePreferences.ts'].map((file) => resolve(root, file)));
   const modules = new Map();

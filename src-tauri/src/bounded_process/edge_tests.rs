@@ -19,6 +19,10 @@ fn shell(script: &str) -> Command {
     command
 }
 
+fn reported_pid(path: &std::path::Path) -> Option<libc::pid_t> {
+    fs::read_to_string(path).ok()?.parse().ok()
+}
+
 #[test]
 fn exact_independent_output_caps_preserve_nonzero_exit_and_both_streams() {
     let output = run(
@@ -362,10 +366,10 @@ fn each_pipe_setup_failure_returns_only_after_reaping_the_spawned_child() {
                     return nonblocking(pipe);
                 }
                 let deadline = Instant::now() + Duration::from_secs(2);
-                while !pid_path.exists() && Instant::now() < deadline {
+                while reported_pid(&pid_path).is_none() && Instant::now() < deadline {
                     thread::sleep(Duration::from_millis(2));
                 }
-                if !pid_path.exists() {
+                if reported_pid(&pid_path).is_none() {
                     return Err(io::Error::new(
                         io::ErrorKind::TimedOut,
                         "child did not report readiness",
@@ -373,10 +377,8 @@ fn each_pipe_setup_failure_returns_only_after_reaping_the_spawned_child() {
                 }
                 Err(io::Error::from(io::ErrorKind::PermissionDenied))
             });
-        let pid = fs::read_to_string(&pid_path)
-            .expect("the child records its PID before injected pipe setup fails")
-            .parse::<libc::pid_t>()
-            .unwrap();
+        let pid = reported_pid(&pid_path)
+            .expect("the child records its complete PID before injected pipe setup fails");
 
         assert_eq!(setup_count, failed_setup);
         if failed_setup == 3 {

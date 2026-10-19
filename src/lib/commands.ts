@@ -1283,6 +1283,20 @@ export async function sendCodeLensProviderRequest(input: {
 
 export type NarrationBackend = 'pocket-tts' | 'gemini';
 
+export type NarrationPrewarmState = 'idle' | 'preparing' | 'ready' | 'unavailable';
+
+export interface NarrationPrewarmStatus {
+  state: NarrationPrewarmState;
+  cachedAudioAvailable: boolean;
+}
+
+export interface NarrationSynthesisInput {
+  spokenText: string;
+  voice: string;
+  style: string;
+  lexicon: NarrationPronunciationEntry[];
+}
+
 export interface PocketTtsStatus {
   phase: string;
   ready: boolean;
@@ -1308,12 +1322,16 @@ export async function getNarrationDisclosure(backend: NarrationBackend = 'pocket
   return invoke<NarrationDisclosure>(backend === 'pocket-tts' ? 'get_local_narration_disclosure' : 'get_narration_disclosure');
 }
 
-export async function buildNarrationRequestReview(input: {
+export async function prewarmLocalNarration(input: NarrationSynthesisInput): Promise<ProviderCommandResult<NarrationPrewarmStatus>> {
+  return invoke<ProviderCommandResult<NarrationPrewarmStatus>>('prewarm_local_narration', { input });
+}
+
+export async function getLocalNarrationPreparationStatus(input: NarrationSynthesisInput): Promise<ProviderCommandResult<NarrationPrewarmStatus>> {
+  return invoke<ProviderCommandResult<NarrationPrewarmStatus>>('get_local_narration_preparation_status', { input });
+}
+
+export async function buildNarrationRequestReview(input: NarrationSynthesisInput & {
   backend?: NarrationBackend;
-  spokenText: string;
-  voice: string;
-  style: string;
-  lexicon: NarrationPronunciationEntry[];
 }): Promise<ProviderCommandResult<NarrationRequestReview>> {
   const { backend = 'pocket-tts', ...request } = input;
   return invoke<ProviderCommandResult<NarrationRequestReview>>(

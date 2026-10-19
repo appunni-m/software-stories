@@ -15,6 +15,7 @@ import {
   cancelProviderRequest,
   discardNarrationRequestReview,
   getNarrationDisclosure,
+  getLocalNarrationPreparationStatus,
   getPocketTtsStatus,
   type PocketTtsStatus,
   type NarrationBackend,
@@ -26,6 +27,7 @@ import {
   type NarrationDisclosure,
   type NarrationPronunciationEntry,
   type NarrationRequestReview,
+  type NarrationPrewarmState,
   type ProviderCredentialStatus,
 } from './lib/commands';
 import {
@@ -82,6 +84,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   const voiceConnection = useVoiceConnection();
   const localNarration = draft.backend === 'pocket-tts';
   const [pocketStatus, setPocketStatus] = useState<PocketTtsStatus | null>(null);
+  const [prewarmState, setPrewarmState] = useState<NarrationPrewarmState>('idle');
   const pocketStatusGenerationRef = useRef(0);
   const spokenTextUtf8Bytes = useMemo(() => new TextEncoder().encode(draft.spokenText).length, [draft.spokenText]);
   const draftRef = useRef(draft);
@@ -334,6 +337,39 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   };
 
   useEffect(() => {
+    let active = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const requestedDraft = draft;
+    const refresh = async () => {
+      try {
+        const result = await getLocalNarrationPreparationStatus({
+          spokenText: requestedDraft.spokenText,
+          voice: requestedDraft.voice,
+          style: requestedDraft.style,
+          lexicon: requestedDraft.lexicon,
+        });
+        if (!active || !narrationPreferencesMatch(draftRef.current, requestedDraft)) return;
+        if (result.status === 'error') {
+          setPrewarmState('unavailable');
+          return;
+        }
+        setPrewarmState(result.data.state);
+        if (result.data.state === 'preparing') timer = setTimeout(() => { void refresh(); }, 750);
+      } catch {
+        if (active) setPrewarmState('unavailable');
+      }
+    };
+    setPrewarmState('idle');
+    if (isNativeRuntime() && requestedDraft.backend === 'pocket-tts' && requestedDraft.spokenText.trim()) {
+      timer = setTimeout(() => { void refresh(); }, 100);
+    }
+    return () => {
+      active = false;
+      if (timer !== undefined) clearTimeout(timer);
+    };
+  }, [storageKey, draft.backend, draft.spokenText, draft.voice, draft.style, draft.lexicon]);
+
+  useEffect(() => {
     if (restoreTimeRef.current === null || !isNativeRuntime()) return;
     const restoredPosition = restoreTimeRef.current;
     restoreTimeRef.current = null;
@@ -393,10 +429,6 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
 
   const synthesize = async (currentReview: NarrationRequestReview | null = review) => {
     if (!currentReview || synthesisReviewIdRef.current) return;
-    if (localNarration && pocketStatus?.busy) {
-      setError('Pocket TTS is finishing another local operation. Wait for it to finish before generating audio.');
-      return;
-    }
     if (localNarration ? !pocketStatus?.ready : !credential?.apiKeyConfigured) {
       setError(localNarration ? 'Set up Pocket TTS on this Mac before generating audio.' : 'Add a Gemini API key before requesting cloud audio.');
       return;
@@ -634,7 +666,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       />
       <div className="walkthrough-panel-heading">
         <div><h3 id={titleId}>{clip ? 'Scene narration' : 'Narration'}</h3></div>
-        <span className={`walkthrough-transcript-state${isPlaying ? ' is-playing' : ''}`}><Volume2 size={13} /> {isPlaying ? 'PLAYING' : track ? 'PAUSED' : 'AUDIO OFF'}</span>
+        <span className={`walkthrough-transcript-state${isPlaying ? ' is-playing' : prewarmState === 'preparing' ? ' is-preparing' : ''}`} role="status"><Volume2 size={13} /> {isPlaying ? 'PLAYING' : track ? 'PAUSED' : prewarmState === 'preparing' ? 'PREPARING AUDIO' : prewarmState === 'ready' ? 'AUDIO READY' : prewarmState === 'unavailable' ? 'AUDIO UNAVAILABLE' : 'AUDIO OFF'}</span>
       </div>
 
       <details className="walkthrough-narration-script">
@@ -736,8 +768,8 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
                 <button type="button" className="text-button" onClick={openVoiceConnections}>{credential?.apiKeyConfigured ? 'Manage Gemini key' : 'Set up Gemini for narration'}</button>
               </div>
               </>}
-              <button type="button" className="primary-button" disabled={(localNarration ? !pocketStatus?.ready || pocketStatus?.busy : !consent || !credential?.apiKeyConfigured) || requestBusy} onClick={() => { void synthesize(); }}>
-                <Play size={14} /> {requestBusy ? 'Generating audio…' : localNarration ? 'Generate locally and play' : 'Synthesize and play this section'}
+              <button type="button" className="primary-button" disabled={(localNarration ? !pocketStatus?.ready : !consent || !credential?.apiKeyConfigured) || requestBusy} onClick={() => { void synthesize(); }}>
+                <Play size={14} /> {requestBusy ? 'Generating audio…' : localNarration ? prewarmState === 'preparing' ? 'Play when ready' : 'Generate locally and play' : 'Synthesize and play this section'}
               </button>
               {providerRequestBusy && (
                 <div className="walkthrough-narration-cancel">
@@ -746,7 +778,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
                   {cancelConfirmation && (
                     <div className="provider-cancel-confirm" role="group" aria-labelledby="narration-cancel-title" aria-describedby="narration-cancel-description">
                       <strong id="narration-cancel-title">Cancel this narration request?</strong>
-                      <p id="narration-cancel-description">{localNarration ? 'Code Atlas will stop the local synthesis process.' : 'Code Atlas will try to stop its HTTPS request. Google may already have received the reviewed speech text, and charges may still apply.'} Any returned audio will be discarded; your transcript and previous audio remain available.</p>
+                      <p id="narration-cancel-description">{localNarration ? 'Code Atlas will stop the local playback request. Background audio preparation may continue and cache this clip.' : 'Code Atlas will try to stop its HTTPS request. Google may already have received the reviewed speech text, and charges may still apply.'} Any returned audio will be discarded; your transcript and previous audio remain available.</p>
                       <div>
                         <button type="button" className="secondary-button" onClick={() => setCancelConfirmation(false)}>Keep waiting</button>
                         <button type="button" className="danger-button" disabled={cancelBusy} onClick={() => { void confirmCancelSynthesis(); }}>{cancelBusy ? 'Stopping…' : 'Confirm cancel'}</button>

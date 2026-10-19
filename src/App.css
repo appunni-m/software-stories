@@ -355,7 +355,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .walkthrough-caption > span, .walkthrough-narration-exact-text > span { color: var(--accent); font: 7px var(--mono); letter-spacing: .08em; }
 .walkthrough-caption > p { margin: 7px 0 0; color: var(--muted); font-size: 10px; line-height: 1.75; white-space: pre-wrap; }
 .walkthrough-caption > p em { color: var(--muted); font-size: 8px; }
-.walkthrough-transcript-state.is-playing { color: var(--accent); }
+.walkthrough-transcript-state.is-playing, .walkthrough-transcript-state.is-preparing { color: var(--accent); }
 .walkthrough-narration-editor { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--border); }
 .walkthrough-narration-editor > summary { display: flex; align-items: center; justify-content: space-between; gap: 7px; color: var(--muted); font-size: 9px; font-weight: 600; cursor: pointer; list-style: none; }
 .walkthrough-narration-editor > summary::-webkit-details-marker { display: none; }

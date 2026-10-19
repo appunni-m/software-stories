@@ -877,6 +877,36 @@ fn build_local_narration_request_review(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+fn prewarm_local_narration(
+    app: AppHandle,
+    reviews: State<'_, narration::PendingNarrationReviews>,
+    prewarms: State<'_, narration::NarrationPrewarmQueue>,
+    input: narration::BuildNarrationReviewInput,
+) -> Result<provider::ProviderCommandResult<narration::NarrationPrewarmStatus>, String> {
+    let storage_dir = app_data_directory(&app)?;
+    Ok(narration::prewarm_local_audio(
+        &storage_dir,
+        &reviews,
+        &prewarms,
+        input,
+    ))
+}
+
+#[tauri::command(rename_all = "camelCase")]
+fn get_local_narration_preparation_status(
+    app: AppHandle,
+    prewarms: State<'_, narration::NarrationPrewarmQueue>,
+    input: narration::BuildNarrationReviewInput,
+) -> Result<provider::ProviderCommandResult<narration::NarrationPrewarmStatus>, String> {
+    let storage_dir = app_data_directory(&app)?;
+    Ok(narration::local_audio_preparation_status(
+        &storage_dir,
+        &prewarms,
+        input,
+    ))
+}
+
+#[tauri::command(rename_all = "camelCase")]
 fn build_narration_request_review(
     app: AppHandle,
     reviews: State<'_, narration::PendingNarrationReviews>,
@@ -925,6 +955,7 @@ fn load_reviewed_narration_audio(
 async fn synthesize_reviewed_narration_audio(
     app: AppHandle,
     reviews: State<'_, narration::PendingNarrationReviews>,
+    prewarms: State<'_, narration::NarrationPrewarmQueue>,
     cancellations: State<'_, provider::ProviderRequestCancellations>,
     review_id: String,
     fingerprint: String,
@@ -943,6 +974,19 @@ async fn synthesize_reviewed_narration_audio(
         Ok(cancellation) => cancellation,
         Err(error) => return Ok(provider::ProviderCommandResult::failed(error)),
     };
+    if let Some(result) = narration::load_prewarmed_audio_if_ready(
+        &storage_dir,
+        &reviews,
+        &prewarms,
+        &review_id,
+        &fingerprint,
+        &mut cancellation,
+    )
+    .await
+    {
+        cancellations.finish(&review_id);
+        return Ok(result);
+    }
     let result = narration::synthesize_reviewed_audio(
         &storage_dir,
         &reviews,
@@ -1982,6 +2026,7 @@ pub fn run() {
         .manage(provider::PendingProviderReviews::default())
         .manage(provider::ProviderRequestCancellations::default())
         .manage(narration::PendingNarrationReviews::default())
+        .manage(narration::NarrationPrewarmQueue::default())
         .manage(chapters::PendingChapterDrafts::default())
         .manage(source_discovery::DiscoveryReviews::default())
         .manage(recovery::InterruptionJournal::default())
@@ -2111,6 +2156,8 @@ pub fn run() {
             get_pocket_tts_status,
             setup_pocket_tts,
             build_local_narration_request_review,
+            prewarm_local_narration,
+            get_local_narration_preparation_status,
             build_narration_request_review,
             discard_narration_request_review,
             load_reviewed_narration_audio,
@@ -2136,6 +2183,7 @@ pub fn run() {
             if matches!(event, tauri::RunEvent::Exit) {
                 app.state::<codex_agent::CodexAgentManager>().shutdown();
                 app.state::<claude_worker::ClaudeWorkerManager>().shutdown();
+                app.state::<narration::NarrationPrewarmQueue>().shutdown();
                 pocket_tts::shutdown();
             }
         });
