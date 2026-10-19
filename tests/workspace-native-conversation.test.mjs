@@ -65,6 +65,18 @@ test('close refuses a blocked write without retry and initial read failure witho
   await assert.rejects(unopened.store.prepareWorkspaceConversation('project','snapshot'));await unopened.store.flushAllWorkspaceConversations();assert.equal(failed.writes.length,0);
 });
 
+test('an unreadable native conversation leaves source navigation usable without replacing saved bytes',async()=>{
+  const b=backend(),h=native(b),preserved='unsupported conversation bytes';
+  b.controls.load=()=>{throw new Error(preserved);};
+  await assert.rejects(h.store.prepareWorkspaceConversation('project','snapshot'));
+  h.store.updateWorkspace('project','snapshot',state=>({...state,file:'src/font.rs',explorations:state.explorations.map(e=>e.id==='root'?{...e,file:'src/font.rs',codeOpen:true}:e)}));
+  const state=h.store.getWorkspace('project','snapshot');
+  assert.equal(state.file,'src/font.rs');assert.equal(state.explorations[0].codeOpen,true);
+  await assert.rejects(h.store.flushWorkspaceConversation('project','snapshot'));
+  assert.equal(b.writes.length,0,'unreadable conversation data is never replaced by the temporary browsing state');
+  assert.deepEqual(h.calls.map(call=>call.name),['load_workspace_conversation']);
+});
+
 test('a repository opening late cannot start a new read after the close barrier froze scopes',async()=>{
   const b=backend(),h=native(b);await h.store.prepareWorkspaceConversation('project','snapshot');
   const resume=h.store.beginWorkspaceClose(),calls=h.calls.length;let opened=false;
@@ -244,9 +256,11 @@ test('a real queued question cannot dispatch inference when its native run refer
   assert.deepEqual([...new Set(h.calls.map(c=>c.name))].sort(),['load_workspace_answer','load_workspace_conversation','save_workspace_conversation']);assert.equal(b.records.get(scope).state.explorations[0].turns.length,0);
 });
 
-test('the production workspace gates mounting and generation on durable conversation preparation',async()=>{
+test('an unavailable conversation leaves the production source workspace readable and gates generation',async()=>{
   const [store,workspace,app,native]=await Promise.all(['../src/workspace/store.ts','../src/workspace/Workspace.tsx','../src/App.tsx','../src-tauri/src/lib.rs'].map(p=>readFile(new URL(p,import.meta.url),'utf8')));
-  assert.match(workspace,/availability==='ready'\?<DeveloperWorkspace/);assert.match(workspace,/prepareWorkspaceConversation\(projectId,snapshotId\)/);assert.match(app,/retryWorkspaceConversation\(projectId,snapshotId\)/);
+  assert.match(workspace,/return availability==='loading'\?[\s\S]*?:<DeveloperWorkspace \{\.\.\.props\} conversationAvailability=\{availability\}/);assert.match(workspace,/prepareWorkspaceConversation\(projectId,snapshotId\)/);assert.match(app,/retryWorkspaceConversation\(projectId,snapshotId\)/);
+  assert.match(workspace,/Saved conversation unavailable\./);assert.match(workspace,/disabled=\{conversationUnavailable\}/);assert.match(workspace,/This session is read-only/);assert.match(workspace,/!conversationUnavailable&&<>[\s\S]*?Build repository guide/);
+  assert.match(store,/if\(persistence!\.availability==='ready'\)persistence!\.enqueue\(next\)/);
   assert.match(store,/await prepareWorkspaceConversation\(project,snapshot\)/);
   for(const [start,end,command] of [['export async function runRepositoryGuide','export async function runQuestion',"'start_repository_guide'"],['export async function runQuestion',null,"'generate_progressive_workspace_answer'"]]){const code=store.slice(store.indexOf(start),end?store.indexOf(end):undefined);const save=code.indexOf('await flushWorkspaceConversation'),dispatch=code.indexOf(command);assert.ok(save>=0&&dispatch>save,'the question/run reference must be durable before dispatch');}
   assert.match(native,/workspace_conversation::load_workspace_conversation/);assert.match(native,/workspace_conversation::save_workspace_conversation/);

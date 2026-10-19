@@ -99,11 +99,17 @@ export function getWorkspace(project: string, snapshot: string): WorkspaceState 
 }
 export function updateWorkspace(project: string, snapshot: string, update: (state: WorkspaceState) => WorkspaceState) {
   if(closingWorkspace){deferredCloseUpdates.push(()=>updateWorkspace(project,snapshot,update));return;}
-  if(isNativeRuntime()&&savedConversation(project,snapshot).availability!=='ready')throw new Error('The saved conversation is still opening.');
+  const native=isNativeRuntime();
+  const persistence=native?savedConversation(project,snapshot):undefined;
+  if(native&&persistence!.availability==='loading')throw new Error('The saved conversation is still opening.');
   const id = key(project, snapshot); const previous = getWorkspace(project, snapshot); const next = recordQuestionOutcomes(previous, update(previous), Date.now());
   if (next === previous) return;
   states.set(id, next);
-  if(isNativeRuntime())savedConversation(project,snapshot).enqueue(next);
+  if(native) {
+    // When an existing record is unreadable, keep source navigation usable in
+    // memory without replacing or attempting to migrate the preserved bytes.
+    if(persistence!.availability==='ready')persistence!.enqueue(next);
+  }
   else try {
     localStorage.setItem(browserPreviewKey(project,snapshot), JSON.stringify(next));
     resolveUnsavedConversation(project,snapshot);

@@ -42,6 +42,11 @@
 .dw-path button[aria-current] {color:var(--text);}
 .dw-tool-label {margin-left:auto;}
 .dw-composer {position:relative;padding:8px 20px 12px;flex-shrink:0;border-bottom:1px solid var(--border);}
+.dw-conversation-warning {display:flex;align-items:flex-start;gap:9px;padding:9px 18px;border-bottom:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:12px;line-height:1.55;}
+.dw-conversation-warning svg {flex:0 0 auto;margin-top:1px;color:var(--accent);}
+.dw-conversation-warning p {margin:0;min-width:0;}
+.dw-conversation-warning strong {color:var(--text);font-weight:600;}
+.dw-composer textarea:disabled {cursor:not-allowed;opacity:.72;}
 .dw-input {display:flex;align-items:center;gap:9px;flex-wrap:wrap;min-height:44px;padding:6px 8px 6px 13px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface-raised);}
 .dw-input:focus-within {border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-soft);}
 .dw-input textarea {border:0;background:transparent;color:var(--text);resize:none;flex:1;width:0;min-width:80px;outline:0;font:13px/1.6 inherit;font-family:inherit;font-size:13px;line-height:1.6;padding:4px 0;}
@@ -170,6 +175,7 @@
 .developer-workspace .preview-editor-footer {display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--border);padding:7px 12px;font-size:10px;color:var(--dim);}
 .developer-workspace .preview-selection-tools {position:absolute;bottom:46px;left:20px;display:flex;gap:6px;padding:6px;background:var(--surface);box-shadow:0 4px 20px color-mix(in srgb,var(--shadow) 25%,transparent);border:1px solid var(--border);border-radius:7px;z-index:2;}
 @media(max-width:950px){.dw-answer-scroll{padding:16px 12px 32px;}.dw-answer-card{padding:14px;}.dw-composer{padding-left:12px;padding-right:12px;}.dw-flow-canvas{height:300px;}}
+@media(max-width:680px){.dw-conversation-warning{padding:8px 12px;}}
 @media(max-width:680px){.dw-answer-card-unavailable{padding:8px 10px;}.dw-answer-card-unavailable .rt-Button{margin-left:auto;}}
 @media(max-width:680px){.dw-activity{flex-basis:40px;}.dw-activity button{width:39px;}.dw-panels>[data-panel]:first-child{display:none;}.dw-reading>[data-panel]:first-child:not(:last-child){display:none;}.dw-reading>.dw-separator{display:none;}.dw-answer-scroll{padding:12px 10px;}.dw-viewbar .rt-TabsTriggerInner{font-size:11px;}.dw-composer{padding:6px 10px 10px;}}
 @media(prefers-reduced-motion:reduce){.developer-workspace *{scroll-behavior:auto!important;animation:none!important;transition:none!important;}}

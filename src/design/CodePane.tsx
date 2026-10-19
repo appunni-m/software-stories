@@ -19,8 +19,9 @@ const colors = HighlightStyle.define([
   { tag: tags.number, color: 'var(--code-number)' },
 ]);
 
-export function CodePane({ path, contents, theme, reveal, onExplain, onAttach, onClose }: {
+export function CodePane({ path, contents, theme, reveal, canExplain = true, onExplain, onAttach, onClose }: {
   path: string; contents: string; theme: 'dark' | 'light'; reveal: CodeContext | null;
+  canExplain?: boolean;
   onExplain: (context: CodeContext) => void; onAttach: (context: CodeContext) => void; onClose: () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
@@ -76,8 +77,8 @@ export function CodePane({ path, contents, theme, reveal, onExplain, onAttach, o
     <div className="preview-code-path">{path.split('/').join('  /  ')}</div>
     <div ref={host} className="preview-editor" />
     {selection && <div className="preview-selection-tools" onMouseDown={(event) => event.preventDefault()}>
-      <Button size="1" onClick={() => onExplain(selection)}><MessageSquarePlus size={13} />Explain this code</Button>
-      <Tooltip content="Add selected lines to your question"><IconButton size="1" variant="soft" aria-label="Add selection to chat" onClick={() => onAttach(selection)}>+</IconButton></Tooltip>
+      <Button size="1" disabled={!canExplain} title={canExplain ? undefined : 'The saved conversation is unavailable.'} onClick={() => onExplain(selection)}><MessageSquarePlus size={13} />Explain this code</Button>
+      <Tooltip content="Add selected lines to your question"><IconButton size="1" variant="soft" disabled={!canExplain} aria-label="Add selection to chat" onClick={() => onAttach(selection)}>+</IconButton></Tooltip>
     </div>}
     <footer className="preview-editor-footer"><span>{sourceLanguage(path)}</span><span>{selection ? `Lines ${selection.from}–${selection.to}` : 'Select code to ask about it'}</span></footer>
   </section>;
