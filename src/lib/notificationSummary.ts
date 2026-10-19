@@ -8,6 +8,7 @@ export function notificationBucketForOutcome(tone: 'info' | 'warning' | 'error')
 export interface NotificationGroupingItem {
   id: string;
   projectId?: string;
+  snapshotId?: string;
   groupKey?: string;
   bucket?: NotificationBucket;
   /** Overrides mixed historical severities when the caller knows the group's current state. */
@@ -50,19 +51,23 @@ export function groupNotifications<T extends NotificationGroupingItem>(items: re
 /** Keep the selected repository's work visible and retain all other
  * repository notifications under one collapsed panel section. Global items
  * stay visible because they describe the app rather than another repository. */
-export function splitNotificationGroupsByProject<T extends NotificationGroupingItem>(
+export function partitionNotificationGroups<T extends NotificationGroupingItem>(
   groups: readonly NotificationGroup<T>[],
   selectedProjectId?: string,
-): { current: NotificationGroup<T>[]; other: NotificationGroup<T>[] } {
-  if (!selectedProjectId) return { current: [...groups], other: [] };
+  selectedSnapshotId?: string,
+): { current: NotificationGroup<T>[]; earlierSnapshots: NotificationGroup<T>[]; otherProjects: NotificationGroup<T>[] } {
+  if (!selectedProjectId) return { current: [...groups], earlierSnapshots: [], otherProjects: [] };
   const current: NotificationGroup<T>[] = [];
-  const other: NotificationGroup<T>[] = [];
+  const earlierSnapshots: NotificationGroup<T>[] = [];
+  const otherProjects: NotificationGroup<T>[] = [];
   for (const group of groups) {
     const belongsToOtherProject = group.items.length > 0
       && group.items.every((item) => item.projectId !== undefined && item.projectId !== selectedProjectId);
-    (belongsToOtherProject ? other : current).push(group);
+    const belongsToEarlierSnapshot = !belongsToOtherProject && Boolean(selectedSnapshotId) && group.items.length > 0
+      && group.items.every((item) => item.projectId === selectedProjectId && item.snapshotId !== undefined && item.snapshotId !== selectedSnapshotId);
+    (belongsToOtherProject ? otherProjects : belongsToEarlierSnapshot ? earlierSnapshots : current).push(group);
   }
-  return { current, other };
+  return { current, earlierSnapshots, otherProjects };
 }
 
 export interface WorkspaceAnswerRestoration {

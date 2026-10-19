@@ -1,12 +1,13 @@
 import { useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { Bell, CircleAlert, Info, X } from 'lucide-react';
-import { groupNotifications, notificationSummary, splitNotificationGroupsByProject, type NotificationAvailability, type NotificationBucket } from './lib/notificationSummary';
+import { groupNotifications, notificationSummary, partitionNotificationGroups, type NotificationAvailability, type NotificationBucket } from './lib/notificationSummary';
 import './NotificationCenter.css';
 
 export interface WorkspaceNotification {
   id: string;
   projectId?: string;
+  snapshotId?: string;
   title: string;
   message: string;
   tone?: 'info' | 'warning' | 'error';
@@ -20,8 +21,8 @@ export interface WorkspaceNotification {
 }
 
 /** Background work never opens this panel or moves the reader's focus. */
-export function NotificationCenter({ items, availability = 'ready', currentProjectId, open: controlledOpen, onOpenChange }: {
-  items: WorkspaceNotification[]; availability?: NotificationAvailability; currentProjectId?: string; open?: boolean; onOpenChange?: (open: boolean) => void;
+export function NotificationCenter({ items, availability = 'ready', currentProjectId, currentSnapshotId, open: controlledOpen, onOpenChange }: {
+  items: WorkspaceNotification[]; availability?: NotificationAvailability; currentProjectId?: string; currentSnapshotId?: string; open?: boolean; onOpenChange?: (open: boolean) => void;
 }) {
   const [localOpen, setLocalOpen] = useState(false);
   const open = controlledOpen ?? localOpen;
@@ -30,11 +31,13 @@ export function NotificationCenter({ items, availability = 'ready', currentProje
   const trigger = useRef<HTMLButtonElement>(null);
   const summary = notificationSummary(items, availability);
   const groups = groupNotifications(items);
-  const scopedGroups = splitNotificationGroupsByProject(groups, currentProjectId);
+  const scopedGroups = partitionNotificationGroups(groups, currentProjectId, currentSnapshotId);
   const attentionGroups = scopedGroups.current.filter((group) => group.bucket === 'attention');
   const updateGroups = scopedGroups.current.filter((group) => group.bucket === 'updates');
-  const otherAttentionGroups = scopedGroups.other.filter((group) => group.bucket === 'attention');
-  const otherUpdateGroups = scopedGroups.other.filter((group) => group.bucket === 'updates');
+  const earlierAttentionGroups = scopedGroups.earlierSnapshots.filter((group) => group.bucket === 'attention');
+  const earlierUpdateGroups = scopedGroups.earlierSnapshots.filter((group) => group.bucket === 'updates');
+  const otherAttentionGroups = scopedGroups.otherProjects.filter((group) => group.bucket === 'attention');
+  const otherUpdateGroups = scopedGroups.otherProjects.filter((group) => group.bucket === 'updates');
   const renderActions = (item: WorkspaceNotification) => item.actions?.length ? <div className="notification-item-actions">{item.actions.map((action) => <button type="button" key={action.label} disabled={action.disabled} onClick={() => {
     actionOpened.current = Boolean(action.opensDialog || action.movesFocus);
     setOpen(false);
@@ -87,8 +90,15 @@ export function NotificationCenter({ items, availability = 'ready', currentProje
         {groups.length === 0 ? availability === 'ready' && <p className="notification-empty">You’re all caught up.</p> : <ul className="notification-list">
           {renderSection('Needs attention', attentionGroups)}
           {renderSection('Recent updates', updateGroups)}
-          {scopedGroups.other.length > 0 && <li className="notification-other-repositories"><details>
-            <summary>Other repositories <span>{scopedGroups.other.length}</span></summary>
+          {scopedGroups.earlierSnapshots.length > 0 && <li className="notification-earlier-snapshots"><details>
+            <summary>Earlier work in this repository <span>{scopedGroups.earlierSnapshots.length}</span></summary>
+            <ul className="notification-list">
+              {renderSection('Needs attention', earlierAttentionGroups)}
+              {renderSection('Recent updates', earlierUpdateGroups)}
+            </ul>
+          </details></li>}
+          {scopedGroups.otherProjects.length > 0 && <li className="notification-other-repositories"><details>
+            <summary>Other repositories <span>{scopedGroups.otherProjects.length}</span></summary>
             <ul className="notification-list">
               {renderSection('Needs attention', otherAttentionGroups)}
               {renderSection('Recent updates', otherUpdateGroups)}
