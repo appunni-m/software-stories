@@ -405,7 +405,7 @@ mod tests {
         assert!(search_description.contains("lexical, not semantic"));
         assert!(search_description.contains("terms independently"));
         assert!(search_description.contains("important operations separately"));
-        assert!(search_description.contains("retry with a shorter identifier"));
+        assert!(search_description.contains("retry once with a shorter identifier"));
         assert!(search_description.contains("pass it as offset"));
         assert_eq!(search.input_schema["properties"]["offset"]["maximum"], 255);
         assert!(search.input_schema["required"]
