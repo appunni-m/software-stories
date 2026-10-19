@@ -554,6 +554,32 @@ fn location(storage: &Path, project: &str, snapshot: &str) -> Result<PathBuf, St
         .join("workspace-conversations")
         .join(format!("{digest:x}.json")))
 }
+
+/// Older saved reader positions do not match the current focused-story layout.
+/// Drop only those transient positions in memory so they cannot make the
+/// surrounding saved conversation unavailable. The durable record is untouched.
+fn discard_stale_story_positions(state: &mut Value) {
+    let Some(explorations) = state.get_mut("explorations").and_then(Value::as_array_mut) else {
+        return;
+    };
+    for exploration in explorations {
+        let Some(turns) = exploration.get_mut("turns").and_then(Value::as_array_mut) else {
+            continue;
+        };
+        for turn in turns {
+            let Some(stories) = turn
+                .get_mut("presentation")
+                .and_then(|presentation| presentation.get_mut("stories"))
+                .and_then(Value::as_array_mut)
+            else {
+                continue;
+            };
+            stories
+                .retain(|story| story.get("focusLayoutVersion").and_then(Value::as_u64) == Some(2));
+        }
+    }
+}
+
 fn load(storage: &Path, project: &str, snapshot: &str) -> Result<Option<Record>, String> {
     let path = location(storage, project, snapshot)?;
     match fs::symlink_metadata(path.parent().ok_or(UNAVAILABLE)?) {
@@ -567,7 +593,7 @@ fn load(storage: &Path, project: &str, snapshot: &str) -> Result<Option<Record>,
         _ => return Err(UNAVAILABLE.into()),
     }
     let bytes = crate::bounded_file::read(&path, MAX_BYTES).map_err(|_| UNAVAILABLE)?;
-    let record: Record =
+    let mut record: Record =
         serde_json::from_value(crate::strict_json::from_slice(&bytes).map_err(|_| UNAVAILABLE)?)
             .map_err(|_| UNAVAILABLE)?;
     if record.schema_version != CONVERSATION_SCHEMA_VERSION
@@ -576,6 +602,7 @@ fn load(storage: &Path, project: &str, snapshot: &str) -> Result<Option<Record>,
     {
         return Err(UNAVAILABLE.into());
     }
+    discard_stale_story_positions(&mut record.state);
     validate(&record.state, project, snapshot)?;
     Ok(Some(record))
 }
