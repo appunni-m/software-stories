@@ -1,4 +1,6 @@
 use super::*;
+use std::fs;
+use std::path::PathBuf;
 
 fn limits() -> Limits {
     Limits {
@@ -153,13 +155,23 @@ impl Read for FailedReader {
     }
 }
 
+struct TestDirectory(PathBuf);
+
+impl Drop for TestDirectory {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
 #[test]
 fn read_errors_are_typed_without_changing_retained_output() {
     let mut reader = FailedReader(io::ErrorKind::PermissionDenied);
     let mut bytes = b"previous output".to_vec();
     let mut eof = false;
     let error = read_chunk(&mut reader, &mut bytes, &mut eof, 128).unwrap_err();
-    assert!(matches!(error, RunError::Read(error) if error.kind() == io::ErrorKind::PermissionDenied));
+    assert!(
+        matches!(error, RunError::Read(error) if error.kind() == io::ErrorKind::PermissionDenied)
+    );
     assert_eq!(bytes, b"previous output");
     assert!(!eof);
 }
@@ -266,7 +278,11 @@ fn externally_reaped_child_is_marked_unowned_before_drop() {
         if waited == pid {
             break;
         }
-        assert!(waited == 0, "waitpid failed: {}", io::Error::last_os_error());
+        assert!(
+            waited == 0,
+            "waitpid failed: {}",
+            io::Error::last_os_error()
+        );
         assert!(Instant::now() < deadline, "the test child did not exit");
         thread::sleep(Duration::from_millis(1));
     }
@@ -281,4 +297,43 @@ fn externally_reaped_child_is_marked_unowned_before_drop() {
         RunError::Wait(error) if error.raw_os_error() == Some(libc::ECHILD)
     ));
     assert!(running.reaped);
+}
+
+#[test]
+fn broken_stdin_pipe_returns_a_write_error_after_reaping_the_child() {
+    let directory = TestDirectory(
+        PathBuf::from("/tmp").join(format!("ca-write-error-{}", uuid::Uuid::new_v4())),
+    );
+    fs::create_dir(&directory.0).unwrap();
+    let pid_path = directory.0.join("child-pid");
+    let mut command = shell(r#"printf '%s' "$$" > "$1"; exit 0"#);
+    command.arg("write-error-fixture").arg(&pid_path);
+
+    let input = vec![b'x'; 4 * 1024 * 1024];
+    let mut run_limits = limits();
+    run_limits.stdin_bytes = input.len();
+    run_limits.stdout_bytes = 0;
+    run_limits.stderr_bytes = 0;
+    run_limits.command_timeout = Duration::from_secs(2);
+    run_limits.operation_deadline = Instant::now() + Duration::from_secs(3);
+
+    let result = run(&mut command, Some(input), run_limits, None);
+    let pid = fs::read_to_string(&pid_path)
+        .expect("the child records its PID before closing stdin")
+        .parse::<libc::pid_t>()
+        .unwrap();
+
+    assert!(matches!(
+        result,
+        Err(RunError::Write(error)) if error.kind() == io::ErrorKind::BrokenPipe
+    ));
+    let mut status = 0;
+    // SAFETY: pid was written by the child process just spawned by this test.
+    // run() owns and must reap it before returning the broken-pipe error.
+    let waited = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
+    assert_eq!(waited, -1);
+    assert_eq!(
+        io::Error::last_os_error().raw_os_error(),
+        Some(libc::ECHILD)
+    );
 }
