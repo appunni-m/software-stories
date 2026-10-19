@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { addTurn, createWorkspace, parseWorkspace } from '../src/workspace/model.ts';
-import { createQuestionOutcomeSelector, markQuestionOutcome, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
+import { createQuestionOutcomeSelector, groupUnavailablePublishedSections, markQuestionOutcome, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
 
 const turn = (id, status = 'failed', extra = {}) => ({ id, question: `Question ${id}`, context: [], status, ...extra });
 const stateWith = (...turns) => ({ ...createWorkspace('project', 'snapshot'), explorations: [{ ...createWorkspace('project', 'snapshot').explorations[0], turns }] });
@@ -16,6 +16,24 @@ test('Guide hides old empty outcomes while retaining all saved, active and selec
   const opened = openWorkspaceQuestion(state, 'root', 'failed');
   assert.deepEqual(visibleConversationTurns(opened, opened.explorations[0]).map((t) => t.id), ['failed', ...expected]);
   assert.equal(state.explorations[0].turns.length, 9);
+});
+
+test('adjacent unavailable answer parts collapse together without changing available-part order', () => {
+  const sections = ['missing-1', 'missing-2', 'available', 'missing-3'].map((revisionId, order) => ({
+    runId: 'run', key: `part-${order}`, order, generationId: `generation-${order}`, revisionId,
+    supersedes: null, contextElapsedMs: 0, runElapsedMs: null,
+  }));
+  const items = groupUnavailablePublishedSections(sections, new Set(['available']), false);
+  assert.deepEqual(items.map((item) => item.kind), ['unavailable', 'section', 'unavailable']);
+  assert.deepEqual(items[0].sections.map((section) => section.revisionId), ['missing-1', 'missing-2']);
+  assert.equal(items[1].section.revisionId, 'available');
+  assert.deepEqual(items[2].sections.map((section) => section.revisionId), ['missing-3']);
+});
+
+test('answer parts remain in loading state until the saved chapter list is ready', () => {
+  const section = { runId: 'run', key: 'part', order: 0, generationId: 'generation', revisionId: 'pending',
+    supersedes: null, contextElapsedMs: 0, runElapsedMs: null };
+  assert.deepEqual(groupUnavailablePublishedSections([section], new Set(), true), [{ kind: 'section', section }]);
 });
 
 test('a branch remains reachable even when its original investigation saved nothing', () => {

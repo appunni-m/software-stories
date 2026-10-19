@@ -1,4 +1,4 @@
-import type { Exploration, Turn, WorkspaceState } from './model';
+import type { Exploration, PublishedSection, Turn, WorkspaceState } from './model';
 
 const active = (turn: Turn) => turn.status === 'queued' || turn.status === 'working';
 const hasAnswer = (turn: Turn) => Boolean(turn.revisionId || turn.publishedSections?.length);
@@ -15,6 +15,31 @@ export function visibleConversationTurns(state: WorkspaceState, exploration: Exp
   const branchOwners = new Set(state.explorations.filter((e) => e.parentId === exploration.id).map((e) => e.originTurnId));
   return exploration.turns.filter((turn) => active(turn) || hasAnswer(turn)
     || turn.id === exploration.focusedTurnId || branchOwners.has(turn.id));
+}
+
+export type PublishedAnswerItem =
+  | { kind: 'section'; section: PublishedSection }
+  | { kind: 'unavailable'; sections: PublishedSection[] };
+
+/** Collapse adjacent missing parts from one question without changing the
+ * order of available parts. While the saved chapter list is loading, retain
+ * the per-part loading state instead of guessing that references are missing. */
+export function groupUnavailablePublishedSections(
+  sections: readonly PublishedSection[],
+  availableRevisionIds: ReadonlySet<string>,
+  historyLoading: boolean,
+): PublishedAnswerItem[] {
+  const items: PublishedAnswerItem[] = [];
+  for (const section of sections) {
+    if (historyLoading || availableRevisionIds.has(section.revisionId)) {
+      items.push({ kind: 'section', section });
+      continue;
+    }
+    const previous = items.at(-1);
+    if (previous?.kind === 'unavailable') previous.sections.push(section);
+    else items.push({ kind: 'unavailable', sections: [section] });
+  }
+  return items;
 }
 
 /** A bounded UI dedupe token, not a source/evidence identity. Include every
