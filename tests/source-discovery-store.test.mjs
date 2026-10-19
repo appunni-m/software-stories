@@ -84,6 +84,17 @@ describe('saved source discovery scope', () => {
     });
   });
 
+  it('counts the 300-character question limit in Unicode code points', () => {
+    const values = new Map();
+    const storage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+    const accepted = { ...scope, question: '🧭'.repeat(300) };
+    withStorage(storage, () => {
+      assert.equal(saveSourceDiscoveryResult(accepted, result), true);
+      assert.deepEqual(loadSourceDiscoveryResult(accepted, ['src/parser.ts', 'src/token.ts']), result);
+      assert.equal(saveSourceDiscoveryResult({ ...scope, question: '🧭'.repeat(301) }, result), false);
+    });
+  });
+
   it('persists only successful planner discovery and keeps ordinary file discovery session-only', async () => {
     const [discovery, planning, context] = await Promise.all([
       readFile(new URL('../src/SourceDiscoveryDialog.tsx', import.meta.url), 'utf8'),

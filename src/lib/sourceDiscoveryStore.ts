@@ -34,6 +34,10 @@ function boundedText(value: unknown, max: number, allowEmpty = false): value is 
     && !/[\u0000-\u001f\u007f-\u009f]/u.test(value);
 }
 
+function boundedCharacters(value: unknown, max: number): value is string {
+  return boundedText(value, max * 2) && [...value].length <= max;
+}
+
 function relativePath(value: unknown, max: number): value is string {
   if (!boundedText(value, max)) return false;
   return !value.startsWith('/') && !value.includes('\\')
@@ -43,7 +47,7 @@ function relativePath(value: unknown, max: number): value is string {
 function scopeIsValid(scope: SourceDiscoveryScope): boolean {
   return boundedText(scope.projectId, MAX_ID_CHARS)
     && boundedText(scope.snapshotId, MAX_SNAPSHOT_CHARS)
-    && boundedText(scope.question, MAX_QUESTION_CHARS)
+    && boundedCharacters(scope.question, MAX_QUESTION_CHARS)
     && (scope.targetPath == null || relativePath(scope.targetPath, MAX_TARGET_PATH_CHARS));
 }
 
@@ -84,7 +88,7 @@ function validRecord(value: unknown): value is SavedSourceDiscovery {
   const record = value as Record<string, unknown>;
   if (!hasExactKeys(record, ['schemaVersion', 'projectId', 'snapshotId', 'question', 'targetPath', 'selectedFiles', 'limitation', 'savedAtUnixMs'])
     || record.schemaVersion !== 1 || !boundedText(record.projectId, MAX_ID_CHARS)
-    || !boundedText(record.snapshotId, MAX_SNAPSHOT_CHARS) || !boundedText(record.question, MAX_QUESTION_CHARS)
+    || !boundedText(record.snapshotId, MAX_SNAPSHOT_CHARS) || !boundedCharacters(record.question, MAX_QUESTION_CHARS)
     || !(record.targetPath === null || relativePath(record.targetPath, MAX_TARGET_PATH_CHARS))
     || !Number.isSafeInteger(record.savedAtUnixMs) || Number(record.savedAtUnixMs) <= 0) return false;
   return validResult({ selectedFiles: record.selectedFiles, limitation: record.limitation });
