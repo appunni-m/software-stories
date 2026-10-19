@@ -60,3 +60,21 @@ env RUSTC_WRAPPER= \
 ```
 
 The probe logs metadata, coordinates, counts and timings, excluding source snippets, account credentials and reasoning. Measurements are single local debug observations, not performance guarantees or a product comparison. The test snapshot/project identity is intentionally frozen; other snapshots require a separately reviewed expected set.
+
+## Current-source rerun — 19 October 2026
+
+Reran the service profile twice from Code Atlas source `e161110` against the same immutable Fontdone snapshot and independently selected twelve-span fixture. Both runs used an isolated disposable storage copy containing only that snapshot's manifest, captured objects, syntax indexes and retrieval cache (81,279,554 bytes); the app's original storage was not modified. No model or speech request was made. The test binary completed both runs successfully.
+
+| Measurement | Run 1 | Run 2 |
+| --- | ---: | ---: |
+| First disk-load + `memory_face` search | 8,260 ms | 8,551 ms |
+| Same-process cached `memory_face` search | 387 ms | 347 ms |
+| Serialized `memory_face` match result | 18,121 bytes | 18,121 bytes |
+| Retrieval cache after run | — | 11,946,480 bytes across 27 files |
+| Syntax index copied into the isolated store | — | 37,411,046 bytes |
+
+Coverage remained 1,621 indexed files, 19,296,074 indexed source bytes, 3,422 ranges, 81 syntax-parsed files, 1,540 text-fallback files and 1,147 unavailable files (including the six secret-like entries). The `memory_face` declaration remains the top result at `src/font.rs:4053`.
+
+All twelve named expected declarations were found globally and file-scoped, improving on the older 8/12 global observation. The two broad lexical queries found only 1/12 and 2/12 spans, respectively, and both hit the bounded result limit. This is useful exact-name retrieval, but broad repository discovery remains insufficient. It does not qualify packaged search, Codex answers, or narrative quality.
+
+Run logs are `/private/tmp/code-atlas-fontdone-service-profile-e161110.log` and `/private/tmp/code-atlas-fontdone-service-profile-e161110-disk.log`. The disposable storage and temporarily restored build fixture were removed after the run; the user's deleted fixture remains deleted.
