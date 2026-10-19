@@ -3,12 +3,14 @@ import { FileSearch, LoaderCircle, X } from 'lucide-react';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import { ensureCodexConnection, readCodexSelection, useConnectionState } from './lib/connectionStore';
 import { prepareSourceDiscovery, sendSourceDiscovery, discardSourceDiscovery, type SourceDiscoveryScope, type SourceDiscoveryReview, type SourceDiscoveryResult } from './lib/sourceDiscovery';
+import { saveSourceDiscoveryResult, SOURCE_DISCOVERY_SAVED_EVENT } from './lib/sourceDiscoveryStore';
 import { cancelCodexChapterRequest, isNativeRuntime, loadSnapshotIndex, startSnapshotIndexing, getSnapshotIndexProgress } from './lib/commands';
 import { errorMessageOr } from './lib/errorMessage';
 import { CodexChapterDialog } from './CodexChapterDialog';
 
-export function SourceDiscoveryDialog({ scope, onReady, onClose }: {
+export function SourceDiscoveryDialog({ scope, onReady, onClose, persistSuccessfulResult = false }: {
   scope: SourceDiscoveryScope; onReady: (result: SourceDiscoveryResult, review: SourceDiscoveryReview) => void; onClose: () => void;
+  persistSuccessfulResult?: boolean;
 }) {
   const [review, setReview] = useState<SourceDiscoveryReview | null>(null);
   const [phase, setPhase] = useState('Reading the saved code index…');
@@ -77,6 +79,9 @@ export function SourceDiscoveryDialog({ scope, onReady, onClose }: {
       const result = await sendSourceDiscovery(review);
       if (!mounted.current) return;
       if (!result.selectedFiles.length) throw Error(result.limitation || 'Codex could not find enough relevant code. Try a more specific question.');
+      if (persistSuccessfulResult && saveSourceDiscoveryResult(scope, result) && typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(SOURCE_DISCOVERY_SAVED_EVENT, { detail: scope }));
+      }
       active.current = null;
       onReady(result, review);
     } catch (failure) {

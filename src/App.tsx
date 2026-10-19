@@ -34,7 +34,6 @@ import { ConnectionsDialog } from './ConnectionsDialog';
 import { NotificationCenter, type WorkspaceNotification } from './NotificationCenter';
 import { ThemeControl } from './ThemeControl';
 import { KeyboardShortcuts } from './KeyboardShortcuts';
-import type { PrepareRepositoryPlanInput } from './lib/repositoryPlans';
 import type { PlannedChapterScope } from './lib/plannedChapters';
 import { useModalFocusTrap } from './lib/useModalFocusTrap';
 import {
@@ -1933,7 +1932,7 @@ function App() {
         </main>
       </div>
       {planningDialog && <RepositoryPlanningDialog
-        key={JSON.stringify([planningDialog.kind, planningDialog.projectId, planningDialog.snapshotId, planningDialog.question, planningDialog.selectedPaths, planningDialog.kind === 'planned-chapter' ? planningDialog.plannedChapter.target : null, planningDialog.recoveryOperationId])}
+        key={JSON.stringify([planningDialog.kind, planningDialog.projectId, planningDialog.snapshotId, planningDialog.question, planningDialog.selectedPaths, planningDialog.discoveryResult ?? null, planningDialog.kind === 'planned-chapter' ? planningDialog.plannedChapter.target : null, planningDialog.recoveryOperationId])}
         scope={planningDialog} native={runtime?.native ?? isNativeRuntime()} onClose={closePlanningDialog}
         onRecoveryResultReady={completeRecoveredProviderReview}
         onOpenPendingPreview={(generationId) => { closePlanningDialog(); setRecoveredPreviewId(generationId); }} />}
@@ -3858,7 +3857,7 @@ function GuidePlanScreen({ projectId, projectName, manifest, rows, returnFocusTa
   manifest: SnapshotManifest;
   rows: InventoryRow[];
   returnFocusTarget?: string;
-  onPlan: (input: PrepareRepositoryPlanInput) => void;
+  onPlan: (input: RepositoryPlanningScope) => void;
   onGoAtlas: () => void;
   onGoChanges: () => void;
   onGoStudio: () => void;

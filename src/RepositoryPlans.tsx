@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, FileCode2, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
 import { isNativeRuntime, type ChapterClaim, type ChapterRevision, type SnapshotManifest } from './lib/commands';
 import { samePlannedTarget } from './lib/chapterOrigin';
@@ -12,13 +12,16 @@ import { preparePlannedChapterScope, type PlannedChapterScope } from './lib/plan
 import {
   acceptRepositoryPlanDraft, discardRepositoryPlanDraft, listRepositoryPlanDrafts, loadRepositoryPlanDraft,
   listRepositoryPlanRevisions, loadRepositoryPlanRevision, resolveRepositoryPlanNotice,
-  type PrepareRepositoryPlanInput, type RepositoryPlanDraftDetail, type RepositoryPlanDraftSummary,
+  type RepositoryPlanDraftDetail, type RepositoryPlanDraftSummary,
   type RepositoryPlanRevisionDetail, type RepositoryPlanRevisionSummary, type ReviewedPlanSource,
 } from './lib/repositoryPlans';
+import { loadSourceDiscoveryResult, SOURCE_DISCOVERY_SAVED_EVENT } from './lib/sourceDiscoveryStore';
+import type { SourceDiscoveryScope } from './lib/sourceDiscovery';
+import type { RepositoryPlanningScope } from './RepositoryPlanningDialog';
 
 interface Props {
   manifest: SnapshotManifest;
-  onPlan: (input: PrepareRepositoryPlanInput) => void;
+  onPlan: (input: RepositoryPlanningScope) => void;
   onOpenFile: (path: string, snapshotId?: string, range?: SourceLineRange) => void;
   onGenerateFile: (path: string, selectedPaths: string[]) => void;
   onGeneratePlannedChapter: (scope: PlannedChapterScope) => void;
@@ -41,16 +44,30 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
     try {
       const value: unknown = JSON.parse(localStorage.getItem(draftKey) ?? 'null');
       if (value && typeof value === 'object' && 'question' in value && typeof value.question === 'string') {
-        return { question: value.question, paths: 'paths' in value && Array.isArray(value.paths)
-          ? value.paths.filter((path): path is string => typeof path === 'string' && manifest.files.some((file) => file.path === path)).slice(0, 12) : [] };
+        return { question: value.question };
       }
     } catch { /* Draft persistence is optional. */ }
-    return { question: '', paths: [] as string[] };
+    return { question: '' };
   });
   const [question, setQuestion] = useState(localDraft.question);
+  const availablePaths = useMemo(() => manifest.files.filter((file) => file.kind === 'file').map((file) => file.path), [manifest.files]);
+  const [savedDiscovery, setSavedDiscovery] = useState(() => loadSourceDiscoveryResult(
+    { projectId, snapshotId, question: localDraft.question.trim() }, availablePaths,
+  ));
   useEffect(() => {
     try { localStorage.setItem(draftKey, JSON.stringify({ question })); } catch { /* Optional unsent local draft. */ }
   }, [draftKey, question]);
+  useEffect(() => {
+    const reload = () => setSavedDiscovery(loadSourceDiscoveryResult({ projectId, snapshotId, question: question.trim() }, availablePaths));
+    const onSaved = (event: Event) => {
+      const detail = (event as CustomEvent<SourceDiscoveryScope>).detail;
+      if (!detail || detail.projectId !== projectId || detail.snapshotId !== snapshotId || detail.question !== question.trim()) return;
+      reload();
+    };
+    reload();
+    window.addEventListener(SOURCE_DISCOVERY_SAVED_EVENT, onSaved);
+    return () => window.removeEventListener(SOURCE_DISCOVERY_SAVED_EVENT, onSaved);
+  }, [projectId, snapshotId, question, availablePaths]);
   const [batchPlan, setBatchPlan] = useState<RepositoryPlanRevisionDetail | null>(null);
   const closeBatch = useCallback(() => setBatchPlan(null), []);
   const [summaries, setSummaries] = useState<RepositoryPlanDraftSummary[]>([]);
@@ -275,7 +292,10 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
     if ([...clean].length < 8 || [...clean].length > 300 || /[\u0000-\u001f\u007f-\u009f]/u.test(clean)) { setFormError('Write a learning question using 8–300 characters without control characters.'); return; }
 
     setQuestion(clean);
-    onPlan({ projectId, snapshotId, question: clean, selectedPaths: [] });
+    const discoveryResult = loadSourceDiscoveryResult({ projectId, snapshotId, question: clean }, availablePaths);
+    setSavedDiscovery(discoveryResult);
+    onPlan({ projectId, snapshotId, question: clean,
+      selectedPaths: discoveryResult?.selectedFiles.map((file) => file.path) ?? [], discoveryResult: discoveryResult ?? undefined });
   }
 
   function claim(value: ChapterClaim) {
@@ -299,8 +319,14 @@ export function RepositoryPlans({ manifest, onPlan, onOpenFile, onGenerateFile, 
     <form className="plan-create-form" onSubmit={submit}>
       <label>What do you want to understand?<input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="How does a file become a generated chapter?" /></label>
       <p>Codex follows the code index and flow to choose relevant implementation files. Documentation is treated as guidance and checked against code.</p>
+      {savedDiscovery && <section className="provider-review-card plan-saved-code-scope" aria-label="Saved code scope">
+        <div><strong>Code found for this question</strong><p>This scope matches the current snapshot and question. Source is reviewed again before generation.</p></div>
+        <ul>{savedDiscovery.selectedFiles.map((file) => <li key={file.path}><code>{file.path}</code><span>{file.reason}</span></li>)}</ul>
+        {savedDiscovery.limitation && <p className="provider-small-note">{savedDiscovery.limitation}</p>}
+        <button type="button" className="secondary-button" onClick={() => onPlan({ projectId, snapshotId, question: question.trim(), selectedPaths: [] })}>Find code again</button>
+      </section>}
       {formError && <p role="alert">{formError}</p>}
-      <button type="submit" className="primary-button" disabled={!native || locked || question.trim().length < 8}>Find code and build route <ArrowRight size={14} /></button>
+      <button type="submit" className="primary-button" disabled={!native || locked || question.trim().length < 8}>{savedDiscovery ? 'Build route with saved code' : 'Find code and build route'} <ArrowRight size={14} /></button>
     </form>
     <details className="plan-history" open={summaries.length + revisions.length > 0}><summary>Saved routes · {summaries.length + revisions.length}</summary>
     <div className="plan-saved-heading"><h3>Saved drafts</h3><button className="text-button" disabled={!native || loading || locked} onClick={() => { setError(null); void refresh(); }}><RefreshCw size={14} /> Refresh</button></div>
