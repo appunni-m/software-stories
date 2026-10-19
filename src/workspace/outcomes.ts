@@ -3,6 +3,14 @@ import type { Exploration, PublishedSection, Turn, WorkspaceState } from './mode
 const active = (turn: Turn) => turn.status === 'queued' || turn.status === 'working';
 const hasAnswer = (turn: Turn) => Boolean(turn.revisionId || turn.publishedSections?.length);
 
+/** Keep the History list scannable while retaining the exact original question on demand. */
+export function historyQuestionPreview(question: string, maxCodePoints = 120): string {
+  const text = question.replace(/\s+/g, ' ').trim();
+  const characters = Array.from(text);
+  const limit = Math.max(1, Math.floor(maxCodePoints));
+  return characters.length > limit ? `${characters.slice(0, limit - 1).join('')}…` : text;
+}
+
 /** A missing saved revision is unavailable only after the snapshot history read finishes. */
 export function savedAnswerAvailability(historyLoading: boolean, revisionAvailable: boolean): 'loading' | 'available' | 'unavailable' {
   if (historyLoading) return 'loading';

@@ -1,11 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { addTurn, createWorkspace, parseWorkspace } from '../src/workspace/model.ts';
-import { createQuestionOutcomeSelector, groupUnavailablePublishedSections, lastAvailableAnswerItemIndex, markQuestionOutcome, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
+import { createQuestionOutcomeSelector, groupUnavailablePublishedSections, historyQuestionPreview, lastAvailableAnswerItemIndex, markQuestionOutcome, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
 
 const turn = (id, status = 'failed', extra = {}) => ({ id, question: `Question ${id}`, context: [], status, ...extra });
 const stateWith = (...turns) => ({ ...createWorkspace('project', 'snapshot'), explorations: [{ ...createWorkspace('project', 'snapshot').explorations[0], turns }] });
 const patch = (state, id, values, now = 100) => recordQuestionOutcomes(state, { ...state, explorations: state.explorations.map((e) => ({ ...e, turns: e.turns.map((t) => t.id === id ? { ...t, ...values } : t) })) }, now);
+
+test('History shows a compact question preview and preserves the exact question in a collapsed disclosure', () => {
+  const question = '  Explain how\nFont::memory_face selects a format. ';
+  assert.equal(historyQuestionPreview(question), 'Explain how Font::memory_face selects a format.');
+  const long = `🧭${'a'.repeat(120)}`;
+  const preview = historyQuestionPreview(long);
+  assert.equal(Array.from(preview).length, 120);
+  assert.ok(preview.endsWith('…'));
+  const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+  assert.match(source, /<details className="dw-history-question"><summary><strong>\{historyQuestionPreview\(turn\.question\)\}<\/strong><\/summary><p>\{turn\.question\}<\/p><\/details>/);
+});
 
 test('Guide hides old empty outcomes while retaining all saved, active and selected questions', () => {
   const state = stateWith(...['failed', 'stopped', 'interrupted', 'partial'].map((status) => turn(status, status)),
