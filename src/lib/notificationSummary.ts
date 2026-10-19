@@ -29,6 +29,13 @@ export function notificationGroupKey(...parts: string[]): string {
   return JSON.stringify(parts.map((part) => part.normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase()));
 }
 
+/** Keep notification rows scannable while leaving the full question available from its action. */
+export function briefNotificationText(value: string, limit = 220): string {
+  const text = value.replace(/\s+/g, ' ').trim();
+  const characters = Array.from(text);
+  return characters.length > limit ? `${characters.slice(0, limit - 1).join('')}…` : text;
+}
+
 /** Group display rows without changing their persisted identities or actions. */
 export function groupNotifications<T extends NotificationGroupingItem>(items: readonly T[]): NotificationGroup<T>[] {
   const grouped = new Map<string, T[]>();
@@ -112,20 +119,14 @@ const interruptedPurpose = {
   fileChapter: 'File explanation', repositoryOverview: 'Repository guide', sectionUpdate: 'Section update',
   codeLensExplanation: 'Selected code', prGuide: 'Change guide', prChangeExplanation: 'Changed code', repositoryPlan: 'Repository question',
 };
-const brief = (value: string, limit = 220) => {
-  const text = value.replace(/\s+/g, ' ').trim();
-  const characters = Array.from(text);
-  return characters.length > limit ? `${characters.slice(0, limit - 1).join('')}…` : text;
-};
-
 /** Describe saved work with user context; never render journal/provider identifiers. */
 export function interruptedNotificationMessage(operation: InterruptedOperation, projectName?: string): string {
-  const repository = brief(projectName?.trim() || 'Other repository', 80);
+  const repository = briefNotificationText(projectName?.trim() || 'Other repository', 80);
   if (operation.kind === 'capture') return `${repository} · You can keep reading the previous version or try the update again.`;
   const question = operation.providerRequest?.repositoryPlan?.question;
   const purpose = operation.providerRequest?.purpose;
   const context = question?.trim() || operation.targetPath?.trim() || (purpose && interruptedPurpose[purpose]) || 'Unfinished explanation';
-  return `${repository} · ${brief(context)}`;
+  return `${repository} · ${briefNotificationText(context)}`;
 }
 
 /** Prefer the exact question when the recovery record retains it; otherwise
@@ -149,5 +150,5 @@ export function sortInterruptedOperations(
 }
 
 export function previewNotificationMessage(preview: PendingChapterPreviewSummary, projectName?: string): string {
-  return [brief(projectName?.trim() || 'Other repository', 80), brief(preview.title), preview.targetPath ? brief(preview.targetPath) : ''].filter(Boolean).join(' · ');
+  return [briefNotificationText(projectName?.trim() || 'Other repository', 80), briefNotificationText(preview.title), preview.targetPath ? briefNotificationText(preview.targetPath) : ''].filter(Boolean).join(' · ');
 }

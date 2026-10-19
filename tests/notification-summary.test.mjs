@@ -1,12 +1,21 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
-import { groupNotifications, interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, notificationSummary, partitionNotificationGroups, previewNotificationMessage, sortInterruptedOperations, workspaceAnswerAvailability } from '../src/lib/notificationSummary.ts';
+import { briefNotificationText, groupNotifications, interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, notificationSummary, partitionNotificationGroups, previewNotificationMessage, sortInterruptedOperations, workspaceAnswerAvailability } from '../src/lib/notificationSummary.ts';
 
 const ready = { startupComplete: true, workspaceReady: true, answers: 'ready', refreshing: false, unavailable: false };
 const unread = Array.from({ length: 34 }, () => ({}));
 
 describe('notification totals', () => {
+  it('keeps question previews compact, whitespace-normalized and Unicode-safe', () => {
+    assert.equal(briefNotificationText('  What\n happens\t next?  '), 'What happens next?');
+    const long = `${'a'.repeat(138)}😀${'b'.repeat(8)}`;
+    const shortened = briefNotificationText(long, 140);
+    assert.equal(Array.from(shortened).length, 140);
+    assert.equal(shortened.endsWith('…'), true);
+    assert.equal(shortened.includes('😀'), true);
+  });
+
   it('keeps current-snapshot and global notifications visible and collapses older scopes without losing actions', () => {
     const currentAction = () => 'current';
     const olderAction = () => 'older';

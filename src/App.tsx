@@ -13,7 +13,7 @@ import { markQuestionOutcome, openWorkspaceQuestion, withSavedAnswerAvailability
 import { WorkspaceFrame } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
 import { startupProjectToRestore } from './lib/startupProjectRestore';
-import { interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, previewNotificationMessage, sortInterruptedOperations, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
+import { briefNotificationText, interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, previewNotificationMessage, sortInterruptedOperations, workspaceAnswerAvailability, type WorkspaceAnswerRestoration } from './lib/notificationSummary';
 import { LatestLocalRead } from './lib/latestLocalRead';
 import { requiresBoundedFileExplanation } from './lib/largeFileExplanation';
 import { readFileLocation, rememberFileLocation } from './lib/workspacePreferences';
@@ -1454,7 +1454,7 @@ function App() {
   const workspaceNotifications: WorkspaceNotification[] = [
     ...visibleQuestionUpdates.map((outcome): WorkspaceNotification => ({
       id: `question:${outcome.turnId}`, projectId: currentProject?.projectId, snapshotId: selectedSnapshot?.snapshotId, title: outcome.title,
-      message: `${currentProject?.displayName ?? 'Repository'} · ${outcome.question}`,
+      message: `${currentProject?.displayName ?? 'Repository'} · ${briefNotificationText(outcome.question, 140)}`,
       groupKey: currentProject && selectedSnapshot ? notificationGroupKey('question', currentProject.projectId, selectedSnapshot.snapshotId, outcome.question) : undefined,
       bucket: notificationBucketForOutcome(outcome.tone), groupBucket: notificationBucketForOutcome(outcome.tone), countLabel: 'attempts',
       read: outcome.read, tone: outcome.tone,
