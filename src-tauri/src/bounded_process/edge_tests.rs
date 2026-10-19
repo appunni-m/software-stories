@@ -144,3 +144,141 @@ fn overflowing_reads_never_append_bytes_past_the_retained_cap() {
     assert_eq!(bytes, b"xx");
     assert!(!eof);
 }
+
+struct FailedReader(io::ErrorKind);
+
+impl Read for FailedReader {
+    fn read(&mut self, _buffer: &mut [u8]) -> io::Result<usize> {
+        Err(io::Error::from(self.0))
+    }
+}
+
+#[test]
+fn read_errors_are_typed_without_changing_retained_output() {
+    let mut reader = FailedReader(io::ErrorKind::PermissionDenied);
+    let mut bytes = b"previous output".to_vec();
+    let mut eof = false;
+    let error = read_chunk(&mut reader, &mut bytes, &mut eof, 128).unwrap_err();
+    assert!(matches!(error, RunError::Read(error) if error.kind() == io::ErrorKind::PermissionDenied));
+    assert_eq!(bytes, b"previous output");
+    assert!(!eof);
+}
+
+struct ZeroWriter;
+
+impl Write for ZeroWriter {
+    fn write(&mut self, _buffer: &[u8]) -> io::Result<usize> {
+        Ok(0)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+struct FailedWriter(io::ErrorKind);
+
+impl Write for FailedWriter {
+    fn write(&mut self, _buffer: &[u8]) -> io::Result<usize> {
+        Err(io::Error::from(self.0))
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+struct TransientWriter {
+    calls: usize,
+    bytes: Vec<u8>,
+}
+
+impl Write for TransientWriter {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        self.calls += 1;
+        match self.calls {
+            1 => Err(io::ErrorKind::WouldBlock.into()),
+            2 => Err(io::ErrorKind::Interrupted.into()),
+            _ => {
+                let count = buffer.len().min(3);
+                self.bytes.extend_from_slice(&buffer[..count]);
+                Ok(count)
+            }
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
+fn write_zero_and_os_errors_are_typed_without_advancing_input() {
+    let input = b"pending input";
+    let mut written = 0;
+    assert!(matches!(
+        write_chunk(&mut ZeroWriter, input, &mut written),
+        Err(RunError::Write(error)) if error.kind() == io::ErrorKind::WriteZero
+    ));
+    assert_eq!(written, 0);
+
+    assert!(matches!(
+        write_chunk(
+            &mut FailedWriter(io::ErrorKind::PermissionDenied),
+            input,
+            &mut written
+        ),
+        Err(RunError::Write(error)) if error.kind() == io::ErrorKind::PermissionDenied
+    ));
+    assert_eq!(written, 0);
+}
+
+#[test]
+fn transient_and_partial_writes_preserve_the_input_cursor() {
+    let input = b"partial input progresses";
+    let mut writer = TransientWriter {
+        calls: 0,
+        bytes: Vec::new(),
+    };
+    let mut written = 0;
+
+    assert!(!write_chunk(&mut writer, input, &mut written).unwrap());
+    assert!(!write_chunk(&mut writer, input, &mut written).unwrap());
+    assert_eq!(written, 0);
+
+    while written < input.len() {
+        assert!(write_chunk(&mut writer, input, &mut written).unwrap());
+    }
+    assert_eq!(writer.bytes, input);
+    assert_eq!(written, input.len());
+}
+
+#[test]
+fn externally_reaped_child_is_marked_unowned_before_drop() {
+    let child = shell("exit 0").spawn().unwrap();
+    let pid = child.id() as libc::pid_t;
+    let deadline = Instant::now() + Duration::from_secs(1);
+    loop {
+        let mut status = 0;
+        // SAFETY: pid is the live child just spawned above; this test models a
+        // competing waiter that reaps it before RunningChild polls the handle.
+        let waited = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
+        if waited == pid {
+            break;
+        }
+        assert!(waited == 0, "waitpid failed: {}", io::Error::last_os_error());
+        assert!(Instant::now() < deadline, "the test child did not exit");
+        thread::sleep(Duration::from_millis(1));
+    }
+
+    let mut running = RunningChild {
+        child,
+        reaped: false,
+    };
+    let error = running.poll().unwrap_err();
+    assert!(matches!(
+        error,
+        RunError::Wait(error) if error.raw_os_error() == Some(libc::ECHILD)
+    ));
+    assert!(running.reaped);
+}

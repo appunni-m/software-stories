@@ -154,25 +154,7 @@ pub(crate) fn run(
             limits.stderr_bytes,
         )?;
         if let Some(pipe) = stdin.as_mut() {
-            let end = written.saturating_add(PIPE_CHUNK_BYTES).min(input.len());
-            match pipe.write(&input[written..end]) {
-                Ok(0) => {
-                    return Err(RunError::Write(io::Error::new(
-                        io::ErrorKind::WriteZero,
-                        "Git stdin stopped accepting input",
-                    )));
-                }
-                Ok(count) => {
-                    written += count;
-                    progressed = true;
-                }
-                Err(error)
-                    if matches!(
-                        error.kind(),
-                        io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
-                    ) => {}
-                Err(error) => return Err(RunError::Write(error)),
-            }
+            progressed |= write_chunk(pipe, &input, &mut written)?;
             if written == input.len() {
                 stdin = None;
             }
@@ -219,6 +201,37 @@ fn check_control(cancel: Option<&AtomicBool>, deadline: Instant) -> Result<(), R
         return Err(RunError::TimedOut);
     }
     Ok(())
+}
+
+#[cfg(unix)]
+fn write_chunk(
+    writer: &mut impl Write,
+    input: &[u8],
+    written: &mut usize,
+) -> Result<bool, RunError> {
+    if *written == input.len() {
+        return Ok(false);
+    }
+    let end = written.saturating_add(PIPE_CHUNK_BYTES).min(input.len());
+    match writer.write(&input[*written..end]) {
+        Ok(0) => Err(RunError::Write(io::Error::new(
+            io::ErrorKind::WriteZero,
+            "Git stdin stopped accepting input",
+        ))),
+        Ok(count) => {
+            *written += count;
+            Ok(true)
+        }
+        Err(error)
+            if matches!(
+                error.kind(),
+                io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+            ) =>
+        {
+            Ok(false)
+        }
+        Err(error) => Err(RunError::Write(error)),
+    }
 }
 
 #[cfg(unix)]
