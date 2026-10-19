@@ -476,7 +476,7 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
               {node.detail&&<small>{node.detail}</small>}
               <span className="dw-linear-flow-source"><Code2 size={13}/>{sourceLabel}<ArrowRight size={13}/></span>
             </button>
-            {next&&<div className="dw-linear-flow-edge" aria-label={next.label?`Then: ${next.label}`:'Then'}><ArrowDown size={15}/><span>{next.label||'Then'}</span></div>}
+            {next&&<div className="dw-linear-flow-edge"><ArrowDown size={15}/><span>{next.label||'Then'}</span></div>}
           </li>;
         })}
       </ol>
