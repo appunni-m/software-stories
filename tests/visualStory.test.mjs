@@ -29,6 +29,7 @@ describe('visual story scenes', () => {
 
   it('keeps graph node labels readable at word boundaries before breaking long identifiers', () => {
     const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
+    const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
     const nodeRule = styles.match(/\.visual-story \.react-flow__node\s*\{([^}]+)\}/u)?.[1] ?? '';
     const buttonRule = styles.match(/\.visual-story \.story-node-button\s*\{([^}]+)\}/u)?.[1] ?? '';
     for (const rule of [nodeRule, buttonRule]) {
@@ -37,6 +38,10 @@ describe('visual story scenes', () => {
       assert.doesNotMatch(rule, /overflow-wrap:\s*anywhere/u);
     }
     assert.match(buttonRule, /white-space:\s*normal/u);
+    assert.match(component, /className="story-node-detail">\{data\.detail\}/u);
+    const detailRule = styles.match(/\.visual-story \.story-node-detail\s*\{([^}]+)\}/u)?.[1] ?? '';
+    assert.match(detailRule, /-webkit-line-clamp:\s*2/u);
+    assert.match(detailRule, /color:\s*var\(--text\)/u);
   });
 
   it('keeps authored speech without a visual whole, with every claim source still reachable', () => {

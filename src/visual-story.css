@@ -17,6 +17,8 @@
 .visual-story .story-node-focus { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
 .visual-story .story-node-context { border-style: dashed; color: var(--muted); }
 .visual-story .story-node-button { box-sizing: border-box; border: 0; background: transparent; color: inherit; width: 100%; max-width: 100%; padding: 0; text-align: center; white-space: normal; font: inherit; overflow-wrap: break-word; word-break: normal; }
+.visual-story .story-node-title { display: block; }
+.visual-story .story-node-detail { display: -webkit-box; margin-top: 5px; overflow: hidden; color: var(--text); opacity: .82; font: 400 11px/1.45 -apple-system, BlinkMacSystemFont, sans-serif; overflow-wrap: break-word; word-break: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .visual-story .story-edge-active path { stroke: var(--accent); stroke-width: 2; }
 .visual-story .react-flow__edge-text { font-size: 11px; }
 .story-focus-bar { min-height: 44px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 7px 12px; border-top: 1px solid var(--border); }
