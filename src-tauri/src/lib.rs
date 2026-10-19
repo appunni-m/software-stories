@@ -2301,7 +2301,7 @@ mod chapter_pipeline_tests {
         assert!(review.user_prompt.contains("joins every scene narration in claim order"));
         assert!(!review.user_prompt.contains("one to three"));
         assert!(!review.user_prompt.contains("sentences copied verbatim from that section's anchored claims"));
-        assert!(review.system_instruction.contains("Teaching policy v8:"));
+        assert!(review.system_instruction.contains("Teaching policy v9:"));
         assert!(review.system_instruction.contains("an example alone cannot replace the rule"));
     }
 
