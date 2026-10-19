@@ -8,6 +8,10 @@
 .notification-panel-header { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
 .notification-empty { margin: 0; padding: 24px 16px; color: var(--muted); }
 .notification-list { list-style: none; padding: 0; margin: 0; }
+.notification-other-repositories { border-top: 1px solid var(--border); }
+.notification-other-repositories > details > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; color: var(--muted); cursor: pointer; }
+.notification-other-repositories > details > summary span { border-radius: 999px; padding: 1px 7px; background: var(--surface-hover); color: var(--muted); font: 500 11px/1.5 system-ui, sans-serif; }
+.notification-other-repositories > details > .notification-list { border-top: 1px solid var(--border); }
 .notification-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 16px 7px; border-bottom: 1px solid var(--border); color: var(--muted); }
 .notification-section-heading h3 { margin: 0; color: var(--text); font: 600 12px/1.4 system-ui, sans-serif; }
 .notification-section-heading span, .notification-group-count, .notification-read { border-radius: 999px; padding: 1px 7px; background: var(--surface-hover); color: var(--muted); font: 500 11px/1.5 system-ui, sans-serif; white-space: nowrap; }

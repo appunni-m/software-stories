@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
 import * as Popover from '@radix-ui/react-popover';
 import { Bell, CircleAlert, Info, X } from 'lucide-react';
-import { groupNotifications, notificationSummary, type NotificationAvailability, type NotificationBucket } from './lib/notificationSummary';
+import { groupNotifications, notificationSummary, splitNotificationGroupsByProject, type NotificationAvailability, type NotificationBucket } from './lib/notificationSummary';
 import './NotificationCenter.css';
 
 export interface WorkspaceNotification {
   id: string;
+  projectId?: string;
   title: string;
   message: string;
   tone?: 'info' | 'warning' | 'error';
@@ -19,8 +20,8 @@ export interface WorkspaceNotification {
 }
 
 /** Background work never opens this panel or moves the reader's focus. */
-export function NotificationCenter({ items, availability = 'ready', open: controlledOpen, onOpenChange }: {
-  items: WorkspaceNotification[]; availability?: NotificationAvailability; open?: boolean; onOpenChange?: (open: boolean) => void;
+export function NotificationCenter({ items, availability = 'ready', currentProjectId, open: controlledOpen, onOpenChange }: {
+  items: WorkspaceNotification[]; availability?: NotificationAvailability; currentProjectId?: string; open?: boolean; onOpenChange?: (open: boolean) => void;
 }) {
   const [localOpen, setLocalOpen] = useState(false);
   const open = controlledOpen ?? localOpen;
@@ -29,8 +30,11 @@ export function NotificationCenter({ items, availability = 'ready', open: contro
   const trigger = useRef<HTMLButtonElement>(null);
   const summary = notificationSummary(items, availability);
   const groups = groupNotifications(items);
-  const attentionGroups = groups.filter((group) => group.bucket === 'attention');
-  const updateGroups = groups.filter((group) => group.bucket === 'updates');
+  const scopedGroups = splitNotificationGroupsByProject(groups, currentProjectId);
+  const attentionGroups = scopedGroups.current.filter((group) => group.bucket === 'attention');
+  const updateGroups = scopedGroups.current.filter((group) => group.bucket === 'updates');
+  const otherAttentionGroups = scopedGroups.other.filter((group) => group.bucket === 'attention');
+  const otherUpdateGroups = scopedGroups.other.filter((group) => group.bucket === 'updates');
   const renderActions = (item: WorkspaceNotification) => item.actions?.length ? <div className="notification-item-actions">{item.actions.map((action) => <button type="button" key={action.label} disabled={action.disabled} onClick={() => {
     actionOpened.current = Boolean(action.opensDialog || action.movesFocus);
     setOpen(false);
@@ -83,6 +87,13 @@ export function NotificationCenter({ items, availability = 'ready', open: contro
         {groups.length === 0 ? availability === 'ready' && <p className="notification-empty">You’re all caught up.</p> : <ul className="notification-list">
           {renderSection('Needs attention', attentionGroups)}
           {renderSection('Recent updates', updateGroups)}
+          {scopedGroups.other.length > 0 && <li className="notification-other-repositories"><details>
+            <summary>Other repositories <span>{scopedGroups.other.length}</span></summary>
+            <ul className="notification-list">
+              {renderSection('Needs attention', otherAttentionGroups)}
+              {renderSection('Recent updates', otherUpdateGroups)}
+            </ul>
+          </details></li>}
         </ul>}
       </Popover.Content>
     </Popover.Portal>

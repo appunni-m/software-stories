@@ -1453,7 +1453,7 @@ function App() {
 
   const workspaceNotifications: WorkspaceNotification[] = [
     ...visibleQuestionUpdates.map((outcome): WorkspaceNotification => ({
-      id: `question:${outcome.turnId}`, title: outcome.title,
+      id: `question:${outcome.turnId}`, projectId: currentProject?.projectId, title: outcome.title,
       message: `${currentProject?.displayName ?? 'Repository'} · ${outcome.question}`,
       groupKey: currentProject && selectedSnapshot ? notificationGroupKey('question', currentProject.projectId, selectedSnapshot.snapshotId, outcome.question) : undefined,
       bucket: notificationBucketForOutcome(outcome.tone), groupBucket: notificationBucketForOutcome(outcome.tone), countLabel: 'attempts',
@@ -1466,7 +1466,7 @@ function App() {
         if (currentProject && selectedSnapshot) updateWorkspace(currentProject.projectId,selectedSnapshot.snapshotId,(s)=>markQuestionOutcome(s,outcome.explorationId,outcome.turnId,outcome.key,'dismissed'));
       } }],
     })),
-    ...(answerAvailability === 'unavailable' ? [{ id: 'answers-unavailable', title: 'Saved answers could not be loaded',
+    ...(answerAvailability === 'unavailable' ? [{ id: 'answers-unavailable', projectId: currentProject?.projectId, title: 'Saved answers could not be loaded',
       message: 'Your saved explanations are still here. Try loading them again.', tone: 'error' as const, bucket: 'attention' as const,
       actions: [{ label: 'Try again', run: () => {
         const projectId = currentProject?.projectId;
@@ -1487,7 +1487,7 @@ function App() {
       message:'Existing explanations have not been discarded. Try again to load or save these updates.',tone:'warning' as const,bucket:'attention' as const,
       actions:[{label:'Try again',run:()=>noticeHistory.retry()}]}]:[]),
     ...noticeHistoryState.items.map((item):WorkspaceNotification=>({
-      id:`app-notice:${item.id}`,title:item.input.title,tone:item.input.tone,read:item.read,
+      id:`app-notice:${item.id}`,projectId:item.input.projectId??undefined,title:item.input.title,tone:item.input.tone,read:item.read,
       groupKey:notificationGroupKey('saved-notice',item.input.projectId??'global',item.input.snapshotId??'',item.input.title,item.input.message,JSON.stringify(item.input.target??null)),
       bucket:item.read?'updates':'attention',countLabel:'notices',
       message:`${item.input.projectId?`${knownProjects[item.input.projectId]?.displayName??'Saved repository'} · `:''}${item.input.message}`,
@@ -1501,7 +1501,7 @@ function App() {
       bucket: 'attention' as const,
       actions: [{ label: 'Try again', run: () => { void refreshInterruptedOperations(); } }] }] : []),
     ...sortInterruptedOperations(interruptedOperations,currentProject?.projectId).map((operation): WorkspaceNotification => ({
-      id: `interrupted:${operation.operationId}`, tone: 'warning',
+      id: `interrupted:${operation.operationId}`, projectId: operation.projectId, tone: 'warning',
       bucket: 'attention', groupKey: interruptedNotificationGroupKey(operation),
       countLabel: operation.providerRequest?.repositoryPlan?.question ? 'attempts' : 'recoveries',
       detail: `Started ${new Date(operation.startedAtUnixMs).toLocaleString()}`,
@@ -1515,7 +1515,7 @@ function App() {
       bucket: 'attention' as const,
       actions: [{ label: 'Try again', run: () => { void refreshPendingChapterPreviews(); } }] }] : []),
     ...pendingChapterPreviews.map((preview): WorkspaceNotification => ({
-      id: `preview:${preview.generationId}`, title: preview.unavailableReason ? 'An explanation needs attention' : 'An explanation is ready',
+      id: `preview:${preview.generationId}`, projectId: preview.projectId ?? undefined, title: preview.unavailableReason ? 'An explanation needs attention' : 'An explanation is ready',
       groupKey: preview.projectId && preview.snapshotId ? notificationGroupKey('preview',preview.projectId,preview.snapshotId,preview.title,preview.targetPath??'',preview.unavailableReason?'unavailable':'ready') : undefined,
       bucket: notificationBucketForOutcome(preview.unavailableReason ? 'warning' : 'info'), countLabel: 'drafts',
       message: previewNotificationMessage(preview, preview.projectId ? knownProjects[preview.projectId]?.displayName : undefined), tone: preview.unavailableReason ? 'warning' : 'info',
@@ -1642,6 +1642,7 @@ function App() {
           <ConnectionHeader onOpen={openProviderSettings} />
           <ThemeControl />
           <NotificationCenter items={workspaceNotifications}
+            currentProjectId={currentProject?.projectId}
             availability={notificationAvailability({ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready',
               answers: answerAvailability, notices:noticeHistoryState.availability,
               refreshing: interruptionRefreshing || previewRefreshing, unavailable: interruptedOperationsUnavailable || pendingChapterPreviewsUnavailable })}

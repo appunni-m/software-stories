@@ -7,6 +7,7 @@ export function notificationBucketForOutcome(tone: 'info' | 'warning' | 'error')
 }
 export interface NotificationGroupingItem {
   id: string;
+  projectId?: string;
   groupKey?: string;
   bucket?: NotificationBucket;
   /** Overrides mixed historical severities when the caller knows the group's current state. */
@@ -44,6 +45,24 @@ export function groupNotifications<T extends NotificationGroupingItem>(items: re
     unreadCount: entries.filter((item) => item.read === false).length,
     items: entries,
   }));
+}
+
+/** Keep the selected repository's work visible and retain all other
+ * repository notifications under one collapsed panel section. Global items
+ * stay visible because they describe the app rather than another repository. */
+export function splitNotificationGroupsByProject<T extends NotificationGroupingItem>(
+  groups: readonly NotificationGroup<T>[],
+  selectedProjectId?: string,
+): { current: NotificationGroup<T>[]; other: NotificationGroup<T>[] } {
+  if (!selectedProjectId) return { current: [...groups], other: [] };
+  const current: NotificationGroup<T>[] = [];
+  const other: NotificationGroup<T>[] = [];
+  for (const group of groups) {
+    const belongsToOtherProject = group.items.length > 0
+      && group.items.every((item) => item.projectId !== undefined && item.projectId !== selectedProjectId);
+    (belongsToOtherProject ? other : current).push(group);
+  }
+  return { current, other };
 }
 
 export interface WorkspaceAnswerRestoration {

@@ -1,12 +1,29 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
-import { groupNotifications, interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, notificationSummary, previewNotificationMessage, sortInterruptedOperations, workspaceAnswerAvailability } from '../src/lib/notificationSummary.ts';
+import { groupNotifications, interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, notificationSummary, previewNotificationMessage, sortInterruptedOperations, splitNotificationGroupsByProject, workspaceAnswerAvailability } from '../src/lib/notificationSummary.ts';
 
 const ready = { startupComplete: true, workspaceReady: true, answers: 'ready', refreshing: false, unavailable: false };
 const unread = Array.from({ length: 34 }, () => ({}));
 
 describe('notification totals', () => {
+  it('keeps selected-project and global notifications visible and collapses other projects without losing actions', () => {
+    const currentAction = () => 'current';
+    const otherAction = () => 'other';
+    const groups = groupNotifications([
+      { id: 'current', projectId: 'fontdone', groupKey: 'current', bucket: 'attention', action: currentAction },
+      { id: 'other', projectId: 'pillow-rs', groupKey: 'other', bucket: 'attention', action: otherAction },
+      { id: 'global', groupKey: 'global', bucket: 'attention' },
+    ]);
+    const split = splitNotificationGroupsByProject(groups, 'fontdone');
+    assert.deepEqual(split.current.map((group) => group.id), ['current', 'global']);
+    assert.deepEqual(split.other.map((group) => group.id), ['other']);
+    assert.equal(split.current[0].items[0].action(), 'current');
+    assert.equal(split.other[0].items[0].action(), 'other');
+    assert.deepEqual(splitNotificationGroupsByProject(groups).other, []);
+    assert.deepEqual(splitNotificationGroupsByProject(groups).current, groups);
+  });
+
   it('groups repeated question outcomes without losing attempt identities or actions', () => {
     const latest = { id: 'turn-2', groupKey: notificationGroupKey('question', 'repo', 'snap', '  Explain   cart totals '), bucket: 'attention', countLabel: 'attempts', read: false, action: () => 'latest' };
     const earlier = { id: 'turn-1', groupKey: notificationGroupKey('question', 'repo', 'snap', 'explain cart totals'), bucket: 'updates', countLabel: 'attempts', read: true, action: () => 'earlier' };
@@ -166,6 +183,8 @@ describe('notification totals', () => {
     assert.match(component, /groups.length === 0 \? availability === 'ready' &&/);
     assert.match(component, /renderSection\('Needs attention', attentionGroups\)/);
     assert.match(component, /renderSection\('Recent updates', updateGroups\)/);
+    assert.match(component, /splitNotificationGroupsByProject\(groups, currentProjectId\)/);
+    assert.match(component, /Other repositories/);
     assert.match(component, /Show \{earlier.length\} earlier \{group.countLabel\}/);
     assert.match(component, /modal=\{false\}/);
     assert.match(app, /availability=\{notificationAvailability\(\{ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready'/);
