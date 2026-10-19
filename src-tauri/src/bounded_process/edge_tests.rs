@@ -1,6 +1,7 @@
 use super::*;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 fn limits() -> Limits {
     Limits {
@@ -330,6 +331,51 @@ fn broken_stdin_pipe_returns_a_write_error_after_reaping_the_child() {
     let mut status = 0;
     // SAFETY: pid was written by the child process just spawned by this test.
     // run() owns and must reap it before returning the broken-pipe error.
+    let waited = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
+    assert_eq!(waited, -1);
+    assert_eq!(
+        io::Error::last_os_error().raw_os_error(),
+        Some(libc::ECHILD)
+    );
+}
+
+#[test]
+fn cancellation_returns_only_after_the_owned_child_is_reaped() {
+    let directory = TestDirectory(
+        PathBuf::from("/tmp").join(format!("ca-cancel-child-{}", uuid::Uuid::new_v4())),
+    );
+    fs::create_dir(&directory.0).unwrap();
+    let pid_path = directory.0.join("child-pid");
+    let mut command = shell(r#"printf '%s' "$$" > "$1"; exec /bin/sleep 10"#);
+    command.arg("cancel-fixture").arg(&pid_path);
+
+    let cancel = Arc::new(AtomicBool::new(false));
+    let signal = Arc::clone(&cancel);
+    let ready_path = pid_path.clone();
+    let cancellation = thread::spawn(move || {
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while !ready_path.exists() && Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(2));
+        }
+        assert!(ready_path.exists(), "the child did not report readiness");
+        thread::sleep(Duration::from_millis(20));
+        signal.store(true, Ordering::Release);
+    });
+
+    let mut run_limits = limits();
+    run_limits.command_timeout = Duration::from_secs(5);
+    run_limits.operation_deadline = Instant::now() + Duration::from_secs(6);
+    let result = run(&mut command, None, run_limits, Some(&cancel));
+    cancellation.join().unwrap();
+    let pid = fs::read_to_string(&pid_path)
+        .expect("the child records its PID before sleeping")
+        .parse::<libc::pid_t>()
+        .unwrap();
+
+    assert!(matches!(result, Err(RunError::Cancelled)));
+    let mut status = 0;
+    // SAFETY: pid was written by the child process just spawned by this test.
+    // run() must terminate and reap it before returning cancellation.
     let waited = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
     assert_eq!(waited, -1);
     assert_eq!(
