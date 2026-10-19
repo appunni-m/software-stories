@@ -134,6 +134,19 @@
 .dw-flow-canvas .react-flow__node small {display:block;font-size:11px;line-height:1.6;color:var(--muted);margin-top:6px;}
 .dw-flow-source {display:block;width:100%;min-height:32px;padding:2px;border:0;background:transparent;color:inherit;font:inherit;text-align:inherit;cursor:pointer;}
 .dw-flow-source:focus-visible {outline:2px solid var(--accent);outline-offset:5px;border-radius:3px;}
+.dw-linear-flow {list-style:none;max-width:760px;margin:16px auto 28px;padding:0;}
+.dw-linear-flow-item {display:grid;justify-items:center;}
+.dw-linear-flow-step {display:grid;gap:7px;width:min(100%,680px);min-width:0;padding:14px 16px;border:1px solid var(--border-strong);border-radius:9px;background:var(--surface-raised);color:var(--text);text-align:left;cursor:pointer;}
+.dw-linear-flow-step:hover {border-color:var(--accent);background:var(--surface-hover);}
+.dw-linear-flow-step:focus-visible {outline:2px solid var(--accent);outline-offset:3px;}
+.dw-linear-flow-index {color:var(--accent);font:11px/1.4 var(--mono);text-transform:uppercase;letter-spacing:.04em;}
+.dw-linear-flow-step strong {min-width:0;font-size:14px;line-height:1.5;font-weight:600;overflow-wrap:break-word;}
+.dw-linear-flow-step small {min-width:0;color:var(--muted);font-size:12px;line-height:1.6;overflow-wrap:break-word;}
+.dw-linear-flow-source {display:flex;align-items:center;gap:7px;min-width:0;margin-top:3px;color:var(--accent);font:11px/1.5 var(--mono);overflow-wrap:anywhere;}
+.dw-linear-flow-source svg:last-child {margin-left:auto;flex:0 0 auto;}
+.dw-linear-flow-edge {display:flex;align-items:center;gap:8px;max-width:100%;padding:8px 12px;color:var(--muted);font-size:12px;line-height:1.5;}
+.dw-linear-flow-edge svg {flex:0 0 auto;color:var(--accent);}
+.dw-linear-flow-edge span {overflow-wrap:anywhere;}
 .dw-flow-conversation {margin-top:24px;}
 .dw-history section {margin-bottom:20px;}
 .dw-history-level {display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:var(--muted);padding:6px 0;font-size:12px;text-align:left;cursor:pointer;}

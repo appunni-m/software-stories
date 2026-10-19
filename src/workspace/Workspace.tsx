@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { Badge, Button, Dialog, Flex, IconButton, Tabs, TextField, Theme, Tooltip, useThemeContext } from '@radix-ui/themes';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { Background, Controls, MarkerType, ReactFlow } from '@xyflow/react';
-import { ArrowLeft, ArrowRight, ArrowUp, BookOpen, ChevronRight, Code2, FileCode2, Files, GitBranch, GitCommitHorizontal, History, LoaderCircle, MessageSquare, Network, Paperclip, Pencil, Play, Search, ShieldCheck, Square, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, ChevronRight, Code2, FileCode2, Files, GitBranch, GitCommitHorizontal, History, LoaderCircle, MessageSquare, Network, Paperclip, Pencil, Play, Search, ShieldCheck, Square, X } from 'lucide-react';
 import { CodePane } from '../design/CodePane';
 import { FileFlow } from '../FileFlow';
 import { VisualStory } from '../VisualStory';
@@ -25,6 +25,7 @@ import { listWorkspaceCommits } from '../lib/commands';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, resolveAnswerRevision } from './answerVersions';
 import type { GitCommit } from '../lib/gitHistory';
 import { searchCapturedSource, searchExploration, shouldOfferExploreWithAI, workspaceSearchResults, type CodeSearchMode } from './codeSearch';
+import { linearFlowSteps } from './flowPresentation';
 import { WorkspaceExplorer } from './WorkspaceExplorer';
 import './workspace.css';
 
@@ -450,6 +451,7 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
   const identity={revisionId:revision.revisionId,sectionId:revision.sections[selected].sectionId,sectionRevisionId:revision.sections[selected].sectionRevisionId};
   const viewport=progress?.find(p=>sameSection(p,identity))?.viewport;
   const {visual,anchorsById}=result;
+  const linearSteps=linearFlowSteps(visual);
   const horizontal=visual.layoutHint.direction==='leftToRight';
   const nodes=visual.nodes.map((n,i)=>{
     const anchor=n.evidenceAnchorIds[0]?anchorsById.get(n.evidenceAnchorIds[0]):undefined;
@@ -458,5 +460,28 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
       data:{label:anchor?<button type="button" className="dw-flow-source nodrag nopan" aria-label={`Open source for ${n.label}`} onClick={()=>onOpen(anchor)}>{label}</button>:label},style:{width:250}};
   });
   const edges=visual.edges.map((e)=>({id:e.edgeId,source:e.fromNodeId,target:e.toNodeId,label:e.label??undefined,markerEnd:{type:MarkerType.ArrowClosed}}));
-  return <section className="dw-flow-panel"><div className="dw-flow-heading"><h2>{visual.title}</h2>{availableDiagramCount>1&&<select aria-label="Diagram section" value={selected} onChange={(e)=>{const section=revision.sections[Number(e.target.value)];if(section)onSection(section.sectionId);}}>{diagrams.map((d,i)=>d.status==='available'?<option key={i} value={i}>{revision.sections[i].title}</option>:null)}</select>}</div><p>Select a step to open its source.</p><div className="dw-flow-canvas"><ReactFlow key={`${revision.revisionId}:${selected}`} nodes={nodes} edges={edges} defaultViewport={viewport} fitView={!viewport} minZoom={.1} maxZoom={4} onMoveEnd={(_event,viewport)=>onProgress({...identity,viewport})} nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false} elementsSelectable={false} deleteKeyCode={null} colorMode={theme}><Background gap={20}/><Controls showInteractive={false}/></ReactFlow></div></section>;
+  return <section className="dw-flow-panel"><div className="dw-flow-heading"><h2>{visual.title}</h2>{availableDiagramCount>1&&<select aria-label="Diagram section" value={selected} onChange={(e)=>{const section=revision.sections[Number(e.target.value)];if(section)onSection(section.sectionId);}}>{diagrams.map((d,i)=>d.status==='available'?<option key={i} value={i}>{revision.sections[i].title}</option>:null)}</select>}</div>
+    {linearSteps ? <>
+      <p>Follow the steps in order. Select a step to open its source.</p>
+      <ol className="dw-linear-flow" aria-label={`Steps in ${visual.title}`}>
+        {linearSteps.map(({node, next}, index) => {
+          const anchor=anchorsById.get(node.evidenceAnchorIds[0]);
+          if (!anchor) return null;
+          const sourceLabel=`${anchor.path}:${anchor.startLine}${anchor.endLine===anchor.startLine?'':`–${anchor.endLine}`}`;
+          return <li className="dw-linear-flow-item" key={node.nodeId}>
+            <button type="button" className="dw-linear-flow-step" aria-label={`Step ${index+1}: ${node.label}. Open source ${sourceLabel}`} onClick={()=>onOpen(anchor)}>
+              <span className="dw-linear-flow-index">Step {index+1}</span>
+              <strong>{node.label}</strong>
+              {node.detail&&<small>{node.detail}</small>}
+              <span className="dw-linear-flow-source"><Code2 size={13}/>{sourceLabel}<ArrowRight size={13}/></span>
+            </button>
+            {next&&<div className="dw-linear-flow-edge" aria-label={next.label?`Then: ${next.label}`:'Then'}><ArrowDown size={15}/><span>{next.label||'Then'}</span></div>}
+          </li>;
+        })}
+      </ol>
+    </> : <>
+      <p>Select a step to open its source.</p>
+      <div className="dw-flow-canvas"><ReactFlow key={`${revision.revisionId}:${selected}`} nodes={nodes} edges={edges} defaultViewport={viewport} fitView={!viewport} minZoom={.1} maxZoom={4} onMoveEnd={(_event,viewport)=>onProgress({...identity,viewport})} nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false} elementsSelectable={false} deleteKeyCode={null} colorMode={theme}><Background gap={20}/><Controls showInteractive={false}/></ReactFlow></div>
+    </>}
+  </section>;
 }
