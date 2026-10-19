@@ -4,30 +4,50 @@ import type { SnapshotIndex } from './lib/commands';
 import type { SourceLineRange } from './lib/navigation';
 import type { ProvenGraphEdge } from './lib/atlas';
 import { codeLensRangeFromIndexedAnchor } from './lib/codeLens';
+import { edgesForFileFlowSymbol, focusedFileFlowSymbol } from './workspace/fileFlow';
+import type { Context } from './workspace/model';
 
 /** A focused view of verified static links, never a claimed execution trace. */
-export function FileFlow({ path, index, edges, loading, onOpenFile, showAll:storedShowAll, onShowAllChange }: {
+export function FileFlow({ path, index, edges, loading, onOpenFile, focus, showAll:storedShowAll, onShowAllChange }: {
   path: string | null;
   index: SnapshotIndex | null;
   edges: ProvenGraphEdge[];
   loading: boolean;
   onOpenFile: (path: string, snapshotId?: string, range?: SourceLineRange) => void;
+  focus?: Context | null;
   showAll?:boolean;
   onShowAllChange?:(showAll:boolean)=>void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [fileWideFocus, setFileWideFocus] = useState<string | null>(null);
   const showAll=storedShowAll??expanded;
-  useEffect(()=>setExpanded(false),[path]);
+  useEffect(()=>{setExpanded(false);setFileWideFocus(null);},[path,focus?.path,focus?.sha256,focus?.from,focus?.to]);
   const symbols = new Map(index?.symbols.map((symbol) => [symbol.symbolId, symbol]));
-  const linked = edges.filter((edge) => ['calls', 'imports', 'testReference'].includes(edge.relationship.kind)
+  const fileLinked = edges.filter((edge) => ['calls', 'imports', 'testReference'].includes(edge.relationship.kind)
     && (symbols.get(edge.sourceId)?.path === path || symbols.get(edge.targetId)?.path === path));
+  const focusedSymbol = focusedFileFlowSymbol(index?.symbols ?? [], path, focus ?? null);
+  const hasSourceSelection = !!focus && focus.path === path && (focus.from !== undefined || focus.to !== undefined);
+  const focusKey = `${focus?.path ?? ''}:${focus?.sha256 ?? ''}:${focus?.from ?? ''}:${focus?.to ?? ''}`;
+  const showingFileWide = !hasSourceSelection || fileWideFocus === focusKey;
+  const linked = showingFileWide
+    ? fileLinked
+    : focusedSymbol ? edgesForFileFlowSymbol(fileLinked, focusedSymbol) : [];
   const visible = showAll ? linked : linked.slice(0, 12);
-  return <section className="file-flow" aria-label="Code flow for selected file">
-    <h2>Follow the code</h2>
-    <p className="file-flow-note">Static calls, imports, and test references. Click a node to open its source.</p>
+  return <section className="file-flow" aria-label={focusedSymbol && !showingFileWide ? `Code flow for ${focusedSymbol.name}` : 'Code flow for selected file'}>
+    <h2>{focusedSymbol && !showingFileWide ? `Follow ${focusedSymbol.name}` : hasSourceSelection && !showingFileWide ? 'Follow selected code' : 'Explore file connections'}</h2>
+    <p className="file-flow-note">{showingFileWide
+      ? 'Verified calls, imports, and test references in this file. These static links do not show runtime execution.'
+      : focusedSymbol
+        ? 'Verified static links that touch this code. Click a node to open its captured source.'
+        : 'No indexed symbol matches these selected lines. File-level links are available below.'}</p>
+    {hasSourceSelection && <button className="text-button" onClick={() => setFileWideFocus(showingFileWide ? null : focusKey)}>
+      {showingFileWide ? 'Return to selected code' : `Show file connections (${fileLinked.length})`}
+    </button>}
     {loading ? <p role="status">Reading the local code index…</p>
       : !path ? <p>Select a file in the explorer.</p>
-        : visible.length === 0 ? <p>No verified calls, imports, or test references are available for this file. This is not an execution trace.</p>
+        : visible.length === 0 ? <p>{focusedSymbol && !showingFileWide
+          ? `No verified calls, imports, or test references touch ${focusedSymbol.name}.`
+          : 'No verified calls, imports, or test references are available for this file.'}</p>
           : <div className="file-flow-routes">{visible.map((edge) => {
             const from = symbols.get(edge.sourceId);
             const to = symbols.get(edge.targetId);
