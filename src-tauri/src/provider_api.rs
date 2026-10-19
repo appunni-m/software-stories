@@ -283,12 +283,7 @@ impl SafeRigHttpClient {
         ) {
             return Err("provider is not in the direct API adapter catalog");
         }
-        let client = reqwest::Client::builder()
-            .https_only(true)
-            // Consent covers this exact endpoint. A redirect must never resend
-            // the reviewed source body or provider credentials elsewhere.
-            .redirect(reqwest::redirect::Policy::none())
-            .timeout(Duration::from_secs(90))
+        let client = provider_http_client(true, false)
             .build()
             .map_err(|_| "the provider request client could not start")?;
         Self::with_client(provider_id, endpoint_url, api_key, reviewed_body, client)
@@ -312,10 +307,7 @@ impl SafeRigHttpClient {
         {
             return Err("test transport accepts only credential-free loopback HTTP URLs");
         }
-        let client = reqwest::Client::builder()
-            .no_proxy()
-            .https_only(false)
-            .timeout(Duration::from_secs(90))
+        let client = provider_http_client(false, true)
             .build()
             .map_err(|_| "the loopback test client could not start")?;
         Self::with_client(provider_id, endpoint_url, api_key, reviewed_body, client)
@@ -428,6 +420,20 @@ impl SafeRigHttpClient {
         }
         reqwest::Request::try_from(request)
             .map_err(|_| "the provider request could not be prepared")
+    }
+}
+
+fn provider_http_client(https_only: bool, no_proxy: bool) -> reqwest::ClientBuilder {
+    let builder = reqwest::Client::builder()
+        .https_only(https_only)
+        // Consent covers this exact endpoint. A redirect must never resend
+        // the reviewed source body or provider credentials elsewhere.
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(Duration::from_secs(90));
+    if no_proxy {
+        builder.no_proxy()
+    } else {
+        builder
     }
 }
 
@@ -1071,6 +1077,92 @@ mod tests {
             );
             assert!(!String::from_utf8_lossy(body).contains(&api_key));
             assert!(!headers.contains(PREVIEW_CREDENTIAL));
+        }
+    }
+
+    #[tokio::test]
+    async fn loopback_transport_rejects_redirects_without_a_second_request() {
+        for provider_id in ["gemini", "openai", "anthropic"] {
+            for status in [
+                "301 Moved Permanently",
+                "302 Found",
+                "303 See Other",
+                "307 Temporary Redirect",
+                "308 Permanent Redirect",
+            ] {
+                let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+                let endpoint = format!("http://{}/v1/test", listener.local_addr().unwrap());
+                let preview = encode_request_preview(
+                    provider_id,
+                    &format!("test-{provider_id}-model"),
+                    "system instruction",
+                    "reviewed source context",
+                    &generation_config(),
+                )
+                .unwrap();
+                let reviewed_body = serde_json::to_vec(&preview.body).unwrap();
+                let api_key = format!("redirect-marker-{provider_id}-{status}");
+                let client = SafeRigHttpClient::new_for_loopback_test(
+                    provider_id,
+                    &endpoint,
+                    Zeroizing::new(api_key.clone()),
+                    reviewed_body.clone(),
+                )
+                .unwrap();
+                let request = request_with_placeholder(provider_id, &endpoint, &reviewed_body);
+
+                let server = std::thread::spawn(move || {
+                    let (mut stream, _) = listener.accept().unwrap();
+                    stream
+                        .set_read_timeout(Some(Duration::from_secs(5)))
+                        .unwrap();
+                    let first_request = read_http_request(&mut stream).unwrap();
+                    let response = format!(
+                        "HTTP/1.1 {status}\r\nLocation: /collector\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    );
+                    stream.write_all(response.as_bytes()).unwrap();
+
+                    listener.set_nonblocking(true).unwrap();
+                    let deadline = std::time::Instant::now() + Duration::from_millis(250);
+                    let followed = loop {
+                        match listener.accept() {
+                            Ok(_) => break true,
+                            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                                if std::time::Instant::now() >= deadline {
+                                    break false;
+                                }
+                                std::thread::sleep(Duration::from_millis(5));
+                            }
+                            Err(error) => {
+                                panic!("could not inspect redirected requests: {error}")
+                            }
+                        }
+                    };
+                    (first_request, followed)
+                });
+
+                assert!(
+                    client
+                        .send::<bytes::Bytes, bytes::Bytes>(request)
+                        .await
+                        .is_err()
+                );
+                let (first_request, followed) = server.join().unwrap();
+                assert!(!followed, "{provider_id} client followed {status}");
+                let header_end = first_request
+                    .windows(4)
+                    .position(|bytes| bytes == b"\r\n\r\n")
+                    .expect("first request has a header boundary");
+                let headers = String::from_utf8_lossy(&first_request[..header_end]);
+                let request_line = headers.lines().next().unwrap_or_default();
+                assert!(request_line.starts_with("POST /v1/test "), "{request_line}");
+                assert!(
+                    headers.contains(api_key.as_str()),
+                    "{provider_id} keeps auth at the reviewed endpoint"
+                );
+                assert!(!headers.contains("/collector"));
+                assert_eq!(&first_request[header_end + 4..], reviewed_body.as_slice());
+            }
         }
     }
 

@@ -1084,6 +1084,30 @@ async fn request_audio(
     review: &NarrationRequestReview,
     api_key: &str,
 ) -> Result<Vec<u8>, ProviderFailure> {
+    request_audio_at_endpoint(review, api_key, ENDPOINT, true, false).await
+}
+
+fn narration_http_client(https_only: bool, no_proxy: bool) -> reqwest::ClientBuilder {
+    let builder = reqwest::Client::builder()
+        .https_only(https_only)
+        // Narration consent covers this endpoint and exact script. Never send
+        // the script or API key to a redirect destination.
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(std::time::Duration::from_secs(90));
+    if no_proxy {
+        builder.no_proxy()
+    } else {
+        builder
+    }
+}
+
+async fn request_audio_at_endpoint(
+    review: &NarrationRequestReview,
+    api_key: &str,
+    endpoint: &str,
+    https_only: bool,
+    no_proxy: bool,
+) -> Result<Vec<u8>, ProviderFailure> {
     let mut key_header = reqwest::header::HeaderValue::from_str(api_key).map_err(|_| {
         failure(
             ProviderFailureKind::InvalidApiKey,
@@ -1092,10 +1116,7 @@ async fn request_audio(
     })?;
     key_header.set_sensitive(true);
     let body = build_request_body(review);
-    let client = reqwest::Client::builder()
-        .https_only(true)
-        .redirect(reqwest::redirect::Policy::none())
-        .timeout(std::time::Duration::from_secs(90))
+    let client = narration_http_client(https_only, no_proxy)
         .build()
         .map_err(|_| {
             failure(
@@ -1104,7 +1125,7 @@ async fn request_audio(
             )
         })?;
     let response = client
-        .post(ENDPOINT)
+        .post(endpoint)
         .header(reqwest::header::CONTENT_TYPE, "application/json")
         .header("x-goog-api-key", key_header)
         .json(&body)
@@ -1220,6 +1241,9 @@ fn now_unix_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::{Read, Write};
+    use std::net::{TcpListener, TcpStream};
+    use std::time::Duration;
 
     struct TestStorage(PathBuf);
 
@@ -1356,6 +1380,119 @@ mod tests {
         bytes[36..40].copy_from_slice(b"data");
         bytes[40..44].copy_from_slice(&4_u32.to_le_bytes());
         bytes
+    }
+
+    fn read_narration_http_request(stream: &mut TcpStream) -> Vec<u8> {
+        let mut request = Vec::new();
+        loop {
+            let mut byte = [0_u8; 1];
+            stream
+                .read_exact(&mut byte)
+                .expect("the narration request header should be readable");
+            request.push(byte[0]);
+            assert!(request.len() <= 64 * 1024, "request headers stay bounded");
+            if request.ends_with(b"\r\n\r\n") {
+                break;
+            }
+        }
+        let header_end = request.len();
+        let headers = String::from_utf8_lossy(&request[..header_end]);
+        let content_length = headers
+            .lines()
+            .find(|line| {
+                line.split_once(':')
+                    .is_some_and(|(name, _)| name.eq_ignore_ascii_case("content-length"))
+            })
+            .and_then(|line| line.split_once(':').map(|(_, value)| value.trim()))
+            .and_then(|value| value.parse::<usize>().ok())
+            .expect("the narration request has a content length");
+        request.resize(header_end + content_length, 0);
+        stream
+            .read_exact(&mut request[header_end..])
+            .expect("the reviewed narration body should be readable");
+        request
+    }
+
+    #[tokio::test]
+    async fn narration_transport_rejects_redirects_without_a_second_request() {
+        let storage = TestStorage::new();
+        let reviews = PendingNarrationReviews::default();
+        let review = build_review(
+            storage.path(),
+            &reviews,
+            "A reviewed narration script.",
+            "Kore",
+            "",
+            Vec::new(),
+        );
+
+        for status in [
+            "301 Moved Permanently",
+            "302 Found",
+            "303 See Other",
+            "307 Temporary Redirect",
+            "308 Permanent Redirect",
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let endpoint = format!("http://{}/v1/narration", listener.local_addr().unwrap());
+            let api_key = format!("narration-redirect-marker-{status}");
+            let expected_body = serde_json::to_vec(&build_request_body(&review)).unwrap();
+
+            let server = std::thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .unwrap();
+                let first_request = read_narration_http_request(&mut stream);
+                let response = format!(
+                    "HTTP/1.1 {status}\r\nLocation: /collector\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                );
+                stream.write_all(response.as_bytes()).unwrap();
+
+                listener.set_nonblocking(true).unwrap();
+                let deadline = std::time::Instant::now() + Duration::from_millis(250);
+                let followed = loop {
+                    match listener.accept() {
+                        Ok(_) => break true,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            if std::time::Instant::now() >= deadline {
+                                break false;
+                            }
+                            std::thread::sleep(Duration::from_millis(5));
+                        }
+                        Err(error) => {
+                            panic!("could not inspect redirected narration requests: {error}")
+                        }
+                    }
+                };
+                (first_request, followed)
+            });
+
+            let error = request_audio_at_endpoint(&review, &api_key, &endpoint, false, true)
+                .await
+                .expect_err("a redirect response must not produce narration audio");
+            assert!(
+                !error.message.contains(&api_key),
+                "provider errors must not expose the API key"
+            );
+            let (first_request, followed) = server.join().unwrap();
+            assert!(!followed, "narration client followed {status}");
+            let header_end = first_request
+                .windows(4)
+                .position(|bytes| bytes == b"\r\n\r\n")
+                .expect("first request has a header boundary");
+            let headers = String::from_utf8_lossy(&first_request[..header_end]);
+            assert!(
+                headers.contains(api_key.as_str()),
+                "the API key stays on the reviewed endpoint"
+            );
+            assert!(!headers.contains("/collector"));
+            assert_eq!(
+                &first_request[header_end + 4..],
+                expected_body.as_slice(),
+                "the first request contains only the reviewed narration body"
+            );
+        }
     }
 
     #[tokio::test]
