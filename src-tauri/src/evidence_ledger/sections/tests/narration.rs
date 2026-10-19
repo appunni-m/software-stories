@@ -33,20 +33,17 @@ fn all_nonvisual_claim_speech_is_published_and_replayed_without_manufacturing_a_
     inference["inferenceBasis"] = json!(
         "The captured function returns a formatted greeting but does not show its consumers."
     );
-    inference["prose"] = json!("The `greeting` result could be used for display, but the selected function does not prove a caller does so.");
-    inference["scene"]["narration"] = json!("That message could be shown to someone, but this code alone does not tell us whether a caller displays it.");
+    inference["prose"] = json!(
+        "The `greeting` result could be used for display, but the selected function does not prove a caller does so."
+    );
+    inference["scene"]["narration"] = json!(
+        "That message could be shown to someone, but this code alone does not tell us whether a caller displays it."
+    );
     raw["section"]["claims"]
         .as_array_mut()
         .unwrap()
         .push(inference);
-    publish(
-        &mut answer,
-        &ledger,
-        &raw,
-        &f,
-        &runtime,
-        &cancel,
-    );
+    publish(&mut answer, &ledger, &raw, &f, &runtime, &cancel);
     let path = record_path(&f.storage, &ledger.record.binding.operation_id).unwrap();
     let original = fs::read(&path).unwrap();
     let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
@@ -116,14 +113,7 @@ fn nonvisual_speech_is_required_at_every_claim_and_correction_keeps_spent_attemp
             .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
             .unwrap();
         assert!(answer.value.sections.is_empty());
-        publish(
-            &mut answer,
-            &ledger,
-            &good,
-            &f,
-            &runtime,
-            &cancel,
-        );
+        publish(&mut answer, &ledger, &good, &f, &runtime, &cancel);
         let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
         assert_eq!(saved.attempts.len(), 2);
         assert_eq!(saved.attempts[0].arguments, bad.to_string());
@@ -138,17 +128,12 @@ fn changing_only_authored_speech_requires_a_new_immutable_section_revision() {
     let reference = read(&mut ledger, &f, &runtime, &cancel);
     let mut answer = start_narrated(&ledger, &f, &runtime, &cancel);
     let raw = narrated(&reference);
-    publish(
-        &mut answer,
-        &ledger,
-        &raw,
-        &f,
-        &runtime,
-        &cancel,
-    );
+    publish(&mut answer, &ledger, &raw, &f, &runtime, &cancel);
     let first = answer.value.sections[0].clone();
     let mut changed = raw.clone();
-    changed["section"]["claims"][0]["scene"]["narration"] = json!("Imagine supplying a name. The returned greeting contains that same name, wrapped in a friendly message.");
+    changed["section"]["claims"][0]["scene"]["narration"] = json!(
+        "Imagine supplying a name. The returned greeting contains that same name, wrapped in a friendly message."
+    );
     let rejected = answer
         .prepare(
             &ledger,
@@ -163,14 +148,7 @@ fn changing_only_authored_speech_requires_a_new_immutable_section_revision() {
         .commit(&ledger, rejected, &f.manifest, &runtime, &cancel)
         .unwrap();
     changed["previousGenerationId"] = json!(first.preview.generation_id);
-    publish(
-        &mut answer,
-        &ledger,
-        &changed,
-        &f,
-        &runtime,
-        &cancel,
-    );
+    publish(&mut answer, &ledger, &changed, &f, &runtime, &cancel);
     let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
     assert_eq!(saved.sections.len(), 2);
     assert_eq!(
@@ -217,7 +195,13 @@ fn correction_slots_are_shared_bounded_and_exact_successful_replays_are_free() {
     let mut first_bad = narrated(&reference);
     first_bad["section"]["claims"][0]["evidence"][0]["referenceId"] = json!("code:999");
     let rejected = answer
-        .prepare(&ledger, &first_bad.to_string(), &f.manifest, &runtime, &cancel)
+        .prepare(
+            &ledger,
+            &first_bad.to_string(),
+            &f.manifest,
+            &runtime,
+            &cancel,
+        )
         .unwrap();
     assert_eq!(rejected.findings[0]["code"], "citation");
     answer
@@ -228,7 +212,13 @@ fn correction_slots_are_shared_bounded_and_exact_successful_replays_are_free() {
 
     let first_good = narrated(&reference);
     let prepared = answer
-        .prepare(&ledger, &first_good.to_string(), &f.manifest, &runtime, &cancel)
+        .prepare(
+            &ledger,
+            &first_good.to_string(),
+            &f.manifest,
+            &runtime,
+            &cancel,
+        )
         .unwrap();
     assert!(prepared.findings.is_empty());
     let first_generation = prepared.generation_id.clone().unwrap();
@@ -238,9 +228,18 @@ fn correction_slots_are_shared_bounded_and_exact_successful_replays_are_free() {
     assert_eq!(answer.remaining_corrections(), 1);
 
     let replay = answer
-        .prepare(&ledger, &first_good.to_string(), &f.manifest, &runtime, &cancel)
+        .prepare(
+            &ledger,
+            &first_good.to_string(),
+            &f.manifest,
+            &runtime,
+            &cancel,
+        )
         .unwrap();
-    assert_eq!(replay.generation_id.as_deref(), Some(first_generation.as_str()));
+    assert_eq!(
+        replay.generation_id.as_deref(),
+        Some(first_generation.as_str())
+    );
     assert!(replay.findings.is_empty());
     answer
         .commit(&ledger, replay, &f.manifest, &runtime, &cancel)
@@ -252,7 +251,13 @@ fn correction_slots_are_shared_bounded_and_exact_successful_replays_are_free() {
     second_bad["order"] = json!(1);
     second_bad["section"]["claims"][0]["evidence"][0]["referenceId"] = json!("code:999");
     let rejected = answer
-        .prepare(&ledger, &second_bad.to_string(), &f.manifest, &runtime, &cancel)
+        .prepare(
+            &ledger,
+            &second_bad.to_string(),
+            &f.manifest,
+            &runtime,
+            &cancel,
+        )
         .unwrap();
     assert_eq!(rejected.findings[0]["code"], "citation");
     answer
@@ -279,7 +284,13 @@ fn correction_limit_is_retained_and_eight_proposals_remain_the_hard_ceiling() {
 
     for attempt in 0..8 {
         let prepared = answer
-            .prepare(&ledger, &rejected.to_string(), &f.manifest, &runtime, &cancel)
+            .prepare(
+                &ledger,
+                &rejected.to_string(),
+                &f.manifest,
+                &runtime,
+                &cancel,
+            )
             .unwrap();
         if attempt < 2 {
             assert_eq!(prepared.findings[0]["code"], "citation");
@@ -293,14 +304,31 @@ fn correction_limit_is_retained_and_eight_proposals_remain_the_hard_ceiling() {
 
     assert_eq!(answer.remaining_attempts(), 0);
     assert_eq!(answer.remaining_corrections(), 1);
-    assert!(answer
-        .prepare(&ledger, &rejected.to_string(), &f.manifest, &runtime, &cancel)
-        .is_err());
+    assert!(
+        answer
+            .prepare(
+                &ledger,
+                &rejected.to_string(),
+                &f.manifest,
+                &runtime,
+                &cancel
+            )
+            .is_err()
+    );
 
     let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
     assert_eq!(saved.attempts.len(), 8);
     assert!(saved.sections.is_empty());
-    assert!(saved.attempts.iter().all(|attempt| attempt.arguments.len() <= MAX_PROPOSAL_BYTES));
-    let retained_argument_bytes = saved.attempts.iter().map(|attempt| attempt.arguments.len()).sum::<usize>();
+    assert!(
+        saved
+            .attempts
+            .iter()
+            .all(|attempt| attempt.arguments.len() <= MAX_PROPOSAL_BYTES)
+    );
+    let retained_argument_bytes = saved
+        .attempts
+        .iter()
+        .map(|attempt| attempt.arguments.len())
+        .sum::<usize>();
     assert!(retained_argument_bytes <= MAX_ATTEMPTS * MAX_PROPOSAL_BYTES);
 }

@@ -17,7 +17,11 @@ pub(super) fn request(
 ) -> Result<(String, Value, String, String), String> {
     if let Some(intent) = guide_intent {
         intent.validate()?;
-        if intent.opening_continuation.as_ref().is_some_and(|opening| opening.previous_run_id == input.run_id) {
+        if intent
+            .opening_continuation
+            .as_ref()
+            .is_some_and(|opening| opening.previous_run_id == input.run_id)
+        {
             return Err("The opening continuation must own a new investigation.".into());
         }
     }
@@ -176,13 +180,19 @@ mod tests {
         intent.unit_number = 0;
         intent.opening_continuation = Some(OpeningContinuation {
             previous_run_id: Uuid::new_v4().to_string(),
-            incomplete_topics: vec!["The first guard's false alternative remains unexplored.".into()],
+            incomplete_topics: vec![
+                "The first guard's false alternative remains unexplored.".into()
+            ],
         });
-        let (prompt, schema, fingerprint, instructions) = request(&f.storage, &input, &f.manifest, &[], Some(&intent)).unwrap();
+        let (prompt, schema, fingerprint, instructions) =
+            request(&f.storage, &input, &f.manifest, &[], Some(&intent)).unwrap();
         let value: Value = serde_json::from_str(&prompt).unwrap();
         assert_eq!(value["question"], input.question);
         assert_eq!(value["guideContext"], json!(intent));
-        assert_eq!(value["openingContinuationPolicy"], guide_intent::OPENING_POLICY);
+        assert_eq!(
+            value["openingContinuationPolicy"],
+            guide_intent::OPENING_POLICY
+        );
         assert!(instructions.contains(guide_intent::OPENING_INSTRUCTIONS));
         assert!(!prompt.contains(SIMPLE_SOURCE));
         assert!(value.get("startingRanges").is_none());
@@ -191,19 +201,32 @@ mod tests {
         contract["systemInstructions"] = json!(instructions);
         contract["guideContextPolicy"] = json!(guide_intent::POLICY);
         contract["openingContinuationPolicy"] = json!(guide_intent::OPENING_POLICY);
-        assert_eq!(fingerprint, context::digest(&serde_json::to_vec(&contract).unwrap()));
+        assert_eq!(
+            fingerprint,
+            context::digest(&serde_json::to_vec(&contract).unwrap())
+        );
         assert_eq!(contract["sectionAttempts"], 8);
         assert_eq!(contract["uniqueSections"], 6);
-        assert_eq!(contract["tools"], serde_json::to_value(context_mcp::tools()).unwrap());
+        assert_eq!(
+            contract["tools"],
+            serde_json::to_value(context_mcp::tools()).unwrap()
+        );
         for field in ["owner", "gaps"] {
             let mut changed = intent.clone();
             let opening = changed.opening_continuation.as_mut().unwrap();
             match field {
                 "owner" => opening.previous_run_id = Uuid::new_v4().to_string(),
-                "gaps" => opening.incomplete_topics.push("The returned error is still unknown.".into()),
+                "gaps" => opening
+                    .incomplete_topics
+                    .push("The returned error is still unknown.".into()),
                 _ => unreachable!(),
             }
-            assert_ne!(request(&f.storage, &input, &f.manifest, &[], Some(&changed)).unwrap().2, fingerprint);
+            assert_ne!(
+                request(&f.storage, &input, &f.manifest, &[], Some(&changed))
+                    .unwrap()
+                    .2,
+                fingerprint
+            );
         }
         assert!(!f.storage.join("answer-sections").exists());
     }
@@ -216,21 +239,51 @@ mod tests {
         original.unit_key = "opening".into();
         original.unit_number = 0;
         original.opening_continuation = Some(OpeningContinuation {
-            previous_run_id: Uuid::new_v4().to_string(), incomplete_topics: vec![],
+            previous_run_id: Uuid::new_v4().to_string(),
+            incomplete_topics: vec![],
         });
-        for field in ["owner", "number", "key", "missing", "count", "control", "long"] {
+        for field in [
+            "owner", "number", "key", "missing", "count", "control", "long",
+        ] {
             let mut changed = original.clone();
             match field {
-                "owner" => changed.opening_continuation.as_mut().unwrap().previous_run_id = input.run_id.clone(),
+                "owner" => {
+                    changed
+                        .opening_continuation
+                        .as_mut()
+                        .unwrap()
+                        .previous_run_id = input.run_id.clone()
+                }
                 "number" => changed.unit_number = 1,
                 "key" => changed.unit_key = "unit".into(),
                 "missing" => changed.opening_continuation = None,
-                "count" => changed.opening_continuation.as_mut().unwrap().incomplete_topics = vec!["gap".into(); 7],
-                "control" => changed.opening_continuation.as_mut().unwrap().incomplete_topics = vec!["gap\nother".into()],
-                "long" => changed.opening_continuation.as_mut().unwrap().incomplete_topics = vec!["é".repeat(501)],
+                "count" => {
+                    changed
+                        .opening_continuation
+                        .as_mut()
+                        .unwrap()
+                        .incomplete_topics = vec!["gap".into(); 7]
+                }
+                "control" => {
+                    changed
+                        .opening_continuation
+                        .as_mut()
+                        .unwrap()
+                        .incomplete_topics = vec!["gap\nother".into()]
+                }
+                "long" => {
+                    changed
+                        .opening_continuation
+                        .as_mut()
+                        .unwrap()
+                        .incomplete_topics = vec!["é".repeat(501)]
+                }
                 _ => unreachable!(),
             }
-            assert!(request(&f.storage, &input, &f.manifest, &[], Some(&changed)).is_err(), "{field}");
+            assert!(
+                request(&f.storage, &input, &f.manifest, &[], Some(&changed)).is_err(),
+                "{field}"
+            );
         }
         assert!(!f.storage.join("answer-sections").exists());
         assert!(!f.storage.join("evidence-ledgers").exists());
@@ -439,16 +492,14 @@ mod tests {
                 "{field}"
             );
         }
-        assert!(
-            request(
-                &f.storage,
-                &input,
-                &f.manifest,
-                &vec![range.clone(); 5],
-                None
-            )
-            .is_err()
-        );
+        assert!(request(
+            &f.storage,
+            &input,
+            &f.manifest,
+            &vec![range.clone(); 5],
+            None
+        )
+        .is_err());
         let mut missing = input;
         missing.references.clear();
         assert!(request(&f.storage, &missing, &f.manifest, &[range], None).is_err());

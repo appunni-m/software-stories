@@ -43,11 +43,19 @@ impl GuideIntent {
             || !(2..=6).contains(&self.unit_count)
             || match &self.opening_continuation {
                 None => !(1..=self.unit_count).contains(&self.unit_number),
-                Some(opening) => self.unit_number != 0 || self.unit_key != "opening"
-                    || !uuid::Uuid::parse_str(&opening.previous_run_id).is_ok_and(|id| id.to_string() == opening.previous_run_id)
-                    || opening.incomplete_topics.len() > 6
-                    || opening.incomplete_topics.iter().any(|topic| topic.trim().is_empty()
-                        || topic.trim() != topic || topic.len() > 1000 || topic.chars().any(char::is_control)),
+                Some(opening) => {
+                    self.unit_number != 0
+                        || self.unit_key != "opening"
+                        || !uuid::Uuid::parse_str(&opening.previous_run_id)
+                            .is_ok_and(|id| id.to_string() == opening.previous_run_id)
+                        || opening.incomplete_topics.len() > 6
+                        || opening.incomplete_topics.iter().any(|topic| {
+                            topic.trim().is_empty()
+                                || topic.trim() != topic
+                                || topic.len() > 1000
+                                || topic.chars().any(char::is_control)
+                        })
+                }
             }
             || self.research_boundaries.len() > 8
             || self.research_boundaries.iter().any(|boundary| {

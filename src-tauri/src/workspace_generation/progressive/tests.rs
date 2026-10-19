@@ -108,16 +108,14 @@ fn saved_answer_loading_keeps_active_workers_and_recovers_without_connecting_or_
     assert_eq!(active.outcome, Outcome::Working);
     assert!(active.sections.is_empty());
     assert_eq!(original, std::fs::read(&record_path).unwrap());
-    assert!(
-        load_saved_answer(
-            &f.storage,
-            &input.run_id,
-            "another-project",
-            &input.snapshot_id,
-            &manager
-        )
-        .is_err()
-    );
+    assert!(load_saved_answer(
+        &f.storage,
+        &input.run_id,
+        "another-project",
+        &input.snapshot_id,
+        &manager
+    )
+    .is_err());
     assert_eq!(original, std::fs::read(&record_path).unwrap());
     drop(worker);
     let recovered = load_saved_answer(
@@ -156,11 +154,17 @@ fn native_manifest_schema_leaves_all_published_identities_under_native_ownership
     // An actual Fontdone final response omitted a third published section.
     // A fresh agent reports unfinished topics; it never recopies owned IDs.
     let contract = schema();
-    assert_eq!(contract["required"], json!(["manifestVersion", "incompleteTopics"]));
+    assert_eq!(
+        contract["required"],
+        json!(["manifestVersion", "incompleteTopics"])
+    );
     assert_eq!(contract["properties"].as_object().unwrap().len(), 2);
     assert!(contract["properties"].get("sections").is_none());
     assert_eq!(contract["additionalProperties"], false);
-    assert_eq!(contract["properties"]["manifestVersion"]["enum"], json!(["answerManifestV2"]));
+    assert_eq!(
+        contract["properties"]["manifestVersion"]["enum"],
+        json!(["answerManifestV2"])
+    );
     assert_eq!(contract["properties"]["incompleteTopics"]["maxItems"], 6);
     let instructions = system_instructions();
     assert!(instructions.contains("retains every latest published section automatically"));
@@ -303,7 +307,13 @@ fn codex_progressive_account_probe() {
     let ledger = crate::evidence_ledger::inspect(&f.storage, &input.run_id)
         .ok()
         .map(|v| serde_json::to_value(v).unwrap());
-    let timing = timing_report(&f.storage, &input.run_id, &input.project_id, &input.snapshot_id, false);
+    let timing = timing_report(
+        &f.storage,
+        &input.run_id,
+        &input.project_id,
+        &input.snapshot_id,
+        false,
+    );
     let record = json!({"fixture":"public synthetic greeting; not user source","operationId":input.run_id,
         "model":"gpt-6-luna","effort":"max","totalElapsedMs":started.elapsed().as_millis(),
         "result":result.as_ref().ok(),"error":result.as_ref().err(),"observations":*observations.lock().unwrap(),
@@ -320,7 +330,13 @@ fn codex_progressive_account_probe() {
     assert_eq!(timing["trace"]["reasoningEffort"], "max");
     assert!(!timing["trace"]["events"].as_array().unwrap().is_empty());
     let timing_text = timing.to_string();
-    for forbidden in ["accountIdentitySha256", "executablePath", "Hello, ${name}", "referenceId", "excerpt"] {
+    for forbidden in [
+        "accountIdentitySha256",
+        "executablePath",
+        "Hello, ${name}",
+        "referenceId",
+        "excerpt",
+    ] {
         assert!(!timing_text.contains(forbidden));
     }
     let result = result.unwrap();
@@ -473,7 +489,8 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.starts_with(ANSWER_ROLE));
     assert!(instructions.contains("then investigate and publish deeper sections"));
     assert!(!instructions.contains("then focus on the remaining research outline"));
-    assert!(instructions.contains("A comment or default constructor does not prove later consumer behavior"));
+    assert!(instructions
+        .contains("A comment or default constructor does not prove later consumer behavior"));
     assert!(instructions.contains("every earlier guard and failure"));
     assert!(instructions.contains("open with the problem and a useful input-to-result example"));
     assert!(instructions.contains("use at most one code element in a scene"));
@@ -482,8 +499,11 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.contains("state the general decision rule"));
     assert!(instructions.contains("an example alone cannot replace the rule"));
     assert!(!instructions.contains("The separate prose/spokenText fields remain required"));
-    assert!(instructions.contains("sceneAuthoringReference identifies a duplicate, absent or ambiguous reference"));
-    assert!(instructions.contains("preserving the claim, supported behavior and chosen representation"));
+    assert!(instructions
+        .contains("sceneAuthoringReference identifies a duplicate, absent or ambiguous reference"));
+    assert!(
+        instructions.contains("preserving the claim, supported behavior and chosen representation")
+    );
 }
 
 #[test]
@@ -503,13 +523,25 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert_eq!(contract["checkpointVersion"], 8);
     assert_eq!(contract["answerSchemaVersion"], 7);
     assert_eq!(contract["finalManifestVersion"], "answerManifestV2");
-    assert_eq!(contract["finalManifestPolicy"], "all-latest-published-sections-v1");
+    assert_eq!(
+        contract["finalManifestPolicy"],
+        "all-latest-published-sections-v1"
+    );
     assert_eq!(contract["proposalVersion"], "answerSectionV6");
-    assert_eq!(contract["sceneAuthoringPolicy"], "claim-owned-scene-local-identities-v2");
+    assert_eq!(
+        contract["sceneAuthoringPolicy"],
+        "claim-owned-scene-local-identities-v2"
+    );
     assert!(system_instructions().contains("at most eight nodes"));
     assert!(system_instructions().contains("one edge of context"));
-    assert_eq!(contract["identifierCompilationPolicy"], "explicit-prose-grounded-suffixes-v2");
-    assert_eq!(contract["publicationOrderPolicy"], "investigation-local-next-order-v1");
+    assert_eq!(
+        contract["identifierCompilationPolicy"],
+        "explicit-prose-grounded-suffixes-v2"
+    );
+    assert_eq!(
+        contract["publicationOrderPolicy"],
+        "investigation-local-next-order-v1"
+    );
     assert!(system_instructions().contains("proposalVersion:\"answerSectionV6\""));
     assert!(!system_instructions().contains("every marked name must occur"));
     assert!(system_instructions().contains("Start its first new key at order:0"));
@@ -525,7 +557,10 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     );
     assert_eq!(contract["outputSchema"], schema);
     let mut without_teaching_policy = contract.clone();
-    without_teaching_policy.as_object_mut().unwrap().remove("teachingPolicy");
+    without_teaching_policy
+        .as_object_mut()
+        .unwrap()
+        .remove("teachingPolicy");
     without_teaching_policy["systemInstructions"] = json!(INSTRUCTIONS);
     assert_ne!(
         fingerprint,
@@ -540,8 +575,10 @@ fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     assert!(instructions.contains("Choose: bytes, transformations, comparisons/tables"));
     assert!(instructions.contains("Source tokens alone are not transformations"));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
-    assert!(instructions.contains("compare the claim with its narration, visible labels, node details and values"));
-    assert!(instructions.contains("Narration and collapsed details must not carry a missing branch by themselves"));
+    assert!(instructions
+        .contains("compare the claim with its narration, visible labels, node details and values"));
+    assert!(instructions
+        .contains("Narration and collapsed details must not carry a missing branch by themselves"));
     assert!(!instructions.contains("spokenText copies the complete scene narration"));
 }
 
@@ -560,9 +597,16 @@ fn narration_pacing_preserves_all_conditions_and_is_bound_to_the_request() {
     assert!(instructions.contains("state the general decision rule first"));
     assert!(instructions.contains("an example alone cannot replace the rule"));
     assert_eq!(contract["systemInstructions"], instructions);
-    assert_eq!(fingerprint, context::digest(&serde_json::to_vec(&contract).unwrap()));
-    contract["systemInstructions"] = json!(instructions.replace(&format!("\n\n{SCENE_PACING_INSTRUCTIONS}"), ""));
-    assert_ne!(fingerprint, context::digest(&serde_json::to_vec(&contract).unwrap()));
+    assert_eq!(
+        fingerprint,
+        context::digest(&serde_json::to_vec(&contract).unwrap())
+    );
+    contract["systemInstructions"] =
+        json!(instructions.replace(&format!("\n\n{SCENE_PACING_INSTRUCTIONS}"), ""));
+    assert_ne!(
+        fingerprint,
+        context::digest(&serde_json::to_vec(&contract).unwrap())
+    );
     assert_eq!(contract["sectionAttempts"], 8);
     assert_eq!(contract["uniqueSections"], 6);
 }
@@ -574,5 +618,9 @@ fn progressive_teaching_rules_fit_the_existing_request_metadata_limit() {
     let prompt = question_prompt(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema()).unwrap();
     let bytes = serde_json::to_vec(&contract).unwrap();
-    assert!(bytes.len() <= 32000, "request metadata is {} bytes", bytes.len());
+    assert!(
+        bytes.len() <= 32000,
+        "request metadata is {} bytes",
+        bytes.len()
+    );
 }

@@ -263,15 +263,17 @@ pub(super) fn compile(section: &Value) -> Result<Compiled, Vec<Value>> {
             "/section/claims".into(),
         ));
     }
-    let compiled_section = json!({"title":object["title"],"claims":canonical_claims,"visual":visual});
+    let compiled_section =
+        json!({"title":object["title"],"claims":canonical_claims,"visual":visual});
     for (claim_index, scene) in compiled_section["visual"]["presentation"]["scenes"]
-        .as_array().into_iter().flatten().enumerate()
+        .as_array()
+        .into_iter()
+        .flatten()
+        .enumerate()
     {
         if scene["mode"] == "graph"
             && crate::claim_alignment::graph_scene_node_count(&compiled_section, claim_index)
-                .is_some_and(|count| {
-                    count > crate::scene_presentation::MAX_FOCUSED_GRAPH_NODES
-                })
+                .is_some_and(|count| count > crate::scene_presentation::MAX_FOCUSED_GRAPH_NODES)
         {
             return Err(issue(
                 &format!("/section/claims/{claim_index}/scene/nodes"),
@@ -292,7 +294,10 @@ pub(super) fn compile_current_section(section: &Value) -> Result<Compiled, Vec<V
     if let Some(claims) = section["claims"].as_array() {
         for (index, claim) in claims.iter().enumerate() {
             if claim.get("identifiers").is_some() {
-                return Err(issue(&format!("/section/claims/{index}/identifiers"), "namedIdentifier"));
+                return Err(issue(
+                    &format!("/section/claims/{index}/identifiers"),
+                    "namedIdentifier",
+                ));
             }
         }
     }
@@ -308,9 +313,17 @@ pub(crate) fn section_schema() -> Value {
     properties.remove("spokenText");
     properties.get_mut("claims").unwrap()["maxItems"] = json!(8);
     let claim = &mut properties.get_mut("claims").unwrap()["items"];
-    claim["properties"].as_object_mut().unwrap().remove("identifiers");
-    claim["required"].as_array_mut().unwrap().retain(|field| field != "identifiers");
-    claim["properties"]["prose"]["description"] = json!("Mark code names/configuration keys with single backticks. Each claim's cited fragment must contain a whole marked name or literal qualified-name suffix also present in prose. Native name metadata is not namespace or semantic proof; evidence must support the whole claim. Omit identifiers.");
+    claim["properties"]
+        .as_object_mut()
+        .unwrap()
+        .remove("identifiers");
+    claim["required"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|field| field != "identifiers");
+    claim["properties"]["prose"]["description"] = json!(
+        "Mark code names/configuration keys with single backticks. Each claim's cited fragment must contain a whole marked name or literal qualified-name suffix also present in prose. Native name metadata is not namespace or semantic proof; evidence must support the whole claim. Omit identifiers."
+    );
     claim["properties"]["evidence"]["items"]["properties"]["referenceId"]["pattern"] =
         json!("^code:[1-9][0-9]{0,2}$");
     let text = json!({"type":"string"});

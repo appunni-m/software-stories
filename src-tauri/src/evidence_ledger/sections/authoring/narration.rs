@@ -1,8 +1,8 @@
 //! The current authored speech mode for claims that need no visual.
 
-use super::{issue, Compiled, Scene};
+use super::{Compiled, Scene, issue};
 use crate::chapters::{ChapterRevision, ClaimCategory};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub(in crate::evidence_ledger::sections) fn compile(
     section: &Value,
