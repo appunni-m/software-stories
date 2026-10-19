@@ -48,7 +48,8 @@ export function historyEntry(turn: Turn, availableRevisions: ReadonlySet<string>
   const saved = !!turn.revisionId && availableRevisions.has(turn.revisionId)
     || !!turn.publishedSections?.some((section) => availableRevisions.has(section.revisionId));
   if (saved) {
-    const state = turn.status === 'queued' || turn.status === 'working' ? 'Adding more detail.'
+    const state = turn.status === 'queued' ? 'Waiting for the current question to finish.'
+      : turn.status === 'working' ? 'Adding more detail.'
       : turn.status === 'partial' ? 'Partially completed.'
       : turn.status === 'stopped' ? 'Stopped.'
       : turn.status === 'interrupted' ? 'Interrupted.'
@@ -64,6 +65,14 @@ export function historyEntry(turn: Turn, availableRevisions: ReadonlySet<string>
     ready: 'The saved explanation is unavailable.',
   };
   return { text: text[turn.status], action: 'Open question' };
+}
+
+/** Keep queued questions visibly distinct from the one active model turn. */
+export function questionProgressText(turn: Pick<Turn, 'status' | 'guideId' | 'publishedSections'>): string | null {
+  if (turn.status === 'queued') return 'Waiting for the current question to finish…';
+  if (turn.status !== 'working') return null;
+  if (turn.guideId) return turn.publishedSections?.length ? 'Building the next part of your guide…' : 'Building your repository guide…';
+  return turn.publishedSections?.length ? 'Adding more detail…' : 'Building your explanation…';
 }
 
 export function createWorkspace(projectId: string, snapshotId: string): WorkspaceState {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { addTurn, ancestors, chapterTarget, chooseFlowRevision, cleanAnswerNotes, cleanPublishedSections, decodeWorkspace, historyEntry, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
+import { addTurn, ancestors, chapterTarget, chooseFlowRevision, cleanAnswerNotes, cleanPublishedSections, decodeWorkspace, historyEntry, questionProgressText, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
 const turn = (id,question='Explain the subtotal implementation') => ({id,question,context:[{path:'src/cart.ts',from:1,to:6}],status:'queued'});
 
 test('history never calls an empty or unavailable outcome a saved explanation',()=>{
@@ -23,6 +23,25 @@ test('history preserves partial results only when an exact saved revision is ava
   for(const status of ['queued','working','partial','failed','interrupted']) {
     assert.match(historyEntry({...partial,status},available).text,/Saved sections are available/);
   }
+});
+test('queued work is distinct from the active question in the reader and history',()=>{
+  assert.equal(questionProgressText(turn('queued')), 'Waiting for the current question to finish…');
+  assert.equal(questionProgressText({ ...turn('active'), status: 'working' }), 'Building your explanation…');
+  assert.equal(questionProgressText({
+    ...turn('guide'), status: 'working', guideId: 'guide',
+  }), 'Building your repository guide…');
+  assert.equal(questionProgressText({ ...turn('saved'), status: 'ready' }), null);
+  const savedSections = new Set(['revision:existing']);
+  const queued = historyEntry({
+    ...turn('queued'), status: 'queued',
+    publishedSections: [{ revisionId: 'revision:existing' }],
+  }, savedSections);
+  assert.deepEqual(queued, {
+    text: 'Waiting for the current question to finish. Saved sections are available.',
+    action: 'Open explanation',
+  });
+  const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+  assert.equal((source.match(/questionProgressText\(turn\)/g) ?? []).length, 2);
 });
 test('repository search and explorer filters have independent inputs and branches count questions',()=>{
   const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
