@@ -42,6 +42,16 @@ export function groupUnavailablePublishedSections(
   return items;
 }
 
+/** Keep question-owned explorations attached to the last readable part even
+ * when newer published references in the same question are unavailable. */
+export function lastAvailableAnswerItemIndex(items: readonly PublishedAnswerItem[]): number {
+  let index = -1;
+  for (let candidate = 0; candidate < items.length; candidate++) {
+    if (items[candidate]?.kind === 'section') index = candidate;
+  }
+  return index;
+}
+
 /** A bounded UI dedupe token, not a source/evidence identity. Include every
  * publication so a revised earlier section also produces a new outcome. */
 export function questionOutcomeKey(turn: Turn): string | null {

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { addTurn, createWorkspace, parseWorkspace } from '../src/workspace/model.ts';
-import { createQuestionOutcomeSelector, groupUnavailablePublishedSections, markQuestionOutcome, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
+import { createQuestionOutcomeSelector, groupUnavailablePublishedSections, lastAvailableAnswerItemIndex, markQuestionOutcome, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
 
 const turn = (id, status = 'failed', extra = {}) => ({ id, question: `Question ${id}`, context: [], status, ...extra });
 const stateWith = (...turns) => ({ ...createWorkspace('project', 'snapshot'), explorations: [{ ...createWorkspace('project', 'snapshot').explorations[0], turns }] });
@@ -34,6 +34,16 @@ test('answer parts remain in loading state until the saved chapter list is ready
   const section = { runId: 'run', key: 'part', order: 0, generationId: 'generation', revisionId: 'pending',
     supersedes: null, contextElapsedMs: 0, runElapsedMs: null };
   assert.deepEqual(groupUnavailablePublishedSections([section], new Set(), true), [{ kind: 'section', section }]);
+});
+
+test('question-owned branches stay attached to the last available part before unavailable newer parts', () => {
+  const sections = ['missing-1', 'available-1', 'missing-2', 'available-2', 'missing-3'].map((revisionId, order) => ({
+    runId: 'run', key: `part-${order}`, order, generationId: `generation-${order}`, revisionId,
+    supersedes: null, contextElapsedMs: 0, runElapsedMs: null,
+  }));
+  const items = groupUnavailablePublishedSections(sections, new Set(['available-1', 'available-2']), false);
+  assert.equal(lastAvailableAnswerItemIndex(items), 3);
+  assert.equal(lastAvailableAnswerItemIndex(groupUnavailablePublishedSections(sections, new Set(), false)), -1);
 });
 
 test('a branch remains reachable even when its original investigation saved nothing', () => {

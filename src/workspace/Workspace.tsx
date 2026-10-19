@@ -20,7 +20,7 @@ import { useConnectionState } from '../lib/connectionStore';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
 import { errorMessageOr, explanationErrorMessage } from '../lib/errorMessage';
 import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory';
-import { groupUnavailablePublishedSections, openWorkspaceQuestion, savedAnswerAvailability, visibleConversationTurns } from './outcomes';
+import { groupUnavailablePublishedSections, lastAvailableAnswerItemIndex, openWorkspaceQuestion, savedAnswerAvailability, visibleConversationTurns } from './outcomes';
 import { listWorkspaceCommits } from '../lib/commands';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, resolveAnswerRevision } from './answerVersions';
 import type { GitCommit } from '../lib/gitHistory';
@@ -365,6 +365,7 @@ function Answer(props:AnswerProps){
   if(!turn.runIds?.length&&!turn.guideId)return <AnswerSection {...props}/>;
   const sections=turn.publishedSections??[];
   const sectionItems=groupUnavailablePublishedSections(sections,new Set((chapters??[]).map((chapter)=>chapter.revisionId)),Boolean(props.loading));
+  const lastAvailableItemIndex=props.loading?-1:lastAvailableAnswerItemIndex(sectionItems);
   const capacityError=!!turn.error&&/retained locally|saved answers|(?:answer|saved explanations).*storage limit|answer.*directory limit/i.test(turn.error);
   const working=turn.status==='working'||turn.status==='queued';
   return <section className="dw-progressive-answer" data-question-id={turn.id} tabIndex={-1} aria-label={`Question: ${turn.question}`}>
@@ -377,11 +378,16 @@ function Answer(props:AnswerProps){
     {sectionItems.map((item,index)=>item.kind==='section'?<AnswerSection {...props} key={`${item.section.runId}:${item.section.generationId}`} hideQuestion
       loading={props.loading} revision={chapters?.find((r)=>r.revisionId===item.section.revisionId)}
       turn={{...turn,status:'ready',revisionId:item.section.revisionId,notes:[],error:undefined}}
-      branches={index===sectionItems.length-1?branches:[]}/>:<details className="dw-unavailable-group" key={`unavailable:${item.sections[0].runId}:${item.sections[0].generationId}`}>
+      branches={index===lastAvailableItemIndex?branches:[]}/>:<details className="dw-unavailable-group" key={`unavailable:${item.sections[0].runId}:${item.sections[0].generationId}`}>
       <summary>{item.sections.length} saved answer part{item.sections.length===1?'':'s'} unavailable</summary>
       <p>These parts could not be reopened. Re-explain this question to build them again.</p>
       <Button size="1" variant="soft" onClick={props.onRetry}>Explain this question again</Button>
     </details>)}
+    {lastAvailableItemIndex<0&&(branches.length>0||sectionItems.some((item)=>item.kind==='unavailable'))&&<footer className="dw-branches">
+      <Button size="1" variant="ghost" onClick={()=>props.onBranch(`Explore ${turn.question} in more detail.`,turn.context)}><Network size={13}/>Explore further</Button>
+      {branches.length>0&&<span>{branches.length} exploration{branches.length===1?'':'s'}</span>}
+      {branches.map((exploration)=><button className="dw-branch-link" key={exploration.id} onClick={()=>props.onGo(exploration.id)}><span className="dw-branch-connector">↳</span><span>{exploration.title}</span><small>{exploration.turns.length} question{exploration.turns.length===1?'':'s'}</small><ChevronRight size={13}/></button>)}
+    </footer>}
     {sections.length===0&&!working&&<p className="dw-empty-answer">No section was published for this attempt. Earlier saved explanations are still in the library.</p>}
   </section>;
 }
