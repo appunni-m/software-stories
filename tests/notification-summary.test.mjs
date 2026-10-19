@@ -163,7 +163,7 @@ describe('notification totals', () => {
     assert.match(app, /bucket: notificationBucketForOutcome\(preview\.unavailableReason \? 'warning' : 'info'\)/);
     assert.match(app, /answers: answerAvailability/);
     assert.match(app, /onAnswerRestoration=\{setAnswerRestoration\}/);
-    assert.match(app, /id: 'answers-unavailable'[\s\S]*?setWorkspaceReload/);
+    assert.match(app, /id: 'answers-unavailable'[\s\S]*?restoreWorkspaceAnswers\(projectId, snapshotId\)/);
     const workspace = await readFile(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
     assert.match(workspace, /watchWorkspaceAnswers\(projectId,snapshotId,\(availability\)=>\{\s+if\(!closed\)onAnswerRestoration\(\{projectId,snapshotId,availability\}\)/);
     assert.doesNotMatch(workspace, /if\(!closed\)onAnswerRestoration\(\{projectId,snapshotId,availability:'ready'\}\)/);

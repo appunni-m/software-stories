@@ -8,7 +8,7 @@ import { useNoticeHistory } from './lib/useNoticeHistory';
 import { Theme } from '@radix-ui/themes';
 import { useAppAppearance } from './lib/useAppAppearance';
 import type { AppNoticeInput, AppNotice } from './lib/noticeHistory';
-import { getWorkspace, prepareWorkspaceConversation, retryWorkspaceConversation, updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
+import { getWorkspace, prepareWorkspaceConversation, restoreWorkspaceAnswers, retryWorkspaceConversation, updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
 import { markQuestionOutcome, openWorkspaceQuestion, withSavedAnswerAvailability } from './workspace/outcomes';
 import { WorkspaceFrame } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
@@ -1468,8 +1468,19 @@ function App() {
       } }],
     })),
     ...(answerAvailability === 'unavailable' ? [{ id: 'answers-unavailable', title: 'Saved answers could not be loaded',
-      message: 'Try opening this workspace again. Your saved explanations have not been discarded.', tone: 'error' as const, bucket: 'attention' as const,
-      actions: [{ label: 'Try again', run: () => { setSnapshotManifestLoad(null); setWorkspaceReload((value) => value + 1); } }] }] : []),
+      message: 'Your saved explanations are still here. Try loading them again.', tone: 'error' as const, bucket: 'attention' as const,
+      actions: [{ label: 'Try again', run: () => {
+        const projectId = currentProject?.projectId;
+        const snapshotId = selectedSnapshot?.snapshotId;
+        if (!projectId || !snapshotId) return;
+        setAnswerRestoration({ projectId, snapshotId, availability: 'loading' });
+        void restoreWorkspaceAnswers(projectId, snapshotId).then(
+          () => setAnswerRestoration((current) => current?.projectId === projectId && current.snapshotId === snapshotId
+            ? { projectId, snapshotId, availability: 'ready' } : current),
+          () => setAnswerRestoration((current) => current?.projectId === projectId && current.snapshotId === snapshotId
+            ? { projectId, snapshotId, availability: 'unavailable' } : current),
+        );
+      } }] }] : []),
     ...(runtimeError ? [{ id: 'runtime', title: 'Some app features are unavailable', message: 'Try connecting to the local app again.', tone: 'error' as const,
       bucket: 'attention' as const,
       actions: [{ label: 'Retry', run: loadRuntime }] }] : []),
