@@ -333,7 +333,7 @@ pub(crate) async fn search_workspace_source(
     query: String,
     request_id: String,
     mode: Option<context::SearchMode>,
-    offset: Option<usize>,
+    offset: usize,
 ) -> Result<WorkspaceSearchResult, String> {
     sessions.get(&project_id)?;
     let storage = app_data_directory(&app)?;
@@ -347,7 +347,7 @@ pub(crate) async fn search_workspace_source(
             mode: mode.unwrap_or_default(),
             path: None,
             limit: 32,
-            offset: offset.unwrap_or(0),
+            offset,
         };
         let result = search_snapshot(&storage, &input, &request)?;
         Ok(WorkspaceSearchResult {

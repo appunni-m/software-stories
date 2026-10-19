@@ -77,6 +77,13 @@ test('an exact symbol declaration leads partial symbol and fixture-file matches'
 
 test('production search binds the helper, explicit pressed mode and Mac physical shortcut',async()=>{
   const {readFileSync}=await import('node:fs');const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
+  const native=readFileSync(new URL('../src-tauri/src/repository_context_commands.rs',import.meta.url),'utf8');
+  const handlerStart=native.indexOf('pub(crate) async fn search_workspace_source(');
+  const handlerEnd=native.indexOf('\n#[cfg(test)]',handlerStart);
+  const handler=native.slice(handlerStart,handlerEnd);
+  assert.match(handler,/\boffset: usize,/);
+  assert.doesNotMatch(handler,/offset:\s*Option/);
+  assert.match(handler,/limit:\s*32,\s*offset,/);
   assert.match(source,/searchMode:CodeSearchMode=activity==='search'&&repositoryRegex\?'regex':'code'/);
   assert.match(source,/useEffect\(\(\)=>searchCapturedSource\(\{projectId,snapshotId,query:term,mode:searchMode,native:isNativeRuntime\(\),offset:searchOffset\}/);
   assert.match(source,/nextOffset:setSearchNextOffset/);
