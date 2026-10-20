@@ -8,7 +8,7 @@ import { defaultNarrationText, parseNarrationPreferences } from './lib/narration
 import { narrationStorageKey } from './lib/narrationScope';
 import { inspectInteractiveVisual } from './lib/visuals';
 import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes } from './lib/visualStory';
-import { viewportClipsNodeBounds, type FlowViewportInstance } from './lib/flowViewport';
+import { storyViewportNeedsRefit, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
 import { useReaderProgress } from './lib/ReaderProgressContext';
 import './visual-story.css';
@@ -147,7 +147,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
         const bounds = instance.getNodesBounds([...visibleIds]);
         const size = currentStage.getBoundingClientRect();
         if (!bounds.width || !bounds.height) return;
-        if (!viewportClipsNodeBounds(bounds, instance.getViewport(), size.width, size.height, 28)) return;
+        if (!storyViewportNeedsRefit(bounds, instance.getViewport(), size.width, size.height, 28)) return;
 
         flowFitInProgress.current = true;
         void instance.fitView({

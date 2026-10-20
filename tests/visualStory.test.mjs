@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
-import { viewportClipsNodeBounds } from '../src/lib/flowViewport.ts';
+import { storyViewportNeedsRefit, viewportClipsNodeBounds } from '../src/lib/flowViewport.ts';
 import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes } from '../src/lib/visualStory.ts';
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
@@ -276,11 +276,21 @@ describe('visual story scenes', () => {
     assert.equal(viewportClipsNodeBounds({ ...bounds, width: 0 }, { x: 0, y: 0, zoom: 1 }, 600, 400), false);
   });
 
+  it('re-fits a Guide graph saved at a zoom too small to read', () => {
+    const bounds = { x: 0, y: 0, width: 480, height: 260 };
+    assert.equal(storyViewportNeedsRefit(bounds, { x: 80, y: 50, zoom: .18 }, 600, 400), true);
+    assert.equal(storyViewportNeedsRefit(bounds, { x: 80, y: 50, zoom: .45 }, 600, 400), false);
+    assert.equal(storyViewportNeedsRefit({ ...bounds, width: 0 }, { x: 0, y: 0, zoom: .18 }, 600, 400), false);
+  });
+
   it('checks saved viewports in both the Guide player and the exploration Flow canvas', () => {
     const story = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
     const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+    assert.match(story, /storyViewportNeedsRefit\(bounds,\s*\w+\.getViewport\(\),\s*\w+\.width,\s*\w+\.height/u,
+      'Guide restoration also rejects saved zoom levels that make nodes unreadable');
+    assert.match(workspace, /viewportClipsNodeBounds\(bounds,\s*\w+\.getViewport\(\),\s*\w+\.width,\s*\w+\.height/u,
+      'Flow restoration continues to preserve its existing clipping behavior');
     for (const source of [story, workspace]) {
-      assert.match(source, /viewportClipsNodeBounds\(bounds,\s*\w+\.getViewport\(\),\s*\w+\.width,\s*\w+\.height/u);
       assert.match(source, /onNodesChange=\{\(changes\)\s*=>\s*\{\s*if\s*\(changes\.some\(\(change\)\s*=>\s*change\.type\s*===\s*'dimensions'\)\)/u);
     }
     assert.match(story, /instance\.setViewport\(saved,\s*\{\s*duration:\s*0\s*\}\)/u,
