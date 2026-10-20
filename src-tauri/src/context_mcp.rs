@@ -43,11 +43,12 @@ fn read_tools() -> Vec<Tool> {
     let offset = json!({"type":"integer","minimum":0,"maximum":100000});
     let search_offset = json!({"type":"integer","minimum":0,"maximum":255});
     let query = json!({"type":"string","minLength":2,"maxLength":240});
+    let result_kind = json!({"type":"string","enum":["ranges","files"],"description":"Optional. Defaults to ranges. Use files to discover likely captured paths for a broad question, then search again with resultKind ranges and scope set to a returned path."});
     let definitions = [
         (
             "search_code",
-            "Search captured implementation text and exact identifiers. This is lexical, not semantic: multiword queries match terms independently and can return noisy broad results. Prefer an exact identifier or a short distinctive phrase; for a broad behavior question, search its important operations separately, then use definitions, relationships and bounded reads to follow the actual code. Use 2 to 240 non-control characters after trimming, with at most 32 searchable terms; punctuation is literal. Set offset to 0 for the first page; when nextOffset is present, pass it as offset to inspect more ranked results. Pages contain at most 32 results and the bounded candidate window contains at most 256. Returns candidate ranges and capture/index omissions. If an invalidQuery result says the literal matcher could not be built, retry once with a shorter identifier or phrase. Refine scope as needed; call read_code to inspect code before making claims.",
-            json!({"query":query,"scope":scope,"limit":limit,"offset":search_offset}),
+            "Search captured implementation text and exact identifiers. This is lexical, not semantic: multiword queries match terms independently and can return noisy broad results. Prefer an exact identifier or a short distinctive phrase; for broad behavior questions, resultKind:files discovers likely paths by distinct query-word coverage and returns one verifiable range per path. Inspect nextOffset pages as needed, then repeat with resultKind:ranges and that path as scope; read_code proves details. For a broad behavior question, search its important operations separately, then use definitions and relationships to follow the actual code. Use 2 to 240 non-control characters after trimming, with at most 32 searchable terms; punctuation is literal. Set offset to 0 for the first page; when nextOffset is present, pass it as offset to inspect more ranked results. Pages contain at most 32 results and the bounded candidate window contains at most 256. Returns candidate ranges and capture/index omissions. If an invalidQuery result says the literal matcher could not be built, retry once with a shorter identifier or phrase. Refine scope as needed; call read_code to inspect code before making claims.",
+            json!({"query":query,"scope":scope,"limit":limit,"offset":search_offset,"resultKind":result_kind}),
         ),
         (
             "read_code",
@@ -71,7 +72,7 @@ fn read_tools() -> Vec<Tool> {
         ),
     ];
     definitions.into_iter().map(|(name,description,properties)| {
-        let required=properties.as_object().map(|p|p.keys().cloned().collect::<Vec<_>>()).unwrap_or_default();
+        let required=properties.as_object().map(|p|p.keys().filter(|key|key.as_str()!="resultKind").cloned().collect::<Vec<_>>()).unwrap_or_default();
         let schema=json!({"type":"object","additionalProperties":false,"properties":properties,"required":required});
         Tool::new(name,description,schema.as_object().cloned().unwrap_or_default())
             .with_annotations(ToolAnnotations::default().read_only(true).destructive(false).idempotent(false).open_world(false))
@@ -405,14 +406,28 @@ mod tests {
         assert!(search_description.contains("lexical, not semantic"));
         assert!(search_description.contains("terms independently"));
         assert!(search_description.contains("important operations separately"));
+        assert!(search_description.contains("distinct query-word coverage"));
         assert!(search_description.contains("retry once with a shorter identifier"));
         assert!(search_description.contains("pass it as offset"));
         assert_eq!(search.input_schema["properties"]["offset"]["maximum"], 255);
-        assert!(search.input_schema["required"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|value| value == "offset"));
+        assert_eq!(
+            search.input_schema["properties"]["resultKind"]["enum"],
+            json!(["ranges", "files"])
+        );
+        assert!(
+            !search.input_schema["required"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|value| value == "resultKind")
+        );
+        assert!(
+            search.input_schema["required"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|value| value == "offset")
+        );
         for (base, answer) in read_only.iter().zip(&catalog[..5]) {
             assert_eq!(serde_json::to_value(base).unwrap(), serde_json::to_value(answer).unwrap());
         }

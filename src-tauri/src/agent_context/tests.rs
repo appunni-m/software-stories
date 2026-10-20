@@ -1,6 +1,24 @@
 use super::*;
 use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH};
+use serde_json::json;
 use std::{io::Write, os::unix::net::UnixStream, thread, time::Instant};
+
+#[test]
+fn search_result_kind_defaults_to_ranges_and_accepts_file_discovery() {
+    let arguments = json!({"query":"glyph rendering","scope":null,"limit":8,"offset":0});
+    let default: Search = parse(arguments.clone()).unwrap();
+    assert!(matches!(default.result_kind, SearchResultKind::Ranges));
+
+    let files: Search = parse(json!({
+        "query":"glyph rendering",
+        "scope":null,
+        "limit":8,
+        "offset":0,
+        "resultKind":"files"
+    }))
+    .unwrap();
+    assert!(matches!(files.result_kind, SearchResultKind::Files));
+}
 
 #[test]
 fn transport_setup_diagnostics_exclude_os_messages_and_private_paths() {

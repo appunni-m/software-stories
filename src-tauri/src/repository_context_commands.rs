@@ -186,6 +186,23 @@ pub(crate) fn search_snapshot(
     input: &SearchInput,
     request: &Request,
 ) -> Result<context::SearchResult, String> {
+    search_snapshot_kind(storage, input, request, false)
+}
+
+pub(crate) fn search_files_snapshot(
+    storage: &Path,
+    input: &SearchInput,
+    request: &Request,
+) -> Result<context::SearchResult, String> {
+    search_snapshot_kind(storage, input, request, true)
+}
+
+fn search_snapshot_kind(
+    storage: &Path,
+    input: &SearchInput,
+    request: &Request,
+    file_results: bool,
+) -> Result<context::SearchResult, String> {
     context::validate_search_mode(&input.query, input.path.as_deref(), input.limit, input.mode)?;
     context::validate_search_page(input.limit, input.offset)?;
     let budget = context::Budget::new(&request.cancelled);
@@ -229,17 +246,31 @@ pub(crate) fn search_snapshot(
         .prepared
         .as_ref()
         .ok_or("Local code index is unavailable.")?;
-    let result = context::search_with_mode_page(
-        storage,
-        &manifest,
-        prepared,
-        &input.query,
-        input.path.as_deref(),
-        input.limit,
-        input.offset,
-        &budget,
-        input.mode,
-    );
+    let result = if file_results {
+        context::search_files_with_mode_page(
+            storage,
+            &manifest,
+            prepared,
+            &input.query,
+            input.path.as_deref(),
+            input.limit,
+            input.offset,
+            &budget,
+            input.mode,
+        )
+    } else {
+        context::search_with_mode_page(
+            storage,
+            &manifest,
+            prepared,
+            &input.query,
+            input.path.as_deref(),
+            input.limit,
+            input.offset,
+            &budget,
+            input.mode,
+        )
+    };
     // A bounded literal whose matcher cannot be built is a correctable query
     // failure; the prepared snapshot index remains valid and reusable.
     if matches!(&result, Err(error) if error.as_str() != context::INVALID_LITERAL_SEARCH_QUERY) {
@@ -525,6 +556,22 @@ mod tests {
             (result, started.elapsed().as_millis())
         };
         let run = |query: &str, path: Option<&str>| run_page(query, path, 0);
+        let run_file_page = |query: &str, path: Option<&str>, offset: usize| {
+            let request = jobs.begin(&Uuid::new_v4().to_string()).unwrap();
+            let input = SearchInput {
+                request_id: request.id.clone(),
+                project_id: "/Users/lazytrot/work/fontdone".to_owned(),
+                snapshot_id: corpus.snapshot_id.clone(),
+                query: query.to_owned(),
+                mode: context::SearchMode::Code,
+                path: path.map(str::to_owned),
+                limit: 32,
+                offset,
+            };
+            let started = Instant::now();
+            let result = search_files_snapshot(&storage, &input, &request).unwrap();
+            (result, started.elapsed().as_millis())
+        };
         let (first, first_ms) = run("memory_face", None);
         let (warm, warm_ms) = run("memory_face", None);
         assert!(
@@ -562,6 +609,26 @@ mod tests {
             "font bytes rendered glyph bitmap entry parsing outline hinting rasterization",
             "font buffer glyph image format outline hinting pixel coverage",
         ] {
+            let mut discovered_paths = std::collections::BTreeSet::new();
+            let mut first_page_paths = std::collections::BTreeSet::new();
+            let mut discovery_offset = 0;
+            let mut discovery_pages = 0;
+            let mut discovery_elapsed_ms = 0;
+            let mut discovery_result_bytes = 0;
+            loop {
+                let (page, elapsed_ms) = run_file_page(query, None, discovery_offset);
+                discovery_pages += 1;
+                discovery_elapsed_ms += elapsed_ms;
+                discovery_result_bytes += page.result_bytes;
+                if discovery_pages == 1 {
+                    first_page_paths.extend(page.matches.iter().map(|hit| hit.range.path.clone()));
+                }
+                discovered_paths.extend(page.matches.into_iter().map(|hit| hit.range.path));
+                match page.next_offset {
+                    Some(next) => discovery_offset = next,
+                    None => break,
+                }
+            }
             let (first_page, first_page_ms) = run(query, None);
             let first_page_recall = corpus
                 .expected
@@ -605,6 +672,40 @@ mod tests {
                     }
                 })
                 .collect::<Vec<_>>();
+            let discovered_path_recall = corpus
+                .expected
+                .iter()
+                .filter(|expected| discovered_paths.contains(&expected.path))
+                .map(|expected| expected.path.as_str())
+                .collect::<std::collections::BTreeSet<_>>();
+            let discovered_scoped_recall = corpus
+                .expected
+                .iter()
+                .filter(|expected| {
+                    discovered_paths.contains(&expected.path)
+                        && scoped_recall.contains(&expected.id.as_str())
+                })
+                .map(|expected| expected.id.as_str())
+                .collect::<Vec<_>>();
+            let first_page_expected_paths = corpus
+                .expected
+                .iter()
+                .filter(|expected| first_page_paths.contains(&expected.path))
+                .map(|expected| expected.path.as_str())
+                .collect::<std::collections::BTreeSet<_>>();
+            let first_page_scoped_recall = corpus
+                .expected
+                .iter()
+                .filter(|expected| {
+                    first_page_paths.contains(&expected.path)
+                        && scoped_recall.contains(&expected.id.as_str())
+                })
+                .map(|expected| expected.id.as_str())
+                .collect::<Vec<_>>();
+            println!(
+                "FONTDONE_FILE_DISCOVERY {}",
+                serde_json::json!({"query":query,"firstPageExpectedPaths":first_page_expected_paths,"firstPageExpectedPathCount":first_page_expected_paths.len(),"firstPageScopedRecall":first_page_scoped_recall,"expectedPathRecall":discovered_path_recall,"discoveredExpectedPaths":discovered_path_recall.len(),"expectedPathCount":corpus.expected.iter().map(|item| item.path.as_str()).collect::<std::collections::BTreeSet<_>>().len(),"discoveredScopedRecall":discovered_scoped_recall,"discoveredRangeCount":discovered_paths.len(),"pagesRead":discovery_pages,"elapsedMs":discovery_elapsed_ms,"serializedMatchBytes":discovery_result_bytes})
+            );
             println!(
                 "FONTDONE_BROAD {}",
                 serde_json::json!({"query":query,"firstPageRecall":first_page_recall,"candidateWindowRecall":recovered,"scopedRecall":scoped_recall,"pagesRead":pages,"elapsedMs":elapsed_ms,"serializedMatchBytes":serialized_match_bytes,"limited":limited,"expectedCount":corpus.expected.len(),"namedGlobalRecall":format!("{named}/{}",corpus.expected.len())})

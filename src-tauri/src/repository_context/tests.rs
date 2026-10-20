@@ -231,6 +231,60 @@ fn broad_natural_search_does_not_match_only_a_filename_but_explicit_paths_do() {
 }
 
 #[test]
+fn file_discovery_returns_one_verified_range_per_path_and_pages_stably() {
+    let mut fixture = Fixture::new();
+    add_source(
+        &mut fixture,
+        "src/a.rs",
+        "fn render_glyph() { cover_pixel(); }\n",
+    );
+    add_source(&mut fixture, "src/b.rs", "fn render_step() {}\n");
+    add_source(
+        &mut fixture,
+        "src/sub/c.rs",
+        "fn glyph_step() { cover_pixel(); }\n",
+    );
+    add_source(&mut fixture, "tests/unrelated.rs", "fn parse_header() {}\n");
+
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let search = |scope: Option<&str>, offset| {
+        search_files_with_mode_page(
+            &fixture.storage,
+            &fixture.manifest,
+            &prepared,
+            "rendered glyphs covered",
+            scope,
+            1,
+            offset,
+            &budget,
+            SearchMode::Code,
+        )
+        .unwrap()
+    };
+
+    let first = search(None, 0);
+    assert_eq!(first.matches.len(), 1);
+    assert_eq!(first.matches[0].range.path, "src/a.rs");
+    assert!(first.next_offset.is_some());
+    assert_eq!(
+        first.matches[0].range.source_sha256,
+        digest(b"fn render_glyph() { cover_pixel(); }\n")
+    );
+
+    let second = search(None, first.next_offset.unwrap());
+    assert_eq!(second.matches.len(), 1);
+    assert_eq!(second.matches[0].range.path, "src/sub/c.rs");
+    assert_ne!(first.matches[0].range.path, second.matches[0].range.path);
+
+    let scoped = search(Some("src/sub"), 0);
+    assert_eq!(scoped.matches.len(), 1);
+    assert_eq!(scoped.matches[0].range.path, "src/sub/c.rs");
+    assert!(scoped.next_offset.is_none());
+}
+
+#[test]
 fn large_parserless_c_adapter_is_searchable_without_a_whole_file_prompt() {
     let mut fixture = Fixture::new();
     let text = format!(

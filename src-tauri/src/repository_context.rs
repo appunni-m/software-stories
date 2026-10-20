@@ -1814,6 +1814,224 @@ pub(crate) fn search_with_mode_page(
     Ok(ranked)
 }
 
+/// Return one relevant source range per captured file, ranked by the
+/// inverse-document-frequency coverage of distinct query terms. This is a
+/// discovery view for broad questions: the caller can then scope a normal
+/// range search to a promising file instead of letting many chunks from one
+/// large file hide other relevant modules.
+pub(crate) fn search_files_with_mode_page(
+    storage: &Path,
+    manifest: &snapshot::SnapshotManifest,
+    prepared: &PreparedIndex,
+    query: &str,
+    path: Option<&str>,
+    limit: usize,
+    offset: usize,
+    budget: &Budget<'_>,
+    mode: SearchMode,
+) -> Result<SearchResult, String> {
+    let started = Instant::now();
+    budget.check()?;
+    if prepared.metadata.project_id != manifest.summary.project_id
+        || prepared.metadata.snapshot_id != manifest.summary.snapshot_id
+    {
+        return Err("The code index belongs to a different snapshot.".to_owned());
+    }
+    if mode != SearchMode::Code {
+        return Err("File discovery supports ranked code search only.".to_owned());
+    }
+    let words = validate_search_mode(query, path, limit, mode)?;
+    let page_end = validate_search_page(limit, offset)?;
+    let body = field(&prepared.index, "body")?;
+    let body_stem = field(&prepared.index, "body_stem")?;
+    let mut term_groups = Vec::with_capacity(words.len());
+    for word in &words {
+        let mut variants = vec![(body, word.clone())];
+        variants.extend(
+            english_stems(&prepared.index, word)?
+                .into_iter()
+                .filter(|stem| stem != word)
+                .map(|stem| (body_stem, stem)),
+        );
+        term_groups.push(variants);
+    }
+
+    let searcher = prepared
+        .index
+        .reader()
+        .map_err(|_| "Code search index could not be opened. Try rebuilding it.".to_owned())?
+        .searcher();
+    let mut path_terms: HashMap<String, Vec<f32>> = HashMap::new();
+    let mut range_terms: HashMap<usize, Vec<f32>> = HashMap::new();
+    let total_ranges = prepared.metadata.ranges.len().max(1);
+    let range_key_field = field(&prepared.index, "range_key")?;
+    for (term_index, variants) in term_groups.iter().enumerate() {
+        budget.check()?;
+        let mut matching_ranges = BTreeSet::new();
+        for (term_field, term) in variants {
+            let documents = searcher
+                .search(
+                    &term_query(*term_field, term),
+                    &tantivy::collector::DocSetCollector,
+                )
+                .map_err(|_| "Code search failed. Try rebuilding its local index.".to_owned())?;
+            for (index, address) in documents.into_iter().enumerate() {
+                if index % 128 == 0 {
+                    budget.check()?;
+                }
+                let document = searcher
+                    .doc::<TantivyDocument>(address)
+                    .map_err(|_| "A code search result is unavailable.".to_owned())?;
+                let key = document
+                    .get_first(range_key_field)
+                    .and_then(|value| value.as_str())
+                    .ok_or("The code search index is invalid.")?;
+                let range_id = *prepared
+                    .ranges_by_key
+                    .get(key)
+                    .ok_or("The code search index is invalid.")?;
+                let range = prepared
+                    .metadata
+                    .ranges
+                    .get(range_id)
+                    .ok_or("The code search index is invalid.")?;
+                if path.is_none_or(|scope| {
+                    range.path == scope
+                        || range
+                            .path
+                            .strip_prefix(scope)
+                            .is_some_and(|suffix| suffix.starts_with('/'))
+                }) {
+                    matching_ranges.insert(range_id);
+                }
+            }
+        }
+        if matching_ranges.is_empty() {
+            continue;
+        }
+        let inverse_document_frequency =
+            (((total_ranges + 1) as f32) / ((matching_ranges.len() + 1) as f32)).ln();
+        for range_id in matching_ranges {
+            let range = &prepared.metadata.ranges[range_id];
+            path_terms
+                .entry(range.path.clone())
+                .or_insert_with(|| vec![0.0; term_groups.len()])[term_index] =
+                inverse_document_frequency;
+            range_terms
+                .entry(range_id)
+                .or_insert_with(|| vec![0.0; term_groups.len()])[term_index] =
+                inverse_document_frequency;
+        }
+    }
+
+    let mut best_ranges: HashMap<String, (usize, f32, usize)> = HashMap::new();
+    for (range_id, scores) in &range_terms {
+        let range = &prepared.metadata.ranges[*range_id];
+        let score = scores.iter().sum::<f32>();
+        let coverage = scores.iter().filter(|score| **score > 0.0).count();
+        let replace =
+            best_ranges
+                .get(&range.path)
+                .is_none_or(|(best_id, best_score, best_coverage)| {
+                    score.total_cmp(best_score).is_gt()
+                        || (score.total_cmp(best_score).is_eq() && coverage > *best_coverage)
+                        || (score.total_cmp(best_score).is_eq()
+                            && coverage == *best_coverage
+                            && range.start_byte < prepared.metadata.ranges[*best_id].start_byte)
+                });
+        if replace {
+            best_ranges.insert(range.path.clone(), (*range_id, score, coverage));
+        }
+    }
+
+    let mut ranked_files = path_terms
+        .into_iter()
+        .filter_map(|(file_path, scores)| {
+            let (range_id, _, _) = best_ranges.get(&file_path)?;
+            let score = scores.iter().sum::<f32>();
+            let coverage = scores.iter().filter(|score| **score > 0.0).count();
+            Some((file_path, *range_id, score, coverage))
+        })
+        .collect::<Vec<_>>();
+    ranked_files.sort_by(|left, right| {
+        right
+            .2
+            .total_cmp(&left.2)
+            .then_with(|| right.3.cmp(&left.3))
+            .then_with(|| left.0.cmp(&right.0))
+    });
+    let total_files = ranked_files.len();
+    ranked_files.truncate(MAX_CANDIDATES);
+    let matcher = RegexMatcherBuilder::new()
+        .case_insensitive(true)
+        .fixed_strings(true)
+        .build_literals(&words)
+        .map_err(|_| INVALID_LITERAL_SEARCH_QUERY.to_owned())?;
+    let mut matches = Vec::new();
+    for (file_path, range_id, score, _) in ranked_files.into_iter().skip(offset).take(limit) {
+        budget.check()?;
+        let range = prepared
+            .metadata
+            .ranges
+            .get(range_id)
+            .ok_or("The code search index is invalid.")?;
+        if range.path != file_path {
+            return Err("The code search index is invalid.".to_owned());
+        }
+        let captured = source(storage, manifest, &file_path)?;
+        if captured.sha256 != range.source_sha256 {
+            return Err("A code result belongs to a different source version.".to_owned());
+        }
+        let read = range_from_source(&captured, range.start_byte, range.end_byte)?;
+        if read.range.chunk_sha256 != range.chunk_sha256
+            || read.range.start_line != range.start_line
+            || read.range.end_line != range.end_line
+        {
+            return Err("A saved code range changed. Rebuild the local code index.".to_owned());
+        }
+        let mut line = range.start_line;
+        let mut text = read
+            .contents
+            .lines()
+            .next()
+            .unwrap_or("")
+            .trim()
+            .chars()
+            .take(360)
+            .collect::<String>();
+        Searcher::new()
+            .search_slice(
+                &matcher,
+                read.contents.as_bytes(),
+                UTF8(|number, found| {
+                    line = range.start_line + number as usize - 1;
+                    text = found.trim().chars().take(360).collect();
+                    Ok(false)
+                }),
+            )
+            .map_err(|_| "A captured code snippet could not be searched.".to_owned())?;
+        matches.push(SearchHit {
+            range: range.clone(),
+            line,
+            text,
+            exact_identifier: false,
+            declaration_match: false,
+            score,
+        });
+    }
+    let result_bytes = json(&matches)?.len();
+    Ok(SearchResult {
+        matches,
+        limited: total_files > page_end,
+        next_offset: (page_end < MAX_CANDIDATES && total_files > page_end).then_some(page_end),
+        coverage: prepared.metadata.coverage.clone(),
+        reused_generation: prepared.reused_generation,
+        build: prepared.metadata.build.clone(),
+        elapsed_ms: started.elapsed().as_millis() as u64,
+        result_bytes,
+    })
+}
+
 fn search_ranked(
     storage: &Path,
     manifest: &snapshot::SnapshotManifest,
