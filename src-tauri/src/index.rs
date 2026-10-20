@@ -13,7 +13,7 @@ use tree_sitter::{Language, Node, ParseOptions, Parser, Point};
 use uuid::Uuid;
 
 const INDEX_SCHEMA_VERSION: u32 = 1;
-const INDEXER_VERSION: &str = "atlas-symbol-index-v4";
+const INDEXER_VERSION: &str = "atlas-symbol-index-v5";
 const TREE_SITTER_RUNTIME_VERSION: &str = "0.27.1";
 pub(crate) const MAX_INDEXED_FILES: usize = 5_000;
 pub(crate) const MAX_SOURCE_BYTES_PER_FILE: u64 = 1024 * 1024;
@@ -258,7 +258,7 @@ struct ImportBinding {
     is_value_binding: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum BindingTarget {
     Symbol(String),
     Import,
@@ -287,6 +287,8 @@ struct ParsedFile {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum SupportedLanguage {
+    Go,
+    Python,
     Rust,
     TypeScript,
     Tsx,
@@ -296,6 +298,8 @@ enum SupportedLanguage {
 impl SupportedLanguage {
     fn label(self) -> &'static str {
         match self {
+            Self::Go => "go",
+            Self::Python => "python",
             Self::Rust => "rust",
             Self::TypeScript => "typescript",
             Self::Tsx => "tsx",
@@ -305,6 +309,8 @@ impl SupportedLanguage {
 
     fn grammar_name(self) -> &'static str {
         match self {
+            Self::Go => "tree-sitter-go",
+            Self::Python => "tree-sitter-python",
             Self::Rust => "tree-sitter-rust",
             Self::TypeScript | Self::Tsx => "tree-sitter-typescript",
             Self::JavaScript => "tree-sitter-javascript",
@@ -313,6 +319,7 @@ impl SupportedLanguage {
 
     fn grammar_version(self) -> &'static str {
         match self {
+            Self::Go | Self::Python => "0.25.0",
             Self::Rust => "0.24.2",
             Self::TypeScript | Self::Tsx => "0.23.2",
             Self::JavaScript => "0.25.0",
@@ -321,6 +328,8 @@ impl SupportedLanguage {
 
     fn language(self) -> Language {
         match self {
+            Self::Go => tree_sitter_go::LANGUAGE.into(),
+            Self::Python => tree_sitter_python::LANGUAGE.into(),
             Self::Rust => tree_sitter_rust::LANGUAGE.into(),
             Self::TypeScript => tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
             Self::Tsx => tree_sitter_typescript::LANGUAGE_TSX.into(),
@@ -335,6 +344,8 @@ impl SupportedLanguage {
             .map(str::to_ascii_lowercase)
             .as_deref()
         {
+            Some("go") => Some(Self::Go),
+            Some("py") | Some("pyi") | Some("pyw") => Some(Self::Python),
             Some("rs") => Some(Self::Rust),
             Some("ts") | Some("mts") | Some("cts") => Some(Self::TypeScript),
             Some("tsx") => Some(Self::Tsx),
@@ -836,7 +847,9 @@ where
 
 fn parser_catalog() -> Vec<ParserVersion> {
     [
+        SupportedLanguage::Go,
         SupportedLanguage::JavaScript,
+        SupportedLanguage::Python,
         SupportedLanguage::Rust,
         SupportedLanguage::Tsx,
         SupportedLanguage::TypeScript,
@@ -1009,7 +1022,7 @@ fn collect_file_index(
         if let Some((kind, name_node)) = declaration(&node, language, &context) {
             let name = node_text(name_node, source);
             if !name.is_empty() && name.len() <= 512 {
-                let exported = direct_module_export(node, language);
+                let exported = direct_module_export(node, language, source);
                 let is_test = kind.is_callable()
                     && (file_is_test
                         || (language == SupportedLanguage::Rust
@@ -1089,7 +1102,7 @@ fn collect_file_index(
                 imports.push(candidate);
             }
         }
-        if node.kind() == "call_expression" {
+        if is_call_node(node, language) {
             if language == SupportedLanguage::Rust || !is_static_import_call(node, source) {
                 calls.push(call_candidate(
                     node,
@@ -1202,12 +1215,24 @@ fn collect_file_index(
     })
 }
 
-fn direct_module_export(node: Node<'_>, language: SupportedLanguage) -> bool {
+fn direct_module_export(node: Node<'_>, language: SupportedLanguage, source: &str) -> bool {
     if language == SupportedLanguage::Rust {
         return node
             .parent()
             .is_some_and(|parent| parent.kind() == "source_file")
             && rust_public(&node);
+    }
+    if language == SupportedLanguage::Go {
+        return node
+            .child_by_field_name("name")
+            .map(|name| node_text(name, source))
+            .and_then(|name| name.chars().next())
+            .is_some_and(char::is_uppercase);
+    }
+    if language == SupportedLanguage::Python {
+        // `__all__` can change Python exports dynamically; do not infer them
+        // from a leading underscore convention.
+        return false;
     }
     let mut declaration = node;
     if node.kind() == "variable_declarator" {
@@ -1235,8 +1260,10 @@ fn lexical_function(kind: &str) -> bool {
     matches!(
         kind,
         "function_item"
+            | "function_definition"
             | "function_signature_item"
             | "function_declaration"
+            | "method_declaration"
             | "function_signature"
             | "generator_function_declaration"
             | "function_expression"
@@ -1265,6 +1292,7 @@ fn lexical_block(kind: &str) -> bool {
             | "class_declaration"
             | "abstract_class_declaration"
             | "class"
+            | "class_definition"
             | "impl_item"
             | "trait_item"
             | "mod_item"
@@ -1319,6 +1347,7 @@ fn pattern_binding_names(pattern: Node<'_>, source: &str) -> (Vec<String>, bool)
             }
             "formal_parameters"
             | "parameters"
+            | "parameter_list"
             | "closure_parameters"
             | "array_pattern"
             | "object_pattern"
@@ -1343,6 +1372,15 @@ fn pattern_binding_names(pattern: Node<'_>, source: &str) -> (Vec<String>, bool)
                         continue;
                     }
                     stack.push(child);
+                }
+            }
+            "parameter_declaration" | "variadic_parameter_declaration" => {
+                for index in 0..node.child_count() {
+                    if node.field_name_for_child(index) == Some("name") {
+                        if let Some(name) = node.child(index) {
+                            stack.push(name);
+                        }
+                    }
                 }
             }
             "self"
@@ -1534,6 +1572,18 @@ fn bind_calls_lexically(
                     0,
                 );
             }
+            if language == SupportedLanguage::Go && kind == "method_declaration" {
+                if let Some(receiver) = node.child_by_field_name("receiver") {
+                    add_pattern_bindings(
+                        &mut scopes,
+                        scope,
+                        receiver,
+                        source,
+                        BindingTarget::Unknown("call_is_shadowed_by_parameter"),
+                        0,
+                    );
+                }
+            }
             if matches!(kind, "function_expression" | "generator_function") {
                 if let Some(name) = node.child_by_field_name("name") {
                     add_pattern_bindings(
@@ -1635,8 +1685,35 @@ fn bind_calls_lexically(
                     }
                 }
             }
-            "import_statement" => {
-                for binding in import_bindings(node, source) {
+            "short_var_declaration"
+            | "var_declaration"
+            | "const_declaration"
+            | "assignment_statement"
+            | "range_clause"
+                if language == SupportedLanguage::Go =>
+            {
+                // Go declarations and assignments can shadow package functions.
+                // Keep calls unresolved in that function until these bindings
+                // are modeled precisely.
+                let function_scope = scopes[scope].function_scope;
+                scopes[function_scope].opaque = true;
+            }
+            "assignment"
+            | "augmented_assignment"
+            | "named_expression"
+            | "for_statement"
+            | "except_clause"
+            | "global_statement"
+            | "nonlocal_statement"
+                if language == SupportedLanguage::Python =>
+            {
+                // Python assignment rules can shadow module functions across a
+                // whole function body; do not infer a static target here.
+                let function_scope = scopes[scope].function_scope;
+                scopes[function_scope].opaque = true;
+            }
+            "import_statement" | "import_from_statement" | "import_declaration" => {
+                for binding in import_bindings(node, source, language) {
                     scopes[scope]
                         .bindings
                         .entry(binding.local_name)
@@ -1652,6 +1729,16 @@ fn bind_calls_lexically(
                             },
                             available_from: 0,
                         });
+                }
+                if (language == SupportedLanguage::Python
+                    && node.kind() == "import_from_statement"
+                    && contains_node_kind(node, "wildcard_import"))
+                    || (language == SupportedLanguage::Go && go_dot_import(node))
+                {
+                    // Wildcard imports may introduce arbitrary bare call names.
+                    // Keep those calls unresolved instead of matching a local
+                    // declaration with the same spelling.
+                    scopes[scope].opaque = true;
                 }
             }
             "use_declaration" if language == SupportedLanguage::Rust => {
@@ -1674,7 +1761,7 @@ fn bind_calls_lexically(
                     assignments.push((scope, names));
                 }
             }
-            "call_expression" => {
+            _ if is_call_node(node, language) => {
                 call_scopes.insert(node.start_byte(), scope);
                 if language != SupportedLanguage::Rust
                     && node.child_by_field_name("function").is_some_and(|callee| {
@@ -1789,6 +1876,27 @@ fn declaration<'tree>(
 ) -> Option<(SymbolKind, Node<'tree>)> {
     let kind = node.kind();
     let symbol_kind = match language {
+        SupportedLanguage::Python => match kind {
+            "function_definition" => {
+                if python_method_definition(*node) {
+                    SymbolKind::Method
+                } else {
+                    SymbolKind::Function
+                }
+            }
+            "class_definition" => SymbolKind::Class,
+            _ => return None,
+        },
+        SupportedLanguage::Go => match kind {
+            "function_declaration" => SymbolKind::Function,
+            "method_declaration" => SymbolKind::Method,
+            "type_spec" => match node.child_by_field_name("type")?.kind() {
+                "struct_type" => SymbolKind::Struct,
+                "interface_type" => SymbolKind::Interface,
+                _ => return None,
+            },
+            _ => return None,
+        },
         SupportedLanguage::Rust => match kind {
             "function_item" | "function_signature" | "function_signature_item" => {
                 if context
@@ -1875,6 +1983,18 @@ fn declaration<'tree>(
     Some((symbol_kind, name))
 }
 
+fn python_method_definition(node: Node<'_>) -> bool {
+    let mut ancestor = node.parent();
+    while let Some(current) = ancestor {
+        match current.kind() {
+            "function_definition" => return false,
+            "class_definition" => return true,
+            _ => ancestor = current.parent(),
+        }
+    }
+    false
+}
+
 fn opens_symbol_scope(kind: &SymbolKind, language: SupportedLanguage) -> bool {
     kind.is_callable()
         || matches!(
@@ -1915,7 +2035,10 @@ fn is_test_path(path: &str) -> bool {
         .any(|part| part == "tests" || part == "__tests__")
         || file.contains(".test.")
         || file.contains(".spec.")
+        || file.starts_with("test_")
         || file.ends_with("_test.rs")
+        || file.ends_with("_test.py")
+        || file.ends_with("_test.go")
 }
 
 fn signature_bytes(node: &Node<'_>, name: Node<'_>, source: &str, kind: &SymbolKind) -> String {
@@ -2035,7 +2158,11 @@ fn call_candidate(
         Some(function)
             if matches!(
                 function.kind(),
-                "member_expression" | "field_expression" | "subscript_expression"
+                "member_expression"
+                    | "field_expression"
+                    | "subscript_expression"
+                    | "attribute"
+                    | "selector_expression"
             ) =>
         {
             (
@@ -2080,9 +2207,24 @@ fn call_candidate(
 fn is_import_node(node: Node<'_>, language: SupportedLanguage) -> bool {
     match language {
         SupportedLanguage::Rust => node.kind() == "use_declaration",
+        SupportedLanguage::Python => {
+            matches!(node.kind(), "import_statement" | "import_from_statement")
+        }
+        SupportedLanguage::Go => node.kind() == "import_declaration",
         SupportedLanguage::TypeScript | SupportedLanguage::Tsx | SupportedLanguage::JavaScript => {
             matches!(node.kind(), "import_statement" | "export_statement")
         }
+    }
+}
+
+fn is_call_node(node: Node<'_>, language: SupportedLanguage) -> bool {
+    match language {
+        SupportedLanguage::Python => node.kind() == "call",
+        SupportedLanguage::Go
+        | SupportedLanguage::Rust
+        | SupportedLanguage::TypeScript
+        | SupportedLanguage::Tsx
+        | SupportedLanguage::JavaScript => node.kind() == "call_expression",
     }
 }
 
@@ -2111,6 +2253,31 @@ fn import_candidate(
         });
     }
 
+    if language == SupportedLanguage::Python {
+        let module_specifier = node
+            .child_by_field_name("module_name")
+            .map(|module| node_text(module, source));
+        return Some(ImportCandidate {
+            path: path.to_owned(),
+            module_specifier,
+            unresolved_reason: Some("python_module_resolution_not_supported".to_owned()),
+            bindings: import_bindings(node, source, language),
+            anchor: anchor(path, source_sha256, node),
+            is_require_call: false,
+        });
+    }
+
+    if language == SupportedLanguage::Go {
+        return Some(ImportCandidate {
+            path: path.to_owned(),
+            module_specifier: None,
+            unresolved_reason: Some("go_package_resolution_not_supported".to_owned()),
+            bindings: import_bindings(node, source, language),
+            anchor: anchor(path, source_sha256, node),
+            is_require_call: false,
+        });
+    }
+
     let source_node = if node.kind() == "call_expression" {
         node.child_by_field_name("arguments")?.named_child(0)?
     } else {
@@ -2119,7 +2286,7 @@ fn import_candidate(
     let raw = node_text(source_node, source);
     let specifier = static_string_value(source_node.kind(), &raw);
     let bindings = if node.kind() == "import_statement" {
-        import_bindings(node, source)
+        import_bindings(node, source, language)
     } else {
         Vec::new()
     };
@@ -2140,7 +2307,18 @@ fn import_candidate(
     })
 }
 
-fn import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
+fn import_bindings(
+    node: Node<'_>,
+    source: &str,
+    language: SupportedLanguage,
+) -> Vec<ImportBinding> {
+    match language {
+        SupportedLanguage::Python => return python_import_bindings(node, source),
+        SupportedLanguage::Go => return go_import_bindings(node, source),
+        SupportedLanguage::Rust => return Vec::new(),
+        SupportedLanguage::TypeScript | SupportedLanguage::Tsx | SupportedLanguage::JavaScript => {}
+    }
+
     let mut children_cursor = node.walk();
     let Some(clause) = node
         .children(&mut children_cursor)
@@ -2208,6 +2386,104 @@ fn import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
         }
     }
     bindings
+}
+
+fn python_import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
+    let module_name = node.child_by_field_name("module_name");
+    let mut cursor = node.walk();
+    let mut bindings = Vec::new();
+    for child in node.named_children(&mut cursor) {
+        if module_name.is_some_and(|module| {
+            module.start_byte() == child.start_byte() && module.end_byte() == child.end_byte()
+        }) {
+            continue;
+        }
+        match child.kind() {
+            "aliased_import" => {
+                let local_name = child
+                    .child_by_field_name("alias")
+                    .map(|alias| node_text(alias, source));
+                if let Some(local_name) = local_name.filter(|name| !name.is_empty()) {
+                    bindings.push(ImportBinding {
+                        local_name,
+                        imported_name: "*".to_owned(),
+                        is_value_binding: true,
+                    });
+                }
+            }
+            "dotted_name" => {
+                let imported_name = node_text(child, source);
+                let local_name = if node.kind() == "import_statement" {
+                    imported_name.split('.').next().unwrap_or_default()
+                } else {
+                    imported_name.rsplit('.').next().unwrap_or_default()
+                };
+                if !local_name.is_empty() {
+                    bindings.push(ImportBinding {
+                        local_name: local_name.to_owned(),
+                        imported_name: "*".to_owned(),
+                        is_value_binding: true,
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+    bindings
+}
+
+fn go_import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
+    let mut stack = vec![node];
+    let mut bindings = Vec::new();
+    while let Some(current) = stack.pop() {
+        if current.kind() == "import_spec" {
+            if let Some(alias) = current
+                .child_by_field_name("name")
+                .filter(|alias| alias.kind() == "package_identifier")
+            {
+                let local_name = node_text(alias, source);
+                if !local_name.is_empty() {
+                    bindings.push(ImportBinding {
+                        local_name,
+                        imported_name: "*".to_owned(),
+                        is_value_binding: true,
+                    });
+                }
+            }
+            continue;
+        }
+        let mut cursor = current.walk();
+        stack.extend(current.named_children(&mut cursor));
+    }
+    bindings
+}
+
+fn contains_node_kind(node: Node<'_>, expected: &str) -> bool {
+    let mut stack = vec![node];
+    while let Some(current) = stack.pop() {
+        if current.kind() == expected {
+            return true;
+        }
+        let mut cursor = current.walk();
+        stack.extend(current.named_children(&mut cursor));
+    }
+    false
+}
+
+fn go_dot_import(node: Node<'_>) -> bool {
+    let mut stack = vec![node];
+    while let Some(current) = stack.pop() {
+        if current.kind() == "import_spec"
+            && current
+                .child_by_field_name("name")
+                .is_some_and(|name| name.kind() == "dot")
+        {
+            return true;
+        }
+        let mut cursor = current.walk();
+        stack.extend(current.named_children(&mut cursor));
+    }
+    false
 }
 
 fn static_string_value(kind: &str, raw: &str) -> Option<String> {
@@ -2667,6 +2943,17 @@ mod tests {
         .expect("snapshot fixture should be captured")
     }
 
+    fn parse_fixture(path: &str, source: &str, language: SupportedLanguage) -> ParsedFile {
+        parse_file(
+            path,
+            &digest(source.as_bytes()),
+            source,
+            language,
+            &AtomicBool::new(false),
+        )
+        .unwrap_or_else(|failure| panic!("{path} should parse: {failure:?}"))
+    }
+
     fn build(storage: &Path, manifest: &SnapshotManifest) -> SnapshotIndex {
         build_snapshot_index(
             storage,
@@ -2675,6 +2962,216 @@ mod tests {
             &AtomicBool::new(false),
             |_| {},
         )
+    }
+
+    #[test]
+    fn python_and_go_parsers_produce_bounded_anchored_structure() {
+        let python_source = concat!(
+            "from pricing import normalize as clean\n",
+            "\n",
+            "class Cart:\n",
+            "    def subtotal(self, value):\n",
+            "        return clean(value)\n",
+            "\n",
+            "def helper(value):\n",
+            "    return value\n",
+            "\n",
+            "def flow(value):\n",
+            "    return helper(value)\n",
+            "\n",
+            "def local_shadow(value):\n",
+            "    helper = lambda item: item\n",
+            "    return helper(value)\n",
+        );
+        let python = parse_fixture("cart.py", python_source, SupportedLanguage::Python);
+        assert_eq!(python.file.language.as_deref(), Some("python"));
+        assert_eq!(python.file.status, IndexFileStatus::Indexed);
+        assert_eq!(python.file.parse_error_count, 0);
+        assert_eq!(
+            python
+                .file
+                .parser
+                .as_ref()
+                .map(|parser| parser.grammar.as_str()),
+            Some("tree-sitter-python")
+        );
+        assert_eq!(
+            python
+                .file
+                .parser
+                .as_ref()
+                .map(|parser| parser.grammar_version.as_str()),
+            Some("0.25.0")
+        );
+        assert!(python.symbols.iter().any(|symbol| {
+            symbol.name == "Cart" && symbol.kind == SymbolKind::Class && !symbol.is_exported
+        }));
+        assert!(python.symbols.iter().any(|symbol| {
+            symbol.name == "subtotal"
+                && symbol.kind == SymbolKind::Method
+                && symbol.qualified_name == "Cart::subtotal"
+        }));
+        let helper = python
+            .symbols
+            .iter()
+            .find(|symbol| symbol.name == "helper")
+            .expect("Python functions should be indexed");
+        let local_call = python
+            .calls
+            .iter()
+            .find(|call| call.name == "helper" && call.anchor.start_line == 11)
+            .expect("Python call expressions should be indexed");
+        assert!(matches!(
+            local_call.binding.as_ref(),
+            Some(BindingTarget::Symbol(target)) if target == &helper.symbol_id
+        ));
+        let imported_call = python
+            .calls
+            .iter()
+            .find(|call| call.name == "clean")
+            .expect("aliased imported calls should be retained");
+        assert!(matches!(
+            imported_call.binding.as_ref(),
+            Some(BindingTarget::Unknown(
+                "import_binding_not_statically_resolved"
+            ))
+        ));
+        assert_eq!(
+            &python_source.as_bytes()
+                [imported_call.anchor.start_byte..imported_call.anchor.end_byte],
+            b"clean(value)"
+        );
+        assert_eq!(python.imports.len(), 1);
+        assert_eq!(
+            python.imports[0].module_specifier.as_deref(),
+            Some("pricing")
+        );
+        assert_eq!(
+            python.imports[0].unresolved_reason.as_deref(),
+            Some("python_module_resolution_not_supported")
+        );
+        assert!(
+            python.imports[0]
+                .bindings
+                .iter()
+                .any(|binding| binding.local_name == "clean")
+        );
+        let python_shadowed_call = python
+            .calls
+            .iter()
+            .find(|call| call.name == "helper" && call.anchor.start_line == 15)
+            .expect("Python local-shadow calls should be retained");
+        assert!(matches!(
+            python_shadowed_call.binding.as_ref(),
+            Some(BindingTarget::Unknown(
+                "lexical_scope_contains_unresolved_bindings"
+            ))
+        ));
+
+        let go_source = concat!(
+            "package cart\n",
+            "\n",
+            "import fmtAlias \"fmt\"\n",
+            "\n",
+            "type Cart struct { Total int }\n",
+            "type Pricer interface { Price() int }\n",
+            "\n",
+            "func helper(value int) int { return value }\n",
+            "func (cart *Cart) TotalWithTax(value int) int {\n",
+            "    fmtAlias.Printf(\"%d\", value)\n",
+            "    return helper(value)\n",
+            "}\n",
+            "func shadows(value int) int {\n",
+            "    helper := func(value int) int { return value }\n",
+            "    return helper(value)\n",
+            "}\n",
+        );
+        let go = parse_fixture("cart.go", go_source, SupportedLanguage::Go);
+        assert_eq!(go.file.language.as_deref(), Some("go"));
+        assert_eq!(go.file.status, IndexFileStatus::Indexed);
+        assert_eq!(go.file.parse_error_count, 0);
+        assert_eq!(
+            go.file
+                .parser
+                .as_ref()
+                .map(|parser| parser.grammar.as_str()),
+            Some("tree-sitter-go")
+        );
+        assert_eq!(
+            go.file
+                .parser
+                .as_ref()
+                .map(|parser| parser.grammar_version.as_str()),
+            Some("0.25.0")
+        );
+        assert!(go.symbols.iter().any(|symbol| {
+            symbol.name == "Cart" && symbol.kind == SymbolKind::Struct && symbol.is_exported
+        }));
+        assert!(go.symbols.iter().any(|symbol| {
+            symbol.name == "Pricer" && symbol.kind == SymbolKind::Interface && symbol.is_exported
+        }));
+        assert!(go.symbols.iter().any(|symbol| {
+            symbol.name == "TotalWithTax" && symbol.kind == SymbolKind::Method && symbol.is_exported
+        }));
+        let helper = go
+            .symbols
+            .iter()
+            .find(|symbol| symbol.name == "helper")
+            .expect("Go functions should be indexed");
+        let local_call = go
+            .calls
+            .iter()
+            .find(|call| call.name == "helper" && call.anchor.start_line == 11)
+            .expect("Go call expressions should be indexed");
+        assert!(
+            matches!(
+                local_call.binding.as_ref(),
+                Some(BindingTarget::Symbol(target)) if target == &helper.symbol_id
+            ),
+            "Go same-file call should bind to its function: {:?}",
+            local_call.binding
+        );
+        let package_call = go
+            .calls
+            .iter()
+            .find(|call| call.name == "fmtAlias.Printf")
+            .expect("Go selector calls should be retained");
+        assert_eq!(
+            package_call.unresolved_reason.as_deref(),
+            Some("member_or_index_dispatch_not_resolved")
+        );
+        assert_eq!(
+            &go_source.as_bytes()[package_call.anchor.start_byte..package_call.anchor.end_byte],
+            b"fmtAlias.Printf(\"%d\", value)"
+        );
+        assert_eq!(go.imports.len(), 1);
+        assert_eq!(
+            go.imports[0].unresolved_reason.as_deref(),
+            Some("go_package_resolution_not_supported")
+        );
+        assert!(
+            go.imports[0]
+                .bindings
+                .iter()
+                .any(|binding| binding.local_name == "fmtAlias")
+        );
+        let go_shadowed_call = go
+            .calls
+            .iter()
+            .find(|call| call.name == "helper" && call.anchor.start_line == 15)
+            .expect("Go local-shadow calls should be retained");
+        assert!(matches!(
+            go_shadowed_call.binding.as_ref(),
+            Some(BindingTarget::Unknown(
+                "lexical_scope_contains_unresolved_bindings"
+            ))
+        ));
+
+        assert!(
+            SupportedLanguage::from_path("src/test_prices.py") == Some(SupportedLanguage::Python)
+        );
+        assert!(SupportedLanguage::from_path("src/prices.pyi") == Some(SupportedLanguage::Python));
+        assert!(SupportedLanguage::from_path("src/prices.pyw") == Some(SupportedLanguage::Python));
     }
 
     /// Measures parser coverage of the two large Fontdone FFI files against

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { buildInventory, emptyInventoryFilters, filterInventory, paginateInventory } from '../src/lib/inventory.ts';
+import { buildInventory, emptyInventoryFilters, filterInventory, languageSupportNote, languageSupportTier, paginateInventory } from '../src/lib/inventory.ts';
 
 const manifest = {
   directories: [
@@ -10,6 +10,8 @@ const manifest = {
   files: [
     { path: 'src/main.rs', kind: 'file', sizeBytes: 40, sha256: 'a'.repeat(64), contentKind: 'text', secretLike: false },
     { path: 'src/utility.py', kind: 'file', sizeBytes: 12, sha256: 'e'.repeat(64), contentKind: 'text', secretLike: false },
+    { path: 'src/stubs.pyi', kind: 'file', sizeBytes: 12, sha256: 'f'.repeat(64), contentKind: 'text', secretLike: false },
+    { path: 'src/service.go', kind: 'file', sizeBytes: 12, sha256: '1'.repeat(64), contentKind: 'text', secretLike: false },
     { path: 'assets/logo.bin', kind: 'file', sizeBytes: 2, sha256: 'b'.repeat(64), contentKind: 'binary', secretLike: false },
     { path: 'src/.env', kind: 'file', sizeBytes: 14, sha256: 'c'.repeat(64), contentKind: 'text', secretLike: true },
     { path: 'src/unknown.zzz', kind: 'file', sizeBytes: 4, sha256: 'd'.repeat(64), contentKind: 'text', secretLike: false },
@@ -38,10 +40,23 @@ describe('snapshot inventory', () => {
     assert.equal(byPath.get('src/main.rs').parserReadiness, 'notReady');
     assert.equal(byPath.get('src/unknown.zzz').parserReadiness, 'unsupported');
     assert.equal(byPath.get('src/utility.py').language, 'Python');
-    assert.equal(byPath.get('src/utility.py').parserReadiness, 'unsupported');
+    assert.equal(byPath.get('src/utility.py').parserReadiness, 'notReady');
+    assert.equal(byPath.get('src/stubs.pyi').parserReadiness, 'notReady');
+    assert.equal(byPath.get('src/service.go').language, 'Go');
+    assert.equal(byPath.get('src/service.go').parserReadiness, 'notReady');
     assert.equal(byPath.get('large.dat').disposition, 'skipped');
     assert.equal(byPath.get('vendor').disposition, 'excluded');
     assert.equal(byPath.get('linked.rs').kind, 'symlink');
+  });
+
+  it('describes Python and Go as partial structural without claiming language qualification', () => {
+    const rows = buildInventory(manifest);
+    const python = rows.find((row) => row.path === 'src/utility.py');
+    const go = rows.find((row) => row.path === 'src/service.go');
+    assert.equal(languageSupportTier(python), 'partialStructural');
+    assert.match(languageSupportNote('partialStructural', python.language), /Module imports/);
+    assert.equal(languageSupportTier(go), 'partialStructural');
+    assert.match(languageSupportNote('partialStructural', go.language), /Package imports/);
   });
 
   it('filters without changing the underlying inventory count or capture state', () => {
@@ -54,7 +69,7 @@ describe('snapshot inventory', () => {
 
   it('filters by parser readiness, content, category, and capture outcome independently', () => {
     const rows = buildInventory(manifest);
-    assert.deepEqual(filterInventory(rows, { ...emptyInventoryFilters, parser: 'unsupported' }).map((row) => row.path), ['src/.env', 'src/unknown.zzz', 'src/utility.py']);
+    assert.deepEqual(filterInventory(rows, { ...emptyInventoryFilters, parser: 'unsupported' }).map((row) => row.path), ['src/.env', 'src/unknown.zzz']);
     assert.deepEqual(filterInventory(rows, { ...emptyInventoryFilters, content: 'binary' }).map((row) => row.path), ['assets/logo.bin']);
     assert.deepEqual(filterInventory(rows, { ...emptyInventoryFilters, category: 'secret' }).map((row) => row.path), ['src/.env']);
     assert.deepEqual(filterInventory(rows, { ...emptyInventoryFilters, disposition: 'excluded' }).map((row) => row.path), ['.', 'linked.rs', 'src', 'vendor']);

@@ -1,6 +1,6 @@
 # Language capabilities
 
-**Status reviewed: 2026-10-15.** A parser being installed does not mean the language's behavior or generated explanations are qualified.
+**Status reviewed: 2026-10-21.** A parser being installed does not mean the language's behavior or generated explanations are qualified.
 
 ## Tiers
 
@@ -19,11 +19,13 @@
 | TypeScript (`.ts`, `.mts`, `.cts`) | Available for eligible captured text | **Partial structural**: TypeScript grammar is bundled; indexed relationships are conservative and source-linked. | Not qualified. | Not qualified by a TypeScript-specific human review. |
 | TSX (`.tsx`) | Available for eligible captured text | **Partial structural**: TSX grammar is bundled; indexed relationships are conservative and source-linked. | Not qualified. | Not qualified by a TSX-specific human review. |
 | JavaScript (`.js`, `.jsx`, `.mjs`, `.cjs`) | Available for eligible captured text | **Partial structural**: JavaScript grammar is bundled; indexed relationships are conservative and source-linked. | Not qualified. | Not qualified by a JavaScript-specific human review. |
-| Other captured text, including Python and Go | Available for eligible captured text | **Text only**: no local structural parser is shipped for these files. | Not qualified. | The provider may explain selected text with exact local citations, but language-specific explanation quality is not qualified. |
+| Python (`.py`, `.pyi`) | Available for eligible captured text | **Partial structural**: the Python grammar indexes functions, classes, methods, same-file direct calls, and conservative import/call candidates. Module imports remain unresolved. | Not qualified; Python module/package resolution and framework conventions are not implemented. | Not qualified by a Python-specific human review. |
+| Go (`.go`) | Available for eligible captured text | **Partial structural**: the Go grammar indexes functions, methods, structs, interfaces, same-file direct calls, and conservative import/call candidates. Package imports remain unresolved. | Not qualified; Go package resolution and framework conventions are not implemented. | Not qualified by a Go-specific human review. |
+| Other captured text | Available for eligible captured text | **Text only**: no local structural parser is shipped for these files. | Not qualified. | The provider may explain selected text with exact local citations, but language-specific explanation quality is not qualified. |
 
-The current parser versions are Tree-sitter runtime `0.27.1`, Rust grammar `0.24.2`, TypeScript/TSX grammar `0.23.2`, and JavaScript grammar `0.25.0`, as pinned in `src-tauri/Cargo.lock`. The index records the runtime and grammar versions/ABIs so parser-produced evidence is tied to its implementation.
+The current parser versions are Tree-sitter runtime `0.27.1`, Rust grammar `0.24.2`, TypeScript/TSX grammar `0.23.2`, JavaScript grammar `0.25.0`, and Python/Go grammars `0.25.0`, as pinned in `src-tauri/Cargo.lock`. The index records the runtime and grammar versions/ABIs so parser-produced evidence is tied to its implementation.
 
-The local index recognizes a bounded syntax subset. It attempts declarations and selected import/call/test-reference relationships for its four parser languages. A high-confidence edge means only that the local static resolver found a supported, source-backed relationship. It does not prove the code executes. Dynamic dispatch, reflection, macros, framework routing, generated registrations, and cross-language protocols may not resolve. Ambiguous cases retain an unresolved reason instead of being presented as proven.
+The local index recognizes a bounded syntax subset. It attempts declarations and selected import/call/test-reference relationships for its six parser languages. Python and Go imports are retained as unresolved edges; their module and package resolution are not implemented. A high-confidence edge means only that the local static resolver found a supported, source-backed relationship. It does not prove the code executes. Dynamic dispatch, reflection, macros, framework routing, generated registrations, and cross-language protocols may not resolve. Ambiguous cases retain an unresolved reason instead of being presented as proven.
 
 ## UI wording
 
@@ -36,4 +38,4 @@ The Guide and Files surfaces in the source checkout use these labels per path. T
 
 ## Qualification still required
 
-The parser tests cover selected syntax and resolution cases, including the lexical-shadowing matrix recorded in [the parser task](kata-tasks/31-parser-binding-resolution.md). They do not qualify every language feature, framework convention, mixed-language boundary, or generated narrative. Promotion to **qualified structural** requires source-linked fixtures and human-reviewed file explanations and behavior journeys for that language, with unresolved paths and gaps recorded.
+The parser tests cover selected syntax and resolution cases, including Python/Go structural fixtures and the lexical-shadowing matrix recorded in [the parser task](kata-tasks/31-parser-binding-resolution.md). They do not qualify every language feature, framework convention, mixed-language boundary, or generated narrative. Promotion to **qualified structural** requires source-linked fixtures and human-reviewed file explanations and behavior journeys for that language, with unresolved paths and gaps recorded.

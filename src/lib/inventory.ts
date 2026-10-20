@@ -42,13 +42,13 @@ export interface InventoryPage {
 // Parser availability is only partial structural capability, not end-to-end
 // semantic or generated-narrative qualification.
 const partialStructuralParserLanguages = new Set([
-  'TypeScript', 'JavaScript', 'Rust',
+  'TypeScript', 'JavaScript', 'Rust', 'Python', 'Go',
 ]);
 
 const languageByExtension: Record<string, string> = {
   ts: 'TypeScript', tsx: 'TypeScript', mts: 'TypeScript', cts: 'TypeScript',
   js: 'JavaScript', jsx: 'JavaScript', mjs: 'JavaScript', cjs: 'JavaScript',
-  rs: 'Rust', py: 'Python', pyw: 'Python', go: 'Go', java: 'Java',
+  rs: 'Rust', py: 'Python', pyw: 'Python', pyi: 'Python', go: 'Go', java: 'Java',
   c: 'C', h: 'C', cc: 'C++', cpp: 'C++', cxx: 'C++', hpp: 'C++',
   cs: 'C#', swift: 'Swift', kt: 'Kotlin', kts: 'Kotlin',
   rb: 'Ruby', php: 'PHP', scala: 'Scala', sc: 'Scala',
@@ -156,6 +156,12 @@ export function languageSupportLabel(tier: LanguageSupportTier): string {
 export function languageSupportNote(tier: LanguageSupportTier, language: string): string {
   switch (tier) {
     case 'partialStructural':
+      if (language === 'Python') {
+        return 'Python declarations and selected same-file calls are indexed. Module imports, framework behavior, and generated explanation quality are not qualified.';
+      }
+      if (language === 'Go') {
+        return 'Go declarations and selected same-file calls are indexed. Package imports, framework behavior, and generated explanation quality are not qualified.';
+      }
       return `${language} has a local syntax parser. Relationships are conservative, and framework behavior and generated explanation quality are not language-qualified.`;
     case 'textOnly':
       return `Captured ${language} text and exact citations remain available; the local indexer does not extract symbols or relationships for this language.`;
