@@ -161,12 +161,22 @@ describe('visual story scenes', () => {
     }), malformed);
   });
 
-  it('keeps the current scene title and player together while the story body scrolls', () => {
+  it('leads with the scene visual and keeps playback reachable at the viewport edge', () => {
     const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
     const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
-    assert.match(component, /className="story-sticky-controls"[\s\S]*?className="story-toolbar"[\s\S]*?className="story-scene-title" title=\{scene\.title\}[\s\S]*?className="story-playbar"/u);
+    const headingIndex = component.indexOf('className="story-toolbar"');
+    const visualIndex = component.indexOf('className="story-stage');
+    const playerIndex = component.indexOf('className="story-playbar"');
+    const detailsIndex = component.indexOf('className="story-details"');
+    assert.ok(headingIndex >= 0 && headingIndex < visualIndex && visualIndex < playerIndex && playerIndex < detailsIndex,
+      'scene heading, visual, player and details should appear in that order');
+    assert.match(component, /className="story-sticky-controls"[\s\S]*?className="story-toolbar"[\s\S]*?className="story-scene-title" title=\{scene\.title\}/u);
     assert.match(component, /aria-label=\{`Scene \$\{i \+ 1\}: \$\{item\.title\}`\}/u);
     assert.match(styles, /\.story-sticky-controls\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/u);
+    const playerRule = styles.match(/\.story-playbar\s*\{([^}]+)\}/u)?.[1] ?? '';
+    assert.match(playerRule, /position:\s*sticky/u);
+    assert.match(playerRule, /bottom:\s*0/u);
+    assert.match(playerRule, /background:\s*var\(--surface\)/u);
     const storyRule=styles.match(/\.visual-story\s*\{([^}]+)\}/u)?.[1]??'';
     assert.doesNotMatch(storyRule,/overflow:\s*(?:clip|hidden|auto|scroll)/u,'the story container must not clip its sticky controls');
     assert.match(styles,/\.visual-story > \.story-stage:not\(\.story-html-stage\)\s*\{[^}]*overflow:\s*hidden/u,'only the diagram stage clips to rounded corners');
