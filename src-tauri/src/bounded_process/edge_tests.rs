@@ -359,8 +359,12 @@ fn each_pipe_setup_failure_returns_only_after_reaping_the_spawned_child() {
         let mut run_limits = limits();
         run_limits.command_timeout = Duration::from_secs(3);
         run_limits.operation_deadline = Instant::now() + Duration::from_secs(4);
-        let result =
-            run_with_pipe_setup(&mut command, Some(Vec::new()), run_limits, None, |pipe| {
+        let result = run_with_pipe_setup(
+            &mut command,
+            Some(Vec::new()),
+            run_limits,
+            None,
+            |pipe| {
                 setup_count += 1;
                 if setup_count != failed_setup {
                     return nonblocking(pipe);
@@ -376,7 +380,9 @@ fn each_pipe_setup_failure_returns_only_after_reaping_the_spawned_child() {
                     ));
                 }
                 Err(io::Error::from(io::ErrorKind::PermissionDenied))
-            });
+            },
+            |child| child.terminate(),
+        );
         let pid = reported_pid(&pid_path)
             .expect("the child records its complete PID before injected pipe setup fails");
 
@@ -402,6 +408,61 @@ fn each_pipe_setup_failure_returns_only_after_reaping_the_spawned_child() {
             Some(libc::ECHILD)
         );
     }
+}
+
+#[test]
+fn cleanup_failure_is_returned_after_setup_failure_and_child_reaping() {
+    let directory = TestDirectory(
+        PathBuf::from("/tmp").join(format!("ca-pipe-cleanup-{}", uuid::Uuid::new_v4())),
+    );
+    fs::create_dir(&directory.0).unwrap();
+    let pid_path = directory.0.join("child-pid");
+    let mut command = shell(r#"printf '%s' "$$" > "$1"; exec /bin/sleep 10"#);
+    command.arg("pipe-cleanup-fixture").arg(&pid_path);
+    let mut run_limits = limits();
+    run_limits.command_timeout = Duration::from_secs(3);
+    run_limits.operation_deadline = Instant::now() + Duration::from_secs(4);
+
+    let result = run_with_pipe_setup(
+        &mut command,
+        Some(Vec::new()),
+        run_limits,
+        None,
+        |_| {
+            let deadline = Instant::now() + Duration::from_secs(2);
+            while reported_pid(&pid_path).is_none() && Instant::now() < deadline {
+                thread::sleep(Duration::from_millis(2));
+            }
+            if reported_pid(&pid_path).is_none() {
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "child did not report readiness",
+                ));
+            }
+            Err(io::Error::from(io::ErrorKind::PermissionDenied))
+        },
+        |child| {
+            child
+                .terminate_after_group(Err(io::Error::other("injected group cleanup failure")))
+                .map_err(RunError::Cleanup)
+        },
+    );
+    let pid = reported_pid(&pid_path)
+        .expect("the child records its PID before injected setup and cleanup failures");
+
+    assert!(matches!(
+        result,
+        Err(RunError::Cleanup(error)) if error.to_string().contains("injected group cleanup failure")
+    ));
+    let mut status = 0;
+    // SAFETY: pid came from the child created by this runner. A cleanup error
+    // must still reap the direct child before returning to its caller.
+    let waited = unsafe { libc::waitpid(pid, &mut status, libc::WNOHANG) };
+    assert_eq!(waited, -1);
+    assert_eq!(
+        io::Error::last_os_error().raw_os_error(),
+        Some(libc::ECHILD)
+    );
 }
 
 #[test]

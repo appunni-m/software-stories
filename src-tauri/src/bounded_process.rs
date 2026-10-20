@@ -82,11 +82,13 @@ pub(crate) fn run(
     limits: Limits,
     cancel: Option<&AtomicBool>,
 ) -> Result<Output, RunError> {
-    run_with_pipe_setup(command, input, limits, cancel, nonblocking)
+    run_with_pipe_setup(command, input, limits, cancel, nonblocking, |child| {
+        child.terminate()
+    })
 }
 
-/// Keep pipe-setup errors inside the same child-ownership scope as the IO loop.
-/// The injected setup operation also lets tests force a post-spawn OS failure.
+/// Keep pipe setup, IO and cleanup failures inside one child-ownership scope.
+/// Injected operations let tests force post-spawn setup and cleanup failures.
 #[cfg(unix)]
 fn run_with_pipe_setup(
     command: &mut Command,
@@ -94,6 +96,7 @@ fn run_with_pipe_setup(
     limits: Limits,
     cancel: Option<&AtomicBool>,
     mut set_nonblocking: impl FnMut(&dyn AsFd) -> io::Result<()>,
+    mut terminate: impl FnMut(&mut RunningChild) -> Result<(), RunError>,
 ) -> Result<Output, RunError> {
     if input
         .as_ref()
@@ -146,10 +149,27 @@ fn run_with_pipe_setup(
         } else {
             None
         };
-    set_nonblocking(&stdout).map_err(RunError::Read)?;
-    set_nonblocking(&stderr).map_err(RunError::Read)?;
+    macro_rules! run_or_cleanup {
+        ($operation:expr) => {
+            match $operation {
+                Ok(value) => value,
+                Err(error) => {
+                    // Close our pipe handles before killing the process group.
+                    // Report cleanup failures instead of silently swallowing them
+                    // in `Drop`.
+                    drop(stdin);
+                    drop(stdout);
+                    drop(stderr);
+                    return Err(cleanup_failure(error, terminate(&mut child)));
+                }
+            }
+        };
+    }
+
+    run_or_cleanup!(set_nonblocking(&stdout).map_err(RunError::Read));
+    run_or_cleanup!(set_nonblocking(&stderr).map_err(RunError::Read));
     if let Some(pipe) = &stdin {
-        set_nonblocking(pipe).map_err(RunError::Write)?;
+        run_or_cleanup!(set_nonblocking(pipe).map_err(RunError::Write));
     }
     let input = input.unwrap_or_default();
     if input.is_empty() {
@@ -163,35 +183,35 @@ fn run_with_pipe_setup(
     let mut status = None;
 
     loop {
-        check_control(cancel, deadline)?;
+        run_or_cleanup!(check_control(cancel, deadline));
         let mut progressed = false;
         if status.is_none() {
-            if let Some(exit) = child.poll()? {
+            if let Some(exit) = run_or_cleanup!(child.poll()) {
                 status = Some(exit);
                 progressed = true;
             }
         }
-        progressed |= read_chunk(
+        progressed |= run_or_cleanup!(read_chunk(
             &mut stdout,
             &mut stdout_bytes,
             &mut stdout_eof,
             limits.stdout_bytes,
-        )?;
-        progressed |= read_chunk(
+        ));
+        progressed |= run_or_cleanup!(read_chunk(
             &mut stderr,
             &mut stderr_bytes,
             &mut stderr_eof,
             limits.stderr_bytes,
-        )?;
+        ));
         if let Some(pipe) = stdin.as_mut() {
-            progressed |= write_chunk(pipe, &input, &mut written)?;
+            progressed |= run_or_cleanup!(write_chunk(pipe, &input, &mut written));
             if written == input.len() {
                 stdin = None;
             }
         }
         // Reaping the child is not enough: an inherited pipe can remain open.
         // Never leave the bounded loop to join a reader or writer after exit.
-        check_control(cancel, deadline)?;
+        run_or_cleanup!(check_control(cancel, deadline));
         if stdout_eof && stderr_eof && stdin.is_none() {
             if let Some(status) = status {
                 return Ok(Output {
@@ -204,6 +224,17 @@ fn run_with_pipe_setup(
         if !progressed {
             thread::sleep(POLL_INTERVAL.min(deadline.saturating_duration_since(Instant::now())));
         }
+    }
+}
+
+#[cfg(unix)]
+fn cleanup_failure(original: RunError, cleanup: Result<(), RunError>) -> RunError {
+    match cleanup {
+        Ok(()) => original,
+        Err(RunError::Cleanup(error)) => {
+            RunError::Cleanup(io::Error::other(format!("{original}; {error}")))
+        }
+        Err(error) => RunError::Cleanup(io::Error::other(format!("{original}; {error}"))),
     }
 }
 
@@ -401,21 +432,94 @@ impl RunningChild {
         }
         Ok(())
     }
+
+    fn terminate(&mut self) -> Result<(), RunError> {
+        if self.reaped {
+            return Ok(());
+        }
+        match self.poll() {
+            Ok(Some(_)) => return Ok(()),
+            Ok(None) => {}
+            Err(error) if self.reaped => return Err(error),
+            // A failed status observation must not prevent best-effort cleanup
+            // while this object still owns the child identity.
+            Err(_) => {}
+        }
+        let group_cleanup = self.kill_group(false);
+        self.terminate_after_group(group_cleanup)
+            .map_err(RunError::Cleanup)
+    }
+
+    fn terminate_after_group(&mut self, group_cleanup: io::Result<()>) -> io::Result<()> {
+        if self.reaped {
+            return group_cleanup;
+        }
+        let group_error = group_cleanup.err();
+        if let Err(error) = self.child.kill() {
+            if error.raw_os_error() == Some(libc::ECHILD) {
+                self.reaped = true;
+                return group_error.map_or(Ok(()), Err);
+            }
+            if error.kind() != io::ErrorKind::InvalidInput {
+                return Err(match group_error {
+                    Some(group) => io::Error::other(format!(
+                        "{group}; direct-child cleanup also failed: {error}"
+                    )),
+                    None => error,
+                });
+            }
+        }
+        if group_error
+            .as_ref()
+            .is_some_and(|error| error.raw_os_error() == Some(libc::EPERM))
+            && self.wait_for_exit_and_cleanup_group(Duration::from_millis(250))
+        {
+            // On macOS, EPERM can race with the leader's exit when a group
+            // signal arrives just after the leader becomes a zombie. Keep its
+            // identity unreaped while confirming exit and retrying group cleanup.
+            return Ok(());
+        }
+        match self.child.wait() {
+            Ok(_) => self.reaped = true,
+            Err(error) if error.raw_os_error() == Some(libc::ECHILD) => self.reaped = true,
+            Err(error) => {
+                return Err(match group_error {
+                    Some(group) => io::Error::other(format!(
+                        "{group}; reaping the direct child also failed: {error}"
+                    )),
+                    None => error,
+                });
+            }
+        }
+        group_error.map_or(Ok(()), Err)
+    }
+
+    fn wait_for_exit_and_cleanup_group(&mut self, budget: Duration) -> bool {
+        let deadline = Instant::now()
+            .checked_add(budget)
+            .unwrap_or_else(Instant::now);
+        loop {
+            match self.poll() {
+                Ok(Some(_)) => return true,
+                Err(_) if self.reaped => return false,
+                Ok(None) | Err(_) => {}
+            }
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return false;
+            }
+            thread::sleep(POLL_INTERVAL.min(remaining));
+        }
+    }
 }
 
 #[cfg(unix)]
 impl Drop for RunningChild {
     fn drop(&mut self) {
         if !self.reaped {
-            if self.poll().is_ok_and(|status| status.is_some()) || self.reaped {
-                return;
-            }
-            // poll may still report a live child; cancel its group first so
-            // inherited pipes close, then retain direct-child cleanup as a
-            // fallback if group signalling failed.
-            let _ = self.kill_group(false);
-            let _ = self.child.kill();
-            let _ = self.child.wait();
+            // The normal runner path calls this explicitly and reports errors.
+            // Keep Drop as a last-resort retry for unwinding/early returns.
+            let _ = self.terminate();
         }
     }
 }
@@ -431,6 +535,80 @@ mod tests {
     use super::*;
     use std::sync::Arc;
     use std::sync::atomic::AtomicBool;
+
+    #[cfg(unix)]
+    #[test]
+    fn failed_group_cleanup_is_reported_after_direct_child_reaping() {
+        use std::os::unix::process::CommandExt;
+
+        let mut command = Command::new("/bin/sleep");
+        command.arg("10").process_group(0);
+        let child = command.spawn().expect("sleep fixture should start");
+        let process_group = child.id();
+        let mut running = RunningChild {
+            child,
+            reaped: false,
+            process_group: Some(process_group),
+        };
+
+        let error = running
+            .terminate_after_group(Err(io::Error::other("injected group signal failure")))
+            .expect_err("a failed group cleanup must reach the caller");
+
+        assert!(error.to_string().contains("injected group signal failure"));
+        assert!(running.reaped, "the direct child must still be reaped");
+        assert!(
+            running
+                .child
+                .try_wait()
+                .expect("the reaped child status should remain queryable")
+                .is_some()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn already_exited_leader_retries_group_cleanup_with_exit_confirmed() {
+        use std::os::unix::process::CommandExt;
+
+        let mut command = Command::new("/bin/sh");
+        command.args(["-c", "exit 0"]).process_group(0);
+        let child = command.spawn().expect("exit fixture should start");
+        let process_group = child.id();
+        let mut running = RunningChild {
+            child,
+            reaped: false,
+            process_group: Some(process_group),
+        };
+
+        let deadline = Instant::now() + Duration::from_secs(2);
+        loop {
+            let mut info: libc::siginfo_t = unsafe { std::mem::zeroed() };
+            // SAFETY: info is a uniquely borrowed output record, PID identifies
+            // this still-owned child, and WNOWAIT leaves its exit status intact.
+            let observed = unsafe {
+                libc::waitid(
+                    libc::P_PID,
+                    process_group as libc::id_t,
+                    &mut info,
+                    libc::WEXITED | libc::WNOHANG | libc::WNOWAIT,
+                )
+            };
+            assert_eq!(observed, 0, "the child exit state should be observable");
+            if info.si_signo != 0 {
+                break;
+            }
+            assert!(Instant::now() < deadline, "the child did not exit");
+            thread::sleep(Duration::from_millis(2));
+        }
+
+        let result = running.terminate_after_group(Err(io::Error::from_raw_os_error(libc::EPERM)));
+        assert!(
+            result.is_ok(),
+            "confirmed exit makes the stale-group EPERM benign"
+        );
+        assert!(running.reaped);
+    }
 
     fn limits(timeout: Duration) -> Limits {
         Limits {
