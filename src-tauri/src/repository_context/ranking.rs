@@ -15,9 +15,17 @@ pub(super) fn candidates(
     searcher: &tantivy::Searcher,
     query: &dyn Query,
 ) -> tantivy::Result<(Vec<(f32, tantivy::DocAddress)>, usize)> {
-    // Tie breaks must be applied inside TopDocs. Sorting the retained 256 hits
-    // later cannot recover a lower path/offset discarded by document-address ties.
-    let collector = TopDocs::with_limit(MAX_CANDIDATES).order_by((
+    candidates_with_limit(searcher, query, MAX_CANDIDATES)
+}
+
+pub(super) fn candidates_with_limit(
+    searcher: &tantivy::Searcher,
+    query: &dyn Query,
+    limit: usize,
+) -> tantivy::Result<(Vec<(f32, tantivy::DocAddress)>, usize)> {
+    // Tie breaks must be applied inside TopDocs. Sorting retained hits later
+    // cannot recover lower path/offset values discarded by document-address ties.
+    let collector = TopDocs::with_limit(limit).order_by((
         (SortBySimilarityScore, Order::Desc),
         (
             (SortByString::for_field("source_path"), Order::Asc),

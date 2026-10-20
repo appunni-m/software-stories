@@ -37,6 +37,8 @@ const MAX_SOURCE_BYTES: u64 = 100 * 1024 * 1024;
 const MAX_METADATA_BYTES: usize = 32 * 1024 * 1024;
 const MAX_CACHE_BYTES: usize = 4 * 1024 * 1024;
 const MAX_CANDIDATES: usize = 256;
+const GLOBAL_RANKING_CANDIDATE_LIMIT: usize = MAX_CANDIDATES * 2;
+const GLOBAL_DIVERSIFIED_PATH_LIMIT: usize = 64;
 pub(crate) const MAX_SEARCH_PAGE_SIZE: usize = 32;
 pub(crate) const MAX_RANGE_BYTES: usize = 32_768;
 
@@ -1817,7 +1819,15 @@ fn search_ranked(
         .reader()
         .map_err(|_| "Code search index could not be opened. Try rebuilding it.".to_owned())?;
     let searcher = reader.searcher();
-    let (mut found, total) = ranking::candidates(&searcher, &lexical)
+    // A repository-wide TopDocs cap can be filled by a single large file
+    // before path diversification runs. A second bounded pool lets us recover
+    // other paths only when the first 256 results are path-concentrated.
+    let ranking_limit = if path.is_none() {
+        GLOBAL_RANKING_CANDIDATE_LIMIT
+    } else {
+        MAX_CANDIDATES
+    };
+    let (mut found, total) = ranking::candidates_with_limit(&searcher, &lexical, ranking_limit)
         .map_err(|_| "Code search failed. Try rebuilding its local index.".to_owned())?;
     let exact_query = if query.split_whitespace().count() == 1 {
         let last = query.rsplit("::").next().unwrap_or(query).to_lowercase();
@@ -1836,7 +1846,7 @@ fn search_ranked(
     let mut declaration_docs = BTreeSet::new();
     let mut exact_limited = false;
     if let Some(exact) = exact_query {
-        let (hits, count) = ranking::candidates(&searcher, &exact)
+        let (hits, count) = ranking::candidates_with_limit(&searcher, &exact, ranking_limit)
             .map_err(|_| "Exact identifier search failed.".to_owned())?;
         exact_limited = count > MAX_CANDIDATES;
         for (score, address) in hits {
@@ -1855,8 +1865,9 @@ fn search_ranked(
             &prepared.index,
             path,
         )?;
-        let (hits, count) = ranking::candidates(&searcher, &declarations)
-            .map_err(|_| "Declaration search failed.".to_owned())?;
+        let (hits, count) =
+            ranking::candidates_with_limit(&searcher, &declarations, ranking_limit)
+                .map_err(|_| "Declaration search failed.".to_owned())?;
         exact_limited |= count > MAX_CANDIDATES;
         for (score, address) in hits {
             declaration_docs.insert(address);
@@ -1907,16 +1918,34 @@ fn search_ranked(
             })
     });
     if path.is_none() {
+        let mut leading_paths = BTreeSet::new();
+        for (id, _) in ranked.iter().take(MAX_CANDIDATES) {
+            leading_paths.insert(prepared.metadata.ranges[*id].path.as_str());
+        }
+        let use_expanded_candidates = ranked.len() > MAX_CANDIDATES
+            && leading_paths.len() < GLOBAL_DIVERSIFIED_PATH_LIMIT;
+        if !use_expanded_candidates {
+            ranked.truncate(MAX_CANDIDATES);
+        }
+        let path_limit = if use_expanded_candidates {
+            GLOBAL_DIVERSIFIED_PATH_LIMIT
+        } else {
+            usize::MAX
+        };
         let (declarations, remaining): (Vec<_>, Vec<_>) = ranked
             .into_iter()
             .partition(|(_, (_, declaration, _))| *declaration);
         let (exact, other): (Vec<_>, Vec<_>) =
             remaining.into_iter().partition(|(_, (exact, _, _))| *exact);
         let path_for = |id: usize| prepared.metadata.ranges[id].path.clone();
-        ranked = diversify_by_path(declarations, &path_for)
+        ranked = diversify_by_path_limited(
+            declarations,
+            &path_for,
+            path_limit,
+        )
             .into_iter()
-            .chain(diversify_by_path(exact, &path_for))
-            .chain(diversify_by_path(other, &path_for))
+            .chain(diversify_by_path_limited(exact, &path_for, path_limit))
+            .chain(diversify_by_path_limited(other, &path_for, path_limit))
             .collect();
     }
     let limited = exact_limited || total > limit || ranked.len() > limit;
@@ -2002,18 +2031,29 @@ fn search_ranked(
 
 /// Preserve relevance order while giving a repository-wide search one result
 /// from each path before returning additional ranges from already-represented files.
-fn diversify_by_path<T: Copy>(
+/// Round-robin only across the highest-ranked paths. A very broad query can
+/// match hundreds of low-value files; letting all of them consume the page
+/// would hide useful follow-up ranges from the strongest matches.
+fn diversify_by_path_limited<T: Copy>(
     candidates: Vec<(usize, T)>,
     path_for: &impl Fn(usize) -> String,
+    max_paths: usize,
 ) -> Vec<(usize, T)> {
     let mut groups: Vec<(String, Vec<(usize, T)>)> = Vec::new();
     let mut group_by_path = HashMap::new();
     for candidate in candidates {
         let path = path_for(candidate.0);
-        let group = *group_by_path.entry(path.clone()).or_insert_with(|| {
-            groups.push((path, Vec::new()));
-            groups.len() - 1
-        });
+        let group = if let Some(group) = group_by_path.get(&path) {
+            *group
+        } else {
+            if groups.len() >= max_paths {
+                continue;
+            }
+            groups.push((path.clone(), Vec::new()));
+            let group = groups.len() - 1;
+            group_by_path.insert(path, group);
+            group
+        };
         groups[group].1.push(candidate);
     }
     let rounds = groups

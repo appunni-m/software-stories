@@ -249,13 +249,35 @@ fn repository_wide_candidates_round_robin_paths_without_reordering_each_path() {
         (4, 0.80),
         (5, 0.75),
     ];
-    let diversified = diversify_by_path(candidates, &|id| paths[id].to_owned());
+    let diversified =
+        diversify_by_path_limited(candidates, &|id| paths[id].to_owned(), usize::MAX);
     assert_eq!(
         diversified
             .into_iter()
             .map(|(id, _)| id)
             .collect::<Vec<_>>(),
         [0, 3, 5, 1, 4, 2]
+    );
+}
+
+#[test]
+fn global_path_limit_keeps_more_ranges_from_the_strongest_paths() {
+    let paths = ["src/a.rs", "src/a.rs", "src/a.rs", "src/b.rs", "src/b.rs", "src/c.rs"];
+    let candidates = vec![
+        (0, 0.99),
+        (1, 0.95),
+        (2, 0.90),
+        (3, 0.85),
+        (4, 0.80),
+        (5, 0.75),
+    ];
+    let diversified = diversify_by_path_limited(candidates, &|id| paths[id].to_owned(), 2);
+    assert_eq!(
+        diversified
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect::<Vec<_>>(),
+        [0, 3, 1, 4, 2]
     );
 }
 
@@ -293,6 +315,84 @@ fn repository_wide_lexical_results_diversify_paths_before_the_result_limit() {
     .unwrap();
 
     assert_eq!(result.matches.len(), 2);
+    assert_eq!(result.matches[0].range.path, "lib/a-many-ranges.txt");
+    assert_eq!(result.matches[1].range.path, "lib/b-one-range.txt");
+    assert!(result.limited);
+}
+
+#[test]
+fn repository_wide_search_oversamples_before_path_diversification() {
+    let mut fixture = Fixture::new();
+    let prefix = "sprocket raster ";
+    let filler_bytes = CHUNK_BYTES - prefix.len() - 1;
+    let filler = format!(
+        "{}{}",
+        "padding ".repeat(filler_bytes / "padding ".len()),
+        "x".repeat(filler_bytes % "padding ".len())
+    );
+    let chunk = format!("{prefix}{filler}\n");
+    assert_eq!(chunk.len(), CHUNK_BYTES);
+    add_source(
+        &mut fixture,
+        "lib/a-many-ranges.txt",
+        &chunk.repeat(MAX_CANDIDATES),
+    );
+    add_source(&mut fixture, "lib/b-one-range.txt", &chunk);
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let large_file = prepared
+        .metadata
+        .files
+        .iter()
+        .find(|file| file.path == "lib/a-many-ranges.txt")
+        .unwrap();
+    assert_eq!(
+        large_file.chunks,
+        MAX_CANDIDATES,
+        "coverage: {}",
+        serde_json::to_string(large_file).unwrap()
+    );
+    assert_eq!(
+        prepared
+            .metadata
+            .ranges
+            .iter()
+            .filter(|range| range.path == "lib/a-many-ranges.txt")
+            .count(),
+        MAX_CANDIDATES
+    );
+    assert_eq!(
+        prepared
+            .metadata
+            .ranges
+            .iter()
+            .filter(|range| range.path == "lib/b-one-range.txt")
+            .count(),
+        1
+    );
+
+    let result = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "sprocket raster",
+        None,
+        2,
+        &budget,
+    )
+    .unwrap();
+
+    assert_eq!(
+        result.matches.len(),
+        2,
+        "hits: {:?}",
+        result
+            .matches
+            .iter()
+            .map(|hit| (&hit.range.path, hit.range.start_byte, hit.range.end_byte))
+            .collect::<Vec<_>>()
+    );
     assert_eq!(result.matches[0].range.path, "lib/a-many-ranges.txt");
     assert_eq!(result.matches[1].range.path, "lib/b-one-range.txt");
     assert!(result.limited);
