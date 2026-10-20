@@ -215,10 +215,15 @@ export function openWorkspaceQuestion(state: WorkspaceState, explorationId: stri
   const owner = state.explorations.find((e) => e.id === explorationId);
   const turn = owner?.turns.find((t) => t.id === turnId);
   if (!owner || !turn) return state;
+  const alreadyReadingThisQuestion = state.currentId === owner.id && owner.focusedTurnId === turnId;
   const key = questionOutcomeKey(turn);
   const read = key ? markQuestionOutcome(state, explorationId, turnId, key, 'read') : state;
   return { ...read, currentId: owner.id, file: owner.file ?? state.file,
     explorations: read.explorations.map((e) => e.id !== owner.id ? e : {
-      ...e, view: 'guide', focusedTurnId: turnId, revealTurnId: turnId,
+      ...e, view: 'guide', focusedTurnId: turnId,
+      // Reopening the already selected question from History must keep the
+      // reader at its saved section. A reveal is only needed when focus moves
+      // to a different question or exploration.
+      revealTurnId: alreadyReadingThisQuestion ? undefined : turnId,
     }) };
 }

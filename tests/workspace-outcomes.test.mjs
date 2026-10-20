@@ -137,6 +137,24 @@ test('History opens the exact question at its existing depth without changing an
   assert.equal(openWorkspaceQuestion(state, 'missing', 'child'), state);
 });
 
+test('History preserves the reader position when reopening its already focused question', () => {
+  const state = stateWith(turn('parent', 'ready', {
+    revisionId: 'revision:one',
+    reading: { guide: { revisionId: 'revision:one', sectionId: 'second' } },
+  }));
+  state.explorations[0].view = 'history';
+  state.explorations[0].focusedTurnId = 'parent';
+  state.explorations[0].scrollPositions = { guide: 1_240, history: 80 };
+
+  const opened = openWorkspaceQuestion(state, 'root', 'parent');
+  const root = opened.explorations[0];
+  assert.equal(root.view, 'guide');
+  assert.equal(root.focusedTurnId, 'parent');
+  assert.equal(root.revealTurnId, undefined, 'do not jump to the top of a question the reader was already following');
+  assert.deepEqual(root.scrollPositions, { guide: 1_240, history: 80 });
+  assert.deepEqual(root.turns[0].reading, state.explorations[0].turns[0].reading);
+});
+
 test('read and dismissal persist across restart without deleting answers or changing generation ownership', () => {
   let state = stateWith(turn('one', 'partial', { revisionId: 'revision:one' }));
   const key = questionOutcomeKey(state.explorations[0].turns[0]);
