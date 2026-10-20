@@ -34,6 +34,7 @@ import {
   parseNarrationPreferences,
   defaultNarrationText,
   localNarrationAction,
+  narrationAvailabilityLabel,
   narrationPreferencesMatch,
   type NarrationPreferencesSnapshot,
 } from './lib/narration';
@@ -672,7 +673,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       />
       <div className="walkthrough-panel-heading">
         <div><h3 id={titleId}>{clip ? 'Scene narration' : 'Narration'}</h3></div>
-        <span className={`walkthrough-transcript-state${isPlaying ? ' is-playing' : prewarmState === 'preparing' ? ' is-preparing' : ''}`} role="status"><Volume2 size={13} /> {isPlaying ? 'PLAYING' : track ? 'PAUSED' : prewarmState === 'preparing' ? 'PREPARING AUDIO' : prewarmState === 'ready' ? 'AUDIO READY' : prewarmState === 'unavailable' ? 'AUDIO UNAVAILABLE' : 'AUDIO OFF'}</span>
+        <span className={`walkthrough-transcript-state${isPlaying ? ' is-playing' : track ? '' : prewarmState === 'preparing' ? ' is-preparing' : prewarmState === 'ready' ? ' is-ready' : prewarmState === 'unavailable' ? ' is-unavailable' : ''}`} role="status"><Volume2 size={13} /> {isPlaying ? 'Playing' : track ? 'Paused' : narrationAvailabilityLabel(prewarmState)}</span>
       </div>
 
       <details className="walkthrough-narration-script">

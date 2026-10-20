@@ -1,4 +1,4 @@
-import type { NarrationBackend } from './commands';
+import type { NarrationBackend, NarrationPrewarmState } from './commands';
 
 export interface NarrationPreferencesSnapshot {
   backend: NarrationBackend;
@@ -126,6 +126,15 @@ export function narrationPreferencesMatch(
 export function localNarrationAction(reviewVisible: boolean, cachedAudioAvailable: boolean): 'show-review' | 'play-cache' | 'synthesize' {
   if (cachedAudioAvailable) return 'play-cache';
   return reviewVisible ? 'synthesize' : 'show-review';
+}
+
+export function narrationAvailabilityLabel(state: NarrationPrewarmState): string {
+  switch (state) {
+    case 'preparing': return 'Preparing audio';
+    case 'ready': return 'Ready to play';
+    case 'unavailable': return 'Audio unavailable';
+    case 'idle': return 'Audio not prepared';
+  }
 }
 
 function isIdentifierCharacter(character: string | undefined): boolean {

@@ -7,6 +7,7 @@ import {
   DEFAULT_NARRATION_STYLE,
   DEFAULT_NARRATION_VOICE,
   localNarrationAction,
+  narrationAvailabilityLabel,
   narrationPreferencesMatch,
   parseNarrationPreferences,
 } from '../src/lib/narration.ts';
@@ -48,6 +49,15 @@ describe('default code-name pronunciation', () => {
     for (const phrase of ['low 16 bits', 'bits 16 through 30', 'at least 17 bytes', 'at least 118 bytes', 'shorter inputs', 'four-byte offset per face', '12-byte offset table', 'zero-table directory']) assert.ok(spoken.includes(phrase), phrase);
     assert.ok(spoken.includes('preserve the original True Type error'));
     assert.ok(!spoken.includes('resolve_face_index'));
+  });
+});
+
+describe('narration preparation status', () => {
+  it('uses plain-language states for cached and on-demand audio', () => {
+    assert.equal(narrationAvailabilityLabel('idle'), 'Audio not prepared');
+    assert.equal(narrationAvailabilityLabel('preparing'), 'Preparing audio');
+    assert.equal(narrationAvailabilityLabel('ready'), 'Ready to play');
+    assert.equal(narrationAvailabilityLabel('unavailable'), 'Audio unavailable');
   });
 });
 
