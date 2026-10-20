@@ -645,6 +645,51 @@ pub fn read_snapshot_source_from_manifest(
     manifest: &SnapshotManifest,
     relative_path: &str,
 ) -> Result<SnapshotSource, String> {
+    read_snapshot_source_from_manifest_checked(storage_dir, manifest, relative_path, &mut || Ok(()))
+}
+
+fn read_checked_source_bytes(
+    mut input: impl Read,
+    expected_size: u64,
+    check: &mut impl FnMut() -> Result<(), String>,
+) -> Result<Vec<u8>, String> {
+    let capacity = usize::try_from(expected_size)
+        .unwrap_or(0)
+        .min(READ_CHUNK_BYTES);
+    let mut bytes = Vec::with_capacity(capacity);
+    let read_limit = expected_size.saturating_add(1);
+    let mut chunk = [0_u8; READ_CHUNK_BYTES];
+    loop {
+        check()?;
+        let remaining = read_limit.saturating_sub(bytes.len() as u64);
+        if remaining == 0 {
+            break;
+        }
+        let count_limit = remaining.min(READ_CHUNK_BYTES as u64) as usize;
+        let count = input
+            .read(&mut chunk[..count_limit])
+            .map_err(|error| format!("Captured source bytes could not be read: {error}"))?;
+        if count == 0 {
+            break;
+        }
+        bytes.extend_from_slice(&chunk[..count]);
+        if bytes.len() as u64 > expected_size {
+            return Err("Captured source failed its size or SHA-256 integrity check.".to_owned());
+        }
+    }
+    check()?;
+    if bytes.len() as u64 != expected_size {
+        return Err("Captured source failed its size or SHA-256 integrity check.".to_owned());
+    }
+    Ok(bytes)
+}
+
+pub(crate) fn read_snapshot_source_from_manifest_checked(
+    storage_dir: &Path,
+    manifest: &SnapshotManifest,
+    relative_path: &str,
+    check: &mut impl FnMut() -> Result<(), String>,
+) -> Result<SnapshotSource, String> {
     let file = manifest
         .files
         .iter()
@@ -656,17 +701,14 @@ pub fn read_snapshot_source_from_manifest(
     if file.size_bytes > MAX_FILE_BYTES {
         return Err("Captured source exceeds the supported per-file size limit.".to_owned());
     }
+    check()?;
     let input = File::open(blob_absolute_path(storage_dir, &file.sha256)).map_err(|error| {
         format!("Captured source bytes are unavailable in local snapshot storage: {error}")
     })?;
-    // Bound the read itself: a damaged object must not allocate its entire
-    // contents before its recorded size and hash can be rejected.
-    let mut bytes = Vec::new();
-    input
-        .take(file.size_bytes + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|error| format!("Captured source bytes could not be read: {error}"))?;
-    if bytes.len() as u64 != file.size_bytes || sha256(&bytes) != file.sha256 {
+    // Bound the read itself and check between chunks so a cancelled search
+    // does not have to wait for a complete captured blob before it can stop.
+    let bytes = read_checked_source_bytes(input, file.size_bytes, check)?;
+    if sha256(&bytes) != file.sha256 {
         return Err("Captured source failed its size or SHA-256 integrity check.".to_owned());
     }
     if file.content_kind == CapturedContentKind::Binary {
@@ -2126,6 +2168,48 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
         }
+    }
+
+    #[test]
+    fn captured_source_reader_checks_cancellation_between_bounded_chunks() {
+        struct CancelAfterFirstChunk {
+            remaining: usize,
+            cancelled: Arc<AtomicBool>,
+            reads: usize,
+        }
+
+        impl Read for CancelAfterFirstChunk {
+            fn read(&mut self, output: &mut [u8]) -> io::Result<usize> {
+                let count = output.len().min(self.remaining);
+                output[..count].fill(b'x');
+                self.remaining -= count;
+                self.reads += 1;
+                if self.reads == 1 {
+                    self.cancelled.store(true, Ordering::Release);
+                }
+                Ok(count)
+            }
+        }
+
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let mut reader = CancelAfterFirstChunk {
+            remaining: READ_CHUNK_BYTES * 2,
+            cancelled: cancelled.clone(),
+            reads: 0,
+        };
+        let mut check = || {
+            if cancelled.load(Ordering::Acquire) {
+                Err("Code search stopped.".to_owned())
+            } else {
+                Ok(())
+            }
+        };
+
+        let error =
+            read_checked_source_bytes(&mut reader, (READ_CHUNK_BYTES * 2) as u64, &mut check)
+                .expect_err("cancellation should stop before the second chunk");
+        assert_eq!(error, "Code search stopped.");
+        assert_eq!(reader.reads, 1, "the second source chunk is never read");
     }
 
     fn git(root: &Path, args: &[&str]) -> std::process::Output {

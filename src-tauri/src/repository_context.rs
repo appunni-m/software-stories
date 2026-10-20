@@ -314,6 +314,24 @@ pub(crate) fn source(
     manifest: &snapshot::SnapshotManifest,
     path: &str,
 ) -> Result<snapshot::SnapshotSource, String> {
+    source_with_check(storage, manifest, path, &mut || Ok(()))
+}
+
+fn source_with_budget(
+    storage: &Path,
+    manifest: &snapshot::SnapshotManifest,
+    path: &str,
+    budget: &Budget<'_>,
+) -> Result<snapshot::SnapshotSource, String> {
+    source_with_check(storage, manifest, path, &mut || budget.check())
+}
+
+fn source_with_check(
+    storage: &Path,
+    manifest: &snapshot::SnapshotManifest,
+    path: &str,
+    check: &mut impl FnMut() -> Result<(), String>,
+) -> Result<snapshot::SnapshotSource, String> {
     let file = manifest
         .files
         .iter()
@@ -322,7 +340,8 @@ pub(crate) fn source(
     if exclusion(file).is_some() {
         return Err("This captured path is excluded from code retrieval.".to_owned());
     }
-    let source = snapshot::read_snapshot_source_from_manifest(storage, manifest, path)?;
+    let source =
+        snapshot::read_snapshot_source_from_manifest_checked(storage, manifest, path, check)?;
     if snapshot::looks_secret_like(path, source.contents.as_bytes()) {
         return Err("This captured text is excluded by secret filtering.".to_owned());
     }
@@ -756,9 +775,10 @@ fn prepare_cached(
         if admitted_bytes > MAX_SOURCE_BYTES {
             return Err("The captured text exceeds the local code index byte limit.".to_owned());
         }
-        let source = match source(storage, manifest, &file.path) {
+        let source = match source_with_budget(storage, manifest, &file.path, budget) {
             Ok(source) => source,
             Err(_) => {
+                budget.check()?;
                 coverage.reason = Some("unavailableOrFilteredText".to_owned());
                 metadata.files.push(coverage);
                 continue;
@@ -1408,7 +1428,7 @@ fn search_identifier_declarations(
     let mut verified_bytes = 0u64;
     'files: for file in files {
         budget.check()?;
-        let captured = source(storage, manifest, &file.path)?;
+        let captured = source_with_budget(storage, manifest, &file.path, budget)?;
         verified_bytes = verified_bytes.saturating_add(captured.size_bytes);
         if verified_bytes > MAX_SOURCE_BYTES {
             return Err("The captured text exceeds the local code index byte limit.".to_owned());
@@ -1531,7 +1551,7 @@ fn search_pattern(
     let mut verified_bytes = 0u64;
     'files: for file in files {
         budget.check()?;
-        let captured = source(storage, manifest, &file.path)?;
+        let captured = source_with_budget(storage, manifest, &file.path, budget)?;
         verified_bytes = verified_bytes.saturating_add(captured.size_bytes);
         if verified_bytes > MAX_SOURCE_BYTES {
             return Err("The captured text exceeds the local code index byte limit.".to_owned());
@@ -1978,7 +1998,7 @@ pub(crate) fn search_files_with_mode_page(
         if range.path != file_path {
             return Err("The code search index is invalid.".to_owned());
         }
-        let captured = source(storage, manifest, &file_path)?;
+        let captured = source_with_budget(storage, manifest, &file_path, budget)?;
         // Source verification reads and hashes the complete captured blob. A
         // request may be cancelled while that bounded read is in progress.
         budget.check()?;
@@ -2248,7 +2268,10 @@ fn search_ranked(
         budget.check()?;
         let range = &prepared.metadata.ranges[id];
         if !sources.contains_key(&range.path) {
-            sources.insert(range.path.clone(), source(storage, manifest, &range.path)?);
+            sources.insert(
+                range.path.clone(),
+                source_with_budget(storage, manifest, &range.path, budget)?,
+            );
         }
         let captured = sources
             .get(&range.path)
