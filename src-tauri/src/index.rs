@@ -13,10 +13,10 @@ use tree_sitter::{Language, Node, ParseOptions, Parser, Point};
 use uuid::Uuid;
 
 const INDEX_SCHEMA_VERSION: u32 = 1;
-const INDEXER_VERSION: &str = "atlas-symbol-index-v3";
+const INDEXER_VERSION: &str = "atlas-symbol-index-v4";
 const TREE_SITTER_RUNTIME_VERSION: &str = "0.27.1";
 pub(crate) const MAX_INDEXED_FILES: usize = 5_000;
-pub(crate) const MAX_SOURCE_BYTES_PER_FILE: u64 = 512 * 1024;
+pub(crate) const MAX_SOURCE_BYTES_PER_FILE: u64 = 1024 * 1024;
 pub(crate) const MAX_TOTAL_SOURCE_BYTES: u64 = 50 * 1024 * 1024;
 const MAX_AST_NODES_PER_FILE: usize = 250_000;
 const MAX_SCOPE_DEPTH: usize = 128;
@@ -568,7 +568,7 @@ where
             files.push(unprocessed_file(
                 captured,
                 IndexFileStatus::FileTooLarge,
-                "This file exceeds the 512 KB per-file parser limit. Source browsing remains available.",
+                "This file exceeds the 1 MiB per-file parser limit. Source browsing remains available.",
             ));
             progress.files_processed += 1;
             update_progress_counts(
@@ -2662,6 +2662,63 @@ mod tests {
         )
     }
 
+    /// Measures parser coverage of the two large Fontdone FFI files against
+    /// the captured snapshot without running repository code or calling a model.
+    #[test]
+    #[ignore = "Explicit Fontdone parser coverage measurement; requires CODE_ATLAS_FONTDONE_DATA_DIR."]
+    fn fontdone_large_file_index_profile() {
+        let started = std::time::Instant::now();
+        let storage = PathBuf::from(
+            std::env::var("CODE_ATLAS_FONTDONE_DATA_DIR")
+                .expect("set CODE_ATLAS_FONTDONE_DATA_DIR"),
+        );
+        let corpus: serde_json::Value = serde_json::from_str(include_str!(
+            "../../docs/acceptance/fixtures/fontdone-retrieval-ranges.json"
+        ))
+        .unwrap();
+        let snapshot_id = corpus["snapshotId"].as_str().unwrap();
+        let manifest = snapshot::load_snapshot_manifest(
+            &storage,
+            "/Users/lazytrot/work/fontdone",
+            snapshot_id,
+        )
+        .unwrap();
+        let indexed = build_snapshot_index(
+            &storage,
+            &manifest,
+            "fontdone-large-file-index-profile",
+            &AtomicBool::new(false),
+            |_| {},
+        );
+        save_snapshot_index(&storage, &indexed).unwrap();
+        for path in ["src/ffi/handles.rs", "fontdone-c-abi/src/implementation.rs"] {
+            let file = indexed
+                .files
+                .iter()
+                .find(|file| file.path == path)
+                .expect("captured FFI file should have an index status");
+            let declarations = indexed
+                .symbols
+                .iter()
+                .filter(|symbol| symbol.path == path)
+                .map(|symbol| symbol.name.as_str())
+                .filter(|name| matches!(*name, "FT_Load_Glyph" | "FT_Render_Glyph"))
+                .collect::<Vec<_>>();
+            println!(
+                "FONTDONE_LARGE_FILE_INDEX {}",
+                serde_json::json!({
+                    "path":path,
+                    "sourceBytes":file.source_size_bytes,
+                    "status":format!("{:?}", file.status),
+                    "symbolCount":file.symbol_count,
+                    "declarations":declarations,
+                    "profileElapsedMs":started.elapsed().as_millis(),
+                    "indexStatus":format!("{:?}", indexed.status),
+                })
+            );
+        }
+    }
+
     #[test]
     fn saved_snapshot_index_accepts_32_mib_and_rejects_the_next_byte() {
         let directory = TestDirectory::new();
@@ -3169,6 +3226,8 @@ mod tests {
             "src/main.rs",
             "pub fn rust_entry() { helper(); }\nfn helper() {}\n",
         );
+        let medium_source = format!("pub fn large_boundary() {{}}\n{}", " ".repeat(768 * 1024));
+        write_fixture(&root, "src/medium.rs", &medium_source);
         write_fixture(
             &root,
             "notes.md",
@@ -3318,6 +3377,25 @@ mod tests {
                 .unwrap()
                 .status,
             IndexFileStatus::UnsupportedLanguage
+        );
+        assert_eq!(
+            indexed
+                .files
+                .iter()
+                .find(|file| file.path == "src/medium.rs")
+                .unwrap()
+                .status,
+            IndexFileStatus::Indexed
+        );
+        let large_boundary = indexed
+            .symbols
+            .iter()
+            .find(|symbol| symbol.path == "src/medium.rs" && symbol.name == "large_boundary")
+            .expect("a 768 KiB Rust file should be structurally indexed");
+        assert!(
+            medium_source
+                .get(large_boundary.anchor.start_byte..large_boundary.anchor.end_byte)
+                .is_some_and(|source| source.contains("large_boundary"))
         );
         assert_eq!(
             indexed
