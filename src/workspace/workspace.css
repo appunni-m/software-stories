@@ -59,6 +59,11 @@
 .dw-viewbar .rt-TabsList {box-shadow:none;}
 .dw-viewbar .rt-TabsTriggerInner {gap:6px;font-size:12px;}
 .dw-answer-scroll {flex:1;min-height:0;min-width:0;width:100%;max-width:100%;box-sizing:border-box;overflow:auto;padding:20px 20px 48px;scrollbar-gutter:stable;}
+/* Inline stories live inside the whole chat-history scroller. Sticky playback
+   controls there can pin over unrelated turns and cover the scene itself; the
+   dedicated Walkthrough view keeps its own sticky controls. */
+.dw-answer-scroll .visual-story > .story-sticky-controls,
+.dw-answer-scroll .visual-story > .story-playbar {position:static;}
 .dw-answer-scroll > *, .dw-progressive-answer, .dw-turn, .dw-answer-card {min-width:0;max-width:100%;box-sizing:border-box;}
 .dw-welcome {padding:20px 4px;max-width:530px;margin:0 auto;}
 .dw-welcome > svg {color:var(--accent);}

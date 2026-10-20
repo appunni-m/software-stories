@@ -173,11 +173,14 @@ describe('visual story scenes', () => {
     assert.match(component, /className="story-sticky-controls"[\s\S]*?className="story-toolbar"[\s\S]*?className="story-scene-title" title=\{scene\.title\}/u);
     assert.match(component, /aria-label=\{`Scene \$\{i \+ 1\}: \$\{item\.title\}`\}/u);
     assert.match(styles, /\.story-sticky-controls\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;[^}]*z-index:\s*10/u,
-      'the sticky scene controls should cover React Flow nodes while the answer scrolls');
+      'the dedicated walkthrough can keep scene controls visible while its own view scrolls');
     const playerRule = styles.match(/\.story-playbar\s*\{([^}]+)\}/u)?.[1] ?? '';
     assert.match(playerRule, /position:\s*sticky/u);
     assert.match(playerRule, /bottom:\s*0/u);
     assert.match(playerRule, /background:\s*var\(--surface\)/u);
+    const workspace = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
+    assert.match(workspace, /\.dw-answer-scroll \.visual-story > \.story-sticky-controls,\s*\.dw-answer-scroll \.visual-story > \.story-playbar\s*\{\s*position:\s*static;/u,
+      'inline Guide controls must stay in the story flow instead of sticking to the entire chat history');
     const storyRule=styles.match(/\.visual-story\s*\{([^}]+)\}/u)?.[1]??'';
     assert.doesNotMatch(storyRule,/overflow:\s*(?:clip|hidden|auto|scroll)/u,'the story container must not clip its sticky controls');
     assert.match(styles,/\.visual-story > \.story-stage:not\(\.story-html-stage\)\s*\{[^}]*overflow:\s*hidden/u,'only the diagram stage clips to rounded corners');
