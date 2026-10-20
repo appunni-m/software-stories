@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
-import { AlertTriangle, ArrowDownUp, GitBranch, GitCommitHorizontal, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ArrowDownUp, FileCode2, GitBranch, GitCommitHorizontal, RefreshCw } from 'lucide-react';
 import type { AgentGitRecovery } from './lib/agentRecovery';
+import { matchesCapturedHead, matchingCapturedHeadPath, type CapturedGitSourceSnapshot } from './lib/gitChangeAvailability';
 import {
   compareLocalGitRevisions,
   cancelLocalGitComparison,
@@ -28,6 +29,8 @@ interface GitChangesScreenProps {
   onOpenProviderSettings: () => void;
   recovery?: AgentGitRecovery | null;
   onRecoveryReviewReady?: (operationId: string) => void;
+  capturedSource?: CapturedGitSourceSnapshot | null;
+  onOpenCapturedSource?: (path: string, snapshotId: string) => void;
 }
 
 export function GitChangesScreen({
@@ -44,6 +47,8 @@ export function GitChangesScreen({
   onOpenProviderSettings,
   recovery,
   onRecoveryReviewReady,
+  capturedSource,
+  onOpenCapturedSource,
 }: GitChangesScreenProps) {
   const [baseRef, setBaseRef] = useState(initialBaseRef);
   const [headRef, setHeadRef] = useState(initialHeadRef);
@@ -194,6 +199,8 @@ export function GitChangesScreen({
         onOpenProviderSettings={onOpenProviderSettings}
         recovery={recovery}
         onRecoveryReviewReady={onRecoveryReviewReady}
+        capturedSource={capturedSource}
+        onOpenCapturedSource={onOpenCapturedSource}
       />}
     </div>
   );
@@ -210,6 +217,8 @@ function ComparisonResults({
   onOpenProviderSettings,
   recovery,
   onRecoveryReviewReady,
+  capturedSource,
+  onOpenCapturedSource,
 }: {
   compact?: boolean;
   comparison: GitComparisonResult;
@@ -221,6 +230,8 @@ function ComparisonResults({
   onOpenProviderSettings: () => void;
   recovery?: AgentGitRecovery | null;
   onRecoveryReviewReady?: (operationId: string) => void;
+  capturedSource?: CapturedGitSourceSnapshot | null;
+  onOpenCapturedSource?: (path: string, snapshotId: string) => void;
 }) {
   const [focusedCitation, setFocusedCitation] = useState<{ identity: string; hunkIndex: number } | null>(null);
   const [compactSurface, setCompactSurface] = useState<'diff' | 'pr-guide'>('diff');
@@ -304,6 +315,10 @@ function ComparisonResults({
               {activeChange ? <ChangeDisclosure
                 change={activeChange}
                 relationshipImpact={comparison.relationshipImpact}
+                canOpenCapturedSource={canOpenCapturedSource(activeChange, comparison, capturedSource, onOpenCapturedSource)}
+                capturedHeadMatches={matchesCapturedHead(comparison, capturedSource)}
+                capturedSnapshotId={capturedSource?.snapshotId}
+                onOpenCapturedSource={onOpenCapturedSource}
                 expanded
                 interactive={false}
                 focusedHunkIndex={focusedCitation && focusedCitation.identity === activeIdentity ? focusedCitation.hunkIndex : undefined}
@@ -322,6 +337,10 @@ function ComparisonResults({
               key={identity}
               change={change}
               relationshipImpact={comparison.relationshipImpact}
+              canOpenCapturedSource={canOpenCapturedSource(change, comparison, capturedSource, onOpenCapturedSource)}
+              capturedHeadMatches={matchesCapturedHead(comparison, capturedSource)}
+              capturedSnapshotId={capturedSource?.snapshotId}
+              onOpenCapturedSource={onOpenCapturedSource}
               expanded={expanded}
               focusedHunkIndex={focusedCitation?.identity === identity ? focusedCitation.hunkIndex : undefined}
               onToggle={() => { setFocusedCitation(null); onSelectChange(expanded ? undefined : identity); }}
@@ -343,7 +362,16 @@ function CommitIdentity({ label, ref }: { label: string; ref: { requested: strin
   );
 }
 
-function ChangeDisclosure({ change, relationshipImpact, expanded, interactive = true, focusedHunkIndex, onToggle }: { change: GitFileChange; relationshipImpact: GitComparisonResult['relationshipImpact']; expanded: boolean; interactive?: boolean; focusedHunkIndex?: number; onToggle: () => void }) {
+function canOpenCapturedSource(
+  change: GitFileChange,
+  comparison: GitComparisonResult,
+  capturedSource: GitChangesScreenProps['capturedSource'],
+  onOpen: GitChangesScreenProps['onOpenCapturedSource'],
+) {
+  return Boolean(onOpen && matchingCapturedHeadPath(change, comparison, capturedSource));
+}
+
+function ChangeDisclosure({ change, relationshipImpact, canOpenCapturedSource = false, capturedHeadMatches = false, capturedSnapshotId, onOpenCapturedSource, expanded, interactive = true, focusedHunkIndex, onToggle }: { change: GitFileChange; relationshipImpact: GitComparisonResult['relationshipImpact']; canOpenCapturedSource?: boolean; capturedHeadMatches?: boolean; capturedSnapshotId?: string; onOpenCapturedSource?: (path: string, snapshotId: string) => void; expanded: boolean; interactive?: boolean; focusedHunkIndex?: number; onToggle: () => void }) {
   const path = change.headPath ?? change.basePath ?? 'Unknown path';
   const cardRef = useRef<HTMLElement>(null);
   const heading = <>
@@ -391,7 +419,22 @@ function ChangeDisclosure({ change, relationshipImpact, expanded, interactive = 
               </p>
             )}
           </section>
-          {change.hunks.length === 0 ? <p className="git-no-changes">No bounded text hunk is available for this path.</p> : change.hunks.map((hunk, index) => (
+          {change.hunks.length === 0 ? (
+            <div className="git-no-changes-group" role="group" aria-label="Diff unavailable">
+              <p className="git-no-changes" role="status">
+                {change.classification === 'oversized'
+                  ? 'This file is too large to diff here.'
+                  : 'No bounded text hunk is available for this path.'}
+              </p>
+              {canOpenCapturedSource && capturedSnapshotId && onOpenCapturedSource
+                ? <button className="text-button git-no-changes-action" onClick={() => onOpenCapturedSource(path, capturedSnapshotId)}><FileCode2 size={13} /> Open captured source</button>
+                : change.classification === 'oversized'
+                  ? <p className="git-no-changes-next">{capturedHeadMatches
+                    ? 'This capture has no readable text for this file. Try a smaller revision or inspect another changed file.'
+                    : 'Select a capture that matches this comparison to inspect its source.'}</p>
+                  : null}
+            </div>
+          ) : change.hunks.map((hunk, index) => (
             <section className={`git-hunk${focusedHunkIndex === index ? ' is-focused' : ''}`} key={`${path}:${index}`} data-hunk-index={index} aria-label={`Diff hunk ${index + 1}`}>
               <div className="git-hunk-anchors">
                 <AnchorIdentity side="From" anchor={hunk.baseAnchor} />

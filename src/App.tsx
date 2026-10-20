@@ -1919,6 +1919,14 @@ function App() {
                   onOpenProviderSettings={openProviderSettings}
                   recovery={recoveredGitRequest}
                   onRecoveryReviewReady={completeRecoveredProviderReview}
+                  capturedSource={snapshotManifest && snapshotManifest.summary.snapshotId === selectedSnapshot?.snapshotId ? {
+                    snapshotId: snapshotManifest.summary.snapshotId,
+                    head: snapshotManifest.summary.head,
+                    paths: snapshotManifest.files
+                      .filter((file) => file.kind === 'file' && file.contentKind === 'text' && !file.secretLike)
+                      .map((file) => file.path),
+                  } : null}
+                  onOpenCapturedSource={openCapturedFile}
                 />
               </Suspense>
             ) : (
