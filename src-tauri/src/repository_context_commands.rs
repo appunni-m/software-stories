@@ -588,9 +588,26 @@ mod tests {
                 }
                 next_offset = page.next_offset;
             }
+            let scoped_recall = corpus
+                .expected
+                .iter()
+                .filter_map(|expected| {
+                    let mut offset = 0;
+                    loop {
+                        let (scoped, _) = run_page(query, Some(&expected.path), offset);
+                        if found(&scoped, expected) {
+                            return Some(expected.id.as_str());
+                        }
+                        match scoped.next_offset {
+                            Some(next) => offset = next,
+                            None => return None,
+                        }
+                    }
+                })
+                .collect::<Vec<_>>();
             println!(
                 "FONTDONE_BROAD {}",
-                serde_json::json!({"query":query,"firstPageRecall":first_page_recall,"candidateWindowRecall":recovered,"pagesRead":pages,"elapsedMs":elapsed_ms,"serializedMatchBytes":serialized_match_bytes,"limited":limited,"expectedCount":corpus.expected.len(),"namedGlobalRecall":format!("{named}/{}",corpus.expected.len())})
+                serde_json::json!({"query":query,"firstPageRecall":first_page_recall,"candidateWindowRecall":recovered,"scopedRecall":scoped_recall,"pagesRead":pages,"elapsedMs":elapsed_ms,"serializedMatchBytes":serialized_match_bytes,"limited":limited,"expectedCount":corpus.expected.len(),"namedGlobalRecall":format!("{named}/{}",corpus.expected.len())})
             );
         }
     }
