@@ -1079,7 +1079,7 @@ fn split_spoken_text(text: &str, max_segment_bytes: usize) -> Vec<String> {
                     .unwrap_or(remaining.len())
             });
         let bounded_prefix = &remaining[..limit];
-        let sentence_boundary = sentence_boundary_in(bounded_prefix);
+        let sentence_boundary = sentence_boundary_in(bounded_prefix, remaining);
         let word_boundary = bounded_prefix
             .char_indices()
             .rev()
@@ -1098,9 +1098,9 @@ fn split_spoken_text(text: &str, max_segment_bytes: usize) -> Vec<String> {
     segments
 }
 
-fn sentence_boundary_in(text: &str) -> Option<usize> {
+fn sentence_boundary_in(prefix: &str, text: &str) -> Option<usize> {
     let mut latest = None;
-    for (index, character) in text.char_indices() {
+    for (index, character) in prefix.char_indices() {
         if !matches!(character, '.' | '?' | '!') {
             continue;
         }
@@ -1109,11 +1109,25 @@ fn sentence_boundary_in(text: &str) -> Option<usize> {
         for (next_index, next) in text[punctuation_end..].char_indices() {
             if matches!(next, '\"' | '\'' | ')' | ']' | '}') {
                 boundary = punctuation_end + next_index + next.len_utf8();
-            } else if next.is_whitespace() {
-                boundary = punctuation_end + next_index + next.len_utf8();
             } else {
                 break;
             }
+        }
+        let sentence_ends = match text[boundary..].chars().next() {
+            None => true,
+            Some(next) => next.is_whitespace(),
+        };
+        if !sentence_ends || boundary > prefix.len() {
+            continue;
+        }
+        while boundary < prefix.len() {
+            let Some(next) = prefix[boundary..].chars().next() else {
+                break;
+            };
+            if !next.is_whitespace() {
+                break;
+            }
+            boundary += next.len_utf8();
         }
         latest = Some(boundary);
     }
@@ -2174,6 +2188,19 @@ mod tests {
         let pieces = split_spoken_text(multi_byte, 4);
         assert_eq!(pieces.concat(), multi_byte);
         assert!(pieces.iter().all(|piece| piece.len() <= 4));
+    }
+
+    #[test]
+    fn sentence_splitting_keeps_dotted_versions_in_one_segment() {
+        let text = "Use version v1.2.3, then continue. Next step.";
+        let segments = split_spoken_text(text, 18);
+
+        assert_eq!(segments.concat(), text);
+        assert_eq!(segments[0], "Use version ");
+        assert_eq!(segments[1], "v1.2.3, then ");
+        assert_eq!(segments[2], "continue. ");
+        assert_eq!(segments[3], "Next step.");
+        assert!(segments.iter().all(|segment| segment.len() <= 18));
     }
 
     #[test]
