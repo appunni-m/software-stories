@@ -200,6 +200,15 @@ fn stop_interrupts_real_project_inspection_while_git_reads_config() {
     };
     let fixture = Fixture::new();
     let path = Path::new(&fixture.manifest.summary.project_id);
+    let sessions = ProjectSessions::default();
+    let jobs = RepositoryContextJobs::default();
+    let initial = jobs.begin(&uuid::Uuid::new_v4().to_string()).unwrap();
+    let inspected =
+        project::inspect_selected_project(path.to_str().unwrap(), initial.cancellation());
+    assert_eq!(inspected.status, ProjectOpenStatus::Opened);
+    publish(&fixture.storage, inspected, &initial, &sessions).unwrap();
+    drop(initial);
+    let remembered = sessions.get(path.to_str().unwrap()).unwrap();
     let pipe = path.join("held-config");
     assert!(
         Command::new("mkfifo")
@@ -216,13 +225,15 @@ fn stop_interrupts_real_project_inspection_while_git_reads_config() {
     let before_storage = files(&fixture.storage);
     let head = fs::read(path.join(".git/HEAD")).unwrap();
     let index = fs::read(path.join(".git/index")).unwrap();
-    let jobs = RepositoryContextJobs::default();
     let id = uuid::Uuid::new_v4().to_string();
     let request = jobs.begin(&id).unwrap();
-    let sessions = ProjectSessions::default();
     thread::scope(|scope| {
         let worker = scope.spawn(|| {
-            project::inspect_selected_project(path.to_str().unwrap(), request.cancellation())
+            project::inspect_recent_project(
+                &fixture.storage,
+                path.to_str().unwrap(),
+                request.cancellation(),
+            )
         });
         let until = Instant::now() + Duration::from_secs(2);
         let mut writer = None;
@@ -262,7 +273,7 @@ fn stop_interrupts_real_project_inspection_while_git_reads_config() {
         );
         drop(writer);
     });
-    assert!(sessions.0.lock().unwrap().is_empty());
+    assert_eq!(sessions.get(path.to_str().unwrap()).unwrap(), remembered);
     assert_eq!(files(&fixture.storage), before_storage);
     assert_eq!(fs::read(&config_path).unwrap(), config);
     assert_eq!(fs::read(path.join(".git/HEAD")).unwrap(), head);
