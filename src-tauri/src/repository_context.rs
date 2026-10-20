@@ -1979,6 +1979,9 @@ pub(crate) fn search_files_with_mode_page(
             return Err("The code search index is invalid.".to_owned());
         }
         let captured = source(storage, manifest, &file_path)?;
+        // Source verification reads and hashes the complete captured blob. A
+        // request may be cancelled while that bounded read is in progress.
+        budget.check()?;
         if captured.sha256 != range.source_sha256 {
             return Err("A code result belongs to a different source version.".to_owned());
         }
@@ -2010,6 +2013,7 @@ pub(crate) fn search_files_with_mode_page(
                 }),
             )
             .map_err(|_| "A captured code snippet could not be searched.".to_owned())?;
+        budget.check()?;
         matches.push(SearchHit {
             range: range.clone(),
             line,
@@ -2019,6 +2023,7 @@ pub(crate) fn search_files_with_mode_page(
             score,
         });
     }
+    budget.check()?;
     let result_bytes = json(&matches)?.len();
     Ok(SearchResult {
         matches,

@@ -288,6 +288,89 @@ fn file_discovery_returns_one_verified_range_per_path_and_pages_stably() {
     assert!(scoped.next_offset.is_none());
 }
 
+#[cfg(unix)]
+#[test]
+fn file_discovery_observes_cancellation_after_verifying_a_captured_blob() {
+    use std::{
+        ffi::CString,
+        os::unix::ffi::OsStrExt,
+        sync::{Arc, mpsc},
+        thread,
+    };
+
+    let mut fixture = Fixture::new();
+    let text = "fn render_glyph() {}\n";
+    add_source(&mut fixture, "src/render.rs", text);
+    let cancelled = Arc::new(AtomicBool::new(false));
+    let initial_budget = Budget::new(cancelled.as_ref());
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &initial_budget).unwrap();
+    let captured = fixture
+        .manifest
+        .files
+        .iter()
+        .find(|file| file.path == "src/render.rs")
+        .unwrap();
+    let blob_path = fixture.storage.join(&captured.blob_path);
+    fs::remove_file(&blob_path).unwrap();
+    let c_path = CString::new(blob_path.as_os_str().as_bytes()).unwrap();
+    assert_eq!(unsafe { libc::mkfifo(c_path.as_ptr(), 0o600) }, 0);
+
+    let result = thread::scope(|scope| {
+        let (read_tx, read_rx) = mpsc::channel();
+        let (continue_tx, continue_rx) = mpsc::channel();
+        let contents = text.as_bytes().to_vec();
+        let writer_path = blob_path.clone();
+        let writer = scope.spawn(move || {
+            use std::io::Write;
+
+            let mut fifo = fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(writer_path)
+                .unwrap();
+            fifo.write_all(&contents[..1]).unwrap();
+            read_tx.send(()).unwrap();
+            continue_rx
+                .recv_timeout(Duration::from_secs(5))
+                .expect("search test should release the captured-source writer");
+            fifo.write_all(&contents[1..]).unwrap();
+        });
+
+        let storage = fixture.storage.as_path();
+        let manifest = &fixture.manifest;
+        let prepared = &prepared;
+        let search_cancelled = Arc::clone(&cancelled);
+        let search = scope.spawn(move || {
+            let budget = Budget::new(search_cancelled.as_ref());
+            search_files_with_mode_page(
+                storage,
+                manifest,
+                prepared,
+                "render",
+                None,
+                8,
+                0,
+                &budget,
+                SearchMode::Code,
+            )
+        });
+
+        read_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("search should open the captured-source FIFO");
+        cancelled.store(true, Ordering::Release);
+        continue_tx.send(()).unwrap();
+        let result = search.join().unwrap();
+        writer.join().unwrap();
+        result
+    });
+
+    match result {
+        Err(error) => assert_eq!(error, "Code search stopped."),
+        Ok(_) => panic!("cancelled file discovery must not publish a result"),
+    }
+}
+
 #[test]
 fn large_parserless_c_adapter_is_searchable_without_a_whole_file_prompt() {
     let mut fixture = Fixture::new();
