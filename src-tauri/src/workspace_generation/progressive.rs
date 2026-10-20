@@ -39,6 +39,10 @@ const PUBLICATION_ORDER_INSTRUCTIONS: &str = "Publication order is local to this
 
 const PROPOSAL_ALLOCATION_INSTRUCTIONS: &str = "Use remainingCorrections. Two of eight proposals are shared corrections, at most one per key. Exact successful replays count as attempts but not corrections. proposalCorrectionLimit ends that key. At finishNow, stop tools and return the final manifest from evidence already read.";
 
+// The base contract fits within 32 KB. Checked byte-range hints and their
+// policy add a small, bounded amount of metadata, so reserve 2 KB for them.
+const INITIAL_REQUEST_LIMIT_BYTES: usize = 34_000;
+
 const REFERENCE_REPAIR_INSTRUCTIONS: &str = "sceneAuthoringReference identifies a duplicate, absent or ambiguous reference at its claim-owned scene position. Each node/edge must cite unique references from its own claim; different items may share a reference. Correct the reference or remove only its duplicate entry, preserving the claim, supported behavior and chosen representation. Keep a useful composition; this finding never requires a graph.";
 
 fn system_instructions() -> String {
@@ -95,10 +99,11 @@ fn request(
     let schema = schema();
     let contract = serde_json::to_vec(&generation_contract(input, &prompt, &schema)?)
         .map_err(|_| "The progressive question contract could not be encoded.")?;
-    if contract.len() > 32000 {
+    if contract.len() > INITIAL_REQUEST_LIMIT_BYTES {
         return Err(format!(
-            "The question and references use {} bytes, exceeding the 32,000-byte initial request limit.",
-            contract.len()
+            "The question and references use {} bytes, exceeding the {}-byte initial request limit.",
+            contract.len(),
+            INITIAL_REQUEST_LIMIT_BYTES
         ));
     }
     Ok((prompt, schema, context::digest(&contract)))

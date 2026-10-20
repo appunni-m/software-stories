@@ -107,7 +107,7 @@ pub(super) fn request(
     let limit = if guide_intent.is_some() {
         128 * 1024
     } else {
-        32000
+        super::INITIAL_REQUEST_LIMIT_BYTES
     };
     if bytes.len() > limit {
         return Err(format!(
