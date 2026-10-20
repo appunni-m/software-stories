@@ -2,13 +2,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { invoke } from '@tauri-apps/api/core';
 import { Badge, Button, Dialog, Flex, IconButton, Tabs, TextField, Theme, Tooltip, useThemeContext } from '@radix-ui/themes';
 import { Group, Panel, Separator } from 'react-resizable-panels';
-import { Background, Controls, MarkerType, ReactFlow } from '@xyflow/react';
+import { Background, Controls, MarkerType, ReactFlow, type Edge, type Node } from '@xyflow/react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, ChevronRight, Code2, FileCode2, Files, GitBranch, GitCommitHorizontal, History, LoaderCircle, MessageSquare, Network, Paperclip, Pencil, Play, Search, ShieldCheck, Square, X } from 'lucide-react';
 import { CodePane } from '../design/CodePane';
 import { FileFlow } from '../FileFlow';
 import { VisualStory } from '../VisualStory';
 import { ReaderProgressContext } from '../lib/ReaderProgressContext';
-import { sameSection, type DiagramProgress, type StoryProgress } from '../lib/readerProgress';
+import { cleanFlowViewport, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
+import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowViewport';
 import { buildInventory } from '../lib/inventory';
 import { isNativeRuntime, listChapterRevisions, readSnapshotSource, type ChapterRevision, type ChapterSourceAnchor, type SnapshotManifest, type SnapshotSource, type SnapshotIndex, type HotspotDestination } from '../lib/commands';
 import { projectProvenRelationshipGraph } from '../lib/atlas';
@@ -509,7 +510,64 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
       </ol>
     </> : <>
       <p>Select a step to open its source.</p>
-      <div className="dw-flow-canvas"><ReactFlow key={`${revision.revisionId}:${selected}`} nodes={nodes} edges={edges} defaultViewport={viewport} fitView={!viewport} minZoom={.1} maxZoom={4} onMoveEnd={(_event,viewport)=>onProgress({...identity,viewport})} nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false} elementsSelectable={false} deleteKeyCode={null} colorMode={theme}><Background gap={20}/><Controls showInteractive={false}/></ReactFlow></div>
+      <EvidenceFlowCanvas key={`${identity.revisionId}:${identity.sectionRevisionId}`} revisionId={identity.revisionId} sectionId={identity.sectionId} sectionRevisionId={identity.sectionRevisionId} nodes={nodes} edges={edges} viewport={viewport} theme={theme} onViewportChange={(viewport)=>onProgress({...identity,viewport})}/>
     </>}
   </section>;
+}
+
+function EvidenceFlowCanvas({revisionId,sectionId,sectionRevisionId,nodes,edges,viewport,theme,onViewportChange}:{
+  revisionId:string;sectionId:string;sectionRevisionId:string;nodes:Node[];edges:Edge[];viewport?:FlowViewport;theme:'dark'|'light';onViewportChange:(viewport:FlowViewport)=>void;
+}){
+  const stage=useRef<HTMLDivElement>(null);
+  const instance=useRef<FlowViewportInstance|null>(null);
+  const scheduleCheck=useRef<()=>void>(()=>{});
+  const generationRef=useRef(0);
+  const fitInProgress=useRef(false);
+  const onViewportChangeRef=useRef(onViewportChange);
+  onViewportChangeRef.current=onViewportChange;
+  const nodeKey=JSON.stringify(nodes.map((node)=>node.id));
+  useEffect(()=>{
+    const container=stage.current;
+    if(!container)return;
+    const generation=++generationRef.current;
+    let frame:number|undefined;
+    const schedule=()=>{
+      if(frame!==undefined)return;
+      frame=requestAnimationFrame(()=>{
+        frame=undefined;
+        const flow=instance.current;
+        const current=stage.current;
+        if(!flow?.viewportInitialized||!current||fitInProgress.current)return;
+        const bounds=flow.getNodesBounds(nodes.map((node)=>node.id));
+        const size=current.getBoundingClientRect();
+        if(!bounds.width||!bounds.height||!viewportClipsNodeBounds(bounds,flow.getViewport(),size.width,size.height,28))return;
+        fitInProgress.current=true;
+        void flow.fitView({nodes:nodes.map((node)=>({id:node.id})),padding:.08,minZoom:.1,maxZoom:1.3}).then((fitted)=>{
+          if(!fitted||generation!==generationRef.current||flow!==instance.current)return;
+          const clean=cleanFlowViewport(flow.getViewport());
+          if(clean)onViewportChangeRef.current(clean);
+        }).catch(()=>{
+          // Keep the diagram available when React Flow cannot apply a saved-view repair.
+        }).finally(()=>{if(generation===generationRef.current)fitInProgress.current=false;});
+      });
+    };
+    scheduleCheck.current=schedule;
+    const observer=typeof ResizeObserver==='undefined'?undefined:new ResizeObserver(schedule);
+    observer?.observe(container);
+    window.addEventListener('resize',schedule);
+    schedule();
+    return()=>{
+      observer?.disconnect();window.removeEventListener('resize',schedule);
+      if(frame!==undefined)cancelAnimationFrame(frame);
+      if(scheduleCheck.current===schedule)scheduleCheck.current=()=>{};
+      generationRef.current+=1;fitInProgress.current=false;
+    };
+  },[revisionId,sectionId,sectionRevisionId,nodeKey]);
+  return <div ref={stage} className="dw-flow-canvas"><ReactFlow nodes={nodes} edges={edges} defaultViewport={viewport} fitView={!viewport} minZoom={.1} maxZoom={4}
+    onInit={(flow)=>{instance.current=flow;scheduleCheck.current();}}
+    onNodesChange={(changes)=>{if(changes.some((change)=>change.type==='dimensions'))scheduleCheck.current();}}
+    onMoveEnd={(_event,next)=>{const clean=cleanFlowViewport(next);if(clean)onViewportChange(clean);}}
+    nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false} elementsSelectable={false} deleteKeyCode={null} colorMode={theme}>
+    <Background gap={20}/><Controls showInteractive={false}/>
+  </ReactFlow></div>;
 }

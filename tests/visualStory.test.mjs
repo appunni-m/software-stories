@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
+import { viewportClipsNodeBounds } from '../src/lib/flowViewport.ts';
 import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, storyLayout, storyScenes } from '../src/lib/visualStory.ts';
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
@@ -21,10 +22,63 @@ describe('visual story scenes', () => {
     assert.match(smallScreenRule, /height:\s*clamp\(260px,\s*42vh,\s*520px\)/u);
   });
 
+  it('shows the audio state in the compact Guide player while hiding only its repeated heading', () => {
+    const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
+    const component = readFileSync(new URL('../src/NarrationPlayer.tsx', import.meta.url), 'utf8');
+    const headingRule = styles.match(/\.is-story-audio \.walkthrough-panel-heading\s*\{([^}]+)\}/u)?.[1] ?? '';
+    const repeatedTitleRule = styles.match(/\.is-story-audio \.walkthrough-panel-heading > div\s*\{([^}]+)\}/u)?.[1] ?? '';
+    const playerRule = styles.match(/\.story-playbar \.is-story-audio\s*\{([^}]+)\}/u)?.[1] ?? '';
+    assert.match(headingRule, /display:\s*flex/u);
+    assert.doesNotMatch(headingRule, /position:\s*absolute/u);
+    assert.match(playerRule, /min-width:\s*0/u);
+    assert.match(playerRule, /max-width:\s*100%/u);
+    assert.match(repeatedTitleRule, /clip-path:\s*inset\(50%\)/u);
+    assert.match(component, /walkthrough-transcript-state[^>]+role="status"/u);
+    assert.match(component, /narrationAvailabilityLabel\(prewarmState\)/u);
+  });
+
+  it('re-fits a saved scene only when its nodes fall outside the current canvas', () => {
+    const bounds = { x: 0, y: 0, width: 1_000, height: 300 };
+    assert.equal(viewportClipsNodeBounds(bounds, { x: -500, y: 50, zoom: 1 }, 600, 400), true);
+    assert.equal(viewportClipsNodeBounds(bounds, { x: 80, y: 50, zoom: .45 }, 600, 400), false);
+    assert.equal(viewportClipsNodeBounds({ ...bounds, width: 0 }, { x: 0, y: 0, zoom: 1 }, 600, 400), false);
+  });
+
+  it('checks saved viewports in both the Guide player and the exploration Flow canvas', () => {
+    const story = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
+    const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+    for (const source of [story, workspace]) {
+      assert.match(source, /viewportClipsNodeBounds\(bounds,\s*\w+\.getViewport\(\),\s*\w+\.width,\s*\w+\.height/u);
+      assert.match(source, /onNodesChange=\{\(changes\)\s*=>\s*\{\s*if\s*\(changes\.some\(\(change\)\s*=>\s*change\.type\s*===\s*'dimensions'\)\)/u);
+    }
+  });
+
   it('keeps HTML visual values intact at word boundaries before breaking long tokens', () => {
     const styles = readFileSync(new URL('../src/html-scene.css', import.meta.url), 'utf8');
     const valueRule = styles.match(/\.html-scene-value\s*\{([^}]+)\}/u)?.[1] ?? '';
     assert.match(valueRule, /overflow-wrap:\s*break-word/u);
+  });
+
+  it('lets horizontal HTML story steps share narrow panes without overflowing their row', () => {
+    const styles = readFileSync(new URL('../src/html-scene.css', import.meta.url), 'utf8');
+    const scene = styles.match(/\.html-scene\s*\{([^}]+)\}/u)?.[1] ?? '';
+    const body = styles.match(/\.html-scene-body\s*\{([^}]+)\}/u)?.[1] ?? '';
+    const row = styles.match(/\.html-scene-row, \.html-scene-compare\s*\{([^}]+)\}/u)?.[1] ?? '';
+    const rowItems = styles.match(/\.html-scene-row > :not\(\.html-scene-arrow\), \.html-scene-compare > \*\s*\{([^}]+)\}/u)?.[1] ?? '';
+    assert.match(scene, /box-sizing:\s*border-box/u);
+    assert.match(scene, /width:\s*100%/u);
+    assert.match(body, /grid-template-columns:\s*minmax\(0,\s*1fr\)/u);
+    assert.match(row, /width:\s*100%/u);
+    assert.match(row, /min-width:\s*0/u);
+    assert.match(row, /max-width:\s*100%/u);
+    assert.match(rowItems, /box-sizing:\s*border-box/u);
+    assert.match(rowItems, /flex:\s*1 1 0/u);
+    assert.match(rowItems, /min-width:\s*min\(100%,\s*140px\)/u);
+    assert.match(rowItems, /max-width:\s*min\(260px,\s*calc\(\(100% - 80px\) \/ 3\)\)/u);
+    assert.match(styles, /@container \(max-width:\s*900px\)/u);
+    const playerStyles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
+    assert.match(playerStyles, /\.story-html-stage\s*\{[^}]*height:\s*auto/u);
+    assert.match(playerStyles, /\.story-html-stage\s*\{[^}]*max-height:\s*min\(80vh,\s*900px\)/u);
   });
 
   it('keeps graph node labels readable at word boundaries before breaking long identifiers', () => {

@@ -10,7 +10,7 @@
 .story-scene-dots [aria-current="step"] span { width: 18px; border-radius: 3px; background: var(--accent); }
 .story-map-toggle, .story-focus-bar button { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; font: inherit; font-size: 12px; background: var(--surface-raised); }
 .story-stage { height: clamp(320px, 48vh, 720px); min-width: 0; background: var(--canvas); }
-.story-html-stage { overflow: auto; }
+.story-html-stage { height: auto; min-height: clamp(320px, 48vh, 720px); max-height: min(80vh, 900px); overflow: auto; }
 .visual-story .react-flow { --xy-background-color: var(--canvas); --xy-background-pattern-dots-color: var(--border-strong); --xy-node-background-color: var(--surface); --xy-node-color: var(--text); --xy-node-border: 1px solid var(--border-strong); --xy-edge-stroke: var(--muted); --xy-edge-label-color: var(--muted); --xy-edge-label-background-color: var(--surface); --xy-controls-button-background-color: var(--surface); --xy-controls-button-color: var(--text); --xy-controls-button-border-color: var(--border); }
 .visual-story .react-flow__node { box-sizing: border-box; padding: 12px; font: 500 14px/1.45 -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 7px; overflow-wrap: break-word; word-break: normal; box-shadow: none; }
 .visual-story .story-node-active { border: 2px solid var(--accent); background: var(--surface-raised); }
@@ -30,8 +30,10 @@
 .story-no-visual small { max-width: 300px; font: 13px/1.6 -apple-system, BlinkMacSystemFont, sans-serif; }
 .story-playbar { display: grid; grid-template-columns: 32px minmax(0,1fr) 32px; align-items: start; gap: 4px; padding: 10px 8px; border-bottom: 1px solid var(--border); }
 .story-previous, .story-next { display: grid; place-items: center; min-height: 34px; border: 0; border-radius: 5px; background: transparent; }
-.story-playbar .is-story-audio { margin: 0; padding: 0 5px; border: 0; display: flex; flex-direction: column; background: transparent; }
-.is-story-audio .walkthrough-panel-heading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.story-playbar .is-story-audio { min-width: 0; max-width: 100%; box-sizing: border-box; margin: 0; padding: 0 5px; border: 0; display: flex; flex-direction: column; background: transparent; }
+.is-story-audio .walkthrough-panel-heading { order: -2; display: flex; justify-content: flex-end; width: 100%; min-width: 0; min-height: 16px; margin: 0 0 2px; }
+.is-story-audio .walkthrough-panel-heading > div { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.is-story-audio .walkthrough-panel-heading .walkthrough-transcript-state { max-width: 100%; font-size: 11px; white-space: normal; overflow-wrap: anywhere; text-align: right; }
 .is-story-audio .walkthrough-playback { order: -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 5px; border: 0; padding: 0; }
 .is-story-audio .walkthrough-playback-buttons { flex-shrink: 0; }
 .is-story-audio .walkthrough-seek-label { flex: 1; min-width: 80px; display: block; }

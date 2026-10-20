@@ -8,6 +8,7 @@ import { defaultNarrationText, parseNarrationPreferences } from './lib/narration
 import { narrationStorageKey } from './lib/narrationScope';
 import { inspectInteractiveVisual } from './lib/visuals';
 import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, storyLayout, storyScenes } from './lib/visualStory';
+import { viewportClipsNodeBounds, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
 import { useReaderProgress } from './lib/ReaderProgressContext';
 import './visual-story.css';
@@ -58,6 +59,11 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const activeScene = useRef(scenes[savedPosition.index].id);
   const positions = useRef(new Map(savedPosition.positions));
   const root = useRef<HTMLElement>(null);
+  const storyStage = useRef<HTMLDivElement>(null);
+  const flowInstance = useRef<FlowViewportInstance | null>(null);
+  const flowFitGeneration = useRef(0);
+  const flowFitInProgress = useRef(false);
+  const scheduleViewportCheck = useRef<() => void>(() => {});
   const [autoPlay, setAutoPlay] = useState(false);
   const [manualVisit, setManualVisit] = useState(0);
   const [fullMap, setFullMap] = useState(savedPosition.fullMap);
@@ -117,6 +123,59 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     markerEnd: { type: MarkerType.ArrowClosed }, className: activeIds.has(edge.fromNodeId) && activeIds.has(edge.toNodeId) ? 'story-edge-active' : 'story-edge-context',
   })) ?? [];
 
+  const visibleNodeKey = JSON.stringify([...visibleIds]);
+  useEffect(() => {
+    const stage = storyStage.current;
+    if (!stage) return;
+    const generation = ++flowFitGeneration.current;
+    let frame: number | undefined;
+    const schedule = () => {
+      if (frame !== undefined) return;
+      frame = requestAnimationFrame(() => {
+        frame = undefined;
+        const instance = flowInstance.current;
+        const currentStage = storyStage.current;
+        if (!instance?.viewportInitialized || !currentStage || flowFitInProgress.current) return;
+        const bounds = instance.getNodesBounds([...visibleIds]);
+        const size = currentStage.getBoundingClientRect();
+        if (!bounds.width || !bounds.height) return;
+        if (!viewportClipsNodeBounds(bounds, instance.getViewport(), size.width, size.height, 28)) return;
+
+        flowFitInProgress.current = true;
+        void instance.fitView({
+          nodes: [...visibleIds].map((id) => ({ id })),
+          padding: .08,
+          minZoom: .18,
+          maxZoom: 1.1,
+        }).then((fitted) => {
+          if (!fitted || generation !== flowFitGeneration.current || instance !== flowInstance.current
+            || activeScene.current !== scene.id || mapView.current !== fullMap) return;
+          const clean = cleanFlowViewport(instance.getViewport());
+          if (!clean) return;
+          canvasViewport.current = clean;
+          savePosition(scene.id);
+        }).catch(() => {
+          // The saved scene remains readable if React Flow cannot refit it.
+        }).finally(() => {
+          if (generation === flowFitGeneration.current) flowFitInProgress.current = false;
+        });
+      });
+    };
+    scheduleViewportCheck.current = schedule;
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(schedule);
+    observer?.observe(stage);
+    window.addEventListener('resize', schedule);
+    schedule();
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', schedule);
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      if (scheduleViewportCheck.current === schedule) scheduleViewportCheck.current = () => {};
+      flowFitGeneration.current += 1;
+      flowFitInProgress.current = false;
+    };
+  }, [scene.id, fullMap, visibleNodeKey, revision.revisionId, section.sectionRevisionId]);
+
   return <section ref={root} className="visual-story" aria-label={`Visual story: ${section.title}`}>
     <div className="story-toolbar">
       <span className="story-scene-count" aria-live="polite">Scene {index + 1} of {scenes.length}</span>
@@ -135,8 +194,10 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     </div>
     {visual && htmlScenes.length > 0 ? <div className="story-stage story-html-stage" role="group" aria-label={visual.title}>
       {htmlScenes.map((item) => <HtmlScene key={item.claimIndex} scene={item} visual={visual} onOpenNode={chooseNode} focusedNode={focusedNode}/>)}
-    </div> : visual ? <div className="story-stage" role="group" aria-label={visual.title}>
+    </div> : visual ? <div ref={storyStage} className="story-stage" role="group" aria-label={visual.title}>
       <ReactFlow key={`${section.sectionRevisionId}:${index}:${fullMap}`} nodes={nodes} edges={edges} defaultViewport={canvasViewport.current} fitView={!canvasViewport.current} fitViewOptions={{ padding: .06, maxZoom: 1.1 }}
+        onInit={(instance) => { flowInstance.current = instance; scheduleViewportCheck.current(); }}
+        onNodesChange={(changes) => { if (changes.some((change) => change.type === 'dimensions')) scheduleViewportCheck.current(); }}
         onMoveEnd={(_event,viewport)=>{const clean=cleanFlowViewport(viewport);if(clean&&activeScene.current===scene.id&&mapView.current===fullMap){canvasViewport.current=clean;savePosition(scene.id);}}}
         minZoom={.18} maxZoom={1.8} nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false} elementsSelectable={false} deleteKeyCode={null} zoomOnScroll={false} preventScrolling={false} colorMode="system">
         <Background gap={24} /><Controls showInteractive={false} />

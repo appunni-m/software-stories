@@ -43,8 +43,16 @@ async function metadata() {
 const manifest = `${JSON.stringify(await metadata(), null, 2)}\n`;
 
 if (process.argv[2] === 'write') {
-  await writeFile(outputPath, manifest);
-  console.log(`Wrote ${outputPath}`);
+  let existing;
+  try { existing = await readFile(outputPath, 'utf8'); }
+  catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  if (existing === manifest) console.log(`Metadata is current: ${outputPath}`);
+  else {
+    await writeFile(outputPath, manifest);
+    console.log(`Wrote ${outputPath}`);
+  }
 } else if (process.argv[2] === 'verify') {
   const appPath = join(tauriDir, 'target', 'release', 'bundle', 'macos', `${config.productName}.app`);
   const infoPlist = join(appPath, 'Contents', 'Info.plist');

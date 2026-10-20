@@ -102,6 +102,10 @@ export function sceneNodeIds(visual: EvidenceLinkedVisualSpec, scene: StoryScene
   return ids;
 }
 
+/** Saved reader viewports belong to a particular canvas size. Keep them while
+ * every visible node fits, then let the player restore the scene with a useful
+ * view when its pane has become narrower or shorter.
+ */
 export function readStoryProgress(raw: string | null, identity: SectionIdentity, scenes: StoryScene[]): StoryProgress | undefined {
   let value: unknown;
   try { value = raw && raw.length <= 16_000 ? JSON.parse(raw) : null; } catch { value = null; }
