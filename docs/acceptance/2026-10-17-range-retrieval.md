@@ -78,3 +78,31 @@ Coverage remained 1,621 indexed files, 19,296,074 indexed source bytes, 3,422 ra
 All twelve named expected declarations were found globally and file-scoped, improving on the older 8/12 global observation. The two broad lexical queries found only 1/12 and 2/12 spans, respectively, and both hit the bounded result limit. This is useful exact-name retrieval, but broad repository discovery remains insufficient. It does not qualify packaged search, Codex answers, or narrative quality.
 
 Run logs are `/private/tmp/code-atlas-fontdone-service-profile-e161110.log` and `/private/tmp/code-atlas-fontdone-service-profile-e161110-disk.log`. The disposable storage and temporarily restored build fixture were removed after the run; the user's deleted fixture remains deleted.
+
+## Current-source rerun — 20 October 2026
+
+Reran the same frozen profile on committed search source `e7bcc8a` using an isolated 273 MB copy of the app-data `snapshots`, `objects`, `indexes`, and `repository-context` directories. The original app data was left untouched. The copy contains the saved Fontdone snapshot and its existing prepared indexes, so this measures disk-loaded and same-process cached searches, not a cold index build. No Codex, model, or speech request was made.
+
+Environment: Apple M3 Pro, arm64, macOS 15.7.7, Rust/Cargo 1.98.1. One profile run, no separately warmed repetitions or variance estimate. Command:
+
+```sh
+RUSTC_WRAPPER= \
+CODE_ATLAS_FONTDONE_DATA_DIR=/private/tmp/code-atlas-a699-current \
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib \
+  repository_context_commands::tests::fontdone_service_retrieval_profile -- --ignored --exact --nocapture
+```
+
+| Measurement | Observation |
+| --- | ---: |
+| Indexed files / bytes / ranges | 1,621 / 19,296,074 / 3,438 |
+| Syntax / text-fallback files | 83 / 1,538 |
+| Unavailable files / snapshot paths skipped | 1,147 / 25 |
+| First `memory_face` disk-load + search | 1,731 ms |
+| Same-process cached `memory_face` search | 203 ms |
+| Named identifier recall, global | **12 / 12** |
+| Broad query 1, first ranked page; all ranked pages | **1/12; 12/12** |
+| Broad query 1, paged file discovery; scoped range recall | **7/7 files; 12/12 ranges** |
+| Broad query 2, first ranked page; all ranked pages | **2/12; 7/12** |
+| Broad query 2, paged file discovery; scoped range recall | **7/7 files; 12/12 ranges** |
+
+Both broad file-discovery scans visited eight 32-result pages and found all seven expected files. The ranked range search still missed five expected spans for the second broad query even after paging; a follow-up search scoped to the discovered files recovered all twelve. This demonstrates a useful local discovery-then-scope route, but the weak first-page ranking and need for iterative calls mean that broad question-to-code retrieval is not yet automatic or proven sufficient. Keep the related retrieval and guide-quality issues open.
