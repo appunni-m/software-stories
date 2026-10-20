@@ -450,10 +450,18 @@ fn cleanup_failure_is_returned_after_setup_failure_and_child_reaping() {
     let pid = reported_pid(&pid_path)
         .expect("the child records its PID before injected setup and cleanup failures");
 
-    assert!(matches!(
-        result,
-        Err(RunError::Cleanup(error)) if error.to_string().contains("injected group cleanup failure")
-    ));
+    let Err(RunError::Cleanup(error)) = result else {
+        panic!("the injected cleanup failure should reach the caller");
+    };
+    let message = error.to_string();
+    assert!(
+        message.contains("Git output could not be read"),
+        "the original setup failure should remain visible: {message}"
+    );
+    assert!(
+        message.contains("injected group cleanup failure"),
+        "the cleanup failure should be visible: {message}"
+    );
     let mut status = 0;
     // SAFETY: pid came from the child created by this runner. A cleanup error
     // must still reap the direct child before returning to its caller.
