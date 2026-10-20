@@ -101,12 +101,13 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     if (playing) positions.current.set(scenes[next].id, 0);
     savePosition(scenes[next].id);
   };
-  const chooseNode = (id: string) => {
+  const chooseNode = (id: string, sourceValue?: string) => {
     const next = scene.nodeIds.includes(id) ? index : scenes.findIndex((item) => item.nodeIds.includes(id));
     select(next < 0 ? index : next, false, id);
     const node = visual?.nodes.find((item) => item.nodeId === id);
-    const source = anchors.find((item) => node?.evidenceAnchorIds.includes(item.anchorId));
-    if (source && node) onOpenAnchor(sourceAnchorForVisualNode(source, node), `reader-visual-citation:${id}:${source.anchorId}`);
+    const nodeAnchors = anchors.filter((item) => node?.evidenceAnchorIds.includes(item.anchorId));
+    const source = (sourceValue ? nodeAnchors.find((item) => item.excerpt.includes(sourceValue)) : undefined) ?? nodeAnchors[0];
+    if (source && node) onOpenAnchor(sourceAnchorForVisualNode(source, node, sourceValue), `reader-visual-citation:${id}:${source.anchorId}`);
   };
   const nodes = visual ? storyLayout(visual, visibleIds).map((node) => {
     const data = visual.nodes.find((item) => item.nodeId === node.id)!;

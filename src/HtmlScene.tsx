@@ -9,7 +9,7 @@ import './html-scene.css';
  */
 export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
   scene: PresentationScene; visual: EvidenceLinkedVisualSpec;
-  onOpenNode: (id: string) => void; focusedNode?: string | null;
+  onOpenNode: (id: string, sourceValue?: string) => void; focusedNode?: string | null;
 }) {
   const draw = (index: number): ReactNode => {
     const e = scene.elements[index];
@@ -21,6 +21,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
     const node = visual.nodes[e.nodeIndex!];
     const illustrated = e.valueOrigin === 'illustration';
     const value = e.value;
+    const sourceValue = e.valueOrigin === 'source' ? value : undefined;
     let body: ReactNode = value ? <span className="html-scene-value">{value}</span> : null;
     if (e.kind === 'bytes') body = <span className="html-byte-strip">{value.trim().split(/\s+/u).map((cell, i) => <span key={i}><b>{cell}</b><small>{i}</small></span>)}</span>;
     if (e.kind === 'matrix') {
@@ -33,7 +34,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
       role="button" tabIndex={0} title={node.detail ?? undefined}
       data-focus-key={`reader-visual-citation:${node.nodeId}:${node.evidenceAnchorIds[0]}`}
       aria-label={sceneNodeAccessibleLabel(node, value, illustrated)}
-      onClick={() => onOpenNode(node.nodeId)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenNode(node.nodeId); } }}>
+      onClick={() => onOpenNode(node.nodeId, sourceValue)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onOpenNode(node.nodeId, sourceValue); } }}>
       <span className="html-scene-label">{node.label}<Code2 size={12}/></span>
       {body}
       {illustrated && <small className="html-example-label">Illustrative example</small>}

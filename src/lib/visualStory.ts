@@ -16,13 +16,14 @@ const normalize = (text: string) => text.trim().replace(/\s+/gu, ' ');
  * a unique, byte-exact match inside the already verified chapter citation.
  * Natural-language descriptions and ambiguous matches keep the full citation.
  */
-export function sourceAnchorForVisualNode(anchor: ChapterSourceAnchor, node: Pick<LinkedVisualNode, 'label' | 'detail'>): ChapterSourceAnchor {
+export function sourceAnchorForVisualNode(anchor: ChapterSourceAnchor, node: Pick<LinkedVisualNode, 'label' | 'detail'>, sourceValue?: string): ChapterSourceAnchor {
   const excerptBytes = new TextEncoder().encode(anchor.excerpt).byteLength;
   if (!Number.isSafeInteger(anchor.startByte) || !Number.isSafeInteger(anchor.endByteInclusive)
     || anchor.endByteInclusive < anchor.startByte
     || excerptBytes !== anchor.endByteInclusive - anchor.startByte + 1) return anchor;
 
   const candidates = new Set<string>();
+  if (sourceValue && sourceValue.length >= 4 && sourceValue.length <= 240) candidates.add(sourceValue);
   const codeLike = /[A-Za-z_$][\w$]*(?:(?:::|\.|->)[A-Za-z_$][\w$]*)(?:\s*\([^()\r\n]{0,240}\))?/gu;
   for (const description of [node.label, node.detail ?? '']) {
     for (const match of description.matchAll(/`([^`\r\n]{1,240})`/gu)) candidates.add(match[1]);

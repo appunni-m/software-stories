@@ -42,6 +42,40 @@ describe('visual story scenes', () => {
     assert.equal(excerpt.slice(expressionOffset, expressionOffset + expression.length), narrowed.excerpt);
   });
 
+  it('opens a composed source-value cue on the exact expression it displays', () => {
+    const excerpt = [
+      'impl Font {',
+      '    pub(crate) fn memory_face(data: &[u8]) -> Result<Self, FontError> {',
+      '        if data.starts_with(b"PFR0") {',
+      '            return Self::pfr_face(data, face_index, size_pt);',
+      '        }',
+      '    }',
+      '}',
+    ].join('\n');
+    const anchor = {
+      anchorId: 'anchor:memory-face', path: 'src/font.rs', symbolId: 'symbol:memory-face', snapshotId: 'snapshot:one',
+      sourceSha256: 'a'.repeat(64), startByte: 300, endByteInclusive: 299 + Buffer.byteLength(excerpt),
+      startLine: 4053, endLine: 4059, startColumn: 1, endColumn: 1, excerpt,
+    };
+    const value = 'Self::pfr_face(data, face_index, size_pt)';
+    const narrowed = sourceAnchorForVisualNode(anchor, {
+      label: 'Arguments forwarded', detail: 'The matching branch calls the constructor with the original byte slice, face index, and point size.',
+    }, value);
+    const expressionOffset = excerpt.indexOf(value);
+    assert.equal(narrowed.startLine, 4056);
+    assert.equal(narrowed.endLine, 4056);
+    assert.equal(narrowed.startByte, anchor.startByte + Buffer.byteLength(excerpt.slice(0, expressionOffset)));
+    assert.equal(narrowed.endByteInclusive, narrowed.startByte + Buffer.byteLength(value) - 1);
+    assert.equal(narrowed.excerpt, value);
+  });
+
+  it('passes only code values from the rendered composition into source navigation', () => {
+    const component = readFileSync(new URL('../src/HtmlScene.tsx', import.meta.url), 'utf8');
+    assert.match(component, /const sourceValue = e\.valueOrigin === 'source' \? value : undefined;/u);
+    assert.match(component, /onClick=\{\(\) => onOpenNode\(node\.nodeId, sourceValue\)\}/u);
+    assert.match(component, /onOpenNode\(node\.nodeId, sourceValue\)/u);
+  });
+
   it('keeps the full citation when a visual node has no unique exact expression', () => {
     const excerpt = 'if matches(value) { return first(); }\nif matches(value) { return second(); }';
     const anchor = {
