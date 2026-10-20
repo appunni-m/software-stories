@@ -676,7 +676,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         <span className={`walkthrough-transcript-state${isPlaying ? ' is-playing' : track ? '' : prewarmState === 'preparing' ? ' is-preparing' : prewarmState === 'ready' ? ' is-ready' : prewarmState === 'unavailable' ? ' is-unavailable' : ''}`} role="status"><Volume2 size={13} /> {isPlaying ? 'Playing' : track ? 'Paused' : narrationAvailabilityLabel(prewarmState)}</span>
       </div>
 
-      <details className="walkthrough-narration-script">
+      <details className="walkthrough-narration-script" onToggle={(event) => { if (event.currentTarget.open) { const editor = event.currentTarget.parentElement?.querySelector<HTMLDetailsElement>(':scope > .walkthrough-narration-editor'); if (editor?.open) editor.open = false; } }}>
       <summary>Read narration</summary>
       <div className="walkthrough-transcript-scroll" ref={transcriptRef} onScroll={(event) => onTranscriptPositionChange(event.currentTarget.scrollTop)} role="group" tabIndex={0} aria-label={`Narration for ${section.title}`}>
         <div className="walkthrough-caption">
@@ -685,26 +685,27 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       </div>
       </details>
 
-      <details className="walkthrough-narration-editor">
+      <details className="walkthrough-narration-editor" onToggle={(event) => { if (event.currentTarget.open) { const script = event.currentTarget.parentElement?.querySelector<HTMLDetailsElement>(':scope > .walkthrough-narration-script'); if (script?.open) script.open = false; } }}>
         <summary><span>Edit spoken text</span><ChevronDown size={13} /></summary>
-
-        <label className="walkthrough-narration-field">Spoken text
-          <textarea value={draft.spokenText} disabled={reviewBusy || requestBusy} maxLength={16000} rows={4} onChange={(event) => updateDraft((value) => ({ ...value, spokenText: event.target.value }))} placeholder="Write what you want the reader to say in natural language." />
-          {spokenTextUtf8Bytes > 16000 && <small role="alert">Shorten this script before listening.</small>}
-        </label>
-        <details className="walkthrough-pronunciation">
-          <summary>Pronunciation lexicon <span>Optional · off by default</span></summary>
-          <p>Add a code name and how it should sound. Include it only when you want matching text in the script replaced for speech.</p>
-          {draft.lexicon.map((entry, index) => (
-            <div className="walkthrough-pronunciation-row" key={`lexicon-${index}`}>
-              <label>Exact name<input value={entry.name} disabled={reviewBusy || requestBusy} maxLength={120} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, name: event.target.value }) }))} placeholder="parseRoutes" /></label>
-              <label>Say it as<input value={entry.sayAs} disabled={reviewBusy || requestBusy} maxLength={160} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, sayAs: event.target.value }) }))} placeholder="parse routes" /></label>
-              <label className="walkthrough-pronunciation-include"><input type="checkbox" disabled={reviewBusy || requestBusy} checked={entry.include} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, include: event.target.checked }) }))} /> Include</label>
-              <button type="button" className="walkthrough-pronunciation-remove" disabled={reviewBusy || requestBusy} onClick={() => updateDraft((value) => ({ ...value, lexicon: value.lexicon.filter((_, itemIndex) => itemIndex !== index) }))} aria-label="Remove pronunciation entry"><X size={13} /></button>
-            </div>
-          ))}
-          {draft.lexicon.length < 12 && <button type="button" className="walkthrough-add-pronunciation" disabled={reviewBusy || requestBusy} onClick={() => updateDraft((value) => ({ ...value, lexicon: [...value.lexicon, { name: '', sayAs: '', include: false }] }))}>Add a name</button>}
-        </details>
+        <div className="walkthrough-narration-editor-content">
+          <label className="walkthrough-narration-field">Spoken text
+            <textarea value={draft.spokenText} disabled={reviewBusy || requestBusy} maxLength={16000} rows={4} onChange={(event) => updateDraft((value) => ({ ...value, spokenText: event.target.value }))} placeholder="Write what you want the reader to say in natural language." />
+            {spokenTextUtf8Bytes > 16000 && <small role="alert">Shorten this script before listening.</small>}
+          </label>
+          <details className="walkthrough-pronunciation">
+            <summary>Pronunciation lexicon <span>Optional · off by default</span></summary>
+            <p>Add a code name and how it should sound. Include it only when you want matching text in the script replaced for speech.</p>
+            {draft.lexicon.map((entry, index) => (
+              <div className="walkthrough-pronunciation-row" key={`lexicon-${index}`}>
+                <label>Exact name<input value={entry.name} disabled={reviewBusy || requestBusy} maxLength={120} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, name: event.target.value }) }))} placeholder="parseRoutes" /></label>
+                <label>Say it as<input value={entry.sayAs} disabled={reviewBusy || requestBusy} maxLength={160} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, sayAs: event.target.value }) }))} placeholder="parse routes" /></label>
+                <label className="walkthrough-pronunciation-include"><input type="checkbox" disabled={reviewBusy || requestBusy} checked={entry.include} onChange={(event) => updateDraft((value) => ({ ...value, lexicon: replaceLexiconEntry(value.lexicon, index, { ...entry, include: event.target.checked }) }))} /> Include</label>
+                <button type="button" className="walkthrough-pronunciation-remove" disabled={reviewBusy || requestBusy} onClick={() => updateDraft((value) => ({ ...value, lexicon: value.lexicon.filter((_, itemIndex) => itemIndex !== index) }))} aria-label="Remove pronunciation entry"><X size={13} /></button>
+              </div>
+            ))}
+            {draft.lexicon.length < 12 && <button type="button" className="walkthrough-add-pronunciation" disabled={reviewBusy || requestBusy} onClick={() => updateDraft((value) => ({ ...value, lexicon: [...value.lexicon, { name: '', sayAs: '', include: false }] }))}>Add a name</button>}
+          </details>
+        </div>
       </details>
 
       <div className="walkthrough-playback">

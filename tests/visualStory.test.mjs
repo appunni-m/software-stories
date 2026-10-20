@@ -6,7 +6,7 @@ import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, storyLayout,
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
 const claims = [claim('entry', 'A request reaches handleRequest. The bytes are still untrusted.'), claim('check', 'If validate rejects those bytes, the caller receives an error. Otherwise processing continues.')];
-const section = { sectionId: 'section:one', claims, spokenText: claims.map((item) => item.prose).join(' ') };
+const section = { sectionId: 'section:one', title: 'Follow a request', claims, spokenText: claims.map((item) => item.prose).join(' ') };
 const visual = {
   schemaVersion: 2, kind: 'dataFlow', title: 'Follow a request', layoutHint: { direction: 'topToBottom' },
   nodes: ['entry', 'check', 'error', 'result'].map((id) => ({ nodeId: id, label: id, evidenceAnchorIds: [id === 'entry' ? 'a:entry' : 'a:check'] })),
@@ -14,6 +14,15 @@ const visual = {
 };
 
 describe('visual story scenes', () => {
+  it('keeps the current scene title and player together while the story body scrolls', () => {
+    const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
+    const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
+    assert.match(component, /className="story-sticky-controls"[\s\S]*?className="story-toolbar"[\s\S]*?className="story-scene-title" title=\{scene\.title\}[\s\S]*?className="story-playbar"/u);
+    assert.match(component, /aria-label=\{`Scene \$\{i \+ 1\}: \$\{item\.title\}`\}/u);
+    assert.match(styles, /\.story-sticky-controls\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/u);
+    assert.match(styles, /\.visual-story\s*\{[^}]*overflow:\s*clip/u);
+  });
+
   it('gives the visual enough bounded height on large windows and scales down responsively', () => {
     const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
     const desktopRule = styles.match(/\.story-stage\s*\{([^}]+)\}/u)?.[1] ?? '';
@@ -22,17 +31,28 @@ describe('visual story scenes', () => {
     assert.match(smallScreenRule, /height:\s*clamp\(260px,\s*42vh,\s*520px\)/u);
   });
 
-  it('shows the audio state in the compact Guide player while hiding only its repeated heading', () => {
+  it('keeps the sticky Guide player compact and leaves transcript editing available in overlays', () => {
     const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
     const component = readFileSync(new URL('../src/NarrationPlayer.tsx', import.meta.url), 'utf8');
     const headingRule = styles.match(/\.is-story-audio \.walkthrough-panel-heading\s*\{([^}]+)\}/u)?.[1] ?? '';
     const repeatedTitleRule = styles.match(/\.is-story-audio \.walkthrough-panel-heading > div\s*\{([^}]+)\}/u)?.[1] ?? '';
     const playerRule = styles.match(/\.story-playbar \.is-story-audio\s*\{([^}]+)\}/u)?.[1] ?? '';
+    const playbackRule = styles.match(/\.is-story-audio \.walkthrough-playback\s*\{([^}]+)\}/u)?.[1] ?? '';
+    const overlayRule = styles.match(/\.is-story-audio \.walkthrough-narration-editor\[open\] > \.walkthrough-narration-editor-content\s*\{([^}]+)\}/u)?.[1] ?? '';
     assert.match(headingRule, /display:\s*flex/u);
     assert.doesNotMatch(headingRule, /position:\s*absolute/u);
     assert.match(playerRule, /min-width:\s*0/u);
     assert.match(playerRule, /max-width:\s*100%/u);
+    assert.match(playerRule, /grid-template-areas:\s*"playback status" "read edit"/u);
+    assert.match(playbackRule, /grid-template-columns:\s*auto minmax\(0,1fr\)/u);
     assert.match(repeatedTitleRule, /clip-path:\s*inset\(50%\)/u);
+    assert.match(overlayRule, /position:\s*absolute/u);
+    assert.match(overlayRule, /max-height:\s*min\(55vh, 480px\)/u);
+    assert.match(component, /className="walkthrough-narration-editor-content"/u);
+    assert.match(component, /className="walkthrough-narration-script" onToggle=\{\(event\).*querySelector<HTMLDetailsElement>\(':scope > \.walkthrough-narration-editor'\)/u);
+    assert.match(component, /className="walkthrough-narration-editor" onToggle=\{\(event\).*querySelector<HTMLDetailsElement>\(':scope > \.walkthrough-narration-script'\)/u);
+    assert.match(component, /<summary>Read narration<\/summary>/u);
+    assert.match(component, /<summary><span>Edit spoken text<\/span>/u);
     assert.match(component, /walkthrough-transcript-state[^>]+role="status"/u);
     assert.match(component, /narrationAvailabilityLabel\(prewarmState\)/u);
   });
@@ -101,7 +121,7 @@ describe('visual story scenes', () => {
   it('keeps authored speech without a visual whole, with every claim source still reachable', () => {
     const spokenText = 'First the incoming bytes reach a trust check. Rejected input returns an error; only accepted input moves on.';
     const current = { ...section, visual: null, spokenText };
-    assert.deepEqual(storyScenes(current), [{ id: section.sectionId, narration: spokenText,
+    assert.deepEqual(storyScenes(current), [{ id: section.sectionId, title: section.title, narration: spokenText,
       anchorIds: ['a:entry', 'a:check'], nodeIds: [] }]);
     assert.equal(current.claims, claims);
     assert.notEqual(spokenText, claims.map(c => c.prose).join(' '));
@@ -212,13 +232,15 @@ describe('visual story scenes', () => {
 
 it('authored narration follows all claim scenes for the reader and export without speaking identifiers', () => {
   const scripts = ['For example, a request arrives with untrusted bytes.', 'If the check rejects them, the caller gets an error. Otherwise, processing continues.'];
-  const authored = { ...visual, presentation: { schemaVersion: 3, scenes: scripts.map((narration, claimIndex) => ({ claimIndex, title: 'Follow the request', narration, mode: 'graph', elements: [] })) } };
+  const authoredTitles = ['The request arrives', 'Validation branches'];
+  const authored = { ...visual, presentation: { schemaVersion: 3, scenes: scripts.map((narration, claimIndex) => ({ claimIndex, title: authoredTitles[claimIndex], narration, mode: 'graph', elements: [] })) } };
   const current = { ...section, spokenText: scripts.join(' '), visual: authored };
   const fromReader = storyScenes(current, authored);
   const fromExport = storyScenes(current);
   assert.deepEqual(fromReader, fromExport);
   assert.deepEqual(fromReader.map(s => s.narration), scripts);
   assert.deepEqual(fromReader.map(s => s.id), claims.map(c => c.claimId));
+  assert.deepEqual(fromReader.map(s => s.title), authoredTitles);
   assert.deepEqual(fromReader.map(s => s.anchorIds), [['a:entry'], ['a:check']]);
   assert.equal(fromReader[1].nodeIds.length, 3);
   assert.ok(current.claims[0].prose.includes('handleRequest'));

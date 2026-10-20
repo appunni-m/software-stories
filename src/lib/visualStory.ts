@@ -4,6 +4,7 @@ import { cleanStoryProgress, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type Flo
 
 export interface StoryScene {
   id: string;
+  title: string;
   narration: string;
   anchorIds: string[];
   nodeIds: string[];
@@ -39,7 +40,7 @@ export function storyScenes(section: ChapterSection, visual?: EvidenceLinkedVisu
       return scripts.map((narration, i) => {
         const claim = section.claims[i];
         const anchorIds = claim.anchors.map(a => a.anchorId);
-        return { id: claim.claimId, narration, anchorIds,
+        return { id: claim.claimId, title: presentation.scenes[i].title, narration, anchorIds,
           nodeIds: candidate.nodes.filter(n => n.evidenceAnchorIds.some(id => anchorIds.includes(id))).map(n => n.nodeId) };
       });
     }
@@ -52,12 +53,12 @@ export function storyScenes(section: ChapterSection, visual?: EvidenceLinkedVisu
       .filter((sentence) => { if (seen.has(sentence)) return false; seen.add(sentence); return true; });
     if (!spoken.length) return [];
     const anchorIds = claim.anchors.map((anchor) => anchor.anchorId);
-    return [{ id: claim.claimId, narration: spoken.join(' '), anchorIds,
+    return [{ id: claim.claimId, title: section.title, narration: spoken.join(' '), anchorIds,
       nodeIds: visual?.nodes.filter((node) => node.evidenceAnchorIds.some((id) => anchorIds.includes(id))).map((node) => node.nodeId) ?? [] }];
   });
   const script = savedScript ?? section.spokenText;
   if (scenes.length && normalize(scenes.map((scene) => scene.narration).join(' ')) === normalize(script)) return scenes;
-  return [{ id: section.sectionId, narration: script, anchorIds: section.claims.flatMap((claim) => claim.anchors.map((anchor) => anchor.anchorId)), nodeIds: visual?.nodes.map((node) => node.nodeId) ?? [] }];
+  return [{ id: section.sectionId, title: section.title, narration: script, anchorIds: section.claims.flatMap((claim) => claim.anchors.map((anchor) => anchor.anchorId)), nodeIds: visual?.nodes.map((node) => node.nodeId) ?? [] }];
 }
 
 /** A bounded layered drawing preserves the declared edges, including cycles and branches.

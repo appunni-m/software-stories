@@ -177,20 +177,23 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   }, [scene.id, fullMap, visibleNodeKey, revision.revisionId, section.sectionRevisionId]);
 
   return <section ref={root} className="visual-story" aria-label={`Visual story: ${section.title}`}>
-    <div className="story-toolbar">
-      <span className="story-scene-count" aria-live="polite">Scene {index + 1} of {scenes.length}</span>
-      <div className="story-scene-dots" role="group" aria-label="Story scenes">{scenes.map((item, i) => <button key={item.id} aria-label={`Scene ${i + 1}`} aria-current={i === index ? 'step' : undefined} onClick={() => select(i)}><span /></button>)}</div>
-      {visual && (visual.edges.length > 0 || !visual.presentation) && <button className="story-map-toggle" aria-pressed={fullMap} onClick={() => {mapView.current=!fullMap;canvasViewport.current=undefined;setFullMap(!fullMap);savePosition(scene.id);}}><Maximize2 size={13} />{fullMap ? 'Focus scene' : 'Full map'}</button>}
-    </div>
-    <div className="story-playbar">
-      <button className="story-previous" disabled={index === 0} aria-label="Previous scene" onClick={() => select(index - 1)}><ArrowLeft size={15} /></button>
-      <NarrationPlayer key={`${section.sectionRevisionId}:${scene.id}:${manualVisit}`} compact
-        projectId={revision.projectId} chapterId={revision.chapterId} revisionId={revision.revisionId} section={section}
-        clip={scenes.length > 1 ? { id: scene.id, text: scene.narration } : undefined}
-        restorePosition={positions.current.get(scene.id) ?? (scenes.length === 1 ? restorePosition : 0)} transcriptPosition={0}
-        onPlaybackPositionChange={(position) => { savePosition(scene.id, position); onPlaybackPositionChange?.(position); }} onTranscriptPositionChange={(position) => onTranscriptPositionChange?.(position)}
-        onOpenProviderSettings={onSettings} autoPlay={autoPlay} onEnded={() => { if (index < scenes.length - 1) select(index + 1, true); }} />
-      <button className="story-next" disabled={index === scenes.length - 1} aria-label="Next scene" onClick={() => select(index + 1)}><ArrowRight size={15} /></button>
+    <div className="story-sticky-controls">
+      <div className="story-toolbar">
+        <span className="story-scene-title" title={scene.title}>{scene.title}</span>
+        <span className="story-scene-count" aria-live="polite">Scene {index + 1} of {scenes.length}</span>
+        <div className="story-scene-dots" role="group" aria-label="Story scenes">{scenes.map((item, i) => <button key={item.id} aria-label={`Scene ${i + 1}: ${item.title}`} aria-current={i === index ? 'step' : undefined} onClick={() => select(i)}><span /></button>)}</div>
+        {visual && (visual.edges.length > 0 || !visual.presentation) && <button className="story-map-toggle" aria-pressed={fullMap} onClick={() => {mapView.current=!fullMap;canvasViewport.current=undefined;setFullMap(!fullMap);savePosition(scene.id);}}><Maximize2 size={13} />{fullMap ? 'Focus scene' : 'Full map'}</button>}
+      </div>
+      <div className="story-playbar">
+        <button className="story-previous" disabled={index === 0} aria-label="Previous scene" onClick={() => select(index - 1)}><ArrowLeft size={15} /></button>
+        <NarrationPlayer key={`${section.sectionRevisionId}:${scene.id}:${manualVisit}`} compact
+          projectId={revision.projectId} chapterId={revision.chapterId} revisionId={revision.revisionId} section={section}
+          clip={scenes.length > 1 ? { id: scene.id, text: scene.narration } : undefined}
+          restorePosition={positions.current.get(scene.id) ?? (scenes.length === 1 ? restorePosition : 0)} transcriptPosition={0}
+          onPlaybackPositionChange={(position) => { savePosition(scene.id, position); onPlaybackPositionChange?.(position); }} onTranscriptPositionChange={(position) => onTranscriptPositionChange?.(position)}
+          onOpenProviderSettings={onSettings} autoPlay={autoPlay} onEnded={() => { if (index < scenes.length - 1) select(index + 1, true); }} />
+        <button className="story-next" disabled={index === scenes.length - 1} aria-label="Next scene" onClick={() => select(index + 1)}><ArrowRight size={15} /></button>
+      </div>
     </div>
     {visual && htmlScenes.length > 0 ? <div className="story-stage story-html-stage" role="group" aria-label={visual.title}>
       {htmlScenes.map((item) => <HtmlScene key={item.claimIndex} scene={item} visual={visual} onOpenNode={chooseNode} focusedNode={focusedNode}/>)}
