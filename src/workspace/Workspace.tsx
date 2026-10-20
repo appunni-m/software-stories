@@ -369,7 +369,7 @@ export function DeveloperWorkspace(props:Props) {
 
 interface AnswerProps {chapters?:ChapterRevision[];hideQuestion?:boolean;turn:Turn; loading?:boolean; revision?:ChapterRevision; branches:Exploration[]; compact?:boolean;onGo:(id:string)=>void;onOpen:(a:ChapterSourceAnchor)=>void;onBranch:(question:string,context:Context[])=>void;onStop:()=>void;onRetry:()=>void;onReview:(r:ChapterRevision)=>void;onRead:(r:ChapterRevision)=>void;onSettings:()=>void;onDestination:(d:HotspotDestination)=>void;onSection:(revisionId:string,sectionId:string)=>void;onStoryProgress:(progress:StoryProgress)=>void;onVersion:(originalRevisionId:string,revisionId:string)=>void}
 function QuestionDisclosure({question}:{question:string}){
-  return <details className="dw-user-question"><summary><MessageSquare size={14}/><span>Question</span><ChevronRight size={13}/></summary><p>{question}</p></details>;
+  return <details className="dw-user-question"><summary><MessageSquare size={14}/><span title={question}>{historyQuestionPreview(question)}</span><ChevronRight size={13}/></summary><p>{question}</p></details>;
 }
 function Answer(props:AnswerProps){
   const {turn,chapters,branches}=props;
