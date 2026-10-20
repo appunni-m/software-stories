@@ -24,7 +24,7 @@ export function sourceAnchorForVisualNode(anchor: ChapterSourceAnchor, node: Pic
 
   const candidates = new Set<string>();
   if (sourceValue && sourceValue.length >= 4 && sourceValue.length <= 240) candidates.add(sourceValue);
-  const codeLike = /[A-Za-z_$][\w$]*(?:(?:::|\.|->)[A-Za-z_$][\w$]*)(?:\s*\([^()\r\n]{0,240}\))?/gu;
+  const codeLike = /(?:\b[A-Za-z_$][\w$]*(?:(?:::|\.|->)[A-Za-z_$][\w$]*)*\s*\([^()\r\n]{0,240}\)|\b0[xX][0-9a-fA-F]+\b)/gu;
   for (const description of [node.label, node.detail ?? '']) {
     for (const match of description.matchAll(/`([^`\r\n]{1,240})`/gu)) candidates.add(match[1]);
     for (const match of description.matchAll(codeLike)) candidates.add(match[0]);

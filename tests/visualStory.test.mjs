@@ -42,6 +42,35 @@ describe('visual story scenes', () => {
     assert.equal(excerpt.slice(expressionOffset, expressionOffset + expression.length), narrowed.excerpt);
   });
 
+  it('narrows numeric signature and bare-call labels only to unique source text', () => {
+    const excerpt = [
+      'if matches!(read_u16_le(data, 0), Some(0x0200) | Some(0x0300)) {',
+      '    return Self::winfnt_face(data, face_index, size_pt);',
+      '}',
+    ].join('\n');
+    const anchor = {
+      anchorId: 'anchor:winfnt', path: 'src/font.rs', symbolId: 'symbol:memory-face', snapshotId: 'snapshot:one',
+      sourceSha256: 'c'.repeat(64), startByte: 500, endByteInclusive: 499 + Buffer.byteLength(excerpt),
+      startLine: 4064, endLine: 4066, startColumn: 1, endColumn: 1, excerpt,
+    };
+    const signature = sourceAnchorForVisualNode(anchor, {
+      label: '0x0200 or 0x0300', detail: 'Either exact signature matches.',
+    });
+    assert.equal(signature.startLine, 4064);
+    assert.equal(signature.endLine, 4064);
+    assert.ok(['0x0200', '0x0300'].includes(signature.excerpt));
+
+    const read = sourceAnchorForVisualNode(anchor, {
+      label: 'Read the 16-bit signature', detail: 'The code calls read_u16_le(data, 0).',
+    });
+    assert.equal(read.startLine, 4064);
+    assert.equal(read.excerpt, 'read_u16_le(data, 0)');
+
+    const ambiguous = { ...anchor, excerpt: `${excerpt}\nif fallback == 0x0200 {}`, endLine: 4067,
+      endByteInclusive: 499 + Buffer.byteLength(`${excerpt}\nif fallback == 0x0200 {}`) };
+    assert.equal(sourceAnchorForVisualNode(ambiguous, { label: '0x0200' }), ambiguous);
+  });
+
   it('opens a composed source-value cue on the exact expression it displays', () => {
     const excerpt = [
       'impl Font {',
