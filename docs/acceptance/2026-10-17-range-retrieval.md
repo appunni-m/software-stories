@@ -109,7 +109,16 @@ Both broad file-discovery scans visited eight 32-result pages and found all seve
 
 ## Current-source rerun — 21 October 2026
 
-Reran the frozen service profile at source `39d1fd73a081047f16d7c2d5e0aad59fcafa427c` against an isolated copy of the saved Fontdone snapshot and its prepared indexes. The user's original app data was not modified. No model, Codex, or speech request was made during this measurement.
+Reran the frozen service profile at source `39d1fd73a081047f16d7c2d5e0aad59fcafa427c` against an isolated 273 MB copy of the saved Fontdone snapshot and its prepared indexes. The user's original app data was not modified. No model, Codex, or speech request was made during this measurement.
+
+Environment: Apple M3 Pro, arm64, macOS 15.7.7, Rust/Cargo 1.98.1. This is one disk-loaded profile run with no separate warm repetitions or variance estimate; prepared indexes were copied, so it is not a cold index-build measurement. Command:
+
+```sh
+RUSTC_WRAPPER= \
+CODE_ATLAS_FONTDONE_DATA_DIR=/private/tmp/code-atlas-a699-recall-20261021 \
+cargo test --manifest-path src-tauri/Cargo.toml --locked --lib \
+  repository_context_commands::tests::fontdone_service_retrieval_profile -- --ignored --exact --nocapture
+```
 
 | Measurement | Observation |
 | --- | ---: |

@@ -97,7 +97,11 @@ the post-publication Pocket prewarm path populating the cache before the user
 presses Play. The section citation opened the selected snapshot at
 `src/font.rs:4053–4078`; no PFR parser internals were needed.
 
-No audio was played in this observation, so it does not measure
-click-to-first-sample latency or listening quality, and it does not distinguish
-cache reuse from newly synthesized audio by fingerprint. Keep playback quality,
-invalidation, cancellation, offline export and restart qualification open.
+Pressing Play switched directly to **Playing**; the first observed position was
+`00:00.2`, without a generating state. I paused it at `00:03.55`. This supports
+the cached playback path for the new answer, but is not a precise
+click-to-first-sample measurement or a human listening review. The cache file
+was not matched to the section fingerprint, so the observation does not
+distinguish a previous matching cache hit from newly synthesized audio. Keep
+listening quality, invalidation, cancellation, offline export and restart
+qualification open.
