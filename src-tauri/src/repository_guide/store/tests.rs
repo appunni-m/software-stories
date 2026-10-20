@@ -51,7 +51,10 @@ fn ending_the_owner_releases_a_lease_even_if_an_inherited_descriptor_remains() {
     assert!(lease(&f.storage, &id).unwrap().is_none());
     drop(owner);
     let next = lease(&f.storage, &id).unwrap();
-    assert!(next.is_some(), "an inherited descriptor must not extend the ended owner's lease");
+    assert!(
+        next.is_some(),
+        "an inherited descriptor must not extend the ended owner's lease"
+    );
     drop(inherited);
     assert!(lease(&f.storage, &id).unwrap().is_none());
     drop(next);
@@ -86,7 +89,15 @@ fn fresh_independent_research_requires_its_own_schema_and_opening() {
     assert_eq!(fresh.schema_version, RECORD_SCHEMA_VERSION);
     assert_eq!(fresh.contract, CONTRACT);
     assert!(validate(&fresh).is_ok());
-    for (schema, contract) in [(0, CONTRACT), (1, CONTRACT), (2, CONTRACT), (3, CONTRACT), (4, CONTRACT), (5, CONTRACT), (7, CONTRACT)] {
+    for (schema, contract) in [
+        (0, CONTRACT),
+        (1, CONTRACT),
+        (2, CONTRACT),
+        (3, CONTRACT),
+        (4, CONTRACT),
+        (5, CONTRACT),
+        (7, CONTRACT),
+    ] {
         let mut invalid = fresh.clone();
         invalid.schema_version = schema;
         invalid.contract = contract.into();
@@ -97,23 +108,39 @@ fn fresh_independent_research_requires_its_own_schema_and_opening() {
     assert!(validate(&missing).is_err());
     let mut invalid_edge = fresh;
     invalid_edge.plan.as_mut().unwrap().units[0].prerequisites = vec!["output".into()];
-    assert!(validate(&invalid_edge).is_err(), "independent research still preserves the reading DAG");
+    assert!(
+        validate(&invalid_edge).is_err(),
+        "independent research still preserves the reading DAG"
+    );
 }
 
 #[test]
 fn opening_binding_rejects_changed_context() {
     let f = Fixture::new();
     let fresh = crate::repository_guide::tests::fresh_record(&f);
-    for kind in ["missing", "digest", "guideQuestion", "openingQuestion", "project", "snapshot", "run"] {
+    for kind in [
+        "missing",
+        "digest",
+        "guideQuestion",
+        "openingQuestion",
+        "project",
+        "snapshot",
+        "run",
+    ] {
         let mut invalid = fresh.clone();
         match kind {
             "missing" => invalid.opening_context_sha256 = None,
             "digest" => invalid.opening_context_sha256 = Some("a".repeat(64)),
             "guideQuestion" => invalid.question.push_str(" Changed intent."),
-            "openingQuestion" => invalid.opening.as_mut().unwrap().question = invalid.question.clone(),
+            "openingQuestion" => {
+                invalid.opening.as_mut().unwrap().question = invalid.question.clone()
+            }
             "project" => invalid.project_id.push_str("-other"),
             "snapshot" => invalid.snapshot_id.push_str("-other"),
-            "run" => {invalid.planning_run_id = Uuid::new_v4().to_string(); invalid.opening.as_mut().unwrap().run_id = invalid.planning_run_id.clone();},
+            "run" => {
+                invalid.planning_run_id = Uuid::new_v4().to_string();
+                invalid.opening.as_mut().unwrap().run_id = invalid.planning_run_id.clone();
+            }
             _ => unreachable!(),
         }
         assert!(validate(&invalid).is_err(), "{kind}");

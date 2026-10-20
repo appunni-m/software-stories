@@ -66,12 +66,17 @@ fn combined_contract_keeps_the_same_scene_and_outline_boundaries() {
     assert!(!instructions.contains("Finish only with the supplied answerManifestV2"));
     assert!(!instructions.contains("then investigate and publish deeper sections"));
     assert!(instructions.contains("then finish the deeper outline"));
-    assert!(instructions.contains("A comment or default constructor does not prove later consumer behavior"));
+    assert!(
+        instructions
+            .contains("A comment or default constructor does not prove later consumer behavior")
+    );
     let base = crate::agent_context::PROGRESSIVE_BASE_INSTRUCTIONS;
     assert!(!base.contains("then investigate and publish deeper supported sections"));
     assert!(base.contains("operation's role and final schema"));
     assert!(base.contains("Respect the original source, call, proposal and time limits"));
-    assert!(base.contains("Do not run commands, edit code, browse, delegate or access a live checkout"));
+    assert!(
+        base.contains("Do not run commands, edit code, browse, delegate or access a live checkout")
+    );
     assert!(instructions.contains("Preserve its requested alternatives, failure paths"));
     assert!(instructions.contains("Evidence proves the whole claim"));
     assert!(instructions.contains("At most six unique sections and eight total proposals"));
@@ -95,7 +100,10 @@ fn fresh_opening_owns_a_separate_learning_question_without_losing_the_guide_ques
     let f = Fixture::new();
     let r = pending(&f);
     let opening = r.opening.as_ref().unwrap();
-    assert_ne!(opening.question, r.question, "the first transition and the entire guide must not share one answer scope");
+    assert_ne!(
+        opening.question, r.question,
+        "the first transition and the entire guide must not share one answer scope"
+    );
     store::create(&f.storage, &r).unwrap();
     let reopened = store::read(&f.storage, &r.id).unwrap();
     assert_eq!(reopened.question, r.question);
@@ -171,11 +179,18 @@ fn inactive_opening_recovers_locally_without_replanning_or_changing_stop() {
     assert!(!f.storage.join("codex-agent/runtime.json").exists());
 }
 
-pub(in crate::repository_guide) fn publish(f: &Fixture, r: &Record) -> crate::evidence_ledger::sections::ActiveAnswer {
+pub(in crate::repository_guide) fn publish(
+    f: &Fixture,
+    r: &Record,
+) -> crate::evidence_ledger::sections::ActiveAnswer {
     publish_for_question(f, r, question(r).unwrap())
 }
 
-pub(in crate::repository_guide) fn publish_for_question(f: &Fixture, r: &Record, learning_question: &str) -> crate::evidence_ledger::sections::ActiveAnswer {
+pub(in crate::repository_guide) fn publish_for_question(
+    f: &Fixture,
+    r: &Record,
+    learning_question: &str,
+) -> crate::evidence_ledger::sections::ActiveAnswer {
     use crate::chapter_generation::tests::{SIMPLE_PATH, SIMPLE_SOURCE};
     use crate::{
         codex_identity::CodexReviewRuntime,
@@ -234,7 +249,13 @@ pub(in crate::repository_guide) fn publish_for_question(f: &Fixture, r: &Record,
         .unwrap();
     let reference = delivered["added"][0]["referenceId"].as_str().unwrap();
     let mut answer = ledger
-        .start_narration_answer_sections(learning_question, &"d".repeat(64), &f.manifest, &runtime, &cancel)
+        .start_narration_answer_sections(
+            learning_question,
+            &"d".repeat(64),
+            &f.manifest,
+            &runtime,
+            &cancel,
+        )
         .unwrap();
     let raw = crate::evidence_ledger::sections::authoring::tests::proposal(reference, "opening", 0)
         .to_string();
@@ -255,24 +276,51 @@ fn independent_research_continues_after_an_honest_boundary_but_not_a_failed_oper
     let r = pending(&f);
     let mut active = publish(&f, &r);
     active.finish_manifest(&json!({"manifestVersion":"answerManifestV2","incompleteTopics":["A later implementation remains unexplored."]}).to_string(), false).unwrap();
-    let answer = reading::scoped(&f.storage, &r.planning_run_id, &r.project_id, &r.snapshot_id).unwrap();
+    let answer = reading::scoped(
+        &f.storage,
+        &r.planning_run_id,
+        &r.project_id,
+        &r.snapshot_id,
+    )
+    .unwrap();
     assert_eq!(answer.outcome, Outcome::Partial);
     assert!(!answer.has_recorded_failure());
     assert!(check_research_outcome(&r, &answer).is_ok());
-    for code in [FailureCode::InvalidToolArguments, FailureCode::ToolEvent,
-        FailureCode::ContextTimeout, FailureCode::ContextPeerClosed,
-        FailureCode::ContextTransport, FailureCode::ContextDelivery,
-        FailureCode::RunTimeout, FailureCode::RuntimeIdentity, FailureCode::Unknown] {
+    for code in [
+        FailureCode::InvalidToolArguments,
+        FailureCode::ToolEvent,
+        FailureCode::ContextTimeout,
+        FailureCode::ContextPeerClosed,
+        FailureCode::ContextTransport,
+        FailureCode::ContextDelivery,
+        FailureCode::RunTimeout,
+        FailureCode::RuntimeIdentity,
+        FailureCode::Unknown,
+    ] {
         let f = Fixture::new();
         let r = pending(&f);
         let _active = publish(&f, &r);
-        reading::interrupt_with_failure(&f.storage, &r.planning_run_id, Outcome::Partial, Some(code)).unwrap();
-        let answer = reading::scoped(&f.storage, &r.planning_run_id, &r.project_id, &r.snapshot_id).unwrap();
+        reading::interrupt_with_failure(
+            &f.storage,
+            &r.planning_run_id,
+            Outcome::Partial,
+            Some(code),
+        )
+        .unwrap();
+        let answer = reading::scoped(
+            &f.storage,
+            &r.planning_run_id,
+            &r.project_id,
+            &r.snapshot_id,
+        )
+        .unwrap();
         assert_eq!(answer.outcome, Outcome::Partial);
-        assert!(!answer.sections.is_empty(), "useful recovery sections are preserved");
+        assert!(
+            !answer.sections.is_empty(),
+            "useful recovery sections are preserved"
+        );
         assert!(answer.has_recorded_failure());
         assert!(check_research_outcome(&r, &answer).is_err());
-
     }
 }
 
@@ -281,18 +329,41 @@ fn interrupted_or_working_receipts_never_authorize_later_research_and_stop_stays
     let f = Fixture::new();
     let r = pending(&f);
     let _active = publish(&f, &r);
-    let answer = reading::scoped(&f.storage, &r.planning_run_id, &r.project_id, &r.snapshot_id).unwrap();
+    let answer = reading::scoped(
+        &f.storage,
+        &r.planning_run_id,
+        &r.project_id,
+        &r.snapshot_id,
+    )
+    .unwrap();
     assert_eq!(answer.outcome, Outcome::Working);
     assert!(check_research_outcome(&r, &answer).is_err());
     reading::interrupt(&f.storage, &r.planning_run_id, Outcome::Interrupted).unwrap();
-    let answer = reading::scoped(&f.storage, &r.planning_run_id, &r.project_id, &r.snapshot_id).unwrap();
+    let answer = reading::scoped(
+        &f.storage,
+        &r.planning_run_id,
+        &r.project_id,
+        &r.snapshot_id,
+    )
+    .unwrap();
     assert!(check_research_outcome(&r, &answer).is_err());
     let f = Fixture::new();
     let r = pending(&f);
     let _active = publish(&f, &r);
-    reading::interrupt_with_failure(&f.storage, &r.planning_run_id, Outcome::Stopped,
-        Some(crate::evidence_ledger::sections::FailureCode::Stopped)).unwrap();
-    let answer = reading::scoped(&f.storage, &r.planning_run_id, &r.project_id, &r.snapshot_id).unwrap();
+    reading::interrupt_with_failure(
+        &f.storage,
+        &r.planning_run_id,
+        Outcome::Stopped,
+        Some(crate::evidence_ledger::sections::FailureCode::Stopped),
+    )
+    .unwrap();
+    let answer = reading::scoped(
+        &f.storage,
+        &r.planning_run_id,
+        &r.project_id,
+        &r.snapshot_id,
+    )
+    .unwrap();
     assert_eq!(answer.outcome, Outcome::Stopped);
     assert!(check_research_outcome(&r, &answer).is_ok());
 }
@@ -393,7 +464,12 @@ fn completed_opening_does_not_complete_deeper_units_and_partial_opening_cannot_b
     let mut r = pending(&f);
     store::create(&f.storage, &r).unwrap();
     let mut answer = publish(&f, &r);
-    answer.finish_manifest(&json!({"manifestVersion":"answerManifestV2","incompleteTopics":[]}).to_string(), false).unwrap();
+    answer
+        .finish_manifest(
+            &json!({"manifestVersion":"answerManifestV2","incompleteTopics":[]}).to_string(),
+            false,
+        )
+        .unwrap();
     let result = summary(&f.storage, &r).unwrap().answers.remove(0);
     assert_eq!(result.outcome, Outcome::Complete);
     let old = record(&f);
@@ -427,7 +503,6 @@ fn completed_opening_does_not_complete_deeper_units_and_partial_opening_cannot_b
     r.status = Status::Ready;
     assert!(store::save(&f.storage, &r, false).is_err());
 }
-
 
 #[test]
 fn failure_retention_cannot_clear_a_newer_investigation_owner() {

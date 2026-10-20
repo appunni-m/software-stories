@@ -59,8 +59,8 @@ fn selected_model_and_effort_are_bound_to_saved_workspace_answers() {
         )
         .unwrap();
 
-    let answer = serde_json::to_value(sections::inspect(&f.storage, &operation_id).unwrap())
-        .unwrap();
+    let answer =
+        serde_json::to_value(sections::inspect(&f.storage, &operation_id).unwrap()).unwrap();
     assert_eq!(answer["binding"]["model"], "gpt-5.6-luna");
     assert_eq!(answer["binding"]["effort"], "medium");
 }
@@ -135,7 +135,10 @@ fn current_reads_issue_only_short_operation_references_and_reuse_them() {
         &cancel,
         &[request(&f, 0, SIMPLE_SOURCE.len())],
     );
-    assert_eq!(first["citationVersion"], crate::native_citations::SHORT_VERSION);
+    assert_eq!(
+        first["citationVersion"],
+        crate::native_citations::SHORT_VERSION
+    );
     assert_eq!(first["added"][0]["referenceId"], "code:1");
     assert!(first["added"][0].get("id").is_none());
     assert!(first.get("alreadyAvailable").is_none());
@@ -160,10 +163,7 @@ fn current_reads_issue_only_short_operation_references_and_reuse_them() {
             .unwrap(),
         crate::native_citations::Resolution::Ready(_)
     ));
-    let old_version = response.replace(
-        crate::native_citations::SHORT_VERSION,
-        "nativeEvidenceV1",
-    );
+    let old_version = response.replace(crate::native_citations::SHORT_VERSION, "nativeEvidenceV1");
     assert!(matches!(
         ledger
             .resolve_citations(&old_version, &f.manifest, &runtime, &cancel)
@@ -186,7 +186,10 @@ fn current_ledger_records_bind_luna_max_and_require_current_wire_versions() {
     assert_eq!(ledger.record.schema_version, LEDGER_SCHEMA_VERSION);
     assert_eq!(ledger.record.binding.model, "gpt-6-luna");
     assert_eq!(ledger.record.binding.effort, "max");
-    assert_eq!(ledger.record.context_clock, ContextClock::CapturedCodeSessionV1);
+    assert_eq!(
+        ledger.record.context_clock,
+        ContextClock::CapturedCodeSessionV1
+    );
 
     read(
         &mut ledger,
@@ -233,7 +236,14 @@ fn timing_exports_only_current_native_tool_offsets_and_budget_metadata() {
     assert!(timing.calls[0].started_ms <= timing.calls[0].prepared_ms);
     assert!(timing.calls[0].prepared_ms <= timing.calls[0].finished_ms);
     let text = serde_json::to_string(&timing).unwrap();
-    for forbidden in [SIMPLE_SOURCE, SIMPLE_PATH, "sha256", "evidence", "arguments", "contents"] {
+    for forbidden in [
+        SIMPLE_SOURCE,
+        SIMPLE_PATH,
+        "sha256",
+        "evidence",
+        "arguments",
+        "contents",
+    ] {
         assert!(!text.contains(forbidden));
     }
 }
@@ -250,7 +260,10 @@ fn invalid_read_batches_return_fixed_feedback_without_partial_evidence() {
     assert!(reply["added"].as_array().unwrap().is_empty());
     assert!(reply.get("alreadyAvailable").is_none());
     assert!(ledger.admitted_ranges().is_empty());
-    assert_eq!(ledger.record.calls.last().unwrap().state, CallState::Delivered);
+    assert_eq!(
+        ledger.record.calls.last().unwrap().state,
+        CallState::Delivered
+    );
     let text = reply.to_string();
     for private in [SIMPLE_SOURCE, "not-a-source-digest"] {
         assert!(!text.contains(private));

@@ -60,9 +60,12 @@ pub(super) fn record(f: &Fixture) -> Record {
         question: opening::LEARNING_QUESTION.into(),
         summary: Some(Summary {
             run_id: result.planning_run_id.clone(),
-            project_id: result.project_id.clone(), snapshot_id: result.snapshot_id.clone(),
-            question: opening::LEARNING_QUESTION.into(), outcome: Outcome::Interrupted,
-            sections: vec![], incomplete_topics: vec!["Synthetic terminal opening for unit-state tests.".into()],
+            project_id: result.project_id.clone(),
+            snapshot_id: result.snapshot_id.clone(),
+            question: opening::LEARNING_QUESTION.into(),
+            outcome: Outcome::Interrupted,
+            sections: vec![],
+            incomplete_topics: vec!["Synthetic terminal opening for unit-state tests.".into()],
         }),
     });
     result.opening_context_sha256 = Some(opening::context_sha256(&result).unwrap());
@@ -130,7 +133,10 @@ fn fresh_guide_researches_later_units_after_a_partial_reading_prerequisite() {
     let mut r = fresh_record(&f);
     let partial = attempt(&r, Outcome::Partial);
     r.units[0].attempts.push(partial);
-    assert!(unit_research_eligible(&r, 1), "a reading prerequisite is not permission to research captured code independently");
+    assert!(
+        unit_research_eligible(&r, 1),
+        "a reading prerequisite is not permission to research captured code independently"
+    );
     assert!(!guide_complete(&r));
     assert_eq!(r.units[0].attempts.len(), 1);
     assert!(r.units[1].attempts.is_empty());
@@ -173,7 +179,12 @@ fn selected_model_must_match_the_live_codex_catalog_and_effort() {
         model_id: "gpt-5.6-luna".into(),
         display_name: "GPT-5.6 Luna".into(),
         default_reasoning_effort: Some("medium".into()),
-        supported_reasoning_efforts: vec!["low".into(), "medium".into(), "high".into(), "max".into()],
+        supported_reasoning_efforts: vec![
+            "low".into(),
+            "medium".into(),
+            "high".into(),
+            "max".into(),
+        ],
         is_default: false,
     }];
 
@@ -191,12 +202,25 @@ fn independent_research_preserves_outline_order_attempt_limits_and_reading_edges
         .map(|i| plan::UnitPlan {
             key: format!("unit-{i}"),
             question: format!("How does behavior number {i} transform its input?"),
-            prerequisites: if i == 0 { vec![] } else { vec![format!("unit-{}", i - 1)] },
+            prerequisites: if i == 0 {
+                vec![]
+            } else {
+                vec![format!("unit-{}", i - 1)]
+            },
             starting_ranges: vec![range.clone()],
         })
         .collect();
-    r.units = r.plan.as_ref().unwrap().units.iter()
-        .map(|u| Unit { key: u.key.clone(), attempts: vec![] }).collect();
+    r.units = r
+        .plan
+        .as_ref()
+        .unwrap()
+        .units
+        .iter()
+        .map(|u| Unit {
+            key: u.key.clone(),
+            attempts: vec![],
+        })
+        .collect();
     let outline = serde_json::to_vec(&r.plan).unwrap();
     let mut visited = vec![];
     // This is the production loop's bounded, ordered eligibility decision.
@@ -213,7 +237,12 @@ fn independent_research_preserves_outline_order_attempt_limits_and_reading_edges
         let partial = attempt(&r, Outcome::Partial);
         r.units[index].attempts.push(partial);
     }
-    assert_eq!(visited, (0..MAX_UNITS).map(|i| format!("unit-{i}")).collect::<Vec<_>>());
+    assert_eq!(
+        visited,
+        (0..MAX_UNITS)
+            .map(|i| format!("unit-{i}"))
+            .collect::<Vec<_>>()
+    );
     assert!(r.units.iter().all(|u| u.attempts.len() == 1));
     assert_eq!(serde_json::to_vec(&r.plan).unwrap(), outline);
     assert!(!guide_complete(&r));
@@ -229,7 +258,6 @@ fn independent_research_preserves_outline_order_attempt_limits_and_reading_edges
     assert_eq!(MAX_ATTEMPTS, 2);
 }
 
-
 #[test]
 fn research_admission_preserves_stop_owner_revision_and_spent_attempts() {
     let f = Fixture::new();
@@ -242,13 +270,35 @@ fn research_admission_preserves_stop_owner_revision_and_spent_attempts() {
     assert_eq!(begun.active_run_id.as_deref(), Some(run_id.as_str()));
     let before = serde_json::to_vec(&begun).unwrap();
     assert!(begin_unit(&f.storage, &r, 1, &Uuid::new_v4().to_string(), &question).is_err());
-    assert!(begin_unit(&f.storage, &begun, 1, &Uuid::new_v4().to_string(), &question).is_err());
-    assert_eq!(serde_json::to_vec(&store::read(&f.storage, &r.id).unwrap()).unwrap(), before);
+    assert!(
+        begin_unit(
+            &f.storage,
+            &begun,
+            1,
+            &Uuid::new_v4().to_string(),
+            &question
+        )
+        .is_err()
+    );
+    assert_eq!(
+        serde_json::to_vec(&store::read(&f.storage, &r.id).unwrap()).unwrap(),
+        before
+    );
     let stopped = store::update(&f.storage, &r.id, |current| {
         current.status = Status::Stopped;
         Ok(())
-    }).unwrap();
-    assert!(begin_unit(&f.storage, &begun, 0, &Uuid::new_v4().to_string(), &question).is_err());
+    })
+    .unwrap();
+    assert!(
+        begin_unit(
+            &f.storage,
+            &begun,
+            0,
+            &Uuid::new_v4().to_string(),
+            &question
+        )
+        .is_err()
+    );
     let after = store::read(&f.storage, &r.id).unwrap();
     assert_eq!(after.status, Status::Stopped);
     assert_eq!(after.revision, stopped.revision);
@@ -261,8 +311,22 @@ fn research_admission_preserves_stop_owner_revision_and_spent_attempts() {
         exhausted.units[0].attempts.push(partial);
     }
     store::create(&f.storage, &exhausted).unwrap();
-    assert!(begin_unit(&f.storage, &exhausted, 0, &Uuid::new_v4().to_string(), &question).is_err());
-    assert_eq!(store::read(&f.storage, &exhausted.id).unwrap().units[0].attempts.len(), MAX_ATTEMPTS);
+    assert!(
+        begin_unit(
+            &f.storage,
+            &exhausted,
+            0,
+            &Uuid::new_v4().to_string(),
+            &question
+        )
+        .is_err()
+    );
+    assert_eq!(
+        store::read(&f.storage, &exhausted.id).unwrap().units[0]
+            .attempts
+            .len(),
+        MAX_ATTEMPTS
+    );
 }
 
 #[test]
@@ -298,13 +362,18 @@ fn each_unit_receives_the_exact_native_guide_intent_without_changing_its_questio
         let value = serde_json::to_value(intent).unwrap();
         assert_eq!(value["guideId"], record.id);
         assert_eq!(value["question"], record.question);
-        assert_eq!(value["researchBoundaries"], serde_json::json!(record.plan.as_ref().unwrap().omissions));
+        assert_eq!(
+            value["researchBoundaries"],
+            serde_json::json!(record.plan.as_ref().unwrap().omissions)
+        );
         assert_eq!(value["unitKey"], record.units[index].key);
         assert_eq!(value["unitNumber"], index + 1);
         assert_eq!(value["unitCount"], 2);
-        assert!(continuation(&f.storage, &record, index).unwrap().starts_with(
-            &record.plan.as_ref().unwrap().units[index].question
-        ));
+        assert!(
+            continuation(&f.storage, &record, index)
+                .unwrap()
+                .starts_with(&record.plan.as_ref().unwrap().units[index].question)
+        );
     }
     assert!(unit_intent(&record, 2).is_err());
     record.plan = None;
@@ -345,7 +414,13 @@ fn saved_guide_listing_recovers_interruption_without_dispatch_or_replacing_the_p
     original.active_run_id = Some(original.planning_run_id.clone());
     store::create(&f.storage, &original).unwrap();
     let manager = codex_agent::CodexAgentManager::default();
-    let result = list_saved_guides(&f.storage, &original.project_id, &original.snapshot_id, &manager).unwrap();
+    let result = list_saved_guides(
+        &f.storage,
+        &original.project_id,
+        &original.snapshot_id,
+        &manager,
+    )
+    .unwrap();
     assert_eq!(result.len(), 1);
     assert_eq!(result[0].status, Status::Interrupted);
     let saved = store::read(&f.storage, &original.id).unwrap();
@@ -353,8 +428,17 @@ fn saved_guide_listing_recovers_interruption_without_dispatch_or_replacing_the_p
     assert!(saved.active_run_id.is_none());
     assert!(saved.units.iter().all(|unit| unit.attempts.is_empty()));
     let revision = saved.revision;
-    list_saved_guides(&f.storage, &original.project_id, &original.snapshot_id, &manager).unwrap();
-    assert_eq!(store::read(&f.storage, &original.id).unwrap().revision, revision);
+    list_saved_guides(
+        &f.storage,
+        &original.project_id,
+        &original.snapshot_id,
+        &manager,
+    )
+    .unwrap();
+    assert_eq!(
+        store::read(&f.storage, &original.id).unwrap().revision,
+        revision
+    );
     assert!(!f.storage.join("evidence-ledgers").exists());
 }
 #[test]
@@ -399,7 +483,9 @@ fn recovery_preserves_a_concurrent_stop() {
         Ok(())
     })
     .unwrap();
-    let path = f.storage.join("repository-guides")
+    let path = f
+        .storage
+        .join("repository-guides")
         .join(format!("{}.json", record.id));
     let stopped_bytes = std::fs::read(&path).unwrap();
     let recovered = reconcile(
@@ -478,12 +564,26 @@ fn fontdone_repository_guide_account_probe() {
     let resume_id = std::env::var("CODE_ATLAS_GUIDE_RESUME_ID").ok();
     let record = if let Some(id) = &resume_id {
         let original = scoped(&storage, id, project, snapshot_id).unwrap();
-        assert!(original.plan.is_some(), "Explicit continuation cannot repeat planning");
-        assert!(!matches!(original.status, Status::Planning | Status::Building));
-        workspace::check_retrieval_grant(&storage, &original.grant_id, project, snapshot_id, &runtime).unwrap();
+        assert!(
+            original.plan.is_some(),
+            "Explicit continuation cannot repeat planning"
+        );
+        assert!(!matches!(
+            original.status,
+            Status::Planning | Status::Building
+        ));
+        workspace::check_retrieval_grant(
+            &storage,
+            &original.grant_id,
+            project,
+            snapshot_id,
+            &runtime,
+        )
+        .unwrap();
         original
     } else {
-        let grant_id = workspace::save_retrieval_grant(&storage, project, snapshot_id, &runtime).unwrap();
+        let grant_id =
+            workspace::save_retrieval_grant(&storage, project, snapshot_id, &runtime).unwrap();
         new_record(Start { id:Uuid::new_v4().to_string(), project_id:project.into(), snapshot_id:snapshot_id.into(),
             grant_id, question:"How does Fontdone turn font bytes into a rendered glyph bitmap? Build a coherent guide through real entry points, parsing, outline loading, hinting, rasterization, output and important failure paths. Include alternate supported font representations where they change this journey; name any boundaries that remain unexplored.".into(),
             model_id:DEFAULT_MODEL_ID.into(), reasoning_effort:DEFAULT_REASONING_EFFORT.into(), consent:true }, &manifest).unwrap()
@@ -494,12 +594,15 @@ fn fontdone_repository_guide_account_probe() {
         store::update(&storage, &record.id, |r| {
             r.active_run_id = Some(r.planning_run_id.clone());
             Ok(())
-        }).unwrap();
+        })
+        .unwrap();
     }
     let record = if resume_id.is_some() {
         let reconciled = reconcile(&storage, &record, &manager).unwrap();
         store::prepare_continuation(&storage, &record.id, reconciled.revision).unwrap()
-    } else { record };
+    } else {
+        record
+    };
     let started = Instant::now();
     let observations = Arc::new(Mutex::new(Vec::new()));
     let observed = Arc::clone(&observations);

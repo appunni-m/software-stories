@@ -1169,12 +1169,7 @@ mod tests {
         let seed = save_new_draft(&temp.0, draft("snapshot-1", "revision:seed")).unwrap();
         let accepted = append_review_revision(
             &temp.0,
-            reviewed_child(
-                &seed,
-                "revision:accepted",
-                2,
-                RevisionLifecycle::Accepted,
-            ),
+            reviewed_child(&seed, "revision:accepted", 2, RevisionLifecycle::Accepted),
         )
         .unwrap();
         let path = target_directory(&temp.0, &accepted.project_id, &accepted.target.target_id)

@@ -233,9 +233,10 @@ fn guide_complete(record: &Record) -> bool {
 }
 fn unit_research_eligible(record: &Record, index: usize) -> bool {
     record.status != Status::Stopped
-        && record.units.get(index).is_some_and(|unit| {
-            !unit_complete(unit) && unit.attempts.len() < MAX_ATTEMPTS
-        })
+        && record
+            .units
+            .get(index)
+            .is_some_and(|unit| !unit_complete(unit) && unit.attempts.len() < MAX_ATTEMPTS)
 }
 
 fn begin_unit(
@@ -380,8 +381,12 @@ fn summary(storage: &Path, record: &Record) -> Result<GuideSummary, String> {
         units,
         answers,
         opening_run_id: opening_continuation::latest(record).map(|a| a.run_id.clone()),
-        opening_run_ids: record.opening.iter().chain(&record.opening_continuations)
-            .map(|a| a.run_id.clone()).collect(),
+        opening_run_ids: record
+            .opening
+            .iter()
+            .chain(&record.opening_continuations)
+            .map(|a| a.run_id.clone())
+            .collect(),
         can_continue: opening_continuation::remaining_operations(record) > 0,
         continuation_operations: opening_continuation::remaining_operations(record),
         omissions: plan.map_or_else(Vec::new, |p| p.omissions.clone()),
@@ -520,8 +525,16 @@ fn build(
     changed: impl Fn(&GuideSummary),
 ) -> Result<GuideSummary, String> {
     let result = build_inner(
-        storage, id, continue_opening, manager, jobs, journal,
-        progress, notify, adopt, &changed,
+        storage,
+        id,
+        continue_opening,
+        manager,
+        jobs,
+        journal,
+        progress,
+        notify,
+        adopt,
+        &changed,
     );
     if result.is_err() {
         // Keep the original operation error even if local cleanup fails. The
@@ -591,8 +604,15 @@ fn build_inner(
     }
     if continue_opening && opening_continuation::eligible(&record) {
         record = opening_continuation::run(
-            storage, &record, manager, jobs.clone(), journal, &progress,
-            Arc::clone(&notify), &adopt, &changed,
+            storage,
+            &record,
+            manager,
+            jobs.clone(),
+            journal,
+            &progress,
+            Arc::clone(&notify),
+            &adopt,
+            &changed,
         )?;
     }
     for index in 0..record.units.len() {
@@ -881,8 +901,13 @@ pub(crate) fn stop_repository_guide(
     stop_saved_guide(&storage, &manager, &id, &project_id, &snapshot_id)
 }
 
-fn stop_saved_guide(storage: &Path, manager: &codex_agent::CodexAgentManager,
-    id: &str, project_id: &str, snapshot_id: &str) -> Result<(), String> {
+fn stop_saved_guide(
+    storage: &Path,
+    manager: &codex_agent::CodexAgentManager,
+    id: &str,
+    project_id: &str,
+    snapshot_id: &str,
+) -> Result<(), String> {
     if !store::exists(storage, id)? {
         manager.cancel(id);
         return Ok(());
@@ -896,7 +921,9 @@ fn stop_saved_guide(storage: &Path, manager: &codex_agent::CodexAgentManager,
         record.status = Status::Stopped;
         Ok(())
     })?;
-    if let Some(run) = &stopped.active_run_id { manager.cancel(run); }
+    if let Some(run) = &stopped.active_run_id {
+        manager.cancel(run);
+    }
     Ok(())
 }
 #[tauri::command(rename_all = "camelCase")]

@@ -228,7 +228,8 @@ fn rejection_code(error: &str) -> RejectionCode {
             RejectionCode::RangeCount
         }
         "The requested evidence range is invalid or too large." => RejectionCode::InvalidRange,
-        "The evidence path was not captured." | "This path is not in the selected snapshot."
+        "The evidence path was not captured."
+        | "This path is not in the selected snapshot."
         | "This path was not captured in the selected snapshot." => RejectionCode::PathNotCaptured,
         "Source verification exceeded its local byte limit."
         | "Captured source exceeds the supported per-file size limit." => {
@@ -422,7 +423,10 @@ fn evidence_id(record: &Record, range: &context::CodeRange) -> Result<String, St
 }
 
 fn valid_model_effort(model: &str, effort: &str) -> bool {
-    !model.trim().is_empty() && model.len() <= 200 && !effort.trim().is_empty() && effort.len() <= 32
+    !model.trim().is_empty()
+        && model.len() <= 200
+        && !effort.trim().is_empty()
+        && effort.len() <= 32
 }
 
 impl Ledger {
@@ -578,10 +582,14 @@ impl Ledger {
         run_started: Instant,
     ) -> crate::generation_timing::ContextTiming {
         crate::generation_timing::ContextTiming {
-            origin_elapsed_ms: self.context_started
+            origin_elapsed_ms: self
+                .context_started
                 .checked_duration_since(run_started)
                 .and_then(|duration| u64::try_from(duration.as_millis()).ok()),
-            calls: self.record.calls.iter()
+            calls: self
+                .record
+                .calls
+                .iter()
                 .map(|call| crate::generation_timing::ContextCall {
                     tool: call.tool,
                     state: call.state.clone(),

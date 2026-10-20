@@ -93,10 +93,9 @@ fn exact_coordinates_resolve_the_second_repeated_occurrence_without_substring_gu
         crate::chapter_generation::exact_quote_start(text, "fn repeated() {}\n"),
         Err(crate::chapter_generation::QuoteProblem::Ambiguous)
     );
-    let resolved = ready(resolve(
-        &draft(&"code:1".to_owned()),
-        |_| Ok(citation.clone()),
-    ));
+    let resolved = ready(resolve(&draft(&"code:1".to_owned()), |_| {
+        Ok(citation.clone())
+    }));
     let span = &resolved.claim_spans(0, 0).unwrap()[0];
     assert_eq!(
         span.checked_start(&source.path, "fn repeated() {}\n", &source)

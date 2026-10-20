@@ -252,8 +252,7 @@ fn validate(record: &Record) -> Result<(), String> {
     {
         return Err("The saved repository guide has an incompatible contract.".into());
     }
-    if record.opening_continuations.len() > 1
-    {
+    if record.opening_continuations.len() > 1 {
         return Err("The guide's opening continuation contract changed.".into());
     }
     if let Some(opening) = &record.opening {
@@ -265,9 +264,11 @@ fn validate(record: &Record) -> Result<(), String> {
     let mut runs = std::collections::HashSet::from([record.planning_run_id.as_str()]);
     for attempt in &record.opening_continuations {
         if record.plan.is_none()
-            || record.opening.as_ref().and_then(|a| a.summary.as_ref()).is_none_or(|s| {
-                matches!(s.outcome, Outcome::Complete | Outcome::Working)
-            })
+            || record
+                .opening
+                .as_ref()
+                .and_then(|a| a.summary.as_ref())
+                .is_none_or(|s| matches!(s.outcome, Outcome::Complete | Outcome::Working))
             || !uuid(&attempt.run_id)
             || !runs.insert(&attempt.run_id)
             || attempt.question != opening::question(record)?
@@ -367,7 +368,11 @@ fn validate_summary(record: &Record, attempt: &Attempt) -> Result<(), String> {
 mod tests;
 
 /// Continue an existing current guide without converting stored formats.
-pub(in crate::repository_guide) fn prepare_continuation(storage: &Path, id: &str, revision: u64) -> Result<Record, String> {
+pub(in crate::repository_guide) fn prepare_continuation(
+    storage: &Path,
+    id: &str,
+    revision: u64,
+) -> Result<Record, String> {
     update(storage, id, |current| {
         if current.revision != revision || current.active_run_id.is_some() {
             return Err("The guide changed while continuation was being prepared. Inspect its saved progress before continuing.".into());

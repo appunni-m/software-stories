@@ -478,9 +478,12 @@ mod tests {
         proposal["sections"][0]["visual"]["nodes"][0]["evidence"][0]["claimIndex"] = json!(1);
         let data = run(&request(proposal)).unwrap();
         assert_eq!(data["valid"], false);
-        assert_eq!(data["diagnostics"], json!([
-            {"location":"/sections/0/visual/presentation/scenes/0/elements/1/nodeIndex","sceneProblem":"sceneEvidence"}
-        ]));
+        assert_eq!(
+            data["diagnostics"],
+            json!([
+                {"location":"/sections/0/visual/presentation/scenes/0/elements/1/nodeIndex","sceneProblem":"sceneEvidence"}
+            ])
+        );
         assert!(!data["diagnostics"].to_string().contains("Hello"));
     }
 

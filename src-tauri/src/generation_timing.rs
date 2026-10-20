@@ -11,8 +11,8 @@ use std::{
 };
 
 mod runtime;
-pub(crate) use runtime::{RuntimeEventKind, TokenUsageSnapshot};
 use runtime::{ReportedUsage, RuntimeTurn};
+pub(crate) use runtime::{RuntimeEventKind, TokenUsageSnapshot};
 
 const MAX_RECORDS: usize = 32;
 const MAX_EVENTS: usize = 128;

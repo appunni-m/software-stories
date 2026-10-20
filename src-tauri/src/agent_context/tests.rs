@@ -95,9 +95,10 @@ fn session_with_model(f: &Fixture, model: &str, effort: &str) -> (Session, Strin
 fn native_session_binds_the_selected_model_and_effort() {
     let f = Fixture::new();
     let (_session, operation_id) = session_with_model(&f, "gpt-5.6-luna", "medium");
-    let answer =
-        serde_json::to_value(crate::evidence_ledger::sections::inspect(&f.storage, &operation_id).unwrap())
-            .unwrap();
+    let answer = serde_json::to_value(
+        crate::evidence_ledger::sections::inspect(&f.storage, &operation_id).unwrap(),
+    )
+    .unwrap();
     assert_eq!(answer["binding"]["model"], "gpt-5.6-luna");
     assert_eq!(answer["binding"]["effort"], "medium");
 }
@@ -496,10 +497,11 @@ fn unsafe_scope_is_not_a_correctable_query_error() {
         .as_ref()
         .expect("test session has a publication owner")
         .cancellation_token();
-    assert!(s
-        .poll(&cancelled, || Ok(()))
-        .unwrap_err()
-        .contains("captured file or folder"));
+    assert!(
+        s.poll(&cancelled, || Ok(()))
+            .unwrap_err()
+            .contains("captured file or folder")
+    );
     assert!(s.ledger.admitted_ranges().is_empty());
     assert!(s.check_complete().is_err());
 }

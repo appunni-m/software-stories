@@ -13,7 +13,10 @@ fn saved_failed_guide_cleanup_probe() {
     assert_eq!(marker["kind"], "code-atlas-owned-failed-guide-fixture-v1");
     let storage = root.join("storage");
     let source = std::path::PathBuf::from(marker["originalStorage"].as_str().unwrap());
-    assert_ne!(storage.canonicalize().unwrap(), source.canonicalize().unwrap());
+    assert_ne!(
+        storage.canonicalize().unwrap(),
+        source.canonicalize().unwrap()
+    );
     let id = marker["guideId"].as_str().unwrap();
     let guide_path = storage.join("repository-guides").join(format!("{id}.json"));
     let raw = std::fs::read(&guide_path).unwrap();
@@ -30,7 +33,9 @@ fn saved_failed_guide_cleanup_probe() {
     let original = store::read(&storage, id).unwrap();
     assert_eq!(original.status, Status::Building);
     assert!(original.units.iter().flat_map(|u| &u.attempts).any(|a| {
-        a.summary.as_ref().is_some_and(|s| s.outcome == Outcome::Failed)
+        a.summary
+            .as_ref()
+            .is_some_and(|s| s.outcome == Outcome::Failed)
     }));
     let before = summary(&storage, &original).unwrap();
     let manager = codex_agent::CodexAgentManager::default();
@@ -44,13 +49,30 @@ fn saved_failed_guide_cleanup_probe() {
         old.as_object_mut().unwrap().remove(field);
         new.as_object_mut().unwrap().remove(field);
     }
-    assert_eq!(old, new, "saved intent, outline, all attempts and receipts must survive");
+    assert_eq!(
+        old, new,
+        "saved intent, outline, all attempts and receipts must survive"
+    );
     let after = summary(&storage, &settled).unwrap();
-    assert_eq!(serde_json::to_value(&before.answers).unwrap(), serde_json::to_value(&after.answers).unwrap());
-    assert_eq!(before.continuation_operations, after.continuation_operations);
+    assert_eq!(
+        serde_json::to_value(&before.answers).unwrap(),
+        serde_json::to_value(&after.answers).unwrap()
+    );
+    assert_eq!(
+        before.continuation_operations,
+        after.continuation_operations
+    );
     let bytes = std::fs::read(&guide_path).unwrap();
-    assert_eq!(settle_failed_build(&storage, id, &manager).unwrap().revision, settled.revision);
-    assert_eq!(reconcile(&storage, &settled, &manager).unwrap().revision, settled.revision);
+    assert_eq!(
+        settle_failed_build(&storage, id, &manager)
+            .unwrap()
+            .revision,
+        settled.revision
+    );
+    assert_eq!(
+        reconcile(&storage, &settled, &manager).unwrap().revision,
+        settled.revision
+    );
     assert_eq!(std::fs::read(&guide_path).unwrap(), bytes);
     let result = serde_json::json!({
         "guideId":id, "originalGuideSha256":context::digest(&raw),
@@ -64,6 +86,8 @@ fn saved_failed_guide_cleanup_probe() {
         "accountConnected":false, "inferenceDispatched":false, "continuationDispatched":false,
         "accepted":false, "semanticAcceptance":false, "visualAcceptance":false, "voiceAcceptance":false
     });
-    report.write_all(&serde_json::to_vec_pretty(&result).unwrap()).unwrap();
+    report
+        .write_all(&serde_json::to_vec_pretty(&result).unwrap())
+        .unwrap();
     report.sync_all().unwrap();
 }

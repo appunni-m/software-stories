@@ -403,7 +403,15 @@ pub(crate) async fn prepare_source_discovery(
     let agent = manager.inner().clone();
     let built = tauri::async_runtime::spawn_blocking(move || -> Result<Pending, String> {
         let runtime = agent.review_runtime(&storage)?;
-        if let Some(grant) = &input.workspace_grant { crate::workspace::check_grant(&storage, grant, &input.project_id, &input.snapshot_id, &runtime)?; }
+        if let Some(grant) = &input.workspace_grant {
+            crate::workspace::check_grant(
+                &storage,
+                grant,
+                &input.project_id,
+                &input.snapshot_id,
+                &runtime,
+            )?;
+        }
         let (metadata, sizes, total, index_available, documentation) = metadata(&storage, &input)?;
         let review = DiscoveryReview {
             review_id: Uuid::new_v4().to_string(),

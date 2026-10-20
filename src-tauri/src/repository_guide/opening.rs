@@ -12,7 +12,6 @@ const SCOPED_OPENING_BOUNDARY: &str = r#"Choose exactly one entry point where gu
 
 Normally publish one focused opening section with the grounded claims/scenes its conditions require, then finish the deeper outline. Keep later API entry points, selectors and flag normalization in focused outline questions outside this first transition. Preserve full guide coverage; do not add a later API's first guard as another opening or repeat this same behavior in the outline. Deeper units may revisit source for genuinely new behavior. Never discard a publication or hide an unresolved condition to obtain completion. Native publication, evidence and lifetime budgets are unchanged."#;
 
-
 // The top-level learning question names the opening. guideContext retains the
 // full guide scope; request fingerprints bind both questions and these instructions.
 const SCOPED_FINAL_INSTRUCTIONS: &str = r#"Read the real input boundary and first consequential branch, then publish a small complete illustrated section through propose_answer_section early. Explain its predicate, both alternatives, and the actual return or error propagation at that boundary. Returning a callee's Result does not establish the callee's successful construction. Unclaimed callee internals and later selectors belong in the deeper outline; their absence alone is not an incomplete opening. If a published claim depends on an unverified helper, guard or outcome, read and verify that implementation or retain the concrete unresolved topic. Do not infer behavior such as byte order or validation from a helper's name. Never erase a supported fact, hide an actual evidence gap, or shrink guideContext.question to declare completion.
@@ -23,11 +22,13 @@ outline is repositoryGuidePlanV1 with citationVersion:"nativeEvidenceV2", a shor
 
 pub(super) fn instructions() -> String {
     workspace_generation::progressive::instructions_for_role(
-        SCOPED_ROLE, &format!("{SCOPED_FINAL_INSTRUCTIONS}\n\n{SCOPED_OPENING_BOUNDARY}\n\n{SCOPED_COMPLETION}"),
+        SCOPED_ROLE,
+        &format!("{SCOPED_FINAL_INSTRUCTIONS}\n\n{SCOPED_OPENING_BOUNDARY}\n\n{SCOPED_COMPLETION}"),
     )
 }
 
-pub(super) fn policy(_job: &Record) -> &'static str { SCOPED_POLICY
+pub(super) fn policy(_job: &Record) -> &'static str {
+    SCOPED_POLICY
 }
 
 pub(super) fn context_sha256(job: &Record) -> Result<String, String> {
@@ -36,26 +37,37 @@ pub(super) fn context_sha256(job: &Record) -> Result<String, String> {
         "projectId":job.project_id,"snapshotId":job.snapshot_id,
         "guideQuestion":job.question,"openingQuestion":LEARNING_QUESTION,
         "model":job.model_id,"effort":job.reasoning_effort,
-    })).map_err(|_| "The opening learning intent could not be encoded.")?;
+    }))
+    .map_err(|_| "The opening learning intent could not be encoded.")?;
     Ok(context::digest(&bytes))
 }
 
 pub(super) fn question(job: &Record) -> Result<&str, String> {
-    let opening = job.opening.as_ref().ok_or("The guide has no opening owner.")?;
-    if opening.run_id != job.planning_run_id || opening.question != LEARNING_QUESTION
-        || job.opening_context_sha256.as_deref() != Some(context_sha256(job)?.as_str()) {
+    let opening = job
+        .opening
+        .as_ref()
+        .ok_or("The guide has no opening owner.")?;
+    if opening.run_id != job.planning_run_id
+        || opening.question != LEARNING_QUESTION
+        || job.opening_context_sha256.as_deref() != Some(context_sha256(job)?.as_str())
+    {
         return Err("The guide opening changed its owner or learning intent.".into());
     }
     Ok(&opening.question)
 }
 
-pub(super) fn instructions_for(_job: &Record) -> String { instructions()
+pub(super) fn instructions_for(_job: &Record) -> String {
+    instructions()
 }
 
 pub(super) fn schema_for(_job: &Record, outline: Value) -> Value {
     let mut result = schema(outline);
-    result["properties"]["openingAnswer"]["description"] = json!("Unfinished behavior within the top-level opening learning question; this is not a completion declaration for guideContext.question.");
-    result["properties"]["outline"]["description"] = json!("Research questions covering the complete original guideContext.question together with the opening; never narrow the original requested behavior.");
+    result["properties"]["openingAnswer"]["description"] = json!(
+        "Unfinished behavior within the top-level opening learning question; this is not a completion declaration for guideContext.question."
+    );
+    result["properties"]["outline"]["description"] = json!(
+        "Research questions covering the complete original guideContext.question together with the opening; never narrow the original requested behavior."
+    );
     result
 }
 
@@ -112,7 +124,8 @@ pub(super) fn retain_failure(storage: &Path, job: &Record) -> Result<(), String>
             .opening
             .as_mut()
             .ok_or("The guide opening owner changed.")?;
-        if saved.run_id != opening.run_id || saved.question != opening.question
+        if saved.run_id != opening.run_id
+            || saved.question != opening.question
             || current.question != job.question
             || current.opening_context_sha256 != job.opening_context_sha256
         {

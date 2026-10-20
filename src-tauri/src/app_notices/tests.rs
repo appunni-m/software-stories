@@ -38,9 +38,17 @@ fn input(message: &str) -> Input {
 
 #[test]
 fn conversation_retry_requires_scope_and_cannot_store_a_command() {
-    let mut value=input("Try saving locally");value.target=Some(Target::RetryConversation {});
-    assert!(validate(&value).is_ok());value.snapshot_id=None;assert!(validate(&value).is_err());
-    assert!(serde_json::from_value::<Target>(serde_json::json!({"kind":"retryConversation","command":"run an agent"})).is_err());
+    let mut value = input("Try saving locally");
+    value.target = Some(Target::RetryConversation {});
+    assert!(validate(&value).is_ok());
+    value.snapshot_id = None;
+    assert!(validate(&value).is_err());
+    assert!(
+        serde_json::from_value::<Target>(
+            serde_json::json!({"kind":"retryConversation","command":"run an agent"})
+        )
+        .is_err()
+    );
 }
 fn publish(f: &Fixture, value: Input) -> History {
     apply(&f.0, Operation::Publish { input: value }).unwrap()

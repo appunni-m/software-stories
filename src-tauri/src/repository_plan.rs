@@ -26,7 +26,6 @@ use uuid::Uuid;
 mod contracts;
 use contracts::RequestContract;
 
-
 // Immutable evidence/context serialization for the current planning request.
 const PROMPT_VERSION: &str = "grounded-repository-plan-v1";
 const MAX_STEPS: usize = 24;
@@ -363,7 +362,8 @@ mod live_tests {
                     system_instruction: context.system_instruction.to_owned(),
                     user_prompt: context.user_prompt.clone(),
                     output_schema: context.output_schema.clone(),
-                    correction_policy: crate::claim_alignment::CorrectionPolicy::Disabled, retrieval: None,
+                    correction_policy: crate::claim_alignment::CorrectionPolicy::Disabled,
+                    retrieval: None,
                     sources: context
                         .selected_files
                         .iter()

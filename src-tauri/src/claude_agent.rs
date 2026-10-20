@@ -382,8 +382,9 @@ impl ClaudeOutputStream {
                 "Claude sent output after its final result. No response was accepted.".to_owned(),
             );
         }
-        let event = crate::strict_json::from_slice(frame)
-            .map_err(|_| "Claude returned malformed or duplicate-key protocol output.".to_owned())?;
+        let event = crate::strict_json::from_slice(frame).map_err(|_| {
+            "Claude returned malformed or duplicate-key protocol output.".to_owned()
+        })?;
         if !event.is_object()
             || event
                 .get("parent_tool_use_id")

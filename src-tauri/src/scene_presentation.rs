@@ -3,7 +3,7 @@
 
 use crate::chapters::{ChapterClaim, VisualNode};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 
 pub(crate) const MAX_FOCUSED_GRAPH_NODES: usize = 8;
@@ -62,8 +62,14 @@ pub(crate) fn narration(
     let mut scripts = Vec::with_capacity(claims.len());
     for (index, (scene, claim)) in presentation.scenes.iter().zip(claims).enumerate() {
         let text = scene.narration.trim();
-        if scene.claim_index != index || claim.anchors.is_empty() || text.is_empty() || text.len() > 4_000 {
-            return Err("Each scene needs bounded narration and its own consecutive anchored claim.".into());
+        if scene.claim_index != index
+            || claim.anchors.is_empty()
+            || text.is_empty()
+            || text.len() > 4_000
+        {
+            return Err(
+                "Each scene needs bounded narration and its own consecutive anchored claim.".into(),
+            );
         }
         let text = text.split_whitespace().collect::<Vec<_>>().join(" ");
         scripts.push(match &claim.category {
@@ -90,7 +96,9 @@ pub(crate) fn foreign_claim_positions(section: &Value) -> Vec<(usize, usize)> {
     let Some(nodes) = visual["nodes"].as_array().filter(|n| n.len() <= 12) else {
         return vec![];
     };
-    let Ok(presentation) = serde_json::from_value::<ScenePresentation>(visual["presentation"].clone()) else {
+    let Ok(presentation) =
+        serde_json::from_value::<ScenePresentation>(visual["presentation"].clone())
+    else {
         return vec![];
     };
     if presentation.schema_version != 3 || presentation.scenes.len() > 20 {
@@ -98,16 +106,31 @@ pub(crate) fn foreign_claim_positions(section: &Value) -> Vec<(usize, usize)> {
     }
     let mut positions = Vec::new();
     for (scene_index, scene) in presentation.scenes.iter().enumerate() {
-        if scene.mode != SceneMode::Composition || scene.claim_index != scene_index || scene.elements.len() > 48 {
+        if scene.mode != SceneMode::Composition
+            || scene.claim_index != scene_index
+            || scene.elements.len() > 48
+        {
             continue;
         }
         for (element_index, element) in scene.elements.iter().enumerate() {
-            if element.kind.container() || element.kind.decorative() { continue; }
-            let Some(references) = element.node_index.and_then(|n| nodes.get(n))
-                .and_then(|node| node["evidence"].as_array()) else { continue; };
-            if !references.iter().any(|r| r["claimIndex"].as_u64() == Some(scene_index as u64)) {
+            if element.kind.container() || element.kind.decorative() {
+                continue;
+            }
+            let Some(references) = element
+                .node_index
+                .and_then(|n| nodes.get(n))
+                .and_then(|node| node["evidence"].as_array())
+            else {
+                continue;
+            };
+            if !references
+                .iter()
+                .any(|r| r["claimIndex"].as_u64() == Some(scene_index as u64))
+            {
                 positions.push((scene_index, element_index));
-                if positions.len() == 64 { return positions; }
+                if positions.len() == 64 {
+                    return positions;
+                }
             }
         }
     }
@@ -396,9 +419,11 @@ mod tests {
         let (nodes, edges, claims, presentation) = make(7);
         assert!(validate_graph_density(&presentation, &nodes, &edges, &claims).is_ok());
         let (nodes, edges, claims, presentation) = make(8);
-        assert!(validate_graph_density(&presentation, &nodes, &edges, &claims)
-            .unwrap_err()
-            .contains("at most eight nodes"));
+        assert!(
+            validate_graph_density(&presentation, &nodes, &edges, &claims)
+                .unwrap_err()
+                .contains("at most eight nodes")
+        );
     }
 
     #[test]
@@ -411,7 +436,10 @@ mod tests {
         }
         presentation.schema_version = 3;
         let mut value = serde_json::to_value(&presentation).unwrap();
-        value["scenes"][0].as_object_mut().unwrap().remove("narration");
+        value["scenes"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("narration");
         assert!(serde_json::from_value::<ScenePresentation>(value).is_err());
     }
 
@@ -481,7 +509,8 @@ mod tests {
             scene.narration = "For example, the input passes this check; an invalid input keeps its original error.".into();
         }
         claims[0].category = crate::chapters::ClaimCategory::Inference {
-            visible_label: "Inference".into(), basis: "Based on the captured branch.".into(),
+            visible_label: "Inference".into(),
+            basis: "Based on the captured branch.".into(),
         };
         validate(&presentation, &nodes, &claims).unwrap();
         let scripts = narration(&presentation, &claims).unwrap();
@@ -489,17 +518,24 @@ mod tests {
         assert!(scripts[0].starts_with("Inference: For example"));
         assert!(scripts.iter().skip(1).all(|s| !s.starts_with("Inference:")));
         let encoded = serde_json::to_value(&presentation).unwrap();
-        assert_eq!(serde_json::from_value::<ScenePresentation>(encoded).unwrap(), presentation);
+        assert_eq!(
+            serde_json::from_value::<ScenePresentation>(encoded).unwrap(),
+            presentation
+        );
         for invalid in [String::new(), "é".repeat(2_001)] {
             let mut broken = presentation.clone();
             broken.scenes[0].narration = invalid;
             assert!(validate(&broken, &nodes, &claims).is_err());
         }
-        let mut missing = presentation.clone(); missing.scenes.pop();
+        let mut missing = presentation.clone();
+        missing.scenes.pop();
         assert!(narration(&missing, &claims).is_err());
-        let mut wrong = presentation.clone(); wrong.scenes[0].claim_index = 1;
+        let mut wrong = presentation.clone();
+        wrong.scenes[0].claim_index = 1;
         assert!(narration(&wrong, &claims).is_err());
-        for scene in &mut presentation.scenes { scene.narration = "é".repeat(600); }
+        for scene in &mut presentation.scenes {
+            scene.narration = "é".repeat(600);
+        }
         assert!(narration(&presentation, &claims).is_err());
     }
 
@@ -547,9 +583,11 @@ mod tests {
     fn content_cannot_borrow_a_different_claim_or_fabricate_a_source_value() {
         let (nodes, claims, mut presentation) = fixture();
         presentation.scenes[0].elements[0].node_index = Some(8);
-        assert!(validate(&presentation, &nodes, &claims)
-            .unwrap_err()
-            .contains("own claim"));
+        assert!(
+            validate(&presentation, &nodes, &claims)
+                .unwrap_err()
+                .contains("own claim")
+        );
         presentation.scenes[0].elements[0].node_index = Some(3);
         presentation.scenes[0].elements[0].value = "not an actual input".into();
         assert!(validate(&presentation, &nodes, &claims).is_err());

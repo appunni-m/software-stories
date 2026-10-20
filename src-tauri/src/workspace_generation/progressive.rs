@@ -3,9 +3,8 @@
 
 use super::*;
 use crate::evidence_ledger::sections::{
-    self,
+    self, Outcome, SectionNotice,
     reading::{self, Summary},
-    Outcome, SectionNotice,
 };
 use tauri::Manager;
 
@@ -433,16 +432,33 @@ pub(crate) fn timing_report(
 ) -> Result<TimingReport, String> {
     let answer = reading::scoped(storage, run, project, snapshot)?;
     Ok(TimingReport {
-        schema_version: 2, kind: "code-atlas-generation-timing",
+        schema_version: 2,
+        kind: "code-atlas-generation-timing",
         scope: "Native observations only. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption or usefulness. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
         run_id: run.into(),
-        answer_outcome: if !active && answer.outcome == Outcome::Working { Outcome::Interrupted } else { answer.outcome },
-        worker_active: active, trace: crate::generation_timing::inspect(storage, run)?,
-        publications: answer.sections.iter().map(|section| PublicationTiming {
-            order: section.order, candidate_prepared_context_elapsed_ms: section.published_elapsed_ms,
-            native_ready_run_elapsed_ms: section.published_run_elapsed_ms,
-        }).collect(),
-        unmeasured: ["rendererQueue", "connectionPreparationBeforeManager", "rendererAdoption", "narrationReadiness", "providerWaitVersusModelReasoning"],
+        answer_outcome: if !active && answer.outcome == Outcome::Working {
+            Outcome::Interrupted
+        } else {
+            answer.outcome
+        },
+        worker_active: active,
+        trace: crate::generation_timing::inspect(storage, run)?,
+        publications: answer
+            .sections
+            .iter()
+            .map(|section| PublicationTiming {
+                order: section.order,
+                candidate_prepared_context_elapsed_ms: section.published_elapsed_ms,
+                native_ready_run_elapsed_ms: section.published_run_elapsed_ms,
+            })
+            .collect(),
+        unmeasured: [
+            "rendererQueue",
+            "connectionPreparationBeforeManager",
+            "rendererAdoption",
+            "narrationReadiness",
+            "providerWaitVersusModelReasoning",
+        ],
     })
 }
 

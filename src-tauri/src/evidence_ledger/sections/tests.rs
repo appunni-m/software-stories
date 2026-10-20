@@ -173,11 +173,15 @@ fn old_proposal_answer_checkpoint_and_ledger_versions_are_rejected() {
             .unwrap();
     }
 
-    assert!((1..NARRATION_CHECKPOINT_VERSION)
-        .all(|version| { !answer.value.supports_checkpoint(version) }));
-    assert!(answer
-        .value
-        .supports_checkpoint(NARRATION_CHECKPOINT_VERSION));
+    assert!(
+        (1..NARRATION_CHECKPOINT_VERSION)
+            .all(|version| { !answer.value.supports_checkpoint(version) })
+    );
+    assert!(
+        answer
+            .value
+            .supports_checkpoint(NARRATION_CHECKPOINT_VERSION)
+    );
     assert!(answer.value.sections.is_empty());
 
     for version in [1, 2] {
@@ -202,13 +206,15 @@ fn only_answer_manifest_v2_can_complete_current_publications() {
         &cancel,
     );
 
-    assert!(answer
-        .finish_manifest(
-            &json!({"manifestVersion":"answerManifestV1","sections":[],"incompleteTopics":[]})
-                .to_string(),
-            false,
-        )
-        .is_err());
+    assert!(
+        answer
+            .finish_manifest(
+                &json!({"manifestVersion":"answerManifestV1","sections":[],"incompleteTopics":[]})
+                    .to_string(),
+                false,
+            )
+            .is_err()
+    );
     answer
         .finish_manifest(
             &json!({"manifestVersion":NATIVE_MANIFEST_VERSION,"incompleteTopics":[]}).to_string(),
@@ -336,8 +342,7 @@ fn answer_manager_lists_verified_records_when_another_current_record_is_unavaila
     .unwrap();
     assert_eq!(workspace_answers.len(), 1);
     assert_eq!(
-        workspace_answers[0].run_id,
-        current.value.binding.operation_id,
+        workspace_answers[0].run_id, current.value.binding.operation_id,
         "an unavailable receipt must not hide another independently verified answer"
     );
     assert_eq!(fs::read(invalid_path).unwrap(), invalid_bytes);

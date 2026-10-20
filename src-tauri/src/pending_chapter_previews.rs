@@ -590,7 +590,10 @@ mod tests {
         });
 
         let saved = saved.expect("an unsupported unrelated preview must not block publication");
-        assert_eq!(pending.get(&saved.generation_id).unwrap(), candidate.revision);
+        assert_eq!(
+            pending.get(&saved.generation_id).unwrap(),
+            candidate.revision
+        );
         assert_eq!(load(&directory, &saved.generation_id).unwrap(), saved);
         assert_eq!(fs::read(&unsupported_path).unwrap(), unsupported_bytes);
 

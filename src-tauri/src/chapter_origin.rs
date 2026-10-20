@@ -463,9 +463,16 @@ mod tests {
     use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE, simple_proposal};
 
     fn chapter(f: &Fixture) -> ChapterRevision {
-        crate::chapter_generation::canonicalize_file_chapter(&f.manifest.summary.project_id, &f.manifest,
-            Some(&f.index), SIMPLE_PATH, &f.sources(&[SIMPLE_PATH]), &std::collections::HashSet::new(),
-            &serde_json::to_string(&simple_proposal()).unwrap()).unwrap()
+        crate::chapter_generation::canonicalize_file_chapter(
+            &f.manifest.summary.project_id,
+            &f.manifest,
+            Some(&f.index),
+            SIMPLE_PATH,
+            &f.sources(&[SIMPLE_PATH]),
+            &std::collections::HashSet::new(),
+            &serde_json::to_string(&simple_proposal()).unwrap(),
+        )
+        .unwrap()
     }
 
     #[test]
@@ -473,23 +480,47 @@ mod tests {
         let f = Fixture::new();
         let revision = chapter(&f);
         let runtime = crate::codex_identity::CodexReviewRuntime {
-            connection_id: Uuid::new_v4().to_string(), executable_path: "/usr/local/bin/codex".into(),
-            executable_sha256: "a".repeat(64), account_identity_sha256: "b".repeat(64), account_revision: 1,
+            connection_id: Uuid::new_v4().to_string(),
+            executable_path: "/usr/local/bin/codex".into(),
+            executable_sha256: "a".repeat(64),
+            account_identity_sha256: "b".repeat(64),
+            account_revision: 1,
         };
-        let review = provider::build_codex_chapter_review(&f.storage, &provider::BuildCodexReviewInput {
-            project_id: revision.project_id.clone(), snapshot_id: revision.snapshot_id.clone(),
-            target_path: Some(SIMPLE_PATH.into()), selected_paths: vec![SIMPLE_PATH.into()],
-            model_id: "gpt-6-luna".into(), effort: "max".into(), approval_policy: "never".into(),
-            section_update: None, question: None, focus: vec![], workspace_grant: None,
-        }, &runtime).unwrap().review;
+        let review = provider::build_codex_chapter_review(
+            &f.storage,
+            &provider::BuildCodexReviewInput {
+                project_id: revision.project_id.clone(),
+                snapshot_id: revision.snapshot_id.clone(),
+                target_path: Some(SIMPLE_PATH.into()),
+                selected_paths: vec![SIMPLE_PATH.into()],
+                model_id: "gpt-6-luna".into(),
+                effort: "max".into(),
+                approval_policy: "never".into(),
+                section_update: None,
+                question: None,
+                focus: vec![],
+                workspace_grant: None,
+            },
+            &runtime,
+        )
+        .unwrap()
+        .review;
         let origin = ChapterGenerationOrigin::from_agent_review(&review, &revision).unwrap();
         assert_eq!(origin.schema_version, 5);
-        assert_eq!(serde_json::from_slice::<ChapterGenerationOrigin>(&serde_json::to_vec(&origin).unwrap()).unwrap(), origin);
-        for version in [0,1,2,3,4,6] {
-            let mut unsupported = origin.clone(); unsupported.schema_version = version;
+        assert_eq!(
+            serde_json::from_slice::<ChapterGenerationOrigin>(
+                &serde_json::to_vec(&origin).unwrap()
+            )
+            .unwrap(),
+            origin
+        );
+        for version in [0, 1, 2, 3, 4, 6] {
+            let mut unsupported = origin.clone();
+            unsupported.schema_version = version;
             assert!(unsupported.validate(&revision).is_err());
         }
-        let mut changed = revision.clone(); changed.title.push_str(" changed");
+        let mut changed = revision.clone();
+        changed.title.push_str(" changed");
         assert!(!origin.matches_content(&changed));
         assert!(origin.validate(&changed).is_err());
         changed.based_on_revision_id = Some(revision.revision_id.clone());
@@ -504,15 +535,30 @@ mod tests {
         revision.target.target_id = "target:overview".into();
         revision.target.scope = ChapterTargetScope::Overview;
         let sources = f.sources(&[SIMPLE_PATH]);
-        let range = crate::repository_context::range_from_source(&sources[0], 0, SIMPLE_SOURCE.len()).unwrap().range;
-        let origin = ChapterGenerationOrigin::from_answer_checkpoint(&Uuid::new_v4().to_string(), &"a".repeat(64),
-            &"b".repeat(64), vec![range], &sources, &revision).unwrap();
+        let range =
+            crate::repository_context::range_from_source(&sources[0], 0, SIMPLE_SOURCE.len())
+                .unwrap()
+                .range;
+        let origin = ChapterGenerationOrigin::from_answer_checkpoint(
+            &Uuid::new_v4().to_string(),
+            &"a".repeat(64),
+            &"b".repeat(64),
+            vec![range],
+            &sources,
+            &revision,
+        )
+        .unwrap();
         assert_eq!(origin.schema_version, 5);
-        assert_eq!(origin.contract_version, crate::evidence_ledger::PROGRESSIVE_CONTRACT);
+        assert_eq!(
+            origin.contract_version,
+            crate::evidence_ledger::PROGRESSIVE_CONTRACT
+        );
         assert!(origin.validate(&revision).is_ok());
-        let mut changed = origin.clone(); changed.retrieval.as_mut().unwrap().ranges[0].end_byte = 1001;
+        let mut changed = origin.clone();
+        changed.retrieval.as_mut().unwrap().ranges[0].end_byte = 1001;
         assert!(changed.validate(&revision).is_err());
-        let mut changed = origin.clone(); changed.retrieval.as_mut().unwrap().ledger_sha256 = "c".repeat(64);
+        let mut changed = origin.clone();
+        changed.retrieval.as_mut().unwrap().ledger_sha256 = "c".repeat(64);
         assert!(changed.validate(&revision).is_err());
     }
 }

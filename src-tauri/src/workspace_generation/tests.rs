@@ -5,14 +5,27 @@ use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH};
 // an account/session or reserving a measurement artifact when a live probe
 // omitted its built application helper.
 pub(super) fn require_live_context_helper() {
-    let path = std::path::PathBuf::from(std::env::var_os("CODE_ATLAS_CONTEXT_HELPER_BIN")
-        .expect("set CODE_ATLAS_CONTEXT_HELPER_BIN to the built Code Atlas executable"));
-    assert!(path.is_absolute() && path.is_file(), "the live probe requires an absolute built application executable path");
-    assert_ne!(std::fs::canonicalize(&path).unwrap(), std::fs::canonicalize(std::env::current_exe().unwrap()).unwrap(), "the Rust test executable cannot serve the MCP helper");
+    let path = std::path::PathBuf::from(
+        std::env::var_os("CODE_ATLAS_CONTEXT_HELPER_BIN")
+            .expect("set CODE_ATLAS_CONTEXT_HELPER_BIN to the built Code Atlas executable"),
+    );
+    assert!(
+        path.is_absolute() && path.is_file(),
+        "the live probe requires an absolute built application executable path"
+    );
+    assert_ne!(
+        std::fs::canonicalize(&path).unwrap(),
+        std::fs::canonicalize(std::env::current_exe().unwrap()).unwrap(),
+        "the Rust test executable cannot serve the MCP helper"
+    );
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        assert_ne!(path.metadata().unwrap().permissions().mode() & 0o111, 0, "the live context helper is not executable");
+        assert_ne!(
+            path.metadata().unwrap().permissions().mode() & 0o111,
+            0,
+            "the live context helper is not executable"
+        );
     }
 }
 
@@ -37,7 +50,6 @@ fn initial_request_contains_intent_and_no_whole_source_or_index() {
     assert!(!prompt.contains("export function greeting"));
     assert!(!prompt.contains("selectedSymbols"));
     assert!(prompt.len() < 1000);
-
 }
 #[test]
 fn attached_large_files_are_starting_points_and_stale_or_forged_references_fail() {

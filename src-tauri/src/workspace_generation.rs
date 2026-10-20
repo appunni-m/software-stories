@@ -37,10 +37,7 @@ pub(crate) struct Input {
     pub(crate) effort: String,
 }
 
-fn question_prompt(
-    input: &Input,
-    manifest: &snapshot::SnapshotManifest,
-) -> Result<String, String> {
+fn question_prompt(input: &Input, manifest: &snapshot::SnapshotManifest) -> Result<String, String> {
     if Uuid::parse_str(&input.run_id).is_err()
         || input.model_id.trim().is_empty()
         || input.model_id.len() > 200

@@ -49,13 +49,22 @@ fn recovery_question_labels_require_exact_unique_run_and_snapshot_ownership() {
     let before = fs::read(f.path()).unwrap();
     let found = questions_for_runs(&f.0, "project", "snapshot", &[&run, &other]);
     assert_eq!(found.len(), 1);
-    assert_eq!(found[&run], s["explorations"][0]["turns"][0]["question"].as_str().unwrap());
+    assert_eq!(
+        found[&run],
+        s["explorations"][0]["turns"][0]["question"]
+            .as_str()
+            .unwrap()
+    );
     assert!(questions_for_runs(&f.0, "other-project", "snapshot", &[&run]).is_empty());
     assert!(questions_for_runs(&f.0, "project", "other-snapshot", &[&run]).is_empty());
     assert_eq!(fs::read(f.path()).unwrap(), before);
     let mut second = s["explorations"][0]["turns"][0].clone();
-    second["id"] = json!("second-turn"); second["question"] = json!("A different question");
-    s["explorations"][0]["turns"].as_array_mut().unwrap().push(second);
+    second["id"] = json!("second-turn");
+    second["question"] = json!("A different question");
+    s["explorations"][0]["turns"]
+        .as_array_mut()
+        .unwrap()
+        .push(second);
     save(&f.0, "project", "snapshot", Some(1), s).unwrap();
     assert!(questions_for_runs(&f.0, "project", "snapshot", &[&run]).is_empty());
 }
@@ -105,29 +114,33 @@ fn focused_story_layout_requires_the_current_layout_version() {
 
     let before = fs::read(f.path()).unwrap();
     let mut unsupported = s.clone();
-    unsupported["explorations"][0]["turns"][0]["presentation"]["stories"][0]
-        ["focusLayoutVersion"] = json!(1);
-    assert!(save(
-        &f.0,
-        "project",
-        "snapshot",
-        Some(record.revision),
-        unsupported
-    )
-    .is_err());
+    unsupported["explorations"][0]["turns"][0]["presentation"]["stories"][0]["focusLayoutVersion"] =
+        json!(1);
+    assert!(
+        save(
+            &f.0,
+            "project",
+            "snapshot",
+            Some(record.revision),
+            unsupported
+        )
+        .is_err()
+    );
     let mut unversioned = s;
     unversioned["explorations"][0]["turns"][0]["presentation"]["stories"][0]
         .as_object_mut()
         .unwrap()
         .remove("focusLayoutVersion");
-    assert!(save(
-        &f.0,
-        "project",
-        "snapshot",
-        Some(record.revision),
-        unversioned
-    )
-    .is_err());
+    assert!(
+        save(
+            &f.0,
+            "project",
+            "snapshot",
+            Some(record.revision),
+            unversioned
+        )
+        .is_err()
+    );
     assert_eq!(fs::read(f.path()).unwrap(), before);
 }
 
@@ -301,9 +314,11 @@ fn source_metadata_preserves_unicode_spaces_and_colons_without_opening_live_path
     s["explorations"][0]["turns"][0]["context"][0]["path"] = json!("字型:demo/font file.rs");
     let stored = save(&f.0, "project", "snapshot", None, s.clone()).unwrap();
     assert_eq!(stored.state, s);
-    assert!(fs::read_dir(&f.0)
-        .unwrap()
-        .all(|e| e.unwrap().file_name() == "workspace-conversations"));
+    assert!(
+        fs::read_dir(&f.0)
+            .unwrap()
+            .all(|e| e.unwrap().file_name() == "workspace-conversations")
+    );
 }
 
 #[test]
@@ -329,9 +344,11 @@ fn five_levels_siblings_views_sections_and_source_survive_without_copying_answer
     assert_eq!(record.revision, 1);
     assert_eq!(record.state, value);
     assert_eq!(load(&f.0, "project", "snapshot").unwrap(), Some(record));
-    assert!(!fs::read_to_string(f.path())
-        .unwrap()
-        .contains("chapterContent"));
+    assert!(
+        !fs::read_to_string(f.path())
+            .unwrap()
+            .contains("chapterContent")
+    );
 }
 
 #[test]
@@ -513,7 +530,7 @@ fn corrupt_future_duplicate_scope_and_oversized_storage_are_preserved() {
 #[cfg(unix)]
 #[test]
 fn private_files_held_lease_and_symlinks_cannot_damage_other_data() {
-    use std::os::unix::fs::{symlink, PermissionsExt};
+    use std::os::unix::fs::{PermissionsExt, symlink};
     let f = Fixture::new();
     save(&f.0, "project", "snapshot", None, state()).unwrap();
     assert_eq!(

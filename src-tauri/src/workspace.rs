@@ -184,7 +184,9 @@ pub(crate) async fn list_workspace_commits(
     project_id: String,
     request_id: String,
 ) -> Result<Vec<GitCommit>, String> {
-    let request = jobs.begin(&request_id).map_err(|_| "Git history could not start. Try again.".to_owned())?;
+    let request = jobs
+        .begin(&request_id)
+        .map_err(|_| "Git history could not start. Try again.".to_owned())?;
     let project = sessions.get(&project_id)?;
     tauri::async_runtime::spawn_blocking(move || {
         git_history::list(Path::new(&project.repository_root), request.cancellation())
@@ -213,18 +215,37 @@ mod tests {
         let runtime = runtime();
         for target_path in [Some(SIMPLE_PATH.to_owned()), None] {
             let input = crate::provider::BuildCodexReviewInput {
-                project_id:fixture.manifest.summary.project_id.clone(),
-                snapshot_id:fixture.manifest.summary.snapshot_id.clone(), target_path,
-                selected_paths:vec![SIMPLE_PATH.to_owned()], model_id:"gpt-6-luna".into(),
-                effort:"max".into(), approval_policy:"never".into(), section_update:None,
-                question:None, focus:vec![], workspace_grant:None,
+                project_id: fixture.manifest.summary.project_id.clone(),
+                snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                target_path,
+                selected_paths: vec![SIMPLE_PATH.to_owned()],
+                model_id: "gpt-6-luna".into(),
+                effort: "max".into(),
+                approval_policy: "never".into(),
+                section_update: None,
+                question: None,
+                focus: vec![],
+                workspace_grant: None,
             };
-            let review=crate::provider::build_codex_chapter_review(&fixture.storage,&input,&runtime).unwrap().review;
-            assert_eq!(crate::claim_alignment::CorrectionPolicy::from_generation_config(&review.generation_config),
-                crate::claim_alignment::CorrectionPolicy::ChapterScenesV6);
-            assert!(review.generation_config.get("claimAlignmentCorrection").is_none());
+            let review =
+                crate::provider::build_codex_chapter_review(&fixture.storage, &input, &runtime)
+                    .unwrap()
+                    .review;
+            assert_eq!(
+                crate::claim_alignment::CorrectionPolicy::from_generation_config(
+                    &review.generation_config
+                ),
+                crate::claim_alignment::CorrectionPolicy::ChapterScenesV6
+            );
+            assert!(
+                review
+                    .generation_config
+                    .get("claimAlignmentCorrection")
+                    .is_none()
+            );
             assert!(review.system_instruction.contains("one correction"));
-            crate::provider::revalidate_codex_request_review(&fixture.storage,&review,&runtime).unwrap();
+            crate::provider::revalidate_codex_request_review(&fixture.storage, &review, &runtime)
+                .unwrap();
         }
     }
     fn save_grant(fixture: &Fixture, runtime: &CodexReviewRuntime) -> String {
@@ -354,8 +375,7 @@ mod tests {
             crate::claim_alignment::chapter_correction_config()
         );
         let mut tampered = first.clone();
-        tampered.generation_config["candidateCorrection"]["maxAttempts"] =
-            serde_json::json!(2);
+        tampered.generation_config["candidateCorrection"]["maxAttempts"] = serde_json::json!(2);
         assert!(
             crate::provider::revalidate_codex_request_review(&fixture.storage, &tampered, &runtime)
                 .is_err()

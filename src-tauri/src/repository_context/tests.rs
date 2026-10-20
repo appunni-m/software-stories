@@ -86,7 +86,11 @@ fn identifiers_keep_original_snake_camel_acronym_and_unicode_parts() {
 #[test]
 fn compound_identifier_search_does_not_return_common_component_only_hits() {
     let mut fixture = Fixture::new();
-    add_source(&mut fixture, "lib/code.rs", "const CODE_OF_CONDUCT: &str = \"\";\n");
+    add_source(
+        &mut fixture,
+        "lib/code.rs",
+        "const CODE_OF_CONDUCT: &str = \"\";\n",
+    );
     add_source(&mut fixture, "lib/atlas.rs", "struct Atlas;\n");
     add_source(
         &mut fixture,
@@ -409,8 +413,7 @@ fn repository_wide_candidates_round_robin_paths_without_reordering_each_path() {
         (4, 0.80),
         (5, 0.75),
     ];
-    let diversified =
-        diversify_by_path_limited(candidates, &|id| paths[id].to_owned(), usize::MAX);
+    let diversified = diversify_by_path_limited(candidates, &|id| paths[id].to_owned(), usize::MAX);
     assert_eq!(
         diversified
             .into_iter()
@@ -422,7 +425,9 @@ fn repository_wide_candidates_round_robin_paths_without_reordering_each_path() {
 
 #[test]
 fn global_path_limit_keeps_more_ranges_from_the_strongest_paths() {
-    let paths = ["src/a.rs", "src/a.rs", "src/a.rs", "src/b.rs", "src/b.rs", "src/c.rs"];
+    let paths = [
+        "src/a.rs", "src/a.rs", "src/a.rs", "src/b.rs", "src/b.rs", "src/c.rs",
+    ];
     let candidates = vec![
         (0, 0.99),
         (1, 0.95),

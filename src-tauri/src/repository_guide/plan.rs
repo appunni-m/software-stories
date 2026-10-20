@@ -6,7 +6,6 @@ use crate::{agent_context, context_mcp, native_citations};
 use serde_json::{Value, json};
 use std::time::Instant;
 
-
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct Plan {
@@ -144,7 +143,10 @@ pub(super) fn request(job: &Record) -> Result<(String, Value, String, String), S
         "guideContext":{"guideId":job.id,"question":job.question}}))
         .map_err(|_| "The guide question could not be encoded.")?;
     let schema = opening::schema_for(job, schema());
-    let instructions = format!("{}\n{RESEARCH_INSTRUCTIONS}", opening::instructions_for(job));
+    let instructions = format!(
+        "{}\n{RESEARCH_INSTRUCTIONS}",
+        opening::instructions_for(job)
+    );
     let contract = json!({"contractVersion":job.contract,
         "runId":job.planning_run_id,"guideId":job.id,"grantId":job.grant_id,"manifestSha256":job.manifest_sha256,
         "instructions":instructions,"prompt":prompt,"schema":schema,"tools":context_mcp::tools(),
@@ -158,9 +160,13 @@ pub(super) fn request(job: &Record) -> Result<(String, Value, String, String), S
         "identifierCompilationPolicy":native_citations::names::GROUNDED_POLICY,
         "finalManifestVersion":crate::evidence_ledger::sections::NATIVE_MANIFEST_VERSION,
         "finalManifestPolicy":crate::evidence_ledger::sections::NATIVE_MANIFEST_POLICY});
-    let contract = serde_json::to_vec(&contract).map_err(|_| "The guide contract could not be encoded.")?;
+    let contract =
+        serde_json::to_vec(&contract).map_err(|_| "The guide contract could not be encoded.")?;
     if contract.len() > 128 * 1024 {
-        return Err("The guide intent exceeds its initial contract limit. No investigation was started.".into());
+        return Err(
+            "The guide intent exceeds its initial contract limit. No investigation was started."
+                .into(),
+        );
     }
     Ok((prompt, schema, context::digest(&contract), instructions))
 }
@@ -175,8 +181,17 @@ fn new_session(
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
 ) -> Result<agent_context::Session, String> {
     agent_context::Session::new_progressive(
-        storage, &job.planning_run_id, manifest, runtime, &job.grant_id,
-        jobs, opening::question(job)?, fingerprint, &job.model_id, &job.reasoning_effort, notify,
+        storage,
+        &job.planning_run_id,
+        manifest,
+        runtime,
+        &job.grant_id,
+        jobs,
+        opening::question(job)?,
+        fingerprint,
+        &job.model_id,
+        &job.reasoning_effort,
+        notify,
     )
 }
 
@@ -202,7 +217,13 @@ pub(super) fn run(
     let _worker = manager.hold_answer_worker(&job.planning_run_id)?;
     let (prompt, schema, fingerprint, instructions) = request(job)?;
     let session = Arc::new(Mutex::new(new_session(
-        storage, job, manifest.clone(), &runtime, jobs, &fingerprint, notify,
+        storage,
+        job,
+        manifest.clone(),
+        &runtime,
+        jobs,
+        &fingerprint,
+        notify,
     )?));
     let outcome = manager.run_with_result_and_publish(
         storage,
@@ -248,9 +269,13 @@ pub(super) fn run(
         },
         |result| {
             let (plan, manifest) = result?;
-            session.lock().map_err(|_| "The guide research session is unavailable.")?
+            session
+                .lock()
+                .map_err(|_| "The guide research session is unavailable.")?
                 .finish_answer_manifest(&manifest)?;
-            let answer = Some(crate::evidence_ledger::sections::inspect(storage, &job.planning_run_id)?.summary());
+            let answer = Some(
+                crate::evidence_ledger::sections::inspect(storage, &job.planning_run_id)?.summary(),
+            );
             publish(plan, answer)
         },
     );

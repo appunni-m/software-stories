@@ -8,21 +8,22 @@
 
 #![deny(missing_docs)]
 
-mod bounded_file;
-mod app_notices;
+mod agent_context;
+mod agent_handoff;
+mod agent_installation;
 mod app_close;
+mod app_notices;
 mod app_zoom;
-mod workspace_conversation;
+mod bounded_file;
 mod bounded_process;
 mod chapter_freshness;
-mod claim_alignment;
 mod chapter_generation;
+mod chapter_origin;
+mod chapter_quality;
 mod chapter_review;
 mod chapter_store;
 mod chapters;
-mod scene_presentation;
-mod agent_handoff;
-mod agent_installation;
+mod claim_alignment;
 mod claude_agent;
 mod claude_commands;
 mod claude_connection;
@@ -33,21 +34,20 @@ mod claude_models;
 mod claude_runtime;
 mod claude_worker;
 mod codex_agent;
-mod codex_identity;
 mod codex_commands;
+mod codex_identity;
 mod context_mcp;
-mod chapter_quality;
-mod generation_timing;
-mod local_export;
-mod local_read;
-mod file_lease;
-mod agent_context;
 mod evidence_ledger;
-mod native_citations;
+mod file_lease;
+mod generation_timing;
 mod git_evidence;
 mod index;
+mod local_export;
+mod local_read;
 mod narration;
+mod native_citations;
 mod pending_chapter_previews;
+mod planned_chapter;
 mod pocket_tts;
 mod pr_guide;
 mod pr_guide_store;
@@ -59,20 +59,20 @@ mod recovery;
 mod recovery_commands;
 mod repository_context;
 mod repository_context_commands;
-mod repository_structure;
-mod repository_structure_commands;
+mod repository_guide;
 mod repository_plan;
-mod planned_chapter;
-mod chapter_origin;
 mod repository_plan_commands;
 mod repository_plan_history;
 mod repository_plan_store;
+mod repository_structure;
+mod repository_structure_commands;
+mod scene_presentation;
 mod snapshot;
 mod source_discovery;
 mod strict_json;
 mod workspace;
+mod workspace_conversation;
 mod workspace_generation;
-mod repository_guide;
 
 use project::{ProjectOpenResult, RecentProject};
 use serde::Serialize;
@@ -445,7 +445,8 @@ async fn validate_saved_chapter_revision(
 ) -> Result<chapters::ChapterValidationReport, String> {
     let _project = sessions.get(&project_id)?;
     let storage_dir = app_data_directory(&app)?;
-    local_read::run(move || chapter_review::validate_saved(&storage_dir, &project_id, &revision_id)).await
+    local_read::run(move || chapter_review::validate_saved(&storage_dir, &project_id, &revision_id))
+        .await
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -1960,8 +1961,17 @@ fn validate_chapter_draft_preview(
     })?;
     provider::visual_scenes::prepare_generated_sections(
         &mut revision,
-        review.section_update_context.as_ref().map(|context| context.section_id.as_str()),
-    ).map_err(|message| failure(provider::ProviderFailureKind::MalformedProviderResponse, message))?;
+        review
+            .section_update_context
+            .as_ref()
+            .map(|context| context.section_id.as_str()),
+    )
+    .map_err(|message| {
+        failure(
+            provider::ProviderFailureKind::MalformedProviderResponse,
+            message,
+        )
+    })?;
     let validation = chapters::validate_chapter_revision(
         storage_dir,
         &manifest,
@@ -1995,10 +2005,14 @@ fn validate_chapter_draft_preview(
 
 /// Runs the private MCP stdio entry point when this process was launched as a
 /// context helper. Returns false for the ordinary desktop invocation.
-pub fn run_context_helper() -> bool { context_mcp::run_if_requested() }
+pub fn run_context_helper() -> bool {
+    context_mcp::run_if_requested()
+}
 
 /// Runs the bounded, offline benchmark validator without starting the desktop UI.
-pub fn run_quality_helper() -> bool { chapter_quality::run_if_requested() }
+pub fn run_quality_helper() -> bool {
+    chapter_quality::run_if_requested()
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// Starts the Code Atlas Tauri application and its registered command layer.
@@ -2201,38 +2215,90 @@ mod chapter_pipeline_tests {
             let selected_paths = vec![SIMPLE_PATH.to_owned()];
             let review = if codex {
                 let runtime = codex_identity::CodexReviewRuntime {
-                    connection_id: uuid::Uuid::new_v4().to_string(), executable_path: "/usr/local/bin/codex".into(),
-                    executable_sha256: "a".repeat(64), account_identity_sha256: "b".repeat(64), account_revision: 1,
+                    connection_id: uuid::Uuid::new_v4().to_string(),
+                    executable_path: "/usr/local/bin/codex".into(),
+                    executable_sha256: "a".repeat(64),
+                    account_identity_sha256: "b".repeat(64),
+                    account_revision: 1,
                 };
-                let review = provider::build_codex_chapter_review(&fixture.storage,
+                let review = provider::build_codex_chapter_review(
+                    &fixture.storage,
                     &provider::BuildCodexReviewInput {
-                        project_id: fixture.manifest.summary.project_id.clone(), snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
-                        target_path: None, selected_paths, model_id: "gpt-6-luna".into(), effort: "max".into(), approval_policy: "never".into(),
-                        section_update: None, question: Some("How does a name become a greeting?".into()), focus: vec![], workspace_grant: None,
-                    }, &runtime).unwrap().review;
-                assert_eq!(review.generation_config["overviewPresentation"], "authored-narration-v2");
-                assert!(!review.system_instruction.contains("not used for workspace overview presentation"));
+                        project_id: fixture.manifest.summary.project_id.clone(),
+                        snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                        target_path: None,
+                        selected_paths,
+                        model_id: "gpt-6-luna".into(),
+                        effort: "max".into(),
+                        approval_policy: "never".into(),
+                        section_update: None,
+                        question: Some("How does a name become a greeting?".into()),
+                        focus: vec![],
+                        workspace_grant: None,
+                    },
+                    &runtime,
+                )
+                .unwrap()
+                .review;
+                assert_eq!(
+                    review.generation_config["overviewPresentation"],
+                    "authored-narration-v2"
+                );
+                assert!(
+                    !review
+                        .system_instruction
+                        .contains("not used for workspace overview presentation")
+                );
                 review
             } else {
-                provider::build_request_review(&fixture.storage, &provider::BuildProviderReviewInput {
-                    project_id: fixture.manifest.summary.project_id.clone(), snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
-                    target_path: if overview { None } else { Some(SIMPLE_PATH.to_owned()) }, selected_paths,
-                    model_id: "gemini-3.8-flash".into(), section_update: None,
-                }).unwrap().review
+                provider::build_request_review(
+                    &fixture.storage,
+                    &provider::BuildProviderReviewInput {
+                        project_id: fixture.manifest.summary.project_id.clone(),
+                        snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                        target_path: if overview {
+                            None
+                        } else {
+                            Some(SIMPLE_PATH.to_owned())
+                        },
+                        selected_paths,
+                        model_id: "gemini-3.8-flash".into(),
+                        section_update: None,
+                    },
+                )
+                .unwrap()
+                .review
             };
             let mut proposal = provider::visual_scenes::tests::composed_proposal(3);
-            if overview { proposal.as_object_mut().unwrap().remove("evidenceLimits"); }
+            if overview {
+                proposal.as_object_mut().unwrap().remove("evidenceLimits");
+            }
             proposal["sections"][0]["visual"] = serde_json::json!({"kind":"none","title":"","direction":"auto","nodes":[],"edges":[],"presentation":null});
             let speech = "Start with a person's name. The greeting wraps that name in a friendly message and returns it to the caller.";
             proposal["sections"][0]["spokenText"] = serde_json::json!(speech);
-            let claim = proposal["sections"][0]["claims"][0]["prose"].as_str().unwrap().to_owned();
-            let prepared = validate_chapter_draft_preview(&fixture.storage, &review, response(&review, proposal.to_string())).unwrap();
+            let claim = proposal["sections"][0]["claims"][0]["prose"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+            let prepared = validate_chapter_draft_preview(
+                &fixture.storage,
+                &review,
+                response(&review, proposal.to_string()),
+            )
+            .unwrap();
             assert_eq!(prepared.revision.schema_version, 5);
             assert_eq!(prepared.revision.sections[0].spoken_text, speech);
             assert_eq!(prepared.revision.sections[0].prose, claim);
             assert!(prepared.revision.sections[0].visual.is_none());
-            assert_eq!(prepared.validation.status, chapters::ValidationReportStatus::Valid);
-            assert!(chapter_store::list_for_project(&fixture.storage, &review.project_id).unwrap().is_empty());
+            assert_eq!(
+                prepared.validation.status,
+                chapters::ValidationReportStatus::Valid
+            );
+            assert!(
+                chapter_store::list_for_project(&fixture.storage, &review.project_id)
+                    .unwrap()
+                    .is_empty()
+            );
         }
     }
 
@@ -2240,35 +2306,83 @@ mod chapter_pipeline_tests {
     fn fresh_file_and_overview_previews_validate_scenes_and_keep_complete_narration() {
         let fixture = Fixture::new();
         for overview in [false, true] {
-            let review = provider::build_request_review(&fixture.storage,
+            let review = provider::build_request_review(
+                &fixture.storage,
                 &provider::BuildProviderReviewInput {
                     project_id: fixture.manifest.summary.project_id.clone(),
                     snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
-                    target_path: if overview { None } else { Some(SIMPLE_PATH.to_owned()) },
+                    target_path: if overview {
+                        None
+                    } else {
+                        Some(SIMPLE_PATH.to_owned())
+                    },
                     selected_paths: vec![SIMPLE_PATH.to_owned()],
-                    model_id: "gemini-3.8-flash".to_owned(), section_update: None,
-                }).unwrap().review;
-            assert!(review.system_instruction.contains("ai-html-compositions-v4"));
+                    model_id: "gemini-3.8-flash".to_owned(),
+                    section_update: None,
+                },
+            )
+            .unwrap()
+            .review;
+            assert!(
+                review
+                    .system_instruction
+                    .contains("ai-html-compositions-v4")
+            );
             assert_current_narration_prompt(&review);
             let mut proposal = provider::visual_scenes::tests::composed_proposal(3);
-            if overview { proposal.as_object_mut().unwrap().remove("evidenceLimits"); }
-            let original = proposal["sections"][0]["claims"][0]["prose"].as_str().unwrap().to_owned();
-            let full = format!("{original} An incoming name becomes part of the returned greeting.");
+            if overview {
+                proposal.as_object_mut().unwrap().remove("evidenceLimits");
+            }
+            let original = proposal["sections"][0]["claims"][0]["prose"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+            let full =
+                format!("{original} An incoming name becomes part of the returned greeting.");
             proposal["sections"][0]["claims"][0]["prose"] = serde_json::json!(&full);
             let prepared = validate_chapter_draft_preview(
-                &fixture.storage, &review, response(&review, proposal.to_string())).unwrap();
-            assert_eq!(prepared.revision.sections[0].spoken_text, proposal["sections"][0]["visual"]["presentation"]["scenes"][0]["narration"].as_str().unwrap());
+                &fixture.storage,
+                &review,
+                response(&review, proposal.to_string()),
+            )
+            .unwrap();
+            assert_eq!(
+                prepared.revision.sections[0].spoken_text,
+                proposal["sections"][0]["visual"]["presentation"]["scenes"][0]["narration"]
+                    .as_str()
+                    .unwrap()
+            );
             assert_eq!(prepared.revision.sections[0].prose, full);
-            let presentation = prepared.revision.sections[0].visual.as_ref().unwrap()
-                .typed_visual().unwrap().presentation.as_ref().unwrap();
+            let presentation = prepared.revision.sections[0]
+                .visual
+                .as_ref()
+                .unwrap()
+                .typed_visual()
+                .unwrap()
+                .presentation
+                .as_ref()
+                .unwrap();
             assert_eq!(presentation.schema_version, 3);
             assert_eq!(presentation.scenes.len(), 1);
-            assert!(chapter_store::list_for_project(&fixture.storage, &review.project_id).unwrap().is_empty());
+            assert!(
+                chapter_store::list_for_project(&fixture.storage, &review.project_id)
+                    .unwrap()
+                    .is_empty()
+            );
             // Unsupported scene versions fail instead of being upgraded.
-            proposal["sections"][0]["visual"]["presentation"]["schemaVersion"] = serde_json::json!(1);
+            proposal["sections"][0]["visual"]["presentation"]["schemaVersion"] =
+                serde_json::json!(1);
             let error = validate_chapter_draft_preview(
-                &fixture.storage, &review, response(&review, proposal.to_string())).err().unwrap();
-            assert_eq!(error.kind, provider::ProviderFailureKind::MalformedProviderResponse);
+                &fixture.storage,
+                &review,
+                response(&review, proposal.to_string()),
+            )
+            .err()
+            .unwrap();
+            assert_eq!(
+                error.kind,
+                provider::ProviderFailureKind::MalformedProviderResponse
+            );
             assert!(error.message.contains("version 3"));
         }
     }
@@ -2278,13 +2392,20 @@ mod chapter_pipeline_tests {
     fn fontdone_file_scene_account_probe() {
         use crate::codex_agent::{CodexAgentManager, CodexRunInput, CodexSourceFile};
         use std::io::Write;
-        let storage = std::path::PathBuf::from(std::env::var_os("CODE_ATLAS_FONTDONE_DATA_DIR")
-            .expect("set isolated CODE_ATLAS_FONTDONE_DATA_DIR"));
-        let output = std::path::PathBuf::from(std::env::var_os("CODE_ATLAS_FILE_SCENE_OUTPUT")
-            .expect("set a fresh absolute CODE_ATLAS_FILE_SCENE_OUTPUT"));
+        let storage = std::path::PathBuf::from(
+            std::env::var_os("CODE_ATLAS_FONTDONE_DATA_DIR")
+                .expect("set isolated CODE_ATLAS_FONTDONE_DATA_DIR"),
+        );
+        let output = std::path::PathBuf::from(
+            std::env::var_os("CODE_ATLAS_FILE_SCENE_OUTPUT")
+                .expect("set a fresh absolute CODE_ATLAS_FILE_SCENE_OUTPUT"),
+        );
         assert!(storage.is_absolute() && output.is_absolute());
-        let mut artifact = std::fs::OpenOptions::new().write(true).create_new(true)
-            .open(&output).expect("never overwrite another attempt");
+        let mut artifact = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&output)
+            .expect("never overwrite another attempt");
         let project = "/Users/lazytrot/work/fontdone";
         let snapshot = "snap-1792140879637485000-11155-0";
         let path = "src/tt/loca.rs";
@@ -2292,35 +2413,70 @@ mod chapter_pipeline_tests {
         let manager = CodexAgentManager::default();
         assert!(manager.resume_connection(&storage).unwrap().authenticated);
         let runtime = manager.review_runtime(&storage).unwrap();
-        let review = provider::build_codex_chapter_review(&storage,
+        let review = provider::build_codex_chapter_review(
+            &storage,
             &provider::BuildCodexReviewInput {
-                project_id: project.into(), snapshot_id: snapshot.into(),
-                target_path: Some(path.into()), selected_paths: vec![path.into()],
-                model_id: "gpt-6-luna".into(), effort: "max".into(), approval_policy: "never".into(),
-                section_update: None, question: Some(question.into()), focus: vec![], workspace_grant: None,
-            }, &runtime).unwrap().review;
+                project_id: project.into(),
+                snapshot_id: snapshot.into(),
+                target_path: Some(path.into()),
+                selected_paths: vec![path.into()],
+                model_id: "gpt-6-luna".into(),
+                effort: "max".into(),
+                approval_policy: "never".into(),
+                section_update: None,
+                question: Some(question.into()),
+                focus: vec![],
+                workspace_grant: None,
+            },
+            &runtime,
+        )
+        .unwrap()
+        .review;
         let source = snapshot::read_snapshot_source(&storage, project, snapshot, path).unwrap();
         let started = std::time::Instant::now();
-        let run = manager.run(&storage, CodexRunInput {
-            run_id: format!("file-scenes-{}", uuid::Uuid::new_v4()), expected_runtime: runtime,
-            model: "gpt-6-luna".into(), effort: "max".into(), approval_policy: "never".into(),
-            system_instruction: review.system_instruction.clone(), user_prompt: review.user_prompt.clone(),
-            output_schema: review.generation_config["outputSchema"].clone(),
-            correction_policy: crate::claim_alignment::CorrectionPolicy::from_generation_config(&review.generation_config), retrieval: None,
-            sources: vec![CodexSourceFile { path: source.path.clone(), sha256: source.sha256.clone(), contents: source.contents.clone() }],
-        }, |_| {});
+        let run = manager.run(
+            &storage,
+            CodexRunInput {
+                run_id: format!("file-scenes-{}", uuid::Uuid::new_v4()),
+                expected_runtime: runtime,
+                model: "gpt-6-luna".into(),
+                effort: "max".into(),
+                approval_policy: "never".into(),
+                system_instruction: review.system_instruction.clone(),
+                user_prompt: review.user_prompt.clone(),
+                output_schema: review.generation_config["outputSchema"].clone(),
+                correction_policy: crate::claim_alignment::CorrectionPolicy::from_generation_config(
+                    &review.generation_config,
+                ),
+                retrieval: None,
+                sources: vec![CodexSourceFile {
+                    path: source.path.clone(),
+                    sha256: source.sha256.clone(),
+                    contents: source.contents.clone(),
+                }],
+            },
+            |_| {},
+        );
         let elapsed = started.elapsed().as_millis();
         manager.shutdown();
         let validated = run.as_ref().map_err(|e| e.clone()).and_then(|reply| {
             if reply.model != "gpt-6-luna" || reply.effort != "max" {
                 return Err("The account runtime changed the requested model or effort.".to_owned());
             }
-            validate_chapter_draft_preview(&storage, &review,
+            validate_chapter_draft_preview(
+                &storage,
+                &review,
                 provider::ProviderSendResult {
-                    review_id: review.review_id.clone(), fingerprint: review.fingerprint.clone(),
-                    model_id: reply.model.clone(), model_version: None,
-                    response_text: reply.response_text.clone(), input_tokens: None, output_tokens: None,
-                }).map_err(|e| e.message)
+                    review_id: review.review_id.clone(),
+                    fingerprint: review.fingerprint.clone(),
+                    model_id: reply.model.clone(),
+                    model_version: None,
+                    response_text: reply.response_text.clone(),
+                    input_tokens: None,
+                    output_tokens: None,
+                },
+            )
+            .map_err(|e| e.message)
         });
         let report = serde_json::json!({
             "schemaVersion":1, "scope":"One real Fontdone file; not whole-repository qualification",
@@ -2335,22 +2491,46 @@ mod chapter_pipeline_tests {
             "validation":validated.as_ref().ok().map(|v|&v.validation),
             "accepted":false, "humanQualityOrListeningPass":false,
         });
-        artifact.write_all(serde_json::to_string_pretty(&report).unwrap().as_bytes()).unwrap();
+        artifact
+            .write_all(serde_json::to_string_pretty(&report).unwrap().as_bytes())
+            .unwrap();
         artifact.sync_all().unwrap();
-        println!("FILE_SCENE_QUALIFICATION {} {}ms", output.display(), elapsed);
+        println!(
+            "FILE_SCENE_QUALIFICATION {} {}ms",
+            output.display(),
+            elapsed
+        );
         let validated = validated.unwrap();
-        assert!(validated.revision.sections.iter().any(|s| s.visual.as_ref()
-            .and_then(|v|v.typed_visual()).and_then(|v|v.presentation.as_ref()).is_some()),
-            "A scene-free answer does not qualify AI visual generation; retain the original result.");
+        assert!(
+            validated.revision.sections.iter().any(|s| s
+                .visual
+                .as_ref()
+                .and_then(|v| v.typed_visual())
+                .and_then(|v| v.presentation.as_ref())
+                .is_some()),
+            "A scene-free answer does not qualify AI visual generation; retain the original result."
+        );
     }
 
     fn assert_current_narration_prompt(review: &provider::ProviderRequestReview) {
         assert!(review.user_prompt.contains("Complete scene narration:"));
-        assert!(review.user_prompt.contains("joins every scene narration in claim order"));
+        assert!(
+            review
+                .user_prompt
+                .contains("joins every scene narration in claim order")
+        );
         assert!(!review.user_prompt.contains("one to three"));
-        assert!(!review.user_prompt.contains("sentences copied verbatim from that section's anchored claims"));
+        assert!(
+            !review
+                .user_prompt
+                .contains("sentences copied verbatim from that section's anchored claims")
+        );
         assert!(review.system_instruction.contains("Teaching policy v10:"));
-        assert!(review.system_instruction.contains("an example alone cannot replace the rule"));
+        assert!(
+            review
+                .system_instruction
+                .contains("an example alone cannot replace the rule")
+        );
     }
 
     fn review(fixture: &Fixture) -> provider::ProviderRequestReview {
@@ -2541,6 +2721,8 @@ mod chapter_pipeline_tests {
                     detail: Some("one module constant".to_owned()),
                     hotspot_id: None,
                     evidence_anchor_ids: vec![stable_anchor],
+                    source_anchor_id: None,
+                    source_value: None,
                 }],
                 edges: Vec::new(),
             }));
@@ -2658,21 +2840,41 @@ mod chapter_pipeline_tests {
         );
 
         let codex_runtime = codex_identity::CodexReviewRuntime {
-            connection_id: uuid::Uuid::new_v4().to_string(), executable_path: "/usr/local/bin/codex".into(),
-            executable_sha256: "a".repeat(64), account_identity_sha256: "b".repeat(64), account_revision: 1,
+            connection_id: uuid::Uuid::new_v4().to_string(),
+            executable_path: "/usr/local/bin/codex".into(),
+            executable_sha256: "a".repeat(64),
+            account_identity_sha256: "b".repeat(64),
+            account_revision: 1,
         };
-        let codex_review = provider::build_codex_chapter_review(&fixture.storage,
+        let codex_review = provider::build_codex_chapter_review(
+            &fixture.storage,
             &provider::BuildCodexReviewInput {
-                project_id:accepted.project_id.clone(), snapshot_id:fixture.manifest.summary.snapshot_id.clone(),
-                target_path:Some(SIMPLE_PATH.to_owned()), selected_paths:vec![SIMPLE_PATH.to_owned()],
-                model_id:"gpt-6-luna".into(), effort:"max".into(), approval_policy:"never".into(),
-                section_update:Some(target.clone()), question:None, focus:vec![], workspace_grant:None,
-            }, &codex_runtime).unwrap().review;
-        assert_eq!(codex_review.purpose,"sectionUpdate");
+                project_id: accepted.project_id.clone(),
+                snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
+                target_path: Some(SIMPLE_PATH.to_owned()),
+                selected_paths: vec![SIMPLE_PATH.to_owned()],
+                model_id: "gpt-6-luna".into(),
+                effort: "max".into(),
+                approval_policy: "never".into(),
+                section_update: Some(target.clone()),
+                question: None,
+                focus: vec![],
+                workspace_grant: None,
+            },
+            &codex_runtime,
+        )
+        .unwrap()
+        .review;
+        assert_eq!(codex_review.purpose, "sectionUpdate");
         assert_current_narration_prompt(&codex_review);
-        assert_eq!(crate::claim_alignment::CorrectionPolicy::from_generation_config(&codex_review.generation_config),
-            crate::claim_alignment::CorrectionPolicy::ChapterScenesV6);
-        provider::revalidate_codex_request_review(&fixture.storage,&codex_review,&codex_runtime).unwrap();
+        assert_eq!(
+            crate::claim_alignment::CorrectionPolicy::from_generation_config(
+                &codex_review.generation_config
+            ),
+            crate::claim_alignment::CorrectionPolicy::ChapterScenesV6
+        );
+        provider::revalidate_codex_request_review(&fixture.storage, &codex_review, &codex_runtime)
+            .unwrap();
 
         for disclosure in provider::provider_catalog() {
             let model_id = disclosure.models[0].model_id.clone();

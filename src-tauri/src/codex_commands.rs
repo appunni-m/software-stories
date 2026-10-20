@@ -830,7 +830,9 @@ async fn prepare_codex_operation(
         user_prompt: review.user_prompt.clone(),
         output_schema: review.generation_config["outputSchema"].clone(),
         correction_policy: if matches!(operation, CodexOperation::Chapter) {
-            crate::claim_alignment::CorrectionPolicy::from_generation_config(&review.generation_config)
+            crate::claim_alignment::CorrectionPolicy::from_generation_config(
+                &review.generation_config,
+            )
         } else {
             crate::claim_alignment::CorrectionPolicy::Disabled
         },

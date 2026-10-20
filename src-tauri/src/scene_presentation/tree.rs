@@ -120,14 +120,18 @@ mod tests {
             "card", "token", "code", "metric", "bytes", "matrix", "table", "text", "arrow",
             "divider",
         ] {
-            assert!(findings(&[element(kind, None), element("token", Some(0))])
-                .iter()
-                .any(|v| v.code == "containerParent" && v.element == Some(1)));
+            assert!(
+                findings(&[element(kind, None), element("token", Some(0))])
+                    .iter()
+                    .any(|v| v.code == "containerParent" && v.element == Some(1))
+            );
         }
         for parent in [None, Some(1), Some(2), Some(usize::MAX)] {
-            assert!(findings(&[element("row", None), element("token", parent)])
-                .iter()
-                .any(|v| v.code == "containerParent"));
+            assert!(
+                findings(&[element("row", None), element("token", parent)])
+                    .iter()
+                    .any(|v| v.code == "containerParent")
+            );
         }
         assert!(findings(&[element("token", None)]).is_empty());
     }
@@ -150,13 +154,17 @@ mod tests {
         deep[6] = element("column", Some(5));
         deep.push(element("token", Some(6)));
         assert!(findings(&deep).iter().any(|v| v.code == "nesting"));
-        assert!(findings(&[element("row", None)])
-            .iter()
-            .any(|v| v.code == "emptyGroup"));
+        assert!(
+            findings(&[element("row", None)])
+                .iter()
+                .any(|v| v.code == "emptyGroup")
+        );
         let mut layout = element("row", None);
         layout.node_index = Some(0);
-        assert!(findings(&[layout, element("token", Some(0))])
-            .iter()
-            .any(|v| v.code == "layoutContent"));
+        assert!(
+            findings(&[layout, element("token", Some(0))])
+                .iter()
+                .any(|v| v.code == "layoutContent")
+        );
     }
 }

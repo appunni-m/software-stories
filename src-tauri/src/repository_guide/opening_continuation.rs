@@ -25,8 +25,7 @@ pub(super) fn remaining_operations(record: &Record) -> usize {
         return 0;
     }
     let pending = |unit: &Unit| !unit_complete(unit) && unit.attempts.len() < MAX_ATTEMPTS;
-    usize::from(remaining(record))
-        + record.units.iter().filter(|unit| pending(unit)).count()
+    usize::from(remaining(record)) + record.units.iter().filter(|unit| pending(unit)).count()
 }
 
 pub(super) fn eligible(record: &Record) -> bool {

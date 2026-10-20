@@ -118,7 +118,11 @@ fn validate(input: &Input) -> Result<(), String> {
             return Err("This update has no saved exploration context.".into());
         }
     }
-    if matches!(input.target,Some(Target::RetryConversation {})) && (input.project_id.is_none() || input.snapshot_id.is_none()) { return Err("This update has no saved conversation context.".into()); }
+    if matches!(input.target, Some(Target::RetryConversation {}))
+        && (input.project_id.is_none() || input.snapshot_id.is_none())
+    {
+        return Err("This update has no saved conversation context.".into());
+    }
     Ok(())
 }
 

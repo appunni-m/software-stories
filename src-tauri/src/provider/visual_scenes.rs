@@ -2,7 +2,7 @@
 //! Stored content uses the same current visual and scene versions.
 
 use crate::chapters::{self, ChapterRevision};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v10";
 
@@ -41,7 +41,8 @@ pub(crate) fn teaching_instructions() -> String {
         OUTCOME_TEACHING,
         FALLIBLE_TRANSITIONS,
         VISIBLE_DECISIONS,
-    ].join("\n\n")
+    ]
+    .join("\n\n")
 }
 
 pub(super) fn instructions() -> String {
@@ -91,15 +92,21 @@ pub(crate) fn prepare_generated_sections(
         if !(20..=4_000).contains(&complete.len()) {
             return Err("The complete grounded narration must be 20–4,000 UTF-8 bytes. Split the section without omitting behavior. No draft was saved.".into());
         }
-        let narration = chapters::authored_section_narration(section)?.unwrap_or_else(|| section.spoken_text.trim().to_owned());
+        let narration = chapters::authored_section_narration(section)?
+            .unwrap_or_else(|| section.spoken_text.trim().to_owned());
         if !(20..=4_000).contains(&narration.len()) {
             return Err("The complete authored narration must be 20–4,000 UTF-8 bytes. Split the section without omitting behavior. No draft was saved.".into());
         }
         if section.claims.iter().any(|claim| match &claim.category {
-            chapters::ClaimCategory::Inference { visible_label, .. } => !narration.contains(&format!("{}:", visible_label.trim())),
+            chapters::ClaimCategory::Inference { visible_label, .. } => {
+                !narration.contains(&format!("{}:", visible_label.trim()))
+            }
             _ => false,
         }) {
-            return Err("Authored narration must retain every visible inference label. No draft was saved.".into());
+            return Err(
+                "Authored narration must retain every visible inference label. No draft was saved."
+                    .into(),
+            );
         }
         scripts.push((index, complete, narration));
     }
@@ -117,7 +124,7 @@ pub(crate) mod tests {
     use super::*;
     use crate::chapter_generation::{
         self,
-        tests::{simple_proposal, Fixture, SIMPLE_PATH},
+        tests::{Fixture, SIMPLE_PATH, simple_proposal},
     };
     use crate::chapters::{ClaimCategory, ValidationReportStatus};
     use std::collections::HashSet;
@@ -153,7 +160,9 @@ pub(crate) mod tests {
             }]}
         });
         if version == 3 {
-            proposal["sections"][0]["visual"]["presentation"]["scenes"][0]["narration"] = json!("For example, a name of Mira becomes Hello, Mira; an empty name still gets the same greeting prefix.");
+            proposal["sections"][0]["visual"]["presentation"]["scenes"][0]["narration"] = json!(
+                "For example, a name of Mira becomes Hello, Mira; an empty name still gets the same greeting prefix."
+            );
         }
         proposal
     }
@@ -189,8 +198,13 @@ pub(crate) mod tests {
     #[test]
     fn all_generation_routes_distinguish_preconditions_parse_fallbacks_and_consumer_facts() {
         for instructions in [super::instructions(), teaching_instructions()] {
-            assert!(instructions.contains("A comment or default constructor does not prove later consumer behavior"));
-            assert!(instructions.contains("lookup and byte-range extraction can fail before a parser runs"));
+            assert!(instructions.contains(
+                "A comment or default constructor does not prove later consumer behavior"
+            ));
+            assert!(
+                instructions
+                    .contains("lookup and byte-range extraction can fail before a parser runs")
+            );
             assert!(instructions.contains("cite that consumer's implementation"));
             assert!(instructions.contains("every earlier guard and failure"));
         }
@@ -205,11 +219,15 @@ pub(crate) mod tests {
         assert!(shared.contains("Source tokens alone are not transformations"));
         assert!(shared.contains("Independent facts are comparisons"));
         assert!(shared.contains("A caption/text card alone is not a composition"));
+        assert!(shared.contains("Single byte strips, matrices, tables or metrics may stand alone"));
+        assert!(shared.contains(
+            "Narration and collapsed details must not carry a missing branch by themselves"
+        ));
         assert!(
-            shared.contains("Single byte strips, matrices, tables or metrics may stand alone")
+            shared.contains(
+                "Source-backed meaning can be expressed in concise node labels and details"
+            )
         );
-        assert!(shared.contains("Narration and collapsed details must not carry a missing branch by themselves"));
-        assert!(shared.contains("Source-backed meaning can be expressed in concise node labels and details"));
         assert!(!shared.contains("parentIndex"));
         assert!(!shared.contains("spokenText copies"));
         assert!(!shared.contains("20–1,000"));
@@ -219,9 +237,17 @@ pub(crate) mod tests {
     fn fresh_teaching_preserves_fallible_calls_in_narration_and_visible_outcomes() {
         for instructions in [super::instructions(), teaching_instructions()] {
             assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
-            assert!(instructions.contains("a missing preliminary error does not rule out a later failure"));
-            assert!(instructions.contains("say that the selected handler is called and its result propagates"));
-            assert!(instructions.contains("compare the claim with its narration, visible labels, node details and values"));
+            assert!(
+                instructions
+                    .contains("a missing preliminary error does not rule out a later failure")
+            );
+            assert!(
+                instructions
+                    .contains("say that the selected handler is called and its result propagates")
+            );
+            assert!(instructions.contains(
+                "compare the claim with its narration, visible labels, node details and values"
+            ));
             assert!(instructions.contains("do not invent an error or a successful result"));
             assert!(instructions.contains("No extra provider operation or larger budget"));
         }
@@ -346,9 +372,11 @@ pub(crate) mod tests {
         draft.sections.push(late);
         draft.sections[0].prose = "Keep this original summary until all sections succeed.".into();
         let before = draft.clone();
-        assert!(prepare_generated_sections(&mut draft, None)
-            .unwrap_err()
-            .contains("4,000 UTF-8 bytes"));
+        assert!(
+            prepare_generated_sections(&mut draft, None)
+                .unwrap_err()
+                .contains("4,000 UTF-8 bytes")
+        );
         assert_eq!(draft, before);
     }
 }

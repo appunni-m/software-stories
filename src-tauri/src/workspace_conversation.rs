@@ -620,16 +620,26 @@ pub(crate) fn questions_for_runs(
     let wanted: HashSet<&str> = runs.iter().copied().collect();
     let mut found = HashMap::new();
     let mut ambiguous = HashSet::new();
-    for exploration in record.state["explorations"].as_array().into_iter().flatten() {
+    for exploration in record.state["explorations"]
+        .as_array()
+        .into_iter()
+        .flatten()
+    {
         for turn in exploration["turns"].as_array().into_iter().flatten() {
             for run in turn["runIds"]
-                .as_array().into_iter().flatten().filter_map(Value::as_str)
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
             {
                 if wanted.contains(run) {
-                    if found.insert(
-                        run.to_owned(),
-                        turn["question"].as_str().unwrap_or_default().to_owned(),
-                    ).is_some() {
+                    if found
+                        .insert(
+                            run.to_owned(),
+                            turn["question"].as_str().unwrap_or_default().to_owned(),
+                        )
+                        .is_some()
+                    {
                         ambiguous.insert(run.to_owned());
                     }
                 }

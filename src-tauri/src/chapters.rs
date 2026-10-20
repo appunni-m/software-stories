@@ -32,7 +32,6 @@ const MAX_VALIDATION_ISSUES: usize = 2_000;
 const MAX_VALIDATION_SOURCE_BYTES: u64 = 50 * 1024 * 1024;
 pub const MAX_GENERATED_RESPONSE_BYTES: usize = 300 * 1024;
 
-
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ChapterRevision {
@@ -402,30 +401,55 @@ pub fn overview_section_copy_supported(section: &ChapterSection) -> bool {
     if section.claims.is_empty() {
         return false;
     }
-    let supported_sentences = overview_claim_sentences(&section.claims).into_iter().collect::<HashSet<_>>();
-    let copied = |text: &str| sentence_fragments(text).iter().all(|s| supported_sentences.contains(s));
-    copied(&section.prose) && !sentence_fragments(&section.prose).is_empty()
+    let supported_sentences = overview_claim_sentences(&section.claims)
+        .into_iter()
+        .collect::<HashSet<_>>();
+    let copied = |text: &str| {
+        sentence_fragments(text)
+            .iter()
+            .all(|s| supported_sentences.contains(s))
+    };
+    copied(&section.prose)
+        && !sentence_fragments(&section.prose).is_empty()
         && (20..=4_000).contains(&section.spoken_text.trim().len())
         && (section_has_standalone_narration(section)
             || copied(&section.spoken_text)
-            || authored_section_narration(section).ok().flatten().as_deref() == Some(section.spoken_text.as_str()))
+            || authored_section_narration(section)
+                .ok()
+                .flatten()
+                .as_deref()
+                == Some(section.spoken_text.as_str()))
 }
 
 /// Schema 5 permits complete authored speech without decorative visuals.
 /// This checks bounds and visible inference labels, not semantic equivalence.
 fn section_has_standalone_narration(section: &ChapterSection) -> bool {
-    let no_presentation = section.visual.as_ref().and_then(|v| v.typed_visual())
+    let no_presentation = section
+        .visual
+        .as_ref()
+        .and_then(|v| v.typed_visual())
         .is_none_or(|visual| visual.presentation.is_none());
-    no_presentation && (20..=4_000).contains(&section.spoken_text.trim().len())
+    no_presentation
+        && (20..=4_000).contains(&section.spoken_text.trim().len())
         && section.claims.iter().all(|claim| match &claim.category {
-            ClaimCategory::Inference { visible_label, .. } => section.spoken_text.contains(&format!("{}:", visible_label.trim())),
+            ClaimCategory::Inference { visible_label, .. } => section
+                .spoken_text
+                .contains(&format!("{}:", visible_label.trim())),
             _ => true,
         })
 }
 
-pub(crate) fn authored_section_narration(section: &ChapterSection) -> Result<Option<String>, String> {
-    let Some(presentation) = section.visual.as_ref().and_then(|v| v.typed_visual())
-        .and_then(|v| v.presentation.as_ref()) else { return Ok(None); };
+pub(crate) fn authored_section_narration(
+    section: &ChapterSection,
+) -> Result<Option<String>, String> {
+    let Some(presentation) = section
+        .visual
+        .as_ref()
+        .and_then(|v| v.typed_visual())
+        .and_then(|v| v.presentation.as_ref())
+    else {
+        return Ok(None);
+    };
     Ok(Some(
         crate::scene_presentation::narration(presentation, &section.claims)?.join(" "),
     ))
@@ -449,7 +473,9 @@ pub(crate) fn overview_claim_sentences(claims: &[ChapterClaim]) -> Vec<String> {
                 }
                 ClaimCategory::CodeBehavior | ClaimCategory::RepositoryContext => sentence,
             };
-            if !sentences.contains(&visible) { sentences.push(visible); }
+            if !sentences.contains(&visible) {
+                sentences.push(visible);
+            }
         }
     }
     sentences
@@ -576,11 +602,26 @@ pub struct ChapterHotspot {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
 pub enum HotspotDestination {
-    Section { #[serde(rename = "sectionId")] section_id: String },
-    CodeLens { #[serde(rename = "anchorId")] anchor_id: String },
-    AtlasFile { path: String },
-    AtlasSymbol { path: String, #[serde(rename = "symbolId")] symbol_id: String },
-    Relationship { #[serde(rename = "relationshipId")] relationship_id: String },
+    Section {
+        #[serde(rename = "sectionId")]
+        section_id: String,
+    },
+    CodeLens {
+        #[serde(rename = "anchorId")]
+        anchor_id: String,
+    },
+    AtlasFile {
+        path: String,
+    },
+    AtlasSymbol {
+        path: String,
+        #[serde(rename = "symbolId")]
+        symbol_id: String,
+    },
+    Relationship {
+        #[serde(rename = "relationshipId")]
+        relationship_id: String,
+    },
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -804,7 +845,10 @@ fn validate_overview_revision_identity(revision: &ChapterRevision) -> Result<(),
             || revision.target.target_id != "target:overview"
             || revision.chapter_id != "chapter:overview")
     {
-        return Err("An overview chapter must use the current schema and its stable overview identities.".to_owned());
+        return Err(
+            "An overview chapter must use the current schema and its stable overview identities."
+                .to_owned(),
+        );
     }
     Ok(())
 }
@@ -1844,10 +1888,24 @@ impl Validator<'_> {
     ) {
         if let Some(presentation) = &visual.presentation {
             if visual.schema_version != VISUAL_SCHEMA_VERSION {
-                self.visual_issue(ChapterIssueCode::InvalidVisual, "HTML compositions require the current evidence-linked visual schema.", section_id, None, None);
+                self.visual_issue(
+                    ChapterIssueCode::InvalidVisual,
+                    "HTML compositions require the current evidence-linked visual schema.",
+                    section_id,
+                    None,
+                    None,
+                );
             }
-            if let Err(error) = crate::scene_presentation::validate(presentation, &visual.nodes, claims) {
-                self.visual_issue(ChapterIssueCode::InvalidVisual, &error, section_id, None, None);
+            if let Err(error) =
+                crate::scene_presentation::validate(presentation, &visual.nodes, claims)
+            {
+                self.visual_issue(
+                    ChapterIssueCode::InvalidVisual,
+                    &error,
+                    section_id,
+                    None,
+                    None,
+                );
             }
             if let Err(error) = crate::scene_presentation::validate_graph_density(
                 presentation,
@@ -1855,7 +1913,13 @@ impl Validator<'_> {
                 &visual.edges,
                 claims,
             ) {
-                self.visual_issue(ChapterIssueCode::InvalidVisual, &error, section_id, None, None);
+                self.visual_issue(
+                    ChapterIssueCode::InvalidVisual,
+                    &error,
+                    section_id,
+                    None,
+                    None,
+                );
             }
         }
         if visual.schema_version != VISUAL_SCHEMA_VERSION {
@@ -2635,31 +2699,69 @@ mod tests {
 
     #[test]
     fn line_citations_use_exact_utf8_crlf_and_final_line_bytes() {
-        let text="let café = 1;\r\nnext(\"🧭\");\nlast";
-        let source=SnapshotSource {snapshot_id:"snapshot:lines".into(),path:"src/lines.rs".into(),sha256:sha256_hex(text.as_bytes()),size_bytes:text.len() as u64,contents:text.into()};
-        let anchor=anchor_from_lines(&source,None,"anchor:lines",2,2).unwrap();
-        let first=text.split_inclusive('\n').next().unwrap();let selected=text.split_inclusive('\n').nth(1).unwrap();
-        assert_eq!(anchor.start_byte,first.len() as u64);
-        assert_eq!(anchor.end_byte_inclusive,(first.len()+selected.len()-1) as u64);
-        assert_eq!(anchor.excerpt,selected);assert_eq!(anchor.start_line,2);assert_eq!(anchor.end_line,2);
-        assert_eq!(anchor.end_column,selected.len() as u32);
-        verify_anchor_against_source(&anchor,&source).unwrap();
-        let last=anchor_from_lines(&source,None,"anchor:last",3,3).unwrap();assert_eq!(last.excerpt,"last");
-        verify_anchor_against_source(&last,&source).unwrap();
-        assert!(anchor_from_lines(&source,None,"anchor:last",4,4).is_err());
-        let mut damaged=source.clone();damaged.sha256="f".repeat(64);assert!(anchor_from_lines(&damaged,None,"anchor:bad",1,1).is_err());
+        let text = "let café = 1;\r\nnext(\"🧭\");\nlast";
+        let source = SnapshotSource {
+            snapshot_id: "snapshot:lines".into(),
+            path: "src/lines.rs".into(),
+            sha256: sha256_hex(text.as_bytes()),
+            size_bytes: text.len() as u64,
+            contents: text.into(),
+        };
+        let anchor = anchor_from_lines(&source, None, "anchor:lines", 2, 2).unwrap();
+        let first = text.split_inclusive('\n').next().unwrap();
+        let selected = text.split_inclusive('\n').nth(1).unwrap();
+        assert_eq!(anchor.start_byte, first.len() as u64);
+        assert_eq!(
+            anchor.end_byte_inclusive,
+            (first.len() + selected.len() - 1) as u64
+        );
+        assert_eq!(anchor.excerpt, selected);
+        assert_eq!(anchor.start_line, 2);
+        assert_eq!(anchor.end_line, 2);
+        assert_eq!(anchor.end_column, selected.len() as u32);
+        verify_anchor_against_source(&anchor, &source).unwrap();
+        let last = anchor_from_lines(&source, None, "anchor:last", 3, 3).unwrap();
+        assert_eq!(last.excerpt, "last");
+        verify_anchor_against_source(&last, &source).unwrap();
+        assert!(anchor_from_lines(&source, None, "anchor:last", 4, 4).is_err());
+        let mut damaged = source.clone();
+        damaged.sha256 = "f".repeat(64);
+        assert!(anchor_from_lines(&damaged, None, "anchor:bad", 1, 1).is_err());
     }
 
     #[test]
     fn line_citations_reject_invalid_identity_ranges_and_oversized_excerpts() {
-        let source=SnapshotSource {snapshot_id:"snapshot:lines".into(),path:"src/lines.rs".into(),sha256:sha256_hex(b"\n"),size_bytes:1,contents:"\n".into()};
-        assert_eq!(anchor_from_lines(&source,None,"anchor:blank",1,1).unwrap().excerpt,"\n");
-        for (id,from,to) in [("bad/id",1,1),("anchor:zero",0,1),("anchor:reverse",2,1),("anchor:missing",2,2),("anchor:huge",1,u32::MAX)] {
-            assert!(anchor_from_lines(&source,None,id,from,to).is_err());
+        let source = SnapshotSource {
+            snapshot_id: "snapshot:lines".into(),
+            path: "src/lines.rs".into(),
+            sha256: sha256_hex(b"\n"),
+            size_bytes: 1,
+            contents: "\n".into(),
+        };
+        assert_eq!(
+            anchor_from_lines(&source, None, "anchor:blank", 1, 1)
+                .unwrap()
+                .excerpt,
+            "\n"
+        );
+        for (id, from, to) in [
+            ("bad/id", 1, 1),
+            ("anchor:zero", 0, 1),
+            ("anchor:reverse", 2, 1),
+            ("anchor:missing", 2, 2),
+            ("anchor:huge", 1, u32::MAX),
+        ] {
+            assert!(anchor_from_lines(&source, None, id, from, to).is_err());
         }
-        for len in [0,MAX_EXCERPT_BYTES+1] {
-            let text="x".repeat(len);let too_large=SnapshotSource{contents:text.clone(),sha256:sha256_hex(text.as_bytes()),size_bytes:len as u64,..source.clone()};
-            assert!(anchor_from_lines(&too_large,None,"anchor:limit",1,1).is_err());
+        for len in [0, MAX_EXCERPT_BYTES + 1] {
+            let text = "x".repeat(len);
+            let too_large = SnapshotSource {
+                contents: text.clone(),
+                sha256: sha256_hex(text.as_bytes()),
+                size_bytes: len as u64,
+                ..source.clone()
+            };
+            assert!(anchor_from_lines(&too_large, None, "anchor:limit", 1, 1).is_err());
         }
     }
 
@@ -3024,27 +3126,62 @@ mod tests {
     #[test]
     fn chapter_enum_fields_match_frontend_and_reject_snake_case_aliases() {
         let destinations = [
-            (HotspotDestination::Section { section_id: "section:one".to_owned() }, "sectionId", "section_id"),
-            (HotspotDestination::CodeLens { anchor_id: "anchor:one".to_owned() }, "anchorId", "anchor_id"),
-            (HotspotDestination::AtlasSymbol { path: "a.ts".to_owned(), symbol_id: "symbol:one".to_owned() }, "symbolId", "symbol_id"),
-            (HotspotDestination::Relationship { relationship_id: "relationship:one".to_owned() }, "relationshipId", "relationship_id"),
+            (
+                HotspotDestination::Section {
+                    section_id: "section:one".to_owned(),
+                },
+                "sectionId",
+                "section_id",
+            ),
+            (
+                HotspotDestination::CodeLens {
+                    anchor_id: "anchor:one".to_owned(),
+                },
+                "anchorId",
+                "anchor_id",
+            ),
+            (
+                HotspotDestination::AtlasSymbol {
+                    path: "a.ts".to_owned(),
+                    symbol_id: "symbol:one".to_owned(),
+                },
+                "symbolId",
+                "symbol_id",
+            ),
+            (
+                HotspotDestination::Relationship {
+                    relationship_id: "relationship:one".to_owned(),
+                },
+                "relationshipId",
+                "relationship_id",
+            ),
         ];
         for (destination, camel, legacy) in destinations {
             let mut value = serde_json::to_value(&destination).unwrap();
             assert!(value.get(camel).is_some());
             assert!(value.get(legacy).is_none());
-            assert_eq!(serde_json::from_value::<HotspotDestination>(value.clone()).unwrap(), destination);
+            assert_eq!(
+                serde_json::from_value::<HotspotDestination>(value.clone()).unwrap(),
+                destination
+            );
             let id = value.as_object_mut().unwrap().remove(camel).unwrap();
             let mut old_shape = value;
             old_shape[legacy] = id;
             assert!(serde_json::from_value::<HotspotDestination>(old_shape).is_err());
         }
-        let category = ClaimCategory::Inference { visible_label: "Inference".to_owned(), basis: "Selected source interpretation".to_owned() };
+        let category = ClaimCategory::Inference {
+            visible_label: "Inference".to_owned(),
+            basis: "Selected source interpretation".to_owned(),
+        };
         let value = serde_json::to_value(&category).unwrap();
         assert_eq!(value["visibleLabel"], "Inference");
         let old_shape = serde_json::json!({"kind":"inference","visible_label":"Inference","basis":"Selected source interpretation"});
         assert!(serde_json::from_value::<ClaimCategory>(old_shape).is_err());
-        let dependency = SectionDependency::Symbol { path: "a.ts".to_owned(), source_sha256: "hash".to_owned(), symbol_id: "symbol:one".to_owned() };
+        let dependency = SectionDependency::Symbol {
+            path: "a.ts".to_owned(),
+            source_sha256: "hash".to_owned(),
+            symbol_id: "symbol:one".to_owned(),
+        };
         let value = serde_json::to_value(&dependency).unwrap();
         assert_eq!(value["sourceSha256"], "hash");
         assert_eq!(value["symbolId"], "symbol:one");
@@ -3399,7 +3536,11 @@ mod tests {
         let encoded = String::from_utf8(encode_chapter_revision(&revision).unwrap()).unwrap();
 
         for duplicate in [
-            encoded.replacen("\"schemaVersion\":", "\"schemaVersion\":5,\"schemaVersion\":", 1),
+            encoded.replacen(
+                "\"schemaVersion\":",
+                "\"schemaVersion\":5,\"schemaVersion\":",
+                1,
+            ),
             encoded.replacen(
                 "\"targetId\":",
                 "\"targetId\":\"target:shadow\",\"targetId\":",
@@ -3423,10 +3564,16 @@ mod tests {
             let mut value = current.clone();
             value["schemaVersion"] = serde_json::json!(unsupported);
             let bytes = serde_json::to_vec(&value).unwrap();
-            assert!(decode_chapter_revision(&bytes).is_err(), "schema {unsupported}");
+            assert!(
+                decode_chapter_revision(&bytes).is_err(),
+                "schema {unsupported}"
+            );
             let mut revision = valid_revision(&storage, &project, &manifest, &index);
             revision.schema_version = unsupported;
-            assert!(encode_chapter_revision(&revision).is_err(), "schema {unsupported}");
+            assert!(
+                encode_chapter_revision(&revision).is_err(),
+                "schema {unsupported}"
+            );
         }
     }
 

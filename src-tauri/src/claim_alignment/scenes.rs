@@ -1,7 +1,7 @@
 //! Positions and fixed tree codes only; no source, labels or model strings.
 
-use crate::scene_presentation::{tree, SceneMode, ScenePresentation};
-use serde_json::{json, Value};
+use crate::scene_presentation::{SceneMode, ScenePresentation, tree};
+use serde_json::{Value, json};
 use std::collections::HashSet;
 
 pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
@@ -32,18 +32,21 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
             continue;
         }
         for (scene, element) in crate::scene_presentation::foreign_claim_positions(section) {
-            if issues.len() >= super::MAX_ISSUES { return; }
+            if issues.len() >= super::MAX_ISSUES {
+                return;
+            }
             issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{scene}/elements/{element}/nodeIndex"),"sceneProblem":"sceneEvidence"}));
         }
         for (index, scene) in presentation.scenes.iter().enumerate() {
             if scene.narration.trim().is_empty() || scene.narration.len() > 4_000 {
-                if issues.len() >= super::MAX_ISSUES { return; }
+                if issues.len() >= super::MAX_ISSUES {
+                    return;
+                }
                 issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{index}/narration"),"sceneProblem":"narrationRequired"}));
             }
             if scene.mode == SceneMode::Graph
-                && graph_scene_node_count(section, scene.claim_index).is_some_and(|count| {
-                    count > crate::scene_presentation::MAX_FOCUSED_GRAPH_NODES
-                })
+                && graph_scene_node_count(section, scene.claim_index)
+                    .is_some_and(|count| count > crate::scene_presentation::MAX_FOCUSED_GRAPH_NODES)
             {
                 if issues.len() >= super::MAX_ISSUES {
                     return;
@@ -69,10 +72,19 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
             }
         }
         if issues.len() < super::MAX_ISSUES
-            && presentation.scenes.iter().all(|s| !s.narration.trim().is_empty() && s.narration.len() <= 4_000) {
-            let total = presentation.scenes.iter().map(|s| s.narration.as_str())
+            && presentation
+                .scenes
+                .iter()
+                .all(|s| !s.narration.trim().is_empty() && s.narration.len() <= 4_000)
+        {
+            let total = presentation
+                .scenes
+                .iter()
+                .map(|s| s.narration.as_str())
                 .map(|s| s.split_whitespace().collect::<Vec<_>>().join(" "))
-                .collect::<Vec<_>>().join(" ").len();
+                .collect::<Vec<_>>()
+                .join(" ")
+                .len();
             if !(20..=4_000).contains(&total) {
                 issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes"),"sceneProblem":"narrationLength"}));
             }
@@ -172,21 +184,31 @@ mod tests {
     fn crowded_graph_scene_gets_a_positional_diagnostic_without_node_text() {
         let mut proposal = composed_proposal(3);
         let nodes = (0..9)
-            .map(|index| json!({"label":format!("private-node-label-{index}"),
-                "detail":"secret detail","evidence":[{"claimIndex":0,"evidenceIndex":0}]}))
+            .map(|index| {
+                json!({"label":format!("private-node-label-{index}"),
+                "detail":"secret detail","evidence":[{"claimIndex":0,"evidenceIndex":0}]})
+            })
             .collect::<Vec<_>>();
         proposal["sections"][0]["visual"]["nodes"] = json!(nodes);
         proposal["sections"][0]["visual"]["presentation"]["scenes"][0]["mode"] = json!("graph");
         proposal["sections"][0]["visual"]["presentation"]["scenes"][0]["elements"] = json!([]);
         let findings = crate::claim_alignment::chapter_diagnostics(&proposal.to_string()).unwrap();
-        let density = findings.iter().find(|finding| finding["sceneProblem"] == "graphDensity").unwrap();
-        assert_eq!(density["location"], "/sections/0/visual/presentation/scenes/0/mode");
+        let density = findings
+            .iter()
+            .find(|finding| finding["sceneProblem"] == "graphDensity")
+            .unwrap();
+        assert_eq!(
+            density["location"],
+            "/sections/0/visual/presentation/scenes/0/mode"
+        );
         let serialized = serde_json::to_string(&findings).unwrap();
         assert!(!serialized.contains("private-node-label"));
         assert!(!serialized.contains("secret detail"));
         let prompt = crate::claim_alignment::prompt_for_issues(findings).unwrap();
         assert!(prompt.contains("eight visible nodes or fewer"));
-        assert!(prompt.contains("Preserve all guards, branches, failures, outcomes, evidence and real graph edges"));
+        assert!(prompt.contains(
+            "Preserve all guards, branches, failures, outcomes, evidence and real graph edges"
+        ));
         assert!(!prompt.contains("private-node-label"));
     }
 }

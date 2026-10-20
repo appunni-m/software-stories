@@ -2267,6 +2267,8 @@ mod tests {
                     detail: Some("entry point".to_owned()),
                     hotspot_id: Some("hotspot:used".to_owned()),
                     evidence_anchor_ids: vec![evidence_anchor_id.clone()],
+                    source_anchor_id: None,
+                    source_value: None,
                 },
                 VisualNode {
                     node_id: "node:worker".to_owned(),
@@ -2274,6 +2276,8 @@ mod tests {
                     detail: None,
                     hotspot_id: None,
                     evidence_anchor_ids: vec![evidence_anchor_id.clone()],
+                    source_anchor_id: None,
+                    source_value: None,
                 },
             ],
             edges: vec![VisualEdge {

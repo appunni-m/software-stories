@@ -99,10 +99,7 @@ pub(super) fn compile_grounded(resolved: Resolved) -> Result<Resolved, Vec<Value
                 .ok_or_else(|| issue(format!("{base}/prose"), "namedIdentifier"))?;
             let names = candidates(prose)
                 .ok_or_else(|| issue(format!("{base}/prose"), "namedIdentifier"))?;
-            let grounded: Vec<_> = names
-                .iter()
-                .flat_map(|name| variants(name))
-                .collect();
+            let grounded: Vec<_> = names.iter().flat_map(|name| variants(name)).collect();
             let spans = resolved
                 .claim_spans(si, ci)
                 .filter(|spans| (1..=8).contains(&spans.len()))

@@ -181,7 +181,7 @@ mod tests {
         intent.opening_continuation = Some(OpeningContinuation {
             previous_run_id: Uuid::new_v4().to_string(),
             incomplete_topics: vec![
-                "The first guard's false alternative remains unexplored.".into()
+                "The first guard's false alternative remains unexplored.".into(),
             ],
         });
         let (prompt, schema, fingerprint, instructions) =
@@ -492,14 +492,16 @@ mod tests {
                 "{field}"
             );
         }
-        assert!(request(
-            &f.storage,
-            &input,
-            &f.manifest,
-            &vec![range.clone(); 5],
-            None
-        )
-        .is_err());
+        assert!(
+            request(
+                &f.storage,
+                &input,
+                &f.manifest,
+                &vec![range.clone(); 5],
+                None
+            )
+            .is_err()
+        );
         let mut missing = input;
         missing.references.clear();
         assert!(request(&f.storage, &missing, &f.manifest, &[range], None).is_err());

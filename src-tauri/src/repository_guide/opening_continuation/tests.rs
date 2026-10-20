@@ -221,8 +221,6 @@ fn interrupted_follow_up_is_recovered_without_replay_or_a_budget_reset() {
     assert_eq!(bytes(&f, &record), before);
 }
 
-
-
 #[test]
 fn rejected_contracts_and_complete_openings_cannot_obtain_an_extra_attempt() {
     let f = Fixture::new();

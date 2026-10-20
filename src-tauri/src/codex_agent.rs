@@ -200,7 +200,9 @@ pub(crate) struct AnswerWorker {
 }
 impl Drop for AnswerWorker {
     fn drop(&mut self) {
-        if let Ok(mut workers) = self.inner.answer_workers.lock() { workers.remove(&self.run_id); }
+        if let Ok(mut workers) = self.inner.answer_workers.lock() {
+            workers.remove(&self.run_id);
+        }
     }
 }
 
@@ -276,10 +278,13 @@ impl SectionPublicationOwner {
         self.cancelled.load(Ordering::Acquire) || self.inner.shutdown.load(Ordering::Acquire)
     }
 
-    pub(crate) fn cancellation_flag(&self) -> &AtomicBool { &self.cancelled }
+    pub(crate) fn cancellation_flag(&self) -> &AtomicBool {
+        &self.cancelled
+    }
     #[cfg(test)]
-    pub(crate) fn cancellation_token(&self) -> Arc<AtomicBool> { Arc::clone(&self.cancelled) }
-
+    pub(crate) fn cancellation_token(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.cancelled)
+    }
 }
 
 #[cfg(test)]
@@ -315,7 +320,11 @@ struct RuntimeSettings {
 impl CodexAgentManager {
     /// Observe ownership and reconcile persisted outcomes in the same ordering
     /// as Stop and publication. The callback cannot call this manager.
-    pub(crate) fn with_operation_state<T>(&self, run_id: &str, read: impl FnOnce(bool) -> Result<T, String>) -> Result<T, String> {
+    pub(crate) fn with_operation_state<T>(
+        &self,
+        run_id: &str,
+        read: impl FnOnce(bool) -> Result<T, String>,
+    ) -> Result<T, String> {
         let active = self.0.active.lock().map_err(|_| BUSY)?;
         let workers = self.0.answer_workers.lock().map_err(|_| BUSY)?;
         read(active.as_ref().is_some_and(|run| run.id == run_id) || workers.contains(run_id))
@@ -324,13 +333,21 @@ impl CodexAgentManager {
     pub(crate) fn hold_answer_worker(&self, run_id: &str) -> Result<AnswerWorker, String> {
         let _active = self.0.active.lock().map_err(|_| BUSY)?;
         let mut workers = self.0.answer_workers.lock().map_err(|_| BUSY)?;
-        if !workers.insert(run_id.into()) { return Err("This answer already has a native worker.".into()); }
-        Ok(AnswerWorker { inner: Arc::clone(&self.0), run_id: run_id.into() })
+        if !workers.insert(run_id.into()) {
+            return Err("This answer already has a native worker.".into());
+        }
+        Ok(AnswerWorker {
+            inner: Arc::clone(&self.0),
+            run_id: run_id.into(),
+        })
     }
 
     /// Permission revocation and draft publication share one native ordering.
     /// The callback must not call back into this manager while holding the lock.
-    pub(crate) fn serialize_permission_change<T>(&self, change: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+    pub(crate) fn serialize_permission_change<T>(
+        &self,
+        change: impl FnOnce() -> Result<T, String>,
+    ) -> Result<T, String> {
         let _active = self.0.active.lock().map_err(|_| BUSY)?;
         change()
     }
@@ -746,10 +763,16 @@ impl CodexAgentManager {
                 return Err(cancelled_message());
             }
             if let Some(retrieval) = &input.retrieval {
-                retrieval.lock().map_err(|_| "Captured-code tools are unavailable.")?
+                retrieval
+                    .lock()
+                    .map_err(|_| "Captured-code tools are unavailable.")?
                     .bind_section_owner(SectionPublicationOwner {
-                        inner: Arc::clone(&self.0), run_id: input.run_id.clone(), fingerprint: fingerprint.into(),
-                        runtime: input.expected_runtime.clone(), cancelled: Arc::clone(&cancelled), started_at,
+                        inner: Arc::clone(&self.0),
+                        run_id: input.run_id.clone(),
+                        fingerprint: fingerprint.into(),
+                        runtime: input.expected_runtime.clone(),
+                        cancelled: Arc::clone(&cancelled),
+                        started_at,
                     })?;
             }
             let response = process.generate(
@@ -1324,9 +1347,13 @@ impl ServerProcess {
             if input.correction_policy != crate::claim_alignment::CorrectionPolicy::Disabled {
                 return Err("Progressive answers use bounded section proposals, not a final-chapter correction.".into());
             }
-            let session = retrieval.lock().map_err(|_| "Captured-code tools are unavailable.")?;
-            parameters["config"]["mcp_servers"][crate::context_mcp::SERVER] = session.configuration()?;
-            parameters["baseInstructions"] = json!(crate::agent_context::PROGRESSIVE_BASE_INSTRUCTIONS);
+            let session = retrieval
+                .lock()
+                .map_err(|_| "Captured-code tools are unavailable.")?;
+            parameters["config"]["mcp_servers"][crate::context_mcp::SERVER] =
+                session.configuration()?;
+            parameters["baseInstructions"] =
+                json!(crate::agent_context::PROGRESSIVE_BASE_INSTRUCTIONS);
         }
         let started = self.request("thread/start", parameters, RPC_TIMEOUT)?;
         if started
@@ -1397,10 +1424,15 @@ impl ServerProcess {
         let response = crate::claim_alignment::correct_once_checked(
             input.correction_policy != crate::claim_alignment::CorrectionPolicy::Disabled,
             initial,
-            |response| Ok(crate::claim_alignment::fixed_source_chapter_diagnostics(
-                &response.response_text,
-                input.sources.iter().map(|source| (source.path.as_str(), source.contents.as_str())),
-            )),
+            |response| {
+                Ok(crate::claim_alignment::fixed_source_chapter_diagnostics(
+                    &response.response_text,
+                    input
+                        .sources
+                        .iter()
+                        .map(|source| (source.path.as_str(), source.contents.as_str())),
+                ))
+            },
             |prompt| {
                 before_correction(self)?;
                 progress(progress_event(
@@ -1522,8 +1554,7 @@ impl ServerProcess {
             } else {
                 self.receive(Duration::from_millis(100), &mut response_bytes)?
             };
-            let Some(message) = next
-            else {
+            let Some(message) = next else {
                 continue;
             };
             if message.get("id").and_then(Value::as_u64) == Some(request_id)
@@ -1577,7 +1608,14 @@ impl ServerProcess {
                     continue;
                 }
             }
-            runtime_events::observe(trace, turn_index, method, params, thread_id, turn_id.as_deref())?;
+            runtime_events::observe(
+                trace,
+                turn_index,
+                method,
+                params,
+                thread_id,
+                turn_id.as_deref(),
+            )?;
             match method {
                 "configWarning" | "warning" if benign_config_warning(&message) => {},
                 "configWarning" | "warning" => return Err("Codex reported a configuration or runtime warning. The run was stopped rather than using uncertain settings.".to_owned()),
@@ -1908,9 +1946,7 @@ fn validate_run(input: &CodexRunInput) -> Result<(), String> {
     if !input.expected_runtime.valid_shape() {
         return Err(codex_identity::changed());
     }
-    if input.run_id.is_empty()
-        || input.run_id.len() > 256
-    {
+    if input.run_id.is_empty() || input.run_id.len() > 256 {
         return Err("The Codex request identity is invalid.".to_owned());
     }
     validate_model_source_mode(
@@ -2499,7 +2535,8 @@ pub(crate) fn create_private_file(path: &Path, bytes: &[u8]) -> Result<(), Strin
     let mut file = options
         .open(path)
         .map_err(|_| "The private Codex file could not be created.")?;
-    let result = file.write_all(bytes)
+    let result = file
+        .write_all(bytes)
         .and_then(|_| file.sync_all())
         .map_err(|_| "The private Codex file could not be saved.".to_owned());
     drop(file);
@@ -2526,9 +2563,12 @@ pub(crate) fn atomic_private_write(path: &Path, bytes: &[u8]) -> Result<(), Stri
         // a caller announces durable publication. A failure here is uncertain;
         // preserve the new destination for inspection, never roll it back.
         #[cfg(unix)]
-        fs::File::open(path.parent().ok_or("Private file directory is unavailable.")?)
-            .and_then(|directory| directory.sync_all())
-            .map_err(|_| "The private file rename could not be confirmed durable.".to_owned())?;
+        fs::File::open(
+            path.parent()
+                .ok_or("Private file directory is unavailable.")?,
+        )
+        .and_then(|directory| directory.sync_all())
+        .map_err(|_| "The private file rename could not be confirmed durable.".to_owned())?;
         Ok(())
     })();
     let _ = fs::remove_file(&temporary);
@@ -2619,7 +2659,9 @@ fn bounded_string(value: &Value, key: &str, limit: usize) -> Result<String, Stri
 }
 
 fn rpc_failure(method: &str, response: &Value) -> String {
-    if let Some(message) = runtime_events::classified_failure(response.get("error").unwrap_or(response)) {
+    if let Some(message) =
+        runtime_events::classified_failure(response.get("error").unwrap_or(response))
+    {
         return message;
     }
     // Inspect error classes without exposing model output, selected source,
@@ -2682,7 +2724,9 @@ mod tests {
         assert!(validate_model_source_mode("gpt-5.6-luna", "medium", true, 0).is_ok());
         assert!(validate_model_source_mode("gpt-5.6-luna", "medium", true, 1).is_err());
         assert!(validate_model_source_mode("", "medium", true, 0).is_err());
-        assert!(validate_model_source_mode("gpt-5.6-luna", "x".repeat(33).as_str(), true, 0).is_err());
+        assert!(
+            validate_model_source_mode("gpt-5.6-luna", "x".repeat(33).as_str(), true, 0).is_err()
+        );
     }
 
     #[test]
@@ -2745,9 +2789,12 @@ mod tests {
 
     #[test]
     fn runtime_settings_require_an_explicit_reconnect_preference() {
-        assert!(serde_json::from_value::<RuntimeSettings>(json!({
-            "executablePath": "/installed/codex"
-        })).is_err());
+        assert!(
+            serde_json::from_value::<RuntimeSettings>(json!({
+                "executablePath": "/installed/codex"
+            }))
+            .is_err()
+        );
         let paused: RuntimeSettings = serde_json::from_value(json!({
             "executablePath": "/installed/codex", "autoConnect": false
         }))
@@ -2909,7 +2956,6 @@ mod tests {
     }
 }
 
-
 #[cfg(test)]
 mod section_publication_tests {
     use super::*;
@@ -2926,7 +2972,8 @@ mod section_publication_tests {
     #[test]
     fn timing_storage_failure_does_not_change_pre_dispatch_cancellation() {
         for diagnostics_available in [true, false] {
-            let root = std::env::temp_dir().join(format!("atlas-manager-timing-{}", Uuid::new_v4()));
+            let root =
+                std::env::temp_dir().join(format!("atlas-manager-timing-{}", Uuid::new_v4()));
             ensure_private_directory(&root).unwrap();
             if !diagnostics_available {
                 fs::write(root.join("generation-timings"), b"existing unrelated file").unwrap();
@@ -2936,17 +2983,28 @@ mod section_publication_tests {
             assert!(manager.cancel(&id));
             let contents = "export const answer = 42;".to_owned();
             let input = CodexRunInput {
-                run_id: id.clone(), expected_runtime: runtime(),
-                model: "gpt-6-luna".into(), effort: "max".into(), approval_policy: "never".into(),
+                run_id: id.clone(),
+                expected_runtime: runtime(),
+                model: "gpt-6-luna".into(),
+                effort: "max".into(),
+                approval_policy: "never".into(),
                 system_instruction: "Synthetic cancellation test; no inference.".into(),
-                user_prompt: "Explain the synthetic constant.".into(), output_schema: json!({}),
+                user_prompt: "Explain the synthetic constant.".into(),
+                output_schema: json!({}),
                 correction_policy: crate::claim_alignment::CorrectionPolicy::Disabled,
                 retrieval: None,
-                sources: vec![CodexSourceFile { path: "answer.ts".into(), sha256: hex_digest(contents.as_bytes()), contents }],
+                sources: vec![CodexSourceFile {
+                    path: "answer.ts".into(),
+                    sha256: hex_digest(contents.as_bytes()),
+                    contents,
+                }],
             };
             let callbacks = AtomicBool::new(false);
             let result = manager.run_with_result_and_publish(
-                &root, input, &"c".repeat(64), Instant::now(),
+                &root,
+                input,
+                &"c".repeat(64),
+                Instant::now(),
                 |_| callbacks.store(true, Ordering::Release),
                 |_, _| callbacks.store(true, Ordering::Release),
                 |_| callbacks.store(true, Ordering::Release),
@@ -2956,12 +3014,17 @@ mod section_publication_tests {
             assert!(manager.0.process.lock().unwrap().is_none());
             assert!(manager.0.active.lock().unwrap().is_none());
             if diagnostics_available {
-                let record = crate::generation_timing::inspect(&root, &id).unwrap().unwrap();
+                let record = crate::generation_timing::inspect(&root, &id)
+                    .unwrap()
+                    .unwrap();
                 let value = serde_json::to_value(record).unwrap();
                 assert_eq!(value["terminal"]["state"], "cancelled");
                 assert_eq!(value["events"].as_array().unwrap().len(), 2);
             } else {
-                assert_eq!(fs::read(root.join("generation-timings")).unwrap(), b"existing unrelated file");
+                assert_eq!(
+                    fs::read(root.join("generation-timings")).unwrap(),
+                    b"existing unrelated file"
+                );
             }
             fs::remove_dir_all(root).unwrap();
         }

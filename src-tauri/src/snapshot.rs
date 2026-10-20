@@ -2304,7 +2304,10 @@ mod tests {
         legacy["schemaVersion"] = serde_json::json!(1);
         let legacy = serde_json::to_vec(&legacy).unwrap();
         fs::write(&path, &legacy).unwrap();
-        assert!(load_snapshot_manifest(&storage, &project.project_id, &manifest.summary.snapshot_id).is_err());
+        assert!(
+            load_snapshot_manifest(&storage, &project.project_id, &manifest.summary.snapshot_id)
+                .is_err()
+        );
         assert_eq!(fs::read(&path).unwrap(), legacy);
 
         let mut unsupported: serde_json::Value = serde_json::from_slice(&original).unwrap();
@@ -2998,7 +3001,10 @@ mod tests {
         let initial_large = vec![b'a'; READ_CHUNK_BYTES * 3];
         create_repository(
             &repository,
-            &[("a.rs", b"committed source"), ("z-large.txt", &initial_large)],
+            &[
+                ("a.rs", b"committed source"),
+                ("z-large.txt", &initial_large),
+            ],
         );
         let project = project(&repository);
         let storage = temporary.path().join("app-data");
@@ -3033,7 +3039,10 @@ mod tests {
             },
         );
 
-        assert!(changed_earlier_file, "the hook must run during the later file read");
+        assert!(
+            changed_earlier_file,
+            "the hook must run during the later file read"
+        );
         assert!(matches!(result, Err(CaptureError::Inconsistent { .. })));
         assert_eq!(
             list_project_snapshots(&storage, &project.project_id).unwrap(),

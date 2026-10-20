@@ -277,9 +277,15 @@ fn maintenance_owner_drop_releases_the_lock_while_an_inherited_handle_remains() 
     let inherited = owner._maintenance.try_clone().unwrap();
     let lock_path = owner.root.join("maintenance.lock");
     let contender = lock_file(&lock_path).unwrap();
-    assert!(matches!(contender.try_lock(), Err(TryLockError::WouldBlock)));
+    assert!(matches!(
+        contender.try_lock(),
+        Err(TryLockError::WouldBlock)
+    ));
     drop(owner);
-    assert!(contender.try_lock().is_ok(), "an inherited handle must not extend maintenance ownership");
+    assert!(
+        contender.try_lock().is_ok(),
+        "an inherited handle must not extend maintenance ownership"
+    );
     let observer = lock_file(&lock_path).unwrap();
     drop(inherited);
     assert!(matches!(observer.try_lock(), Err(TryLockError::WouldBlock)));
@@ -620,16 +626,37 @@ fn reader_owner_drop_unlocks_both_leases_even_with_inherited_file_descriptions()
     let fixture = Fixture::new();
     let cancelled = AtomicBool::new(false);
     let budget = Budget::new(&cancelled);
-    let cache = open(&fixture.storage, "inherited-reader", &budget, Limits::default());
+    let cache = open(
+        &fixture.storage,
+        "inherited-reader",
+        &budget,
+        Limits::default(),
+    );
     let generation = cache.directory.join(Uuid::new_v4().to_string());
     directory(&generation).unwrap();
     let reader = cache.lease(&generation).unwrap();
     let inherited_generation = reader._generation.try_clone().unwrap();
     let inherited_scope = reader._scope.try_clone().unwrap();
-    assert!(exclusive(&generation.join("readers.lock")).unwrap().is_none());
-    assert!(exclusive(&cache.directory.join("readers.lock")).unwrap().is_none());
+    assert!(
+        exclusive(&generation.join("readers.lock"))
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        exclusive(&cache.directory.join("readers.lock"))
+            .unwrap()
+            .is_none()
+    );
     drop(reader);
-    assert!(exclusive(&generation.join("readers.lock")).unwrap().is_some());
-    assert!(exclusive(&cache.directory.join("readers.lock")).unwrap().is_some());
+    assert!(
+        exclusive(&generation.join("readers.lock"))
+            .unwrap()
+            .is_some()
+    );
+    assert!(
+        exclusive(&cache.directory.join("readers.lock"))
+            .unwrap()
+            .is_some()
+    );
     drop((inherited_generation, inherited_scope));
 }

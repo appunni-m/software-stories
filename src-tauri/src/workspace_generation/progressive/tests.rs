@@ -26,9 +26,11 @@ fn progressive_contract_is_small_binds_intent_and_never_requests_a_final_rewrite
         json!(["answerManifestV2"])
     );
     assert!(schema["properties"].get("citationVersion").is_none());
-    assert!(schema["properties"]["sections"]["items"]["properties"]
-        .get("claims")
-        .is_none());
+    assert!(
+        schema["properties"]["sections"]["items"]["properties"]
+            .get("claims")
+            .is_none()
+    );
     input.question.push_str(" Include failure paths.");
     assert_ne!(request(&input, &f.manifest).unwrap().2, digest);
     input.model_id = "gpt-5.6-luna".into();
@@ -108,14 +110,16 @@ fn saved_answer_loading_keeps_active_workers_and_recovers_without_connecting_or_
     assert_eq!(active.outcome, Outcome::Working);
     assert!(active.sections.is_empty());
     assert_eq!(original, std::fs::read(&record_path).unwrap());
-    assert!(load_saved_answer(
-        &f.storage,
-        &input.run_id,
-        "another-project",
-        &input.snapshot_id,
-        &manager
-    )
-    .is_err());
+    assert!(
+        load_saved_answer(
+            &f.storage,
+            &input.run_id,
+            "another-project",
+            &input.snapshot_id,
+            &manager
+        )
+        .is_err()
+    );
     assert_eq!(original, std::fs::read(&record_path).unwrap());
     drop(worker);
     let recovered = load_saved_answer(
@@ -343,22 +347,24 @@ fn codex_progressive_account_probe() {
     assert_eq!(result.outcome, Outcome::Complete);
     assert!(!result.sections.is_empty());
     let saved = sections::inspect(&f.storage, &input.run_id).unwrap();
-    assert!(saved
-        .sections
-        .iter()
-        .any(|published| published
-            .preview
-            .revision
+    assert!(
+        saved
             .sections
             .iter()
-            .any(|section| section
-                .visual
-                .as_ref()
-                .and_then(chapters::ChapterVisualPayload::typed_visual)
-                .and_then(|visual| visual.presentation.as_ref())
-                .is_some_and(|presentation| presentation.scenes.iter().any(
-                    |scene| scene.mode == crate::scene_presentation::SceneMode::Composition
-                )))));
+            .any(|published| published
+                .preview
+                .revision
+                .sections
+                .iter()
+                .any(|section| section
+                    .visual
+                    .as_ref()
+                    .and_then(chapters::ChapterVisualPayload::typed_visual)
+                    .and_then(|visual| visual.presentation.as_ref())
+                    .is_some_and(|presentation| presentation.scenes.iter().any(|scene| scene
+                        .mode
+                        == crate::scene_presentation::SceneMode::Composition))))
+    );
     let observations = observations.lock().unwrap();
     assert!(observations.iter().all(|v| v["error"].is_null()));
     assert!(
@@ -489,8 +495,10 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.starts_with(ANSWER_ROLE));
     assert!(instructions.contains("then investigate and publish deeper sections"));
     assert!(!instructions.contains("then focus on the remaining research outline"));
-    assert!(instructions
-        .contains("A comment or default constructor does not prove later consumer behavior"));
+    assert!(
+        instructions
+            .contains("A comment or default constructor does not prove later consumer behavior")
+    );
     assert!(instructions.contains("every earlier guard and failure"));
     assert!(instructions.contains("open with the problem and a useful input-to-result example"));
     assert!(instructions.contains("use at most one code element in a scene"));
@@ -499,8 +507,11 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.contains("state the general decision rule"));
     assert!(instructions.contains("an example alone cannot replace the rule"));
     assert!(!instructions.contains("The separate prose/spokenText fields remain required"));
-    assert!(instructions
-        .contains("sceneAuthoringReference identifies a duplicate, absent or ambiguous reference"));
+    assert!(
+        instructions.contains(
+            "sceneAuthoringReference identifies a duplicate, absent or ambiguous reference"
+        )
+    );
     assert!(
         instructions.contains("preserving the claim, supported behavior and chosen representation")
     );
@@ -575,10 +586,16 @@ fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     assert!(instructions.contains("Choose: bytes, transformations, comparisons/tables"));
     assert!(instructions.contains("Source tokens alone are not transformations"));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
-    assert!(instructions
-        .contains("compare the claim with its narration, visible labels, node details and values"));
-    assert!(instructions
-        .contains("Narration and collapsed details must not carry a missing branch by themselves"));
+    assert!(
+        instructions.contains(
+            "compare the claim with its narration, visible labels, node details and values"
+        )
+    );
+    assert!(
+        instructions.contains(
+            "Narration and collapsed details must not carry a missing branch by themselves"
+        )
+    );
     assert!(!instructions.contains("spokenText copies the complete scene narration"));
 }
 

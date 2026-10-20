@@ -276,7 +276,8 @@ impl Session {
 
     pub(crate) fn finish_answer_manifest(&mut self, text: &str) -> Result<(), String> {
         let stopped = self.ledger.budget_stopped();
-        let owner = self.progressive
+        let owner = self
+            .progressive
             .owner
             .as_ref()
             .ok_or("This investigation has no native publication owner.")?;
@@ -356,9 +357,7 @@ impl Session {
             .collect::<HashSet<_>>();
         if !own.get("toolsError").is_none_or(|e| e.is_null())
             || names.len() != mcp::tool_names().len()
-            || mcp::tool_names()
-                .iter()
-                .any(|name| !names.contains(name))
+            || mcp::tool_names().iter().any(|name| !names.contains(name))
             || servers.iter().any(|s| {
                 s["name"] != mcp::SERVER && s["tools"].as_object().is_some_and(|t| !t.is_empty())
             })
@@ -773,7 +772,6 @@ impl Session {
         }
         Ok(())
     }
-
 }
 impl Drop for Session {
     fn drop(&mut self) {

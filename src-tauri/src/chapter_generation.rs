@@ -1,8 +1,7 @@
 use crate::chapter_freshness::{self, SectionFreshnessStatus};
 use crate::chapters::{
     self, ChapterClaim, ChapterRevision, ChapterSection, ChapterSourceAnchor, ChapterVisualPayload,
-    ClaimCategory, GeneratedChapterClaim, GeneratedChapterEvidence,
-    GeneratedChapterEvidenceLimit,
+    ClaimCategory, GeneratedChapterClaim, GeneratedChapterEvidence, GeneratedChapterEvidenceLimit,
     GeneratedChapterProposal, GeneratedChapterSection, HotspotDestination, RevisionLifecycle,
     SectionDependency, ValidationStatus,
 };
@@ -32,7 +31,9 @@ fn take_section_visual_proposals(
     sections.iter_mut().map(take_visual_proposal).collect()
 }
 
-fn take_visual_proposal(section: &mut serde_json::Value) -> Result<GeneratedVisualProposal, String> {
+fn take_visual_proposal(
+    section: &mut serde_json::Value,
+) -> Result<GeneratedVisualProposal, String> {
     let object = section
         .as_object_mut()
         .ok_or_else(|| "A generated section must be a JSON object.".to_owned())?;
@@ -166,7 +167,9 @@ fn resolve_visual_evidence(
     claims: &[ChapterClaim],
 ) -> Result<Vec<String>, String> {
     if evidence.is_empty() || evidence.len() > 8 {
-        return Err("Every visual node and edge needs one to eight claim evidence references.".to_owned());
+        return Err(
+            "Every visual node and edge needs one to eight claim evidence references.".to_owned(),
+        );
     }
     let mut seen_references = HashSet::new();
     let mut anchor_ids = Vec::with_capacity(evidence.len());
@@ -174,9 +177,13 @@ fn resolve_visual_evidence(
         if !seen_references.insert((item.claim_index, item.evidence_index)) {
             return Err("A visual item repeats the same claim evidence reference.".to_owned());
         }
-        let anchor = claims.get(item.claim_index as usize)
+        let anchor = claims
+            .get(item.claim_index as usize)
             .and_then(|claim| claim.anchors.get(item.evidence_index as usize))
-            .ok_or_else(|| "A visual evidence reference is outside this section's validated claim evidence.".to_owned())?;
+            .ok_or_else(|| {
+                "A visual evidence reference is outside this section's validated claim evidence."
+                    .to_owned()
+            })?;
         if !anchor_ids.contains(&anchor.anchor_id) {
             anchor_ids.push(anchor.anchor_id.clone());
         }
@@ -278,9 +285,7 @@ pub fn canonicalize_section_update(
     response_text: &str,
 ) -> Result<(ChapterRevision, Vec<String>), String> {
     if response_text.len() > chapters::MAX_GENERATED_RESPONSE_BYTES {
-        return Err(
-            "The generated section exceeds the 300 KB structured-draft limit.".to_owned(),
-        );
+        return Err("The generated section exceeds the 300 KB structured-draft limit.".to_owned());
     }
     if base.lifecycle != RevisionLifecycle::Accepted
         || base.project_id != current_manifest.summary.project_id
@@ -356,8 +361,10 @@ pub fn canonicalize_section_update(
         );
     }
     let selected_paths = sources.keys().cloned().collect::<HashSet<_>>();
-    let mut generated_value = serde_json::from_str::<serde_json::Value>(response_text)
-        .map_err(|_| "The provider response was not valid JSON. No draft was created.".to_owned())?;
+    let mut generated_value =
+        serde_json::from_str::<serde_json::Value>(response_text).map_err(|_| {
+            "The provider response was not valid JSON. No draft was created.".to_owned()
+        })?;
     let visual_proposal = take_visual_proposal(&mut generated_value)?;
     let proposed_section = serde_json::from_value::<GeneratedChapterSection>(generated_value)
         .map_err(|_| "The provider response did not match the strict single-section schema. No draft was created.".to_owned())?;
@@ -703,9 +710,7 @@ fn reuse_matching_anchor_ids(
         next.hotspots = carried_hotspots;
     }
 
-    if next.hotspots.len() != previous.hotspots.len()
-        && previous_visual_hotspot_ids.is_empty()
-    {
+    if next.hotspots.len() != previous.hotspots.len() && previous_visual_hotspot_ids.is_empty() {
         notes.push(format!(
             "Code Lens hotspots for '{}' were removed because their cited ranges changed.",
             previous.title
@@ -795,9 +800,7 @@ pub fn canonicalize_file_chapter(
     response_text: &str,
 ) -> Result<ChapterRevision, String> {
     if response_text.len() > chapters::MAX_GENERATED_RESPONSE_BYTES {
-        return Err(
-            "The generated chapter exceeds the 300 KB structured-draft limit.".to_owned(),
-        );
+        return Err("The generated chapter exceeds the 300 KB structured-draft limit.".to_owned());
     }
     if manifest.summary.project_id != project_id || target_path.trim().is_empty() {
         return Err(
@@ -811,8 +814,10 @@ pub fn canonicalize_file_chapter(
             );
         }
     }
-    let mut proposal_value = serde_json::from_str::<serde_json::Value>(response_text)
-        .map_err(|_| "The provider response was not valid JSON. No draft was created.".to_owned())?;
+    let mut proposal_value =
+        serde_json::from_str::<serde_json::Value>(response_text).map_err(|_| {
+            "The provider response was not valid JSON. No draft was created.".to_owned()
+        })?;
     let visual_proposals = take_section_visual_proposals(&mut proposal_value)?;
     let proposal: GeneratedChapterProposal = serde_json::from_value(proposal_value)
         .map_err(|_| "The provider response did not match the strict chapter proposal schema. No draft was created.".to_owned())?;
@@ -828,11 +833,8 @@ pub fn canonicalize_file_chapter(
     let selected_paths = sources.keys().cloned().collect::<HashSet<_>>();
     let mut has_responsibility = false;
     let mut sections = Vec::with_capacity(proposal.sections.len() + 1);
-    for (order, (proposed_section, visual_proposal)) in proposal
-        .sections
-        .iter()
-        .zip(&visual_proposals)
-        .enumerate()
+    for (order, (proposed_section, visual_proposal)) in
+        proposal.sections.iter().zip(&visual_proposals).enumerate()
     {
         let section_id = generated_id("section");
         let mut claims = Vec::with_capacity(proposed_section.claims.len());
@@ -1015,9 +1017,7 @@ fn canonicalize_overview(
     native_citations: Option<&crate::native_citations::Resolved>,
 ) -> Result<ChapterRevision, String> {
     if response_text.len() > chapters::MAX_GENERATED_RESPONSE_BYTES {
-        return Err(
-            "The generated overview exceeds the 300 KB structured-draft limit.".to_owned(),
-        );
+        return Err("The generated overview exceeds the 300 KB structured-draft limit.".to_owned());
     }
     if manifest.summary.project_id != project_id {
         return Err(
@@ -1031,8 +1031,10 @@ fn canonicalize_overview(
             );
         }
     }
-    let mut proposal_value = serde_json::from_str::<serde_json::Value>(response_text)
-        .map_err(|_| "The provider response was not valid JSON. No draft was created.".to_owned())?;
+    let mut proposal_value =
+        serde_json::from_str::<serde_json::Value>(response_text).map_err(|_| {
+            "The provider response was not valid JSON. No draft was created.".to_owned()
+        })?;
     let visual_proposals = take_section_visual_proposals(&mut proposal_value)?;
     let proposal: GeneratedOverviewProposal = serde_json::from_value(proposal_value)
         .map_err(|_| "The provider response did not match the strict repository overview schema. No draft was created.".to_owned())?;
@@ -1043,11 +1045,8 @@ fn canonicalize_overview(
     validate_overview_proposal_shape(&proposal)?;
     let selected_paths = sources.keys().cloned().collect::<HashSet<_>>();
     let mut sections = Vec::with_capacity(proposal.sections.len());
-    for (order, (proposed_section, visual_proposal)) in proposal
-        .sections
-        .iter()
-        .zip(&visual_proposals)
-        .enumerate()
+    for (order, (proposed_section, visual_proposal)) in
+        proposal.sections.iter().zip(&visual_proposals).enumerate()
     {
         let section_id = generated_id("section");
         let mut claims = Vec::with_capacity(proposed_section.claims.len());
@@ -1060,8 +1059,12 @@ fn canonicalize_overview(
                 &sources,
                 allowed_relationship_ids,
             )?;
-            let spans = native_citations.map(|resolved| resolved.claim_spans(order, claim_order)
-                .ok_or("The native citation positions do not match the explanation."))
+            let spans = native_citations
+                .map(|resolved| {
+                    resolved
+                        .claim_spans(order, claim_order)
+                        .ok_or("The native citation positions do not match the explanation.")
+                })
                 .transpose()?;
             let (claim, claim_dependencies, _) = build_claim_with_spans(
                 proposed_claim,
@@ -1377,7 +1380,16 @@ fn build_claim(
     index: Option<&SnapshotIndex>,
     allowed_relationship_ids: &HashSet<String>,
 ) -> Result<(ChapterClaim, Vec<SectionDependency>, bool), String> {
-    build_claim_with_spans(proposed, section_id, target_path, selected_paths, sources, index, allowed_relationship_ids, None)
+    build_claim_with_spans(
+        proposed,
+        section_id,
+        target_path,
+        selected_paths,
+        sources,
+        index,
+        allowed_relationship_ids,
+        None,
+    )
 }
 
 fn build_claim_with_spans(
@@ -1946,10 +1958,15 @@ pub(crate) mod tests {
     fn visual_references_resolve_only_to_validated_section_claim_anchors() {
         let fixture = Fixture::new();
         let mut revision = canonicalize_file_chapter(
-            &fixture.manifest.summary.project_id, &fixture.manifest, Some(&fixture.index),
-            SIMPLE_PATH, &fixture.sources(&[SIMPLE_PATH]), &HashSet::new(),
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest,
+            Some(&fixture.index),
+            SIMPLE_PATH,
+            &fixture.sources(&[SIMPLE_PATH]),
+            &HashSet::new(),
             &serde_json::to_string(&simple_proposal()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let proposed: GeneratedVisualProposal = serde_json::from_value(serde_json::json!({
             "kind":"dataFlow", "title":"Name to greeting", "direction":"leftToRight",
             "nodes":[
@@ -1961,14 +1978,22 @@ pub(crate) mod tests {
         })).unwrap();
         let section = &mut revision.sections[0];
         let anchor = section.claims[0].anchors[0].anchor_id.clone();
-        let visual = canonicalize_visual_proposal(&proposed, &section.claims, &mut section.hotspots).unwrap().unwrap();
+        let visual =
+            canonicalize_visual_proposal(&proposed, &section.claims, &mut section.hotspots)
+                .unwrap()
+                .unwrap();
         assert_eq!(visual.nodes[0].evidence_anchor_ids, vec![anchor.clone()]);
         assert_eq!(visual.edges[0].evidence_anchor_ids, vec![anchor.clone()]);
         assert!(section.hotspots.iter().all(|hotspot| matches!(
             &hotspot.destination, HotspotDestination::CodeLens { anchor_id } if anchor_id == &anchor
         )));
         section.visual = Some(visual.into());
-        let report = chapters::validate_chapter_revision(&fixture.storage, &fixture.manifest, Some(&fixture.index), &revision);
+        let report = chapters::validate_chapter_revision(
+            &fixture.storage,
+            &fixture.manifest,
+            Some(&fixture.index),
+            &revision,
+        );
         assert_eq!(report.status, ValidationReportStatus::Valid, "{report:#?}");
     }
 
@@ -2073,44 +2098,85 @@ pub(crate) mod tests {
             }]}
         });
         let revision = canonicalize_file_chapter(
-            &fixture.manifest.summary.project_id, &fixture.manifest, Some(&fixture.index),
-            SIMPLE_PATH, &fixture.sources(&[SIMPLE_PATH]), &HashSet::new(),
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest,
+            Some(&fixture.index),
+            SIMPLE_PATH,
+            &fixture.sources(&[SIMPLE_PATH]),
+            &HashSet::new(),
             &serde_json::to_string(&proposal).unwrap(),
-        ).unwrap();
-        let report = chapters::validate_chapter_revision(&fixture.storage, &fixture.manifest, Some(&fixture.index), &revision);
+        )
+        .unwrap();
+        let report = chapters::validate_chapter_revision(
+            &fixture.storage,
+            &fixture.manifest,
+            Some(&fixture.index),
+            &revision,
+        );
         assert_eq!(report.status, ValidationReportStatus::Valid, "{report:#?}");
         let bytes = chapters::encode_chapter_revision(&revision).unwrap();
         let restored = chapters::decode_chapter_revision(&bytes).unwrap();
-        assert!(same_visual_inputs(&revision.sections[0], &restored.sections[0]));
+        assert!(same_visual_inputs(
+            &revision.sections[0],
+            &restored.sections[0]
+        ));
         let mut changed = restored.sections[0].clone();
-        changed.visual.as_mut().unwrap().typed_visual_mut().unwrap().presentation.as_mut().unwrap().scenes[0].elements[3].value = "Hello, Bob".into();
+        changed
+            .visual
+            .as_mut()
+            .unwrap()
+            .typed_visual_mut()
+            .unwrap()
+            .presentation
+            .as_mut()
+            .unwrap()
+            .scenes[0]
+            .elements[3]
+            .value = "Hello, Bob".into();
         assert!(!same_visual_inputs(&revision.sections[0], &changed));
-        proposal["sections"][0]["visual"]["presentation"]["scenes"][0]["elements"][1]["value"] = serde_json::json!("invented source");
-        assert!(canonicalize_file_chapter(
-            &fixture.manifest.summary.project_id, &fixture.manifest, Some(&fixture.index),
-            SIMPLE_PATH, &fixture.sources(&[SIMPLE_PATH]), &HashSet::new(),
-            &serde_json::to_string(&proposal).unwrap(),
-        ).is_err());
+        proposal["sections"][0]["visual"]["presentation"]["scenes"][0]["elements"][1]["value"] =
+            serde_json::json!("invented source");
+        assert!(
+            canonicalize_file_chapter(
+                &fixture.manifest.summary.project_id,
+                &fixture.manifest,
+                Some(&fixture.index),
+                SIMPLE_PATH,
+                &fixture.sources(&[SIMPLE_PATH]),
+                &HashSet::new(),
+                &serde_json::to_string(&proposal).unwrap(),
+            )
+            .is_err()
+        );
     }
 
     #[test]
     fn visual_references_reject_missing_claims_evidence_duplicates_and_malformed_indexes() {
         let fixture = Fixture::new();
         let revision = canonicalize_file_chapter(
-            &fixture.manifest.summary.project_id, &fixture.manifest, Some(&fixture.index),
-            SIMPLE_PATH, &fixture.sources(&[SIMPLE_PATH]), &HashSet::new(),
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest,
+            Some(&fixture.index),
+            SIMPLE_PATH,
+            &fixture.sources(&[SIMPLE_PATH]),
+            &HashSet::new(),
             &serde_json::to_string(&simple_proposal()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let claims = &revision.sections[0].claims;
-        for value in [serde_json::json!([{"claimIndex":1,"evidenceIndex":0}]),
+        for value in [
+            serde_json::json!([{"claimIndex":1,"evidenceIndex":0}]),
             serde_json::json!([{"claimIndex":0,"evidenceIndex":1}]),
-            serde_json::json!([{"claimIndex":0,"evidenceIndex":0},{"claimIndex":0,"evidenceIndex":0}])] {
+            serde_json::json!([{"claimIndex":0,"evidenceIndex":0},{"claimIndex":0,"evidenceIndex":0}]),
+        ] {
             let evidence: Vec<GeneratedVisualEvidence> = serde_json::from_value(value).unwrap();
             assert!(resolve_visual_evidence(&evidence, claims).is_err());
         }
-        for value in [serde_json::json!({"claimIndex":-1,"evidenceIndex":0}),
+        for value in [
+            serde_json::json!({"claimIndex":-1,"evidenceIndex":0}),
             serde_json::json!({"claimIndex":"0","evidenceIndex":0}),
-            serde_json::json!({"claimIndex":0,"evidenceIndex":0,"path":"outside.ts"})] {
+            serde_json::json!({"claimIndex":0,"evidenceIndex":0,"path":"outside.ts"}),
+        ] {
             assert!(serde_json::from_value::<GeneratedVisualEvidence>(value).is_err());
         }
     }
@@ -2119,18 +2185,30 @@ pub(crate) mod tests {
     fn visual_evidence_uses_only_validated_claim_references() {
         let fixture = Fixture::new();
         let revision = canonicalize_file_chapter(
-            &fixture.manifest.summary.project_id, &fixture.manifest, Some(&fixture.index),
-            SIMPLE_PATH, &fixture.sources(&[SIMPLE_PATH]), &HashSet::new(),
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest,
+            Some(&fixture.index),
+            SIMPLE_PATH,
+            &fixture.sources(&[SIMPLE_PATH]),
+            &HashSet::new(),
             &serde_json::to_string(&simple_proposal()).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         let claims = &revision.sections[0].claims;
         let evidence: Vec<GeneratedVisualEvidence> = serde_json::from_value(serde_json::json!([
             {"claimIndex":0,"evidenceIndex":0}
-        ])).unwrap();
-        assert_eq!(resolve_visual_evidence(&evidence, claims).unwrap(), vec![claims[0].anchors[0].anchor_id.clone()]);
-        assert!(serde_json::from_value::<GeneratedVisualEvidence>(serde_json::json!({
-            "path":SIMPLE_PATH,"quote":SIMPLE_FUNCTION
-        })).is_err());
+        ]))
+        .unwrap();
+        assert_eq!(
+            resolve_visual_evidence(&evidence, claims).unwrap(),
+            vec![claims[0].anchors[0].anchor_id.clone()]
+        );
+        assert!(
+            serde_json::from_value::<GeneratedVisualEvidence>(serde_json::json!({
+                "path":SIMPLE_PATH,"quote":SIMPLE_FUNCTION
+            }))
+            .is_err()
+        );
     }
     const COMPLEX_SOURCE: &str = "import { normalizeName } from './names';\nexport function parseUser(input: string): string {\n    if (!input.trim()) {\n        throw new Error('user name is empty');\n    }\n    const normalized = normalizeName(input);\n    return normalized.toUpperCase();\n}\n";
     const SUPPORT_SOURCE: &str =
@@ -2366,8 +2444,12 @@ pub(crate) mod tests {
             for section in &revision.sections {
                 assert!(section.visual.is_none());
                 if revision.target.scope == chapters::ChapterTargetScope::Overview {
-                    let cited_paths = section.claims.iter().flat_map(|claim| &claim.anchors)
-                        .map(|anchor| anchor.path.as_str()).collect::<HashSet<_>>();
+                    let cited_paths = section
+                        .claims
+                        .iter()
+                        .flat_map(|claim| &claim.anchors)
+                        .map(|anchor| anchor.path.as_str())
+                        .collect::<HashSet<_>>();
                     assert_eq!(section.hotspots.len(), cited_paths.len());
                     let mut linked_paths = HashSet::new();
                     for hotspot in &section.hotspots {
@@ -2873,9 +2955,14 @@ pub(crate) mod tests {
     fn authored_overview_keeps_exact_claim_prose_and_separate_narration() {
         let fixture = Fixture::new();
         let mut file = simple_proposal();
-        file.sections[0].prose = "This independent summary is replaced by the validated claim.".to_owned();
-        file.sections[0].spoken_text = "The greeting returns a value after formatting the supplied name.".to_owned();
-        let proposal = GeneratedOverviewProposal { title: file.title, sections: file.sections };
+        file.sections[0].prose =
+            "This independent summary is replaced by the validated claim.".to_owned();
+        file.sections[0].spoken_text =
+            "The greeting returns a value after formatting the supplied name.".to_owned();
+        let proposal = GeneratedOverviewProposal {
+            title: file.title,
+            sections: file.sections,
+        };
         let selected = fixture.sources(&[SIMPLE_PATH, SUPPORT_PATH]);
         let revision = canonicalize_authored_repository_overview(
             &fixture.manifest.summary.project_id,
@@ -2884,12 +2971,21 @@ pub(crate) mod tests {
             &selected,
             &HashSet::new(),
             &serde_json::to_string(&proposal).unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(revision.schema_version, chapters::CHAPTER_SCHEMA_VERSION);
-        assert_eq!(revision.sections[0].prose, chapters::overview_claim_sentences(&revision.sections[0].claims).join(" "));
-        assert_eq!(revision.sections[0].spoken_text, proposal.sections[0].spoken_text);
+        assert_eq!(
+            revision.sections[0].prose,
+            chapters::overview_claim_sentences(&revision.sections[0].claims).join(" ")
+        );
+        assert_eq!(
+            revision.sections[0].spoken_text,
+            proposal.sections[0].spoken_text
+        );
         assert!(!revision.sections[0].prose.contains("independent summary"));
-        assert!(chapters::overview_section_copy_supported(&revision.sections[0]));
+        assert!(chapters::overview_section_copy_supported(
+            &revision.sections[0]
+        ));
         chapters::validate_overview_content(&revision).unwrap();
         fixture.assert_traceable(&revision, &[SIMPLE_PATH, SUPPORT_PATH]);
     }
@@ -2899,10 +2995,21 @@ pub(crate) mod tests {
         let fixture = Fixture::new();
         let mut file = simple_proposal();
         file.sections[0].claims[0].evidence[0].quote = "an invented source quote".to_owned();
-        let proposal = GeneratedOverviewProposal { title: file.title, sections: file.sections };
-        assert!(canonicalize_authored_repository_overview(&fixture.manifest.summary.project_id, &fixture.manifest,
-            Some(&fixture.index), &fixture.sources(&[SIMPLE_PATH]), &HashSet::new(),
-            &serde_json::to_string(&proposal).unwrap()).is_err());
+        let proposal = GeneratedOverviewProposal {
+            title: file.title,
+            sections: file.sections,
+        };
+        assert!(
+            canonicalize_authored_repository_overview(
+                &fixture.manifest.summary.project_id,
+                &fixture.manifest,
+                Some(&fixture.index),
+                &fixture.sources(&[SIMPLE_PATH]),
+                &HashSet::new(),
+                &serde_json::to_string(&proposal).unwrap()
+            )
+            .is_err()
+        );
     }
 
     /// Fault injection is limited to this synthetic fixture, never the app prompt.
@@ -2913,25 +3020,36 @@ pub(crate) mod tests {
         use std::sync::atomic::{AtomicUsize, Ordering};
         let fixture = Fixture::new();
         let manager = CodexAgentManager::default();
-        let executable = std::env::var("CODE_ATLAS_LIVE_CODEX").expect("select the existing installed Codex");
+        let executable =
+            std::env::var("CODE_ATLAS_LIVE_CODEX").expect("select the existing installed Codex");
         manager.configure(&fixture.storage, &executable).unwrap();
         let result = (|| -> Result<(), String> {
             if !manager.resume_connection(&fixture.storage)?.authenticated {
                 return Err("An existing Codex account is required.".to_owned());
             }
             let runtime = manager.review_runtime(&fixture.storage)?;
-            let review = crate::provider::build_codex_chapter_review(&fixture.storage,
+            let review = crate::provider::build_codex_chapter_review(
+                &fixture.storage,
                 &crate::provider::BuildCodexReviewInput {
                     project_id: fixture.manifest.summary.project_id.clone(),
                     snapshot_id: fixture.manifest.summary.snapshot_id.clone(),
-                    target_path: Some(SIMPLE_PATH.to_owned()), selected_paths: vec![SIMPLE_PATH.to_owned()],
-                    model_id: "gpt-6-luna".to_owned(), effort: "max".to_owned(),
-                    approval_policy: "never".to_owned(), section_update: None, question: None,
-                    focus: vec![], workspace_grant: None,
-                }, &runtime).map_err(|error| error.message)?.review;
+                    target_path: Some(SIMPLE_PATH.to_owned()),
+                    selected_paths: vec![SIMPLE_PATH.to_owned()],
+                    model_id: "gpt-6-luna".to_owned(),
+                    effort: "max".to_owned(),
+                    approval_policy: "never".to_owned(),
+                    section_update: None,
+                    question: None,
+                    focus: vec![],
+                    workspace_grant: None,
+                },
+                &runtime,
+            )
+            .map_err(|error| error.message)?
+            .review;
             let mut initial = serde_json::to_value(simple_proposal()).unwrap();
-            initial["sections"][0]["claims"][0]["prose"] = serde_json::json!(
-                "The helper accepts a value and returns a formatted message.");
+            initial["sections"][0]["claims"][0]["prose"] =
+                serde_json::json!("The helper accepts a value and returns a formatted message.");
             initial["sections"][0]["visual"] = serde_json::json!({
                 "kind":"none", "title":"", "direction":"auto", "nodes":[], "edges":[]});
             let corrections = AtomicUsize::new(0);
@@ -2946,14 +3064,28 @@ pub(crate) mod tests {
                 correction_policy: crate::claim_alignment::CorrectionPolicy::ChapterScenesV6, retrieval: None,
                 sources: vec![CodexSourceFile {path:SIMPLE_PATH.to_owned(), sha256:digest_hex(SIMPLE_SOURCE.as_bytes()), contents:SIMPLE_SOURCE.to_owned()}],
             }, |event| { if event.message == "Refining the explanation against its cited code." { corrections.fetch_add(1, Ordering::Relaxed); } })?;
-            assert_eq!(corrections.load(Ordering::Relaxed), 1, "fault injection must exercise the correction turn");
+            assert_eq!(
+                corrections.load(Ordering::Relaxed),
+                1,
+                "fault injection must exercise the correction turn"
+            );
             assert_eq!(response.model, "gpt-6-luna");
             assert_eq!(response.effort, "max");
-            let revision = canonicalize_file_chapter(&fixture.manifest.summary.project_id,
-                &fixture.manifest, Some(&fixture.index), SIMPLE_PATH, &fixture.sources(&[SIMPLE_PATH]),
-                &HashSet::new(), &response.response_text)?;
-            let validation = chapters::validate_chapter_revision(&fixture.storage, &fixture.manifest,
-                Some(&fixture.index), &revision);
+            let revision = canonicalize_file_chapter(
+                &fixture.manifest.summary.project_id,
+                &fixture.manifest,
+                Some(&fixture.index),
+                SIMPLE_PATH,
+                &fixture.sources(&[SIMPLE_PATH]),
+                &HashSet::new(),
+                &response.response_text,
+            )?;
+            let validation = chapters::validate_chapter_revision(
+                &fixture.storage,
+                &fixture.manifest,
+                Some(&fixture.index),
+                &revision,
+            );
             assert_eq!(validation.status, chapters::ValidationReportStatus::Valid);
             Ok(())
         })();
@@ -2966,27 +3098,54 @@ pub(crate) mod tests {
         let fixture = Fixture::new();
         let valid = simple_proposal();
         let mut invalid = valid.clone();
-        invalid.sections[0].claims[0].prose = "The helper accepts a value and returns a formatted message.".to_owned();
+        invalid.sections[0].claims[0].prose =
+            "The helper accepts a value and returns a formatted message.".to_owned();
         let initial = serde_json::to_string(&invalid).unwrap();
         let corrected = serde_json::to_string(&valid).unwrap();
-        let result = crate::claim_alignment::correct_once(true, initial.clone(), String::as_str,
-            |_| Ok(corrected.clone())).unwrap();
-        let revision = canonicalize_file_chapter(&fixture.manifest.summary.project_id,
-            &fixture.manifest, Some(&fixture.index), SIMPLE_PATH, &fixture.sources(&[SIMPLE_PATH]),
-            &HashSet::new(), &result).unwrap();
+        let result =
+            crate::claim_alignment::correct_once(true, initial.clone(), String::as_str, |_| {
+                Ok(corrected.clone())
+            })
+            .unwrap();
+        let revision = canonicalize_file_chapter(
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest,
+            Some(&fixture.index),
+            SIMPLE_PATH,
+            &fixture.sources(&[SIMPLE_PATH]),
+            &HashSet::new(),
+            &result,
+        )
+        .unwrap();
         fixture.assert_traceable(&revision, &[SIMPLE_PATH]);
-        let validation = chapters::validate_chapter_revision(&fixture.storage, &fixture.manifest,
-            Some(&fixture.index), &revision);
+        let validation = chapters::validate_chapter_revision(
+            &fixture.storage,
+            &fixture.manifest,
+            Some(&fixture.index),
+            &revision,
+        );
         assert_eq!(validation.status, chapters::ValidationReportStatus::Valid);
         // Alignment cannot admit fabricated source, even when every name matches.
         let mut fabricated = valid.clone();
         fabricated.sections[0].claims[0].evidence[0].quote =
             "function greeting(name) { return inventedRuntime(name); }".to_owned();
-        let result = crate::claim_alignment::correct_once(true, initial, String::as_str,
-            |_| Ok(serde_json::to_string(&fabricated).unwrap())).unwrap();
-        assert!(canonicalize_file_chapter(&fixture.manifest.summary.project_id, &fixture.manifest,
-            Some(&fixture.index), SIMPLE_PATH, &fixture.sources(&[SIMPLE_PATH]), &HashSet::new(),
-            &result).unwrap_err().contains("not present in the captured source"));
+        let result = crate::claim_alignment::correct_once(true, initial, String::as_str, |_| {
+            Ok(serde_json::to_string(&fabricated).unwrap())
+        })
+        .unwrap();
+        assert!(
+            canonicalize_file_chapter(
+                &fixture.manifest.summary.project_id,
+                &fixture.manifest,
+                Some(&fixture.index),
+                SIMPLE_PATH,
+                &fixture.sources(&[SIMPLE_PATH]),
+                &HashSet::new(),
+                &result
+            )
+            .unwrap_err()
+            .contains("not present in the captured source")
+        );
     }
 
     #[test]
@@ -3182,10 +3341,13 @@ pub(crate) mod tests {
             .remove("evidenceLimits");
         for (text, expected_error) in [
             ("not JSON".to_owned(), "not valid JSON"),
-            (format!(
-                "```json\n{}\n```",
-                serde_json::to_string(&proposal).unwrap()
-            ), "not valid JSON"),
+            (
+                format!(
+                    "```json\n{}\n```",
+                    serde_json::to_string(&proposal).unwrap()
+                ),
+                "not valid JSON",
+            ),
             (unknown_field.to_string(), "strict chapter proposal schema"),
             (missing_field.to_string(), "strict chapter proposal schema"),
         ] {
@@ -3198,11 +3360,7 @@ pub(crate) mod tests {
                 &HashSet::new(),
                 &text,
             );
-            assert!(
-                result
-                    .unwrap_err()
-                    .contains(expected_error)
-            );
+            assert!(result.unwrap_err().contains(expected_error));
         }
         let mut generic_title = simple_proposal();
         generic_title.title = "Code overview".to_owned();
@@ -3685,5 +3843,4 @@ pub(crate) mod tests {
             .is_ok()
         );
     }
-
 }

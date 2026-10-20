@@ -4,10 +4,7 @@ fn compiled(prose: &str, fragments: &[&str]) -> Result<Resolved, Vec<Value>> {
     compiled_current(prose, fragments)
 }
 
-fn compiled_current(
-    prose: &str,
-    fragments: &[&str],
-) -> Result<Resolved, Vec<Value>> {
+fn compiled_current(prose: &str, fragments: &[&str]) -> Result<Resolved, Vec<Value>> {
     let mut citations = std::collections::HashMap::new();
     for (index, fragment) in fragments.iter().enumerate() {
         let source = SnapshotSource {
@@ -85,10 +82,7 @@ fn grounded_suffixes_do_not_split_keys_match_partial_names_or_cover_unrelated_fr
         ),
         ("The greeting helper returns.", vec!["fn greeting() {}"]),
     ] {
-        assert!(
-            compiled_current(prose, &fragments).is_err(),
-            "{prose}"
-        );
+        assert!(compiled_current(prose, &fragments).is_err(), "{prose}");
     }
 }
 
@@ -243,10 +237,7 @@ fn metadata_compilation_changes_only_identifier_metadata_and_rejects_supplied_va
         panic!("checked source must resolve")
     };
     assert_eq!(
-        resolved
-            .with_grounded_named_identifiers()
-            .err()
-            .unwrap()[0]["location"],
+        resolved.with_grounded_named_identifiers().err().unwrap()[0]["location"],
         "/sections/0/claims/0/identifiers"
     );
 }

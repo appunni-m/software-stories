@@ -33,7 +33,13 @@ fn observe_attempt(
     if !reading::exists(storage, &attempt.run_id)? {
         return Ok(None);
     }
-    reading::observe(storage, &attempt.run_id, &record.project_id, &record.snapshot_id).map(Some)
+    reading::observe(
+        storage,
+        &attempt.run_id,
+        &record.project_id,
+        &record.snapshot_id,
+    )
+    .map(Some)
 }
 
 fn reconcile_with_reader(
@@ -104,34 +110,37 @@ fn reconcile_with_reader(
     if matches!(next.status, Status::Planning | Status::Building) {
         next.status = terminal_status;
     }
-    let save = || store::update_if_changed(storage, &record.id, |current| {
-        if current.revision != record.revision {
-            // Stop wins without copying any stale attempts, plan or owner.
+    let save = || {
+        store::update_if_changed(storage, &record.id, |current| {
+            if current.revision != record.revision {
+                // Stop wins without copying any stale attempts, plan or owner.
+                if current.status == Status::Stopped {
+                    return Ok(false);
+                }
+                return Err(
+                    "The guide changed while opening. Open it again; saved progress was preserved."
+                        .into(),
+                );
+            }
             if current.status == Status::Stopped {
+                next.status = Status::Stopped;
+            }
+            // Compare after checking the persisted revision: a no-op open must
+            // preserve the original bytes, including the revision later archived
+            // by an explicit continuation.
+            let saved = serde_json::to_value(&*current).map_err(
+                |_| "The saved guide could not be compared. Existing work was preserved.",
+            )?;
+            let recovered = serde_json::to_value(&next).map_err(
+                |_| "The recovered guide could not be compared. Existing work was preserved.",
+            )?;
+            if saved == recovered {
                 return Ok(false);
             }
-            return Err(
-                "The guide changed while opening. Open it again; saved progress was preserved."
-                    .into(),
-            );
-        }
-        if current.status == Status::Stopped {
-            next.status = Status::Stopped;
-        }
-        // Compare after checking the persisted revision: a no-op open must
-        // preserve the original bytes, including the revision later archived
-        // by an explicit continuation.
-        let saved = serde_json::to_value(&*current)
-            .map_err(|_| "The saved guide could not be compared. Existing work was preserved.")?;
-        let recovered = serde_json::to_value(&next).map_err(
-            |_| "The recovered guide could not be compared. Existing work was preserved.",
-        )?;
-        if saved == recovered {
-            return Ok(false);
-        }
-        *current = next;
-        Ok(true)
-    });
+            *current = next;
+            Ok(true)
+        })
+    };
     // A durable terminal receipt can precede worker retirement. Even when all
     // summaries were already terminal, keep ownership through this last write.
     match record.active_run_id.as_deref() {

@@ -289,11 +289,9 @@ fn wrapped(proposal: &Proposal) -> Result<String, String> {
         "prose".into(),
         json!("Presentation is derived from the anchored claims."),
     );
-    let has_inference = object["claims"].as_array().is_some_and(|claims| {
-        claims
-            .iter()
-            .any(|claim| claim["category"] == "inference")
-    });
+    let has_inference = object["claims"]
+        .as_array()
+        .is_some_and(|claims| claims.iter().any(|claim| claim["category"] == "inference"));
     object.insert(
         "spokenText".into(),
         json!(if has_inference {
@@ -320,15 +318,16 @@ fn finding(code: &str) -> Vec<Value> {
 
 /// Resolve authored local identities before native source validation. Raw
 /// proposal bytes remain the durable ownership and idempotence identity.
-fn wrapped_authored(
-    proposal: &mut Proposal,
-) -> Result<(String, authoring::Compiled), Vec<Value>> {
+fn wrapped_authored(proposal: &mut Proposal) -> Result<(String, authoring::Compiled), Vec<Value>> {
     if proposal.proposal_version != NARRATION_PROPOSAL_VERSION {
         return Err(finding("proposalShape"));
     }
     let compiled = authoring::narration::compile(&proposal.section)?;
     proposal.section = compiled.section.clone();
-    Ok((wrapped(proposal).map_err(|_| finding("proposalShape"))?, compiled))
+    Ok((
+        wrapped(proposal).map_err(|_| finding("proposalShape"))?,
+        compiled,
+    ))
 }
 
 /// Resolve every proposal through the current grounded-name policy.
@@ -336,12 +335,19 @@ fn resolved_authored(
     resolution: native_citations::Resolution,
 ) -> Result<native_citations::Resolved, Vec<Value>> {
     match resolution {
-        native_citations::Resolution::Invalid(issues) => Err(issues.iter().take(64)
-            .map(|issue| json!({"location":section_location(issue),"code":"citation"})).collect()),
+        native_citations::Resolution::Invalid(issues) => Err(issues
+            .iter()
+            .take(64)
+            .map(|issue| json!({"location":section_location(issue),"code":"citation"}))
+            .collect()),
         native_citations::Resolution::Ready(resolved) => resolved
             .with_grounded_named_identifiers()
-            .map_err(|issues| issues.iter()
-                .map(|issue| json!({"location":section_location(issue),"code":issue["code"]})).collect()),
+            .map_err(|issues| {
+                issues
+                    .iter()
+                    .map(|issue| json!({"location":section_location(issue),"code":issue["code"]}))
+                    .collect()
+            }),
     }
 }
 
@@ -703,10 +709,7 @@ impl Answer {
                 }
             }
             substantive_seen |= attempt.generation_id.is_some()
-                || Self::correction_required(
-                    &attempt.findings,
-                    attempt.generation_id.as_deref(),
-                );
+                || Self::correction_required(&attempt.findings, attempt.generation_id.as_deref());
             seen = true;
         }
         corrections
@@ -919,7 +922,9 @@ impl ActiveAnswer {
         if let Some(mut proposal) = parsed.and_then(|v| serde_json::from_value::<Proposal>(v).ok())
         {
             if proposal.proposal_version != NARRATION_PROPOSAL_VERSION {
-                findings = vec![json!({"location":"/proposalVersion","code":"unsupportedProposalVersion"})];
+                findings = vec![
+                    json!({"location":"/proposalVersion","code":"unsupportedProposalVersion"}),
+                ];
             } else if !valid_key(&proposal.section_key) {
                 findings = vec![json!({"location":"/sectionKey","code":"sectionKeyFormat"})];
             } else if proposal.order < MAX_SECTIONS {
@@ -956,18 +961,24 @@ impl ActiveAnswer {
                     match wrapped_authored(&mut proposal) {
                         Err(issues) => findings = issues,
                         Ok((response, compiled)) => {
-                            match resolved_authored(ledger.resolve_citations(&response, manifest, runtime, cancelled)?) {
+                            match resolved_authored(
+                                ledger
+                                    .resolve_citations(&response, manifest, runtime, cancelled)?,
+                            ) {
                                 Err(issues) => findings = issues,
                                 Ok(resolved) => {
-                                    let mut shape_findings = visual_shape_findings(&proposal.section);
-                                    shape_findings.extend(scene_version_findings(&proposal.section));
-                                    shape_findings.extend(scene_narration_findings(&proposal.section));
+                                    let mut shape_findings =
+                                        visual_shape_findings(&proposal.section);
+                                    shape_findings
+                                        .extend(scene_version_findings(&proposal.section));
+                                    shape_findings
+                                        .extend(scene_narration_findings(&proposal.section));
                                     shape_findings.truncate(64);
                                     if !shape_findings.is_empty() {
                                         findings = shape_findings;
                                     } else {
-                                        let sources =
-                                            ledger.validation_sources(manifest, runtime, cancelled)?;
+                                        let sources = ledger
+                                            .validation_sources(manifest, runtime, cancelled)?;
                                         let syntax = crate::index::load_snapshot_index(
                                             &ledger.storage,
                                             &manifest.summary.project_id,
