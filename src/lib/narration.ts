@@ -122,6 +122,12 @@ export function narrationPreferencesMatch(
     && left.style.trim() === right.style.trim();
 }
 
+/** A cache hit can play immediately; new local audio first shows its reviewed script. */
+export function localNarrationAction(reviewVisible: boolean, cachedAudioAvailable: boolean): 'show-review' | 'play-cache' | 'synthesize' {
+  if (cachedAudioAvailable) return 'play-cache';
+  return reviewVisible ? 'synthesize' : 'show-review';
+}
+
 function isIdentifierCharacter(character: string | undefined): boolean {
   return Boolean(character && /[\p{L}\p{N}_$]/u.test(character));
 }

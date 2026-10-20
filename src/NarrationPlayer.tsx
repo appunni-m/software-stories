@@ -33,6 +33,7 @@ import {
 import {
   parseNarrationPreferences,
   defaultNarrationText,
+  localNarrationAction,
   narrationPreferencesMatch,
   type NarrationPreferencesSnapshot,
 } from './lib/narration';
@@ -312,7 +313,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       if (review && review.reviewId !== result.data.reviewId) void discardNarrationRequestReview(review.reviewId).catch(() => {});
       setReview(result.data);
       setConsent(false);
-      setShowReview(requestedDraft.backend !== 'pocket-tts');
+      setShowReview(!restoreCache);
       if (restoreCache && result.data.cachedAudioAvailable) {
         const cached = await loadReviewedNarrationAudio({ reviewId: result.data.reviewId, fingerprint: result.data.fingerprint });
         if (!isCurrent()) {
@@ -526,8 +527,13 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     }
     if (localNarration && !pocketStatus?.ready) { pendingListen.current = true; openVoiceConnections(); return; }
     const currentReview = review ?? await makeReview();
-    if (currentReview?.cachedAudioAvailable) await loadCache(currentReview, true);
-    else if (currentReview && mountedRef.current && localNarration) await synthesize(currentReview);
+    if (!currentReview) return;
+    if (localNarration) {
+      const action = localNarrationAction(showReview, currentReview.cachedAudioAvailable);
+      if (action === 'play-cache') await loadCache(currentReview, true);
+      else if (action === 'show-review') setShowReview(true);
+      else if (mountedRef.current) await synthesize(currentReview);
+    } else if (currentReview.cachedAudioAvailable) await loadCache(currentReview, true);
   };
 
   const listenStarted = useRef(false);

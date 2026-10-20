@@ -6,6 +6,7 @@ import {
   defaultNarrationText,
   DEFAULT_NARRATION_STYLE,
   DEFAULT_NARRATION_VOICE,
+  localNarrationAction,
   narrationPreferencesMatch,
   parseNarrationPreferences,
 } from '../src/lib/narration.ts';
@@ -51,6 +52,13 @@ describe('default code-name pronunciation', () => {
 });
 
 describe('narration cache request snapshots', () => {
+  it('shows the exact local script before a cache miss can synthesize audio', () => {
+    assert.equal(localNarrationAction(false, false), 'show-review');
+    assert.equal(localNarrationAction(true, false), 'synthesize');
+    assert.equal(localNarrationAction(false, true), 'play-cache');
+    assert.equal(localNarrationAction(true, true), 'play-cache');
+  });
+
   it('accepts one explicit preference contract and rejects malformed or unsupported records', () => {
     assert.deepEqual(parseNarrationPreferences('{"backend":"gemini","spokenText":"Saved script","voice":"Puck","style":"Gentle","lexicon":[{"name":"foo","sayAs":"f oo","include":true}]}', 'Chapter script'), {
       backend: 'gemini',
