@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { addTurn, createWorkspace, parseWorkspace } from '../src/workspace/model.ts';
-import { createQuestionOutcomeSelector, groupUnavailablePublishedSections, historyQuestionPreview, lastAvailableAnswerItemIndex, markQuestionOutcome, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
+import { createQuestionOutcomeSelector, featuredGuideTurnId, groupUnavailablePublishedSections, historyQuestionPreview, lastAvailableAnswerItemIndex, markQuestionOutcome, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
 
 const turn = (id, status = 'failed', extra = {}) => ({ id, question: `Question ${id}`, context: [], status, ...extra });
 const stateWith = (...turns) => ({ ...createWorkspace('project', 'snapshot'), explorations: [{ ...createWorkspace('project', 'snapshot').explorations[0], turns }] });
@@ -28,6 +28,22 @@ test('Guide hides old empty outcomes while retaining all saved, active and selec
   const opened = openWorkspaceQuestion(state, 'root', 'failed');
   assert.deepEqual(visibleConversationTurns(opened, opened.explorations[0]).map((t) => t.id), ['failed', ...expected]);
   assert.equal(state.explorations[0].turns.length, 9);
+});
+
+test('Guide keeps the selected answer expanded and otherwise prefers the newest available answer', () => {
+  const turns = [
+    turn('old', 'ready', { revisionId: 'revision:old' }),
+    turn('missing', 'partial', { publishedSections: [{ revisionId: 'revision:missing' }] }),
+    turn('latest', 'ready', { publishedSections: [{ revisionId: 'revision:latest' }] }),
+    turn('newer-missing', 'failed', { revisionId: 'revision:gone' }),
+  ];
+  const available = new Set(['revision:old', 'revision:latest']);
+  assert.equal(featuredGuideTurnId(turns, undefined, available), 'latest');
+  assert.equal(featuredGuideTurnId(turns, 'old', available), 'old');
+  assert.equal(featuredGuideTurnId([...turns, turn('working', 'working')], undefined, available), 'working');
+  assert.equal(featuredGuideTurnId([turn('unavailable', 'failed')], undefined, available), 'unavailable');
+  const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+  assert.match(source, /compact=\{turn\.id!==featuredTurnId\}/);
 });
 
 test('reopening an exploration focuses its latest question without changing its view or reading state', () => {

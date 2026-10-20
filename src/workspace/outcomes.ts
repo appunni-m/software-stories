@@ -25,6 +25,24 @@ export function visibleConversationTurns(state: WorkspaceState, exploration: Exp
     || turn.id === exploration.focusedTurnId || branchOwners.has(turn.id));
 }
 
+/** Keep the selected question prominent in Guide. Without an explicit
+ * selection, prefer the newest active or source-available answer; old receipts
+ * remain in the conversation and Chat history. */
+export function featuredGuideTurnId(
+  turns: readonly Turn[],
+  focusedTurnId: string | undefined,
+  availableRevisionIds: ReadonlySet<string>,
+): string | null {
+  if (focusedTurnId && turns.some((turn) => turn.id === focusedTurnId)) return focusedTurnId;
+  for (const turn of [...turns].reverse()) {
+    if (active(turn)) return turn.id;
+    const revisionIds = [turn.revisionId, ...(turn.publishedSections ?? []).map((section) => section.revisionId),
+      ...(turn.answerVersions ?? []).map((version) => version.revisionId)];
+    if (revisionIds.some((revisionId) => revisionId && availableRevisionIds.has(revisionId))) return turn.id;
+  }
+  return turns.at(-1)?.id ?? null;
+}
+
 /** Reopening an exploration keeps its last question visible when older saved
  * work has no focused-turn metadata. An explicit, valid focus always wins. */
 export function openWorkspaceExploration(state: WorkspaceState, explorationId: string): WorkspaceState {
