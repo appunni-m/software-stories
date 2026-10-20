@@ -8,6 +8,7 @@ import { CodePane } from '../design/CodePane';
 import { FileFlow } from '../FileFlow';
 import { VisualStory } from '../VisualStory';
 import { ReaderProgressContext } from '../lib/ReaderProgressContext';
+import { sourceAnchorForVisualNode, sourceValuesByVisualNode } from '../lib/visualStory';
 import { cleanFlowViewport, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowViewport';
 import { buildInventory } from '../lib/inventory';
@@ -486,13 +487,15 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
   const identity={revisionId:revision.revisionId,sectionId:revision.sections[selected].sectionId,sectionRevisionId:revision.sections[selected].sectionRevisionId};
   const viewport=progress?.find(p=>sameSection(p,identity))?.viewport;
   const {visual,anchorsById}=result;
+  const sourceValues=sourceValuesByVisualNode(visual);
+  const openNodeSource=(node:typeof visual.nodes[number],anchor:ChapterSourceAnchor)=>onOpen(sourceAnchorForVisualNode(anchor,node,sourceValues.get(node.nodeId)));
   const linearSteps=linearFlowSteps(visual);
   const positions=layoutFlowNodes(visual.nodes,visual.edges,visual.layoutHint.direction);
   const nodes=visual.nodes.map((n)=>{
     const anchor=n.evidenceAnchorIds[0]?anchorsById.get(n.evidenceAnchorIds[0]):undefined;
     const label=<><strong>{n.label}</strong>{n.detail&&<small>{n.detail}</small>}</>;
     return {id:n.nodeId,position:positions.get(n.nodeId)??{x:0,y:0},
-      data:{label:anchor?<button type="button" className="dw-flow-source nodrag nopan" aria-label={`Open source for ${n.label}`} onClick={()=>onOpen(anchor)}>{label}</button>:label},style:{width:250}};
+      data:{label:anchor?<button type="button" className="dw-flow-source nodrag nopan" aria-label={`Open source for ${n.label}`} onClick={()=>openNodeSource(n,anchor)}>{label}</button>:label},style:{width:250}};
   });
   const edges=visual.edges.map((e)=>({id:e.edgeId,source:e.fromNodeId,target:e.toNodeId,label:e.label??undefined,markerEnd:{type:MarkerType.ArrowClosed}}));
   return <section className="dw-flow-panel"><div className="dw-flow-heading"><h2>{visual.title}</h2>{availableDiagramCount>1&&<select aria-label="Diagram section" value={selected} onChange={(e)=>{const section=revision.sections[Number(e.target.value)];if(section)onSection(section.sectionId);}}>{diagrams.map((d,i)=>d.status==='available'?<option key={i} value={i}>{revision.sections[i].title}</option>:null)}</select>}</div>
@@ -504,7 +507,7 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
           if (!anchor) return null;
           const sourceLabel=`${anchor.path}:${anchor.startLine}${anchor.endLine===anchor.startLine?'':`–${anchor.endLine}`}`;
           return <li className="dw-linear-flow-item" key={node.nodeId}>
-            <button type="button" className="dw-linear-flow-step" aria-label={`Step ${index+1}: ${node.label}. Open source ${sourceLabel}`} onClick={()=>onOpen(anchor)}>
+            <button type="button" className="dw-linear-flow-step" aria-label={`Step ${index+1}: ${node.label}. Open source ${sourceLabel}`} onClick={()=>openNodeSource(node,anchor)}>
               <span className="dw-linear-flow-index">Step {index+1}</span>
               <strong>{node.label}</strong>
               {node.detail&&<small>{node.detail}</small>}

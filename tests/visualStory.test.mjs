@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { viewportClipsNodeBounds } from '../src/lib/flowViewport.ts';
-import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualNode, storyLayout, storyScenes } from '../src/lib/visualStory.ts';
+import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes } from '../src/lib/visualStory.ts';
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
 const claims = [claim('entry', 'A request reaches handleRequest. The bytes are still untrusted.'), claim('check', 'If validate rejects those bytes, the caller receives an error. Otherwise processing continues.')];
@@ -74,6 +74,22 @@ describe('visual story scenes', () => {
     assert.match(component, /const sourceValue = e\.valueOrigin === 'source' \? value : undefined;/u);
     assert.match(component, /onClick=\{\(\) => onOpenNode\(node\.nodeId, sourceValue\)\}/u);
     assert.match(component, /onOpenNode\(node\.nodeId, sourceValue\)/u);
+  });
+
+  it('uses an unambiguous composed source value when a graph node opens source', () => {
+    const expression = 'Self::pfr_face(data, face_index, size_pt)';
+    const presentation = (values) => ({ schemaVersion: 3, scenes: values.map((value, claimIndex) => ({
+      claimIndex, title: 'Pass the original input', narration: 'The matching branch forwards its input.', mode: 'composition',
+      elements: [{ kind: 'code', parentIndex: null, nodeIndex: 2, tone: 'accent', value, valueOrigin: 'source' }],
+    })) });
+    const graphVisual = { ...visual, presentation: presentation([expression]) };
+    assert.equal(sourceValuesByVisualNode(graphVisual).get('error'), expression);
+
+    const conflicting = { ...visual, presentation: presentation([expression, 'Self::other_face(data)']) };
+    assert.equal(sourceValuesByVisualNode(conflicting).has('error'), false);
+
+    const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
+    assert.match(component, /onClick=\{\(\) => chooseNode\(node\.id, sourceValues\.get\(node\.id\)\)\}/u);
   });
 
   it('keeps the full citation when a visual node has no unique exact expression', () => {

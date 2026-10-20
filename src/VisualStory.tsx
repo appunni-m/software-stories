@@ -7,7 +7,7 @@ import { isNativeRuntime, type ChapterHotspot, type ChapterRevision, type Chapte
 import { defaultNarrationText, parseNarrationPreferences } from './lib/narration';
 import { narrationStorageKey } from './lib/narrationScope';
 import { inspectInteractiveVisual } from './lib/visuals';
-import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualNode, storyLayout, storyScenes } from './lib/visualStory';
+import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes } from './lib/visualStory';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
 import { useReaderProgress } from './lib/ReaderProgressContext';
@@ -79,6 +79,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     || section.claims[item.claimIndex]?.claimId === scene.id) ?? [];
   const htmlScenes = !fullMap && authoredScenes.length > 0 && authoredScenes.every((item) => item.mode === 'composition') ? authoredScenes : [];
   const anchors = section.claims.flatMap((claim) => claim.anchors);
+  const sourceValues = useMemo(() => visual ? sourceValuesByVisualNode(visual) : new Map<string, string>(), [visual]);
   const anchor = anchors.find((item) => scene.anchorIds.includes(item.anchorId));
   const activeIds = new Set(scene.nodeIds);
   const visibleIds = visual && !fullMap && activeIds.size ? sceneNodeIds(visual, scene) : new Set(visual?.nodes.map((node) => node.nodeId));
@@ -113,7 +114,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     const data = visual.nodes.find((item) => item.nodeId === node.id)!;
     return { ...node, sourcePosition: visual.layoutHint.direction === 'topToBottom' ? Position.Bottom : Position.Right,
       targetPosition: visual.layoutHint.direction === 'topToBottom' ? Position.Top : Position.Left,
-      data: { label: <button className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${data.evidenceAnchorIds[0]}`} aria-pressed={focus?.nodeId === node.id} aria-label={`${data.label}${data.detail ? `: ${data.detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}`} onClick={() => chooseNode(node.id)}>
+      data: { label: <button className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${data.evidenceAnchorIds[0]}`} aria-pressed={focus?.nodeId === node.id} aria-label={`${data.label}${data.detail ? `: ${data.detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}`} onClick={() => chooseNode(node.id, sourceValues.get(node.id))}>
         <span className="story-node-title">{data.label}</span>
         {data.detail && <small className="story-node-detail">{data.detail}</small>}
       </button> },

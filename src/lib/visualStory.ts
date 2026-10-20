@@ -65,6 +65,27 @@ export function sourceAnchorForVisualNode(anchor: ChapterSourceAnchor, node: Pic
   };
 }
 
+/** Resolve code values authored for each composition node so the graph view can
+ * open the same exact source line as the HTML composition view. If one graph
+ * node has conflicting source values across authored scenes, leave it broad.
+ */
+export function sourceValuesByVisualNode(visual: EvidenceLinkedVisualSpec): Map<string, string> {
+  const values = new Map<string, Set<string>>();
+  for (const scene of visual.presentation?.scenes ?? []) {
+    if (scene.mode !== 'composition') continue;
+    for (const element of scene.elements) {
+      if (element.valueOrigin !== 'source' || element.nodeIndex === null) continue;
+      const node = visual.nodes[element.nodeIndex];
+      if (!node) continue;
+      const nodeValues = values.get(node.nodeId) ?? new Set<string>();
+      nodeValues.add(element.value);
+      values.set(node.nodeId, nodeValues);
+    }
+  }
+  return new Map([...values].flatMap(([nodeId, nodeValues]) =>
+    nodeValues.size === 1 ? [[nodeId, [...nodeValues][0]] as const] : []));
+}
+
 function sentences(text: string): string[] {
   const result: string[] = [];
   let start = 0;
