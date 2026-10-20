@@ -2364,7 +2364,7 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
   };
 
   const handleSend = async () => {
-    if (!providerId || !modelId || !requestReview || sending || saveBusy || sendResult || codeLensResult || !hasApiKey || !consent.privacyAndDataUseAcknowledged
+    if (!providerId || !modelId || !requestReview || keyBusy || sending || saveBusy || sendResult || codeLensResult || !hasApiKey || !consent.privacyAndDataUseAcknowledged
       || !consent.billingUncertaintyAcknowledged || !consent.adultSupportedRegionAcknowledged
       || unavailableModel === modelId) return;
     setSending(true);
@@ -2521,7 +2521,7 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
   };
 
   const requestReady = Boolean(
-    providerId && modelId && disclosure?.models.some((model) => model.modelId === modelId) && requestReview && hasApiKey && consent.privacyAndDataUseAcknowledged
+    !keyBusy && providerId && modelId && disclosure?.models.some((model) => model.modelId === modelId) && requestReview && hasApiKey && consent.privacyAndDataUseAcknowledged
       && consent.billingUncertaintyAcknowledged && consent.adultSupportedRegionAcknowledged
       && unavailableModel !== modelId,
   );
@@ -2767,7 +2767,7 @@ function DirectApiDialog({ mode, native, onClose, onRecoveryReviewReady, onOpenC
         )}
 
         <footer className="provider-dialog-footer">
-          <button className="secondary-button" onClick={handleClose} disabled={sending || saveBusy}>{sending ? 'Provider request in progress…' : savedRevision || codeLensResult ? 'Done' : 'Close'}</button>
+          <button className="secondary-button" onClick={handleClose} disabled={keyBusy || sending || saveBusy}>{sending ? 'Provider request in progress…' : savedRevision || codeLensResult ? 'Done' : 'Close'}</button>
           {reviewMode && (
             sending ? (
               <button className="secondary-button" onClick={() => setCancelConfirmation(true)} disabled={cancelBusy || cancelRequested.current}>
