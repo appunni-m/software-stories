@@ -109,9 +109,9 @@ Both broad file-discovery scans visited eight 32-result pages and found all seve
 
 ## Current-source rerun — 21 October 2026
 
-Reran the frozen service profile at source `39d1fd73a081047f16d7c2d5e0aad59fcafa427c` against an isolated 273 MB copy of the saved Fontdone snapshot and its prepared indexes. The user's original app data was not modified. No model, Codex, or speech request was made during this measurement.
+Ran the frozen service profile twice at source `39d1fd73a081047f16d7c2d5e0aad59fcafa427c` against an isolated 273 MB copy of the saved Fontdone snapshot and its prepared indexes. The user's original app data was not modified. No model, Codex, or speech request was made during either measurement.
 
-Environment: Apple M3 Pro, arm64, macOS 15.7.7, Rust/Cargo 1.98.1. This is one disk-loaded profile run with no separate warm repetitions or variance estimate; prepared indexes were copied, so it is not a cold index-build measurement. Command:
+Environment: Apple M3 Pro, arm64, macOS 15.7.7, Rust/Cargo 1.98.1. Both runs used copied prepared indexes, so these are disk-loaded and same-process cached searches, not cold index-build measurements. Timings below are observed ranges across two runs, not a variance estimate. Command:
 
 ```sh
 RUSTC_WRAPPER= \
@@ -125,14 +125,16 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked --lib \
 | Indexed files / bytes / ranges | 1,621 / 19,296,074 / 3,438 |
 | Syntax / text-fallback files | 83 / 1,538 |
 | Unavailable files / snapshot paths skipped | 1,147 / 25 |
-| `memory_face` disk-load + search / same-process search | 1,893 ms / 222 ms |
+| `memory_face` disk-load + search / same-process search | 1,787–1,893 ms / 213–222 ms |
 | Serialized `memory_face` result | 23,279 bytes; top hit `src/font.rs:4053` |
 | Named identifier recall, global | **12 / 12** |
 | Broad query 1, first ranked page; all ranked pages | **1/12; 12/12** |
-| Broad query 1, file-discovery first page; all discovery pages | **5/7 expected paths; 7/7** |
+| Broad query 1, file-discovery first page; scoped recall on those paths | **5/7 paths; 9/12 ranges** |
+| Broad query 1, all file-discovery pages; scoped recall | **7/7 paths; 12/12 ranges** |
 | Broad query 2, first ranked page; all ranked pages | **2/12; 7/12** |
-| Broad query 2, file-discovery first page; all discovery pages | **4/7 expected paths; 7/7** |
+| Broad query 2, file-discovery first page; scoped recall on those paths | **4/7 paths; 8/12 ranges** |
+| Broad query 2, all file-discovery pages; scoped recall | **7/7 paths; 12/12 ranges** |
 
-Each file-discovery scan used eight 32-result pages. Follow-up searches scoped to the expected files recovered 12/12 ranges for both broad queries. For query 1, all ranked pages took 9,351 ms and serialized 166,094 result bytes; discovery took 1,195 ms and serialized 143,546 bytes. For query 2, all ranked pages took 9,038 ms and serialized 157,869 bytes; discovery took 1,184 ms and serialized 142,831 bytes. These are single-run debug timings and aggregate page payloads, not a user-facing latency or token measure.
+Each file-discovery scan used eight 32-result pages. Scoping the expected files from all pages recovered 12/12 ranges for both broad queries. For query 1, all ranked pages took 9,351–9,611 ms and serialized 166,094 result bytes; discovery took 1,195–1,227 ms and serialized 143,546 bytes. For query 2, all ranked pages took 9,038–9,116 ms and serialized 157,869 result bytes; discovery took 1,184–1,290 ms and serialized 142,831 bytes. These are local debug timings and aggregate page payloads, not a user-facing latency or token measure.
 
-The updated path-level discovery plus scoped searches can locate the full frozen set, while a single first page remains weak and query 2's global range pages still miss five spans. This does not establish automatic agent tool use, sufficient broad-answer evidence, packaged offline coverage or narrative quality. Keep `a699`, its dependent agent qualification and guide-quality work open.
+Path-level discovery followed by scoped searches improves the simulated first-page path result to 9/12 and 8/12 expected ranges; paging discovery and scoping all expected paths reaches 12/12. A single global range page remains weak, and query 2's global range pages still miss five spans. This service profile does not establish automatic agent tool use, sufficient broad-answer evidence, packaged offline coverage or narrative quality. Keep `a699`, its dependent agent qualification and guide-quality work open.
