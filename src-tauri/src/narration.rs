@@ -2682,6 +2682,55 @@ mod tests {
     }
 
     #[test]
+    fn cached_pocket_audio_reloads_after_in_memory_state_is_recreated() {
+        let storage = TestStorage::new();
+        let first_reviews = PendingNarrationReviews::default();
+        let input = BuildNarrationReviewInput {
+            spoken_text: "Read this cached Pocket clip after restart.".into(),
+            voice: crate::pocket_tts::VOICE.into(),
+            style: String::new(),
+            lexicon: Vec::new(),
+        };
+        let first = match build_local_request_review(&storage.0, &first_reviews, input.clone()) {
+            ProviderCommandResult::Ok { data } => data,
+            ProviderCommandResult::Error { error } => {
+                panic!("local Pocket review should build: {error:?}")
+            }
+        };
+        let expected = valid_test_wav(29);
+        write_cached_audio(&storage.0, &first.cache_key, &expected)
+            .expect("valid local WAV should be cached");
+
+        // A restart loses reviews and prewarm-queue state but keeps app storage.
+        let reopened_reviews = PendingNarrationReviews::default();
+        let reopened = match build_local_request_review(&storage.0, &reopened_reviews, input) {
+            ProviderCommandResult::Ok { data } => data,
+            ProviderCommandResult::Error { error } => {
+                panic!("the reopened local Pocket review should build: {error:?}")
+            }
+        };
+        assert_eq!(reopened.cache_key, first.cache_key);
+        assert!(reopened.cached_audio_available);
+
+        let loaded = load_reviewed_audio(
+            &storage.0,
+            &reopened_reviews,
+            &reopened.review_id,
+            &reopened.fingerprint,
+        );
+        let ProviderCommandResult::Ok { data } = loaded else {
+            panic!("the cached Pocket WAV should load using only local storage");
+        };
+        assert!(data.cache_hit);
+        assert_eq!(
+            base64::engine::general_purpose::STANDARD
+                .decode(data.audio_base64)
+                .expect("cached Pocket WAV should be base64 encoded"),
+            expected
+        );
+    }
+
+    #[test]
     fn review_fingerprint_is_bound_and_consumed_once() {
         let storage = TestStorage::new();
         let reviews = PendingNarrationReviews::default();
