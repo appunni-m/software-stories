@@ -114,7 +114,7 @@ test('an unavailable answer stays a compact status beside its recovery action', 
   const styles = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
   assert.match(workspace, /const unavailable=!revision&&availability==='unavailable'/);
   assert.match(workspace, /className=\{`dw-answer-card\$\{unavailable\?' dw-answer-card-unavailable':''\}`\}/);
-  assert.match(workspace, /<p className="dw-unavailable-status" role="status">Saved explanation unavailable\.<\/p>/);
+  assert.match(workspace, /<p className="dw-unavailable-status" role="status">The answer for this question could not be reopened\. Your question is saved; explain it again to create a new answer\.<\/p>/);
   assert.match(workspace, /\{!hideQuestion&&<QuestionDisclosure question=\{turn\.question\}\/>\}/);
   assert.match(workspace, /<Button size="1" variant="soft" onClick=\{onRetry\}>Explain again<\/Button>/);
   assert.match(styles, /\.dw-answer-card-unavailable\s*\{display:flex;align-items:center/);
