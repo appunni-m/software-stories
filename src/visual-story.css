@@ -58,7 +58,7 @@
 .story-sources { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0; }
 .story-sources button { background: var(--surface-raised); border: 1px solid var(--border); padding: 6px; border-radius: 4px; font: 11px var(--mono); overflow-wrap: anywhere; text-align: left; }
 @media (max-width: 680px) { .story-stage { height: clamp(260px, 42vh, 520px); } .story-playbar { grid-template-columns: 26px minmax(0,1fr) 26px; padding-inline: 2px; } .story-toolbar { gap: 4px; } }
-@container guide-pane (max-width: 560px) {
+@container guide-pane (max-width: 700px) {
   .story-toolbar { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 8px; padding: 6px 8px; }
   .story-scene-title { grid-column: 1 / -1; white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
   .story-scene-count { grid-column: 1; grid-row: 2; }

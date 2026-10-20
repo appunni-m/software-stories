@@ -188,7 +188,7 @@
 .dw-error-details p {line-height:1.7;overflow-wrap:anywhere;}
 /* The reader pane can become narrow from zoom or user resizing even when the
    desktop window is wide. Reflow the Guide from its own available width. */
-@container guide-pane (max-width: 560px) {
+@container guide-pane (max-width: 700px) {
   .dw-answer-scroll {padding:14px 10px 32px;}
   .dw-answer-card {padding:12px;}
   .dw-section-controls {flex-wrap:wrap;}
