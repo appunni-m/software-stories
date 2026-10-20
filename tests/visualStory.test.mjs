@@ -172,7 +172,8 @@ describe('visual story scenes', () => {
       'scene heading, visual, player and details should appear in that order');
     assert.match(component, /className="story-sticky-controls"[\s\S]*?className="story-toolbar"[\s\S]*?className="story-scene-title" title=\{scene\.title\}/u);
     assert.match(component, /aria-label=\{`Scene \$\{i \+ 1\}: \$\{item\.title\}`\}/u);
-    assert.match(styles, /\.story-sticky-controls\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/u);
+    assert.match(styles, /\.story-sticky-controls\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;[^}]*z-index:\s*10/u,
+      'the sticky scene controls should cover React Flow nodes while the answer scrolls');
     const playerRule = styles.match(/\.story-playbar\s*\{([^}]+)\}/u)?.[1] ?? '';
     assert.match(playerRule, /position:\s*sticky/u);
     assert.match(playerRule, /bottom:\s*0/u);
@@ -201,10 +202,15 @@ describe('visual story scenes', () => {
     assert.match(answerRule, /min-width:\s*0/u);
     assert.match(answerRule, /box-sizing:\s*border-box/u);
     assert.match(compactRules, /\.story-scene-title\s*\{[^}]*white-space:\s*normal/u);
+    assert.match(compactRules, /\.story-toolbar\s*\{[^}]*grid-template-columns:\s*minmax\(0,1fr\) auto auto/u);
+    assert.match(compactRules, /\.story-map-toggle\s*\{[^}]*grid-column:\s*3;[^}]*grid-row:\s*2/u,
+      'the map control should share the second row instead of taking a third toolbar row');
     assert.match(compactRules, /\.story-playbar \.is-story-audio\s*\{[^}]*grid-template-areas:\s*"status status" "playback playback" "read edit"/u);
     assert.match(compactRules, /\.is-story-audio \.walkthrough-playback-buttons\s*\{[^}]*flex-wrap:\s*wrap/u);
     assert.match(styles, /\.visual-story\s*\{[^}]*max-width:\s*100%[^}]*box-sizing:\s*border-box/u);
     assert.match(workspace, /html\[data-app-zoom-compact="true"\] \.dw-answer-scroll/u);
+    assert.match(styles, /html\[data-app-zoom-compact="true"\] \.story-toolbar\s*\{[^}]*grid-template-columns:minmax\(0,1fr\) auto auto/u);
+    assert.match(styles, /html\[data-app-zoom-compact="true"\] \.story-map-toggle\s*\{[^}]*grid-column:3;[^}]*grid-row:2/u);
     assert.match(styles, /html\[data-app-zoom-compact="true"\] \.story-playbar \.is-story-audio\s*\{[^}]*grid-template-areas:"status status" "playback playback" "read edit"/u);
   });
 

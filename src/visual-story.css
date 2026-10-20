@@ -1,5 +1,5 @@
 .visual-story { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; margin-top: 12px; scroll-margin-top: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-.story-sticky-controls { position: sticky; top: 0; z-index: 4; background: var(--surface); }
+.story-sticky-controls { position: sticky; top: 0; z-index: 10; background: var(--surface); }
 .story-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-height: 42px; padding: 5px 12px; border-bottom: 1px solid var(--border); }
 .story-scene-title { flex: 1 1 150px; min-width: 0; overflow: hidden; color: var(--text); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .story-scene-count { color: var(--muted); font-size: 12px; }
@@ -58,11 +58,11 @@
 .story-sources button { background: var(--surface-raised); border: 1px solid var(--border); padding: 6px; border-radius: 4px; font: 11px var(--mono); overflow-wrap: anywhere; text-align: left; }
 @media (max-width: 680px) { .story-stage { height: clamp(260px, 42vh, 520px); } .story-playbar { grid-template-columns: 26px minmax(0,1fr) 26px; padding-inline: 2px; } .story-toolbar { gap: 4px; } }
 @container guide-pane (max-width: 700px) {
-  .story-toolbar { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 8px; padding: 6px 8px; }
+  .story-toolbar { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 4px 8px; padding: 6px 8px; }
   .story-scene-title { grid-column: 1 / -1; white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
   .story-scene-count { grid-column: 1; grid-row: 2; }
   .story-scene-dots { grid-column: 2; grid-row: 2; margin-left: 0; justify-self: end; }
-  .story-map-toggle { grid-column: 1 / -1; justify-self: start; }
+  .story-map-toggle { grid-column: 3; grid-row: 2; justify-self: end; white-space: nowrap; }
   .story-playbar { grid-template-columns: 24px minmax(0,1fr) 24px; align-items: start; gap: 2px; padding: 4px 3px; }
   .story-playbar .is-story-audio { grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "status status" "playback playback" "read edit"; row-gap: 4px; }
   .is-story-audio .walkthrough-panel-heading { justify-content: flex-start; }
@@ -73,11 +73,11 @@
   .is-story-audio .walkthrough-seek-label input { display: block; width: 100%; min-width: 0; box-sizing: border-box; }
   .story-stage { height: clamp(260px, 42vh, 520px); }
 }
-html[data-app-zoom-compact="true"] .story-toolbar { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 8px; padding:6px 8px; }
+html[data-app-zoom-compact="true"] .story-toolbar { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:4px 8px; padding:6px 8px; }
 html[data-app-zoom-compact="true"] .story-scene-title { grid-column:1 / -1; white-space:normal; overflow-wrap:anywhere; text-overflow:clip; }
 html[data-app-zoom-compact="true"] .story-scene-count { grid-column:1; grid-row:2; }
 html[data-app-zoom-compact="true"] .story-scene-dots { grid-column:2; grid-row:2; margin-left:0; justify-self:end; }
-html[data-app-zoom-compact="true"] .story-map-toggle { grid-column:1 / -1; justify-self:start; }
+html[data-app-zoom-compact="true"] .story-map-toggle { grid-column:3; grid-row:2; justify-self:end; white-space:nowrap; }
 html[data-app-zoom-compact="true"] .story-playbar { grid-template-columns:24px minmax(0,1fr) 24px; align-items:start; gap:2px; padding:4px 3px; }
 html[data-app-zoom-compact="true"] .story-playbar .is-story-audio { grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"status status" "playback playback" "read edit"; row-gap:4px; }
 html[data-app-zoom-compact="true"] .is-story-audio .walkthrough-panel-heading { justify-content:flex-start; }
