@@ -110,6 +110,10 @@ export function rebaseChapterDraft(
   }
 
   sections.sort((left,right)=>left.order-right.order||left.sectionId.localeCompare(right.sectionId));
-  const revision:ChapterRevision={...copy(latest),title,sections};
+  // Independent insertions can both choose the same position. Keep their
+  // deterministic merged order, then restore the chapter's required
+  // contiguous zero-based positions before the candidate reaches validation.
+  const orderedSections=sections.map((section,order)=>({...section,order}));
+  const revision:ChapterRevision={...copy(latest),title,sections:orderedSections};
   return {revision,conflicts,unresolved:conflicts.filter(conflict=>!choices[conflict.id]).map(conflict=>conflict.id)};
 }

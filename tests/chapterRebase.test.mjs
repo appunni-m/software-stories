@@ -63,6 +63,22 @@ test('same-section delete and edit conflict explicitly; unchanged latest content
   assert.deepEqual(result.revision.sections,[]);
 });
 
+test('independent insertions at the same position keep a deterministic contiguous section order',()=>{
+  const {base,latest,draft}=versions();
+  const added=(sectionId,sectionRevisionId,title)=>({
+    ...structuredClone(base.sections[0]),sectionId,sectionRevisionId,order:1,title,claims:[],dependencies:[],hotspots:[],visual:null,
+  });
+  latest.sections.push(added('section:latest-insertion','section-revision:latest-insertion','Saved insertion'));
+  draft.sections.push(added('section:draft-insertion','section-revision:draft-insertion','Draft insertion'));
+
+  const result=rebaseChapterDraft(base,latest,draft);
+  assert.equal(result.conflicts.length,0);
+  assert.deepEqual(result.revision.sections.map(section=>section.title),[
+    'Request entry point','Draft insertion','Saved insertion',
+  ]);
+  assert.deepEqual(result.revision.sections.map(section=>section.order),[0,1,2]);
+});
+
 test('rebase refuses revisions from different snapshots or targets',()=>{
   const {base,latest,draft}=versions();latest.snapshotId='snapshot:other';
   assert.throws(()=>rebaseChapterDraft(base,latest,draft),/same project, snapshot and target/);
