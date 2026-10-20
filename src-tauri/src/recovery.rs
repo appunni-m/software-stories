@@ -1,14 +1,14 @@
 use serde::{Deserialize, Serialize};
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, OpenOptions};
 use std::future::Future;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 const JOURNAL_SCHEMA_VERSION: u32 = 1;
-const MAX_JOURNAL_BYTES: u64 = 1024 * 1024;
+const MAX_JOURNAL_BYTES: usize = 1024 * 1024;
 const MAX_OPERATION_COUNT: usize = 256;
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -499,20 +499,22 @@ fn journal_path(storage_dir: &Path) -> PathBuf {
 
 fn read_journal(storage_dir: &Path) -> Result<JournalFile, String> {
     let path = journal_path(storage_dir);
-    let file = match File::open(&path) {
-        Ok(file) => file,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+    let bytes = match crate::bounded_file::read(&path, MAX_JOURNAL_BYTES) {
+        Ok(bytes) => bytes,
+        Err(crate::bounded_file::ReadError::Io(error))
+            if error.kind() == std::io::ErrorKind::NotFound =>
+        {
             return Ok(empty_journal());
         }
-        Err(error) => return Err(format!("Interrupted work could not be read: {error}")),
+        Err(crate::bounded_file::ReadError::Io(error)) => {
+            return Err(format!("Interrupted work could not be read: {error}"));
+        }
+        Err(crate::bounded_file::ReadError::TooLarge) => {
+            return Err(
+                "Interrupted work data is larger than the local recovery limit.".to_owned(),
+            );
+        }
     };
-    let mut bytes = Vec::new();
-    file.take(MAX_JOURNAL_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|error| format!("Interrupted work could not be read: {error}"))?;
-    if bytes.len() as u64 > MAX_JOURNAL_BYTES {
-        return Err("Interrupted work data is larger than the local recovery limit.".to_owned());
-    }
     let journal: JournalFile = serde_json::from_slice(&bytes)
         .map_err(|error| format!("Interrupted work data is invalid: {error}"))?;
     if journal.schema_version != JOURNAL_SCHEMA_VERSION
@@ -543,7 +545,7 @@ fn write_journal(storage_dir: &Path, journal: &JournalFile) -> Result<(), String
         storage_dir.join(format!(".interrupted-operations.{}.tmp", Uuid::new_v4()));
     let bytes = serde_json::to_vec_pretty(journal)
         .map_err(|error| format!("Interrupted work could not be encoded: {error}"))?;
-    if bytes.len() as u64 > MAX_JOURNAL_BYTES {
+    if bytes.len() > MAX_JOURNAL_BYTES {
         return Err("Interrupted work would exceed the local recovery storage limit.".to_owned());
     }
 
@@ -608,6 +610,32 @@ mod tests {
             .discard(&directory.0, &capture.operation_id)
             .unwrap();
         assert_eq!(journal.list(&directory.0).unwrap(), vec![provider]);
+    }
+
+    #[test]
+    fn recovery_journal_accepts_one_mib_and_rejects_the_next_byte() {
+        let directory = TestDirectory::new();
+        let mut bytes = serde_json::to_vec(&empty_journal()).unwrap();
+        bytes.resize(MAX_JOURNAL_BYTES, b' ');
+        fs::write(journal_path(&directory.0), &bytes).unwrap();
+        let loaded = read_journal(&directory.0).unwrap();
+        assert_eq!(loaded.schema_version, JOURNAL_SCHEMA_VERSION);
+        assert!(loaded.operations.is_empty());
+
+        bytes.push(b' ');
+        fs::write(journal_path(&directory.0), bytes).unwrap();
+        assert!(matches!(
+            read_journal(&directory.0),
+            Err(error) if error.contains("larger than the local recovery limit")
+        ));
+
+        let mut truncated = serde_json::to_vec(&empty_journal()).unwrap();
+        truncated.pop();
+        for invalid in [Vec::new(), truncated, b"{ broken".to_vec()] {
+            fs::write(journal_path(&directory.0), &invalid).unwrap();
+            assert!(matches!(read_journal(&directory.0), Err(error) if error.contains("invalid")));
+            assert_eq!(fs::read(journal_path(&directory.0)).unwrap(), invalid);
+        }
     }
 
     #[test]

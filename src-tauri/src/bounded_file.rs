@@ -12,9 +12,14 @@ pub(crate) enum ReadError {
 /// without first allocating its full contents.
 pub(crate) fn read(path: &Path, limit: usize) -> Result<Vec<u8>, ReadError> {
     let file = File::open(path).map_err(ReadError::Io)?;
+    read_from(file, limit)
+}
+
+fn read_from(reader: impl Read, limit: usize) -> Result<Vec<u8>, ReadError> {
     let read_limit = limit.saturating_add(1) as u64;
     let mut bytes = Vec::with_capacity(limit.min(64 * 1024));
-    file.take(read_limit)
+    reader
+        .take(read_limit)
         .read_to_end(&mut bytes)
         .map_err(ReadError::Io)?;
     if bytes.len() > limit {
@@ -76,5 +81,44 @@ mod tests {
 
         let nonempty = TestFile::new(b"x");
         assert!(matches!(read(&nonempty.0, 0), Err(ReadError::TooLarge)));
+    }
+
+    struct CountingReader {
+        remaining: usize,
+        bytes_read: usize,
+    }
+
+    impl CountingReader {
+        fn new(remaining: usize) -> Self {
+            Self {
+                remaining,
+                bytes_read: 0,
+            }
+        }
+    }
+
+    impl Read for CountingReader {
+        fn read(&mut self, output: &mut [u8]) -> io::Result<usize> {
+            let count = output.len().min(self.remaining);
+            output[..count].fill(b'x');
+            self.remaining -= count;
+            self.bytes_read += count;
+            Ok(count)
+        }
+    }
+
+    #[test]
+    fn oversized_stream_reads_only_the_limit_plus_one_sentinel() {
+        let limit = 17;
+        let mut exact = CountingReader::new(limit);
+        assert_eq!(read_from(&mut exact, limit).unwrap().len(), limit);
+        assert_eq!(exact.bytes_read, limit);
+
+        let mut oversized = CountingReader::new(limit + 100);
+        assert!(matches!(
+            read_from(&mut oversized, limit),
+            Err(ReadError::TooLarge)
+        ));
+        assert_eq!(oversized.bytes_read, limit + 1);
     }
 }

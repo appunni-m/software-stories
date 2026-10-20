@@ -2,8 +2,8 @@ use crate::snapshot::{self, CapturedContentKind, CapturedFile, SnapshotManifest,
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::fs::{self, File, OpenOptions};
-use std::io::{Read, Write};
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::ops::ControlFlow;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -2662,6 +2662,54 @@ mod tests {
         )
     }
 
+    #[test]
+    fn saved_snapshot_index_accepts_32_mib_and_rejects_the_next_byte() {
+        let directory = TestDirectory::new();
+        let project_id = "fixture-project";
+        let snapshot_id = "snapshot-a";
+        let index = SnapshotIndex {
+            schema_version: INDEX_SCHEMA_VERSION,
+            indexer_version: INDEXER_VERSION.to_owned(),
+            project_id: project_id.to_owned(),
+            snapshot_id: snapshot_id.to_owned(),
+            status: SnapshotIndexStatus::Partial,
+            parsers: Vec::new(),
+            files: Vec::new(),
+            symbols: Vec::new(),
+            relationships: Vec::new(),
+        };
+        let mut bytes = serde_json::to_vec(&index).unwrap();
+        bytes.resize(MAX_INDEX_JSON_BYTES, b' ');
+
+        let path = relationship_path(directory.path(), project_id, snapshot_id).unwrap();
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, &bytes).unwrap();
+        assert_eq!(
+            load_snapshot_index(directory.path(), project_id, snapshot_id).unwrap(),
+            Some(index.clone())
+        );
+
+        bytes.push(b' ');
+        fs::write(&path, &bytes).unwrap();
+        assert!(
+            load_snapshot_index(directory.path(), project_id, snapshot_id)
+                .unwrap_err()
+                .contains("exceeds the supported size")
+        );
+
+        let mut truncated = serde_json::to_vec(&index).unwrap();
+        truncated.pop();
+        for invalid in [Vec::new(), truncated, b"{ broken".to_vec()] {
+            fs::write(&path, &invalid).unwrap();
+            assert!(
+                load_snapshot_index(directory.path(), project_id, snapshot_id)
+                    .unwrap_err()
+                    .contains("is invalid")
+            );
+            assert_eq!(fs::read(&path).unwrap(), invalid);
+        }
+    }
+
     fn relationship_for<'a>(
         index: &'a SnapshotIndex,
         kind: RelationshipKind,
@@ -3531,18 +3579,20 @@ pub fn load_snapshot_index(
     snapshot_id: &str,
 ) -> Result<Option<SnapshotIndex>, String> {
     let path = relationship_path(storage_dir, project_id, snapshot_id)?;
-    let file = match File::open(path) {
-        Ok(file) => file,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(_) => return Err("The saved snapshot index could not be read.".to_owned()),
+    let bytes = match crate::bounded_file::read(&path, MAX_INDEX_JSON_BYTES) {
+        Ok(bytes) => bytes,
+        Err(crate::bounded_file::ReadError::Io(error))
+            if error.kind() == std::io::ErrorKind::NotFound =>
+        {
+            return Ok(None);
+        }
+        Err(crate::bounded_file::ReadError::Io(_)) => {
+            return Err("The saved snapshot index could not be read.".to_owned());
+        }
+        Err(crate::bounded_file::ReadError::TooLarge) => {
+            return Err("The saved snapshot index exceeds the supported size.".to_owned());
+        }
     };
-    let mut bytes = Vec::new();
-    file.take(MAX_INDEX_JSON_BYTES as u64 + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| "The saved snapshot index could not be read.".to_owned())?;
-    if bytes.len() > MAX_INDEX_JSON_BYTES {
-        return Err("The saved snapshot index exceeds the supported size.".to_owned());
-    }
     let index: SnapshotIndex = serde_json::from_slice(&bytes).map_err(|_| {
         "The saved snapshot index is invalid. Rebuild the index for this snapshot.".to_owned()
     })?;

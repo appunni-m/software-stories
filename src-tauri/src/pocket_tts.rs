@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -611,13 +611,7 @@ fn kill_process_group(process_id: u32) {
 }
 
 fn bounded_read(path: &Path, limit: usize) -> Option<Vec<u8>> {
-    let mut bytes = Vec::new();
-    fs::File::open(path)
-        .ok()?
-        .take(limit as u64 + 1)
-        .read_to_end(&mut bytes)
-        .ok()?;
-    (bytes.len() <= limit).then_some(bytes)
+    crate::bounded_file::read(path, limit).ok()
 }
 
 fn validate_wav(bytes: &[u8]) -> Result<(), ProviderFailure> {
@@ -673,6 +667,64 @@ fn cancelled_failure() -> ProviderFailure {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct TestAudioFile(PathBuf);
+
+    impl TestAudioFile {
+        fn new() -> Self {
+            Self(std::env::temp_dir().join(format!(
+                "code-atlas-pocket-tts-bounded-read-{}-{}",
+                std::process::id(),
+                uuid::Uuid::new_v4()
+            )))
+        }
+    }
+
+    impl Drop for TestAudioFile {
+        fn drop(&mut self) {
+            let _ = fs::remove_file(&self.0);
+        }
+    }
+
+    #[test]
+    fn generated_audio_reader_accepts_12_mib_and_rejects_the_next_byte() {
+        let file = TestAudioFile::new();
+        let exact = valid_wav(MAX_WAV_BYTES);
+        fs::write(&file.0, &exact).unwrap();
+        let loaded = bounded_read(&file.0, MAX_WAV_BYTES).unwrap();
+        assert_eq!(loaded.len(), MAX_WAV_BYTES);
+        assert!(validate_wav(&loaded).is_ok());
+
+        let mut oversized = vec![0; MAX_WAV_BYTES];
+        oversized.push(0);
+        fs::write(&file.0, oversized).unwrap();
+        assert!(bounded_read(&file.0, MAX_WAV_BYTES).is_none());
+
+        assert!(validate_wav(&[]).is_err());
+        let truncated = exact.get(..exact.len() - 1).unwrap();
+        assert!(validate_wav(truncated).is_err());
+        let mut corrupted = exact;
+        corrupted[0] = b'X';
+        assert!(validate_wav(&corrupted).is_err());
+    }
+
+    fn valid_wav(byte_len: usize) -> Vec<u8> {
+        assert!(byte_len >= 46 && byte_len <= MAX_WAV_BYTES && (byte_len - 44) % 2 == 0);
+        let mut bytes = vec![0; byte_len];
+        bytes[..4].copy_from_slice(b"RIFF");
+        bytes[4..8].copy_from_slice(&((byte_len - 8) as u32).to_le_bytes());
+        bytes[8..16].copy_from_slice(b"WAVEfmt ");
+        bytes[16..20].copy_from_slice(&16_u32.to_le_bytes());
+        bytes[20..22].copy_from_slice(&1_u16.to_le_bytes());
+        bytes[22..24].copy_from_slice(&1_u16.to_le_bytes());
+        bytes[24..28].copy_from_slice(&24_000_u32.to_le_bytes());
+        bytes[28..32].copy_from_slice(&48_000_u32.to_le_bytes());
+        bytes[32..34].copy_from_slice(&2_u16.to_le_bytes());
+        bytes[34..36].copy_from_slice(&16_u16.to_le_bytes());
+        bytes[36..40].copy_from_slice(b"data");
+        bytes[40..44].copy_from_slice(&((byte_len - 44) as u32).to_le_bytes());
+        bytes
+    }
 
     #[test]
     fn reviewed_packet_keeps_order_text_and_utf8_bounds() {
