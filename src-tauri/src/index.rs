@@ -2254,9 +2254,7 @@ fn import_candidate(
     }
 
     if language == SupportedLanguage::Python {
-        let module_specifier = node
-            .child_by_field_name("module_name")
-            .map(|module| node_text(module, source));
+        let module_specifier = python_module_specifier(node, source);
         return Some(ImportCandidate {
             path: path.to_owned(),
             module_specifier,
@@ -2270,7 +2268,7 @@ fn import_candidate(
     if language == SupportedLanguage::Go {
         return Some(ImportCandidate {
             path: path.to_owned(),
-            module_specifier: None,
+            module_specifier: go_module_specifier(node, source),
             unresolved_reason: Some("go_package_resolution_not_supported".to_owned()),
             bindings: import_bindings(node, source, language),
             anchor: anchor(path, source_sha256, node),
@@ -2432,6 +2430,46 @@ fn python_import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
     bindings
 }
 
+fn python_module_specifier(node: Node<'_>, source: &str) -> Option<String> {
+    if let Some(module) = node.child_by_field_name("module_name") {
+        return Some(node_text(module, source));
+    }
+    if node.kind() != "import_statement" {
+        return None;
+    }
+    let mut cursor = node.walk();
+    let mut modules = Vec::new();
+    for child in node.named_children(&mut cursor) {
+        let module = match child.kind() {
+            "dotted_name" => Some(child),
+            "aliased_import" => child.child_by_field_name("name"),
+            _ => None,
+        };
+        if let Some(module) = module {
+            modules.push(node_text(module, source));
+        }
+    }
+    (modules.len() == 1).then(|| modules.remove(0))
+}
+
+fn go_module_specifier(node: Node<'_>, source: &str) -> Option<String> {
+    let mut stack = vec![node];
+    let mut modules = Vec::new();
+    while let Some(current) = stack.pop() {
+        if current.kind() == "import_spec" {
+            if let Some(path) = current.child_by_field_name("path") {
+                if let Some(module) = static_string_value(path.kind(), &node_text(path, source)) {
+                    modules.push(module);
+                }
+            }
+            continue;
+        }
+        let mut cursor = current.walk();
+        stack.extend(current.named_children(&mut cursor));
+    }
+    (modules.len() == 1).then(|| modules.remove(0))
+}
+
 fn go_import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
     let mut stack = vec![node];
     let mut bindings = Vec::new();
@@ -2487,7 +2525,19 @@ fn go_dot_import(node: Node<'_>) -> bool {
 }
 
 fn static_string_value(kind: &str, raw: &str) -> Option<String> {
-    if !matches!(kind, "string" | "string_literal") || raw.len() < 2 {
+    if kind == "raw_string_literal"
+        && raw.len() >= 2
+        && raw.as_bytes().first() == Some(&b'`')
+        && raw.as_bytes().last() == Some(&b'`')
+    {
+        let value = raw[1..raw.len() - 1].to_owned();
+        return (!value.trim().is_empty()).then_some(value);
+    }
+    if !matches!(
+        kind,
+        "string" | "string_literal" | "interpreted_string_literal"
+    ) || raw.len() < 2
+    {
         return None;
     }
     let first = raw.as_bytes()[0];
@@ -3050,6 +3100,11 @@ mod tests {
             python.imports[0].unresolved_reason.as_deref(),
             Some("python_module_resolution_not_supported")
         );
+        assert_eq!(
+            &python_source.as_bytes()
+                [python.imports[0].anchor.start_byte..python.imports[0].anchor.end_byte],
+            b"from pricing import normalize as clean"
+        );
         assert!(
             python.imports[0]
                 .bindings
@@ -3148,6 +3203,11 @@ mod tests {
         assert_eq!(
             go.imports[0].unresolved_reason.as_deref(),
             Some("go_package_resolution_not_supported")
+        );
+        assert_eq!(go.imports[0].module_specifier.as_deref(), Some("fmt"));
+        assert_eq!(
+            &go_source.as_bytes()[go.imports[0].anchor.start_byte..go.imports[0].anchor.end_byte],
+            b"import fmtAlias \"fmt\""
         );
         assert!(
             go.imports[0]
