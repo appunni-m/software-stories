@@ -174,6 +174,63 @@ fn natural_language_search_matches_common_english_inflections() {
 }
 
 #[test]
+fn broad_natural_search_does_not_match_only_a_filename_but_explicit_paths_do() {
+    let mut fixture = Fixture::new();
+    let filename_only = "tests/fixtures/public-api/font-bytes-rendered-glyph-bitmap-entry-parsing-outline-hinting-rasterization.json";
+    add_source(&mut fixture, filename_only, "unrelated fixture payload\n");
+    add_source(
+        &mut fixture,
+        "src/render.rs",
+        "fn render_font_bytes_to_bitmap() { parse_glyph_outline(); apply_hinting(); rasterize(); }\n",
+    );
+    add_source(
+        &mut fixture,
+        "src/renderer/path.rs",
+        "unrelated module payload\n",
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+
+    let broad = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "font bytes rendered glyph bitmap entry parsing outline hinting rasterization",
+        None,
+        8,
+        &budget,
+    )
+    .unwrap();
+    assert!(
+        broad
+            .matches
+            .iter()
+            .any(|hit| hit.range.path == "src/render.rs"),
+        "the implementation body should match the broad query"
+    );
+    assert!(
+        broad
+            .matches
+            .iter()
+            .all(|hit| hit.range.path != filename_only),
+        "a filename-only match should not be presented as a source match"
+    );
+
+    let explicit_path = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "src/renderer/path.rs",
+        None,
+        8,
+        &budget,
+    )
+    .unwrap();
+    assert_eq!(explicit_path.matches[0].range.path, "src/renderer/path.rs");
+}
+
+#[test]
 fn large_parserless_c_adapter_is_searchable_without_a_whole_file_prompt() {
     let mut fixture = Fixture::new();
     let text = format!(

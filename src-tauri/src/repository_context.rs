@@ -1833,6 +1833,10 @@ fn search_ranked(
     let query = query.trim();
     let words = terms(query);
     let identifier_key = identifier_query_key(query);
+    let include_path_terms = query.split_whitespace().count() <= 2
+        || query.contains('/')
+        || query.contains('\\')
+        || identifier_key.is_some();
     let body = field(&prepared.index, "body")?;
     let body_stem = field(&prepared.index, "body_stem")?;
     let path_field = field(&prepared.index, "path")?;
@@ -1845,10 +1849,12 @@ fn search_ranked(
             Occur::Should,
             Box::new(BoostQuery::new(term_query(symbol_field, word), 3.0)) as Box<dyn Query>,
         ));
-        clauses.push((
-            Occur::Should,
-            Box::new(BoostQuery::new(term_query(path_field, word), 1.5)) as Box<dyn Query>,
-        ));
+        if include_path_terms {
+            clauses.push((
+                Occur::Should,
+                Box::new(BoostQuery::new(term_query(path_field, word), 1.5)) as Box<dyn Query>,
+            ));
+        }
     }
     if identifier_key.is_none() {
         for stem in english_stems(&prepared.index, &words.join(" "))? {
