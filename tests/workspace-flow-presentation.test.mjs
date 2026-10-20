@@ -43,3 +43,15 @@ test('the production Flow renders sequence steps with evidence links and preserv
   assert.match(source, /viewportClipsNodeBounds\(bounds,flow\.getViewport\(\),size\.width,size\.height,28\)/);
   assert.match(styles, /\.dw-linear-flow-step:focus-visible/);
 });
+
+test('Flow stays focused on its selected diagram while saved questions live in Chat history', () => {
+  const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+  const flowStart = source.indexOf('<Tabs.Content value="flow">');
+  const flowEnd = source.indexOf('</Tabs.Content>', flowStart);
+  assert.notEqual(flowStart, -1);
+  assert.notEqual(flowEnd, -1);
+  const flow = source.slice(flowStart, flowEnd);
+  assert.match(flow, /<EvidenceFlow/);
+  assert.doesNotMatch(flow, /dw-flow-conversation|<Answer\b/);
+  assert.match(source, /<Tabs.Content value="history">/);
+});

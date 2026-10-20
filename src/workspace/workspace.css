@@ -160,7 +160,6 @@
 .dw-linear-flow-edge {display:flex;align-items:center;gap:8px;max-width:100%;padding:8px 12px;color:var(--muted);font-size:12px;line-height:1.5;}
 .dw-linear-flow-edge svg {flex:0 0 auto;color:var(--accent);}
 .dw-linear-flow-edge span {overflow-wrap:anywhere;}
-.dw-flow-conversation {margin-top:24px;}
 .dw-history section {margin-bottom:20px;}
 .dw-history-level {display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:var(--muted);padding:6px 0;font-size:12px;text-align:left;cursor:pointer;}
 .dw-history-level small {margin-left:auto;white-space:nowrap;}
