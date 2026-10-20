@@ -466,6 +466,8 @@ export interface LinkedVisualNode {
   detail: string | null;
   hotspotId: string | null;
   evidenceAnchorIds: string[];
+  sourceAnchorId?: string;
+  sourceValue?: string;
 }
 
 export interface LinkedVisualEdge {

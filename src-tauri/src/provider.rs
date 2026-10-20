@@ -1201,9 +1201,13 @@ fn generated_visual_response_schema() -> Value {
         "properties": {
             "label": text,
             "detail": text,
-            "evidence": { "type": "ARRAY", "items": evidence, "maxItems": 8 }
+            "evidence": { "type": "ARRAY", "items": evidence.clone(), "maxItems": 8 },
+            "source": { "anyOf": [
+                {"type":"OBJECT","properties":{"evidence":evidence,"value":text},"required":["evidence","value"]},
+                {"type":"NULL"}
+            ]}
         },
-        "required": ["label", "detail", "evidence"]
+        "required": ["label", "detail", "evidence", "source"]
     });
     let edge = json!({
         "type": "OBJECT",
@@ -8592,6 +8596,10 @@ mod tests {
             );
             assert_eq!(visual["properties"]["nodes"]["maxItems"], 12);
             assert_eq!(visual["properties"]["edges"]["maxItems"], 20);
+            let node = &visual["properties"]["nodes"]["items"];
+            assert!(node["required"].as_array().unwrap().contains(&json!("source")));
+            assert_eq!(node["properties"]["source"]["anyOf"][1]["type"], "NULL");
+            assert_eq!(node["properties"]["source"]["anyOf"][0]["required"], json!(["evidence", "value"]));
         }
     }
 

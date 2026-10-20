@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 pub(crate) mod narration;
 
-pub(crate) const POLICY: &str = "claim-owned-scene-local-identities-v2";
+pub(crate) const POLICY: &str = "claim-owned-scene-local-identities-v3";
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -33,6 +33,14 @@ struct Node {
     label: String,
     detail: String,
     references: Vec<String>,
+    #[serde(default)]
+    source: Option<SourceBinding>,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct SourceBinding {
+    reference_id: String,
+    value: String,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -190,8 +198,29 @@ pub(super) fn compile(section: &Value) -> Result<Compiled, Vec<Value>> {
                 claim_index,
                 &format!("{at}/references"),
             )?;
+            let source = match node.source {
+                Some(source) => {
+                    if !node.references.contains(&source.reference_id) {
+                        return Err(issue(
+                            &format!("{at}/source/referenceId"),
+                            "sceneAuthoringReference",
+                        ));
+                    }
+                    let source_evidence = references(
+                        &[source.reference_id],
+                        evidence,
+                        claim_index,
+                        &format!("{at}/source/referenceId"),
+                    )?
+                    .into_iter()
+                    .next()
+                    .ok_or_else(|| issue(&format!("{at}/source/referenceId"), "sceneAuthoringReference"))?;
+                    json!({"evidence":source_evidence,"value":source.value})
+                }
+                None => Value::Null,
+            };
             locations.push((format!("/section/visual/nodes/{}", nodes.len()), at));
-            nodes.push(json!({"label":node.label,"detail":node.detail,"evidence":refs}));
+            nodes.push(json!({"label":node.label,"detail":node.detail,"evidence":refs,"source":source}));
         }
         for (index, edge) in scene.edges.into_iter().enumerate() {
             let at = format!("{base}/edges/{index}");
@@ -330,8 +359,10 @@ pub(crate) fn section_schema() -> Value {
     let key = json!({"type":"string","minLength":1,"maxLength":80,"pattern":"^[a-z0-9-]+$"});
     let nullable_key = json!({"anyOf":[key.clone(),{"type":"null"}]});
     let refs = json!({"type":"array","minItems":1,"maxItems":8,"items":{"type":"string","pattern":"^code:[1-9][0-9]{0,2}$"}});
-    let node = json!({"type":"object","additionalProperties":false,"required":["key","label","detail","references"],
-        "properties":{"key":key,"label":text,"detail":text,"references":refs}});
+    let node = json!({"type":"object","additionalProperties":false,"required":["key","label","detail","references","source"],
+        "properties":{"key":key,"label":text,"detail":text,"references":refs,
+        "source":{"anyOf":[{"type":"object","additionalProperties":false,"required":["referenceId","value"],
+            "properties":{"referenceId":{"type":"string","pattern":"^code:[1-9][0-9]{0,2}$"},"value":{"type":"string","minLength":1,"maxLength":240}}},{"type":"null"}]}}});
     let edge = json!({"type":"object","additionalProperties":false,"required":["fromKey","toKey","label","references"],
         "properties":{"fromKey":key,"toKey":key,"label":text,"references":refs}});
     let mut element = crate::scene_presentation::proposal_schema()["properties"]["scenes"]["items"]

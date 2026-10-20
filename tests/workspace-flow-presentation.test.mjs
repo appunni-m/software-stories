@@ -36,9 +36,10 @@ test('the production Flow renders sequence steps with evidence links and preserv
   const styles = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
   assert.match(source, /const linearSteps=linearFlowSteps\(visual\)/);
   assert.match(source, /const sourceValues=sourceValuesByVisualNode\(visual\)/);
-  assert.match(source, /sourceAnchorForVisualNode\(anchor,node,sourceValues\.get\(node\.nodeId\)\)/);
+  assert.match(source, /sourceAnchorForVisualNode\(anchor,node,node\.sourceValue\?\?sourceValues\.get\(node\.nodeId\)\)/);
+  assert.match(source, /n\.sourceAnchorId&&n\.evidenceAnchorIds\.includes\(n\.sourceAnchorId\)/);
   assert.match(source, /onClick=\{\(\)=>openNodeSource\(n,anchor\)\}/);
-  assert.match(source, /onClick=\{\(\)=>openNodeSource\(node,anchor\)\}/);
+  assert.match(source, /onClick=\{\(\)=>onOpen\(anchor\)\}/);
   assert.match(source, /const positions=layoutFlowNodes\(visual\.nodes,visual\.edges,visual\.layoutHint\.direction\)/);
   assert.match(source, /className="dw-linear-flow" aria-label=\{`Steps in \$\{visual\.title\}`\}/);
   assert.match(source, /className="dw-linear-flow-step" aria-label=\{`Step \$\{index\+1\}: \$\{node\.label\}\. Open source \$\{sourceLabel\}`\}/);

@@ -24,6 +24,7 @@ const MAX_VISUAL_EDGES: usize = 1_000;
 const MAX_VISUAL_TITLE_BYTES: usize = 160;
 const MAX_VISUAL_LABEL_BYTES: usize = 240;
 const MAX_VISUAL_DETAIL_BYTES: usize = 512;
+const MAX_VISUAL_SOURCE_VALUE_BYTES: usize = 240;
 const MAX_VISUAL_EVIDENCE_ANCHORS_PER_ITEM: usize = 8;
 const MAX_DEPENDENCIES_PER_ITEM: usize = 100;
 const MAX_EXCERPT_BYTES: usize = 64 * 1024;
@@ -627,6 +628,10 @@ pub struct VisualNode {
     pub hotspot_id: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub evidence_anchor_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_anchor_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_value: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -1949,6 +1954,12 @@ impl Validator<'_> {
                     section_id,
                     &node.node_id,
                 );
+                self.validate_visual_source_binding(
+                    node,
+                    claims,
+                    section_anchor_ids,
+                    section_id,
+                );
             }
             if let Some(hotspot_id) = &node.hotspot_id {
                 if !hotspot_ids.contains(hotspot_id) {
@@ -2048,6 +2059,60 @@ impl Validator<'_> {
                     Some(anchor_id),
                 );
             }
+        }
+    }
+
+    fn validate_visual_source_binding(
+        &mut self,
+        node: &VisualNode,
+        claims: &[ChapterClaim],
+        section_anchor_ids: &HashSet<String>,
+        section_id: Option<&str>,
+    ) {
+        let (Some(source_anchor_id), Some(source_value)) =
+            (&node.source_anchor_id, &node.source_value)
+        else {
+            if node.source_anchor_id.is_some() || node.source_value.is_some() {
+                self.visual_issue(
+                    ChapterIssueCode::InvalidVisual,
+                    "A visual source binding must include both its cited anchor and exact source value.",
+                    section_id,
+                    Some(&node.node_id),
+                    node.source_anchor_id.as_deref(),
+                );
+            }
+            return;
+        };
+
+        if !node.evidence_anchor_ids.contains(source_anchor_id)
+            || !section_anchor_ids.contains(source_anchor_id)
+        {
+            self.visual_issue(
+                ChapterIssueCode::InvalidVisual,
+                "A visual source binding must use one of the node's cited section anchors.",
+                section_id,
+                Some(&node.node_id),
+                Some(source_anchor_id),
+            );
+            return;
+        }
+
+        let anchor = claims
+            .iter()
+            .flat_map(|claim| &claim.anchors)
+            .find(|anchor| anchor.anchor_id == *source_anchor_id);
+        if !(1..=MAX_VISUAL_SOURCE_VALUE_BYTES).contains(&source_value.len())
+            || anchor.is_none_or(|anchor| {
+                anchor.excerpt.match_indices(source_value).count() != 1
+            })
+        {
+            self.visual_issue(
+                ChapterIssueCode::InvalidVisual,
+                "A visual source value must be a unique exact substring of its cited anchor.",
+                section_id,
+                Some(&node.node_id),
+                Some(source_anchor_id),
+            );
         }
     }
 
@@ -2869,6 +2934,8 @@ mod tests {
                                 detail: Some("public entry point".to_owned()),
                                 hotspot_id: Some("hotspot:source".to_owned()),
                                 evidence_anchor_ids: vec![call_anchor.anchor_id.clone()],
+                                source_anchor_id: None,
+                                source_value: None,
                             },
                             VisualNode {
                                 node_id: "node:compute".to_owned(),
@@ -2876,6 +2943,8 @@ mod tests {
                                 detail: None,
                                 hotspot_id: Some("hotspot:symbol".to_owned()),
                                 evidence_anchor_ids: vec![result_anchor.anchor_id.clone()],
+                                source_anchor_id: None,
+                                source_value: None,
                             },
                         ],
                         edges: vec![VisualEdge {
@@ -3135,6 +3204,41 @@ mod tests {
                 && issue.visual_item_id.as_deref() == Some("edge:answer-compute")
         });
         assert!(issue.is_some(), "{report:#?}");
+
+        let mut non_unique_source_binding = base.clone();
+        let visual = non_unique_source_binding.sections[0]
+            .visual
+            .as_mut()
+            .and_then(ChapterVisualPayload::typed_visual_mut)
+            .expect("fixture should contain a typed visual");
+        visual.nodes[0].source_anchor_id =
+            Some(base.sections[0].claims[0].anchors[0].anchor_id.clone());
+        visual.nodes[0].source_value = Some("not present in the cited excerpt".to_owned());
+        let report = validate_chapter_revision(
+            &storage,
+            &manifest,
+            Some(&index),
+            &non_unique_source_binding,
+        );
+        assert!(report.issues.iter().any(|issue| {
+            issue.code == ChapterIssueCode::InvalidVisual
+                && issue.message.contains("unique exact substring")
+        }), "{report:#?}");
+
+        let mut foreign_source_binding = base.clone();
+        let visual = foreign_source_binding.sections[0]
+            .visual
+            .as_mut()
+            .and_then(ChapterVisualPayload::typed_visual_mut)
+            .expect("fixture should contain a typed visual");
+        visual.nodes[0].source_anchor_id = Some("anchor:foreign".to_owned());
+        visual.nodes[0].source_value = Some("compute()".to_owned());
+        let report =
+            validate_chapter_revision(&storage, &manifest, Some(&index), &foreign_source_binding);
+        assert!(report.issues.iter().any(|issue| {
+            issue.code == ChapterIssueCode::InvalidVisual
+                && issue.message.contains("node's cited section anchors")
+        }), "{report:#?}");
 
         for unsupported_version in [1, VISUAL_SCHEMA_VERSION + 1] {
             let mut unsupported_visual_version = base.clone();

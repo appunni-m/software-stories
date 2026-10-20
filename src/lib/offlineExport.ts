@@ -532,7 +532,8 @@ function createSafeChapter(
         narrationAudio: null,
         sceneNarration,
         visualSourceValuesOmitted: !includeExcerpts && inspection.status === 'available'
-          && Boolean(inspection.visual.presentation?.scenes.some(scene => scene.elements.some(element => element.valueOrigin === 'source'))),
+          && Boolean(inspection.visual.nodes.some(node => node.sourceValue)
+            || inspection.visual.presentation?.scenes.some(scene => scene.elements.some(element => element.valueOrigin === 'source'))),
       };
     });
   const references = uniqueReferences(sections.flatMap((section) => section.references));
@@ -652,11 +653,20 @@ function sanitizeVisual(visual: EvidenceLinkedVisualSpec, clean: (text: string) 
   return {
     ...visual,
     title: clean(visual.title).text,
-    nodes: visual.nodes.map((node) => ({
-      ...node,
-      label: clean(node.label).text,
-      detail: node.detail === null ? null : clean(node.detail).text,
-    })),
+    nodes: visual.nodes.map((node) => {
+      const { sourceAnchorId, sourceValue, ...content } = node;
+      const cleanedSourceValue = sourceValue && includeExcerpts ? clean(sourceValue).text : undefined;
+      const safeSource = sourceAnchorId && node.evidenceAnchorIds.includes(sourceAnchorId)
+        && sourceValue && cleanedSourceValue === sourceValue
+        ? { sourceAnchorId, sourceValue }
+        : {};
+      return {
+        ...content,
+        label: clean(node.label).text,
+        detail: node.detail === null ? null : clean(node.detail).text,
+        ...safeSource,
+      };
+    }),
     edges: visual.edges.map((edge) => ({ ...edge, label: clean(edge.label).text })),
     ...(visual.presentation ? { presentation: {
       ...visual.presentation,
@@ -880,7 +890,13 @@ function renderVisual(
     const scenes = visual.presentation!.scenes;
     const frames = scenes.map((scene, index) => {
       const href = (nodeIndex: number) => {
-        const anchorId = visual.nodes[nodeIndex].evidenceAnchorIds.find(id => evidenceIds.has(`${revision.revisionId}:${id}`));
+        const node = visual.nodes[nodeIndex];
+        const boundAnchorId = node.sourceAnchorId && node.evidenceAnchorIds.includes(node.sourceAnchorId)
+          ? node.sourceAnchorId
+          : undefined;
+        const anchorId = boundAnchorId && evidenceIds.has(`${revision.revisionId}:${boundAnchorId}`)
+          ? boundAnchorId
+          : node.evidenceAnchorIds.find(id => evidenceIds.has(`${revision.revisionId}:${id}`));
         return anchorId ? `#${evidenceIds.get(`${revision.revisionId}:${anchorId}`)}` : undefined;
       };
       const representation = scene.mode === 'composition' ? renderOfflineScene(scene, visual, href)
@@ -922,8 +938,12 @@ function renderVisualOutline(
     if (!id || !reference) return '';
     return `<a href="#${id}">${escapeHtml(reference.path)}:${reference.startLine}-${reference.endLine}</a>`;
   }).filter(Boolean).join(' · ');
+  const nodeEvidenceIds = (node: EvidenceLinkedVisualSpec['nodes'][number]) => node.sourceAnchorId
+    && node.evidenceAnchorIds.includes(node.sourceAnchorId)
+    ? [node.sourceAnchorId, ...node.evidenceAnchorIds.filter((id) => id !== node.sourceAnchorId)]
+    : node.evidenceAnchorIds;
   const nodes = typedVisual.nodes.map((node, nodeIndex) => {
-    const references = anchorsFor(node.evidenceAnchorIds);
+    const references = anchorsFor(nodeEvidenceIds(node));
     const hotspot = node.hotspotId ? section.hotspots.find((item) => item.hotspotId === node.hotspotId) : undefined;
     const hotspotMarkup = hotspot ? renderOfflineHotspot(hotspot, revision, sectionIds, evidenceIds) : '';
     const outgoing = typedVisual.edges.filter((edge) => edge.fromNodeId === node.nodeId).map((edge) => {
@@ -959,12 +979,16 @@ function renderVisualWithDom(
   caption.append(element('p', 'muted', 'App-rendered from the accepted typed diagram. No chapter HTML, script, or CSS is executed.'));
   figure.append(caption);
   const list = element('ol', 'diagram');
+  const nodeEvidenceIds = (node: EvidenceLinkedVisualSpec['nodes'][number]) => node.sourceAnchorId
+    && node.evidenceAnchorIds.includes(node.sourceAnchorId)
+    ? [node.sourceAnchorId, ...node.evidenceAnchorIds.filter((id) => id !== node.sourceAnchorId)]
+    : node.evidenceAnchorIds;
   for (const [nodeIndex, node] of visual.nodes.entries()) {
     const item = element('li', 'diagram-node');
     item.append(element('p', 'eyebrow', `STEP ${nodeIndex + 1}`));
     item.append(element('strong', undefined, node.label));
     if (node.detail) item.append(element('small', undefined, node.detail));
-    const evidenceLinks = node.evidenceAnchorIds.flatMap((anchorId) => {
+    const evidenceLinks = nodeEvidenceIds(node).flatMap((anchorId) => {
       const id = evidenceIds.get(`${revision.revisionId}:${anchorId}`);
       const reference = section.references.find((entry) => entry.anchorId === anchorId);
       return id && reference ? [{ id, text: `${reference.path}:${reference.startLine}-${reference.endLine}` }] : [];

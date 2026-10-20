@@ -231,6 +231,40 @@ describe('offline chapter export', () => {
     assert.equal(asset.sha256, createHash('sha256').update(JSON.stringify(visual)).digest('hex'));
   });
 
+  it('keeps exact node source bindings in offline links only when excerpts are included', async () => {
+    const visual = typedVisual();
+    visual.nodes[0].evidenceAnchorIds = ['anchor:broad', 'anchor:exact'];
+    visual.nodes[0].sourceAnchorId = 'anchor:exact';
+    visual.nodes[0].sourceValue = 'run()';
+    visual.nodes[1].evidenceAnchorIds = ['anchor:entry'];
+    visual.edges[0].evidenceAnchorIds = ['anchor:entry'];
+    visual.presentation = { schemaVersion: 3, scenes: [{
+      claimIndex: 0, title: 'Call the worker', narration: 'The entry point calls the worker.', mode: 'composition',
+      elements: [
+        { kind: 'row', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
+        { kind: 'code', parentIndex: 0, nodeIndex: 0, tone: 'accent', value: 'run()', valueOrigin: 'source' },
+      ],
+    }] };
+    const anchors = [
+      sourceAnchor('anchor:broad', 'src/main.ts', 'export function main() { return run(); }'),
+      sourceAnchor('anchor:exact', 'src/main.ts', 'return run();'),
+      sourceAnchor('anchor:entry'),
+    ];
+    const accepted = chapter({ sections: [section({ visual, anchors })] });
+    const included = await buildOfflineGuideHtml([accepted], {
+      selectedRevisionIds: [accepted.revisionId], includeExcerpts: true,
+    });
+    assert.match(included.html, /class="scene-element scene-code scene-tone-accent scene-content" href="#evidence-1-2"/);
+    assert.match(included.html, /&quot;sourceAnchorId&quot;:&quot;anchor:exact&quot;,&quot;sourceValue&quot;:&quot;run\(\)&quot;/);
+
+    const omitted = await buildOfflineGuideHtml([accepted], {
+      selectedRevisionIds: [accepted.revisionId], includeExcerpts: false,
+    });
+    assert.doesNotMatch(omitted.html, /sourceAnchorId|sourceValue|run\(\)/);
+    const preview = buildOfflineExportPreview([accepted], [accepted.revisionId], false);
+    assert.match(preview.chapters[0].sections[0].visualNote, /Source-backed visual values are omitted/);
+  });
+
   it('embeds selected cached WAV tracks with their exact sanitized reviewed transcript and hashes in schema 4', async () => {
     const wav = narrationWav();
     const persistedScript = 'Outdated accepted script must not appear beside different audio.';

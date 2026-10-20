@@ -26,7 +26,7 @@ const FALLIBLE_TRANSITIONS: &str = r#"Selecting a handler does not mean its work
 
 const VISIBLE_DECISIONS: &str = r#"Show choices and fall-through. Narration and collapsed details must not carry a missing branch by themselves. Unlabeled arrows between predicates are not decisions. Split dense scenes without dropping outcomes. Source-backed meaning can be expressed in concise node labels and details with value:"",valueOrigin:"none". Quotes are optional; illustrative values are invented examples, not source facts."#;
 
-const COMPOSITION_CONTRACT: &str = r#"Every visual has kind, title, direction, nodes, edges and presentation. Use kind dataFlow, sequence or hierarchy for the underlying structure, with 2–12 short evidence-linked nodes and at most 20 real edges. Every node/edge cites 1–8 same-section zero-based {claimIndex,evidenceIndex} references; it cannot invent IDs or borrow another section's evidence. An import is not a runtime call. A graph without presentation needs at least one evidenced edge. A composition may have no edges. If no useful visual is supported use kind:none, title:"", direction:auto, nodes:[], edges:[], presentation:null. A plain graph also uses presentation:null.
+const COMPOSITION_CONTRACT: &str = r#"Every visual has kind, title, direction, nodes, edges and presentation. Use kind dataFlow, sequence or hierarchy for the underlying structure, with 2–12 short evidence-linked nodes and at most 20 real edges. Every node/edge cites 1–8 same-section zero-based {claimIndex,evidenceIndex} references; it cannot invent IDs or borrow another section's evidence. Every node also has source:null or source:{evidence:{claimIndex,evidenceIndex},value:"exact source substring"}. A non-null source must repeat one of that node's evidence references, and value must occur exactly once in that verified excerpt; native code resolves the cited anchor and checks the exact substring. Use this for a concise visual label whose click should open one precise code expression. Leave it null when no unique exact substring supports that step. An import is not a runtime call. A graph without presentation needs at least one evidenced edge. A composition may have no edges. If no useful visual is supported use kind:none, title:"", direction:auto, nodes:[], edges:[], presentation:null. A plain graph also uses presentation:null.
 
 For a narrated HTML composition use presentation:{schemaVersion:3,scenes:[{claimIndex:0,title:"short visual heading",narration:"Natural speech explaining this claim and visual, including its guards and alternatives.",mode:"composition",elements:[...]}]}. Supply exactly one scene per claim in claim order; a justified graph scene also has narration and uses mode:graph,elements:[]. Keep each focused graph scene to at most eight visible nodes: nodes citing its claim plus one edge of context. A scene with no directly cited nodes shows the full graph. Split an over-broad claim into narrower grounded claims and scenes, or use a meaningful composition for that scene; preserve every outcome and the complete user-requested full map. The app owns all HTML, styling and interactions. Each element has exactly kind,parentIndex,nodeIndex,tone,value,valueOrigin. Elements form one flat preorder tree: root parentIndex:null, others an earlier container's index. Groups are row,column,grid,panel,compare,stack, with nodeIndex:null,value:"",valueOrigin:none. Content is card,token,code,metric,bytes,matrix,table,text; nodeIndex names the node that supplies its label and captured-source links. That node must cite this scene's own claim, not merely another claim in the section. Tone is neutral,accent,muted,positive,warning. Arrow/divider are decoration with null nodeIndex and no value. Favor 2–4 meaningful large elements, at most 48 elements, six nesting levels, twelve children per group and twelve content elements.
 
@@ -140,8 +140,8 @@ pub(crate) mod tests {
         proposal["sections"][0]["visual"] = json!({
             "kind":"dataFlow", "title":"Put the name into the reply", "direction":"auto",
             "nodes":[
-                {"label":"Greeting template","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]},
-                {"label":"Example reply","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}]}
+                {"label":"Greeting template","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null},
+                {"label":"Example reply","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null}
             ], "edges":[], "presentation":{"schemaVersion":version,"scenes":[{
                 "claimIndex":0,"title":"The name becomes part of the greeting","mode":"composition",
                 "elements":[
@@ -162,7 +162,7 @@ pub(crate) mod tests {
     fn ordinary_prompt_binds_the_versioned_scene_narration_policy() {
         assert_eq!(
             crate::repository_context::digest(super::instructions().as_bytes()),
-            "b87686f1bcd1630d03cdd213b6267b84252b783095cb7091bf09d79bab49042e"
+            "6b6008ef30614486c8023de40e2d3e7b5e2c0587d27dabf70fd73d87815da261"
         );
         assert!(super::instructions().contains(super::BEHAVIOR_TEACHING));
         assert!(super::instructions().contains(super::OUTCOME_TEACHING));

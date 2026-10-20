@@ -530,7 +530,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert_eq!(contract["proposalVersion"], "answerSectionV6");
     assert_eq!(
         contract["sceneAuthoringPolicy"],
-        "claim-owned-scene-local-identities-v2"
+        "claim-owned-scene-local-identities-v3"
     );
     assert!(system_instructions().contains("at most eight nodes"));
     assert!(system_instructions().contains("one edge of context"));

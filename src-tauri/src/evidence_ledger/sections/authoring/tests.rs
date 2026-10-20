@@ -7,8 +7,8 @@ pub(crate) fn section(reference: &str) -> Value {
         "inferenceBasis":"","evidence":[{"referenceId":reference}],"relationshipIds":[],
         "scene":{"title":"From name to message","narration":"Start with a person's name. The function places it inside a greeting, so that name appears in the returned message.",
         "mode":"composition","nodes":[
-            {"key":"input","label":"Name","detail":"","references":[reference]},
-            {"key":"result","label":"Message","detail":"","references":[reference]}],
+            {"key":"input","label":"Name","detail":"","references":[reference],"source":null},
+            {"key":"result","label":"Message","detail":"","references":[reference],"source":null}],
         "edges":[{"fromKey":"input","toKey":"result","label":"format","references":[reference]}],
         "elements":[
             {"key":"layout","kind":"row","parentKey":null,"nodeKey":null,"tone":"neutral","value":"","valueOrigin":"none"},
@@ -65,6 +65,7 @@ fn local_keys_compile_to_exact_canonical_references_without_rewriting_content() 
         section["visual"]["nodes"][0]["evidence"],
         json!([{"claimIndex":0,"evidenceIndex":0}])
     );
+    assert_eq!(section["visual"]["nodes"][0]["source"], Value::Null);
     assert_eq!(section["visual"]["edges"][0]["fromNodeIndex"], 0);
     assert_eq!(section["visual"]["edges"][0]["toNodeIndex"], 1);
     let scene = &section["visual"]["presentation"]["scenes"][0];
@@ -74,6 +75,30 @@ fn local_keys_compile_to_exact_canonical_references_without_rewriting_content() 
     assert_eq!(scene["elements"][1]["nodeIndex"], 0);
     assert_eq!(scene["elements"][3]["nodeIndex"], 1);
     assert_eq!(scene["elements"][1]["value"], "name");
+}
+
+#[test]
+fn exact_node_source_binding_resolves_only_an_existing_node_reference() {
+    let mut raw = section("code:1");
+    raw["claims"][0]["scene"]["nodes"][0]["source"] =
+        json!({"referenceId":"code:1","value":"name"});
+    let compiled = compile(&raw).unwrap_or_else(|findings| panic!("{findings:?}"));
+    assert_eq!(
+        compiled.section["visual"]["nodes"][0]["source"],
+        json!({"evidence":{"claimIndex":0,"evidenceIndex":0},"value":"name"})
+    );
+    assert_eq!(
+        section_schema()["properties"]["claims"]["items"]["properties"]["scene"]["anyOf"][0]
+            ["properties"]["nodes"]["items"]["properties"]["source"]["anyOf"][0]
+            ["properties"]["value"]["minLength"],
+        1
+    );
+
+    raw["claims"][0]["scene"]["nodes"][0]["source"]["referenceId"] = json!("code:2");
+    assert_eq!(
+        compile(&raw).err().unwrap()[0],
+        json!({"location":"/section/claims/0/scene/nodes/0/source/referenceId","code":"sceneAuthoringReference"})
+    );
 }
 
 #[test]

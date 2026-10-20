@@ -23,15 +23,18 @@ export function sourceAnchorForVisualNode(anchor: ChapterSourceAnchor, node: Pic
     || excerptBytes !== anchor.endByteInclusive - anchor.startByte + 1) return anchor;
 
   const candidates = new Set<string>();
-  if (sourceValue && sourceValue.length >= 4 && sourceValue.length <= 240) candidates.add(sourceValue);
-  const codeLike = /(?:\b[A-Za-z_$][\w$]*(?:(?:::|\.|->)[A-Za-z_$][\w$]*)*\s*\([^()\r\n]{0,240}\)|\b0[xX][0-9a-fA-F]+\b)/gu;
-  for (const description of [node.label, node.detail ?? '']) {
-    for (const match of description.matchAll(/`([^`\r\n]{1,240})`/gu)) candidates.add(match[1]);
-    for (const match of description.matchAll(codeLike)) candidates.add(match[0]);
+  if (sourceValue !== undefined) {
+    if (sourceValue.length >= 1 && sourceValue.length <= 240) candidates.add(sourceValue);
+  } else {
+    const codeLike = /(?:\b[A-Za-z_$][\w$]*(?:(?:::|\.|->)[A-Za-z_$][\w$]*)*\s*\([^()\r\n]{0,240}\)|\b0[xX][0-9a-fA-F]+\b)/gu;
+    for (const description of [node.label, node.detail ?? '']) {
+      for (const match of description.matchAll(/`([^`\r\n]{1,240})`/gu)) candidates.add(match[1]);
+      for (const match of description.matchAll(codeLike)) candidates.add(match[0]);
+    }
   }
 
   const exactMatches = [...candidates].flatMap((candidate) => {
-    if (candidate.length < 4) return [];
+    if (candidate.length < 1) return [];
     const start = anchor.excerpt.indexOf(candidate);
     if (start < 0 || anchor.excerpt.indexOf(candidate, start + 1) !== -1) return [];
     const end = start + candidate.length;
@@ -63,6 +66,25 @@ export function sourceAnchorForVisualNode(anchor: ChapterSourceAnchor, node: Pic
     endColumn: match.endColumn,
     excerpt: match.candidate,
   };
+}
+
+/** Select a node's validated source binding before falling back to its cited anchors. */
+export function sourceEvidenceAnchorForVisualNode(
+  anchors: readonly ChapterSourceAnchor[],
+  node: Pick<LinkedVisualNode, 'evidenceAnchorIds' | 'sourceAnchorId'>,
+  sourceValue?: string,
+): ChapterSourceAnchor | undefined {
+  const allowed = new Set(node.evidenceAnchorIds);
+  if (node.sourceAnchorId) {
+    return allowed.has(node.sourceAnchorId)
+      ? anchors.find((anchor) => anchor.anchorId === node.sourceAnchorId)
+      : undefined;
+  }
+  if (sourceValue) {
+    const matching = anchors.find((anchor) => allowed.has(anchor.anchorId) && anchor.excerpt.includes(sourceValue));
+    if (matching) return matching;
+  }
+  return anchors.find((anchor) => allowed.has(anchor.anchorId));
 }
 
 /** Resolve code values authored for each composition node so the graph view can

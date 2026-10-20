@@ -90,13 +90,12 @@ fn canonicalize_visual_proposal(
 
     let mut nodes = Vec::with_capacity(proposed.nodes.len());
     for node in &proposed.nodes {
-        if node.label.trim().is_empty()
-            || node.label.len() > 240
-            || node.detail.len() > 512
-        {
+        if node.label.trim().is_empty() || node.label.len() > 240 || node.detail.len() > 512 {
             return Err("A generated visual node has an empty label or oversized text.".to_owned());
         }
         let evidence_anchor_ids = resolve_visual_evidence(&node.evidence, claims)?;
+        let (source_anchor_id, source_value) =
+            resolve_visual_source_binding(node.source.as_ref(), &node.evidence, claims)?;
         let node_id = generated_id("visualnode");
         let hotspot_id = generated_id("visualhotspot");
         hotspots.push(chapters::ChapterHotspot {
@@ -112,6 +111,8 @@ fn canonicalize_visual_proposal(
             detail: (!node.detail.trim().is_empty()).then(|| node.detail.trim().to_owned()),
             hotspot_id: Some(hotspot_id),
             evidence_anchor_ids,
+            source_anchor_id,
+            source_value,
         });
     }
 
@@ -186,6 +187,38 @@ fn resolve_visual_evidence(
     Ok(anchor_ids)
 }
 
+fn resolve_visual_source_binding(
+    source: Option<&GeneratedVisualSource>,
+    node_evidence: &[GeneratedVisualEvidence],
+    claims: &[ChapterClaim],
+) -> Result<(Option<String>, Option<String>), String> {
+    let Some(source) = source else {
+        return Ok((None, None));
+    };
+    if !node_evidence.iter().any(|reference| {
+        reference.claim_index == source.evidence.claim_index
+            && reference.evidence_index == source.evidence.evidence_index
+    }) {
+        return Err("A visual source binding must use evidence cited by its node.".to_owned());
+    }
+    let anchor = claims
+        .get(source.evidence.claim_index as usize)
+        .and_then(|claim| claim.anchors.get(source.evidence.evidence_index as usize))
+        .ok_or_else(|| "A visual source binding is outside validated claim evidence.".to_owned())?;
+    if !(1..=240).contains(&source.value.len())
+        || anchor.excerpt.match_indices(&source.value).count() != 1
+    {
+        return Err(
+            "A visual source value must be a unique exact substring of its cited evidence."
+                .to_owned(),
+        );
+    }
+    Ok((
+        Some(anchor.anchor_id.clone()),
+        Some(source.value.clone()),
+    ))
+}
+
 #[derive(Clone, Debug, serde::Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct GeneratedVisualProposal {
@@ -204,6 +237,15 @@ struct GeneratedVisualNode {
     label: String,
     detail: String,
     evidence: Vec<GeneratedVisualEvidence>,
+    #[serde(default)]
+    source: Option<GeneratedVisualSource>,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct GeneratedVisualSource {
+    evidence: GeneratedVisualEvidence,
+    value: String,
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -582,7 +624,18 @@ fn reuse_matching_anchor_ids(
         }
     }
 
-    if let Some(visual) = next.visual.as_mut().and_then(ChapterVisualPayload::typed_visual_mut) {
+    if let Some(visual) = next
+        .visual
+        .as_mut()
+        .and_then(ChapterVisualPayload::typed_visual_mut)
+    {
+        for node in &mut visual.nodes {
+            if let Some(anchor_id) = node.source_anchor_id.as_mut() {
+                if let Some(previous_id) = anchor_id_mapping.get(anchor_id) {
+                    *anchor_id = previous_id.clone();
+                }
+            }
+        }
         for anchor_id in visual
             .nodes
             .iter_mut()
@@ -687,6 +740,8 @@ fn same_visual_inputs(previous: &ChapterSection, next: &ChapterSection) -> bool 
         if previous_node.label != next_node.label
             || previous_node.detail != next_node.detail
             || previous_node.evidence_anchor_ids != next_node.evidence_anchor_ids
+            || previous_node.source_anchor_id != next_node.source_anchor_id
+            || previous_node.source_value != next_node.source_value
             || hotspot_destination(previous, previous_node.hotspot_id.as_deref())
                 != hotspot_destination(next, next_node.hotspot_id.as_deref())
         {
@@ -1915,6 +1970,88 @@ pub(crate) mod tests {
         section.visual = Some(visual.into());
         let report = chapters::validate_chapter_revision(&fixture.storage, &fixture.manifest, Some(&fixture.index), &revision);
         assert_eq!(report.status, ValidationReportStatus::Valid, "{report:#?}");
+    }
+
+    #[test]
+    fn visual_source_binding_resolves_a_unique_exact_value_on_node_evidence() {
+        let fixture = Fixture::new();
+        let mut revision = canonicalize_file_chapter(
+            &fixture.manifest.summary.project_id,
+            &fixture.manifest,
+            Some(&fixture.index),
+            SIMPLE_PATH,
+            &fixture.sources(&[SIMPLE_PATH]),
+            &HashSet::new(),
+            &serde_json::to_string(&simple_proposal()).unwrap(),
+        )
+        .unwrap();
+        let section = &mut revision.sections[0];
+        let anchor = section.claims[0].anchors[0].anchor_id.clone();
+        let source_value = "return `Hello, ${name}`;";
+        let proposed: GeneratedVisualProposal = serde_json::from_value(serde_json::json!({
+            "kind":"dataFlow","title":"Name to greeting","direction":"leftToRight",
+            "nodes":[
+                {"label":"Greeting template","detail":"The supplied name becomes part of the returned message.",
+                 "evidence":[{"claimIndex":0,"evidenceIndex":0}],
+                 "source":{"evidence":{"claimIndex":0,"evidenceIndex":0},"value":source_value}},
+                {"label":"Returned greeting","detail":"The formatted string reaches the caller.",
+                 "evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null}
+            ],
+            "edges":[{"fromNodeIndex":0,"toNodeIndex":1,"label":"returns",
+                "evidence":[{"claimIndex":0,"evidenceIndex":0}]}]
+        })).unwrap();
+        {
+            let section = &mut revision.sections[0];
+            let visual =
+                canonicalize_visual_proposal(&proposed, &section.claims, &mut section.hotspots)
+                    .unwrap()
+                    .unwrap();
+            assert_eq!(
+                visual.nodes[0].source_anchor_id.as_deref(),
+                Some(anchor.as_str())
+            );
+            assert_eq!(visual.nodes[0].source_value.as_deref(), Some(source_value));
+            assert_eq!(visual.nodes[1].source_anchor_id, None);
+            section.visual = Some(visual.into());
+        }
+        let report = chapters::validate_chapter_revision(
+            &fixture.storage,
+            &fixture.manifest,
+            Some(&fixture.index),
+            &revision,
+        );
+        assert_eq!(report.status, ValidationReportStatus::Valid, "{report:#?}");
+
+        let ambiguous: GeneratedVisualProposal = serde_json::from_value(serde_json::json!({
+            "kind":"dataFlow","title":"Name to greeting","direction":"leftToRight",
+            "nodes":[
+                {"label":"Greeting template","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}],
+                 "source":{"evidence":{"claimIndex":0,"evidenceIndex":0},"value":"name"}},
+                {"label":"Returned greeting","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null}
+            ],
+            "edges":[{"fromNodeIndex":0,"toNodeIndex":1,"label":"returns",
+                "evidence":[{"claimIndex":0,"evidenceIndex":0}]}]
+        })).unwrap();
+        let section = &mut revision.sections[0];
+        assert!(
+            canonicalize_visual_proposal(&ambiguous, &section.claims, &mut section.hotspots)
+                .is_err()
+        );
+
+        let uncited: GeneratedVisualProposal = serde_json::from_value(serde_json::json!({
+            "kind":"dataFlow","title":"Name to greeting","direction":"leftToRight",
+            "nodes":[
+                {"label":"Greeting template","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}],
+                 "source":{"evidence":{"claimIndex":0,"evidenceIndex":1},"value":"name"}},
+                {"label":"Returned greeting","detail":"","evidence":[{"claimIndex":0,"evidenceIndex":0}],"source":null}
+            ],
+            "edges":[{"fromNodeIndex":0,"toNodeIndex":1,"label":"returns",
+                "evidence":[{"claimIndex":0,"evidenceIndex":0}]}]
+        })).unwrap();
+        assert!(
+            canonicalize_visual_proposal(&uncited, &section.claims, &mut section.hotspots)
+                .is_err()
+        );
     }
 
     #[test]

@@ -7,7 +7,7 @@ import { isNativeRuntime, type ChapterHotspot, type ChapterRevision, type Chapte
 import { defaultNarrationText, parseNarrationPreferences } from './lib/narration';
 import { narrationStorageKey } from './lib/narrationScope';
 import { inspectInteractiveVisual } from './lib/visuals';
-import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes } from './lib/visualStory';
+import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes } from './lib/visualStory';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
 import { useReaderProgress } from './lib/ReaderProgressContext';
@@ -71,7 +71,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const mapView = useRef(fullMap);
   const [focusedNode, setFocusedNode] = useState<string | null>(null);
   useEffect(() => {
-    const node = visual?.nodes.find((node) => activeFocusTarget === `reader-visual-citation:${node.nodeId}:${node.evidenceAnchorIds[0]}`);
+    const node = visual?.nodes.find((node) => activeFocusTarget === `reader-visual-citation:${node.nodeId}:${node.sourceAnchorId ?? node.evidenceAnchorIds[0]}`);
     if (node) setFocusedNode(node.nodeId);
   }, [activeFocusTarget, visual]);
   const scene = scenes[Math.min(index, scenes.length - 1)];
@@ -84,7 +84,13 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const activeIds = new Set(scene.nodeIds);
   const visibleIds = visual && !fullMap && activeIds.size ? sceneNodeIds(visual, scene) : new Set(visual?.nodes.map((node) => node.nodeId));
   const focus = visual?.nodes.find((node) => node.nodeId === focusedNode) ?? visual?.nodes.find((node) => activeIds.has(node.nodeId));
-  const focusAnchor = anchors.find((item) => focus?.evidenceAnchorIds.includes(item.anchorId)) ?? anchor;
+  const focusSourceValue = focus?.sourceValue ?? (focus ? sourceValues.get(focus.nodeId) : undefined);
+  const focusAnchor = focus
+    ? sourceEvidenceAnchorForVisualNode(anchors, focus, focusSourceValue)
+    : anchor;
+  const focusSourceAnchor = focus && focusAnchor
+    ? sourceAnchorForVisualNode(focusAnchor, focus, focusSourceValue)
+    : focusAnchor;
   const hotspot = inspection.status === 'available' && focus?.hotspotId ? inspection.hotspotsById.get(focus.hotspotId) : undefined;
   const savePosition = (sceneId: string, position?: number) => {
     if (position !== undefined && Number.isFinite(position)) positions.current.set(sceneId, Math.max(0,Math.min(3600,position)));
@@ -106,15 +112,15 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     const next = scene.nodeIds.includes(id) ? index : scenes.findIndex((item) => item.nodeIds.includes(id));
     select(next < 0 ? index : next, false, id);
     const node = visual?.nodes.find((item) => item.nodeId === id);
-    const nodeAnchors = anchors.filter((item) => node?.evidenceAnchorIds.includes(item.anchorId));
-    const source = (sourceValue ? nodeAnchors.find((item) => item.excerpt.includes(sourceValue)) : undefined) ?? nodeAnchors[0];
-    if (source && node) onOpenAnchor(sourceAnchorForVisualNode(source, node, sourceValue), `reader-visual-citation:${id}:${source.anchorId}`);
+    const exactValue = node?.sourceValue ?? sourceValue;
+    const source = node ? sourceEvidenceAnchorForVisualNode(anchors, node, exactValue) : undefined;
+    if (source && node) onOpenAnchor(sourceAnchorForVisualNode(source, node, exactValue), `reader-visual-citation:${id}:${source.anchorId}`);
   };
   const nodes = visual ? storyLayout(visual, visibleIds).map((node) => {
     const data = visual.nodes.find((item) => item.nodeId === node.id)!;
     return { ...node, sourcePosition: visual.layoutHint.direction === 'topToBottom' ? Position.Bottom : Position.Right,
       targetPosition: visual.layoutHint.direction === 'topToBottom' ? Position.Top : Position.Left,
-      data: { label: <button className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${data.evidenceAnchorIds[0]}`} aria-pressed={focus?.nodeId === node.id} aria-label={`${data.label}${data.detail ? `: ${data.detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}`} onClick={() => chooseNode(node.id, sourceValues.get(node.id))}>
+      data: { label: <button className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${data.sourceAnchorId ?? data.evidenceAnchorIds[0]}`} aria-pressed={focus?.nodeId === node.id} aria-label={`${data.label}${data.detail ? `: ${data.detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}`} onClick={() => chooseNode(node.id, sourceValues.get(node.id))}>
         <span className="story-node-title">{data.label}</span>
         {data.detail && <small className="story-node-detail">{data.detail}</small>}
       </button> },
@@ -212,7 +218,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
         : <div className="story-no-visual"><Network size={28} /><span>{section.title}</span><small>{inspection.status === 'unavailable' ? 'This saved visual cannot be displayed. Narration and source links are available.' : 'No diagram was saved for this section.'}</small></div>}
     </div>}
     {!visual && <div className="story-focus-bar"><span>{focus?.label ?? (anchor ? 'Captured code' : section.title)}</span>
-      {focusAnchor && <button onClick={() => { setAutoPlay(false); setManualVisit((visit) => visit + 1); onOpenAnchor(focusAnchor); }}><Code2 size={13} />Source</button>}
+      {focusSourceAnchor && <button onClick={() => { setAutoPlay(false); setManualVisit((visit) => visit + 1); onOpenAnchor(focusSourceAnchor); }}><Code2 size={13} />Source</button>}
     </div>}
     <details className="story-details"><summary>Scene details & source</summary>
       {focus?.detail && <p>{focus.detail}</p>}

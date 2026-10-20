@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { viewportClipsNodeBounds } from '../src/lib/flowViewport.ts';
-import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes } from '../src/lib/visualStory.ts';
+import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes } from '../src/lib/visualStory.ts';
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
 const claims = [claim('entry', 'A request reaches handleRequest. The bytes are still untrusted.'), claim('check', 'If validate rejects those bytes, the caller receives an error. Otherwise processing continues.')];
@@ -69,6 +69,31 @@ describe('visual story scenes', () => {
     const ambiguous = { ...anchor, excerpt: `${excerpt}\nif fallback == 0x0200 {}`, endLine: 4067,
       endByteInclusive: 499 + Buffer.byteLength(`${excerpt}\nif fallback == 0x0200 {}`) };
     assert.equal(sourceAnchorForVisualNode(ambiguous, { label: '0x0200' }), ambiguous);
+  });
+
+  it('uses an exact node source binding before the first broad evidence anchor', () => {
+    const excerpt = 'if matches!(read_u16_le(data, 0), Some(0x0200) | Some(0x0300)) {';
+    const broad = {
+      anchorId: 'anchor:broad', path: 'src/font.rs', symbolId: 'symbol:memory-face', snapshotId: 'snapshot:one',
+      sourceSha256: 'd'.repeat(64), startByte: 100, endByteInclusive: 99 + Buffer.byteLength(excerpt),
+      startLine: 4053, endLine: 4053, startColumn: 1, endColumn: excerpt.length, excerpt,
+    };
+    const exact = { ...broad, anchorId: 'anchor:exact', startLine: 4064 };
+    const node = {
+      label: 'LE 16-bit value at offset 0', detail: 'The branch checks the value read at byte offset zero.',
+      evidenceAnchorIds: [broad.anchorId, exact.anchorId], sourceAnchorId: exact.anchorId,
+      sourceValue: 'read_u16_le(data, 0)',
+    };
+    assert.equal(sourceEvidenceAnchorForVisualNode([broad, exact], node), exact);
+    assert.equal(sourceAnchorForVisualNode(exact, node, node.sourceValue).excerpt, node.sourceValue);
+    assert.equal(sourceEvidenceAnchorForVisualNode([broad, exact], { ...node, sourceAnchorId: 'anchor:foreign' }), undefined);
+
+    const singleTokenAnchor = { ...exact, startByte: 20, endByteInclusive: 20, excerpt: '{', startLine: 4053, endLine: 4053, startColumn: 18, endColumn: 18 };
+    assert.equal(sourceAnchorForVisualNode(singleTokenAnchor, node, '{').excerpt, '{');
+
+    const labelAndBindingExcerpt = 'if tag == 0x0200 {';
+    const labelAndBinding = { ...exact, startByte: 20, endByteInclusive: 19 + Buffer.byteLength(labelAndBindingExcerpt), excerpt: labelAndBindingExcerpt };
+    assert.equal(sourceAnchorForVisualNode(labelAndBinding, { label: 'tag == 0x0200' }, 'tag').excerpt, 'tag');
   });
 
   it('opens a composed source-value cue on the exact expression it displays', () => {

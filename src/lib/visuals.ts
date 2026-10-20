@@ -69,6 +69,19 @@ export function inspectInteractiveVisual(
       || !hasValidEvidence(node.evidenceAnchorIds, anchorsById)) {
       return { status: 'unavailable', reason: 'malformed' };
     }
+    if (node.sourceAnchorId !== undefined || node.sourceValue !== undefined) {
+      const sourceAnchor = typeof node.sourceAnchorId === 'string'
+        ? anchorsById.get(node.sourceAnchorId)
+        : undefined;
+      if (typeof node.sourceAnchorId !== 'string'
+        || typeof node.sourceValue !== 'string'
+        || !node.evidenceAnchorIds.includes(node.sourceAnchorId)
+        || !hasBoundedText(node.sourceValue, 240)
+        || !sourceAnchor
+        || sourceAnchor.excerpt.split(node.sourceValue).length !== 2) {
+        return { status: 'unavailable', reason: 'malformed' };
+      }
+    }
     if (node.hotspotId !== null) {
       const hotspot = hotspotsById.get(node.hotspotId);
       if (!hotspot || !hasBoundedText(hotspot.label, MAX_LABEL_BYTES)
@@ -105,7 +118,8 @@ function isCurrentVisual(value: Record<string, unknown>): value is Record<string
     || !Array.isArray(value.edges)
     || value.edges.length > MAX_EDGES) return false;
   return value.nodes.every((item) => isRecord(item)
-    && hasExactKeys(item, ['nodeId', 'label', 'detail', 'hotspotId', 'evidenceAnchorIds'])
+    && (hasExactKeys(item, ['nodeId', 'label', 'detail', 'hotspotId', 'evidenceAnchorIds'])
+      || hasExactKeys(item, ['nodeId', 'label', 'detail', 'hotspotId', 'evidenceAnchorIds', 'sourceAnchorId', 'sourceValue']))
     && typeof item.nodeId === 'string'
     && typeof item.label === 'string'
     && (item.detail === null || typeof item.detail === 'string')
