@@ -107,12 +107,72 @@ describe('visual story scenes', () => {
       sourceSha256: 'e'.repeat(64), startByte: 900, endByteInclusive: 899 + Buffer.byteLength(excerpt),
       startLine: 4061, endLine: 4063, startColumn: 1, endColumn: 1, excerpt,
     };
-    const edge = { edgeId: 'edge:pfr', label: 'calls Self::pfr_face(data, face_index, size_pt)', evidenceAnchorIds: [anchor.anchorId] };
+    const edge = { edgeId: 'edge:pfr', label: 'Prefix matches; hand off and return this result.', evidenceAnchorIds: [anchor.anchorId] };
     assert.equal(sourceEvidenceAnchorForVisualEdge([anchor], edge), anchor);
-    const narrowed = sourceAnchorForVisualEdge(anchor, edge);
+    const targetAnchor = { ...anchor, anchorId: 'anchor:pfr-function', path: 'src/pfr.rs', excerpt: 'pub(crate) fn pfr_face(data: &[u8], face_index: usize, size_pt: f32) -> Result<Self, FontError> {' };
+    const narrowed = sourceAnchorForVisualEdge(anchor, edge, targetAnchor);
     assert.equal(narrowed.startLine, 4062);
     assert.equal(narrowed.excerpt, 'Self::pfr_face(data, face_index, size_pt)');
     assert.equal(sourceEvidenceAnchorForVisualEdge([anchor], { ...edge, evidenceAnchorIds: ['anchor:foreign'] }), undefined);
+    assert.equal(sourceAnchorForVisualEdge(anchor, edge), anchor, 'without a verified target definition, retain the cited range');
+    const duplicatedCall = { ...anchor, excerpt: `${excerpt}\nSelf::pfr_face(data, face_index, size_pt);`, endLine: 4064,
+      endByteInclusive: 899 + Buffer.byteLength(`${excerpt}\nSelf::pfr_face(data, face_index, size_pt);`) };
+    assert.equal(sourceAnchorForVisualEdge(duplicatedCall, edge, targetAnchor), duplicatedCall, 'ambiguous call sites retain the cited range');
+  });
+
+  it('narrows a natural-language edge through its uniquely cited source branch', () => {
+    const excerpt = [
+      'if is_pcf(data) {',
+      '    return Self::pcf_face(data, face_index, size_pt);',
+      '}',
+      'if data.starts_with(b"PFR0") {',
+      '    return Self::pfr_face(data, face_index, size_pt);',
+      '}',
+      'if is_winfnt(data) {',
+      '    return Self::winfnt_face(data, face_index, size_pt);',
+      '}',
+    ].join('\n');
+    const anchor = {
+      anchorId: 'anchor:memory-face', path: 'src/font.rs', symbolId: 'symbol:memory-face', snapshotId: 'snapshot:one',
+      sourceSha256: 'f'.repeat(64), startByte: 1200, endByteInclusive: 1199 + Buffer.byteLength(excerpt),
+      startLine: 4058, endLine: 4066, startColumn: 1, endColumn: 1, excerpt,
+    };
+    const predicate = 'if data.starts_with(b"PFR0") {';
+    const predicateOffset = excerpt.indexOf(predicate);
+    const rawSourceAnchor = {
+      ...anchor, anchorId: 'anchor:pfr-prefix', startByte: anchor.startByte + Buffer.byteLength(excerpt.slice(0, predicateOffset)),
+      endByteInclusive: anchor.startByte + Buffer.byteLength(excerpt.slice(0, predicateOffset + predicate.length)) - 1,
+      startLine: 4061, endLine: 4061, excerpt: predicate,
+    };
+    const sourceNode = { label: 'PFR0 prefix', detail: 'Branch test: data.starts_with(b"PFR0").' };
+    const sourceAnchor = sourceAnchorForVisualNode(rawSourceAnchor, sourceNode);
+    const edge = { edgeId: 'edge:pfr', label: 'Prefix matches; hand off and return this result.', evidenceAnchorIds: [anchor.anchorId] };
+    const unrelatedTarget = { ...anchor, anchorId: 'anchor:parse', path: 'src/pfr.rs', excerpt: 'pub(crate) fn parse(data: &[u8]) -> Result<Self, Error> {' };
+
+    const narrowed = sourceAnchorForVisualEdge(anchor, edge, unrelatedTarget, sourceAnchor);
+    const expression = 'Self::pfr_face(data, face_index, size_pt)';
+    assert.equal(narrowed.startLine, 4062);
+    assert.equal(narrowed.endLine, 4062);
+    assert.equal(narrowed.excerpt, expression);
+    assert.equal(narrowed.startByte, anchor.startByte + Buffer.byteLength(excerpt.slice(0, excerpt.indexOf(expression))));
+
+    const duplicatePredicateExcerpt = `${excerpt}\n${predicate}\n    return Self::other_face(data);\n}`;
+    const duplicateAnchor = { ...anchor, excerpt: duplicatePredicateExcerpt, endLine: 4069,
+      endByteInclusive: anchor.startByte + Buffer.byteLength(duplicatePredicateExcerpt) - 1 };
+    assert.equal(sourceAnchorForVisualEdge(duplicateAnchor, edge, unrelatedTarget, sourceAnchor), duplicateAnchor,
+      'duplicate source conditions retain the validated broad citation');
+    assert.equal(sourceAnchorForVisualEdge(anchor, edge, unrelatedTarget, { ...sourceAnchor, sourceSha256: '0'.repeat(64) }), anchor,
+      'source context from another snapshot is not used');
+    const unrelatedExcerpt = [
+      'let is_pfr = data.starts_with(b"PFR0");',
+      'if fallback {',
+      '    return Self::pfr_face(data, face_index, size_pt);',
+      '}',
+    ].join('\n');
+    const unrelatedAnchor = { ...anchor, excerpt: unrelatedExcerpt, endLine: 4061,
+      endByteInclusive: anchor.startByte + Buffer.byteLength(unrelatedExcerpt) - 1 };
+    assert.equal(sourceAnchorForVisualEdge(unrelatedAnchor, edge, unrelatedTarget, sourceAnchor), unrelatedAnchor,
+      'a matching expression outside the branch condition cannot identify a return call');
   });
 
   it('opens a composed source-value cue on the exact expression it displays', () => {
@@ -154,7 +214,8 @@ describe('visual story scenes', () => {
     assert.match(component, /function EvidenceStoryEdge\(/u);
     assert.match(component, /<EdgeLabelRenderer>/u);
     assert.match(component, /aria-label=\{`\$\{label\}\. Open cited source code`\}/u);
-    assert.match(component, /onOpenAnchor\(sourceAnchorForVisualEdge\(source, edge\), `reader-visual-edge:/u);
+    assert.match(component, /onOpenAnchor\(sourceAnchorForVisualEdge\(source, edge, targetAnchor, sourceContextAnchor\), `reader-visual-edge:/u);
+    assert.match(component, /sourceAnchorForVisualNode\(sourceContext, origin, origin\.sourceValue\)/u);
     assert.match(component, /edgeTypes=\{storyEdgeTypes\}/u);
   });
 
@@ -326,13 +387,15 @@ describe('visual story scenes', () => {
     }
     assert.match(story, /instance\.setViewport\(saved,\s*\{\s*duration:\s*0\s*\}\)/u,
       'a saved Guide viewport is applied after React Flow initializes, not only passed as its initial default');
-    assert.match(story, /onInit=\{\(instance\)\s*=>\s*\{[\s\S]*?instance\.setNodes\(nodes\);\s*instance\.setEdges\(edges\);/u,
+    assert.match(story, /onInit=\{\(instance\)\s*=>\s*\{[\s\S]*?instance\.setNodes\(graphData\.current\.nodes\);\s*instance\.setEdges\(graphData\.current\.edges\);/u,
       'the Guide canvas hydrates its nodes and edges after React Flow initializes');
   });
 
-  it('rehydrates the Guide diagram after the first layout frame', () => {
+  it('rehydrates the Guide diagram after data arrives and after the first layout frame', () => {
     const story = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
-    assert.match(story, /requestAnimationFrame\(\(\)\s*=>\s*\{\s*if\s*\(flowInstance\.current\s*!==\s*instance\)\s*return;\s*instance\.setNodes\(nodes\);\s*instance\.setEdges\(edges\);\s*scheduleViewportCheck\.current\(\);\s*\}\)/u,
+    assert.match(story, /useEffect\(\(\)\s*=>\s*\{[\s\S]*?const instance = flowInstance\.current;\s*if \(!instance\?\.viewportInitialized\) return;[\s\S]*?const current = graphData\.current;\s*instance\.setNodes\(current\.nodes\);\s*instance\.setEdges\(current\.edges\);[\s\S]*?\}, \[visual, visibleNodeKey, scene\.id, fullMap, revision\.revisionId, section\.sectionRevisionId\]\)/u,
+      'newly restored visual data replaces the graph initialized from older saved state');
+    assert.match(story, /requestAnimationFrame\(\(\)\s*=>\s*\{\s*if\s*\(flowInstance\.current\s*!==\s*instance\)\s*return;\s*const latest = graphData\.current;\s*instance\.setNodes\(latest\.nodes\);\s*instance\.setEdges\(latest\.edges\);\s*scheduleViewportCheck\.current\(\);\s*\}\)/u,
       'the first Guide mount reconciles the controlled graph after React Flow has completed a browser layout frame');
   });
 

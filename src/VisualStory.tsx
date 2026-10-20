@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Background, BaseEdge, Controls, EdgeLabelRenderer, MarkerType, Position, ReactFlow, getBezierPath, type Edge, type EdgeProps } from '@xyflow/react';
+import { Background, BaseEdge, Controls, EdgeLabelRenderer, MarkerType, Position, ReactFlow, getBezierPath, type Edge, type EdgeProps, type ReactFlowInstance } from '@xyflow/react';
 import { ArrowLeft, ArrowRight, Code2, Maximize2, Network } from 'lucide-react';
 import { NarrationPlayer } from './NarrationPlayer';
 import { HtmlScene } from './HtmlScene';
@@ -88,7 +88,6 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const positions = useRef(new Map(savedPosition.positions));
   const root = useRef<HTMLElement>(null);
   const storyStage = useRef<HTMLDivElement>(null);
-  const flowInstance = useRef<FlowViewportInstance | null>(null);
   const flowFitGeneration = useRef(0);
   const flowFitInProgress = useRef(false);
   const scheduleViewportCheck = useRef<() => void>(() => {});
@@ -152,10 +151,17 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     if (!edge) return;
     const source = sourceEvidenceAnchorForVisualEdge(anchors, edge);
     if (!source) return;
+    const origin = visual?.nodes.find((item) => item.nodeId === edge.fromNodeId);
+    const target = visual?.nodes.find((item) => item.nodeId === edge.toNodeId);
+    const sourceContext = origin ? sourceEvidenceAnchorForVisualNode(anchors, origin, origin.sourceValue) : undefined;
+    const sourceContextAnchor = origin && sourceContext
+      ? sourceAnchorForVisualNode(sourceContext, origin, origin.sourceValue)
+      : undefined;
+    const targetAnchor = target ? sourceEvidenceAnchorForVisualNode(anchors, target, target.sourceValue) : undefined;
     const relatedScene = scenes.findIndex((item) => item.nodeIds.includes(edge.fromNodeId) && item.nodeIds.includes(edge.toNodeId));
     select(relatedScene < 0 ? index : relatedScene, false, edge.fromNodeId);
     setFocusedEdge(edge.edgeId);
-    onOpenAnchor(sourceAnchorForVisualEdge(source, edge), `reader-visual-edge:${edge.edgeId}:${source.anchorId}`);
+    onOpenAnchor(sourceAnchorForVisualEdge(source, edge, targetAnchor, sourceContextAnchor), `reader-visual-edge:${edge.edgeId}:${source.anchorId}`);
   };
   const nodes = visual ? storyLayout(visual, visibleIds).map((node) => {
     const data = visual.nodes.find((item) => item.nodeId === node.id)!;
@@ -172,8 +178,28 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     data: { label: edge.label, focused: focusedEdge === edge.edgeId, onOpenSource: () => chooseEdge(edge.edgeId) },
     markerEnd: { type: MarkerType.ArrowClosed }, className: activeIds.has(edge.fromNodeId) && activeIds.has(edge.toNodeId) ? 'story-edge-active' : 'story-edge-context',
   })) ?? [];
+  const flowInstance = useRef<FlowViewportInstance & Pick<ReactFlowInstance<(typeof nodes)[number], StoryEdge>, 'setNodes' | 'setEdges'> | null>(null);
+  const graphData = useRef({ nodes, edges });
+  graphData.current = { nodes, edges };
 
   const visibleNodeKey = JSON.stringify([...visibleIds]);
+  useEffect(() => {
+    // Saved chapter data can hydrate after the native reader mounts its Guide
+    // canvas. Reconcile that new graph even when React Flow initialized with
+    // an empty or stale set of nodes.
+    const instance = flowInstance.current;
+    if (!instance?.viewportInitialized) return;
+    const current = graphData.current;
+    instance.setNodes(current.nodes);
+    instance.setEdges(current.edges);
+    requestAnimationFrame(() => {
+      if (flowInstance.current !== instance) return;
+      const latest = graphData.current;
+      instance.setNodes(latest.nodes);
+      instance.setEdges(latest.edges);
+      scheduleViewportCheck.current();
+    });
+  }, [visual, visibleNodeKey, scene.id, fullMap, revision.revisionId, section.sectionRevisionId]);
   useEffect(() => {
     const stage = storyStage.current;
     if (!stage) return;
@@ -244,15 +270,16 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
           // Reapply the controlled arrays after React Flow initializes. On a
           // fresh native workspace restore, its first canvas can otherwise
           // mount without painting nodes until the user changes scenes.
-          instance.setNodes(nodes);
-          instance.setEdges(edges);
+          instance.setNodes(graphData.current.nodes);
+          instance.setEdges(graphData.current.edges);
           // A freshly restored Guide can mount before its split-pane layout has
           // settled. Reconcile the controlled graph after that first frame so
           // React Flow cannot retain the pre-layout empty canvas.
           requestAnimationFrame(() => {
             if (flowInstance.current !== instance) return;
-            instance.setNodes(nodes);
-            instance.setEdges(edges);
+            const latest = graphData.current;
+            instance.setNodes(latest.nodes);
+            instance.setEdges(latest.edges);
             scheduleViewportCheck.current();
           });
           const saved = canvasViewport.current;

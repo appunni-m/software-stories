@@ -73,8 +73,69 @@ export function sourceAnchorForVisualNode(anchor: ChapterSourceAnchor, node: Pic
 }
 
 /** Narrow a visual edge's source link when its label names one unique code expression. */
-export function sourceAnchorForVisualEdge(anchor: ChapterSourceAnchor, edge: Pick<LinkedVisualEdge, 'label'>): ChapterSourceAnchor {
-  return sourceAnchorForVisualText(anchor, edge.label);
+export function sourceAnchorForVisualEdge(
+  anchor: ChapterSourceAnchor,
+  edge: Pick<LinkedVisualEdge, 'label'>,
+  targetAnchor?: ChapterSourceAnchor,
+  sourceAnchor?: ChapterSourceAnchor,
+): ChapterSourceAnchor {
+  const byLabel = sourceAnchorForVisualText(anchor, edge.label);
+  if (byLabel !== anchor) return byLabel;
+
+  // When a natural-language edge points at a function node, use the declared
+  // target symbol to locate its unique call site inside the edge's own evidence.
+  // If either side is ambiguous, keep the validated citation broad.
+  if (targetAnchor) {
+    const declarations = [...targetAnchor.excerpt.matchAll(/\b(?:fn|function|def|func)\s+([A-Za-z_$][\w$]*)\s*\(/gu)];
+    const names = new Set(declarations.map((match) => match[1]));
+    if (names.size === 1) {
+      const name = [...names][0].replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+      const callPattern = new RegExp(`(?:\\b[A-Za-z_$][\\w$]*::)*${name}\\s*\\([^()\\r\\n]{0,240}\\)`, 'gu');
+      const calls = [...anchor.excerpt.matchAll(callPattern)].filter((match) => {
+        const lineStart = Math.max(anchor.excerpt.lastIndexOf('\n', match.index - 1), anchor.excerpt.lastIndexOf('\r', match.index - 1)) + 1;
+        return !/\b(?:fn|function|def|func)\s+$/u.test(anchor.excerpt.slice(lineStart, match.index));
+      });
+      if (calls.length === 1) return sourceAnchorForVisualText(anchor, edge.label, undefined, calls[0][0]);
+    }
+  }
+
+  // A natural-language edge can still be exact when its source node is bound
+  // to a single branch condition. Find that condition in the edge's own
+  // validated excerpt and narrow only to its single direct return call.
+  if (sourceAnchor?.path === anchor.path && sourceAnchor.sourceSha256 === anchor.sourceSha256) {
+    const context = sourceAnchor.excerpt.trim();
+    const contextStart = anchor.excerpt.indexOf(context);
+    if (context && contextStart >= 0 && anchor.excerpt.indexOf(context, contextStart + context.length) === -1) {
+      const contextOpenBrace = context.indexOf('{');
+      const openBrace = contextOpenBrace >= 0
+        ? contextStart + contextOpenBrace
+        : anchor.excerpt.indexOf('{', contextStart + context.length);
+      const closeBrace = openBrace >= 0 ? anchor.excerpt.indexOf('}', openBrace + 1) : -1;
+      if (openBrace >= 0 && closeBrace > openBrace) {
+        const headerLineStart = Math.max(anchor.excerpt.lastIndexOf('\n', openBrace - 1), anchor.excerpt.lastIndexOf('\r', openBrace - 1)) + 1;
+        const headerLineEnd = [anchor.excerpt.indexOf('\n', openBrace), anchor.excerpt.indexOf('\r', openBrace)]
+          .filter((position) => position >= 0).reduce((end, position) => Math.min(end, position), anchor.excerpt.length);
+        const header = anchor.excerpt.slice(headerLineStart, headerLineEnd).trim();
+        if (!/^\s*(?:\}\s*)?(?:else\s+)?(?:if|while|for)\b[\s\S]*\{\s*$/u.test(header)) return anchor;
+        if (contextStart < headerLineStart || contextStart > openBrace
+          || (!context.includes('{') && contextStart + context.length > openBrace)) return anchor;
+        if (anchor.excerpt.slice(contextStart, openBrace).includes('\n') || anchor.excerpt.slice(contextStart, openBrace).includes('\r')) return anchor;
+        const body = anchor.excerpt.slice(openBrace + 1, closeBrace);
+        // Nested blocks and embedded braces are intentionally left broad.
+        if (!body.includes('{')) {
+          const returns = [...body.matchAll(/\breturn\s+([^;{}]+);/gu)];
+          const expression = returns[0]?.[1]?.trim();
+          if (returns.length === 1 && expression && !/[\r\n]/u.test(expression)
+            && /^(?:[A-Za-z_$][\w$]*::)*[A-Za-z_$][\w$]*\s*\([^()\r\n]{0,240}\)$/u.test(expression)) {
+            const narrowed = sourceAnchorForVisualText(anchor, edge.label, undefined, expression);
+            if (narrowed !== anchor) return narrowed;
+          }
+        }
+      }
+    }
+  }
+
+  return anchor;
 }
 
 /** Select a node's validated source binding before falling back to its cited anchors. */
