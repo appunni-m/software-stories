@@ -62,11 +62,9 @@ describe('narration preparation status', () => {
 });
 
 describe('narration cache request snapshots', () => {
-  it('shows the exact local script before a cache miss can synthesize audio', () => {
-    assert.equal(localNarrationAction(false, false), 'show-review');
-    assert.equal(localNarrationAction(true, false), 'synthesize');
-    assert.equal(localNarrationAction(false, true), 'play-cache');
-    assert.equal(localNarrationAction(true, true), 'play-cache');
+  it('uses one Play action for local synthesis and reuses cached audio', () => {
+    assert.equal(localNarrationAction(false), 'synthesize');
+    assert.equal(localNarrationAction(true), 'play-cache');
   });
 
   it('accepts one explicit preference contract and rejects malformed or unsupported records', () => {

@@ -122,10 +122,9 @@ export function narrationPreferencesMatch(
     && left.style.trim() === right.style.trim();
 }
 
-/** A cache hit can play immediately; new local audio first shows its reviewed script. */
-export function localNarrationAction(reviewVisible: boolean, cachedAudioAvailable: boolean): 'show-review' | 'play-cache' | 'synthesize' {
-  if (cachedAudioAvailable) return 'play-cache';
-  return reviewVisible ? 'synthesize' : 'show-review';
+/** Local Pocket speech needs no consent gate: play a hit or synthesize on the first click. */
+export function localNarrationAction(cachedAudioAvailable: boolean): 'play-cache' | 'synthesize' {
+  return cachedAudioAvailable ? 'play-cache' : 'synthesize';
 }
 
 export function narrationAvailabilityLabel(state: NarrationPrewarmState): string {

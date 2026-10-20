@@ -314,7 +314,9 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       if (review && review.reviewId !== result.data.reviewId) void discardNarrationRequestReview(review.reviewId).catch(() => {});
       setReview(result.data);
       setConsent(false);
-      setShowReview(!restoreCache);
+      // Keep provider/script review for cloud requests; local Pocket narration
+      // is user-controlled and stays in the background until the reader presses Play.
+      setShowReview(!restoreCache && !localNarration);
       if (restoreCache && result.data.cachedAudioAvailable) {
         const cached = await loadReviewedNarrationAudio({ reviewId: result.data.reviewId, fingerprint: result.data.fingerprint });
         if (!isCurrent()) {
@@ -530,9 +532,8 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
     const currentReview = review ?? await makeReview();
     if (!currentReview) return;
     if (localNarration) {
-      const action = localNarrationAction(showReview, currentReview.cachedAudioAvailable);
+      const action = localNarrationAction(currentReview.cachedAudioAvailable);
       if (action === 'play-cache') await loadCache(currentReview, true);
-      else if (action === 'show-review') setShowReview(true);
       else if (mountedRef.current) await synthesize(currentReview);
     } else if (currentReview.cachedAudioAvailable) await loadCache(currentReview, true);
   };
@@ -673,7 +674,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       />
       <div className="walkthrough-panel-heading">
         <div><h3 id={titleId}>{clip ? 'Scene narration' : 'Narration'}</h3></div>
-        <span className={`walkthrough-transcript-state${isPlaying ? ' is-playing' : track ? '' : prewarmState === 'preparing' ? ' is-preparing' : prewarmState === 'ready' ? ' is-ready' : prewarmState === 'unavailable' ? ' is-unavailable' : ''}`} role="status"><Volume2 size={13} /> {isPlaying ? 'Playing' : track ? 'Paused' : narrationAvailabilityLabel(prewarmState)}</span>
+        <span className={`walkthrough-transcript-state${isPlaying ? ' is-playing' : track ? '' : prewarmState === 'preparing' || (localNarration && providerRequestBusy) ? ' is-preparing' : prewarmState === 'ready' ? ' is-ready' : prewarmState === 'unavailable' ? ' is-unavailable' : ''}`} role="status"><Volume2 size={13} /> {isPlaying ? 'Playing' : localNarration && providerRequestBusy ? 'Preparing audio' : track ? 'Paused' : narrationAvailabilityLabel(prewarmState)}</span>
       </div>
 
       <details className="walkthrough-narration-script" onToggle={(event) => { if (event.currentTarget.open) { const editor = event.currentTarget.parentElement?.querySelector<HTMLDetailsElement>(':scope > .walkthrough-narration-editor'); if (editor?.open) editor.open = false; } }}>
@@ -732,7 +733,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         {review && <span className="walkthrough-narration-fingerprint"><Check size={12} /> Request reviewed · {review.fingerprint.slice(0, 12)}</span>}
       </div>}
 
-      {showReview && review && disclosure && (
+      {showReview && review && disclosure && !localNarration && (
         <div className="walkthrough-narration-review" role="group" aria-label="Narration request review">
           <div className="walkthrough-narration-review-title"><div><span>{providerRequestBusy ? (localNarration ? 'GENERATING LOCALLY' : 'CLOUD REQUEST IN PROGRESS') : localNarration ? 'LOCAL SCRIPT REVIEW' : 'LOCAL REVIEW · NO MODEL REQUEST SENT'}</span><strong>{disclosure.modelName}</strong></div><span>{review.cachedAudioAvailable ? 'AUDIO CACHED' : 'NEW AUDIO'}</span></div>
           <details>
