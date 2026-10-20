@@ -1211,6 +1211,7 @@ fn normalized_revision(revision: &chapters::ChapterRevision) -> Result<Value, St
                             | "sectionRevisionId"
                             | "claimId"
                             | "anchorId"
+                            | "sourceAnchorId"
                             | "hotspotId"
                             | "nodeId"
                             | "edgeId"

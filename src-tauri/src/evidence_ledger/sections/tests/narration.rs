@@ -79,6 +79,34 @@ fn all_nonvisual_claim_speech_is_published_and_replayed_without_manufacturing_a_
 }
 
 #[test]
+fn replay_normalizes_visual_source_anchor_references() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancel) = setup(&f);
+    let reference = read(&mut ledger, &f, &runtime, &cancel);
+    let mut answer = start_narrated(&ledger, &f, &runtime, &cancel);
+    let mut proposal = authoring::tests::proposal(&reference, "entry", 0);
+    proposal["section"]["claims"][0]["scene"]["nodes"][0]["source"] = json!({
+        "referenceId":reference,
+        "value":"return `Hello, ${name}`;"
+    });
+    publish(&mut answer, &ledger, &proposal, &f, &runtime, &cancel);
+
+    let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
+    let section = &saved.sections[0].preview.revision.sections[0];
+    let anchor = section.claims[0].anchors[0].anchor_id.as_str();
+    let visual = section
+        .visual
+        .as_ref()
+        .and_then(|visual| visual.typed_visual())
+        .expect("the authored visual is preserved");
+    assert_eq!(visual.nodes[0].source_anchor_id.as_deref(), Some(anchor));
+    assert_eq!(
+        visual.nodes[0].source_value.as_deref(),
+        Some("return `Hello, ${name}`;")
+    );
+}
+
+#[test]
 fn nonvisual_speech_is_required_at_every_claim_and_correction_keeps_spent_attempts() {
     for field in [
         "null",
