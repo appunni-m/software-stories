@@ -553,6 +553,11 @@ mod tests {
                 expected.id
             );
         }
+        assert_eq!(
+            named,
+            corpus.expected.len(),
+            "all independently selected declarations should be discoverable globally by their exact identifier"
+        );
         for query in [
             "font bytes rendered glyph bitmap entry parsing outline hinting rasterization",
             "font buffer glyph image format outline hinting pixel coverage",
