@@ -33,3 +33,9 @@ test('late PR request-review results are discarded without updating the abandone
     'if (lifecycle === reviewLifecycle.current) setBuilding(false)',
   ]) assert.ok(build.includes(required), 'missing abandoned-result guard: ' + required);
 });
+
+test('an empty PR Guide shows why every changed file was excluded', () => {
+  assert.ok(source.includes('open={accountOnly ? eligibleChanges.length === 0 : true}'));
+  assert.ok(source.includes('open={eligibleChanges.length === 0}>'));
+  assert.ok(source.includes('Review the exclusion reasons below, then open Diff to inspect each change.'));
+});
