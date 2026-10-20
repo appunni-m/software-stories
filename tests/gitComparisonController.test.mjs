@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { readFileSync } from 'node:fs';
 import { GitComparisonController } from '../src/lib/gitComparisonController.ts';
 
 function setup({ failCancel = false } = {}) {
@@ -108,5 +109,14 @@ describe('owned local Git comparison client', () => {
     calls[0].reject(failure); await rejected;
     assert.equal(controller.isBusy('repo'), false);
     assert.equal(calls.length, 1); assert.deepEqual(cancelled, []);
+  });
+
+  it('the app cancels departed project work and renders comparison state for the selected project', () => {
+    const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+    const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+    assert.match(app, /return \(\) => \{ if \(projectId\) cancelLocalGitComparison\(projectId\); \};\s*\}, \[currentProject\?\.projectId\]\);/);
+    assert.match(app, /comparison=\{currentProject \? gitComparisonsByProject\[currentProject\.projectId\] \?\? null : null\}/);
+    assert.match(app, /\[projectId\]: \{ baseRef, headRef, result \}/);
+    assert.match(workspace, /return\(\)=>\{active=false;controller\.abort\(\);if\(gitRequest\.current===controller\)gitRequest\.current=null;\};\s*\},\[projectId,showChanges,gitReload\]\);/);
   });
 });
