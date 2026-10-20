@@ -84,4 +84,20 @@ identities](../acceptance/2026-10-17-pocket-whole-script.md).
 - [ ] Requalify scene/section playback and selected matching export; record a
   human review of real code narration. A valid synthetic WAV does not pass these.
 
-Keep this task open; the Mac is still locked and the new bundle is not installed.
+That checkpoint left the task open pending packaged navigation, cache invalidation, cancellation and offline export qualification.
+
+## Fresh-section prewarm observation — 21 October
+
+In the running native app, one approved Codex request against Fontdone
+`main@5249b72371` created one new narrated section. On first inspection after
+publication, its Pocket player showed **Ready to play** at `00:00 / 00:10`.
+A newly written 506,924-byte WAV appeared in the app's local narration cache at
+01:21 IST, within roughly two minutes of the request. This is consistent with
+the post-publication Pocket prewarm path populating the cache before the user
+presses Play. The section citation opened the selected snapshot at
+`src/font.rs:4053–4078`; no PFR parser internals were needed.
+
+No audio was played in this observation, so it does not measure
+click-to-first-sample latency or listening quality, and it does not distinguish
+cache reuse from newly synthesized audio by fingerprint. Keep playback quality,
+invalidation, cancellation, offline export and restart qualification open.

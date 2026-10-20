@@ -106,3 +106,24 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked --lib \
 | Broad query 2, paged file discovery; scoped range recall | **7/7 files; 12/12 ranges** |
 
 Both broad file-discovery scans visited eight 32-result pages and found all seven expected files. The ranked range search still missed five expected spans for the second broad query even after paging; a follow-up search scoped to the discovered files recovered all twelve. This demonstrates a useful local discovery-then-scope route, but the weak first-page ranking and need for iterative calls mean that broad question-to-code retrieval is not yet automatic or proven sufficient. Keep the related retrieval and guide-quality issues open.
+
+## Current-source rerun — 21 October 2026
+
+Reran the frozen service profile at source `39d1fd73a081047f16d7c2d5e0aad59fcafa427c` against an isolated copy of the saved Fontdone snapshot and its prepared indexes. The user's original app data was not modified. No model, Codex, or speech request was made during this measurement.
+
+| Measurement | Observation |
+| --- | ---: |
+| Indexed files / bytes / ranges | 1,621 / 19,296,074 / 3,438 |
+| Syntax / text-fallback files | 83 / 1,538 |
+| Unavailable files / snapshot paths skipped | 1,147 / 25 |
+| `memory_face` disk-load + search / same-process search | 1,893 ms / 222 ms |
+| Serialized `memory_face` result | 23,279 bytes; top hit `src/font.rs:4053` |
+| Named identifier recall, global | **12 / 12** |
+| Broad query 1, first ranked page; all ranked pages | **1/12; 12/12** |
+| Broad query 1, file-discovery first page; all discovery pages | **5/7 expected paths; 7/7** |
+| Broad query 2, first ranked page; all ranked pages | **2/12; 7/12** |
+| Broad query 2, file-discovery first page; all discovery pages | **4/7 expected paths; 7/7** |
+
+Each file-discovery scan used eight 32-result pages. Follow-up searches scoped to the expected files recovered 12/12 ranges for both broad queries. For query 1, all ranked pages took 9,351 ms and serialized 166,094 result bytes; discovery took 1,195 ms and serialized 143,546 bytes. For query 2, all ranked pages took 9,038 ms and serialized 157,869 bytes; discovery took 1,184 ms and serialized 142,831 bytes. These are single-run debug timings and aggregate page payloads, not a user-facing latency or token measure.
+
+The updated path-level discovery plus scoped searches can locate the full frozen set, while a single first page remains weak and query 2's global range pages still miss five spans. This does not establish automatic agent tool use, sufficient broad-answer evidence, packaged offline coverage or narrative quality. Keep `a699`, its dependent agent qualification and guide-quality work open.
