@@ -438,7 +438,6 @@ impl NarrationPrewarmQueue {
                     entry.work.take();
                 }
             }
-            queue.worker_running = false;
         }
         for cancellation in cancellations {
             let _ = cancellation.send(());
@@ -1816,6 +1815,21 @@ mod tests {
         for key in keys {
             assert_eq!(queue.status(&key), Some(NarrationPrewarmState::Unavailable));
         }
+        tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                let worker_running = queue
+                    .0
+                    .lock()
+                    .expect("queue state should remain available")
+                    .worker_running;
+                if !worker_running {
+                    break;
+                }
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("shutdown should wait for active work to observe cancellation and exit");
     }
 
     #[tokio::test]
