@@ -128,6 +128,40 @@ fn a_pre_cancelled_request_and_folder_error_have_no_publication_side_effects() {
 }
 
 #[test]
+fn failed_git_metadata_inspection_preserves_saved_workspace_and_session() {
+    let fixture = Fixture::new();
+    let path = Path::new(&fixture.manifest.summary.project_id);
+    let sessions = ProjectSessions::default();
+    let jobs = RepositoryContextJobs::default();
+    let initial = jobs.begin(&uuid::Uuid::new_v4().to_string()).unwrap();
+    let inspected =
+        project::inspect_selected_project(path.to_str().unwrap(), initial.cancellation());
+    assert_eq!(inspected.status, ProjectOpenStatus::Opened);
+    publish(&fixture.storage, inspected, &initial, &sessions).unwrap();
+    drop(initial);
+
+    let remembered = sessions.get(path.to_str().unwrap()).unwrap();
+    let before_storage = files(&fixture.storage);
+    let config_path = path.join(".git/config");
+    let mut broken_config = fs::read(&config_path).unwrap();
+    broken_config.extend_from_slice(b"\n[broken\n");
+    fs::write(&config_path, &broken_config).unwrap();
+    let before_repository = files(path);
+
+    let request = jobs.begin(&uuid::Uuid::new_v4().to_string()).unwrap();
+    let inspected =
+        project::inspect_selected_project(path.to_str().unwrap(), request.cancellation());
+    assert_eq!(inspected.status, ProjectOpenStatus::GitError);
+    let result = publish(&fixture.storage, inspected, &request, &sessions).unwrap();
+
+    assert_eq!(result.status, ProjectOpenStatus::GitError);
+    assert!(result.project.is_none());
+    assert_eq!(sessions.get(path.to_str().unwrap()).unwrap(), remembered);
+    assert_eq!(files(&fixture.storage), before_storage);
+    assert_eq!(files(path), before_repository);
+}
+
+#[test]
 fn stopping_recent_reinspection_preserves_previous_recents_and_session_selection() {
     let fixture = Fixture::new();
     let path = &fixture.manifest.summary.project_id;
