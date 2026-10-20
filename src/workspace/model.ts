@@ -193,6 +193,14 @@ export function contextualGuideIntent(query: string, context: readonly Context[]
   return null;
 }
 
+export type ContextualGuideAction = { kind: 'show' } | { kind: 'ask'; intent: string };
+
+/** Empty root actions switch views; repository-wide generation stays explicit. */
+export function contextualGuideAction(query: string, context: readonly Context[], nested: boolean): ContextualGuideAction {
+  const intent = contextualGuideIntent(query, context, nested);
+  return intent ? { kind: 'ask', intent } : { kind: 'show' };
+}
+
 /** Keep partial-answer scope visible after navigation and restart. */
 export function cleanAnswerNotes(value: unknown): string[] {
   if (!Array.isArray(value)) return [];

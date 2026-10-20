@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
+import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
 const guideId='ea6054f9-c7ce-4489-a928-b48697371565';
 const runId='c9410fba-7b55-42c5-b6e2-061c538bfcf2';
 const generationId='generation:776b022e-d466-455b-8594-d8a808e20f58';
@@ -59,6 +59,16 @@ test('contextual guide keeps explicit source and nested intent',()=>{
   assert.match(contextualGuideIntent('',[{path:'src/parser.rs',from:8,to:20}],false),/selected code/);
   assert.match(contextualGuideIntent('',[],true),/this topic/);
   assert.equal(contextualGuideIntent('   ',[],false),null);
+});
+test('empty root Guide me shows the view and leaves repository guide generation explicit',()=>{
+  assert.deepEqual(contextualGuideAction('   ',[],false),{kind:'show'});
+  assert.deepEqual(contextualGuideAction('Explain bounds',[],false),{kind:'ask',intent:'Explain bounds'});
+  assert.deepEqual(contextualGuideAction('',[{path:'src/parser.rs',from:8,to:20}],false),{
+    kind:'ask',intent:'Guide me through this selected code, its decisions and consequences.',
+  });
+  assert.deepEqual(contextualGuideAction('',[],true),{
+    kind:'ask',intent:'Guide me through this topic, its decisions and consequences.',
+  });
 });
 test('an opening answer belongs to the guide before its outline exists and survives restart',()=>{
   const opening={...section,runId:guideId};

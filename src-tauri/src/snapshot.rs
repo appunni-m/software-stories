@@ -2965,4 +2965,60 @@ mod tests {
                 .is_empty()
         );
     }
+
+    #[test]
+    fn earlier_file_changed_while_later_file_is_read_preserves_snapshot_history() {
+        let temporary = TestDirectory::new("earlier-file-change");
+        let repository = temporary.path().join("repository");
+        let initial_large = vec![b'a'; READ_CHUNK_BYTES * 3];
+        create_repository(
+            &repository,
+            &[("a.rs", b"committed source"), ("z-large.txt", &initial_large)],
+        );
+        let project = project(&repository);
+        let storage = temporary.path().join("app-data");
+        let previous = default_capture(&storage, &project);
+        let history_before = list_project_snapshots(&storage, &project.project_id).unwrap();
+
+        // Both files are dirty when capture scans them. The first path is
+        // captured before the hook changes it while the later file is read.
+        fs::write(repository.join("a.rs"), b"working tree edit").unwrap();
+        fs::write(
+            repository.join("z-large.txt"),
+            vec![b'b'; READ_CHUNK_BYTES * 3],
+        )
+        .unwrap();
+        let progress = new_capture_progress(&storage, &project, CaptureLimits::default()).unwrap();
+        let mut changed_earlier_file = false;
+        let result = capture_snapshot_with_chunk_hook(
+            &storage,
+            &project,
+            progress,
+            &AtomicBool::new(false),
+            Instant::now() + MAX_CAPTURE_DURATION,
+            &mut |_| {},
+            &mut |path, bytes_read| {
+                if !changed_earlier_file
+                    && path.ends_with("z-large.txt")
+                    && bytes_read >= READ_CHUNK_BYTES as u64
+                {
+                    fs::write(repository.join("a.rs"), b"changed after read").unwrap();
+                    changed_earlier_file = true;
+                }
+            },
+        );
+
+        assert!(changed_earlier_file, "the hook must run during the later file read");
+        assert!(matches!(result, Err(CaptureError::Inconsistent { .. })));
+        assert_eq!(
+            list_project_snapshots(&storage, &project.project_id).unwrap(),
+            history_before,
+            "an inconsistent capture must not add or replace snapshot history"
+        );
+        assert_eq!(
+            load_snapshot_manifest(&storage, &project.project_id, &previous.summary.snapshot_id)
+                .unwrap(),
+            previous
+        );
+    }
 }
