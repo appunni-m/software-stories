@@ -54,11 +54,12 @@
 .dw-context {flex-basis:100%;display:flex;flex-wrap:wrap;gap:5px;}
 .dw-context button {display:flex;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;}
 .dw-reading {flex:1;min-height:0;}
-.dw-explanation {height:100%;display:flex;flex-direction:column;min-width:0;}
+.dw-explanation {height:100%;display:flex;flex-direction:column;min-width:0;container-type:inline-size;container-name:guide-pane;}
 .dw-viewbar {display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);min-height:39px;padding-right:8px;}
 .dw-viewbar .rt-TabsList {box-shadow:none;}
 .dw-viewbar .rt-TabsTriggerInner {gap:6px;font-size:12px;}
-.dw-answer-scroll {flex:1;min-height:0;overflow:auto;padding:20px 20px 48px;scrollbar-gutter:stable;}
+.dw-answer-scroll {flex:1;min-height:0;min-width:0;width:100%;max-width:100%;box-sizing:border-box;overflow:auto;padding:20px 20px 48px;scrollbar-gutter:stable;}
+.dw-answer-scroll > *, .dw-progressive-answer, .dw-turn, .dw-answer-card {min-width:0;max-width:100%;box-sizing:border-box;}
 .dw-welcome {padding:20px 4px;max-width:530px;margin:0 auto;}
 .dw-welcome > svg {color:var(--accent);}
 .dw-welcome h1 {font-size:23px;line-height:1.4;margin:16px 0 8px;letter-spacing:-.025em;}
@@ -185,6 +186,27 @@
 .dw-error-details {color:var(--muted);font-size:12px;margin:8px 0 14px;}
 .dw-error-details summary {cursor:pointer;}
 .dw-error-details p {line-height:1.7;overflow-wrap:anywhere;}
+/* The reader pane can become narrow from zoom or user resizing even when the
+   desktop window is wide. Reflow the Guide from its own available width. */
+@container guide-pane (max-width: 560px) {
+  .dw-answer-scroll {padding:14px 10px 32px;}
+  .dw-answer-card {padding:12px;}
+  .dw-section-controls {flex-wrap:wrap;}
+  .dw-section-controls > span {flex:1 1 50px;}
+  .visual-story {width:100%;max-width:100%;}
+}
+/* Native webview zoom scales the page without narrowing CSS viewport units, so
+   container queries alone cannot detect that a Guide needs a compact layout. */
+html[data-app-zoom-compact="true"] .dw-reading > #source,
+html[data-app-zoom-compact="true"] .dw-reading > .dw-separator {display:none!important;}
+html[data-app-zoom-compact="true"] .dw-reading > #explanations {flex:1!important;}
+html[data-app-zoom-compact="true"] .developer-workspace .dw-narrow-toggle {display:inline-flex;margin-left:auto;}
+html[data-app-zoom-compact="true"] .dw-narrow-source .dw-reading > #source {display:flex!important;flex:1!important;max-width:none!important;}
+html[data-app-zoom-compact="true"] .dw-narrow-source .dw-reading > #explanations {display:none!important;}
+html[data-app-zoom-compact="true"] .dw-answer-scroll {padding:14px 10px 32px;}
+html[data-app-zoom-compact="true"] .dw-answer-card {padding:12px;}
+html[data-app-zoom-compact="true"] .dw-section-controls {flex-wrap:wrap;}
+html[data-app-zoom-compact="true"] .dw-section-controls > span {flex:1 1 50px;}
 @media(max-width:850px){.developer-workspace .dw-narrow-toggle{display:inline-flex;margin-left:auto;}.dw-reading>#source{display:none;}.dw-reading>#explanations{flex:1!important;}.dw-reading>.dw-separator{display:none;}.dw-narrow-source .dw-reading>#source{display:flex!important;flex:1!important;}.dw-narrow-source .dw-reading>#explanations{display:none;}}
 @media(max-width:680px){.dw-panels>#repository-sidebar,.dw-panels>.dw-separator{display:none;}.dw-panels>#reading-workspace{flex:1!important;}.dw-narrow-explorer .dw-panels>#repository-sidebar{display:block!important;flex:1!important;max-width:none!important;}.dw-narrow-explorer .dw-panels>#reading-workspace{display:none;}.dw-reading>#explanations{display:block!important;}.dw-narrow-source .dw-reading>#explanations{display:none!important;}}
 @media(max-width:850px){.dw-reading>#source{display:none!important;}.dw-narrow-source .dw-reading>#source{display:flex!important;}.dw-narrow-source .dw-reading>#explanations{display:none!important;}}

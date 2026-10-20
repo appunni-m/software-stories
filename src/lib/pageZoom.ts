@@ -3,6 +3,10 @@ export type ZoomAction = 'in'|'out'|'reset';
 export function validZoom(value:unknown):value is number {
   return typeof value==='number'&&Number.isInteger(value)&&value>=20&&value<=1000&&value%20===0;
 }
+/** Native webview zoom scales pixels without narrowing CSS layout queries. */
+export function compactZoomLayout(percent:number):boolean {
+  return validZoom(percent)&&percent>=180;
+}
 export function savedZoom(raw:string|null):number {
   if(raw===null||!/^\d{2,4}$/.test(raw))return 100;
   const value=Number(raw);return validZoom(value)&&String(value)===raw?value:100;

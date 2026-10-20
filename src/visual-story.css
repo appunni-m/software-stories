@@ -1,4 +1,4 @@
-.visual-story { min-width: 0; margin-top: 12px; scroll-margin-top: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: clip; }
+.visual-story { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; margin-top: 12px; scroll-margin-top: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: clip; }
 .story-sticky-controls { position: sticky; top: 0; z-index: 4; background: var(--surface); }
 .story-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-height: 42px; padding: 5px 12px; border-bottom: 1px solid var(--border); }
 .story-scene-title { flex: 1 1 150px; min-width: 0; overflow: hidden; color: var(--text); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
@@ -57,4 +57,34 @@
 .story-sources { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0; }
 .story-sources button { background: var(--surface-raised); border: 1px solid var(--border); padding: 6px; border-radius: 4px; font: 11px var(--mono); overflow-wrap: anywhere; text-align: left; }
 @media (max-width: 680px) { .story-stage { height: clamp(260px, 42vh, 520px); } .story-playbar { grid-template-columns: 26px minmax(0,1fr) 26px; padding-inline: 2px; } .story-toolbar { gap: 4px; } }
+@container guide-pane (max-width: 560px) {
+  .story-toolbar { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 8px; padding: 6px 8px; }
+  .story-scene-title { grid-column: 1 / -1; white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+  .story-scene-count { grid-column: 1; grid-row: 2; }
+  .story-scene-dots { grid-column: 2; grid-row: 2; margin-left: 0; justify-self: end; }
+  .story-map-toggle { grid-column: 1 / -1; justify-self: start; }
+  .story-playbar { grid-template-columns: 24px minmax(0,1fr) 24px; align-items: start; gap: 2px; padding: 4px 3px; }
+  .story-playbar .is-story-audio { grid-template-columns: minmax(0,1fr) auto; grid-template-areas: "status status" "playback playback" "read edit"; row-gap: 4px; }
+  .is-story-audio .walkthrough-panel-heading { justify-content: flex-start; }
+  .is-story-audio .walkthrough-panel-heading .walkthrough-transcript-state { text-align: left; }
+  .is-story-audio .walkthrough-playback { grid-template-columns: minmax(0,1fr); gap: 4px; }
+  .is-story-audio .walkthrough-playback-buttons { width: 100%; flex-wrap: wrap; gap: 4px; }
+  .is-story-audio .walkthrough-duration { margin-left: auto; }
+  .is-story-audio .walkthrough-seek-label input { display: block; width: 100%; min-width: 0; box-sizing: border-box; }
+  .story-stage { height: clamp(260px, 42vh, 520px); }
+}
+html[data-app-zoom-compact="true"] .story-toolbar { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:4px 8px; padding:6px 8px; }
+html[data-app-zoom-compact="true"] .story-scene-title { grid-column:1 / -1; white-space:normal; overflow-wrap:anywhere; text-overflow:clip; }
+html[data-app-zoom-compact="true"] .story-scene-count { grid-column:1; grid-row:2; }
+html[data-app-zoom-compact="true"] .story-scene-dots { grid-column:2; grid-row:2; margin-left:0; justify-self:end; }
+html[data-app-zoom-compact="true"] .story-map-toggle { grid-column:1 / -1; justify-self:start; }
+html[data-app-zoom-compact="true"] .story-playbar { grid-template-columns:24px minmax(0,1fr) 24px; align-items:start; gap:2px; padding:4px 3px; }
+html[data-app-zoom-compact="true"] .story-playbar .is-story-audio { grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"status status" "playback playback" "read edit"; row-gap:4px; }
+html[data-app-zoom-compact="true"] .is-story-audio .walkthrough-panel-heading { justify-content:flex-start; }
+html[data-app-zoom-compact="true"] .is-story-audio .walkthrough-panel-heading .walkthrough-transcript-state { text-align:left; }
+html[data-app-zoom-compact="true"] .is-story-audio .walkthrough-playback { grid-template-columns:minmax(0,1fr); gap:4px; }
+html[data-app-zoom-compact="true"] .is-story-audio .walkthrough-playback-buttons { width:100%; flex-wrap:wrap; gap:4px; }
+html[data-app-zoom-compact="true"] .is-story-audio .walkthrough-duration { margin-left:auto; }
+html[data-app-zoom-compact="true"] .is-story-audio .walkthrough-seek-label input { display:block; width:100%; min-width:0; box-sizing:border-box; }
+html[data-app-zoom-compact="true"] .story-stage { height:clamp(260px,42vh,520px); }
 @media (prefers-reduced-motion: reduce) { .visual-story *, .visual-story *::before, .visual-story *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

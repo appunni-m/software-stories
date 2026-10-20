@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {APP_ZOOM_KEY,validZoom,savedZoom,zoomShortcut} from '../src/lib/pageZoom.ts';
+import {APP_ZOOM_KEY,compactZoomLayout,validZoom,savedZoom,zoomShortcut} from '../src/lib/pageZoom.ts';
 
 test('remembered page zoom accepts only bounded exact 20 percent steps',()=>{
   assert.equal(APP_ZOOM_KEY,'code-atlas:page-zoom:v1');
@@ -18,12 +18,18 @@ test('zoom shortcuts include shifted plus and actual size without intercepting I
   for(const overrides of [{metaKey:false},{altKey:true},{isComposing:true},{defaultPrevented:true},{key:'1'},{key:'p'},{key:'ArrowUp'}])assert.equal(zoomShortcut({...event,...overrides}),null);
 });
 
+test('native high zoom opts into the compact workspace layout',()=>{
+  for(const percent of [20,100,120,140,160])assert.equal(compactZoomLayout(percent),false);
+  for(const percent of [180,200,240,1000])assert.equal(compactZoomLayout(percent),true);
+  for(const value of [0,101,NaN,Infinity])assert.equal(compactZoomLayout(value),false);
+});
+
 test('the packaged app has one zoom owner, installs it before reading and preserves guarded Quit',async()=>{
   const paths=['src/main.tsx','src/lib/appZoom.ts','src-tauri/src/app_zoom.rs','src-tauri/src/app_close.rs','src-tauri/src/lib.rs','src-tauri/tauri.conf.json','src/KeyboardShortcuts.tsx'];
   const [main,bridge,native,close,lib,raw,help]=await Promise.all(paths.map(p=>readFile(new URL(`../${p}`,import.meta.url),'utf8')));
   assert.ok(main.indexOf('await installAppZoom()')<main.indexOf('root.render(<AppErrorBoundary>'));
   assert.equal(JSON.parse(raw).app.windows[0].zoomHotkeysEnabled,false);
-  assert.match(bridge,/code-atlas:zoom-changed/);assert.match(bridge,/localStorage\.setItem\(APP_ZOOM_KEY/);
+  assert.match(bridge,/code-atlas:zoom-changed/);assert.match(bridge,/dataset\.appZoomCompact=String\(compactZoomLayout\(percent\)\)/);assert.match(bridge,/localStorage\.setItem\(APP_ZOOM_KEY/);
   assert.doesNotMatch(bridge,/\.then\(remember\)/,'an older RPC reply cannot overwrite the ordered native event');
   assert.match(native,/window\s*\.set_zoom\(f64::from\(percent\) \/ 100\.\)/);
   assert.match(native,/item\.as_submenu\(\)\.and_then\(\|view\| view\.get\(LEVEL\)\)/,'the label is inside View, not an immediate app menu item');

@@ -74,6 +74,24 @@ describe('visual story scenes', () => {
     assert.match(smallScreenRule, /height:\s*clamp\(260px,\s*42vh,\s*520px\)/u);
   });
 
+  it('reflows Guide cards and narration controls to the reader pane at high zoom', () => {
+    const workspace = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
+    const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
+    const explanationRule = workspace.match(/\.dw-explanation\s*\{([^}]+)\}/u)?.[1] ?? '';
+    const answerRule = workspace.match(/\.dw-answer-scroll\s*\{([^}]+)\}/u)?.[1] ?? '';
+    const compactRules = styles.match(/@container\s+guide-pane\s*\(max-width:\s*560px\)\s*\{([\s\S]*?)\n\}/u)?.[1] ?? '';
+    assert.match(explanationRule, /container-type:\s*inline-size/u);
+    assert.match(explanationRule, /container-name:\s*guide-pane/u);
+    assert.match(answerRule, /min-width:\s*0/u);
+    assert.match(answerRule, /box-sizing:\s*border-box/u);
+    assert.match(compactRules, /\.story-scene-title\s*\{[^}]*white-space:\s*normal/u);
+    assert.match(compactRules, /\.story-playbar \.is-story-audio\s*\{[^}]*grid-template-areas:\s*"status status" "playback playback" "read edit"/u);
+    assert.match(compactRules, /\.is-story-audio \.walkthrough-playback-buttons\s*\{[^}]*flex-wrap:\s*wrap/u);
+    assert.match(styles, /\.visual-story\s*\{[^}]*max-width:\s*100%[^}]*box-sizing:\s*border-box/u);
+    assert.match(workspace, /html\[data-app-zoom-compact="true"\] \.dw-answer-scroll/u);
+    assert.match(styles, /html\[data-app-zoom-compact="true"\] \.story-playbar \.is-story-audio\s*\{[^}]*grid-template-areas:"status status" "playback playback" "read edit"/u);
+  });
+
   it('keeps the sticky Guide player compact and leaves transcript editing available in overlays', () => {
     const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
     const component = readFileSync(new URL('../src/NarrationPlayer.tsx', import.meta.url), 'utf8');
