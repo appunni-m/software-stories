@@ -1877,6 +1877,128 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn playback_waits_for_a_delayed_prewarm_then_reuses_the_cached_clip() {
+        let storage = TestStorage::new();
+        let queue = NarrationPrewarmQueue::default();
+        let reviews = PendingNarrationReviews::default();
+        let review = match build_local_request_review(
+            storage.path(),
+            &reviews,
+            BuildNarrationReviewInput {
+                spoken_text: "The prefix selects the font reader.".into(),
+                voice: crate::pocket_tts::VOICE.into(),
+                style: String::new(),
+                lexicon: Vec::new(),
+            },
+        ) {
+            ProviderCommandResult::Ok { data } => data,
+            ProviderCommandResult::Error { error } => {
+                panic!("local review should build: {error:?}")
+            }
+        };
+        let expected_audio = valid_test_wav(23);
+        let expected_audio_for_worker = expected_audio.clone();
+        let worker_runs = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let worker_runs_for_job = worker_runs.clone();
+        let (started_sender, started_receiver) = oneshot::channel();
+        let (release_sender, release_receiver) = oneshot::channel();
+        let storage_path = storage.path().to_path_buf();
+        let cache_key = review.cache_key.clone();
+
+        queue
+            .schedule(
+                review.cache_key.clone(),
+                move |mut cancellation| async move {
+                    worker_runs_for_job.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    let _ = started_sender.send(());
+                    tokio::select! {
+                        _ = &mut cancellation => false,
+                        released = release_receiver => {
+                            if released.is_err() {
+                                return false;
+                            }
+                            write_cached_audio(
+                                &storage_path,
+                                &cache_key,
+                                &expected_audio_for_worker,
+                            )
+                            .is_ok()
+                        }
+                    }
+                },
+            )
+            .expect("the local clip should enter the bounded prewarm queue");
+        started_receiver
+            .await
+            .expect("the delayed local worker should start");
+
+        let storage_path = storage.path().to_path_buf();
+        let play_reviews = reviews.clone();
+        let play_queue = queue.clone();
+        let review_id = review.review_id.clone();
+        let fingerprint = review.fingerprint.clone();
+        let (_cancel_sender, mut cancellation) = oneshot::channel();
+        let play = tokio::spawn(async move {
+            load_prewarmed_audio_if_ready(
+                &storage_path,
+                &play_reviews,
+                &play_queue,
+                &review_id,
+                &fingerprint,
+                &mut cancellation,
+            )
+            .await
+        });
+        tokio::task::yield_now().await;
+        assert!(
+            !play.is_finished(),
+            "Play should wait while Pocket TTS warms the clip"
+        );
+        assert_eq!(
+            worker_runs.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "the single queued worker should own synthesis"
+        );
+
+        release_sender
+            .send(())
+            .expect("the delayed worker should be released to finish");
+        let Some(ProviderCommandResult::Ok { data }) = play
+            .await
+            .expect("the player should finish waiting for its clip")
+        else {
+            panic!("Play should load the completed prewarm directly");
+        };
+        assert!(
+            data.cache_hit,
+            "the prepared WAV should be returned as a cache hit"
+        );
+        assert_eq!(
+            base64::engine::general_purpose::STANDARD
+                .decode(data.audio_base64)
+                .expect("cached WAV should be base64 encoded"),
+            expected_audio
+        );
+
+        let (_cancel_sender, mut cancellation) = oneshot::channel();
+        let reused = load_prewarmed_audio_if_ready(
+            storage.path(),
+            &reviews,
+            &queue,
+            &review.review_id,
+            &review.fingerprint,
+            &mut cancellation,
+        )
+        .await;
+        assert!(matches!(reused, Some(ProviderCommandResult::Ok { data }) if data.cache_hit));
+        assert_eq!(
+            worker_runs.load(std::sync::atomic::Ordering::SeqCst),
+            1,
+            "replaying the same script and settings should not rerun synthesis"
+        );
+    }
+
+    #[tokio::test]
     async fn cancellation_drops_the_pending_audio_request() {
         struct DropSignal(Option<oneshot::Sender<()>>);
         impl Drop for DropSignal {
@@ -2467,6 +2589,47 @@ mod tests {
             assert_ne!(changed.fingerprint, base.fingerprint);
             assert!(!changed.cached_audio_available);
         }
+    }
+
+    #[test]
+    fn pocket_cache_identity_tracks_enabled_pronunciation_edits() {
+        let storage = TestStorage::new();
+        let reviews = PendingNarrationReviews::default();
+        let make_review = |lexicon| match build_local_request_review(
+            storage.path(),
+            &reviews,
+            BuildNarrationReviewInput {
+                spoken_text: "PFR selects a reader.".into(),
+                voice: crate::pocket_tts::VOICE.into(),
+                style: String::new(),
+                lexicon,
+            },
+        ) {
+            ProviderCommandResult::Ok { data } => data,
+            ProviderCommandResult::Error { error } => {
+                panic!("Pocket review should build: {error:?}")
+            }
+        };
+        let original = make_review(Vec::new());
+        let same = make_review(Vec::new());
+        let disabled = make_review(vec![PronunciationEntry {
+            name: "PFR".into(),
+            say_as: "P F R".into(),
+            include: false,
+        }]);
+        let changed_pronunciation = make_review(vec![PronunciationEntry {
+            name: "PFR".into(),
+            say_as: "P F R".into(),
+            include: true,
+        }]);
+
+        assert_eq!(same.exact_text, original.exact_text);
+        assert_eq!(same.cache_key, original.cache_key);
+        assert_eq!(disabled.exact_text, original.exact_text);
+        assert_eq!(disabled.cache_key, original.cache_key);
+        assert_eq!(changed_pronunciation.exact_text, "P F R selects a reader.");
+        assert_ne!(changed_pronunciation.cache_key, original.cache_key);
+        assert_ne!(changed_pronunciation.fingerprint, original.fingerprint);
     }
 
     #[test]

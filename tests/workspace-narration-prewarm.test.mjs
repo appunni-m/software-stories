@@ -11,6 +11,14 @@ const input = {
 
 test('newly published explanation sections enqueue local narration without waiting for audio', async () => {
   const calls = [];
+  let releaseWarmup;
+  let warmupReleased = false;
+  const warmup = new Promise(resolve => {
+    releaseWarmup = () => {
+      warmupReleased = true;
+      resolve({ status: 'ok', data: { state: 'ready', cachedAudioAvailable: true } });
+    };
+  });
   const revision = {
     projectId: 'project',
     snapshotId: 'snapshot',
@@ -39,7 +47,7 @@ test('newly published explanation sections enqueue local narration without waiti
           runId: args.input.runId,
           key: 'dispatch',
           order: 1,
-          generationId: 'generation:one',
+          generationId: 'generation:11111111-1111-4111-8111-111111111111',
           revisionId: 'revision',
           supersedes: null,
           contextElapsedMs: 10,
@@ -62,14 +70,28 @@ test('newly published explanation sections enqueue local narration without waiti
     },
     prewarmLocalNarration: (candidate) => {
       calls.push(candidate);
-      return Promise.resolve({ status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } });
+      return warmup;
     },
   });
 
   await h.store.prepareWorkspaceConversation('project', 'snapshot');
   const question = h.store.appendQuestion('project', 'snapshot', 'Follow the prefix check', [], 'guide');
-  const saved = await h.store.runQuestion('project', 'snapshot', question, 'grant');
+  const run = h.store.runQuestion('project', 'snapshot', question, 'grant');
+  let timeout;
+  const publication = await Promise.race([
+    run.then(value => ({ value })),
+    new Promise(resolve => { timeout = setTimeout(() => resolve({ timedOut: true }), 2_000); }),
+  ]);
+  clearTimeout(timeout);
+  assert.equal(publication.timedOut, undefined, 'answer publication must not wait for Pocket TTS');
+  const saved = publication.value;
 
   assert.equal(saved.revisionId, revision.revisionId);
   assert.deepEqual(calls, [input]);
+  assert.equal(warmupReleased, false, 'the answer should be ready while the audio worker is still pending');
+  const turn = h.store.getWorkspace('project', 'snapshot').explorations
+    .flatMap(item => item.turns).find(item => item.id === question);
+  assert.equal(turn.publishedSections?.[0]?.revisionId, revision.revisionId);
+  releaseWarmup();
+  assert.equal(warmupReleased, true);
 });
