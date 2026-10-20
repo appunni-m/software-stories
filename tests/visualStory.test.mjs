@@ -238,6 +238,21 @@ describe('visual story scenes', () => {
     assert.match(component, /track && savedAudioMatchesDraft && currentTime <= 0 \? narrationAvailabilityLabel\('ready'\)/u);
   });
 
+  it('advances the visual scene only on completed playback and leaves section pacing manual', () => {
+    const player = readFileSync(new URL('../src/NarrationPlayer.tsx', import.meta.url), 'utf8');
+    const story = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
+    assert.match(player, /onPlay=\{\(\) => \{ completionArmed\.current = true;/u);
+    assert.match(player, /onPause=\{\(event\) => \{[\s\S]*?if \(!event\.currentTarget\.ended\) \{\s*completionArmed\.current = false;/u,
+      'pausing before the end must disarm scene progression');
+    assert.match(player, /const completedPlayback = completionArmed\.current && mountedRef\.current && audioRef\.current\?\.ended;/u);
+    assert.match(player, /if \(completedPlayback\) onEnded\?\.\(\);/u,
+      'seeking a paused clip to its end must not advance the story');
+    assert.match(story, /onEnded=\{\(\) => \{ if \(index < scenes\.length - 1\) select\(index \+ 1, true\); \}\}/u,
+      'completed narration advances to the next scene and starts its narration');
+    assert.match(story, /Sections always advance manually\./u);
+    assert.match(story, /aria-label="Next scene" onClick=\{\(\) => select\(index \+ 1\)\}/u);
+  });
+
   it('re-fits a saved scene only when its nodes fall outside the current canvas', () => {
     const bounds = { x: 0, y: 0, width: 1_000, height: 300 };
     assert.equal(viewportClipsNodeBounds(bounds, { x: -500, y: 50, zoom: 1 }, 600, 400), true);
