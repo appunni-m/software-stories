@@ -122,6 +122,8 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
   const cancelRequested = useRef(false);
   const mountedRef = useRef(false);
   const reviewGenerationRef = useRef(0);
+  const makeReviewRef = useRef<(restoreCache?: boolean) => Promise<NarrationRequestReview | null>>(async () => null);
+  const cacheHydrationKeyRef = useRef<string | null>(null);
   const synthesisReviewIdRef = useRef<string | null>(null);
   const restoreTimeRef = useRef<number | null>(restorePosition > 0 ? restorePosition : null);
   const lastRoutePositionRef = useRef(restorePosition);
@@ -339,6 +341,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       if (isCurrent()) setReviewBusy(false);
     }
   };
+  makeReviewRef.current = makeReview;
 
   useEffect(() => {
     let active = true;
@@ -430,6 +433,32 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       if (mountedRef.current) setRequestBusy(false);
     }
   };
+
+  const cacheHydrationKey = JSON.stringify([
+    storageKey,
+    draft.backend,
+    draft.spokenText,
+    draft.voice,
+    draft.style,
+    draft.lexicon,
+  ]);
+  useEffect(() => {
+    if (!isNativeRuntime()
+      || !localNarration
+      || prewarmState !== 'ready'
+      || savedAudioMatchesDraft
+      || reviewBusy
+      || requestBusy
+      || providerRequestBusy
+      || synthesisReviewIdRef.current
+      || cacheHydrationKeyRef.current === cacheHydrationKey) return;
+
+    // Load the already-prepared local WAV so duration and seek controls are
+    // ready before Play. This reads the canonical cache only; it never starts
+    // synthesis and never changes manual playback into autoplay.
+    cacheHydrationKeyRef.current = cacheHydrationKey;
+    void makeReviewRef.current(true);
+  }, [cacheHydrationKey, localNarration, prewarmState, savedAudioMatchesDraft, reviewBusy, requestBusy, providerRequestBusy, track?.audioUrl]);
 
   const synthesize = async (currentReview: NarrationRequestReview | null = review) => {
     if (!currentReview || synthesisReviewIdRef.current) return;
@@ -674,7 +703,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
       />
       <div className="walkthrough-panel-heading">
         <div><h3 id={titleId}>{clip ? 'Scene narration' : 'Narration'}</h3></div>
-        <span className={`walkthrough-transcript-state${isPlaying ? ' is-playing' : track ? '' : prewarmState === 'preparing' || (localNarration && providerRequestBusy) ? ' is-preparing' : prewarmState === 'ready' ? ' is-ready' : prewarmState === 'unavailable' ? ' is-unavailable' : ''}`} role="status"><Volume2 size={13} /> {isPlaying ? 'Playing' : localNarration && providerRequestBusy ? 'Preparing audio' : track ? 'Paused' : narrationAvailabilityLabel(prewarmState)}</span>
+        <span className={`walkthrough-transcript-state${isPlaying ? ' is-playing' : track && savedAudioMatchesDraft && currentTime <= 0 ? ' is-ready' : track ? '' : prewarmState === 'preparing' || (localNarration && providerRequestBusy) ? ' is-preparing' : prewarmState === 'ready' ? ' is-ready' : prewarmState === 'unavailable' ? ' is-unavailable' : ''}`} role="status"><Volume2 size={13} /> {isPlaying ? 'Playing' : localNarration && providerRequestBusy ? 'Preparing audio' : track && savedAudioMatchesDraft && currentTime <= 0 ? narrationAvailabilityLabel('ready') : track ? 'Paused' : narrationAvailabilityLabel(prewarmState)}</span>
       </div>
 
       <details className="walkthrough-narration-script" onToggle={(event) => { if (event.currentTarget.open) { const editor = event.currentTarget.parentElement?.querySelector<HTMLDetailsElement>(':scope > .walkthrough-narration-editor'); if (editor?.open) editor.open = false; } }}>

@@ -170,6 +170,15 @@ describe('visual story scenes', () => {
     assert.match(component, /narrationAvailabilityLabel\(prewarmState\)/u);
   });
 
+  it('loads a completed local prewarm before Play without autoplaying it', () => {
+    const component = readFileSync(new URL('../src/NarrationPlayer.tsx', import.meta.url), 'utf8');
+    assert.match(component, /prewarmState !== 'ready'/u);
+    assert.match(component, /cacheHydrationKeyRef\.current === cacheHydrationKey/u);
+    assert.match(component, /void makeReviewRef\.current\(true\)/u);
+    assert.match(component, /setLoadedTrack\(cached\.data, result\.data, false, requestedDraft\)/u);
+    assert.match(component, /track && savedAudioMatchesDraft && currentTime <= 0 \? narrationAvailabilityLabel\('ready'\)/u);
+  });
+
   it('re-fits a saved scene only when its nodes fall outside the current canvas', () => {
     const bounds = { x: 0, y: 0, width: 1_000, height: 300 };
     assert.equal(viewportClipsNodeBounds(bounds, { x: -500, y: 50, zoom: 1 }, 600, 400), true);
