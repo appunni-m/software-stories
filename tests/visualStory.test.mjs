@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { storyViewportNeedsRefit, viewportClipsNodeBounds } from '../src/lib/flowViewport.ts';
-import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes } from '../src/lib/visualStory.ts';
+import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes } from '../src/lib/visualStory.ts';
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
 const claims = [claim('entry', 'A request reaches handleRequest. The bytes are still untrusted.'), claim('check', 'If validate rejects those bytes, the caller receives an error. Otherwise processing continues.')];
@@ -96,6 +96,25 @@ describe('visual story scenes', () => {
     assert.equal(sourceAnchorForVisualNode(labelAndBinding, { label: 'tag == 0x0200' }, 'tag').excerpt, 'tag');
   });
 
+  it('resolves edge evidence and narrows a code-bearing relationship label to the exact expression', () => {
+    const excerpt = [
+      'if data.starts_with(b"PFR0") {',
+      '    return Self::pfr_face(data, face_index, size_pt);',
+      '}',
+    ].join('\n');
+    const anchor = {
+      anchorId: 'anchor:pfr-dispatch', path: 'src/font.rs', symbolId: 'symbol:memory-face', snapshotId: 'snapshot:one',
+      sourceSha256: 'e'.repeat(64), startByte: 900, endByteInclusive: 899 + Buffer.byteLength(excerpt),
+      startLine: 4061, endLine: 4063, startColumn: 1, endColumn: 1, excerpt,
+    };
+    const edge = { edgeId: 'edge:pfr', label: 'calls Self::pfr_face(data, face_index, size_pt)', evidenceAnchorIds: [anchor.anchorId] };
+    assert.equal(sourceEvidenceAnchorForVisualEdge([anchor], edge), anchor);
+    const narrowed = sourceAnchorForVisualEdge(anchor, edge);
+    assert.equal(narrowed.startLine, 4062);
+    assert.equal(narrowed.excerpt, 'Self::pfr_face(data, face_index, size_pt)');
+    assert.equal(sourceEvidenceAnchorForVisualEdge([anchor], { ...edge, evidenceAnchorIds: ['anchor:foreign'] }), undefined);
+  });
+
   it('opens a composed source-value cue on the exact expression it displays', () => {
     const excerpt = [
       'impl Font {',
@@ -128,6 +147,15 @@ describe('visual story scenes', () => {
     assert.match(component, /const sourceValue = e\.valueOrigin === 'source' \? value : undefined;/u);
     assert.match(component, /onClick=\{\(\) => onOpenNode\(node\.nodeId, sourceValue\)\}/u);
     assert.match(component, /onOpenNode\(node\.nodeId, sourceValue\)/u);
+  });
+
+  it('renders evidence-backed relationship labels as keyboard-operable source links', () => {
+    const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
+    assert.match(component, /function EvidenceStoryEdge\(/u);
+    assert.match(component, /<EdgeLabelRenderer>/u);
+    assert.match(component, /aria-label=\{`\$\{label\}\. Open cited source code`\}/u);
+    assert.match(component, /onOpenAnchor\(sourceAnchorForVisualEdge\(source, edge\), `reader-visual-edge:/u);
+    assert.match(component, /edgeTypes=\{storyEdgeTypes\}/u);
   });
 
   it('uses an unambiguous composed source value when a graph node opens source', () => {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Background, Controls, MarkerType, Position, ReactFlow } from '@xyflow/react';
+import { Background, BaseEdge, Controls, EdgeLabelRenderer, MarkerType, Position, ReactFlow, getBezierPath, type Edge, type EdgeProps } from '@xyflow/react';
 import { ArrowLeft, ArrowRight, Code2, Maximize2, Network } from 'lucide-react';
 import { NarrationPlayer } from './NarrationPlayer';
 import { HtmlScene } from './HtmlScene';
@@ -7,7 +7,7 @@ import { isNativeRuntime, type ChapterHotspot, type ChapterRevision, type Chapte
 import { defaultNarrationText, parseNarrationPreferences } from './lib/narration';
 import { narrationStorageKey } from './lib/narrationScope';
 import { inspectInteractiveVisual } from './lib/visuals';
-import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes } from './lib/visualStory';
+import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes } from './lib/visualStory';
 import { storyViewportNeedsRefit, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
 import { useReaderProgress } from './lib/ReaderProgressContext';
@@ -26,6 +26,34 @@ interface Props {
   progress?: StoryProgress;
   onProgressChange?: (progress: StoryProgress) => void;
 }
+
+interface StoryEdgeData extends Record<string, unknown> {
+  label: string;
+  focused: boolean;
+  onOpenSource?: () => void;
+}
+
+type StoryEdge = Edge<StoryEdgeData, 'storyEvidence'>;
+
+function EvidenceStoryEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerEnd, style, data }: EdgeProps<StoryEdge>) {
+  const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+  const label = data?.label ?? '';
+  const focused = data?.focused ?? false;
+  const onOpenSource = data?.onOpenSource;
+  return <>
+    <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} />
+    <EdgeLabelRenderer>
+      <button type="button" className={`story-edge-label nodrag nopan${focused ? ' story-edge-label-focused' : ''}`}
+        style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`, pointerEvents: 'all' }}
+        aria-label={`${label}. Open cited source code`} aria-pressed={focused} disabled={!onOpenSource}
+        onClick={(event) => { event.stopPropagation(); onOpenSource?.(); }}>
+        {label}<Code2 size={11} aria-hidden="true" />
+      </button>
+    </EdgeLabelRenderer>
+  </>;
+}
+
+const storyEdgeTypes = { storyEvidence: EvidenceStoryEdge };
 
 /** One narrated, evidence-backed scene at a time. Audio completion, not guessed
  * elapsed-time percentages, advances the story. Sections always advance manually.
@@ -70,9 +98,12 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const canvasViewport = useRef<FlowViewport|undefined>(savedPosition.viewport);
   const mapView = useRef(fullMap);
   const [focusedNode, setFocusedNode] = useState<string | null>(null);
+  const [focusedEdge, setFocusedEdge] = useState<string | null>(null);
   useEffect(() => {
     const node = visual?.nodes.find((node) => activeFocusTarget === `reader-visual-citation:${node.nodeId}:${node.sourceAnchorId ?? node.evidenceAnchorIds[0]}`);
-    if (node) setFocusedNode(node.nodeId);
+    if (node) { setFocusedNode(node.nodeId); setFocusedEdge(null); return; }
+    const edge = visual?.edges.find((item) => activeFocusTarget?.startsWith(`reader-visual-edge:${item.edgeId}:`));
+    if (edge) { setFocusedNode(edge.fromNodeId); setFocusedEdge(edge.edgeId); }
   }, [activeFocusTarget, visual]);
   const scene = scenes[Math.min(index, scenes.length - 1)];
   const authoredScenes = visual?.presentation?.scenes.filter((item) => scenes.length === 1
@@ -103,7 +134,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     if (next < 0 || next >= scenes.length) return;
     activeScene.current=scenes[next].id;
     if(next!==index)canvasViewport.current=undefined;
-    setAutoPlay(playing); setIndex(next); setFocusedNode(nodeId);
+    setAutoPlay(playing); setIndex(next); setFocusedNode(nodeId); setFocusedEdge(null);
     if (!playing) { setManualVisit((visit) => visit + 1); requestAnimationFrame(() => root.current?.scrollIntoView({ block: 'start', behavior: 'instant' })); }
     if (playing) positions.current.set(scenes[next].id, 0);
     savePosition(scenes[next].id);
@@ -116,6 +147,16 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     const source = node ? sourceEvidenceAnchorForVisualNode(anchors, node, exactValue) : undefined;
     if (source && node) onOpenAnchor(sourceAnchorForVisualNode(source, node, exactValue), `reader-visual-citation:${id}:${source.anchorId}`);
   };
+  const chooseEdge = (edgeId: string) => {
+    const edge = visual?.edges.find((item) => item.edgeId === edgeId);
+    if (!edge) return;
+    const source = sourceEvidenceAnchorForVisualEdge(anchors, edge);
+    if (!source) return;
+    const relatedScene = scenes.findIndex((item) => item.nodeIds.includes(edge.fromNodeId) && item.nodeIds.includes(edge.toNodeId));
+    select(relatedScene < 0 ? index : relatedScene, false, edge.fromNodeId);
+    setFocusedEdge(edge.edgeId);
+    onOpenAnchor(sourceAnchorForVisualEdge(source, edge), `reader-visual-edge:${edge.edgeId}:${source.anchorId}`);
+  };
   const nodes = visual ? storyLayout(visual, visibleIds).map((node) => {
     const data = visual.nodes.find((item) => item.nodeId === node.id)!;
     return { ...node, sourcePosition: visual.layoutHint.direction === 'topToBottom' ? Position.Bottom : Position.Right,
@@ -126,8 +167,9 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
       </button> },
       className: `${activeIds.has(node.id) ? 'story-node-active' : 'story-node-context'}${focus?.nodeId === node.id ? ' story-node-focus' : ''}`, style: { width: 195 } };
   }) : [];
-  const edges = visual?.edges.filter((edge) => visibleIds.has(edge.fromNodeId) && visibleIds.has(edge.toNodeId)).map((edge) => ({
-    id: edge.edgeId, source: edge.fromNodeId, target: edge.toNodeId, label: edge.label,
+  const edges: StoryEdge[] = visual?.edges.filter((edge) => visibleIds.has(edge.fromNodeId) && visibleIds.has(edge.toNodeId)).map((edge) => ({
+    id: edge.edgeId, type: 'storyEvidence', source: edge.fromNodeId, target: edge.toNodeId,
+    data: { label: edge.label, focused: focusedEdge === edge.edgeId, onOpenSource: () => chooseEdge(edge.edgeId) },
     markerEnd: { type: MarkerType.ArrowClosed }, className: activeIds.has(edge.fromNodeId) && activeIds.has(edge.toNodeId) ? 'story-edge-active' : 'story-edge-context',
   })) ?? [];
 
@@ -196,7 +238,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     {visual && htmlScenes.length > 0 ? <div className="story-stage story-html-stage" role="group" aria-label={visual.title}>
       {htmlScenes.map((item) => <HtmlScene key={item.claimIndex} scene={item} visual={visual} onOpenNode={chooseNode} focusedNode={focusedNode}/>)}
     </div> : visual ? <div ref={storyStage} className="story-stage" role="group" aria-label={visual.title}>
-      <ReactFlow key={`${section.sectionRevisionId}:${index}:${fullMap}`} nodes={nodes} edges={edges} defaultViewport={canvasViewport.current} fitView={!canvasViewport.current} fitViewOptions={{ padding: .06, maxZoom: 1.1 }}
+      <ReactFlow key={`${section.sectionRevisionId}:${index}:${fullMap}`} nodes={nodes} edges={edges} edgeTypes={storyEdgeTypes} defaultViewport={canvasViewport.current} fitView={!canvasViewport.current} fitViewOptions={{ padding: .06, maxZoom: 1.1 }}
         onInit={(instance) => {
           flowInstance.current = instance;
           // Reapply the controlled arrays after React Flow initializes. On a

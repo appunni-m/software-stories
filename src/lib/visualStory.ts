@@ -1,4 +1,4 @@
-import type { ChapterSection, ChapterSourceAnchor, EvidenceLinkedVisualSpec, LinkedVisualNode } from './commands';
+import type { ChapterSection, ChapterSourceAnchor, EvidenceLinkedVisualSpec, LinkedVisualEdge, LinkedVisualNode } from './commands';
 import { sceneNarrations, validScenePresentation } from './scenePresentation.ts';
 import { cleanStoryProgress, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type SectionIdentity, type StoryProgress } from './readerProgress.ts';
 
@@ -16,7 +16,7 @@ const normalize = (text: string) => text.trim().replace(/\s+/gu, ' ');
  * a unique, byte-exact match inside the already verified chapter citation.
  * Natural-language descriptions and ambiguous matches keep the full citation.
  */
-export function sourceAnchorForVisualNode(anchor: ChapterSourceAnchor, node: Pick<LinkedVisualNode, 'label' | 'detail'>, sourceValue?: string): ChapterSourceAnchor {
+function sourceAnchorForVisualText(anchor: ChapterSourceAnchor, label: string, detail?: string | null, sourceValue?: string): ChapterSourceAnchor {
   const excerptBytes = new TextEncoder().encode(anchor.excerpt).byteLength;
   if (!Number.isSafeInteger(anchor.startByte) || !Number.isSafeInteger(anchor.endByteInclusive)
     || anchor.endByteInclusive < anchor.startByte
@@ -27,7 +27,7 @@ export function sourceAnchorForVisualNode(anchor: ChapterSourceAnchor, node: Pic
     if (sourceValue.length >= 1 && sourceValue.length <= 240) candidates.add(sourceValue);
   } else {
     const codeLike = /(?:\b[A-Za-z_$][\w$]*(?:(?:::|\.|->)[A-Za-z_$][\w$]*)*\s*\([^()\r\n]{0,240}\)|\b0[xX][0-9a-fA-F]+\b)/gu;
-    for (const description of [node.label, node.detail ?? '']) {
+    for (const description of [label, detail ?? '']) {
       for (const match of description.matchAll(/`([^`\r\n]{1,240})`/gu)) candidates.add(match[1]);
       for (const match of description.matchAll(codeLike)) candidates.add(match[0]);
     }
@@ -68,6 +68,15 @@ export function sourceAnchorForVisualNode(anchor: ChapterSourceAnchor, node: Pic
   };
 }
 
+export function sourceAnchorForVisualNode(anchor: ChapterSourceAnchor, node: Pick<LinkedVisualNode, 'label' | 'detail'>, sourceValue?: string): ChapterSourceAnchor {
+  return sourceAnchorForVisualText(anchor, node.label, node.detail, sourceValue);
+}
+
+/** Narrow a visual edge's source link when its label names one unique code expression. */
+export function sourceAnchorForVisualEdge(anchor: ChapterSourceAnchor, edge: Pick<LinkedVisualEdge, 'label'>): ChapterSourceAnchor {
+  return sourceAnchorForVisualText(anchor, edge.label);
+}
+
 /** Select a node's validated source binding before falling back to its cited anchors. */
 export function sourceEvidenceAnchorForVisualNode(
   anchors: readonly ChapterSourceAnchor[],
@@ -84,6 +93,15 @@ export function sourceEvidenceAnchorForVisualNode(
     const matching = anchors.find((anchor) => allowed.has(anchor.anchorId) && anchor.excerpt.includes(sourceValue));
     if (matching) return matching;
   }
+  return anchors.find((anchor) => allowed.has(anchor.anchorId));
+}
+
+/** Resolve an edge only through its validated evidence bindings. */
+export function sourceEvidenceAnchorForVisualEdge(
+  anchors: readonly ChapterSourceAnchor[],
+  edge: Pick<LinkedVisualEdge, 'evidenceAnchorIds'>,
+): ChapterSourceAnchor | undefined {
+  const allowed = new Set(edge.evidenceAnchorIds);
   return anchors.find((anchor) => allowed.has(anchor.anchorId));
 }
 
