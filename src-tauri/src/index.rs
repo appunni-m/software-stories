@@ -1223,11 +1223,12 @@ fn direct_module_export(node: Node<'_>, language: SupportedLanguage) -> bool {
         && export
             .parent()
             .is_some_and(|parent| parent.kind() == "program")
-        && !(0..export.child_count()).any(|index| {
-            export
-                .child(index)
-                .is_some_and(|child| child.kind() == "default")
-        })
+        && {
+            let mut cursor = export.walk();
+            !export
+                .children(&mut cursor)
+                .any(|child| child.kind() == "default")
+        }
 }
 
 fn lexical_function(kind: &str) -> bool {
@@ -1334,15 +1335,14 @@ fn pattern_binding_names(pattern: Node<'_>, source: &str) -> (Vec<String>, bool)
             | "match_pattern" => {
                 let type_node = node.child_by_field_name("type");
                 let condition = node.child_by_field_name("condition");
-                for index in 0..node.named_child_count() {
-                    if let Some(child) = node.named_child(index as u32) {
-                        if type_node.is_some_and(|item| item.id() == child.id())
-                            || condition.is_some_and(|item| item.id() == child.id())
-                        {
-                            continue;
-                        }
-                        stack.push(child);
+                let mut cursor = node.walk();
+                for child in node.named_children(&mut cursor) {
+                    if type_node.is_some_and(|item| item.id() == child.id())
+                        || condition.is_some_and(|item| item.id() == child.id())
+                    {
+                        continue;
                     }
+                    stack.push(child);
                 }
             }
             "self"
@@ -1419,10 +1419,9 @@ fn add_rust_import_bindings(scope: &mut LexicalScope, node: Node<'_>, source: &s
                 None
             }
             "use_list" => {
-                for index in 0..node.named_child_count() {
-                    if let Some(child) = node.named_child(index as u32) {
-                        stack.push(child);
-                    }
+                let mut cursor = node.walk();
+                for child in node.named_children(&mut cursor) {
+                    stack.push(child);
                 }
                 None
             }
@@ -1688,11 +1687,7 @@ fn bind_calls_lexically(
             }
             _ => {}
         }
-        for index in (0..node.named_child_count()).rev() {
-            if let Some(child) = node.named_child(index as u32) {
-                stack.push((child, scope, depth + 1));
-            }
-        }
+        push_named_children_reverse(node, scope, depth + 1, &mut stack);
     }
     // An assignment anywhere in the lexical lifetime makes a static target
     // uncertain. This intentionally avoids pretending to perform data flow.
@@ -1756,9 +1751,33 @@ fn push_children<'tree>(
     depth: usize,
     stack: &mut Vec<(Node<'tree>, WalkContext, usize)>,
 ) {
-    for index in (0..node.child_count()).rev() {
-        if let Some(child) = node.child(index) {
-            stack.push((child, child_context.clone(), depth + 1));
+    let mut cursor = node.walk();
+    if cursor.goto_last_child() {
+        loop {
+            stack.push((cursor.node(), child_context.clone(), depth + 1));
+            if !cursor.goto_previous_sibling() {
+                break;
+            }
+        }
+    }
+}
+
+fn push_named_children_reverse<'tree>(
+    node: Node<'tree>,
+    scope: usize,
+    depth: usize,
+    stack: &mut Vec<(Node<'tree>, usize, usize)>,
+) {
+    let mut cursor = node.walk();
+    if cursor.goto_last_child() {
+        loop {
+            let child = cursor.node();
+            if child.is_named() {
+                stack.push((child, scope, depth));
+            }
+            if !cursor.goto_previous_sibling() {
+                break;
+            }
         }
     }
 }
@@ -1873,21 +1892,18 @@ fn opens_symbol_scope(kind: &SymbolKind, language: SupportedLanguage) -> bool {
 fn rust_public(node: &Node<'_>) -> bool {
     // Restricted visibility (`pub(crate)`, `pub(super)`, `pub(in path)`) is not
     // a crate-root export and must not become a high-confidence export edge.
-    (0..node.child_count()).any(|index| {
-        node.child(index).is_some_and(|child| {
-            child.kind() == "visibility_modifier" && child.named_child_count() == 0
-        })
-    })
+    let mut cursor = node.walk();
+    node.children(&mut cursor)
+        .any(|child| child.kind() == "visibility_modifier" && child.named_child_count() == 0)
 }
 
 fn rust_test_attribute(node: &Node<'_>, source: &str) -> bool {
-    (0..node.child_count()).any(|index| {
-        node.child(index).is_some_and(|child| {
-            child.kind() == "attribute_item" && {
-                let text = node_text(child, source);
-                text.contains("test")
-            }
-        })
+    let mut cursor = node.walk();
+    node.children(&mut cursor).any(|child| {
+        child.kind() == "attribute_item" && {
+            let text = node_text(child, source);
+            text.contains("test")
+        }
     })
 }
 
@@ -1963,10 +1979,9 @@ fn count_parse_errors(root: Node<'_>, cancellation: &AtomicBool) -> Result<usize
         if node.kind() == "ERROR" || node.is_missing() {
             count += 1;
         }
-        for index in 0..node.child_count() {
-            if let Some(child) = node.child(index) {
-                stack.push(child);
-            }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            stack.push(child);
         }
     }
     Ok(count)
@@ -2126,20 +2141,20 @@ fn import_candidate(
 }
 
 fn import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
-    let Some(clause) = (0..node.child_count())
-        .filter_map(|index| node.child(index))
+    let mut children_cursor = node.walk();
+    let Some(clause) = node
+        .children(&mut children_cursor)
         .find(|child| child.kind() == "import_clause")
     else {
         return Vec::new();
     };
-    let declaration_is_type_only = (0..node.child_count())
-        .filter_map(|index| node.child(index))
+    let mut children_cursor = node.walk();
+    let declaration_is_type_only = node
+        .children(&mut children_cursor)
         .any(|child| !child.is_named() && child.kind() == "type");
     let mut bindings = Vec::new();
-    for index in 0..clause.named_child_count() {
-        let Some(child) = clause.named_child(index as u32) else {
-            continue;
-        };
+    let mut clause_cursor = clause.walk();
+    for child in clause.named_children(&mut clause_cursor) {
         match child.kind() {
             "identifier" => {
                 // Default exports have syntax-specific names; keep their import edge visible,
@@ -2151,10 +2166,8 @@ fn import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
                 });
             }
             "named_imports" => {
-                for specifier_index in 0..child.named_child_count() {
-                    let Some(specifier) = child.named_child(specifier_index as u32) else {
-                        continue;
-                    };
+                let mut specifiers_cursor = child.walk();
+                for specifier in child.named_children(&mut specifiers_cursor) {
                     if specifier.kind() != "import_specifier" {
                         continue;
                     }
@@ -2167,13 +2180,14 @@ fn import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
                         .map(|alias| node_text(alias, source).to_owned())
                         .unwrap_or_else(|| imported_name.clone());
                     if !local_name.is_empty() && !imported_name.is_empty() {
+                        let mut specifier_cursor = specifier.walk();
+                        let specifier_is_type_only = specifier
+                            .children(&mut specifier_cursor)
+                            .any(|child| !child.is_named() && child.kind() == "type");
                         bindings.push(ImportBinding {
                             local_name,
                             imported_name,
-                            is_value_binding: !declaration_is_type_only
-                                && !(0..specifier.child_count())
-                                    .filter_map(|index| specifier.child(index))
-                                    .any(|child| !child.is_named() && child.kind() == "type"),
+                            is_value_binding: !declaration_is_type_only && !specifier_is_type_only,
                         });
                     }
                 }
@@ -2181,7 +2195,8 @@ fn import_bindings(node: Node<'_>, source: &str) -> Vec<ImportBinding> {
             // Namespace-member calls need type-aware dispatch to be safe. The import edge
             // remains indexed while calls such as `api.run()` remain explicitly unresolved.
             "namespace_import" => {
-                if let Some(name) = child.named_child(0) {
+                let mut namespace_cursor = child.walk();
+                if let Some(name) = child.named_children(&mut namespace_cursor).next() {
                     bindings.push(ImportBinding {
                         local_name: node_text(name, source),
                         imported_name: "*".to_owned(),

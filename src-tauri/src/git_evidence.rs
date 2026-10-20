@@ -1917,10 +1917,9 @@ fn parse_git_symbols(
                 }
             }
         }
-        for index in 0..node.child_count() {
-            if let Some(child) = node.child(index) {
-                stack.push(child);
-            }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            stack.push(child);
         }
     }
     symbols.sort_by(|left, right| {
