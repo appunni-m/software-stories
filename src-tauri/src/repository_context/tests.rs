@@ -84,6 +84,55 @@ fn identifiers_keep_original_snake_camel_acronym_and_unicode_parts() {
 }
 
 #[test]
+fn compound_identifier_search_does_not_return_common_component_only_hits() {
+    let mut fixture = Fixture::new();
+    add_source(&mut fixture, "lib/code.rs", "const CODE_OF_CONDUCT: &str = \"\";\n");
+    add_source(&mut fixture, "lib/atlas.rs", "struct Atlas;\n");
+    add_source(
+        &mut fixture,
+        "lib/split.rs",
+        "fn code() {}\nstruct AtlasAcceptanceNoMatch_20261020 {}\n",
+    );
+    add_source(&mut fixture, "lib/memory.rs", "fn memory_face() {}\n");
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+
+    let missing = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "CodeAtlasAcceptanceNoMatch_20261020",
+        Some("lib"),
+        8,
+        &budget,
+    )
+    .unwrap();
+    assert!(
+        missing.matches.is_empty(),
+        "an identifier query assembled from separate identifiers returned: {:?}",
+        missing
+            .matches
+            .iter()
+            .map(|hit| (&hit.range.path, hit.text.as_str()))
+            .collect::<Vec<_>>()
+    );
+
+    let component = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "MemoryFace",
+        Some("lib/memory.rs"),
+        8,
+        &budget,
+    )
+    .unwrap();
+    assert_eq!(component.matches.len(), 1);
+    assert_eq!(component.matches[0].range.path, "lib/memory.rs");
+}
+
+#[test]
 fn natural_language_search_matches_common_english_inflections() {
     let mut fixture = Fixture::new();
     add_source(

@@ -28,7 +28,7 @@ use tantivy::{
 };
 use uuid::Uuid;
 
-const VERSION: &str = "atlas-ranges-v4-english-stems-v1-identifiers-v1-policy-v2";
+const VERSION: &str = "atlas-ranges-v4-english-stems-v1-identifiers-v2-policy-v2";
 // Search identity/ordering fields do not change source policy or chunk layouts.
 const CHUNK_VERSION: &str = "atlas-ranges-v1-identifiers-v1-policy-v2";
 pub(crate) const CHUNK_BYTES: usize = 8192;
@@ -348,6 +348,7 @@ fn schema() -> Schema {
     schema.add_text_field("exact", STRING);
     schema.add_text_field("declaration", STRING);
     schema.add_text_field("symbol", TEXT);
+    schema.add_text_field("identifier_parts", STRING);
     schema.build()
 }
 
@@ -694,6 +695,7 @@ fn prepare_cached(
     let scope = field(&index, "scope")?;
     let declaration = field(&index, "declaration")?;
     let symbol_field = field(&index, "symbol")?;
+    let identifier_parts_field = field(&index, "identifier_parts")?;
     let mut metadata = Metadata {
         version: VERSION.to_owned(),
         fingerprint: fingerprint.clone(),
@@ -863,6 +865,14 @@ fn prepare_cached(
                 doc.add_text(body, &body_terms);
                 doc.add_text(body_stem, body_terms);
                 doc.add_text(path_field, terms(&file.path).join(" "));
+                let identifier_keys = text
+                    .split(|c: char| !c.is_alphanumeric() && c != '_')
+                    .filter(|word| !word.is_empty() && word.len() <= 240)
+                    .filter_map(identifier_parts_key)
+                    .collect::<BTreeSet<_>>();
+                for identifier_key in identifier_keys {
+                    doc.add_text(identifier_parts_field, &identifier_key);
+                }
                 for word in text
                     .split(|c: char| !c.is_alphanumeric() && c != '_')
                     .filter(|w| !w.is_empty() && w.len() <= 240)
@@ -1179,6 +1189,39 @@ fn is_identifier_query(query: &str) -> bool {
         .next()
         .is_some_and(|first| first == '_' || first.is_ascii_alphabetic())
         && chars.all(|c| c == '_' || c.is_ascii_alphanumeric())
+}
+
+/// Canonicalize one identifier while preserving component order. This lets a
+/// CamelCase query match its snake_case spelling without combining components
+/// that occur in separate identifiers in the same source range.
+fn identifier_parts_key(identifier: &str) -> Option<String> {
+    let chars = identifier.chars().collect::<Vec<_>>();
+    let mut parts = Vec::new();
+    let mut start = 0;
+    for i in 0..chars.len() {
+        let boundary = chars[i] == '_'
+            || (i > start
+                && chars[i].is_uppercase()
+                && (chars[i - 1].is_lowercase()
+                    || (chars[i - 1].is_uppercase()
+                        && chars.get(i + 1).is_some_and(|c| c.is_lowercase()))));
+        if boundary {
+            if start < i {
+                parts.push(chars[start..i].iter().collect::<String>().to_lowercase());
+            }
+            start = if chars[i] == '_' { i + 1 } else { i };
+        }
+    }
+    if start < chars.len() {
+        parts.push(chars[start..].iter().collect::<String>().to_lowercase());
+    }
+    (parts.len() > 1).then(|| parts.join("\u{1f}"))
+}
+
+fn identifier_query_key(query: &str) -> Option<String> {
+    is_identifier_query(query)
+        .then(|| identifier_parts_key(query))
+        .flatten()
 }
 
 fn is_literal_operator_query(query: &str) -> bool {
@@ -1787,12 +1830,14 @@ fn search_ranked(
     {
         return Err("The code index belongs to a different snapshot.".to_owned());
     }
-    let words = terms(query);
     let query = query.trim();
+    let words = terms(query);
+    let identifier_key = identifier_query_key(query);
     let body = field(&prepared.index, "body")?;
     let body_stem = field(&prepared.index, "body_stem")?;
     let path_field = field(&prepared.index, "path")?;
     let symbol_field = field(&prepared.index, "symbol")?;
+    let identifier_parts_field = field(&prepared.index, "identifier_parts")?;
     let mut clauses = vec![];
     for word in &words {
         clauses.push((Occur::Should, term_query(body, word)));
@@ -1805,13 +1850,21 @@ fn search_ranked(
             Box::new(BoostQuery::new(term_query(path_field, word), 1.5)) as Box<dyn Query>,
         ));
     }
-    for stem in english_stems(&prepared.index, &words.join(" "))? {
-        if !words.contains(&stem) {
-            clauses.push((
-                Occur::Should,
-                Box::new(BoostQuery::new(term_query(body_stem, &stem), 0.5)) as Box<dyn Query>,
-            ));
+    if identifier_key.is_none() {
+        for stem in english_stems(&prepared.index, &words.join(" "))? {
+            if !words.contains(&stem) {
+                clauses.push((
+                    Occur::Should,
+                    Box::new(BoostQuery::new(term_query(body_stem, &stem), 0.5)) as Box<dyn Query>,
+                ));
+            }
         }
+    }
+    if let Some(identifier_key) = identifier_key {
+        clauses.push((
+            Occur::Must,
+            term_query(identifier_parts_field, &identifier_key),
+        ));
     }
     let lexical = scoped(Box::new(BooleanQuery::new(clauses)), &prepared.index, path)?;
     let reader = prepared
