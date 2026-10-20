@@ -2729,7 +2729,7 @@ mod tests {
         );
         fs::write(
             repository.join(".gitignore"),
-            "*.log\nignored.txt\nignored-dir/\n",
+            "*.log\n!important.log\nignored.txt\nignored-dir/\nexcluded/*\n!excluded/keep/\n!excluded/keep/**\n\\!literal.txt\n",
         )
         .unwrap();
         fs::write(repository.join("tracked.log"), b"tracked despite ignore").unwrap();
@@ -2740,6 +2740,19 @@ mod tests {
         )
         .unwrap();
         fs::write(repository.join("ignored.txt"), b"do not capture").unwrap();
+        fs::write(
+            repository.join("important.log"),
+            b"re-included by a later rule",
+        )
+        .unwrap();
+        fs::write(repository.join("!literal.txt"), b"literal exclamation path").unwrap();
+        fs::create_dir_all(repository.join("excluded/keep")).unwrap();
+        fs::write(
+            repository.join("excluded/keep/keep.rs"),
+            b"re-included directory",
+        )
+        .unwrap();
+        fs::write(repository.join("excluded/hidden.rs"), b"still ignored").unwrap();
         assert!(git(&repository, &["add", ".gitignore"]).status.success());
         assert!(
             git(&repository, &["add", "-f", "tracked.log"])
@@ -2777,10 +2790,14 @@ mod tests {
             .collect::<HashSet<_>>();
         assert!(paths.contains("tracked.log"));
         assert!(paths.contains("ignored-dir/keep.rs"));
+        assert!(paths.contains("important.log"));
+        assert!(paths.contains("excluded/keep/keep.rs"));
         assert!(paths.contains("real.txt"));
         assert!(!paths.contains("ignored.txt"));
         assert!(!paths.contains("ignored.log"));
         assert!(!paths.contains("ignored-dir/untracked.rs"));
+        assert!(!paths.contains("excluded/hidden.rs"));
+        assert!(!paths.contains("!literal.txt"));
         assert!(!paths.contains("vendor/dependency.rs"));
         assert!(!paths.contains("linked.txt"));
         assert!(!paths.contains("nested/inside.rs"));
@@ -2790,6 +2807,14 @@ mod tests {
                 .iter()
                 .any(|item| item.reason == "ignoredByGit")
         );
+        for ignored_path in ["ignored.txt", "excluded/hidden.rs", "!literal.txt"] {
+            assert!(
+                result
+                    .skipped
+                    .iter()
+                    .any(|item| { item.path == ignored_path && item.reason == "ignoredByGit" })
+            );
+        }
         assert!(result.skipped.iter().any(|item| item.reason == "symlink"));
         assert!(
             result
