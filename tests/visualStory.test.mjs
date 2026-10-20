@@ -198,12 +198,13 @@ describe('visual story scenes', () => {
     assert.match(styles, /html\[data-app-zoom-compact="true"\] \.story-playbar \.is-story-audio\s*\{[^}]*grid-template-areas:"status status" "playback playback" "read edit"/u);
   });
 
-  it('keeps the sticky Guide player compact and leaves transcript editing available in overlays', () => {
+  it('keeps the Guide transcript in reading flow and leaves text editing available in an overlay', () => {
     const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
     const component = readFileSync(new URL('../src/NarrationPlayer.tsx', import.meta.url), 'utf8');
     const headingRule = styles.match(/\.is-story-audio \.walkthrough-panel-heading\s*\{([^}]+)\}/u)?.[1] ?? '';
     const repeatedTitleRule = styles.match(/\.is-story-audio \.walkthrough-panel-heading > div\s*\{([^}]+)\}/u)?.[1] ?? '';
     const playerRule = styles.match(/\.story-playbar \.is-story-audio\s*\{([^}]+)\}/u)?.[1] ?? '';
+    const transcriptRule = styles.match(/\.is-story-audio \.walkthrough-narration-script\[open\] \.walkthrough-transcript-scroll\s*\{([^}]+)\}/u)?.[1] ?? '';
     const playbackRule = styles.match(/\.is-story-audio \.walkthrough-playback\s*\{([^}]+)\}/u)?.[1] ?? '';
     const overlayRule = styles.match(/\.is-story-audio \.walkthrough-narration-editor\[open\] > \.walkthrough-narration-editor-content\s*\{([^}]+)\}/u)?.[1] ?? '';
     assert.match(headingRule, /display:\s*flex/u);
@@ -211,6 +212,10 @@ describe('visual story scenes', () => {
     assert.match(playerRule, /min-width:\s*0/u);
     assert.match(playerRule, /max-width:\s*100%/u);
     assert.match(playerRule, /grid-template-areas:\s*"playback status" "read edit"/u);
+    assert.match(transcriptRule, /position:\s*relative/u);
+    assert.match(transcriptRule, /width:\s*100%/u);
+    assert.match(transcriptRule, /max-height:\s*min\(32vh, 280px\)/u);
+    assert.doesNotMatch(transcriptRule, /position:\s*absolute/u);
     assert.match(playbackRule, /grid-template-columns:\s*auto minmax\(0,1fr\)/u);
     assert.match(repeatedTitleRule, /clip-path:\s*inset\(50%\)/u);
     assert.match(overlayRule, /position:\s*absolute/u);
