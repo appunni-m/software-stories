@@ -265,7 +265,9 @@ export function storyLayout(visual: EvidenceLinkedVisualSpec, includedNodeIds?: 
     const level = rank.get(node.nodeId) ?? 0;
     const siblings = nodes.filter((other) => rank.get(other.nodeId) === level);
     const across = (siblings.findIndex((other) => other.nodeId === node.nodeId) - (siblings.length - 1) / 2) * 132;
-    return { id: node.nodeId, position: horizontal ? { x: level * 245, y: across } : { x: across * 1.8, y: level * 94 } };
+    // Leave enough horizontal room for a source-linked edge label between
+    // adjacent nodes instead of placing the label over one of the nodes.
+    return { id: node.nodeId, position: horizontal ? { x: level * 340, y: across } : { x: across * 1.8, y: level * 94 } };
   });
 }
 
@@ -277,6 +279,16 @@ export function sceneNodeIds(visual: EvidenceLinkedVisualSpec, scene: StoryScene
     }
   }
   return ids;
+}
+
+/** Keep dense edge labels scannable; the complete label remains available to assistive tech and hover text. */
+export function visibleStoryEdgeLabel(label: string, maxCharacters = 24): string {
+  const text = label.trim();
+  if (text.length <= maxCharacters || maxCharacters < 2) return text;
+  const prefix = text.slice(0, maxCharacters - 1);
+  const lastSpace = prefix.lastIndexOf(' ');
+  const boundary = lastSpace >= Math.floor(maxCharacters * 0.6) ? lastSpace : prefix.length;
+  return `${prefix.slice(0, boundary).trimEnd()}…`;
 }
 
 /** Saved reader viewports belong to a particular canvas size. Keep them while

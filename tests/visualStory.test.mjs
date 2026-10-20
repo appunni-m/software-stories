@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { storyViewportNeedsRefit, viewportClipsNodeBounds } from '../src/lib/flowViewport.ts';
-import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes } from '../src/lib/visualStory.ts';
+import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes, visibleStoryEdgeLabel } from '../src/lib/visualStory.ts';
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
 const claims = [claim('entry', 'A request reaches handleRequest. The bytes are still untrusted.'), claim('check', 'If validate rejects those bytes, the caller receives an error. Otherwise processing continues.')];
@@ -14,6 +14,15 @@ const visual = {
 };
 
 describe('visual story scenes', () => {
+  it('keeps long edge labels scannable while preserving short labels', () => {
+    assert.equal(visibleStoryEdgeLabel('PFR0 prefix matches'), 'PFR0 prefix matches');
+    const full = 'Prefix matches; hand off and return this result.';
+    const visible = visibleStoryEdgeLabel(full, 24);
+    assert.equal(visible, 'Prefix matches; hand…');
+    assert.ok(visible.length <= 24);
+    assert.ok(visibleStoryEdgeLabel(full).length <= 24);
+  });
+
   it('opens a visual node on its unique literal expression inside the cited snapshot bytes', () => {
     const excerpt = [
       'impl Font {',
@@ -494,6 +503,11 @@ describe('visual story scenes', () => {
     assert.notEqual(nodes.get('error').x, nodes.get('result').x);
     assert.ok(nodes.get('check').y > nodes.get('entry').y);
     assert.ok(nodes.get('error').y > nodes.get('check').y);
+  });
+
+  it('reserves a clear label lane between horizontal graph columns', () => {
+    const nodes = new Map(storyLayout({ ...visual, layoutHint: { direction: 'leftToRight' } }).map((node) => [node.id, node.position]));
+    assert.equal(nodes.get('check').x - nodes.get('entry').x, 340);
   });
 
   it('fits a focused scene to its visible subgraph instead of hidden chapter branches', () => {

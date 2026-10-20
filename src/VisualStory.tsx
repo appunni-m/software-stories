@@ -7,7 +7,7 @@ import { isNativeRuntime, type ChapterHotspot, type ChapterRevision, type Chapte
 import { defaultNarrationText, parseNarrationPreferences } from './lib/narration';
 import { narrationStorageKey } from './lib/narrationScope';
 import { inspectInteractiveVisual } from './lib/visuals';
-import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes } from './lib/visualStory';
+import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes, visibleStoryEdgeLabel } from './lib/visualStory';
 import { storyViewportNeedsRefit, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
 import { useReaderProgress } from './lib/ReaderProgressContext';
@@ -43,11 +43,11 @@ function EvidenceStoryEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosit
   return <>
     <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} />
     <EdgeLabelRenderer>
-      <button type="button" className={`story-edge-label nodrag nopan${focused ? ' story-edge-label-focused' : ''}`}
+      <button type="button" className={`story-edge-label nodrag nopan${focused ? ' story-edge-label-focused' : ''}`} title={label}
         style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`, pointerEvents: 'all' }}
         aria-label={`${label}. Open cited source code`} aria-pressed={focused} disabled={!onOpenSource}
         onClick={(event) => { event.stopPropagation(); onOpenSource?.(); }}>
-        {label}<Code2 size={11} aria-hidden="true" />
+        <span className="story-edge-label-text">{visibleStoryEdgeLabel(label)}</span><Code2 size={11} aria-hidden="true" />
       </button>
     </EdgeLabelRenderer>
   </>;
