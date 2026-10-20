@@ -73,7 +73,6 @@ export function DeveloperWorkspace(props:Props) {
   const connection=useConnectionState();
   const current = state.explorations.find((e)=>e.id===state.currentId)!;
   const path = ancestors(state);
-  const visibleTurns = visibleConversationTurns(state, current);
   const rows = useMemo(()=>buildInventory(manifest).filter((r)=>r.kind==='file' && r.disposition==='captured' && !['binary','invalidEncoding'].includes(r.contentKind) && !r.categories.includes('secret')), [manifest]);
   const sourcePaths = useMemo(()=>rankSourcePaths(rows.map((r)=>r.path)),[rows]);
   const [activity,setActivity] = useState<'files'|'search'|'changes'|'history'>('files');
@@ -101,7 +100,9 @@ export function DeveloperWorkspace(props:Props) {
   const [reveal,setReveal] = useState<Context|null>(null);
   const [chapters,setChapters] = useState<ChapterRevision[]>([]);
   const [chaptersLoading,setChaptersLoading] = useState(true);
-  const featuredTurnId = featuredGuideTurnId(visibleTurns, current.focusedTurnId, new Set(chapters.map((chapter) => chapter.revisionId)));
+  const availableRevisionIds = useMemo(()=>new Set(chapters.map((chapter)=>chapter.revisionId)),[chapters]);
+  const visibleTurns = visibleConversationTurns(state, current, availableRevisionIds, chaptersLoading);
+  const featuredTurnId = featuredGuideTurnId(visibleTurns, current.focusedTurnId, availableRevisionIds);
   const [chapterError,setChapterError] = useState<string|null>(null);
   const [index,setIndex] = useState<SnapshotIndex|null>(null);
   const [indexBusy,setIndexBusy] = useState(true);

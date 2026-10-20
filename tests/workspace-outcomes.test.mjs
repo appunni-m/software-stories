@@ -19,15 +19,26 @@ test('History shows a compact question preview and preserves the exact question 
   assert.match(source, /<details className="dw-history-question"><summary><strong>\{historyQuestionPreview\(turn\.question\)\}<\/strong><\/summary><p>\{turn\.question\}<\/p><\/details>/);
 });
 
-test('Guide hides old empty outcomes while retaining all saved, active and selected questions', () => {
+test('Guide hides old empty and unavailable answers while retaining saved, active and selected questions', () => {
   const state = stateWith(...['failed', 'stopped', 'interrupted', 'partial'].map((status) => turn(status, status)),
     turn('saved', 'ready', { revisionId: 'revision:one' }), turn('unavailable', 'failed', { revisionId: 'revision:missing' }),
-    turn('saved-partial', 'partial', { publishedSections: [{ revisionId: 'revision:two' }] }), turn('working', 'working'), turn('queued', 'queued'));
-  const expected = ['saved', 'unavailable', 'saved-partial', 'working', 'queued'];
-  assert.deepEqual(visibleConversationTurns(state, state.explorations[0]).map((t) => t.id), expected);
+    turn('saved-partial', 'partial', { revisionId: 'revision:old', publishedSections: [{ revisionId: 'revision:two' }, { revisionId: 'revision:missing-section' }] }),
+    turn('missing-sections', 'partial', { revisionId: 'revision:one', publishedSections: [{ revisionId: 'revision:missing-section' }] }),
+    turn('working', 'working'), turn('queued', 'queued'));
+  const available = new Set(['revision:one', 'revision:two']);
+  const expected = ['saved', 'saved-partial', 'working', 'queued'];
+  assert.deepEqual(visibleConversationTurns(state, state.explorations[0], available).map((t) => t.id), expected);
+  assert.equal(visibleConversationTurns(state, state.explorations[0], available, true).includes(state.explorations[0].turns.find((t) => t.id === 'missing-sections')), true,
+    'keep answer cards stable while saved revisions are loading');
   const opened = openWorkspaceQuestion(state, 'root', 'failed');
-  assert.deepEqual(visibleConversationTurns(opened, opened.explorations[0]).map((t) => t.id), ['failed', ...expected]);
-  assert.equal(state.explorations[0].turns.length, 9);
+  assert.deepEqual(visibleConversationTurns(opened, opened.explorations[0], available).map((t) => t.id), ['failed', ...expected]);
+  const openedUnavailable = openWorkspaceQuestion(state, 'root', 'unavailable');
+  assert.deepEqual(visibleConversationTurns(openedUnavailable, openedUnavailable.explorations[0], available).map((t) => t.id),
+    ['saved', 'unavailable', 'saved-partial', 'working', 'queued'], 'an explicitly opened unavailable answer remains explainable');
+  const openedMissingSections = openWorkspaceQuestion(state, 'root', 'missing-sections');
+  assert.ok(visibleConversationTurns(openedMissingSections, openedMissingSections.explorations[0], available)
+    .some((t) => t.id === 'missing-sections'), 'a selected progressive answer remains explainable even if its old base revision exists');
+  assert.equal(state.explorations[0].turns.length, 10);
 });
 
 test('Guide keeps the selected answer expanded and otherwise prefers the newest available answer', () => {
@@ -108,7 +119,7 @@ test('question-owned branches stay attached to the last available part before un
 test('a branch remains reachable even when its original investigation saved nothing', () => {
   let state = stateWith(turn('origin'), turn('unrelated'));
   state = addTurn(state, turn('child', 'ready', { revisionId: 'revision:child' }), 'flow', { id: 'child', originTurnId: 'origin' });
-  assert.deepEqual(visibleConversationTurns(state, state.explorations[0]).map((t) => t.id), ['origin']);
+  assert.deepEqual(visibleConversationTurns(state, state.explorations[0], new Set()).map((t) => t.id), ['origin']);
 });
 
 test('History opens the exact question at its existing depth without changing answers or reading positions', () => {

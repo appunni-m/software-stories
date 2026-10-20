@@ -17,12 +17,25 @@ export function savedAnswerAvailability(historyLoading: boolean, revisionAvailab
   return revisionAvailable ? 'available' : 'unavailable';
 }
 
-/** Empty past attempts stay in History. Preserve the selected question and
- * branch owners, including branches whose original investigation failed. */
-export function visibleConversationTurns(state: WorkspaceState, exploration: Exploration): Turn[] {
+/** Empty and unavailable past attempts stay in History. Preserve the selected
+ * question and branch owners, including branches whose original investigation
+ * failed. While saved answers are loading, keep their cards stable. */
+export function visibleConversationTurns(
+  state: WorkspaceState,
+  exploration: Exploration,
+  availableRevisionIds?: ReadonlySet<string>,
+  historyLoading = false,
+): Turn[] {
   const branchOwners = new Set(state.explorations.filter((e) => e.parentId === exploration.id).map((e) => e.originTurnId));
-  return exploration.turns.filter((turn) => active(turn) || hasAnswer(turn)
-    || turn.id === exploration.focusedTurnId || branchOwners.has(turn.id));
+  return exploration.turns.filter((turn) => {
+    const answerRevisionIds = turn.publishedSections?.length
+      ? turn.publishedSections.map((section) => section.revisionId)
+      : [turn.revisionId, ...(turn.answerVersions ?? []).map((version) => version.revisionId)];
+    const answerAvailable = historyLoading || !availableRevisionIds
+      || answerRevisionIds.some((revisionId) => revisionId && availableRevisionIds.has(revisionId));
+    return active(turn) || (hasAnswer(turn) && answerAvailable)
+      || turn.id === exploration.focusedTurnId || branchOwners.has(turn.id);
+  });
 }
 
 /** Keep the selected question prominent in Guide. Without an explicit
