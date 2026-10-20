@@ -166,6 +166,8 @@ describe('desktop shell acceptance contract', () => {
 
   it('offers provider setup only from an explicit generation or narration flow', async () => {
     const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
+    assert.match(source, /aria-label="Open workspace tools"[\s\S]*?title="Workspace tools"[\s\S]*?aria-haspopup="menu"/);
+    assert.doesNotMatch(source, /aria-label="Open workspace settings"/);
     const menuStart = source.indexOf('<div className="tools-menu"');
     const menuEnd = source.indexOf('<button className="menu-scrim"', menuStart);
     assert.ok(menuStart >= 0 && menuEnd > menuStart, 'project tools menu is present');

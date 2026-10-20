@@ -1663,8 +1663,8 @@ function App() {
               className={`more-tools-button ${toolsOpen ? 'selected' : ''}`}
               onClick={() => { setProjectMenuOpen(false); setSnapshotMenuOpen(false); setToolsOpen((open) => !open); }}
               data-focus-key="tools-button"
-              aria-label="Open workspace settings"
-              title="Workspace settings"
+              aria-label="Open workspace tools"
+              title="Workspace tools"
               aria-expanded={toolsOpen}
               aria-haspopup="menu"
             >
