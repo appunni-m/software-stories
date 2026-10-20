@@ -7,6 +7,11 @@ export function validZoom(value:unknown):value is number {
 export function compactZoomLayout(percent:number):boolean {
   return validZoom(percent)&&percent>=180;
 }
+/** Keep the same rendered content point under the viewport as native zoom changes. */
+export function scaledZoomScrollOffset(offset:number,previousPercent:number,nextPercent:number):number {
+  if(!Number.isFinite(offset)||offset<=0||!validZoom(previousPercent)||!validZoom(nextPercent))return 0;
+  return Math.max(0,Math.round(offset*previousPercent/nextPercent));
+}
 export function savedZoom(raw:string|null):number {
   if(raw===null||!/^\d{2,4}$/.test(raw))return 100;
   const value=Number(raw);return validZoom(value)&&String(value)===raw?value:100;

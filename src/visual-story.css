@@ -1,4 +1,4 @@
-.visual-story { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; margin-top: 12px; scroll-margin-top: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: clip; }
+.visual-story { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; margin-top: 12px; scroll-margin-top: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .story-sticky-controls { position: sticky; top: 0; z-index: 4; background: var(--surface); }
 .story-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; min-height: 42px; padding: 5px 12px; border-bottom: 1px solid var(--border); }
 .story-scene-title { flex: 1 1 150px; min-width: 0; overflow: hidden; color: var(--text); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
@@ -12,6 +12,7 @@
 .story-scene-dots [aria-current="step"] span { width: 18px; border-radius: 3px; background: var(--accent); }
 .story-map-toggle, .story-focus-bar button { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; font: inherit; font-size: 12px; background: var(--surface-raised); }
 .story-stage { height: clamp(320px, 48vh, 720px); min-width: 0; background: var(--canvas); }
+.visual-story > .story-stage:not(.story-html-stage) { overflow: hidden; border-radius: 0 0 7px 7px; }
 .story-html-stage { height: auto; min-height: clamp(320px, 48vh, 720px); max-height: min(80vh, 900px); overflow: auto; }
 .visual-story .react-flow { --xy-background-color: var(--canvas); --xy-background-pattern-dots-color: var(--border-strong); --xy-node-background-color: var(--surface); --xy-node-color: var(--text); --xy-node-border: 1px solid var(--border-strong); --xy-edge-stroke: var(--muted); --xy-edge-label-color: var(--muted); --xy-edge-label-background-color: var(--surface); --xy-controls-button-background-color: var(--surface); --xy-controls-button-color: var(--text); --xy-controls-button-border-color: var(--border); }
 .visual-story .react-flow__node { box-sizing: border-box; padding: 12px; font: 500 14px/1.45 -apple-system, BlinkMacSystemFont, sans-serif; border-radius: 7px; overflow-wrap: break-word; word-break: normal; box-shadow: none; }

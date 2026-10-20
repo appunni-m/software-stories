@@ -1,7 +1,7 @@
 import {invoke} from '@tauri-apps/api/core';
 import {listen} from '@tauri-apps/api/event';
 import {isNativeRuntime} from './commands';
-import {APP_ZOOM_KEY,compactZoomLayout,validZoom,savedZoom,zoomShortcut} from './pageZoom';
+import {APP_ZOOM_KEY,compactZoomLayout,scaledZoomScrollOffset,validZoom,savedZoom,zoomShortcut} from './pageZoom';
 
 let installation:Promise<void>|null=null;
 /** Native menus and shortcuts use the same native level. The old injected
@@ -12,6 +12,15 @@ export function installAppZoom():Promise<void> {
   installation=(async()=>{
     const remember=(percent:unknown)=>{
       if(!validZoom(percent))return;
+      const previousPercent=savedZoom(document.documentElement.dataset.appZoom??null);
+      if(previousPercent!==percent){
+        requestAnimationFrame(()=>{
+          document.querySelectorAll<HTMLElement>('.dw-answer-scroll,.dw-tool-content,.dw-sidebar,.dw-file-list,.walkthrough-transcript-scroll,.story-html-stage').forEach((element)=>{
+            if(element.scrollTop>0)element.scrollTop=scaledZoomScrollOffset(element.scrollTop,previousPercent,percent);
+            if(element.scrollLeft>0)element.scrollLeft=scaledZoomScrollOffset(element.scrollLeft,previousPercent,percent);
+          });
+        });
+      }
       document.documentElement.dataset.appZoom=String(percent);
       document.documentElement.dataset.appZoomCompact=String(compactZoomLayout(percent));
       try{localStorage.setItem(APP_ZOOM_KEY,String(percent));}catch{/* Zoom still works for this window. */}
