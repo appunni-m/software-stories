@@ -207,7 +207,23 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
       {htmlScenes.map((item) => <HtmlScene key={item.claimIndex} scene={item} visual={visual} onOpenNode={chooseNode} focusedNode={focusedNode}/>)}
     </div> : visual ? <div ref={storyStage} className="story-stage" role="group" aria-label={visual.title}>
       <ReactFlow key={`${section.sectionRevisionId}:${index}:${fullMap}`} nodes={nodes} edges={edges} defaultViewport={canvasViewport.current} fitView={!canvasViewport.current} fitViewOptions={{ padding: .06, maxZoom: 1.1 }}
-        onInit={(instance) => { flowInstance.current = instance; scheduleViewportCheck.current(); }}
+        onInit={(instance) => {
+          flowInstance.current = instance;
+          // Reapply the controlled arrays after React Flow initializes. On a
+          // fresh native workspace restore, its first canvas can otherwise
+          // mount without painting nodes until the user changes scenes.
+          instance.setNodes(nodes);
+          instance.setEdges(edges);
+          const saved = canvasViewport.current;
+          if (saved) {
+            void instance.setViewport(saved, { duration: 0 }).then(() => {
+              if (flowInstance.current === instance) scheduleViewportCheck.current();
+            }).catch(() => {
+              if (flowInstance.current === instance) scheduleViewportCheck.current();
+            });
+          }
+          scheduleViewportCheck.current();
+        }}
         onNodesChange={(changes) => { if (changes.some((change) => change.type === 'dimensions')) scheduleViewportCheck.current(); }}
         onMoveEnd={(_event,viewport)=>{const clean=cleanFlowViewport(viewport);if(clean&&activeScene.current===scene.id&&mapView.current===fullMap){canvasViewport.current=clean;savePosition(scene.id);}}}
         minZoom={.18} maxZoom={1.8} nodesDraggable={false} nodesConnectable={false} nodesFocusable={false} edgesFocusable={false} elementsSelectable={false} deleteKeyCode={null} zoomOnScroll={false} preventScrolling={false} colorMode="system">

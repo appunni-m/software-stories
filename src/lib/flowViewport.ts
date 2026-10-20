@@ -4,6 +4,7 @@ export interface FlowViewportInstance {
   viewportInitialized: boolean;
   getNodesBounds: (nodes: string[]) => { x: number; y: number; width: number; height: number };
   getViewport: () => FlowViewport;
+  setViewport: (viewport: FlowViewport, options?: { duration?: number }) => Promise<boolean>;
   fitView: (options: { nodes: { id: string }[]; padding: number; minZoom: number; maxZoom: number }) => Promise<boolean>;
 }
 

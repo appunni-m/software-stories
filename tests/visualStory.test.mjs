@@ -267,6 +267,10 @@ describe('visual story scenes', () => {
       assert.match(source, /viewportClipsNodeBounds\(bounds,\s*\w+\.getViewport\(\),\s*\w+\.width,\s*\w+\.height/u);
       assert.match(source, /onNodesChange=\{\(changes\)\s*=>\s*\{\s*if\s*\(changes\.some\(\(change\)\s*=>\s*change\.type\s*===\s*'dimensions'\)\)/u);
     }
+    assert.match(story, /instance\.setViewport\(saved,\s*\{\s*duration:\s*0\s*\}\)/u,
+      'a saved Guide viewport is applied after React Flow initializes, not only passed as its initial default');
+    assert.match(story, /onInit=\{\(instance\)\s*=>\s*\{[\s\S]*?instance\.setNodes\(nodes\);\s*instance\.setEdges\(edges\);/u,
+      'the Guide canvas hydrates its nodes and edges after React Flow initializes');
   });
 
   it('keeps HTML visual values intact at word boundaries before breaking long tokens', () => {
