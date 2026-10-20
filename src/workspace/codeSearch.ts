@@ -84,8 +84,30 @@ export function workspaceSearchResults({query,mode,files,symbols,source,captured
       all.push({path:source.path,text:text.trim(),from:line,to:line});if(++count===32)break;
     }
   }
-  const seen=new Set<string>();
-  return all.filter(hit=>{const key=JSON.stringify([hit.path,hit.from,hit.text]);if(seen.has(key))return false;seen.add(key);return true;}).slice(0,80);
+  const seenFiles=new Set<string>();
+  const seenLocations=new Map<string,number>();
+  const unique:CodeSearchHit[]=[];
+  for(const hit of all){
+    if(hit.from===undefined){
+      const key=JSON.stringify([hit.path,hit.text]);
+      if(seenFiles.has(key))continue;
+      seenFiles.add(key);
+      unique.push(hit);
+      continue;
+    }
+    const key=JSON.stringify([hit.path,hit.from]);
+    const existingIndex=seenLocations.get(key);
+    if(existingIndex!==undefined){
+      const existing=unique[existingIndex];
+      const to=Math.max(existing.to??existing.from??hit.from,hit.to??hit.from);
+      if(hit.text.length>existing.text.length)unique[existingIndex]={...existing,text:hit.text,to};
+      else if(to>(existing.to??existing.from??0))unique[existingIndex]={...existing,to};
+      continue;
+    }
+    seenLocations.set(key,unique.length);
+    unique.push(hit);
+  }
+  return unique.slice(0,80);
 }
 
 /** Search matches are starting points for investigation, not proof of an answer. */

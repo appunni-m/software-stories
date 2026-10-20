@@ -75,6 +75,19 @@ test('an exact symbol declaration leads partial symbol and fixture-file matches'
   ]);
 });
 
+test('a source line matching a symbol declaration is one result with the richer snippet',()=>{
+  const hits=workspaceSearchResults({query:'memory_face',mode:'code',files:[{path:'src/font.rs'}],symbols:[
+    {path:'src/font.rs',name:'memory_face',anchor:{startLine:4053,endLine:4115}},
+  ],source:null,captured:[
+    {path:'src/font.rs',line:4053,text:'pub(crate) fn memory_face('},
+    {path:'src/font.rs',line:4058,text:'let face = Self::memory_face(data, face_index, size_pt)?;'},
+  ]});
+  assert.deepEqual(hits,[
+    {path:'src/font.rs',text:'pub(crate) fn memory_face(',from:4053,to:4115},
+    {path:'src/font.rs',text:'let face = Self::memory_face(data, face_index, size_pt)?;',from:4058,to:4058},
+  ]);
+});
+
 test('production search binds the helper, explicit pressed mode and Mac physical shortcut',async()=>{
   const {readFileSync}=await import('node:fs');const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
   const native=readFileSync(new URL('../src-tauri/src/repository_context_commands.rs',import.meta.url),'utf8');
