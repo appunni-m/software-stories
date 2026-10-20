@@ -22,6 +22,12 @@ export function searchLimitMessage(resultCount:number):string {
   return `Search limit reached (${count}). Refine your search to find more.`;
 }
 
+/** Report only the number of rows currently visible; the search API is paged. */
+export function searchResultsMessage(resultCount:number,moreAvailable:boolean):string {
+  const count=resultCount===1?'1 result shown':`${resultCount} results shown`;
+  return `${count}${moreAvailable?'; more matches available':''}.`;
+}
+
 interface SearchUpdates {
   hits:(hits:SourceMatch[],append:boolean)=>void; limited:(limited:boolean)=>void;
   nextOffset:(nextOffset:number|null)=>void;

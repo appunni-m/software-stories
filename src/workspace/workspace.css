@@ -121,6 +121,7 @@
 .dw-suggestions > button > span,.dw-search-results > button > span {flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;}
 .dw-suggestions small,.dw-search-results small {display:block;color:var(--dim);font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dw-search-results {padding:10px;}
+.dw-search-results .dw-search-count {margin:8px 0 3px;color:var(--dim);font-size:10px;line-height:1.4;}
 .dw-search-results strong {font-weight:500;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dw-search-results .rt-Button {margin-top:12px;}
 .dw-commits {overflow:auto;padding:6px 8px 24px;}
