@@ -3,8 +3,8 @@ import type { Exploration, PublishedSection, Turn, WorkspaceState } from './mode
 const active = (turn: Turn) => turn.status === 'queued' || turn.status === 'working';
 const hasAnswer = (turn: Turn) => Boolean(turn.revisionId || turn.publishedSections?.length);
 
-/** Keep the History list scannable while retaining the exact original question on demand. */
-export function historyQuestionPreview(question: string, maxCodePoints = 120): string {
+/** Keep question headers compact while retaining the exact question on demand. */
+export function historyQuestionPreview(question: string, maxCodePoints = 64): string {
   const text = question.replace(/\s+/g, ' ').trim();
   const characters = Array.from(text);
   const limit = Math.max(1, Math.floor(maxCodePoints));

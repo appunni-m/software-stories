@@ -13,7 +13,7 @@ test('History shows a compact question preview and preserves the exact question 
   assert.equal(historyQuestionPreview(question), 'Explain how Font::memory_face selects a format.');
   const long = `🧭${'a'.repeat(120)}`;
   const preview = historyQuestionPreview(long);
-  assert.equal(Array.from(preview).length, 120);
+  assert.equal(Array.from(preview).length, 64);
   assert.ok(preview.endsWith('…'));
   const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   assert.match(source, /<details className="dw-history-question"><summary><strong>\{historyQuestionPreview\(turn\.question\)\}<\/strong><\/summary><p>\{turn\.question\}<\/p><\/details>/);
