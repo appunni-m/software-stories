@@ -330,6 +330,12 @@ describe('visual story scenes', () => {
       'the Guide canvas hydrates its nodes and edges after React Flow initializes');
   });
 
+  it('rehydrates the Guide diagram after the first layout frame', () => {
+    const story = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
+    assert.match(story, /requestAnimationFrame\(\(\)\s*=>\s*\{\s*if\s*\(flowInstance\.current\s*!==\s*instance\)\s*return;\s*instance\.setNodes\(nodes\);\s*instance\.setEdges\(edges\);\s*scheduleViewportCheck\.current\(\);\s*\}\)/u,
+      'the first Guide mount reconciles the controlled graph after React Flow has completed a browser layout frame');
+  });
+
   it('keeps HTML visual values intact at word boundaries before breaking long tokens', () => {
     const styles = readFileSync(new URL('../src/html-scene.css', import.meta.url), 'utf8');
     const valueRule = styles.match(/\.html-scene-value\s*\{([^}]+)\}/u)?.[1] ?? '';

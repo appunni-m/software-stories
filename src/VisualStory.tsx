@@ -246,6 +246,15 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
           // mount without painting nodes until the user changes scenes.
           instance.setNodes(nodes);
           instance.setEdges(edges);
+          // A freshly restored Guide can mount before its split-pane layout has
+          // settled. Reconcile the controlled graph after that first frame so
+          // React Flow cannot retain the pre-layout empty canvas.
+          requestAnimationFrame(() => {
+            if (flowInstance.current !== instance) return;
+            instance.setNodes(nodes);
+            instance.setEdges(edges);
+            scheduleViewportCheck.current();
+          });
           const saved = canvasViewport.current;
           if (saved) {
             void instance.setViewport(saved, { duration: 0 }).then(() => {
