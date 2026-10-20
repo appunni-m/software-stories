@@ -1,4 +1,4 @@
-import type { ChapterSection, EvidenceLinkedVisualSpec } from './commands';
+import type { ChapterSection, ChapterSourceAnchor, EvidenceLinkedVisualSpec, LinkedVisualNode } from './commands';
 import { sceneNarrations, validScenePresentation } from './scenePresentation.ts';
 import { cleanStoryProgress, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type SectionIdentity, type StoryProgress } from './readerProgress.ts';
 
@@ -11,6 +11,59 @@ export interface StoryScene {
 }
 
 const normalize = (text: string) => text.trim().replace(/\s+/gu, ' ');
+
+/** Narrow a visual node's source link only when its visible code expression is
+ * a unique, byte-exact match inside the already verified chapter citation.
+ * Natural-language descriptions and ambiguous matches keep the full citation.
+ */
+export function sourceAnchorForVisualNode(anchor: ChapterSourceAnchor, node: Pick<LinkedVisualNode, 'label' | 'detail'>): ChapterSourceAnchor {
+  const excerptBytes = new TextEncoder().encode(anchor.excerpt).byteLength;
+  if (!Number.isSafeInteger(anchor.startByte) || !Number.isSafeInteger(anchor.endByteInclusive)
+    || anchor.endByteInclusive < anchor.startByte
+    || excerptBytes !== anchor.endByteInclusive - anchor.startByte + 1) return anchor;
+
+  const candidates = new Set<string>();
+  const codeLike = /[A-Za-z_$][\w$]*(?:(?:::|\.|->)[A-Za-z_$][\w$]*)(?:\s*\([^()\r\n]{0,240}\))?/gu;
+  for (const description of [node.label, node.detail ?? '']) {
+    for (const match of description.matchAll(/`([^`\r\n]{1,240})`/gu)) candidates.add(match[1]);
+    for (const match of description.matchAll(codeLike)) candidates.add(match[0]);
+  }
+
+  const exactMatches = [...candidates].flatMap((candidate) => {
+    if (candidate.length < 4) return [];
+    const start = anchor.excerpt.indexOf(candidate);
+    if (start < 0 || anchor.excerpt.indexOf(candidate, start + 1) !== -1) return [];
+    const end = start + candidate.length;
+    const before = anchor.excerpt.slice(0, start);
+    const priorLines = before.match(/\r\n|\r|\n/gu)?.length ?? 0;
+    const lineStart = Math.max(before.lastIndexOf('\n'), before.lastIndexOf('\r')) + 1;
+    const startLine = anchor.startLine + priorLines;
+    const endLine = startLine + (anchor.excerpt.slice(start, end).match(/\r\n|\r|\n/gu)?.length ?? 0);
+    if (startLine !== endLine) return [];
+    const columnBase = priorLines === 0 ? anchor.startColumn : 1;
+    const startColumn = columnBase + new TextEncoder().encode(before.slice(lineStart)).byteLength;
+    const endColumn = startColumn + new TextEncoder().encode(candidate).byteLength - 1;
+    return [{ candidate, start, end, startLine, endLine, startColumn, endColumn }];
+  });
+
+  if (exactMatches.length === 0) return anchor;
+  const lines = new Set(exactMatches.map((match) => `${match.startLine}:${match.endLine}`));
+  if (lines.size !== 1) return anchor;
+  const match = exactMatches.sort((left, right) => right.candidate.length - left.candidate.length)[0];
+  const startByte = anchor.startByte + new TextEncoder().encode(anchor.excerpt.slice(0, match.start)).byteLength;
+  const endByteInclusive = startByte + new TextEncoder().encode(match.candidate).byteLength - 1;
+  return {
+    ...anchor,
+    startByte,
+    endByteInclusive,
+    startLine: match.startLine,
+    endLine: match.endLine,
+    startColumn: match.startColumn,
+    endColumn: match.endColumn,
+    excerpt: match.candidate,
+  };
+}
+
 function sentences(text: string): string[] {
   const result: string[] = [];
   let start = 0;

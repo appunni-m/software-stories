@@ -7,7 +7,7 @@ import { isNativeRuntime, type ChapterHotspot, type ChapterRevision, type Chapte
 import { defaultNarrationText, parseNarrationPreferences } from './lib/narration';
 import { narrationStorageKey } from './lib/narrationScope';
 import { inspectInteractiveVisual } from './lib/visuals';
-import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, storyLayout, storyScenes } from './lib/visualStory';
+import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualNode, storyLayout, storyScenes } from './lib/visualStory';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
 import { useReaderProgress } from './lib/ReaderProgressContext';
@@ -106,7 +106,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     select(next < 0 ? index : next, false, id);
     const node = visual?.nodes.find((item) => item.nodeId === id);
     const source = anchors.find((item) => node?.evidenceAnchorIds.includes(item.anchorId));
-    if (source) onOpenAnchor(source, `reader-visual-citation:${id}:${source.anchorId}`);
+    if (source && node) onOpenAnchor(sourceAnchorForVisualNode(source, node), `reader-visual-citation:${id}:${source.anchorId}`);
   };
   const nodes = visual ? storyLayout(visual, visibleIds).map((node) => {
     const data = visual.nodes.find((item) => item.nodeId === node.id)!;

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { viewportClipsNodeBounds } from '../src/lib/flowViewport.ts';
-import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, storyLayout, storyScenes } from '../src/lib/visualStory.ts';
+import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualNode, storyLayout, storyScenes } from '../src/lib/visualStory.ts';
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
 const claims = [claim('entry', 'A request reaches handleRequest. The bytes are still untrusted.'), claim('check', 'If validate rejects those bytes, the caller receives an error. Otherwise processing continues.')];
@@ -14,6 +14,49 @@ const visual = {
 };
 
 describe('visual story scenes', () => {
+  it('opens a visual node on its unique literal expression inside the cited snapshot bytes', () => {
+    const excerpt = [
+      'impl Font {',
+      '    pub(crate) fn memory_face(data: &[u8]) -> Result<Self, FontError> {',
+      '        if data.starts_with(b"PFR0") {',
+      '            return Self::pfr_face(data, face_index, size_pt);',
+      '        }',
+      '    }',
+      '}',
+    ].join('\n');
+    const anchor = {
+      anchorId: 'anchor:memory-face', path: 'src/font.rs', symbolId: 'symbol:memory-face', snapshotId: 'snapshot:one',
+      sourceSha256: 'a'.repeat(64), startByte: 300, endByteInclusive: 299 + Buffer.byteLength(excerpt),
+      startLine: 4053, endLine: 4059, startColumn: 1, endColumn: 1, excerpt,
+    };
+    const narrowed = sourceAnchorForVisualNode(anchor, {
+      label: 'PFR0 prefix', detail: 'Branch test: data.starts_with(b"PFR0").',
+    });
+    const expression = 'data.starts_with(b"PFR0")';
+    const expressionOffset = excerpt.indexOf(expression);
+    assert.equal(narrowed.startLine, 4055);
+    assert.equal(narrowed.endLine, 4055);
+    assert.equal(narrowed.startByte, anchor.startByte + Buffer.byteLength(excerpt.slice(0, expressionOffset)));
+    assert.equal(narrowed.endByteInclusive, narrowed.startByte + Buffer.byteLength(expression) - 1);
+    assert.equal(narrowed.excerpt, expression);
+    assert.equal(excerpt.slice(expressionOffset, expressionOffset + expression.length), narrowed.excerpt);
+  });
+
+  it('keeps the full citation when a visual node has no unique exact expression', () => {
+    const excerpt = 'if matches(value) { return first(); }\nif matches(value) { return second(); }';
+    const anchor = {
+      anchorId: 'anchor:ambiguous', path: 'src/example.rs', symbolId: 'symbol:example', snapshotId: 'snapshot:one',
+      sourceSha256: 'b'.repeat(64), startByte: 10, endByteInclusive: 9 + Buffer.byteLength(excerpt),
+      startLine: 20, endLine: 21, startColumn: 1, endColumn: 1, excerpt,
+    };
+    assert.equal(sourceAnchorForVisualNode(anchor, { label: 'Select a parser', detail: 'The bytes choose a parser.' }), anchor);
+    assert.equal(sourceAnchorForVisualNode(anchor, { label: 'Parser match', detail: 'The code calls `matches(value)`.' }), anchor);
+    const malformed = { ...anchor, endByteInclusive: anchor.endByteInclusive + 1 };
+    assert.equal(sourceAnchorForVisualNode(malformed, {
+      label: 'Parser match', detail: 'The call is `first()`.'
+    }), malformed);
+  });
+
   it('keeps the current scene title and player together while the story body scrolls', () => {
     const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
     const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
