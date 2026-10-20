@@ -112,8 +112,12 @@ export function PrGuideStudio({
     && recoveryRefs && recoveryRefs.comparisonId === comparison.comparisonId && recoveryRefs.baseRef === baseRef && recoveryRefs.headRef === headRef ? recovery : null;
 
   useEffect(() => {
-    const refreshBackend = () => setBackend(readPrGuideBackend());
+    const refreshBackend = () => {
+      abandonRequestReview();
+      setBackend(readPrGuideBackend());
+    };
     const refreshDirectApiSelection = () => {
+      abandonRequestReview();
       const saved = readDirectApiSelection();
       setProviderId(saved.providerId);
       setModelId(saved.modelId);
@@ -235,15 +239,21 @@ export function PrGuideStudio({
   }, [comparison.comparisonId, comparison.status, projectId]);
 
   function clearReview() {
+    abandonRequestReview();
+    setCurrentDraft(null);
+    setIncludedClaimIds([]);
+    setNotice(null);
+  }
+
+  function abandonRequestReview() {
+    reviewLifecycle.current += 1;
+    setBuilding(false);
     if (requestReviewRef.current) void discardProviderRequestReview(requestReviewRef.current.reviewId).catch(() => {});
     requestReviewRef.current = null;
     setRequestReview(null);
     setConsent(NO_CONSENT);
     setRequestError(null);
     setCancelStatus(null);
-    setCurrentDraft(null);
-    setIncludedClaimIds([]);
-    setNotice(null);
   }
 
   function toggleChange(change: GitFileChange) {
@@ -282,8 +292,8 @@ export function PrGuideStudio({
 
   async function handleBuildReview() {
     if (!canBuild || !comparison.comparisonId) return;
-    const lifecycle = reviewLifecycle.current;
     clearReview();
+    const lifecycle = reviewLifecycle.current;
     setBuilding(true);
     setRequestError(null);
     setNotice(null);
