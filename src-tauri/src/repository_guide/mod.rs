@@ -816,8 +816,12 @@ async fn run_command(
         let jobs=app.state::<RepositoryContextJobs>().inner().clone();
         let journal=app.state::<recovery::InterruptionJournal>().inner().clone();
         let emitter=app.clone();
+        let guide_id_for_sections=id.clone();
         let result=build(&storage,&id,continue_opening,&manager,jobs,&journal,|p|{let _=app.emit("codex-agent-progress",p);},
-            Arc::new(move|section|{let _=emitter.emit("workspace-answer-section",section);}),
+            Arc::new(move|section|{
+                let _=emitter.emit("workspace-answer-section",section.clone());
+                let _=emitter.emit("repository-guide-section-published",serde_json::json!({"guideId":&guide_id_for_sections,"section":section}));
+            }),
             |section|{if saved_section(&storage, section)? { return Ok(()); } let lock=app.state::<crate::ChapterStoreLock>();let _guard=lock.0.lock().map_err(|_|"Chapter storage is unavailable.")?;
                 reading::adopt(&storage,&section.run_id,&section.project_id,&section.snapshot_id,&section.generation_id)?;Ok(())},
             |guide|{let _=app.emit("repository-guide-changed",guide);});

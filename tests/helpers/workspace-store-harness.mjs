@@ -27,7 +27,7 @@ export function workspaceStoreHarness(invoke,options={}) {
     } },
     '../lib/commands': {
       isNativeRuntime:()=>options.native??false,
-      listChapterRevisions: async () => [], cancelCodexChapterRequest: unexpected,
+      listChapterRevisions: options.listChapterRevisions ?? (async () => []), cancelCodexChapterRequest: unexpected,
       getSnapshotIndexProgress: unexpected, loadSnapshotIndex: unexpected, startSnapshotIndexing: unexpected,
       prewarmLocalNarration: options.prewarmLocalNarration ?? (async () => ({ status: 'ok', data: { state: 'preparing', cachedAudioAvailable: false } })),
     },

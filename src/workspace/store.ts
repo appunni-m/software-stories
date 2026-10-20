@@ -185,13 +185,19 @@ function prewarmRevisionNarration(revision: ChapterRevision) {
 }
 /** Store section references only after the native draft is independently read
  * and saved. Retrying adoption cannot trigger another model request. */
-async function adoptSection(project: string, snapshot: string, turnId: string, section: PublishedSection, prewarmAudio = false): Promise<ChapterRevision> {
+async function adoptSection(project: string, snapshot: string, turnId: string | undefined, section: PublishedSection, prewarmAudio = false): Promise<ChapterRevision> {
   const revision = await invoke<ChapterRevision>('save_workspace_answer_section', {
     projectId:project,snapshotId:snapshot,runId:section.runId,generationId:section.generationId,
   });
   if (revision.revisionId !== section.revisionId || revision.projectId !== project || revision.snapshotId !== snapshot) throw new Error('The saved section identity changed.');
-  updateWorkspace(project,snapshot,(state) => ({...state,explorations:state.explorations.map((e) => ({...e,
-    turns:e.turns.map((t) => t.id === turnId ? mergePublishedSections(t,[section]) : t),
+  if (turnId) updateWorkspace(project,snapshot,(state) => ({...state,explorations:state.explorations.map((e) => ({...e,
+    turns:e.turns.map((t) => {
+      if (t.id !== turnId) return t;
+      const owner = t.guideId && !t.runIds?.includes(section.runId)
+        ? {...t,runIds:[...(t.runIds ?? []),section.runId].slice(-32)}
+        : t;
+      return mergePublishedSections(owner,[section]);
+    }),
   }))}));
   window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project,revision}}));
   if (prewarmAudio) prewarmRevisionNarration(revision);
@@ -251,16 +257,29 @@ export async function watchWorkspaceAnswers(project: string, snapshot: string, o
   const section = await listen<Pick<AnswerSummary,'projectId'|'snapshotId'|'runId'>>('workspace-answer-section',({payload}) => refresh(payload));
   try {
     const finished = await listen<AnswerSummary>('workspace-answer-finished',({payload}) => refresh(payload));
+    let guide: (() => void) | undefined;
+    let guideSection: (() => void) | undefined;
     try {
-      const guide = await listen<RepositoryGuide>('repository-guide-changed',({payload}) => {
+      guide = await listen<RepositoryGuide>('repository-guide-changed',({payload}) => {
         if (closed || payload.projectId !== project || payload.snapshotId !== snapshot) return;
         // Events invalidate saved data. Reading it again also verifies the
         // latest guide instead of allowing an older event payload to win.
-        void restoreWorkspaceAnswers(project,snapshot).catch(() => {});
+        void restoreChangedRepositoryGuide(project,snapshot,payload.id).catch(() => {});
+      });
+      guideSection = await listen<{guideId:string;section:PublishedSection & {projectId:string;snapshotId:string}}>('repository-guide-section-published',({payload}) => {
+        const section = payload.section;
+        if (closed || !payload.guideId || section.projectId !== project || section.snapshotId !== snapshot) return;
+        const owner = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.guideId === payload.guideId);
+        // The progressive answer receipt is already durable, but repository-guide
+        // summaries arrive only after a whole investigation unit. Adopt this exact
+        // validated section now so local narration can warm while that unit continues.
+        void adoptSection(project,snapshot,owner?.id,section,true).catch(() => {
+          void restoreChangedRepositoryGuide(project,snapshot,payload.guideId).catch(() => {});
+        });
       });
       const unobserve = onAvailability ? observeRestoration(key(project,snapshot),(availability) => { if (!closed) onAvailability(availability); }) : undefined;
-      return () => {closed=true;unobserve?.();section();finished();guide();};
-    } catch (error) { finished(); throw error; }
+      return () => {closed=true;unobserve?.();section();finished();guide?.();guideSection?.();};
+    } catch (error) { guideSection?.();guide?.();finished();throw error; }
   } catch (error) { section(); throw error; }
 }
 /** Restart recovery is local reading only. It never reconnects or replays AI. */
@@ -331,6 +350,8 @@ export function appendRepositoryGuide(project: string, snapshot: string, questio
 }
 async function reconcileGuide(project: string, snapshot: string, guide: RepositoryGuide, prewarmAudio = false) {
   if (guide.projectId !== project || guide.snapshotId !== snapshot) throw new Error('This guide belongs to another snapshot.');
+  const previousTurn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.guideId === guide.id);
+  const previouslyKnownRevisions = new Set(previousTurn?.publishedSections?.map((section) => section.revisionId) ?? []);
   updateWorkspace(project,snapshot,(state) => mergeRepositoryGuide(state,guide));
   const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.guideId === guide.id);
   if (!turn) return;
@@ -338,9 +359,20 @@ async function reconcileGuide(project: string, snapshot: string, guide: Reposito
   // all immutable drafts in the library; never regenerate it to restore cards.
   const saved = await listChapterRevisions(project,snapshot);
   for (const answer of guide.answers) for (const section of answer.sections) {
-    if (!saved.some((r) => r.revisionId === section.revisionId)) await adoptSection(project,snapshot,turn.id,section,prewarmAudio);
+    const isNew = !previouslyKnownRevisions.has(section.revisionId);
+    const revision = saved.find((r) => r.revisionId === section.revisionId);
+    if (revision) {
+      if (prewarmAudio && isNew) prewarmRevisionNarration(revision);
+      continue;
+    }
+    await adoptSection(project,snapshot,turn.id,section,prewarmAudio && isNew);
   }
   window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project}}));
+}
+async function restoreChangedRepositoryGuide(project: string, snapshot: string, guideId: string) {
+  const guides = await invoke<RepositoryGuide[]>('list_repository_guides',{projectId:project,snapshotId:snapshot});
+  const guide = guides.find((candidate) => candidate.id === guideId);
+  if (guide) await reconcileGuide(project,snapshot,guide,true);
 }
 async function restoreRepositoryGuides(project: string, snapshot: string) {
   const guides = await invoke<RepositoryGuide[]>('list_repository_guides',{projectId:project,snapshotId:snapshot});
