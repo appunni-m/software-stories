@@ -25,6 +25,24 @@ export function visibleConversationTurns(state: WorkspaceState, exploration: Exp
     || turn.id === exploration.focusedTurnId || branchOwners.has(turn.id));
 }
 
+/** Reopening an exploration keeps its last question visible when older saved
+ * work has no focused-turn metadata. An explicit, valid focus always wins. */
+export function openWorkspaceExploration(state: WorkspaceState, explorationId: string): WorkspaceState {
+  const target = state.explorations.find((exploration) => exploration.id === explorationId);
+  if (!target) return state;
+  const focusedTurnId = target.turns.some((turn) => turn.id === target.focusedTurnId)
+    ? target.focusedTurnId
+    : target.turns.at(-1)?.id;
+  return {
+    ...state,
+    currentId: target.id,
+    file: target.file ?? null,
+    explorations: state.explorations.map((exploration) => exploration.id === target.id
+      ? { ...exploration, focusedTurnId }
+      : exploration),
+  };
+}
+
 export type PublishedAnswerItem =
   | { kind: 'section'; section: PublishedSection }
   | { kind: 'unavailable'; sections: PublishedSection[] };

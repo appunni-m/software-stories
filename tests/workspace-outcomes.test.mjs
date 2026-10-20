@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { addTurn, createWorkspace, parseWorkspace } from '../src/workspace/model.ts';
-import { createQuestionOutcomeSelector, groupUnavailablePublishedSections, historyQuestionPreview, lastAvailableAnswerItemIndex, markQuestionOutcome, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
+import { createQuestionOutcomeSelector, groupUnavailablePublishedSections, historyQuestionPreview, lastAvailableAnswerItemIndex, markQuestionOutcome, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
 
 const turn = (id, status = 'failed', extra = {}) => ({ id, question: `Question ${id}`, context: [], status, ...extra });
 const stateWith = (...turns) => ({ ...createWorkspace('project', 'snapshot'), explorations: [{ ...createWorkspace('project', 'snapshot').explorations[0], turns }] });
@@ -28,6 +28,37 @@ test('Guide hides old empty outcomes while retaining all saved, active and selec
   const opened = openWorkspaceQuestion(state, 'root', 'failed');
   assert.deepEqual(visibleConversationTurns(opened, opened.explorations[0]).map((t) => t.id), ['failed', ...expected]);
   assert.equal(state.explorations[0].turns.length, 9);
+});
+
+test('reopening an exploration focuses its latest question without changing its view or reading state', () => {
+  let state = stateWith(turn('origin', 'ready', { revisionId: 'revision:origin' }));
+  state = addTurn(state, turn('first', 'failed'), 'flow', { id: 'child', originTurnId: 'origin' });
+  state = addTurn(state, turn('latest', 'failed'), 'history');
+  state = {
+    ...state,
+    currentId: 'root',
+    explorations: state.explorations.map((exploration) => exploration.id === 'child'
+      ? { ...exploration, focusedTurnId: undefined, file: 'src/outline.rs', scrollPositions: { history: 180 } }
+      : exploration),
+  };
+
+  const opened = openWorkspaceExploration(state, 'child');
+  const child = opened.explorations.find((exploration) => exploration.id === 'child');
+  assert.equal(opened.currentId, 'child');
+  assert.equal(opened.file, 'src/outline.rs');
+  assert.equal(child.view, 'history');
+  assert.equal(child.focusedTurnId, 'latest');
+  assert.deepEqual(child.scrollPositions, { history: 180 });
+  assert.deepEqual(visibleConversationTurns(opened, child).map((question) => question.id), ['latest']);
+  assert.equal(openWorkspaceExploration(state, 'missing'), state);
+
+  const explicitlyFocused = openWorkspaceExploration({
+    ...state,
+    explorations: state.explorations.map((exploration) => exploration.id === 'child'
+      ? { ...exploration, focusedTurnId: 'first' }
+      : exploration),
+  }, 'child');
+  assert.equal(explicitlyFocused.explorations.find((exploration) => exploration.id === 'child').focusedTurnId, 'first');
 });
 
 test('adjacent unavailable answer parts collapse together without changing available-part order', () => {

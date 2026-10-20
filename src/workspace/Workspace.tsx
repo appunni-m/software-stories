@@ -20,7 +20,7 @@ import { useConnectionState } from '../lib/connectionStore';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
 import { errorMessageOr, explanationErrorMessage } from '../lib/errorMessage';
 import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory';
-import { groupUnavailablePublishedSections, historyQuestionPreview, lastAvailableAnswerItemIndex, openWorkspaceQuestion, savedAnswerAvailability, visibleConversationTurns } from './outcomes';
+import { groupUnavailablePublishedSections, historyQuestionPreview, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, savedAnswerAvailability, visibleConversationTurns } from './outcomes';
 import { listWorkspaceCommits } from '../lib/commands';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, resolveAnswerRevision } from './answerVersions';
 import type { GitCommit } from '../lib/gitHistory';
@@ -126,7 +126,7 @@ export function DeveloperWorkspace(props:Props) {
   const tool = ['changes','walkthrough','chapter-studio'].includes(workspace);
   const showChanges = activity==='changes'||workspace==='changes';
   const update = (fn:(s:typeof state)=>typeof state) => updateWorkspace(projectId,snapshotId,fn);
-  const go = (id:string) => { update((s)=>({...s,currentId:id,file:s.explorations.find((e)=>e.id===id)?.file??null})); setNarrowPane('explanation');onWorkspace('guide-plan'); };
+  const go = (id:string) => { update((s)=>openWorkspaceExploration(s,id)); setNarrowPane('explanation');onWorkspace('guide-plan'); };
   const setView = (view:View) => {setNarrowPane('explanation');update((s)=>({...s,explorations:s.explorations.map((e)=>e.id===s.currentId?{...e,view}:e)}));};
   const saveSection = (turnId:string,view:'guide'|'flow',revisionId:string,sectionId:string) => update((s)=>rememberSection(s,current.id,turnId,view,{revisionId,sectionId}));
   const savePresentation = (turnId:string,kind:'stories'|'diagrams',progress:StoryProgress|DiagramProgress) => update((s)=>rememberPresentation(s,current.id,turnId,kind,progress));
