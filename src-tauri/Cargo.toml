@@ -22,7 +22,7 @@ grep-matcher = "=0.1.9"
 grep-regex = "=0.1.14"
 grep-searcher = "=0.1.17"
 jsonschema = { version = "=0.59.0", default-features = false }
-tantivy = { version = "=0.26.2", default-features = false, features = ["mmap", "lz4-compression"] }
+tantivy = { version = "=0.26.2", default-features = false, features = ["mmap", "lz4-compression", "stemmer"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 rig-core = { version = "=0.44.0", default-features = false, features = ["reqwest", "rustls"] }
 rmcp = { version = "=3.5.1", default-features = false, features = ["server", "transport-io"] }

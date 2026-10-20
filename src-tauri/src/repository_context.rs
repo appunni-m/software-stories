@@ -20,11 +20,15 @@ use std::{
 use tantivy::{
     Index, IndexWriter, Term,
     query::{BooleanQuery, BoostQuery, Occur, Query, TermQuery},
-    schema::{FAST, Field, IndexRecordOption, STORED, STRING, Schema, TEXT, TantivyDocument, Value},
+    schema::{
+        FAST, Field, IndexRecordOption, STORED, STRING, Schema, TEXT, TantivyDocument,
+        TextFieldIndexing, TextOptions, Value,
+    },
+    tokenizer::TokenStream,
 };
 use uuid::Uuid;
 
-const VERSION: &str = "atlas-ranges-v3-identifiers-v1-policy-v2";
+const VERSION: &str = "atlas-ranges-v4-english-stems-v1-identifiers-v1-policy-v2";
 // Search identity/ordering fields do not change source policy or chunk layouts.
 const CHUNK_VERSION: &str = "atlas-ranges-v1-identifiers-v1-policy-v2";
 pub(crate) const CHUNK_BYTES: usize = 8192;
@@ -329,6 +333,14 @@ fn schema() -> Schema {
     schema.add_text_field("source_path", STRING | FAST);
     schema.add_u64_field("start_byte", FAST);
     schema.add_text_field("body", TEXT);
+    schema.add_text_field(
+        "body_stem",
+        TextOptions::default().set_indexing_options(
+            TextFieldIndexing::default()
+                .set_tokenizer("en_stem")
+                .set_index_option(IndexRecordOption::WithFreqs),
+        ),
+    );
     schema.add_text_field("path", TEXT);
     schema.add_text_field("scope", STRING);
     schema.add_text_field("exact", STRING);
@@ -344,7 +356,23 @@ fn field(index: &Index, name: &str) -> Result<Field, String> {
         .map_err(|_| "The code index schema is invalid. Rebuild it.".to_owned())
 }
 
-/// Original spellings (lowercased) plus snake/camel/acronym components; no model or stemmer.
+fn english_stems(index: &Index, text: &str) -> Result<BTreeSet<String>, String> {
+    let mut analyzer = index
+        .tokenizers()
+        .get("en_stem")
+        .ok_or("English code-search tokenizer is unavailable.")?;
+    let mut stream = analyzer.token_stream(text);
+    let mut stems = BTreeSet::new();
+    while stream.advance() {
+        let stem = stream.token().text.clone();
+        if !stem.is_empty() {
+            stems.insert(stem);
+        }
+    }
+    Ok(stems)
+}
+
+/// Original spellings plus identifier parts; the index has a separate English inflection field.
 fn terms(text: &str) -> Vec<String> {
     let mut output = BTreeSet::new();
     for word in text.split(|c: char| !c.is_alphanumeric() && c != '_') {
@@ -658,6 +686,7 @@ fn prepare_cached(
     let source_path = field(&index, "source_path")?;
     let start_byte = field(&index, "start_byte")?;
     let body = field(&index, "body")?;
+    let body_stem = field(&index, "body_stem")?;
     let path_field = field(&index, "path")?;
     let exact = field(&index, "exact")?;
     let scope = field(&index, "scope")?;
@@ -828,7 +857,9 @@ fn prepare_cached(
                 doc.add_text(range_key, &key);
                 doc.add_text(source_path, &file.path);
                 doc.add_u64(start_byte, chunk.start_byte as u64);
-                doc.add_text(body, terms(text).join(" "));
+                let body_terms = terms(text).join(" ");
+                doc.add_text(body, &body_terms);
+                doc.add_text(body_stem, body_terms);
                 doc.add_text(path_field, terms(&file.path).join(" "));
                 for word in text
                     .split(|c: char| !c.is_alphanumeric() && c != '_')
@@ -1757,6 +1788,7 @@ fn search_ranked(
     let words = terms(query);
     let query = query.trim();
     let body = field(&prepared.index, "body")?;
+    let body_stem = field(&prepared.index, "body_stem")?;
     let path_field = field(&prepared.index, "path")?;
     let symbol_field = field(&prepared.index, "symbol")?;
     let mut clauses = vec![];
@@ -1770,6 +1802,14 @@ fn search_ranked(
             Occur::Should,
             Box::new(BoostQuery::new(term_query(path_field, word), 1.5)) as Box<dyn Query>,
         ));
+    }
+    for stem in english_stems(&prepared.index, &words.join(" "))? {
+        if !words.contains(&stem) {
+            clauses.push((
+                Occur::Should,
+                Box::new(BoostQuery::new(term_query(body_stem, &stem), 0.5)) as Box<dyn Query>,
+            ));
+        }
     }
     let lexical = scoped(Box::new(BooleanQuery::new(clauses)), &prepared.index, path)?;
     let reader = prepared

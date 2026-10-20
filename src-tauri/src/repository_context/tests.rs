@@ -84,6 +84,47 @@ fn identifiers_keep_original_snake_camel_acronym_and_unicode_parts() {
 }
 
 #[test]
+fn natural_language_search_matches_common_english_inflections() {
+    let mut fixture = Fixture::new();
+    add_source(
+        &mut fixture,
+        SIMPLE_PATH,
+        "pub fn render_glyph_bitmap() { rasterize_glyph(); }\n",
+    );
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(
+        &fixture.storage,
+        &fixture.manifest,
+        Some(&fixture.index),
+        &budget,
+    )
+    .unwrap();
+    let result = search(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "rendered glyphs rasterization",
+        None,
+        8,
+        &budget,
+    )
+    .unwrap();
+    assert!(
+        result
+            .matches
+            .iter()
+            .any(|hit| hit.text.contains("render_glyph_bitmap")),
+        "inflected query should find the source declaration: {:?}",
+        result
+            .matches
+            .iter()
+            .map(|hit| &hit.text)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
 fn large_parserless_c_adapter_is_searchable_without_a_whole_file_prompt() {
     let mut fixture = Fixture::new();
     let text = format!(

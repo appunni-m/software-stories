@@ -508,7 +508,7 @@ mod tests {
         ))
         .unwrap();
         let jobs = RepositoryContextJobs::default();
-        let run = |query: &str, path: Option<&str>| {
+        let run_page = |query: &str, path: Option<&str>, offset: usize| {
             let request = jobs.begin(&Uuid::new_v4().to_string()).unwrap();
             let input = SearchInput {
                 request_id: request.id.clone(),
@@ -518,12 +518,13 @@ mod tests {
                 mode: context::SearchMode::Code,
                 path: path.map(str::to_owned),
                 limit: 32,
-                offset: 0,
+                offset,
             };
             let started = Instant::now();
             let result = search_snapshot(&storage, &input, &request).unwrap();
             (result, started.elapsed().as_millis())
         };
+        let run = |query: &str, path: Option<&str>| run_page(query, path, 0);
         let (first, first_ms) = run("memory_face", None);
         let (warm, warm_ms) = run("memory_face", None);
         assert!(
@@ -556,16 +557,35 @@ mod tests {
             "font bytes rendered glyph bitmap entry parsing outline hinting rasterization",
             "font buffer glyph image format outline hinting pixel coverage",
         ] {
-            let (result, ms) = run(query, None);
-            let recovered = corpus
+            let (first_page, first_page_ms) = run(query, None);
+            let first_page_recall = corpus
                 .expected
                 .iter()
-                .filter(|e| found(&result, e))
-                .map(|e| e.id.as_str())
+                .filter(|expected| found(&first_page, expected))
+                .map(|expected| expected.id.as_str())
                 .collect::<Vec<_>>();
+            let mut recovered = first_page_recall.clone();
+            let mut pages = 1;
+            let mut elapsed_ms = first_page_ms;
+            let mut serialized_match_bytes = first_page.result_bytes;
+            let mut limited = first_page.limited;
+            let mut next_offset = first_page.next_offset;
+            while let Some(offset) = next_offset {
+                let (page, ms) = run_page(query, None, offset);
+                pages += 1;
+                elapsed_ms += ms;
+                serialized_match_bytes += page.result_bytes;
+                limited |= page.limited;
+                for expected in &corpus.expected {
+                    if found(&page, expected) && !recovered.contains(&expected.id.as_str()) {
+                        recovered.push(expected.id.as_str());
+                    }
+                }
+                next_offset = page.next_offset;
+            }
             println!(
                 "FONTDONE_BROAD {}",
-                serde_json::json!({"query":query,"elapsedMs":ms,"retrieved":recovered,"expectedCount":corpus.expected.len(),"serializedMatchBytes":result.result_bytes,"limited":result.limited,"namedGlobalRecall":format!("{named}/{}",corpus.expected.len())})
+                serde_json::json!({"query":query,"firstPageRecall":first_page_recall,"candidateWindowRecall":recovered,"pagesRead":pages,"elapsedMs":elapsed_ms,"serializedMatchBytes":serialized_match_bytes,"limited":limited,"expectedCount":corpus.expected.len(),"namedGlobalRecall":format!("{named}/{}",corpus.expected.len())})
             );
         }
     }
