@@ -8,6 +8,12 @@ import {rememberAnswerVersion,answerReadingPosition,resolveAnswerRevision} from 
 
 const clone=value=>JSON.parse(JSON.stringify(value));
 const browserWorkspaceKey=(p='project',s='snapshot')=>`code-atlas:workspace:v1:${p}:${s}`;
+
+test('native conversation validation accepts the reader pane’s current Flow layout',async()=>{
+  const native=await readFile(new URL('../src-tauri/src/workspace_conversation.rs',import.meta.url),'utf8');
+  assert.match(native,new RegExp(`const FLOW_DIAGRAM_LAYOUT_VERSION: u64 = ${FLOW_DIAGRAM_LAYOUT_VERSION};`));
+});
+
 function backend(){
   const records=new Map(),writes=[];const controls={load:null,beforeSave:null,afterSave:null};
   return {records,writes,controls,invoke:async(name,args)=>{

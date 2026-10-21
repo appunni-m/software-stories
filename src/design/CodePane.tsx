@@ -54,7 +54,7 @@ export function CodePane({ path, contents, theme, reveal, canExplain = true, onE
     if (!reveal.from) { view.dispatch({ selection: { anchor: 0 } }); return; }
     const from = view.state.doc.line(Math.min(reveal.from ?? 1, view.state.doc.lines)).from;
     const to = view.state.doc.line(Math.min(reveal.to ?? reveal.from ?? 1, view.state.doc.lines)).to;
-    view.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: 'center' }) });
+    view.dispatch({ selection: { anchor: from, head: to }, effects: EditorView.scrollIntoView(from, { y: 'start', yMargin: 24 }) });
   }, [reveal, path, contents, theme]);
   useEffect(() => {
     const view = editor.current;
@@ -65,7 +65,7 @@ export function CodePane({ path, contents, theme, reveal, canExplain = true, onE
       cancelAnimationFrame(frame);
       const position = view.state.doc.line(Math.min(line, view.state.doc.lines)).from;
       frame = requestAnimationFrame(() => {
-        if (view.dom.isConnected) view.dispatch({ effects: EditorView.scrollIntoView(position, { y: 'center' }) });
+        if (view.dom.isConnected) view.dispatch({ effects: EditorView.scrollIntoView(position, { y: 'start', yMargin: 24 }) });
       });
     };
     const observer = new MutationObserver(restoreCitation);

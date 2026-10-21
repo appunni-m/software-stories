@@ -87,7 +87,7 @@ fn presentation_state() -> Value {
     s["explorations"][0]["turns"][0]["revisionId"] = json!("revision-one");
     s["explorations"][0]["turns"][0]["presentation"] = json!({
         "stories":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","sceneId":"claim:second","positions":{"claim:first":12.4,"claim:second":3.2},"fullMap":true,"viewport":{"x":-34,"y":91,"zoom":0.6},"focusedNodeId":"claim:second","focusedEdgeId":"edge:one","focusLayoutVersion":4}],
-        "diagrams":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","viewport":{"x":250,"y":-91,"zoom":1.7},"layoutVersion":3}]
+        "diagrams":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","viewport":{"x":250,"y":-91,"zoom":1.7},"layoutVersion":4}]
     });
     s
 }
@@ -158,7 +158,7 @@ fn flow_diagram_layout_requires_the_current_layout_version() {
     let record = save(&f.0, "project", "snapshot", None, s.clone()).unwrap();
     let before = fs::read(f.path()).unwrap();
 
-    for version in [json!(1), json!(2), Value::Null] {
+    for version in [json!(1), json!(2), json!(3), Value::Null] {
         let mut unsupported = s.clone();
         if version.is_null() {
             unsupported["explorations"][0]["turns"][0]["presentation"]["diagrams"][0]
@@ -192,7 +192,7 @@ fn opening_stale_reader_positions_preserves_the_conversation_and_record_bytes() 
     stored["state"]["explorations"][0]["turns"][0]["presentation"]["stories"][0]["focusLayoutVersion"] =
         json!(2);
     stored["state"]["explorations"][0]["turns"][0]["presentation"]["diagrams"][0]["layoutVersion"] =
-        json!(2);
+        json!(3);
     fs::write(&f.path(), serde_json::to_vec(&stored).unwrap()).unwrap();
     let original_bytes = fs::read(f.path()).unwrap();
 
