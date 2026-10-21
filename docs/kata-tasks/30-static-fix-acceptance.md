@@ -47,9 +47,13 @@ Claiming every repository bug is eliminated, live paid calls without separate au
 ## Done evidence
 Attach results for each case above on the patched commit; all currently pending.
 
+## Focused index limit check — 2026-10-21
+
+On the current `main` checkout, `cargo test --manifest-path src-tauri/Cargo.toml --lib saved_snapshot_index_accepts_64_mib_and_rejects_the_next_byte` passed (1 passed, 678 filtered out). It verifies the persisted snapshot-index boundary at exactly 64 MiB and rejects the next byte. The Kata checklist now uses the implementation's 64 MiB limit; the broader file-cap, race, recovery, provider, narration and packaged-app acceptance cases remain open.
+
 ## Implementation revision
 
-Static fixes are committed as `0494bd4` (Fix snapshot integrity and async explanation lifecycle bugs). No tests or builds were run locally. The task remains open for the acceptance cases above.
+Static fixes are committed as `0494bd4` (Fix snapshot integrity and async explanation lifecycle bugs); no tests or builds ran for that October 15 implementation commit. The focused 64 MiB boundary follow-up above passed. The task remains open for the acceptance cases above.
 
 ## Additional October 15 integration acceptance — pending
 
