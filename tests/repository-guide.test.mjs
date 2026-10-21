@@ -83,12 +83,15 @@ test('explicit project-wide guide asks use the durable pipeline from every explo
 });
 test('an old timed-out guide points to a fresh incremental guide without changing saved answers',()=>{
   const message='The Codex operation exceeded ten minutes, including result validation. No late response was published.';
-  const recovery=repositoryGuideTimeoutRecovery({guideId,error:message});
+  const recovery=repositoryGuideTimeoutRecovery({guideId,question:'How does this project work?',error:message});
   assert.match(recovery,/Start a new guide/);
   assert.match(recovery,/saved outline and continue slide by slide/);
   assert.match(recovery,/Any saved slides remain available/);
-  assert.equal(repositoryGuideTimeoutRecovery({error:message}),null);
-  assert.equal(repositoryGuideTimeoutRecovery({guideId,error:'Codex account access expired.'}),null);
+  const broadAnswerRecovery=repositoryGuideTimeoutRecovery({question:'Build a guide for this project',error:message});
+  assert.match(broadAnswerRecovery,/A new guide will save an outline first/);
+  assert.match(broadAnswerRecovery,/Your original question stays here/);
+  assert.equal(repositoryGuideTimeoutRecovery({question:'Explain this function',error:message}),null);
+  assert.equal(repositoryGuideTimeoutRecovery({question:'How does this project work?',error:'Codex account access expired.'}),null);
 });
 test('empty root Guide me starts a repository guide while scoped actions stay contextual',()=>{
   const projectQuestion='How does this project work, from its entry points through its main behavior and failure paths?';

@@ -299,6 +299,7 @@ export function DeveloperWorkspace(props:Props) {
       else setGuideConsent({id:appendRepositoryGuide(projectId,snapshotId,turn.question),resume:false});
       setConsentError(null);return;
     }
+    if(repositoryGuideTimeoutRecovery(turn)){startRepositoryGuide(turn.question);return;}
     if(state.grantId)void runQuestion(projectId,snapshotId,turn.id,state.grantId);else setConsentTurn(turn.id);
   }
   function branch(turn:Turn,question:string,context:Context[]){ask(question,current.view==='flow'?'flow':'guide',context,turn.id);}
