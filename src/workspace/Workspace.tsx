@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { invoke } from '@tauri-apps/api/core';
 import { Badge, Button, Dialog, Flex, IconButton, Tabs, TextField, Theme, Tooltip, useThemeContext } from '@radix-ui/themes';
 import { Group, Panel, Separator } from 'react-resizable-panels';
-import { Background, Controls, MarkerType, ReactFlow, type Edge, type Node } from '@xyflow/react';
+import { Background, BaseEdge, Controls, EdgeLabelRenderer, getSmoothStepPath, MarkerType, ReactFlow, type Edge, type EdgeProps, type Node } from '@xyflow/react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, ChevronRight, Code2, FileCode2, Files, GitBranch, GitCommitHorizontal, History, LoaderCircle, MessageSquare, Network, Paperclip, Pencil, Play, Search, ShieldCheck, Square, X } from 'lucide-react';
 import { CodePane } from '../design/CodePane';
 import { FileFlow } from '../FileFlow';
@@ -29,7 +29,7 @@ import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, re
 import type { GitCommit } from '../lib/gitHistory';
 import { searchCapturedSource, searchExploration, searchLimitMessage, searchResultsMessage, shouldOfferExploreWithAI, workspaceSearchResults, type CodeSearchMode } from './codeSearch';
 import { linearFlowSteps } from './flowPresentation';
-import { layoutFlowNodes } from './flowLayout';
+import { layoutFlowEdgeLabels, layoutFlowNodes, type FlowPoint } from './flowLayout';
 import { nextFocusableCommitIndex } from './gitCommitNavigation';
 import { WorkspaceExplorer } from './WorkspaceExplorer';
 import './workspace.css';
@@ -531,14 +531,15 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
   const openNodeSource=(node:typeof visual.nodes[number],anchor:ChapterSourceAnchor)=>onOpen(sourceAnchorForVisualNode(anchor,node,node.sourceValue??sourceValues.get(node.nodeId)));
   const linearSteps=linearFlowSteps(visual);
   const positions=layoutFlowNodes(visual.nodes,visual.edges,visual.layoutHint.direction);
+  const labelPositions=layoutFlowEdgeLabels(visual.nodes,visual.edges,positions);
   const nodes=visual.nodes.map((n)=>{
     const anchor=(n.sourceAnchorId&&n.evidenceAnchorIds.includes(n.sourceAnchorId)?anchorsById.get(n.sourceAnchorId):undefined)??(n.evidenceAnchorIds[0]?anchorsById.get(n.evidenceAnchorIds[0]):undefined);
     const label=<><strong>{n.label}</strong>{n.detail&&<small>{n.detail}</small>}</>;
     return {id:n.nodeId,position:positions.get(n.nodeId)??{x:0,y:0},
       data:{label:anchor?<button type="button" className="dw-flow-source nodrag nopan" aria-label={`Open source for ${n.label}`} onClick={()=>openNodeSource(n,anchor)}>{label}</button>:label},style:{width:250}};
   });
-  const edges=visual.edges.map((e)=>({id:e.edgeId,source:e.fromNodeId,target:e.toNodeId,type:'smoothstep' as const,label:e.label??undefined,
-    labelBgStyle:{fill:theme==='dark'?'#20242c':'#ffffff',fillOpacity:0.96},labelBgPadding:[5,3] as [number,number],labelBgBorderRadius:4,
+  const edges=visual.edges.map((e)=>({id:e.edgeId,source:e.fromNodeId,target:e.toNodeId,type:'evidenceRelationship' as const,label:e.label??undefined,
+    data:{labelPosition:labelPositions.get(e.edgeId)},style:{stroke:theme==='dark'?'#8c96a8':'#6a7486',strokeWidth:1.5},
     markerEnd:{type:MarkerType.ArrowClosed}}));
   return <section className="dw-flow-panel"><div className="dw-flow-heading"><h2>{visual.title}</h2>{availableDiagramCount>1&&<select aria-label="Diagram section" value={selected} onChange={(e)=>{const section=revision.sections[Number(e.target.value)];if(section)onSection(section.sectionId);}}>{diagrams.map((d,i)=>d.status==='available'?<option key={i} value={i}>{revision.sections[i].title}</option>:null)}</select>}</div>
     {linearSteps ? <>
@@ -616,7 +617,7 @@ function EvidenceFlowCanvas({revisionId,sectionId,sectionRevisionId,nodes,edges,
       generationRef.current+=1;fitInProgress.current=false;
     };
   },[revisionId,sectionId,sectionRevisionId,nodeKey]);
-  return <div ref={stage} className="dw-flow-canvas"><ReactFlow nodes={nodes} edges={edges} defaultViewport={viewport} fitView={!viewport} minZoom={.1} maxZoom={4}
+  return <div ref={stage} className="dw-flow-canvas"><ReactFlow nodes={nodes} edges={edges} edgeTypes={evidenceFlowEdgeTypes} defaultViewport={viewport} fitView={!viewport} minZoom={.1} maxZoom={4}
     onInit={(flow)=>{instance.current=flow;scheduleCheck.current();}}
     onNodesChange={(changes)=>{if(changes.some((change)=>change.type==='dimensions'))scheduleCheck.current();}}
     onMoveEnd={(_event,next)=>{const clean=cleanFlowViewport(next);if(clean)onViewportChange(clean);}}
@@ -624,3 +625,14 @@ function EvidenceFlowCanvas({revisionId,sectionId,sectionRevisionId,nodes,edges,
     <Background gap={20}/><Controls showInteractive={false}/>
   </ReactFlow></div>;
 }
+
+type EvidenceRelationshipEdge = Edge<{labelPosition?:FlowPoint},'evidenceRelationship'>;
+function EvidenceRelationship({id,sourceX,sourceY,targetX,targetY,sourcePosition,targetPosition,markerEnd,style,label,data}:EdgeProps<EvidenceRelationshipEdge>){
+  const [path]=getSmoothStepPath({sourceX,sourceY,targetX,targetY,sourcePosition,targetPosition});
+  const point=data?.labelPosition;
+  return <>
+    <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style}/>
+    {typeof label==='string'&&point&&<EdgeLabelRenderer><div className="dw-flow-edge-label" style={{transform:`translate(-50%, -50%) translate(${point.x}px, ${point.y}px)`}}>{label}</div></EdgeLabelRenderer>}
+  </>;
+}
+const evidenceFlowEdgeTypes={evidenceRelationship:EvidenceRelationship};

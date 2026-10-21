@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { layoutFlowNodes } from '../src/workspace/flowLayout.ts';
+import { layoutFlowEdgeLabels, layoutFlowNodes } from '../src/workspace/flowLayout.ts';
 
 const nodes = ['entry', 'left', 'right', 'merge'].map((nodeId) => ({nodeId}));
 const edges = [
@@ -116,4 +116,34 @@ test('five-rank evidence loops wrap into the narrow reader instead of a tiny wid
   assert.deepEqual(points.get('range'), {x: 680, y: 300});
   assert.deepEqual(points.get('slice'), {x: 340, y: 170});
   assert.deepEqual(points.get('none'), {x: 340, y: 430});
+});
+
+test('dense graph edge labels move into stable lanes instead of stacking on crossings', () => {
+  const graphNodes = ['records', 'tag', 'offset', 'input', 'range', 'slice', 'none'].map((nodeId) => ({nodeId}));
+  const graphEdges = [
+    {edgeId: 'scan', fromNodeId: 'records', toNodeId: 'tag', label: 'check each record'},
+    {edgeId: 'match', fromNodeId: 'tag', toNodeId: 'offset', label: 'tag matches'},
+    {edgeId: 'return', fromNodeId: 'tag', toNodeId: 'records', label: 'tag differs; continue'},
+    {edgeId: 'range', fromNodeId: 'offset', toNodeId: 'range', label: 'use start and end'},
+    {edgeId: 'borrow', fromNodeId: 'input', toNodeId: 'slice', label: 'borrow this byte slice'},
+    {edgeId: 'valid', fromNodeId: 'slice', toNodeId: 'range', label: 'range is valid'},
+  ];
+  const points = layoutFlowNodes(graphNodes, graphEdges, 'leftToRight');
+  const labels = layoutFlowEdgeLabels(graphNodes, graphEdges, points);
+  assert.equal(labels.size, graphEdges.length);
+  assert.notDeepEqual(labels.get('return'), {x: 295, y: -5});
+  for (const point of labels.values()) {
+    assert.ok(Number.isFinite(point.x) && Number.isFinite(point.y));
+  }
+  for (let left = 0; left < graphEdges.length; left += 1) {
+    const leftPoint = labels.get(graphEdges[left].edgeId);
+    const leftWidth = Math.min(190, Math.max(64, graphEdges[left].label.length * 6.4 + 20));
+    for (let right = left + 1; right < graphEdges.length; right += 1) {
+      const rightPoint = labels.get(graphEdges[right].edgeId);
+      const rightWidth = Math.min(190, Math.max(64, graphEdges[right].label.length * 6.4 + 20));
+      const overlaps = Math.abs(leftPoint.x - rightPoint.x) < (leftWidth + rightWidth) / 2 + 10 &&
+        Math.abs(leftPoint.y - rightPoint.y) < 30;
+      assert.equal(overlaps, false, `${graphEdges[left].label} overlaps ${graphEdges[right].label}`);
+    }
+  }
 });
