@@ -16,7 +16,7 @@ export interface AnswerSummary {
 export interface RepositoryGuide {
   revision: number;
   id: string; projectId: string; snapshotId: string; question: string; title: string;
-  status: 'planning' | 'building' | 'ready' | 'partial' | 'stopped' | 'interrupted' | 'failed';
+  status: 'planning' | 'building' | 'waitingForPlayback' | 'ready' | 'partial' | 'stopped' | 'interrupted' | 'failed';
   openingRunId: string | null;
   openingRunIds: string[];
   canContinue: boolean;
@@ -26,7 +26,7 @@ export interface RepositoryGuide {
 }
 export interface Turn {
   id: string; question: string; context: Context[];
-  status: 'queued' | 'working' | 'ready' | 'partial' | 'failed' | 'stopped' | 'interrupted';
+  status: 'queued' | 'working' | 'waiting' | 'ready' | 'partial' | 'failed' | 'stopped' | 'interrupted';
   revisionId?: string; generationId?: string; error?: string;
   runIds?: string[]; publishedSections?: PublishedSection[];
   notes?: string[];
@@ -50,6 +50,7 @@ export function historyEntry(turn: Turn, availableRevisions: ReadonlySet<string>
   if (saved) {
     const state = turn.status === 'queued' ? 'Waiting for the current question to finish.'
       : turn.status === 'working' ? 'Adding more detail.'
+      : turn.status === 'waiting' ? 'Building the next slide as you listen.'
       : turn.status === 'partial' ? 'Partially completed.'
       : turn.status === 'stopped' ? 'Stopped.'
       : turn.status === 'interrupted' ? 'Interrupted.'
@@ -58,6 +59,7 @@ export function historyEntry(turn: Turn, availableRevisions: ReadonlySet<string>
   }
   const text: Record<Turn['status'], string> = {
     queued: 'Waiting to start…', working: 'Working on this question…',
+    waiting: 'More slides will be ready as you listen.',
     partial: 'This question is incomplete. No saved section is available.',
     failed: 'This question could not be completed.',
     stopped: 'Stopped before an explanation was saved.',
@@ -112,7 +114,7 @@ export function decodeWorkspace(raw: string | null, projectId: string, snapshotI
       if (!e.turns.some((t) => t.id === e.focusedTurnId)) delete e.focusedTurnId;
       for (const t of e.turns) {
         if (typeof t.id !== 'string' || typeof t.question !== 'string' || !Array.isArray(t.context)
-          || !['queued','working','ready','partial','failed','stopped','interrupted'].includes(t.status)
+          || !['queued','working','waiting','ready','partial','failed','stopped','interrupted'].includes(t.status)
           || t.context.some((c) => typeof c.path !== 'string' || c.path.startsWith('/') || c.path.split('/').includes('..'))) return fallback();
         const reading = t.reading;
         if (!validRunId(t.guideId)) { delete t.guideId; delete t.guide; }
@@ -159,7 +161,8 @@ export function mergeRepositoryGuide(state: WorkspaceState, guide: RepositoryGui
   const owner = state.explorations.find((e) => e.turns.some((t) => t.guideId === guide.id));
   const previous = owner?.turns.find((t) => t.guideId === guide.id)?.guide;
   if (previous && previous.revision > guide.revision) return state;
-  const status: Turn['status'] = guide.status === 'planning' || guide.status === 'building' ? 'working' : guide.status;
+  const status: Turn['status'] = guide.status === 'planning' || guide.status === 'building' ? 'working'
+    : guide.status === 'waitingForPlayback' ? 'waiting' : guide.status;
   const { answers: _, ...metadata } = guide;
   const merge = (turn: Turn): Turn => mergePublishedSections({ ...turn, guideId: guide.id, guide: metadata,
     runIds, status, error: undefined, notes: [] }, guide.answers.flatMap((answer) => answer.sections));
@@ -203,6 +206,22 @@ export type ContextualGuideAction = { kind: 'show' } | { kind: 'ask'; intent: st
 export function contextualGuideAction(query: string, context: readonly Context[], nested: boolean): ContextualGuideAction {
   const intent = contextualGuideIntent(query, context, nested);
   return intent ? { kind: 'ask', intent } : { kind: 'show' };
+}
+
+/** Route repository-wide asks through the durable slide planner instead of the
+ * ordinary single-answer job with its ten-minute deadline. Specific code asks
+ * and nested follow-ups remain ordinary investigations. */
+export function isRepositoryGuideIntent(question: string, context: readonly Context[], nested: boolean): boolean {
+  const query = question.trim().toLowerCase();
+  if (!query || context.length > 0 || nested) return false;
+  const repository = String.raw`(?:project|repo(?:sitory)?|code\s*base|codebase|application|app|software|system)`;
+  const hasRepository = new RegExp(String.raw`\b${repository}\b`, 'i').test(query);
+  if (!hasRepository) return false;
+  const explicitGuide = new RegExp(String.raw`\b(?:guide|walk(?:\s+me)?\s+through|tour|overview|architecture|big\s+picture|whole|entire|full|overall|end[ -]to[ -]end)\b`, 'i');
+  if (explicitGuide.test(query)) return true;
+  const directProjectAsk = new RegExp(String.raw`^(?:explain|describe|show|understand)\s+(?:(?:this|the)\s+)?${repository}\b`, 'i');
+  const projectBehavior = /\bhow\s+(?:does|do)\s+(?:this\s+|the\s+)?(?:project|repo(?:sitory)?|code\s*base|application|system)\s+(?:work|fit\s+together)\b/i;
+  return directProjectAsk.test(query) || projectBehavior.test(query);
 }
 
 /** Keep partial-answer scope visible after navigation and restart. */

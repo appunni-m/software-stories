@@ -589,9 +589,14 @@ fn guide_progressive_contract_has_no_wall_clock_deadline() {
     let contract = generation_contract_for(&input, &prompt, &schema(), deadline).unwrap();
     let instructions = system_instructions_for(deadline);
     assert_eq!(contract["runDeadlinePolicy"], "user-controlled-stop-v1");
+    assert_eq!(contract["uniqueSections"], 1);
     assert!(instructions.contains("no wall-clock deadline"));
     assert!(instructions.contains("null budget.remaining.timeMs is intentional"));
     assert!(instructions.contains("until every planned slide is finished or the user stops"));
+    assert!(
+        instructions
+            .contains("Each planned slide operation may publish at most one unique section")
+    );
     assert!(!instructions.contains("ten-minute wall-clock deadline"));
     assert_eq!(contract["systemInstructions"], instructions);
 }

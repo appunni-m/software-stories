@@ -58,7 +58,7 @@ fn system_instructions_for(run_deadline: RunDeadline) -> String {
             "This operation has a ten-minute wall-clock deadline. Finish within the supplied resource budget."
         }
         RunDeadline::UserControlled => {
-            "This repository guide has no wall-clock deadline. A null budget.remaining.timeMs is intentional. Keep researching and publishing complete slides until every planned slide is finished or the user stops the guide. Fixed source, call, proposal and storage limits still apply."
+            "This repository guide has no wall-clock deadline. A null budget.remaining.timeMs is intentional. Keep researching and publishing complete slides until every planned slide is finished or the user stops the guide. Each planned slide operation may publish at most one unique section; finish its manifest after that slide so the next can be built as the reader listens. Fixed source, call, proposal and storage limits still apply."
         }
     };
     format!(
@@ -107,7 +107,8 @@ fn generation_contract_for(
         "baseInstructions":agent_context::PROGRESSIVE_BASE_INSTRUCTIONS,
         "systemInstructions":system_instructions_for(run_deadline),"prompt":prompt,"outputSchema":schema,"tools":tools,
         "runDeadlinePolicy":match run_deadline { RunDeadline::TenMinutes => "ten-minutes-v1", RunDeadline::UserControlled => "user-controlled-stop-v1" },
-        "policy":crate::evidence_ledger::POLICY,"sectionAttempts":8,"uniqueSections":6,
+        "policy":crate::evidence_ledger::POLICY,"sectionAttempts":8,
+        "uniqueSections":match run_deadline { RunDeadline::TenMinutes => 6, RunDeadline::UserControlled => 1 },
         "claimAlignmentPolicy":"whole-section-validation-no-final-rewrite-v1",
         "publicationOrderPolicy":"investigation-local-next-order-v1",
         "finalManifestVersion":sections::NATIVE_MANIFEST_VERSION,

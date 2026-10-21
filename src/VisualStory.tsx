@@ -23,6 +23,7 @@ interface Props {
   restorePosition?: number;
   onPlaybackPositionChange?: (position: number) => void;
   onTranscriptPositionChange?: (position: number) => void;
+  onSectionPlaybackComplete?: () => void;
   progress?: StoryProgress;
   onProgressChange?: (progress: StoryProgress) => void;
 }
@@ -58,7 +59,7 @@ const storyEdgeTypes = { storyEvidence: EvidenceStoryEdge };
 /** One narrated, evidence-backed scene at a time. Audio completion, not guessed
  * elapsed-time percentages, advances the story. Sections always advance manually.
  */
-export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, onSettings, activeFocusTarget, restorePosition = 0, onPlaybackPositionChange, onTranscriptPositionChange, progress:explicitProgress, onProgressChange:explicitOnProgressChange }: Props) {
+export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, onSettings, activeFocusTarget, restorePosition = 0, onPlaybackPositionChange, onTranscriptPositionChange, onSectionPlaybackComplete, progress:explicitProgress, onProgressChange:explicitOnProgressChange }: Props) {
   const inspection = useMemo(() => inspectInteractiveVisual(revision, section), [revision, section]);
   const visual = inspection.status === 'available' ? inspection.visual : undefined;
   const baseKey = narrationStorageKey(revision.projectId,revision.chapterId,revision.revisionId,section.sectionId);
@@ -94,6 +95,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const scheduleViewportCheck = useRef<() => void>(() => {});
   const [autoPlay, setAutoPlay] = useState(false);
   const [manualVisit, setManualVisit] = useState(0);
+  const sectionCompletionSent = useRef(false);
   const [fullMap, setFullMap] = useState(savedPosition.fullMap);
   const canvasViewport = useRef<FlowViewport|undefined>(savedPosition.viewport);
   const mapView = useRef(fullMap);
@@ -323,7 +325,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
         clip={scenes.length > 1 ? { id: scene.id, text: scene.narration } : undefined}
         restorePosition={positions.current.get(scene.id) ?? (scenes.length === 1 ? restorePosition : 0)} transcriptPosition={0}
         onPlaybackPositionChange={(position) => { savePosition(scene.id, position); onPlaybackPositionChange?.(position); }} onTranscriptPositionChange={(position) => onTranscriptPositionChange?.(position)}
-        onOpenProviderSettings={onSettings} autoPlay={autoPlay} onEnded={() => { if (index < scenes.length - 1) select(index + 1, true); }} />
+        onOpenProviderSettings={onSettings} autoPlay={autoPlay} onEnded={() => { if (index < scenes.length - 1) select(index + 1, true); else if (!sectionCompletionSent.current) { sectionCompletionSent.current = true; onSectionPlaybackComplete?.(); } }} />
       <button className="story-next" disabled={index === scenes.length - 1} aria-label="Next scene" onClick={() => select(index + 1)}><ArrowRight size={15} /></button>
     </div>
     {!visual && <div className="story-focus-bar"><span>{focus?.label ?? (anchor ? 'Captured code' : section.title)}</span>

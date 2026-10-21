@@ -135,6 +135,7 @@ fn real_build_preflight_failure_notifies_partial_without_starting_or_replaying_a
         &manager,
         RepositoryContextJobs::default(),
         &recovery::InterruptionJournal::default(),
+        None,
         |_| {},
         Arc::new(|_| panic!("no section may publish during failed preflight")),
         |_| panic!("no section may be adopted during failed preflight"),

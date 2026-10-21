@@ -64,8 +64,19 @@ Packaged UI inspection found an existing pillow-rs card displaying the old exact
 
 - [x] Use user-controlled lifetime for outline, opening and slide Codex runs through result validation and native publication.
 - [x] Show phase-specific guide progress and let a terminal guide card start a separate fresh guide when its saved owner cannot resume.
+- [x] Route unscoped, project-wide Guide questions from chat into the durable repository-guide planner instead of the ordinary ten-minute answer command. File-scoped and nested follow-ups remain focused.
+- [x] Bound each planned Guide operation to one published slide. Publish the outline and first slide as soon as each is ready, then fill a five-slide runway; when the reader finishes narration or advances past a slide, save its revision receipt and generate one next slide. Duplicate playback/Next events cannot spend a second slot.
+- [x] Persist a waiting-for-playback guide state between buffers and keep playback-driven generation user-controlled with no wall-clock cutoff. Fixed account, grant, source, proposal, call and storage guards remain active. No real repository request was sent for this code change.
 - [ ] In the packaged app, verify the saved outline and each slide remain visible/playable while the next is generated, local narration prewarming stays nonblocking, and Stop ends the active job.
 - [ ] Qualify the five-slide audio runway, slide-only retry, provider/transport failure recovery, account/grant changes, close/reopen and late callbacks on a large captured repository. The runway may hold at most five ready/active slides but must never gate the outline or first validated slide.
+
+## Project-wide chat routing and playback-paced refills — 21 October 2026
+
+An unscoped repo-wide prompt sent from Guide chat could previously enter the generic answer worker and hit its ten-minute deadline, despite the dedicated repository-guide command already using the agent-owned, user-stoppable deadline policy. Matching project-wide Guide prompts now use the dedicated planner; file-scoped and nested questions still use the focused answer path. Each guide run is constrained to one unique published section, so the five-slide ready runway has an actual section bound. The outline and any first useful slide still publish immediately; the reader is never held back to fill the runway.
+
+When the last narration scene finishes, or the reader advances beyond the current slide, the UI submits the stable revision identity. The native record validates and deduplicates that receipt, saves a `waitingForPlayback` state at the buffer boundary, and permits one new slide operation for each consumed slide. The waiting card no longer offers an unbounded “Continue guide” action that could bypass pacing; its last-slide control says “Build next slide.” Native state, not a browser-only counter, owns the progression receipts.
+
+Source regressions cover project-wide chat routing, exact one-section guide contracts, stable slide counting, receipt validation, waiting-state persistence, and completed narration progression. Frontend and native checks are recorded with this implementation. The packaged app must still be observed through one large-repository run before accepting the five-slide buffer, local Pocket readiness, Stop/failure/restart, account/grant changes, or user-visible latency.
 
 ## Native storage checkpoint — 17 October
 

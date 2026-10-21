@@ -39,6 +39,7 @@ const RESEARCH_INSTRUCTIONS: &str = "Prerequisites describe reading order, not p
 const MAX_UNITS: usize = 6;
 const MAX_ATTEMPTS: usize = 3;
 const MAX_AUTOMATIC_RETRIES_PER_UNIT: u8 = 1;
+const GUIDE_SLIDE_BUFFER: usize = 5;
 const MAX_OPENING_CONTINUATIONS: usize = 2;
 pub(crate) const MAX_GUIDE_ANSWER_RECORDS: usize =
     1 + MAX_OPENING_CONTINUATIONS + MAX_UNITS * MAX_ATTEMPTS;
@@ -78,6 +79,7 @@ pub(crate) fn answer_reservations(storage: &Path) -> Result<Vec<AnswerReservatio
 enum Status {
     Planning,
     Building,
+    WaitingForPlayback,
     Ready,
     Partial,
     Stopped,
@@ -120,6 +122,8 @@ struct Record {
     opening_context_sha256: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     opening_continuations: Vec<Attempt>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    consumed_slide_revisions: Vec<String>,
     plan: Option<Plan>,
     units: Vec<Unit>,
     status: Status,
@@ -235,6 +239,28 @@ fn guide_complete(record: &Record) -> bool {
             .as_ref()
             .is_some_and(|s| s.outcome == Outcome::Complete && !s.sections.is_empty())
     }) && record.units.iter().all(unit_complete)
+}
+fn published_slide_count(record: &Record) -> usize {
+    record
+        .opening
+        .iter()
+        .chain(&record.opening_continuations)
+        .chain(record.units.iter().flat_map(|unit| &unit.attempts))
+        .filter_map(|attempt| attempt.summary.as_ref())
+        .flat_map(|answer| &answer.sections)
+        .map(|section| section.revision_id.as_str())
+        .collect::<std::collections::HashSet<_>>()
+        .len()
+}
+fn contains_slide(record: &Record, revision_id: &str) -> bool {
+    record
+        .opening
+        .iter()
+        .chain(&record.opening_continuations)
+        .chain(record.units.iter().flat_map(|unit| &unit.attempts))
+        .filter_map(|attempt| attempt.summary.as_ref())
+        .flat_map(|answer| &answer.sections)
+        .any(|section| section.revision_id == revision_id)
 }
 fn unit_research_eligible(record: &Record, index: usize) -> bool {
     record.status != Status::Stopped
@@ -775,6 +801,7 @@ fn build(
     manager: &codex_agent::CodexAgentManager,
     jobs: RepositoryContextJobs,
     journal: &recovery::InterruptionJournal,
+    max_new_slides: Option<usize>,
     progress: impl Fn(codex_agent::CodexProgress),
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
     adopt: impl Fn(&SectionNotice) -> Result<(), String>,
@@ -787,6 +814,7 @@ fn build(
         manager,
         jobs,
         journal,
+        max_new_slides,
         progress,
         notify,
         adopt,
@@ -811,12 +839,14 @@ fn build_inner(
     manager: &codex_agent::CodexAgentManager,
     jobs: RepositoryContextJobs,
     journal: &recovery::InterruptionJournal,
+    max_new_slides: Option<usize>,
     progress: impl Fn(codex_agent::CodexProgress),
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
     adopt: impl Fn(&SectionNotice) -> Result<(), String>,
     changed: impl Fn(&GuideSummary),
 ) -> Result<GuideSummary, String> {
     let mut record = store::read(storage, id)?;
+    let starting_slide_count = published_slide_count(&record);
     crate::evidence_ledger::sections::capacity::with_guide_reservation(
         storage,
         &answer_reservation(&record),
@@ -921,6 +951,11 @@ fn build_inner(
     for index in 0..record.units.len() {
         record = store::read(storage, id)?;
         if record.status == Status::Stopped {
+            break;
+        }
+        if max_new_slides.is_some_and(|limit| {
+            published_slide_count(&record).saturating_sub(starting_slide_count) >= limit
+        }) {
             break;
         }
         for section in record.units[index]
@@ -1077,6 +1112,11 @@ fn build_inner(
         if current.status != Status::Stopped {
             current.status = if guide_complete(current) {
                 Status::Ready
+            } else if max_new_slides.is_some_and(|limit| {
+                published_slide_count(current).saturating_sub(starting_slide_count) >= limit
+                    && opening_continuation::remaining_operations(current) > 0
+            }) {
+                Status::WaitingForPlayback
             } else {
                 Status::Partial
             };
@@ -1126,6 +1166,7 @@ fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Rec
         }),
         opening_context_sha256: None,
         opening_continuations: vec![],
+        consumed_slide_revisions: vec![],
         question: input.question,
         planning_run_id,
         planning_retry_count: 0,
@@ -1180,7 +1221,7 @@ pub(crate) async fn start_repository_guide(
         current.active_run_id = Some(current.planning_run_id.clone());
         Ok(())
     })?;
-    run_command(app, storage, id, lease, false).await
+    run_command(app, storage, id, lease, false, Some(GUIDE_SLIDE_BUFFER)).await
 }
 async fn run_command(
     app: AppHandle,
@@ -1188,6 +1229,7 @@ async fn run_command(
     id: String,
     lease: crate::file_lease::Lease,
     continue_opening: bool,
+    max_new_slides: Option<usize>,
 ) -> Result<GuideSummary, String> {
     tauri::async_runtime::spawn_blocking(move||{
         let _lease=lease;
@@ -1196,7 +1238,7 @@ async fn run_command(
         let journal=app.state::<recovery::InterruptionJournal>().inner().clone();
         let emitter=app.clone();
         let guide_id_for_sections=id.clone();
-        let result=build(&storage,&id,continue_opening,&manager,jobs,&journal,|p|{let _=app.emit("codex-agent-progress",p);},
+        let result=build(&storage,&id,continue_opening,&manager,jobs,&journal,max_new_slides,|p|{let _=app.emit("codex-agent-progress",p);},
             Arc::new(move|section|{
                 let _=emitter.emit("workspace-answer-section",section.clone());
                 let _=emitter.emit("repository-guide-section-published",serde_json::json!({"guideId":&guide_id_for_sections,"section":section}));
@@ -1242,10 +1284,108 @@ pub(crate) async fn resume_repository_guide(
     )?;
     if record.plan.is_none() {
         store::prepare_plan_retry(&storage, &id, expected_revision)?;
-        return run_command(app, storage, id, lease, false).await;
+        return run_command(app, storage, id, lease, false, None).await;
     }
     store::prepare_continuation(&storage, &id, expected_revision)?;
-    run_command(app, storage, id, lease, true).await
+    run_command(app, storage, id, lease, true, None).await
+}
+
+/// Admit one new slide after the reader finishes a narrated slide.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) async fn advance_repository_guide(
+    app: AppHandle,
+    sessions: State<'_, ProjectSessions>,
+    id: String,
+    project_id: String,
+    snapshot_id: String,
+    consumed_revision_id: String,
+) -> Result<GuideSummary, String> {
+    sessions.get(&project_id)?;
+    if !text(&consumed_revision_id, 1, 256) {
+        return Err("The completed guide slide could not be identified.".into());
+    }
+    let storage = app_data_directory(&app)?;
+    let record = scoped(&storage, &id, &project_id, &snapshot_id)?;
+    if !contains_slide(&record, &consumed_revision_id) {
+        return Err(
+            "The completed slide does not belong to this guide. Saved progress was preserved."
+                .into(),
+        );
+    }
+    if record
+        .consumed_slide_revisions
+        .contains(&consumed_revision_id)
+    {
+        return summary(&storage, &record);
+    }
+    let manager = app
+        .state::<codex_agent::CodexAgentManager>()
+        .inner()
+        .clone();
+    let Some(lease) = store::lease(&storage, &id)? else {
+        // A worker owned by another webview still controls this guide. Do not
+        // claim the playback receipt; the reader can submit it after that run.
+        return summary(&storage, &record);
+    };
+    let record = reconcile(&storage, &record, &manager)?;
+    if record.status == Status::Stopped || opening_continuation::remaining_operations(&record) == 0
+    {
+        return summary(&storage, &record);
+    }
+    if !contains_slide(&record, &consumed_revision_id) {
+        return Err(
+            "The completed slide is no longer part of this guide. Saved progress was preserved."
+                .into(),
+        );
+    }
+    if record
+        .consumed_slide_revisions
+        .contains(&consumed_revision_id)
+    {
+        return summary(&storage, &record);
+    }
+    crate::evidence_ledger::sections::capacity::with_guide_reservation(
+        &storage,
+        &answer_reservation(&record),
+        || Ok(()),
+    )?;
+    let runtime = manager.review_runtime(&storage)?;
+    workspace::check_retrieval_grant(
+        &storage,
+        &record.grant_id,
+        &project_id,
+        &snapshot_id,
+        &runtime,
+    )?;
+    let mut duplicate = false;
+    let record = store::update_if_changed(&storage, &id, |current| {
+        if !contains_slide(current, &consumed_revision_id) {
+            return Err("The completed slide changed while its progress was saved.".into());
+        }
+        if current
+            .consumed_slide_revisions
+            .contains(&consumed_revision_id)
+        {
+            duplicate = true;
+            return Ok(false);
+        }
+        if current.consumed_slide_revisions.len() >= MAX_GUIDE_ANSWER_RECORDS {
+            return Err(
+                "The guide reached its slide progression limit. Saved slides remain available."
+                    .into(),
+            );
+        }
+        current
+            .consumed_slide_revisions
+            .push(consumed_revision_id.clone());
+        Ok(true)
+    })?;
+    if duplicate {
+        return summary(&storage, &record);
+    }
+    let expected_revision = record.revision;
+    store::prepare_continuation(&storage, &id, expected_revision)?;
+    run_command(app, storage, id, lease, false, Some(1)).await
 }
 #[tauri::command(rename_all = "camelCase")]
 pub(crate) fn stop_repository_guide(

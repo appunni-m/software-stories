@@ -135,6 +135,28 @@ fn automatic_retry_markers_cannot_replace_the_original_slide_attempt() {
 }
 
 #[test]
+fn playback_wait_state_keeps_only_unique_receipts_for_published_slides() {
+    let f = Fixture::new();
+    let mut waiting = crate::repository_guide::tests::fresh_record(&f);
+    let completed = attempt(&waiting, Outcome::Complete);
+    let revision_id = completed.summary.as_ref().unwrap().sections[0]
+        .revision_id
+        .clone();
+    waiting.units[0].attempts.push(completed);
+    waiting.status = Status::WaitingForPlayback;
+    waiting.consumed_slide_revisions.push(revision_id.clone());
+    assert!(validate(&waiting).is_ok());
+
+    let mut duplicate = waiting.clone();
+    duplicate.consumed_slide_revisions.push(revision_id);
+    assert!(validate(&duplicate).is_err());
+
+    let mut foreign = waiting;
+    foreign.consumed_slide_revisions = vec!["revision:not-published".into()];
+    assert!(validate(&foreign).is_err());
+}
+
+#[test]
 fn an_outline_timeout_gets_one_automatic_and_one_explicit_fresh_owner_retry() {
     let f = Fixture::new();
     let pending = crate::repository_guide::opening::tests::pending(&f);

@@ -364,8 +364,8 @@ describe('visual story scenes', () => {
     assert.match(player, /const completedPlayback = completionArmed\.current && mountedRef\.current && audioRef\.current\?\.ended;/u);
     assert.match(player, /if \(completedPlayback\) onEnded\?\.\(\);/u,
       'seeking a paused clip to its end must not advance the story');
-    assert.match(story, /onEnded=\{\(\) => \{ if \(index < scenes\.length - 1\) select\(index \+ 1, true\); \}\}/u,
-      'completed narration advances to the next scene and starts its narration');
+    assert.match(story, /onEnded=\{\(\) => \{ if \(index < scenes\.length - 1\) select\(index \+ 1, true\); else if \(!sectionCompletionSent\.current\) \{ sectionCompletionSent\.current = true; onSectionPlaybackComplete\?\.\(\); \} \}\}/u,
+      'the last completed narration advances the repository guide buffer once');
     assert.match(story, /Sections always advance manually\./u);
     assert.match(story, /aria-label="Next scene" onClick=\{\(\) => select\(index \+ 1\)\}/u);
   });

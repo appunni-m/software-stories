@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
+import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, isRepositoryGuideIntent, historyEntry, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
 const guideId='ea6054f9-c7ce-4489-a928-b48697371565';
 const runId='c9410fba-7b55-42c5-b6e2-061c538bfcf2';
 const generationId='generation:776b022e-d466-455b-8594-d8a808e20f58';
@@ -41,6 +41,17 @@ test('a unit finishing does not mark the whole guide ready or duplicate prior se
   state=mergeRepositoryGuide(state,next);const turn=state.explorations[0].turns[0];
   assert.equal(turn.status,'working');assert.deepEqual(turn.runIds,[runId,secondRun]);assert.equal(turn.publishedSections.length,1);
 });
+test('playback-paced guides retain their waiting state and explain when another slide is coming',()=>{
+  const metadata={...guide(),status:'waitingForPlayback',canContinue:true};
+  let state=mergeRepositoryGuide(createWorkspace('p','s'),metadata);
+  let turn=state.explorations[0].turns[0];
+  assert.equal(turn.status,'waiting');
+  assert.match(historyEntry(turn,new Set()).text,/More slides will be ready as you listen/u);
+  state=parseWorkspace(JSON.stringify(state),'p','s');
+  turn=state.explorations[0].turns[0];
+  assert.equal(turn.status,'waiting');
+  assert.equal(turn.guide,undefined,'native guide state is reloaded instead of trusting a stale browser copy');
+});
 test('late progress cannot replace a newer stop or completion receipt',()=>{
   let state=mergeRepositoryGuide(createWorkspace('p','s'),{...guide(),revision:4,status:'ready'});
   const previous=state;state=mergeRepositoryGuide(state,guide());assert.equal(state,previous);
@@ -59,6 +70,13 @@ test('contextual guide keeps explicit source and nested intent',()=>{
   assert.match(contextualGuideIntent('',[{path:'src/parser.rs',from:8,to:20}],false),/selected code/);
   assert.match(contextualGuideIntent('',[],true),/this topic/);
   assert.equal(contextualGuideIntent('   ',[],false),null);
+});
+test('unscoped project-wide Guide asks use the durable repository guide pipeline',()=>{
+  for(const question of ['Explain this project','How does this repository work?','Give me an overview of the codebase','Walk me through this app end to end'])
+    assert.equal(isRepositoryGuideIntent(question,[],false),true,question);
+  assert.equal(isRepositoryGuideIntent('Explain this function',[{path:'src/main.rs',from:8,to:20}],false),false);
+  assert.equal(isRepositoryGuideIntent('Explain this project',[],true),false);
+  assert.equal(isRepositoryGuideIntent('Why does parsing default this field?',[],false),false);
 });
 test('empty root Guide me shows the view and leaves repository guide generation explicit',()=>{
   assert.deepEqual(contextualGuideAction('   ',[],false),{kind:'show'});

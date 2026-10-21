@@ -358,6 +358,35 @@ fn validate(record: &Record) -> Result<(), String> {
     {
         return Err("The guide's active investigation is unknown.".into());
     }
+    let consumed: std::collections::HashSet<_> = record
+        .consumed_slide_revisions
+        .iter()
+        .map(String::as_str)
+        .collect();
+    let published: std::collections::HashSet<_> = record
+        .opening
+        .iter()
+        .chain(&record.opening_continuations)
+        .chain(record.units.iter().flat_map(|unit| &unit.attempts))
+        .filter_map(|attempt| attempt.summary.as_ref())
+        .flat_map(|answer| &answer.sections)
+        .map(|section| section.revision_id.as_str())
+        .collect();
+    if record.consumed_slide_revisions.len() > MAX_GUIDE_ANSWER_RECORDS
+        || consumed.len() != record.consumed_slide_revisions.len()
+        || consumed
+            .iter()
+            .any(|revision| !published.contains(revision))
+    {
+        return Err("The saved guide's slide progression receipts are invalid.".into());
+    }
+    if record.status == Status::WaitingForPlayback
+        && (record.plan.is_none()
+            || record.active_run_id.is_some()
+            || crate::repository_guide::opening_continuation::remaining_operations(record) == 0)
+    {
+        return Err("The saved guide is waiting without unfinished slides.".into());
+    }
     if record.status == Status::Ready && (record.plan.is_none() || !guide_complete(record)) {
         return Err("The saved guide is marked ready without complete units.".into());
     }

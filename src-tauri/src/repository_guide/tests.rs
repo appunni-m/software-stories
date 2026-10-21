@@ -25,6 +25,7 @@ pub(super) fn record(f: &Fixture) -> Record {
         opening: None,
         opening_context_sha256: None,
         opening_continuations: vec![],
+        consumed_slide_revisions: vec![],
         plan: Some(Plan {
             title: "A grounded repository guide".into(),
             units: vec![
@@ -143,6 +144,21 @@ fn fresh_guide_researches_later_units_after_a_partial_reading_prerequisite() {
     assert!(!guide_complete(&r));
     assert_eq!(r.units[0].attempts.len(), 1);
     assert!(r.units[1].attempts.is_empty());
+}
+
+#[test]
+fn published_guide_slides_are_counted_by_stable_revision_identity() {
+    let f = Fixture::new();
+    let mut record = fresh_record(&f);
+    let first = attempt(&record, Outcome::Complete);
+    let revision_id = first.summary.as_ref().unwrap().sections[0]
+        .revision_id
+        .clone();
+    record.units[0].attempts.push(first.clone());
+    record.units[1].attempts.push(first);
+    assert_eq!(published_slide_count(&record), 1);
+    assert!(contains_slide(&record, &revision_id));
+    assert!(!contains_slide(&record, "revision:not-published"));
 }
 
 #[test]
@@ -707,6 +723,7 @@ fn fontdone_repository_guide_account_probe() {
         &manager,
         RepositoryContextJobs::default(),
         &recovery::InterruptionJournal::default(),
+        None,
         |p| println!("GUIDE_PHASE {} {}", p.phase, started.elapsed().as_millis()),
         Arc::new(move |notice| {
             let saved = reading::adopt(

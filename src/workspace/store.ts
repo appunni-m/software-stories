@@ -42,7 +42,7 @@ export function ensureWorkspaceIndex(project: string, snapshot: string): Promise
 const states = new Map<string, WorkspaceState>();
 const unsavedWorkspaceEpisodes = new Map<string,string>();
 const listeners = new Set<() => void>();
-const jobs = new Map<string, { cancelled: boolean; runId: string | null }>();
+const jobs = new Map<string, { cancelled: boolean; runId: string | null; pendingGuideAdvances: string[] }>();
 const key = (project:string,snapshot:string) => JSON.stringify([project,snapshot]);
 const browserPreviewKey = (project: string, snapshot: string) => `code-atlas:workspace:v1:${project}:${snapshot}`;
 const conversations=new Map<string,ConversationPersistence>();
@@ -385,7 +385,7 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
   if(closingWorkspace){patchTurn(project,snapshot,id,{status:'interrupted',error:closingMessage});return;}
   const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === id);
   if (!turn?.guideId) return;
-  const job = {cancelled:false,runId:null as string|null};jobs.set(id,job);
+  const job = {cancelled:false,runId:null as string|null,pendingGuideAdvances:[]};jobs.set(id,job);
   const release = await enterQuestionQueue();
   try {
     if (job.cancelled) return;
@@ -407,8 +407,47 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
     try { await restoreRepositoryGuides(project,snapshot); } catch { /* Preserve saved cards and the original error. */ }
     const message=errorMessageOr(failure,'The guide could not be completed. Saved sections remain available.');
     patchTurn(project,snapshot,id,{status:job.cancelled?'stopped':message===closingMessage?'interrupted':'partial',error:message});
-  } finally { release();jobs.delete(id); }
+  } finally {
+    const pending = job.pendingGuideAdvances.slice();
+    release();jobs.delete(id);
+    if(!job.cancelled)for(const revisionId of pending)void advanceRepositoryGuide(project,snapshot,id,revisionId);
+  }
 }
+/** A listened/finished guide slide frees exactly one idempotent buffer slot. */
+export async function advanceRepositoryGuide(project:string,snapshot:string,turnId:string,consumedRevisionId:string) {
+  if(closingWorkspace||!consumedRevisionId)return;
+  const turn=getWorkspace(project,snapshot).explorations.flatMap((e)=>e.turns).find((candidate)=>candidate.id===turnId);
+  if(!turn?.guideId||!canContinueGuide(turn))return;
+  const active=jobs.get(turnId);
+  if(active){
+    if(!active.pendingGuideAdvances.includes(consumedRevisionId)&&active.pendingGuideAdvances.length<16)active.pendingGuideAdvances.push(consumedRevisionId);
+    return;
+  }
+  const job={cancelled:false,runId:null as string|null,pendingGuideAdvances:[] as string[]};jobs.set(turnId,job);
+  const release=await enterQuestionQueue();
+  try{
+    if(job.cancelled||closingWorkspace)return;
+    const current=getWorkspace(project,snapshot).explorations.flatMap((e)=>e.turns).find((candidate)=>candidate.id===turnId);
+    if(!current?.guideId||!canContinueGuide(current))return;
+    patchTurn(project,snapshot,turnId,{status:'working',error:undefined});
+    await flushWorkspaceConversation(project,snapshot);
+    if(job.cancelled||closingWorkspace)return;
+    await ensureCodexConnection(true);
+    if(job.cancelled||closingWorkspace)return;
+    job.runId=current.guideId;
+    const guide=await invoke<RepositoryGuide>('advance_repository_guide',{id:current.guideId,projectId:project,snapshotId:snapshot,consumedRevisionId});
+    await reconcileGuide(project,snapshot,guide,true);
+  }catch(failure){
+    try{await restoreRepositoryGuides(project,snapshot);}catch{/* Keep the current reader content. */}
+    const message=errorMessageOr(failure,'The next slide could not be prepared. Saved slides remain available.');
+    patchTurn(project,snapshot,turnId,{status:job.cancelled?'stopped':message===closingMessage?'interrupted':'partial',error:message});
+  }finally{
+    const pending=job.pendingGuideAdvances.slice();
+    release();jobs.delete(turnId);
+    if(!job.cancelled)for(const revisionId of pending)void advanceRepositoryGuide(project,snapshot,turnId,revisionId);
+  }
+}
+function canContinueGuide(turn:Turn){return turn.guide?.canContinue===true;}
 /** Module-owned operation: changing tab, file, repository or opening settings does not cancel it. */
 export async function runQuestion(project: string, snapshot: string, id: string, grantId: string): Promise<ChapterRevision | null> {
   if (jobs.has(id)) return null;
@@ -417,7 +456,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
   const turn = owner?.turns.find((t) => t.id === id);
   if (!turn || !owner) return null;
   if ((turn.runIds?.length ?? 0) >= 32) { patchTurn(project,snapshot,id,{error:'This question has reached its retry limit. Ask a follow-up to continue.'}); return null; }
-  const job = {cancelled:false,runId:null as string | null}; jobs.set(id,job);
+  const job = {cancelled:false,runId:null as string | null,pendingGuideAdvances:[] as string[]}; jobs.set(id,job);
   const check = () => {if (job.cancelled)throw new Error('Stopped');if(closingWorkspace)throw new Error(closingMessage);};
   patchTurn(project,snapshot,id,{status:'queued',error:undefined});
   const release = await enterQuestionQueue();
