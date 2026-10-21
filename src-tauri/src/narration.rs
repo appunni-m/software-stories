@@ -37,6 +37,7 @@ const MAX_LEXICON_ENTRIES: usize = 12;
 const MAX_RESPONSE_BYTES: usize = 12 * 1024 * 1024;
 const MAX_PREWARM_JOBS: usize = 16;
 const MAX_PREWARM_STATUS_ENTRIES: usize = 128;
+const POCKET_SEGMENT_POLICY: &str = "utf8-4000-sentence-word-v1-pause200ms";
 
 const PREBUILT_VOICES: &[&str] = &[
     "Zephyr",
@@ -636,6 +637,8 @@ fn create_review(
         &input.voice,
         &input.style,
         &format,
+        crate::pocket_tts::runtime_fingerprint,
+        POCKET_SEGMENT_POLICY,
     );
     let fingerprint = request_fingerprint(&cache_key, disclosure_version, &request_segments);
     let cached_audio_available = read_cached_audio(storage_dir, &cache_key).is_some();
@@ -1276,6 +1279,8 @@ fn audio_cache_key(
     voice: &str,
     style: &str,
     format: &str,
+    pocket_runtime_fingerprint: impl FnOnce() -> String,
+    pocket_segment_policy: &str,
 ) -> String {
     let mut contract = json!({
         "cacheVersion": CACHE_VERSION,
@@ -1292,9 +1297,9 @@ fn audio_cache_key(
         contract["packageVersion"] = json!(crate::pocket_tts::PACKAGE_VERSION);
         // Include the worker, asset revisions, Python and package pins. A new
         // runtime contract also changes the exact review fingerprint below.
-        contract["runtimeFingerprint"] = json!(crate::pocket_tts::runtime_fingerprint());
+        contract["runtimeFingerprint"] = json!(pocket_runtime_fingerprint());
         contract["pcmFormat"] = json!("pcm16-mono-24000");
-        contract["segmentPolicy"] = json!("utf8-4000-sentence-word-v1-pause200ms");
+        contract["segmentPolicy"] = json!(pocket_segment_policy);
     }
     if request_segments.len() > 1 {
         contract["requestSegmentSha256"] = json!(
@@ -1327,6 +1332,8 @@ pub(crate) fn audio_cache_key_for_script(
         voice,
         style,
         format,
+        crate::pocket_tts::runtime_fingerprint,
+        POCKET_SEGMENT_POLICY,
     )
 }
 
@@ -2570,6 +2577,82 @@ mod tests {
         assert!(!serialized.contains("sourceExcerpt"));
         assert!(!serialized.contains("filePath"));
         assert!(!serialized.contains("src/server.rs"));
+    }
+
+    #[test]
+    fn pocket_cache_identity_tracks_runtime_policy_and_output_format() {
+        let text = "The local runtime speaks this section.";
+        let segments = vec![text.to_owned()];
+        let key_for = |model: &str, runtime: &str, policy: &str, format: &str| {
+            audio_cache_key(
+                &sha256(text.as_bytes()),
+                &segments,
+                model,
+                crate::pocket_tts::VOICE,
+                "",
+                format,
+                || runtime.to_owned(),
+                policy,
+            )
+        };
+        let current = key_for(
+            crate::pocket_tts::MODEL_ID,
+            "runtime-a",
+            "segments-a",
+            "audio/wav",
+        );
+
+        assert_eq!(
+            current,
+            key_for(
+                crate::pocket_tts::MODEL_ID,
+                "runtime-a",
+                "segments-a",
+                "audio/wav"
+            )
+        );
+        assert_ne!(
+            current,
+            key_for("pocket-tts-next", "runtime-a", "segments-a", "audio/wav")
+        );
+        assert_ne!(
+            current,
+            key_for(
+                crate::pocket_tts::MODEL_ID,
+                "runtime-b",
+                "segments-a",
+                "audio/wav"
+            )
+        );
+        assert_ne!(
+            current,
+            key_for(
+                crate::pocket_tts::MODEL_ID,
+                "runtime-a",
+                "segments-b",
+                "audio/wav"
+            )
+        );
+        assert_ne!(
+            current,
+            key_for(
+                crate::pocket_tts::MODEL_ID,
+                "runtime-a",
+                "segments-a",
+                "audio/pcm"
+            )
+        );
+
+        let whole = request_fingerprint(&current, LOCAL_DISCLOSURE_VERSION, &segments);
+        let split = request_fingerprint(
+            &current,
+            LOCAL_DISCLOSURE_VERSION,
+            &["The local runtime speaks".into(), "this section.".into()],
+        );
+        assert_ne!(
+            whole, split,
+            "the exact request segmentation is bound into the review"
+        );
     }
 
     #[test]
