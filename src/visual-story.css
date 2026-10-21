@@ -22,6 +22,8 @@
 .visual-story .story-node-button { box-sizing: border-box; border: 0; background: transparent; color: inherit; width: 100%; max-width: 100%; padding: 0; text-align: center; white-space: normal; font: inherit; overflow-wrap: break-word; word-break: normal; }
 .visual-story .story-node-title { display: block; }
 .visual-story .story-node-detail { display: -webkit-box; margin-top: 5px; overflow: hidden; color: var(--text); opacity: .82; font: 400 11px/1.45 -apple-system, BlinkMacSystemFont, sans-serif; overflow-wrap: break-word; word-break: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.visual-story .story-node-active .story-node-detail { -webkit-line-clamp: 4; }
+.visual-story .story-node-focus .story-node-detail { -webkit-line-clamp: 6; }
 .visual-story .story-edge-active path { stroke: var(--accent); stroke-width: 2; }
 .visual-story .react-flow__edge-text { font-size: 11px; }
 .visual-story .story-edge-label { display: inline-flex; align-items: center; gap: 4px; max-width: 132px; max-height: 28px; overflow: hidden; box-sizing: border-box; padding: 3px 6px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: 500 9px/1.2 -apple-system, BlinkMacSystemFont, sans-serif; white-space: nowrap; text-align: center; box-shadow: 0 1px 3px color-mix(in srgb, var(--text) 14%, transparent); }

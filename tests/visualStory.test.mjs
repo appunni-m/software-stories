@@ -442,7 +442,7 @@ describe('visual story scenes', () => {
     assert.match(playerStyles, /\.story-html-stage\s*\{[^}]*max-height:\s*min\(80vh,\s*900px\)/u);
   });
 
-  it('keeps graph node labels readable at word boundaries before breaking long identifiers', () => {
+  it('keeps graph context compact but expands the narrated and focused node details', () => {
     const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
     const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
     const nodeRule = styles.match(/\.visual-story \.react-flow__node\s*\{([^}]+)\}/u)?.[1] ?? '';
@@ -454,9 +454,14 @@ describe('visual story scenes', () => {
     }
     assert.match(buttonRule, /white-space:\s*normal/u);
     assert.match(component, /className="story-node-detail">\{data\.detail\}/u);
+    assert.ok(component.includes("title={`${data.label}${data.detail ? ` — ${data.detail}` : ''}`}"));
     const detailRule = styles.match(/\.visual-story \.story-node-detail\s*\{([^}]+)\}/u)?.[1] ?? '';
     assert.match(detailRule, /-webkit-line-clamp:\s*2/u);
     assert.match(detailRule, /color:\s*var\(--text\)/u);
+    const narratedRule = styles.match(/\.visual-story \.story-node-active \.story-node-detail\s*\{([^}]+)\}/u)?.[1] ?? '';
+    const focusedRule = styles.match(/\.visual-story \.story-node-focus \.story-node-detail\s*\{([^}]+)\}/u)?.[1] ?? '';
+    assert.match(narratedRule, /-webkit-line-clamp:\s*4/u);
+    assert.match(focusedRule, /-webkit-line-clamp:\s*6/u);
   });
 
   it('keeps authored speech without a visual whole, with every claim source still reachable', () => {
