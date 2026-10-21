@@ -107,7 +107,7 @@ The definitions contain the detailed contract and required closure evidence. Thi
 | `xs7j` | closed | 1 | [Recover the saved Codex connection before the next queued question](kata-tasks/67-queued-connection-recovery.md) |
 | `5vw6` | closed | 1 | [Hide stale unavailable answer cards from Guide](kata-tasks/74-stale-guide-cards.md) |
 | `tp6r` | open | 1 | [Prewarm local narration while an explanation is generated](kata-tasks/75-narration-prewarm.md) |
-| `y0tq` | open | 1 | [Choose and publish the project's distribution license](kata-tasks/77-distribution-license.md) |
+| `y0tq` | closed | 1 | [Choose and publish the project's distribution license](kata-tasks/77-distribution-license.md) |
 | `70x5` | open | 2 | [Add local Pocket TTS narration and distinct cached audio](kata-tasks/18-optional-narration.md) |
 | `8r4j` | open | 2 | [Export an accepted interactive guide for offline reading](kata-tasks/22-offline-export.md) |
 | `a9v9` | open | 2 | [Generate focused, reviewed explanations for a local change set](kata-tasks/27-pr-guide.md) |

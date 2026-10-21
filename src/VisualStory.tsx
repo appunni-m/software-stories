@@ -7,7 +7,7 @@ import { isNativeRuntime, type ChapterHotspot, type ChapterRevision, type Chapte
 import { defaultNarrationText, parseNarrationPreferences } from './lib/narration';
 import { narrationStorageKey } from './lib/narrationScope';
 import { inspectInteractiveVisual } from './lib/visuals';
-import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes, visibleStoryEdgeLabel } from './lib/visualStory';
+import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyEdgeLabelPosition, storyLayoutWithDirection, storyScenes, visibleStoryEdgeLabel } from './lib/visualStory';
 import { storyViewportNeedsRefit, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
 import { readOnlyDiagramAriaLabelConfig } from './lib/readOnlyDiagramAccessibility';
@@ -33,6 +33,8 @@ interface Props {
 interface StoryEdgeData extends Record<string, unknown> {
   label: string;
   focused: boolean;
+  vertical: boolean;
+  labelSide: number;
   onOpenSource?: () => void;
 }
 
@@ -40,6 +42,7 @@ type StoryEdge = Edge<StoryEdgeData, 'storyEvidence'>;
 
 function EvidenceStoryEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerEnd, style, data }: EdgeProps<StoryEdge>) {
   const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+  const labelPosition = storyEdgeLabelPosition(sourceX, targetX, labelX, labelY, data?.vertical ?? false, data?.labelSide ?? 1);
   const label = data?.label ?? '';
   const focused = data?.focused ?? false;
   const onOpenSource = data?.onOpenSource;
@@ -47,7 +50,7 @@ function EvidenceStoryEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosit
     <BaseEdge id={id} path={path} markerEnd={markerEnd} style={style} />
     <EdgeLabelRenderer>
       <button type="button" className={`story-edge-label nodrag nopan${focused ? ' story-edge-label-focused' : ''}`} title={label}
-        style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`, pointerEvents: 'all' }}
+        style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelPosition.x}px,${labelPosition.y}px)`, pointerEvents: 'all' }}
         aria-label={`${label}. Open cited source code`} aria-pressed={focused} disabled={!onOpenSource}
         onClick={(event) => { event.stopPropagation(); onOpenSource?.(); }}>
         <span className="story-edge-label-text">{visibleStoryEdgeLabel(label)}</span><Code2 size={11} aria-hidden="true" />
@@ -178,21 +181,23 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     select(relatedScene < 0 ? index : relatedScene, false, edge.fromNodeId, edge.edgeId);
     onOpenAnchor(sourceAnchorForVisualEdge(source, edge, targetAnchor, sourceContextAnchor), `reader-visual-edge:${edge.edgeId}:${source.anchorId}`);
   };
-  const nodes = visual ? storyLayout(visual, visibleIds).map((node) => {
+  const graphLayout = visual ? storyLayoutWithDirection(visual, visibleIds) : undefined;
+  const nodes = visual ? graphLayout!.nodes.map((node) => {
     const data = visual.nodes.find((item) => item.nodeId === node.id)!;
-    return { ...node, sourcePosition: visual.layoutHint.direction === 'topToBottom' ? Position.Bottom : Position.Right,
-      targetPosition: visual.layoutHint.direction === 'topToBottom' ? Position.Top : Position.Left,
+    return { ...node, sourcePosition: graphLayout!.direction === 'vertical' ? Position.Bottom : Position.Right,
+      targetPosition: graphLayout!.direction === 'vertical' ? Position.Top : Position.Left,
       data: { label: <button className="story-node-button nodrag" data-focus-key={`reader-visual-citation:${node.id}:${data.sourceAnchorId ?? data.evidenceAnchorIds[0]}`} aria-pressed={focus?.nodeId === node.id} aria-label={`${data.label}${data.detail ? `: ${data.detail}` : ''}${activeIds.has(node.id) ? ', narrated in this scene' : ', related step'}`} title={`${data.label}${data.detail ? ` — ${data.detail}` : ''}`} onClick={() => chooseNode(node.id, sourceValues.get(node.id))}>
         <span className="story-node-title">{data.label}</span>
         {data.detail && <small className="story-node-detail">{data.detail}</small>}
       </button> },
       className: `${activeIds.has(node.id) ? 'story-node-active' : 'story-node-context'}${focus?.nodeId === node.id ? ' story-node-focus' : ''}`, style: { width: 195 } };
   }) : [];
-  const edges: StoryEdge[] = visual?.edges.filter((edge) => visibleIds.has(edge.fromNodeId) && visibleIds.has(edge.toNodeId)).map((edge) => ({
+  const visibleEdges = visual?.edges.filter((edge) => visibleIds.has(edge.fromNodeId) && visibleIds.has(edge.toNodeId)) ?? [];
+  const edges: StoryEdge[] = visibleEdges.map((edge, edgeIndex) => ({
     id: edge.edgeId, type: 'storyEvidence', source: edge.fromNodeId, target: edge.toNodeId,
-    data: { label: edge.label, focused: focusedEdge === edge.edgeId, onOpenSource: () => chooseEdge(edge.edgeId) },
+    data: { label: edge.label, focused: focusedEdge === edge.edgeId, vertical: graphLayout?.direction === 'vertical', labelSide: edgeIndex % 2 === 0 ? 1 : -1, onOpenSource: () => chooseEdge(edge.edgeId) },
     markerEnd: { type: MarkerType.ArrowClosed }, className: activeIds.has(edge.fromNodeId) && activeIds.has(edge.toNodeId) ? 'story-edge-active' : 'story-edge-context',
-  })) ?? [];
+  }));
   const flowInstance = useRef<FlowViewportInstance & Pick<ReactFlowInstance<(typeof nodes)[number], StoryEdge>, 'setNodes' | 'setEdges'> | null>(null);
   const graphData = useRef({ nodes, edges });
   graphData.current = { nodes, edges };

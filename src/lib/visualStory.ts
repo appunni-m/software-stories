@@ -10,6 +10,11 @@ export interface StoryScene {
   nodeIds: string[];
 }
 
+export interface StoryLayoutResult {
+  direction: 'horizontal' | 'vertical';
+  nodes: { id: string; position: { x: number; y: number } }[];
+}
+
 /** Restore only a focused node or edge that still exists in this section's visual. */
 export function restoreStoryFocus(visual:EvidenceLinkedVisualSpec|undefined,nodeId?:string,edgeId?:string):{nodeId:string|null;edgeId:string|null} {
   const node=visual?.nodes.find((item)=>item.nodeId===nodeId);
@@ -248,7 +253,7 @@ export function storyScenes(section: ChapterSection, visual?: EvidenceLinkedVisu
 /** A bounded layered drawing preserves the declared edges, including cycles and branches.
  * Drawing order has no runtime meaning. Unresolved cyclic nodes use authored order.
  */
-export function storyLayout(visual: EvidenceLinkedVisualSpec, includedNodeIds?: ReadonlySet<string>) {
+export function storyLayoutWithDirection(visual: EvidenceLinkedVisualSpec, includedNodeIds?: ReadonlySet<string>): StoryLayoutResult {
   // Focused scenes must be laid out from their own visible subgraph. Laying
   // out the full chapter and filtering afterward leaves invisible branches
   // contributing to the viewport bounds, which shrinks the narrated content.
@@ -275,14 +280,22 @@ export function storyLayout(visual: EvidenceLinkedVisualSpec, includedNodeIds?: 
   // routes into a vertical reading path so labels remain legible at the
   // default zoom. Shorter diagrams keep their requested direction.
   const horizontal = preferredHorizontal && !(nodes.length >= 6 && deepestRank >= 4);
-  return nodes.map((node) => {
+  return {
+    direction: horizontal ? 'horizontal' : 'vertical',
+    nodes: nodes.map((node) => {
     const level = rank.get(node.nodeId) ?? 0;
     const siblings = nodes.filter((other) => rank.get(other.nodeId) === level);
     const across = (siblings.findIndex((other) => other.nodeId === node.nodeId) - (siblings.length - 1) / 2) * 132;
     // Leave enough horizontal room for a source-linked edge label between
     // adjacent nodes instead of placing the label over one of the nodes.
-    return { id: node.nodeId, position: horizontal ? { x: level * 340, y: across } : { x: across * 1.8, y: level * 94 } };
-  });
+      return { id: node.nodeId, position: horizontal ? { x: level * 340, y: across } : { x: across * 1.8, y: level * 94 } };
+    }),
+  };
+}
+
+/** Preserve the established position-only helper for callers that only draw nodes. */
+export function storyLayout(visual: EvidenceLinkedVisualSpec, includedNodeIds?: ReadonlySet<string>) {
+  return storyLayoutWithDirection(visual, includedNodeIds).nodes;
 }
 
 export function sceneNodeIds(visual: EvidenceLinkedVisualSpec, scene: StoryScene): Set<string> {
@@ -303,6 +316,26 @@ export function visibleStoryEdgeLabel(label: string, maxCharacters = 24): string
   const lastSpace = prefix.lastIndexOf(' ');
   const boundary = lastSpace >= Math.floor(maxCharacters * 0.6) ? lastSpace : prefix.length;
   return `${prefix.slice(0, boundary).trimEnd()}…`;
+}
+
+/** Put vertical-path labels beside the cards, not over the short connector gap. */
+export function storyEdgeLabelPosition(
+  sourceX: number,
+  targetX: number,
+  labelX: number,
+  labelY: number,
+  vertical: boolean,
+  preferredSide: number,
+): { x: number; y: number } {
+  if (!vertical) return { x: labelX, y: labelY };
+  const side = Math.sign(targetX - sourceX) || (preferredSide < 0 ? -1 : 1);
+  const cardAndLabelHalfWidths = (195 + 180) / 2;
+  const gap = 12;
+  const branchClearance = Math.abs(targetX - sourceX) / 2;
+  return {
+    x: labelX + side * (cardAndLabelHalfWidths + gap + branchClearance),
+    y: labelY,
+  };
 }
 
 /** Saved reader viewports belong to a particular canvas size. Keep them while

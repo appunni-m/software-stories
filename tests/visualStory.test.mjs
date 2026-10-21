@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { storyViewportNeedsRefit, viewportClipsNodeBounds } from '../src/lib/flowViewport.ts';
-import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes, visibleStoryEdgeLabel } from '../src/lib/visualStory.ts';
+import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyEdgeLabelPosition, storyLayout, storyLayoutWithDirection, storyScenes, visibleStoryEdgeLabel } from '../src/lib/visualStory.ts';
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
 const claims = [claim('entry', 'A request reaches handleRequest. The bytes are still untrusted.'), claim('check', 'If validate rejects those bytes, the caller receives an error. Otherwise processing continues.')];
@@ -542,6 +542,47 @@ describe('visual story scenes', () => {
     assert.equal(positions.get('records').x, positions.get('input').x);
     assert.equal(positions.get('records').y - positions.get('input').y, 94);
     assert.equal(positions.get('none').y - positions.get('slice').y, 94);
+  });
+
+  it('uses the adapted deep-route direction for both node handles and edge-label lanes', () => {
+    const routeNodes = ['input', 'records', 'tag', 'offset', 'range', 'slice', 'none']
+      .map((nodeId) => ({ nodeId, label: nodeId, evidenceAnchorIds: ['a:entry'] }));
+    const routeEdges = routeNodes.slice(1).map((node, index) => ({
+      edgeId: `route:${index}`,
+      fromNodeId: routeNodes[index].nodeId,
+      toNodeId: node.nodeId,
+      label: 'continues',
+    }));
+    const result = storyLayoutWithDirection({
+      ...visual,
+      nodes: routeNodes,
+      edges: routeEdges,
+      layoutHint: { direction: 'leftToRight' },
+    });
+    assert.equal(result.direction, 'vertical');
+
+    const lane = storyEdgeLabelPosition(0, 0, 0, 47, true, 1);
+    assert.equal(lane.x, 199.5);
+    assert.equal(lane.y, 47);
+    assert.ok(lane.x - 180 / 2 >= 195 / 2 + 12,
+      'the label begins at least twelve pixels beyond the centered node card');
+
+    const branch = storyEdgeLabelPosition(0, 118, 59, 47, true, 1);
+    assert.ok(branch.x - 180 / 2 >= 118 + 195 / 2 + 12,
+      'a diagonal branch label clears both endpoint cards');
+    assert.deepEqual(storyEdgeLabelPosition(0, 340, 170, 0, false, 1), { x: 170, y: 0 },
+      'the existing horizontal label lane is unchanged');
+
+    const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
+    assert.match(component, /sourcePosition: graphLayout!\.direction === 'vertical' \? Position\.Bottom : Position\.Right/u);
+    assert.match(component, /targetPosition: graphLayout!\.direction === 'vertical' \? Position\.Top : Position\.Left/u);
+  });
+
+  it('keeps Guide edge labels readable at the node and canvas scale', () => {
+    const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
+    const labelRule = styles.match(/\.visual-story \.story-edge-label\s*\{([^}]+)\}/u)?.[1] ?? '';
+    assert.match(labelRule, /max-width:\s*180px/u);
+    assert.match(labelRule, /font:\s*500 10px\/1\.2/u);
   });
 
   it('fits a focused scene to its visible subgraph instead of hidden chapter branches', () => {
