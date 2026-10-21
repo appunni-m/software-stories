@@ -704,6 +704,10 @@ fn prepare_cached(
     let mut writer: IndexWriter = index
         .writer_with_num_threads(1, 30_000_000)
         .map_err(|_| "Local code index writer is unavailable.".to_owned())?;
+    // BM25 scores can shift when the same corpus is split across a different
+    // number of Tantivy segments. A canonical single segment keeps broad
+    // result ordering stable between cold and incremental generations.
+    writer.set_merge_policy(Box::new(tantivy::indexer::NoMergePolicy));
     let range_key = field(&index, "range_key")?;
     let source_path = field(&index, "source_path")?;
     let start_byte = field(&index, "start_byte")?;
@@ -950,6 +954,21 @@ fn prepare_cached(
     writer
         .commit()
         .map_err(|_| "Local code index could not be committed.".to_owned())?;
+    let segments = writer
+        .index()
+        .load_metas()
+        .map_err(|_| "Local code index could not be opened.".to_owned())?
+        .segments
+        .into_iter()
+        .map(|segment| segment.id())
+        .collect::<Vec<_>>();
+    if segments.len() > 1 {
+        budget.check()?;
+        writer
+            .merge(&segments)
+            .wait()
+            .map_err(|_| "Local code index could not be consolidated.".to_owned())?;
+    }
     writer
         .wait_merging_threads()
         .map_err(|_| "Local code index could not finish publishing.".to_owned())?;

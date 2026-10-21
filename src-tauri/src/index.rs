@@ -24,7 +24,10 @@ const MAX_INDEXED_SYMBOLS: usize = 50_000;
 const MAX_INDEXED_RELATIONSHIPS: usize = 100_000;
 const MAX_INDEXED_IMPORT_BINDINGS: usize = 50_000;
 const MAX_IMPORT_BINDINGS_PER_FILE: usize = 10_000;
-const MAX_INDEX_JSON_BYTES: usize = 32 * 1024 * 1024;
+// A 50 MiB source snapshot can produce more than 32 MiB of bounded symbols
+// and relationships. Keep persisted metadata bounded while allowing the
+// measured Fontdone index (about 42 MiB) to be saved and reused.
+const MAX_INDEX_JSON_BYTES: usize = 64 * 1024 * 1024;
 const MAX_PARSE_TIME: Duration = Duration::from_millis(1_500);
 const MAX_RETAINED_JOBS: usize = 32;
 
@@ -3292,7 +3295,7 @@ mod tests {
     }
 
     #[test]
-    fn saved_snapshot_index_accepts_32_mib_and_rejects_the_next_byte() {
+    fn saved_snapshot_index_accepts_64_mib_and_rejects_the_next_byte() {
         let directory = TestDirectory::new();
         let project_id = "fixture-project";
         let snapshot_id = "snapshot-a";
@@ -4185,7 +4188,7 @@ pub fn save_snapshot_index(storage_dir: &Path, index: &SnapshotIndex) -> Result<
     let bytes = serde_json::to_vec(index)
         .map_err(|_| "The snapshot index could not be serialized.".to_owned())?;
     if bytes.len() > MAX_INDEX_JSON_BYTES {
-        return Err("The snapshot index exceeded its 32 MB storage limit.".to_owned());
+        return Err("The snapshot index exceeded its 64 MiB storage limit.".to_owned());
     }
     let path = relationship_path(storage_dir, &index.project_id, &index.snapshot_id)?;
     let parent = path

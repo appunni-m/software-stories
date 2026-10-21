@@ -394,20 +394,67 @@ fn fontdone_one_file_incremental_profile() {
         fs::read_to_string(storage.join(".atlas-disposable-index-probe")).unwrap(),
         "Code Atlas disposable indexing fixture\n"
     );
+    // This opt-in profile is repeatable within its marked scratch copy.
+    fs::remove_dir_all(storage.join("repository-context")).ok();
+    fs::remove_dir_all(storage.join("cold-reference")).ok();
     let manifest = snapshot::load_snapshot_manifest(
         &storage,
         "/Users/lazytrot/work/fontdone",
         "snap-1792140879637485000-11155-0",
     )
     .unwrap();
-    let syntax = index::load_snapshot_index(
+    let cancelled = AtomicBool::new(false);
+    let base_index_started = Instant::now();
+    let syntax = match index::load_snapshot_index(
         &storage,
         &manifest.summary.project_id,
         &manifest.summary.snapshot_id,
     )
     .unwrap()
-    .unwrap();
-    let cancelled = AtomicBool::new(false);
+    {
+        Some(index) => index,
+        None => {
+            // A disposable copy can contain an index written by an older
+            // application. Rebuild only in the explicitly marked scratch
+            // directory instead of making the measurement depend on the
+            // installed app's parser version.
+            let index = index::build_snapshot_index(
+                &storage,
+                &manifest,
+                "disposable-incremental-base-index",
+                &cancelled,
+                |_| {},
+            );
+            let encoded_bytes = serde_json::to_vec(&index).unwrap().len();
+            println!(
+                "FONTDONE_INCREMENTAL_BASE_INDEX_SIZE {}",
+                serde_json::json!({
+                    "bytes": encoded_bytes,
+                    "files": index.files.len(),
+                    "symbols": index.symbols.len(),
+                    "relationships": index.relationships.len(),
+                })
+            );
+            index::save_snapshot_index(&storage, &index).unwrap_or_else(|error| {
+                panic!("base syntax index is {encoded_bytes} bytes and could not be saved: {error}")
+            });
+            index
+        }
+    };
+    let base_index_ms = base_index_started.elapsed().as_millis();
+    assert!(
+        !syntax.symbols.is_empty(),
+        "Fontdone parser index should include symbols"
+    );
+    println!(
+        "FONTDONE_INCREMENTAL_BASE_INDEX {}",
+        serde_json::json!({
+            "elapsedMs": base_index_ms,
+            "files": syntax.files.len(),
+            "symbols": syntax.symbols.len(),
+            "relationships": syntax.relationships.len(),
+        })
+    );
     let cold_started = Instant::now();
     let first = prepare(&storage, &manifest, Some(&syntax), &Budget::new(&cancelled)).unwrap();
     let cold_ms = cold_started.elapsed().as_millis();
@@ -432,7 +479,11 @@ fn fontdone_one_file_incremental_profile() {
     file.blob_path = format!("objects/sha256/{}/{}", &file.sha256[..2], &file.sha256[2..]);
     let blob = storage.join(&file.blob_path);
     fs::create_dir_all(blob.parent().unwrap()).unwrap();
-    write_new(&blob, contents.as_bytes()).unwrap();
+    if blob.exists() {
+        assert_eq!(fs::read(&blob).unwrap(), contents.as_bytes());
+    } else {
+        write_new(&blob, contents.as_bytes()).unwrap();
+    }
     assert_eq!(
         updated
             .files
@@ -499,6 +550,22 @@ fn fontdone_one_file_incremental_profile() {
     )
     .unwrap();
     let reference_ms = reference_started.elapsed().as_millis();
+    let delta_searcher = delta.index.reader().unwrap().searcher();
+    let reference_searcher = reference.index.reader().unwrap().searcher();
+    let delta_segments = delta.index.load_metas().unwrap().segments.len();
+    let reference_segments = reference.index.load_metas().unwrap().segments.len();
+    println!(
+        "FONTDONE_INCREMENTAL_INDEX_SHAPE {}",
+        serde_json::json!({
+            "incrementalDocuments": delta_searcher.num_docs(),
+            "incrementalSegments": delta_segments,
+            "freshDocuments": reference_searcher.num_docs(),
+            "freshSegments": reference_segments,
+        })
+    );
+    assert_eq!(delta_searcher.num_docs(), reference_searcher.num_docs());
+    assert_eq!(delta_segments, 1, "incremental index is normalized");
+    assert_eq!(reference_segments, 1, "fresh index is normalized");
     assert_eq!(
         reference.metadata.document_keys,
         delta.metadata.document_keys
@@ -596,7 +663,37 @@ fn fontdone_one_file_incremental_profile() {
             .filter(|e| found(&b, e))
             .map(|e| e["id"].as_str().unwrap())
             .collect::<Vec<_>>();
-        assert_eq!(recovered, fresh);
+        if recovered != fresh {
+            let summarize = |result: &SearchResult| {
+                result
+                    .matches
+                    .iter()
+                    .map(|hit| {
+                        serde_json::json!({
+                            "path": hit.range.path,
+                            "startByte": hit.range.start_byte,
+                            "score": hit.score,
+                            "exact": hit.exact_identifier,
+                            "declaration": hit.declaration_match,
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            };
+            println!(
+                "FONTDONE_INCREMENTAL_BROAD_MISMATCH {}",
+                serde_json::json!({
+                    "query": query,
+                    "incrementalExpected": recovered,
+                    "freshExpected": fresh,
+                    "incrementalTop": summarize(&a),
+                    "freshTop": summarize(&b),
+                })
+            );
+        }
+        assert_eq!(
+            recovered, fresh,
+            "incremental/fresh broad-search recall differs for {query:?}: incremental={recovered:?}; fresh={fresh:?}"
+        );
         broad.push(serde_json::json!({"query":query,"retrieved":recovered,"expectedCount":expected.len(),"limited":a.limited}));
     }
     println!(
