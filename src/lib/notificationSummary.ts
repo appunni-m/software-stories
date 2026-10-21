@@ -1,4 +1,5 @@
 import type { InterruptedOperation, PendingChapterPreviewSummary } from './commands.ts';
+import { questionSummaryText } from '../workspace/outcomes.ts';
 
 export type NotificationAvailability = 'loading' | 'ready' | 'unavailable';
 export type NotificationBucket = 'attention' | 'updates';
@@ -34,6 +35,11 @@ export function briefNotificationText(value: string, limit = 220): string {
   const text = value.replace(/\s+/g, ' ').trim();
   const characters = Array.from(text);
   return characters.length > limit ? `${characters.slice(0, limit - 1).join('')}…` : text;
+}
+
+/** Show the code topic in notifications without surfacing generated request scaffolding. */
+export function questionNotificationText(value: string, limit = 140): string {
+  return briefNotificationText(questionSummaryText(value, limit), limit);
 }
 
 /** Group display rows without changing their persisted identities or actions. */
@@ -126,7 +132,7 @@ export function interruptedNotificationMessage(operation: InterruptedOperation, 
   const question = operation.providerRequest?.repositoryPlan?.question;
   const purpose = operation.providerRequest?.purpose;
   const context = question?.trim() || operation.targetPath?.trim() || (purpose && interruptedPurpose[purpose]) || 'Unfinished explanation';
-  return `${repository} · ${briefNotificationText(context)}`;
+  return `${repository} · ${question ? questionNotificationText(context) : briefNotificationText(context)}`;
 }
 
 /** Prefer the exact question when the recovery record retains it; otherwise

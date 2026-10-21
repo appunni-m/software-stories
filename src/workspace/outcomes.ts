@@ -7,20 +7,27 @@ const hasAnswer = (turn: Turn) => Boolean(turn.revisionId || turn.publishedSecti
 export function questionSummaryText(question: string, maxCodePoints = 64): string {
   let text = question.replace(/\s+/g, ' ').trim();
   let generatedRequest = false;
+  const selectedSnapshotSubject = text.match(/^Create (?:exactly )?one (?:fresh )?(?:Guide )?section for\s+(.+?)\s+in the selected .+? snapshot[.!?]?(?:\s|$)/i);
+  if (selectedSnapshotSubject) {
+    text = selectedSnapshotSubject[1];
+    generatedRequest = true;
+  }
   const generatedRequestPrefixes = [
     /^Create (?:exactly )?one (?:fresh )?(?:Guide )?section (?:for|from) .+?\s+about\s+/i,
     /^Create (?:exactly )?one (?:fresh )?(?:Guide )?section about\s+/i,
     /^Create (?:exactly )?one (?:fresh )?(?:Guide )?section from (?:the )?selected .+? snapshot[.!?]\s*/i,
     /^(?:Using|In) (?:the )?selected .+? snapshot,\s*explain (?:only )?(?:the )?/i,
   ];
-  for (const prefix of generatedRequestPrefixes) {
-    if (prefix.test(text)) {
-      text = text.replace(prefix, '');
-      generatedRequest = true;
-      break;
+  if (!generatedRequest) {
+    for (const prefix of generatedRequestPrefixes) {
+      if (prefix.test(text)) {
+        text = text.replace(prefix, '');
+        generatedRequest = true;
+        break;
+      }
     }
   }
-  if (generatedRequest) text = text.replace(/^(?:Explain (?:only )?|only (?:the )?)/i, '');
+  if (generatedRequest) text = text.replace(/^(?:Explain (?:only )?|only (?:the )?|the )/i, '');
   // Generation prompts often continue with production constraints after the
   // topic. Keep the heading to its first sentence; exact wording stays below.
   text = text.split(/(?<=[.!?])\s+|:\s+/u, 1)[0] ?? text;

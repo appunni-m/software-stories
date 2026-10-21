@@ -25,6 +25,8 @@ test('Guide and History show the question topic and preserve the exact prompt in
   assert.equal(questionSummaryText(selectedSnapshotAbout), 'PFR0 branch in Font::memory_face in src/font.rs.');
   const scoped = 'Using the selected Fontdone snapshot, explain only the PFR0 dispatch branch in Font::memory_face in src/font.rs. Show the exact call.';
   assert.equal(questionSummaryText(scoped), 'PFR0 dispatch branch in Font::memory_face in src/font.rs.');
+  const selectedSnapshotForTopic = 'Create one fresh Guide section for the PFR dispatch path in the selected Fontdone snapshot. Tell the runtime story from the PFR0 prefix check through the parser call.';
+  assert.equal(questionSummaryText(selectedSnapshotForTopic), 'PFR dispatch path');
   const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   assert.match(source, /<details className="dw-history-question"><summary><strong><InlineCodeText text=\{questionSummaryText\(turn\.question\)\}\/><\/strong><\/summary><p><InlineCodeText text=\{turn\.question\}\/><\/p><\/details>/);
 });

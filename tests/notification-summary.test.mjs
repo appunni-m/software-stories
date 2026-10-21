@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
-import { briefNotificationText, groupNotifications, interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, notificationSummary, partitionNotificationGroups, previewNotificationMessage, sortInterruptedOperations, workspaceAnswerAvailability } from '../src/lib/notificationSummary.ts';
+import { briefNotificationText, groupNotifications, interruptedNotificationGroupKey, interruptedNotificationMessage, notificationAvailability, notificationBucketForOutcome, notificationGroupKey, notificationSummary, partitionNotificationGroups, previewNotificationMessage, questionNotificationText, sortInterruptedOperations, workspaceAnswerAvailability } from '../src/lib/notificationSummary.ts';
 
 const ready = { startupComplete: true, workspaceReady: true, answers: 'ready', refreshing: false, unavailable: false };
 const unread = Array.from({ length: 34 }, () => ({}));
@@ -14,6 +14,16 @@ describe('notification totals', () => {
     assert.equal(Array.from(shortened).length, 140);
     assert.equal(shortened.endsWith('…'), true);
     assert.equal(shortened.includes('😀'), true);
+  });
+
+  it('shows generated question topics in notifications without exposing request instructions', async () => {
+    const prompt = 'Create exactly one fresh Guide section from the selected Fontdone snapshot about only the PFR0 branch in Font::memory_face (src/font.rs). Trace the complete implementation and preserve every error branch.';
+    assert.equal(questionNotificationText(prompt), 'PFR0 branch in Font::memory_face (src/font.rs).');
+    assert.equal(interruptedNotificationMessage({ operationId: 'x', kind: 'providerGeneration', projectId: 'p', snapshotId: 's', targetPath: null,
+      startedAtUnixMs: 1, providerRequest: { providerId: 'codex', purpose: 'repositoryPlan', selectedPaths: [], repositoryPlan: { question: prompt } } }, 'fontdone'),
+      'fontdone · PFR0 branch in Font::memory_face (src/font.rs).');
+    const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
+    assert.match(source, /questionNotificationText\(outcome\.question, 140\)/);
   });
 
   it('keeps current-snapshot and global notifications visible and collapses older scopes without losing actions', () => {
