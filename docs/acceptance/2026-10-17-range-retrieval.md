@@ -29,7 +29,7 @@ One cold-version-cache debug run on this Mac, without a concurrent build or an A
 
 The two broad queries were `font bytes rendered glyph bitmap entry parsing outline hinting rasterization` and `font buffer glyph image format outline hinting pixel coverage`. They returned the expected glyph-dispatch and render-dispatch spans, missing ten expected spans. These are explicit lexical search inputs, not the original full explanation prompt or an agent's search plan. Their request times were 251 ms and 220 ms; match payloads were 20,731 and 20,280 bytes. All searches reported truncation when more than 32 candidates matched.
 
-Named global searches missed the four FFI/C adapter spans. File-scoped searches found all four in the 613,652-byte `src/ffi/handles.rs` and 1,032,893-byte `fontdone-c-abi/src/implementation.rs`. They remain parser-unavailable text fallback: finding their text is not a resolved definition/reference claim. The 375,700-byte `src/font.rs` now contributes a bounded 6,152-byte range beginning at the actual `memory_face` declaration.
+At this 17 October source revision, named global searches missed the four FFI/C adapter spans. File-scoped searches found all four in the 613,652-byte `src/ffi/handles.rs` and 1,032,893-byte `fontdone-c-abi/src/implementation.rs`; both were text fallback, not parser-indexed. The current 21 October parser now indexes these files, as recorded below. Finding source text still does not prove a resolved definition/reference. The 375,700-byte `src/font.rs` contributes a bounded 6,152-byte range beginning at the actual `memory_face` declaration.
 
 These observations establish local availability of important previously excluded text. **They fail a broad repository retrieval sufficiency claim.** The service test asserts the file-scoped expectations, records global/broad misses, and does not assert that a broad explanation is ready. There was no new Codex request, narrative/visual generation, narration test or packaged-app walkthrough.
 
@@ -161,3 +161,21 @@ The current parser index serializes to 41,616,863 bytes for 2,768 parser-index f
 | Broad first-page expected ranges | 1/12 and 1/12; identical between incremental and fresh builds |
 
 The result confirms one-file reuse and search-result stability for this frozen profile. Broad first-page retrieval remains weak, and this does not qualify other change shapes, packaged search, cancellation/pressure boundaries, or AI answer quality. See the [machine-readable profile](artifacts/2026-10-21-fontdone-incremental-profile.json). Keep `a699` and its dependent generation task open.
+
+## Current-source large-file parser and search profile — 21 October 2026
+
+Ran the native parser and retrieval profiles from Code Atlas source `b7ff94c` against the same marked disposable Fontdone copy. The real 613,652-byte `src/ffi/handles.rs` and 1,032,893-byte `fontdone-c-abi/src/implementation.rs` both report `Indexed`, with 673 and 902 symbols respectively; each includes `FT_Load_Glyph` and `FT_Render_Glyph`. Both files are under the current 1 MiB per-file parser limit, so this real-repository result qualifies syntax indexing, not parserless fallback. A separate deterministic synthetic test covers a larger parserless C adapter.
+
+| Measurement | Observation |
+| --- | ---: |
+| Parser index build for the captured snapshot | 5,291 ms; partial status due to other omissions |
+| Retrieval coverage | 1,621 indexed files; 19,296,074 source bytes; 3,462 ranges |
+| Syntax / text fallback files | 153 / 1,468 |
+| Named expected ranges | 12/12 globally and 12/12 file-scoped, including all four FFI/ABI ranges |
+| Broad ranked first page | 1/12 for each query |
+| Broad ranked pages within the 256-candidate window | 11/12 and 7/12 |
+| File discovery, first 32 paths | 5/7 and 4/7 expected files |
+| File discovery across eight pages, then scoped retrieval | 7/7 expected files and 12/12 ranges for both queries |
+| Discovery / all ranked-page time | 1,176–1,202 ms / 8,242–8,751 ms |
+
+This establishes local service retrieval of the pinned real FFI/C declarations and a multi-step discovery-to-scope path. Global first-page recall is still too weak to infer that an agent will find every path without refining its searches. The profile does not qualify packaged behavior or answer quality. The machine-readable observations are in the [large-file retrieval artifact](artifacts/2026-10-21-fontdone-large-file-retrieval.json). Keep `a699` and `0wdn` open.

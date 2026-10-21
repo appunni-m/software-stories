@@ -69,7 +69,7 @@ recovery in a packaged macOS app or data stores from every historical release.
 ## Static indexing and saved chapters
 
 The indexer parses captured snapshot blobs, not the current checkout. It caps
-work at 5,000 files, 512 KiB per source file, 50 MiB of source, 250,000 syntax
+work at 5,000 files, 1 MiB per source file, 50 MiB of source, 250,000 syntax
 nodes per file, 1.5 seconds per file, and bounded symbol, relationship, and
 serialized-index counts. Indexing is cancellable; cancellation cannot replace
 a previously saved complete index.
