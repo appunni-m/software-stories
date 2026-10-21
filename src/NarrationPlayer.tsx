@@ -54,6 +54,7 @@ interface NarrationPlayerProps {
   onPlaybackPositionChange: (position: number) => void;
   onTranscriptPositionChange: (position: number) => void;
   onOpenProviderSettings: () => void;
+  onPlaybackStarted?: () => void;
   autoPlay?: boolean;
   clip?: { id: string; text: string };
   onEnded?: () => void;
@@ -74,7 +75,7 @@ interface LoadedTrack {
   cacheHit: boolean;
 }
 
-export function NarrationPlayer({ projectId, chapterId, revisionId, section, restorePosition, transcriptPosition, onPlaybackPositionChange, onTranscriptPositionChange, autoPlay = false, clip, onEnded, compact = false }: NarrationPlayerProps) {
+export function NarrationPlayer({ projectId, chapterId, revisionId, section, restorePosition, transcriptPosition, onPlaybackPositionChange, onTranscriptPositionChange, onPlaybackStarted, autoPlay = false, clip, onEnded, compact = false }: NarrationPlayerProps) {
   const titleId = useId();
   const baseStorageKey = narrationStorageKey(projectId, chapterId, revisionId, section.sectionId);
   const storageKey = clip ? `${baseStorageKey}:scene:${clip.id}` : baseStorageKey;
@@ -665,7 +666,7 @@ export function NarrationPlayer({ projectId, chapterId, revisionId, section, res
         ref={audioRef}
         className="walkthrough-narration-audio"
         preload="metadata"
-        onPlay={() => { completionArmed.current = true; setIsPlaying(true); window.dispatchEvent(new CustomEvent('code-atlas:narration-playing', { detail: titleId })); }}
+        onPlay={() => { completionArmed.current = true; setIsPlaying(true); onPlaybackStarted?.(); window.dispatchEvent(new CustomEvent('code-atlas:narration-playing', { detail: titleId })); }}
         onPause={(event) => {
           setIsPlaying(false);
           if (!event.currentTarget.ended) {

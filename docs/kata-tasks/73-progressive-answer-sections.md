@@ -96,6 +96,14 @@ The incremental contract remains: save and show the cited slide outline first, p
 
 The reported ten-minute failure can also be triggered by **“Explain what this project does”**. The explicit guide and “how it works” patterns did not recognize project-purpose questions, so the composer sent them to the ordinary one-shot answer worker, whose result-validation policy still has a ten-minute deadline. Added project-purpose routing for forms such as “What does this repository do?” and “Tell me what the codebase provides,” with regressions; narrowly scoped implementation questions remain on the focused-answer path. This closes the identified wording gap in source only. A new installed large-repository run is still needed to verify the user's phrasing reaches the saved outline and progressive slides.
 
+## Refill while a slide is playing — 22 October 2026
+
+The five-slide runway previously requested its next slide only after narration ended or the reader advanced manually. The Guide now submits the slide's stable revision receipt as narration starts, so the next eligible slide can build during playback. Completion and Next still submit the same receipt; native receipt validation deduplicates those events. The first outline and first ready slide remain visible immediately, and no five-slide accumulation gates playback.
+
+- [x] Notify the native guide when narration starts so playback overlaps with the next slide operation.
+- [ ] In the packaged app, confirm playback-start refill works at the five-slide boundary, duplicate start/completion/Next events admit at most one slide, and no more than five ready/active slides are maintained.
+- [ ] Re-qualify Guide generation, Pocket readiness, Stop, provider failure, account/grant changes and close/reopen on a large captured repository. Do not accept based on the source change or an existing partial guide.
+
 ## Native storage checkpoint — 17 October
 
 Implemented the private bounded section/proposal store and immutable checkpoint replay using the existing citation, claim, diagram and chapter validators. Exact repeats retain generation identity; changed content requires an explicit immutable revision. Preparation and compare-and-swap commit are separate. The full native suite passes 318 tests (11 live probes ignored), including 14 new section-storage regressions. These cover preservation after a later rejection, limits, stale writes, Stop/permission/runtime/snapshot/deadline changes, source delivery uncertainty and stored-content tampering. [Implementation evidence and exact integration boundaries](../acceptance/2026-10-17-progressive-section-storage.md).
