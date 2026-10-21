@@ -80,11 +80,11 @@ Do not implement UI changes in this audit task, regenerate the design images, ad
 ## Done evidence
 A dated gap ledger with five packaged-app screenshots, build/window metadata, corrections to the source baseline, prioritized specific fixes, and links from each fix to its implementation issue.
 
-## Latest contract gap ledger — later 16 October
+## Historical contract gap ledger — 16 October
 
-The current native shell is not the new workspace preview. The mismatch is behavioral, even where the old design was previously followed.
+This records the native state observed on 16 October, before the persistent workspace was integrated. The later packaged app has since adopted the Explorer / chat / Guide workspace shell, so these rows are historical implementation gaps rather than claims about the current build.
 
-| Latest user requirement | Current application gap | Delivery task |
+| User requirement on 16 October | Application gap observed then | Delivery task |
 | --- | --- | --- |
 | Explorer remains left in every view; actual code beside explanation | Existing explorer/source composition belongs to Files; Guide is a separate destination. | nnsf |
 | One pinned chat captures intent in any view | Guide route questions, selected-code dialogs and independent generators are separate entry points. | nsfd |
@@ -98,3 +98,9 @@ The current native shell is not the new workspace preview. The mismatch is behav
 | Notifications stay behind a bell, with no settings taking reading space | Global notices moved to the bell and compact header controls are implemented; capture/generation modal migration and durable outcomes remain open. | hstr, nw1h |
 
 The preview demonstrates sample interactions and cannot close these native gaps. Do not replace actual generated narrative depth, source correctness, narration or accessibility with screenshots or source-level labels.
+
+## Native Guide observation — 21 October 2026
+
+The running Code Atlas window showed the Fontdone `main@5249b72371` snapshot and the persistent workspace: Explorer on the left, source beside Guide, a chat composer above the content, and Guide / Flow / Chat history views in the explanation pane. The selected Guide section was “PFR0: dispatch, validate, adapt”; its scene title was “One dispatch, distinct exits,” and Pocket narration was ready at 00:00 / 00:23. The story canvas appeared empty, and its accessibility subtree exposed the graph controls and attribution but no visible node labels. The code pane showed `src/font.rs:4062`.
+
+This is a concrete Guide visual gap to reproduce. The running executable's build hash was not established, and no screenshot was saved with the audit, so this observation does not establish the cause or count as packaged acceptance. Recheck with a verified executable, durable screenshot, and screen-reader-visible scene content. The saved answer and reader state were left unchanged. Other first-run, Explorer, Changes, history, accessibility, zoom, contrast, motion, and theme cases remain unreviewed in this pass; keep this task and parent `13yp` open.
