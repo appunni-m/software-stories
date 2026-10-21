@@ -37,3 +37,22 @@ Current-source verification:
 - `cargo test --lib narration::tests::`: **28 passed**. Includes delayed synthesis followed by a cache hit and replay with one worker run, generation-time matching-cache reuse without queueing, text/voice/style/pronunciation invalidation, bounded/coalesced queue behavior, cancellation, shutdown and worker failure recovery.
 
 These are source-level fixtures. The prior installed Fontdone observation saw a newly published section ready to play, but did not match the WAV to that section's canonical fingerprint or time the exact preparing-to-ready transition. Packaged status/latency, restart/offline reuse and cancellation/failure under load remain open.
+
+## Packaged first-section timing — 2026-10-21
+
+One approved request against the packaged app and Fontdone `main@5249b72371`
+used GPT-6 Luna/max and produced a single Guide section. The saved native run
+record (`d456b9ba-12ac-4633-83c2-62aa51d49fa8`) reports publication at
+174,204 ms (2m54s), exceeding the 120-second first-section target. The recorded
+source reads totaled 10,395 bytes; this was a focused function/helper question,
+not a broad repository explanation.
+
+The saved revision appeared at 06:44:38 IST and a 679,724-byte local WAV appeared
+at 06:44:44 IST. Connections showed **Pocket TTS — on this Mac** with Alba. The
+Guide already showed **Ready to play** before Play; the first Play click went
+directly to **Playing**, and the clip reached 14.15 seconds. This is packaged
+evidence consistent with post-publication local prewarming and immediate manual
+playback. It does not identify the WAV by the section's canonical cache key,
+capture the exact preparing-to-ready transition, or prove offline reuse after
+restart. No listening-quality, worker-failure, cancellation, or shutdown check
+was performed. Keep this task open.
