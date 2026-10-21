@@ -46,9 +46,13 @@ pub(crate) fn menu(app: &AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wr
 
 pub(crate) fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     if event.id().as_ref() == QUIT_MENU {
-        // AppHandle::exit emits ExitRequested; never call NSApplication's
-        // predefined terminate action, which cannot await the renderer.
-        app.exit(0);
+        // Start the save handshake at the menu boundary instead of relying on
+        // this menu callback to be translated into ExitRequested by the
+        // platform event loop. After the renderer acknowledges, complete_app_close
+        // calls AppHandle::exit; the approved intent lets that event pass once.
+        if request(app, Intent::Quit) == Decision::Allow {
+            app.exit(0);
+        }
     } else {
         crate::app_zoom::handle_menu_event(app, &event);
     }

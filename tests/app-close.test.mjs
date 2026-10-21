@@ -104,11 +104,12 @@ test('production registers the native handshake before mounting and covers Quit,
   assert.match(lib,/app_close::handle_event\(app, &event\)/);
 });
 
-test('macOS menu Quit and Cmd+Q route through ExitRequested instead of the predefined terminate action',async()=>{
+test('macOS menu Quit and Cmd+Q start the save handshake without the predefined terminate action',async()=>{
   const [native,lib]=await Promise.all(['src-tauri/src/app_close.rs','src-tauri/src/lib.rs'].map(p=>readFile(new URL(`../${p}`,import.meta.url),'utf8')));
   assert.match(native,/application\.remove_at\(position\)/);
   assert.match(native,/MenuItem::with_id\(app, QUIT_MENU, title, true, Some\("CmdOrCtrl\+Q"\)\)/);
   assert.match(native,/event\.id\(\)\.as_ref\(\) == QUIT_MENU/);
+  assert.match(native,/if request\(app, Intent::Quit\) == Decision::Allow \{\s*app\.exit\(0\);/);
   assert.match(native,/app\.exit\(0\)/);
   assert.match(lib,/\.menu\(app_close::menu\)/);
   assert.match(lib,/\.on_menu_event\(app_close::handle_menu_event\)/);
