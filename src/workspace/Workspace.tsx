@@ -31,6 +31,7 @@ import { searchCapturedSource, searchExploration, searchLimitMessage, searchResu
 import { linearFlowSteps } from './flowPresentation';
 import { layoutFlowEdgeLabels, layoutFlowNodes, type FlowPoint } from './flowLayout';
 import { nextFocusableCommitIndex } from './gitCommitNavigation';
+import { readOnlyDiagramAriaLabelConfig } from '../lib/readOnlyDiagramAccessibility';
 import { WorkspaceExplorer } from './WorkspaceExplorer';
 import './workspace.css';
 
@@ -618,6 +619,7 @@ function EvidenceFlowCanvas({revisionId,sectionId,sectionRevisionId,nodes,edges,
     };
   },[revisionId,sectionId,sectionRevisionId,nodeKey]);
   return <div ref={stage} className="dw-flow-canvas"><ReactFlow nodes={nodes} edges={edges} edgeTypes={evidenceFlowEdgeTypes} defaultViewport={viewport} fitView={!viewport} minZoom={.1} maxZoom={4}
+    aria-label={`Read-only code relationship diagram: ${nodes.length} steps`} ariaLabelConfig={readOnlyDiagramAriaLabelConfig} disableKeyboardA11y
     onInit={(flow)=>{instance.current=flow;scheduleCheck.current();}}
     onNodesChange={(changes)=>{if(changes.some((change)=>change.type==='dimensions'))scheduleCheck.current();}}
     onMoveEnd={(_event,next)=>{const clean=cleanFlowViewport(next);if(clean)onViewportChange(clean);}}

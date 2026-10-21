@@ -10,6 +10,7 @@ import { inspectInteractiveVisual } from './lib/visuals';
 import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes, visibleStoryEdgeLabel } from './lib/visualStory';
 import { storyViewportNeedsRefit, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
+import { readOnlyDiagramAriaLabelConfig } from './lib/readOnlyDiagramAccessibility';
 import { useReaderProgress } from './lib/ReaderProgressContext';
 import './visual-story.css';
 
@@ -293,6 +294,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
       {htmlScenes.map((item) => <HtmlScene key={item.claimIndex} scene={item} visual={visual} onOpenNode={chooseNode} focusedNode={focusedNode}/>)}
     </div> : visual ? <div ref={storyStage} className="story-stage" role="group" aria-label={visual.title}>
       <ReactFlow key={`${section.sectionRevisionId}:${index}:${fullMap}:${visibleNodeKey}`} nodes={nodes} edges={edges} edgeTypes={storyEdgeTypes} defaultViewport={canvasViewport.current} fitView={!canvasViewport.current} fitViewOptions={{ padding: .06, maxZoom: 1.1 }}
+        aria-label={`Read-only visual explanation: ${visual.title}`} ariaLabelConfig={readOnlyDiagramAriaLabelConfig} disableKeyboardA11y
         onInit={(instance) => {
           flowInstance.current = instance;
           // Reapply the controlled arrays after React Flow initializes. On a
