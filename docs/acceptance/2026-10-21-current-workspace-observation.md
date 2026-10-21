@@ -21,10 +21,17 @@ Status: partial evidence for Kata `x21h`; this is not the required screen-by-scr
 - **Observed exploration state:** the Explorer listed 33 questions for Fontdone, including partial explanations and unavailable saved answers. These are existing workspace records and were not modified.
 - **Duplicate setup route:** the top bar has a persistent Connections control, but the adjacent Workspace tools menu also listed Connections. That creates a second setup path after the user asked to keep connection selection in the header. The source now removes the duplicate menu item and a shell regression checks that Connections appears in the header only. This source change has not yet been installed in the app whose hash is recorded above.
 
+## Additional reversible screen checks
+
+- **Search — partial pass:** `parse_table_directory_at` returned two captured-source matches in `src/tt/mod.rs` (the definition at line 91 and a call at line 87). A unique no-hit query showed “No matching code in this search” with an **Explore with AI** action. I did not activate the action; no AI request was sent. The selected source and Guide content remained visible beside the Search sidebar.
+- **Changes — partial pass:** the activity bar showed 80 recent commits. Selecting the current commit eventually loaded two changed files. `README.md` showed a one-hunk text comparison and an explicit unsupported-parser note; the retention inventory was oversized and had no diff hunk. The panel labeled static cross-file evidence partial and stated that runtime impact was not inferred. The first immediate observation remained on “Select a commit”; a subsequent state read showed the loaded comparison.
+- **Flow — partial pass:** the `TableDirectory::find` answer displayed a seven-node decision path for scanning records, comparing the tag, deriving a byte range, returning a borrowed slice, or returning `None`. Node descriptions were readable at the current zoom, but the Guide story graph in this same older binary still clipped descriptions. Static graph-to-code selection and nested Flow restoration were not re-exercised here.
+- Explorer, Guide and the original open Notifications drawer were restored afterward. Search queries and commit selection were local inspection state; no saved answer, notification, or source record was edited.
+
 The CUA screenshots of the open drawer and restored workspace are visible in the 21 October task transcript. They are not archived as PNG files in this repository yet, so the screenshot artifact requirement remains incomplete.
 
 ## Not inspected
 
-First-run and empty states, Search, Changes, Flow, Chat history, nested Back/root restoration, notification actions, light appearance, resizing, 200% zoom, keyboard-only navigation, VoiceOver, and other repositories remain uninspected. Capture the rebuilt installed app and archive screenshots before claiming native acceptance.
+First-run and empty states, Chat history, nested Back/root restoration, notification actions, light appearance, resizing, 200% zoom, keyboard-only navigation, VoiceOver, and other repositories remain uninspected. Search, Changes, and Flow have only the partial checks above. Capture the rebuilt installed app and archive screenshots before claiming native acceptance.
 
 Related implementation/evidence tasks: `13yp` (approved workspace), `j53m` (visual explanations), and `hstr` (notifications). No task is closed by this observation.
