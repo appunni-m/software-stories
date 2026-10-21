@@ -45,6 +45,10 @@ The owned-tool investigation exposed repeated local hashing of the 246 MB instal
 
 Full monotonic stage tracing, bounded export/restart behavior, controlled repeated Fontdone questions and the two-minute first-admitted-answer gate remain open.
 
+## Packaged focused-section timing — 2026-10-21
+
+One explicitly approved packaged Codex request against Fontdone `main@5249b72371` published a focused `Font::face_count` section after **174,204 ms (2m54s)**, above the proposed two-minute first-useful-answer goal. The run read 10,395 captured source bytes; this is not the total request/context size. A 679,724-byte local Pocket WAV appeared about six seconds after the saved revision, so narration synthesis did not hold up section publication in this sample. The exact sample and observation limits are recorded in [the prewarm acceptance](75-narration-prewarm.md). This is one narrow sample, not a latency distribution. Current traces still cannot assign uncovered time among queue, index/retrieval, runtime preparation, model inference and validation; do not attribute the result to context size or any single stage.
+
 The fourth broad agent investigation took 125.603 seconds in native generation and 127.82 seconds for the full test. It delivered 52 calls, read 47,986 distinct code bytes, consumed 239,661 metadata bytes, and then failed a search matcher without producing an answer. [Preserved result](../acceptance/artifacts/2026-10-17-fontdone-agent-broad-search-terms.json). Earlier transport failures and the old 606-second stopped attempt remain in the record. This is one failed sample with a changed integration, not a speedup measurement, percentile, or two-minute useful-answer pass.
 
 
