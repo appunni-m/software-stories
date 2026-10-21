@@ -177,7 +177,8 @@ checks pass for all 29 anchors, but misleading arrows/code-card scenes and dense
 narration remain tracked in `3bz5`, `j53m` and `q0sm`. [Result and pending work](acceptance/2026-10-17-fontdone-source-value.md).
 
 `q6g3` now implements one finite worker per complete reviewed script, model/voice
-reuse within it, four waiting slots and cancellable bounded stdin. `dbmd` retains
-installed cache/player/export and listening acceptance. [Exact evidence and
-limits](acceptance/2026-10-17-pocket-whole-script.md). The Mac remains locked;
-no task is closed, and live status remains 73 records / 50 open / 23 closed.
+reuse within it, four waiting slots, cancellable bounded stdin and a 49-package
+hash-locked macOS/Python runtime. `dbmd` retains installed cache/player/export
+and listening acceptance. [Exact whole-script evidence and limits](acceptance/2026-10-17-pocket-whole-script.md)
+and [current runtime qualification](kata-tasks/34-pocket-runtime.md). No task is
+closed based on source or unit evidence alone.

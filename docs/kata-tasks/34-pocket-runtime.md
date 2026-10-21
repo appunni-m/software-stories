@@ -43,6 +43,32 @@ passed for binary tampering, release mismatch, symlink rejection and setup
 availability without a global `uv` install. This is source and local-tool
 evidence, not packaged clean-account setup.
 
+## Reproducible Python dependencies — 2026-10-21
+
+The runtime now includes a generated lock for all 49 dependencies resolved from
+the five direct pins in
+[`pocket-tts-requirements-macos-aarch64-py313.in`](../../src-tauri/resources/pocket-tts-requirements-macos-aarch64-py313.in).
+The adjacent lock includes SHA-256 hashes and is installed with `uv pip install
+--require-hashes --only-binary :all:`. Rust writes that exact lock into app
+storage and checks its SHA-256 against both the readiness manifest and the
+compiled lock before reporting the runtime ready. The worker receives the same
+digest and rejects synthesis if the manifest differs. Lock changes also change
+the runtime fingerprint used for narration-cache identity.
+
+The lock was resolved with uv 0.11.29 for Python 3.13.14 and macOS using
+`MACOSX_DEPLOYMENT_TARGET=14.0` and the `aarch64-apple-darwin` target. The selected PyTorch wheel is tagged for
+macOS 14 on Apple Silicon; the app bundle now declares macOS 14 as its minimum.
+Source/unit evidence does not qualify a clean-account packaged setup or an
+offline reinstall, so this task remains open.
+
+Focused verification on 2026-10-21: all 14 `pocket_tts::tests` pass. The uv
+hash-enforced dry run resolves all 49 locked packages for Python 3.13.14 on
+Apple Silicon macOS, and both worker files pass Python syntax compilation. The
+worker contract suite could not run under the available Python because PyTorch
+is not installed in that interpreter. `cargo fmt --check` also reports existing
+formatting differences across unrelated Rust modules; the changed Pocket module
+passes standalone rustfmt. No packaged setup or fresh account was exercised.
+
 ## Current native evidence — 2026-10-16
 
 The release app's **Set up local narration** action completed Python, package and pinned model/Alba preparation and displayed **Pocket TTS is ready**. The initial native Python failure was caused by passing both `--managed-python` and `UV_PYTHON_PREFERENCE=only-managed`; the installer now uses only the enforced environment preference. The corrected command passed and a regression test covers the exact argument/environment construction. Full `npm run check` passed (98 frontend, 185 Rust passed, two ignored), and unsigned `.app`/DMG packaging passed.
@@ -51,13 +77,15 @@ This run used an existing uv installation on Apple Silicon macOS, not a clean-ac
 
 ## Implementation update — 2026-10-15
 
-`src-tauri/src/pocket_tts.rs` embeds `resources/pocket_tts_worker.py`. Explicit setup/repair downloads Python 3.13.14, pinned core packages and immutable English model/Alba assets into app data, writes readiness only after model initialization, and exposes setup phases. Synthesis uses a finite offline worker per segment, bounded stdin/WAV output, process-group cancellation/reaping and app-exit cleanup, with no listener or cloud fallback. Status reads files without launching Python. The target is Apple Silicon macOS; an existing `uv` executable is required. See [the runtime contract and full pins](../research/pocket-tts-runtime.md).
+`src-tauri/src/pocket_tts.rs` embeds `resources/pocket_tts_worker.py`. Explicit setup/repair downloads Python 3.13.14, pinned core packages and immutable English model/Alba assets into app data, writes readiness only after model initialization, and exposes setup phases. Synthesis uses a finite offline worker per segment, bounded stdin/WAV output, process-group cancellation/reaping and app-exit cleanup, with no listener or cloud fallback. Status reads files without launching Python. This October 15 entry is historical: the current app-managed `uv` bootstrap, complete hash lock and macOS minimum are recorded above. See [the runtime contract and full pins](../research/pocket-tts-runtime.md).
 
 Remaining broader qualification work:
 
 - [x] Pin and verify the app-managed uv setup utility and retain its MIT/Apache notices in bundle resources. Source/unit tests and a local extracted-binary smoke check pass.
-- [ ] Complete the transitive Python artifact/hash lock, inspect packaged notices, and qualify signing/notarization/quarantine behavior for the supported Mac target.
-- [ ] Establish minimum macOS, wheel compatibility, disk/download/memory requirements, update/cache cleanup and uninstall behavior on a clean account without developer caches.
+- [x] Commit a transitive Python artifact/hash lock, require hashes and binary wheels during install, and bind runtime readiness/cache identity to its digest. The lock has source/unit evidence; clean-account install remains unqualified.
+- [x] Declare macOS 14 as the supported minimum for the selected Apple Silicon PyTorch wheel.
+- [ ] Qualify actual wheel installation, disk/download/memory requirements, update/cache cleanup and uninstall behavior on a clean account without developer caches.
+- [ ] Inspect the packaged dependency notices and qualify signing, notarization and quarantine behavior for the supported Mac target.
 - [x] Define and implement whole-script ownership with a bounded queue and warm model/voice reuse within that script. Isolated packet/queue/cancellation and real-worker checks are recorded above; installed cross-window/setup interleaving, app exit and player/cache behavior remain qualification work.
 - [ ] When authorized, exercise fresh packaged setup, missing system curl/tar, network/low-disk failure, cancelled downloads, retry/repair, changed packages/models and incomplete manifests.
 - [ ] Record offline synthesis, bounded output, repeated cancellation, timeout, window navigation and actual app-exit child cleanup; accept only complete validated WAV output.

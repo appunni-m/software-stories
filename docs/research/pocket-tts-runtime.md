@@ -2,6 +2,8 @@
 
 October 21 source update: explicit setup now downloads the pinned Apple Silicon `uv` 0.13.4 release into app storage and verifies its SHA-256 before extraction. It no longer depends on a user-installed `uv`. The release archive and binary are checked against an app-managed manifest before setup reuses the binary. The official [uv 0.13.4 release](https://github.com/astral-sh/uv/releases/tag/0.13.4) publishes the selected artifact and checksum; its MIT and Apache notices are included in the Tauri bundle resources. This change has source and unit-test evidence, but not a fresh packaged-app setup run or a clean-account qualification.
 
+October 21 package-lock update: setup now installs the 49 resolved Python dependencies from the checked-in [`uv` hash lock](../../src-tauri/resources/pocket-tts-requirements-macos-aarch64-py313.lock), with `--require-hashes` and binary wheels only. Its direct pins are maintained in the adjacent [input file](../../src-tauri/resources/pocket-tts-requirements-macos-aarch64-py313.in); regenerate with the recorded `uv pip compile --generate-hashes` command using Python 3.13.14 and the `aarch64-apple-darwin` target. The selected PyTorch wheel requires macOS 14, so the app bundle now declares macOS 14 as its minimum. Setup writes the exact lock into app storage, stores its SHA-256 in the runtime manifest, validates it before synthesis, and includes it in narration-cache identity. This closes the source-level transitive lock gap; fresh packaged setup, clean-account and offline installer qualification remain open.
+
 October 16 native update: the release app completed managed Python/package/model setup and reported **Pocket TTS is ready**. The initial setup failure was reproduced as conflicting uv managed-Python options, then fixed and covered by a regression. A subsequent synthesis failure was traced to inference-mode tensors crossing Pocket’s background cache-worker boundary; synthesis now uses `torch.no_grad()` and the corrected offline worker produced a valid synthetic WAV. That run used an existing uv installation and was not a clean-account installer qualification. The final app installed at `~/Applications/Code Atlas.app` generated and played an 8.85-second section, supported replay/pause and reused its cached audio after section navigation. Cancellation, clean-account packaging, export and listening qualification remain open below. See [dated native evidence](../acceptance/2026-10-16-codex-validation.md).
 
 ## Runtime contract
@@ -22,10 +24,10 @@ into the application binary; no separately discovered script is required.
   pinned `uv`, virtual environment, downloaded Python, uv/Hugging Face caches,
   temporary directory, model assets and readiness manifest stay there. It does
   not use the development machine's Pocket TTS sample caches.
-- Setup downloads Python 3.13.14 and installs pinned Pocket TTS 3.3.0, PyTorch
-  2.14.1, NumPy 2.5.4, huggingface-hub 2.2.0 and PyYAML 6.0.3. Packages must have
-  compatible binary wheels. Remaining transitive dependencies are resolved by
-  uv; a complete artifact/hash lock remains release work.
+- Setup downloads Python 3.13.14 and installs the exact direct and transitive
+  dependency set in the checked-in macOS/Python hash lock. `uv pip install`
+  requires hashes and binary wheels only; if a matching wheel or hash is
+  unavailable, setup fails instead of selecting an unpinned source build.
 - The installer ignores user/project uv and curl configuration and inherited
   credentials. The fixed model and voice assets are downloaded without a
   Hugging Face token.
@@ -58,7 +60,8 @@ Pocket TTS code and model licensing are separate from voice attribution; see the
 [Pocket TTS repository](https://github.com/kyutai-labs/pocket-tts).
 
 `runtime_fingerprint()` hashes the embedded worker (including complete asset
-revision pins and PCM conversion), interpreter version and pinned core packages.
+revision pins and PCM conversion), interpreter version, pinned core packages
+and complete dependency lock.
 The local narration cache and its derived review fingerprint include this value;
 legacy Google cache keys remain unchanged. A setup manifest stores
 asset sizes/hashes and the local configuration hash. The worker checks those
@@ -83,7 +86,8 @@ Every segment must be nonempty and finite; pauses count toward the output cap.
 A later failure discards the entire temporary output.
 Rust independently checks the WAV header, length and 12 MiB limit, reads at most
 that limit plus one byte, and removes the temporary output after success/failure.
-The accepted section cache is managed by the narration layer.
+The accepted section cache is managed by the narration layer. A changed or
+missing lock invalidates runtime readiness and changes the cache fingerprint.
 
 Cancellation, timeouts and dropped request futures stop the owned process group;
 the worker thread reaps the direct child. The desktop app must call `shutdown()`
@@ -97,11 +101,12 @@ leave partial setup downloads; explicit setup replaces incomplete runtime state.
 
 This is a managed-install approach, not a self-contained offline Mac bundle.
 `uv` is pinned and downloaded on explicit setup, but it is not bundled in the
-DMG. The transitive Python dependency artifact/hash lock is incomplete. The
-downloaded Python/native wheels need the release's signing, notarization,
-quarantine and clean-account acceptance strategy. Minimum supported macOS,
-available wheel compatibility, exact storage requirements and installer recovery
-remain unverified. Intel Mac support is not exposed.
+DMG. The Python dependency artifact/hash lock is now checked in. The selected
+Apple Silicon wheels set macOS 14 as the declared minimum; the packaged setup
+still needs clean-account and fresh-install qualification. The downloaded
+Python/native wheels need the release's signing, notarization and quarantine
+strategy. Exact storage requirements and installer recovery remain unverified.
+Intel Mac support is not exposed.
 
 Before accepting the runtime task, exercise fresh setup, missing system `curl`
 or `tar`, low disk, network failure, cancelled downloads, repair, package/model corruption, offline

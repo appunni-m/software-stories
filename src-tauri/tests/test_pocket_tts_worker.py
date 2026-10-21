@@ -7,6 +7,7 @@ chunks; these tests do not assess voice quality or perform any download.
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -39,6 +40,7 @@ class WorkerTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix="atlas-pocket-contract-")
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)
+        self.requirements_sha256 = "a" * 64
         (self.root / "assets").mkdir()
         (self.root / "model.yaml").write_text("synthetic config")
         assets = {}
@@ -48,19 +50,37 @@ class WorkerTests(unittest.TestCase):
             assets[name] = {"size": path.stat().st_size, "sha256": worker.digest(path)}
         (self.root / "ready.json").write_text(json.dumps({
             "modelId": worker.MODEL_ID, "configSha256": worker.digest(self.root / "model.yaml"),
-            "assets": assets,
+            "requirementsSha256": self.requirements_sha256, "assets": assets,
         }))
 
     def run_worker(self, payload, model):
         stdin = io.TextIOWrapper(io.BytesIO(payload))
-        with patch.object(worker.sys, "stdin", stdin), patch.object(
-            worker, "load_local_model", return_value=(model, {"voice": "alba"})
-        ) as load:
+        with (
+            patch.dict(os.environ, {"CODE_ATLAS_REQUIREMENTS_SHA256": self.requirements_sha256}),
+            patch.object(worker.sys, "stdin", stdin),
+            patch.object(worker, "load_local_model", return_value=(model, {"voice": "alba"})) as load,
+        ):
             try:
                 worker.synthesize(self.root)
                 return load.call_count
             finally:
                 self.last_load_count = load.call_count
+
+    def test_changed_or_missing_requirements_lock_hash_rejects_synthesis(self):
+        packet = json.dumps({"schemaVersion": 1, "segments": ["A reviewed sentence."]}).encode()
+        for expected in ["b" * 64, ""]:
+            with self.subTest(expected=expected[:4]), patch.dict(
+                os.environ, {"CODE_ATLAS_REQUIREMENTS_SHA256": expected}
+            ):
+                model = Model()
+                with (
+                    patch.object(worker.sys, "stdin", io.TextIOWrapper(io.BytesIO(packet))),
+                    patch.object(worker, "load_local_model", return_value=(model, {"voice": "alba"})) as load,
+                ):
+                    with self.assertRaises(ValueError):
+                        worker.synthesize(self.root)
+                self.assertEqual(load.call_count, 0)
+                self.assertFalse((self.root / "active.wav").exists())
 
     def test_whole_script_loads_once_preserves_segment_order_and_pause(self):
         segments = ["First reviewed sentence. ", "Second reviewed sentence."]

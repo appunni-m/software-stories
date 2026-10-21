@@ -42,6 +42,13 @@ ASSETS = {
 }
 
 
+def expected_requirements_sha256():
+    value = os.environ.get("CODE_ATLAS_REQUIREMENTS_SHA256", "")
+    if len(value) != 64 or any(character not in "0123456789abcdef" for character in value):
+        raise ValueError("requirements_lock_unavailable")
+    return value
+
+
 def digest(path):
     with path.open("rb") as source:
         return hashlib.file_digest(source, "sha256").hexdigest()
@@ -97,6 +104,7 @@ def setup(root):
         "packages": PACKAGES,
         "assets": manifest_assets,
         "configSha256": digest(config_path),
+        "requirementsSha256": expected_requirements_sha256(),
     }
     temporary = root / "ready.json.part"
     temporary.write_text(json.dumps(manifest), encoding="utf-8")
@@ -138,7 +146,9 @@ def synthesize(root):
     import torch
 
     manifest = json.loads((root / "ready.json").read_text(encoding="utf-8"))
-    if manifest["modelId"] != MODEL_ID or manifest["configSha256"] != digest(root / "model.yaml"):
+    if (manifest["modelId"] != MODEL_ID
+            or manifest["configSha256"] != digest(root / "model.yaml")
+            or manifest.get("requirementsSha256") != expected_requirements_sha256()):
         raise ValueError("runtime_changed")
     for name in ASSETS:
         asset = root / "assets" / name
@@ -184,6 +194,7 @@ def synthesize(root):
 
 def main():
     logging.disable(logging.CRITICAL)
+    expected_requirements_sha256()
     for package, version in PACKAGES.items():
         if importlib.metadata.version(package) != version:
             raise ValueError("package_changed")

@@ -1,0 +1,11 @@
+# Direct runtime dependencies for the app-managed Apple Silicon macOS runtime.
+# From the repository root, regenerate the adjacent hash lock with uv 0.11.29:
+# MACOSX_DEPLOYMENT_TARGET=14.0 uv pip compile src-tauri/resources/pocket-tts-requirements-macos-aarch64-py313.in \
+#   --generate-hashes --only-binary :all: --python-version 3.13.14 \
+#   --python-platform aarch64-apple-darwin \
+#   --output-file src-tauri/resources/pocket-tts-requirements-macos-aarch64-py313.lock
+pocket-tts==3.3.0
+torch==2.14.1
+numpy==2.5.4
+huggingface-hub==2.2.0
+pyyaml==6.0.3

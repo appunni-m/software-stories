@@ -52,7 +52,7 @@
     ],
     "macOS": {
       "hardenedRuntime": true,
-      "minimumSystemVersion": null
+      "minimumSystemVersion": "14.0"
     }
   }
 }

@@ -29,9 +29,16 @@ const UV_ARCHIVE_URL: &str =
 const UV_ARCHIVE_SHA256: &str = "e0b1d4743ce64c55d9f0f4a444afa6b81125680070ee04e853fcd0f6c1ebf8f1";
 const UV_ARCHIVE_LIMIT: usize = 20 * 1024 * 1024;
 const UV_BINARY_LIMIT: usize = 64 * 1024 * 1024;
+const REQUIREMENTS_LOCK_FILE: &str = "requirements.lock";
+const MAX_REQUIREMENTS_LOCK_BYTES: usize = 128 * 1024;
 pub(crate) const MODEL_ID: &str = "pocket-tts-3.3.0:english_2026-09:e7205b6e:alba:4e1e0a3e:pcm-v1";
 pub(crate) const VOICE: &str = "alba";
 const WORKER: &str = include_str!("../resources/pocket_tts_worker.py");
+#[cfg(test)]
+const REQUIREMENTS_INPUT: &str =
+    include_str!("../resources/pocket-tts-requirements-macos-aarch64-py313.in");
+const REQUIREMENTS_LOCK: &str =
+    include_str!("../resources/pocket-tts-requirements-macos-aarch64-py313.lock");
 const REQUIREMENTS: [&str; 5] = [
     "pocket-tts==3.3.0",
     "torch==2.14.1",
@@ -75,6 +82,7 @@ struct RuntimeManifest {
     packages: HashMap<String, String>,
     assets: HashMap<String, AssetManifest>,
     config_sha256: String,
+    requirements_sha256: String,
 }
 
 #[derive(Deserialize)]
@@ -102,6 +110,7 @@ pub(crate) fn runtime_fingerprint() -> String {
     let mut hash = Sha256::new();
     hash.update(WORKER.as_bytes());
     hash.update(PYTHON_VERSION.as_bytes());
+    hash.update(REQUIREMENTS_LOCK.as_bytes());
     for requirement in REQUIREMENTS {
         hash.update(requirement.as_bytes());
     }
@@ -122,11 +131,7 @@ fn uv_tool_dir(runtime: &Path) -> PathBuf {
 
 fn verified_uv(runtime: &Path) -> Option<PathBuf> {
     let directory = uv_tool_dir(runtime);
-    if !fs::symlink_metadata(&directory)
-        .ok()?
-        .file_type()
-        .is_dir()
-    {
+    if !fs::symlink_metadata(&directory).ok()?.file_type().is_dir() {
         return None;
     }
     let manifest_bytes = bounded_read(&directory.join("manifest.json"), 4 * 1024)?;
@@ -160,9 +165,17 @@ fn installed(root: &Path) -> bool {
     let Ok(manifest) = serde_json::from_slice::<RuntimeManifest>(&bytes) else {
         return false;
     };
+    let Some(lock_bytes) = bounded_read(
+        &root.join(REQUIREMENTS_LOCK_FILE),
+        MAX_REQUIREMENTS_LOCK_BYTES,
+    ) else {
+        return false;
+    };
     manifest.model_id == MODEL_ID
         && manifest.package_version == PACKAGE_VERSION
         && manifest.python_version == PYTHON_VERSION
+        && manifest.requirements_sha256 == requirements_sha256()
+        && sha256_hex(&lock_bytes) == requirements_sha256()
         && REQUIREMENTS.iter().all(|requirement| {
             requirement.split_once("==").is_some_and(|(name, version)| {
                 manifest
@@ -396,19 +409,8 @@ fn setup_blocking(runtime: &Path, cancelled: &AtomicBool) -> Result<(), Provider
         "Pocket TTS could not prepare Python. Check your connection and available disk space, then retry setup.",
     )?;
     set_phase("packages");
-    let mut install = Command::new(uv);
-    configure_environment(&mut install, runtime, false);
-    install
-        .args([
-            "pip",
-            "install",
-            "--no-config",
-            "--only-binary",
-            ":all:",
-            "--python",
-        ])
-        .arg(python(runtime))
-        .args(REQUIREMENTS);
+    write_requirements_lock(runtime)?;
+    let mut install = package_install_command(&uv, runtime);
     run_child(
         &mut install,
         None,
@@ -436,6 +438,15 @@ fn setup_blocking(runtime: &Path, cancelled: &AtomicBool) -> Result<(), Provider
 
 fn write_worker(runtime: &Path) -> Result<(), ProviderFailure> {
     fs::write(runtime.join("worker.py"), WORKER).map_err(|_| storage_failure())
+}
+
+fn write_requirements_lock(runtime: &Path) -> Result<(), ProviderFailure> {
+    fs::write(runtime.join(REQUIREMENTS_LOCK_FILE), REQUIREMENTS_LOCK)
+        .map_err(|_| storage_failure())
+}
+
+fn requirements_sha256() -> String {
+    sha256_hex(REQUIREMENTS_LOCK.as_bytes())
 }
 
 fn ensure_uv(runtime: &Path, cancelled: &AtomicBool) -> Result<PathBuf, ProviderFailure> {
@@ -581,10 +592,30 @@ fn worker_command(runtime: &Path, mode: &str, offline: bool) -> Command {
     let mut command = Command::new(python(runtime));
     configure_environment(&mut command, runtime, offline);
     command
+        .env("CODE_ATLAS_REQUIREMENTS_SHA256", requirements_sha256())
         .arg("-I")
         .arg(runtime.join("worker.py"))
         .arg(mode)
         .arg(runtime);
+    command
+}
+
+fn package_install_command(uv: &Path, runtime: &Path) -> Command {
+    let mut command = Command::new(uv);
+    configure_environment(&mut command, runtime, false);
+    command
+        .args([
+            "pip",
+            "install",
+            "--no-config",
+            "--require-hashes",
+            "--only-binary",
+            ":all:",
+            "--python",
+        ])
+        .arg(python(runtime))
+        .arg("-r")
+        .arg(runtime.join(REQUIREMENTS_LOCK_FILE));
     command
 }
 
@@ -1138,6 +1169,130 @@ mod tests {
                 std::ffi::OsStr::new("--python"),
                 std::ffi::OsStr::new(PYTHON_VERSION),
             ]
+        }));
+    }
+
+    #[test]
+    fn package_lock_pins_and_hashes_every_dependency() {
+        let direct_inputs: Vec<_> = REQUIREMENTS_INPUT
+            .lines()
+            .filter(|line| !line.trim().is_empty() && !line.trim_start().starts_with('#'))
+            .collect();
+        assert_eq!(direct_inputs, REQUIREMENTS.to_vec());
+
+        let mut package_count = 0;
+        let mut current_package_has_hash = false;
+        for line in REQUIREMENTS_LOCK.lines() {
+            let trimmed = line.trim();
+            if !line.chars().next().is_some_and(char::is_whitespace)
+                && !trimmed.starts_with('#')
+                && trimmed.contains("==")
+            {
+                if package_count > 0 {
+                    assert!(current_package_has_hash, "unhashed lock entry: {line}");
+                }
+                package_count += 1;
+                current_package_has_hash = false;
+                assert!(
+                    trimmed.ends_with('\\'),
+                    "expected generated lock entry: {line}"
+                );
+            } else if trimmed.starts_with("--hash=sha256:") {
+                assert!(package_count > 0, "hash precedes a package entry");
+                current_package_has_hash = true;
+            }
+        }
+        assert!(
+            package_count >= 40,
+            "lock unexpectedly lost transitive packages"
+        );
+        assert!(
+            current_package_has_hash,
+            "last lock entry has no SHA-256 hash"
+        );
+        for requirement in REQUIREMENTS {
+            assert!(REQUIREMENTS_LOCK.contains(requirement));
+        }
+    }
+
+    #[test]
+    fn package_install_uses_the_checked_hash_lock() {
+        let runtime = TestRuntime::new();
+        let command = package_install_command(Path::new("/test/uv"), &runtime.0);
+        let args: Vec<String> = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+        assert!(args.iter().any(|arg| arg == "--require-hashes"));
+        assert!(
+            args.windows(2)
+                .any(|pair| pair == ["--only-binary", ":all:"])
+        );
+        let lock_index = args.iter().position(|arg| arg == "-r").unwrap();
+        assert_eq!(
+            args[lock_index + 1],
+            runtime.0.join(REQUIREMENTS_LOCK_FILE).display().to_string()
+        );
+        assert!(!args.iter().any(|arg| REQUIREMENTS.contains(&arg.as_str())));
+    }
+
+    #[test]
+    fn runtime_readiness_is_bound_to_the_embedded_hash_lock() {
+        let runtime = TestRuntime::new();
+        fs::create_dir_all(runtime.0.join("venv/bin")).unwrap();
+        fs::create_dir_all(runtime.0.join("assets")).unwrap();
+        fs::write(python(&runtime.0), b"synthetic python").unwrap();
+        fs::write(runtime.0.join("model.yaml"), b"synthetic model config").unwrap();
+        fs::write(runtime.0.join(REQUIREMENTS_LOCK_FILE), REQUIREMENTS_LOCK).unwrap();
+
+        let packages: HashMap<_, _> = REQUIREMENTS
+            .iter()
+            .map(|requirement| {
+                let (name, version) = requirement.split_once("==").unwrap();
+                (name.to_owned(), version.to_owned())
+            })
+            .collect();
+        let assets: HashMap<_, _> = ASSET_NAMES
+            .iter()
+            .map(|name| {
+                let path = runtime.0.join("assets").join(name);
+                fs::write(&path, b"synthetic asset").unwrap();
+                (
+                    (*name).to_owned(),
+                    serde_json::json!({
+                        "size": fs::metadata(path).unwrap().len(),
+                        "sha256": "a".repeat(64),
+                    }),
+                )
+            })
+            .collect();
+        fs::write(
+            runtime.0.join("ready.json"),
+            serde_json::to_vec(&serde_json::json!({
+                "modelId": MODEL_ID,
+                "packageVersion": PACKAGE_VERSION,
+                "pythonVersion": PYTHON_VERSION,
+                "packages": packages,
+                "assets": assets,
+                "configSha256": "b".repeat(64),
+                "requirementsSha256": requirements_sha256(),
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(installed(&runtime.0));
+
+        fs::write(runtime.0.join(REQUIREMENTS_LOCK_FILE), b"different lock").unwrap();
+        assert!(!installed(&runtime.0));
+    }
+
+    #[test]
+    fn worker_process_receives_the_compiled_requirements_hash() {
+        let runtime = TestRuntime::new();
+        let command = worker_command(&runtime.0, "setup", false);
+        assert!(command.get_envs().any(|(key, value)| {
+            key == "CODE_ATLAS_REQUIREMENTS_SHA256"
+                && value == Some(std::ffi::OsStr::new(&requirements_sha256()))
         }));
     }
 }
