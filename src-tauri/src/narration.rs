@@ -1917,7 +1917,10 @@ mod tests {
         assert_eq!(data.state, NarrationPrewarmState::Ready);
         assert!(data.cached_audio_available);
         assert_eq!(queue.status(&review.cache_key), None);
-        let queue_state = queue.0.lock().expect("prewarm queue should remain available");
+        let queue_state = queue
+            .0
+            .lock()
+            .expect("prewarm queue should remain available");
         assert!(queue_state.pending.is_empty());
         assert!(!queue_state.worker_running);
     }

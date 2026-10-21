@@ -192,7 +192,7 @@ pub(super) fn check(
                 .ok_or("Saved answer capacity could not be counted.")?;
         }
     }
-    // One thousand record slots total. Every guide reserves all fourteen
+    // One thousand record slots total. Every guide reserves all twenty-one
     // possible 4 MiB receipts up front; standalone and historical receipts
     // each consume one slot. This bounds retained answer payloads at 4,000 MiB
     // (about 3.9 GiB) without preallocating it, regardless of concurrent work.
@@ -210,8 +210,8 @@ mod tests {
 
     #[test]
     fn guide_lifetime_allowances_and_standalone_receipts_share_one_thousand_slots() {
-        assert_eq!(reserved_records(2, 972), Some(1_000));
-        assert_eq!(reserved_records(2, 973), Some(1_001));
+        assert_eq!(reserved_records(2, 958), Some(1_000));
+        assert_eq!(reserved_records(2, 959), Some(1_001));
     }
 
     #[test]

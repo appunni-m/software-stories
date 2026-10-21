@@ -5,7 +5,7 @@ use crate::repository_guide::tests::{attempt, fresh_record};
 fn partial(f: &Fixture) -> Record {
     let mut record = fresh_record(f);
     let mut opening = attempt(&record, Outcome::Partial);
-    opening.run_id = record.planning_run_id.clone();
+    opening.run_id = record.opening.as_ref().unwrap().run_id.clone();
     opening.question = opening::question(&record).unwrap().into();
     let summary = opening.summary.as_mut().unwrap();
     summary.run_id = opening.run_id.clone();
@@ -19,6 +19,21 @@ fn partial(f: &Fixture) -> Record {
     }
     record.status = Status::Partial;
     record
+}
+
+fn after_automatic_retry(f: &Fixture) -> Record {
+    let record = partial(f);
+    store::create(&f.storage, &record).unwrap();
+    let prepared = store::prepare_continuation(&f.storage, &record.id, record.revision).unwrap();
+    let automatic =
+        begin_with_retry(&f.storage, &prepared, &Uuid::new_v4().to_string(), true).unwrap();
+    let owner = automatic.opening_continuations.last().unwrap();
+    let mut failed = attempt(&record, Outcome::Partial).summary.unwrap();
+    failed.run_id = owner.run_id.clone();
+    failed.question = owner.question.clone();
+    failed.incomplete_topics =
+        vec!["The timeout still leaves this exact transition unclear.".into()];
+    finish(&f.storage, &automatic, failed).unwrap()
 }
 
 fn completion(record: &Record) -> Summary {
@@ -40,99 +55,72 @@ fn bytes(f: &Fixture, record: &Record) -> Vec<u8> {
 }
 
 #[test]
-fn initial_build_never_automatically_retries_a_partial_opening() {
+fn an_empty_partial_opening_gets_one_auto_recovery_and_one_explicit_retry() {
     let f = Fixture::new();
-    let mut record = partial(&f);
-    for index in 0..record.units.len() {
-        let mut owner = record.clone();
-        owner.planning_run_id = record.units[index].attempts[0].run_id.clone();
-        owner.question = record.units[index].attempts[0].question.clone();
-        owner.opening.as_mut().unwrap().run_id = owner.planning_run_id.clone();
-        owner.opening.as_mut().unwrap().question = opening::LEARNING_QUESTION.into();
-        owner.opening_context_sha256 = Some(opening::context_sha256(&owner).unwrap());
-        let mut answer = opening::tests::publish_for_question(&f, &owner, &owner.question);
-        answer
-            .finish_manifest(
-                r#"{"manifestVersion":"answerManifestV2","incompleteTopics":[]}"#,
-                false,
-            )
-            .unwrap();
-        let saved = reading::scoped(
-            &f.storage,
-            &owner.planning_run_id,
-            &record.project_id,
-            &record.snapshot_id,
-        )
-        .unwrap()
-        .summary();
-        for section in &saved.sections {
-            reading::adopt(
-                &f.storage,
-                &section.run_id,
-                &record.project_id,
-                &record.snapshot_id,
-                &section.generation_id,
-            )
-            .unwrap();
-        }
-        record.units[index].attempts[0].summary = Some(saved);
-    }
+    let record = partial(&f);
     store::create(&f.storage, &record).unwrap();
-    let result = build(
-        &f.storage,
-        &record.id,
-        false,
-        &codex_agent::CodexAgentManager::default(),
-        RepositoryContextJobs::default(),
-        &recovery::InterruptionJournal::default(),
-        |_| {},
-        Arc::new(|_| {}),
-        |_| Ok(()),
-        |_| {},
-    )
-    .unwrap();
-    assert_eq!(result.status, Status::Partial);
-    assert!(result.can_continue);
-    assert_eq!(result.continuation_operations, 1);
-    assert!(
-        store::read(&f.storage, &record.id)
-            .unwrap()
-            .opening_continuations
-            .is_empty()
-    );
+    assert!(automatic_retry_eligible(&record));
+    assert!(!eligible(&record));
+    assert_eq!(remaining_operations(&record), 1);
+
+    let prepared = store::prepare_continuation(&f.storage, &record.id, record.revision).unwrap();
+    let automatic =
+        begin_with_retry(&f.storage, &prepared, &Uuid::new_v4().to_string(), true).unwrap();
+    assert!(automatic.opening_continuations[0].automatic_retry);
+    assert!(!automatic_retry_eligible(&automatic));
+    assert!(!eligible(&automatic));
+    assert_eq!(remaining_operations(&automatic), 0);
+
+    let owner = automatic.opening_continuations.last().unwrap();
+    let mut failed = attempt(&record, Outcome::Partial).summary.unwrap();
+    failed.run_id = owner.run_id.clone();
+    failed.question = owner.question.clone();
+    let terminal = finish(&f.storage, &automatic, failed).unwrap();
+    let explicit = begin(&f.storage, &terminal, &Uuid::new_v4().to_string()).unwrap();
+    assert_eq!(explicit.opening_continuations.len(), 2);
+    assert!(!explicit.opening_continuations[1].automatic_retry);
+    assert_eq!(remaining_operations(&explicit), 0);
     assert!(!f.storage.join("codex-agent/runtime.json").exists());
-    assert_eq!(MAX_UNITS + 1, 7);
 }
 
 #[test]
-fn original_opening_is_spent_and_only_one_explicit_follow_up_is_admitted() {
+fn automatic_recovery_precedes_one_explicit_follow_up() {
     let f = Fixture::new();
     let record = partial(&f);
     store::create(&f.storage, &record).unwrap();
     assert!(!eligible(&record));
     assert_eq!(remaining_operations(&record), 1);
     let prepared = store::prepare_continuation(&f.storage, &record.id, record.revision).unwrap();
-    assert!(eligible(&prepared));
-    let begun = begin(&f.storage, &prepared, &Uuid::new_v4().to_string()).unwrap();
-    assert_eq!(begun.opening_continuations.len(), 1);
+    assert!(!eligible(&prepared));
+    let automatic =
+        begin_with_retry(&f.storage, &prepared, &Uuid::new_v4().to_string(), true).unwrap();
+    assert_eq!(automatic.opening_continuations.len(), 1);
+    assert!(automatic.opening_continuations[0].automatic_retry);
     assert_eq!(
-        begun.opening_continuations[0].question,
+        automatic.opening_continuations[0].question,
         opening::question(&record).unwrap()
     );
-    assert_eq!(remaining_operations(&begun), 0);
-    let before = bytes(&f, &record);
-    assert!(begin(&f.storage, &prepared, &Uuid::new_v4().to_string()).is_err());
-    assert!(begin(&f.storage, &begun, &Uuid::new_v4().to_string()).is_err());
-    assert_eq!(bytes(&f, &record), before);
+    assert_eq!(remaining_operations(&automatic), 0);
+    assert!(begin(&f.storage, &automatic, &Uuid::new_v4().to_string()).is_err());
+    let owner = automatic.opening_continuations.last().unwrap();
+    let mut failed = attempt(&record, Outcome::Partial).summary.unwrap();
+    failed.run_id = owner.run_id.clone();
+    failed.question = owner.question.clone();
+    let terminal = finish(&f.storage, &automatic, failed).unwrap();
+    assert!(eligible(&terminal));
+    assert_eq!(remaining_operations(&terminal), 1);
+    let explicit = begin(&f.storage, &terminal, &Uuid::new_v4().to_string()).unwrap();
+    assert_eq!(explicit.opening_continuations.len(), 2);
+    assert!(!explicit.opening_continuations[1].automatic_retry);
+    assert!(begin(&f.storage, &explicit, &Uuid::new_v4().to_string()).is_err());
     assert!(!f.storage.join("codex-agent/runtime.json").exists());
 }
 
 #[test]
 fn completed_follow_up_preserves_original_drafts_outline_and_completed_units() {
     let f = Fixture::new();
-    let record = partial(&f);
-    store::create(&f.storage, &record).unwrap();
-    let prepared = store::prepare_continuation(&f.storage, &record.id, 0).unwrap();
+    let record = after_automatic_retry(&f);
+    let prepared = store::prepare_continuation(&f.storage, &record.id, record.revision).unwrap();
     let begun = begin(&f.storage, &prepared, &Uuid::new_v4().to_string()).unwrap();
     assert!(!guide_complete(&begun));
     let finished = finish(&f.storage, &begun, completion(&begun)).unwrap();
@@ -158,9 +146,9 @@ fn completed_follow_up_preserves_original_drafts_outline_and_completed_units() {
 #[test]
 fn stop_and_stale_revision_prevent_admission_and_late_results_cannot_resume_work() {
     let f = Fixture::new();
-    let record = partial(&f);
-    store::create(&f.storage, &record).unwrap();
-    let prepared = store::prepare_continuation(&f.storage, &record.id, 0).unwrap();
+    let record = after_automatic_retry(&f);
+    assert!(eligible(&record));
+    let prepared = store::prepare_continuation(&f.storage, &record.id, record.revision).unwrap();
     let stopped = store::update(&f.storage, &record.id, |current| {
         current.status = Status::Stopped;
         Ok(())
@@ -190,9 +178,8 @@ fn stop_and_stale_revision_prevent_admission_and_late_results_cannot_resume_work
 #[test]
 fn interrupted_follow_up_is_recovered_without_replay_or_a_budget_reset() {
     let f = Fixture::new();
-    let record = partial(&f);
-    store::create(&f.storage, &record).unwrap();
-    let prepared = store::prepare_continuation(&f.storage, &record.id, 0).unwrap();
+    let record = after_automatic_retry(&f);
+    let prepared = store::prepare_continuation(&f.storage, &record.id, record.revision).unwrap();
     let begun = begin(&f.storage, &prepared, &Uuid::new_v4().to_string()).unwrap();
     let recovered = reconcile(
         &f.storage,
@@ -202,7 +189,7 @@ fn interrupted_follow_up_is_recovered_without_replay_or_a_budget_reset() {
     .unwrap();
     assert_eq!(recovered.status, Status::Interrupted);
     assert_eq!(
-        recovered.opening_continuations[0]
+        recovered.opening_continuations[1]
             .summary
             .as_ref()
             .unwrap()
@@ -234,7 +221,7 @@ fn rejected_contracts_and_complete_openings_cannot_obtain_an_extra_attempt() {
         .unwrap()
         .sections[0]
         .clone();
-    notice.run_id = record.planning_run_id.clone();
+    notice.run_id = record.opening.as_ref().unwrap().run_id.clone();
     record
         .opening
         .as_mut()
@@ -269,6 +256,20 @@ fn opening_intent_keeps_both_questions_and_exact_gaps_outside_source_evidence() 
 }
 
 #[test]
+fn a_recovery_uses_the_latest_failed_opening_attempt_as_its_context() {
+    let f = Fixture::new();
+    let record = after_automatic_retry(&f);
+    let intent = intent(&record).unwrap();
+    let continuation = intent.opening_continuation.unwrap();
+    let latest = record.opening_continuations.last().unwrap();
+    assert_eq!(continuation.previous_run_id, latest.run_id);
+    assert_eq!(
+        continuation.incomplete_topics,
+        latest.summary.as_ref().unwrap().incomplete_topics
+    );
+}
+
+#[test]
 fn a_missing_current_connection_or_changed_snapshot_cannot_spend_the_opening_follow_up() {
     let f = Fixture::new();
     let record = partial(&f);
@@ -292,7 +293,8 @@ fn a_missing_current_connection_or_changed_snapshot_cannot_spend_the_opening_fol
                 &|_| {},
                 Arc::new(|_| panic!("no publication was authorized")),
                 &|_| Ok(()),
-                &|_| {}
+                &|_| {},
+                false,
             )
             .is_err()
         );
@@ -305,9 +307,8 @@ fn a_missing_current_connection_or_changed_snapshot_cannot_spend_the_opening_fol
 #[test]
 fn stop_selects_the_durable_current_owner_and_checks_scope_in_the_transaction() {
     let f = Fixture::new();
-    let record = partial(&f);
-    store::create(&f.storage, &record).unwrap();
-    let prepared = store::prepare_continuation(&f.storage, &record.id, 0).unwrap();
+    let record = after_automatic_retry(&f);
+    let prepared = store::prepare_continuation(&f.storage, &record.id, record.revision).unwrap();
     let run = Uuid::new_v4().to_string();
     let begun = begin(&f.storage, &prepared, &run).unwrap();
     let manager = codex_agent::CodexAgentManager::default();
@@ -334,6 +335,6 @@ fn stop_selects_the_durable_current_owner_and_checks_scope_in_the_transaction() 
     let stopped = store::read(&f.storage, &record.id).unwrap();
     assert_eq!(stopped.status, Status::Stopped);
     assert_eq!(stopped.active_run_id.as_deref(), Some(run.as_str()));
-    assert_eq!(stopped.opening_continuations.len(), 1);
+    assert_eq!(stopped.opening_continuations.len(), 2);
     assert!(begin(&f.storage, &begun, &Uuid::new_v4().to_string()).is_err());
 }

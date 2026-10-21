@@ -1352,8 +1352,7 @@ impl ServerProcess {
                 .map_err(|_| "Captured-code tools are unavailable.")?;
             parameters["config"]["mcp_servers"][crate::context_mcp::SERVER] =
                 session.configuration()?;
-            parameters["baseInstructions"] =
-                json!(crate::agent_context::PROGRESSIVE_BASE_INSTRUCTIONS);
+            parameters["baseInstructions"] = json!(session.base_instructions());
         }
         let started = self.request("thread/start", parameters, RPC_TIMEOUT)?;
         if started

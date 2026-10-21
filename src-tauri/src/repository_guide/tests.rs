@@ -21,6 +21,7 @@ pub(super) fn record(f: &Fixture) -> Record {
         model_id: DEFAULT_MODEL_ID.into(),
         reasoning_effort: DEFAULT_REASONING_EFFORT.into(),
         planning_run_id: Uuid::new_v4().to_string(),
+        planning_retry_count: 0,
         opening: None,
         opening_context_sha256: None,
         opening_continuations: vec![],
@@ -58,6 +59,7 @@ pub(super) fn record(f: &Fixture) -> Record {
     result.opening = Some(Attempt {
         run_id: result.planning_run_id.clone(),
         question: opening::LEARNING_QUESTION.into(),
+        automatic_retry: false,
         summary: Some(Summary {
             run_id: result.planning_run_id.clone(),
             project_id: result.project_id.clone(),
@@ -95,6 +97,7 @@ pub(super) fn attempt(record: &Record, outcome: Outcome) -> Attempt {
     Attempt {
         run_id: run_id.clone(),
         question: question.clone(),
+        automatic_retry: false,
         summary: Some(Summary {
             run_id,
             question,
@@ -228,8 +231,8 @@ fn independent_research_preserves_outline_order_attempt_limits_and_reading_edges
         assert!(unit_research_eligible(&r, index));
         visited.push(r.units[index].key.clone());
         let intent = unit_intent(&r, index).unwrap();
-        assert_eq!(intent.unit_number, index + 1);
-        assert_eq!(intent.unit_count, MAX_UNITS);
+        assert_eq!(intent.unit_number, index + 2);
+        assert_eq!(intent.unit_count, MAX_UNITS + 1);
         let question = continuation(&f.storage, &r, index).unwrap();
         assert!(question.starts_with(&r.plan.as_ref().unwrap().units[index].question));
         assert!(question.contains(RESEARCH_INSTRUCTIONS));
@@ -248,6 +251,9 @@ fn independent_research_preserves_outline_order_attempt_limits_and_reading_edges
     assert!(!guide_complete(&r));
     let second = attempt(&r, Outcome::Partial);
     r.units[0].attempts.push(second);
+    assert!(unit_research_eligible(&r, 0));
+    let third = attempt(&r, Outcome::Partial);
+    r.units[0].attempts.push(third);
     assert!(!unit_research_eligible(&r, 0));
     let complete = attempt(&r, Outcome::Complete);
     r.units[1].attempts.push(complete);
@@ -255,7 +261,7 @@ fn independent_research_preserves_outline_order_attempt_limits_and_reading_edges
     r.status = Status::Stopped;
     assert!((0..r.units.len()).all(|i| !unit_research_eligible(&r, i)));
     assert_eq!(MAX_UNITS + 1, 7);
-    assert_eq!(MAX_ATTEMPTS, 2);
+    assert_eq!(MAX_ATTEMPTS, 3);
 }
 
 #[test]
@@ -330,6 +336,92 @@ fn research_admission_preserves_stop_owner_revision_and_spent_attempts() {
 }
 
 #[test]
+fn a_slide_gets_one_automatic_recovery_and_keeps_one_explicit_continuation() {
+    let f = Fixture::new();
+    let record = fresh_record(&f);
+    store::create(&f.storage, &record).unwrap();
+
+    let first_question = continuation(&f.storage, &record, 0).unwrap();
+    let first_run = Uuid::new_v4().to_string();
+    let first = begin_unit(&f.storage, &record, 0, &first_run, &first_question).unwrap();
+    let failed = store::update(&f.storage, &record.id, |current| {
+        let project_id = current.project_id.clone();
+        let snapshot_id = current.snapshot_id.clone();
+        let attempt = current.units[0].attempts.last_mut().unwrap();
+        attempt.summary = Some(Summary {
+            run_id: attempt.run_id.clone(),
+            project_id,
+            snapshot_id,
+            question: attempt.question.clone(),
+            outcome: Outcome::Failed,
+            sections: vec![],
+            incomplete_topics: vec!["The first bounded attempt failed.".into()],
+        });
+        current.active_run_id = None;
+        current.status = Status::Partial;
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(first.units[0].attempts.len(), 1);
+
+    let recovery_question = continuation(&f.storage, &failed, 0).unwrap();
+    let recovery_run = Uuid::new_v4().to_string();
+    let recovered = begin_unit_with_retry(
+        &f.storage,
+        &failed,
+        0,
+        &recovery_run,
+        &recovery_question,
+        true,
+    )
+    .unwrap();
+    assert!(recovered.units[0].attempts[1].automatic_retry);
+    assert_eq!(recovered.units[0].attempts.len(), 2);
+
+    let failed_again = store::update(&f.storage, &record.id, |current| {
+        let project_id = current.project_id.clone();
+        let snapshot_id = current.snapshot_id.clone();
+        let attempt = current.units[0].attempts.last_mut().unwrap();
+        attempt.summary = Some(Summary {
+            run_id: attempt.run_id.clone(),
+            project_id,
+            snapshot_id,
+            question: attempt.question.clone(),
+            outcome: Outcome::Failed,
+            sections: vec![],
+            incomplete_topics: vec!["The automatic recovery also failed.".into()],
+        });
+        current.active_run_id = None;
+        current.status = Status::Partial;
+        Ok(())
+    })
+    .unwrap();
+    let explicit_question = continuation(&f.storage, &failed_again, 0).unwrap();
+    let explicit_run = Uuid::new_v4().to_string();
+    let explicit = begin_unit(
+        &f.storage,
+        &failed_again,
+        0,
+        &explicit_run,
+        &explicit_question,
+    )
+    .unwrap();
+    assert!(explicit.units[0].attempts[1].automatic_retry);
+    assert!(!explicit.units[0].attempts[2].automatic_retry);
+    assert_eq!(explicit.units[0].attempts.len(), 3);
+    assert!(
+        begin_unit(
+            &f.storage,
+            &explicit,
+            0,
+            &Uuid::new_v4().to_string(),
+            &explicit_question,
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn reading_prerequisites_do_not_block_research_and_completed_units_are_skipped() {
     let f = Fixture::new();
     let mut record = record(&f);
@@ -345,7 +437,7 @@ fn reading_prerequisites_do_not_block_research_and_completed_units_are_skipped()
     assert!(unit_research_eligible(&record, 1));
     assert!(!unit_research_eligible(&record, 0));
     assert_eq!(MAX_UNITS, 6);
-    assert_eq!(MAX_ATTEMPTS, 2);
+    assert_eq!(MAX_ATTEMPTS, 3);
 }
 
 #[test]
@@ -367,8 +459,8 @@ fn each_unit_receives_the_exact_native_guide_intent_without_changing_its_questio
             serde_json::json!(record.plan.as_ref().unwrap().omissions)
         );
         assert_eq!(value["unitKey"], record.units[index].key);
-        assert_eq!(value["unitNumber"], index + 1);
-        assert_eq!(value["unitCount"], 2);
+        assert_eq!(value["unitNumber"], index + 2);
+        assert_eq!(value["unitCount"], 3);
         assert!(
             continuation(&f.storage, &record, index)
                 .unwrap()
@@ -450,6 +542,7 @@ fn restart_recovers_only_metadata_and_explicit_continuation_uses_saved_progress(
     record.units[1].attempts.push(Attempt {
         run_id: Uuid::new_v4().to_string(),
         question: "Which output remains unexplored?".into(),
+        automatic_retry: false,
         summary: None,
     });
     record.active_run_id = Some(record.units[1].attempts[0].run_id.clone());
@@ -523,7 +616,7 @@ fn cached_metadata_cannot_hide_a_damaged_existing_answer_receipt() {
 }
 
 #[test]
-#[ignore = "Explicit existing-account GPT-6 Luna/max whole Fontdone guide; at most seven bounded initial investigations, no automatic retries."]
+#[ignore = "Explicit existing-account GPT-6 Luna/max whole Fontdone guide; one bounded automatic retry for a failed outline or unpublished slide; no live run during regression testing."]
 fn fontdone_repository_guide_account_probe() {
     use serde_json::json;
     use std::io::Write;

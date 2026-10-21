@@ -2018,12 +2018,7 @@ impl Validator<'_> {
                     section_id,
                     &node.node_id,
                 );
-                self.validate_visual_source_binding(
-                    node,
-                    claims,
-                    section_anchor_ids,
-                    section_id,
-                );
+                self.validate_visual_source_binding(node, claims, section_anchor_ids, section_id);
             }
             if let Some(hotspot_id) = &node.hotspot_id {
                 if !hotspot_ids.contains(hotspot_id) {
@@ -2166,9 +2161,7 @@ impl Validator<'_> {
             .flat_map(|claim| &claim.anchors)
             .find(|anchor| anchor.anchor_id == *source_anchor_id);
         if !(1..=MAX_VISUAL_SOURCE_VALUE_BYTES).contains(&source_value.len())
-            || anchor.is_none_or(|anchor| {
-                anchor.excerpt.match_indices(source_value).count() != 1
-            })
+            || anchor.is_none_or(|anchor| anchor.excerpt.match_indices(source_value).count() != 1)
         {
             self.visual_issue(
                 ChapterIssueCode::InvalidVisual,
@@ -3357,10 +3350,13 @@ mod tests {
             Some(&index),
             &non_unique_source_binding,
         );
-        assert!(report.issues.iter().any(|issue| {
-            issue.code == ChapterIssueCode::InvalidVisual
-                && issue.message.contains("unique exact substring")
-        }), "{report:#?}");
+        assert!(
+            report.issues.iter().any(|issue| {
+                issue.code == ChapterIssueCode::InvalidVisual
+                    && issue.message.contains("unique exact substring")
+            }),
+            "{report:#?}"
+        );
 
         let mut foreign_source_binding = base.clone();
         let visual = foreign_source_binding.sections[0]
@@ -3372,10 +3368,13 @@ mod tests {
         visual.nodes[0].source_value = Some("compute()".to_owned());
         let report =
             validate_chapter_revision(&storage, &manifest, Some(&index), &foreign_source_binding);
-        assert!(report.issues.iter().any(|issue| {
-            issue.code == ChapterIssueCode::InvalidVisual
-                && issue.message.contains("node's cited section anchors")
-        }), "{report:#?}");
+        assert!(
+            report.issues.iter().any(|issue| {
+                issue.code == ChapterIssueCode::InvalidVisual
+                    && issue.message.contains("node's cited section anchors")
+            }),
+            "{report:#?}"
+        );
 
         for unsupported_version in [1, VISUAL_SCHEMA_VERSION + 1] {
             let mut unsupported_visual_version = base.clone();

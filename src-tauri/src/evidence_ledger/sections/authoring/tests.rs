@@ -88,9 +88,8 @@ fn exact_node_source_binding_resolves_only_an_existing_node_reference() {
         json!({"evidence":{"claimIndex":0,"evidenceIndex":0},"value":"name"})
     );
     assert_eq!(
-        section_schema()["properties"]["claims"]["items"]["properties"]["scene"]["anyOf"][0]
-            ["properties"]["nodes"]["items"]["properties"]["source"]["anyOf"][0]
-            ["properties"]["value"]["minLength"],
+        section_schema()["properties"]["claims"]["items"]["properties"]["scene"]["anyOf"][0]["properties"]
+            ["nodes"]["items"]["properties"]["source"]["anyOf"][0]["properties"]["value"]["minLength"],
         1
     );
 

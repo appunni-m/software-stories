@@ -220,10 +220,7 @@ fn resolve_visual_source_binding(
                 .to_owned(),
         );
     }
-    Ok((
-        Some(anchor.anchor_id.clone()),
-        Some(source.value.clone()),
-    ))
+    Ok((Some(anchor.anchor_id.clone()), Some(source.value.clone())))
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -2074,8 +2071,7 @@ pub(crate) mod tests {
                 "evidence":[{"claimIndex":0,"evidenceIndex":0}]}]
         })).unwrap();
         assert!(
-            canonicalize_visual_proposal(&uncited, &section.claims, &mut section.hotspots)
-                .is_err()
+            canonicalize_visual_proposal(&uncited, &section.claims, &mut section.hotspots).is_err()
         );
     }
 

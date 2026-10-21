@@ -6,6 +6,8 @@ use crate::{agent_context, context_mcp, native_citations};
 use serde_json::{Value, json};
 use std::time::Instant;
 
+const PLAN_INSTRUCTIONS: &str = "Create the guide's cited slide outline only. The opening slide will be generated independently after this outline is saved. Return two to six focused follow-on behavior questions that together with the opening cover the exact original question. The first follow-on starts immediately after the opening entry-point transition. Keep units small enough for one independently bounded investigation each. Use delivered source references only as starting-range hints; do not write explanations, narration or slide content, and do not call propose_answer_section. Name unsupported boundaries as omissions. Return only the supplied plan schema.";
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct Plan {
@@ -137,29 +139,20 @@ fn canonicalize(resolved: &native_citations::Resolved) -> Result<Plan, String> {
 }
 
 pub(super) fn request(job: &Record) -> Result<(String, Value, String, String), String> {
-    let question = opening::question(job)?;
-    let prompt = serde_json::to_string(&json!({"question":question,"snapshotId":job.snapshot_id,
+    opening::question(job)?;
+    let prompt = serde_json::to_string(&json!({"question":job.question,"snapshotId":job.snapshot_id,
         "scope":"all eligible captured implementation, researched by ranges; never select whole files for transmission",
-        "guideContext":{"guideId":job.id,"question":job.question}}))
+        "guideContext":{"guideId":job.id,"question":job.question,"openingQuestion":opening::LEARNING_QUESTION}}))
         .map_err(|_| "The guide question could not be encoded.")?;
-    let schema = opening::schema_for(job, schema());
-    let instructions = format!(
-        "{}\n{RESEARCH_INSTRUCTIONS}",
-        opening::instructions_for(job)
-    );
+    let schema = schema();
+    let instructions = format!("{PLAN_INSTRUCTIONS}\n{RESEARCH_INSTRUCTIONS}");
     let contract = json!({"contractVersion":job.contract,
         "runId":job.planning_run_id,"guideId":job.id,"grantId":job.grant_id,"manifestSha256":job.manifest_sha256,
-        "instructions":instructions,"prompt":prompt,"schema":schema,"tools":context_mcp::tools(),
-        "correctionPolicy":"owned-section-proposals-no-final-rewrite-v1","openingPolicy":opening::policy(job),
-        "model":job.model_id,"effort":job.reasoning_effort,"maxUnits":MAX_UNITS,"maxAttemptsPerUnit":MAX_ATTEMPTS,
+        "instructions":instructions,"prompt":prompt,"schema":schema,"tools":context_mcp::research_tools(),
+        "operationPolicy":"repository-guide-plan-only-v1",
+        "model":job.model_id,"effort":job.reasoning_effort,"maxUnits":MAX_UNITS,
         "unitResearchPolicy":RESEARCH_POLICY,"openingIntentSha256":job.opening_context_sha256,
-        "sourcePolicy":crate::evidence_ledger::POLICY,"baseInstructions":agent_context::PROGRESSIVE_BASE_INSTRUCTIONS,
-        "sceneAuthoringPolicy":crate::evidence_ledger::sections::authoring::POLICY,
-        "checkpointVersion":crate::evidence_ledger::sections::NARRATION_CHECKPOINT_VERSION,
-        "answerSchemaVersion":crate::evidence_ledger::sections::NARRATION_ANSWER_VERSION,
-        "identifierCompilationPolicy":native_citations::names::GROUNDED_POLICY,
-        "finalManifestVersion":crate::evidence_ledger::sections::NATIVE_MANIFEST_VERSION,
-        "finalManifestPolicy":crate::evidence_ledger::sections::NATIVE_MANIFEST_POLICY});
+        "sourcePolicy":crate::evidence_ledger::POLICY,"baseInstructions":agent_context::RESEARCH_BASE_INSTRUCTIONS});
     let contract =
         serde_json::to_vec(&contract).map_err(|_| "The guide contract could not be encoded.")?;
     if contract.len() > 128 * 1024 {
@@ -180,19 +173,35 @@ fn new_session(
     fingerprint: &str,
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
 ) -> Result<agent_context::Session, String> {
-    agent_context::Session::new_progressive(
+    agent_context::Session::new_research(
         storage,
         &job.planning_run_id,
         manifest,
         runtime,
         &job.grant_id,
         jobs,
-        opening::question(job)?,
         fingerprint,
         &job.model_id,
         &job.reasoning_effort,
         notify,
     )
+}
+
+pub(super) fn retain_failure(storage: &Path, job: &Record) -> Result<(), String> {
+    store::update(storage, &job.id, |current| {
+        if current.revision != job.revision
+            || current.plan.is_some()
+            || current.active_run_id.as_deref() != Some(job.planning_run_id.as_str())
+        {
+            return Err("The guide outline owner changed. Existing progress was preserved.".into());
+        }
+        if current.status != Status::Stopped {
+            current.status = Status::Partial;
+        }
+        current.active_run_id = None;
+        Ok(())
+    })?;
+    Ok(())
 }
 
 pub(super) fn run(
@@ -202,7 +211,7 @@ pub(super) fn run(
     jobs: RepositoryContextJobs,
     progress: impl Fn(codex_agent::CodexProgress),
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
-    publish: impl FnOnce(Plan, Option<Summary>) -> Result<(), String>,
+    publish: impl FnOnce(Plan) -> Result<(), String>,
 ) -> Result<(), String> {
     let started = Instant::now();
     let manifest = checked_manifest(storage, job)?;
@@ -243,15 +252,14 @@ pub(super) fn run(
         &fingerprint,
         started,
         progress,
-        |response, access| -> Result<(Plan, String), String> {
+        |response, access| -> Result<Plan, String> {
             access.check_review(&job.planning_run_id, &fingerprint, &runtime.executable_path)?;
             let owned = session
                 .lock()
                 .map_err(|_| "The guide research session is unavailable.")?;
             owned.check_complete()?;
-            let (outline, answer) = opening::split(&response.response_text)?;
             let resolved = match owned.ledger.resolve_citations(
-                &outline,
+                &response.response_text,
                 &manifest,
                 access.runtime(),
                 access.cancelled(),
@@ -264,44 +272,16 @@ pub(super) fn run(
                     );
                 }
             };
-            let plan = canonicalize(&resolved)?;
-            Ok((plan, answer))
+            canonicalize(&resolved)
         },
         |result| {
-            let (plan, manifest) = result?;
             session
                 .lock()
                 .map_err(|_| "The guide research session is unavailable.")?
-                .finish_answer_manifest(&manifest)?;
-            let answer = Some(
-                crate::evidence_ledger::sections::inspect(storage, &job.planning_run_id)?.summary(),
-            );
-            publish(plan, answer)
+                .finish_research()?;
+            publish(result?)
         },
     );
-    {
-        if let Err(error) | Ok(Err(error)) = &outcome {
-            let cancelled = session
-                .lock()
-                .map_err(|_| "The guide research session is unavailable.")?
-                .answer_cancelled()
-                || store::read(storage, &job.id)?.status == Status::Stopped;
-            reading::interrupt_with_failure(
-                storage,
-                &job.planning_run_id,
-                if cancelled {
-                    Outcome::Stopped
-                } else {
-                    Outcome::Partial
-                },
-                Some(if cancelled {
-                    crate::evidence_ledger::sections::FailureCode::Stopped
-                } else {
-                    crate::evidence_ledger::sections::FailureCode::from_error(error)
-                }),
-            )?;
-        }
-    }
     outcome?
 }
 

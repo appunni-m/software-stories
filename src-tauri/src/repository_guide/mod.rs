@@ -28,8 +28,8 @@ mod store;
 use plan::Plan;
 use recovering::reconcile;
 
-const CONTRACT: &str = "repository-guide-v7-selected-model";
-const RECORD_SCHEMA_VERSION: u32 = 6;
+const CONTRACT: &str = "repository-guide-v8-incremental-retries";
+const RECORD_SCHEMA_VERSION: u32 = 7;
 #[cfg(test)]
 const DEFAULT_MODEL_ID: &str = "gpt-6-luna";
 #[cfg(test)]
@@ -37,8 +37,11 @@ const DEFAULT_REASONING_EFFORT: &str = "max";
 const RESEARCH_POLICY: &str = "ordered-independent-research-v1";
 const RESEARCH_INSTRUCTIONS: &str = "Prerequisites describe reading order, not permission to investigate. Each outlined unit will research its own captured code in outline order even if an earlier explanation remains incomplete. Earlier questions and starting ranges supply leads, never implementation facts or inherited citations. Preserve requested alternatives and failures; independently verify every explanation. A partial unit stays partial and cannot establish a later unit's behavior.";
 const MAX_UNITS: usize = 6;
-const MAX_ATTEMPTS: usize = 2;
-pub(crate) const MAX_GUIDE_ANSWER_RECORDS: usize = 2 + MAX_UNITS * MAX_ATTEMPTS;
+const MAX_ATTEMPTS: usize = 3;
+const MAX_AUTOMATIC_RETRIES_PER_UNIT: u8 = 1;
+const MAX_OPENING_CONTINUATIONS: usize = 2;
+pub(crate) const MAX_GUIDE_ANSWER_RECORDS: usize =
+    1 + MAX_OPENING_CONTINUATIONS + MAX_UNITS * MAX_ATTEMPTS;
 
 /// Storage accounting only. This does not authorize retrieval or inference.
 #[derive(Clone, PartialEq, Eq)]
@@ -86,6 +89,7 @@ enum Status {
 struct Attempt {
     run_id: String,
     question: String,
+    automatic_retry: bool,
     summary: Option<Summary>,
 }
 #[derive(Clone, Deserialize, Serialize)]
@@ -109,6 +113,7 @@ struct Record {
     model_id: String,
     reasoning_effort: String,
     planning_run_id: String,
+    planning_retry_count: u8,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     opening: Option<Attempt>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -225,7 +230,7 @@ fn unit_complete(unit: &Unit) -> bool {
         .is_some_and(|s| s.outcome == Outcome::Complete && !s.sections.is_empty())
 }
 fn guide_complete(record: &Record) -> bool {
-    opening_continuation::latest(record).is_none_or(|a| {
+    opening_continuation::latest(record).is_some_and(|a| {
         a.summary
             .as_ref()
             .is_some_and(|s| s.outcome == Outcome::Complete && !s.sections.is_empty())
@@ -239,12 +244,73 @@ fn unit_research_eligible(record: &Record, index: usize) -> bool {
             .is_some_and(|unit| !unit_complete(unit) && unit.attempts.len() < MAX_ATTEMPTS)
 }
 
+fn automatic_slide_retry_allowed(
+    answer: Option<&crate::evidence_ledger::sections::Answer>,
+    error: Option<&str>,
+    status: &Status,
+) -> bool {
+    if operation_requires_halt(error, answer, status) {
+        return false;
+    }
+    true
+}
+
+fn operation_requires_halt(
+    error: Option<&str>,
+    answer: Option<&crate::evidence_ledger::sections::Answer>,
+    status: &Status,
+) -> bool {
+    *status == Status::Stopped
+        || error.is_some_and(|message| {
+            message == crate::codex_identity::changed()
+                || message.contains("permission")
+                || message.contains("Permission")
+        })
+        || answer.is_some_and(|answer| {
+            answer.outcome == Outcome::Stopped
+                || answer.failure_code()
+                    == Some(&crate::evidence_ledger::sections::FailureCode::Stopped)
+                || answer.failure_code()
+                    == Some(&crate::evidence_ledger::sections::FailureCode::RuntimeIdentity)
+        })
+}
+
+fn synthetic_failed_slide(
+    run_id: &str,
+    project_id: &str,
+    snapshot_id: &str,
+    question: &str,
+) -> Summary {
+    Summary {
+        run_id: run_id.into(),
+        project_id: project_id.into(),
+        snapshot_id: snapshot_id.into(),
+        question: question.into(),
+        outcome: Outcome::Failed,
+        sections: vec![],
+        incomplete_topics: vec![
+            "This slide did not publish. The guide preserved its other progress.".into(),
+        ],
+    }
+}
+
 fn begin_unit(
     storage: &Path,
     expected: &Record,
     index: usize,
     run_id: &str,
     question: &str,
+) -> Result<Record, String> {
+    begin_unit_with_retry(storage, expected, index, run_id, question, false)
+}
+
+fn begin_unit_with_retry(
+    storage: &Path,
+    expected: &Record,
+    index: usize,
+    run_id: &str,
+    question: &str,
+    automatic_retry: bool,
 ) -> Result<Record, String> {
     store::update(storage, &expected.id, |current| {
         if current.status == Status::Stopped {
@@ -256,11 +322,28 @@ fn begin_unit(
         {
             return Err("The guide changed before its investigation started. Saved progress was preserved; no operation was dispatched.".into());
         }
+        let unit = current
+            .units
+            .get_mut(index)
+            .ok_or("The guide unit is unavailable.")?;
+        if automatic_retry {
+            if unit.attempts.is_empty()
+                || unit
+                    .attempts
+                    .iter()
+                    .filter(|attempt| attempt.automatic_retry)
+                    .count()
+                    >= usize::from(MAX_AUTOMATIC_RETRIES_PER_UNIT)
+            {
+                return Err("This slide has no eligible automatic recovery attempt.".into());
+            }
+        }
         current.status = Status::Building;
         current.active_run_id = Some(run_id.into());
-        current.units[index].attempts.push(Attempt {
+        unit.attempts.push(Attempt {
             run_id: run_id.into(),
             question: question.into(),
+            automatic_retry,
             summary: None,
         });
         Ok(())
@@ -271,10 +354,18 @@ fn check_research_outcome(
     _record: &Record,
     answer: &crate::evidence_ledger::sections::Answer,
 ) -> Result<(), String> {
-    if answer.outcome != Outcome::Stopped
-        && (answer.has_recorded_failure()
-            || !matches!(answer.outcome, Outcome::Complete | Outcome::Partial))
+    if answer.failure_code()
+        == Some(&crate::evidence_ledger::sections::FailureCode::RuntimeIdentity)
     {
+        return Err(
+            "The Codex account or runtime changed. The guide stopped before another investigation."
+                .into(),
+        );
+    }
+    if !matches!(
+        answer.outcome,
+        Outcome::Complete | Outcome::Partial | Outcome::Failed | Outcome::Stopped
+    ) {
         return Err("The guide investigation did not finish safely. Saved sections remain available; no later investigation was started.".into());
     }
     Ok(())
@@ -465,8 +556,8 @@ fn unit_intent(
         guide_id: record.id.clone(),
         question: record.question.clone(),
         unit_key: unit.key.clone(),
-        unit_number: index + 1,
-        unit_count: plan.units.len(),
+        unit_number: index + 2,
+        unit_count: plan.units.len() + 1,
         research_boundaries: plan.omissions.clone(),
         opening_continuation: None,
     })
@@ -496,20 +587,185 @@ fn save_outline(
             })
             .collect();
         current.plan = Some(plan);
-        match (&mut current.opening, answer) {
-            (Some(opening), Some(answer)) => opening.summary = Some(answer),
-            (None, None) => {}
-            _ => {
-                return Err(
-                    "The guide opening owner changed. Saved sections were preserved.".into(),
-                );
-            }
+        if let Some(answer) = answer {
+            current
+                .opening
+                .as_mut()
+                .ok_or("The guide opening owner changed. Saved sections were preserved.")?
+                .summary = Some(answer);
         }
         current.status = Status::Building;
         current.active_run_id = None;
         Ok(())
     })?;
     Ok(())
+}
+
+fn begin_initial_opening(storage: &Path, expected: &Record) -> Result<Record, String> {
+    let opening = expected
+        .opening
+        .as_ref()
+        .ok_or("The guide has no opening owner.")?;
+    store::update(storage, &expected.id, |current| {
+        if current.status == Status::Stopped {
+            return Err("The guide was stopped. Its saved outline remains available.".into());
+        }
+        if current.revision != expected.revision
+            || current.plan.is_none()
+            || current.active_run_id.is_some()
+            || current
+                .opening
+                .as_ref()
+                .is_none_or(|saved| saved.run_id != opening.run_id || saved.summary.is_some())
+        {
+            return Err(
+                "The guide changed before its opening slide started. Saved progress was preserved."
+                    .into(),
+            );
+        }
+        current.status = Status::Building;
+        current.active_run_id = Some(opening.run_id.clone());
+        Ok(())
+    })
+}
+
+fn finish_initial_opening(
+    storage: &Path,
+    expected: &Record,
+    answer: Summary,
+) -> Result<Record, String> {
+    let run_id = answer.run_id.clone();
+    store::update(storage, &expected.id, |current| {
+        if current.active_run_id.as_deref() != Some(run_id.as_str())
+            || (current.revision != expected.revision && current.status != Status::Stopped)
+        {
+            return Err("The opening slide owner changed. Saved sections were preserved.".into());
+        }
+        let opening = current
+            .opening
+            .as_mut()
+            .ok_or("The guide opening is unavailable.")?;
+        if opening.run_id != run_id
+            || opening.question != answer.question
+            || opening.summary.is_some()
+        {
+            return Err("The opening slide result is stale. Saved sections were preserved.".into());
+        }
+        if answer.outcome == Outcome::Stopped {
+            current.status = Status::Stopped;
+        }
+        opening.summary = Some(answer);
+        current.active_run_id = None;
+        Ok(())
+    })
+}
+
+fn run_initial_opening(
+    storage: &Path,
+    record: &Record,
+    manager: &codex_agent::CodexAgentManager,
+    jobs: RepositoryContextJobs,
+    journal: &recovery::InterruptionJournal,
+    progress: &impl Fn(codex_agent::CodexProgress),
+    notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
+    adopt: &impl Fn(&SectionNotice) -> Result<(), String>,
+    changed: &impl Fn(&GuideSummary),
+) -> Result<Record, String> {
+    checked_manifest(storage, record)?;
+    let runtime = manager.review_runtime(storage)?;
+    workspace::check_retrieval_grant(
+        storage,
+        &record.grant_id,
+        &record.project_id,
+        &record.snapshot_id,
+        &runtime,
+    )?;
+    let plan = record
+        .plan
+        .as_ref()
+        .ok_or("The guide has no saved outline.")?;
+    let opening = record
+        .opening
+        .as_ref()
+        .ok_or("The guide has no opening owner.")?;
+    let intent = workspace_generation::progressive::GuideIntent {
+        guide_id: record.id.clone(),
+        question: record.question.clone(),
+        unit_key: "opening".into(),
+        unit_number: 1,
+        unit_count: plan.units.len() + 1,
+        research_boundaries: plan.omissions.clone(),
+        opening_continuation: None,
+    };
+    let run_id = opening.run_id.clone();
+    let question = opening::question(record)?.to_owned();
+    let record = begin_initial_opening(storage, record)?;
+    changed(&summary(storage, &record)?);
+    let result = workspace_generation::progressive::run_with_starting_ranges(
+        storage,
+        Input {
+            run_id: run_id.clone(),
+            project_id: record.project_id.clone(),
+            snapshot_id: record.snapshot_id.clone(),
+            grant_id: record.grant_id.clone(),
+            question: question.clone(),
+            references: vec![],
+            model_id: record.model_id.clone(),
+            effort: record.reasoning_effort.clone(),
+        },
+        &[],
+        Some(&intent),
+        manager,
+        jobs,
+        journal,
+        progress,
+        notify,
+    );
+    let operation_error = result.as_ref().err().cloned();
+    let answer = match result {
+        Ok(answer) => answer,
+        Err(error) => {
+            #[cfg(test)]
+            eprintln!("GUIDE_OPENING_FAILURE {run_id}: {error}");
+            if reading::exists(storage, &run_id)? {
+                reading::scoped(storage, &run_id, &record.project_id, &record.snapshot_id)?
+                    .summary()
+            } else {
+                synthetic_failed_slide(&run_id, &record.project_id, &record.snapshot_id, &question)
+            }
+        }
+    };
+    for section in &answer.sections {
+        adopt(section)?;
+    }
+    let saved_answer = if reading::exists(storage, &run_id)? {
+        Some(reading::scoped(
+            storage,
+            &run_id,
+            &record.project_id,
+            &record.snapshot_id,
+        )?)
+    } else {
+        None
+    };
+    let record = finish_initial_opening(storage, &record, answer)?;
+    changed(&summary(storage, &record)?);
+    if operation_requires_halt(
+        operation_error.as_deref(),
+        saved_answer.as_ref(),
+        &record.status,
+    ) {
+        if record.status == Status::Stopped {
+            return Ok(record);
+        }
+        return Err(operation_error.unwrap_or_else(|| {
+            "The opening investigation could not continue safely. Saved sections remain available.".into()
+        }));
+    }
+    if let Some(answer) = saved_answer.as_ref() {
+        check_research_outcome(&record, answer)?;
+    }
+    Ok(record)
 }
 
 fn build(
@@ -574,24 +830,36 @@ fn build_inner(
         // The reader must know the opening owner before its first publication.
         // This observation starts no additional model operation.
         changed(&summary(storage, &record)?);
-        let result = plan::run(
-            storage,
-            &record,
-            manager,
-            jobs.clone(),
-            &progress,
-            Arc::clone(&notify),
-            |plan, answer| save_outline(storage, &record, plan, answer),
-        );
-        if result.is_err() {
-            opening::retain_failure(storage, &record)?;
-            let saved = summary(storage, &store::read(storage, id)?)?;
-            for section in saved.answers.iter().flat_map(|a| &a.sections) {
-                adopt(section)?;
+        loop {
+            let owner = record.clone();
+            let result = plan::run(
+                storage,
+                &owner,
+                manager,
+                jobs.clone(),
+                &progress,
+                Arc::clone(&notify),
+                |plan| save_outline(storage, &owner, plan, None),
+            );
+            if let Err(error) = result {
+                plan::retain_failure(storage, &owner)?;
+                let saved_record = store::read(storage, id)?;
+                let saved = summary(storage, &saved_record)?;
+                for section in saved.answers.iter().flat_map(|a| &a.sections) {
+                    adopt(section)?;
+                }
+                if owner.planning_retry_count == 0
+                    && automatic_slide_retry_allowed(None, Some(&error), &saved_record.status)
+                {
+                    record = store::prepare_plan_retry(storage, id, saved_record.revision)?;
+                    changed(&summary(storage, &record)?);
+                    continue;
+                }
+                changed(&saved);
+                return Err(error);
             }
-            changed(&saved);
+            break;
         }
-        result?;
         record = store::read(storage, id)?;
         for section in summary(storage, &record)?
             .answers
@@ -602,7 +870,41 @@ fn build_inner(
         }
         changed(&summary(storage, &record)?);
     }
+    record = store::read(storage, id)?;
+    if record.status != Status::Stopped
+        && record
+            .opening
+            .as_ref()
+            .is_some_and(|opening| opening.summary.is_none())
+    {
+        record = run_initial_opening(
+            storage,
+            &record,
+            manager,
+            jobs.clone(),
+            journal,
+            &progress,
+            Arc::clone(&notify),
+            &adopt,
+            &changed,
+        )?;
+    }
     if continue_opening && opening_continuation::eligible(&record) {
+        opening_continuation::run(
+            storage,
+            &record,
+            manager,
+            jobs.clone(),
+            journal,
+            &progress,
+            Arc::clone(&notify),
+            &adopt,
+            &changed,
+            false,
+        )?;
+    }
+    record = store::read(storage, id)?;
+    if opening_continuation::automatic_retry_eligible(&record) {
         record = opening_continuation::run(
             storage,
             &record,
@@ -613,6 +915,7 @@ fn build_inner(
             Arc::clone(&notify),
             &adopt,
             &changed,
+            true,
         )?;
     }
     for index in 0..record.units.len() {
@@ -628,93 +931,146 @@ fn build_inner(
         {
             adopt(section)?;
         }
-        if !unit_research_eligible(&record, index) {
-            continue;
-        }
-        checked_manifest(storage, &record)?;
-        let runtime = manager.review_runtime(storage)?;
-        workspace::check_retrieval_grant(
-            storage,
-            &record.grant_id,
-            &record.project_id,
-            &record.snapshot_id,
-            &runtime,
-        )?;
-        let question = continuation(storage, &record, index)?;
-        let guide_intent = unit_intent(&record, index)?;
-        let run_id = Uuid::new_v4().to_string();
-        record = begin_unit(storage, &record, index, &run_id, &question)?;
-        changed(&summary(storage, &record)?);
-        let references = record.plan.as_ref().unwrap().units[index]
-            .starting_ranges
-            .iter()
-            .map(|r| Reference {
-                path: r.path.clone(),
-                sha256: Some(r.source_sha256.clone()),
-                from: Some(r.start_line as u32),
-                to: Some(r.end_line as u32),
-            })
-            .collect();
-        let result = workspace_generation::progressive::run_with_starting_ranges(
-            storage,
-            Input {
-                run_id: run_id.clone(),
-                project_id: record.project_id.clone(),
-                snapshot_id: record.snapshot_id.clone(),
-                grant_id: record.grant_id.clone(),
-                question: question.clone(),
-                references,
-                model_id: record.model_id.clone(),
-                effort: record.reasoning_effort.clone(),
-            },
-            &record.plan.as_ref().unwrap().units[index].starting_ranges,
-            Some(&guide_intent),
-            manager,
-            jobs.clone(),
-            journal,
-            &progress,
-            Arc::clone(&notify),
-        );
-        let operation_error = result.as_ref().err().cloned();
-        let answer = result.or_else(|error| {
-            // Qualification logs are private and opt-in. Production receipts
-            // retain fixed failure codes, never arbitrary agent or OS text.
-            #[cfg(test)]
-            eprintln!("GUIDE_UNIT_FAILURE {run_id}: {error}");
-            reading::scoped(storage, &run_id, &record.project_id, &record.snapshot_id)
-                .map(|a| a.summary())
-                .map_err(|_| error)
-        })?;
-        for section in &answer.sections {
-            adopt(section)?;
-        }
-        record = store::update(storage, id, |current| {
-            let attempt = current.units[index]
-                .attempts
-                .last_mut()
-                .ok_or("The guide unit disappeared.")?;
-            if attempt.run_id != run_id {
-                return Err("The guide's investigation owner changed.".into());
+        let mut automatic_retry = false;
+        loop {
+            record = store::read(storage, id)?;
+            if record.status == Status::Stopped || !unit_research_eligible(&record, index) {
+                break;
             }
-            if answer.outcome == Outcome::Stopped {
-                current.status = Status::Stopped;
-            }
-            attempt.summary = Some(answer);
-            current.active_run_id = None;
-            Ok(())
-        })?;
-        changed(&summary(storage, &record)?);
-        {
-            if let Some(error) = operation_error {
-                return Err(error);
-            }
-            // A progressive operation can preserve useful sections while
-            // returning Partial after a transport, runtime or authority fault.
-            // Such a result is not permission to spend another operation.
-            check_research_outcome(
-                &record,
-                &reading::scoped(storage, &run_id, &record.project_id, &record.snapshot_id)?,
+            checked_manifest(storage, &record)?;
+            let runtime = manager.review_runtime(storage)?;
+            workspace::check_retrieval_grant(
+                storage,
+                &record.grant_id,
+                &record.project_id,
+                &record.snapshot_id,
+                &runtime,
             )?;
+            let question = continuation(storage, &record, index)?;
+            let guide_intent = unit_intent(&record, index)?;
+            let run_id = Uuid::new_v4().to_string();
+            record = begin_unit_with_retry(
+                storage,
+                &record,
+                index,
+                &run_id,
+                &question,
+                automatic_retry,
+            )?;
+            changed(&summary(storage, &record)?);
+            let references = record.plan.as_ref().unwrap().units[index]
+                .starting_ranges
+                .iter()
+                .map(|r| Reference {
+                    path: r.path.clone(),
+                    sha256: Some(r.source_sha256.clone()),
+                    from: Some(r.start_line as u32),
+                    to: Some(r.end_line as u32),
+                })
+                .collect();
+            let result = workspace_generation::progressive::run_with_starting_ranges(
+                storage,
+                Input {
+                    run_id: run_id.clone(),
+                    project_id: record.project_id.clone(),
+                    snapshot_id: record.snapshot_id.clone(),
+                    grant_id: record.grant_id.clone(),
+                    question: question.clone(),
+                    references,
+                    model_id: record.model_id.clone(),
+                    effort: record.reasoning_effort.clone(),
+                },
+                &record.plan.as_ref().unwrap().units[index].starting_ranges,
+                Some(&guide_intent),
+                manager,
+                jobs.clone(),
+                journal,
+                &progress,
+                Arc::clone(&notify),
+            );
+            let operation_error = result.as_ref().err().cloned();
+            let answer = match result {
+                Ok(answer) => answer,
+                Err(error) => {
+                    #[cfg(test)]
+                    eprintln!("GUIDE_UNIT_FAILURE {run_id}: {error}");
+                    if reading::exists(storage, &run_id)? {
+                        reading::scoped(storage, &run_id, &record.project_id, &record.snapshot_id)?
+                            .summary()
+                    } else {
+                        synthetic_failed_slide(
+                            &run_id,
+                            &record.project_id,
+                            &record.snapshot_id,
+                            &question,
+                        )
+                    }
+                }
+            };
+            for section in &answer.sections {
+                adopt(section)?;
+            }
+            let retryable_content_gap =
+                answer.outcome != Outcome::Complete && answer.sections.is_empty();
+            record = store::update(storage, id, |current| {
+                let attempt = current.units[index]
+                    .attempts
+                    .last_mut()
+                    .ok_or("The guide unit disappeared.")?;
+                if attempt.run_id != run_id {
+                    return Err("The guide's investigation owner changed.".into());
+                }
+                if answer.outcome == Outcome::Stopped {
+                    current.status = Status::Stopped;
+                }
+                attempt.summary = Some(answer);
+                current.active_run_id = None;
+                Ok(())
+            })?;
+            changed(&summary(storage, &record)?);
+
+            let saved_answer = if reading::exists(storage, &run_id)? {
+                Some(reading::scoped(
+                    storage,
+                    &run_id,
+                    &record.project_id,
+                    &record.snapshot_id,
+                )?)
+            } else {
+                None
+            };
+            if operation_requires_halt(
+                operation_error.as_deref(),
+                saved_answer.as_ref(),
+                &record.status,
+            ) {
+                if record.status == Status::Stopped {
+                    break;
+                }
+                return Err(operation_error.unwrap_or_else(|| {
+                    "The guide could not continue safely. Saved sections remain available.".into()
+                }));
+            }
+            if let Some(answer) = saved_answer.as_ref() {
+                check_research_outcome(&record, answer)?;
+            }
+            let can_retry = retryable_content_gap
+                && record.units[index]
+                    .attempts
+                    .iter()
+                    .filter(|attempt| attempt.automatic_retry)
+                    .count()
+                    < usize::from(MAX_AUTOMATIC_RETRIES_PER_UNIT)
+                && automatic_slide_retry_allowed(
+                    saved_answer.as_ref(),
+                    operation_error.as_deref(),
+                    &record.status,
+                );
+            if can_retry {
+                automatic_retry = true;
+                continue;
+            }
+            break;
         }
     }
     record = store::update(storage, id, |current| {
@@ -748,6 +1104,7 @@ pub(crate) struct Start {
 
 fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Record, String> {
     let planning_run_id = input.id.clone();
+    let opening_run_id = Uuid::new_v4().to_string();
     let mut record = Record {
         revision: 0,
         schema_version: RECORD_SCHEMA_VERSION,
@@ -762,14 +1119,16 @@ fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Rec
         model_id: input.model_id,
         reasoning_effort: input.reasoning_effort,
         opening: Some(Attempt {
-            run_id: planning_run_id.clone(),
+            run_id: opening_run_id,
             question: opening::LEARNING_QUESTION.into(),
+            automatic_retry: false,
             summary: None,
         }),
         opening_context_sha256: None,
         opening_continuations: vec![],
         question: input.question,
         planning_run_id,
+        planning_retry_count: 0,
         plan: None,
         units: vec![],
         status: Status::Planning,
@@ -865,11 +1224,6 @@ pub(crate) async fn resume_repository_guide(
     let record = scoped(&storage, &id, &project_id, &snapshot_id)?;
     let lease = store::lease(&storage, &id)?
         .ok_or("This guide is already being built. No second worker was started.")?;
-    if record.plan.is_none() {
-        return Err(
-            "This guide has no saved outline. Start a new guide; no request was replayed.".into(),
-        );
-    }
     let manager = app.state::<codex_agent::CodexAgentManager>();
     let record = reconcile(&storage, &record, &manager)?;
     let expected_revision = record.revision;
@@ -886,6 +1240,10 @@ pub(crate) async fn resume_repository_guide(
         &answer_reservation(&record),
         || Ok(()),
     )?;
+    if record.plan.is_none() {
+        store::prepare_plan_retry(&storage, &id, expected_revision)?;
+        return run_command(app, storage, id, lease, false).await;
+    }
     store::prepare_continuation(&storage, &id, expected_revision)?;
     run_command(app, storage, id, lease, true).await
 }

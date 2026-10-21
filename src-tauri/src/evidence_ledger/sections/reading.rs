@@ -29,6 +29,10 @@ impl Answer {
         self.failure_code.is_some()
     }
 
+    pub(crate) fn failure_code(&self) -> Option<&FailureCode> {
+        self.failure_code.as_ref()
+    }
+
     pub(crate) fn summary(&self) -> Summary {
         Summary {
             run_id: self.binding.operation_id.clone(),

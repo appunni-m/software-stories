@@ -53,7 +53,7 @@ fn answer_bytes(f: &Fixture) -> std::collections::BTreeMap<std::path::PathBuf, V
 }
 
 #[test]
-fn a_guide_retains_all_fourteen_owned_investigations_with_seven_other_answers() {
+fn a_guide_reserves_all_twenty_one_owned_investigations_without_evicting_other_answers() {
     let f = Fixture::new();
     let (runtime, grant) = runtime(&f);
     for _ in 0..7 {
@@ -87,11 +87,14 @@ fn a_guide_retains_all_fourteen_owned_investigations_with_seven_other_answers() 
         sections: vec![],
         incomplete_topics: vec!["The initial transition remains unexplored.".into()],
     });
-    guide.opening_continuations.push(Attempt {
-        run_id: Uuid::new_v4().to_string(),
-        question: opening::question(&guide).unwrap().into(),
-        summary: None,
-    });
+    for automatic_retry in [true, false] {
+        guide.opening_continuations.push(Attempt {
+            run_id: Uuid::new_v4().to_string(),
+            question: opening::question(&guide).unwrap().into(),
+            automatic_retry,
+            summary: None,
+        });
+    }
     for (unit, plan) in guide
         .units
         .iter_mut()
@@ -101,6 +104,7 @@ fn a_guide_retains_all_fourteen_owned_investigations_with_seven_other_answers() 
             unit.attempts.push(Attempt {
                 run_id: Uuid::new_v4().to_string(),
                 question: plan.question.clone(),
+                automatic_retry: false,
                 summary: None,
             });
         }
@@ -113,12 +117,12 @@ fn a_guide_retains_all_fourteen_owned_investigations_with_seven_other_answers() 
         .chain(guide.units.iter().flat_map(|unit| &unit.attempts))
         .map(|attempt| attempt.run_id.as_str())
         .collect::<Vec<_>>();
-    assert_eq!(runs.len(), 14);
+    assert_eq!(runs.len(), 21);
     for run in &runs {
         retain(&f, run, &runtime, &grant).unwrap();
     }
     let after = answer_bytes(&f);
-    assert_eq!(after.len(), 21);
+    assert_eq!(after.len(), 28);
     for (path, bytes) in prior {
         assert_eq!(after.get(&path), Some(&bytes));
     }
@@ -156,7 +160,13 @@ fn a_new_guide_reserves_its_future_children_before_the_first_answer_exists() {
     store::create(&f.storage, &guide).unwrap();
     retain(&f, &Uuid::new_v4().to_string(), &runtime, &grant).unwrap();
     assert_eq!(answer_bytes(&f).len(), prior.len() + 1);
-    retain(&f, &guide.planning_run_id, &runtime, &grant).unwrap();
+    retain(
+        &f,
+        &guide.opening.as_ref().unwrap().run_id,
+        &runtime,
+        &grant,
+    )
+    .unwrap();
     assert_eq!(answer_bytes(&f).len(), prior.len() + 2);
 }
 
@@ -168,7 +178,12 @@ fn a_guide_slot_cannot_be_reused_with_another_captured_inventory() {
     guide.grant_id = grant.clone();
     guide.manifest_sha256 = "f".repeat(64);
     store::create(&f.storage, &guide).unwrap();
-    let answer = retain(&f, &guide.planning_run_id, &runtime, &grant);
+    let answer = retain(
+        &f,
+        &guide.opening.as_ref().unwrap().run_id,
+        &runtime,
+        &grant,
+    );
     assert!(matches!(answer, Err(message) if message.contains("another scope")));
     assert!(answer_bytes(&f).is_empty());
     assert_eq!(store::read(&f.storage, &guide.id).unwrap().revision, 0);

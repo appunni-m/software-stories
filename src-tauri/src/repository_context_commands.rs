@@ -706,9 +706,34 @@ mod tests {
                 "FONTDONE_FILE_DISCOVERY {}",
                 serde_json::json!({"query":query,"firstPageExpectedPaths":first_page_expected_paths,"firstPageExpectedPathCount":first_page_expected_paths.len(),"firstPageScopedRecall":first_page_scoped_recall,"expectedPathRecall":discovered_path_recall,"discoveredExpectedPaths":discovered_path_recall.len(),"expectedPathCount":corpus.expected.iter().map(|item| item.path.as_str()).collect::<std::collections::BTreeSet<_>>().len(),"discoveredScopedRecall":discovered_scoped_recall,"discoveredRangeCount":discovered_paths.len(),"pagesRead":discovery_pages,"elapsedMs":discovery_elapsed_ms,"serializedMatchBytes":discovery_result_bytes})
             );
+            let first_page_hits = first_page
+                .matches
+                .iter()
+                .map(|hit| {
+                    serde_json::json!({
+                        "path": hit.range.path,
+                        "line": hit.line,
+                        "score": hit.score,
+                        "exactIdentifier": hit.exact_identifier,
+                        "declarationMatch": hit.declaration_match
+                    })
+                })
+                .collect::<Vec<_>>();
             println!(
                 "FONTDONE_BROAD {}",
-                serde_json::json!({"query":query,"firstPageRecall":first_page_recall,"candidateWindowRecall":recovered,"scopedRecall":scoped_recall,"pagesRead":pages,"elapsedMs":elapsed_ms,"serializedMatchBytes":serialized_match_bytes,"limited":limited,"expectedCount":corpus.expected.len(),"namedGlobalRecall":format!("{named}/{}",corpus.expected.len())})
+                serde_json::json!({
+                    "query": query,
+                    "firstPageRecall": first_page_recall,
+                    "candidateWindowRecall": recovered,
+                    "scopedRecall": scoped_recall,
+                    "pagesRead": pages,
+                    "elapsedMs": elapsed_ms,
+                    "serializedMatchBytes": serialized_match_bytes,
+                    "limited": limited,
+                    "expectedCount": corpus.expected.len(),
+                    "namedGlobalRecall": format!("{named}/{}", corpus.expected.len()),
+                    "firstPageHits": first_page_hits
+                })
             );
         }
     }

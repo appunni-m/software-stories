@@ -74,7 +74,7 @@ fn damaged_contract_duplicate_runs_and_excess_attempts_fail_without_rewriting() 
     r.contract = "unknown".into();
     assert!(validate(&r).is_err());
     r.contract = CONTRACT.into();
-    for _ in 0..2 {
+    for _ in 0..3 {
         let next = attempt(&r, Outcome::Partial);
         r.units[0].attempts.push(next);
     }
@@ -96,7 +96,8 @@ fn fresh_independent_research_requires_its_own_schema_and_opening() {
         (3, CONTRACT),
         (4, CONTRACT),
         (5, CONTRACT),
-        (7, CONTRACT),
+        (6, CONTRACT),
+        (8, CONTRACT),
     ] {
         let mut invalid = fresh.clone();
         invalid.schema_version = schema;
@@ -111,6 +112,82 @@ fn fresh_independent_research_requires_its_own_schema_and_opening() {
     assert!(
         validate(&invalid_edge).is_err(),
         "independent research still preserves the reading DAG"
+    );
+}
+
+#[test]
+fn automatic_retry_markers_cannot_replace_the_original_slide_attempt() {
+    let f = Fixture::new();
+    let mut invalid_opening = crate::repository_guide::tests::fresh_record(&f);
+    invalid_opening.opening.as_mut().unwrap().automatic_retry = true;
+    assert!(validate(&invalid_opening).is_err());
+
+    let mut invalid_topic = crate::repository_guide::tests::fresh_record(&f);
+    invalid_topic.units[0].attempts.push(Attempt {
+        run_id: Uuid::new_v4().to_string(),
+        question: invalid_topic.plan.as_ref().unwrap().units[0]
+            .question
+            .clone(),
+        automatic_retry: true,
+        summary: None,
+    });
+    assert!(validate(&invalid_topic).is_err());
+}
+
+#[test]
+fn an_outline_timeout_gets_one_automatic_and_one_explicit_fresh_owner_retry() {
+    let f = Fixture::new();
+    let pending = crate::repository_guide::opening::tests::pending(&f);
+    assert_eq!(
+        super::super::opening_continuation::remaining_operations(&pending),
+        0,
+        "an active planner cannot be continued in parallel"
+    );
+    create(&f.storage, &pending).unwrap();
+    let first_run = pending.planning_run_id.clone();
+    let failed = update(&f.storage, &pending.id, |current| {
+        current.active_run_id = None;
+        current.status = Status::Partial;
+        Ok(())
+    })
+    .unwrap();
+    assert_eq!(
+        super::super::opening_continuation::remaining_operations(&failed),
+        1,
+        "the first failed outline has one bounded automatic retry"
+    );
+
+    let retry = prepare_plan_retry(&f.storage, &pending.id, failed.revision).unwrap();
+    assert_eq!(retry.status, Status::Planning);
+    assert_eq!(retry.planning_retry_count, 1);
+    assert_ne!(retry.planning_run_id, first_run);
+    assert_eq!(
+        retry.active_run_id.as_deref(),
+        Some(retry.planning_run_id.as_str())
+    );
+    assert!(retry.opening.as_ref().unwrap().summary.is_none());
+
+    let failed_again = update(&f.storage, &pending.id, |current| {
+        current.active_run_id = None;
+        current.status = Status::Partial;
+        Ok(())
+    })
+    .unwrap();
+    let explicit_retry =
+        prepare_plan_retry(&f.storage, &pending.id, failed_again.revision).unwrap();
+    assert_eq!(explicit_retry.planning_retry_count, 2);
+    assert_ne!(explicit_retry.planning_run_id, retry.planning_run_id);
+    let exhausted = update(&f.storage, &pending.id, |current| {
+        current.active_run_id = None;
+        current.status = Status::Partial;
+        Ok(())
+    })
+    .unwrap();
+    let before = std::fs::read(path(&f.storage, &pending.id).unwrap()).unwrap();
+    assert!(prepare_plan_retry(&f.storage, &pending.id, exhausted.revision).is_err());
+    assert_eq!(
+        std::fs::read(path(&f.storage, &pending.id).unwrap()).unwrap(),
+        before
     );
 }
 
@@ -217,7 +294,7 @@ fn unsupported_guide_versions_fail_without_rewriting_saved_bytes() {
     create(&f.storage, &record).unwrap();
     let location = path(&f.storage, &record.id).unwrap();
     let current = serde_json::to_value(&record).unwrap();
-    for version in [0, 1, 2, 3, 4, 5, 7] {
+    for version in [0, 1, 2, 3, 4, 5, 6, 8] {
         let mut unsupported = current.clone();
         unsupported["schemaVersion"] = serde_json::json!(version);
         let bytes = serde_json::to_vec(&unsupported).unwrap();

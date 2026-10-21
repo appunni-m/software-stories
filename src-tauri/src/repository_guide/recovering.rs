@@ -50,12 +50,27 @@ fn reconcile_with_reader(
     mut read: impl FnMut(&Attempt) -> Result<Option<reading::Observation>, String>,
 ) -> Result<Record, String> {
     let mut next = record.clone();
+    let unopened_opening = if record.plan.is_none() {
+        record
+            .opening
+            .as_ref()
+            .map(|opening| opening.run_id.clone())
+    } else {
+        None
+    };
     for attempt in next
         .opening
         .iter_mut()
         .chain(&mut next.opening_continuations)
         .chain(next.units.iter_mut().flat_map(|unit| &mut unit.attempts))
     {
+        // The opening is allocated before planning so its stable identity can
+        // be shown with the guide. It is not an attempted job until the
+        // outline has been saved; a planning timeout must not consume it.
+        if unopened_opening.as_deref() == Some(attempt.run_id.as_str()) && attempt.summary.is_none()
+        {
+            continue;
+        }
         if attempt
             .summary
             .as_ref()

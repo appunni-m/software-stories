@@ -182,10 +182,10 @@ fn opening_stale_reader_positions_preserves_the_conversation_and_record_bytes() 
     let state = presentation_state();
     let record = save(&f.0, "project", "snapshot", None, state).unwrap();
     let mut stored = serde_json::to_value(record).unwrap();
-    stored["state"]["explorations"][0]["turns"][0]["presentation"]["stories"][0]
-        ["focusLayoutVersion"] = json!(2);
-    stored["state"]["explorations"][0]["turns"][0]["presentation"]["diagrams"][0]
-        ["layoutVersion"] = json!(2);
+    stored["state"]["explorations"][0]["turns"][0]["presentation"]["stories"][0]["focusLayoutVersion"] =
+        json!(2);
+    stored["state"]["explorations"][0]["turns"][0]["presentation"]["diagrams"][0]["layoutVersion"] =
+        json!(2);
     fs::write(&f.path(), serde_json::to_vec(&stored).unwrap()).unwrap();
     let original_bytes = fs::read(f.path()).unwrap();
 

@@ -227,6 +227,53 @@ fn current_answer_publication_replays_schema_5_with_authored_narration() {
 }
 
 #[test]
+fn guide_slide_jobs_can_publish_one_section_and_safely_reject_a_second() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancel) = setup(&f);
+    let reference = read(&mut ledger, &f, &runtime, &cancel);
+    let mut answer = start(&ledger, &f, &runtime, &cancel);
+    let first = authoring::tests::narrated_proposal(&reference, "entry", 0);
+    let prepared = answer
+        .prepare_with_section_limit(
+            &ledger,
+            &first.to_string(),
+            &f.manifest,
+            &runtime,
+            &cancel,
+            1,
+        )
+        .unwrap();
+    assert!(prepared.findings.is_empty());
+    answer
+        .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
+        .unwrap();
+    assert_eq!(answer.next_new_section_order_with_limit(1), None);
+
+    let second = authoring::tests::narrated_proposal(&reference, "next-slide", 1);
+    let prepared = answer
+        .prepare_with_section_limit(
+            &ledger,
+            &second.to_string(),
+            &f.manifest,
+            &runtime,
+            &cancel,
+            1,
+        )
+        .unwrap();
+    assert_eq!(prepared.findings, finding("guideSlideComplete"));
+    assert!(prepared.generation_id.is_none());
+    answer
+        .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
+        .unwrap();
+
+    let saved = inspect(&f.storage, &ledger.record.binding.operation_id).unwrap();
+    assert_eq!(saved.sections.len(), 1);
+    assert_eq!(saved.sections[0].key, "entry");
+    assert_eq!(saved.attempts.len(), 2);
+    assert_eq!(saved.attempts[1].findings, finding("guideSlideComplete"));
+}
+
+#[test]
 fn old_proposal_answer_checkpoint_and_ledger_versions_are_rejected() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancel) = setup(&f);

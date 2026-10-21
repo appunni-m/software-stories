@@ -214,13 +214,20 @@ pub(super) fn compile(section: &Value) -> Result<Compiled, Vec<Value>> {
                     )?
                     .into_iter()
                     .next()
-                    .ok_or_else(|| issue(&format!("{at}/source/referenceId"), "sceneAuthoringReference"))?;
+                    .ok_or_else(|| {
+                        issue(
+                            &format!("{at}/source/referenceId"),
+                            "sceneAuthoringReference",
+                        )
+                    })?;
                     json!({"evidence":source_evidence,"value":source.value})
                 }
                 None => Value::Null,
             };
             locations.push((format!("/section/visual/nodes/{}", nodes.len()), at));
-            nodes.push(json!({"label":node.label,"detail":node.detail,"evidence":refs,"source":source}));
+            nodes.push(
+                json!({"label":node.label,"detail":node.detail,"evidence":refs,"source":source}),
+            );
         }
         for (index, edge) in scene.edges.into_iter().enumerate() {
             let at = format!("{base}/edges/{index}");

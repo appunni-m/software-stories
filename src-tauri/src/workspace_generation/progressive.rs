@@ -3,9 +3,8 @@
 
 use super::*;
 use crate::evidence_ledger::sections::{
-    self,
+    self, Outcome, SectionNotice,
     reading::{self, Summary},
-    Outcome, SectionNotice,
 };
 use tauri::Manager;
 
@@ -217,19 +216,35 @@ pub(crate) fn run_with_starting_ranges(
         &input.snapshot_id,
         &runtime,
     )?;
-    let session = Arc::new(Mutex::new(agent_context::Session::new_progressive(
-        storage,
-        &input.run_id,
-        manifest.clone(),
-        &runtime,
-        &input.grant_id,
-        jobs,
-        &input.question,
-        &fingerprint,
-        &input.model_id,
-        &input.effort,
-        notify,
-    )?));
+    let session = Arc::new(Mutex::new(if guide_intent.is_some() {
+        agent_context::Session::new_guide_progressive(
+            storage,
+            &input.run_id,
+            manifest.clone(),
+            &runtime,
+            &input.grant_id,
+            jobs,
+            &input.question,
+            &fingerprint,
+            &input.model_id,
+            &input.effort,
+            notify,
+        )?
+    } else {
+        agent_context::Session::new_progressive(
+            storage,
+            &input.run_id,
+            manifest.clone(),
+            &runtime,
+            &input.grant_id,
+            jobs,
+            &input.question,
+            &fingerprint,
+            &input.model_id,
+            &input.effort,
+            notify,
+        )?
+    }));
     if let Err(error) = journal.record(
         storage,
         recovery::new_provider_operation(

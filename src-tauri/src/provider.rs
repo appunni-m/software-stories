@@ -8597,9 +8597,17 @@ mod tests {
             assert_eq!(visual["properties"]["nodes"]["maxItems"], 12);
             assert_eq!(visual["properties"]["edges"]["maxItems"], 20);
             let node = &visual["properties"]["nodes"]["items"];
-            assert!(node["required"].as_array().unwrap().contains(&json!("source")));
+            assert!(
+                node["required"]
+                    .as_array()
+                    .unwrap()
+                    .contains(&json!("source"))
+            );
             assert_eq!(node["properties"]["source"]["anyOf"][1]["type"], "NULL");
-            assert_eq!(node["properties"]["source"]["anyOf"][0]["required"], json!(["evidence", "value"]));
+            assert_eq!(
+                node["properties"]["source"]["anyOf"][0]["required"],
+                json!(["evidence", "value"])
+            );
         }
     }
 

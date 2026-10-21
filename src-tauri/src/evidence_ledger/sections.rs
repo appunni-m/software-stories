@@ -620,6 +620,7 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "sectionOrder"
                             | "sectionConflict"
                             | "sectionLimit"
+                            | "guideSlideComplete"
                             | "proposalCorrectionLimit"
                             | "citation"
                             | "presentationLimit"
@@ -742,6 +743,7 @@ impl Answer {
                         | "sectionOrder"
                         | "sectionConflict"
                         | "sectionLimit"
+                        | "guideSlideComplete"
                         | "proposalCorrectionLimit"
                 )
             })
@@ -931,6 +933,10 @@ impl ActiveAnswer {
         (next < MAX_SECTIONS).then_some(next)
     }
 
+    pub(crate) fn next_new_section_order_with_limit(&self, limit: usize) -> Option<usize> {
+        self.next_new_section_order().filter(|next| *next < limit)
+    }
+
     pub(crate) fn notice(&self, generation: &str) -> Option<SectionNotice> {
         self.value
             .sections
@@ -958,6 +964,28 @@ impl ActiveAnswer {
         runtime: &CodexReviewRuntime,
         cancelled: &AtomicBool,
     ) -> Result<PreparedSection, String> {
+        self.prepare_with_section_limit(
+            ledger,
+            arguments,
+            manifest,
+            runtime,
+            cancelled,
+            MAX_SECTIONS,
+        )
+    }
+
+    pub(crate) fn prepare_with_section_limit(
+        &self,
+        ledger: &Ledger,
+        arguments: &str,
+        manifest: &snapshot::SnapshotManifest,
+        runtime: &CodexReviewRuntime,
+        cancelled: &AtomicBool,
+        section_limit: usize,
+    ) -> Result<PreparedSection, String> {
+        if !(1..=MAX_SECTIONS).contains(&section_limit) {
+            return Err("The slide publication limit is invalid.".into());
+        }
         let checkpoint_version = NARRATION_CHECKPOINT_VERSION;
         ledger.check(manifest, runtime, cancelled)?;
         if self.value.outcome != Outcome::Working
@@ -1018,6 +1046,8 @@ impl ActiveAnswer {
                 }) || (prior.is_none() && proposal.previous_generation_id.is_some())
                 {
                     findings = finding("sectionConflict");
+                } else if prior.is_none() && unique >= section_limit {
+                    findings = finding("guideSlideComplete");
                 } else if prior.is_none() && unique >= MAX_SECTIONS {
                     findings = finding("sectionLimit");
                 } else if prior.is_none() && proposal.order != unique {

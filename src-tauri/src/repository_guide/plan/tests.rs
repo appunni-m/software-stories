@@ -30,7 +30,7 @@ fn outline_keeps_research_questions_and_native_ranges_not_unverified_explanation
     assert!(!encoded.contains(SIMPLE_SOURCE));
     let schema = schema();
     assert_eq!(schema["properties"]["sections"]["maxItems"], 6);
-    assert!(opening::instructions().contains("outline"));
+    assert!(opening::LEARNING_QUESTION.contains("entry point"));
 }
 #[test]
 fn outline_rejects_cycles_duplicate_questions_extra_prose_and_unknown_fields() {
@@ -75,7 +75,7 @@ fn unread_references_never_become_starting_paths() {
 }
 
 #[test]
-fn separate_opening_intent_binds_both_questions_and_preserves_the_complete_outline_scope() {
+fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
     let f = Fixture::new();
     let mut r = crate::repository_guide::tests::fresh_record(&f);
     r.question =
@@ -84,26 +84,21 @@ fn separate_opening_intent_binds_both_questions_and_preserves_the_complete_outli
     r.opening_context_sha256 = Some(opening::context_sha256(&r).unwrap());
     let (prompt, output, fingerprint, instructions) = request(&r).unwrap();
     let intent: Value = serde_json::from_str(&prompt).unwrap();
-    assert_eq!(intent["question"], opening::LEARNING_QUESTION);
+    assert_eq!(intent["question"], r.question);
     assert_eq!(intent["guideContext"]["question"], r.question);
-    assert_eq!(intent["guideContext"]["guideId"], r.id);
-    assert_eq!(output, opening::schema_for(&r, schema()));
-    assert!(
-        output["properties"]["openingAnswer"]["description"]
-            .as_str()
-            .unwrap()
-            .contains("not a completion declaration")
-    );
-    assert!(instructions.contains("two distinct questions"));
-    assert!(
-        instructions.contains("Missing conditions, fall-through or returned/propagated outcomes")
-    );
-    assert!(instructions.contains("never completes the whole guide"));
-    assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
     assert_eq!(
-        opening::policy(&r),
-        "first-transition-with-separate-learning-intent-v3"
+        intent["guideContext"]["openingQuestion"],
+        opening::LEARNING_QUESTION
     );
+    assert_eq!(intent["guideContext"]["guideId"], r.id);
+    assert_eq!(output, schema());
+    assert!(output["properties"].get("openingAnswer").is_none());
+    assert!(instructions.contains("slide outline only"));
+    assert!(instructions.contains("opening slide will be generated independently"));
+    assert!(instructions.contains("do not call propose_answer_section"));
+    assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
+    let contract = serde_json::to_value(context_mcp::research_tools()).unwrap();
+    assert!(!contract.to_string().contains("propose_answer_section"));
     r.question.push_str(" Preserve downstream ownership.");
     assert!(
         request(&r).is_err(),
@@ -123,62 +118,47 @@ fn separate_opening_intent_binds_both_questions_and_preserves_the_complete_outli
     );
     assert!(prompt.len() < 128 * 1024);
     assert_eq!(MAX_UNITS + 1, 7);
-    assert_eq!(MAX_ATTEMPTS, 2);
+    assert_eq!(MAX_ATTEMPTS, 3);
 }
 
 #[test]
-fn opening_instructions_keep_the_question_scoped() {
+fn plan_instructions_keep_the_full_requested_scope() {
     let f = Fixture::new();
     let r = crate::repository_guide::tests::fresh_record(&f);
     let (_, _, _, instructions) = request(&r).unwrap();
-    assert!(
-        !instructions.contains("The original learning question remains the guide's full scope."),
-        "the top-level opening question cannot also be declared the full-guide scope"
-    );
-    assert!(instructions.contains("guideContext.question"));
-    assert!(
-        instructions.contains(
-            "Unclaimed callee internals and later selectors belong in the deeper outline"
-        )
-    );
-    assert!(instructions.contains("If a published claim depends on an unverified helper"));
-    assert!(instructions.contains("never completes the whole guide"));
+    assert!(instructions.contains("two to six focused follow-on behavior questions"));
+    assert!(instructions.contains("together with the opening cover the exact original question"));
+    assert!(instructions.contains("unsupported boundaries as omissions"));
+    assert!(!instructions.contains("Publish one small, complete, illustrated section"));
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
 
     assert_eq!(MAX_UNITS + 1, 7);
-    assert_eq!(MAX_ATTEMPTS, 2);
+    assert_eq!(MAX_ATTEMPTS, 3);
 }
 
 #[test]
-fn scoped_opening_keeps_one_transition_and_defers_later_entries_without_dropping_scope() {
+fn outline_plan_is_persistable_without_waiting_for_opening_content() {
     let f = Fixture::new();
     let r = crate::repository_guide::tests::fresh_record(&f);
     let before = serde_json::to_vec(&r).unwrap();
     let binding = opening::context_sha256(&r).unwrap();
     let (prompt, schema, fingerprint, instructions) = request(&r).unwrap();
-    assert!(instructions.contains("Choose exactly one entry point"));
-    assert!(instructions.contains("wrappers and predicate helpers"));
-    assert!(instructions.contains("Normally publish one focused opening section"));
-    assert!(instructions.contains("later API entry points, selectors and flag normalization"));
-    assert!(instructions.contains("revisit source for genuinely new behavior"));
-    assert!(instructions.contains("Never discard a publication or hide an unresolved condition"));
-    assert!(
-        instructions.contains("Native publication, evidence and lifetime budgets are unchanged")
-    );
     assert_eq!(
         serde_json::from_str::<Value>(&prompt).unwrap()["guideContext"]["question"],
         r.question
     );
-    assert_eq!(schema, opening::schema_for(&r, super::schema()));
+    assert_eq!(schema, super::schema());
+    assert!(schema["properties"].get("openingAnswer").is_none());
+    assert!(instructions.contains("Return only the supplied plan schema"));
     assert_eq!(request(&r).unwrap().2, fingerprint);
     assert_eq!(opening::context_sha256(&r).unwrap(), binding);
     assert_eq!(serde_json::to_vec(&r).unwrap(), before);
     assert_eq!(MAX_UNITS + 1, 7);
-    assert_eq!(MAX_ATTEMPTS, 2);
+    assert_eq!(MAX_ATTEMPTS, 3);
 }
 
 #[test]
-fn production_opening_session_stores_the_separate_question_without_connecting_an_account() {
+fn production_plan_session_has_no_answer_receipt_or_publication_tool() {
     let f = Fixture::new();
     let mut r = crate::repository_guide::tests::fresh_record(&f);
     let runtime = crate::codex_identity::CodexReviewRuntime {
@@ -202,17 +182,14 @@ fn production_opening_session_stores_the_separate_question_without_connecting_an
         Arc::new(|_| {}),
     )
     .unwrap();
-    let answer = reading::scoped(
-        &f.storage,
-        &r.planning_run_id,
-        &r.project_id,
-        &r.snapshot_id,
-    )
-    .unwrap();
-    assert_eq!(answer.question, opening::LEARNING_QUESTION);
-    assert_ne!(answer.question, r.question);
-    assert_eq!(answer.outcome, Outcome::Working);
-    assert!(answer.sections.is_empty());
+    assert!(!reading::exists(&f.storage, &r.planning_run_id).unwrap());
+    assert!(
+        !_session.configuration().unwrap()["enabled_tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|tool| tool == context_mcp::PROPOSAL_TOOL)
+    );
     assert_eq!(unit_intent(&r, 0).unwrap().question, r.question);
     assert!(!f.storage.join("codex-agent/runtime.json").exists());
 }

@@ -236,6 +236,7 @@ fn validate(record: &Record) -> Result<(), String> {
         || record.opening.is_none()
         || !uuid(&record.id)
         || !uuid(&record.planning_run_id)
+        || record.planning_retry_count > 2
         || !uuid(&record.grant_id)
         || !text(&record.question, 1, 12000)
         || record.project_id.is_empty()
@@ -252,16 +253,35 @@ fn validate(record: &Record) -> Result<(), String> {
     {
         return Err("The saved repository guide has an incompatible contract.".into());
     }
-    if record.opening_continuations.len() > 1 {
+    if record.opening_continuations.len() > MAX_OPENING_CONTINUATIONS
+        || record
+            .opening_continuations
+            .iter()
+            .filter(|attempt| attempt.automatic_retry)
+            .count()
+            > usize::from(MAX_AUTOMATIC_RETRIES_PER_UNIT)
+        || record
+            .opening_continuations
+            .iter()
+            .filter(|attempt| !attempt.automatic_retry)
+            .count()
+            > 1
+    {
         return Err("The guide's opening continuation contract changed.".into());
     }
+    let mut runs = std::collections::HashSet::from([record.planning_run_id.as_str()]);
     if let Some(opening) = &record.opening {
+        if opening.automatic_retry
+            || !uuid(&opening.run_id)
+            || (opening.run_id != record.planning_run_id && !runs.insert(&opening.run_id))
+        {
+            return Err("The guide opening investigation identity or retry state changed.".into());
+        }
         opening::question(record)?;
         validate_summary(record, opening)?;
     } else if record.opening_context_sha256.is_some() {
         return Err("The saved guide has learning intent without an opening.".into());
     }
-    let mut runs = std::collections::HashSet::from([record.planning_run_id.as_str()]);
     for attempt in &record.opening_continuations {
         if record.plan.is_none()
             || record
@@ -302,6 +322,16 @@ fn validate(record: &Record) -> Result<(), String> {
                     .len()
                     != unit.prerequisites.len()
                 || !(1..=4).contains(&unit.starting_ranges.len())
+                || progress
+                    .attempts
+                    .iter()
+                    .filter(|attempt| attempt.automatic_retry)
+                    .count()
+                    > usize::from(MAX_AUTOMATIC_RETRIES_PER_UNIT)
+                || progress
+                    .attempts
+                    .first()
+                    .is_some_and(|attempt| attempt.automatic_retry)
                 || progress.attempts.len() > MAX_ATTEMPTS
             {
                 return Err("The saved guide's units or prerequisites changed.".into());
@@ -381,6 +411,40 @@ pub(in crate::repository_guide) fn prepare_continuation(
             return Err("This guide has no remaining investigations. Its saved sections and unfinished boundaries remain available.".into());
         }
         current.status = Status::Building;
+        Ok(())
+    })
+}
+
+/// Admit one explicit fresh outline attempt after a failed or interrupted
+/// planning run. It keeps the guide identity and source grant while giving the
+/// Codex operation a new owner and the same bounded planning contract.
+pub(in crate::repository_guide) fn prepare_plan_retry(
+    storage: &Path,
+    id: &str,
+    revision: u64,
+) -> Result<Record, String> {
+    update(storage, id, |current| {
+        if current.revision != revision
+            || current.active_run_id.is_some()
+            || current.plan.is_some()
+            || current.status == Status::Stopped
+            || current.planning_retry_count >= 2
+            || current.units.len() != 0
+            || !current.opening_continuations.is_empty()
+            || current
+                .opening
+                .as_ref()
+                .is_none_or(|opening| opening.summary.is_some())
+        {
+            return Err(
+                "This outline cannot be retried safely. Existing guide progress was preserved."
+                    .into(),
+            );
+        }
+        current.planning_retry_count += 1;
+        current.planning_run_id = uuid::Uuid::new_v4().to_string();
+        current.active_run_id = Some(current.planning_run_id.clone());
+        current.status = Status::Planning;
         Ok(())
     })
 }

@@ -83,8 +83,14 @@ pub(super) fn request(
     if guide_intent.is_some() {
         instructions.push_str(&format!("\n\n{}", guide_intent::INSTRUCTIONS));
     }
-    if guide_intent.is_some_and(|intent| intent.opening_continuation.is_some()) {
+    if guide_intent.is_some_and(|intent| intent.unit_key == "opening") {
         instructions.push_str(&format!("\n\n{}", guide_intent::OPENING_INSTRUCTIONS));
+    }
+    if guide_intent.is_some_and(|intent| intent.opening_continuation.is_some()) {
+        instructions.push_str(&format!(
+            "\n\n{}",
+            guide_intent::OPENING_CONTINUATION_INSTRUCTIONS
+        ));
     }
     let mut contract = generation_contract(input, &prompt, &schema)?;
     contract["systemInstructions"] = json!(instructions);
@@ -93,6 +99,9 @@ pub(super) fn request(
     }
     if guide_intent.is_some() {
         contract["guideContextPolicy"] = json!(guide_intent::POLICY);
+    }
+    if guide_intent.is_some_and(|intent| intent.unit_key == "opening") {
+        contract["openingSlidePolicy"] = json!("independent-outline-first-opening-v1");
     }
     if guide_intent.is_some_and(|intent| intent.opening_continuation.is_some()) {
         contract["openingContinuationPolicy"] = json!(guide_intent::OPENING_POLICY);
@@ -193,13 +202,14 @@ mod tests {
             value["openingContinuationPolicy"],
             guide_intent::OPENING_POLICY
         );
-        assert!(instructions.contains(guide_intent::OPENING_INSTRUCTIONS));
+        assert!(instructions.contains(guide_intent::OPENING_CONTINUATION_INSTRUCTIONS));
         assert!(!prompt.contains(SIMPLE_SOURCE));
         assert!(value.get("startingRanges").is_none());
         assert!(schema["properties"].get("outline").is_none());
         let mut contract = generation_contract(&input, &prompt, &schema).unwrap();
         contract["systemInstructions"] = json!(instructions);
         contract["guideContextPolicy"] = json!(guide_intent::POLICY);
+        contract["openingSlidePolicy"] = json!("independent-outline-first-opening-v1");
         contract["openingContinuationPolicy"] = json!(guide_intent::OPENING_POLICY);
         assert_eq!(
             fingerprint,
@@ -386,7 +396,7 @@ mod tests {
                 "control" => changed.question.push('\n'),
                 "key" => changed.unit_key = "bad_key".into(),
                 "number" => changed.unit_number = 0,
-                "count" => changed.unit_count = 7,
+                "count" => changed.unit_count = 8,
                 "boundaries" => changed.research_boundaries = vec!["boundary".into(); 9],
                 "boundary" => changed.research_boundaries = vec!["é".repeat(121)],
                 _ => unreachable!(),

@@ -1469,10 +1469,17 @@ fn search_identifier_declarations(
                 break;
             };
             if found.start() == found.end() {
-                return Err("Use a regular expression that matches at least one character.".to_owned());
+                return Err(
+                    "Use a regular expression that matches at least one character.".to_owned(),
+                );
             }
-            if !captured.contents.is_char_boundary(found.start()) || !captured.contents.is_char_boundary(found.end()) {
-                return Err("The expression selected part of a UTF-8 character. Use a Unicode pattern.".to_owned());
+            if !captured.contents.is_char_boundary(found.start())
+                || !captured.contents.is_char_boundary(found.end())
+            {
+                return Err(
+                    "The expression selected part of a UTF-8 character. Use a Unicode pattern."
+                        .to_owned(),
+                );
             }
             if function_declaration_at(&captured.contents, found.start(), found.end()) {
                 if declarations.len() == limit {
@@ -1633,7 +1640,10 @@ fn search_pattern(
             let start = range.start_byte.max(cursor);
             let end = range.end_byte.max(found.end());
             if end.saturating_sub(start) > MAX_RANGE_BYTES {
-                return Err("A code match exceeds the 32 KiB range limit. Use a narrower pattern.".to_owned());
+                return Err(
+                    "A code match exceeds the 32 KiB range limit. Use a narrower pattern."
+                        .to_owned(),
+                );
             }
             let contents = captured
                 .contents
@@ -1771,19 +1781,37 @@ pub(crate) fn search_with_mode_page(
     let query = query.trim();
     if mode == SearchMode::Regex || words.is_empty() {
         let mut result = search_pattern(
-            storage, manifest, prepared, query, path, fetch_limit, budget, started, mode,
+            storage,
+            manifest,
+            prepared,
+            query,
+            path,
+            fetch_limit,
+            budget,
+            started,
+            mode,
         )?;
         let has_more = result.limited || result.matches.len() > page_end;
-        result.next_offset = (page_end < MAX_CANDIDATES
-            && result.matches.len() > page_end)
-            .then_some(page_end);
-        result.matches = result.matches.into_iter().skip(offset).take(limit).collect();
+        result.next_offset =
+            (page_end < MAX_CANDIDATES && result.matches.len() > page_end).then_some(page_end);
+        result.matches = result
+            .matches
+            .into_iter()
+            .skip(offset)
+            .take(limit)
+            .collect();
         result.limited = has_more;
         result.result_bytes = json(&result.matches)?.len();
         return Ok(result);
     }
     let mut ranked = search_ranked(
-        storage, manifest, prepared, query, path, fetch_limit, budget,
+        storage,
+        manifest,
+        prepared,
+        query,
+        path,
+        fetch_limit,
+        budget,
     )?;
     let literal = search_pattern(
         storage,
@@ -1837,8 +1865,7 @@ pub(crate) fn search_with_mode_page(
         matches.push(hit);
     }
     let has_more = limited || matches.len() > page_end;
-    let next_offset = (page_end < MAX_CANDIDATES && matches.len() > page_end)
-        .then_some(page_end);
+    let next_offset = (page_end < MAX_CANDIDATES && matches.len() > page_end).then_some(page_end);
     ranked.matches = matches;
     ranked.next_offset = next_offset;
     ranked.limited = has_more;
@@ -2186,9 +2213,8 @@ fn search_ranked(
             &prepared.index,
             path,
         )?;
-        let (hits, count) =
-            ranking::candidates_with_limit(&searcher, &declarations, ranking_limit)
-                .map_err(|_| "Declaration search failed.".to_owned())?;
+        let (hits, count) = ranking::candidates_with_limit(&searcher, &declarations, ranking_limit)
+            .map_err(|_| "Declaration search failed.".to_owned())?;
         exact_limited |= count > MAX_CANDIDATES;
         for (score, address) in hits {
             declaration_docs.insert(address);
@@ -2243,8 +2269,8 @@ fn search_ranked(
         for (id, _) in ranked.iter().take(MAX_CANDIDATES) {
             leading_paths.insert(prepared.metadata.ranges[*id].path.as_str());
         }
-        let use_expanded_candidates = ranked.len() > MAX_CANDIDATES
-            && leading_paths.len() < GLOBAL_DIVERSIFIED_PATH_LIMIT;
+        let use_expanded_candidates =
+            ranked.len() > MAX_CANDIDATES && leading_paths.len() < GLOBAL_DIVERSIFIED_PATH_LIMIT;
         if !use_expanded_candidates {
             ranked.truncate(MAX_CANDIDATES);
         }
@@ -2259,11 +2285,7 @@ fn search_ranked(
         let (exact, other): (Vec<_>, Vec<_>) =
             remaining.into_iter().partition(|(_, (exact, _, _))| *exact);
         let path_for = |id: usize| prepared.metadata.ranges[id].path.clone();
-        ranked = diversify_by_path_limited(
-            declarations,
-            &path_for,
-            path_limit,
-        )
+        ranked = diversify_by_path_limited(declarations, &path_for, path_limit)
             .into_iter()
             .chain(diversify_by_path_limited(exact, &path_for, path_limit))
             .chain(diversify_by_path_limited(other, &path_for, path_limit))
