@@ -225,7 +225,10 @@ export function isRepositoryGuideIntent(question: string): boolean {
   const directProjectAsk = new RegExp(String.raw`^(?:explain|describe|show|understand)\s+(?:(?:this|the)\s+)?${repository}\b`, 'i');
   const projectBehavior = /\bhow\s+(?:does|do)\s+(?:this\s+|the\s+)?(?:project|repo(?:sitory)?|code\s*base|application|system)\s+(?:work|fit\s+together)\b/i;
   const explainProjectBehavior = new RegExp(String.raw`\b(?:explain|describe|show(?:\s+me)?|help\s+me\s+understand)\s+(?:how\s+)?(?:this|the)\s+${repository}\s+(?:works?|fits?\s+together|is\s+(?:structured|organized|built|wired))\b`, 'i');
-  if (directProjectAsk.test(query) || projectBehavior.test(query) || explainProjectBehavior.test(query)) return true;
+  const asksProjectPurpose = new RegExp(String.raw`\b(?:what|which)\s+(?:does|do)\s+(?:(?:this|the)\s+)?${repository}\s+(?:do|provide|offer|contain|include|cover)\b`, 'i');
+  const explainsProjectPurpose = new RegExp(String.raw`\b(?:explain|describe|show(?:\s+me)?|tell(?:\s+me)?|help\s+me\s+understand)\s+what\s+(?:(?:this|the)\s+)?${repository}\s+(?:does|provides?|offers?|contains?|includes?|covers?)\b`, 'i');
+  if (directProjectAsk.test(query) || projectBehavior.test(query) || explainProjectBehavior.test(query)
+    || asksProjectPurpose.test(query) || explainsProjectPurpose.test(query)) return true;
   return false;
 }
 

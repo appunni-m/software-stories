@@ -76,6 +76,8 @@ test('explicit project-wide guide asks use the durable pipeline from every explo
     assert.equal(isRepositoryGuideIntent(question),true,question);
   for(const question of ['Build a guide for this project','Give me a tour of the whole repository','Walk me through the app end to end','Explain this repository'])
     assert.equal(isRepositoryGuideIntent(question),true,question);
+  for(const question of ['Explain what this project does','What does this repository do?','Tell me what the codebase provides'])
+    assert.equal(isRepositoryGuideIntent(question),true,question);
   assert.equal(isRepositoryGuideIntent('Explain this function'),false);
   assert.equal(isRepositoryGuideIntent('Why does parsing default this field?'),false);
 });
