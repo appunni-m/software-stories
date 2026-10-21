@@ -580,6 +580,53 @@ mod tests {
     }
 
     #[test]
+    fn repetition_rule_compares_nested_visible_content_not_layout_metadata() {
+        let (mut nodes, _, mut presentation) = fixture();
+        nodes[0] = nodes[3].clone();
+        nodes[0].node_id.push_str("-different-id");
+        presentation.scenes[0].elements = serde_json::from_value(json!([
+            {"kind":"row","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"column","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"code","parentIndex":1,"nodeIndex":3,"tone":"accent","value":"same value","valueOrigin":"illustration"},
+            {"kind":"arrow","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"panel","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"text","parentIndex":4,"nodeIndex":0,"tone":"warning","value":"same value","valueOrigin":"illustration"}
+        ]))
+        .unwrap();
+
+        let labels: Vec<_> = nodes.iter().map(|node| node.label.as_str()).collect();
+        assert_eq!(repetition_positions(&presentation, &labels), vec![(0, 3)]);
+
+        presentation.scenes[0].elements[5].value = "changed value".into();
+        assert!(repetition_positions(&presentation, &labels).is_empty());
+
+        presentation.scenes[0].elements[5].value = "same value".into();
+        nodes[0].label = "A different visible role".into();
+        let labels: Vec<_> = nodes.iter().map(|node| node.label.as_str()).collect();
+        assert!(repetition_positions(&presentation, &labels).is_empty());
+    }
+
+    #[test]
+    fn repetition_rule_ignores_graph_scenes_and_comparisons_without_arrows() {
+        let (nodes, _, mut presentation) = fixture();
+        let elements = json!([
+            {"kind":"row","parentIndex":null,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"code","parentIndex":0,"nodeIndex":3,"tone":"accent","value":"same","valueOrigin":"illustration"},
+            {"kind":"arrow","parentIndex":0,"nodeIndex":null,"tone":"neutral","value":"","valueOrigin":"none"},
+            {"kind":"text","parentIndex":0,"nodeIndex":3,"tone":"positive","value":"same","valueOrigin":"illustration"}
+        ]);
+        presentation.scenes[0].elements = serde_json::from_value(elements).unwrap();
+        let labels: Vec<_> = nodes.iter().map(|node| node.label.as_str()).collect();
+        assert_eq!(repetition_positions(&presentation, &labels), vec![(0, 2)]);
+
+        presentation.scenes[0].elements[2].kind = ElementKind::Divider;
+        assert!(repetition_positions(&presentation, &labels).is_empty());
+
+        presentation.scenes[0].mode = SceneMode::Graph;
+        assert!(repetition_positions(&presentation, &labels).is_empty());
+    }
+
+    #[test]
     fn content_cannot_borrow_a_different_claim_or_fabricate_a_source_value() {
         let (nodes, claims, mut presentation) = fixture();
         presentation.scenes[0].elements[0].node_index = Some(8);
