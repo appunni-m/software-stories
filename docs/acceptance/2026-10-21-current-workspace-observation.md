@@ -19,6 +19,7 @@ Status: partial evidence for Kata `x21h`; this is not the required screen-by-scr
 - **Source change pending native review:** the working tree now exposes full node text on hover and expands narrated nodes to four lines and focused nodes to six. The installed app still has the SHA above, so it does not contain or verify that change.
 - **Observed notification state:** before inspection the notification drawer was open with 24 items under “Needs attention” and 69 unread updates overall. It covered a large part of the reading pane. Closing it restored the same Guide/source view; no notification was dismissed, read, or otherwise changed.
 - **Observed exploration state:** the Explorer listed 33 questions for Fontdone, including partial explanations and unavailable saved answers. These are existing workspace records and were not modified.
+- **Duplicate setup route:** the top bar has a persistent Connections control, but the adjacent Workspace tools menu also listed Connections. That creates a second setup path after the user asked to keep connection selection in the header. The source now removes the duplicate menu item and a shell regression checks that Connections appears in the header only. This source change has not yet been installed in the app whose hash is recorded above.
 
 The CUA screenshots of the open drawer and restored workspace are visible in the 21 October task transcript. They are not archived as PNG files in this repository yet, so the screenshot artifact requirement remains incomplete.
 

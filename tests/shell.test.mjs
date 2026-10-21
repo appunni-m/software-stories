@@ -164,7 +164,7 @@ describe('desktop shell acceptance contract', () => {
     assert.match(restoredDialog, /saveGeneratedChapterDraft/);
   });
 
-  it('offers provider setup only from an explicit generation or narration flow', async () => {
+  it('keeps connection setup in the header instead of duplicating it in workspace tools', async () => {
     const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
     assert.match(source, /aria-label="Open workspace tools"[\s\S]*?title="Workspace tools"[\s\S]*?aria-haspopup="menu"/);
     assert.doesNotMatch(source, /aria-label="Open workspace settings"/);
@@ -172,6 +172,8 @@ describe('desktop shell acceptance contract', () => {
     const menuEnd = source.indexOf('<button className="menu-scrim"', menuStart);
     assert.ok(menuStart >= 0 && menuEnd > menuStart, 'project tools menu is present');
     assert.doesNotMatch(source.slice(menuStart, menuEnd), /AI and narration setup/);
+    assert.doesNotMatch(source.slice(menuStart, menuEnd), /<span>Connections<\/span>/);
+    assert.match(source, /<ConnectionHeader onOpen=\{openProviderSettings\} \/>/);
     const narration = await readFile(new URL('../src/NarrationPlayer.tsx', import.meta.url), 'utf8');
     assert.match(narration, /Set up Gemini for narration/);
     assert.match(source.slice(source.indexOf('function ProviderDialog')), /provider-key-card/);

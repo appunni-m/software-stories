@@ -1673,7 +1673,6 @@ function App() {
             {toolsOpen && (
               <div className="tools-menu" role="menu" aria-label="More tools">
                 <div className="menu-label">WORKSPACE</div>
-                <button role="menuitem" onClick={openProviderSettings}><Settings2 size={16} /> <span>Connections</span></button>
                 <button role="menuitem" data-focus-key="tools-button" onClick={() => chooseWorkspace('walkthrough')}>
                   <Play size={16} /> <span>Browse accepted guides</span>
                 </button>
