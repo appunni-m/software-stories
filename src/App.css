@@ -68,19 +68,14 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .nav-tab.active { color: var(--accent-strong); }
 .nav-tab.active::after { position: absolute; bottom: -1px; left: 12px; right: 12px; height: 2px; content: ''; background: var(--accent); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 27%, transparent); }
 .topbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; min-width: 0; }
-.more-tools-button { min-height: 35px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 9px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); font-size: 10px; font-weight: 600; cursor: pointer; }
-.more-tools-button:hover, .more-tools-button.selected { color: var(--text); background: var(--surface-hover); border-color: var(--blue-border); }
+.help-button { width: 35px; height: 35px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
+.help-button:hover { color: var(--text); background: var(--surface-hover); border-color: var(--blue-border); }
 .search-control { height: 35px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--blue-border); border-radius: 8px; background: var(--surface-raised); color: var(--muted); font-size: 11px; white-space: nowrap; }
 .search-control:not(:disabled) { cursor: pointer; }
 .search-control:not(:disabled):hover { color: var(--text); border-color: var(--border-strong); }
 .search-control kbd { display: inline-flex; align-items: center; gap: 2px; margin-left: 11px; padding: 2px 4px; border: 1px solid var(--border-strong); border-radius: 4px; color: var(--muted); background: var(--surface-raised); font: 10px var(--mono); }
 .icon-button { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
 .icon-button:hover, .icon-button.selected { color: var(--text); background: var(--surface-hover); border-color: var(--blue-border); }
-.tools-wrap { position: relative; }
-.tools-menu { position: absolute; top: 43px; right: 0; z-index: 8; width: 250px; padding: 8px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface-raised); box-shadow: 0 16px 40px color-mix(in srgb, var(--shadow) 60%, transparent); }
-.tools-menu button { width: 100%; min-height: 38px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border: 0; border-radius: 7px; background: transparent; color: var(--blue); font-size: 12px; text-align: left; cursor: pointer; }
-.tools-menu button:hover { background: var(--blue-soft); color: var(--text); }
-.tools-menu button svg { color: var(--muted); }
 .menu-label { padding: 8px 10px 7px; color: var(--muted); font: 9px var(--mono); letter-spacing: .13em; }
 .menu-rule { height: 1px; margin: 5px 4px; background: var(--border); }
 .menu-soon { margin-left: auto; color: var(--muted); font: 9px var(--mono); }
@@ -518,8 +513,6 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
   .nav-tab span { font-size: 11px; }
   .search-control { max-width: 35px; overflow: hidden; padding: 0 9px; }
   .search-control span, .search-control kbd { display: none; }
-  .more-tools-button { width: 35px; overflow: hidden; padding: 0; }
-  .more-tools-button span { display: none; }
   .workspace-content { padding-right: 27px; padding-left: 27px; }
   .empty-main-card { grid-template-columns: minmax(220px, .8fr) 1.2fr; }
 }

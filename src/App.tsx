@@ -58,7 +58,6 @@ import {
   Play,
   Search,
   Save,
-  Settings2,
   Sparkles,
   Trash2,
   TriangleAlert,
@@ -262,7 +261,6 @@ function App() {
     return()=>{window.removeEventListener('code-atlas:workspace-notice',notify);window.removeEventListener('code-atlas:workspace-notice-resolved',resolved);};
   }, [setNotice,noticeHistory]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [toolsOpen, setToolsOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const [projectMetadataBusy, setProjectMetadataBusy] = useState(false);
@@ -724,7 +722,6 @@ function App() {
       });
     });
     setProjectMenuOpen(false);
-    setToolsOpen(false);
     setSnapshotMenuOpen(false);
   };
 
@@ -764,7 +761,6 @@ function App() {
       ? 'project-button'
       : activeFocus);
     setProjectMenuOpen(false);
-    setToolsOpen(false);
 
     if (!isNativeRuntime()) {
       setNotice({
@@ -1081,16 +1077,12 @@ function App() {
           event.preventDefault();
           setProjectMenuOpen(false);
           projectButtonRef.current?.focus();
-        } else if (toolsOpen) {
-          event.preventDefault();
-          setToolsOpen(false);
-          document.querySelector<HTMLElement>('[data-focus-key="tools-button"]')?.focus();
         }
         return;
       }
 
-      if ((toolsOpen || projectMenuOpen || snapshotMenuOpen) && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
-        const menuItems = Array.from(document.querySelectorAll<HTMLElement>('.tools-menu [role="menuitem"], .project-menu [role="menuitem"], .snapshot-menu [role="menuitem"]'));
+      if ((projectMenuOpen || snapshotMenuOpen) && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+        const menuItems = Array.from(document.querySelectorAll<HTMLElement>('.project-menu [role="menuitem"], .snapshot-menu [role="menuitem"]'));
         const current = menuItems.indexOf(document.activeElement as HTMLElement);
         const nextIndex = event.key === 'Home'
           ? 0
@@ -1133,12 +1125,12 @@ function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [navigation.current.snapshotId, navigationActions, openLocalRepository, projectMenuOpen, providerDialog, planningDialog, snapshotMenuOpen, shortcutsOpen, toolsOpen]);
+  }, [navigation.current.snapshotId, navigationActions, openLocalRepository, projectMenuOpen, providerDialog, planningDialog, snapshotMenuOpen, shortcutsOpen]);
 
   useEffect(() => {
     const open = () => {
       providerReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      setToolsOpen(false); setProjectMenuOpen(false); setSnapshotMenuOpen(false);
+      setProjectMenuOpen(false); setSnapshotMenuOpen(false);
       setProviderDialog({ kind: 'settings', section: 'voice' });
     };
     window.addEventListener('code-atlas:voice-connections', open);
@@ -1147,7 +1139,6 @@ function App() {
 
   const openProviderSettings = () => {
     providerReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setToolsOpen(false);
     setProjectMenuOpen(false);
     setSnapshotMenuOpen(false);
     setProviderDialog({ kind: 'settings' });
@@ -1175,7 +1166,6 @@ function App() {
         question: `Explain ${targetPath} from the captured implementation. Trace its inputs, transformations, outputs, errors, and relevant callers using bounded source ranges. Cite actual code and say what remains unverified.`,
       });
       setProviderDialog(null);
-      setToolsOpen(false);
       setNavigation((state) => navigateToRoute(state, {
         ...state.current,
         workspace: 'guide-plan',
@@ -1190,7 +1180,6 @@ function App() {
       return;
     }
     providerReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setToolsOpen(false);
     setProviderDialog({
       kind: 'review',
       projectId: currentProject.projectId,
@@ -1206,7 +1195,6 @@ function App() {
       return;
     }
     providerReturnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setToolsOpen(false);
     setProviderDialog({
       kind: 'code-lens-range',
       projectId: currentProject.projectId,
@@ -1238,7 +1226,6 @@ function App() {
 
   const chooseWorkspace = (workspace: Workspace) => {
     navigationActions.workspace(workspace);
-    setToolsOpen(false);
     setProjectMenuOpen(false);
   };
 
@@ -1544,7 +1531,7 @@ function App() {
             ref={projectButtonRef}
             className="project-button"
             data-focus-key="project-button"
-            onClick={() => { setToolsOpen(false); setSnapshotMenuOpen(false); setProjectMenuOpen((open) => !open); }}
+            onClick={() => { setSnapshotMenuOpen(false); setProjectMenuOpen((open) => !open); }}
             aria-label={currentProject ? `Switch repository. Current repository: ${currentProject.displayName}` : 'Open the repository picker'}
             aria-expanded={projectMenuOpen}
             aria-haspopup="menu"
@@ -1609,7 +1596,7 @@ function App() {
               className="snapshot-button"
               data-focus-key="snapshot-button"
               disabled={!currentProject || currentSnapshots.length === 0}
-              onClick={() => { setProjectMenuOpen(false); setToolsOpen(false); setSnapshotMenuOpen((open) => !open); }}
+              onClick={() => { setProjectMenuOpen(false); setSnapshotMenuOpen((open) => !open); }}
               aria-label={selectedSnapshot ? `Choose snapshot. Selected ${formatSnapshotDate(selectedSnapshot.createdAtUnixMs)}` : 'No snapshot selected'}
               aria-expanded={snapshotMenuOpen}
               aria-haspopup="menu"
@@ -1658,36 +1645,18 @@ function App() {
             <span>Search repository</span>
             <kbd><Command size={10} /> K</kbd>
           </button>
-          <div className="tools-wrap">
-            <button
-              className={`more-tools-button ${toolsOpen ? 'selected' : ''}`}
-              onClick={() => { setProjectMenuOpen(false); setSnapshotMenuOpen(false); setToolsOpen((open) => !open); }}
-              data-focus-key="tools-button"
-              aria-label="Open workspace tools"
-              title="Workspace tools"
-              aria-expanded={toolsOpen}
-              aria-haspopup="menu"
-            >
-              <Settings2 size={16} />
-            </button>
-            {toolsOpen && (
-              <div className="tools-menu" role="menu" aria-label="More tools">
-                <div className="menu-label">WORKSPACE</div>
-                <button role="menuitem" data-focus-key="tools-button" onClick={() => chooseWorkspace('walkthrough')}>
-                  <Play size={16} /> <span>Browse accepted guides</span>
-                </button>
-                <button role="menuitem" data-focus-key="tools-button" onClick={() => chooseWorkspace('chapter-studio')}>
-                  <BookOpen size={16} /> <span>Review a draft</span>
-                </button>
-                <button role="menuitem" onClick={() => { setToolsOpen(false); setShortcutsOpen(true); }}><CircleHelp size={16} /><span>Keyboard shortcuts</span></button>
-              </div>
-            )}
-          </div>
+          <button
+            className="help-button"
+            onClick={() => { setProjectMenuOpen(false); setSnapshotMenuOpen(false); setShortcutsOpen(true); }}
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts"
+          >
+            <CircleHelp size={16} />
+          </button>
         </div>
       </header>
 
       {projectMenuOpen && <button className="menu-scrim" aria-label="Close local repositories menu" onClick={() => { setProjectMenuOpen(false); projectButtonRef.current?.focus(); }} />}
-      {toolsOpen && <button className="menu-scrim" aria-label="Close project tools" onClick={() => { setToolsOpen(false); document.querySelector<HTMLElement>('[data-focus-key="tools-button"]')?.focus(); }} />}
       {snapshotMenuOpen && <button className="menu-scrim" aria-label="Close snapshot history" onClick={() => { setSnapshotMenuOpen(false); document.querySelector<HTMLElement>('[data-focus-key="snapshot-button"]')?.focus(); }} />}
 
       <div className="app-body">

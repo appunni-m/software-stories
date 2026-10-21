@@ -164,15 +164,12 @@ describe('desktop shell acceptance contract', () => {
     assert.match(restoredDialog, /saveGeneratedChapterDraft/);
   });
 
-  it('keeps connection setup in the header instead of duplicating it in workspace tools', async () => {
+  it('opens keyboard help directly and keeps connection setup in the header', async () => {
     const source = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
-    assert.match(source, /aria-label="Open workspace tools"[\s\S]*?title="Workspace tools"[\s\S]*?aria-haspopup="menu"/);
+    assert.match(source, /className="help-button"[\s\S]*?setShortcutsOpen\(true\)/);
+    assert.match(source, /aria-label="Keyboard shortcuts"/);
+    assert.doesNotMatch(source, /toolsOpen|setToolsOpen|tools-menu|Browse accepted guides|Review a draft/);
     assert.doesNotMatch(source, /aria-label="Open workspace settings"/);
-    const menuStart = source.indexOf('<div className="tools-menu"');
-    const menuEnd = source.indexOf('<button className="menu-scrim"', menuStart);
-    assert.ok(menuStart >= 0 && menuEnd > menuStart, 'project tools menu is present');
-    assert.doesNotMatch(source.slice(menuStart, menuEnd), /AI and narration setup/);
-    assert.doesNotMatch(source.slice(menuStart, menuEnd), /<span>Connections<\/span>/);
     assert.match(source, /<ConnectionHeader onOpen=\{openProviderSettings\} \/>/);
     const narration = await readFile(new URL('../src/NarrationPlayer.tsx', import.meta.url), 'utf8');
     assert.match(narration, /Set up Gemini for narration/);
