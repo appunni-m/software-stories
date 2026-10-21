@@ -27,6 +27,7 @@ async function metadata() {
     productName: config.productName,
     version: config.version,
     identifier: config.identifier,
+    minimumSystemVersion: config.bundle?.macOS?.minimumSystemVersion ?? null,
     dataFormats: {
       chapterSchema: rustConstant(chapters, 'CHAPTER_SCHEMA_VERSION'),
       visualSchema: rustConstant(chapters, 'VISUAL_SCHEMA_VERSION'),
@@ -77,8 +78,15 @@ if (process.argv[2] === 'write') {
     const actual = plistValue(key);
     if (actual !== expected) throw new Error(`${key} mismatch: expected ${expected}, found ${actual}`);
   }
+  const expectedMinimumVersion = config.bundle?.macOS?.minimumSystemVersion ?? null;
   const minimumVersion = spawnSync('/usr/libexec/PlistBuddy', ['-c', 'Print :LSMinimumSystemVersion', infoPlist], { encoding: 'utf8' });
-  if (minimumVersion.status === 0) throw new Error(`Unexpected LSMinimumSystemVersion in local bundle: ${minimumVersion.stdout.trim()}`);
+  if (expectedMinimumVersion === null) {
+    if (minimumVersion.status === 0) throw new Error(`Unexpected LSMinimumSystemVersion in local bundle: ${minimumVersion.stdout.trim()}`);
+  } else {
+    if (minimumVersion.status !== 0) throw new Error(`Expected LSMinimumSystemVersion ${expectedMinimumVersion}, but it is absent.`);
+    const actualMinimumVersion = minimumVersion.stdout.trim();
+    if (actualMinimumVersion !== expectedMinimumVersion) throw new Error(`LSMinimumSystemVersion mismatch: expected ${expectedMinimumVersion}, found ${actualMinimumVersion}`);
+  }
   await access(appPath);
   const { readdir } = await import('node:fs/promises');
   const diskImagePrefix = `${config.productName}_${config.version}_`;
@@ -96,7 +104,7 @@ if (process.argv[2] === 'write') {
     dmg: dmgPath,
     identifier: plistValue('CFBundleIdentifier'),
     version: plistValue('CFBundleShortVersionString'),
-    minimumSystemVersion: null,
+    minimumSystemVersion: expectedMinimumVersion,
     dataFormats: JSON.parse(bundledContents).dataFormats,
   }, null, 2));
 } else {

@@ -9,7 +9,7 @@ Code Atlas is an in-progress macOS desktop app. This guide walks through a first
 - Rust 1.85 or newer with Cargo for the Rust 2024 edition; current stable is recommended.
 - A local Git working copy to explore.
 
-The project does not set Cargo's `rust-version`, so compatibility of the locked dependencies with Rust 1.85 is not verified. It also has not declared a minimum supported macOS version. The source-only development workflow has not been verified here from a clean macOS account.
+The project does not set Cargo's `rust-version`, so compatibility of the locked dependencies with Rust 1.85 is not verified. The macOS app bundle declares **macOS 14.0** as its minimum; the managed Pocket TTS lock targets Apple Silicon. This declaration comes from the selected runtime wheel and is not yet a clean-account support qualification.
 
 ## Launch the native app
 
