@@ -6,20 +6,24 @@ const hasAnswer = (turn: Turn) => Boolean(turn.revisionId || turn.publishedSecti
 /** Show the subject of generated requests while keeping the exact prompt available on demand. */
 export function questionSummaryText(question: string, maxCodePoints = 64): string {
   let text = question.replace(/\s+/g, ' ').trim();
+  let generatedRequest = false;
   const generatedRequestPrefixes = [
     /^Create (?:exactly )?one (?:fresh )?(?:Guide )?section (?:for|from) .+?\s+about\s+/i,
     /^Create (?:exactly )?one (?:fresh )?(?:Guide )?section about\s+/i,
+    /^Create (?:exactly )?one (?:fresh )?(?:Guide )?section from (?:the )?selected .+? snapshot[.!?]\s*/i,
     /^(?:Using|In) (?:the )?selected .+? snapshot,\s*explain (?:only )?(?:the )?/i,
   ];
   for (const prefix of generatedRequestPrefixes) {
     if (prefix.test(text)) {
       text = text.replace(prefix, '');
+      generatedRequest = true;
       break;
     }
   }
+  if (generatedRequest) text = text.replace(/^(?:Explain (?:only )?|only (?:the )?)/i, '');
   // Generation prompts often continue with production constraints after the
   // topic. Keep the heading to its first sentence; exact wording stays below.
-  text = text.split(/(?<=[.!?])\s+/u, 1)[0] ?? text;
+  text = text.split(/(?<=[.!?])\s+|:\s+/u, 1)[0] ?? text;
   const characters = Array.from(text);
   const limit = Math.max(1, Math.floor(maxCodePoints));
   return characters.length > limit ? `${characters.slice(0, limit - 1).join('')}…` : text;

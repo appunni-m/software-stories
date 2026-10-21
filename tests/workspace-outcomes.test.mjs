@@ -19,6 +19,10 @@ test('Guide and History show the question topic and preserve the exact prompt in
   assert.equal(questionSummaryText(generated), '`parse_head` in `src/tt/head.rs`.');
   const anotherRepository = 'Create one fresh Guide section from the Orbit snapshot about `verify_token` in `src/auth.ts`. Trace the error path.';
   assert.equal(questionSummaryText(anotherRepository), '`verify_token` in `src/auth.ts`.');
+  const selectedSnapshot = 'Create exactly one fresh Guide section from the selected Fontdone snapshot. Explain only `parse_table_directory_at` in `src/tt/mod.rs`: follow the input slice through its guards and return the parsed directory.';
+  assert.equal(questionSummaryText(selectedSnapshot), '`parse_table_directory_at` in `src/tt/mod.rs`');
+  const selectedSnapshotAbout = 'Create exactly one fresh Guide section from the selected Fontdone snapshot about only the PFR0 branch in Font::memory_face in src/font.rs. Trace its dispatch.';
+  assert.equal(questionSummaryText(selectedSnapshotAbout), 'PFR0 branch in Font::memory_face in src/font.rs.');
   const scoped = 'Using the selected Fontdone snapshot, explain only the PFR0 dispatch branch in Font::memory_face in src/font.rs. Show the exact call.';
   assert.equal(questionSummaryText(scoped), 'PFR0 dispatch branch in Font::memory_face in src/font.rs.');
   const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
