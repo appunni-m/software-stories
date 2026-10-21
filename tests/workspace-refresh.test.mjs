@@ -124,6 +124,9 @@ test('an unavailable answer stays a compact status beside its recovery action', 
 test('long answer questions stay collapsed until the reader asks to see them', () => {
   const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
+  assert.ok(workspace.includes('aria-label={`Question: ${questionSummaryText(turn.question)}`}'));
+  assert.ok(workspace.includes("aria-label={unavailable?'Question with unavailable saved explanation':`Question: ${questionSummaryText(turn.question)}`}"));
+  assert.doesNotMatch(workspace, /aria-label=\{`Question: \$\{turn\.question\}`\}/);
   assert.equal((workspace.match(/<QuestionDisclosure question=\{turn\.question\}\/>/g) ?? []).length, 2);
   assert.match(workspace, /function QuestionDisclosure\(\{question\}:\{question:string\}\)[\s\S]*?<details className="dw-user-question"><summary><MessageSquare size=\{14\}\/><span><InlineCodeText text=\{questionSummaryText\(question\)\}\/><\/span><ChevronRight size=\{13\}\/><\/summary><p><InlineCodeText text=\{question\}\/><\/p><\/details>/);
   assert.match(styles, /\.dw-user-question summary \{display:flex;align-items:center;gap:7px;width:100%/);
