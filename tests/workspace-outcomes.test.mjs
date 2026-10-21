@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { addTurn, createWorkspace, parseWorkspace } from '../src/workspace/model.ts';
-import { createQuestionOutcomeSelector, featuredGuideTurnId, groupUnavailablePublishedSections, questionSummaryText, lastAvailableAnswerItemIndex, markQuestionOutcome, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
+import { createQuestionOutcomeSelector, featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, questionSummaryText, lastAvailableAnswerItemIndex, markQuestionOutcome, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
 
 const turn = (id, status = 'failed', extra = {}) => ({ id, question: `Question ${id}`, context: [], status, ...extra });
 const stateWith = (...turns) => ({ ...createWorkspace('project', 'snapshot'), explorations: [{ ...createWorkspace('project', 'snapshot').explorations[0], turns }] });
@@ -114,6 +114,22 @@ test('answer parts remain in loading state until the saved chapter list is ready
   const section = { runId: 'run', key: 'part', order: 0, generationId: 'generation', revisionId: 'pending',
     supersedes: null, contextElapsedMs: 0, runElapsedMs: null };
   assert.deepEqual(groupUnavailablePublishedSections([section], new Set(), true), [{ kind: 'section', section }]);
+});
+
+test('progressive guide keeps its selected slide while later slides enter the ready queue', () => {
+  const slides = ['opening', 'input', 'dispatch', 'result'].map((revisionId, order) => ({
+    runId: 'guide-run', key: `part-${order}`, order, generationId: `generation-${order}`, revisionId,
+    supersedes: null, contextElapsedMs: 0, runElapsedMs: null,
+  }));
+  assert.equal(guideSlideIndex(slides.slice(0, 1)), 0, 'start on the first validated slide');
+  assert.equal(guideSlideIndex(slides.slice(0, 3), 'input'), 1, 'appending another publication does not jump the reader');
+  assert.equal(guideSlideIndex(slides, 'dispatch'), 2, 'Next selects a stable revision identity');
+  assert.equal(guideSlideIndex(slides, 'missing'), 0, 'a stale cursor falls back to the first available slide');
+  assert.equal(guideSlideIndex([], undefined), -1, 'the sequence is empty before the first slide is validated');
+  const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
+  assert.match(workspace, /aria-label="Guide slides"/);
+  assert.match(workspace, /Next slide/);
+  assert.match(workspace, /Building next slide/);
 });
 
 test('question-owned branches stay attached to the last available part before unavailable newer parts', () => {

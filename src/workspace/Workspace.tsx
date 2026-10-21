@@ -23,7 +23,7 @@ import { useConnectionState } from '../lib/connectionStore';
 import type { WorkspaceAnswerRestoration } from '../lib/notificationSummary';
 import { errorMessageOr, explanationErrorMessage } from '../lib/errorMessage';
 import { createChapterHistory, type ChapterHistory } from '../lib/chapterHistory';
-import { featuredGuideTurnId, groupUnavailablePublishedSections, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, savedAnswerAvailability, visibleConversationTurns } from './outcomes';
+import { featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, questionSummaryText, lastAvailableAnswerItemIndex, openWorkspaceExploration, openWorkspaceQuestion, savedAnswerAvailability, visibleConversationTurns } from './outcomes';
 import { listWorkspaceCommits } from '../lib/commands';
 import { answerReadingPosition, answerRevisionOptions, rememberAnswerVersion, resolveAnswerRevision } from './answerVersions';
 import type { GitCommit } from '../lib/gitHistory';
@@ -387,17 +387,33 @@ function Answer(props:AnswerProps){
   if(!turn.runIds?.length&&!turn.guideId)return <AnswerSection {...props}/>;
   const sections=turn.publishedSections??[];
   const sectionItems=groupUnavailablePublishedSections(sections,new Set((chapters??[]).map((chapter)=>chapter.revisionId)),Boolean(props.loading));
+  const guideSlides=turn.guideId&&!props.loading?sectionItems.flatMap((item)=>item.kind==='section'?[item.section]:[]):[];
+  const selectedGuideSlide=turn.guideId?guideSlideIndex(guideSlides,turn.reading?.guide?.revisionId):-1;
+  const guideSlide=selectedGuideSlide>=0?guideSlides[selectedGuideSlide]:undefined;
+  const guideSlideItemIndex=guideSlide?sectionItems.findIndex((item)=>item.kind==='section'&&item.section.revisionId===guideSlide.revisionId):-1;
+  const guideSlideRevision=guideSlide?chapters?.find((candidate)=>candidate.revisionId===guideSlide.revisionId):undefined;
+  const selectGuideSlide=(index:number)=>{
+    const next=guideSlides[index];
+    const revision=next&&chapters?.find((chapter)=>chapter.revisionId===next.revisionId);
+    const firstSection=revision?.sections[0];
+    if(revision&&firstSection)props.onSection(revision.revisionId,firstSection.sectionId);
+  };
   const lastAvailableItemIndex=props.loading?-1:lastAvailableAnswerItemIndex(sectionItems);
   const capacityError=!!turn.error&&/retained locally|saved answers|(?:answer|saved explanations).*storage limit|answer.*directory limit/i.test(turn.error);
   const progressText=questionProgressText(turn);
   return <section className="dw-progressive-answer" data-question-id={turn.id} tabIndex={-1} aria-label={`Question: ${questionSummaryText(turn.question)}`}>
     <QuestionDisclosure question={turn.question}/>
     <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={props.onStop}><Square size={12}/>Stop</Button></>:turn.status==='ready'?null:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?'Some details could not be completed.':'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span>{(!turn.guideId||canContinueRepositoryGuide(turn.guide))&&<Button size="1" variant="ghost" onClick={props.onRetry}>{turn.guideId?'Continue guide':'Try again'}</Button>}</>}</div>
-    {turn.guide&&turn.guide.units.length>0&&<details className="dw-guide-outline"><summary>{turn.guide.title}<span>{turn.guide.units.filter((u)=>u.status==='complete').length}/{turn.guide.units.length} parts</span></summary><ol>{turn.guide.units.map((unit)=><li key={unit.key}><span>{unit.question}</span><small>{unit.status}</small></li>)}</ol><p>{turn.guide.capturedFiles} captured files are available to investigate. {turn.guide.startingFiles} starting files helped form this outline; this is not an explained-file count.</p>{turn.guide.omissions.map((note)=><p key={note}>{note}</p>)}</details>}
+    {turn.guide&&turn.guide.units.length>0&&<details className="dw-guide-outline" open={turn.status==='working'}><summary>{turn.guide.title}<span>{guideSlides.length} slides ready · {turn.guide.units.filter((u)=>u.status==='complete').length}/{turn.guide.units.length} topics explored</span></summary><ol>{turn.guide.units.map((unit)=>{const ready=sections.some((section)=>section.key===unit.key);return <li key={unit.key}><span>{unit.question}</span><small>{ready?'Ready':unit.status==='working'?'Building':unit.status}</small></li>;})}</ol><p>{turn.guide.capturedFiles} captured files are available to investigate. {turn.guide.startingFiles} starting files helped form this outline; this is not an explained-file count.</p>{turn.guide.omissions.map((note)=><p key={note}>{note}</p>)}</details>}
     {turn.notes?.map((note)=><p className="dw-answer-note" key={note}>{note}</p>)}
     {capacityError&&<AnswerStorage/>}
     {turn.error&&<details className="dw-error-details"><summary>Details</summary><p>{explanationErrorMessage(turn.error)}</p></details>}
-    {sectionItems.map((item,index)=>item.kind==='section'?<AnswerSection {...props} key={`${item.section.runId}:${item.section.generationId}`} hideQuestion
+    {turn.guideId&&props.loading&&sections.length>0&&<p className="dw-guide-loading" role="status">Restoring saved slides…</p>}
+    {turn.guideId&&guideSlide&&<nav className="dw-guide-slide-nav" aria-label="Guide slides"><Button size="1" variant="ghost" color="gray" disabled={selectedGuideSlide<=0} onClick={()=>selectGuideSlide(selectedGuideSlide-1)}><ArrowLeft size={13}/>Previous</Button><span>Slide {selectedGuideSlide+1} of {guideSlides.length}{progressText?' · more on the way':''}</span><Button size="1" variant="soft" disabled={selectedGuideSlide>=guideSlides.length-1} onClick={()=>selectGuideSlide(selectedGuideSlide+1)}>{selectedGuideSlide>=guideSlides.length-1&&progressText?'Building next slide…':'Next slide'}<ArrowRight size={13}/></Button></nav>}
+    {turn.guideId&&guideSlide&&<AnswerSection {...props} key={`${guideSlide.runId}:${guideSlide.generationId}`} hideQuestion loading={props.loading} revision={guideSlideRevision}
+      turn={{...turn,status:'ready',revisionId:guideSlide.revisionId,notes:[],error:undefined}}
+      branches={guideSlideItemIndex===lastAvailableItemIndex?branches:[]}/>}
+    {!turn.guideId&&sectionItems.map((item,index)=>item.kind==='section'?<AnswerSection {...props} key={`${item.section.runId}:${item.section.generationId}`} hideQuestion
       loading={props.loading} revision={chapters?.find((r)=>r.revisionId===item.section.revisionId)}
       turn={{...turn,status:'ready',revisionId:item.section.revisionId,notes:[],error:undefined}}
       branches={index===lastAvailableItemIndex?branches:[]}/>:<details className="dw-unavailable-group" key={`unavailable:${item.sections[0].runId}:${item.sections[0].generationId}`}>
@@ -405,6 +421,7 @@ function Answer(props:AnswerProps){
       <p>These parts could not be reopened. Re-explain this question to build them again.</p>
       <Button size="1" variant="soft" onClick={props.onRetry}>Explain this question again</Button>
     </details>)}
+    {turn.guideId&&sectionItems.some((item)=>item.kind==='unavailable')&&<details className="dw-unavailable-group"><summary>{sectionItems.filter((item)=>item.kind==='unavailable').reduce((count,item)=>count+(item.kind==='unavailable'?item.sections.length:0),0)} saved guide slide(s) unavailable</summary><p>These parts could not be reopened. Re-explain the affected part to build it again.</p><Button size="1" variant="soft" onClick={props.onRetry}>Continue guide</Button></details>}
     {lastAvailableItemIndex<0&&(branches.length>0||sectionItems.some((item)=>item.kind==='unavailable'))&&<footer className="dw-branches">
       <Button size="1" variant="ghost" onClick={()=>props.onBranch(`Explore ${turn.question} in more detail.`,turn.context)}><Network size={13}/>Explore further</Button>
       {branches.length>0&&<span>{branches.length} exploration{branches.length===1?'':'s'}</span>}

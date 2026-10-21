@@ -127,6 +127,17 @@ export function lastAvailableAnswerItemIndex(items: readonly PublishedAnswerItem
   return index;
 }
 
+/** Keep a progressive guide on the same slide as new publications arrive.
+ * Revision IDs, rather than array positions, make the cursor stable as the
+ * background agent appends later slides. */
+export function guideSlideIndex(sections: readonly PublishedSection[], selectedRevisionId?: string): number {
+  if (selectedRevisionId) {
+    const selected = sections.findIndex((section) => section.revisionId === selectedRevisionId);
+    if (selected >= 0) return selected;
+  }
+  return sections.length ? 0 : -1;
+}
+
 /** A bounded UI dedupe token, not a source/evidence identity. Include every
  * publication so a revised earlier section also produces a new outcome. */
 export function questionOutcomeKey(turn: Turn): string | null {

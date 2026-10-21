@@ -243,6 +243,10 @@ html[data-app-zoom-compact="true"] .dw-section-controls > span {flex:1 1 50px;}
 .dw-guide-outline li { padding: 5px 0; font-size: 13px; }
 .dw-guide-outline li small { display: block; color: var(--gray-10); }
 .dw-guide-outline p { font-size: 12px; line-height: 1.5; }
+.dw-guide-slide-nav { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--gray-6); border-radius: var(--radius-3); background: var(--gray-2); }
+.dw-guide-slide-nav > span { flex: 1; color: var(--gray-11); text-align: center; font-size: 12px; }
+.dw-guide-loading { margin: 0; color: var(--gray-11); font-size: 13px; }
+@media(max-width:680px){.dw-guide-slide-nav{flex-wrap:wrap}.dw-guide-slide-nav>span{flex:1 1 100%;order:-1}}
 
 /* The sidebar replaces the reader only at narrow widths; always offer a way back. */
 .developer-workspace .dw-sidebar-back {display:none;}
