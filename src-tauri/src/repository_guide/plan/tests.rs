@@ -141,6 +141,8 @@ fn plan_instructions_keep_the_full_requested_scope() {
         )
     );
     assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("do not exhaust search pages"));
+    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("Use at most six code-tool calls"));
+    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("At finishNow, return the outline"));
 
     assert_eq!(MAX_UNITS + 1, 7);
     assert_eq!(MAX_ATTEMPTS, 3);

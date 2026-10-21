@@ -54,7 +54,7 @@ fn system_instructions() -> String {
 
 fn system_instructions_for(repository_guide_slide: bool) -> String {
     let run_policy = if repository_guide_slide {
-        "This repository guide has no wall-clock deadline. A null budget.remaining.timeMs is intentional. Keep researching and publishing complete slides until every planned slide is finished or the user stops the guide. Each planned slide operation may publish at most one unique section; finish its manifest after that slide so the next can be built as the reader listens. Fixed source, call, proposal and storage limits still apply."
+        "This repository guide has no wall-clock deadline. A null budget.remaining.timeMs is intentional. This operation owns exactly one planned slide. After native validation returns guideSlideComplete, make no further tool calls and immediately return the final manifest; the next slide is a separate operation that can be built while the reader listens. Fixed source, call, proposal and storage limits still apply."
     } else {
         "This interactive code investigation has no wall-clock deadline. A null budget.remaining.timeMs is intentional. Continue investigating and publishing useful, independently supported sections until the requested explanation is complete, a fixed source, call, proposal or storage limit is reached, an error prevents safe continuation, or the user stops it."
     };

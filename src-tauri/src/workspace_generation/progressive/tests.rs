@@ -604,11 +604,9 @@ fn guide_progressive_contract_has_no_wall_clock_deadline() {
     assert_eq!(contract["uniqueSections"], 1);
     assert!(instructions.contains("no wall-clock deadline"));
     assert!(instructions.contains("null budget.remaining.timeMs is intentional"));
-    assert!(instructions.contains("until every planned slide is finished or the user stops"));
-    assert!(
-        instructions
-            .contains("Each planned slide operation may publish at most one unique section")
-    );
+    assert!(instructions.contains("This operation owns exactly one planned slide"));
+    assert!(instructions.contains("make no further tool calls"));
+    assert!(instructions.contains("the next slide is a separate operation"));
     assert!(!instructions.contains("ten-minute wall-clock deadline"));
     assert_eq!(contract["systemInstructions"], instructions);
 }

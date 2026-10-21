@@ -21,6 +21,8 @@ pub(crate) const POLICY: &str = "atlas-captured-ranges-v1-files12-source250000";
 pub(crate) const PROGRESSIVE_CONTRACT: &str = "codex-retrieval-v3-answer-sections";
 pub(crate) const LEDGER_SCHEMA_VERSION: u32 = 3;
 const MAX_CALLS: usize = 64;
+pub(crate) const REPOSITORY_PLAN_CALL_LIMIT: usize = 12;
+pub(crate) const REPOSITORY_GUIDE_SLIDE_CALL_LIMIT: usize = 18;
 const FINALIZATION_CALL_RESERVE: usize = 6;
 const FINALIZATION_TIME_RESERVE: Duration = Duration::from_secs(60);
 const MAX_FILES: usize = 12;
@@ -330,6 +332,7 @@ pub(crate) struct Ledger {
     path: PathBuf,
     record: Record,
     deadline: Option<Instant>,
+    call_limit: usize,
     context_started: Instant,
 }
 
@@ -460,9 +463,36 @@ impl Ledger {
         effort: &str,
         run_deadline: codex_agent::RunDeadline,
     ) -> Result<Self, String> {
+        Self::new_progressive_with_limits(
+            storage,
+            operation_id,
+            manifest,
+            grant_id,
+            runtime,
+            model,
+            effort,
+            run_deadline,
+            MAX_CALLS,
+        )
+    }
+
+    pub(crate) fn new_progressive_with_limits(
+        storage: &Path,
+        operation_id: &str,
+        manifest: &snapshot::SnapshotManifest,
+        grant_id: &str,
+        runtime: &CodexReviewRuntime,
+        model: &str,
+        effort: &str,
+        run_deadline: codex_agent::RunDeadline,
+        call_limit: usize,
+    ) -> Result<Self, String> {
         let path = path(storage, operation_id)?;
         if !runtime.valid_shape() || !valid_model_effort(model, effort) {
             return Err("The selected model or reasoning effort is invalid.".to_owned());
+        }
+        if !(1..=MAX_CALLS).contains(&call_limit) {
+            return Err("The bounded context call limit is invalid.".to_owned());
         }
         workspace::check_retrieval_grant(
             storage,
@@ -509,6 +539,7 @@ impl Ledger {
             deadline: run_deadline
                 .duration()
                 .map(|duration| context_started + duration),
+            call_limit,
             context_started,
         })
     }
@@ -560,7 +591,7 @@ impl Ledger {
     ) -> Result<CallToken, String> {
         self.check(manifest, runtime, cancelled)?;
         if !hash(arguments_sha256)
-            || self.record.calls.len() >= MAX_CALLS
+            || self.record.calls.len() >= self.call_limit
             || self
                 .record
                 .calls
@@ -643,7 +674,7 @@ impl Ledger {
     }
 
     fn response_budget(&self) -> ResponseBudget {
-        let calls = MAX_CALLS.saturating_sub(self.record.calls.len());
+        let calls = self.call_limit.saturating_sub(self.record.calls.len());
         let reserved = calls * MAX_LIMIT_NOTICE;
         let source = self
             .record

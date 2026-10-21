@@ -75,6 +75,68 @@ fn selected_model_and_effort_are_bound_to_saved_workspace_answers() {
     assert_eq!(answer["binding"]["effort"], "medium");
 }
 
+#[test]
+fn repository_planning_and_slides_receive_small_independent_call_budgets() {
+    let f = Fixture::new();
+    let runtime = runtime();
+    let grant = workspace::save_retrieval_grant(
+        &f.storage,
+        &f.manifest.summary.project_id,
+        &f.manifest.summary.snapshot_id,
+        &runtime,
+    )
+    .unwrap();
+    let make_ledger = |limit| {
+        Ledger::new_progressive_with_limits(
+            &f.storage,
+            &Uuid::new_v4().to_string(),
+            &f.manifest,
+            &grant,
+            &runtime,
+            "gpt-6-luna",
+            "max",
+            codex_agent::RunDeadline::UserControlled,
+            limit,
+        )
+        .unwrap()
+    };
+
+    let mut plan = make_ledger(REPOSITORY_PLAN_CALL_LIMIT);
+    assert_eq!(
+        plan.response_budget().remaining.calls,
+        REPOSITORY_PLAN_CALL_LIMIT
+    );
+    assert!(plan.deadline.is_none());
+    let cancelled = AtomicBool::new(false);
+    let range = request(&f, 0, SIMPLE_SOURCE.len());
+    for _ in 0..REPOSITORY_PLAN_CALL_LIMIT {
+        read(
+            &mut plan,
+            &f,
+            &runtime,
+            &cancelled,
+            std::slice::from_ref(&range),
+        );
+    }
+    assert!(
+        plan.begin_call(
+            Tool::Read,
+            &"f".repeat(64),
+            &f.manifest,
+            &runtime,
+            &cancelled
+        )
+        .is_err()
+    );
+
+    let slide = make_ledger(REPOSITORY_GUIDE_SLIDE_CALL_LIMIT);
+    assert_eq!(
+        slide.response_budget().remaining.calls,
+        REPOSITORY_GUIDE_SLIDE_CALL_LIMIT
+    );
+    assert!(slide.deadline.is_none());
+}
+
 fn request(f: &Fixture, start_byte: usize, end_byte: usize) -> RangeRequest {
     RangeRequest {
         path: SIMPLE_PATH.into(),

@@ -93,6 +93,65 @@ fn session_with_model(f: &Fixture, model: &str, effort: &str) -> (Session, Strin
 }
 
 #[test]
+fn repository_plans_and_slides_use_separate_scoped_sessions() {
+    let f = Fixture::new();
+    let runtime = CodexReviewRuntime {
+        connection_id: Uuid::new_v4().to_string(),
+        executable_path: "/usr/local/bin/codex".into(),
+        executable_sha256: "a".repeat(64),
+        account_identity_sha256: "b".repeat(64),
+        account_revision: 0,
+    };
+    let grant = crate::workspace::save_retrieval_grant(
+        &f.storage,
+        &f.manifest.summary.project_id,
+        &f.manifest.summary.snapshot_id,
+        &runtime,
+    )
+    .unwrap();
+
+    let planning = Session::new_research(
+        &f.storage,
+        &Uuid::new_v4().to_string(),
+        f.manifest.clone(),
+        &runtime,
+        &grant,
+        RepositoryContextJobs::default(),
+        &"d".repeat(64),
+        "gpt-6-luna",
+        "max",
+        Arc::new(|_| {}),
+    )
+    .unwrap();
+    assert!(
+        planning
+            .base_instructions()
+            .contains("Use at most six code-tool calls")
+    );
+
+    let slide = Session::new_guide_progressive(
+        &f.storage,
+        &Uuid::new_v4().to_string(),
+        f.manifest.clone(),
+        &runtime,
+        &grant,
+        RepositoryContextJobs::default(),
+        "How does the requested name become the greeting?",
+        &"e".repeat(64),
+        "gpt-6-luna",
+        "max",
+        crate::codex_agent::RunDeadline::UserControlled,
+        Arc::new(|_| {}),
+    )
+    .unwrap();
+    assert!(
+        slide
+            .base_instructions()
+            .contains("Use at most twelve code-tool calls")
+    );
+}
+
+#[test]
 fn native_session_binds_the_selected_model_and_effort() {
     let f = Fixture::new();
     let (_session, operation_id) = session_with_model(&f, "gpt-5.6-luna", "medium");
