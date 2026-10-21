@@ -90,6 +90,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const storyStage = useRef<HTMLDivElement>(null);
   const flowFitGeneration = useRef(0);
   const flowFitInProgress = useRef(false);
+  const flowFitCheckPending = useRef(false);
   const scheduleViewportCheck = useRef<() => void>(() => {});
   const [autoPlay, setAutoPlay] = useState(false);
   const [manualVisit, setManualVisit] = useState(0);
@@ -211,7 +212,14 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
         frame = undefined;
         const instance = flowInstance.current;
         const currentStage = storyStage.current;
-        if (!instance?.viewportInitialized || !currentStage || flowFitInProgress.current) return;
+        if (!instance?.viewportInitialized || !currentStage) return;
+        if (flowFitInProgress.current) {
+          // Node measurements can arrive while fitView is running. Preserve
+          // that invalidation so its final viewport is checked against the
+          // settled node bounds instead of leaving the initial canvas stale.
+          flowFitCheckPending.current = true;
+          return;
+        }
         const bounds = instance.getNodesBounds([...visibleIds]);
         const size = currentStage.getBoundingClientRect();
         if (!bounds.width || !bounds.height) return;
@@ -233,7 +241,13 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
         }).catch(() => {
           // The saved scene remains readable if React Flow cannot refit it.
         }).finally(() => {
-          if (generation === flowFitGeneration.current) flowFitInProgress.current = false;
+          if (generation === flowFitGeneration.current) {
+            flowFitInProgress.current = false;
+            if (flowFitCheckPending.current) {
+              flowFitCheckPending.current = false;
+              scheduleViewportCheck.current();
+            }
+          }
         });
       });
     };
@@ -249,6 +263,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
       if (scheduleViewportCheck.current === schedule) scheduleViewportCheck.current = () => {};
       flowFitGeneration.current += 1;
       flowFitInProgress.current = false;
+      flowFitCheckPending.current = false;
     };
   }, [scene.id, fullMap, visibleNodeKey, revision.revisionId, section.sectionRevisionId]);
 

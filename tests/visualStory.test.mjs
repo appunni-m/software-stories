@@ -402,6 +402,10 @@ describe('visual story scenes', () => {
 
   it('rehydrates the Guide diagram after data arrives and after the first layout frame', () => {
     const story = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
+    assert.match(story, /if \(flowFitInProgress\.current\) \{[\s\S]*?flowFitCheckPending\.current = true;\s*return;/u,
+      'a node measurement that arrives during fitView schedules a second bounds check');
+    assert.match(story, /finally\(\(\) => \{\s*if \(generation === flowFitGeneration\.current\) \{\s*flowFitInProgress\.current = false;\s*if \(flowFitCheckPending\.current\) \{\s*flowFitCheckPending\.current = false;\s*scheduleViewportCheck\.current\(\);/u,
+      'the pending first-mount bounds check runs after fitView settles');
     assert.match(story, /<ReactFlow key=\{`\$\{section\.sectionRevisionId\}:\$\{index\}:\$\{fullMap\}:\$\{visibleNodeKey\}`\}/u,
       'the canvas remounts when a restored section hydrates its actual visible node set');
     assert.match(story, /useEffect\(\(\)\s*=>\s*\{[\s\S]*?const instance = flowInstance\.current;\s*if \(!instance\?\.viewportInitialized\) return;[\s\S]*?const current = graphData\.current;\s*instance\.setNodes\(current\.nodes\);\s*instance\.setEdges\(current\.edges\);[\s\S]*?\}, \[visual, visibleNodeKey, scene\.id, fullMap, revision\.revisionId, section\.sectionRevisionId\]\)/u,
