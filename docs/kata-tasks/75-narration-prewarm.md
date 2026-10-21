@@ -56,3 +56,25 @@ playback. It does not identify the WAV by the section's canonical cache key,
 capture the exact preparing-to-ready transition, or prove offline reuse after
 restart. No listening-quality, worker-failure, cancellation, or shutdown check
 was performed. Keep this task open.
+
+## Additional fresh-section prewarm check — 2026-10-21
+
+With explicit user approval, one focused Codex request on the packaged app and
+Fontdone `main@5249b72371` generated a fresh Guide section about
+`parse_table_directory_at` in `src/tt/mod.rs`. The request started at
+01:39:27 UTC and was still building at 01:39:46 UTC. By the first completed
+observation at about 01:40:46 UTC, the section was visible and scene 1 already
+showed **Ready to play** at 00:00. The four authored visual scenes had audio
+durations of 9, 7, 8, and 12 seconds. By about 01:41:37 UTC, every scene showed
+**Ready to play** at 00:00 without having been played. There was no autoplay.
+
+Pocket TTS was selected in Connections as **Pocket TTS — on this Mac, free**
+(Alba). Clicking Play on scene 4 immediately changed the player to **Playing**
+at 00:00/00:12; playback was then paused. This is packaged evidence that the
+fresh section's scene audio was ready before manual playback. No audio or
+generated narration was added to the repository.
+
+This run did not record the exact preparing-to-ready transition, inspect the
+canonical cache key or worker cache-hit counter, test offline/restart reuse, or
+exercise failure, cancellation, shutdown, and subjective listening quality.
+The section remains in the app for review; keep the issue open.
