@@ -26,7 +26,7 @@ test('left-to-right layout uses the same stable lanes on the other axis', () => 
   assert.deepEqual(points.get('merge'), {x: 680, y: 0});
 });
 
-test('disconnected components remain visible and cycles use deterministic source order', () => {
+test('disconnected components remain visible and small cycles keep stable source order', () => {
   const disconnected = layoutFlowNodes(nodes, [edges[0]], 'topToBottom');
   assert.deepEqual(disconnected.get('entry'), {x: -320, y: 0});
   assert.deepEqual(disconnected.get('left'), {x: 0, y: 260});
@@ -41,7 +41,7 @@ test('disconnected components remain visible and cycles use deterministic source
   assert.deepEqual([...cycle.values()], [{x: 0, y: 0}, {x: 340, y: 0}, {x: 680, y: 0}]);
 });
 
-test('large disconnected and cyclic diagrams use a compact grid instead of a single row', () => {
+test('large disconnected diagrams use a compact grid while cycle evidence keeps its forward path', () => {
   const many = Array.from({length: 9}, (_, index) => ({nodeId: `node-${index}`}));
   const disconnected = layoutFlowNodes(many, [], 'leftToRight');
   assert.deepEqual(disconnected.get('node-0'), {x: 0, y: 0});
@@ -54,8 +54,29 @@ test('large disconnected and cyclic diagrams use a compact grid instead of a sin
     toNodeId: many[(index + 1) % many.length].nodeId,
   })), 'topToBottom');
   assert.deepEqual(cycle.get('node-0'), {x: 0, y: 0});
-  assert.deepEqual(cycle.get('node-3'), {x: 320, y: 0});
-  assert.deepEqual(cycle.get('node-8'), {x: 640, y: 520});
+  assert.deepEqual(cycle.get('node-3'), {x: 0, y: 780});
+  assert.deepEqual(cycle.get('node-4'), {x: 300, y: 780});
+  assert.deepEqual(cycle.get('node-8'), {x: 600, y: 0});
+});
+
+test('a loop keeps source-order forward ranks and places the return target before its loop step', () => {
+  const loop = ['records', 'tag', 'offset', 'input', 'range', 'slice', 'none'].map((nodeId) => ({nodeId}));
+  const points = layoutFlowNodes(loop, [
+    {fromNodeId: 'records', toNodeId: 'tag'},
+    {fromNodeId: 'tag', toNodeId: 'records'},
+    {fromNodeId: 'tag', toNodeId: 'offset'},
+    {fromNodeId: 'offset', toNodeId: 'range'},
+    {fromNodeId: 'input', toNodeId: 'range'},
+    {fromNodeId: 'range', toNodeId: 'slice'},
+    {fromNodeId: 'range', toNodeId: 'none'},
+  ], 'leftToRight');
+  assert.deepEqual(points.get('records'), {x: 0, y: -130});
+  assert.deepEqual(points.get('input'), {x: 0, y: 130});
+  assert.deepEqual(points.get('tag'), {x: 340, y: 0});
+  assert.deepEqual(points.get('offset'), {x: 680, y: 0});
+  assert.deepEqual(points.get('range'), {x: 1020, y: 0});
+  assert.deepEqual(points.get('slice'), {x: 1360, y: -130});
+  assert.deepEqual(points.get('none'), {x: 1360, y: 130});
 });
 
 test('long branching paths wrap into readable snake-shaped rank bands', () => {

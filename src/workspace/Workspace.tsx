@@ -501,7 +501,9 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
     return {id:n.nodeId,position:positions.get(n.nodeId)??{x:0,y:0},
       data:{label:anchor?<button type="button" className="dw-flow-source nodrag nopan" aria-label={`Open source for ${n.label}`} onClick={()=>openNodeSource(n,anchor)}>{label}</button>:label},style:{width:250}};
   });
-  const edges=visual.edges.map((e)=>({id:e.edgeId,source:e.fromNodeId,target:e.toNodeId,label:e.label??undefined,markerEnd:{type:MarkerType.ArrowClosed}}));
+  const edges=visual.edges.map((e)=>({id:e.edgeId,source:e.fromNodeId,target:e.toNodeId,type:'smoothstep' as const,label:e.label??undefined,
+    labelBgStyle:{fill:theme==='dark'?'#20242c':'#ffffff',fillOpacity:0.96},labelBgPadding:[5,3] as [number,number],labelBgBorderRadius:4,
+    markerEnd:{type:MarkerType.ArrowClosed}}));
   return <section className="dw-flow-panel"><div className="dw-flow-heading"><h2>{visual.title}</h2>{availableDiagramCount>1&&<select aria-label="Diagram section" value={selected} onChange={(e)=>{const section=revision.sections[Number(e.target.value)];if(section)onSection(section.sectionId);}}>{diagrams.map((d,i)=>d.status==='available'?<option key={i} value={i}>{revision.sections[i].title}</option>:null)}</select>}</div>
     {linearSteps ? <>
       <p>Follow the steps in order. Select a step to open its source.</p>
