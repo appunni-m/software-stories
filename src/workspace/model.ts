@@ -200,11 +200,19 @@ export function contextualGuideIntent(query: string, context: readonly Context[]
   return 'How does this project work, from its entry points through its main behavior and failure paths?';
 }
 
-export type ContextualGuideAction = { kind: 'ask'; intent: string };
+export type ContextualGuideAction =
+  | { kind: 'repository-guide'; intent: string }
+  | { kind: 'ask'; intent: string };
 
 /** Guide me is an exploration action. At the root it starts the durable
  * incremental repository guide; scoped contexts remain topic-sized. */
 export function contextualGuideAction(query: string, context: readonly Context[], nested: boolean): ContextualGuideAction {
+  // The empty root Guide me action is a product command, not a natural-language
+  // guess. Route it directly to the persistent outline/slide worker so wording
+  // changes can never send a whole-repository guide through the one-shot path.
+  if (!query.trim() && context.length === 0 && !nested) {
+    return { kind: 'repository-guide', intent: contextualGuideIntent(query, context, nested) };
+  }
   return { kind: 'ask', intent: contextualGuideIntent(query, context, nested) };
 }
 

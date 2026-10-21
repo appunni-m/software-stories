@@ -92,8 +92,7 @@ test('an old timed-out guide points to a fresh incremental guide without changin
 });
 test('empty root Guide me starts a repository guide while scoped actions stay contextual',()=>{
   const projectQuestion='How does this project work, from its entry points through its main behavior and failure paths?';
-  assert.deepEqual(contextualGuideAction('   ',[],false),{kind:'ask',intent:projectQuestion});
-  assert.equal(isRepositoryGuideIntent(contextualGuideAction('',[],false).intent),true);
+  assert.deepEqual(contextualGuideAction('   ',[],false),{kind:'repository-guide',intent:projectQuestion});
   assert.deepEqual(contextualGuideAction('Explain bounds',[],false),{kind:'ask',intent:'Explain bounds'});
   assert.deepEqual(contextualGuideAction('',[{path:'src/parser.rs',from:8,to:20}],false),{
     kind:'ask',intent:'Guide me through this selected code, its decisions and consequences.',

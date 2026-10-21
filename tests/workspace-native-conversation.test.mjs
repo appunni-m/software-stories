@@ -276,7 +276,9 @@ test('a real queued question cannot dispatch inference when its native run refer
 test('an unavailable conversation leaves the production source workspace readable and gates generation',async()=>{
   const [store,workspace,app,native]=await Promise.all(['../src/workspace/store.ts','../src/workspace/Workspace.tsx','../src/App.tsx','../src-tauri/src/lib.rs'].map(p=>readFile(new URL(p,import.meta.url),'utf8')));
   assert.match(workspace,/return availability==='loading'\?[\s\S]*?:<DeveloperWorkspace \{\.\.\.props\} conversationAvailability=\{availability\}/);assert.match(workspace,/prepareWorkspaceConversation\(projectId,snapshotId\)/);assert.match(app,/retryWorkspaceConversation\(projectId,snapshotId\)/);
-  assert.match(workspace,/Saved conversation unavailable\./);assert.match(workspace,/disabled=\{conversationUnavailable\}/);assert.match(workspace,/This session is read-only/);assert.match(workspace,/!conversationUnavailable&&<>[\s\S]*?Build repository guide/);
+  assert.match(workspace,/Saved conversation unavailable\./);assert.match(workspace,/disabled=\{conversationUnavailable\}/);assert.match(workspace,/This session is read-only/);
+  assert.match(workspace,/Guide me for a project walkthrough/);assert.doesNotMatch(workspace,/Build repository guide/);
+  assert.match(workspace,/const action=contextualGuideAction\(query,attachments,!!current\.parentId\);if\(action\.kind==='repository-guide'\)startRepositoryGuide\(action\.intent\);else ask\(action\.intent,'guide'\)/);
   assert.match(store,/if\(persistence!\.availability==='ready'\)persistence!\.enqueue\(next\)/);
   assert.match(store,/await prepareWorkspaceConversation\(project,snapshot\)/);
   for(const [start,end,command] of [['export async function runRepositoryGuide','export async function runQuestion',"'start_repository_guide'"],['export async function runQuestion',null,"'generate_progressive_workspace_answer'"]]){const code=store.slice(store.indexOf(start),end?store.indexOf(end):undefined);const save=code.indexOf('await flushWorkspaceConversation'),dispatch=code.indexOf(command);assert.ok(save>=0&&dispatch>save,'the question/run reference must be durable before dispatch');}

@@ -126,4 +126,10 @@ describe('owned local Git comparison client', () => {
     assert.match(screen, /open=\{!compact \|\| busy \|\| comparisonOptionsOpen\}/);
     assert.match(screen, /if \(busy\) event\.preventDefault\(\)/);
   });
+
+  it('shows an unchanged path once and preserves both sides for renames', () => {
+    const screen = readFileSync(new URL('../src/GitChanges.tsx', import.meta.url), 'utf8');
+    assert.match(screen, /change\.basePath === change\.headPath\s*\?\s*<span className="git-change-same-path"><code>\{path\}<\/code><\/span>/);
+    assert.match(screen, /<code>\{change\.basePath \?\? '∅'\}<\/code><span aria-hidden="true">→<\/span><code>\{change\.headPath \?\? '∅'\}<\/code>/);
+  });
 });

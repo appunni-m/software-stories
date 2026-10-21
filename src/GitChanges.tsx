@@ -388,10 +388,9 @@ function ChangeDisclosure({ change, relationshipImpact, canOpenCapturedSource = 
   const heading = <>
     <span className="git-change-kind">{change.kind}</span>
     <span className="git-change-paths">
-      <code>{change.basePath ?? '∅'}</code>
-      {change.basePath !== change.headPath && <span aria-hidden="true">→</span>}
-      {change.basePath !== change.headPath && <code>{change.headPath ?? '∅'}</code>}
-      {change.basePath === change.headPath && <span className="git-change-same-path"><code>{path}</code></span>}
+      {change.basePath === change.headPath
+        ? <span className="git-change-same-path"><code>{path}</code></span>
+        : <><code>{change.basePath ?? '∅'}</code><span aria-hidden="true">→</span><code>{change.headPath ?? '∅'}</code></>}
     </span>
     <span className={`git-evidence-classification classification-${change.classification}`}>{formatClassification(change.classification)}</span>
     <span className="git-change-count">{change.hunks.length} {change.hunks.length === 1 ? 'hunk' : 'hunks'}</span>
