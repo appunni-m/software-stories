@@ -119,4 +119,11 @@ describe('owned local Git comparison client', () => {
     assert.match(app, /\[projectId\]: \{ baseRef, headRef, result \}/);
     assert.match(workspace, /return\(\)=>\{active=false;controller\.abort\(\);if\(gitRequest\.current===controller\)gitRequest\.current=null;\};\s*\},\[projectId,showChanges,gitReload\]\);/);
   });
+
+  it('keeps the Stop action visible when history starts a comparison in the collapsed ref panel', () => {
+    const screen = readFileSync(new URL('../src/GitChanges.tsx', import.meta.url), 'utf8');
+    assert.match(screen, /if \(busy\) setComparisonOptionsOpen\(true\)/);
+    assert.match(screen, /open=\{!compact \|\| busy \|\| comparisonOptionsOpen\}/);
+    assert.match(screen, /if \(busy\) event\.preventDefault\(\)/);
+  });
 });

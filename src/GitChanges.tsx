@@ -53,9 +53,14 @@ export function GitChangesScreen({
   const [baseRef, setBaseRef] = useState(initialBaseRef);
   const [headRef, setHeadRef] = useState(initialHeadRef);
   const busy = useSyncExternalStore(subscribeLocalGitComparisons, () => isLocalGitComparisonBusy(projectId), () => false);
+  const [comparisonOptionsOpen, setComparisonOptionsOpen] = useState(false);
   const activeRequest = useRef<AbortController | null>(null);
   const [error, setError] = useState<string | null>(null);
   const requestSequence = useRef(0);
+
+  useEffect(() => {
+    if (busy) setComparisonOptionsOpen(true);
+  }, [busy]);
 
   useEffect(() => {
     setBaseRef(initialBaseRef);
@@ -124,7 +129,13 @@ export function GitChangesScreen({
     <div className="git-changes-workflow">
       <section className="git-ref-card" aria-labelledby="git-ref-title">
         {compact && !matchingComparison && <p className="git-commit-hint">Select a commit on the left to inspect its changes.</p>}
-        <details className="git-compare-options" open={compact ? undefined : true}><summary>Compare branches or tags</summary>
+        <details
+          className="git-compare-options"
+          open={!compact || busy || comparisonOptionsOpen}
+          onToggle={(event) => {
+            if (compact && !busy) setComparisonOptionsOpen(event.currentTarget.open);
+          }}
+        ><summary onClick={(event) => { if (busy) event.preventDefault(); }}>Compare branches or tags</summary>
         <div className="git-changes-section-heading">
           <div>
             <span className="git-changes-kicker">LOCAL COMPARISON</span>
