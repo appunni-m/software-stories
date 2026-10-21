@@ -4,7 +4,8 @@ export interface FlowViewport { x:number; y:number; zoom:number }
 export const FOCUSED_STORY_LAYOUT_VERSION = 4 as const;
 export const FLOW_DIAGRAM_LAYOUT_VERSION = 3 as const;
 export interface StoryProgress extends SectionIdentity {
-  sceneId:string; positions:Record<string,number>; fullMap:boolean; viewport?:FlowViewport; focusLayoutVersion:typeof FOCUSED_STORY_LAYOUT_VERSION;
+  sceneId:string; positions:Record<string,number>; fullMap:boolean; viewport?:FlowViewport;
+  focusedNodeId?:string; focusedEdgeId?:string; focusLayoutVersion:typeof FOCUSED_STORY_LAYOUT_VERSION;
 }
 export interface DiagramProgress extends SectionIdentity { viewport:FlowViewport; layoutVersion:typeof FLOW_DIAGRAM_LAYOUT_VERSION }
 export interface ReaderProgress { stories:StoryProgress[]; diagrams:DiagramProgress[] }
@@ -31,9 +32,12 @@ export function cleanStoryProgress(value:unknown):StoryProgress|undefined {
   // apply coordinates produced by the older graph layout.
   const viewport=previousLayout||value.viewport===undefined?undefined:cleanFlowViewport(value.viewport);
   if(!previousLayout&&value.viewport!==undefined&&!viewport)return undefined;
+  const focusedNodeId=id(value.focusedNodeId)?value.focusedNodeId:undefined;
+  const focusedEdgeId=id(value.focusedEdgeId)?value.focusedEdgeId:undefined;
   return {revisionId:value.revisionId,sectionId:value.sectionId,sectionRevisionId:value.sectionRevisionId,
     sceneId:value.sceneId,positions:Object.fromEntries(entries) as Record<string,number>,fullMap:value.fullMap,
     focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION,
+    ...(focusedNodeId?{focusedNodeId}:{}),...(focusedEdgeId?{focusedEdgeId}:{}),
     ...(viewport?{viewport}:{})};
 }
 export function cleanDiagramProgress(value:unknown):DiagramProgress|undefined {

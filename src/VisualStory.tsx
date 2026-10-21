@@ -7,7 +7,7 @@ import { isNativeRuntime, type ChapterHotspot, type ChapterRevision, type Chapte
 import { defaultNarrationText, parseNarrationPreferences } from './lib/narration';
 import { narrationStorageKey } from './lib/narrationScope';
 import { inspectInteractiveVisual } from './lib/visuals';
-import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes, visibleStoryEdgeLabel } from './lib/visualStory';
+import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes, visibleStoryEdgeLabel } from './lib/visualStory';
 import { storyViewportNeedsRefit, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
 import { useReaderProgress } from './lib/ReaderProgressContext';
@@ -99,14 +99,10 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const [fullMap, setFullMap] = useState(savedPosition.fullMap);
   const canvasViewport = useRef<FlowViewport|undefined>(savedPosition.viewport);
   const mapView = useRef(fullMap);
-  const [focusedNode, setFocusedNode] = useState<string | null>(null);
-  const [focusedEdge, setFocusedEdge] = useState<string | null>(null);
-  useEffect(() => {
-    const node = visual?.nodes.find((node) => activeFocusTarget === `reader-visual-citation:${node.nodeId}:${node.sourceAnchorId ?? node.evidenceAnchorIds[0]}`);
-    if (node) { setFocusedNode(node.nodeId); setFocusedEdge(null); return; }
-    const edge = visual?.edges.find((item) => activeFocusTarget?.startsWith(`reader-visual-edge:${item.edgeId}:`));
-    if (edge) { setFocusedNode(edge.fromNodeId); setFocusedEdge(edge.edgeId); }
-  }, [activeFocusTarget, visual]);
+  const restoredFocus = restoreStoryFocus(visual, savedPosition.focusedNodeId, savedPosition.focusedEdgeId);
+  const [focusedNode, setFocusedNode] = useState<string | null>(restoredFocus.nodeId);
+  const [focusedEdge, setFocusedEdge] = useState<string | null>(restoredFocus.edgeId);
+  const focusInitialized = useRef(Boolean(visual));
   const scene = scenes[Math.min(index, scenes.length - 1)];
   const authoredScenes = visual?.presentation?.scenes.filter((item) => scenes.length === 1
     || section.claims[item.claimIndex]?.claimId === scene.id) ?? [];
@@ -125,21 +121,36 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     ? sourceAnchorForVisualNode(focusAnchor, focus, focusSourceValue)
     : focusAnchor;
   const hotspot = inspection.status === 'available' && focus?.hotspotId ? inspection.hotspotsById.get(focus.hotspotId) : undefined;
-  const savePosition = (sceneId: string, position?: number) => {
+  const savePosition = (sceneId: string, position?: number, focusSelection?: {nodeId:string|null;edgeId:string|null}) => {
     if (position !== undefined && Number.isFinite(position)) positions.current.set(sceneId, Math.max(0,Math.min(3600,position)));
-    const saved={...identity,sceneId:activeScene.current,positions:Object.fromEntries(positions.current),fullMap:mapView.current,focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION,...(canvasViewport.current?{viewport:canvasViewport.current}:{})};
+    const selection=focusSelection??{nodeId:focusedNode,edgeId:focusedEdge};
+    const saved={...identity,sceneId,positions:Object.fromEntries(positions.current),fullMap:mapView.current,focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION,
+      ...(selection.nodeId?{focusedNodeId:selection.nodeId}:{}),...(selection.edgeId?{focusedEdgeId:selection.edgeId}:{}),
+      ...(canvasViewport.current?{viewport:canvasViewport.current}:{})};
     if(onProgressChange)onProgressChange(saved);
     else if(!isNativeRuntime())try { localStorage.setItem(sceneKey, JSON.stringify(saved)); } catch { /* Standalone reading works without browser storage. */ }
   };
+  useEffect(() => {
+    if (!visual || focusInitialized.current) return;
+    focusInitialized.current = true;
+    setFocusedNode(restoredFocus.nodeId);
+    setFocusedEdge(restoredFocus.edgeId);
+  }, [visual, restoredFocus.nodeId, restoredFocus.edgeId]);
+  useEffect(() => {
+    const node = visual?.nodes.find((node) => activeFocusTarget === `reader-visual-citation:${node.nodeId}:${node.sourceAnchorId ?? node.evidenceAnchorIds[0]}`);
+    if (node) { setFocusedNode(node.nodeId); setFocusedEdge(null); savePosition(scene.id, undefined, {nodeId:node.nodeId,edgeId:null}); return; }
+    const edge = visual?.edges.find((item) => activeFocusTarget?.startsWith(`reader-visual-edge:${item.edgeId}:`));
+    if (edge) { setFocusedNode(edge.fromNodeId); setFocusedEdge(edge.edgeId); savePosition(scene.id, undefined, {nodeId:edge.fromNodeId,edgeId:edge.edgeId}); }
+  }, [activeFocusTarget, visual]);
 
-  const select = (next: number, playing = false, nodeId: string | null = null) => {
+  const select = (next: number, playing = false, nodeId: string | null = null, edgeId: string | null = null) => {
     if (next < 0 || next >= scenes.length) return;
     activeScene.current=scenes[next].id;
     if(next!==index)canvasViewport.current=undefined;
-    setAutoPlay(playing); setIndex(next); setFocusedNode(nodeId); setFocusedEdge(null);
+    setAutoPlay(playing); setIndex(next); setFocusedNode(nodeId); setFocusedEdge(edgeId);
     if (!playing) { setManualVisit((visit) => visit + 1); requestAnimationFrame(() => root.current?.scrollIntoView({ block: 'start', behavior: 'instant' })); }
     if (playing) positions.current.set(scenes[next].id, 0);
-    savePosition(scenes[next].id);
+    savePosition(scenes[next].id, undefined, {nodeId,edgeId});
   };
   const chooseNode = (id: string, sourceValue?: string) => {
     const next = scene.nodeIds.includes(id) ? index : scenes.findIndex((item) => item.nodeIds.includes(id));
@@ -162,8 +173,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
       : undefined;
     const targetAnchor = target ? sourceEvidenceAnchorForVisualNode(anchors, target, target.sourceValue) : undefined;
     const relatedScene = scenes.findIndex((item) => item.nodeIds.includes(edge.fromNodeId) && item.nodeIds.includes(edge.toNodeId));
-    select(relatedScene < 0 ? index : relatedScene, false, edge.fromNodeId);
-    setFocusedEdge(edge.edgeId);
+    select(relatedScene < 0 ? index : relatedScene, false, edge.fromNodeId, edge.edgeId);
     onOpenAnchor(sourceAnchorForVisualEdge(source, edge, targetAnchor, sourceContextAnchor), `reader-visual-edge:${edge.edgeId}:${source.anchorId}`);
   };
   const nodes = visual ? storyLayout(visual, visibleIds).map((node) => {

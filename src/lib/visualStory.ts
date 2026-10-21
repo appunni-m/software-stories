@@ -10,6 +10,14 @@ export interface StoryScene {
   nodeIds: string[];
 }
 
+/** Restore only a focused node or edge that still exists in this section's visual. */
+export function restoreStoryFocus(visual:EvidenceLinkedVisualSpec|undefined,nodeId?:string,edgeId?:string):{nodeId:string|null;edgeId:string|null} {
+  const node=visual?.nodes.find((item)=>item.nodeId===nodeId);
+  const edge=visual?.edges.find((item)=>item.edgeId===edgeId);
+  const focusedNodeId=node?.nodeId??edge?.fromNodeId??null;
+  return {nodeId:focusedNodeId,edgeId:edge?.fromNodeId===focusedNodeId?edge.edgeId:null};
+}
+
 const normalize = (text: string) => text.trim().replace(/\s+/gu, ' ');
 
 /** Narrow a visual node's source link only when its visible code expression is
@@ -309,13 +317,15 @@ export function readStoryProgress(raw: string | null, identity: SectionIdentity,
   return clean && sameSection(clean, identity) && scenes.some(scene => scene.id === clean.sceneId) ? clean : undefined;
 }
 
-function sectionStoryProgress(progress: StoryProgress | undefined, scenes: StoryScene[]): { index: number; positions: [string, number][]; fullMap: boolean; viewport?: FlowViewport } {
+function sectionStoryProgress(progress: StoryProgress | undefined, scenes: StoryScene[]): { index: number; positions: [string, number][]; fullMap: boolean; viewport?: FlowViewport; focusedNodeId?: string; focusedEdgeId?: string } {
   const positions = progress?.positions ?? {};
   return { index: Math.max(0, scenes.findIndex((scene) => scene.id === progress?.sceneId)), positions: scenes.map((scene) => {
     const position = Object.hasOwn(positions, scene.id) ? positions[scene.id] : 0;
     return [scene.id, position] as [string, number];
   }), fullMap: progress?.fullMap ?? false,
-    viewport: progress?.sceneId === scenes.find((scene) => scene.id === progress?.sceneId)?.id ? progress?.viewport : undefined };
+    viewport: progress?.sceneId === scenes.find((scene) => scene.id === progress?.sceneId)?.id ? progress?.viewport : undefined,
+    ...(progress?.focusedNodeId?{focusedNodeId:progress.focusedNodeId}:{}),
+    ...(progress?.focusedEdgeId?{focusedEdgeId:progress.focusedEdgeId}:{}) };
 }
 
 /** Restore only the one current, section-scoped record. Unknown or previous
@@ -333,7 +343,7 @@ function isCurrentStoryProgress(value: unknown): value is StoryProgress {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
   const required = ['revisionId', 'sectionId', 'sectionRevisionId', 'sceneId', 'positions', 'fullMap', 'focusLayoutVersion'];
-  const allowed = [...required, 'viewport'];
+  const allowed = [...required, 'viewport', 'focusedNodeId', 'focusedEdgeId'];
   const actual = Object.keys(record);
   return actual.every(key => allowed.includes(key))
     && required.every(key => Object.hasOwn(record, key))

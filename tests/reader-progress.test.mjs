@@ -101,7 +101,8 @@ test('each section retains its position and metadata retention never changes art
 test('parent, sibling and nested readers retain independent views without changing selected sections',()=>{
   let state=addTurn(createWorkspace('project','snapshot'),ready('root-turn'),'guide');
   state=rememberCodePane(state,'root',false);state=rememberFileFlow(state,'root','src/font.rs',true);
-  state=rememberPresentation(state,'root','root-turn','stories',story);state=rememberPresentation(state,'root','root-turn','diagrams',diagram);
+  const focusedStory={...story,focusedNodeId:'node:validation',focusedEdgeId:'edge:accepts'};
+  state=rememberPresentation(state,'root','root-turn','stories',focusedStory);state=rememberPresentation(state,'root','root-turn','diagrams',diagram);
   const before=JSON.stringify(state.explorations[0]);
   state=addTurn(state,ready('child-turn'),'flow',{id:'child',originTurnId:'root-turn'});
   state=rememberCodePane(state,'child',true);state=rememberPresentation(state,'child','child-turn','stories',{...story,sceneId:'claim:first',fullMap:false});
@@ -110,7 +111,9 @@ test('parent, sibling and nested readers retain independent views without changi
   assert.equal(JSON.stringify(state.explorations[0]),before);
   const restored=decodeWorkspace(JSON.stringify(state),'project','snapshot');
   assert.equal(restored.explorations[0].codeOpen,false);assert.deepEqual(restored.explorations[0].fileFlow,{path:'src/font.rs',showAll:true});
-  assert.deepEqual(restored.explorations[0].turns[0].presentation,{stories:[story],diagrams:[diagram]});
+  assert.deepEqual(restored.explorations[0].turns[0].presentation,{stories:[focusedStory],diagrams:[diagram]});
+  const focused=readSectionStoryProgress(restored.explorations[0].turns[0].presentation.stories[0],identity,[{id:'claim:first'},{id:'claim:second'}]);
+  assert.equal(focused.focusedNodeId,'node:validation');assert.equal(focused.focusedEdgeId,'edge:accepts');
   assert.equal(restored.explorations[1].turns[0].presentation.stories[0].sceneId,'claim:first');
   assert.equal(restored.explorations[0].view,'guide');assert.equal(restored.explorations[1].view,'flow');assert.equal(restored.explorations[2].view,'history');
 });
@@ -203,5 +206,6 @@ test('real reading components bind scoped progress without persisting an autopla
   assert.match(narration,/if\(mountedRef\.current\)persistPlaybackPosition\(event\.currentTarget\.currentTime\)/);
   assert.match(visual,/\[autoPlay, setAutoPlay\] = useState\(false\)/);
   assert.match(visual,/onMoveEnd=/);
-  assert.match(visual,/sceneId:activeScene\.current/,'a late paused clip cannot select the previously active scene');
+  assert.match(visual,/const savePosition = \(sceneId: string, position\?: number/,'late playback callbacks save against the scene captured by their handler');
+  assert.match(visual,/const saved=\{\.\.\.identity,sceneId,/,'reader progress uses the captured scene ID instead of mutable active-scene state');
 });

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { storyViewportNeedsRefit, viewportClipsNodeBounds } from '../src/lib/flowViewport.ts';
-import { readSectionStoryProgress, readStoryProgress, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes, visibleStoryEdgeLabel } from '../src/lib/visualStory.ts';
+import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyLayout, storyScenes, visibleStoryEdgeLabel } from '../src/lib/visualStory.ts';
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
 const claims = [claim('entry', 'A request reaches handleRequest. The bytes are still untrusted.'), claim('check', 'If validate rejects those bytes, the caller receives an error. Otherwise processing continues.')];
@@ -402,6 +402,8 @@ describe('visual story scenes', () => {
 
   it('rehydrates the Guide diagram after data arrives and after the first layout frame', () => {
     const story = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
+    assert.match(story, /if \(!visual \|\| focusInitialized\.current\) return;[\s\S]*?setFocusedNode\(restoredFocus\.nodeId\);\s*setFocusedEdge\(restoredFocus\.edgeId\);/u,
+      'a saved focus is restored if the source-backed diagram arrives after the reader mounts');
     assert.match(story, /if \(flowFitInProgress\.current\) \{[\s\S]*?flowFitCheckPending\.current = true;\s*return;/u,
       'a node measurement that arrives during fitView schedules a second bounds check');
     assert.match(story, /finally\(\(\) => \{\s*if \(generation === flowFitGeneration\.current\) \{\s*flowFitInProgress\.current = false;\s*if \(flowFitCheckPending\.current\) \{\s*flowFitCheckPending\.current = false;\s*scheduleViewportCheck\.current\(\);/u,
@@ -583,6 +585,46 @@ describe('visual story scenes', () => {
     const restored = readSectionStoryProgress(progress, identity, scenes);
     assert.deepEqual(restored, { index: 1, positions: [['entry', 12.4], ['check', 3.2]], fullMap: false, viewport: undefined });
     assert.equal('autoPlay' in restored, false);
+  });
+
+  it('restores the selected source-backed graph node and edge after the reader remounts', () => {
+    const scenes = storyScenes(section, visual);
+    const identity = { revisionId: 'revision:one', sectionId: 'section:one', sectionRevisionId: 'section-revision:one' };
+    const saved = { ...identity, sceneId: 'check', positions: { entry: 12.4, check: 3.2 }, fullMap: false,
+      focusedNodeId: 'check', focusedEdgeId: 'e:1', focusLayoutVersion: 4 };
+
+    const progress = readStoryProgress(JSON.stringify(saved), identity, scenes);
+    const restored = readSectionStoryProgress(progress, identity, scenes);
+
+    assert.equal(restored.index, 1);
+    assert.equal(restored.focusedNodeId, 'check');
+    assert.equal(restored.focusedEdgeId, 'e:1');
+    assert.deepEqual(restored.positions, [['entry', 12.4], ['check', 3.2]]);
+    assert.equal('autoPlay' in restored, false);
+  });
+
+  it('validates saved visual focus and can restore it after diagram data arrives', () => {
+    assert.deepEqual(restoreStoryFocus(visual, 'check', 'e:1'), { nodeId: 'check', edgeId: 'e:1' });
+    assert.deepEqual(restoreStoryFocus(visual, undefined, 'e:1'), { nodeId: 'check', edgeId: 'e:1' });
+    assert.deepEqual(restoreStoryFocus(visual, 'error', 'missing'), { nodeId: 'error', edgeId: null });
+    assert.deepEqual(restoreStoryFocus(visual, 'missing', 'missing'), { nodeId: null, edgeId: null });
+    assert.deepEqual(restoreStoryFocus(visual, 'error', 'e:0'), { nodeId: 'error', edgeId: null });
+  });
+
+  it('drops invalid visual focus metadata without losing the saved scene or narration position', () => {
+    const scenes = storyScenes(section, visual);
+    const identity = { revisionId: 'revision:one', sectionId: 'section:one', sectionRevisionId: 'section-revision:one' };
+    const saved = { ...identity, sceneId: 'check', positions: { entry: 4, check: 9 }, fullMap: false,
+      focusedNodeId: 'x'.repeat(257), focusedEdgeId: {}, focusLayoutVersion: 4 };
+
+    const progress = readStoryProgress(JSON.stringify(saved), identity, scenes);
+    const restored = readSectionStoryProgress(progress, identity, scenes);
+
+    assert.ok(progress, 'untrusted optional focus data does not invalidate owned playback progress');
+    assert.equal(restored.index, 1);
+    assert.deepEqual(restored.positions, [['entry', 4], ['check', 9]]);
+    assert.equal(restored.focusedNodeId, undefined);
+    assert.equal(restored.focusedEdgeId, undefined);
   });
 
   it('rejects malformed or unscoped progress and never lets it select a foreign scene', () => {
