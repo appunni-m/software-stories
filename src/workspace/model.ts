@@ -68,10 +68,14 @@ export function historyEntry(turn: Turn, availableRevisions: ReadonlySet<string>
 }
 
 /** Keep queued questions visibly distinct from the one active model turn. */
-export function questionProgressText(turn: Pick<Turn, 'status' | 'guideId' | 'publishedSections'>): string | null {
+export function questionProgressText(turn: Pick<Turn, 'status' | 'guideId' | 'guide' | 'publishedSections'>): string | null {
   if (turn.status === 'queued') return 'Waiting for the current question to finish…';
   if (turn.status !== 'working') return null;
-  if (turn.guideId) return turn.publishedSections?.length ? 'Building the next part of your guide…' : 'Building your repository guide…';
+  if (turn.guideId) {
+    if (!turn.guide || turn.guide.status === 'planning') return 'Planning the guide slides…';
+    const ready = turn.publishedSections?.length ?? 0;
+    return ready ? `Building the next slide · ${ready} ready` : 'Building the opening slide…';
+  }
   return turn.publishedSections?.length ? 'Adding more detail…' : 'Building your explanation…';
 }
 

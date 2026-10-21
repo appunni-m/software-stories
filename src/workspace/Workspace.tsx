@@ -278,7 +278,11 @@ export function DeveloperWorkspace(props:Props) {
   }
   function retryTurn(turn:Turn) {
     if(conversationUnavailable)return;
-    if(turn.guideId){setGuideConsent({id:turn.id,resume:true});setConsentError(null);return;}
+    if(turn.guideId){
+      if(canContinueRepositoryGuide(turn.guide))setGuideConsent({id:turn.id,resume:true});
+      else setGuideConsent({id:appendRepositoryGuide(projectId,snapshotId,turn.question),resume:false});
+      setConsentError(null);return;
+    }
     if(state.grantId)void runQuestion(projectId,snapshotId,turn.id,state.grantId);else setConsentTurn(turn.id);
   }
   function branch(turn:Turn,question:string,context:Context[]){ask(question,current.view==='flow'?'flow':'guide',context,turn.id);}
@@ -403,7 +407,7 @@ function Answer(props:AnswerProps){
   const progressText=questionProgressText(turn);
   return <section className="dw-progressive-answer" data-question-id={turn.id} tabIndex={-1} aria-label={`Question: ${questionSummaryText(turn.question)}`}>
     <QuestionDisclosure question={turn.question}/>
-    <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={props.onStop}><Square size={12}/>Stop</Button></>:turn.status==='ready'?null:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?'Some details could not be completed.':'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span>{(!turn.guideId||canContinueRepositoryGuide(turn.guide))&&<Button size="1" variant="ghost" onClick={props.onRetry}>{turn.guideId?'Continue guide':'Try again'}</Button>}</>}</div>
+    <div className="dw-answer-progress" role="status">{progressText?<><LoaderCircle size={14}/><span>{progressText}</span><Button size="1" variant="ghost" color="gray" onClick={props.onStop}><Square size={12}/>Stop</Button></>:turn.status==='ready'?null:<><span>{turn.status==='stopped'?'Stopped.':turn.status==='interrupted'?'Interrupted.':turn.status==='partial'?'Some details could not be completed.':'This question could not be completed.'} {sections.length>0?'Your saved sections are available below.':''}</span><Button size="1" variant="ghost" onClick={props.onRetry}>{turn.guideId?(canContinueRepositoryGuide(turn.guide)?'Continue guide':'Start a fresh guide'):'Try again'}</Button></>}</div>
     {turn.guide&&turn.guide.units.length>0&&<details className="dw-guide-outline" open={turn.status==='working'}><summary>{turn.guide.title}<span>{guideSlides.length} slides ready · {turn.guide.units.filter((u)=>u.status==='complete').length}/{turn.guide.units.length} topics explored</span></summary><ol>{turn.guide.units.map((unit)=>{const ready=sections.some((section)=>section.key===unit.key);return <li key={unit.key}><span>{unit.question}</span><small>{ready?'Ready':unit.status==='working'?'Building':unit.status}</small></li>;})}</ol><p>{turn.guide.capturedFiles} captured files are available to investigate. {turn.guide.startingFiles} starting files helped form this outline; this is not an explained-file count.</p>{turn.guide.omissions.map((note)=><p key={note}>{note}</p>)}</details>}
     {turn.notes?.map((note)=><p className="dw-answer-note" key={note}>{note}</p>)}
     {capacityError&&<AnswerStorage/>}

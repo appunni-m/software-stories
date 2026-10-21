@@ -29,7 +29,15 @@ test('queued work is distinct from the active question in the reader and history
   assert.equal(questionProgressText({ ...turn('active'), status: 'working' }), 'Building your explanation…');
   assert.equal(questionProgressText({
     ...turn('guide'), status: 'working', guideId: 'guide',
-  }), 'Building your repository guide…');
+  }), 'Planning the guide slides…');
+  assert.equal(questionProgressText({
+    ...turn('guide'), status: 'working', guideId: 'guide',
+    guide: {status:'building'},
+  }), 'Building the opening slide…');
+  assert.equal(questionProgressText({
+    ...turn('guide'), status: 'working', guideId: 'guide',
+    guide: {status:'building'}, publishedSections:[{revisionId:'one'},{revisionId:'two'}],
+  }), 'Building the next slide · 2 ready');
   assert.equal(questionProgressText({ ...turn('saved'), status: 'ready' }), null);
   const savedSections = new Set(['revision:existing']);
   const queued = historyEntry({
