@@ -12,6 +12,7 @@ use tauri::AppHandle;
 
 const CONVERSATION_SCHEMA_VERSION: u32 = 1;
 const FLOW_DIAGRAM_LAYOUT_VERSION: u64 = 3;
+const FOCUSED_STORY_LAYOUT_VERSION: u64 = 4;
 const MAX_BYTES: usize = 8 * 1024 * 1024;
 const UNAVAILABLE: &str =
     "Your saved conversation could not be opened. Existing work has been preserved.";
@@ -210,6 +211,8 @@ fn presentation(v: &Value, owner: &serde_json::Map<String, Value>) -> Result<(),
                         "fullMap",
                         "viewport",
                         "focusLayoutVersion",
+                        "focusedNodeId",
+                        "focusedEdgeId",
                     ]
                 } else {
                     &[
@@ -243,9 +246,14 @@ fn presentation(v: &Value, owner: &serde_json::Map<String, Value>) -> Result<(),
             if key == "stories" {
                 if !p.get("sceneId").is_some_and(id)
                     || !p.get("fullMap").is_some_and(Value::is_boolean)
-                    || !p
-                        .get("focusLayoutVersion")
-                        .is_some_and(|v| v.as_u64() == Some(3))
+                    // Layout 3 is a supported on-disk migration source. The
+                    // renderer upgrades it to layout 4 while retaining scene
+                    // and narration positions and discarding stale geometry.
+                    || !p.get("focusLayoutVersion").is_some_and(|v| {
+                        matches!(v.as_u64(), Some(3) | Some(FOCUSED_STORY_LAYOUT_VERSION))
+                    })
+                    || !optional(p, "focusedNodeId", id)
+                    || !optional(p, "focusedEdgeId", id)
                 {
                     return Err(UNAVAILABLE.into());
                 }
@@ -571,9 +579,11 @@ fn location(storage: &Path, project: &str, snapshot: &str) -> Result<PathBuf, St
         .join(format!("{digest:x}.json")))
 }
 
-/// Reader positions from older story or diagram layouts are transient. Drop
-/// only those positions in memory so they cannot make the conversation
-/// unavailable. The durable record is untouched.
+/// Reader positions from unsupported story or diagram layouts are transient.
+/// Drop only those positions in memory so they cannot make the conversation
+/// unavailable. Keep story layout 3 as a supported migration input; the
+/// renderer upgrades its scene and narration positions to layout 4. The durable
+/// record is untouched.
 fn discard_stale_reader_positions(state: &mut Value) {
     let Some(explorations) = state.get_mut("explorations").and_then(Value::as_array_mut) else {
         return;
@@ -591,7 +601,10 @@ fn discard_stale_reader_positions(state: &mut Value) {
                 .and_then(Value::as_array_mut)
             {
                 stories.retain(|story| {
-                    story.get("focusLayoutVersion").and_then(Value::as_u64) == Some(3)
+                    matches!(
+                        story.get("focusLayoutVersion").and_then(Value::as_u64),
+                        Some(3) | Some(FOCUSED_STORY_LAYOUT_VERSION)
+                    )
                 });
             }
             if let Some(diagrams) = presentation

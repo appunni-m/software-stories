@@ -86,7 +86,7 @@ fn presentation_state() -> Value {
     s["explorations"][0]["fileFlow"] = json!({"path":"src/font.rs","showAll":true});
     s["explorations"][0]["turns"][0]["revisionId"] = json!("revision-one");
     s["explorations"][0]["turns"][0]["presentation"] = json!({
-        "stories":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","sceneId":"claim:second","positions":{"claim:first":12.4,"claim:second":3.2},"fullMap":true,"viewport":{"x":-34,"y":91,"zoom":0.6},"focusLayoutVersion":3}],
+        "stories":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","sceneId":"claim:second","positions":{"claim:first":12.4,"claim:second":3.2},"fullMap":true,"viewport":{"x":-34,"y":91,"zoom":0.6},"focusedNodeId":"claim:second","focusedEdgeId":"edge:one","focusLayoutVersion":4}],
         "diagrams":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","viewport":{"x":250,"y":-91,"zoom":1.7},"layoutVersion":3}]
     });
     s
@@ -106,11 +106,18 @@ fn exact_scene_audio_map_pane_and_flow_positions_round_trip_as_metadata() {
 }
 
 #[test]
-fn focused_story_layout_requires_the_current_layout_version() {
+fn focused_story_layout_accepts_current_and_legacy_migration_versions() {
     let f = Fixture::new();
     let s = presentation_state();
     let record = save(&f.0, "project", "snapshot", None, s.clone()).unwrap();
     assert_eq!(record.state, s);
+
+    let mut legacy = s.clone();
+    legacy["explorations"][0]["turns"][0]["presentation"]["stories"][0]
+        ["focusLayoutVersion"] = json!(3);
+    assert!(save(&f.0, "project", "snapshot", Some(record.revision), legacy).is_ok());
+
+    let record = load(&f.0, "project", "snapshot").unwrap().unwrap();
 
     let before = fs::read(f.path()).unwrap();
     let mut unsupported = s.clone();

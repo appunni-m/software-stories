@@ -149,6 +149,19 @@ fn plan_instructions_keep_the_full_requested_scope() {
 }
 
 #[test]
+fn repository_guide_outline_has_no_wall_clock_deadline() {
+    let f = Fixture::new();
+    let r = crate::repository_guide::tests::fresh_record(&f);
+    let (_, _, _, instructions) = request(&r).unwrap();
+    let started = std::time::Instant::now() - std::time::Duration::from_secs(11 * 60);
+
+    assert!(instructions.contains("no wall-clock deadline"));
+    assert!(!instructions.contains("ten-minute"));
+    assert_eq!(crate::codex_agent::RunDeadline::UserControlled.duration(), None);
+    assert!(!crate::codex_agent::RunDeadline::UserControlled.exceeded(started));
+}
+
+#[test]
 fn outline_plan_is_persistable_without_waiting_for_opening_content() {
     let f = Fixture::new();
     let r = crate::repository_guide::tests::fresh_record(&f);

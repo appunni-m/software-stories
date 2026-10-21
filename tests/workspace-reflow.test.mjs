@@ -21,7 +21,8 @@ test('view and composer shortcuts reveal their targets before focusing',()=>{
 test('search commands reveal the sidebar and narrow navigation has a direct return',()=>{
   matches(workspace,/const find=\(\)=>\{setActivity\('search'\);setNarrowPane\('explorer'\);onWorkspace\('guide-plan'\);requestAnimationFrame\(\(\)=>search.current\?\.focus\(\)\);\};/);
   matches(workspace,/if\(mod&&\(k==='p'\|\|k==='k'\|\|\(event.shiftKey&&k==='f'\)\)\)\{event.preventDefault\(\);event.stopImmediatePropagation\(\);find\(\);\}/);
-  matches(workspace,/className="dw-sidebar-back"[^\n]*aria-label="Back to explanation"[^\n]*onClick=\{\(\)=>\{setNarrowPane\('explanation'\);onWorkspace\('guide-plan'\);\}\}/);
+  matches(workspace,/const returnToGuide = \(pane:'explorer'\|'explanation'\) => \{[\s\S]*?setNarrowPane\(pane\);\s*onWorkspace\('guide-plan'\);\s*\};/);
+  matches(workspace,/className="dw-sidebar-back"[^\n]*aria-label="Back to explanation"[^\n]*onClick=\{\(\)=>returnToGuide\('explanation'\)\}/);
   matches(css,/\.developer-workspace \.dw-sidebar-back\s*\{display:none;\}/);
   matches(css,/@media\(max-width:680px\)\{\.developer-workspace \.dw-sidebar-back\{display:inline-flex;\}/);
 });
