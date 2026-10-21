@@ -104,6 +104,14 @@ pub(crate) struct Record {
     truncated: bool,
 }
 
+impl Record {
+    /// First observed assistant-message delta on this trace's monotonic clock.
+    /// This is transport-visible text progress, not a model-token timestamp.
+    pub(crate) fn first_agent_message_delta_ms(&self) -> Option<u64> {
+        runtime::first_agent_message_delta_ms(self)
+    }
+}
+
 struct State {
     path: PathBuf,
     record: Record,

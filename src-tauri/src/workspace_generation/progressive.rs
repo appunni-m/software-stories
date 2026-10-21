@@ -473,16 +473,41 @@ pub(crate) struct TimingReport {
     answer_outcome: Outcome,
     worker_active: bool,
     trace: Option<crate::generation_timing::Record>,
+    first_agent_message_delta_elapsed_ms: Option<u64>,
+    first_useful_answer: Option<FirstUsefulAnswerTiming>,
     publications: Vec<PublicationTiming>,
-    unmeasured: [&'static str; 5],
+    unmeasured: [&'static str; 6],
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PublicationTiming {
+    generation_id: String,
     order: usize,
     candidate_prepared_context_elapsed_ms: u64,
     native_ready_run_elapsed_ms: Option<u64>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FirstUsefulAnswerTiming {
+    generation_id: String,
+    order: usize,
+    candidate_prepared_context_elapsed_ms: u64,
+    native_ready_run_elapsed_ms: Option<u64>,
+}
+
+fn first_useful_answer(publications: &[PublicationTiming]) -> Option<FirstUsefulAnswerTiming> {
+    publications
+        .iter()
+        .min_by_key(|publication| publication.order)
+        .map(|publication| FirstUsefulAnswerTiming {
+            generation_id: publication.generation_id.clone(),
+            order: publication.order,
+            candidate_prepared_context_elapsed_ms: publication
+                .candidate_prepared_context_elapsed_ms,
+            native_ready_run_elapsed_ms: publication.native_ready_run_elapsed_ms,
+        })
 }
 
 pub(crate) fn timing_report(
@@ -493,10 +518,22 @@ pub(crate) fn timing_report(
     active: bool,
 ) -> Result<TimingReport, String> {
     let answer = reading::scoped(storage, run, project, snapshot)?;
+    let trace = crate::generation_timing::inspect(storage, run)?;
+    let publications = answer
+        .sections
+        .iter()
+        .map(|section| PublicationTiming {
+            generation_id: section.preview.generation_id.clone(),
+            order: section.order,
+            candidate_prepared_context_elapsed_ms: section.published_elapsed_ms,
+            native_ready_run_elapsed_ms: section.published_run_elapsed_ms,
+        })
+        .collect::<Vec<_>>();
+    let first_useful_answer = first_useful_answer(&publications);
     Ok(TimingReport {
-        schema_version: 2,
+        schema_version: 3,
         kind: "code-atlas-generation-timing",
-        scope: "Native observations only. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption or usefulness. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
+        scope: "Native observations only. firstUsefulAnswer is the first complete answer section admitted by native source/claim/visual validation and durably published; semantic quality remains a separate review. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption. firstAgentMessageDeltaElapsedMs is app-server text progress, not a model-token timestamp. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
         run_id: run.into(),
         answer_outcome: if !active && answer.outcome == Outcome::Working {
             Outcome::Interrupted
@@ -504,22 +541,19 @@ pub(crate) fn timing_report(
             answer.outcome
         },
         worker_active: active,
-        trace: crate::generation_timing::inspect(storage, run)?,
-        publications: answer
-            .sections
-            .iter()
-            .map(|section| PublicationTiming {
-                order: section.order,
-                candidate_prepared_context_elapsed_ms: section.published_elapsed_ms,
-                native_ready_run_elapsed_ms: section.published_run_elapsed_ms,
-            })
-            .collect(),
+        first_agent_message_delta_elapsed_ms: trace
+            .as_ref()
+            .and_then(crate::generation_timing::Record::first_agent_message_delta_ms),
+        first_useful_answer,
+        trace,
+        publications,
         unmeasured: [
             "rendererQueue",
             "connectionPreparationBeforeManager",
             "rendererAdoption",
             "narrationReadiness",
             "providerWaitVersusModelReasoning",
+            "firstModelToken",
         ],
     })
 }

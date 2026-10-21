@@ -35,6 +35,27 @@ fn frequent_notifications_are_throttled_and_finalization_flushes_all_counts() {
 }
 
 #[test]
+fn first_agent_message_delta_is_reported_without_calling_it_a_token_time() {
+    let f = Fixture::new();
+    let id = run();
+    let trace = f.trace(&id, Instant::now());
+    trace.turn_requested(1);
+    trace.runtime_event(1, RuntimeEventKind::ReasoningActivity);
+    trace.runtime_event(1, RuntimeEventKind::AgentMessageDelta);
+    trace.runtime_event(1, RuntimeEventKind::AgentMessageDelta);
+    trace.finish(Ok(()));
+
+    let record = inspect(&f.0, &id).unwrap().unwrap();
+    let first_delta = record.runtime_turns[0]
+        .observations
+        .iter()
+        .find(|event| event.kind == RuntimeEventKind::AgentMessageDelta)
+        .unwrap()
+        .first_ms;
+    assert_eq!(record.first_agent_message_delta_ms(), Some(first_delta));
+}
+
+#[test]
 fn runtime_counters_keep_correction_separate_and_never_sum_cumulative_usage() {
     let f = Fixture::new();
     let id = run();

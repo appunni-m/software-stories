@@ -254,5 +254,15 @@ pub(super) fn validate(record: &Record) -> Result<(), String> {
     Ok(())
 }
 
+pub(super) fn first_agent_message_delta_ms(record: &Record) -> Option<u64> {
+    record
+        .runtime_turns
+        .iter()
+        .flat_map(|turn| &turn.observations)
+        .filter(|event| event.kind == RuntimeEventKind::AgentMessageDelta)
+        .map(|event| event.first_ms)
+        .min()
+}
+
 #[cfg(test)]
 mod tests;

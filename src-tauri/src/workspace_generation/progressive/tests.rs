@@ -39,6 +39,61 @@ fn progressive_contract_is_small_binds_intent_and_never_requests_a_final_rewrite
 }
 
 #[test]
+fn timing_report_names_the_first_native_validated_publication_by_section_order() {
+    let publications = vec![
+        PublicationTiming {
+            generation_id: "generation:later".into(),
+            order: 1,
+            candidate_prepared_context_elapsed_ms: 90,
+            native_ready_run_elapsed_ms: Some(105),
+        },
+        PublicationTiming {
+            generation_id: "generation:first".into(),
+            order: 0,
+            candidate_prepared_context_elapsed_ms: 42,
+            native_ready_run_elapsed_ms: None,
+        },
+    ];
+    let first = first_useful_answer(&publications).unwrap();
+    let report = TimingReport {
+        schema_version: 3,
+        kind: "code-atlas-generation-timing",
+        scope: "synthetic scope",
+        run_id: "synthetic-run".into(),
+        answer_outcome: Outcome::Partial,
+        worker_active: false,
+        trace: None,
+        first_agent_message_delta_elapsed_ms: Some(12),
+        first_useful_answer: Some(first),
+        publications,
+        unmeasured: [
+            "rendererQueue",
+            "connectionPreparationBeforeManager",
+            "rendererAdoption",
+            "narrationReadiness",
+            "providerWaitVersusModelReasoning",
+            "firstModelToken",
+        ],
+    };
+    let value = serde_json::to_value(report).unwrap();
+    assert_eq!(value["schemaVersion"], 3);
+    assert_eq!(value["firstAgentMessageDeltaElapsedMs"], 12);
+    assert_eq!(value["firstUsefulAnswer"]["generationId"], "generation:first");
+    assert_eq!(value["firstUsefulAnswer"]["order"], 0);
+    assert_eq!(
+        value["firstUsefulAnswer"]["candidatePreparedContextElapsedMs"],
+        42
+    );
+    // Old or incomplete timing observations remain unknown; they are not
+    // reconstructed from wall-clock timestamps or later publications.
+    assert!(value["firstUsefulAnswer"]["nativeReadyRunElapsedMs"].is_null());
+    assert!(value["unmeasured"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("firstModelToken")));
+}
+
+#[test]
 fn native_worker_registration_prevents_false_restart_interruption() {
     let manager = codex_agent::CodexAgentManager::default();
     let run = Uuid::new_v4().to_string();
