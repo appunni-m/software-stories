@@ -72,11 +72,11 @@ test('contextual guide keeps explicit source and nested intent',()=>{
   assert.equal(contextualGuideIntent('   ',[],false),null);
 });
 test('unscoped project-wide Guide asks use the durable repository guide pipeline',()=>{
-  for(const question of ['Explain this project','How does this repository work?','Give me an overview of the codebase','Walk me through this app end to end'])
-    assert.equal(isRepositoryGuideIntent(question,[],false),true,question);
-  assert.equal(isRepositoryGuideIntent('Explain this function',[{path:'src/main.rs',from:8,to:20}],false),false);
-  assert.equal(isRepositoryGuideIntent('Explain this project',[],true),false);
-  assert.equal(isRepositoryGuideIntent('Why does parsing default this field?',[],false),false);
+  for(const question of ['Explain this project','How does this repository work?','Explain how this repository works','Describe how the project is structured','Give me an overview of the codebase','Walk me through this app end to end'])
+    assert.equal(isRepositoryGuideIntent(question,false),true,question);
+  assert.equal(isRepositoryGuideIntent('Explain this function',false),false);
+  assert.equal(isRepositoryGuideIntent('Explain this project',true),false);
+  assert.equal(isRepositoryGuideIntent('Why does parsing default this field?',false),false);
 });
 test('empty root Guide me shows the view and leaves repository guide generation explicit',()=>{
   assert.deepEqual(contextualGuideAction('   ',[],false),{kind:'show'});

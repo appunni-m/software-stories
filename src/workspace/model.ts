@@ -211,17 +211,22 @@ export function contextualGuideAction(query: string, context: readonly Context[]
 /** Route repository-wide asks through the durable slide planner instead of the
  * ordinary single-answer job with its ten-minute deadline. Specific code asks
  * and nested follow-ups remain ordinary investigations. */
-export function isRepositoryGuideIntent(question: string, context: readonly Context[], nested: boolean): boolean {
+export function isRepositoryGuideIntent(question: string, nested: boolean): boolean {
   const query = question.trim().toLowerCase();
-  if (!query || context.length > 0 || nested) return false;
+  if (!query || nested) return false;
   const repository = String.raw`(?:project|repo(?:sitory)?|code\s*base|codebase|application|app|software|system)`;
   const hasRepository = new RegExp(String.raw`\b${repository}\b`, 'i').test(query);
   if (!hasRepository) return false;
   const explicitGuide = new RegExp(String.raw`\b(?:guide|walk(?:\s+me)?\s+through|tour|overview|architecture|big\s+picture|whole|entire|full|overall|end[ -]to[ -]end)\b`, 'i');
+  // An explicit project-wide ask wins over an incidental selected-file
+  // attachment. Otherwise the same request can fall back to the ordinary
+  // answer route and inherit its ten-minute single-operation deadline.
   if (explicitGuide.test(query)) return true;
   const directProjectAsk = new RegExp(String.raw`^(?:explain|describe|show|understand)\s+(?:(?:this|the)\s+)?${repository}\b`, 'i');
   const projectBehavior = /\bhow\s+(?:does|do)\s+(?:this\s+|the\s+)?(?:project|repo(?:sitory)?|code\s*base|application|system)\s+(?:work|fit\s+together)\b/i;
-  return directProjectAsk.test(query) || projectBehavior.test(query);
+  const explainProjectBehavior = new RegExp(String.raw`\b(?:explain|describe|show(?:\s+me)?|help\s+me\s+understand)\s+(?:how\s+)?(?:this|the)\s+${repository}\s+(?:works?|fits?\s+together|is\s+(?:structured|organized|built|wired))\b`, 'i');
+  if (directProjectAsk.test(query) || projectBehavior.test(query) || explainProjectBehavior.test(query)) return true;
+  return false;
 }
 
 /** Keep partial-answer scope visible after navigation and restart. */

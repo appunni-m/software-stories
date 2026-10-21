@@ -66,7 +66,7 @@ fn reconcile_with_reader(
     {
         // The opening is allocated before planning so its stable identity can
         // be shown with the guide. It is not an attempted job until the
-        // outline has been saved; a planning timeout must not consume it.
+        // outline has been saved; a planning failure must not consume it.
         if unopened_opening.as_deref() == Some(attempt.run_id.as_str()) && attempt.summary.is_none()
         {
             continue;

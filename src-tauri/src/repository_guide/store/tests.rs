@@ -157,7 +157,7 @@ fn playback_wait_state_keeps_only_unique_receipts_for_published_slides() {
 }
 
 #[test]
-fn an_outline_timeout_gets_one_automatic_and_one_explicit_fresh_owner_retry() {
+fn a_failed_outline_gets_one_automatic_and_one_explicit_fresh_owner_retry() {
     let f = Fixture::new();
     let pending = crate::repository_guide::opening::tests::pending(&f);
     assert_eq!(

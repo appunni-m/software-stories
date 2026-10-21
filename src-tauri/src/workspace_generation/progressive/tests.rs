@@ -602,6 +602,27 @@ fn guide_progressive_contract_has_no_wall_clock_deadline() {
 }
 
 #[test]
+fn a_native_guide_intent_selects_user_controlled_runtime_for_the_entire_codex_operation() {
+    let intent = GuideIntent {
+        guide_id: Uuid::new_v4().to_string(),
+        question: "How does this project work?".into(),
+        unit_key: "opening".into(),
+        unit_number: 1,
+        unit_count: 3,
+        research_boundaries: vec![],
+        opening_continuation: None,
+    };
+    assert_eq!(
+        run_deadline_for_guide_intent(Some(&intent)),
+        RunDeadline::UserControlled
+    );
+    assert_eq!(
+        run_deadline_for_guide_intent(None),
+        RunDeadline::TenMinutes
+    );
+}
+
+#[test]
 fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     let instructions = system_instructions();
     assert!(instructions.contains("Choose: bytes, transformations, comparisons/tables"));

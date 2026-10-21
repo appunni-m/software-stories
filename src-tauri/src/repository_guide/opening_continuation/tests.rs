@@ -32,7 +32,7 @@ fn after_automatic_retry(f: &Fixture) -> Record {
     failed.run_id = owner.run_id.clone();
     failed.question = owner.question.clone();
     failed.incomplete_topics =
-        vec!["The timeout still leaves this exact transition unclear.".into()];
+        vec!["The failed attempt still leaves this exact transition unclear.".into()];
     finish(&f.storage, &automatic, failed).unwrap()
 }
 
