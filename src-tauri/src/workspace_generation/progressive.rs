@@ -45,29 +45,18 @@ const PROPOSAL_ALLOCATION_INSTRUCTIONS: &str = "Use remainingCorrections. Two of
 // policy add a small, bounded amount of metadata, so reserve 2 KB for them.
 const INITIAL_REQUEST_LIMIT_BYTES: usize = 34_000;
 
-fn run_deadline_for_guide_intent(guide_intent: Option<&GuideIntent>) -> RunDeadline {
-    if guide_intent.is_some() {
-        RunDeadline::UserControlled
-    } else {
-        RunDeadline::TenMinutes
-    }
-}
-
 const REFERENCE_REPAIR_INSTRUCTIONS: &str = "sceneAuthoringReference identifies a duplicate, absent or ambiguous reference at its claim-owned scene position. Each node/edge must cite unique references from its own claim; different items may share a reference. Correct the reference or remove only its duplicate entry, preserving the claim, supported behavior and chosen representation. Keep a useful composition; this finding never requires a graph.";
 const CHAPTER_VALIDATION_FEEDBACK_INSTRUCTIONS: &str = "chapter... findings are fixed native chapter-validator categories; issue messages and source paths are withheld. Correct a chapterInvalidVisual or chapterInvalidClaim in this section without dropping its supported behavior. chapterWrongSnapshot, chapterHashMismatch, chapterIndexUnavailable and chapterSourceUnavailable indicate snapshot/integrity boundaries: do not change citations to evade them; stop retrying that section and state the boundary in incompleteTopics. Correct chapterMissingPath, chapterRangeMismatch, chapterExcerptMismatch, chapterAmbiguousRemap, chapterMissingSymbol and chapterInvalidDependency only against references already delivered; do not broaden files or invent evidence. Other chapter... codes identify their named validator category. A generic sectionValidation means no safe category was available; do not repeat the same proposal.";
 
 fn system_instructions() -> String {
-    system_instructions_for(RunDeadline::TenMinutes)
+    system_instructions_for(false)
 }
 
-fn system_instructions_for(run_deadline: RunDeadline) -> String {
-    let run_policy = match run_deadline {
-        RunDeadline::TenMinutes => {
-            "This operation has a ten-minute wall-clock deadline. Finish within the supplied resource budget."
-        }
-        RunDeadline::UserControlled => {
-            "This repository guide has no wall-clock deadline. A null budget.remaining.timeMs is intentional. Keep researching and publishing complete slides until every planned slide is finished or the user stops the guide. Each planned slide operation may publish at most one unique section; finish its manifest after that slide so the next can be built as the reader listens. Fixed source, call, proposal and storage limits still apply."
-        }
+fn system_instructions_for(repository_guide_slide: bool) -> String {
+    let run_policy = if repository_guide_slide {
+        "This repository guide has no wall-clock deadline. A null budget.remaining.timeMs is intentional. Keep researching and publishing complete slides until every planned slide is finished or the user stops the guide. Each planned slide operation may publish at most one unique section; finish its manifest after that slide so the next can be built as the reader listens. Fixed source, call, proposal and storage limits still apply."
+    } else {
+        "This interactive code investigation has no wall-clock deadline. A null budget.remaining.timeMs is intentional. Continue investigating and publishing useful, independently supported sections until the requested explanation is complete, a fixed source, call, proposal or storage limit is reached, an error prevents safe continuation, or the user stops it."
     };
     format!(
         "{}\n\n{run_policy}",
@@ -92,14 +81,14 @@ pub(crate) fn schema() -> Value {
 }
 
 fn generation_contract(input: &Input, prompt: &str, schema: &Value) -> Result<Value, String> {
-    generation_contract_for(input, prompt, schema, RunDeadline::TenMinutes)
+    generation_contract_for(input, prompt, schema, false)
 }
 
 fn generation_contract_for(
     input: &Input,
     prompt: &str,
     schema: &Value,
-    run_deadline: RunDeadline,
+    repository_guide_slide: bool,
 ) -> Result<Value, String> {
     let tools = context_mcp::tools()
         .into_iter()
@@ -113,10 +102,10 @@ fn generation_contract_for(
         "runId":input.run_id,"projectId":input.project_id,"snapshotId":input.snapshot_id,
         "grantId":input.grant_id,"model":input.model_id,"effort":input.effort,
         "baseInstructions":agent_context::PROGRESSIVE_BASE_INSTRUCTIONS,
-        "systemInstructions":system_instructions_for(run_deadline),"prompt":prompt,"outputSchema":schema,"tools":tools,
-        "runDeadlinePolicy":match run_deadline { RunDeadline::TenMinutes => "ten-minutes-v1", RunDeadline::UserControlled => "user-controlled-stop-v1" },
+        "systemInstructions":system_instructions_for(repository_guide_slide),"prompt":prompt,"outputSchema":schema,"tools":tools,
+        "runDeadlinePolicy":"user-controlled-stop-v1",
         "policy":crate::evidence_ledger::POLICY,"sectionAttempts":8,
-        "uniqueSections":match run_deadline { RunDeadline::TenMinutes => 6, RunDeadline::UserControlled => 1 },
+        "uniqueSections":if repository_guide_slide { 1 } else { 6 },
         "claimAlignmentPolicy":"whole-section-validation-no-final-rewrite-v1",
         "publicationOrderPolicy":"investigation-local-next-order-v1",
         "finalManifestVersion":sections::NATIVE_MANIFEST_VERSION,
@@ -132,13 +121,13 @@ fn request(
     input: &Input,
     manifest: &snapshot::SnapshotManifest,
 ) -> Result<(String, Value, String), String> {
-    request_for(input, manifest, RunDeadline::TenMinutes)
+    request_for(input, manifest, false)
 }
 
 fn request_for(
     input: &Input,
     manifest: &snapshot::SnapshotManifest,
-    run_deadline: RunDeadline,
+    repository_guide_slide: bool,
 ) -> Result<(String, Value, String), String> {
     let prompt = question_prompt(input, manifest)?;
     let schema = schema();
@@ -146,7 +135,7 @@ fn request_for(
         input,
         &prompt,
         &schema,
-        run_deadline,
+        repository_guide_slide,
     )?)
     .map_err(|_| "The progressive question contract could not be encoded.")?;
     if contract.len() > INITIAL_REQUEST_LIMIT_BYTES {
@@ -254,15 +243,11 @@ pub(crate) fn run_with_starting_ranges(
     let _worker = manager.hold_answer_worker(&input.run_id)?;
     let manifest =
         snapshot::load_snapshot_manifest(storage, &input.project_id, &input.snapshot_id)?;
-    let run_deadline = run_deadline_for_guide_intent(guide_intent);
-    let (prompt, schema, fingerprint, instructions) = starting_ranges::request_for(
-        storage,
-        &input,
-        &manifest,
-        ranges,
-        guide_intent,
-        run_deadline,
-    )?;
+    // Interactive code investigations are explicitly stoppable. Native source,
+    // call, proposal and storage budgets bound work; elapsed time does not.
+    let run_deadline = RunDeadline::UserControlled;
+    let (prompt, schema, fingerprint, instructions) =
+        starting_ranges::request_for(storage, &input, &manifest, ranges, guide_intent)?;
     let runtime = manager.review_runtime(storage)?;
     workspace::check_retrieval_grant(
         storage,

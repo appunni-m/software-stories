@@ -15,14 +15,7 @@ pub(super) fn request(
     ranges: &[context::CodeRange],
     guide_intent: Option<&GuideIntent>,
 ) -> Result<(String, Value, String, String), String> {
-    request_for(
-        storage,
-        input,
-        manifest,
-        ranges,
-        guide_intent,
-        RunDeadline::TenMinutes,
-    )
+    request_for(storage, input, manifest, ranges, guide_intent)
 }
 
 pub(super) fn request_for(
@@ -31,7 +24,6 @@ pub(super) fn request_for(
     manifest: &snapshot::SnapshotManifest,
     ranges: &[context::CodeRange],
     guide_intent: Option<&GuideIntent>,
-    run_deadline: RunDeadline,
 ) -> Result<(String, Value, String, String), String> {
     if let Some(intent) = guide_intent {
         intent.validate()?;
@@ -45,13 +37,8 @@ pub(super) fn request_for(
     }
     if ranges.is_empty() && guide_intent.is_none() {
         // Keep an unseeded question on the same current request contract.
-        let (prompt, schema, fingerprint) = super::request_for(input, manifest, run_deadline)?;
-        return Ok((
-            prompt,
-            schema,
-            fingerprint,
-            system_instructions_for(run_deadline),
-        ));
+        let (prompt, schema, fingerprint) = super::request_for(input, manifest, false)?;
+        return Ok((prompt, schema, fingerprint, system_instructions_for(false)));
     }
     if ranges.len() > 4 {
         return Err("A guide unit may have at most four starting ranges.".into());
@@ -99,7 +86,8 @@ pub(super) fn request_for(
     let prompt =
         serde_json::to_string(&prompt).map_err(|_| "The question could not be encoded.")?;
     let schema = schema();
-    let mut instructions = system_instructions_for(run_deadline);
+    let repository_guide_slide = guide_intent.is_some();
+    let mut instructions = system_instructions_for(repository_guide_slide);
     if !ranges.is_empty() {
         instructions.push_str(&format!("\n\n{INSTRUCTIONS}"));
     }
@@ -115,7 +103,7 @@ pub(super) fn request_for(
             guide_intent::OPENING_CONTINUATION_INSTRUCTIONS
         ));
     }
-    let mut contract = generation_contract_for(input, &prompt, &schema, run_deadline)?;
+    let mut contract = generation_contract_for(input, &prompt, &schema, repository_guide_slide)?;
     contract["systemInstructions"] = json!(instructions);
     if !ranges.is_empty() {
         contract["startingRangePolicy"] = json!(POLICY);

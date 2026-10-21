@@ -531,6 +531,19 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     );
     assert_eq!(contract["sectionAttempts"], 8);
     assert_eq!(contract["uniqueSections"], 6);
+    assert_eq!(contract["runDeadlinePolicy"], "user-controlled-stop-v1");
+    assert!(
+        contract["systemInstructions"]
+            .as_str()
+            .unwrap()
+            .contains("This interactive code investigation has no wall-clock deadline")
+    );
+    assert!(
+        !contract["systemInstructions"]
+            .as_str()
+            .unwrap()
+            .contains("ten-minute wall-clock deadline")
+    );
     assert_eq!(contract["checkpointVersion"], 8);
     assert_eq!(contract["answerSchemaVersion"], 7);
     assert_eq!(contract["finalManifestVersion"], "answerManifestV2");
@@ -585,9 +598,8 @@ fn guide_progressive_contract_has_no_wall_clock_deadline() {
     let f = Fixture::new();
     let input = input(&f);
     let prompt = question_prompt(&input, &f.manifest).unwrap();
-    let deadline = RunDeadline::UserControlled;
-    let contract = generation_contract_for(&input, &prompt, &schema(), deadline).unwrap();
-    let instructions = system_instructions_for(deadline);
+    let contract = generation_contract_for(&input, &prompt, &schema(), true).unwrap();
+    let instructions = system_instructions_for(true);
     assert_eq!(contract["runDeadlinePolicy"], "user-controlled-stop-v1");
     assert_eq!(contract["uniqueSections"], 1);
     assert!(instructions.contains("no wall-clock deadline"));
@@ -602,24 +614,12 @@ fn guide_progressive_contract_has_no_wall_clock_deadline() {
 }
 
 #[test]
-fn a_native_guide_intent_selects_user_controlled_runtime_for_the_entire_codex_operation() {
-    let intent = GuideIntent {
-        guide_id: Uuid::new_v4().to_string(),
-        question: "How does this project work?".into(),
-        unit_key: "opening".into(),
-        unit_number: 1,
-        unit_count: 3,
-        research_boundaries: vec![],
-        opening_continuation: None,
-    };
-    assert_eq!(
-        run_deadline_for_guide_intent(Some(&intent)),
-        RunDeadline::UserControlled
-    );
-    assert_eq!(
-        run_deadline_for_guide_intent(None),
-        RunDeadline::TenMinutes
-    );
+fn every_workspace_code_investigation_uses_a_user_controlled_runtime() {
+    let f = Fixture::new();
+    let input = input(&f);
+    let prompt = question_prompt(&input, &f.manifest).unwrap();
+    let contract = generation_contract(&input, &prompt, &schema()).unwrap();
+    assert_eq!(contract["runDeadlinePolicy"], "user-controlled-stop-v1");
 }
 
 #[test]
