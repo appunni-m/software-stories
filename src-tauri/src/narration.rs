@@ -1368,8 +1368,13 @@ fn cache_path(storage_dir: &Path, fingerprint: &str) -> PathBuf {
 
 fn read_cached_audio(storage_dir: &Path, fingerprint: &str) -> Option<Vec<u8>> {
     let file = fs::File::open(cache_path(storage_dir, fingerprint)).ok()?;
+    read_cached_audio_from(file)
+}
+
+fn read_cached_audio_from(reader: impl Read) -> Option<Vec<u8>> {
     let mut bytes = Vec::new();
-    file.take(MAX_RESPONSE_BYTES as u64 + 1)
+    reader
+        .take(MAX_RESPONSE_BYTES as u64 + 1)
         .read_to_end(&mut bytes)
         .ok()?;
     (bytes.len() <= MAX_RESPONSE_BYTES && is_wav(&bytes)).then_some(bytes)
@@ -2168,6 +2173,31 @@ mod tests {
         bytes[36..40].copy_from_slice(b"data");
         bytes[40..44].copy_from_slice(&4_u32.to_le_bytes());
         bytes
+    }
+
+    #[test]
+    fn oversized_cached_wav_reads_only_the_limit_plus_sentinel() {
+        struct CountingReader {
+            remaining: usize,
+            bytes_read: usize,
+        }
+
+        impl Read for CountingReader {
+            fn read(&mut self, output: &mut [u8]) -> std::io::Result<usize> {
+                let count = output.len().min(self.remaining);
+                output[..count].fill(b'x');
+                self.remaining -= count;
+                self.bytes_read += count;
+                Ok(count)
+            }
+        }
+
+        let mut reader = CountingReader {
+            remaining: MAX_RESPONSE_BYTES + 100,
+            bytes_read: 0,
+        };
+        assert!(read_cached_audio_from(&mut reader).is_none());
+        assert_eq!(reader.bytes_read, MAX_RESPONSE_BYTES + 1);
     }
 
     fn read_narration_http_request(stream: &mut TcpStream) -> Vec<u8> {
