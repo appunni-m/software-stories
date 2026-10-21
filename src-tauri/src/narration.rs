@@ -1890,6 +1890,38 @@ mod tests {
         assert!(data.cached_audio_available);
     }
 
+    #[test]
+    fn generation_time_prewarm_reuses_cached_audio_without_queuing_synthesis() {
+        let storage = TestStorage::new();
+        let queue = NarrationPrewarmQueue::default();
+        let reviews = PendingNarrationReviews::default();
+        let input = BuildNarrationReviewInput {
+            spoken_text: "The cached clip is ready as soon as its section appears.".into(),
+            voice: crate::pocket_tts::VOICE.into(),
+            style: String::new(),
+            lexicon: Vec::new(),
+        };
+        let review = match build_local_request_review(&storage.0, &reviews, input.clone()) {
+            ProviderCommandResult::Ok { data } => data,
+            ProviderCommandResult::Error { error } => {
+                panic!("local review should build: {error:?}")
+            }
+        };
+        write_cached_audio(&storage.0, &review.cache_key, &valid_test_wav(11))
+            .expect("the previous section should already have persisted its matching clip");
+
+        let result = prewarm_local_audio(&storage.0, &reviews, &queue, input);
+        let ProviderCommandResult::Ok { data } = result else {
+            panic!("generation-time prewarm should reuse the matching cached clip");
+        };
+        assert_eq!(data.state, NarrationPrewarmState::Ready);
+        assert!(data.cached_audio_available);
+        assert_eq!(queue.status(&review.cache_key), None);
+        let queue_state = queue.0.lock().expect("prewarm queue should remain available");
+        assert!(queue_state.pending.is_empty());
+        assert!(!queue_state.worker_running);
+    }
+
     #[tokio::test]
     async fn playback_waits_for_a_delayed_prewarm_then_reuses_the_cached_clip() {
         let storage = TestStorage::new();
