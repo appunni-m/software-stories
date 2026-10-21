@@ -95,6 +95,10 @@
 .dw-answer-version select {max-width:100%;min-width:0;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);font:inherit;padding:4px 6px;}
 .dw-answer-version span {color:var(--accent);}
 .dw-answer-card h3 {margin:12px 0 8px;font-size:18px;line-height:1.5;letter-spacing:-.015em;font-weight:600;color:var(--text);}
+.dw-answer-expand {display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:0;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;}
+.dw-answer-expand svg {flex:0 0 auto;color:var(--accent);}
+.dw-answer-expand:hover {color:var(--accent-strong);}
+.dw-answer-expand:focus-visible {outline:2px solid var(--accent);outline-offset:3px;border-radius:3px;}
 .dw-prose {font-size:14px;line-height:1.85;margin:8px 0 14px;white-space:pre-wrap;color:var(--muted);}
 .dw-answer-card h3 code,.dw-prose code,.dw-history-question code,.dw-user-question code {font:0.9em var(--mono);color:var(--accent-strong);overflow-wrap:anywhere;}
 .dw-answer-note {font-size:12px;line-height:1.6;color:var(--muted);border-left:2px solid var(--dim);padding-left:10px;overflow-wrap:anywhere;}
