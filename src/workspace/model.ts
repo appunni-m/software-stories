@@ -232,6 +232,12 @@ export function isRepositoryGuideIntent(question: string): boolean {
   return false;
 }
 
+/** Explain recovery for a guide saved by an app build with the old deadline. */
+export function repositoryGuideTimeoutRecovery(turn: Pick<Turn, 'guideId' | 'error'>): string | null {
+  if (!turn.guideId || !turn.error || !/^The Codex (?:operation|run) exceeded ten minutes\b/i.test(turn.error)) return null;
+  return 'This saved guide hit the old 10-minute limit. Start a new guide to build from a saved outline and continue slide by slide; it will not stop just because ten minutes passed. Any saved slides remain available.';
+}
+
 /** Keep partial-answer scope visible after navigation and restart. */
 export function cleanAnswerNotes(value: unknown): string[] {
   if (!Array.isArray(value)) return [];

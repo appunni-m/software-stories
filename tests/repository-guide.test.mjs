@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, isRepositoryGuideIntent, historyEntry, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
+import { createWorkspace, addTurn, canContinueRepositoryGuide, guideContinuationOperations, contextualGuideIntent, contextualGuideAction, isRepositoryGuideIntent, repositoryGuideTimeoutRecovery, historyEntry, discardUnstartedGuide, mergeRepositoryGuide, parseWorkspace } from '../src/workspace/model.ts';
 const guideId='ea6054f9-c7ce-4489-a928-b48697371565';
 const runId='c9410fba-7b55-42c5-b6e2-061c538bfcf2';
 const generationId='generation:776b022e-d466-455b-8594-d8a808e20f58';
@@ -80,6 +80,15 @@ test('explicit project-wide guide asks use the durable pipeline from every explo
     assert.equal(isRepositoryGuideIntent(question),true,question);
   assert.equal(isRepositoryGuideIntent('Explain this function'),false);
   assert.equal(isRepositoryGuideIntent('Why does parsing default this field?'),false);
+});
+test('an old timed-out guide points to a fresh incremental guide without changing saved answers',()=>{
+  const message='The Codex operation exceeded ten minutes, including result validation. No late response was published.';
+  const recovery=repositoryGuideTimeoutRecovery({guideId,error:message});
+  assert.match(recovery,/Start a new guide/);
+  assert.match(recovery,/saved outline and continue slide by slide/);
+  assert.match(recovery,/Any saved slides remain available/);
+  assert.equal(repositoryGuideTimeoutRecovery({error:message}),null);
+  assert.equal(repositoryGuideTimeoutRecovery({guideId,error:'Codex account access expired.'}),null);
 });
 test('empty root Guide me shows the view and leaves repository guide generation explicit',()=>{
   assert.deepEqual(contextualGuideAction('   ',[],false),{kind:'show'});
