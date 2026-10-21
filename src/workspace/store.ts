@@ -47,6 +47,9 @@ const key = (project:string,snapshot:string) => JSON.stringify([project,snapshot
 const browserPreviewKey = (project: string, snapshot: string) => `code-atlas:workspace:v1:${project}:${snapshot}`;
 const conversations=new Map<string,ConversationPersistence>();
 const closingMessage='Code Atlas is closing. This question can be tried again.';
+const rendererClock = typeof globalThis.performance?.now === 'function'
+  ? () => globalThis.performance.now()
+  : () => Date.now();
 let closingWorkspace=false;
 let deferredCloseUpdates:(()=>void)[]=[];
 /** Freeze after reader capture. Late native-job reconciliation is replayed if
@@ -459,7 +462,9 @@ export async function runQuestion(project: string, snapshot: string, id: string,
   const job = {cancelled:false,runId:null as string | null,pendingGuideAdvances:[] as string[]}; jobs.set(id,job);
   const check = () => {if (job.cancelled)throw new Error('Stopped');if(closingWorkspace)throw new Error(closingMessage);};
   patchTurn(project,snapshot,id,{status:'queued',error:undefined});
+  const queueWaitStarted = rendererClock();
   const release = await enterQuestionQueue();
+  const rendererQueueWaitMs = Math.min(86_400_000, Math.max(0, Math.round(rendererClock() - queueWaitStarted)));
   let unlisten: (() => void) | undefined;
   let adoption = Promise.resolve();
   try {
@@ -481,6 +486,7 @@ export async function runQuestion(project: string, snapshot: string, id: string,
     check();
     const summary = await invoke<AnswerSummary>('generate_progressive_workspace_answer',{input:{
       runId,projectId:project,snapshotId:snapshot,grantId,
+      rendererQueueWaitMs,
       question:learningQuestion(getWorkspace(project,snapshot),owner.id,id,1200),
       references:turn.context.map((c) => ({path:c.path,sha256:c.sha256 ?? null,from:c.from ?? null,to:c.to ?? null})),...selection,
     }});

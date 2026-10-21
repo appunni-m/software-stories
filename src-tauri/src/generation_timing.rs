@@ -145,6 +145,10 @@ pub(crate) struct Record {
     reasoning_effort: String,
     runtime_identity_sha256: String,
     events: Vec<Event>,
+    /// Renderer queue duration from WebView performance.now(); independent of
+    /// this record's native monotonic clock and never combined with offsets.
+    #[serde(default)]
+    renderer_queue_wait_ms: Option<u64>,
     #[serde(default)]
     preparation_stages: Vec<PreparationStage>,
     context: Option<ContextTiming>,
@@ -232,6 +236,9 @@ fn validate(record: &Record) -> Result<(), String> {
             .as_ref()
             .is_some_and(|v| !hash(v))
         || record.events.len() > MAX_EVENTS
+        || record
+            .renderer_queue_wait_ms
+            .is_some_and(|v| v > MAX_ELAPSED)
         || record.output_bytes.is_some_and(|v| v > 300 * 1024)
         || record
             .events
@@ -398,6 +405,7 @@ impl Trace {
             model,
             effort,
             started,
+            None,
             vec![],
         )
     }
@@ -410,6 +418,7 @@ impl Trace {
         model: &str,
         effort: &str,
         started: Instant,
+        renderer_queue_wait_ms: Option<u64>,
         preparation_stages: Vec<PreparationStage>,
     ) -> Self {
         let state = (|| -> Result<State, String> {
@@ -429,6 +438,7 @@ impl Trace {
                     kind: EventKind::ManagerEntered,
                     elapsed_ms: elapsed(started),
                 }],
+                renderer_queue_wait_ms,
                 preparation_stages,
                 context: None,
                 output_bytes: None,

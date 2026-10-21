@@ -126,6 +126,8 @@ test('incremental workspace questions use the saved model and reasoning effort',
   await h.store.runQuestion('project','snapshot',id,'grant');
   assert.equal(generation.input.modelId,'gpt-5.6-luna');
   assert.equal(generation.input.effort,'medium');
+  assert.ok(Number.isInteger(generation.input.rendererQueueWaitMs));
+  assert.ok(generation.input.rendererQueueWaitMs>=0&&generation.input.rendererQueueWaitMs<=86_400_000);
 });
 
 test('native restart restores owned scenes, times, viewport, pane and expanded static links without browser preferences',async()=>{

@@ -198,6 +198,7 @@ pub(super) fn run(
             references: vec![],
             model_id: record.model_id.clone(),
             effort: record.reasoning_effort.clone(),
+            renderer_queue_wait_ms: None,
         },
         &[],
         Some(&intent),

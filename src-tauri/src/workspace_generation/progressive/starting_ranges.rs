@@ -163,6 +163,7 @@ mod tests {
             }],
             model_id: "gpt-6-luna".into(),
             effort: "max".into(),
+            renderer_queue_wait_ms: None,
         };
         (input, range)
     }

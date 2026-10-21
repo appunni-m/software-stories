@@ -35,6 +35,8 @@ pub(crate) struct Input {
     pub(crate) references: Vec<Reference>,
     pub(crate) model_id: String,
     pub(crate) effort: String,
+    #[serde(default)]
+    pub(crate) renderer_queue_wait_ms: Option<u64>,
 }
 
 fn question_prompt(input: &Input, manifest: &snapshot::SnapshotManifest) -> Result<String, String> {

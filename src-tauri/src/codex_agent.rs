@@ -687,6 +687,7 @@ impl CodexAgentManager {
             input,
             fingerprint,
             started_at,
+            None,
             vec![],
             progress,
             validate,
@@ -700,6 +701,7 @@ impl CodexAgentManager {
         input: CodexRunInput,
         fingerprint: &str,
         started_at: Instant,
+        renderer_queue_wait_ms: Option<u64>,
         preparation_stages: Vec<crate::generation_timing::PreparationStage>,
         progress: F,
         validate: impl FnOnce(CodexRunResult, &CodexResultAccess<'_>) -> T,
@@ -709,7 +711,7 @@ impl CodexAgentManager {
         F: Fn(CodexProgress),
     {
         validate_run(&input)?;
-        let trace = if preparation_stages.is_empty() {
+        let trace = if preparation_stages.is_empty() && renderer_queue_wait_ms.is_none() {
             crate::generation_timing::Trace::new(
                 storage_dir,
                 &input.run_id,
@@ -728,6 +730,7 @@ impl CodexAgentManager {
                 &input.model,
                 &input.effort,
                 started_at,
+                renderer_queue_wait_ms,
                 preparation_stages,
             )
         };
@@ -3173,9 +3176,11 @@ mod section_publication_tests {
             started_at: Instant::now() - Duration::from_secs(11 * 60),
             run_deadline: RunDeadline::UserControlled,
         };
-        assert!(access
-            .check_review(&run_id, &fingerprint, &runtime.executable_path)
-            .is_ok());
+        assert!(
+            access
+                .check_review(&run_id, &fingerprint, &runtime.executable_path)
+                .is_ok()
+        );
     }
 
     #[test]

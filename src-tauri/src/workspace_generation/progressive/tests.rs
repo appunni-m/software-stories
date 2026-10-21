@@ -11,6 +11,7 @@ fn input(f: &Fixture) -> Input {
         references: vec![],
         model_id: "gpt-6-luna".into(),
         effort: "max".into(),
+        renderer_queue_wait_ms: None,
     }
 }
 
@@ -67,7 +68,7 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
         first_useful_answer: Some(first),
         publications,
         unmeasured: [
-            "rendererQueue",
+            "repositoryGuideOuterQueueWait",
             "connectionPreparationBeforeManager",
             "rendererAdoption",
             "narrationReadiness",
@@ -78,7 +79,10 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
     let value = serde_json::to_value(report).unwrap();
     assert_eq!(value["schemaVersion"], 3);
     assert_eq!(value["firstAgentMessageDeltaElapsedMs"], 12);
-    assert_eq!(value["firstUsefulAnswer"]["generationId"], "generation:first");
+    assert_eq!(
+        value["firstUsefulAnswer"]["generationId"],
+        "generation:first"
+    );
     assert_eq!(value["firstUsefulAnswer"]["order"], 0);
     assert_eq!(
         value["firstUsefulAnswer"]["candidatePreparedContextElapsedMs"],
@@ -87,10 +91,18 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
     // Old or incomplete timing observations remain unknown; they are not
     // reconstructed from wall-clock timestamps or later publications.
     assert!(value["firstUsefulAnswer"]["nativeReadyRunElapsedMs"].is_null());
-    assert!(value["unmeasured"]
-        .as_array()
-        .unwrap()
-        .contains(&json!("firstModelToken")));
+    assert!(
+        value["unmeasured"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("firstModelToken"))
+    );
+    assert!(
+        value["unmeasured"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("repositoryGuideOuterQueueWait"))
+    );
 }
 
 #[test]
@@ -460,7 +472,7 @@ fn fontdone_progressive_account_probe() {
     let input = Input {
         run_id: Uuid::new_v4().to_string(), project_id: project.into(), snapshot_id: snapshot_id.into(), grant_id,
         question: "How does Fontdone turn font bytes into a rendered glyph bitmap? Trace the real entry points, parsing, outline loading, hinting, and rasterization. Explain the important branches and show useful visual scenes with source links.".into(),
-        references: vec![], model_id: "gpt-6-luna".into(), effort: "max".into(),
+        references: vec![], model_id: "gpt-6-luna".into(), effort: "max".into(), renderer_queue_wait_ms: None,
     };
     let started = Instant::now();
     let observations = Arc::new(Mutex::new(vec![]));

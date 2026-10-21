@@ -121,6 +121,7 @@ fn pre_manager_preparation_stages_share_the_dispatch_clock_and_are_bounded() {
         "gpt-6-luna",
         "max",
         started,
+        Some(17),
         vec![
             PreparationStage {
                 kind: PreparationKind::SnapshotLoad,
@@ -136,6 +137,7 @@ fn pre_manager_preparation_stages_share_the_dispatch_clock_and_are_bounded() {
     );
     trace.finish(Ok(()));
     let record = inspect(&f.0, &id).unwrap().unwrap();
+    assert_eq!(record.renderer_queue_wait_ms, Some(17));
     assert_eq!(record.preparation_stages.len(), 2);
     assert_eq!(
         record.preparation_stages[0].kind,
@@ -148,14 +150,11 @@ fn pre_manager_preparation_stages_share_the_dispatch_clock_and_are_bounded() {
     let file = path(&f.0, &id).unwrap();
     let mut old: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
     old.as_object_mut().unwrap().remove("preparationStages");
+    old.as_object_mut().unwrap().remove("rendererQueueWaitMs");
     fs::write(&file, serde_json::to_vec(&old).unwrap()).unwrap();
-    assert!(
-        inspect(&f.0, &id)
-            .unwrap()
-            .unwrap()
-            .preparation_stages
-            .is_empty()
-    );
+    let old_record = inspect(&f.0, &id).unwrap().unwrap();
+    assert!(old_record.preparation_stages.is_empty());
+    assert_eq!(old_record.renderer_queue_wait_ms, None);
 }
 
 #[test]
@@ -342,6 +341,7 @@ fn malformed_pre_manager_stage_order_or_bounds_are_not_exported() {
         "gpt-6-luna",
         "max",
         started,
+        None,
         vec![PreparationStage {
             kind: PreparationKind::SnapshotLoad,
             started_ms: 0,
@@ -351,6 +351,10 @@ fn malformed_pre_manager_stage_order_or_bounds_are_not_exported() {
     trace.finish(Ok(()));
     let file = path(&f.0, &id).unwrap();
     let original: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    let mut excessive_queue_wait = original.clone();
+    excessive_queue_wait["rendererQueueWaitMs"] = json!(MAX_ELAPSED + 1);
+    fs::write(&file, serde_json::to_vec(&excessive_queue_wait).unwrap()).unwrap();
+    assert!(inspect(&f.0, &id).is_err());
     let after_manager = original["events"][0]["elapsedMs"].as_u64().unwrap() + 1;
     for stages in [
         json!([{"kind":"snapshotLoad","startedMs":2,"finishedMs":1}]),
