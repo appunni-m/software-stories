@@ -91,7 +91,10 @@ export function layoutFlowNodes(
   const siblingSpacing = isHorizontal ? 260 : 320;
   const positions = new Map<string, FlowPoint>();
   const lastRank = Math.max(...layers.keys());
-  const ranksPerBand = lastRank >= 5 ? 4 : lastRank + 1;
+  // The explanation column is usually narrower than the repository/source
+  // panes. Wrap a five-rank path into two bands before fitView shrinks every
+  // 250px card into a thin, hard-to-read strip.
+  const ranksPerBand = lastRank >= 4 ? 3 : lastRank + 1;
   const bands = new Map<number, number>();
   for (const [layerRank, layer] of layers) {
     const band = Math.floor(layerRank / ranksPerBand);
