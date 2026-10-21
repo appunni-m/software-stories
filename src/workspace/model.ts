@@ -209,18 +209,18 @@ export function contextualGuideAction(query: string, context: readonly Context[]
 }
 
 /** Route repository-wide asks through the durable slide planner instead of the
- * ordinary single-answer job with its ten-minute deadline. Specific code asks
- * and nested follow-ups remain ordinary investigations. */
-export function isRepositoryGuideIntent(question: string, nested: boolean): boolean {
+ * ordinary single-answer job with its ten-minute deadline. Topic-scoped code
+ * questions remain ordinary investigations, regardless of the current view. */
+export function isRepositoryGuideIntent(question: string): boolean {
   const query = question.trim().toLowerCase();
-  if (!query || nested) return false;
+  if (!query) return false;
   const repository = String.raw`(?:project|repo(?:sitory)?|code\s*base|codebase|application|app|software|system)`;
   const hasRepository = new RegExp(String.raw`\b${repository}\b`, 'i').test(query);
   if (!hasRepository) return false;
   const explicitGuide = new RegExp(String.raw`\b(?:guide|walk(?:\s+me)?\s+through|tour|overview|architecture|big\s+picture|whole|entire|full|overall|end[ -]to[ -]end)\b`, 'i');
-  // An explicit project-wide ask wins over an incidental selected-file
-  // attachment. Otherwise the same request can fall back to the ordinary
-  // answer route and inherit its ten-minute single-operation deadline.
+  // Explicitly asking for a project guide always uses the durable, incremental
+  // guide pipeline, even from a nested exploration. Otherwise the same broad
+  // request can fall back to a one-shot answer with a ten-minute deadline.
   if (explicitGuide.test(query)) return true;
   const directProjectAsk = new RegExp(String.raw`^(?:explain|describe|show|understand)\s+(?:(?:this|the)\s+)?${repository}\b`, 'i');
   const projectBehavior = /\bhow\s+(?:does|do)\s+(?:this\s+|the\s+)?(?:project|repo(?:sitory)?|code\s*base|application|system)\s+(?:work|fit\s+together)\b/i;

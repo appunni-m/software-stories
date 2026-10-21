@@ -242,7 +242,7 @@ export function DeveloperWorkspace(props:Props) {
     if(conversationUnavailable)return;
     const clean=question.replace(/[\r\n\t]+/g,' ').trim();if(!clean){setView(view);focusComposer();return;}
     if(!connection.status?.authenticated){onSettings();return;}
-    if(view==='guide'&&isRepositoryGuideIntent(clean,current.id!=='root'||Boolean(parentTurn))){startRepositoryGuide(clean);return;}
+    if(isRepositoryGuideIntent(clean)){startRepositoryGuide(clean);return;}
     const id=appendQuestion(projectId,snapshotId,clean,context,view,parentTurn);setQuery('');setAttachments([]);setSearchFocused(false);setNarrowPane('explanation');onWorkspace('guide-plan');
     if(state.grantId) void runQuestion(projectId,snapshotId,id,state.grantId);else{setConsentError(null);setConsentTurn(id);}
     requestAnimationFrame(()=>answerScroll.current?.scrollTo({top:answerScroll.current.scrollHeight}));

@@ -64,7 +64,7 @@ Packaged UI inspection found an existing pillow-rs card displaying the old exact
 
 - [x] Use user-controlled lifetime for outline, opening and slide Codex runs through result validation and native publication.
 - [x] Show phase-specific guide progress and let a terminal guide card start a separate fresh guide when its saved owner cannot resume.
-- [x] Route unscoped, project-wide Guide questions from chat into the durable repository-guide planner instead of the ordinary ten-minute answer command. File-scoped and nested follow-ups remain focused.
+- [x] Route explicit project-wide guide requests from Guide or Flow into the durable repository-guide planner instead of the ordinary ten-minute answer command. Ordinary nested follow-ups remain focused.
 - [x] Bound each planned Guide operation to one published slide. Publish the outline and first slide as soon as each is ready, then fill a five-slide runway; when the reader finishes narration or advances past a slide, save its revision receipt and generate one next slide. Duplicate playback/Next events cannot spend a second slot.
 - [x] Persist a waiting-for-playback guide state between buffers and keep playback-driven generation user-controlled with no wall-clock cutoff. Fixed account, grant, source, proposal, call and storage guards remain active. No real repository request was sent for this code change.
 - [ ] In the packaged app, verify the saved outline and each slide remain visible/playable while the next is generated, local narration prewarming stays nonblocking, and Stop ends the active job.
@@ -85,6 +85,12 @@ A user reported the exact native “Codex operation exceeded ten minutes, includ
 This closes the routing regression in source; it does not prove that an already-open older app bundle contains the fix. The packaged app still needs a fresh large-repository run to confirm the outline and slide events appear during generation and the guide stays alive until completion or explicit Stop.
 
 A focused native regression now advances the guide's start clock by eleven minutes and verifies the Codex result-validation gate still accepts it under `UserControlled`; the ordinary `TenMinutes` policy remains separately guarded.
+
+## Project-wide routing from Flow and nested conversations — 21 October 2026
+
+The reported ten-minute error can still occur if a repository-wide request is submitted from Flow or while the reader is inside a nested exploration: the composer previously invoked the durable planner only from the Guide tab, and the classifier rejected every nested request before checking whether it explicitly asked for a project guide. Those requests fell through to the ordinary single-answer worker. Explicit project-wide guide requests now enter the same durable planner from either tab and any exploration depth. Narrow nested questions such as “How does this function work?” still use the focused answer path. Regression coverage includes explicit nested project-guide phrasing and confirms ordinary nested project questions stay focused.
+
+The incremental contract remains: save and show the cited slide outline first, publish the first validated opening as soon as it is ready, then fill independently generated slides while playback proceeds, with at most five slides ahead. The five-slide buffer does not gate the outline or first slide, and elapsed time does not fail a guide. Packaged-app acceptance on a large repository remains open.
 
 ## Native storage checkpoint — 17 October
 
