@@ -3119,6 +3119,27 @@ mod section_publication_tests {
     }
 
     #[test]
+    fn guide_result_validation_remains_eligible_after_ten_minutes() {
+        let run_id = Uuid::new_v4().to_string();
+        let fingerprint = "d".repeat(64);
+        let runtime = runtime();
+        let shutdown = AtomicBool::new(false);
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let access = CodexResultAccess {
+            run_id: &run_id,
+            fingerprint: &fingerprint,
+            runtime: &runtime,
+            shutdown: &shutdown,
+            cancelled: &cancelled,
+            started_at: Instant::now() - Duration::from_secs(11 * 60),
+            run_deadline: RunDeadline::UserControlled,
+        };
+        assert!(access
+            .check_review(&run_id, &fingerprint, &runtime.executable_path)
+            .is_ok());
+    }
+
+    #[test]
     fn guide_section_publication_remains_owned_after_ten_minutes() {
         let id = Uuid::new_v4().to_string();
         let fingerprint = "d".repeat(64);

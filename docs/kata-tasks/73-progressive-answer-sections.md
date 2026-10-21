@@ -84,6 +84,8 @@ A user reported the exact native “Codex operation exceeded ten minutes, includ
 
 This closes the routing regression in source; it does not prove that an already-open older app bundle contains the fix. The packaged app still needs a fresh large-repository run to confirm the outline and slide events appear during generation and the guide stays alive until completion or explicit Stop.
 
+A focused native regression now advances the guide's start clock by eleven minutes and verifies the Codex result-validation gate still accepts it under `UserControlled`; the ordinary `TenMinutes` policy remains separately guarded.
+
 ## Native storage checkpoint — 17 October
 
 Implemented the private bounded section/proposal store and immutable checkpoint replay using the existing citation, claim, diagram and chapter validators. Exact repeats retain generation identity; changed content requires an explicit immutable revision. Preparation and compare-and-swap commit are separate. The full native suite passes 318 tests (11 live probes ignored), including 14 new section-storage regressions. These cover preservation after a later rejection, limits, stale writes, Stop/permission/runtime/snapshot/deadline changes, source delivery uncertainty and stored-content tampering. [Implementation evidence and exact integration boundaries](../acceptance/2026-10-17-progressive-section-storage.md).
