@@ -81,7 +81,9 @@ npm run check
 
 `npm run quality:metadata` (after `npm run quality:build`) prints the fingerprints used by a chapter-quality review. `npm run quality:gate -- --report benchmarks/chapter-quality/review/reports/run.json` checks a completed human-reviewed report; generating metadata alone does not pass that gate.
 
-`npm run bundle:macos` is configured to request an unsigned `.app` and `.dmg` and verify their identity and embedded schema metadata. A macOS GitHub Actions preflight is configured to run that command on pull requests and pushes to `main`; it does not sign, notarize, or publish the bundle. No user-download artifact has been verified, and the project does not yet declare a supported minimum macOS version.
+`npm run bundle:macos` is configured to request an unsigned `.app` and `.dmg` and verify their identity and embedded schema metadata. A macOS GitHub Actions preflight is configured to run that command on pull requests and pushes to `main`; it does not sign, notarize, or publish the bundle. The packaged app declares macOS 14 as its minimum; a signed user-download artifact has not been qualified.
+
+After changing the npm or Cargo dependency graph, regenerate the packaged license inventory with `cargo install cargo-about --version 0.9.2 --locked` followed by `npm run licenses:generate`. The macOS bundle command checks the recorded manifest, lockfile, icon, and bundled-license fingerprints before packaging.
 
 ## Data and provider behavior
 
@@ -95,7 +97,7 @@ The full desired experience is still being built. Single-section stale-guide upd
 
 ## License
 
-Code Atlas source code authored by its contributors is licensed under the [MIT License](LICENSE). The MIT license does not grant rights to third-party source captured for evaluation, generated explanations or narration, local repository data, or design/evaluation artifacts whose terms are not stated. Those materials are identified separately in [third-party notices](THIRD_PARTY_NOTICES.md); do not treat this repository license as permission to reuse them.
+Code Atlas source code authored by its contributors is licensed under the [MIT License](LICENSE). The MIT license does not grant rights to third-party source captured for evaluation, generated explanations or narration, local repository data, or design/evaluation artifacts whose terms are not stated. Read the [third-party inventory](THIRD_PARTY_NOTICES.md) and the [full dependency and bundled-asset license texts](THIRD_PARTY_LICENSE_TEXTS.txt); do not treat this repository license as permission to reuse excluded material.
 
 The [public GitHub repository](https://github.com/appunni-m/software-stories) exposes an [Issues page](https://github.com/appunni-m/software-stories/issues), but no triage or response policy is published. Do not post credentials, private source, or vulnerability details there. No monitored private security-reporting route, general support contact, maintainer contact, or contribution review policy is published. See [SECURITY.md](SECURITY.md) and [CONTRIBUTING.md](CONTRIBUTING.md) for the current limits and local development instructions.
 

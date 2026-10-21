@@ -72,6 +72,7 @@ if (process.argv[2] === 'write') {
   for (const [bundleName, sourceName] of [
     ['LICENSE', 'LICENSE'],
     ['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.md'],
+    ['THIRD_PARTY_LICENSE_TEXTS.txt', 'THIRD_PARTY_LICENSE_TEXTS.txt'],
   ]) {
     const bundled = await readFile(join(appPath, 'Contents', 'Resources', bundleName));
     const source = await readFile(join(root, sourceName));

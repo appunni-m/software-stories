@@ -53,7 +53,8 @@
       "resources/third-party/uv-LICENSE-MIT.txt": "resources/third-party/uv-LICENSE-MIT.txt",
       "resources/third-party/uv-LICENSE-APACHE.txt": "resources/third-party/uv-LICENSE-APACHE.txt",
       "../LICENSE": "LICENSE",
-      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md"
+      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
+      "../THIRD_PARTY_LICENSE_TEXTS.txt": "THIRD_PARTY_LICENSE_TEXTS.txt"
     },
     "macOS": {
       "hardenedRuntime": true,
