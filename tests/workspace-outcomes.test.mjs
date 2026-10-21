@@ -16,7 +16,7 @@ test('History shows a compact question preview and preserves the exact question 
   assert.equal(Array.from(preview).length, 64);
   assert.ok(preview.endsWith('…'));
   const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
-  assert.match(source, /<details className="dw-history-question"><summary><strong>\{historyQuestionPreview\(turn\.question\)\}<\/strong><\/summary><p>\{turn\.question\}<\/p><\/details>/);
+  assert.match(source, /<details className="dw-history-question"><summary><strong><InlineCodeText text=\{historyQuestionPreview\(turn\.question\)\}\/><\/strong><\/summary><p><InlineCodeText text=\{turn\.question\}\/><\/p><\/details>/);
 });
 
 test('Guide hides old empty and unavailable answers while retaining saved, active and selected questions', () => {

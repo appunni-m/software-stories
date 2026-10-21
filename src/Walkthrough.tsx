@@ -22,6 +22,7 @@ import {
 import { orderedSections, readerSelection, parseRememberedProgress, rememberedSectionRecord, resumeStorageKey, chooseSectionId } from './lib/walkthrough';
 import type { WorkspaceRoute } from './lib/navigation';
 import { VisualStory } from './VisualStory';
+import { InlineCodeText } from './InlineCodeText';
 import { useReaderSection } from './lib/ReaderProgressContext';
 import { OfflineExport } from './OfflineExport';
 import { errorMessageOr } from './lib/errorMessage';
@@ -353,7 +354,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
                           onClick={() => setSection(selectedRevision, section.sectionId)}
                         >
                           <span className="walkthrough-section-index">{String(index + 1).padStart(2, '0')}</span>
-                          <span>{section.title}</span>
+                          <span><InlineCodeText text={section.title}/></span>
                         </button>
                       </li>
                     ))}
@@ -378,7 +379,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
       ) : (
         <main className="walkthrough-reader" data-walkthrough-player onKeyDown={handleReaderKeyDown}>
           <div className="walkthrough-reader-topline">
-            <div className="walkthrough-reader-breadcrumb"><span>{targetLabel(selectedRevision)}</span><span>/</span><strong>{selectedRevision.title}</strong></div>
+            <div className="walkthrough-reader-breadcrumb"><span>{targetLabel(selectedRevision)}</span><span>/</span><strong><InlineCodeText text={selectedRevision.title}/></strong></div>
             <div className="walkthrough-revision-labels">
               {selectedRevision.lifecycle==='draft'&&<span className="walkthrough-revision-badge">DRAFT PREVIEW</span>}
               {isOlderRevision && <span className="walkthrough-revision-badge">OLDER ACCEPTED REVISION</span>}
@@ -388,7 +389,7 @@ export function WalkthroughScreen({ projectId, selectedSnapshotId, route, onRepl
           <div className="walkthrough-reader-grid">
             <article className="walkthrough-section-content" aria-label={`Section ${selectedSectionIndex + 1} of ${sections.length}`}>
               <div className="walkthrough-section-meta"><span>SECTION {String(selectedSectionIndex + 1).padStart(2, '0')} / {String(sections.length).padStart(2, '0')}</span><span>MANUAL PACE</span></div>
-              <h2 ref={headingRef} tabIndex={-1} aria-label={`Section ${selectedSectionIndex + 1} of ${sections.length}: ${selectedSection.title}`} data-focus-key={`reader-section-heading:${selectedSection.sectionId}`}>{selectedSection.title}</h2>
+              <h2 ref={headingRef} tabIndex={-1} aria-label={`Section ${selectedSectionIndex + 1} of ${sections.length}: ${selectedSection.title}`} data-focus-key={`reader-section-heading:${selectedSection.sectionId}`}><InlineCodeText text={selectedSection.title}/></h2>
               <VisualStory key={`${selectedRevision.revisionId}:${selectedSection.sectionRevisionId}`} revision={selectedRevision} section={selectedSection} activeFocusTarget={route.focusTarget} onOpenAnchor={openAnchor} onFollowHotspot={followHotspot} onSettings={onOpenProviderSettings} restorePosition={finitePosition(route.playbackPosition)} onPlaybackPositionChange={rememberPlaybackPosition} onTranscriptPositionChange={rememberTranscriptPosition} />
               <EvidencePanel section={selectedSection} onOpenAnchor={(anchor) => openAnchor(anchor)} />
               <SectionFileLinks section={selectedSection} activeFocusTarget={route.focusTarget} onFollowHotspot={followHotspot} />
@@ -423,8 +424,8 @@ function EvidencePanel({ section, onOpenAnchor }: { section: ChapterSection; onO
           {section.claims.map((claim) => (
             <article className="walkthrough-claim" key={claim.claimId}>
               <div className="walkthrough-claim-label"><span>{claim.category.kind === 'inference' ? claim.category.visibleLabel : claim.category.kind === 'repositoryContext' ? 'REPOSITORY CONTEXT' : 'CODE BEHAVIOR'}</span></div>
-              <p>{claim.prose}</p>
-              {claim.category.kind === 'inference' && claim.category.basis && <p className="walkthrough-inference-basis"><strong>Inference basis:</strong> {claim.category.basis}</p>}
+              <p><InlineCodeText text={claim.prose}/></p>
+              {claim.category.kind === 'inference' && claim.category.basis && <p className="walkthrough-inference-basis"><strong>Inference basis:</strong> <InlineCodeText text={claim.category.basis}/></p>}
               {claim.anchors.length > 0 ? claim.anchors.map((anchor) => (
                 <div className="walkthrough-source-citation" key={anchor.anchorId}>
                   <div className="walkthrough-citation-heading"><FileCode2 size={13} /><code>{anchor.path}:{anchor.startLine}-{anchor.endLine}</code></div>
