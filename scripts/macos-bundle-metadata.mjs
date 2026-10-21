@@ -69,6 +69,15 @@ if (process.argv[2] === 'write') {
   verifyMacExecutableIntegrity(join(appPath, 'Contents', 'MacOS', executableName));
   const bundledContents = await readFile(bundledManifest, 'utf8');
   if (bundledContents !== manifest) throw new Error('Bundled schema metadata does not match the current Rust schema constants.');
+  for (const [bundleName, sourceName] of [
+    ['LICENSE', 'LICENSE'],
+    ['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.md'],
+  ]) {
+    const bundled = await readFile(join(appPath, 'Contents', 'Resources', bundleName));
+    const source = await readFile(join(root, sourceName));
+    if (!bundled.equals(source)) throw new Error(`Bundled ${bundleName} does not match ${sourceName}.`);
+  }
+  if (config.bundle?.license !== 'MIT') throw new Error('Tauri bundle license must match the selected MIT license.');
   for (const [key, expected] of [
     ['CFBundleIdentifier', config.identifier],
     ['CFBundleName', config.productName],

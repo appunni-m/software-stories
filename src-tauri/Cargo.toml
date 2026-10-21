@@ -3,6 +3,7 @@ name = "code-atlas-desktop"
 version = "0.1.0"
 description = "A local-first guide to understanding software repositories"
 authors = ["Code Atlas contributors"]
+license = "MIT"
 edition = "2024"
 default-run = "code-atlas-desktop"
 

@@ -12,7 +12,7 @@ Contributors can tell whether and under what terms they may use, modify, and red
 
 ## Current state
 
-The repository has no root `LICENSE` file. The project owner must choose the license after confirming ownership and intended distribution. Do not infer a license, copy one from another project, or claim the repository is open source before that decision.
+The owner selected MIT on 21 October 2026. The root `LICENSE`, package metadata, README and Tauri metadata now state MIT, and the unsigned macOS app embeds the license and current notice document. The complete target-specific dependency notice inventory and file-level asset provenance still need verification before redistribution or task closure.
 
 ## Required work
 
@@ -23,4 +23,4 @@ The repository has no root `LICENSE` file. The project owner must choose the lic
 
 ## Acceptance
 
-The chosen license is present with unmodified canonical terms, metadata agrees, third-party notices and package exclusions are checked, and the documentation audit no longer reports a missing license. This task remains open pending the project owner's decision.
+The owner's license choice is recorded; the canonical license text is present, metadata agrees, and the documentation audit no longer reports a missing license. Keep this task open until all dependencies in the shipped npm and Cargo graphs have a verified license identifier and required text or attribution in the app bundle, asset provenance/exclusions are reviewed, and the packaged output is checked against those inventories.
