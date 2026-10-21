@@ -87,7 +87,7 @@ fn presentation_state() -> Value {
     s["explorations"][0]["turns"][0]["revisionId"] = json!("revision-one");
     s["explorations"][0]["turns"][0]["presentation"] = json!({
         "stories":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","sceneId":"claim:second","positions":{"claim:first":12.4,"claim:second":3.2},"fullMap":true,"viewport":{"x":-34,"y":91,"zoom":0.6},"focusLayoutVersion":3}],
-        "diagrams":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","viewport":{"x":250,"y":-91,"zoom":1.7}}]
+        "diagrams":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","viewport":{"x":250,"y":-91,"zoom":1.7},"layoutVersion":2}]
     });
     s
 }
@@ -145,12 +145,49 @@ fn focused_story_layout_requires_the_current_layout_version() {
 }
 
 #[test]
-fn opening_stale_story_positions_preserves_the_conversation_and_record_bytes() {
+fn flow_diagram_layout_requires_the_current_layout_version() {
+    let f = Fixture::new();
+    let s = presentation_state();
+    let record = save(&f.0, "project", "snapshot", None, s.clone()).unwrap();
+    let before = fs::read(f.path()).unwrap();
+
+    for version in [json!(1), json!(3), Value::Null] {
+        let mut unsupported = s.clone();
+        if version.is_null() {
+            unsupported["explorations"][0]["turns"][0]["presentation"]["diagrams"][0]
+                .as_object_mut()
+                .unwrap()
+                .remove("layoutVersion");
+        } else {
+            unsupported["explorations"][0]["turns"][0]["presentation"]["diagrams"][0]["layoutVersion"] =
+                version;
+        }
+        assert!(
+            save(
+                &f.0,
+                "project",
+                "snapshot",
+                Some(record.revision),
+                unsupported
+            )
+            .is_err()
+        );
+        assert_eq!(fs::read(f.path()).unwrap(), before);
+    }
+}
+
+#[test]
+fn opening_stale_reader_positions_preserves_the_conversation_and_record_bytes() {
     let f = Fixture::new();
     let state = presentation_state();
     let record = save(&f.0, "project", "snapshot", None, state).unwrap();
     let mut stored = serde_json::to_value(record).unwrap();
-    stored["state"]["explorations"][0]["turns"][0]["presentation"]["stories"][0]["focusLayoutVersion"] = json!(2);
+    stored["state"]["explorations"][0]["turns"][0]["presentation"]["stories"][0]
+        ["focusLayoutVersion"] = json!(2);
+    stored["state"]["explorations"][0]["turns"][0]["presentation"]["diagrams"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("layoutVersion");
     fs::write(&f.path(), serde_json::to_vec(&stored).unwrap()).unwrap();
     let original_bytes = fs::read(f.path()).unwrap();
 
@@ -161,15 +198,15 @@ fn opening_stale_story_positions_preserves_the_conversation_and_record_bytes() {
     assert_eq!(
         restored.state["explorations"][0]["turns"][0]["presentation"]["stories"],
         json!([]),
-        "only positions from an unsupported layout are reset in memory"
+        "only story positions from an unsupported layout are reset in memory"
     );
     assert_eq!(
         restored.state["explorations"][0]["turns"][0]["presentation"]["diagrams"]
             .as_array()
             .unwrap()
             .len(),
-        1,
-        "other presentation metadata remains available"
+        0,
+        "diagram positions from an unsupported layout are reset in memory"
     );
     assert_eq!(
         fs::read(f.path()).unwrap(),

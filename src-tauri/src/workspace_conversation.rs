@@ -11,6 +11,7 @@ use std::{
 use tauri::AppHandle;
 
 const CONVERSATION_SCHEMA_VERSION: u32 = 1;
+const FLOW_DIAGRAM_LAYOUT_VERSION: u64 = 2;
 const MAX_BYTES: usize = 8 * 1024 * 1024;
 const UNAVAILABLE: &str =
     "Your saved conversation could not be opened. Existing work has been preserved.";
@@ -207,7 +208,13 @@ fn presentation(v: &Value, owner: &serde_json::Map<String, Value>) -> Result<(),
                         "focusLayoutVersion",
                     ]
                 } else {
-                    &["revisionId", "sectionId", "sectionRevisionId", "viewport"]
+                    &[
+                        "revisionId",
+                        "sectionId",
+                        "sectionRevisionId",
+                        "viewport",
+                        "layoutVersion",
+                    ]
                 },
             )?;
             let revision = string(p, "revisionId")?;
@@ -253,6 +260,11 @@ fn presentation(v: &Value, owner: &serde_json::Map<String, Value>) -> Result<(),
                     viewport(v)?;
                 }
             } else {
+                if p.get("layoutVersion").and_then(Value::as_u64)
+                    != Some(FLOW_DIAGRAM_LAYOUT_VERSION)
+                {
+                    return Err(UNAVAILABLE.into());
+                }
                 viewport(p.get("viewport").ok_or(UNAVAILABLE)?)?;
             }
         }
@@ -555,10 +567,10 @@ fn location(storage: &Path, project: &str, snapshot: &str) -> Result<PathBuf, St
         .join(format!("{digest:x}.json")))
 }
 
-/// Older saved reader positions do not match the current focused-story layout.
-/// Drop only those transient positions in memory so they cannot make the
-/// surrounding saved conversation unavailable. The durable record is untouched.
-fn discard_stale_story_positions(state: &mut Value) {
+/// Reader positions from older story or diagram layouts are transient. Drop
+/// only those positions in memory so they cannot make the conversation
+/// unavailable. The durable record is untouched.
+fn discard_stale_reader_positions(state: &mut Value) {
     let Some(explorations) = state.get_mut("explorations").and_then(Value::as_array_mut) else {
         return;
     };
@@ -567,15 +579,26 @@ fn discard_stale_story_positions(state: &mut Value) {
             continue;
         };
         for turn in turns {
-            let Some(stories) = turn
-                .get_mut("presentation")
-                .and_then(|presentation| presentation.get_mut("stories"))
-                .and_then(Value::as_array_mut)
-            else {
+            let Some(presentation) = turn.get_mut("presentation") else {
                 continue;
             };
-            stories
-                .retain(|story| story.get("focusLayoutVersion").and_then(Value::as_u64) == Some(3));
+            if let Some(stories) = presentation
+                .get_mut("stories")
+                .and_then(Value::as_array_mut)
+            {
+                stories.retain(|story| {
+                    story.get("focusLayoutVersion").and_then(Value::as_u64) == Some(3)
+                });
+            }
+            if let Some(diagrams) = presentation
+                .get_mut("diagrams")
+                .and_then(Value::as_array_mut)
+            {
+                diagrams.retain(|diagram| {
+                    diagram.get("layoutVersion").and_then(Value::as_u64)
+                        == Some(FLOW_DIAGRAM_LAYOUT_VERSION)
+                });
+            }
         }
     }
 }
@@ -602,7 +625,7 @@ fn load(storage: &Path, project: &str, snapshot: &str) -> Result<Option<Record>,
     {
         return Err(UNAVAILABLE.into());
     }
-    discard_stale_story_positions(&mut record.state);
+    discard_stale_reader_positions(&mut record.state);
     validate(&record.state, project, snapshot)?;
     Ok(Some(record))
 }
