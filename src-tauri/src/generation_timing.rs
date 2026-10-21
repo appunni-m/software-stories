@@ -36,6 +36,58 @@ pub(crate) enum EventKind {
     PublicationCallbackReturned,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum PreparationKind {
+    WorkerRegistration,
+    SnapshotLoad,
+    RequestPreparation,
+    RuntimeReview,
+    RetrievalGrant,
+    RetrievalSession,
+    OperationJournal,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct PreparationStage {
+    kind: PreparationKind,
+    started_ms: u64,
+    finished_ms: u64,
+}
+
+/// Native pre-manager preparation, measured on the same monotonic clock as
+/// dispatch. Only fixed stage names and elapsed offsets enter diagnostics.
+pub(crate) struct Preparation {
+    origin: Instant,
+    stage_started: Instant,
+    stages: Vec<PreparationStage>,
+}
+
+impl Preparation {
+    pub(crate) fn new(origin: Instant) -> Self {
+        Self {
+            origin,
+            stage_started: origin,
+            stages: Vec::with_capacity(7),
+        }
+    }
+
+    pub(crate) fn finish_stage(&mut self, kind: PreparationKind) {
+        let now = Instant::now();
+        self.stages.push(PreparationStage {
+            kind,
+            started_ms: offset_ms(self.origin, self.stage_started),
+            finished_ms: offset_ms(self.origin, now),
+        });
+        self.stage_started = now;
+    }
+
+    pub(crate) fn into_stages(self) -> Vec<PreparationStage> {
+        self.stages
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Event {
@@ -93,6 +145,8 @@ pub(crate) struct Record {
     reasoning_effort: String,
     runtime_identity_sha256: String,
     events: Vec<Event>,
+    #[serde(default)]
+    preparation_stages: Vec<PreparationStage>,
     context: Option<ContextTiming>,
     output_bytes: Option<usize>,
     /// Latest cumulative thread usage reported by app-server, never an estimate
@@ -187,6 +241,20 @@ fn validate(record: &Record) -> Result<(), String> {
         return Err(invalid());
     }
     runtime::validate(record)?;
+    if record.preparation_stages.len() > 8 {
+        return Err(invalid());
+    }
+    let manager_entered_ms = record.events.first().map_or(0, |event| event.elapsed_ms);
+    let mut preparation_end = 0;
+    for stage in &record.preparation_stages {
+        if stage.started_ms < preparation_end
+            || stage.finished_ms < stage.started_ms
+            || stage.finished_ms > manager_entered_ms
+        {
+            return Err(invalid());
+        }
+        preparation_end = stage.finished_ms;
+    }
     let mut previous = 0;
     for event in &record.events {
         if event.elapsed_ms < previous || event.elapsed_ms > MAX_ELAPSED {
@@ -322,6 +390,28 @@ impl Trace {
         effort: &str,
         started: Instant,
     ) -> Self {
+        Self::new_with_preparation(
+            storage,
+            run,
+            fingerprint,
+            runtime,
+            model,
+            effort,
+            started,
+            vec![],
+        )
+    }
+
+    pub(crate) fn new_with_preparation(
+        storage: &Path,
+        run: &str,
+        fingerprint: &str,
+        runtime: &crate::codex_identity::CodexReviewRuntime,
+        model: &str,
+        effort: &str,
+        started: Instant,
+        preparation_stages: Vec<PreparationStage>,
+    ) -> Self {
         let state = (|| -> Result<State, String> {
             let _guard = STORE.lock().map_err(|_| "Timing storage is unavailable.")?;
             let record = Record {
@@ -339,6 +429,7 @@ impl Trace {
                     kind: EventKind::ManagerEntered,
                     elapsed_ms: elapsed(started),
                 }],
+                preparation_stages,
                 context: None,
                 output_bytes: None,
                 token_usage: None,
@@ -481,6 +572,9 @@ impl Drop for Trace {
 }
 fn elapsed(started: Instant) -> u64 {
     u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
+}
+fn offset_ms(origin: Instant, at: Instant) -> u64 {
+    u64::try_from(at.saturating_duration_since(origin).as_millis()).unwrap_or(u64::MAX)
 }
 
 pub(crate) fn inspect(storage: &Path, run: &str) -> Result<Option<Record>, String> {

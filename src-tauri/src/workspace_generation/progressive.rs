@@ -240,15 +240,20 @@ pub(crate) fn run_with_starting_ranges(
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
 ) -> Result<Summary, String> {
     let started_at = Instant::now();
+    let mut preparation = crate::generation_timing::Preparation::new(started_at);
     let _worker = manager.hold_answer_worker(&input.run_id)?;
+    preparation.finish_stage(crate::generation_timing::PreparationKind::WorkerRegistration);
     let manifest =
         snapshot::load_snapshot_manifest(storage, &input.project_id, &input.snapshot_id)?;
+    preparation.finish_stage(crate::generation_timing::PreparationKind::SnapshotLoad);
     // Interactive code investigations are explicitly stoppable. Native source,
     // call, proposal and storage budgets bound work; elapsed time does not.
     let run_deadline = RunDeadline::UserControlled;
     let (prompt, schema, fingerprint, instructions) =
         starting_ranges::request_for(storage, &input, &manifest, ranges, guide_intent)?;
+    preparation.finish_stage(crate::generation_timing::PreparationKind::RequestPreparation);
     let runtime = manager.review_runtime(storage)?;
+    preparation.finish_stage(crate::generation_timing::PreparationKind::RuntimeReview);
     workspace::check_retrieval_grant(
         storage,
         &input.grant_id,
@@ -256,6 +261,7 @@ pub(crate) fn run_with_starting_ranges(
         &input.snapshot_id,
         &runtime,
     )?;
+    preparation.finish_stage(crate::generation_timing::PreparationKind::RetrievalGrant);
     let session = Arc::new(Mutex::new(if guide_intent.is_some() {
         agent_context::Session::new_guide_progressive(
             storage,
@@ -287,6 +293,7 @@ pub(crate) fn run_with_starting_ranges(
             notify,
         )?
     }));
+    preparation.finish_stage(crate::generation_timing::PreparationKind::RetrievalSession);
     if let Err(error) = journal.record(
         storage,
         recovery::new_provider_operation(
@@ -299,7 +306,8 @@ pub(crate) fn run_with_starting_ranges(
         let _ = reading::interrupt(storage, &input.run_id, Outcome::Failed);
         return Err(error);
     }
-    let outcome = manager.run_with_result_and_publish(
+    preparation.finish_stage(crate::generation_timing::PreparationKind::OperationJournal);
+    let outcome = manager.run_with_result_and_publish_and_preparation(
         storage,
         codex_agent::CodexRunInput {
             run_id: input.run_id.clone(),
@@ -317,6 +325,7 @@ pub(crate) fn run_with_starting_ranges(
         },
         &fingerprint,
         started_at,
+        preparation.into_stages(),
         progress,
         |response, access| -> Result<String, String> {
             access.check_review(&input.run_id, &fingerprint, &runtime.executable_path)?;
@@ -533,7 +542,7 @@ pub(crate) fn timing_report(
     Ok(TimingReport {
         schema_version: 3,
         kind: "code-atlas-generation-timing",
-        scope: "Native observations only. firstUsefulAnswer is the first complete answer section admitted by native source/claim/visual validation and durably published; semantic quality remains a separate review. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption. firstAgentMessageDeltaElapsedMs is app-server text progress, not a model-token timestamp. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
+        scope: "Native observations only. preparationStages are fixed native pre-manager checkpoints on the run's monotonic clock; they exclude renderer queue wait. firstUsefulAnswer is the first complete answer section admitted by native source/claim/visual validation and durably published; semantic quality remains a separate review. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption. firstAgentMessageDeltaElapsedMs is app-server text progress, not a model-token timestamp. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
         run_id: run.into(),
         answer_outcome: if !active && answer.outcome == Outcome::Working {
             Outcome::Interrupted
@@ -548,8 +557,8 @@ pub(crate) fn timing_report(
         trace,
         publications,
         unmeasured: [
-            "rendererQueue",
-            "connectionPreparationBeforeManager",
+            "rendererQueueWait",
+            "coldWarmIndexComparison",
             "rendererAdoption",
             "narrationReadiness",
             "providerWaitVersusModelReasoning",

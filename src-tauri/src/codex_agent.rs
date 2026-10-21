@@ -682,16 +682,55 @@ impl CodexAgentManager {
     where
         F: Fn(CodexProgress),
     {
-        validate_run(&input)?;
-        let trace = crate::generation_timing::Trace::new(
+        self.run_with_result_and_publish_and_preparation(
             storage_dir,
-            &input.run_id,
+            input,
             fingerprint,
-            &input.expected_runtime,
-            &input.model,
-            &input.effort,
             started_at,
-        );
+            vec![],
+            progress,
+            validate,
+            publish,
+        )
+    }
+
+    pub(crate) fn run_with_result_and_publish_and_preparation<T, U, F>(
+        &self,
+        storage_dir: &Path,
+        input: CodexRunInput,
+        fingerprint: &str,
+        started_at: Instant,
+        preparation_stages: Vec<crate::generation_timing::PreparationStage>,
+        progress: F,
+        validate: impl FnOnce(CodexRunResult, &CodexResultAccess<'_>) -> T,
+        publish: impl FnOnce(T) -> U,
+    ) -> Result<U, String>
+    where
+        F: Fn(CodexProgress),
+    {
+        validate_run(&input)?;
+        let trace = if preparation_stages.is_empty() {
+            crate::generation_timing::Trace::new(
+                storage_dir,
+                &input.run_id,
+                fingerprint,
+                &input.expected_runtime,
+                &input.model,
+                &input.effort,
+                started_at,
+            )
+        } else {
+            crate::generation_timing::Trace::new_with_preparation(
+                storage_dir,
+                &input.run_id,
+                fingerprint,
+                &input.expected_runtime,
+                &input.model,
+                &input.effort,
+                started_at,
+                preparation_stages,
+            )
+        };
         let retrieval = input.retrieval.clone();
         let result = self.run_owned_with_timing(
             storage_dir,

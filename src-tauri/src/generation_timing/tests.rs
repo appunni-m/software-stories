@@ -109,6 +109,56 @@ fn timing_diagnostics_preserve_the_selected_model_and_effort() {
 }
 
 #[test]
+fn pre_manager_preparation_stages_share_the_dispatch_clock_and_are_bounded() {
+    let f = Fixture::new();
+    let id = run();
+    let started = Instant::now() - Duration::from_millis(40);
+    let trace = Trace::new_with_preparation(
+        &f.0,
+        &id,
+        &"c".repeat(64),
+        &runtime(),
+        "gpt-6-luna",
+        "max",
+        started,
+        vec![
+            PreparationStage {
+                kind: PreparationKind::SnapshotLoad,
+                started_ms: 0,
+                finished_ms: 2,
+            },
+            PreparationStage {
+                kind: PreparationKind::RequestPreparation,
+                started_ms: 2,
+                finished_ms: 4,
+            },
+        ],
+    );
+    trace.finish(Ok(()));
+    let record = inspect(&f.0, &id).unwrap().unwrap();
+    assert_eq!(record.preparation_stages.len(), 2);
+    assert_eq!(
+        record.preparation_stages[0].kind,
+        PreparationKind::SnapshotLoad
+    );
+    assert_eq!(record.preparation_stages[1].started_ms, 2);
+    assert!(record.preparation_stages[1].finished_ms <= record.events[0].elapsed_ms);
+
+    // Version-2 records written before these optional checkpoints remain readable.
+    let file = path(&f.0, &id).unwrap();
+    let mut old: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    old.as_object_mut().unwrap().remove("preparationStages");
+    fs::write(&file, serde_json::to_vec(&old).unwrap()).unwrap();
+    assert!(
+        inspect(&f.0, &id)
+            .unwrap()
+            .unwrap()
+            .preparation_stages
+            .is_empty()
+    );
+}
+
+#[test]
 fn abandoned_and_failed_runs_are_retained_without_inference_or_success_claims() {
     let f = Fixture::new();
     let id = run();
@@ -277,6 +327,43 @@ fn malformed_event_order_and_context_states_are_not_exported() {
     fs::write(&file, serde_json::to_vec(&value).unwrap()).unwrap();
     assert!(inspect(&f.0, &id).is_err());
     fs::write(&file, serde_json::to_vec(&original).unwrap()).unwrap();
+}
+
+#[test]
+fn malformed_pre_manager_stage_order_or_bounds_are_not_exported() {
+    let f = Fixture::new();
+    let id = run();
+    let started = Instant::now() - Duration::from_millis(30);
+    let trace = Trace::new_with_preparation(
+        &f.0,
+        &id,
+        &"c".repeat(64),
+        &runtime(),
+        "gpt-6-luna",
+        "max",
+        started,
+        vec![PreparationStage {
+            kind: PreparationKind::SnapshotLoad,
+            started_ms: 0,
+            finished_ms: 1,
+        }],
+    );
+    trace.finish(Ok(()));
+    let file = path(&f.0, &id).unwrap();
+    let original: Value = serde_json::from_slice(&fs::read(&file).unwrap()).unwrap();
+    let after_manager = original["events"][0]["elapsedMs"].as_u64().unwrap() + 1;
+    for stages in [
+        json!([{"kind":"snapshotLoad","startedMs":2,"finishedMs":1}]),
+        json!([{"kind":"snapshotLoad","startedMs":0,"finishedMs":1},
+               {"kind":"requestPreparation","startedMs":0,"finishedMs":2}]),
+        json!([{"kind":"snapshotLoad","startedMs":0,"finishedMs":MAX_ELAPSED + 1}]),
+        json!([{"kind":"snapshotLoad","startedMs":0,"finishedMs":after_manager}]),
+    ] {
+        let mut value = original.clone();
+        value["preparationStages"] = stages;
+        fs::write(&file, serde_json::to_vec(&value).unwrap()).unwrap();
+        assert!(inspect(&f.0, &id).is_err());
+    }
 }
 
 #[test]
