@@ -2,21 +2,27 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { addTurn, createWorkspace, parseWorkspace } from '../src/workspace/model.ts';
-import { createQuestionOutcomeSelector, featuredGuideTurnId, groupUnavailablePublishedSections, historyQuestionPreview, lastAvailableAnswerItemIndex, markQuestionOutcome, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
+import { createQuestionOutcomeSelector, featuredGuideTurnId, groupUnavailablePublishedSections, questionSummaryText, lastAvailableAnswerItemIndex, markQuestionOutcome, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
 
 const turn = (id, status = 'failed', extra = {}) => ({ id, question: `Question ${id}`, context: [], status, ...extra });
 const stateWith = (...turns) => ({ ...createWorkspace('project', 'snapshot'), explorations: [{ ...createWorkspace('project', 'snapshot').explorations[0], turns }] });
 const patch = (state, id, values, now = 100) => recordQuestionOutcomes(state, { ...state, explorations: state.explorations.map((e) => ({ ...e, turns: e.turns.map((t) => t.id === id ? { ...t, ...values } : t) })) }, now);
 
-test('History shows a compact question preview and preserves the exact question in a collapsed disclosure', () => {
+test('Guide and History show the question topic and preserve the exact prompt in a collapsed disclosure', () => {
   const question = '  Explain how\nFont::memory_face selects a format. ';
-  assert.equal(historyQuestionPreview(question), 'Explain how Font::memory_face selects a format.');
+  assert.equal(questionSummaryText(question), 'Explain how Font::memory_face selects a format.');
   const long = `🧭${'a'.repeat(120)}`;
-  const preview = historyQuestionPreview(long);
+  const preview = questionSummaryText(long);
   assert.equal(Array.from(preview).length, 64);
   assert.ok(preview.endsWith('…'));
+  const generated = 'Create exactly one fresh Guide section for Fontdone main@5249b723719445813b8771a602ea5b96891d4450 about `parse_head` in `src/tt/head.rs`. Tell the implementation story of the 54-byte guard.';
+  assert.equal(questionSummaryText(generated), '`parse_head` in `src/tt/head.rs`.');
+  const anotherRepository = 'Create one fresh Guide section from the Orbit snapshot about `verify_token` in `src/auth.ts`. Trace the error path.';
+  assert.equal(questionSummaryText(anotherRepository), '`verify_token` in `src/auth.ts`.');
+  const scoped = 'Using the selected Fontdone snapshot, explain only the PFR0 dispatch branch in Font::memory_face in src/font.rs. Show the exact call.';
+  assert.equal(questionSummaryText(scoped), 'PFR0 dispatch branch in Font::memory_face in src/font.rs.');
   const source = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
-  assert.match(source, /<details className="dw-history-question"><summary><strong><InlineCodeText text=\{historyQuestionPreview\(turn\.question\)\}\/><\/strong><\/summary><p><InlineCodeText text=\{turn\.question\}\/><\/p><\/details>/);
+  assert.match(source, /<details className="dw-history-question"><summary><strong><InlineCodeText text=\{questionSummaryText\(turn\.question\)\}\/><\/strong><\/summary><p><InlineCodeText text=\{turn\.question\}\/><\/p><\/details>/);
 });
 
 test('Guide hides old empty and unavailable answers while retaining saved, active and selected questions', () => {

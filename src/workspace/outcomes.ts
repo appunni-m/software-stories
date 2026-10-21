@@ -3,9 +3,23 @@ import type { Exploration, PublishedSection, Turn, WorkspaceState } from './mode
 const active = (turn: Turn) => turn.status === 'queued' || turn.status === 'working';
 const hasAnswer = (turn: Turn) => Boolean(turn.revisionId || turn.publishedSections?.length);
 
-/** Keep question headers compact while retaining the exact question on demand. */
-export function historyQuestionPreview(question: string, maxCodePoints = 64): string {
-  const text = question.replace(/\s+/g, ' ').trim();
+/** Show the subject of generated requests while keeping the exact prompt available on demand. */
+export function questionSummaryText(question: string, maxCodePoints = 64): string {
+  let text = question.replace(/\s+/g, ' ').trim();
+  const generatedRequestPrefixes = [
+    /^Create (?:exactly )?one (?:fresh )?(?:Guide )?section (?:for|from) .+?\s+about\s+/i,
+    /^Create (?:exactly )?one (?:fresh )?(?:Guide )?section about\s+/i,
+    /^(?:Using|In) (?:the )?selected .+? snapshot,\s*explain (?:only )?(?:the )?/i,
+  ];
+  for (const prefix of generatedRequestPrefixes) {
+    if (prefix.test(text)) {
+      text = text.replace(prefix, '');
+      break;
+    }
+  }
+  // Generation prompts often continue with production constraints after the
+  // topic. Keep the heading to its first sentence; exact wording stays below.
+  text = text.split(/(?<=[.!?])\s+/u, 1)[0] ?? text;
   const characters = Array.from(text);
   const limit = Math.max(1, Math.floor(maxCodePoints));
   return characters.length > limit ? `${characters.slice(0, limit - 1).join('')}…` : text;

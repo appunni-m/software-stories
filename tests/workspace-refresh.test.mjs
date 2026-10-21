@@ -125,7 +125,7 @@ test('long answer questions stay collapsed until the reader asks to see them', (
   const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
   assert.equal((workspace.match(/<QuestionDisclosure question=\{turn\.question\}\/>/g) ?? []).length, 2);
-  assert.match(workspace, /function QuestionDisclosure\(\{question\}:\{question:string\}\)[\s\S]*?<details className="dw-user-question"><summary><MessageSquare size=\{14\}\/><span title=\{question\}><InlineCodeText text=\{historyQuestionPreview\(question\)\}\/><\/span><ChevronRight size=\{13\}\/><\/summary><p><InlineCodeText text=\{question\}\/><\/p><\/details>/);
+  assert.match(workspace, /function QuestionDisclosure\(\{question\}:\{question:string\}\)[\s\S]*?<details className="dw-user-question"><summary><MessageSquare size=\{14\}\/><span><InlineCodeText text=\{questionSummaryText\(question\)\}\/><\/span><ChevronRight size=\{13\}\/><\/summary><p><InlineCodeText text=\{question\}\/><\/p><\/details>/);
   assert.match(styles, /\.dw-user-question summary \{display:flex;align-items:center;gap:7px;width:100%/);
   assert.match(styles, /\.dw-user-question summary > span \{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;/);
   assert.match(styles, /\.dw-user-question > p \{max-width:900px;margin:7px 0 0/);
