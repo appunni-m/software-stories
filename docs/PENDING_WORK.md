@@ -1,5 +1,7 @@
 # Pending work after the October 15 static review
 
+> **Historical engineering checkpoint:** this page records the October 15 review and subsequent dated notes. Its issue inventory and recommendations are not the live backlog. See [the current Kata status snapshot](KATA_STATUS.md) and the bound `code-atlas-rebuild` Kata project for current statuses and dependencies.
+
 > **Developer workspace migration — 16 October:** the [persistent code/chat/exploration workspace](design/WORKSPACE_EXPLORATION.md) is implemented in the production entry point. A left activity bar opens Explorer, Search, Changes and Explorations; pinned chat owns Guide / Flow / history at each level. Follow-ups stack and explicit branches attach to their originating answers. Native snapshot source, question-specific Codex generation, saved revisions, permission validation and local commit comparisons are wired. Packaged visual/accessibility and broader lifecycle qualification remain open in `na54` / `3rcd`; the separate preview uses sample data. Older navigation descriptions below are historical contracts superseded by this workspace.
 
 > **Current flow update — October 16:** Codex chooses implementation from the captured index; connection/model/reasoning live in the header. Route chapters can be built sequentially after one exact batch review. Code is the evidence and docs are hints, with explicit deprecated labels. Light/dark/system palettes replace the lime styling. See [AI guide flow](AI_GUIDE_FLOW.md), discovery task `xvjk` and batch qualification `a1sm`. Broad native/language/large-repo acceptance remains open. Older entries below are historical checkpoints.
@@ -72,7 +74,7 @@ The previously started repository reading planner is also preserved in source: b
 
 ## Detailed task index
 
-All items below remain open. “Waiting on” lists open dependency edges; child acceptance is also required before a parent closes. Existing release sequencing is preserved; agent implementation no longer depends on completing the direct API backlog.
+This index reflects the status when it was written and is retained as historical context. “Waiting on” records the dependency edges known at that time; use live Kata for current status and relationships.
 
 | Kata ID | Task specification | Waiting on |
 | --- | --- | --- |

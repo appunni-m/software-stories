@@ -1,8 +1,8 @@
 # Kata status — Code Atlas rebuild
 
-Snapshot: **17 October 2026**, read from live project `code-atlas-rebuild` after the shared-teaching checkpoint. **73 records: 50 open, 23 closed.** Every record maps to exactly one checked-in task definition. No task was closed by this checkpoint. Historical closed records do not establish current runtime, semantic quality, native accessibility or release acceptance.
+Snapshot: **21 October 2026**, read from live project `code-atlas-rebuild`. **77 records: 52 open, 25 closed.** Every live record maps to one checked-in task definition. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
 
-## Current generation gate
+## 17 October progressive-generation checkpoint (historical)
 
 The latest ordinary Fontdone file run is source-valid in **363.349 s**, with
 three narrated sections, nine compositions and 23 independently checked anchors.
@@ -42,11 +42,11 @@ The latest checkout connects [progressive generation to the reader](acceptance/2
 
 ## All task records
 
-The definitions contain the detailed contract and required closure evidence. Use live Kata for dependency changes after this snapshot. Priority 0 is highest; a recorded status is not transitive proof that its prerequisites passed the current acceptance matrix.
+The definitions contain the detailed contract and required closure evidence. This table reflects the live statuses and priorities as of 21 October 2026; use Kata for changes after this snapshot. Priority 0 is highest; a recorded status is not transitive proof that its prerequisites passed the current acceptance matrix.
 
 | Ref | Status | Priority | Definition |
-|---|---|---|---|
-| `8bw6` | open | 0 | [Define versioned chapter, section, claim, anchor, and hotspot records](kata-tasks/11-chapter-schema.md) |
+|---|---|---:|---|
+| `8bw6` | closed | 0 | [Define versioned chapter, section, claim, anchor, and hotspot records](kata-tasks/11-chapter-schema.md) |
 | `tbsh` | open | 0 | [Edit or regenerate one selected stale section and reuse unaffected assets](kata-tasks/20-selective-section-update.md) |
 | `mfz2` | open | 0 | [M7 — Selectable AI backends](kata-tasks/phase-7.md) |
 | `tpta` | open | 0 | [Add selectable read-only coding-agent backends](kata-tasks/29-agent-runtime-backends.md) |
@@ -55,6 +55,17 @@ The definitions contain the detailed contract and required closure evidence. Use
 | `z3an` | open | 0 | [Implement Codex app-server chapter generation with account sign-in](kata-tasks/40-codex-account-backend.md) |
 | `13yp` | open | 0 | [Make the packaged app follow the approved product designs](kata-tasks/43-design-implementation-parity.md) |
 | `2r6n` | open | 0 | [Make Codex a complete generation choice without mandatory API keys](kata-tasks/45-agent-first-generation.md) |
+| `vpty` | closed | 0 | [Define the complete Code Atlas screen and interaction contract](kata-tasks/01-product-experience.md) |
+| `23eb` | closed | 0 | [Open a local repository and create a Code Atlas project](kata-tasks/03-project-selection.md) |
+| `hjv4` | closed | 0 | [Capture immutable, bounded repository snapshots](kata-tasks/04-snapshot-capture.md) |
+| `tsqk` | closed | 0 | [Track chapter coverage for every inventory path](kata-tasks/09-guide-coverage.md) |
+| `wmaj` | closed | 0 | [Add optional Gemini with exact-context consent and billing disclosure](kata-tasks/10-gemini-request-boundary.md) |
+| `a3xq` | closed | 0 | [Generate one substantive, source-grounded chapter per selected file](kata-tasks/12-file-chapter-generation.md) |
+| `h9sy` | open | 0 | [Edit, validate, accept, or reject chapters in Chapter Studio](kata-tasks/13-chapter-studio.md) |
+| `8z8n` | closed | 0 | [Play accepted chapters as manually paced walkthrough sections](kata-tasks/16-walkthrough-player.md) |
+| `s4df` | closed | 0 | [Detect changed evidence and mark only dependent sections stale](kata-tasks/19-section-staleness.md) |
+| `t188` | closed | 0 | [Onboard users locally and recover from interrupted work](kata-tasks/23-onboarding-recovery.md) |
+| `zch9` | closed | 0 | [Remove legacy compatibility from the greenfield app](kata-tasks/76-greenfield-no-legacy.md) |
 | `q0sm` | open | 1 | [Establish a repo-level chapter quality benchmark and review gate](kata-tasks/14-chapter-quality.md) |
 | `gace` | open | 1 | [Compare immutable guide revisions and restore as a new draft](kata-tasks/21-revision-history.md) |
 | `bcn2` | open | 1 | [Meet accessibility, responsiveness, and repository safety requirements](kata-tasks/24-accessibility-performance.md) |
@@ -85,27 +96,6 @@ The definitions contain the detailed contract and required closure evidence. Use
 | `ps02` | open | 1 | [Measure each generation stage and time to the first validated answer](kata-tasks/71-generation-timing-traces.md) |
 | `yk6c` | open | 1 | [Let agents cite native evidence references without copying source quotes](kata-tasks/72-agent-evidence-references.md) |
 | `3bz5` | open | 1 | [Publish validated answer sections while the owned agent continues](kata-tasks/73-progressive-answer-sections.md) |
-| `70x5` | open | 2 | [Add local Pocket TTS narration and distinct cached audio](kata-tasks/18-optional-narration.md) |
-| `8r4j` | open | 2 | [Export an accepted interactive guide for offline reading](kata-tasks/22-offline-export.md) |
-| `a9v9` | open | 2 | [Generate focused, reviewed explanations for a local change set](kata-tasks/27-pr-guide.md) |
-| `qjm3` | open | 2 | [Define recoverable PR generation and decisions across navigation](kata-tasks/36-pr-navigation-lifecycle.md) |
-| `8gqw` | open | 2 | [Implement automatic Claude Agent generation across required operations](kata-tasks/41-claude-agent-backend.md) |
-| `s0tj` | open | 4 | [Code Atlas — greenfield product contract](kata-tasks/00-contract.md) |
-| `wzce` | open | 4 | [M2 — Explain every eligible file](kata-tasks/phase-2.md) |
-| `gtte` | open | 4 | [M3 — Interactive explainer](kata-tasks/phase-3.md) |
-| `b4cp` | open | 4 | [M4 — Git-like guide revisions](kata-tasks/phase-4.md) |
-| `48yv` | open | 4 | [M5 — Dependable first Mac release](kata-tasks/phase-5.md) |
-| `hsn3` | open | 4 | [M6 — Local PR Guide follow-up](kata-tasks/phase-6.md) |
-| `vpty` | closed | 0 | [Define the complete Code Atlas screen and interaction contract](kata-tasks/01-product-experience.md) |
-| `23eb` | closed | 0 | [Open a local repository and create a Code Atlas project](kata-tasks/03-project-selection.md) |
-| `hjv4` | closed | 0 | [Capture immutable, bounded repository snapshots](kata-tasks/04-snapshot-capture.md) |
-| `tsqk` | closed | 0 | [Track chapter coverage for every inventory path](kata-tasks/09-guide-coverage.md) |
-| `wmaj` | closed | 0 | [Add optional Gemini with exact-context consent and billing disclosure](kata-tasks/10-gemini-request-boundary.md) |
-| `a3xq` | closed | 0 | [Generate one substantive, source-grounded chapter per selected file](kata-tasks/12-file-chapter-generation.md) |
-| `h9sy` | closed | 0 | [Edit, validate, accept, or reject chapters in Chapter Studio](kata-tasks/13-chapter-studio.md) |
-| `8z8n` | closed | 0 | [Play accepted chapters as manually paced walkthrough sections](kata-tasks/16-walkthrough-player.md) |
-| `s4df` | closed | 0 | [Detect changed evidence and mark only dependent sections stale](kata-tasks/19-section-staleness.md) |
-| `t188` | closed | 0 | [Onboard users locally and recover from interrupted work](kata-tasks/23-onboarding-recovery.md) |
 | `pn1n` | closed | 1 | [Build the shared Mac shell and typed application boundary](kata-tasks/02-desktop-shell.md) |
 | `7te9` | closed | 1 | [Show every repository path and its capture disposition](kata-tasks/05-file-inventory.md) |
 | `c11x` | closed | 1 | [Build a supported-language symbol and relationship index](kata-tasks/06-symbol-index.md) |
@@ -115,8 +105,22 @@ The definitions contain the detailed contract and required closure evidence. Use
 | `129x` | closed | 1 | [Resolve calls and exports conservatively under lexical shadowing](kata-tasks/31-parser-binding-resolution.md) |
 | `tmck` | closed | 1 | [Correct identifier and explanation mismatches before publishing a workspace answer](kata-tasks/65-claim-alignment-correction.md) |
 | `xs7j` | closed | 1 | [Recover the saved Codex connection before the next queued question](kata-tasks/67-queued-connection-recovery.md) |
+| `5vw6` | closed | 1 | [Hide stale unavailable answer cards from Guide](kata-tasks/74-stale-guide-cards.md) |
+| `tp6r` | open | 1 | [Prewarm local narration while an explanation is generated](kata-tasks/75-narration-prewarm.md) |
+| `y0tq` | open | 1 | [Choose and publish the project's distribution license](kata-tasks/77-distribution-license.md) |
+| `70x5` | open | 2 | [Add local Pocket TTS narration and distinct cached audio](kata-tasks/18-optional-narration.md) |
+| `8r4j` | open | 2 | [Export an accepted interactive guide for offline reading](kata-tasks/22-offline-export.md) |
+| `a9v9` | open | 2 | [Generate focused, reviewed explanations for a local change set](kata-tasks/27-pr-guide.md) |
+| `qjm3` | open | 2 | [Define recoverable PR generation and decisions across navigation](kata-tasks/36-pr-navigation-lifecycle.md) |
+| `8gqw` | open | 2 | [Implement automatic Claude Agent generation across required operations](kata-tasks/41-claude-agent-backend.md) |
 | `k9yd` | closed | 2 | [Bound remaining local metadata and existing-object reads](kata-tasks/33-bounded-metadata.md) |
 | `bwdx` | closed | 3 | [Add an optional repository orientation chapter](kata-tasks/15-optional-overview.md) |
+| `s0tj` | open | 4 | [Code Atlas — greenfield product contract](kata-tasks/00-contract.md) |
+| `wzce` | open | 4 | [M2 — Explain every eligible file](kata-tasks/phase-2.md) |
+| `gtte` | open | 4 | [M3 — Interactive explainer](kata-tasks/phase-3.md) |
+| `b4cp` | open | 4 | [M4 — Git-like guide revisions](kata-tasks/phase-4.md) |
+| `48yv` | open | 4 | [M5 — Dependable first Mac release](kata-tasks/phase-5.md) |
+| `hsn3` | open | 4 | [M6 — Local PR Guide follow-up](kata-tasks/phase-6.md) |
 | `cnsm` | closed | 4 | [M0 — Coherent Mac product shell](kata-tasks/phase-0.md) |
 | `c92x` | closed | 4 | [M1 — Local repository truth](kata-tasks/phase-1.md) |
 

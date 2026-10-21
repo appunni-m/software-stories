@@ -71,5 +71,9 @@
   "codex-retrieval-tools": "gk46",
   "generation-timing-traces": "ps02",
   "agent-evidence-references": "yk6c",
-  "progressive-answer-sections": "3bz5"
+  "progressive-answer-sections": "3bz5",
+  "stale-guide-cards": "5vw6",
+  "narration-prewarm": "tp6r",
+  "greenfield-no-legacy": "zch9",
+  "distribution-license": "y0tq"
 }

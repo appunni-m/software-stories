@@ -6,7 +6,7 @@ The project currently runs from a source checkout; this repository does not prov
 
 The current source implements a [conversational developer workspace](docs/design/WORKSPACE_EXPLORATION.md): a left activity bar for Explorer, Search, Changes and Explorations; a pinned chat composer; captured source beside Guide / Flow / Chat history. Follow-ups stack at the current level, and **Explore further** opens a branch attached to its answer. Codex discovers supporting implementation automatically after a revocable snapshot sharing permission. Connection setup is reused from the header.
 
-The [interactive design preview](http://127.0.0.1:4173/workspace-preview.html) uses sample answers and is separate from the native application. Earlier Guide / Files / Changes screenshots and the Atlas / Code Lens / Walkthrough concept board are historical references. The [all-page audit](docs/kata-tasks/64-workspace-ui-audit.md) tracks packaged design acceptance; builds and regression checks do not establish visual quality or release readiness.
+The [interactive design preview](workspace-preview.html) uses sample answers and is separate from the native application. Run `npm run dev` from the repository root to open it at `http://127.0.0.1:4173/workspace-preview.html`. Earlier Guide / Files / Changes screenshots and the Atlas / Code Lens / Walkthrough concept board are historical references. The [all-page audit](docs/kata-tasks/64-workspace-ui-audit.md) tracks packaged design acceptance; builds and regression checks do not establish visual quality or release readiness.
 
 ## What the current source contains
 
@@ -39,7 +39,8 @@ These are capabilities under development, not a finished or released product. **
 - [Provider disclosures](docs/PROVIDER_DISCLOSURES.md) — direct APIs, the initial Codex account route, local Pocket narration, and optional Gemini speech.
 - [Chapter quality gate](docs/CHAPTER_QUALITY_GATE.md) — synthetic corpus and human-reviewed release report workflow.
 - [Kata backlog](docs/KATA_BACKLOG.md) — milestone map and issue definitions.
-- [Current pending work](docs/PENDING_WORK.md) — October 15 static fixes, remaining bugs, Pocket TTS integration and acceptance tasks.
+- [Current Kata status](docs/KATA_STATUS.md) — a dated snapshot of live issue counts, priorities, definitions, and recent acceptance evidence.
+- [Historical pending-work notes](docs/PENDING_WORK.md) — an October 15 engineering checkpoint with later dated updates; use the current Kata snapshot for issue status.
 - [Current workspace design](docs/design/WORKSPACE_EXPLORATION.md) — interaction contract, standard components, preview and implementation tasks.
 - [Earlier screen proposals](docs/design/PROPOSED_SIMPLIFICATION.md) — historical Guide / Files / Changes references.
 
