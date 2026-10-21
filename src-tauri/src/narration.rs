@@ -2744,6 +2744,45 @@ mod tests {
         assert_eq!(reopened.cache_key, first.cache_key);
         assert!(reopened.cached_audio_available);
 
+        // A new app process also starts with an empty prewarm queue. It should
+        // discover the persisted clip, report it ready, and avoid scheduling a
+        // second synthesis job.
+        let reopened_queue = NarrationPrewarmQueue::default();
+        let reopened_input = BuildNarrationReviewInput {
+            spoken_text: "Read this cached Pocket clip after restart.".into(),
+            voice: crate::pocket_tts::VOICE.into(),
+            style: String::new(),
+            lexicon: Vec::new(),
+        };
+        let status =
+            local_audio_preparation_status(&storage.0, &reopened_queue, reopened_input.clone());
+        let ProviderCommandResult::Ok { data } = status else {
+            panic!("the reopened app should find its cached Pocket clip");
+        };
+        assert_eq!(data.state, NarrationPrewarmState::Ready);
+        assert!(data.cached_audio_available);
+        assert_eq!(reopened_queue.status(&first.cache_key), None);
+
+        let prewarm = prewarm_local_audio(
+            &storage.0,
+            &reopened_reviews,
+            &reopened_queue,
+            reopened_input,
+        );
+        let ProviderCommandResult::Ok { data } = prewarm else {
+            panic!("generation should reuse the persisted Pocket clip");
+        };
+        assert_eq!(data.state, NarrationPrewarmState::Ready);
+        assert!(data.cached_audio_available);
+        let queue_state = reopened_queue
+            .0
+            .lock()
+            .expect("reopened prewarm queue should remain available");
+        assert!(queue_state.pending.is_empty());
+        assert!(!queue_state.worker_running);
+        assert!(queue_state.entries.is_empty());
+        drop(queue_state);
+
         let loaded = load_reviewed_audio(
             &storage.0,
             &reopened_reviews,
