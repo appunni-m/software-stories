@@ -504,7 +504,7 @@ pub(crate) async fn send_source_discovery(
             "selectedFiles":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["path","reason"],"properties":{"path":{"type":"string"},"reason":{"type":"string"}}}},"limitation":{"type":"string"}}});
         let source = codex_agent::CodexSourceFile { path:"repository-index.json".to_owned(), sha256:format!("{:x}",Sha256::digest(fresh.as_bytes())), contents:fresh.clone() };
         let run = codex_agent::CodexRunInput { run_id:input.review_id, expected_runtime:prepared.runtime,
-            model:prepared.input.model_id, effort:prepared.input.effort, approval_policy:"never".to_owned(),
+            model:prepared.input.model_id, effort:prepared.input.effort, run_deadline:codex_agent::RunDeadline::TenMinutes, approval_policy:"never".to_owned(),
             system_instruction:INSTRUCTION.to_owned(), user_prompt:fresh, output_schema:schema, correction_policy:crate::claim_alignment::CorrectionPolicy::Disabled, retrieval: None, sources:vec![source] };
         runtime.run_with_result(&storage, run, &prepared.review.fingerprint, Instant::now(),
             |event| { let _=app.emit("codex-agent-progress",event); },

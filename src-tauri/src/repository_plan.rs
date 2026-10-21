@@ -358,6 +358,7 @@ mod live_tests {
                     expected_runtime: manager.review_runtime(&fixture.storage)?,
                     model: "gpt-6-luna".to_owned(),
                     effort: "max".to_owned(),
+                    run_deadline: crate::codex_agent::RunDeadline::TenMinutes,
                     approval_policy: "never".to_owned(),
                     system_instruction: context.system_instruction.to_owned(),
                     user_prompt: context.user_prompt.clone(),

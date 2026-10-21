@@ -581,6 +581,22 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
 }
 
 #[test]
+fn guide_progressive_contract_has_no_wall_clock_deadline() {
+    let f = Fixture::new();
+    let input = input(&f);
+    let prompt = question_prompt(&input, &f.manifest).unwrap();
+    let deadline = RunDeadline::UserControlled;
+    let contract = generation_contract_for(&input, &prompt, &schema(), deadline).unwrap();
+    let instructions = system_instructions_for(deadline);
+    assert_eq!(contract["runDeadlinePolicy"], "user-controlled-stop-v1");
+    assert!(instructions.contains("no wall-clock deadline"));
+    assert!(instructions.contains("null budget.remaining.timeMs is intentional"));
+    assert!(instructions.contains("until every planned slide is finished or the user stops"));
+    assert!(!instructions.contains("ten-minute wall-clock deadline"));
+    assert_eq!(contract["systemInstructions"], instructions);
+}
+
+#[test]
 fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     let instructions = system_instructions();
     assert!(instructions.contains("Choose: bytes, transformations, comparisons/tables"));

@@ -19,6 +19,7 @@ impl Fixture {
             },
             model: "gpt-6-luna".into(),
             effort: "max".into(),
+            run_deadline: super::super::RunDeadline::TenMinutes,
             approval_policy: "never".into(),
             system_instruction: "Synthetic protocol fixture, no model.".into(),
             user_prompt: "Synthetic question.".into(),

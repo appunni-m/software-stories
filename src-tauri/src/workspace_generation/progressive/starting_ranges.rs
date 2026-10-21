@@ -15,6 +15,24 @@ pub(super) fn request(
     ranges: &[context::CodeRange],
     guide_intent: Option<&GuideIntent>,
 ) -> Result<(String, Value, String, String), String> {
+    request_for(
+        storage,
+        input,
+        manifest,
+        ranges,
+        guide_intent,
+        RunDeadline::TenMinutes,
+    )
+}
+
+pub(super) fn request_for(
+    storage: &Path,
+    input: &Input,
+    manifest: &snapshot::SnapshotManifest,
+    ranges: &[context::CodeRange],
+    guide_intent: Option<&GuideIntent>,
+    run_deadline: RunDeadline,
+) -> Result<(String, Value, String, String), String> {
     if let Some(intent) = guide_intent {
         intent.validate()?;
         if intent
@@ -27,8 +45,13 @@ pub(super) fn request(
     }
     if ranges.is_empty() && guide_intent.is_none() {
         // Keep an unseeded question on the same current request contract.
-        let (prompt, schema, fingerprint) = super::request(input, manifest)?;
-        return Ok((prompt, schema, fingerprint, system_instructions()));
+        let (prompt, schema, fingerprint) = super::request_for(input, manifest, run_deadline)?;
+        return Ok((
+            prompt,
+            schema,
+            fingerprint,
+            system_instructions_for(run_deadline),
+        ));
     }
     if ranges.len() > 4 {
         return Err("A guide unit may have at most four starting ranges.".into());
@@ -76,7 +99,7 @@ pub(super) fn request(
     let prompt =
         serde_json::to_string(&prompt).map_err(|_| "The question could not be encoded.")?;
     let schema = schema();
-    let mut instructions = system_instructions();
+    let mut instructions = system_instructions_for(run_deadline);
     if !ranges.is_empty() {
         instructions.push_str(&format!("\n\n{INSTRUCTIONS}"));
     }
@@ -92,7 +115,7 @@ pub(super) fn request(
             guide_intent::OPENING_CONTINUATION_INSTRUCTIONS
         ));
     }
-    let mut contract = generation_contract(input, &prompt, &schema)?;
+    let mut contract = generation_contract_for(input, &prompt, &schema, run_deadline)?;
     contract["systemInstructions"] = json!(instructions);
     if !ranges.is_empty() {
         contract["startingRangePolicy"] = json!(POLICY);
@@ -110,7 +133,7 @@ pub(super) fn request(
         .map_err(|_| "The progressive question contract could not be encoded.")?;
     // A guide carries its original question separately from the independent
     // unit/continuation question. Keep both bounded and exact. This changes no
-    // source/tool/proposal/time limits and sends no additional source bytes.
+    // source/tool/proposal/run policy and sends no additional source bytes.
     // The fingerprint also encodes the already-serialized prompt as a JSON
     // string, so quotes are escaped twice inside this bounded local contract.
     let limit = if guide_intent.is_some() {

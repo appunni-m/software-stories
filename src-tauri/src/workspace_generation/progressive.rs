@@ -2,6 +2,7 @@
 //! the final response declares unfinished topics, never replacement content.
 
 use super::*;
+use crate::codex_agent::RunDeadline;
 use crate::evidence_ledger::sections::{
     self, Outcome, SectionNotice,
     reading::{self, Summary},
@@ -30,7 +31,7 @@ A nonempty source value is an exact substring of its node's cited excerpt. Inven
 
 Published sections are immutable drafts. A proposal reply names its generationId or fixed validation findings. sectionKeyFormat at /sectionKey means use 1–80 lowercase ASCII letters/digits/hyphens only. namedIdentifier means missing/malformed backtick names or a forbidden identifiers field; namedIdentifierEvidence means the cited fragment lacks a marked whole name or grounded literal suffix from prose. Correct prose or its evidence without dropping behavior. citation means an invalid/unavailable delivered reference; copy its exact referenceId from citeable read results or reusedReferences, never shorten or compose it. sceneAuthoringShape means an invalid claim-owned scene/field; sceneAuthoringKey means duplicate, unknown or forward local keys; use unique keys and an earlier container. sceneAuthoringReference identifies a duplicate, absent or ambiguous reference; cite unique references from each claim's evidence, and fix the item while preserving the claim, supported behavior and chosen representation. sceneAuthoringLimit means a claim/evidence/visual bound; split within the original budgets while preserving every supported claim and necessary reference. sceneNarration means missing, empty or oversized narration/script; write the complete natural script for every claim and split if needed, never drop a claim. sceneRepetition means an arrow repeats input/output labels and values; give it distinct meaningful roles or grounded/illustrative values—color, wrappers, kinds or IDs do not fix it. sceneSourceValue means a source value is absent from that node's same-claim cited excerpts; use an exact excerpt value or correct evidence from already-delivered references, never borrow another node/claim or relabel a copy as illustration. sceneEvidence means a visual cites evidence outside its claim. scenePresentationLimit means the full representation exceeds its limit. Correct the complete section within original budgets; never omit supported behavior, delete claims to hide unsupported behavior, or expand budgets. Only answerSectionV6 is accepted. A changed proposal under an existing key names its exact previousGenerationId and keeps the same order; exact replays are idempotent.
 
-At most six unique sections and eight total proposals, within 64 tool calls and the ten-minute deadline. Use remainingCorrections: two shared corrections total, at most one per key; exact successful replays count as attempts, not corrections. proposalCorrectionLimit ends that key. At finishNow stop tools and return the final manifest from evidence already read. budget.remaining is conservative; budgetStop provides no new source. Do not repeat rejected requests or restart to reset limits."#;
+At most six unique sections and eight total proposals, within 64 tool calls. Use remainingCorrections: two shared corrections total, at most one per key; exact successful replays count as attempts, not corrections. proposalCorrectionLimit ends that key. At finishNow stop tools and return the final manifest from evidence already read. budget.remaining is conservative; budgetStop provides no new source. Do not repeat rejected requests or restart to reset limits."#;
 
 const MANIFEST_INSTRUCTIONS: &str = r#"Answer the requested scope; missing unrequested callers or downstream systems is not an incomplete topic. Finish only with the supplied answerManifestV2 JSON schema: {manifestVersion:"answerManifestV2",incompleteTopics:[...]}. The app retains every latest published section automatically, in its native publication order. Do not copy sectionKey or generationId into the final response or select a subset of sections. incompleteTopics names concrete requested boundaries you could not investigate. Rejected work is not completed work. Do not put explanations, source quotations, paths or new content in the final response. A final manifest cannot publish, remove or replace a section. No Markdown fences or extra fields."#;
 
@@ -48,7 +49,22 @@ const REFERENCE_REPAIR_INSTRUCTIONS: &str = "sceneAuthoringReference identifies 
 const CHAPTER_VALIDATION_FEEDBACK_INSTRUCTIONS: &str = "chapter... findings are fixed native chapter-validator categories; issue messages and source paths are withheld. Correct a chapterInvalidVisual or chapterInvalidClaim in this section without dropping its supported behavior. chapterWrongSnapshot, chapterHashMismatch, chapterIndexUnavailable and chapterSourceUnavailable indicate snapshot/integrity boundaries: do not change citations to evade them; stop retrying that section and state the boundary in incompleteTopics. Correct chapterMissingPath, chapterRangeMismatch, chapterExcerptMismatch, chapterAmbiguousRemap, chapterMissingSymbol and chapterInvalidDependency only against references already delivered; do not broaden files or invent evidence. Other chapter... codes identify their named validator category. A generic sectionValidation means no safe category was available; do not repeat the same proposal.";
 
 fn system_instructions() -> String {
-    instructions_for_role(ANSWER_ROLE, MANIFEST_INSTRUCTIONS)
+    system_instructions_for(RunDeadline::TenMinutes)
+}
+
+fn system_instructions_for(run_deadline: RunDeadline) -> String {
+    let run_policy = match run_deadline {
+        RunDeadline::TenMinutes => {
+            "This operation has a ten-minute wall-clock deadline. Finish within the supplied resource budget."
+        }
+        RunDeadline::UserControlled => {
+            "This repository guide has no wall-clock deadline. A null budget.remaining.timeMs is intentional. Keep researching and publishing complete slides until every planned slide is finished or the user stops the guide. Fixed source, call, proposal and storage limits still apply."
+        }
+    };
+    format!(
+        "{}\n\n{run_policy}",
+        instructions_for_role(ANSWER_ROLE, MANIFEST_INSTRUCTIONS)
+    )
 }
 
 /// Share the same evidence, scene and narration rules with the guide opener.
@@ -68,6 +84,15 @@ pub(crate) fn schema() -> Value {
 }
 
 fn generation_contract(input: &Input, prompt: &str, schema: &Value) -> Result<Value, String> {
+    generation_contract_for(input, prompt, schema, RunDeadline::TenMinutes)
+}
+
+fn generation_contract_for(
+    input: &Input,
+    prompt: &str,
+    schema: &Value,
+    run_deadline: RunDeadline,
+) -> Result<Value, String> {
     let tools = context_mcp::tools()
         .into_iter()
         .map(|t| {
@@ -80,7 +105,8 @@ fn generation_contract(input: &Input, prompt: &str, schema: &Value) -> Result<Va
         "runId":input.run_id,"projectId":input.project_id,"snapshotId":input.snapshot_id,
         "grantId":input.grant_id,"model":input.model_id,"effort":input.effort,
         "baseInstructions":agent_context::PROGRESSIVE_BASE_INSTRUCTIONS,
-        "systemInstructions":system_instructions(),"prompt":prompt,"outputSchema":schema,"tools":tools,
+        "systemInstructions":system_instructions_for(run_deadline),"prompt":prompt,"outputSchema":schema,"tools":tools,
+        "runDeadlinePolicy":match run_deadline { RunDeadline::TenMinutes => "ten-minutes-v1", RunDeadline::UserControlled => "user-controlled-stop-v1" },
         "policy":crate::evidence_ledger::POLICY,"sectionAttempts":8,"uniqueSections":6,
         "claimAlignmentPolicy":"whole-section-validation-no-final-rewrite-v1",
         "publicationOrderPolicy":"investigation-local-next-order-v1",
@@ -97,10 +123,23 @@ fn request(
     input: &Input,
     manifest: &snapshot::SnapshotManifest,
 ) -> Result<(String, Value, String), String> {
+    request_for(input, manifest, RunDeadline::TenMinutes)
+}
+
+fn request_for(
+    input: &Input,
+    manifest: &snapshot::SnapshotManifest,
+    run_deadline: RunDeadline,
+) -> Result<(String, Value, String), String> {
     let prompt = question_prompt(input, manifest)?;
     let schema = schema();
-    let contract = serde_json::to_vec(&generation_contract(input, &prompt, &schema)?)
-        .map_err(|_| "The progressive question contract could not be encoded.")?;
+    let contract = serde_json::to_vec(&generation_contract_for(
+        input,
+        &prompt,
+        &schema,
+        run_deadline,
+    )?)
+    .map_err(|_| "The progressive question contract could not be encoded.")?;
     if contract.len() > INITIAL_REQUEST_LIMIT_BYTES {
         return Err(format!(
             "The question and references use {} bytes, exceeding the {}-byte initial request limit.",
@@ -206,8 +245,19 @@ pub(crate) fn run_with_starting_ranges(
     let _worker = manager.hold_answer_worker(&input.run_id)?;
     let manifest =
         snapshot::load_snapshot_manifest(storage, &input.project_id, &input.snapshot_id)?;
-    let (prompt, schema, fingerprint, instructions) =
-        starting_ranges::request(storage, &input, &manifest, ranges, guide_intent)?;
+    let run_deadline = if guide_intent.is_some() {
+        RunDeadline::UserControlled
+    } else {
+        RunDeadline::TenMinutes
+    };
+    let (prompt, schema, fingerprint, instructions) = starting_ranges::request_for(
+        storage,
+        &input,
+        &manifest,
+        ranges,
+        guide_intent,
+        run_deadline,
+    )?;
     let runtime = manager.review_runtime(storage)?;
     workspace::check_retrieval_grant(
         storage,
@@ -228,6 +278,7 @@ pub(crate) fn run_with_starting_ranges(
             &fingerprint,
             &input.model_id,
             &input.effort,
+            run_deadline,
             notify,
         )?
     } else {
@@ -242,6 +293,7 @@ pub(crate) fn run_with_starting_ranges(
             &fingerprint,
             &input.model_id,
             &input.effort,
+            run_deadline,
             notify,
         )?
     }));
@@ -264,6 +316,7 @@ pub(crate) fn run_with_starting_ranges(
             expected_runtime: runtime.clone(),
             model: input.model_id.clone(),
             effort: input.effort.clone(),
+            run_deadline,
             approval_policy: "never".into(),
             system_instruction: instructions,
             user_prompt: prompt,

@@ -145,13 +145,16 @@ pub(super) fn request(job: &Record) -> Result<(String, Value, String, String), S
         "guideContext":{"guideId":job.id,"question":job.question,"openingQuestion":opening::LEARNING_QUESTION}}))
         .map_err(|_| "The guide question could not be encoded.")?;
     let schema = schema();
-    let instructions = format!("{PLAN_INSTRUCTIONS}\n{RESEARCH_INSTRUCTIONS}");
+    let instructions = format!(
+        "{PLAN_INSTRUCTIONS}\n{RESEARCH_INSTRUCTIONS}\nThis repository guide has no wall-clock deadline. Continue researching the outline until it is complete or the user stops the guide. Native source and call limits still apply."
+    );
     let contract = json!({"contractVersion":job.contract,
         "runId":job.planning_run_id,"guideId":job.id,"grantId":job.grant_id,"manifestSha256":job.manifest_sha256,
         "instructions":instructions,"prompt":prompt,"schema":schema,"tools":context_mcp::research_tools(),
         "operationPolicy":"repository-guide-plan-only-v1",
         "model":job.model_id,"effort":job.reasoning_effort,"maxUnits":MAX_UNITS,
         "unitResearchPolicy":RESEARCH_POLICY,"openingIntentSha256":job.opening_context_sha256,
+        "runDeadlinePolicy":"user-controlled-stop-v1",
         "sourcePolicy":crate::evidence_ledger::POLICY,"baseInstructions":agent_context::RESEARCH_BASE_INSTRUCTIONS});
     let contract =
         serde_json::to_vec(&contract).map_err(|_| "The guide contract could not be encoded.")?;
@@ -241,6 +244,7 @@ pub(super) fn run(
             expected_runtime: runtime.clone(),
             model: job.model_id.clone(),
             effort: job.reasoning_effort.clone(),
+            run_deadline: crate::codex_agent::RunDeadline::UserControlled,
             approval_policy: "never".into(),
             system_instruction: instructions,
             user_prompt: prompt,

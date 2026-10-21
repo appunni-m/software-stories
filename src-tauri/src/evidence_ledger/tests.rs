@@ -21,6 +21,15 @@ fn setup_with_model(
     model: &str,
     effort: &str,
 ) -> (Ledger, CodexReviewRuntime, AtomicBool) {
+    setup_with_deadline(f, model, effort, codex_agent::RunDeadline::TenMinutes)
+}
+
+fn setup_with_deadline(
+    f: &Fixture,
+    model: &str,
+    effort: &str,
+    run_deadline: codex_agent::RunDeadline,
+) -> (Ledger, CodexReviewRuntime, AtomicBool) {
     let runtime = runtime();
     let grant = workspace::save_retrieval_grant(
         &f.storage,
@@ -29,7 +38,7 @@ fn setup_with_model(
         &runtime,
     )
     .unwrap();
-    let ledger = Ledger::new_progressive(
+    let ledger = Ledger::new_progressive_with_deadline(
         &f.storage,
         &Uuid::new_v4().to_string(),
         &f.manifest,
@@ -37,6 +46,7 @@ fn setup_with_model(
         &runtime,
         model,
         effort,
+        run_deadline,
     )
     .unwrap();
     (ledger, runtime, AtomicBool::new(false))
@@ -279,7 +289,7 @@ fn comfortable_response_budget() -> ResponseBudget {
             metadata_bytes: 16_000,
             wire_bytes: MAX_WIRE,
             fragments: MAX_FRAGMENTS,
-            time_ms: FINALIZATION_TIME_RESERVE.as_millis() as u64,
+            time_ms: Some(FINALIZATION_TIME_RESERVE.as_millis() as u64),
         },
         feedback_bytes_reserved: 0,
         finish_now: false,
@@ -296,8 +306,26 @@ fn finish_now_preserves_six_calls_or_sixty_seconds_for_final_manifest() {
     assert!(requires_finalization_now(false, &calls_reserved));
 
     let mut time_reserved = comfortable_response_budget();
-    time_reserved.remaining.time_ms = FINALIZATION_TIME_RESERVE.as_millis() as u64 - 1;
+    time_reserved.remaining.time_ms = Some(FINALIZATION_TIME_RESERVE.as_millis() as u64 - 1);
     assert!(requires_finalization_now(false, &time_reserved));
 
     assert!(requires_finalization_now(true, &budget));
+
+    let mut no_deadline = comfortable_response_budget();
+    no_deadline.remaining.time_ms = None;
+    assert!(!requires_finalization_now(false, &no_deadline));
+}
+
+#[test]
+fn user_controlled_guide_ledger_keeps_running_past_ten_minutes() {
+    let f = Fixture::new();
+    let (mut ledger, runtime, cancelled) = setup_with_deadline(
+        &f,
+        "gpt-6-luna",
+        "max",
+        codex_agent::RunDeadline::UserControlled,
+    );
+    ledger.context_started = Instant::now() - Duration::from_secs(11 * 60);
+    assert_eq!(ledger.response_budget().remaining.time_ms, None);
+    ledger.check(&f.manifest, &runtime, &cancelled).unwrap();
 }

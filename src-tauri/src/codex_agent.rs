@@ -103,6 +103,9 @@ pub(crate) struct CodexRunInput {
     pub expected_runtime: CodexReviewRuntime,
     pub model: String,
     pub effort: String,
+    /// Guide investigations run until complete or explicitly stopped. Other
+    /// one-shot operations keep the normal wall-clock guard.
+    pub run_deadline: RunDeadline,
     pub approval_policy: String,
     pub system_instruction: String,
     pub user_prompt: String,
@@ -112,6 +115,26 @@ pub(crate) struct CodexRunInput {
     /// Owned native tools for investigations; fixed-source operations omit them.
     pub retrieval: Option<Arc<Mutex<crate::agent_context::Session>>>,
     pub sources: Vec<CodexSourceFile>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum RunDeadline {
+    TenMinutes,
+    UserControlled,
+}
+
+impl RunDeadline {
+    pub(crate) fn duration(self) -> Option<Duration> {
+        match self {
+            Self::TenMinutes => Some(RUN_TIMEOUT),
+            Self::UserControlled => None,
+        }
+    }
+
+    pub(crate) fn exceeded(self, started_at: Instant) -> bool {
+        self.duration()
+            .is_some_and(|duration| started_at.elapsed() >= duration)
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -136,7 +159,8 @@ pub(crate) struct CodexRunResult {
 }
 
 /// Available only inside the manager-owned result callback. It cannot start
-/// another run or renew review admission; cancellation/deadline still apply.
+/// another run or renew review admission; cancellation and the selected run
+/// policy still apply.
 pub(crate) struct CodexResultAccess<'a> {
     run_id: &'a str,
     fingerprint: &'a str,
@@ -144,6 +168,7 @@ pub(crate) struct CodexResultAccess<'a> {
     shutdown: &'a AtomicBool,
     cancelled: &'a AtomicBool,
     started_at: Instant,
+    run_deadline: RunDeadline,
 }
 
 impl CodexResultAccess<'_> {
@@ -168,7 +193,7 @@ impl CodexResultAccess<'_> {
             return Err("The Codex result belongs to a different reviewed operation. Prepare a fresh review.".to_owned());
         }
         check_cancelled(self.shutdown, Some(self.cancelled))?;
-        if self.started_at.elapsed() >= RUN_TIMEOUT {
+        if self.run_deadline.exceeded(self.started_at) {
             return Err("The Codex operation exceeded ten minutes, including result validation. No late response was published.".to_owned());
         }
         Ok(())
@@ -207,7 +232,7 @@ impl Drop for AnswerWorker {
 }
 
 /// Native-only publication authority installed after an active run is owned.
-/// Cloning it never extends the run's deadline or allows a saved run to resume.
+/// Cloning it never changes the run policy or allows a saved run to resume.
 #[derive(Clone)]
 pub(crate) struct SectionPublicationOwner {
     inner: Arc<ManagerInner>,
@@ -216,6 +241,7 @@ pub(crate) struct SectionPublicationOwner {
     runtime: CodexReviewRuntime,
     cancelled: Arc<AtomicBool>,
     started_at: Instant,
+    run_deadline: RunDeadline,
 }
 
 impl SectionPublicationOwner {
@@ -257,6 +283,7 @@ impl SectionPublicationOwner {
             shutdown: &self.inner.shutdown,
             cancelled: &self.cancelled,
             started_at: self.started_at,
+            run_deadline: self.run_deadline,
         };
         access.check_review(run_id, fingerprint, &self.runtime.executable_path)?;
         if !active.as_ref().is_some_and(|run| {
@@ -268,7 +295,7 @@ impl SectionPublicationOwner {
             );
         }
         let result = publish()?;
-        // A write may finish after a deadline or shutdown. Preserve it for
+        // A write may finish after cancellation or shutdown. Preserve it for
         // inspection, but never announce a successful late publication.
         access.check_review(run_id, fingerprint, &self.runtime.executable_path)?;
         Ok(result)
@@ -306,6 +333,7 @@ pub(crate) fn section_owner_for_test(
         runtime: runtime.clone(),
         cancelled: Arc::clone(&cancelled),
         started_at: Instant::now(),
+        run_deadline: RunDeadline::TenMinutes,
     };
     (manager, owner, cancelled)
 }
@@ -732,7 +760,7 @@ impl CodexAgentManager {
         ));
         let result = (|| {
             check_cancelled(&self.0.shutdown, Some(&cancelled))?;
-            if started_at.elapsed() >= RUN_TIMEOUT {
+            if input.run_deadline.exceeded(started_at) {
                 return Err(
                     "The Codex operation exceeded ten minutes before dispatch. Prepare a fresh review."
                         .to_owned(),
@@ -773,6 +801,7 @@ impl CodexAgentManager {
                         runtime: input.expected_runtime.clone(),
                         cancelled: Arc::clone(&cancelled),
                         started_at,
+                        run_deadline: input.run_deadline,
                     })?;
             }
             let response = process.generate(
@@ -807,6 +836,7 @@ impl CodexAgentManager {
             shutdown: &self.0.shutdown,
             cancelled: &cancelled,
             started_at,
+            run_deadline: input.run_deadline,
         };
         let finalized = (|| {
             access.check_review(
@@ -840,7 +870,7 @@ impl CodexAgentManager {
             active.take();
             Ok(published)
         })();
-        // Runtime errors and cancellation/deadline failures during validation
+        // Runtime errors and cancellation/run-limit failures during validation
         // leave no reusable process or stale event queue for the next request.
         if finalized.is_err() {
             slot.take();
@@ -1334,7 +1364,7 @@ impl ServerProcess {
         F: Fn(CodexProgress),
     {
         check_cancelled(&self.shutdown, Some(cancelled))?;
-        if started_at.elapsed() >= RUN_TIMEOUT {
+        if input.run_deadline.exceeded(started_at) {
             return Err("The Codex operation exceeded ten minutes before creating a thread. No generation was started.".to_owned());
         }
         let mut parameters = thread_start_parameters(
@@ -1463,7 +1493,7 @@ impl ServerProcess {
     }
 
     /// A correction uses the same ephemeral thread, model, schema, staged
-    /// evidence, cancellation owner and original ten-minute deadline.
+    /// evidence, cancellation owner and original run policy.
     fn generate_turn<F>(
         &mut self,
         input: &CodexRunInput,
@@ -1480,7 +1510,7 @@ impl ServerProcess {
         F: Fn(CodexProgress),
     {
         check_cancelled(&self.shutdown, Some(cancelled))?;
-        if started_at.elapsed() >= RUN_TIMEOUT {
+        if input.run_deadline.exceeded(started_at) {
             return Err("The Codex operation exceeded ten minutes before starting the model turn. No generation was started.".to_owned());
         }
         if self.account_revision != input.expected_runtime.account_revision {
@@ -1512,7 +1542,7 @@ impl ServerProcess {
             if self.shutdown.load(Ordering::Acquire) {
                 return Err("Codex stopped because Code Atlas is closing.".to_owned());
             }
-            if started_at.elapsed() >= RUN_TIMEOUT {
+            if input.run_deadline.exceeded(started_at) {
                 return Err("The Codex run exceeded ten minutes and was stopped. Review again before retrying.".to_owned());
             }
             if cancelled.load(Ordering::Acquire) && cancel_at.is_none() {
@@ -1538,7 +1568,7 @@ impl ServerProcess {
                     .map_err(|_| "Captured-code tools are unavailable.")?
                     .poll(cancelled, || {
                         check_cancelled(&self.shutdown, Some(cancelled))?;
-                        if started_at.elapsed() >= RUN_TIMEOUT
+                        if input.run_deadline.exceeded(started_at)
                             || epoch.load(Ordering::Acquire) != expected_epoch
                             || executable_digest(&self.executable, &self.shutdown, Some(cancelled))?
                                 != input.expected_runtime.executable_sha256
@@ -2986,6 +3016,7 @@ mod section_publication_tests {
                 expected_runtime: runtime(),
                 model: "gpt-6-luna".into(),
                 effort: "max".into(),
+                run_deadline: RunDeadline::TenMinutes,
                 approval_policy: "never".into(),
                 system_instruction: "Synthetic cancellation test; no inference.".into(),
                 user_prompt: "Explain the synthetic constant.".into(),
@@ -3077,6 +3108,31 @@ mod section_publication_tests {
             );
             assert!(!invoked.load(Ordering::Acquire), "{change}");
         }
+    }
+
+    #[test]
+    fn guide_run_has_no_wall_clock_deadline_but_standard_run_keeps_its_guard() {
+        let started_at = Instant::now() - Duration::from_secs(11 * 60);
+        assert!(RunDeadline::TenMinutes.exceeded(started_at));
+        assert!(!RunDeadline::UserControlled.exceeded(started_at));
+        assert_eq!(RunDeadline::UserControlled.duration(), None);
+    }
+
+    #[test]
+    fn guide_section_publication_remains_owned_after_ten_minutes() {
+        let id = Uuid::new_v4().to_string();
+        let fingerprint = "d".repeat(64);
+        let (_manager, mut owner, _) = section_owner_for_test(&id, &fingerprint, &runtime());
+        owner.run_deadline = RunDeadline::UserControlled;
+        owner.started_at = Instant::now() - Duration::from_secs(11 * 60);
+        let mut published = false;
+        owner
+            .publish(&id, &fingerprint, || {
+                published = true;
+                Ok(())
+            })
+            .unwrap();
+        assert!(published);
     }
     #[test]
     fn publication_rechecks_the_deadline_after_the_durable_action_and_permission_changes_share_its_lock()

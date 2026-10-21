@@ -1228,7 +1228,6 @@ impl ActiveAnswer {
     ) -> Result<(), String> {
         let _guard = STORE.lock().map_err(|_| "Answer storage is unavailable.")?;
         if self.value.outcome != Outcome::Working
-            || elapsed > 600_000
             || read_bytes(&self.path)? != encode_answer(&self.value)?
         {
             return Err("The section publication observation could not be saved.".into());
@@ -1474,10 +1473,6 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
             || section.checkpoint_sha256 != context::digest(&encode(checkpoint)?)
             || !valid_key(&section.key)
             || section.order >= MAX_SECTIONS
-            || section.published_elapsed_ms > MAX_CONTEXT_ELAPSED_MS
-            || section
-                .published_run_elapsed_ms
-                .is_some_and(|ms| ms > 600_000)
             || prior.map(|s| s.preview.generation_id.as_str()) != section.supersedes.as_deref()
             || prior.map_or(section.order != expected_order, |p| {
                 p.order != section.order

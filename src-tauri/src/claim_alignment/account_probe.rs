@@ -82,6 +82,7 @@ fn installed_codex_repairs_a_leaf_parent_once() {
                 expected_runtime: runtime,
                 model: "gpt-6-luna".into(),
                 effort: "max".into(),
+                run_deadline: crate::codex_agent::RunDeadline::TenMinutes,
                 approval_policy: "never".into(),
                 system_instruction: system.into(),
                 user_prompt: prompt.clone(),

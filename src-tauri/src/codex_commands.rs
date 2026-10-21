@@ -822,6 +822,7 @@ async fn prepare_codex_operation(
             .as_str()
             .unwrap_or("")
             .to_owned(),
+        run_deadline: codex_agent::RunDeadline::TenMinutes,
         approval_policy: review.generation_config["approvalPolicy"]
             .as_str()
             .unwrap_or("")

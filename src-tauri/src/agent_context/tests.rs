@@ -82,6 +82,7 @@ fn session_with_model(f: &Fixture, model: &str, effort: &str) -> (Session, Strin
         &fingerprint,
         model,
         effort,
+        crate::codex_agent::RunDeadline::TenMinutes,
         Arc::new(|_| {}),
     )
     .unwrap();
@@ -642,6 +643,7 @@ fn progressive_proposals_publish_before_the_reply_and_keep_sections_after_a_late
         &fingerprint,
         "gpt-6-luna",
         "max",
+        crate::codex_agent::RunDeadline::TenMinutes,
         Arc::new(move |notice| {
             // The callback can independently inspect an already durable section;
             // it is never given an uncommitted preview or raw source payload.

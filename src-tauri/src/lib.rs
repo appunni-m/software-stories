@@ -2441,6 +2441,7 @@ mod chapter_pipeline_tests {
                 expected_runtime: runtime,
                 model: "gpt-6-luna".into(),
                 effort: "max".into(),
+                run_deadline: crate::codex_agent::RunDeadline::TenMinutes,
                 approval_policy: "never".into(),
                 system_instruction: review.system_instruction.clone(),
                 user_prompt: review.user_prompt.clone(),

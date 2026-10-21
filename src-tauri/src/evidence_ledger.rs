@@ -30,10 +30,6 @@ const MAX_WIRE: usize = 1_000_000;
 const MAX_RESPONSE: usize = 128_000;
 const MAX_FRAGMENTS: usize = crate::native_citations::MAX_REFERENCES;
 const MAX_JOURNAL: usize = 1_000_000;
-const DEADLINE: Duration = Duration::from_secs(600);
-// An operation has a ten-minute deadline. Permit slow teardown beyond that
-// deadline, while refusing corrupt diagnostic offsets on inspection.
-const MAX_CONTEXT_ELAPSED_MS: u64 = 86_400_000;
 // Keep enough metadata/wire room to answer every remaining admitted call with
 // a source-free limit notice, even if several calls were already in flight.
 const MAX_LIMIT_NOTICE: usize = 1536;
@@ -59,7 +55,7 @@ struct RemainingBudget {
     metadata_bytes: usize,
     wire_bytes: usize,
     fragments: usize,
-    time_ms: u64,
+    time_ms: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -77,7 +73,10 @@ fn requires_finalization_now(budget_stop: bool, budget: &ResponseBudget) -> bool
         || budget.remaining.calls <= FINALIZATION_CALL_RESERVE
         || budget.remaining.metadata_bytes < 16_000
         || budget.remaining.source_bytes < 4_000
-        || budget.remaining.time_ms < FINALIZATION_TIME_RESERVE.as_millis() as u64
+        || budget
+            .remaining
+            .time_ms
+            .is_some_and(|time_ms| time_ms < FINALIZATION_TIME_RESERVE.as_millis() as u64)
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -330,7 +329,7 @@ pub(crate) struct Ledger {
     storage: PathBuf,
     path: PathBuf,
     record: Record,
-    deadline: Instant,
+    deadline: Option<Instant>,
     context_started: Instant,
 }
 
@@ -439,6 +438,28 @@ impl Ledger {
         model: &str,
         effort: &str,
     ) -> Result<Self, String> {
+        Self::new_progressive_with_deadline(
+            storage,
+            operation_id,
+            manifest,
+            grant_id,
+            runtime,
+            model,
+            effort,
+            codex_agent::RunDeadline::TenMinutes,
+        )
+    }
+
+    pub(crate) fn new_progressive_with_deadline(
+        storage: &Path,
+        operation_id: &str,
+        manifest: &snapshot::SnapshotManifest,
+        grant_id: &str,
+        runtime: &CodexReviewRuntime,
+        model: &str,
+        effort: &str,
+        run_deadline: codex_agent::RunDeadline,
+    ) -> Result<Self, String> {
         let path = path(storage, operation_id)?;
         if !runtime.valid_shape() || !valid_model_effort(model, effort) {
             return Err("The selected model or reasoning effort is invalid.".to_owned());
@@ -485,7 +506,9 @@ impl Ledger {
             storage: storage.to_owned(),
             path,
             record,
-            deadline: context_started + DEADLINE,
+            deadline: run_deadline
+                .duration()
+                .map(|duration| context_started + duration),
             context_started,
         })
     }
@@ -499,7 +522,10 @@ impl Ledger {
         if cancelled.load(Ordering::Acquire) || self.record.status != Status::Active {
             return Err("This evidence operation has stopped.".to_owned());
         }
-        if Instant::now() >= self.deadline {
+        if self
+            .deadline
+            .is_some_and(|deadline| Instant::now() >= deadline)
+        {
             return Err("This evidence operation reached its time limit.".to_owned());
         }
         if runtime != &self.record.binding.runtime
@@ -654,11 +680,12 @@ impl Ledger {
                     .saturating_sub(reserved),
                 wire_bytes: MAX_WIRE.saturating_sub(wire).saturating_sub(reserved),
                 fragments: MAX_FRAGMENTS.saturating_sub(self.record.evidence.len()),
-                time_ms: self
-                    .deadline
-                    .saturating_duration_since(Instant::now())
-                    .as_millis()
-                    .min(u64::MAX as u128) as u64,
+                time_ms: self.deadline.map(|deadline| {
+                    deadline
+                        .saturating_duration_since(Instant::now())
+                        .as_millis()
+                        .min(u64::MAX as u128) as u64
+                }),
             },
             feedback_bytes_reserved: reserved,
             finish_now: false,
@@ -1250,14 +1277,6 @@ fn valid_context_timings(record: &Record) -> bool {
     for call in &record.calls {
         let timing = &call.timing;
         if timing.started_ms < prior_finish
-            || [
-                Some(timing.started_ms),
-                timing.prepared_ms,
-                timing.finished_ms,
-            ]
-            .into_iter()
-            .flatten()
-            .any(|elapsed| elapsed > MAX_CONTEXT_ELAPSED_MS)
             || timing
                 .prepared_ms
                 .is_some_and(|prepared| prepared < timing.started_ms)

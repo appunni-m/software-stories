@@ -244,8 +244,12 @@ fn guide_slide_jobs_can_publish_one_section_and_safely_reject_a_second() {
         )
         .unwrap();
     assert!(prepared.findings.is_empty());
+    let generation_id = prepared.generation_id.clone().unwrap();
     answer
         .commit(&ledger, prepared, &f.manifest, &runtime, &cancel)
+        .unwrap();
+    answer
+        .record_publication_time(&generation_id, 11 * 60 * 1000)
         .unwrap();
     assert_eq!(answer.next_new_section_order_with_limit(1), None);
 
