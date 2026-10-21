@@ -23,6 +23,12 @@ use std::os::unix::{fs::PermissionsExt, process::CommandExt};
 
 pub(crate) const PACKAGE_VERSION: &str = "3.3.0";
 pub(crate) const PYTHON_VERSION: &str = "3.13.14";
+const UV_VERSION: &str = "0.13.4";
+const UV_ARCHIVE_URL: &str =
+    "https://releases.astral.sh/github/uv/releases/download/0.13.4/uv-aarch64-apple-darwin.tar.gz";
+const UV_ARCHIVE_SHA256: &str = "e0b1d4743ce64c55d9f0f4a444afa6b81125680070ee04e853fcd0f6c1ebf8f1";
+const UV_ARCHIVE_LIMIT: usize = 20 * 1024 * 1024;
+const UV_BINARY_LIMIT: usize = 64 * 1024 * 1024;
 pub(crate) const MODEL_ID: &str = "pocket-tts-3.3.0:english_2026-09:e7205b6e:alba:4e1e0a3e:pcm-v1";
 pub(crate) const VOICE: &str = "alba";
 const WORKER: &str = include_str!("../resources/pocket_tts_worker.py");
@@ -77,6 +83,15 @@ struct AssetManifest {
     sha256: String,
 }
 
+#[derive(Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UvRuntimeManifest {
+    version: String,
+    archive_sha256: String,
+    binary_size: u64,
+    binary_sha256: String,
+}
+
 fn root(storage: &Path) -> PathBuf {
     storage.join("pocket-tts").join("runtime-3.3.0-v1")
 }
@@ -101,26 +116,41 @@ fn supported_platform() -> bool {
     cfg!(all(target_os = "macos", target_arch = "aarch64"))
 }
 
-fn installer() -> Option<PathBuf> {
-    let mut candidates = vec![
-        PathBuf::from("/opt/homebrew/bin/uv"),
-        PathBuf::from("/usr/local/bin/uv"),
-    ];
-    if let Some(home) = std::env::var_os("HOME") {
-        candidates.push(PathBuf::from(home).join(".local/bin/uv"));
+fn uv_tool_dir(runtime: &Path) -> PathBuf {
+    runtime.join("tooling").join(format!("uv-{UV_VERSION}"))
+}
+
+fn verified_uv(runtime: &Path) -> Option<PathBuf> {
+    let directory = uv_tool_dir(runtime);
+    if !fs::symlink_metadata(&directory)
+        .ok()?
+        .file_type()
+        .is_dir()
+    {
+        return None;
     }
-    candidates.into_iter().find(|path| {
-        fs::metadata(path).is_ok_and(|metadata| {
-            #[cfg(unix)]
-            {
-                metadata.is_file() && metadata.permissions().mode() & 0o111 != 0
-            }
-            #[cfg(not(unix))]
-            {
-                metadata.is_file()
-            }
-        })
-    })
+    let manifest_bytes = bounded_read(&directory.join("manifest.json"), 4 * 1024)?;
+    let manifest = serde_json::from_slice::<UvRuntimeManifest>(&manifest_bytes).ok()?;
+    if manifest.version != UV_VERSION || manifest.archive_sha256 != UV_ARCHIVE_SHA256 {
+        return None;
+    }
+    let binary = directory.join("uv");
+    let metadata = fs::symlink_metadata(&binary).ok()?;
+    if !metadata.file_type().is_file()
+        || metadata.len() == 0
+        || metadata.len() > UV_BINARY_LIMIT as u64
+    {
+        return None;
+    }
+    #[cfg(unix)]
+    if metadata.permissions().mode() & 0o111 == 0 {
+        return None;
+    }
+    let bytes = bounded_read(&binary, UV_BINARY_LIMIT)?;
+    if bytes.len() as u64 != manifest.binary_size || sha256_hex(&bytes) != manifest.binary_sha256 {
+        return None;
+    }
+    Some(binary)
 }
 
 fn installed(root: &Path) -> bool {
@@ -160,11 +190,12 @@ pub(crate) fn status(storage: &Path) -> PocketTtsStatus {
     let ready = supported_platform && installed(&root(storage));
     let busy = BUSY.load(Ordering::Acquire);
     let phase = PHASE.lock().map(|phase| *phase).unwrap_or("unavailable");
-    let setup_available = supported_platform && installer().is_some();
+    let setup_available = supported_platform;
     let message = if !supported_platform {
         "Pocket TTS setup currently targets Apple Silicon Macs. This runtime is unavailable on this platform."
     } else if busy {
         match phase {
+            "tool" => "Preparing the verified Pocket TTS setup tool…",
             "python" => "Preparing the app's Python runtime…",
             "packages" => "Downloading and installing Pocket TTS dependencies…",
             "model" => {
@@ -176,9 +207,9 @@ pub(crate) fn status(storage: &Path) -> PocketTtsStatus {
     } else if ready {
         "Pocket TTS is installed. English narration uses the local Alba voice with no API key."
     } else if setup_available {
-        "Set up Pocket TTS once to download Python, dependencies, the English model and Alba voice into app storage. Generation then uses local files."
+        "Set up Pocket TTS once to download its verified setup tool, Python, dependencies, English model and Alba voice into app storage. Generation then uses local files."
     } else {
-        "Install uv from docs.astral.sh/uv/getting-started/installation/ into its default location, then retry setup. The packaged app does not yet bundle this prerequisite."
+        "Pocket TTS setup currently targets Apple Silicon Macs. This runtime is unavailable on this platform."
     };
     PocketTtsStatus {
         ready,
@@ -337,10 +368,14 @@ impl Drop for OutputCleanup {
         let _ = fs::remove_file(&self.0);
     }
 }
+struct DirectoryCleanup(PathBuf);
+impl Drop for DirectoryCleanup {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
 
 fn setup_blocking(runtime: &Path, cancelled: &AtomicBool) -> Result<(), ProviderFailure> {
-    let uv = installer().ok_or_else(|| failure(ProviderFailureKind::UnavailableModel,
-        "Pocket TTS setup needs uv. Install it from docs.astral.sh/uv/getting-started/installation/ in its default location, then retry."))?;
     fs::create_dir_all(runtime).map_err(|_| storage_failure())?;
     #[cfg(unix)]
     fs::set_permissions(runtime, fs::Permissions::from_mode(0o700))
@@ -348,6 +383,7 @@ fn setup_blocking(runtime: &Path, cancelled: &AtomicBool) -> Result<(), Provider
     for directory in ["tmp", "uv-cache", "python", "huggingface", "cache"] {
         fs::create_dir_all(runtime.join(directory)).map_err(|_| storage_failure())?;
     }
+    let uv = ensure_uv(runtime, cancelled)?;
     let _ = fs::remove_file(runtime.join("ready.json"));
     write_worker(runtime)?;
     set_phase("python");
@@ -400,6 +436,145 @@ fn setup_blocking(runtime: &Path, cancelled: &AtomicBool) -> Result<(), Provider
 
 fn write_worker(runtime: &Path) -> Result<(), ProviderFailure> {
     fs::write(runtime.join("worker.py"), WORKER).map_err(|_| storage_failure())
+}
+
+fn ensure_uv(runtime: &Path, cancelled: &AtomicBool) -> Result<PathBuf, ProviderFailure> {
+    if let Some(binary) = verified_uv(runtime) {
+        return Ok(binary);
+    }
+
+    set_phase("tool");
+    let tooling = runtime.join("tooling");
+    fs::create_dir_all(&tooling).map_err(|_| storage_failure())?;
+    #[cfg(unix)]
+    fs::set_permissions(&tooling, fs::Permissions::from_mode(0o700))
+        .map_err(|_| storage_failure())?;
+
+    let archive = runtime
+        .join("tmp")
+        .join(format!("uv-{UV_VERSION}-{}.tar.gz", uuid::Uuid::new_v4()));
+    let _archive_cleanup = OutputCleanup(archive.clone());
+    let mut download = Command::new("/usr/bin/curl");
+    configure_environment(&mut download, runtime, false);
+    download
+        .args([
+            "--disable",
+            "--fail",
+            "--silent",
+            "--show-error",
+            "--location",
+            "--proto",
+            "=https",
+            "--proto-redir",
+            "=https",
+            "--tlsv1.2",
+            "--max-redirs",
+            "5",
+            "--max-filesize",
+            "20000000",
+            "--connect-timeout",
+            "30",
+            "--max-time",
+            "300",
+            "--output",
+        ])
+        .arg(&archive)
+        .arg(UV_ARCHIVE_URL);
+    run_child(
+        &mut download,
+        None,
+        cancelled,
+        Duration::from_secs(300),
+        "Pocket TTS could not download its setup tool. Check your connection and retry.",
+    )?;
+    let archive_bytes = bounded_read(&archive, UV_ARCHIVE_LIMIT).ok_or_else(|| {
+        failure(
+            ProviderFailureKind::UnavailableModel,
+            "The Pocket TTS setup tool download was incomplete or too large. Retry setup.",
+        )
+    })?;
+    if sha256_hex(&archive_bytes) != UV_ARCHIVE_SHA256 {
+        return Err(failure(
+            ProviderFailureKind::UnavailableModel,
+            "The Pocket TTS setup tool did not match its pinned SHA-256. Retry setup later.",
+        ));
+    }
+
+    let staging = tooling.join(format!(".uv-stage-{}", uuid::Uuid::new_v4()));
+    fs::create_dir(&staging).map_err(|_| storage_failure())?;
+    #[cfg(unix)]
+    fs::set_permissions(&staging, fs::Permissions::from_mode(0o700))
+        .map_err(|_| storage_failure())?;
+    let _staging_cleanup = DirectoryCleanup(staging.clone());
+    let mut extract = Command::new("/usr/bin/tar");
+    configure_environment(&mut extract, runtime, false);
+    extract
+        .args(["-xzf"])
+        .arg(&archive)
+        .arg("-C")
+        .arg(&staging)
+        .args(["--strip-components=1", "uv-aarch64-apple-darwin/uv"]);
+    run_child(
+        &mut extract,
+        None,
+        cancelled,
+        Duration::from_secs(30),
+        "Pocket TTS could not unpack its verified setup tool. Retry setup.",
+    )?;
+
+    let binary = staging.join("uv");
+    let metadata = fs::symlink_metadata(&binary).map_err(|_| {
+        failure(
+            ProviderFailureKind::UnavailableModel,
+            "The Pocket TTS setup tool archive did not contain its expected executable.",
+        )
+    })?;
+    if !metadata.file_type().is_file()
+        || metadata.len() == 0
+        || metadata.len() > UV_BINARY_LIMIT as u64
+    {
+        return Err(failure(
+            ProviderFailureKind::UnavailableModel,
+            "The Pocket TTS setup tool archive contained an invalid executable.",
+        ));
+    }
+    #[cfg(unix)]
+    fs::set_permissions(&binary, fs::Permissions::from_mode(0o700))
+        .map_err(|_| storage_failure())?;
+    let binary_bytes = bounded_read(&binary, UV_BINARY_LIMIT).ok_or_else(storage_failure)?;
+    let manifest = UvRuntimeManifest {
+        version: UV_VERSION.to_owned(),
+        archive_sha256: UV_ARCHIVE_SHA256.to_owned(),
+        binary_size: binary_bytes.len() as u64,
+        binary_sha256: sha256_hex(&binary_bytes),
+    };
+    let manifest_bytes = serde_json::to_vec(&manifest).map_err(|_| storage_failure())?;
+    fs::write(staging.join("manifest.json"), manifest_bytes).map_err(|_| storage_failure())?;
+
+    let destination = uv_tool_dir(runtime);
+    remove_path_if_present(&destination)?;
+    fs::rename(&staging, &destination).map_err(|_| storage_failure())?;
+    verified_uv(runtime).ok_or_else(|| {
+        failure(
+            ProviderFailureKind::UnavailableModel,
+            "The installed Pocket TTS setup tool could not be verified. Retry setup.",
+        )
+    })
+}
+
+fn remove_path_if_present(path: &Path) -> Result<(), ProviderFailure> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(_) => return Err(storage_failure()),
+    };
+    if metadata.file_type().is_symlink() || metadata.is_file() {
+        fs::remove_file(path).map_err(|_| storage_failure())
+    } else if metadata.is_dir() {
+        fs::remove_dir_all(path).map_err(|_| storage_failure())
+    } else {
+        Err(storage_failure())
+    }
 }
 
 fn worker_command(runtime: &Path, mode: &str, offline: bool) -> Command {
@@ -614,6 +789,11 @@ fn bounded_read(path: &Path, limit: usize) -> Option<Vec<u8>> {
     crate::bounded_file::read(path, limit).ok()
 }
 
+fn sha256_hex(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    format!("{digest:x}")
+}
+
 fn validate_wav(bytes: &[u8]) -> Result<(), ProviderFailure> {
     let valid = bytes.len() >= 46
         && bytes.len() <= MAX_WAV_BYTES
@@ -684,6 +864,112 @@ mod tests {
         fn drop(&mut self) {
             let _ = fs::remove_file(&self.0);
         }
+    }
+
+    struct TestRuntime(PathBuf);
+
+    impl TestRuntime {
+        fn new() -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "code-atlas-pocket-tts-runtime-{}-{}",
+                std::process::id(),
+                uuid::Uuid::new_v4()
+            ));
+            fs::create_dir_all(&path).unwrap();
+            Self(path)
+        }
+    }
+
+    impl Drop for TestRuntime {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn managed_uv_is_reused_only_when_release_and_binary_hashes_match() {
+        let runtime = TestRuntime::new();
+        let directory = uv_tool_dir(&runtime.0);
+        fs::create_dir_all(&directory).unwrap();
+        let binary = directory.join("uv");
+        let bytes = b"synthetic pinned uv executable";
+        fs::write(&binary, bytes).unwrap();
+        #[cfg(unix)]
+        fs::set_permissions(&binary, fs::Permissions::from_mode(0o700)).unwrap();
+        let manifest = UvRuntimeManifest {
+            version: UV_VERSION.to_owned(),
+            archive_sha256: UV_ARCHIVE_SHA256.to_owned(),
+            binary_size: bytes.len() as u64,
+            binary_sha256: sha256_hex(bytes),
+        };
+        fs::write(
+            directory.join("manifest.json"),
+            serde_json::to_vec(&manifest).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(verified_uv(&runtime.0).as_deref(), Some(binary.as_path()));
+
+        fs::write(&binary, b"changed executable").unwrap();
+        assert!(verified_uv(&runtime.0).is_none());
+    }
+
+    #[test]
+    fn managed_uv_rejects_manifest_for_a_different_release() {
+        let runtime = TestRuntime::new();
+        let directory = uv_tool_dir(&runtime.0);
+        fs::create_dir_all(&directory).unwrap();
+        let binary = directory.join("uv");
+        let bytes = b"synthetic pinned uv executable";
+        fs::write(&binary, bytes).unwrap();
+        #[cfg(unix)]
+        fs::set_permissions(&binary, fs::Permissions::from_mode(0o700)).unwrap();
+        let manifest = UvRuntimeManifest {
+            version: UV_VERSION.to_owned(),
+            archive_sha256: "not-the-pinned-release".to_owned(),
+            binary_size: bytes.len() as u64,
+            binary_sha256: sha256_hex(bytes),
+        };
+        fs::write(
+            directory.join("manifest.json"),
+            serde_json::to_vec(&manifest).unwrap(),
+        )
+        .unwrap();
+        assert!(verified_uv(&runtime.0).is_none());
+    }
+
+    #[test]
+    fn pocket_setup_availability_does_not_depend_on_a_global_uv_install() {
+        let runtime = TestRuntime::new();
+        let status = status(&runtime.0);
+        assert_eq!(status.setup_available, supported_platform());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn managed_uv_rejects_symlinked_executable() {
+        use std::os::unix::fs::symlink;
+
+        let runtime = TestRuntime::new();
+        let directory = uv_tool_dir(&runtime.0);
+        fs::create_dir_all(&directory).unwrap();
+        let target = directory.join("outside-uv");
+        let bytes = b"synthetic pinned uv executable";
+        fs::write(&target, bytes).unwrap();
+        fs::set_permissions(&target, fs::Permissions::from_mode(0o700)).unwrap();
+        let binary = directory.join("uv");
+        symlink(&target, &binary).unwrap();
+        let manifest = UvRuntimeManifest {
+            version: UV_VERSION.to_owned(),
+            archive_sha256: UV_ARCHIVE_SHA256.to_owned(),
+            binary_size: bytes.len() as u64,
+            binary_sha256: sha256_hex(bytes),
+        };
+        fs::write(
+            directory.join("manifest.json"),
+            serde_json::to_vec(&manifest).unwrap(),
+        )
+        .unwrap();
+        assert!(verified_uv(&runtime.0).is_none());
     }
 
     #[test]

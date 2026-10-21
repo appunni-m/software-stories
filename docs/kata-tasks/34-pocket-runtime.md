@@ -29,6 +29,20 @@ not installed playback, clean setup, cache/export or human listening evidence.
 [Exact changes, evidence and remaining gates](../acceptance/2026-10-17-pocket-whole-script.md).
 Keep this task open. The earlier per-segment description below is historical.
 
+## App-managed setup tool — 2026-10-21
+
+Explicit setup now downloads Astral uv 0.13.4 for Apple Silicon into app data.
+The fixed release archive is capped and SHA-256 verified before extracting only
+the expected `uv` executable. A local manifest records the release and binary
+hash; later setup reuses it only if the executable still matches. Curl user
+configuration is disabled, redirects stay on HTTPS, and cancellation reaps the
+download/extraction processes. The Tauri bundle includes both upstream MIT and
+Apache notices. The official archive was checksum-verified and the extracted
+binary reported `uv 0.13.4` in a local smoke check. Four focused Rust tests
+passed for binary tampering, release mismatch, symlink rejection and setup
+availability without a global `uv` install. This is source and local-tool
+evidence, not packaged clean-account setup.
+
 ## Current native evidence — 2026-10-16
 
 The release app's **Set up local narration** action completed Python, package and pinned model/Alba preparation and displayed **Pocket TTS is ready**. The initial native Python failure was caused by passing both `--managed-python` and `UV_PYTHON_PREFERENCE=only-managed`; the installer now uses only the enforced environment preference. The corrected command passed and a regression test covers the exact argument/environment construction. Full `npm run check` passed (98 frontend, 185 Rust passed, two ignored), and unsigned `.app`/DMG packaging passed.
@@ -41,10 +55,11 @@ This run used an existing uv installation on Apple Silicon macOS, not a clean-ac
 
 Remaining broader qualification work:
 
-- [ ] Package and qualify the installer/runtime for the supported Mac target: pin/verify or bundle `uv`, complete the transitive artifact/hash lock, retain licenses, and define signing/notarization/quarantine behavior.
+- [x] Pin and verify the app-managed uv setup utility and retain its MIT/Apache notices in bundle resources. Source/unit tests and a local extracted-binary smoke check pass.
+- [ ] Complete the transitive Python artifact/hash lock, inspect packaged notices, and qualify signing/notarization/quarantine behavior for the supported Mac target.
 - [ ] Establish minimum macOS, wheel compatibility, disk/download/memory requirements, update/cache cleanup and uninstall behavior on a clean account without developer caches.
 - [x] Define and implement whole-script ownership with a bounded queue and warm model/voice reuse within that script. Isolated packet/queue/cancellation and real-worker checks are recorded above; installed cross-window/setup interleaving, app exit and player/cache behavior remain qualification work.
-- [ ] When authorized, exercise fresh setup, missing installer, network/low-disk failure, cancelled downloads, retry/repair, changed packages/models and incomplete manifests.
+- [ ] When authorized, exercise fresh packaged setup, missing system curl/tar, network/low-disk failure, cancelled downloads, retry/repair, changed packages/models and incomplete manifests.
 - [ ] Record offline synthesis, bounded output, repeated cancellation, timeout, window navigation and actual app-exit child cleanup; accept only complete validated WAV output.
 
 The original October 15 implementation was source-only. October 16 native setup and automated checks above supersede that earlier checkpoint; they do not close this task.

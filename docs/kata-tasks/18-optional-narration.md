@@ -31,7 +31,7 @@ Complete the [narration acceptance run sheet](../NARRATION_VALIDATION.md) on the
 
 ## Implementation update — 2026-10-15
 
-New section preferences now default to Pocket/Alba; legacy Google settings and cache identity remain intact. App-managed setup/status/repair, local review without a key or Google consent, worker cancellation, runtime-aware cache identity and backend-aware export cache lookup are implemented in source. The worker is finite and reloads per segment, with no listener; the current target is Apple Silicon with an external `uv` prerequisite. This is not a self-contained runtime bundle or completed narration acceptance. Read the [runtime child](34-pocket-runtime.md), [player/cache child](35-pocket-player-cache.md) and [runtime contract](../research/pocket-tts-runtime.md).
+New section preferences default to Pocket/Alba; legacy Google settings and cache identity remain intact. App-managed setup/status/repair, verified `uv` bootstrap, local review without a key or Google consent, worker cancellation, runtime-aware cache identity and backend-aware export cache lookup are implemented in source. The worker is finite and owns one reviewed script at a time, with no listener; the current target is Apple Silicon and setup downloads its pinned tool/runtime into app storage. This is not a self-contained runtime bundle or completed narration acceptance. Read the [runtime child](34-pocket-runtime.md), [player/cache child](35-pocket-player-cache.md) and [runtime contract](../research/pocket-tts-runtime.md).
 
 Every acceptance criterion remains open. No setup, synthesis, listening, packaged playback/export or lifecycle checks ran for these changes.
 

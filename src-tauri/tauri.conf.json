@@ -45,7 +45,11 @@
       "icons/128x128.png",
       "icons/128x128@2x.png"
     ],
-    "resources": ["macos-release-metadata.json"],
+    "resources": [
+      "macos-release-metadata.json",
+      "resources/third-party/uv-LICENSE-MIT.txt",
+      "resources/third-party/uv-LICENSE-APACHE.txt"
+    ],
     "macOS": {
       "hardenedRuntime": true,
       "minimumSystemVersion": null

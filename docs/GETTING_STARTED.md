@@ -71,7 +71,7 @@ The comparison's **Build a PR Guide** and **Explain hunk** tools use the existin
 
 Open an answer's edit control to review or accept a draft, edit sections, compare immutable revisions or restore an earlier revision as a new draft. One-section regeneration preserves unaffected sections and assets; it still uses its explicit scoped review flow.
 
-**Listen** uses Pocket TTS by default for new narration preferences. Its setup downloads an app-managed runtime/model/voice and needs an existing `uv` installation on Apple Silicon. Local synthesis uses finite workers, no API key and no listening server. The transcript and manual navigation remain available without audio. Existing Google preferences and cached tracks remain distinct. See [provider disclosures](PROVIDER_DISCLOSURES.md).
+**Listen** uses Pocket TTS by default for new narration preferences. On Apple Silicon, choose **Prepare voice** once; setup downloads the pinned runtime, model and voice into app storage and verifies its setup tool. You do not need to install Python or `uv` yourself. Local synthesis uses finite workers, no API key and no listening server. The transcript and manual navigation remain available without audio. Existing Google preferences and cached tracks remain distinct. See [provider disclosures](PROVIDER_DISCLOSURES.md).
 
 The interactive player retains **Offline export** for selected accepted revisions. Review audio coverage, source paths and excerpts before exporting a self-contained HTML reader. Export does not generate speech or send source; it contains supported visuals, text and any included cached tracks. Live code browsing and a restorable project backup are not included.
 

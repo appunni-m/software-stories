@@ -1,6 +1,8 @@
 # Pocket TTS runtime
 
-October 16 native update: the release app completed managed Python/package/model setup and reported **Pocket TTS is ready**. The initial setup failure was reproduced as conflicting uv managed-Python options, then fixed and covered by a regression. A subsequent synthesis failure was traced to inference-mode tensors crossing Pocket’s background cache-worker boundary; synthesis now uses `torch.no_grad()` and the corrected offline worker produced a valid synthetic WAV. The app still requires an installed uv; this was an existing account with that prerequisite, not a clean-account installer qualification. The final app installed at `~/Applications/Code Atlas.app` generated and played an 8.85-second section, supported replay/pause and reused its cached audio after section navigation. Cancellation, clean-account packaging, export and listening qualification remain open below. See [dated native evidence](../acceptance/2026-10-16-codex-validation.md).
+October 21 source update: explicit setup now downloads the pinned Apple Silicon `uv` 0.13.4 release into app storage and verifies its SHA-256 before extraction. It no longer depends on a user-installed `uv`. The release archive and binary are checked against an app-managed manifest before setup reuses the binary. The official [uv 0.13.4 release](https://github.com/astral-sh/uv/releases/tag/0.13.4) publishes the selected artifact and checksum; its MIT and Apache notices are included in the Tauri bundle resources. This change has source and unit-test evidence, but not a fresh packaged-app setup run or a clean-account qualification.
+
+October 16 native update: the release app completed managed Python/package/model setup and reported **Pocket TTS is ready**. The initial setup failure was reproduced as conflicting uv managed-Python options, then fixed and covered by a regression. A subsequent synthesis failure was traced to inference-mode tensors crossing Pocket’s background cache-worker boundary; synthesis now uses `torch.no_grad()` and the corrected offline worker produced a valid synthetic WAV. That run used an existing uv installation and was not a clean-account installer qualification. The final app installed at `~/Applications/Code Atlas.app` generated and played an 8.85-second section, supported replay/pause and reused its cached audio after section navigation. Cancellation, clean-account packaging, export and listening qualification remain open below. See [dated native evidence](../acceptance/2026-10-16-codex-validation.md).
 
 ## Runtime contract
 
@@ -10,19 +12,23 @@ It embeds [`pocket_tts_worker.py`](../../src-tauri/resources/pocket_tts_worker.p
 into the application binary; no separately discovered script is required.
 
 - The current target is Apple Silicon macOS. Other targets return unavailable.
-- Setup requires an existing `uv` executable in `/opt/homebrew/bin`,
-  `/usr/local/bin`, or the user's default `~/.local/bin` installation. See the
-  [official uv installation instructions](https://docs.astral.sh/uv/getting-started/installation/).
+- Explicit setup downloads `uv` 0.13.4 for Apple Silicon from the fixed
+  [Astral release artifact](https://github.com/astral-sh/uv/releases/tag/0.13.4),
+  verifies SHA-256 `e0b1d4743ce64c55d9f0f4a444afa6b81125680070ee04e853fcd0f6c1ebf8f1`,
+  extracts only the expected executable and records its binary hash in app
+  storage. No globally installed `uv`, shell activation or user `uv` config is
+  required. Downloads use the system `curl` only after the user starts setup.
 - Setup creates `pocket-tts/runtime-3.3.0-v1` under the app data directory. Its
-  virtual environment, downloaded Python, uv/Hugging Face caches, temporary
-  directory, model assets and readiness manifest stay there. It does not use
-  the development machine's Pocket TTS sample caches.
+  pinned `uv`, virtual environment, downloaded Python, uv/Hugging Face caches,
+  temporary directory, model assets and readiness manifest stay there. It does
+  not use the development machine's Pocket TTS sample caches.
 - Setup downloads Python 3.13.14 and installs pinned Pocket TTS 3.3.0, PyTorch
   2.14.1, NumPy 2.5.4, huggingface-hub 2.2.0 and PyYAML 6.0.3. Packages must have
   compatible binary wheels. Remaining transitive dependencies are resolved by
   uv; a complete artifact/hash lock remains release work.
-- The installer ignores user/project uv configuration and inherited credentials.
-  Fixed model and voice assets are downloaded without a Hugging Face token.
+- The installer ignores user/project uv and curl configuration and inherited
+  credentials. The fixed model and voice assets are downloaded without a
+  Hugging Face token.
 - Explicit setup also repairs an existing installation: it clears only the
   app-managed `venv` and rebuilds the readiness manifest. Download caches remain
   available for reuse. Readiness is written only after downloads and model
@@ -90,14 +96,15 @@ leave partial setup downloads; explicit setup replaces incomplete runtime state.
 ## Release and acceptance work still required
 
 This is a managed-install approach, not a self-contained offline Mac bundle.
-The `uv` prerequisite is not yet bundled, signed, pinned or verified by the app.
-The downloaded Python/native wheels need the release's signing, notarization,
+`uv` is pinned and downloaded on explicit setup, but it is not bundled in the
+DMG. The transitive Python dependency artifact/hash lock is incomplete. The
+downloaded Python/native wheels need the release's signing, notarization,
 quarantine and clean-account acceptance strategy. Minimum supported macOS,
 available wheel compatibility, exact storage requirements and installer recovery
 remain unverified. Intel Mac support is not exposed.
 
-Before accepting the runtime task, exercise fresh setup, missing `uv`, low disk,
-network failure, cancelled download, repair, package/model corruption, offline
+Before accepting the runtime task, exercise fresh setup, missing system `curl`
+or `tar`, low disk, network failure, cancelled downloads, repair, package/model corruption, offline
 synthesis, long-script limits, repeated cancellation, app exit and child cleanup.
 Record an actual human listening review of source names, acronyms, identifiers
 and section pacing. Validate the complete player/cache/export path separately.
