@@ -38,6 +38,16 @@ Five new deterministic regressions cover two nested levels and independent sibli
 
 **Still open:** build and install the same app, then exercise the saved Fontdone three-section draft through Back, root, branch links, sidebar, view switches and restart. No packaged-app pass or production readiness is claimed by the state regressions.
 
+## Current state regression recheck — 2026-10-21
+
+Ran the focused workspace state suites on current source:
+
+`node --experimental-strip-types --test tests/workspace.test.mjs tests/workspace-outcomes.test.mjs tests/answer-versions.test.mjs tests/repository-guide.test.mjs`
+
+Result: **67 passed**. Coverage includes exact exploration/turn/revision/view ownership, stable section IDs after reorder, safe fallback for changed or deleted sections, stale-event isolation, corrupt/oversized position rejection, History reopening without changing reading state, revision switching, nested branch state, and preserving reader position through guide follow-ups.
+
+This recheck does not extend the earlier packaged observation. Third-level navigation, independent Flow selections, exact scroll restoration, replaced/deleted revision behavior and malformed stored state still need the complete packaged matrix; keep the task open.
+
 ## Native navigation checkpoint — 17 October
 
 The unlocked Mac allowed replacement with the updated unsigned debug app. The old installed build first reproduced the reset from section 3 to section 1 after a Flow/Guide switch. In the updated app, Fontdone's saved three-section draft retained section 2 through Flow/history/Guide and Back from its stopped child branch. A sibling retained section 3 independently of the parent's section 2 through root breadcrumb/sidebar navigation. Quitting on the sibling's Flow view and reopening restored that view and section 3; returning to Guide showed 3/3. A citation still opened captured `src/outline.rs` lines 48–52, and Listen remained idle. The saved Codex connection resumed without a setup dialog. [Detailed evidence and limits](../acceptance/2026-10-17-owned-correction-and-navigation.md#packaged-navigation).
