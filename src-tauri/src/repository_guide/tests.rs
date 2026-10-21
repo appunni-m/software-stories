@@ -716,16 +716,11 @@ fn fontdone_repository_guide_account_probe() {
     let observations = Arc::new(Mutex::new(Vec::new()));
     let observed = Arc::clone(&observations);
     let saved_storage = storage.clone();
-    let result = build(
-        &storage,
-        &record.id,
-        resume_id.is_some(),
-        &manager,
-        RepositoryContextJobs::default(),
-        &recovery::InterruptionJournal::default(),
-        None,
-        |p| println!("GUIDE_PHASE {} {}", p.phase, started.elapsed().as_millis()),
-        Arc::new(move |notice| {
+    let progress = |p: codex_agent::CodexProgress| {
+        println!("GUIDE_PHASE {} {}", p.phase, started.elapsed().as_millis());
+    };
+    let notify: Arc<dyn Fn(SectionNotice) + Send + Sync> = Arc::new(
+        move |notice: SectionNotice| {
             let saved = reading::adopt(
                 &saved_storage,
                 &notice.run_id,
@@ -739,33 +734,82 @@ fn fontdone_repository_guide_account_probe() {
                 notice.order,
                 started.elapsed().as_millis()
             );
-        }),
-        |notice| {
-            if !saved_section(&storage, notice)? {
-                reading::adopt(
-                    &storage,
-                    &notice.run_id,
-                    project,
-                    snapshot_id,
-                    &notice.generation_id,
-                )?;
-            }
-            Ok(())
-        },
-        |guide| {
-            let progress = json!({"guide":guide,"elapsedMs":started.elapsed().as_millis(),"accepted":false,"semanticReview":false,"voiceReview":false});
-            codex_agent::atomic_private_write(
-                &storage.join("progress.json"),
-                &serde_json::to_vec_pretty(&progress).unwrap(),
-            )
-            .unwrap();
-            println!(
-                "GUIDE_PROGRESS {:?} {}",
-                guide.status,
-                started.elapsed().as_millis()
-            );
         },
     );
+    let adopt = |notice: &SectionNotice| {
+        if !saved_section(&storage, notice)? {
+            reading::adopt(
+                &storage,
+                &notice.run_id,
+                project,
+                snapshot_id,
+                &notice.generation_id,
+            )?;
+        }
+        Ok(())
+    };
+    let changed = |guide: &GuideSummary| {
+        let progress = json!({"guide":guide,"elapsedMs":started.elapsed().as_millis(),"accepted":false,"semanticReview":false,"voiceReview":false});
+        codex_agent::atomic_private_write(
+            &storage.join("progress.json"),
+            &serde_json::to_vec_pretty(&progress).unwrap(),
+        )
+        .unwrap();
+        println!(
+            "GUIDE_PROGRESS {:?} {}",
+            guide.status,
+            started.elapsed().as_millis()
+        );
+    };
+    // Exercise the production runway/refill cadence. This acceptance probe
+    // treats each ready slide as heard; the packaged reader supplies these
+    // receipts from narration completion or explicit Next actions.
+    let mut first_build = true;
+    let result = loop {
+        let pass = build(
+            &storage,
+            &record.id,
+            first_build && resume_id.is_some(),
+            &manager,
+            RepositoryContextJobs::default(),
+            &recovery::InterruptionJournal::default(),
+            if first_build { GUIDE_SLIDE_BUFFER } else { 1 },
+            &progress,
+            Arc::clone(&notify),
+            &adopt,
+            &changed,
+        );
+        if pass.is_err() {
+            break pass;
+        }
+        first_build = false;
+        let saved = store::read(&storage, &record.id).unwrap();
+        if saved.status != Status::WaitingForPlayback {
+            break pass;
+        }
+        let next_revision = saved
+            .opening
+            .iter()
+            .chain(&saved.opening_continuations)
+            .chain(saved.units.iter().flat_map(|unit| &unit.attempts))
+            .filter_map(|attempt| attempt.summary.as_ref())
+            .flat_map(|answer| &answer.sections)
+            .find(|section| {
+                !saved
+                    .consumed_slide_revisions
+                    .contains(&section.revision_id)
+            })
+            .map(|section| section.revision_id.clone())
+            .expect("a playback-waiting guide has an unheard slide");
+        let saved = store::update(&storage, &record.id, |current| {
+            if !current.consumed_slide_revisions.contains(&next_revision) {
+                current.consumed_slide_revisions.push(next_revision.clone());
+            }
+            Ok(())
+        })
+        .unwrap();
+        store::prepare_continuation(&storage, &record.id, saved.revision).unwrap();
+    };
     let saved = store::read(&storage, &record.id).unwrap();
     let runs = std::iter::once(saved.planning_run_id.as_str())
         .chain(

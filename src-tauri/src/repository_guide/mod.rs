@@ -39,6 +39,8 @@ const RESEARCH_INSTRUCTIONS: &str = "Prerequisites describe reading order, not p
 const MAX_UNITS: usize = 6;
 const MAX_ATTEMPTS: usize = 3;
 const MAX_AUTOMATIC_RETRIES_PER_UNIT: u8 = 1;
+/// Initial builds and explicit resumes fill at most five slides; playback
+/// refills use a single slide. Every worker entry point requires a limit.
 const GUIDE_SLIDE_BUFFER: usize = 5;
 const MAX_OPENING_CONTINUATIONS: usize = 2;
 pub(crate) const MAX_GUIDE_ANSWER_RECORDS: usize =
@@ -801,7 +803,7 @@ fn build(
     manager: &codex_agent::CodexAgentManager,
     jobs: RepositoryContextJobs,
     journal: &recovery::InterruptionJournal,
-    max_new_slides: Option<usize>,
+    max_new_slides: usize,
     progress: impl Fn(codex_agent::CodexProgress),
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
     adopt: impl Fn(&SectionNotice) -> Result<(), String>,
@@ -839,7 +841,7 @@ fn build_inner(
     manager: &codex_agent::CodexAgentManager,
     jobs: RepositoryContextJobs,
     journal: &recovery::InterruptionJournal,
-    max_new_slides: Option<usize>,
+    max_new_slides: usize,
     progress: impl Fn(codex_agent::CodexProgress),
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
     adopt: impl Fn(&SectionNotice) -> Result<(), String>,
@@ -953,9 +955,7 @@ fn build_inner(
         if record.status == Status::Stopped {
             break;
         }
-        if max_new_slides.is_some_and(|limit| {
-            published_slide_count(&record).saturating_sub(starting_slide_count) >= limit
-        }) {
+        if published_slide_count(&record).saturating_sub(starting_slide_count) >= max_new_slides {
             break;
         }
         for section in record.units[index]
@@ -1112,10 +1112,10 @@ fn build_inner(
         if current.status != Status::Stopped {
             current.status = if guide_complete(current) {
                 Status::Ready
-            } else if max_new_slides.is_some_and(|limit| {
-                published_slide_count(current).saturating_sub(starting_slide_count) >= limit
-                    && opening_continuation::remaining_operations(current) > 0
-            }) {
+            } else if published_slide_count(current).saturating_sub(starting_slide_count)
+                >= max_new_slides
+                && opening_continuation::remaining_operations(current) > 0
+            {
                 Status::WaitingForPlayback
             } else {
                 Status::Partial
@@ -1221,7 +1221,7 @@ pub(crate) async fn start_repository_guide(
         current.active_run_id = Some(current.planning_run_id.clone());
         Ok(())
     })?;
-    run_command(app, storage, id, lease, false, Some(GUIDE_SLIDE_BUFFER)).await
+    run_command(app, storage, id, lease, false, GUIDE_SLIDE_BUFFER).await
 }
 async fn run_command(
     app: AppHandle,
@@ -1229,7 +1229,7 @@ async fn run_command(
     id: String,
     lease: crate::file_lease::Lease,
     continue_opening: bool,
-    max_new_slides: Option<usize>,
+    max_new_slides: usize,
 ) -> Result<GuideSummary, String> {
     tauri::async_runtime::spawn_blocking(move||{
         let _lease=lease;
@@ -1284,10 +1284,10 @@ pub(crate) async fn resume_repository_guide(
     )?;
     if record.plan.is_none() {
         store::prepare_plan_retry(&storage, &id, expected_revision)?;
-        return run_command(app, storage, id, lease, false, None).await;
+        return run_command(app, storage, id, lease, false, GUIDE_SLIDE_BUFFER).await;
     }
     store::prepare_continuation(&storage, &id, expected_revision)?;
-    run_command(app, storage, id, lease, true, None).await
+    run_command(app, storage, id, lease, true, GUIDE_SLIDE_BUFFER).await
 }
 
 /// Admit one new slide after the reader finishes a narrated slide.
@@ -1385,7 +1385,7 @@ pub(crate) async fn advance_repository_guide(
     }
     let expected_revision = record.revision;
     store::prepare_continuation(&storage, &id, expected_revision)?;
-    run_command(app, storage, id, lease, false, Some(1)).await
+    run_command(app, storage, id, lease, false, 1).await
 }
 #[tauri::command(rename_all = "camelCase")]
 pub(crate) fn stop_repository_guide(
