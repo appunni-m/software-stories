@@ -316,6 +316,52 @@ fn finding(code: &str) -> Vec<Value> {
     vec![json!({"location":"/section","code":code})]
 }
 
+const MAX_CHAPTER_VALIDATION_FEEDBACK: usize = 16;
+
+/// Return only fixed validator categories. Issue messages and source paths can
+/// contain repository data, so they never cross back to the generation agent.
+fn chapter_validation_findings(report: &chapters::ChapterValidationReport) -> Vec<Value> {
+    let mut seen = std::collections::HashSet::new();
+    let findings = report
+        .issues
+        .iter()
+        .filter_map(|issue| {
+            let code = match &issue.code {
+                chapters::ChapterIssueCode::UnsupportedSchemaVersion => {
+                    "chapterUnsupportedSchemaVersion"
+                }
+                chapters::ChapterIssueCode::InvalidId => "chapterInvalidId",
+                chapters::ChapterIssueCode::InvalidRevision => "chapterInvalidRevision",
+                chapters::ChapterIssueCode::InvalidTarget => "chapterInvalidTarget",
+                chapters::ChapterIssueCode::InvalidSectionOrder => "chapterInvalidSectionOrder",
+                chapters::ChapterIssueCode::DuplicateId => "chapterDuplicateId",
+                chapters::ChapterIssueCode::InvalidClaim => "chapterInvalidClaim",
+                chapters::ChapterIssueCode::WrongSnapshot => "chapterWrongSnapshot",
+                chapters::ChapterIssueCode::MissingPath => "chapterMissingPath",
+                chapters::ChapterIssueCode::RangeMismatch => "chapterRangeMismatch",
+                chapters::ChapterIssueCode::HashMismatch => "chapterHashMismatch",
+                chapters::ChapterIssueCode::ExcerptMismatch => "chapterExcerptMismatch",
+                chapters::ChapterIssueCode::AmbiguousRemap => "chapterAmbiguousRemap",
+                chapters::ChapterIssueCode::MissingSymbol => "chapterMissingSymbol",
+                chapters::ChapterIssueCode::InvalidDependency => "chapterInvalidDependency",
+                chapters::ChapterIssueCode::InvalidDestination => "chapterInvalidDestination",
+                chapters::ChapterIssueCode::InvalidVisual => "chapterInvalidVisual",
+                chapters::ChapterIssueCode::IndexUnavailable => "chapterIndexUnavailable",
+                chapters::ChapterIssueCode::SourceUnavailable => "chapterSourceUnavailable",
+            };
+            seen.insert(code)
+                .then(|| json!({"location":"/section","code":code}))
+        })
+        .take(MAX_CHAPTER_VALIDATION_FEEDBACK)
+        .collect::<Vec<_>>();
+
+    if findings.is_empty() {
+        finding("sectionValidation")
+    } else {
+        findings
+    }
+}
+
 /// Resolve authored local identities before native source validation. Raw
 /// proposal bytes remain the durable ownership and idempotence identity.
 fn wrapped_authored(proposal: &mut Proposal) -> Result<(String, authoring::Compiled), Vec<Value>> {
@@ -585,6 +631,25 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "sceneRepetition"
                             | "sceneSourceValue"
                             | "sectionValidation"
+                            | "chapterUnsupportedSchemaVersion"
+                            | "chapterInvalidId"
+                            | "chapterInvalidRevision"
+                            | "chapterInvalidTarget"
+                            | "chapterInvalidSectionOrder"
+                            | "chapterDuplicateId"
+                            | "chapterInvalidClaim"
+                            | "chapterWrongSnapshot"
+                            | "chapterMissingPath"
+                            | "chapterRangeMismatch"
+                            | "chapterHashMismatch"
+                            | "chapterExcerptMismatch"
+                            | "chapterAmbiguousRemap"
+                            | "chapterMissingSymbol"
+                            | "chapterInvalidDependency"
+                            | "chapterInvalidDestination"
+                            | "chapterInvalidVisual"
+                            | "chapterIndexUnavailable"
+                            | "chapterSourceUnavailable"
                     )
                 })
         })
@@ -1019,7 +1084,8 @@ impl ActiveAnswer {
                                                 if validation.status
                                                     != chapters::ValidationReportStatus::Valid
                                                 {
-                                                    findings = finding("sectionValidation");
+                                                    findings =
+                                                        chapter_validation_findings(&validation);
                                                 } else {
                                                     let checkpoint = checkpoint(ledger)?;
                                                     let checkpoint_sha256 =

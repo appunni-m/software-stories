@@ -106,6 +106,93 @@ fn publish(
         .unwrap();
 }
 
+fn validation_issue(code: chapters::ChapterIssueCode) -> chapters::ChapterValidationIssue {
+    chapters::ChapterValidationIssue {
+        code,
+        message: "PRIVATE_SOURCE_DETAILS".into(),
+        path: Some("private/source/path.rs".into()),
+        section_id: Some("section:private".into()),
+        claim_id: Some("claim:private".into()),
+        anchor_id: Some("anchor:private".into()),
+        hotspot_id: Some("hotspot:private".into()),
+        visual_item_id: Some("visual:private".into()),
+    }
+}
+
+fn validation_report(
+    issues: Vec<chapters::ChapterValidationIssue>,
+) -> chapters::ChapterValidationReport {
+    chapters::ChapterValidationReport {
+        schema_version: chapters::CHAPTER_SCHEMA_VERSION,
+        chapter_id: "chapter:test".into(),
+        revision_id: "revision:test".into(),
+        snapshot_id: "snapshot:test".into(),
+        status: chapters::ValidationReportStatus::Invalid,
+        issues,
+    }
+}
+
+#[test]
+fn chapter_validation_feedback_is_specific_deduplicated_and_source_free() {
+    let report = validation_report(vec![
+        validation_issue(chapters::ChapterIssueCode::InvalidVisual),
+        validation_issue(chapters::ChapterIssueCode::SourceUnavailable),
+        validation_issue(chapters::ChapterIssueCode::InvalidVisual),
+    ]);
+
+    let findings = chapter_validation_findings(&report);
+    assert_eq!(
+        findings,
+        vec![
+            json!({"location":"/section","code":"chapterInvalidVisual"}),
+            json!({"location":"/section","code":"chapterSourceUnavailable"}),
+        ]
+    );
+    assert!(valid_findings(&findings));
+    let serialized = serde_json::to_string(&findings).unwrap();
+    assert!(!serialized.contains("PRIVATE_SOURCE_DETAILS"));
+    assert!(!serialized.contains("private/source/path.rs"));
+    assert!(!serialized.contains("section:private"));
+}
+
+#[test]
+fn chapter_validation_feedback_is_bounded_and_rejects_unknown_codes() {
+    let codes = [
+        chapters::ChapterIssueCode::UnsupportedSchemaVersion,
+        chapters::ChapterIssueCode::InvalidId,
+        chapters::ChapterIssueCode::InvalidRevision,
+        chapters::ChapterIssueCode::InvalidTarget,
+        chapters::ChapterIssueCode::InvalidSectionOrder,
+        chapters::ChapterIssueCode::DuplicateId,
+        chapters::ChapterIssueCode::InvalidClaim,
+        chapters::ChapterIssueCode::WrongSnapshot,
+        chapters::ChapterIssueCode::MissingPath,
+        chapters::ChapterIssueCode::RangeMismatch,
+        chapters::ChapterIssueCode::HashMismatch,
+        chapters::ChapterIssueCode::ExcerptMismatch,
+        chapters::ChapterIssueCode::AmbiguousRemap,
+        chapters::ChapterIssueCode::MissingSymbol,
+        chapters::ChapterIssueCode::InvalidDependency,
+        chapters::ChapterIssueCode::InvalidDestination,
+        chapters::ChapterIssueCode::InvalidVisual,
+        chapters::ChapterIssueCode::IndexUnavailable,
+        chapters::ChapterIssueCode::SourceUnavailable,
+    ];
+    let findings = chapter_validation_findings(&validation_report(
+        codes.into_iter().map(validation_issue).collect(),
+    ));
+    assert_eq!(findings.len(), MAX_CHAPTER_VALIDATION_FEEDBACK);
+    assert!(valid_findings(&findings));
+    assert!(!valid_findings(&[json!({
+        "location":"/section",
+        "code":"chapterArbitrary"
+    })]));
+    assert_eq!(
+        chapter_validation_findings(&validation_report(vec![])),
+        finding("sectionValidation")
+    );
+}
+
 #[test]
 fn current_answer_publication_replays_schema_5_with_authored_narration() {
     let f = Fixture::new();
