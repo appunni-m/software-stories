@@ -874,6 +874,68 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn running_git_timeout_maps_to_a_bounded_app_result_and_preserves_saved_state() {
+        use std::ffi::CString;
+        use std::os::unix::ffi::OsStrExt;
+
+        let directory = TestDirectory::new("inspection-hung-git");
+        let storage = TestDirectory::new("inspection-hung-recents");
+        create_repository(directory.path());
+        let opened = inspect_and_record_project(
+            storage.path(),
+            directory.path().to_str().expect("fixture path is UTF-8"),
+        );
+        assert_eq!(opened.status, ProjectOpenStatus::Opened);
+
+        let recent_path = recent_projects_path(storage.path());
+        let recent_bytes = fs::read(&recent_path).expect("recent project record");
+        let git_directory = directory.path().join(".git");
+        let index_path = git_directory.join("index");
+        let head_path = git_directory.join("HEAD");
+        let index_bytes = fs::read(&index_path).expect("repository index");
+        let head_bytes = fs::read(&head_path).expect("repository HEAD");
+        let fifo = git_directory.join("blocked-config");
+        let fifo_path = CString::new(fifo.as_os_str().as_bytes()).unwrap();
+        // Git blocks opening a named-pipe include with no writer; the bounded
+        // runner must still terminate the child at the supplied deadline.
+        assert_eq!(unsafe { libc::mkfifo(fifo_path.as_ptr(), 0o600) }, 0);
+        let config = format!(
+            "[include]\n\tpath = {}\n# PRIVATE_CONFIG_MARKER\n",
+            fifo.display()
+        );
+        let config_path = git_directory.join("config");
+        fs::write(&config_path, &config).expect("blocking fixture config");
+        let config_bytes = fs::read(&config_path).expect("fixture config bytes");
+
+        let started = Instant::now();
+        let result = git_output_with_cancel(
+            directory.path(),
+            &["rev-parse", "--is-inside-work-tree"],
+            started + Duration::from_millis(250),
+            None,
+        )
+        .unwrap_err()
+        .into_result();
+        assert!(started.elapsed() < Duration::from_secs(3));
+        assert_eq!(result.status, ProjectOpenStatus::GitError);
+        assert!(result.project.is_none());
+        assert_eq!(
+            result.message.as_deref(),
+            Some("Git could not inspect this folder: Git operation reached its time limit.")
+        );
+        assert!(
+            !serde_json::to_string(&result)
+                .unwrap()
+                .contains("PRIVATE_CONFIG_MARKER")
+        );
+        assert_eq!(fs::read(&recent_path).unwrap(), recent_bytes);
+        assert_eq!(fs::read(&index_path).unwrap(), index_bytes);
+        assert_eq!(fs::read(&head_path).unwrap(), head_bytes);
+        assert_eq!(fs::read(&config_path).unwrap(), config_bytes);
+    }
+
     #[test]
     fn inspection_output_limit_hides_fixture_contents_and_preserves_repository_and_recents() {
         let directory = TestDirectory::new("inspection-output-limit");

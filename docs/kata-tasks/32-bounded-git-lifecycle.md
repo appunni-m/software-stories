@@ -69,3 +69,9 @@ Reran the focused local-comparison cancellation boundaries on the current source
 - `cargo test --lib git_evidence::cancellation_tests::`: **3 passed**. Covers cancellation before evidence recovery, propagation through ref validation/blob/syntax work, and interruption of a real Git child blocked on config IO.
 
 These runs confirm frontend/native source behavior, not packaged comparison UI behavior. Packaged Stop/status behavior and preservation/no-orphan checks for comparison remain open.
+
+## App-facing inspection timeout boundary — 2026-10-21
+
+Added `project::tests::running_git_timeout_maps_to_a_bounded_app_result_and_preserves_saved_state`. It creates a disposable Git repository, replaces its config with an include of a named pipe with no writer, and runs a real Git inspection through the project-facing bounded runner with a 250 ms deadline. The result is the stable `GitError` timeout message, contains no fixture marker, and returns within three seconds. The test also verifies the saved recent-project record and repository index, HEAD, and fixture config bytes are unchanged. The existing output-limit boundary test asserts its stable app-facing message, hides fixture source text, and preserves recent-project metadata, index, refs, config, and worktree content.
+
+Verification on the current source: the focused timeout test passed (1 passed, 0 failed); `cargo test --locked --manifest-path src-tauri/Cargo.toml --lib project::tests:: -- --nocapture` passed (12 passed, 0 failed); targeted `rustfmt --edition 2024 --check src-tauri/src/project.rs` and `git diff --check` passed. Cargo emitted five existing dead-code warnings. This adds native source-boundary evidence; it does not qualify packaged app cancellation/status, snapshot/catalog preservation, or the full no-orphan comparison matrix. Keep `kghr` open for those gates.
