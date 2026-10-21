@@ -69,7 +69,7 @@ test('contextual guide keeps explicit source and nested intent',()=>{
   assert.equal(contextualGuideIntent('Explain bounds',[],false),'Explain bounds');
   assert.match(contextualGuideIntent('',[{path:'src/parser.rs',from:8,to:20}],false),/selected code/);
   assert.match(contextualGuideIntent('',[],true),/this topic/);
-  assert.equal(contextualGuideIntent('   ',[],false),null);
+  assert.equal(contextualGuideIntent('   ',[],false),'How does this project work, from its entry points through its main behavior and failure paths?');
 });
 test('explicit project-wide guide asks use the durable pipeline from every exploration',()=>{
   for(const question of ['Explain this project','How does this repository work?','Explain how this repository works','Describe how the project is structured','Give me an overview of the codebase','Walk me through this app end to end'])
@@ -90,8 +90,10 @@ test('an old timed-out guide points to a fresh incremental guide without changin
   assert.equal(repositoryGuideTimeoutRecovery({error:message}),null);
   assert.equal(repositoryGuideTimeoutRecovery({guideId,error:'Codex account access expired.'}),null);
 });
-test('empty root Guide me shows the view and leaves repository guide generation explicit',()=>{
-  assert.deepEqual(contextualGuideAction('   ',[],false),{kind:'show'});
+test('empty root Guide me starts a repository guide while scoped actions stay contextual',()=>{
+  const projectQuestion='How does this project work, from its entry points through its main behavior and failure paths?';
+  assert.deepEqual(contextualGuideAction('   ',[],false),{kind:'ask',intent:projectQuestion});
+  assert.equal(isRepositoryGuideIntent(contextualGuideAction('',[],false).intent),true);
   assert.deepEqual(contextualGuideAction('Explain bounds',[],false),{kind:'ask',intent:'Explain bounds'});
   assert.deepEqual(contextualGuideAction('',[{path:'src/parser.rs',from:8,to:20}],false),{
     kind:'ask',intent:'Guide me through this selected code, its decisions and consequences.',

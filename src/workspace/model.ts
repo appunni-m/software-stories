@@ -191,21 +191,21 @@ export function discardUnstartedGuide(state: WorkspaceState, turnId: string): Wo
   return { ...state, explorations: state.explorations.map((e) => ({ ...e, turns: e.turns.filter((t) => t.id !== turnId) })) };
 }
 
-/** An empty contextual action keeps attached/nested intent. Only the root's
- * empty action starts a repository-wide guide. */
-export function contextualGuideIntent(query: string, context: readonly Context[], nested: boolean): string | null {
+/** An empty contextual action keeps attached/nested intent; the root starts a
+ * repository guide directly so readers do not have to discover a second CTA. */
+export function contextualGuideIntent(query: string, context: readonly Context[], nested: boolean): string {
   if (query.trim()) return query;
   if (context.length) return 'Guide me through this selected code, its decisions and consequences.';
   if (nested) return 'Guide me through this topic, its decisions and consequences.';
-  return null;
+  return 'How does this project work, from its entry points through its main behavior and failure paths?';
 }
 
-export type ContextualGuideAction = { kind: 'show' } | { kind: 'ask'; intent: string };
+export type ContextualGuideAction = { kind: 'ask'; intent: string };
 
-/** Empty root actions switch views; repository-wide generation stays explicit. */
+/** Guide me is an exploration action. At the root it starts the durable
+ * incremental repository guide; scoped contexts remain topic-sized. */
 export function contextualGuideAction(query: string, context: readonly Context[], nested: boolean): ContextualGuideAction {
-  const intent = contextualGuideIntent(query, context, nested);
-  return intent ? { kind: 'ask', intent } : { kind: 'show' };
+  return { kind: 'ask', intent: contextualGuideIntent(query, context, nested) };
 }
 
 /** Route repository-wide asks through the durable slide planner instead of the
