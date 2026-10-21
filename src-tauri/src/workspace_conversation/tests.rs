@@ -585,7 +585,12 @@ fn private_files_held_lease_and_symlinks_cannot_damage_other_data() {
         .open(f.path().with_extension("lock"))
         .unwrap();
     let _lease = crate::file_lease::try_exclusive(lock).unwrap().unwrap();
-    assert!(save(&f.0, "project", "snapshot", Some(1), state()).is_err());
+    let before = fs::read(f.path()).unwrap();
+    assert_eq!(
+        save(&f.0, "project", "snapshot", Some(1), state()).unwrap_err(),
+        SAVE_BUSY
+    );
+    assert_eq!(fs::read(f.path()).unwrap(), before);
     drop(_lease);
     let outside = f.0.join("outside");
     fs::write(&outside, b"preserved answer").unwrap();

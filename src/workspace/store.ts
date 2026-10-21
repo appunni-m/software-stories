@@ -71,18 +71,18 @@ function savedConversation(project:string,snapshot:string):ConversationPersisten
     save:(expectedRevision,state)=>invoke<ConversationRecord>('save_workspace_conversation',{projectId:project,snapshotId:snapshot,expectedRevision,state}),
     restore:state=>{states.set(id,state);listeners.forEach(notify=>notify());},
     availability:()=>listeners.forEach(notify=>notify()),
-    failed:()=>reportUnsavedConversation(project,snapshot,true),saved:()=>resolveUnsavedConversation(project,snapshot),
+    failed:message=>reportUnsavedConversation(project,snapshot,true,message),saved:()=>resolveUnsavedConversation(project,snapshot),
   });conversations.set(id,entry);}return entry;
 }
 function resolveUnsavedConversation(project:string,snapshot:string){
   const id=key(project,snapshot),occurrenceId=unsavedWorkspaceEpisodes.get(id);
   if(occurrenceId){unsavedWorkspaceEpisodes.delete(id);window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice-resolved',{detail:{projectId:project,snapshotId:snapshot,occurrenceId}}));}
 }
-function reportUnsavedConversation(project:string,snapshot:string,native=false){
+function reportUnsavedConversation(project:string,snapshot:string,native=false,failureMessage?:string){
   const id=key(project,snapshot);if(unsavedWorkspaceEpisodes.has(id))return;
   const occurrenceId=crypto.randomUUID();unsavedWorkspaceEpisodes.set(id,occurrenceId);
   window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice',{detail:{title:'Conversation could not be saved',
-    message:native?'Some conversation changes could not be saved. Existing explanations are preserved.':'Local workspace storage is unavailable. Generated explanations remain in the native library.',
+    message:native?(failureMessage??'Some conversation changes could not be saved. Existing explanations are preserved.'):'Local workspace storage is unavailable. Generated explanations remain in the native library.',
     projectId:project,snapshotId:snapshot,occurrenceId,...(native?{target:{kind:'retryConversation'}}:{})}}));
 }
 export function prepareWorkspaceConversation(project:string,snapshot:string):Promise<void>{

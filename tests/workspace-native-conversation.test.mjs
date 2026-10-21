@@ -200,9 +200,19 @@ test('a failed native write keeps one scoped episode and all newer edits until e
   await h.store.prepareWorkspaceConversation('project','snapshot');b.controls.beforeSave=()=>{throw new Error('private filesystem diagnostic');};
   h.store.updateWorkspace('project','snapshot',s=>({...s,file:'src/first.rs'}));await assert.rejects(h.store.flushWorkspaceConversation('project','snapshot'),/could not be saved/);
   for(let n=0;n<40;n++)h.store.updateWorkspace('project','snapshot',s=>({...s,file:`src/latest-${n}.rs`}));await flushLocalReads();
-  assert.equal(b.writes.length,2);assert.equal(notices.length,1);assert.deepEqual(notices[0].target,{kind:'retryConversation'});assert.doesNotMatch(JSON.stringify(notices),/private filesystem/);assert.equal(resolved.length,0);
+  assert.equal(b.writes.length,2);assert.equal(notices.length,1);assert.deepEqual(notices[0].target,{kind:'retryConversation'});assert.equal(notices[0].message,'Some conversation changes could not be saved. Existing explanations are preserved.');assert.doesNotMatch(JSON.stringify(notices),/private filesystem/);assert.equal(resolved.length,0);
   b.controls.beforeSave=null;await h.store.retryWorkspaceConversation('project','snapshot');assert.equal(b.records.get(scope).state.file,'src/latest-39.rs');assert.equal(resolved.length,1);assert.equal(resolved[0].occurrenceId,notices[0].occurrenceId);
   b.controls.beforeSave=()=>{throw new Error('another failure');};h.store.updateWorkspace('project','snapshot',s=>({...s,file:'src/again.rs'}));await assert.rejects(h.store.flushWorkspaceConversation('project','snapshot'));assert.equal(notices.length,2);assert.notEqual(notices[0].occurrenceId,notices[1].occurrenceId);
+});
+
+test('a safe save contention reason reaches the retry notice',async()=>{
+  const b=backend(),h=native(b),notices=[];h.onWindowEvent('code-atlas:workspace-notice',e=>notices.push(clone(e.detail)));
+  await h.store.prepareWorkspaceConversation('project','snapshot');
+  b.controls.beforeSave=()=>{throw new Error('A conversation save is still in progress. Wait a moment, then retry.');};
+  h.store.updateWorkspace('project','snapshot',s=>({...s,file:'src/pending.rs'}));
+  await assert.rejects(h.store.flushWorkspaceConversation('project','snapshot'),/Wait a moment/);
+  assert.equal(notices.length,1);assert.match(notices[0].message,/Wait a moment/);
+  assert.doesNotMatch(JSON.stringify(notices),/src\/pending\.rs/);
 });
 
 test('lost save acknowledgment replays the same attempt before saving edits made during the failure',async()=>{

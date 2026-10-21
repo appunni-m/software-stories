@@ -16,6 +16,10 @@ const MAX_BYTES: usize = 8 * 1024 * 1024;
 const UNAVAILABLE: &str =
     "Your saved conversation could not be opened. Existing work has been preserved.";
 const CONFLICT: &str = "Another window saved this conversation. Your unsaved changes have been preserved in this window.";
+const SAVE_STORAGE: &str = "Local conversation storage could not be written. Check available disk space and folder access; your changes remain open in this window.";
+const SAVE_BUSY: &str = "A conversation save is still in progress. Wait a moment, then retry.";
+const SAVE_INVALID: &str = "Code Atlas rejected this conversation update. Your saved work is intact and the unsaved changes remain open.";
+const SAVE_TOO_LARGE: &str = "This conversation exceeds the local save limit. Your saved work is intact and the unsaved changes remain open.";
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -680,11 +684,11 @@ fn save(
     expected_revision: Option<u64>,
     state: Value,
 ) -> Result<Record, String> {
-    validate(&state, project, snapshot)?;
+    validate(&state, project, snapshot).map_err(|_| SAVE_INVALID.to_owned())?;
     let path = location(storage, project, snapshot)?;
     let directory = path.parent().ok_or(UNAVAILABLE)?;
-    crate::codex_agent::ensure_private_directory(storage).map_err(|_| UNAVAILABLE)?;
-    crate::codex_agent::ensure_private_directory(directory).map_err(|_| UNAVAILABLE)?;
+    crate::codex_agent::ensure_private_directory(storage).map_err(|_| SAVE_STORAGE)?;
+    crate::codex_agent::ensure_private_directory(directory).map_err(|_| SAVE_STORAGE)?;
     let mut options = fs::OpenOptions::new();
     options.read(true).write(true).create(true).truncate(false);
     #[cfg(unix)]
@@ -696,10 +700,10 @@ fn save(
     }
     let lock = options
         .open(path.with_extension("lock"))
-        .map_err(|_| UNAVAILABLE)?;
+        .map_err(|_| SAVE_STORAGE)?;
     let _lease = crate::file_lease::try_exclusive(lock)
-        .map_err(|_| UNAVAILABLE)?
-        .ok_or("This conversation is being saved. Try again.")?;
+        .map_err(|_| SAVE_STORAGE)?
+        .ok_or(SAVE_BUSY)?;
     let previous = load(storage, project, snapshot)?;
     // An acknowledgment may be lost after the atomic write. An exact replay is
     // safe; a stale different value must never overwrite a newer window.
@@ -723,9 +727,9 @@ fn save(
     };
     let bytes = serde_json::to_vec(&record).map_err(|_| UNAVAILABLE)?;
     if bytes.len() > MAX_BYTES {
-        return Err(UNAVAILABLE.into());
+        return Err(SAVE_TOO_LARGE.into());
     }
-    crate::codex_agent::atomic_private_write(&path, &bytes).map_err(|_| UNAVAILABLE)?;
+    crate::codex_agent::atomic_private_write(&path, &bytes).map_err(|_| SAVE_STORAGE)?;
     Ok(record)
 }
 

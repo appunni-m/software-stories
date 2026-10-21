@@ -10,10 +10,21 @@ interface IO {
   save:(expectedRevision:number|null,state:WorkspaceState)=>Promise<ConversationRecord>;
   restore:(state:WorkspaceState)=>void;
   availability:()=>void;
-  failed:()=>void;
+  failed:(message:string)=>void;
   saved:()=>void;
 }
 const unavailable=()=>new Error('Your conversation could not be saved. Existing explanations have been preserved.');
+const genericSaveFailure='Some conversation changes could not be saved. Existing explanations are preserved.';
+const safeSaveFailure=(failure:unknown):string=>{
+  const message=typeof failure==='string'?failure:failure instanceof Error?failure.message:
+    failure&&typeof failure==='object'&&'message' in failure&&typeof failure.message==='string'?failure.message:'';
+  if(message==='A conversation save is still in progress. Wait a moment, then retry.')return message;
+  if(message==='Another window saved this conversation. Your unsaved changes have been preserved in this window.')return message;
+  if(message==='Local conversation storage could not be written. Check available disk space and folder access; your changes remain open in this window.')return message;
+  if(message==='Code Atlas rejected this conversation update. Your saved work is intact and the unsaved changes remain open.')return message;
+  if(message==='This conversation exceeds the local save limit. Your saved work is intact and the unsaved changes remain open.')return message;
+  return genericSaveFailure;
+};
 
 /** Explicit wire fields exclude transient focus requests and native job copies. */
 export function conversationSnapshot(state:WorkspaceState):WorkspaceState {
@@ -39,6 +50,7 @@ export class ConversationPersistence {
   private pending:WorkspaceState|null=null;
   private attempt:{revision:number|null;state:WorkspaceState}|null=null;
   private blocked=false;
+  private failure=genericSaveFailure;
   constructor(private readonly io:IO){}
   private record(value:ConversationRecord):WorkspaceState {
     if(value?.schemaVersion!==1||!Number.isSafeInteger(value.revision)||value.revision<1)throw unavailable();
@@ -64,7 +76,7 @@ export class ConversationPersistence {
   }
   private drain():Promise<void> {
     if(this.active)return this.active;
-    if(this.blocked)return Promise.reject(unavailable());
+    if(this.blocked)return Promise.reject(new Error(this.failure));
     this.active=(async()=>{
       while(this.attempt||this.pending){
         if(!this.attempt){this.attempt={revision:this.revision,state:this.pending!};this.pending=null;}
@@ -73,14 +85,15 @@ export class ConversationPersistence {
         this.revision=record.revision;this.attempt=null;
       }
       this.io.saved();
-    })().catch(()=>{this.blocked=true;this.io.failed();throw unavailable();}).finally(()=>{
+    })().catch(failure=>{this.blocked=true;this.failure=safeSaveFailure(failure);this.io.failed(this.failure);throw new Error(this.failure);}).finally(()=>{
       this.active=null;
       if(this.pending&&!this.blocked)void this.drain().catch(()=>{});
     });
     return this.active;
   }
   async flush():Promise<void> {
-    if(this.availability!=='ready'||this.blocked)throw unavailable();
+    if(this.availability!=='ready')throw unavailable();
+    if(this.blocked)throw new Error(this.failure);
     while(this.active||this.pending||this.attempt)await this.drain();
   }
   async flushBeforeClose():Promise<void> {
@@ -89,6 +102,6 @@ export class ConversationPersistence {
     if(this.active||this.pending||this.attempt)await this.flush();
   }
   async retry():Promise<void> {
-    await this.start();this.blocked=false;await this.flush();
+    await this.start();this.blocked=false;this.failure=genericSaveFailure;await this.flush();
   }
 }
