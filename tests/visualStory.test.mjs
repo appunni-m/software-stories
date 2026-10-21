@@ -402,6 +402,8 @@ describe('visual story scenes', () => {
 
   it('rehydrates the Guide diagram after data arrives and after the first layout frame', () => {
     const story = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
+    assert.match(story, /<ReactFlow key=\{`\$\{section\.sectionRevisionId\}:\$\{index\}:\$\{fullMap\}:\$\{visibleNodeKey\}`\}/u,
+      'the canvas remounts when a restored section hydrates its actual visible node set');
     assert.match(story, /useEffect\(\(\)\s*=>\s*\{[\s\S]*?const instance = flowInstance\.current;\s*if \(!instance\?\.viewportInitialized\) return;[\s\S]*?const current = graphData\.current;\s*instance\.setNodes\(current\.nodes\);\s*instance\.setEdges\(current\.edges\);[\s\S]*?\}, \[visual, visibleNodeKey, scene\.id, fullMap, revision\.revisionId, section\.sectionRevisionId\]\)/u,
       'newly restored visual data replaces the graph initialized from older saved state');
     assert.match(story, /requestAnimationFrame\(\(\)\s*=>\s*\{\s*if\s*\(flowInstance\.current\s*!==\s*instance\)\s*return;\s*const latest = graphData\.current;\s*instance\.setNodes\(latest\.nodes\);\s*instance\.setEdges\(latest\.edges\);\s*scheduleViewportCheck\.current\(\);\s*\}\)/u,
@@ -510,6 +512,27 @@ describe('visual story scenes', () => {
     assert.equal(nodes.get('check').x - nodes.get('entry').x, 340);
   });
 
+  it('keeps a deep route readable in the Guide canvas even when its preferred direction is horizontal', () => {
+    const routeNodes = ['input', 'records', 'tag', 'offset', 'range', 'slice', 'none']
+      .map((nodeId) => ({ nodeId, label: nodeId, evidenceAnchorIds: ['a:entry'] }));
+    const routeEdges = routeNodes.slice(1).map((node, index) => ({
+      edgeId: `route:${index}`,
+      fromNodeId: routeNodes[index].nodeId,
+      toNodeId: node.nodeId,
+      label: 'continues',
+    }));
+    const positions = new Map(storyLayout({
+      ...visual,
+      nodes: routeNodes,
+      edges: routeEdges,
+      layoutHint: { direction: 'leftToRight' },
+    }).map((node) => [node.id, node.position]));
+
+    assert.equal(positions.get('records').x, positions.get('input').x);
+    assert.equal(positions.get('records').y - positions.get('input').y, 94);
+    assert.equal(positions.get('none').y - positions.get('slice').y, 94);
+  });
+
   it('fits a focused scene to its visible subgraph instead of hidden chapter branches', () => {
     const full = storyLayout(visual);
     const focused = storyLayout(visual, new Set(['check', 'error', 'result']));
@@ -545,7 +568,7 @@ describe('visual story scenes', () => {
   it('restores the exact scene and independent audio positions without resuming playback', () => {
     const scenes = storyScenes(section, visual);
     const identity = { revisionId: 'revision:one', sectionId: 'section:one', sectionRevisionId: 'section-revision:one' };
-    const saved = { ...identity, sceneId: 'check', positions: { entry: 12.4, check: 3.2, other: 14 }, fullMap: false, focusLayoutVersion: 3 };
+    const saved = { ...identity, sceneId: 'check', positions: { entry: 12.4, check: 3.2, other: 14 }, fullMap: false, focusLayoutVersion: 4 };
     const progress = readStoryProgress(JSON.stringify(saved), identity, scenes);
     assert.deepEqual(progress, saved);
     const restored = readSectionStoryProgress(progress, identity, scenes);
@@ -559,13 +582,13 @@ describe('visual story scenes', () => {
     for (const raw of [null, '{bad', '"text"', JSON.stringify({ sceneId: 'check', positions: { check: 4 } }), '0'.repeat(16_001)]) {
       assert.equal(readStoryProgress(raw, identity, scenes), undefined);
     }
-    const foreign = { ...identity, sceneId: 'other', positions: { entry: 0, check: 0 }, fullMap: false, focusLayoutVersion: 3 };
+    const foreign = { ...identity, sceneId: 'other', positions: { entry: 0, check: 0 }, fullMap: false, focusLayoutVersion: 4 };
     assert.equal(readStoryProgress(JSON.stringify(foreign), identity, scenes), undefined);
     const unversioned = { ...identity, sceneId: 'check', positions: { entry: 0, check: 0 }, fullMap: false };
     assert.equal(readStoryProgress(JSON.stringify(unversioned), identity, scenes), undefined);
-    const extra = { ...identity, sceneId: 'check', positions: { entry: 0, check: 0 }, fullMap: false, focusLayoutVersion: 3, autoPlay: true };
+    const extra = { ...identity, sceneId: 'check', positions: { entry: 0, check: 0 }, fullMap: false, focusLayoutVersion: 4, autoPlay: true };
     assert.equal(readStoryProgress(JSON.stringify(extra), identity, scenes), undefined);
-    const bad = { ...identity, sceneId: 'check', positions: { entry: 0, check: 3601 }, fullMap: false, focusLayoutVersion: 3 };
+    const bad = { ...identity, sceneId: 'check', positions: { entry: 0, check: 3601 }, fullMap: false, focusLayoutVersion: 4 };
     assert.equal(readStoryProgress(JSON.stringify(bad), identity, scenes), undefined);
   });
 });

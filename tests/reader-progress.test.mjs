@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {cleanFlowViewport,cleanReaderProgress,cleanStoryProgress,FLOW_DIAGRAM_LAYOUT_VERSION,sameSection,withReaderProgress} from '../src/lib/readerProgress.ts';
+import {cleanFlowViewport,cleanReaderProgress,cleanStoryProgress,FLOW_DIAGRAM_LAYOUT_VERSION,FOCUSED_STORY_LAYOUT_VERSION,sameSection,withReaderProgress} from '../src/lib/readerProgress.ts';
 import {readSectionStoryProgress,readStoryProgress} from '../src/lib/visualStory.ts';
 import {ancestors,createWorkspace,addTurn,cleanAnswerNotes,decodeWorkspace,presentationOwner,rememberCodePane,rememberFileFlow,rememberPresentation,rememberScroll,rememberSection,sectionPosition} from '../src/workspace/model.ts';
 
 const identity={revisionId:'revision:one',sectionId:'section:one',sectionRevisionId:'section-revision:one'};
-const story={...identity,sceneId:'claim:second',positions:{'claim:first':12.4,'claim:second':3.2},fullMap:true,viewport:{x:-34,y:91,zoom:.6},focusLayoutVersion:3};
+const story={...identity,sceneId:'claim:second',positions:{'claim:first':12.4,'claim:second':3.2},fullMap:true,viewport:{x:-34,y:91,zoom:.6},focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION};
 const diagram={...identity,viewport:{x:250,y:-91,zoom:1.7},layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION};
 const ready=(id,revisionId=identity.revisionId)=>({id,question:'Follow the bytes',context:[],status:'ready',revisionId});
 
@@ -37,7 +37,7 @@ test('native zero and scene selection restore without autoplay or unscoped fallb
   assert.equal(readSectionStoryProgress({...story,positions:{'claim:second':0}},identity,whole,19.5).positions[0][1],0,'explicit native zero wins over a route fallback');
 });
 
-test('focused graph progress accepts only the current layout version',()=>{
+test('focused graph progress migrates one previous layout without restoring its viewport',()=>{
   const scenes=[{id:'claim:second'}];
   const oldFocused={...story,fullMap:false};
   assert.deepEqual(readSectionStoryProgress(oldFocused,identity,scenes),{
@@ -47,15 +47,22 @@ test('focused graph progress accepts only the current layout version',()=>{
     index:0,positions:[['claim:second',3.2]],fullMap:true,viewport:story.viewport,
   });
   const browserProgress=readStoryProgress(JSON.stringify(oldFocused),identity,scenes);
-  assert.equal(browserProgress.focusLayoutVersion,3);
+  assert.equal(browserProgress.focusLayoutVersion,FOCUSED_STORY_LAYOUT_VERSION);
   assert.deepEqual(browserProgress.viewport,story.viewport);
   assert.equal(cleanStoryProgress((({focusLayoutVersion,...old})=>old)(oldFocused)),undefined);
-  const previousLayout={...oldFocused,focusLayoutVersion:2};
-  assert.equal(cleanStoryProgress(previousLayout),undefined,'a viewport from the previous graph layout is stale');
-  assert.deepEqual(readSectionStoryProgress(previousLayout,identity,scenes),{
-    index:0,positions:[['claim:second',0]],fullMap:false,viewport:undefined,
+  const previousLayout={...oldFocused,focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION-1};
+  assert.deepEqual(cleanStoryProgress(previousLayout),{
+    revisionId:identity.revisionId,sectionId:identity.sectionId,sectionRevisionId:identity.sectionRevisionId,
+    sceneId:'claim:second',positions:{'claim:first':12.4,'claim:second':3.2},fullMap:false,
+    focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION,
   });
-  assert.equal(readStoryProgress(JSON.stringify(previousLayout),identity,scenes),undefined);
+  assert.deepEqual(readSectionStoryProgress(previousLayout,identity,scenes),{
+    index:0,positions:[['claim:second',3.2]],fullMap:false,viewport:undefined,
+  });
+  const migrated=readStoryProgress(JSON.stringify(previousLayout),identity,scenes);
+  assert.equal(migrated.focusLayoutVersion,FOCUSED_STORY_LAYOUT_VERSION);
+  assert.equal(migrated.viewport,undefined,'stale coordinates are dropped while section/audio progress survives');
+  assert.equal(cleanStoryProgress({...oldFocused,focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION-2}),undefined);
   assert.equal(cleanStoryProgress({...oldFocused,focusLayoutVersion:1}),undefined);
 });
 

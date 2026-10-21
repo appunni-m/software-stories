@@ -1,7 +1,7 @@
 /** Presentation metadata only. None of these records grants access or starts playback. */
 export interface SectionIdentity { revisionId:string; sectionId:string; sectionRevisionId:string }
 export interface FlowViewport { x:number; y:number; zoom:number }
-export const FOCUSED_STORY_LAYOUT_VERSION = 3 as const;
+export const FOCUSED_STORY_LAYOUT_VERSION = 4 as const;
 export const FLOW_DIAGRAM_LAYOUT_VERSION = 2 as const;
 export interface StoryProgress extends SectionIdentity {
   sceneId:string; positions:Record<string,number>; fullMap:boolean; viewport?:FlowViewport; focusLayoutVersion:typeof FOCUSED_STORY_LAYOUT_VERSION;
@@ -23,11 +23,14 @@ export function cleanFlowViewport(value:unknown):FlowViewport|undefined {
 }
 export function cleanStoryProgress(value:unknown):StoryProgress|undefined {
   if(!object(value)||!identity(value)||!id(value.sceneId)||typeof value.fullMap!=='boolean'||!object(value.positions))return undefined;
-  if(value.focusLayoutVersion!==FOCUSED_STORY_LAYOUT_VERSION)return undefined;
+  const previousLayout = value.focusLayoutVersion === FOCUSED_STORY_LAYOUT_VERSION - 1;
+  if(value.focusLayoutVersion!==FOCUSED_STORY_LAYOUT_VERSION&&!previousLayout)return undefined;
   const entries=Object.entries(value.positions);
   if(entries.length>128||entries.some(([key,n])=>!id(key)||typeof n!=='number'||!Number.isFinite(n)||n<0||n>3600))return undefined;
-  const viewport=value.viewport===undefined?undefined:cleanFlowViewport(value.viewport);
-  if(value.viewport!==undefined&&!viewport)return undefined;
+  // Preserve scene/audio progress across a renderer layout change, but never
+  // apply coordinates produced by the older graph layout.
+  const viewport=previousLayout||value.viewport===undefined?undefined:cleanFlowViewport(value.viewport);
+  if(!previousLayout&&value.viewport!==undefined&&!viewport)return undefined;
   return {revisionId:value.revisionId,sectionId:value.sectionId,sectionRevisionId:value.sectionRevisionId,
     sceneId:value.sceneId,positions:Object.fromEntries(entries) as Record<string,number>,fullMap:value.fullMap,
     focusLayoutVersion:FOCUSED_STORY_LAYOUT_VERSION,

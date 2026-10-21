@@ -260,7 +260,13 @@ export function storyLayout(visual: EvidenceLinkedVisualSpec, includedNodeIds?: 
       remaining.delete(id);
     }
   }
-  const horizontal = visual.layoutHint.direction !== 'topToBottom';
+  const preferredHorizontal = visual.layoutHint.direction !== 'topToBottom';
+  const deepestRank = Math.max(0, ...rank.values());
+  // A long single-lane route becomes unreadable when fit into the Guide's
+  // bounded-width canvas. Preserve the authored relationships, but turn deep
+  // routes into a vertical reading path so labels remain legible at the
+  // default zoom. Shorter diagrams keep their requested direction.
+  const horizontal = preferredHorizontal && !(nodes.length >= 6 && deepestRank >= 4);
   return nodes.map((node) => {
     const level = rank.get(node.nodeId) ?? 0;
     const siblings = nodes.filter((other) => rank.get(other.nodeId) === level);
@@ -331,6 +337,7 @@ function isCurrentStoryProgress(value: unknown): value is StoryProgress {
   const actual = Object.keys(record);
   return actual.every(key => allowed.includes(key))
     && required.every(key => Object.hasOwn(record, key))
-    && record.focusLayoutVersion === FOCUSED_STORY_LAYOUT_VERSION
+    && (record.focusLayoutVersion === FOCUSED_STORY_LAYOUT_VERSION
+      || record.focusLayoutVersion === FOCUSED_STORY_LAYOUT_VERSION - 1)
     && (record.viewport === undefined || Object.hasOwn(record, 'viewport'));
 }
