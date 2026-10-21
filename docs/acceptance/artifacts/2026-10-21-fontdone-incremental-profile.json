@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-10-21",
+  "checkpoint": "current-source one-file incremental range-index profile",
+  "sourceCommit": "b7ff94c",
+  "fontdoneCommit": "5249b723719445813b8771a602ea5b96891d4450",
+  "snapshotId": "snap-1792140879637485000-11155-0",
+  "environment": {
+    "machine": "Apple M3 Pro",
+    "architecture": "arm64",
+    "os": "macOS 15.7.7",
+    "rust": "1.98.1",
+    "build": "Rust debug test executable"
+  },
+  "method": "Ignored native test using a marked disposable copy under /private/tmp. The profile changes only copied src/font.rs bytes, compares incremental and fresh Tantivy generations, and checks a frozen independently selected expected-range fixture. The user's app data was untouched. No model, speech request, or repository code execution.",
+  "command": "RUSTC_WRAPPER= CODE_ATLAS_FONTDONE_DATA_DIR=/private/tmp/code-atlas-incremental-fontdone-20261021-0fe28d9 cargo test --locked --manifest-path src-tauri/Cargo.toml --lib repository_context::incremental::tests::fontdone_one_file_incremental_profile -- --ignored --exact --nocapture",
+  "baseParserIndex": {
+    "serializedBytes": 41616863,
+    "persistenceLimitBytes": 67108864,
+    "files": 2768,
+    "symbols": 7507,
+    "relationships": 59534,
+    "firstBuildMs": 6485,
+    "savedIndexLoadMs": 518
+  },
+  "oneFileUpdate": {
+    "path": "src/font.rs",
+    "appendedCommentBytes": 66,
+    "syntaxIndexBuildMs": 4255,
+    "incrementalPreparationMs": 4387,
+    "incrementalBuildMs": 3217,
+    "freshPreparationMs": 14313,
+    "freshBuildMs": 13154,
+    "filesDocumentsReused": 1620,
+    "documentsReused": 3409,
+    "documentsAdded": 53,
+    "documentsDeleted": 53,
+    "segmentBytesCopied": 5051978,
+    "unchangedGenerationPreserved": true,
+    "currentDocumentKeysMatchFresh": true,
+    "incrementalLiveDocuments": 3462,
+    "freshLiveDocuments": 3462,
+    "incrementalSegments": 1,
+    "freshSegments": 1
+  },
+  "coverage": {
+    "indexedFiles": 1621,
+    "indexedBytes": 19296140,
+    "ranges": 3462,
+    "syntaxFiles": 153,
+    "textFallbackFiles": 1468,
+    "unavailableFiles": 1147,
+    "snapshotPathsSkipped": 25
+  },
+  "recall": {
+    "namedGlobal": "12/12",
+    "namedFileScoped": "12/12",
+    "broadFirstPage": ["1/12", "1/12"],
+    "broadFirstPageMatchesFresh": true
+  },
+  "limitations": [
+    "Broad first-page recall is low despite matching the fresh build.",
+    "This profile does not qualify additional file-change shapes, packaged execution, cancellation under merge pressure, global storage retention, or AI answer quality."
+  ]
+}

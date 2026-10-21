@@ -48,7 +48,7 @@ Structural pages contain at most 32 items; continuation offsets cannot exceed 10
 | Captured paths admitted to a build | 25,000 |
 | Verified source bytes per build | 100 MiB; existing capture limits also apply |
 | Indexed ranges | 50,000, each at most 8,192 bytes |
-| Index metadata / one chunk-cache record | 32 MiB / 4 MiB |
+| Index metadata / one chunk-cache record | 64 MiB / 4 MiB |
 | Query | 2–240 characters, up to 32 derived terms; workspace UI currently caps 120 characters |
 | Candidate sets | At most 256 each for lexical, exact identifier and exact declaration searches |
 | Returned matches | 1–32; snippets at most 360 characters each |

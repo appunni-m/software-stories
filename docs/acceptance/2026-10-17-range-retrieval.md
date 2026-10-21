@@ -39,7 +39,7 @@ Cold means no compatible versioned index/layout cache; the OS page cache was not
 
 The default test suite checks UTF-8/CRLF coordinates, huge declarations and long lines, exact identifier/component ranking, repeatable ordering, snapshot isolation, deletion/rename, chunk-layout reuse on a one-file TypeScript change, secret/path/invalid-text filtering, source/hash changes, corrupted metadata/Tantivy recovery, read/query caps, expired deadlines, cancellation ownership and preservation of the last complete publication.
 
-The one-file fixture reuses unchanged layouts but still verifies all eligible source and builds a fresh Tantivy generation. Fontdone incremental-update work, global cache retention, full boundary/cancellation qualification, definition/reference/module-map commands, and agent evidence-budget enforcement remain pending. The [Kata contract](../kata-tasks/69-local-range-retrieval.md) stays open.
+The one-file fixture reuses unchanged layouts and Tantivy postings while still verifying all eligible source. The 21 October current-source Fontdone update profile is recorded below. Global cache retention, full boundary/cancellation qualification, definition/reference/module-map commands, and agent evidence-budget enforcement remain pending. The [Kata contract](../kata-tasks/69-local-range-retrieval.md) stays open.
 
 Automated checkpoint: 224 native tests passed, six default tests remained ignored; both explicit Fontdone probes passed separately. All 136 frontend tests, the frontend build and `cargo check` passed. The documentation audit found zero errors and four existing review notes. None of these checks closes the broad retrieval, generation or package gates.
 
@@ -138,3 +138,26 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked --lib \
 Each file-discovery scan used eight 32-result pages. Scoping the expected files from all pages recovered 12/12 ranges for both broad queries. For query 1, all ranked pages took 9,351–9,611 ms and serialized 166,094 result bytes; discovery took 1,195–1,227 ms and serialized 143,546 bytes. For query 2, all ranked pages took 9,038–9,116 ms and serialized 157,869 result bytes; discovery took 1,184–1,290 ms and serialized 142,831 bytes. These are local debug timings and aggregate page payloads, not a user-facing latency or token measure.
 
 Path-level discovery followed by scoped searches improves the simulated first-page path result to 9/12 and 8/12 expected ranges; paging discovery and scoping all expected paths reaches 12/12. A single global range page remains weak, and query 2's global range pages still miss five spans. This service profile does not establish automatic agent tool use, sufficient broad-answer evidence, packaged offline coverage or narrative quality. Keep `a699`, its dependent agent qualification and guide-quality work open.
+
+## Current-source one-file incremental update — 21 October 2026
+
+Ran the ignored native Fontdone update profile from Code Atlas source `b7ff94c` against a marked disposable copy of the saved Fontdone snapshot. The original app data was not modified. No model, Codex, speech request, or Fontdone code execution was involved. The profile appends a 66-byte comment to `src/font.rs`, prepares the updated snapshot, compares it with a fresh Tantivy build, and checks frozen expected ranges.
+
+The current parser index serializes to 41,616,863 bytes for 2,768 parser-index file entries, 7,507 symbols and 59,534 relationships. The old 32 MiB persistence bound rejected that index; the bounded per-snapshot limit is now 64 MiB. A first parser-index build took 6,485 ms; loading the saved index took 518 ms in the final profile. Both the incremental and fresh Tantivy generations contain the same 3,462 live documents in one segment. Single-segment publication keeps broad BM25 ordering stable across cold and incremental builds.
+
+| Measurement | Observation |
+| --- | ---: |
+| Retrieval coverage | 1,621 indexed files; 19,296,140 source bytes; 3,462 ranges |
+| Syntax / text fallback files | 153 / 1,468 |
+| Unavailable files / snapshot paths skipped | 1,147 / 25 |
+| Cold retrieval-index preparation | 13,941 ms |
+| Updated syntax-index build | 4,255 ms |
+| One-file incremental retrieval-index preparation | 4,387 ms (3,217 ms build work) |
+| Fresh retrieval-index preparation | 14,313 ms (13,154 ms build work) |
+| Unchanged files / documents reused | 1,620 / 3,409 |
+| Changed-file documents added / deleted | 53 / 53 |
+| Tantivy segment bytes copied | 5,051,978 bytes |
+| Named expected ranges | 12/12 global and 12/12 file-scoped |
+| Broad first-page expected ranges | 1/12 and 1/12; identical between incremental and fresh builds |
+
+The result confirms one-file reuse and search-result stability for this frozen profile. Broad first-page retrieval remains weak, and this does not qualify other change shapes, packaged search, cancellation/pressure boundaries, or AI answer quality. See the [machine-readable profile](artifacts/2026-10-21-fontdone-incremental-profile.json). Keep `a699` and its dependent generation task open.

@@ -129,7 +129,7 @@ The October 15 source changes use semantics/cache identity `atlas-symbol-index-v
 
 The October 21 update changes snapshot-index identity to `atlas-symbol-index-v5` and adds bounded Python (`.py`, `.pyi`, `.pyw`) and Go (`.go`) syntax parsing. Their import edges remain explicitly unresolved; calls are resolved only when lexical bindings are understood, and unsupported Python/Go assignment scopes are kept opaque. The parser fixtures do not qualify framework conventions or generated explanation quality.
 
-Index work caps input at 5,000 files, 512 KiB per file, 50 MiB total source, 250,000 syntax nodes per file, 50,000 symbols, 100,000 candidate/retained relationships, 50,000 total named-import bindings (10,000 per file), 128 nesting levels, 1.5 seconds per parse, and 32 MiB serialized output. Work runs off the UI thread, coalesces progress events, accepts cancellation during parsing and AST traversal, and does not save cancelled output. Saved indexes are versioned JSON keyed by project and snapshot. These limits bound work while leaving every captured path browsable.
+Index work caps input at 5,000 files, 512 KiB per file, 50 MiB total source, 250,000 syntax nodes per file, 50,000 symbols, 100,000 candidate/retained relationships, 50,000 total named-import bindings (10,000 per file), 128 nesting levels, 1.5 seconds per parse, and 64 MiB serialized output. Work runs off the UI thread, coalesces progress events, accepts cancellation during parsing and AST traversal, and does not save cancelled output. Saved indexes are versioned JSON keyed by project and snapshot. These limits bound work while leaving every captured path browsable.
 
 ## Direct API request boundary
 
