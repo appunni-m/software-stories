@@ -37,6 +37,16 @@ fn start_opening(r: &Record, f: &Fixture) -> Record {
 }
 
 #[test]
+fn opening_uses_the_first_planned_slide_ranges_as_research_hints() {
+    let f = Fixture::new();
+    let r = planned(&f);
+    let planned_ranges = r.plan.as_ref().unwrap().units[0].starting_ranges.as_slice();
+    let opening_ranges = starting_ranges(&r).unwrap();
+    assert_eq!(opening_ranges, planned_ranges);
+    assert!(starting_ranges(&pending(&f)).is_err());
+}
+
+#[test]
 fn opening_has_a_durable_owner_before_any_outline_or_sections_exist() {
     let f = Fixture::new();
     let r = pending(&f);

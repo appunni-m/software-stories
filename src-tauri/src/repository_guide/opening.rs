@@ -34,6 +34,15 @@ pub(super) fn question(job: &Record) -> Result<&str, String> {
     Ok(&opening.question)
 }
 
+pub(super) fn starting_ranges(job: &Record) -> Result<&[context::CodeRange], String> {
+    job.plan
+        .as_ref()
+        .and_then(|plan| plan.units.first())
+        .map(|unit| unit.starting_ranges.as_slice())
+        .filter(|ranges| !ranges.is_empty())
+        .ok_or_else(|| "The guide outline has no opening lead.".into())
+}
+
 /// Finalize existing publication receipts only. The worker has already joined;
 /// source replay and adoption happen outside native operation ownership.
 pub(super) fn retain_failure(storage: &Path, job: &Record) -> Result<(), String> {

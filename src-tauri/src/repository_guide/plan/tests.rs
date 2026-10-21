@@ -131,6 +131,16 @@ fn plan_instructions_keep_the_full_requested_scope() {
     assert!(instructions.contains("unsupported boundaries as omissions"));
     assert!(!instructions.contains("Publish one small, complete, illustrated section"));
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
+    assert!(
+        agent_context::RESEARCH_BASE_INSTRUCTIONS
+            .contains("make one focused search_code call with resultKind:files")
+    );
+    assert!(
+        agent_context::RESEARCH_BASE_INSTRUCTIONS.contains(
+            "read the most relevant implementation ranges together in one read_code call"
+        )
+    );
+    assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("do not exhaust search pages"));
 
     assert_eq!(MAX_UNITS + 1, 7);
     assert_eq!(MAX_ATTEMPTS, 3);

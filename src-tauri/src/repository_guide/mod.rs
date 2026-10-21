@@ -712,6 +712,9 @@ fn run_initial_opening(
         .plan
         .as_ref()
         .ok_or("The guide has no saved outline.")?;
+    // Reuse the outline's first nearby code locations to avoid an opening-wide rescan;
+    // the progressive request rechecks them and presents them only as research hints.
+    let starting_ranges = opening::starting_ranges(record)?.to_vec();
     let opening = record
         .opening
         .as_ref()
@@ -727,6 +730,15 @@ fn run_initial_opening(
     };
     let run_id = opening.run_id.clone();
     let question = opening::question(record)?.to_owned();
+    let references = starting_ranges
+        .iter()
+        .map(|range| Reference {
+            path: range.path.clone(),
+            sha256: Some(range.source_sha256.clone()),
+            from: Some(range.start_line as u32),
+            to: Some(range.end_line as u32),
+        })
+        .collect();
     let record = begin_initial_opening(storage, record)?;
     changed(&summary(storage, &record)?);
     let result = workspace_generation::progressive::run_with_starting_ranges(
@@ -737,11 +749,11 @@ fn run_initial_opening(
             snapshot_id: record.snapshot_id.clone(),
             grant_id: record.grant_id.clone(),
             question: question.clone(),
-            references: vec![],
+            references,
             model_id: record.model_id.clone(),
             effort: record.reasoning_effort.clone(),
         },
-        &[],
+        &starting_ranges,
         Some(&intent),
         manager,
         jobs,

@@ -6,7 +6,7 @@ use crate::evidence_ledger::RangeRequest;
 use std::collections::HashMap;
 
 const POLICY: &str = "native-starting-range-hints-v1";
-const INSTRUCTIONS: &str = "The prompt's startingRanges are native-checked captured byte coordinates from an earlier planning operation. They are hints, not evidence or a source selection. You may copy their path, sourceSha256, startByte and endByte directly into read_code without repeating discovery. Read promising starting ranges early, then choose further searches and reads as the question requires. Only citeable fragments delivered by this investigation's own read_code are evidence; never cite a starting range or an earlier operation's reference ID.";
+const INSTRUCTIONS: &str = "The prompt's startingRanges are native-checked captured byte coordinates from the guide outline. For this one slide, start by reading all supplied ranges together in one read_code call; do not repeat repository-wide discovery first. They are hints, not evidence or a source selection. Only citeable fragments delivered by this investigation's own read_code are evidence; never cite a starting range or an earlier operation's reference ID. Search only when a specific important part of this slide remains unverified, and batch the resulting reads. Answer this slide's question only; other mechanisms belong to their own slides. Stop researching once the delivered source supports the input, key decision, outcomes and requested failure paths. Prefer one to three short relevant evidence fragments per claim, with a concrete backticked code name from each fragment also named in the prose. Do not exhaust unrelated search pages or map the whole repository.";
 
 pub(super) fn request(
     storage: &Path,
@@ -217,7 +217,7 @@ mod tests {
         assert!(!prompt.contains(SIMPLE_SOURCE));
         assert!(value.get("startingRanges").is_none());
         assert!(schema["properties"].get("outline").is_none());
-        let mut contract = generation_contract(&input, &prompt, &schema).unwrap();
+        let mut contract = generation_contract_for(&input, &prompt, &schema, true).unwrap();
         contract["systemInstructions"] = json!(instructions);
         contract["guideContextPolicy"] = json!(guide_intent::POLICY);
         contract["openingSlidePolicy"] = json!("independent-outline-first-opening-v1");
@@ -227,7 +227,7 @@ mod tests {
             context::digest(&serde_json::to_vec(&contract).unwrap())
         );
         assert_eq!(contract["sectionAttempts"], 8);
-        assert_eq!(contract["uniqueSections"], 6);
+        assert_eq!(contract["uniqueSections"], 1);
         assert_eq!(
             contract["tools"],
             serde_json::to_value(context_mcp::tools()).unwrap()
@@ -334,7 +334,7 @@ mod tests {
         for forbidden in ["referenceId", "code:1", "quote", "contents"] {
             assert!(!value["guideContext"].to_string().contains(forbidden));
         }
-        let mut contract = generation_contract(&input, &prompt, &schema).unwrap();
+        let mut contract = generation_contract_for(&input, &prompt, &schema, true).unwrap();
         contract["systemInstructions"] = json!(instructions);
         contract["startingRangePolicy"] = json!(POLICY);
         contract["guideContextPolicy"] = json!(guide_intent::POLICY);
@@ -344,7 +344,7 @@ mod tests {
         );
         assert_eq!(value["guideContextPolicy"], guide_intent::POLICY);
         assert_eq!(contract["sectionAttempts"], 8);
-        assert_eq!(contract["uniqueSections"], 6);
+        assert_eq!(contract["uniqueSections"], 1);
         assert_eq!(
             contract["tools"],
             serde_json::to_value(context_mcp::tools()).unwrap()
@@ -467,9 +467,14 @@ mod tests {
         ] {
             assert!(!prompt.contains(forbidden));
         }
-        assert!(instructions.contains("without repeating discovery"));
+        assert!(
+            instructions
+                .contains("start by reading all supplied ranges together in one read_code call")
+        );
+        assert!(instructions.contains("do not repeat repository-wide discovery first"));
         assert!(instructions.contains("not evidence or a source selection"));
         assert!(instructions.contains("this investigation's own read_code"));
+        assert!(instructions.contains("other mechanisms belong to their own slides"));
         let mut contract = generation_contract(&input, &prompt, &schema).unwrap();
         contract["systemInstructions"] = json!(instructions);
         contract["startingRangePolicy"] = json!(POLICY);
