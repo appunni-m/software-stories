@@ -545,7 +545,7 @@ describe('visual story scenes', () => {
   it('restores the exact scene and independent audio positions without resuming playback', () => {
     const scenes = storyScenes(section, visual);
     const identity = { revisionId: 'revision:one', sectionId: 'section:one', sectionRevisionId: 'section-revision:one' };
-    const saved = { ...identity, sceneId: 'check', positions: { entry: 12.4, check: 3.2, other: 14 }, fullMap: false, focusLayoutVersion: 2 };
+    const saved = { ...identity, sceneId: 'check', positions: { entry: 12.4, check: 3.2, other: 14 }, fullMap: false, focusLayoutVersion: 3 };
     const progress = readStoryProgress(JSON.stringify(saved), identity, scenes);
     assert.deepEqual(progress, saved);
     const restored = readSectionStoryProgress(progress, identity, scenes);
@@ -559,13 +559,13 @@ describe('visual story scenes', () => {
     for (const raw of [null, '{bad', '"text"', JSON.stringify({ sceneId: 'check', positions: { check: 4 } }), '0'.repeat(16_001)]) {
       assert.equal(readStoryProgress(raw, identity, scenes), undefined);
     }
-    const foreign = { ...identity, sceneId: 'other', positions: { entry: 0, check: 0 }, fullMap: false, focusLayoutVersion: 2 };
+    const foreign = { ...identity, sceneId: 'other', positions: { entry: 0, check: 0 }, fullMap: false, focusLayoutVersion: 3 };
     assert.equal(readStoryProgress(JSON.stringify(foreign), identity, scenes), undefined);
     const unversioned = { ...identity, sceneId: 'check', positions: { entry: 0, check: 0 }, fullMap: false };
     assert.equal(readStoryProgress(JSON.stringify(unversioned), identity, scenes), undefined);
-    const extra = { ...identity, sceneId: 'check', positions: { entry: 0, check: 0 }, fullMap: false, focusLayoutVersion: 2, autoPlay: true };
+    const extra = { ...identity, sceneId: 'check', positions: { entry: 0, check: 0 }, fullMap: false, focusLayoutVersion: 3, autoPlay: true };
     assert.equal(readStoryProgress(JSON.stringify(extra), identity, scenes), undefined);
-    const bad = { ...identity, sceneId: 'check', positions: { entry: 0, check: 3601 }, fullMap: false, focusLayoutVersion: 2 };
+    const bad = { ...identity, sceneId: 'check', positions: { entry: 0, check: 3601 }, fullMap: false, focusLayoutVersion: 3 };
     assert.equal(readStoryProgress(JSON.stringify(bad), identity, scenes), undefined);
   });
 });

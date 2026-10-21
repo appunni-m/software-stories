@@ -234,7 +234,7 @@ fn presentation(v: &Value, owner: &serde_json::Map<String, Value>) -> Result<(),
                     || !p.get("fullMap").is_some_and(Value::is_boolean)
                     || !p
                         .get("focusLayoutVersion")
-                        .is_some_and(|v| v.as_u64() == Some(2))
+                        .is_some_and(|v| v.as_u64() == Some(3))
                 {
                     return Err(UNAVAILABLE.into());
                 }
@@ -575,7 +575,7 @@ fn discard_stale_story_positions(state: &mut Value) {
                 continue;
             };
             stories
-                .retain(|story| story.get("focusLayoutVersion").and_then(Value::as_u64) == Some(2));
+                .retain(|story| story.get("focusLayoutVersion").and_then(Value::as_u64) == Some(3));
         }
     }
 }

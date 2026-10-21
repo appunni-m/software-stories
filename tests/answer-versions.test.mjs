@@ -57,7 +57,7 @@ test('a newly accepted edit never moves the current reader and stale or forged c
 
 test('revised story and player progress stays owned by its question across version switches and restart',()=>{
   let s=select(workspace(),accepted.revisionId);
-  const progress={revisionId:accepted.revisionId,sectionId:'section:one',sectionRevisionId:'section-revision:7',sceneId:'claim:one',positions:{'claim:one':2},fullMap:false,focusLayoutVersion:2};
+  const progress={revisionId:accepted.revisionId,sectionId:'section:one',sectionRevisionId:'section-revision:7',sceneId:'claim:one',positions:{'claim:one':2},fullMap:false,focusLayoutVersion:3};
   s=rememberPresentation(s,'root','question','stories',progress);
   s=select(s,original.revisionId);
   const restored=decodeWorkspace(JSON.stringify(s),'project','snapshot');
@@ -97,7 +97,7 @@ test('bounded version retention removes orphan progress so the native journal ca
   const [oldest]=revisions,current=revisions[255],next=revisions[256];
   let s=workspace();const t=turn(s);
   t.answerVersions=revisions.slice(0,256).map(r=>({originalRevisionId:original.revisionId,revisionId:r.revisionId,selected:r===current,reading:{guide:'section:one'}}));
-  const progress=r=>({revisionId:r.revisionId,sectionId:'section:one',sectionRevisionId:`section-revision:${r.revisionNumber}`,sceneId:'claim:one',positions:{},fullMap:false,focusLayoutVersion:2});
+  const progress=r=>({revisionId:r.revisionId,sectionId:'section:one',sectionRevisionId:`section-revision:${r.revisionNumber}`,sceneId:'claim:one',positions:{},fullMap:false,focusLayoutVersion:3});
   t.presentation={stories:[progress(original),progress(oldest),progress(current)],diagrams:[{...progress(oldest),viewport:{x:0,y:0,zoom:1}}]};
   const before=JSON.stringify(s);s=select(s,next.revisionId,[original,...revisions]);
   assert.equal(turn(s).answerVersions.length,256);assert.equal(resolveAnswerRevision(original,turn(s),[original,...revisions]),next);

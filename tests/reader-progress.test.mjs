@@ -6,7 +6,7 @@ import {readSectionStoryProgress,readStoryProgress} from '../src/lib/visualStory
 import {ancestors,createWorkspace,addTurn,cleanAnswerNotes,decodeWorkspace,presentationOwner,rememberCodePane,rememberFileFlow,rememberPresentation,rememberScroll,rememberSection,sectionPosition} from '../src/workspace/model.ts';
 
 const identity={revisionId:'revision:one',sectionId:'section:one',sectionRevisionId:'section-revision:one'};
-const story={...identity,sceneId:'claim:second',positions:{'claim:first':12.4,'claim:second':3.2},fullMap:true,viewport:{x:-34,y:91,zoom:.6},focusLayoutVersion:2};
+const story={...identity,sceneId:'claim:second',positions:{'claim:first':12.4,'claim:second':3.2},fullMap:true,viewport:{x:-34,y:91,zoom:.6},focusLayoutVersion:3};
 const diagram={...identity,viewport:{x:250,y:-91,zoom:1.7}};
 const ready=(id,revisionId=identity.revisionId)=>({id,question:'Follow the bytes',context:[],status:'ready',revisionId});
 
@@ -47,9 +47,15 @@ test('focused graph progress accepts only the current layout version',()=>{
     index:0,positions:[['claim:second',3.2]],fullMap:true,viewport:story.viewport,
   });
   const browserProgress=readStoryProgress(JSON.stringify(oldFocused),identity,scenes);
-  assert.equal(browserProgress.focusLayoutVersion,2);
+  assert.equal(browserProgress.focusLayoutVersion,3);
   assert.deepEqual(browserProgress.viewport,story.viewport);
   assert.equal(cleanStoryProgress((({focusLayoutVersion,...old})=>old)(oldFocused)),undefined);
+  const previousLayout={...oldFocused,focusLayoutVersion:2};
+  assert.equal(cleanStoryProgress(previousLayout),undefined,'a viewport from the previous graph layout is stale');
+  assert.deepEqual(readSectionStoryProgress(previousLayout,identity,scenes),{
+    index:0,positions:[['claim:second',0]],fullMap:false,viewport:undefined,
+  });
+  assert.equal(readStoryProgress(JSON.stringify(previousLayout),identity,scenes),undefined);
   assert.equal(cleanStoryProgress({...oldFocused,focusLayoutVersion:1}),undefined);
 });
 

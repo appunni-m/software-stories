@@ -86,7 +86,7 @@ fn presentation_state() -> Value {
     s["explorations"][0]["fileFlow"] = json!({"path":"src/font.rs","showAll":true});
     s["explorations"][0]["turns"][0]["revisionId"] = json!("revision-one");
     s["explorations"][0]["turns"][0]["presentation"] = json!({
-        "stories":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","sceneId":"claim:second","positions":{"claim:first":12.4,"claim:second":3.2},"fullMap":true,"viewport":{"x":-34,"y":91,"zoom":0.6},"focusLayoutVersion":2}],
+        "stories":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","sceneId":"claim:second","positions":{"claim:first":12.4,"claim:second":3.2},"fullMap":true,"viewport":{"x":-34,"y":91,"zoom":0.6},"focusLayoutVersion":3}],
         "diagrams":[{"revisionId":"revision-one","sectionId":"section:two","sectionRevisionId":"section-revision:two","viewport":{"x":250,"y":-91,"zoom":1.7}}]
     });
     s
@@ -115,7 +115,7 @@ fn focused_story_layout_requires_the_current_layout_version() {
     let before = fs::read(f.path()).unwrap();
     let mut unsupported = s.clone();
     unsupported["explorations"][0]["turns"][0]["presentation"]["stories"][0]["focusLayoutVersion"] =
-        json!(1);
+        json!(2);
     assert!(
         save(
             &f.0,
@@ -150,10 +150,7 @@ fn opening_stale_story_positions_preserves_the_conversation_and_record_bytes() {
     let state = presentation_state();
     let record = save(&f.0, "project", "snapshot", None, state).unwrap();
     let mut stored = serde_json::to_value(record).unwrap();
-    stored["state"]["explorations"][0]["turns"][0]["presentation"]["stories"][0]
-        .as_object_mut()
-        .unwrap()
-        .remove("focusLayoutVersion");
+    stored["state"]["explorations"][0]["turns"][0]["presentation"]["stories"][0]["focusLayoutVersion"] = json!(2);
     fs::write(&f.path(), serde_json::to_vec(&stored).unwrap()).unwrap();
     let original_bytes = fs::read(f.path()).unwrap();
 
