@@ -2,16 +2,31 @@ import type { LinkedVisualEdge, LinkedVisualNode, VisualLayoutDirection } from '
 
 export interface FlowPoint { x: number; y: number }
 
+function stableFallback(nodes: Pick<LinkedVisualNode, 'nodeId'>[], direction: VisualLayoutDirection): Map<string, FlowPoint> {
+  if (nodes.length < 7) return new Map(nodes.map((node, index) => [node.nodeId, {
+    x: direction === 'leftToRight' ? index * 340 : 0,
+    y: direction === 'leftToRight' ? 0 : index * 260,
+  }]));
+
+  // Disconnected and cyclic graphs have no trustworthy rank order. Keep their
+  // source order, but use the available canvas area instead of a tiny row.
+  const columns = Math.ceil(Math.sqrt(nodes.length));
+  return new Map(nodes.map((node, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    return [node.nodeId, direction === 'leftToRight'
+      ? { x: column * 340, y: row * 260 }
+      : { x: row * 320, y: column * 260 }];
+  }));
+}
+
 /** Place acyclic evidence graphs in rank layers while retaining source order in each layer. */
 export function layoutFlowNodes(
   nodes: Pick<LinkedVisualNode, 'nodeId'>[],
   edges: Pick<LinkedVisualEdge, 'fromNodeId' | 'toNodeId'>[],
   direction: VisualLayoutDirection,
 ): Map<string, FlowPoint> {
-  const fallback = new Map(nodes.map((node, index) => [node.nodeId, {
-    x: direction === 'leftToRight' ? index * 340 : 0,
-    y: direction === 'leftToRight' ? 0 : index * 260,
-  }]));
+  const fallback = stableFallback(nodes, direction);
   if (nodes.length < 2) return fallback;
 
   const nodeOrder = new Map(nodes.map((node, index) => [node.nodeId, index]));
@@ -51,18 +66,40 @@ export function layoutFlowNodes(
     layers.set(layerRank, layer);
   }
 
+  // A wide rank of unrelated nodes (common for disconnected evidence) should
+  // read as a compact overview. Keep small diagrams in their familiar layout.
+  if (layers.size === 1 && nodes.length >= 7) return stableFallback(nodes, direction);
+
   const isHorizontal = direction === 'leftToRight';
   const depthSpacing = isHorizontal ? 340 : 260;
   const siblingSpacing = isHorizontal ? 260 : 320;
   const positions = new Map<string, FlowPoint>();
+  const lastRank = Math.max(...layers.keys());
+  const ranksPerBand = lastRank >= 5 ? 4 : lastRank + 1;
+  const bands = new Map<number, number>();
+  for (const [layerRank, layer] of layers) {
+    const band = Math.floor(layerRank / ranksPerBand);
+    bands.set(band, Math.max(bands.get(band) ?? 0, layer.length));
+  }
+  const bandOffsets = new Map<number, number>();
+  let bandOffset = 0;
+  for (const [band, largestLayer] of [...bands].sort(([left], [right]) => left - right)) {
+    bandOffsets.set(band, bandOffset);
+    bandOffset += Math.max(300, (largestLayer - 1) * siblingSpacing + 200);
+  }
   for (const [layerRank, layer] of layers) {
     layer.sort((left, right) => nodeOrder.get(left)! - nodeOrder.get(right)!);
     const center = (layer.length - 1) / 2;
+    const band = Math.floor(layerRank / ranksPerBand);
+    const rankInBand = layerRank % ranksPerBand;
+    const reverse = band % 2 === 1;
+    const rankSlot = reverse ? ranksPerBand - 1 - rankInBand : rankInBand;
+    const bandCrossOffset = bandOffsets.get(band) ?? 0;
     layer.forEach((nodeId, index) => {
       const sibling = (index - center) * siblingSpacing;
       positions.set(nodeId, isHorizontal
-        ? { x: layerRank * depthSpacing, y: sibling }
-        : { x: sibling, y: layerRank * depthSpacing });
+        ? { x: rankSlot * depthSpacing, y: bandCrossOffset + sibling }
+        : { x: bandCrossOffset + sibling, y: rankSlot * depthSpacing });
     });
   }
   return positions;

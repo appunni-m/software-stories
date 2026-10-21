@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {cleanFlowViewport,cleanReaderProgress,cleanStoryProgress,sameSection,withReaderProgress} from '../src/lib/readerProgress.ts';
+import {cleanFlowViewport,cleanReaderProgress,cleanStoryProgress,FLOW_DIAGRAM_LAYOUT_VERSION,sameSection,withReaderProgress} from '../src/lib/readerProgress.ts';
 import {readSectionStoryProgress,readStoryProgress} from '../src/lib/visualStory.ts';
 import {ancestors,createWorkspace,addTurn,cleanAnswerNotes,decodeWorkspace,presentationOwner,rememberCodePane,rememberFileFlow,rememberPresentation,rememberScroll,rememberSection,sectionPosition} from '../src/workspace/model.ts';
 
 const identity={revisionId:'revision:one',sectionId:'section:one',sectionRevisionId:'section-revision:one'};
 const story={...identity,sceneId:'claim:second',positions:{'claim:first':12.4,'claim:second':3.2},fullMap:true,viewport:{x:-34,y:91,zoom:.6},focusLayoutVersion:3};
-const diagram={...identity,viewport:{x:250,y:-91,zoom:1.7}};
+const diagram={...identity,viewport:{x:250,y:-91,zoom:1.7},layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION};
 const ready=(id,revisionId=identity.revisionId)=>({id,question:'Follow the bytes',context:[],status:'ready',revisionId});
 
 test('presentation records contain only bounded metadata and exact immutable section identity',()=>{
@@ -57,6 +57,12 @@ test('focused graph progress accepts only the current layout version',()=>{
   });
   assert.equal(readStoryProgress(JSON.stringify(previousLayout),identity,scenes),undefined);
   assert.equal(cleanStoryProgress({...oldFocused,focusLayoutVersion:1}),undefined);
+});
+
+test('Flow viewport restoration accepts only the current layout version',()=>{
+  assert.deepEqual(cleanReaderProgress({diagrams:[diagram]}).diagrams,[diagram]);
+  assert.deepEqual(cleanReaderProgress({diagrams:[{...diagram,layoutVersion:1}]}).diagrams,[]);
+  assert.deepEqual(cleanReaderProgress({diagrams:[(({layoutVersion,...old})=>old)(diagram)]}).diagrams,[]);
 });
 
 test('valid bounded native progress does not pass through a browser string parser',()=>{

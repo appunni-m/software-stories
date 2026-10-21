@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {FLOW_DIAGRAM_LAYOUT_VERSION} from '../src/lib/readerProgress.ts';
 import {createWorkspace,addTurn,decodeWorkspace,rememberCodePane,rememberFileFlow,rememberPresentation} from '../src/workspace/model.ts';
 import {workspaceStoreHarness,deferred,flushLocalReads} from './helpers/workspace-store-harness.mjs';
 import {rememberAnswerVersion,answerReadingPosition,resolveAnswerRevision} from '../src/workspace/answerVersions.ts';
@@ -130,7 +131,7 @@ test('native restart restores owned scenes, times, viewport, pane and expanded s
   h.store.updateWorkspace('project','snapshot',s=>rememberCodePane(s,'root',false));
   h.store.updateWorkspace('project','snapshot',s=>rememberFileFlow(s,'root','src/font.rs',true));
   h.store.updateWorkspace('project','snapshot',s=>rememberPresentation(s,'root','reader-turn','stories',{...story,html:'must never be copied',autoPlay:true}));
-  h.store.updateWorkspace('project','snapshot',s=>rememberPresentation(s,'root','reader-turn','diagrams',{...identity,viewport:{x:100,y:-500,zoom:1.8}}));
+  h.store.updateWorkspace('project','snapshot',s=>rememberPresentation(s,'root','reader-turn','diagrams',{...identity,viewport:{x:100,y:-500,zoom:1.8},layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION}));
   await h.store.flushWorkspaceConversation('project','snapshot');
   const metadata=JSON.stringify(b.records.get(scope));assert.doesNotMatch(metadata,/must never be copied|autoPlay|spokenText/);
   storage.clear();storage.get=()=>{throw new Error('browser unavailable');};

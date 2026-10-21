@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {FLOW_DIAGRAM_LAYOUT_VERSION} from '../src/lib/readerProgress.ts';
 import {answerReadingPosition, answerRevisionOptions, cleanAnswerVersions, rememberAnswerVersion, resolveAnswerRevision} from '../src/workspace/answerVersions.ts';
 import {addTurn, createWorkspace, decodeWorkspace, mergePublishedSections, presentationOwner, rememberPresentation, rememberSection} from '../src/workspace/model.ts';
 
@@ -98,7 +99,7 @@ test('bounded version retention removes orphan progress so the native journal ca
   let s=workspace();const t=turn(s);
   t.answerVersions=revisions.slice(0,256).map(r=>({originalRevisionId:original.revisionId,revisionId:r.revisionId,selected:r===current,reading:{guide:'section:one'}}));
   const progress=r=>({revisionId:r.revisionId,sectionId:'section:one',sectionRevisionId:`section-revision:${r.revisionNumber}`,sceneId:'claim:one',positions:{},fullMap:false,focusLayoutVersion:3});
-  t.presentation={stories:[progress(original),progress(oldest),progress(current)],diagrams:[{...progress(oldest),viewport:{x:0,y:0,zoom:1}}]};
+  t.presentation={stories:[progress(original),progress(oldest),progress(current)],diagrams:[{...progress(oldest),viewport:{x:0,y:0,zoom:1},layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION}]};
   const before=JSON.stringify(s);s=select(s,next.revisionId,[original,...revisions]);
   assert.equal(turn(s).answerVersions.length,256);assert.equal(resolveAnswerRevision(original,turn(s),[original,...revisions]),next);
   assert.deepEqual(turn(s).presentation.stories.map(p=>p.revisionId),[original.revisionId,current.revisionId]);

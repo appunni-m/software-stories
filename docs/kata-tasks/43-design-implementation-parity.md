@@ -23,6 +23,14 @@ Implemented in this iteration:
 
 See [native observations, screenshots and remaining deviations](../acceptance/2026-10-16-code-workspace.md). Full Changes composition, first-run polish, generated visual quality, question-to-source discovery, and accessibility acceptance are not established by this iteration. The question-to-source work is separately defined in Kata `xvjk` and `55-question-to-source-discovery.md`.
 
+## Dense Flow canvas correction — 2026-10-21
+
+Large disconnected or cyclic Flow diagrams now use a compact grid instead of a single horizontal fallback row. Long ranked paths wrap into alternating bands. The Flow canvas uses more of the available window height, and a layout-version field drops old saved zoom positions so the new arrangement is fit on first open. Small graphs keep their existing positions. Linear paths continue to use the source-linked step reader.
+
+The focused Flow/persistence checks pass **55/55**, and the production frontend build passes. The unsigned Mac app and DMG built successfully; DMG checksum and bundle metadata verification passed. In the installed Code Atlas 0.1.0 app (arm64, executable SHA-256 `f82913d8584744290627e0afaa5a2571af8da5162f3f9d8950abac2f1f85ea9d`), Fontdone `main@5249b72371` reopened with its saved Flow selection. All nine nodes were visible in a 3×3 layout, and selecting the first node retained Flow and targeted `src/tt/mod.rs:94`.
+
+The screenshot was inspected live but is not saved as a durable file. This verifies one dark/system Flow state only. Other workspace states, themes, accessibility, large-repository behavior, and the full screen-by-screen acceptance remain open; keep `13yp` open.
+
 
 ## User outcome
 

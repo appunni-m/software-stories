@@ -10,7 +10,7 @@ import { InlineCodeText } from '../InlineCodeText';
 import { VisualStory } from '../VisualStory';
 import { ReaderProgressContext } from '../lib/ReaderProgressContext';
 import { sourceAnchorForVisualNode, sourceValuesByVisualNode } from '../lib/visualStory';
-import { cleanFlowViewport, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
+import { cleanFlowViewport, FLOW_DIAGRAM_LAYOUT_VERSION, sameSection, type DiagramProgress, type FlowViewport, type StoryProgress } from '../lib/readerProgress';
 import { viewportClipsNodeBounds, type FlowViewportInstance } from '../lib/flowViewport';
 import { buildInventory } from '../lib/inventory';
 import { isNativeRuntime, listChapterRevisions, readSnapshotSource, type ChapterRevision, type ChapterSourceAnchor, type SnapshotManifest, type SnapshotSource, type SnapshotIndex, type HotspotDestination } from '../lib/commands';
@@ -524,7 +524,7 @@ function EvidenceFlow({revision,saved,progress,onProgress,onSection,theme,onOpen
       </ol>
     </> : <>
       <p>Select a step to open its source.</p>
-      <EvidenceFlowCanvas key={`${identity.revisionId}:${identity.sectionRevisionId}`} revisionId={identity.revisionId} sectionId={identity.sectionId} sectionRevisionId={identity.sectionRevisionId} nodes={nodes} edges={edges} viewport={viewport} theme={theme} onViewportChange={(viewport)=>onProgress({...identity,viewport})}/>
+      <EvidenceFlowCanvas key={`${identity.revisionId}:${identity.sectionRevisionId}:${FLOW_DIAGRAM_LAYOUT_VERSION}`} revisionId={identity.revisionId} sectionId={identity.sectionId} sectionRevisionId={identity.sectionRevisionId} nodes={nodes} edges={edges} viewport={viewport} theme={theme} onViewportChange={(viewport)=>onProgress({...identity,viewport,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION})}/>
     </>}
   </section>;
 }

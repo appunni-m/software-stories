@@ -2,10 +2,11 @@
 export interface SectionIdentity { revisionId:string; sectionId:string; sectionRevisionId:string }
 export interface FlowViewport { x:number; y:number; zoom:number }
 export const FOCUSED_STORY_LAYOUT_VERSION = 3 as const;
+export const FLOW_DIAGRAM_LAYOUT_VERSION = 2 as const;
 export interface StoryProgress extends SectionIdentity {
   sceneId:string; positions:Record<string,number>; fullMap:boolean; viewport?:FlowViewport; focusLayoutVersion:typeof FOCUSED_STORY_LAYOUT_VERSION;
 }
-export interface DiagramProgress extends SectionIdentity { viewport:FlowViewport }
+export interface DiagramProgress extends SectionIdentity { viewport:FlowViewport; layoutVersion:typeof FLOW_DIAGRAM_LAYOUT_VERSION }
 export interface ReaderProgress { stories:StoryProgress[]; diagrams:DiagramProgress[] }
 
 const object=(value:unknown):value is Record<string,unknown>=>!!value&&typeof value==='object'&&!Array.isArray(value);
@@ -33,9 +34,9 @@ export function cleanStoryProgress(value:unknown):StoryProgress|undefined {
     ...(viewport?{viewport}:{})};
 }
 export function cleanDiagramProgress(value:unknown):DiagramProgress|undefined {
-  if(!object(value)||!identity(value))return undefined;
+  if(!object(value)||!identity(value)||value.layoutVersion!==FLOW_DIAGRAM_LAYOUT_VERSION)return undefined;
   const viewport=cleanFlowViewport(value.viewport);
-  return viewport?{revisionId:value.revisionId,sectionId:value.sectionId,sectionRevisionId:value.sectionRevisionId,viewport}:undefined;
+  return viewport?{revisionId:value.revisionId,sectionId:value.sectionId,sectionRevisionId:value.sectionRevisionId,viewport,layoutVersion:FLOW_DIAGRAM_LAYOUT_VERSION}:undefined;
 }
 export function cleanReaderProgress(value:unknown):ReaderProgress {
   const result:ReaderProgress={stories:[],diagrams:[]};

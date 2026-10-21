@@ -43,7 +43,7 @@ test('the production Flow renders sequence steps with evidence links and preserv
   assert.match(source, /const positions=layoutFlowNodes\(visual\.nodes,visual\.edges,visual\.layoutHint\.direction\)/);
   assert.match(source, /className="dw-linear-flow" aria-label=\{`Steps in \$\{visual\.title\}`\}/);
   assert.match(source, /className="dw-linear-flow-step" aria-label=\{`Step \$\{index\+1\}: \$\{node\.label\}\. Open source \$\{sourceLabel\}`\}/);
-  assert.match(source, /<EvidenceFlowCanvas key=\{`\$\{identity\.revisionId\}:\$\{identity\.sectionRevisionId\}`\}/);
+  assert.match(source, /<EvidenceFlowCanvas key=\{`\$\{identity\.revisionId\}:\$\{identity\.sectionRevisionId\}:\$\{FLOW_DIAGRAM_LAYOUT_VERSION\}`\}/);
   assert.match(source, /function EvidenceFlowCanvas\(/);
   assert.match(source, /viewportClipsNodeBounds\(bounds,flow\.getViewport\(\),size\.width,size\.height,28\)/);
   assert.match(styles, /\.dw-linear-flow-step:focus-visible/);
