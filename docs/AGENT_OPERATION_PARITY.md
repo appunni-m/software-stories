@@ -1,8 +1,8 @@
 # Required agent generation coverage
 
-> **Current sequencing — October 16:** Codex is the immediate delivery and validation target. The user deferred Claude to `8gqw` (priority 2); it no longer blocks the current Codex gate `2r6n`. The complete multi-backend milestone retains Claude and Antigravity requirements. Building/tests and a small synthetic Codex account generation are authorized. Historical source-only statements below describe earlier checkpoints.
+> **Current sequencing — October 22:** Codex is the immediate delivery and validation target. The user deferred Claude to `8gqw` (priority 2); it no longer blocks the current Codex gate `2r6n`. The complete multi-backend milestone retains Claude and Antigravity requirements. Building/tests and a small synthetic Codex account generation are authorized. Historical source-only statements below describe earlier checkpoints.
 
-This is the implementation contract for multi-agent generation, reviewed October 16, 2026. It describes required behavior and current source gaps. Codex file-chapter generation has completed one synthetic native baseline, including draft/acceptance, citation navigation and manual section advance. Other operations and full backend qualification remain pending. See [executed validation](acceptance/2026-10-16-codex-validation.md).
+This is the implementation contract for multi-agent generation, reviewed October 22, 2026. It describes required behavior and current source gaps. Codex file-chapter generation has completed one synthetic native baseline, including draft/acceptance, citation navigation and manual section advance. Other operations and full backend qualification remain pending. See [executed validation](acceptance/2026-10-16-codex-validation.md).
 
 ## Product requirement
 
@@ -52,6 +52,8 @@ All registered Codex operation senders now retain their original admitted clock 
 ## Reuse the existing implementation
 
 Use vendor-maintained agent loops: the official Codex app-server, the official Claude Agent SDK or its documented programmatic CLI, and a qualified official Antigravity surface. Evaluate maintained ACP adapters where they fit. Code Atlas owns context review, dispatch, lifecycle and validation; it does not implement a new agent loop, credential system or universal model/effort catalog.
+
+The dated [ACP adapter review](research/2026-10-22-agent-protocol-evaluation.md) records exact registry versions, provenance, current probe observations, and why ACP inclusion does not qualify a runtime. Keep the existing Codex app-server path as the immediate acceptance target; do not enable another ACP candidate from registry metadata alone.
 
 Keep operation context and validation independent of transport. Extend the existing shared chapter context rather than building an API request to obtain an agent prompt. Range and PR context builders now have that separation for the Codex source routes; reuse those builders when wiring Claude operations.
 
