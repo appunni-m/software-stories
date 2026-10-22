@@ -54,9 +54,6 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
                 }
                 issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{index}/mode"),"sceneProblem":"graphDensity"}));
             }
-            if scene.mode != SceneMode::Composition {
-                continue;
-            }
             let claim = claims
                 .and_then(|items| items.get(scene.claim_index))
                 .and_then(|claim| claim.get("prose"))
@@ -66,12 +63,16 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
                 claim,
                 &scene.title,
                 &scene.narration,
-            ) && !crate::scene_presentation::has_ordered_selector_root(&scene.elements)
+            ) && (scene.mode != SceneMode::Composition
+                || !crate::scene_presentation::has_ordered_selector_root(&scene.elements))
             {
                 if issues.len() >= super::MAX_ISSUES {
                     return;
                 }
                 issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{index}/elements"),"sceneProblem":"selectorRequired"}));
+            }
+            if scene.mode != SceneMode::Composition {
+                continue;
             }
             let base = format!("{prefix}/visual/presentation/scenes/{index}/elements");
             for finding in tree::findings(&scene.elements) {
@@ -230,7 +231,7 @@ mod tests {
     }
 
     #[test]
-    fn first_match_composition_gets_a_selector_diagnostic_without_leaking_text() {
+    fn first_match_graphs_and_compositions_get_selector_diagnostics_without_leaking_text() {
         let mut proposal = composed_proposal(3);
         let scene = &mut proposal["sections"][0]["visual"]["presentation"]["scenes"][0];
         scene["title"] = json!("The first matching flag wins");
@@ -251,5 +252,16 @@ mod tests {
         assert!(prompt.contains("selector must be the root layout"));
         assert!(prompt.contains("never wrap it in stack"));
         assert!(!prompt.contains("first matching flag"));
+
+        let mut graph_proposal = composed_proposal(3);
+        let graph_scene = &mut graph_proposal["sections"][0]["visual"]["presentation"]["scenes"][0];
+        graph_scene["title"] = json!("The first matching flag wins");
+        graph_scene["mode"] = json!("graph");
+        graph_scene["elements"] = json!([]);
+        let graph_findings =
+            crate::claim_alignment::chapter_diagnostics(&graph_proposal.to_string()).unwrap();
+        assert!(graph_findings
+            .iter()
+            .any(|finding| finding["sceneProblem"] == "selectorRequired"));
     }
 }

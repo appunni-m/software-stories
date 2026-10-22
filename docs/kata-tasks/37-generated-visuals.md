@@ -369,3 +369,45 @@ been packaged and installed, but has not been evaluated in a fresh Guide.
 Keep `j53m` open until its remaining topics, source navigation, narration and
 human comprehension are reviewed. A future v11 Guide should check the
 graph-to-timeline distinction and the first-visit rendering defect.
+
+## Per-scene representation and ordered-guard validation — 22 October 2026
+
+The fresh visual prompt is now `ai-html-compositions-v13` with teaching policy
+`meaning-first-v21`. It asks the model to select a semantic form for each scene
+from the behavior being explained, and gives concrete guidance for timelines,
+first-match selectors, mode tables, before/after comparisons, transforms, lanes,
+byte layouts and graphs. Graphs are reserved for relationships that genuinely
+need a network view. Source narration must explain what the visual means and
+what follows from its decisions rather than reading declarations aloud.
+
+Fresh native validation and safe correction diagnostics now reject a graph for
+an ordered guard chain; the frontend reader recognizes multiple early returns
+as ordered decisions. Historical saved graphs remain readable. Model output
+remains data interpreted by app-owned renderers: generated HTML, scripts and
+Three.js are not run. A future spatial renderer can be added if source behavior
+actually calls for a spatial model; adding 3-D to a parser dispatch story would
+make it harder to understand.
+
+Verification for this implementation: 714 Rust library tests passed (18
+ignored), 612 frontend tests passed, the prompt/quality helper checks passed,
+and the production macOS app and DMG builds completed. The metadata was checked
+in the built app for v13/v21. One user-approved fresh whole-repository Guide was
+started in the packaged app using this prompt. It has produced the opening
+section, “From memory bytes to a face,” with two scenes. Scene one uses a
+decision and outcomes layout to show the borrowed input, the memory-face call,
+wrapping a successful result in `Face`, and early return on an error. Scene two
+shows the first PCF signature probe: a match returns the PCF parser result,
+while a miss continues to the PFR0 probe. Both use non-graph layouts suited to
+their local behavior. The narration is two short, consequence-focused passages
+(10 and 11 seconds); it explains success/error propagation and
+match/fall-through in plain words. Clicking the PCF check opened captured
+`src/font.rs` at line 4058.
+
+The live Guide remains at “Your guide is coming together…” with only its first
+section published and the next slide still building. The two layouts are
+clearer than the earlier graph-heavy outputs, but still present large source
+expressions inside stacked cards, so the desired visual variety and reduced
+text prominence are not yet established. The audio controls report “Ready to
+play”; audible Pocket output has not been reviewed. This early result does not
+establish whole-repository coverage, audio quality or human comprehension.
+Keep `j53m` open; do not count older Fontdone attempts as v13 evidence.

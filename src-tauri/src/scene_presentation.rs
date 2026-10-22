@@ -61,6 +61,9 @@ pub(crate) fn requires_ordered_selector(claim: &str, title: &str, narration: &st
         "first successful",
         "ordered probe",
         "probe order",
+        "ordered checks",
+        "checked in source order",
+        "checks in source order",
         "priority order",
         "priority chain",
         "precedence chain",
@@ -68,6 +71,8 @@ pub(crate) fn requires_ordered_selector(claim: &str, title: &str, narration: &st
         "fallthrough",
         "sequential early return",
         "early return guard chain",
+        "multiple early returns",
+        "several early returns",
         "guard chain",
         "ordered guards",
     ]
@@ -79,6 +84,27 @@ pub(crate) fn has_ordered_selector_root(elements: &[SceneElement]) -> bool {
     elements
         .first()
         .is_some_and(|root| root.kind == ElementKind::Selector)
+}
+
+/// Fresh model output must not use a graph for source-ordered guard chains.
+/// Stored scenes retain the version-3 replay contract; this stricter choice
+/// check is called only while admitting newly generated chapter content.
+pub(crate) fn validate_fresh_semantic_layouts(
+    presentation: &ScenePresentation,
+    claims: &[ChapterClaim],
+) -> Result<(), String> {
+    for (scene, claim) in presentation.scenes.iter().zip(claims) {
+        if requires_ordered_selector(&claim.prose, &scene.title, &scene.narration)
+            && (scene.mode != SceneMode::Composition
+                || !has_ordered_selector_root(&scene.elements))
+        {
+            return Err(
+                "Source-ordered guards need a selector composition at the root, not a graph or another layout."
+                    .into(),
+            );
+        }
+    }
+    Ok(())
 }
 
 /// Authored speech stays separate from exact implementation claims. This checks
@@ -588,6 +614,34 @@ mod tests {
         presentation.scenes[0].elements = wrapped;
         let error = validate(&presentation, &nodes, &claims).unwrap_err();
         assert!(error.contains("root selector layout"));
+    }
+
+    #[test]
+    fn fresh_ordered_early_returns_cannot_choose_graph_mode() {
+        let (nodes, claims, mut presentation) = fixture();
+        let mut claims = vec![claims[0].clone()];
+        presentation.scenes.truncate(1);
+        claims[0].prose = "Several early returns are checked in source order; a miss continues to the next guard.".into();
+        presentation.scenes[0].mode = SceneMode::Graph;
+        presentation.scenes[0].elements.clear();
+
+        // Historical version-3 graphs remain replayable, but a fresh proposal
+        // must use the source-ordered selector grammar for these guards.
+        validate(&presentation, &nodes, &claims).unwrap();
+        assert!(validate_fresh_semantic_layouts(&presentation, &claims)
+            .unwrap_err()
+            .contains("selector composition at the root"));
+
+        presentation.scenes[0].mode = SceneMode::Composition;
+        presentation.scenes[0].elements = vec![SceneElement {
+            kind: ElementKind::Selector,
+            parent_index: None,
+            node_index: None,
+            tone: ElementTone::Neutral,
+            value: String::new(),
+            value_origin: ValueOrigin::None,
+        }];
+        validate_fresh_semantic_layouts(&presentation, &claims).unwrap();
     }
 
     fn fixture() -> (Vec<VisualNode>, Vec<ChapterClaim>, ScenePresentation) {

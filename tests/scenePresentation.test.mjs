@@ -148,6 +148,24 @@ describe('AI-authored HTML scene contract', () => {
       claimIndex: 0, title: 'The actual ordered call path', narration: 'First match wins; later work follows only after a miss.', mode: 'graph', elements: [],
     }] }, nodes, firstMatchClaims), true);
   });
+  it('recognizes plural early returns as an ordered selector requirement', () => {
+    const earlyReturnClaims = [{ ...claims[0], prose: 'Several early returns are checked in source order; a miss continues to the next guard.' }];
+    const stack = [
+      { ...element('stack'), nodeIndex: null },
+      element('token', 'fallback mode', 'illustration', 0),
+    ];
+    const selector = [
+      { ...element('selector'), nodeIndex: null },
+      { ...element('branch', '', 'none', 0), nodeIndex: null },
+      element('text', 'Guard one?', 'illustration', 1),
+      element('token', 'Return result one', 'illustration', 1),
+      { ...element('branch', '', 'none', 0), nodeIndex: null },
+      element('text', 'No earlier guard matched', 'illustration', 4),
+      element('token', 'Continue to fallback', 'illustration', 4),
+    ];
+    assert.equal(validScenePresentation(presentation(stack), nodes, earlyReturnClaims), false);
+    assert.equal(validScenePresentation(presentation(selector), nodes, earlyReturnClaims), true);
+  });
   it('admits the supported representations without executing values as markup', () => {
     for (const [kind, value] of [['card', ''], ['metric', '3'], ['code', '<script>attack()</script>'], ['bytes', '01 02'], ['matrix', '010\n111\n010'], ['table', 'Input|Output\nAda|Hello, Ada'], ['token', 'name'], ['text', '']]) {
       assert.ok(validScenePresentation(presentation([element(kind, value, value ? 'illustration' : 'none')]), nodes, claims), kind);

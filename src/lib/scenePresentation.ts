@@ -27,8 +27,10 @@ const index = (v: unknown, bound: number): v is number => typeof v === 'number' 
 const requiresOrderedSelector = (claim: string, title: string, narration: string) => {
   const text = `${claim} ${title} ${narration}`.toLowerCase().replace(/[-_]/gu, ' ');
   return ['first match', 'first matching', 'first applicable', 'first successful', 'ordered probe',
-    'probe order', 'priority order', 'priority chain', 'precedence chain', 'fall through', 'fallthrough',
-    'sequential early return', 'early return guard chain', 'guard chain', 'ordered guards']
+    'probe order', 'ordered checks', 'checked in source order', 'checks in source order',
+    'priority order', 'priority chain', 'precedence chain', 'fall through', 'fallthrough',
+    'sequential early return', 'early return guard chain', 'multiple early returns',
+    'several early returns', 'guard chain', 'ordered guards']
     .some(signal => text.includes(signal));
 };
 
