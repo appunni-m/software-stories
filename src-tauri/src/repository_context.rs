@@ -1880,8 +1880,8 @@ pub(crate) fn search_with_mode_page(
     Ok(ranked)
 }
 
-/// Return one relevant source range per captured file, ranked by the
-/// inverse-document-frequency coverage of distinct query terms. This is a
+/// Return one relevant source range per captured file, ranked by distinct
+/// query-term coverage and then inverse-document-frequency score. This is a
 /// discovery view for broad questions: the caller can then scope a normal
 /// range search to a promising file instead of letting many chunks from one
 /// large file hide other relevant modules.
@@ -2021,9 +2021,9 @@ pub(crate) fn search_files_with_mode_page(
         .collect::<Vec<_>>();
     ranked_files.sort_by(|left, right| {
         right
-            .2
-            .total_cmp(&left.2)
-            .then_with(|| right.3.cmp(&left.3))
+            .3
+            .cmp(&left.3)
+            .then_with(|| right.2.total_cmp(&left.2))
             .then_with(|| left.0.cmp(&right.0))
     });
     let total_files = ranked_files.len();

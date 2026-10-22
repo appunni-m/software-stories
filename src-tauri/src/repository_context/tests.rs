@@ -288,6 +288,46 @@ fn file_discovery_returns_one_verified_range_per_path_and_pages_stably() {
     assert!(scoped.next_offset.is_none());
 }
 
+#[test]
+fn broad_file_discovery_prefers_distinct_query_coverage_over_one_rare_term() {
+    let mut fixture = Fixture::new();
+    add_source(
+        &mut fixture,
+        "src/00-coverage.txt",
+        "alpha beta gamma delta\n",
+    );
+    add_source(&mut fixture, "src/99-rare.txt", "quasar\n");
+    for index in 0..8 {
+        add_source(
+            &mut fixture,
+            &format!("src/common-{index:02}.txt"),
+            "alpha beta gamma delta\n",
+        );
+    }
+
+    let cancelled = AtomicBool::new(false);
+    let budget = Budget::new(&cancelled);
+    let prepared = prepare(&fixture.storage, &fixture.manifest, None, &budget).unwrap();
+    let result = search_files_with_mode_page(
+        &fixture.storage,
+        &fixture.manifest,
+        &prepared,
+        "alpha beta gamma delta quasar",
+        None,
+        1,
+        0,
+        &budget,
+        SearchMode::Code,
+    )
+    .unwrap();
+
+    assert_eq!(result.matches.len(), 1);
+    assert_eq!(
+        result.matches[0].range.path, "src/00-coverage.txt",
+        "a broad discovery query should lead with the file covering four distinct terms, not the file matching only the rarest term"
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn file_discovery_observes_cancellation_after_verifying_a_captured_blob() {
