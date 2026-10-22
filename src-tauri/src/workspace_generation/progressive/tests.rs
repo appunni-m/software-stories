@@ -556,7 +556,7 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v19:"));
+    assert!(instructions.contains("Teaching policy v20:"));
     assert!(instructions.contains("visible cue"));
     assert!(instructions.contains("at most two short, natural sentences per scene"));
     assert!(instructions.starts_with(ANSWER_ROLE));
@@ -603,7 +603,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema).unwrap();
     assert_eq!(contract["storyPolicy"], "ai-html-compositions-v12");
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v19");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v20");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(
         system_instructions()

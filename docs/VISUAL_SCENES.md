@@ -48,7 +48,7 @@ separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
 The current prompt is story policy `ai-html-compositions-v12` and teaching
-policy `meaning-first-v19`. It first identifies whether a reader needs to see
+policy `meaning-first-v20`. It first identifies whether a reader needs to see
 order, a decision, a changed value or state, ownership, spatial data, or a
 relationship network, then maps that need to a semantic renderer: timelines,
 branches, selectors, transforms, before/after states, tables, lanes, trees,
@@ -60,9 +60,11 @@ section, not once per scene; per-scene limits are ceilings, not targets. These
 instructions and structural checks do not prove that a fresh guide teaches
 well; rendered quality still needs human review.
 
-Spoken narration expands abbreviations and field or table names into their
-plain-language meaning, while exact names remain visible in the scene and
-source links.
+Spoken narration describes implementation tokens by role instead of reading
+them aloud, including abbreviations, format tags, field/table names and error
+labels. Exact tokens remain visible in the scene and source links; speech uses
+plain-language cues such as “the first font-format check” or “the glyph's
+stored width.”
 
 This is a compositional HTML contract, not permission to run model-produced
 programs. React owns the tags, CSS, keyboard handlers and source actions. Model
