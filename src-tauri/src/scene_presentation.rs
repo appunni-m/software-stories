@@ -66,6 +66,10 @@ pub(crate) fn requires_ordered_selector(claim: &str, title: &str, narration: &st
         "precedence chain",
         "fall through",
         "fallthrough",
+        "sequential early return",
+        "early return guard chain",
+        "guard chain",
+        "ordered guards",
     ]
     .iter()
     .any(|signal| text.contains(signal))
@@ -502,8 +506,7 @@ mod tests {
     #[test]
     fn first_match_story_rejects_a_reversed_stack_and_accepts_selector_layout() {
         let (nodes, mut claims, mut presentation) = fixture();
-        claims[0].prose =
-            "The first matching flag wins; later checks only run after a miss.".into();
+        claims[0].prose = "The normal renderer uses a sequential early-return guard chain: each match returns, otherwise the next guard is tried.".into();
         let scene = &mut presentation.scenes[0];
         scene.title = "The first matching flag wins".into();
         scene.elements = vec![

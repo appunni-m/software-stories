@@ -114,6 +114,7 @@ describe('AI-authored HTML scene contract', () => {
   });
   it('rejects a LIFO stack for first-match behavior and accepts its ordered selector', () => {
     const firstMatchClaims = [{ ...claims[0], prose: 'The first matching flag wins; later checks run only after a miss.' }];
+    const earlyReturnClaims = [{ ...claims[0], prose: 'The normal renderer uses a sequential early-return guard chain.' }];
     const stack = [
       { ...element('stack'), nodeIndex: null },
       element('token', 'fallback mode', 'illustration', 0),
@@ -141,6 +142,8 @@ describe('AI-authored HTML scene contract', () => {
       element('token', 'Use default mode', 'illustration', 4),
     ];
     assert.equal(validScenePresentation(presentation(selector), nodes, firstMatchClaims), true);
+    assert.equal(validScenePresentation(presentation(stack), nodes, earlyReturnClaims), false);
+    assert.equal(validScenePresentation(presentation(selector), nodes, earlyReturnClaims), true);
     assert.equal(validScenePresentation({ schemaVersion: 3, scenes: [{
       claimIndex: 0, title: 'The actual ordered call path', narration: 'First match wins; later work follows only after a miss.', mode: 'graph', elements: [],
     }] }, nodes, firstMatchClaims), true);

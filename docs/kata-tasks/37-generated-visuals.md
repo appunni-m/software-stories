@@ -298,3 +298,38 @@ The next slide is still building, so this early result does not qualify the
 whole guide, broader visual variety, audible quality, accessibility or
 comprehension. The prior partial Guide remains saved but was marked Interrupted
 when the app was restarted for the new build. Keep `j53m` open.
+
+## Section-wide scene budgets and intent selection — 22 October 2026
+
+A second approved whole-repository Fontdone Guide completed with **partial**
+status on the packaged `ai-html-compositions-v9` prompt. Its four-topic outline
+produced no opening and no sections for the first three topics; the fourth
+topic produced one accepted section, “Outline modes, empty slots, and safe
+normal bounds.” That section has two claims and two graph-mode scenes, with 12
+nodes and 10 edges total. The graph shows real dispatch and guard relationships,
+but both scenes use graphs and the rendered labels become dense at the current
+zoom. No HTML composition was generated in this Guide. The outline also says it
+does not cover the C ABI/WASM adapters or individual format parsers. This is a
+useful source-grounded partial result, not whole-repository or visual-quality
+acceptance. Audio and source-click behavior were not reviewed in this run.
+
+The failures expose two prompt issues: the whole-section node/edge cap was not
+clear enough when several claim scenes were authored, and valid relationships
+still led to a graph where a more direct form would teach better. The current
+source prompt is now `ai-html-compositions-v10` / `meaning-first-v16`. It states
+the 12-node/20-edge cap once per entire section, calls per-scene element/leaf
+limits ceilings rather than goals, and directs mode/enum dispatch to a table,
+sequential early-return guards to a source-ordered selector, and graphs to real
+relationships that benefit from tracing. Safe correction feedback now includes
+the exact native authoring bounds. Rust and browser validators recognize
+sequential early-return guard language as ordered-selector behavior. Model-
+authored HTML, JavaScript and Three.js remain disallowed; the app owns the
+renderer.
+
+Focused Rust prompt/fingerprint/selector tests and the 14-test browser scene
+contract suite pass. A full `cargo fmt --check` still reports a formatting
+difference in the untouched `src-tauri/src/workspace_conversation/tests.rs`;
+all individually modified Rust files pass the scoped rustfmt check. The app
+has since been rebuilt and installed with the v10 prompt; it has not yet been
+exercised by another real Guide. Keep `j53m` open until a fresh v10 result is
+reviewed for visual fit, source navigation, narration and human comprehension.

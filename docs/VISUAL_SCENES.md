@@ -11,13 +11,14 @@ The current graph layout and workspace navigation remain available.
 | --- | --- |
 | Which bytes identify a format | Indexed byte strip, highlighted signature, code value |
 | How an input becomes a result | Three-part input → operation → result composition with distinct values |
+| How a mode or enum selects a handler | Table mapping each value to its selected route; use a graph only to trace further calls |
 | Why an outcome differs | Guarded branch with every outcome, or a comparison/table when branches do not matter |
-| Which prioritized guard wins | Source-ordered selector ladder with a visible handoff after each miss |
+| Which ordered guard returns first | Selector ladder with each guard, outcome and visible handoff after a miss, including sequential early returns |
 | How state is organized | LIFO stack, FIFO queue, nested tree, or before/after state |
 | How data changes over time | Ordered timeline, parallel actor lanes, or iteration table with state per step |
 | A count or constraint | Large quantity with its meaning and source |
 | Raster or grid concepts | Pixel matrix, explicitly illustrative unless captured from source |
-| Calls, paths, ownership or relationships | Source-linked graph with real labeled edges |
+| Multi-hop calls, paths, ownership or relationships | Source-linked graph with real labeled edges |
 
 These are composable, app-rendered forms rather than complete canned diagrams.
 The agent chooses a form independently for each claim and scene, then chooses
@@ -45,16 +46,16 @@ and edited chapter validation apply the same composition checks. There is no
 separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
-The current meaning-first prompt asks behavior answers to open with a useful
-input/result example, then explain the guards and consequences. It asks the
-agent to choose another app-rendered form when a later claim changes the kind of
-thing being explained. Signatures and type lists
-stay in source details. Narration describes an absent or empty result in plain
-language rather than reading constructors and punctuation. Unless the question
-asks for syntax, instructions limit each scene to one code element and favor
-meaningful values, alternatives or changed state. Distinct branches need
-distinct outcome labels. These instructions are evaluated against fresh
-generations; they are not mechanical proof of teaching quality.
+The current prompt is story policy `ai-html-compositions-v10` and teaching
+policy `meaning-first-v16`. It selects visuals from the behavior: mode-to-handler
+dispatch maps to a table, while sequential early-return guard chains map to a
+source-ordered selector with each miss and outcome visible. Real multi-hop
+relationships can use a graph. The 12-node and 20-edge limits apply across the
+whole section, not once per scene; per-scene limits are ceilings, not targets.
+The app returns the same safe bounds in correction feedback. The prompt also
+asks for useful examples, natural meaning-first speech, and forms that change
+with the behavior. These instructions and structural checks do not prove that a
+fresh guide teaches well; rendered quality still needs human review.
 
 This is a compositional HTML contract, not permission to run model-produced
 programs. React owns the tags, CSS, keyboard handlers and source actions. Model

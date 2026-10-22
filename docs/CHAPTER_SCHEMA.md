@@ -107,10 +107,13 @@ contract to account-agent and direct-provider chapter requests. Existing
 five-tool retrieval schemas and progressive tool catalogs retain their pinned
 historical identities.
 
-Ordinary and progressive requests share the behavior-first teaching paragraphs.
-Progressive contracts fingerprint `teachingPolicy: "meaning-first-v2"` and the
-exact composed instructions without changing stored checkpoint identities or
-replaying generation. This is a generation instruction, not semantic acceptance.
+Ordinary and progressive requests share the current scene and teaching
+instructions. Progressive contracts fingerprint
+`storyPolicy: "ai-html-compositions-v10"`,
+`teachingPolicy: "meaning-first-v16"`, and the exact composed instructions
+without changing stored checkpoint identities or replaying generation. A
+fingerprint change applies to future requests; it does not rewrite saved guides.
+These are generation instructions, not semantic acceptance.
 [Implementation evidence and remaining quality gaps](acceptance/2026-10-17-shared-teaching-policy.md).
 
 After source canonicalization, the fresh-preview boundary assembles displayed

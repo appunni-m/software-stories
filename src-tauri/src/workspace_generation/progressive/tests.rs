@@ -556,7 +556,7 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v15:"));
+    assert!(instructions.contains("Teaching policy v16:"));
     assert!(instructions.contains("visible cue"));
     assert!(instructions.contains("at most two short, natural sentences per scene"));
     assert!(instructions.starts_with(ANSWER_ROLE));
@@ -569,9 +569,10 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.contains("every earlier guard and failure"));
     assert!(instructions.contains("open with the problem and a useful input-to-result example"));
     assert!(instructions.contains("use at most one code element in a scene"));
-    assert!(instructions.contains("Choose a visual independently for each claim"));
-    assert!(instructions.contains("ordered work → timeline"));
-    assert!(instructions.contains("proven relationships → graph"));
+    assert!(instructions.contains("Choose a scene's visual grammar from the behavior"));
+    assert!(instructions.contains("ordered work→timeline"));
+    assert!(instructions.contains("real links→graph"));
+    assert!(instructions.contains("whole section has at most 12 visual nodes and 20 edges"));
     assert!(instructions.contains("no generated HTML/CSS/JS/URLs/handlers"));
     assert!(instructions.contains("give each outcome its own accurately named node or table row"));
     assert!(instructions.contains("Narration guides the reader through the visible cue"));
@@ -594,8 +595,8 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     let input = input(&f);
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema).unwrap();
-    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v9");
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v15");
+    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v10");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v16");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(
         system_instructions()
@@ -603,6 +604,9 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     );
     assert!(system_instructions().contains(
         "selectorShape means an ordered selector needs at least two source-ordered branch checks"
+    ));
+    assert!(system_instructions().contains(
+        "the whole section has at most 12 visual nodes and 20 edges across all claim scenes"
     ));
     assert!(system_instructions().contains("bottom-up LIFO reverses priority"));
     assert_eq!(
@@ -704,8 +708,8 @@ fn every_workspace_code_investigation_uses_a_user_controlled_runtime() {
 #[test]
 fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Choose a visual independently for each claim"));
-    assert!(instructions.contains("data change → input/operation/result"));
+    assert!(instructions.contains("Choose a scene's visual grammar from the behavior"));
+    assert!(instructions.contains("data change→input/operation/result"));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
     assert!(
         instructions.contains(
