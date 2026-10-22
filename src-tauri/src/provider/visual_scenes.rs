@@ -4,20 +4,20 @@
 use crate::chapters::{self, ChapterRevision};
 use serde_json::{Value, json};
 
-pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v25";
+pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v26";
 
 /// One speech contract for file, overview and selected-section user prompts.
 /// Keep the full script and inspectable claim fields complete.
 pub(super) const SECTION_NARRATION_INSTRUCTIONS: &str = "Complete scene narration: when a presentation is supplied, spokenText joins every scene narration in claim order, including visible inference labels. It must preserve the full behavior, guards, alternatives, errors and uncertainty of all claims, not a summary or a chosen subset. Narration is a spoken guide to the visible scene, not a compressed list of code details: point to a short label or position, then explain what changes and why it matters. Use at most two short, natural sentences per scene. Explain every distinct outcome in plain words. Keep exact identifiers, signatures, abbreviations, file-format tags, field/table tokens and error labels visible in claims, visual details and source links; in speech describe each by its role (for example, say ‘the first font-format check’ rather than spelling its tag, and ‘the glyph's stored horizontal width’ rather than a table token). Speak an exact token only when the user explicitly asks about its spelling or meaning. If several checks would become a spoken list, split them into ordered scenes without dropping any condition or outcome. With no presentation, write a complete natural spoken account of all claims with the same style, preserving every guard, alternative, error, inference label and uncertainty. Keep the complete transport script within 20–1,000 UTF-8 bytes and the declared section shape; organize focused claims without dropping behavior. The app retains exact claims separately and assembles speech from all scenes.";
 
-const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v17
+const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v18
 Follow the real input through one consequential, source-grounded transition per scene; connect scenes when evidence tracks the same value or state. Preserve guards, alternatives, failures and uncertainty. Split crowded paths into 2–5 ordered scenes. Narration points to a visible cue, says why the choice matters and what changes next. Begin with the incoming value or situation, not “the function accepts” or “X is Y.” Keep exact tokens visible and clickable, but speak their role unless asked to explain the token. Label examples. Use narration with source links when a visual adds no clarity. Prefix inference narration with its visible label."#;
 
-const BEHAVIOR_TEACHING: &str = r#"Teaching policy v25: Start with the real input or situation; follow its code-backed change, decision and outcome. Each claim covers one transition and its downstream meaning. Narration follows a visible cue in at most two short, natural sentences; sound like a patient guide, not documentation or a list. Avoid “the function accepts/returns” openings. Use grounded consequences or contrasts, such as match versus miss. Keep identifiers, guards and errors visible; speak their role unless the token itself is asked about. State the decision rule before examples and explain every outcome. Split crowded checks without dropping conditions, alternatives or failures. Preserve zero/nonzero and empty-result behavior. Invent no guards, intent or results."#;
+const BEHAVIOR_TEACHING: &str = r#"Teaching policy v26: Start with the real input or situation; follow its code-backed change, decision and outcome. Each claim covers one transition and its downstream meaning. Narration follows a visible cue in at most two short, natural sentences; sound like a patient guide, not documentation or a list. Avoid “the function accepts/returns” openings. Use grounded consequences or contrasts, such as match versus miss. Keep identifiers, guards and errors visible; speak their role unless the token itself is asked about. State the decision rule before examples and explain every outcome. Split crowded checks without dropping conditions, alternatives or failures. Preserve zero/nonzero and empty-result behavior. Invent no guards, intent or results."#;
 
 const EVIDENCE_MEANING: &str = r#"Trace every earlier guard and failure: lookup and byte-range extraction can fail before a parser runs. Parser fallback starts after those checks. Distinguish missing entries, inaccessible bytes, malformed contents and parsing in claims, visuals and narration. A comment or default constructor does not prove later consumer behavior. For downstream effects, cite that consumer's implementation plus producer and conditions; otherwise leave them unexplored. References and identifiers do not prove meaning."#;
 
-const VISUAL_DESIGN_METHOD: &str = r#"Visual design method v17: choose one subject and question per scene (where input goes, what changes, or which guard wins). Show its real behavior in its natural data shape; track it across scenes and change form when behavior changes. Paths read as routes, decisions as gates with outcomes, and data in its actual structure—not as bordered-box stacks. Keep labels short and in plain language. A row or branch made only of source-code cards is not a visual explanation. Prefer text for behavior, token for literals, bytes/table/matrix for real data, and code only when syntax itself is the lesson. Display a code value only when its exact spelling or bytes matter to the behavior; otherwise leave visual values empty and use the node's readable label/detail. Evidence keeps the item clickable, so a displayed code excerpt is not needed for source navigation. Never put a full call or condition into a visible card by default. Show every meaningful input and outcome that the claim names; if they do not fit, compose a suitable structure or split the claim instead of omitting them. Source is one click away. A semantic container alone is not a visual. Use the typed app renderer; never output executable markup or load external resources. Use 2-D unless source behavior is spatial and a tested app renderer exists. Invent no execution or measurements."#;
+const VISUAL_DESIGN_METHOD: &str = r#"Visual design method v18: choose one subject and question per scene (where input goes, what changes, or which guard wins). Show its real behavior in its natural data shape; track it across scenes and change form when behavior changes. Paths read as routes, decisions as gates with outcomes, and data in its actual structure—not as bordered-box stacks. Keep labels short and in plain language. A row or branch made only of source-code cards is not a visual explanation. Prefer text for behavior, token for literals, bytes/table/matrix for real data, and code only when syntax itself is the lesson. Display a code value only when its exact spelling or bytes matter to the behavior; otherwise leave visual values empty and use the node's readable label/detail. Evidence keeps the item clickable, so a displayed code excerpt is not needed for source navigation. Never put a full call or condition into a visible card by default. Show every meaningful input and outcome that the claim names; if they do not fit, compose a suitable structure or split the claim instead of omitting them. Show defaults/fallbacks beside each output; connect shared guards to their results. Label-only metrics are incomplete. Source is one click away. A semantic container alone is not a visual. Use the typed app renderer; never output executable markup or load external resources. Use 2-D unless source behavior is spatial and a tested app renderer exists. Invent no execution or measurements."#;
 
 const REPRESENTATION_CHOICES: &str = r#"Choose independently per behavior: execution order/hand-offs → linked path with role labels; ordered probes/fallbacks → numbered selector gates with match destinations and a visible miss hand-off; one choice → guarded branch with a plain-language condition and named outcomes; value-to-route mapping → table; input/result change → transform; changed state → before/after; parallel actors → lanes; nesting → tree; LIFO/FIFO → stack/queue; real bytes, pixels or counts → byte strip, matrix or metric. Graph only source-backed cycles or non-linear links; chains, fan-out and ordered guards do not qualify. Prefer short behavior labels over source expressions. Split dense outcomes without dropping results or failures."#;
 
@@ -174,7 +174,7 @@ pub(crate) mod tests {
 
     #[test]
     fn ordinary_prompt_binds_the_versioned_scene_narration_policy() {
-        assert!(super::instructions().contains("ai-html-compositions-v17"));
+        assert!(super::instructions().contains("ai-html-compositions-v18"));
         assert!(
             super::instructions().contains(
                 "whole section has at most 12 nodes and 20 edges across all claim scenes"
@@ -183,6 +183,8 @@ pub(crate) mod tests {
         assert!(super::instructions().contains("not per scene"));
         assert!(super::instructions().contains("Choose independently per behavior"));
         assert!(super::instructions().contains("Use cards only as concise labels/values inside a semantic visual, not as the visual itself"));
+        assert!(super::instructions().contains("Show defaults/fallbacks beside each output"));
+        assert!(super::instructions().contains("Label-only metrics are incomplete"));
         assert!(
             super::instructions().contains("ordered probes/fallbacks → numbered selector gates")
         );
@@ -190,7 +192,7 @@ pub(crate) mod tests {
             super::instructions().contains("chains, fan-out and ordered guards do not qualify")
         );
         assert!(super::instructions().contains("Use 2-D unless source behavior is spatial"));
-        assert!(super::instructions().contains("Visual design method v17:"));
+        assert!(super::instructions().contains("Visual design method v18:"));
         assert!(super::instructions().contains("choose one subject and question per scene"));
         assert!(super::instructions().contains("not as bordered-box stacks"));
         assert!(super::instructions().contains("Source is one click away"));

@@ -524,3 +524,29 @@ published the slide (78.298 seconds). Earlier slides stayed available while
 this topic retried. This is successful recovery with a concrete prompt/schema
 gap, not zero-retry reliability. Keep `j53m` open; whole-repository coverage,
 audio listening, comprehension, and accessibility remain unqualified.
+
+## v18 visual fallback follow-up — 23 October 2026
+
+Reviewing the final bitmap-accessor scene exposed a specific rendering gap:
+three clickable metrics named pixel width, row count and signed byte pitch, but
+the visual showed neither their shared zero fallback nor the guard/result
+relationship. The narration did explain that missing bitmap lookups produce
+zero. Labels alone did not make that behavior visible.
+
+The current prompt is `ai-html-compositions-v18` / `meaning-first-v26`. It now
+requires defaults and fallbacks beside each output, connects shared guards to
+their results, and rejects label-only metrics as incomplete. Existing prompt
+guidance still chooses a scene form per behavior (for example, a selector,
+before/after change, transform, byte layout, lanes or a graph when a network is
+actually present), rather than defaulting to graph or card layouts. Proposals
+remain typed scene data rendered by the app; the runtime does not execute
+model-written HTML or JavaScript, and there is no tested spatial renderer for
+Three.js scenes.
+
+The full Rust library suite passes **715 tests** (18 ignored); the frontend
+TypeScript check and Vite build also pass, and the unsigned debug app bundle
+was rebuilt. This prompt revision has **not** been evaluated in another Guide:
+the reviewed seven-slide Guide used v17. Treat the new rule as implemented but
+not yet confirmed in generated output. Whole-repository scope, repeated
+section-generation reliability, Pocket listening, comprehension and
+accessibility remain open.

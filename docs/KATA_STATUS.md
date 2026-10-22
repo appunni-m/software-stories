@@ -262,3 +262,14 @@ Pocket audio was ready to play but was not human-listened. Keep `j53m` and
 `3bz5` open. [Visual review](kata-tasks/37-generated-visuals.md#fresh-v17-visual-prompt-guide-review--23-october-2026) ·
 [Progressive-run review](kata-tasks/73-progressive-answer-sections.md#fresh-packaged-v17-incremental-guide-result--23-october-2026).
 The task inventory remains **73 records: 50 open, 23 closed**.
+
+The rendered final bitmap slide showed three metric labels without the zero
+fallback value or the shared guard/result relation, although narration named
+the zero result. The source prompt is now `ai-html-compositions-v18` /
+`meaning-first-v26`, requiring visible defaults/fallbacks beside outputs,
+guard-to-result links, and complete metric values. The full Rust suite passes
+**715 tests** (18 ignored), the frontend TypeScript/Vite build passes, and an
+unsigned debug bundle was rebuilt. The reviewed Guide used v17; v18 has not yet
+been evaluated by another Guide. Whole-repository scope and human audio,
+comprehension and accessibility review remain open. Keep `j53m` open. [Prompt
+follow-up](kata-tasks/37-generated-visuals.md#v18-visual-fallback-follow-up--23-october-2026).
