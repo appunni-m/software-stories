@@ -588,6 +588,12 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(
         instructions.contains("preserving the claim, supported behavior and chosen representation")
     );
+    assert!(instructions.contains(
+        "sceneSourceValue means a node source value must occur exactly once as an exact substring"
+    ));
+    assert!(
+        instructions.contains("repeated or absent values need a more specific exact excerpt value")
+    );
 }
 
 #[test]

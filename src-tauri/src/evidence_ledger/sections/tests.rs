@@ -227,6 +227,52 @@ fn progressive_scene_feedback_reports_selector_and_tree_errors_safely() {
 }
 
 #[test]
+fn progressive_scene_feedback_reports_non_unique_node_source_values_without_leaking_source() {
+    let source_value = "flags = flags.without(LoadFlags::RENDER);";
+    let section = json!({
+        "visual": {
+            "nodes": [{
+                "evidence": [{"claimIndex":0,"evidenceIndex":0}],
+                "source": {
+                    "evidence": {"claimIndex":0,"evidenceIndex":0},
+                    "value": source_value
+                }
+            }],
+            "presentation": {
+                "schemaVersion":3,
+                "scenes":[{
+                    "claimIndex":0,"title":"Repeated assignment","narration":"A repeated source line needs a unique anchor.",
+                    "mode":"composition","elements":[]
+                }]
+            }
+        }
+    });
+    let repeated_excerpt = json!({
+        "sections":[{"claims":[{"evidence":[{"quote":format!("{source_value}\n{source_value}")}]}]}]
+    });
+
+    let findings = scene_source_value_findings(&section, &repeated_excerpt.to_string());
+    assert_eq!(
+        findings,
+        vec![json!({
+            "location":"/section/visual/nodes/0/source/value",
+            "code":"sceneSourceValue"
+        })]
+    );
+    assert!(valid_findings(&findings));
+    assert!(
+        !serde_json::to_string(&findings)
+            .unwrap()
+            .contains(source_value)
+    );
+
+    let unique_excerpt = json!({
+        "sections":[{"claims":[{"evidence":[{"quote":source_value}]}]}]
+    });
+    assert!(scene_source_value_findings(&section, &unique_excerpt.to_string()).is_empty());
+}
+
+#[test]
 fn current_answer_publication_replays_schema_5_with_authored_narration() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancel) = setup(&f);

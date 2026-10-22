@@ -557,17 +557,12 @@ fn scene_repetition_findings(section: &Value) -> Vec<Value> {
 }
 
 /// Only called after native citation resolution and failed canonicalization.
-/// Exact same-claim quotes explain a known failure; this never admits a value
-/// or returns source strings as repair feedback.
+/// Exact same-claim quotes explain known node and scene value failures; this
+/// never admits a value or returns source strings as repair feedback.
 fn scene_source_value_findings(section: &Value, resolved: &str) -> Vec<Value> {
     use crate::scene_presentation::{SceneMode, ScenePresentation, ValueOrigin};
     let visual = &section["visual"];
     let Some(nodes) = visual["nodes"].as_array().filter(|nodes| nodes.len() <= 12) else {
-        return vec![];
-    };
-    let Ok(presentation) =
-        serde_json::from_value::<ScenePresentation>(visual["presentation"].clone())
-    else {
         return vec![];
     };
     let Ok(resolved) = serde_json::from_str::<Value>(resolved) else {
@@ -577,6 +572,67 @@ fn scene_source_value_findings(section: &Value, resolved: &str) -> Vec<Value> {
         return vec![];
     };
     let mut findings = Vec::new();
+
+    // Node bindings are validated before scene elements. Keep the same exact,
+    // unique-substring rule here so the agent gets a repairable diagnostic
+    // instead of a generic sectionValidation when a line repeats in an excerpt.
+    for (node_index, node) in nodes.iter().enumerate() {
+        let Some(source) = node.get("source").filter(|source| source.is_object()) else {
+            continue;
+        };
+        let Some(value) = source["value"].as_str() else {
+            continue;
+        };
+        let evidence = &source["evidence"];
+        let (Some(claim_index), Some(evidence_index)) = (
+            evidence["claimIndex"]
+                .as_u64()
+                .and_then(|index| usize::try_from(index).ok()),
+            evidence["evidenceIndex"]
+                .as_u64()
+                .and_then(|index| usize::try_from(index).ok()),
+        ) else {
+            continue;
+        };
+        let cites_source = node["evidence"].as_array().is_some_and(|references| {
+            references.iter().any(|reference| {
+                reference["claimIndex"]
+                    .as_u64()
+                    .and_then(|index| usize::try_from(index).ok())
+                    == Some(claim_index)
+                    && reference["evidenceIndex"]
+                        .as_u64()
+                        .and_then(|index| usize::try_from(index).ok())
+                        == Some(evidence_index)
+            })
+        });
+        if !cites_source {
+            continue;
+        }
+        let quote = claims
+            .get(claim_index)
+            .and_then(|claim| claim["evidence"].as_array())
+            .and_then(|evidence| evidence.get(evidence_index))
+            .and_then(|evidence| evidence["quote"].as_str());
+        let unique_exact_value = quote.is_some_and(|quote| {
+            (1..=240).contains(&value.len()) && quote.match_indices(value).count() == 1
+        });
+        if !unique_exact_value {
+            findings.push(json!({
+                "location":format!("/section/visual/nodes/{node_index}/source/value"),
+                "code":"sceneSourceValue"
+            }));
+            if findings.len() == 64 {
+                return findings;
+            }
+        }
+    }
+
+    let Ok(presentation) =
+        serde_json::from_value::<ScenePresentation>(visual["presentation"].clone())
+    else {
+        return findings;
+    };
     for (scene_index, scene) in presentation.scenes.iter().take(20).enumerate() {
         if scene.mode != SceneMode::Composition || scene.claim_index != scene_index {
             continue;
