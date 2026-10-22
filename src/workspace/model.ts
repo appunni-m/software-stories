@@ -226,7 +226,10 @@ export function isRepositoryGuideIntent(question: string): boolean {
   const repository = String.raw`(?:project|repo(?:sitory)?|code\s*base|codebase|application|app|software|system)`;
   const hasRepository = new RegExp(String.raw`\b${repository}\b`, 'i').test(query);
   if (!hasRepository) return false;
-  const explicitGuide = new RegExp(String.raw`\b(?:guide|walk(?:\s+me)?\s+through|tour|overview|architecture|big\s+picture|whole|entire|full|overall|end[ -]to[ -]end)\b`, 'i');
+  // Treat completeness language as a guide request even when the user does not
+  // say "guide". Otherwise natural prompts such as "generate it for the
+  // Fontdone project entirely" fall through to the one-shot ten-minute path.
+  const explicitGuide = new RegExp(String.raw`\b(?:guide|walk(?:\s+me)?\s+through|tour|overview|architecture|big\s+picture|whole|entire(?:ly)?|full|all|every|each|complete|comprehensive|overall|end[ -]to[ -]end)\b`, 'i');
   // Explicitly asking for a project guide always uses the durable, incremental
   // guide pipeline, even from a nested exploration. Otherwise the same broad
   // request can fall back to a one-shot answer with a ten-minute deadline.
