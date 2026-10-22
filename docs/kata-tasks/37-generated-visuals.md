@@ -592,9 +592,25 @@ outcomes, clickable evidence and the rule that 3-D is only for spatial
 behavior with a tested app-owned renderer. No arbitrary model JavaScript is
 enabled.
 
-The source contract and prompt assertions are updated, but no Guide has yet
-qualified v20. A separate account-backed Fontdone Guide is currently evaluating
-the preceding v19 prompt; its five-topic outline narrows to the Rust
-memory-face path and explicitly omits the C ABI, WASM and complete glyph path.
-Treat that run as partial story-scope evidence, not whole-repository coverage
-or v20 visual acceptance. Review its completed scenes and keep `j53m` open.
+The source contract and prompt assertions are updated. A separate account-backed
+Fontdone Guide evaluating the preceding v19 prompt has a five-topic outline
+that narrows to the Rust memory-face path and explicitly omits the C ABI, WASM
+and complete glyph path. Its opening uses a vertical stack of generic input,
+entry and result boxes; the distinct error and success destinations continue
+below the current viewport. A second scene uses the numbered selector ladder.
+Treat this as partial story-scope and visual evidence, not whole-repository
+coverage or v20 visual acceptance. Keep `j53m` open.
+
+## v21 outcome-fork follow-up — 23 October 2026
+
+The current source prompt is `ai-html-compositions-v21` / `meaning-first-v26`.
+The v21 follow-up makes mutually exclusive success and failure results a
+visible fork at the operation result, so they cannot be presented as
+consecutive events. This follows the observed v19 opening: its code-backed
+outcomes were present in the scene data, but the visible viewport showed the
+preceding vertical sequence before the two destinations. The app continues to
+render typed scene data with accessible, source-linked primitives; it does not
+execute model-authored JavaScript or Three.js. Prompt assertions pass, but no
+Guide has yet qualified v21. The active v19 Fontdone run is still investigating
+its second topic; its selected plan does not cover the other language/runtime
+surfaces, so it cannot establish full-repository coverage.
