@@ -66,6 +66,64 @@ fn outline_rejects_cycles_duplicate_questions_extra_prose_and_unknown_fields() {
         assert!(canonicalize(&resolve(p)).is_err(), "{kind}");
     }
 }
+
+#[test]
+fn outline_rejections_report_fixed_structural_findings() {
+    let cases = [
+        (
+            "invalidKey",
+            "Guide section keys must use only lowercase letters, digits, and hyphens.",
+        ),
+        ("duplicateKey", "Guide section keys must be unique."),
+        (
+            "notQuestion",
+            "Each guide section question must end with a question mark.",
+        ),
+        (
+            "duplicateQuestion",
+            "Guide section questions must be distinct.",
+        ),
+        (
+            "selfPrerequisite",
+            "Guide prerequisites may name only sections that appear earlier in the outline; the separate opening slide has no section key.",
+        ),
+        (
+            "unknownPrerequisite",
+            "Guide prerequisites may name only sections that appear earlier in the outline; the separate opening slide has no section key.",
+        ),
+    ];
+
+    for (kind, expected) in cases {
+        let mut p = proposal();
+        match kind {
+            "invalidKey" => p["sections"][0]["key"] = json!("bad_key"),
+            "duplicateKey" => p["sections"][1]["key"] = json!("input"),
+            "notQuestion" => {
+                p["sections"][0]["question"] =
+                    json!("How does the incoming name enter the greeting.")
+            }
+            "duplicateQuestion" => {
+                p["sections"][1]["question"] = p["sections"][0]["question"].clone()
+            }
+            "selfPrerequisite" => p["sections"][0]["prerequisites"] = json!(["input"]),
+            "unknownPrerequisite" => p["sections"][1]["prerequisites"] = json!(["missing"]),
+            _ => unreachable!(),
+        }
+        assert_eq!(canonicalize(&resolve(p)).unwrap_err(), expected, "{kind}");
+    }
+
+    let mut repeated_prerequisite = proposal();
+    let third = json!({"key":"finish","question":"How does the final value return to its caller?",
+        "prerequisites":["input","input"],"claims":[{"evidence":[{"referenceId":"code:1"}]}]});
+    repeated_prerequisite["sections"]
+        .as_array_mut()
+        .unwrap()
+        .push(third);
+    assert_eq!(
+        canonicalize(&resolve(repeated_prerequisite)).unwrap_err(),
+        "Guide section prerequisites must be unique."
+    );
+}
 #[test]
 fn unread_references_never_become_starting_paths() {
     assert!(matches!(
@@ -94,7 +152,7 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
     assert_eq!(output, schema());
     assert!(output["properties"].get("openingAnswer").is_none());
     assert!(instructions.contains("slide outline only"));
-    assert!(instructions.contains("opening slide will be generated independently"));
+    assert!(instructions.contains("opening slide is generated separately"));
     assert!(instructions.contains("do not call propose_answer_section"));
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
     let contract = serde_json::to_value(context_mcp::research_tools()).unwrap();
@@ -128,6 +186,17 @@ fn plan_instructions_keep_the_full_requested_scope() {
     let (_, _, _, instructions) = request(&r).unwrap();
     assert!(instructions.contains("two to six focused follow-on behavior questions"));
     assert!(instructions.contains("together with the opening cover the exact original question"));
+    assert!(instructions.contains("sections array contains follow-on slides only"));
+    assert!(instructions.contains("unique lowercase key made only of letters, digits and hyphens"));
+    assert!(instructions.contains("distinct, trimmed research question ending in '?'"));
+    assert!(instructions.contains(
+        "Prerequisites are optional and may name only unique keys from earlier sections"
+    ));
+    assert!(
+        instructions.contains(
+            "Never name the separate opening slide, the current section or a later section"
+        )
+    );
     assert!(instructions.contains("unsupported boundaries as omissions"));
     assert!(!instructions.contains("Publish one small, complete, illustrated section"));
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
@@ -157,7 +226,10 @@ fn repository_guide_outline_has_no_wall_clock_deadline() {
 
     assert!(instructions.contains("no wall-clock deadline"));
     assert!(!instructions.contains("ten-minute"));
-    assert_eq!(crate::codex_agent::RunDeadline::UserControlled.duration(), None);
+    assert_eq!(
+        crate::codex_agent::RunDeadline::UserControlled.duration(),
+        None
+    );
     assert!(!crate::codex_agent::RunDeadline::UserControlled.exceeded(started));
 }
 

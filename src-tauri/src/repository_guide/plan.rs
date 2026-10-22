@@ -6,7 +6,7 @@ use crate::{agent_context, context_mcp, native_citations};
 use serde_json::{Value, json};
 use std::time::Instant;
 
-const PLAN_INSTRUCTIONS: &str = "Create the guide's cited slide outline only. The opening slide will be generated independently after this outline is saved. Return two to six focused follow-on behavior questions that together with the opening cover the exact original question. The first follow-on starts immediately after the opening entry-point transition. Keep units small enough for one independently bounded investigation each. Use delivered source references only as starting-range hints; do not write explanations, narration or slide content, and do not call propose_answer_section. Name unsupported boundaries as omissions. Return only the supplied plan schema.";
+const PLAN_INSTRUCTIONS: &str = "Create the guide's cited slide outline only. The opening slide is generated separately after this outline is saved, so the sections array contains follow-on slides only. Return two to six focused follow-on behavior questions that together with the opening cover the exact original question. The first follow-on starts immediately after the opening entry-point transition; continue in repository execution order through the main behavior and important alternate or failure paths. Every section needs a unique lowercase key made only of letters, digits and hyphens; one distinct, trimmed research question ending in '?'; and exactly one claim citing one to four delivered code references relevant to that question. Prerequisites are optional and may name only unique keys from earlier sections in this array. Never name the separate opening slide, the current section or a later section as a prerequisite. Keep units small enough for one independently bounded investigation each. Use delivered source references only as starting-range hints; do not write explanations, narration or slide content, and do not call propose_answer_section. Name unsupported boundaries as omissions. Return only the supplied plan schema.";
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -87,24 +87,47 @@ fn canonicalize(resolved: &native_citations::Resolved) -> Result<Plan, String> {
     let mut keys = std::collections::HashSet::new();
     let mut questions = std::collections::HashSet::new();
     for (index, unit) in proposal.sections.into_iter().enumerate() {
-        if !key(&unit.key)
-            || keys.contains(&unit.key)
-            || !text(&unit.question, 16, 800)
-            || !unit.question.ends_with('?')
-            || !questions.insert(unit.question.to_lowercase())
-            || unit.prerequisites.len() > index
-            || unit.prerequisites.iter().any(|k| !keys.contains(k))
-            || unit
-                .prerequisites
-                .iter()
-                .collect::<std::collections::HashSet<_>>()
-                .len()
-                != unit.prerequisites.len()
-            || unit.claims.len() != 1
-            || !(1..=4).contains(&unit.claims[0].evidence.len())
+        if !key(&unit.key) {
+            return Err(
+                "Guide section keys must use only lowercase letters, digits, and hyphens.".into(),
+            );
+        }
+        if keys.contains(&unit.key) {
+            return Err("Guide section keys must be unique.".into());
+        }
+        if !text(&unit.question, 16, 800) {
+            return Err(
+                "Each guide section needs a trimmed question between 16 and 800 characters.".into(),
+            );
+        }
+        if !unit.question.ends_with('?') {
+            return Err("Each guide section question must end with a question mark.".into());
+        }
+        if !questions.insert(unit.question.to_lowercase()) {
+            return Err("Guide section questions must be distinct.".into());
+        }
+        if unit.prerequisites.len() > index
+            || unit.prerequisites.iter().any(|key| !keys.contains(key))
         {
             return Err(
-                "Guide questions must be distinct, ordered and supported by delivered code.".into(),
+                "Guide prerequisites may name only sections that appear earlier in the outline; the separate opening slide has no section key.".into(),
+            );
+        }
+        if unit
+            .prerequisites
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+            != unit.prerequisites.len()
+        {
+            return Err("Guide section prerequisites must be unique.".into());
+        }
+        if unit.claims.len() != 1 {
+            return Err("Each guide section must contain exactly one evidence claim.".into());
+        }
+        if !(1..=4).contains(&unit.claims[0].evidence.len()) {
+            return Err(
+                "Each guide section must cite one to four delivered code references.".into(),
             );
         }
         let spans = resolved
