@@ -556,7 +556,7 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v14:"));
+    assert!(instructions.contains("Teaching policy v15:"));
     assert!(instructions.contains("visible cue"));
     assert!(instructions.contains("at most two short, natural sentences per scene"));
     assert!(instructions.starts_with(ANSWER_ROLE));
@@ -594,9 +594,16 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     let input = input(&f);
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema).unwrap();
-    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v7");
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v14");
+    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v8");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v15");
     assert_eq!(contract["systemInstructions"], system_instructions());
+    assert!(
+        system_instructions()
+            .contains("selector contains at least two source-ordered branch checks")
+    );
+    assert!(system_instructions().contains(
+        "selectorShape means an ordered selector needs at least two source-ordered branch checks"
+    ));
     assert_eq!(
         fingerprint,
         context::digest(&serde_json::to_vec(&contract).unwrap())
@@ -704,7 +711,7 @@ fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
             "compare the claim with its narration, visible labels, node details and values"
         )
     );
-    assert!(instructions.contains("Every claimed outcome needs its own visible row/node"));
+    assert!(instructions.contains("Show every supported outcome with its guard and destination"));
     assert!(!instructions.contains("spokenText copies the complete scene narration"));
 }
 

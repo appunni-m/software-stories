@@ -13,7 +13,8 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
 }) {
   const draw = (index: number): ReactNode => {
     const e = scene.elements[index];
-    const children = scene.elements.flatMap((child, i) => child.parentIndex === index ? [draw(i)] : []);
+    const childIndices = scene.elements.flatMap((child, i) => child.parentIndex === index ? [i] : []);
+    const children = childIndices.map(draw);
     const className = `html-scene-element html-scene-${e.kind} html-tone-${e.tone}`;
     if (containerKinds.has(e.kind)) {
       const labels: Record<string, string> = {
@@ -21,8 +22,20 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
         branch: 'Decision and outcomes', beforeAfter: 'Before and after states',
         transform: 'Input, operation and result', tree: 'Nested data hierarchy',
         queue: 'First in, first out queue, ordered front to back',
+        selector: 'Ordered first-match selector; checks are evaluated in source order',
       };
       const label = labels[e.kind];
+      if (e.kind === 'selector') {
+        return <div key={index} className={className} role="group" aria-label={label}>
+          {childIndices.map((check, checkIndex) => <div className="html-scene-selector-step" key={check}>
+            <span className="html-scene-selector-label">Check {checkIndex + 1}</span>
+            {draw(check)}
+            {checkIndex < childIndices.length - 1 && <div className="html-scene-selector-handoff">
+              <ArrowDown aria-hidden="true" size={18}/><span>No match · continue</span>
+            </div>}
+          </div>)}
+        </div>;
+      }
       if (e.kind === 'transform') {
         const slots = ['Input', 'Operation', 'Result'];
         return <div key={index} className={className} role="group" aria-label={label}>

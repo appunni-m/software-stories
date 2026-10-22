@@ -252,3 +252,15 @@ This is prompt/schema/renderer implementation evidence only. A new account-backe
 generation, rendered-source interaction, human visual/narration review, Pocket
 listening, accessibility and language qualification remain unverified. Keep
 `j53m` open.
+
+The follow-up prompt revision (`ai-html-compositions-v8`, teaching policy 15)
+adds a source-ordered selector ladder for first-match guard chains. It makes the
+distinction between priority/fall-through and a single guard with alternatives
+explicit, asks for visual grammar to vary by claim when evidence warrants it,
+and rejects generic card piles as the main visual. Native and web validation
+require two or more ordered branch checks, each with a guard and outcome; live
+and offline HTML render visible check labels and miss handoffs. Three.js stays
+an app-owned future option for genuinely spatial behavior; the model cannot
+author executable 3-D code. Tests verify structure and markup only, not whether
+a generated scene teaches the real source. The installed Fontdone guide remains
+the open qualitative counterexample until it can be regenerated and reviewed.

@@ -171,6 +171,7 @@ pub enum ElementKind {
     Transform,
     Tree,
     Queue,
+    Selector,
     Card,
     Token,
     Code,
@@ -199,6 +200,7 @@ impl ElementKind {
                 | Self::Transform
                 | Self::Tree
                 | Self::Queue
+                | Self::Selector
         )
     }
     fn decorative(&self) -> bool {
@@ -388,7 +390,7 @@ pub(crate) fn proposal_schema() -> Value {
                 "elements":{"type":"array","maxItems":48,"items":{
                     "type":"object","additionalProperties":false,
                     "required":["kind","parentIndex","nodeIndex","tone","value","valueOrigin"],"properties":{
-                        "kind":{"type":"string","enum":["row","column","grid","panel","compare","stack","timeline","lanes","branch","beforeAfter","transform","tree","queue","card","token","code","metric","bytes","matrix","table","text","arrow","divider"]},
+                        "kind":{"type":"string","enum":["row","column","grid","panel","compare","stack","timeline","lanes","branch","beforeAfter","transform","tree","queue","selector","card","token","code","metric","bytes","matrix","table","text","arrow","divider"]},
                         "parentIndex":{"type":["integer","null"],"minimum":0,"maximum":47},
                         "nodeIndex":{"type":["integer","null"],"minimum":0,"maximum":11},
                         "tone":{"type":"string","enum":["neutral","accent","muted","positive","warning"]},

@@ -104,6 +104,35 @@ pub(crate) fn findings(elements: &[SceneElement]) -> Vec<TreeFinding> {
                 "A transform needs exactly three direct children: input, operation and result.",
             );
         }
+        if element.kind == ElementKind::Selector {
+            let checks = elements
+                .iter()
+                .enumerate()
+                .filter(|(_, child)| child.parent_index == Some(index))
+                .map(|(child_index, _)| child_index)
+                .collect::<Vec<_>>();
+            if checks.len() < 2
+                || checks.iter().any(|&check| {
+                    elements[check].kind != ElementKind::Branch || {
+                        let branch_children = elements
+                            .iter()
+                            .filter(|child| child.parent_index == Some(check))
+                            .collect::<Vec<_>>();
+                        branch_children.len() < 2
+                            || branch_children
+                                .iter()
+                                .any(|child| child.kind.container() || child.kind.decorative())
+                    }
+                })
+            {
+                add(
+                    Some(index),
+                    "selectorShape",
+                    "parentIndex",
+                    "An ordered selector needs at least two source-ordered branch checks; each check starts with a guard and has at least one outcome.",
+                );
+            }
+        }
     }
     issues
 }
@@ -209,6 +238,53 @@ mod tests {
             !findings(&elements)
                 .iter()
                 .any(|finding| finding.code == "transformShape")
+        );
+    }
+
+    #[test]
+    fn ordered_selector_contains_guarded_branches_in_source_order() {
+        let valid = vec![
+            element("selector", None),
+            element("branch", Some(0)),
+            element("text", Some(1)),
+            element("text", Some(1)),
+            element("branch", Some(0)),
+            element("text", Some(4)),
+            element("text", Some(4)),
+        ];
+        assert!(findings(&valid).is_empty());
+
+        let one_check = vec![element("selector", None), element("branch", Some(0))];
+        assert!(
+            findings(&one_check)
+                .iter()
+                .any(|finding| { finding.code == "selectorShape" && finding.element == Some(0) })
+        );
+
+        let unordered = vec![
+            element("selector", None),
+            element("row", Some(0)),
+            element("text", Some(1)),
+            element("text", Some(1)),
+        ];
+        assert!(
+            findings(&unordered)
+                .iter()
+                .any(|finding| { finding.code == "selectorShape" && finding.element == Some(0) })
+        );
+
+        let missing_outcome = vec![
+            element("selector", None),
+            element("branch", Some(0)),
+            element("text", Some(1)),
+            element("branch", Some(0)),
+            element("text", Some(3)),
+            element("text", Some(3)),
+        ];
+        assert!(
+            findings(&missing_outcome)
+                .iter()
+                .any(|finding| { finding.code == "selectorShape" && finding.element == Some(0) })
         );
     }
 }

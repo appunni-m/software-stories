@@ -50,6 +50,27 @@ it('offline scenes keep semantic transform roles and source-linked destinations'
   assert.equal((markup.match(/href="#evidence-1-1"/g) ?? []).length, 3);
 });
 
+it('offline scenes show ordered selector checks and explicit fall-through', () => {
+  const authored = scene('token', 'first output');
+  authored.elements = [
+    { kind: 'selector', parentIndex: null, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
+    { kind: 'branch', parentIndex: 0, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
+    { kind: 'text', parentIndex: 1, nodeIndex: 0, tone: 'accent', value: 'Flag A is set?', valueOrigin: 'illustration' },
+    { kind: 'token', parentIndex: 1, nodeIndex: 0, tone: 'positive', value: 'Use mode A', valueOrigin: 'illustration' },
+    { kind: 'branch', parentIndex: 0, nodeIndex: null, tone: 'neutral', value: '', valueOrigin: 'none' },
+    { kind: 'text', parentIndex: 4, nodeIndex: 0, tone: 'accent', value: 'Otherwise', valueOrigin: 'illustration' },
+    { kind: 'token', parentIndex: 4, nodeIndex: 0, tone: 'positive', value: 'Use default mode', valueOrigin: 'illustration' },
+  ];
+  assert.ok(validScenePresentation({ schemaVersion: 3, scenes: [authored] }, visual.nodes, claims));
+  const markup = renderOfflineScene(authored, visual, () => '#evidence-1-1');
+  assert.equal((markup.match(/scene-selector-step/g) ?? []).length, 2);
+  assert.equal((markup.match(/scene-selector-label/g) ?? []).length, 2);
+  assert.match(markup, /Check 1/);
+  assert.match(markup, /Check 2/);
+  assert.match(markup, /No match · continue/);
+  assert.equal((markup.match(/href="#evidence-1-1"/g) ?? []).length, 4);
+});
+
 it('payload markup stays escaped and only generated package destinations become links', () => {
   const authored = scene('code', '<script>bad()</script><img src=x onerror="bad()">');
   assert.ok(validScenePresentation({ schemaVersion: 3, scenes: [authored] }, visual.nodes, claims));

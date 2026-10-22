@@ -12,6 +12,7 @@ The current graph layout and workspace navigation remain available.
 | Which bytes identify a format | Indexed byte strip, highlighted signature, code value |
 | How an input becomes a result | Three-part input → operation → result composition with distinct values |
 | Why an outcome differs | Guarded branch with every outcome, or a comparison/table when branches do not matter |
+| Which prioritized guard wins | Source-ordered selector ladder with a visible handoff after each miss |
 | How state is organized | LIFO stack, FIFO queue, nested tree, or before/after state |
 | How data changes over time | Ordered timeline, parallel actor lanes, or iteration table with state per step |
 | A count or constraint | Large quantity with its meaning and source |
@@ -73,9 +74,10 @@ Stored visual version 2 has an optional `presentation` field. New chapter
 compositions and progressive generations use presentation version 3;
 progressive publication uses answer checkpoint version 8. Historical admitted
 proposals and immutable answer checkpoints keep their original saved content.
-The current renderer supports semantic `transform`, `tree`, and `queue` groups
-in addition to the existing layouts. Composition data participates in visual
-fingerprints, revision comparisons and selective visual reuse.
+The current renderer supports semantic `transform`, `tree`, `queue`, and
+`selector` groups in addition to the existing layouts. Composition data
+participates in visual fingerprints, revision comparisons and selective visual
+reuse.
 
 ```json
 {
@@ -99,6 +101,15 @@ The transform's direct children are always labeled **Input**, **Operation**,
 and **Result**, in that order. The example assumes three nodes citing the same
 claim; captured code contains the template substring. The output is an example,
 not a recorded execution. Graph scenes use `mode: "graph", elements: []`.
+
+### Prioritized guards
+
+Use a `selector` only when source order and short-circuiting determine which
+guard wins. Each direct child is a `branch` containing its guard followed by
+one or more outcomes; include the final fallback. The reader labels checks in
+order and shows “No match · continue” between them. A normal `branch` remains
+the right form for one guard with alternatives that have no priority between
+them.
 
 ### Meaningful transformations
 
@@ -131,8 +142,8 @@ decoder errors. It does not authorize a value or bypass canonicalization.
 ### Primitives and bounds
 
 - Groups: layout `row`, `column`, `grid`, `panel`, `compare`; semantic
-  `timeline`, `lanes`, `branch`, `beforeAfter`, `transform`, `tree`, `queue`,
-  and LIFO `stack`.
+  `timeline`, `lanes`, `branch`, `selector`, `beforeAfter`, `transform`,
+  `tree`, `queue`, and LIFO `stack`.
 - Content: `card`, `token`, `code`, `metric`, `bytes`, `matrix`, `table`, `text`.
 - Decoration: `arrow`, `divider`, with no free content or source action.
 - Tones: `neutral`, `accent`, `muted`, `positive`, `warning`, mapped to app theme
@@ -148,6 +159,10 @@ decoder errors. It does not authorize a value or bypass canonicalization.
   must represent a meaningful change when the scene claims a transformation.
 - A `tree` groups nested source-backed data. A `queue` shows FIFO order from
   front to back; it is not an unordered collection.
+- A `selector` has at least two direct `branch` groups in source order. Each
+  branch begins with a guard and has at least one outcome; the app renders the
+  check sequence and miss handoffs. This shape validation does not prove that
+  the chosen guards, outcomes or fallback match the cited code.
 - Byte strips: 1–32 whitespace-separated cells. Matrices: 1–16 equal rows of
   1–24 cells using `0`, `1` or `.`. Tables: at most eight rows and six
   pipe-separated columns of equal width.

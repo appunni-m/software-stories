@@ -1,7 +1,7 @@
 import type { ChapterClaim, LinkedVisualNode } from './commands';
 
 export type ElementKind = 'row' | 'column' | 'grid' | 'panel' | 'compare' | 'stack' | 'timeline' | 'lanes' | 'branch' | 'beforeAfter' | 'transform' | 'tree' | 'queue'
-  | 'card' | 'token' | 'code' | 'metric' | 'bytes' | 'matrix' | 'table' | 'text' | 'arrow' | 'divider';
+  | 'selector' | 'card' | 'token' | 'code' | 'metric' | 'bytes' | 'matrix' | 'table' | 'text' | 'arrow' | 'divider';
 export interface SceneElement {
   kind: ElementKind;
   parentIndex: number | null;
@@ -18,7 +18,7 @@ export interface PresentationScene {
   elements: SceneElement[];
 }
 export interface ScenePresentation { schemaVersion: 3; scenes: PresentationScene[] }
-export const containerKinds = new Set<string>(['row', 'column', 'grid', 'panel', 'compare', 'stack', 'timeline', 'lanes', 'branch', 'beforeAfter', 'transform', 'tree', 'queue']);
+export const containerKinds = new Set<string>(['row', 'column', 'grid', 'panel', 'compare', 'stack', 'timeline', 'lanes', 'branch', 'beforeAfter', 'transform', 'tree', 'queue', 'selector']);
 const kinds = new Set([...containerKinds, 'card', 'token', 'code', 'metric', 'bytes', 'matrix', 'table', 'text', 'arrow', 'divider']);
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const exact = (v: Record<string, unknown>, keys: string[]) => Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v, k));
@@ -128,8 +128,20 @@ export function validScenePresentation(raw: unknown, nodes: LinkedVisualNode[], 
       }
       if (e.kind === 'bytes' && (!e.value.trim() || e.value.trim().split(/\s+/u).length > 32)) return false;
     }
-    return leaves >= 1 && leaves <= 12 && elements.every((e, i) => (!containerKinds.has(e.kind) || counts[i] > 0)
-      && (e.kind !== 'transform' || counts[i] === 3))
+    return leaves >= 1 && leaves <= 12 && elements.every((e, i) => {
+      if (containerKinds.has(e.kind) && counts[i] === 0) return false;
+      if (e.kind === 'transform' && counts[i] !== 3) return false;
+      if (e.kind === 'selector') {
+        const checks = elements.flatMap((child, childIndex) => child.parentIndex === i ? [childIndex] : []);
+        if (checks.length < 2 || checks.some(check => elements[check].kind !== 'branch')) return false;
+        return checks.every(check => {
+          const branchChildren = elements.filter(child => child.parentIndex === check);
+          return branchChildren.length >= 2
+            && branchChildren.every(child => !containerKinds.has(child.kind) && child.kind !== 'arrow' && child.kind !== 'divider');
+        });
+      }
+      return true;
+    })
       && !repeatsTransformation(elements as SceneElement[], nodes);
   });
   return valid && sceneNarrations(raw as unknown as ScenePresentation, claims) !== null;

@@ -94,6 +94,24 @@ describe('AI-authored HTML scene contract', () => {
       element('token', 'newest item', 'illustration', 0),
     ]), nodes, claims));
   });
+  it('requires ordered selectors to contain guarded branches with visible outcomes', () => {
+    const selector = [
+      { ...element('selector'), nodeIndex: null },
+      { ...element('branch', '', 'none', 0), nodeIndex: null },
+      element('text', 'Flag A is set?', 'illustration', 1),
+      element('token', 'Return mode A', 'illustration', 1),
+      { ...element('branch', '', 'none', 0), nodeIndex: null },
+      element('text', 'No earlier flag matched', 'illustration', 4),
+      element('token', 'Use default mode', 'illustration', 4),
+    ];
+    assert.ok(validScenePresentation(presentation(selector), nodes, claims));
+    for (const malformed of [
+      selector.slice(0, 4),
+      [selector[0], { ...selector[1], kind: 'row' }, ...selector.slice(2)],
+      [selector[0], selector[1], selector[2], selector[4], ...selector.slice(5)],
+      [selector[0], selector[1], selector[2], { ...selector[3], kind: 'arrow', nodeIndex: null, value: '', valueOrigin: 'none' }, ...selector.slice(4)],
+    ]) assert.equal(validScenePresentation(presentation(malformed), nodes, claims), false);
+  });
   it('admits the supported representations without executing values as markup', () => {
     for (const [kind, value] of [['card', ''], ['metric', '3'], ['code', '<script>attack()</script>'], ['bytes', '01 02'], ['matrix', '010\n111\n010'], ['table', 'Input|Output\nAda|Hello, Ada'], ['token', 'name'], ['text', '']]) {
       assert.ok(validScenePresentation(presentation([element(kind, value, value ? 'illustration' : 'none')]), nodes, claims), kind);
