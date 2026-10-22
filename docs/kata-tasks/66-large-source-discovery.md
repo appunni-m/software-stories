@@ -40,4 +40,18 @@ See [Fontdone acceptance](../acceptance/2026-10-17-fontdone.md). This task recor
 
 ## Industry review and implementation units — October 17
 
-The [repository context study](../research/2026-10-17-repository-context-and-indexing.md) compares ten published product approaches and existing indexing components. The recommended implementation is split into [local range retrieval](69-local-range-retrieval.md), Kata `a699`, then [owned Codex retrieval tools](70-codex-retrieval-tools.md), Kata `gk46`. This replaces whole-file selection with bounded search/read operations while preserving exact-source validation. Semantic embeddings and compiler indexes remain evaluated extensions. These are open implementation contracts, not shipped fixes or accepted performance results.
+The [repository context study](../research/2026-10-17-repository-context-and-indexing.md) compares ten published product approaches and existing indexing components. The implementation work was split into [local range retrieval](69-local-range-retrieval.md), Kata `a699`, followed by [owned Codex retrieval tools](70-codex-retrieval-tools.md), Kata `gk46`. This replaces whole-file selection with bounded search/read operations while preserving exact-source validation. Semantic embeddings and compiler indexes remain evaluated extensions. Current implementation and acceptance state is recorded below.
+
+## Current implementation and package evidence — 22 October 2026
+
+The local indexing and bounded search/read implementation is present in the
+current source; the owned Codex retrieval tools are also implemented. A
+packaged-app spot check found and opened `Font::memory_face` inside Fontdone's
+375,700-byte `src/font.rs` without attaching a reference file. The same app's
+broad global query still failed to surface that declaration on its first page.
+See [packaged local-search observations](../acceptance/2026-10-22-packaged-local-search.md)
+and the detailed [retrieval profile](../acceptance/2026-10-17-range-retrieval.md).
+Implementation presence and a successful exact-name search do not pass the
+broad-retrieval or generated-answer acceptance gates. Keep Kata `0wdn`, `a699`,
+and dependent `gk46` open until the remaining retrieval, agent, package, and
+answer-quality evidence is recorded.
