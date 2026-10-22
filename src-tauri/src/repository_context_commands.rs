@@ -636,6 +636,30 @@ mod tests {
                 .filter(|expected| found(&first_page, expected))
                 .map(|expected| expected.id.as_str())
                 .collect::<Vec<_>>();
+            let directory_scoped = ["src", "fontdone-c-abi/src"]
+                .into_iter()
+                .map(|scope| {
+                    let (scoped, elapsed_ms) = run(query, Some(scope));
+                    let recall = corpus
+                        .expected
+                        .iter()
+                        .filter(|expected| found(&scoped, expected))
+                        .map(|expected| expected.id.as_str())
+                        .collect::<Vec<_>>();
+                    serde_json::json!({
+                        "scope": scope,
+                        "recall": recall,
+                        "elapsedMs": elapsed_ms,
+                        "serializedMatchBytes": scoped.result_bytes,
+                        "resultCount": scoped.matches.len(),
+                        "limited": scoped.limited
+                    })
+                })
+                .collect::<Vec<_>>();
+            println!(
+                "FONTDONE_DIRECTORY_SCOPE {}",
+                serde_json::json!({"query":query,"results":directory_scoped})
+            );
             let mut recovered = first_page_recall.clone();
             let mut pages = 1;
             let mut elapsed_ms = first_page_ms;
