@@ -466,10 +466,23 @@ describe('visual story scenes', () => {
     assert.match(rowItems, /flex:\s*1 1 0/u);
     assert.match(rowItems, /min-width:\s*min\(100%,\s*140px\)/u);
     assert.match(rowItems, /max-width:\s*min\(260px,\s*calc\(\(100% - 80px\) \/ 3\)\)/u);
-    assert.match(styles, /@container \(max-width:\s*900px\)/u);
+    assert.match(styles, /@container \(max-width:\s*560px\)/u);
     const playerStyles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
     assert.match(playerStyles, /\.story-html-stage\s*\{[^}]*height:\s*auto/u);
     assert.match(playerStyles, /\.story-html-stage\s*\{[^}]*max-height:\s*min\(80vh,\s*900px\)/u);
+  });
+
+  it('keeps semantic HTML scene layouts side by side at the normal reading-pane width', () => {
+    const live = readFileSync(new URL('../src/html-scene.css', import.meta.url), 'utf8');
+    const offline = readFileSync(new URL('../src/lib/offlineScene.ts', import.meta.url), 'utf8');
+    for (const width of [560, 520, 480]) {
+      assert.match(live, new RegExp(`@container \\(max-width:\\s*${width}px\\)`, 'u'));
+      assert.match(offline, new RegExp(`@container\\(max-width:${width}px\\)`, 'u'));
+    }
+    assert.match(live, /@container \(max-width: 520px\) \{[^}]*\.html-scene-timeline/u);
+    assert.match(live, /@container \(max-width: 480px\) \{ \.html-scene-branch/u);
+    assert.match(offline, /@container\(max-width:520px\)\{\.scene-timeline/u);
+    assert.match(offline, /@container\(max-width:480px\)\{\.scene-branch/u);
   });
 
   it('keeps graph context compact but expands the narrated and focused node details', () => {

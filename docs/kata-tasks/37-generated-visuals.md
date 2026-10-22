@@ -642,7 +642,43 @@ app-owned renderer and disallows executable model markup or 3-D code; 3-D stays
 limited to source-grounded spatial behavior with a tested native renderer.
 
 Prompt-contract assertions were updated. The completed Fontdone Guide used the
-old prompt and cannot qualify v23. A separate fresh Guide is now planning in
-the rebuilt app under v23; record its actual completion, rendered scene
-variety, and scope limits here. Do not claim Guide or human visual acceptance
-from the prompt change or build alone.
+old prompt and cannot qualify v23. A fresh Guide was run under v23 in the
+rebuilt app; its result, rendered scene variety, and scope limits are recorded
+below. Do not claim Guide or human visual acceptance from the prompt change or
+build alone.
+
+## v23 Fontdone evaluation and responsive layout check — 23 October 2026
+
+One user-approved fresh Guide ran with `gpt-6-luna` at max reasoning against
+Fontdone `main@5249b72371`. It ended `partial`: the outline chose a Rust
+in-memory font route and omitted C-ABI/WASM entry points, full format dispatch,
+glyph loading, hinting, rasterization, and detailed failure paths. Three of
+five topics were marked explored; saved material exists for four, with one
+topic partial and one unavailable after `proposalCorrectionLimit`. This run
+does not establish whole-repository coverage or reliability.
+
+The generated scenes did vary by behavior, including a timeline, panels, and
+branch decisions. The PCF type-byte scene is a useful fit for a decision fork,
+but it repeats the generic “String-type byte” label for distinct invalid and
+integer outcomes. The open-options path also used branches for a sequential
+open-then-setters path, where a timeline would communicate the order better.
+So the prompt is influencing composition, while visual specificity and
+behavior-to-form matching still need work. These scenes are typed data rendered
+by the app-owned HTML scene system; the model does not emit executable HTML,
+JavaScript, or Three.js. No 3-D scene was warranted by this font-processing
+example.
+
+Reviewing the PCF scene in the rebuilt packaged app exposed a separate reader
+issue: branch outcomes stacked at the normal split-pane width because the
+responsive breakpoint was wider than the available scene canvas. Live and
+offline scene styles now keep branches side by side until 480 px, and move row,
+compare, timeline, transform, and queue layouts to narrow forms at widths that
+match the actual content area. The packaged reader now shows the two PCF
+outcomes side by side at normal width. The visual-story test file has a
+regression assertion for live and offline thresholds. Focused tests passed
+(47/47), and `npm run bundle:macos` produced a verified app bundle and DMG.
+
+Keep `j53m` open. Next gates are better distinct labels and sequence-form
+selection in model output, broader repository coverage, and human
+audio/comprehension/accessibility review. This single Guide is evaluation
+evidence, not acceptance.
