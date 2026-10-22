@@ -293,13 +293,16 @@ export function DeveloperWorkspace(props:Props) {
     props.onPendingLargeFileExplanationConsumed,projectId,snapshotId,connection.status?.authenticated,state.grantId,conversationUnavailable]);
   function retryTurn(turn:Turn) {
     if(conversationUnavailable)return;
+    // The timeout recovery UI promises a new incremental guide. Check it
+    // before the saved guideId branch, which would otherwise resume the same
+    // legacy operation and risk repeating its old deadline failure.
+    if(repositoryGuideTimeoutRecovery(turn)){startRepositoryGuide(turn.question);return;}
     if(turn.guideId){
       if(canContinueRepositoryGuide(turn.guide)&&state.grantId)void runRepositoryGuide(projectId,snapshotId,turn.id,state.grantId,true);
       else if(canContinueRepositoryGuide(turn.guide))setGuideConsent({id:turn.id,resume:true});
       else setGuideConsent({id:appendRepositoryGuide(projectId,snapshotId,turn.question),resume:false});
       setConsentError(null);return;
     }
-    if(repositoryGuideTimeoutRecovery(turn)){startRepositoryGuide(turn.question);return;}
     if(state.grantId)void runQuestion(projectId,snapshotId,turn.id,state.grantId);else setConsentTurn(turn.id);
   }
   function branch(turn:Turn,question:string,context:Context[]){ask(question,current.view==='flow'?'flow':'guide',context,turn.id);}
