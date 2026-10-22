@@ -60,6 +60,11 @@ section, not once per scene; per-scene limits are ceilings, not targets. These
 instructions and structural checks do not prove that a fresh guide teaches
 well; rendered quality still needs human review.
 
+Repository-guide planning uses the same bounded section capacity. Long
+ordered dispatch chains must be split into consecutive learning units before
+their visuals exceed 12 source nodes or 20 edges; each unit preserves its
+ordered checks, outcomes and fallbacks.
+
 Spoken narration describes implementation tokens by role instead of reading
 them aloud, including abbreviations, format tags, field/table names and error
 labels. Exact tokens remain visible in the scene and source links; speech uses

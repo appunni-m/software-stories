@@ -257,6 +257,12 @@ fn plan_instructions_keep_the_full_requested_scope() {
             .contains("Never name the opening lead, the current section or a later section")
     );
     assert!(instructions.contains("unsupported stages as omissions"));
+    assert!(instructions.contains("one answer section's visual budget"));
+    assert!(instructions.contains("at most 12 distinct evidence nodes and 20 edges"));
+    assert!(instructions.contains("Split long ordered dispatches, branch chains"));
+    assert!(
+        instructions.contains("preserve source order, every outcome, continuation and fallback")
+    );
     assert!(!instructions.contains("Publish one small, complete, illustrated section"));
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
     assert!(
