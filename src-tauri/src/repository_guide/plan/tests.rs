@@ -205,8 +205,17 @@ fn plan_instructions_keep_the_full_requested_scope() {
             .contains("make one focused search_code call with resultKind:files")
     );
     assert!(
+        agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("at least two relevant source files")
+    );
+    assert!(
+        agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("name that boundary as an omission")
+    );
+    assert!(
+        agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("documentation is a discovery hint")
+    );
+    assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS.contains(
-            "read the most relevant implementation ranges together in one read_code call"
+            "Read several small ranges across those files together in one read_code call"
         )
     );
     assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("do not exhaust search pages"));
