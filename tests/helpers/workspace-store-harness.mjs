@@ -14,6 +14,7 @@ export function workspaceStoreHarness(invoke,options={}) {
   const unexpected = () => { throw new Error('Unexpected model or indexing operation during local restoration'); };
   const context = vm.createContext({
     crypto, CustomEvent, Error, TextEncoder, console, setTimeout, clearTimeout, queueMicrotask,
+    ...(options.performance ? { performance: options.performance } : {}),
     window: new EventTarget(),
     localStorage: { getItem: (key) => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) },
   });

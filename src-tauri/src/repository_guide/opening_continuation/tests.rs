@@ -295,6 +295,7 @@ fn a_missing_current_connection_or_changed_snapshot_cannot_spend_the_opening_fol
                 &|_| Ok(()),
                 &|_| {},
                 false,
+                None,
             )
             .is_err()
         );

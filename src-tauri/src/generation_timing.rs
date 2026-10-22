@@ -17,7 +17,7 @@ pub(crate) use runtime::{RuntimeEventKind, TokenUsageSnapshot};
 const MAX_RECORDS: usize = 32;
 const MAX_EVENTS: usize = 128;
 const MAX_BYTES: usize = 64 * 1024;
-const MAX_ELAPSED: u64 = 86_400_000;
+pub(crate) const MAX_ELAPSED: u64 = 86_400_000;
 static STORE: Mutex<()> = Mutex::new(());
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]

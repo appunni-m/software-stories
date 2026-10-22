@@ -389,7 +389,9 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
   const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === id);
   if (!turn?.guideId) return;
   const job = {cancelled:false,runId:null as string|null,pendingGuideAdvances:[]};jobs.set(id,job);
+  const queueWaitStarted = rendererClock();
   const release = await enterQuestionQueue();
+  const rendererQueueWaitMs = Math.min(86_400_000, Math.max(0, Math.round(rendererClock() - queueWaitStarted)));
   try {
     if (job.cancelled) return;
     if(closingWorkspace)throw new Error(closingMessage);
@@ -402,9 +404,9 @@ export async function runRepositoryGuide(project: string, snapshot: string, id: 
     const selection = readCodexSelection();
     job.runId = turn.guideId;
     const guide = await invoke<RepositoryGuide>(resume ? 'resume_repository_guide' : 'start_repository_guide', resume
-      ? {id:turn.guideId,projectId:project,snapshotId:snapshot,consent:true}
+      ? {id:turn.guideId,projectId:project,snapshotId:snapshot,consent:true,rendererQueueWaitMs}
       : {input:{id:turn.guideId,projectId:project,snapshotId:snapshot,grantId,question:turn.question,
-          modelId:selection.modelId,reasoningEffort:selection.effort,consent:true}});
+          modelId:selection.modelId,reasoningEffort:selection.effort,consent:true,rendererQueueWaitMs}});
     await reconcileGuide(project,snapshot,guide,true);
   } catch (failure) {
     try { await restoreRepositoryGuides(project,snapshot); } catch { /* Preserve saved cards and the original error. */ }
@@ -427,7 +429,9 @@ export async function advanceRepositoryGuide(project:string,snapshot:string,turn
     return;
   }
   const job={cancelled:false,runId:null as string|null,pendingGuideAdvances:[] as string[]};jobs.set(turnId,job);
+  const queueWaitStarted=rendererClock();
   const release=await enterQuestionQueue();
+  const rendererQueueWaitMs=Math.min(86_400_000,Math.max(0,Math.round(rendererClock()-queueWaitStarted)));
   try{
     if(job.cancelled||closingWorkspace)return;
     const current=getWorkspace(project,snapshot).explorations.flatMap((e)=>e.turns).find((candidate)=>candidate.id===turnId);
@@ -438,7 +442,7 @@ export async function advanceRepositoryGuide(project:string,snapshot:string,turn
     await ensureCodexConnection(true);
     if(job.cancelled||closingWorkspace)return;
     job.runId=current.guideId;
-    const guide=await invoke<RepositoryGuide>('advance_repository_guide',{id:current.guideId,projectId:project,snapshotId:snapshot,consumedRevisionId});
+    const guide=await invoke<RepositoryGuide>('advance_repository_guide',{id:current.guideId,projectId:project,snapshotId:snapshot,consumedRevisionId,rendererQueueWaitMs});
     await reconcileGuide(project,snapshot,guide,true);
   }catch(failure){
     try{await restoreRepositoryGuides(project,snapshot);}catch{/* Keep the current reader content. */}

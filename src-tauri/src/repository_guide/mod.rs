@@ -698,6 +698,7 @@ fn run_initial_opening(
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
     adopt: &impl Fn(&SectionNotice) -> Result<(), String>,
     changed: &impl Fn(&GuideSummary),
+    renderer_queue_wait_ms: Option<u64>,
 ) -> Result<Record, String> {
     checked_manifest(storage, record)?;
     let runtime = manager.review_runtime(storage)?;
@@ -752,7 +753,7 @@ fn run_initial_opening(
             references,
             model_id: record.model_id.clone(),
             effort: record.reasoning_effort.clone(),
-            renderer_queue_wait_ms: None,
+            renderer_queue_wait_ms,
         },
         &starting_ranges,
         Some(&intent),
@@ -817,6 +818,7 @@ fn build(
     jobs: RepositoryContextJobs,
     journal: &recovery::InterruptionJournal,
     max_new_slides: usize,
+    renderer_queue_wait_ms: Option<u64>,
     progress: impl Fn(codex_agent::CodexProgress),
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
     adopt: impl Fn(&SectionNotice) -> Result<(), String>,
@@ -830,6 +832,7 @@ fn build(
         jobs,
         journal,
         max_new_slides,
+        renderer_queue_wait_ms,
         progress,
         notify,
         adopt,
@@ -855,6 +858,7 @@ fn build_inner(
     jobs: RepositoryContextJobs,
     journal: &recovery::InterruptionJournal,
     max_new_slides: usize,
+    mut renderer_queue_wait_ms: Option<u64>,
     progress: impl Fn(codex_agent::CodexProgress),
     notify: Arc<dyn Fn(SectionNotice) + Send + Sync>,
     adopt: impl Fn(&SectionNotice) -> Result<(), String>,
@@ -932,6 +936,7 @@ fn build_inner(
             Arc::clone(&notify),
             &adopt,
             &changed,
+            renderer_queue_wait_ms.take(),
         )?;
     }
     if continue_opening && opening_continuation::eligible(&record) {
@@ -946,6 +951,7 @@ fn build_inner(
             &adopt,
             &changed,
             false,
+            renderer_queue_wait_ms.take(),
         )?;
     }
     record = store::read(storage, id)?;
@@ -961,6 +967,7 @@ fn build_inner(
             &adopt,
             &changed,
             true,
+            renderer_queue_wait_ms.take(),
         )?;
     }
     for index in 0..record.units.len() {
@@ -1027,7 +1034,7 @@ fn build_inner(
                     references,
                     model_id: record.model_id.clone(),
                     effort: record.reasoning_effort.clone(),
-                    renderer_queue_wait_ms: None,
+                    renderer_queue_wait_ms: renderer_queue_wait_ms.take(),
                 },
                 &record.plan.as_ref().unwrap().units[index].starting_ranges,
                 Some(&guide_intent),
@@ -1154,6 +1161,11 @@ pub(crate) struct Start {
     model_id: String,
     reasoning_effort: String,
     consent: bool,
+    renderer_queue_wait_ms: Option<u64>,
+}
+
+fn bounded_renderer_queue_wait_ms(value: Option<u64>) -> Option<u64> {
+    value.filter(|elapsed| *elapsed <= crate::generation_timing::MAX_ELAPSED)
 }
 
 fn new_record(input: Start, manifest: &snapshot::SnapshotManifest) -> Result<Record, String> {
@@ -1226,6 +1238,7 @@ pub(crate) async fn start_repository_guide(
         .state::<codex_agent::CodexAgentManager>()
         .models(&storage)?;
     validate_model_selection(&models, &input.model_id, &input.reasoning_effort)?;
+    let renderer_queue_wait_ms = bounded_renderer_queue_wait_ms(input.renderer_queue_wait_ms);
     let record = new_record(input, &manifest)?;
     let lease =
         store::lease(&storage, &record.id)?.ok_or("This guide already has a native worker.")?;
@@ -1235,7 +1248,16 @@ pub(crate) async fn start_repository_guide(
         current.active_run_id = Some(current.planning_run_id.clone());
         Ok(())
     })?;
-    run_command(app, storage, id, lease, false, GUIDE_SLIDE_BUFFER).await
+    run_command(
+        app,
+        storage,
+        id,
+        lease,
+        false,
+        GUIDE_SLIDE_BUFFER,
+        renderer_queue_wait_ms,
+    )
+    .await
 }
 async fn run_command(
     app: AppHandle,
@@ -1244,6 +1266,7 @@ async fn run_command(
     lease: crate::file_lease::Lease,
     continue_opening: bool,
     max_new_slides: usize,
+    renderer_queue_wait_ms: Option<u64>,
 ) -> Result<GuideSummary, String> {
     tauri::async_runtime::spawn_blocking(move||{
         let _lease=lease;
@@ -1252,7 +1275,7 @@ async fn run_command(
         let journal=app.state::<recovery::InterruptionJournal>().inner().clone();
         let emitter=app.clone();
         let guide_id_for_sections=id.clone();
-        let result=build(&storage,&id,continue_opening,&manager,jobs,&journal,max_new_slides,|p|{let _=app.emit("codex-agent-progress",p);},
+        let result=build(&storage,&id,continue_opening,&manager,jobs,&journal,max_new_slides,renderer_queue_wait_ms,|p|{let _=app.emit("codex-agent-progress",p);},
             Arc::new(move|section|{
                 let _=emitter.emit("workspace-answer-section",section.clone());
                 let _=emitter.emit("repository-guide-section-published",serde_json::json!({"guideId":&guide_id_for_sections,"section":section}));
@@ -1271,12 +1294,14 @@ pub(crate) async fn resume_repository_guide(
     project_id: String,
     snapshot_id: String,
     consent: bool,
+    renderer_queue_wait_ms: Option<u64>,
 ) -> Result<GuideSummary, String> {
     sessions.get(&project_id)?;
     if !consent {
         return Err("Allow continuation before building more guide content.".into());
     }
     let storage = app_data_directory(&app)?;
+    let renderer_queue_wait_ms = bounded_renderer_queue_wait_ms(renderer_queue_wait_ms);
     let record = scoped(&storage, &id, &project_id, &snapshot_id)?;
     let lease = store::lease(&storage, &id)?
         .ok_or("This guide is already being built. No second worker was started.")?;
@@ -1298,10 +1323,28 @@ pub(crate) async fn resume_repository_guide(
     )?;
     if record.plan.is_none() {
         store::prepare_plan_retry(&storage, &id, expected_revision)?;
-        return run_command(app, storage, id, lease, false, GUIDE_SLIDE_BUFFER).await;
+        return run_command(
+            app,
+            storage,
+            id,
+            lease,
+            false,
+            GUIDE_SLIDE_BUFFER,
+            renderer_queue_wait_ms,
+        )
+        .await;
     }
     store::prepare_continuation(&storage, &id, expected_revision)?;
-    run_command(app, storage, id, lease, true, GUIDE_SLIDE_BUFFER).await
+    run_command(
+        app,
+        storage,
+        id,
+        lease,
+        true,
+        GUIDE_SLIDE_BUFFER,
+        renderer_queue_wait_ms,
+    )
+    .await
 }
 
 /// Admit one new slide after the reader finishes a narrated slide.
@@ -1313,12 +1356,14 @@ pub(crate) async fn advance_repository_guide(
     project_id: String,
     snapshot_id: String,
     consumed_revision_id: String,
+    renderer_queue_wait_ms: Option<u64>,
 ) -> Result<GuideSummary, String> {
     sessions.get(&project_id)?;
     if !text(&consumed_revision_id, 1, 256) {
         return Err("The completed guide slide could not be identified.".into());
     }
     let storage = app_data_directory(&app)?;
+    let renderer_queue_wait_ms = bounded_renderer_queue_wait_ms(renderer_queue_wait_ms);
     let record = scoped(&storage, &id, &project_id, &snapshot_id)?;
     if !contains_slide(&record, &consumed_revision_id) {
         return Err(
@@ -1399,7 +1444,7 @@ pub(crate) async fn advance_repository_guide(
     }
     let expected_revision = record.revision;
     store::prepare_continuation(&storage, &id, expected_revision)?;
-    run_command(app, storage, id, lease, false, 1).await
+    run_command(app, storage, id, lease, false, 1, renderer_queue_wait_ms).await
 }
 #[tauri::command(rename_all = "camelCase")]
 pub(crate) fn stop_repository_guide(

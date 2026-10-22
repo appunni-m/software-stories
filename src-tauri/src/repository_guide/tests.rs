@@ -122,6 +122,7 @@ pub(super) fn fresh_record(f: &Fixture) -> Record {
             model_id: DEFAULT_MODEL_ID.into(),
             reasoning_effort: DEFAULT_REASONING_EFFORT.into(),
             consent: true,
+            renderer_queue_wait_ms: None,
         },
         &f.manifest,
     )
@@ -131,6 +132,21 @@ pub(super) fn fresh_record(f: &Fixture) -> Record {
     fresh.status = Status::Building;
     fresh
 }
+
+#[test]
+fn renderer_queue_wait_accepts_bounded_values_and_ignores_invalid_diagnostics() {
+    assert_eq!(bounded_renderer_queue_wait_ms(None), None);
+    assert_eq!(bounded_renderer_queue_wait_ms(Some(0)), Some(0));
+    assert_eq!(
+        bounded_renderer_queue_wait_ms(Some(crate::generation_timing::MAX_ELAPSED)),
+        Some(crate::generation_timing::MAX_ELAPSED)
+    );
+    assert_eq!(
+        bounded_renderer_queue_wait_ms(Some(crate::generation_timing::MAX_ELAPSED + 1)),
+        None
+    );
+}
+
 #[test]
 fn fresh_guide_researches_later_units_after_a_partial_reading_prerequisite() {
     let f = Fixture::new();
@@ -175,6 +191,7 @@ fn selected_account_model_is_persisted_and_bound_to_the_guide_contract() {
             model_id: "gpt-5.6-luna".into(),
             reasoning_effort: "medium".into(),
             consent: true,
+            renderer_queue_wait_ms: None,
         },
         &f.manifest,
     )
@@ -695,7 +712,7 @@ fn fontdone_repository_guide_account_probe() {
             workspace::save_retrieval_grant(&storage, project, snapshot_id, &runtime).unwrap();
         new_record(Start { id:Uuid::new_v4().to_string(), project_id:project.into(), snapshot_id:snapshot_id.into(),
             grant_id, question:"How does Fontdone turn font bytes into a rendered glyph bitmap? Build a coherent guide through real entry points, parsing, outline loading, hinting, rasterization, output and important failure paths. Include alternate supported font representations where they change this journey; name any boundaries that remain unexplored.".into(),
-            model_id:DEFAULT_MODEL_ID.into(), reasoning_effort:DEFAULT_REASONING_EFFORT.into(), consent:true }, &manifest).unwrap()
+            model_id:DEFAULT_MODEL_ID.into(), reasoning_effort:DEFAULT_REASONING_EFFORT.into(), consent:true, renderer_queue_wait_ms:None }, &manifest).unwrap()
     };
     let _lease = store::lease(&storage, &record.id).unwrap().unwrap();
     if resume_id.is_none() {
@@ -774,6 +791,7 @@ fn fontdone_repository_guide_account_probe() {
             RepositoryContextJobs::default(),
             &recovery::InterruptionJournal::default(),
             if first_build { GUIDE_SLIDE_BUFFER } else { 1 },
+            None,
             &progress,
             Arc::clone(&notify),
             &adopt,

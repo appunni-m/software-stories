@@ -130,6 +130,31 @@ test('incremental workspace questions use the saved model and reasoning effort',
   assert.ok(generation.input.rendererQueueWaitMs>=0&&generation.input.rendererQueueWaitMs<=86_400_000);
 });
 
+test('repository guide start, resume and refill carry renderer queue wait to native commands',async()=>{
+  const b=backend(),held=deferred(),generationStarted=deferred();let now=0,startArgs,resumeArgs,advanceArgs;
+  const h=workspaceStoreHarness(async(name,args)=>{
+    if(name==='generate_progressive_workspace_answer'){generationStarted.resolve();return held.promise;}
+    if(name==='load_workspace_answer')throw new Error('No saved answer');
+    if(name==='start_repository_guide'){startArgs=clone(args);throw new Error('controlled after capturing start timing');}
+    if(name==='resume_repository_guide'){resumeArgs=clone(args);throw new Error('controlled after capturing resume timing');}
+    if(name==='advance_repository_guide'){advanceArgs=clone(args);throw new Error('controlled after capturing refill timing');}
+    if(name==='list_repository_guides')return [];
+    return b.invoke(name,args);
+  },{native:true,performance:{now:()=>now},ensureCodexConnection:async()=>{},readCodexSelection:()=>({modelId:'gpt-6-luna',effort:'max'})});
+  await h.store.prepareWorkspaceConversation('project','snapshot');
+  const questionId=h.store.appendQuestion('project','snapshot','Hold the shared question queue',[],'guide');
+  const question=h.store.runQuestion('project','snapshot',questionId,'grant');await generationStarted.promise;
+  const guideTurnId=h.store.appendRepositoryGuide('project','snapshot','Explain the repository journey');
+  const starting=h.store.runRepositoryGuide('project','snapshot',guideTurnId,'grant');await flushLocalReads();
+  now=125;held.reject(new Error('release controlled queue holder'));await question;await starting;
+  assert.equal(startArgs.input.rendererQueueWaitMs,125,'the queued Guide start records time spent behind an active question');
+  await h.store.runRepositoryGuide('project','snapshot',guideTurnId,'grant',true);
+  assert.ok(Number.isInteger(resumeArgs.rendererQueueWaitMs)&&resumeArgs.rendererQueueWaitMs>=0&&resumeArgs.rendererQueueWaitMs<=86_400_000);
+  h.store.updateWorkspace('project','snapshot',state=>({...state,explorations:state.explorations.map(exploration=>({...exploration,turns:exploration.turns.map(turn=>turn.id===guideTurnId?{...turn,guide:{canContinue:true}}:turn)}))}));
+  await h.store.advanceRepositoryGuide('project','snapshot',guideTurnId,'consumed-revision');
+  assert.ok(Number.isInteger(advanceArgs.rendererQueueWaitMs)&&advanceArgs.rendererQueueWaitMs>=0&&advanceArgs.rendererQueueWaitMs<=86_400_000);
+});
+
 test('native restart restores owned scenes, times, viewport, pane and expanded static links without browser preferences',async()=>{
   const b=backend(),storage=new Map(),h=native(b,storage);await h.store.prepareWorkspaceConversation('project','snapshot');
   const state=addTurn(h.store.getWorkspace('project','snapshot'),{id:'reader-turn',question:'Follow the parser',context:[],status:'ready',revisionId:'revision:one'},'guide');

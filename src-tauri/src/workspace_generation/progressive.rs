@@ -543,7 +543,7 @@ pub(crate) fn timing_report(
     Ok(TimingReport {
         schema_version: 3,
         kind: "code-atlas-generation-timing",
-        scope: "Native observations only. rendererQueueWaitMs is a separate WebView performance.now() duration for the workspace-question queue and is not comparable to or combined with native monotonic timestamps; repository-guide queue wait remains unmeasured. preparationStages are fixed native pre-manager checkpoints on the run's monotonic clock. firstUsefulAnswer is the first complete answer section admitted by native source/claim/visual validation and durably published; semantic quality remains a separate review. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption. firstAgentMessageDeltaElapsedMs is app-server text progress, not a model-token timestamp. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
+        scope: "Native observations only. rendererQueueWaitMs is a separate WebView performance.now() duration for the workspace-question queue. Repository guides carry their start, resume or refill operation's queue wait to that operation's first progressive answer run; the guide outline/planning duration is excluded, and no answer trace exists if the operation fails before starting an answer run. This WebView duration is not comparable to or combined with native monotonic timestamps. preparationStages are fixed native pre-manager checkpoints on the run's monotonic clock. firstUsefulAnswer is the first complete answer section admitted by native source/claim/visual validation and durably published; semantic quality remains a separate review. Candidate preparation on the context clock precedes durable storage; native ready is a later observation on the original run clock. Neither proves renderer adoption. firstAgentMessageDeltaElapsedMs is app-server text progress, not a model-token timestamp. A returned dispatch is not proof of a complete answer. No source, question, account, executable path or model reasoning is included.",
         run_id: run.into(),
         answer_outcome: if !active && answer.outcome == Outcome::Working {
             Outcome::Interrupted
@@ -558,7 +558,7 @@ pub(crate) fn timing_report(
         trace,
         publications,
         unmeasured: [
-            "repositoryGuideOuterQueueWait",
+            "repositoryGuidePlanningDuration",
             "coldWarmIndexComparison",
             "rendererAdoption",
             "narrationReadiness",

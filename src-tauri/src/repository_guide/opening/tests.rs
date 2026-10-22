@@ -14,6 +14,7 @@ pub(in crate::repository_guide) fn pending(f: &Fixture) -> Record {
             model_id: DEFAULT_MODEL_ID.into(),
             reasoning_effort: DEFAULT_REASONING_EFFORT.into(),
             consent: true,
+            renderer_queue_wait_ms: None,
         },
         &f.manifest,
     )

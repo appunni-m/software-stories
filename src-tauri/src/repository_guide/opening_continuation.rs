@@ -173,6 +173,7 @@ pub(super) fn run(
     adopt: &impl Fn(&SectionNotice) -> Result<(), String>,
     changed: &impl Fn(&GuideSummary),
     automatic_retry: bool,
+    renderer_queue_wait_ms: Option<u64>,
 ) -> Result<Record, String> {
     checked_manifest(storage, record)?;
     let runtime = manager.review_runtime(storage)?;
@@ -198,7 +199,7 @@ pub(super) fn run(
             references: vec![],
             model_id: record.model_id.clone(),
             effort: record.reasoning_effort.clone(),
-            renderer_queue_wait_ms: None,
+            renderer_queue_wait_ms,
         },
         &[],
         Some(&intent),

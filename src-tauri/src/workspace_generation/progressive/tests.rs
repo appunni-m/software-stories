@@ -68,7 +68,7 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
         first_useful_answer: Some(first),
         publications,
         unmeasured: [
-            "repositoryGuideOuterQueueWait",
+            "repositoryGuidePlanningDuration",
             "connectionPreparationBeforeManager",
             "rendererAdoption",
             "narrationReadiness",
@@ -101,7 +101,7 @@ fn timing_report_names_the_first_native_validated_publication_by_section_order()
         value["unmeasured"]
             .as_array()
             .unwrap()
-            .contains(&json!("repositoryGuideOuterQueueWait"))
+            .contains(&json!("repositoryGuidePlanningDuration"))
     );
 }
 
