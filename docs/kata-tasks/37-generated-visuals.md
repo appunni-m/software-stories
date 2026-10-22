@@ -580,3 +580,21 @@ The complete Rust library suite now passes **720 tests** (18 ignored), including
 the updated prompt-contract assertions.
 Keep `j53m` open; whole-repository scope, visual quality, human audio,
 comprehension and accessibility remain open.
+
+## v20 visual specificity follow-up — 23 October 2026
+
+The next prompt revision is `ai-html-compositions-v20` / `meaning-first-v26`.
+It adds a visual-specificity review: identify the exact source-backed behavior
+first, center the most specific available representation, reject generic
+label-swappable layouts, and prefer one concrete guard, transition or result
+over a component catalog. It preserves typed app-rendered HTML, complete
+outcomes, clickable evidence and the rule that 3-D is only for spatial
+behavior with a tested app-owned renderer. No arbitrary model JavaScript is
+enabled.
+
+The source contract and prompt assertions are updated, but no Guide has yet
+qualified v20. A separate account-backed Fontdone Guide is currently evaluating
+the preceding v19 prompt; its five-topic outline narrows to the Rust
+memory-face path and explicitly omits the C ABI, WASM and complete glyph path.
+Treat that run as partial story-scope evidence, not whole-repository coverage
+or v20 visual acceptance. Review its completed scenes and keep `j53m` open.

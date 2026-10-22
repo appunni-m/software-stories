@@ -13,6 +13,9 @@ A newcomer can follow a real feature end to end, understand each relevant file, 
 ## Current evidence
 The implementation generates bounded file chapters and an optional orientation chapter from 1–12 selected files. The file quality gate does not qualify a complete repository narrative. There is no demonstrated whole-repository story planner or cross-language end-to-end quality report.
 
+### Chapter-record policy — 23 October 2026
+The current app supports chapter schema 5 only. Earlier task notes below that describe schema 4 or legacy chapter reads are dated implementation history; older chapter versions are not read or migrated. The live schema task `8bw6` is closed, so its historical v4 notes do not require reopening. Repository-scale generation, account-backed runtime acceptance and narrative quality remain open under this task.
+
 ## Industry review follow-up — October 17
 
 The [whole-repository context study](../research/2026-10-17-repository-context-and-indexing.md) identifies DeepWiki's hierarchical, source-linked pages as the closest product reference, with a local range index and agent search/read tools as the recommended context foundation. These are recommendations, not accepted narrative generation. Local retrieval is tracked in `a699`, Codex tools in `gk46`, and phase timings in `ps02`.
@@ -105,23 +108,24 @@ The complete planned-step scope enters the encoded review/fingerprint before con
 
 **Remaining acceptance/work:**
 - [ ] Exercise accepted-step generation, settings, progress, cancellation, late/abandoned replies and recovery through **each** permitted native Codex and Claude account/runtime route. Complete the matching deferred cases in `xymb`; source code or an unavailable option cannot satisfy this.
-- [ ] Qualify the version-4 durable chapter-to-plan-revision/step/request records now present in source. Legacy records remain project/snapshot/file candidates. Recorded lineage is not account attestation, answer quality or step completion; do not automatically attach older same-file chapters.
+- [ ] Qualify the schema-5 durable chapter-to-plan-revision/step/request records now present in source. Unsupported older chapter records must remain unread and unmigrated; never attach them to a new answer by same-file matching. Recorded lineage is not account attestation, answer quality or step completion.
 - [ ] Review actual answer quality across representative languages: grounded concrete code behavior, prerequisite recaps, explicit unknowns and useful visuals. Schema/citation validity does not establish that the learning question was answered.
 - [ ] Complete deliberate multi-unit orchestration, omission/failure tracking and dependency-based selective updates before claiming an entire repository narrative.
 
 No tests, builds, app launches, native agent/SDK probes, login or model requests ran. Changed Rust regions were formatted; this does not establish compilation. Codex remains unaccepted source. The Claude qualification registry remains empty; all automatic Claude cells remain Missing. Official account guidance was rechecked October 16 and still does not resolve this product's subscription integration/distribution route. This task and the multi-agent release gate remain open.
 
 
-### Original agent generation and exact step links — source checkpoint, 2026-10-16
+### Original agent generation and exact step links — historical schema-4 checkpoint, 2026-10-16
+
+This dated section describes the pre-greenfield schema-4 implementation. The v5-only policy above supersedes its compatibility details; retain the block for development history.
 
 Both native Codex/Claude chapter result closures now attach schema-4 `generationOrigin` metadata after independent source/claim validation and before guarded preview publication. It retains the original request/fingerprint/contract, agent-specific model/reasoning/fixed approval/turn settings, distinct source digests, optional section target and complete optional accepted-plan step scope. API/manual import paths do not call this creator. Previews and immutable chapter history persist the record together; no sidecar transaction or agent process was added. Original-content hashing uses bounded streaming serialization and excludes root decision metadata.
 
 The app exposes Original generation in native agent previews, recovered previews and chapter review. The accepted plan reader lists saved chapters for the exact accepted revision/digest/step, with explicit lifecycle/snapshot labels and separate read/review actions. Recovery distinguishes recorded request/step matches from older filename candidates. These are local recorded labels, not account attestation, complete-repository coverage, proof that a question was answered or step/read completion.
 
-Strict legacy v1–v3 chapter reads and version-3 overview/pending-preview recovery remain in source. New writes/review decisions use version 4 and preserve older immutable bytes. Missing origin is omitted; present null/invalid origin and future versions fail. Manual edits ignore renderer-supplied origin replacement and preserve native lineage. Restore retains the historical source origin; edited/remapped content can differ. New section generation clears inherited origin and receives its own record only from a native agent result, preserving earlier revisions/links. See [the record, compatibility and evolution contract](../CHAPTER_GENERATION_RECORDS.md).
+At this checkpoint, legacy v1–v3 reads and version-3 overview/pending-preview recovery were still present, and new writes used schema 4. The later greenfield change removed that compatibility path. Generation-origin, edit and restore details in this dated checkpoint describe that historical implementation.
 
-**Pending:**
-- [ ] Qualify schema-4/legacy decoding, preview restart/save and immutable decision/restore behavior; prior version-3 evidence is insufficient. The schema task `8bw6` requires reopening/revalidation for this change.
+The schema-4/legacy qualification request in this dated checkpoint is superseded by the v5-only contract. Live Kata issue `8bw6` is closed and must not be reopened to restore legacy compatibility.
 - [ ] Complete actual native Codex and Claude planned/ordinary chapter and section flows with matching settings/records, cancellation ownership, interrupted-save recovery and correct step links. No API prerequisite or fallback is allowed.
 - [ ] Verify wrong request/backend/step, malformed/duplicate/oversized metadata, digest mismatch, forged renderer replacement, missing history, two same-file learning questions and cross-snapshot derived lineage. Use the detailed deferred cases in `xymb`.
 - [ ] Review pacing, source-grounded answer quality, navigability and comprehension across representative languages. Recorded metadata/citation validity cannot satisfy this. Multi-unit orchestration and selective updates remain separate pending work.

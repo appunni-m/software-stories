@@ -47,29 +47,28 @@ and edited chapter validation apply the same composition checks. There is no
 separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
-The current prompt is story policy `ai-html-compositions-v17` and teaching
-policy `meaning-first-v25`. Before selecting elements, it asks what the reader
-should see at a glance and gives each scene one focal subject whose supported
-route, choice, change, state, shape, parallel work or relationship becomes
-visible. It maps that need to a semantic renderer: timelines, branches,
-selectors, transforms, before/after states, tables, lanes, trees, stacks,
-queues, byte strips, matrices, metrics, or graphs. It rejects scenes made only
-of code cards, asks for plain-language labels and requires every meaningful
-input and outcome named in the claim to appear. Exact code remains available
-through source links; a displayed source value is reserved for cases where the
-literal itself matters. It discourages generic card grids, identifier-only
-networks and box-and-arrow rows, while allowing a
-narration with clickable source when a visual would add no value. Adjacent
-scenes may keep the same visual identity when that helps the reader track one
-object; form changes when the behavior changes. A graph is reserved for
-genuinely non-linear relationships; source links or a sequence of real calls
-do not by themselves justify one. Model output remains typed data rendered by
-the app; it cannot execute HTML, JavaScript, CSS or Three.js. A 3-D renderer is
-only appropriate for source-grounded spatial behavior when a tested app-owned
-renderer exists. The 12-node and 20-edge limits apply across the whole section,
-not once per scene; per-scene limits are ceilings, not targets. These
-instructions and structural checks do not prove that a fresh guide teaches
-well; rendered quality still needs human review.
+The current prompt is story policy `ai-html-compositions-v20` and teaching
+policy `meaning-first-v26`. It asks the model to identify the source-backed
+relationship first, then make the most specific available visual form the
+focal point. It rejects scenes that would tell the same story after swapping
+project names, generic panels/cards/rows used as the diagram, and component
+catalogs without a concrete guard, transition or result. Supported forms
+include timelines, branches, selectors, transforms, before/after states,
+tables, lanes, trees, stacks, queues, byte strips, matrices, metrics, and
+graphs. The prompt keeps plain-language labels, all meaningful inputs and
+outcomes, and clickable evidence; it shows exact source values only when their
+literal spelling or bytes matter. If the code evidence cannot support a useful
+visual, narration and source links remain valid. Adjacent scenes may keep the
+same visual identity when that helps the reader track one object; form changes
+when behavior changes. A graph is reserved for genuinely non-linear
+relationships; source links or a sequence of real calls do not by themselves
+justify one. Model output remains typed data rendered by the app; it cannot
+execute HTML, JavaScript, CSS or Three.js. A 3-D renderer is only appropriate
+for source-grounded spatial behavior when a tested app-owned renderer exists.
+The 12-node and 20-edge limits apply across the whole section, not once per
+scene; per-scene limits are ceilings, not targets. These prompt instructions
+and structural checks do not prove that a fresh guide teaches well; rendered
+quality still needs human review.
 
 For ordered selector layouts, the selector root must contain its guarded branch
 groups directly. A row or column between the selector and its checks is invalid;
