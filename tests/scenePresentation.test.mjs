@@ -68,6 +68,32 @@ describe('AI-authored HTML scene contract', () => {
     assert.ok(validScenePresentation(presentation(), nodes, claims));
     assert.ok(validScenePresentation({ schemaVersion: 3, scenes: [{ claimIndex: 0, title: 'The actual call path', narration: 'The graph traces the route through the handler.', mode: 'graph', elements: [] }] }, nodes, claims));
   });
+  it('supports distinct semantic layouts for transformations, nesting and FIFO queues', () => {
+    const transform = [
+      { ...element('transform'), nodeIndex: null },
+      element('token', 'raw input', 'illustration', 0),
+      element('token', 'normalize whitespace', 'illustration', 0),
+      element('token', 'normalized result', 'illustration', 0),
+    ];
+    assert.ok(validScenePresentation(presentation(transform), nodes, claims));
+    for (const count of [2, 4]) {
+      const malformed = [{ ...element('transform'), nodeIndex: null }, ...Array.from({ length: count }, () => element('token', 'x', 'illustration', 0))];
+      assert.equal(validScenePresentation(presentation(malformed), nodes, claims), false);
+    }
+    const nested = [
+      { ...element('tree'), nodeIndex: null },
+      { ...element('panel', '', 'none', 0), nodeIndex: null },
+      element('token', 'parent object', 'illustration', 1),
+      { ...element('tree', '', 'none', 1), nodeIndex: null },
+      element('token', 'nested field', 'illustration', 3),
+    ];
+    assert.ok(validScenePresentation(presentation(nested), nodes, claims));
+    assert.ok(validScenePresentation(presentation([
+      { ...element('queue'), nodeIndex: null },
+      element('token', 'oldest item', 'illustration', 0),
+      element('token', 'newest item', 'illustration', 0),
+    ]), nodes, claims));
+  });
   it('admits the supported representations without executing values as markup', () => {
     for (const [kind, value] of [['card', ''], ['metric', '3'], ['code', '<script>attack()</script>'], ['bytes', '01 02'], ['matrix', '010\n111\n010'], ['table', 'Input|Output\nAda|Hello, Ada'], ['token', 'name'], ['text', '']]) {
       assert.ok(validScenePresentation(presentation([element(kind, value, value ? 'illustration' : 'none')]), nodes, claims), kind);

@@ -25,6 +25,18 @@
 .html-scene-beforeAfter > :first-child::before, .html-scene-beforeAfter > :last-child::before { position: absolute; top: 10px; left: 18px; color: var(--muted); font: 600 10px/1.2 -apple-system,BlinkMacSystemFont,sans-serif; letter-spacing: .1em; }
 .html-scene-beforeAfter > :first-child::before { content: 'BEFORE'; }
 .html-scene-beforeAfter > :last-child::before { content: 'AFTER'; }
+.html-scene-transform { box-sizing: border-box; width: min(100%, 960px); margin-inline: auto; display: grid; grid-template-columns: minmax(0,1fr) 24px minmax(0,1fr) 24px minmax(0,1fr); align-items: center; gap: 12px; }
+.html-scene-transform-slot { min-width: 0; display: grid; align-content: center; gap: 9px; }
+.html-scene-transform-slot > small { color: var(--muted); text-align: center; font: 600 10px/1.2 -apple-system,BlinkMacSystemFont,sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+.html-scene-transform-slot > .html-scene-element { max-width: none; }
+.html-scene-transform-arrow { color: var(--accent); justify-self: center; }
+.html-scene-tree { display: flex; flex-direction: column; align-items: stretch; gap: 10px; margin-inline-start: 12px; padding-inline-start: 20px; border-inline-start: 1px solid var(--scene-color); }
+.html-scene-tree > * { position: relative; }
+.html-scene-tree > *::before { content: ''; position: absolute; top: 24px; inset-inline-start: -20px; width: 12px; border-top: 1px solid var(--scene-color); }
+.html-scene-queue { position: relative; display: flex; flex-wrap: wrap; justify-content: center; align-items: stretch; gap: 8px; padding: 30px 48px; border-block: 2px solid var(--scene-color); }
+.html-scene-queue::before, .html-scene-queue::after { position: absolute; top: 7px; color: var(--muted); font: 600 10px/1.2 -apple-system,BlinkMacSystemFont,sans-serif; letter-spacing: .1em; }
+.html-scene-queue::before { content: 'FRONT'; inset-inline-start: 4px; }
+.html-scene-queue::after { content: 'BACK'; inset-inline-end: 4px; }
 .html-scene [role="button"] { cursor: pointer; position: relative; padding: 18px; border: 1px solid var(--scene-color); border-radius: 10px; background: var(--surface-raised); display: flex; flex-direction: column; justify-content: center; gap: 14px; min-height: 78px; transition: border-color 140ms, box-shadow 140ms; }
 .html-scene [role="button"]:hover, .html-scene [role="button"]:focus-visible, .html-scene .is-focused { outline: 2px solid var(--accent); outline-offset: 3px; }
 .html-scene-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--muted); }
@@ -52,6 +64,6 @@
 .html-scene-row > .html-scene-arrow { transform: rotate(-90deg); }
 .html-scene-divider { border: 0; border-top: 1px solid var(--border); width: 100%; }
 @container (max-width: 900px) { .html-scene-row, .html-scene-compare { flex-direction: column; align-items: stretch; } .html-scene-row > :not(.html-scene-arrow), .html-scene-compare > * { flex-basis: auto; max-width: 100%; } .html-scene-row > .html-scene-arrow { transform: none; } .html-scene-beforeAfter { grid-template-columns: 1fr; } }
-@container (max-width: 620px) { .html-scene-timeline { grid-auto-flow: row; grid-auto-columns: auto; gap: 12px; padding: 0 0 0 24px; } .html-scene-timeline::before { top: 4px; bottom: 4px; left: 6px; right: auto; width: 2px; height: auto; } .html-scene-timeline > * { padding-inline-start: 8px; } .html-scene-timeline > *::before { top: 12px; left: -24px; } .html-scene-branch { grid-template-columns: 1fr; } .html-scene-branch > :first-child { grid-column: auto; width: 100%; } }
+@container (max-width: 620px) { .html-scene-timeline { grid-auto-flow: row; grid-auto-columns: auto; gap: 12px; padding: 0 0 0 24px; } .html-scene-timeline::before { top: 4px; bottom: 4px; left: 6px; right: auto; width: 2px; height: auto; } .html-scene-timeline > * { padding-inline-start: 8px; } .html-scene-timeline > *::before { top: 12px; left: -24px; } .html-scene-branch { grid-template-columns: 1fr; } .html-scene-branch > :first-child { grid-column: auto; width: 100%; } .html-scene-transform { grid-template-columns: minmax(0,1fr); gap: 8px; } .html-scene-transform-arrow { transform: rotate(90deg); } .html-scene-queue { padding: 30px 8px 14px; } }
 @keyframes html-scene-enter { from { opacity: .55; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .html-scene, .html-scene * { animation: none !important; transition: none !important; } }

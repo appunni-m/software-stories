@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { ArrowDown, Code2 } from 'lucide-react';
+import { ArrowDown, ArrowRight, Code2 } from 'lucide-react';
 import type { EvidenceLinkedVisualSpec } from './lib/commands';
 import { containerKinds, sceneNodeAccessibleLabel, type PresentationScene } from './lib/scenePresentation';
 import './html-scene.css';
@@ -19,8 +19,21 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
       const labels: Record<string, string> = {
         timeline: 'Ordered timeline', lanes: 'Independent parallel lanes',
         branch: 'Decision and outcomes', beforeAfter: 'Before and after states',
+        transform: 'Input, operation and result', tree: 'Nested data hierarchy',
+        queue: 'First in, first out queue, ordered front to back',
       };
       const label = labels[e.kind];
+      if (e.kind === 'transform') {
+        const slots = ['Input', 'Operation', 'Result'];
+        return <div key={index} className={className} role="group" aria-label={label}>
+          {children.flatMap((child, childIndex) => [
+            <div key={`slot-${childIndex}`} className="html-scene-transform-slot">
+              <small>{slots[childIndex]}</small>{child}
+            </div>,
+            ...(childIndex < 2 ? [<ArrowRight key={`arrow-${childIndex}`} aria-hidden="true" className="html-scene-transform-arrow" size={22}/>] : []),
+          ])}
+        </div>;
+      }
       return <div key={index} className={className} role={label ? 'group' : undefined} aria-label={label}>{children}</div>;
     }
     if (e.kind === 'arrow') return <span key={index} className={className} aria-hidden="true"><ArrowDown size={22}/></span>;

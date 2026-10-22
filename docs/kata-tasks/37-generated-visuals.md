@@ -234,3 +234,21 @@ section/scene and the child's Flow tab. Its saved narration player advances to
 on an existing scene, not a fresh meaning-first generation, verified audible
 quality, listening or comprehension acceptance. The broad narrative and human
 teaching/listening gates remain open; no task closes on this replay.
+
+## Prompt and semantic visual forms — 22 October 2026
+
+The fresh-generation prompt now chooses a representation independently for each
+claim and tells the model to make the data shape or state change the visual,
+using cards only for concise labels. The shared scene contract adds an app-owned
+input/operation/result transform, nested hierarchy, and FIFO queue alongside
+the existing timelines, lanes, branches, before/after states, byte strips,
+matrices, tables, stacks, and evidence-linked graphs. Transform proposals must
+have exactly three direct stages. The live and offline readers render the same
+forms; no model-authored HTML, JavaScript, or Three.js is executed. Three.js is
+not included because the supported source examples do not yet show a spatial
+behavior that benefits from 3-D.
+
+This is prompt/schema/renderer implementation evidence only. A new account-backed
+generation, rendered-source interaction, human visual/narration review, Pocket
+listening, accessibility and language qualification remain unverified. Keep
+`j53m` open.

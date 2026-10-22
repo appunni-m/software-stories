@@ -556,7 +556,7 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v13:"));
+    assert!(instructions.contains("Teaching policy v14:"));
     assert!(instructions.contains("visible cue"));
     assert!(instructions.contains("at most two short, natural sentences per scene"));
     assert!(instructions.starts_with(ANSWER_ROLE));
@@ -569,10 +569,10 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.contains("every earlier guard and failure"));
     assert!(instructions.contains("open with the problem and a useful input-to-result example"));
     assert!(instructions.contains("use at most one code element in a scene"));
-    assert!(instructions.contains("Select one app-rendered form per claim"));
+    assert!(instructions.contains("Choose a visual independently for each claim"));
     assert!(instructions.contains("ordered work → timeline"));
-    assert!(instructions.contains("genuine calls/relations → graph only with proven edges"));
-    assert!(instructions.contains("never supply HTML, CSS, URLs, JavaScript, handlers or extra fields"));
+    assert!(instructions.contains("proven relationships → graph"));
+    assert!(instructions.contains("no generated HTML/CSS/JS/URLs/handlers"));
     assert!(instructions.contains("give each outcome its own accurately named node or table row"));
     assert!(instructions.contains("Narration guides the reader through the visible cue"));
     assert!(instructions.contains("state the general decision rule"));
@@ -594,8 +594,8 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     let input = input(&f);
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema).unwrap();
-    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v6");
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v13");
+    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v7");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v14");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert_eq!(
         fingerprint,
@@ -608,7 +608,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         contract["systemInstructions"]
             .as_str()
             .unwrap()
-            .contains("This interactive code investigation has no wall-clock deadline")
+            .contains("No wall-clock deadline; null budget.remaining.timeMs is intentional")
     );
     assert!(
         !contract["systemInstructions"]
@@ -696,8 +696,8 @@ fn every_workspace_code_investigation_uses_a_user_controlled_runtime() {
 #[test]
 fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Select one app-rendered form per claim"));
-    assert!(instructions.contains("transformation → input/operation/result"));
+    assert!(instructions.contains("Choose a visual independently for each claim"));
+    assert!(instructions.contains("data change → input/operation/result"));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
     assert!(
         instructions.contains(
@@ -715,8 +715,8 @@ fn narration_pacing_preserves_all_conditions_and_is_bound_to_the_request() {
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let mut contract = generation_contract(&input, &prompt, &schema).unwrap();
     let instructions = system_instructions();
-    assert!(instructions.contains("Focus scenes on one decision"));
-    assert!(instructions.contains("split stacked guards into claims"));
+    assert!(instructions.contains("One decision per scene"));
+    assert!(instructions.contains("split stacked guards and carry results forward"));
     assert!(instructions.contains("at most eight nodes"));
     assert!(instructions.contains("preserving all guards, outcomes and edges"));
     assert!(instructions.contains("Never claim measured timings"));

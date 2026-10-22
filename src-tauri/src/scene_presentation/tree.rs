@@ -1,6 +1,6 @@
 //! Shared structural rules for admission and source-free correction feedback.
 
-use super::{SceneElement, ValueOrigin};
+use super::{ElementKind, SceneElement, ValueOrigin};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) struct TreeFinding {
@@ -96,6 +96,14 @@ pub(crate) fn findings(elements: &[SceneElement]) -> Vec<TreeFinding> {
                 "A composition needs 1–12 cited content elements and no empty groups.",
             );
         }
+        if element.kind == ElementKind::Transform && children[index] != 3 {
+            add(
+                Some(index),
+                "transformShape",
+                "parentIndex",
+                "A transform needs exactly three direct children: input, operation and result.",
+            );
+        }
     }
     issues
 }
@@ -124,9 +132,14 @@ mod tests {
             "lanes",
             "branch",
             "beforeAfter",
+            "tree",
+            "queue",
         ] {
             assert!(findings(&[element(kind, None), element("token", Some(0))]).is_empty());
         }
+        let mut transform = vec![element("transform", None)];
+        transform.extend((0..3).map(|_| element("token", Some(0))));
+        assert!(findings(&transform).is_empty());
         for kind in [
             "card", "token", "code", "metric", "bytes", "matrix", "table", "text", "arrow",
             "divider",
@@ -176,6 +189,26 @@ mod tests {
             findings(&[layout, element("token", Some(0))])
                 .iter()
                 .any(|v| v.code == "layoutContent")
+        );
+    }
+
+    #[test]
+    fn transform_has_three_direct_semantic_slots() {
+        for child_count in [2, 4] {
+            let mut elements = vec![element("transform", None)];
+            elements.extend((0..child_count).map(|_| element("token", Some(0))));
+            assert!(
+                findings(&elements).iter().any(|finding| {
+                    finding.code == "transformShape" && finding.element == Some(0)
+                })
+            );
+        }
+        let mut elements = vec![element("transform", None)];
+        elements.extend((0..3).map(|_| element("token", Some(0))));
+        assert!(
+            !findings(&elements)
+                .iter()
+                .any(|finding| finding.code == "transformShape")
         );
     }
 }
