@@ -599,7 +599,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     let input = input(&f);
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema).unwrap();
-    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v18");
+    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v19");
     assert_eq!(contract["teachingPolicy"], "meaning-first-v26");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(system_instructions().contains("Selector is root for first-match/priority/fallback"));
@@ -609,7 +609,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         )
     );
     assert!(system_instructions().contains("no row/column wrapper"));
-    assert!(system_instructions().contains("Visual design method v18:"));
+    assert!(system_instructions().contains("Visual design method v19:"));
     assert!(system_instructions().contains("choose one subject and question per scene"));
     assert!(
         system_instructions().contains("Across the section use 2–12 nodes and at most 20 edges")

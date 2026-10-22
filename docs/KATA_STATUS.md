@@ -274,6 +274,23 @@ been evaluated by another Guide. Whole-repository scope and human audio,
 comprehension and accessibility review remain open. Keep `j53m` open. [Prompt
 follow-up](kata-tasks/37-generated-visuals.md#v18-visual-fallback-follow-up--23-october-2026).
 
+## 23 October fresh Guide and visual prompt checkpoint
+
+The fresh Guide generated seven slides and completed six planned topics
+without timing out, but chose only four starting files for a representative
+Rust CLI path. It explicitly left C ABI and WASM entry points,
+parser/rasterizer details and broader failure behavior unexplored;
+whole-repository coverage remains open. Its bitmap/report scene used repeated
+generic field cards instead of an actual pixel matrix. A cited source action
+opened the expected example file; Pocket narration was previewed but not
+human-listened. The reviewed output used `ai-html-compositions-v18`. Its
+observed gap led to the source prompt and progressive contract moving to v19,
+which now calls for data-shaped visuals, grouped output tables, pixel matrices
+or disclosed illustrative grids, and source-backed output templates. v19 has
+not yet been evaluated in a Guide. Keep `j53m` open. [Run evidence and prompt
+follow-up](kata-tasks/37-generated-visuals.md#fresh-v18-guide-review-and-v19-visual-follow-up--23-october-2026).
+The Rust library suite passes **720 tests** (18 ignored).
+
 ## 23 October native reader recovery checkpoint
 
 The native conversation loader now discards malformed optional bookmark and

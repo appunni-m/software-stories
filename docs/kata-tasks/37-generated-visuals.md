@@ -550,3 +550,33 @@ the reviewed seven-slide Guide used v17. Treat the new rule as implemented but
 not yet confirmed in generated output. Whole-repository scope, repeated
 section-generation reliability, Pocket listening, comprehension and
 accessibility remain open.
+
+## Fresh v18 Guide review and v19 visual follow-up — 23 October 2026
+
+One fresh Fontdone Guide produced seven slides and completed all six planned
+topics. It generated incrementally and did not time out. Its outline chose four
+starting files and explicitly narrowed the story to a representative Rust CLI
+path: C ABI and WASM entry points, parser/rasterizer internals and broader
+failure behavior were not traced. This is useful chapter-level evidence, not
+whole-repository coverage.
+
+The Guide varied scene forms across guarded decisions, input/operation/result
+transforms and output/report views. The bitmap/report scene still reduced
+multiple fields to repeated generic “Report fields” cards and did not show an
+actual pixel matrix. The source action on the opening story opened
+`examples/load_glyph.rs` at its cited source. Pocket narration was ready to
+play and its text was reviewed; no human listening or comprehension check was
+done.
+
+That concrete output gap led to `ai-html-compositions-v19` in the source
+prompt. It asks for a behavior-appropriate shape before labels, a single table
+for related output fields, an actual pixel matrix when source data supports
+one (otherwise a clearly illustrative grid), and one source-backed output
+template for formats without runtime values. It also permits narration and
+source links when no truthful visual fits. The version is wired into the
+progressive generation contract. **v19 has not been evaluated in another
+Guide**, so these are prompt requirements, not confirmed generated behavior.
+The complete Rust library suite now passes **720 tests** (18 ignored), including
+the updated prompt-contract assertions.
+Keep `j53m` open; whole-repository scope, visual quality, human audio,
+comprehension and accessibility remain open.
