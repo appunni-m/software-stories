@@ -20,7 +20,8 @@ describe('visual story scenes', () => {
     const visible = visibleStoryEdgeLabel(full, 24);
     assert.equal(visible, 'Prefix matches; hand…');
     assert.ok(visible.length <= 24);
-    assert.ok(visibleStoryEdgeLabel(full).length <= 24);
+    assert.equal(visibleStoryEdgeLabel(full), 'Prefix matches; hand off and…');
+    assert.ok(visibleStoryEdgeLabel(full).length <= 36);
   });
 
   it('opens a visual node on its unique literal expression inside the cited snapshot bytes', () => {
@@ -609,7 +610,11 @@ describe('visual story scenes', () => {
     const styles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
     const labelRule = styles.match(/\.visual-story \.story-edge-label\s*\{([^}]+)\}/u)?.[1] ?? '';
     assert.match(labelRule, /max-width:\s*180px/u);
+    assert.match(labelRule, /max-height:\s*40px/u);
     assert.match(labelRule, /font:\s*500 10px\/1\.2/u);
+    const textRule = styles.match(/\.visual-story \.story-edge-label-text\s*\{([^}]+)\}/u)?.[1] ?? '';
+    assert.match(textRule, /-webkit-line-clamp:\s*2/u);
+    assert.match(textRule, /white-space:\s*normal/u);
   });
 
   it('fits a focused scene to its visible subgraph instead of hidden chapter branches', () => {

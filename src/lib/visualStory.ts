@@ -17,7 +17,7 @@ export interface StoryLayoutResult {
 
 export const STORY_NODE_WIDTH = 195;
 export const STORY_EDGE_LABEL_MAX_WIDTH = 180;
-export const STORY_EDGE_LABEL_HEIGHT = 30;
+export const STORY_EDGE_LABEL_HEIGHT = 40;
 export const STORY_EDGE_LABEL_GAP = 12;
 
 /** Restore only a focused node or edge that still exists in this section's visual. */
@@ -314,7 +314,7 @@ export function sceneNodeIds(visual: EvidenceLinkedVisualSpec, scene: StoryScene
 }
 
 /** Keep dense edge labels scannable; the complete label remains available to assistive tech and hover text. */
-export function visibleStoryEdgeLabel(label: string, maxCharacters = 24): string {
+export function visibleStoryEdgeLabel(label: string, maxCharacters = 36): string {
   const text = label.trim();
   if (text.length <= maxCharacters || maxCharacters < 2) return text;
   const prefix = text.slice(0, maxCharacters - 1);
