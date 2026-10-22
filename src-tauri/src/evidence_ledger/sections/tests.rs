@@ -194,6 +194,39 @@ fn chapter_validation_feedback_is_bounded_and_rejects_unknown_codes() {
 }
 
 #[test]
+fn progressive_scene_feedback_reports_selector_and_tree_errors_safely() {
+    let mut proposal = crate::provider::visual_scenes::tests::composed_proposal(3);
+    let scene = &mut proposal["sections"][0]["visual"]["presentation"]["scenes"][0];
+    scene["title"] = json!("The first matching flag wins");
+    scene["elements"][0]["kind"] = json!("stack");
+    let findings = guide_scene_findings(&proposal.to_string());
+    assert_eq!(
+        findings,
+        vec![json!({
+            "location":"/section/visual/presentation/scenes/0/elements",
+            "code":"selectorRequired"
+        })]
+    );
+    assert!(valid_findings(&findings));
+    assert!(
+        !serde_json::to_string(&findings)
+            .unwrap()
+            .contains("first matching flag")
+    );
+
+    let mut malformed = crate::provider::visual_scenes::tests::composed_proposal(3);
+    let scene = &mut malformed["sections"][0]["visual"]["presentation"]["scenes"][0];
+    scene["elements"][0]["kind"] = json!("selector");
+    let findings = guide_scene_findings(&malformed.to_string());
+    assert!(
+        findings
+            .iter()
+            .any(|finding| finding["code"] == "selectorShape")
+    );
+    assert!(valid_findings(&findings));
+}
+
+#[test]
 fn current_answer_publication_replays_schema_5_with_authored_narration() {
     let f = Fixture::new();
     let (mut ledger, runtime, cancel) = setup(&f);

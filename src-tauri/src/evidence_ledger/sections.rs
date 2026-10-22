@@ -476,6 +476,38 @@ fn scene_version_findings(section: &Value) -> Vec<Value> {
     }
 }
 
+/// Reuse the source-free scene checks on progressive proposals. Guide sections
+/// are published through this ledger and need the same actionable feedback as
+/// ordinary Codex chapters.
+fn guide_scene_findings(response: &str) -> Vec<Value> {
+    let Some(diagnostics) = crate::claim_alignment::chapter_diagnostics(response) else {
+        return Vec::new();
+    };
+    diagnostics
+        .into_iter()
+        .filter_map(|diagnostic| {
+            let problem = diagnostic.get("sceneProblem")?.as_str()?;
+            let code = match problem {
+                "selectorRequired" => "selectorRequired",
+                "selectorShape" => "selectorShape",
+                "transformShape" => "transformShape",
+                "sceneEvidence" => "sceneEvidence",
+                "narrationRequired" | "narrationLength" => "sceneNarration",
+                "graphDensity" | "elementCount" | "childCount" | "nesting" | "contentCount" => {
+                    "sceneAuthoringLimit"
+                }
+                "containerParent" | "layoutContent" | "emptyGroup" => "sceneAuthoringShape",
+                _ => return None,
+            };
+            Some(json!({
+                "location": section_location(&diagnostic),
+                "code": code,
+            }))
+        })
+        .take(64)
+        .collect()
+}
+
 /// Fixed positions only. Full canonical validation still owns admission; this
 /// never invents speech, removes claims or grants another attempt.
 fn scene_narration_findings(section: &Value) -> Vec<Value> {
@@ -631,6 +663,9 @@ fn valid_findings(findings: &[Value]) -> bool {
                             | "sceneNarration"
                             | "sceneRepetition"
                             | "sceneSourceValue"
+                            | "selectorRequired"
+                            | "selectorShape"
+                            | "transformShape"
                             | "sectionValidation"
                             | "chapterUnsupportedSchemaVersion"
                             | "chapterInvalidId"
@@ -1068,6 +1103,7 @@ impl ActiveAnswer {
                                         .extend(scene_version_findings(&proposal.section));
                                     shape_findings
                                         .extend(scene_narration_findings(&proposal.section));
+                                    shape_findings.extend(guide_scene_findings(resolved.text()));
                                     shape_findings.truncate(64);
                                     if !shape_findings.is_empty() {
                                         findings = shape_findings;
