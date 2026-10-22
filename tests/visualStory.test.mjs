@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { storyViewportNeedsRefit, viewportClipsNodeBounds } from '../src/lib/flowViewport.ts';
-import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyEdgeLabelPosition, storyLayout, storyLayoutWithDirection, storyScenes, visibleStoryEdgeLabel } from '../src/lib/visualStory.ts';
+import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyEdgeLabelPosition, storyLayout, storyLayoutWithDirection, storyScenes, storyViewportBounds, visibleStoryEdgeLabel } from '../src/lib/visualStory.ts';
 
 const claim = (id, prose, category = { kind: 'codeBehavior' }) => ({ claimId: id, prose, category, anchors: [{ anchorId: `a:${id}` }] });
 const claims = [claim('entry', 'A request reaches handleRequest. The bytes are still untrusted.'), claim('check', 'If validate rejects those bytes, the caller receives an error. Otherwise processing continues.')];
@@ -384,11 +384,33 @@ describe('visual story scenes', () => {
     assert.equal(storyViewportNeedsRefit({ ...bounds, width: 0 }, { x: 0, y: 0, zoom: .18 }, 600, 400), false);
   });
 
+  it('fits Guide edge-label lanes even when all node cards already fit', () => {
+    const nodeBounds = { x: 100, y: 0, width: 195, height: 650 };
+    const verticalBounds = storyViewportBounds(nodeBounds, [
+      { x: -92, y: 200, width: 180, height: 30 },
+      { x: 307, y: 400, width: 180, height: 30 },
+    ]);
+    assert.deepEqual(verticalBounds, { x: -92, y: 0, width: 579, height: 650 });
+    const viewport = { x: 52.5, y: 30, zoom: 1 };
+    assert.equal(storyViewportNeedsRefit(nodeBounds, viewport, 400, 720, 28), false,
+      'the cards fit inside the narrow pane');
+    assert.equal(storyViewportNeedsRefit(verticalBounds, viewport, 400, 720, 28), true,
+      'the expanded edge-label lane forces a reframe before labels are clipped');
+    assert.deepEqual(storyViewportBounds(nodeBounds, []), nodeBounds,
+      'graphs without visible edges keep their established framing');
+  });
+
   it('checks saved viewports in both the Guide player and the exploration Flow canvas', () => {
     const story = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
     const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
     assert.match(story, /storyViewportNeedsRefit\(bounds,\s*\w+\.getViewport\(\),\s*\w+\.width,\s*\w+\.height/u,
       'Guide restoration also rejects saved zoom levels that make nodes unreadable');
+    assert.match(story, /storyViewportBounds\(nodeBounds,\s*edgeLabelBoundsFor\(instance\)\)/u,
+      'Guide reframing includes the rendered edge-label rectangles, not only their node endpoints');
+    assert.match(story, /getBezierPath\(\{[\s\S]*?sourceX, sourceY,[\s\S]*?targetX, targetY/u,
+      'edge-label bounds follow the same path geometry as the rendered labels');
+    assert.match(story, /getViewportForBounds\(bounds,\s*size\.width,\s*size\.height,\s*\.18,\s*1\.1,\s*\.08\)/u,
+      'the viewport centers the expanded bounds rather than letting node-only fitView clip edge labels');
     assert.match(workspace, /viewportClipsNodeBounds\(bounds,\s*\w+\.getViewport\(\),\s*\w+\.width,\s*\w+\.height/u,
       'Flow restoration continues to preserve its existing clipping behavior');
     for (const source of [story, workspace]) {

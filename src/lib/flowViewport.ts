@@ -3,6 +3,13 @@ import type { FlowViewport } from './readerProgress';
 export interface FlowViewportInstance {
   viewportInitialized: boolean;
   getNodesBounds: (nodes: string[]) => { x: number; y: number; width: number; height: number };
+  getNodes: () => {
+    id: string;
+    position: { x: number; y: number };
+    width?: number;
+    height?: number;
+    measured?: { width?: number; height?: number };
+  }[];
   getViewport: () => FlowViewport;
   setViewport: (viewport: FlowViewport, options?: { duration?: number }) => Promise<boolean>;
   fitView: (options: { nodes: { id: string }[]; padding: number; minZoom: number; maxZoom: number }) => Promise<boolean>;
@@ -30,7 +37,7 @@ export function viewportClipsNodeBounds(
   return left < padding || top < padding || right > width - padding || bottom > height - padding;
 }
 
-/** Reframe a saved Guide view when it clips nodes or leaves them too small to read. */
+/** Reframe a saved Guide view when it clips visible content or leaves it too small to read. */
 export function storyViewportNeedsRefit(
   bounds: { x: number; y: number; width: number; height: number },
   viewport: FlowViewport,

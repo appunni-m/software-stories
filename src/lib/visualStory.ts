@@ -15,6 +15,11 @@ export interface StoryLayoutResult {
   nodes: { id: string; position: { x: number; y: number } }[];
 }
 
+export const STORY_NODE_WIDTH = 195;
+export const STORY_EDGE_LABEL_MAX_WIDTH = 180;
+export const STORY_EDGE_LABEL_HEIGHT = 30;
+export const STORY_EDGE_LABEL_GAP = 12;
+
 /** Restore only a focused node or edge that still exists in this section's visual. */
 export function restoreStoryFocus(visual:EvidenceLinkedVisualSpec|undefined,nodeId?:string,edgeId?:string):{nodeId:string|null;edgeId:string|null} {
   const node=visual?.nodes.find((item)=>item.nodeId===nodeId);
@@ -329,13 +334,35 @@ export function storyEdgeLabelPosition(
 ): { x: number; y: number } {
   if (!vertical) return { x: labelX, y: labelY };
   const side = Math.sign(targetX - sourceX) || (preferredSide < 0 ? -1 : 1);
-  const cardAndLabelHalfWidths = (195 + 180) / 2;
-  const gap = 12;
+  const cardAndLabelHalfWidths = (STORY_NODE_WIDTH + STORY_EDGE_LABEL_MAX_WIDTH) / 2;
   const branchClearance = Math.abs(targetX - sourceX) / 2;
   return {
-    x: labelX + side * (cardAndLabelHalfWidths + gap + branchClearance),
+    x: labelX + side * (cardAndLabelHalfWidths + STORY_EDGE_LABEL_GAP + branchClearance),
     y: labelY,
   };
+}
+
+/** Include custom edge labels when framing a Guide graph. React Flow's built-in
+ * fitView measures node cards only, so labels rendered in the edge layer can
+ * otherwise disappear outside a narrow or restored viewport.
+ */
+export function storyViewportBounds(
+  bounds: { x: number; y: number; width: number; height: number },
+  edgeLabels: { x: number; y: number; width: number; height: number }[],
+): { x: number; y: number; width: number; height: number } {
+  let left = bounds.x;
+  let top = bounds.y;
+  let right = bounds.x + bounds.width;
+  let bottom = bounds.y + bounds.height;
+  for (const label of edgeLabels) {
+    if (![label.x, label.y, label.width, label.height].every(Number.isFinite)
+      || label.width <= 0 || label.height <= 0) continue;
+    left = Math.min(left, label.x);
+    top = Math.min(top, label.y);
+    right = Math.max(right, label.x + label.width);
+    bottom = Math.max(bottom, label.y + label.height);
+  }
+  return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
 /** Saved reader viewports belong to a particular canvas size. Keep them while

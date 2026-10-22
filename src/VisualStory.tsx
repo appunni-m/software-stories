@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Background, BaseEdge, Controls, EdgeLabelRenderer, MarkerType, Position, ReactFlow, getBezierPath, type Edge, type EdgeProps, type ReactFlowInstance } from '@xyflow/react';
+import { Background, BaseEdge, Controls, EdgeLabelRenderer, MarkerType, Position, ReactFlow, getBezierPath, getViewportForBounds, type Edge, type EdgeProps, type ReactFlowInstance } from '@xyflow/react';
 import { ArrowLeft, ArrowRight, Code2, Maximize2, Network } from 'lucide-react';
 import { NarrationPlayer } from './NarrationPlayer';
 import { HtmlScene } from './HtmlScene';
@@ -7,7 +7,7 @@ import { isNativeRuntime, type ChapterHotspot, type ChapterRevision, type Chapte
 import { defaultNarrationText, parseNarrationPreferences } from './lib/narration';
 import { narrationStorageKey } from './lib/narrationScope';
 import { inspectInteractiveVisual } from './lib/visuals';
-import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, storyEdgeLabelPosition, storyLayoutWithDirection, storyScenes, visibleStoryEdgeLabel } from './lib/visualStory';
+import { readSectionStoryProgress, readStoryProgress, restoreStoryFocus, sceneNodeIds, sourceAnchorForVisualEdge, sourceAnchorForVisualNode, sourceEvidenceAnchorForVisualEdge, sourceEvidenceAnchorForVisualNode, sourceValuesByVisualNode, STORY_EDGE_LABEL_HEIGHT, STORY_EDGE_LABEL_MAX_WIDTH, STORY_NODE_WIDTH, storyEdgeLabelPosition, storyLayoutWithDirection, storyScenes, storyViewportBounds, visibleStoryEdgeLabel } from './lib/visualStory';
 import { storyViewportNeedsRefit, type FlowViewportInstance } from './lib/flowViewport';
 import { cleanFlowViewport, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type StoryProgress } from './lib/readerProgress';
 import { readOnlyDiagramAriaLabelConfig } from './lib/readOnlyDiagramAccessibility';
@@ -190,7 +190,7 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
         <span className="story-node-title">{data.label}</span>
         {data.detail && <small className="story-node-detail">{data.detail}</small>}
       </button> },
-      className: `${activeIds.has(node.id) ? 'story-node-active' : 'story-node-context'}${focus?.nodeId === node.id ? ' story-node-focus' : ''}`, style: { width: 195 } };
+      className: `${activeIds.has(node.id) ? 'story-node-active' : 'story-node-context'}${focus?.nodeId === node.id ? ' story-node-focus' : ''}`, style: { width: STORY_NODE_WIDTH } };
   }) : [];
   const visibleEdges = visual?.edges.filter((edge) => visibleIds.has(edge.fromNodeId) && visibleIds.has(edge.toNodeId)) ?? [];
   const edges: StoryEdge[] = visibleEdges.map((edge, edgeIndex) => ({
@@ -201,6 +201,37 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
   const flowInstance = useRef<FlowViewportInstance & Pick<ReactFlowInstance<(typeof nodes)[number], StoryEdge>, 'setNodes' | 'setEdges'> | null>(null);
   const graphData = useRef({ nodes, edges });
   graphData.current = { nodes, edges };
+  const edgeLabelBoundsFor = (instance: FlowViewportInstance) => {
+    const nodeById = new Map(instance.getNodes().map((node) => [node.id, node]));
+    return graphData.current.edges.flatMap((edge) => {
+      const source = nodeById.get(edge.source);
+      const target = nodeById.get(edge.target);
+      if (!source || !target) return [];
+      const sourceWidth = source.measured?.width ?? source.width ?? STORY_NODE_WIDTH;
+      const targetWidth = target.measured?.width ?? target.width ?? STORY_NODE_WIDTH;
+      const sourceHeight = source.measured?.height ?? source.height;
+      const targetHeight = target.measured?.height ?? target.height;
+      if (!Number.isFinite(sourceHeight) || !Number.isFinite(targetHeight) || !sourceHeight || !targetHeight) return [];
+      const vertical = edge.data?.vertical ?? false;
+      const sourceX = source.position.x + (vertical ? sourceWidth / 2 : sourceWidth);
+      const sourceY = source.position.y + (vertical ? sourceHeight : sourceHeight / 2);
+      const targetX = target.position.x + (vertical ? targetWidth / 2 : 0);
+      const targetY = target.position.y + (vertical ? 0 : targetHeight / 2);
+      const [, labelX, labelY] = getBezierPath({
+        sourceX, sourceY,
+        sourcePosition: vertical ? Position.Bottom : Position.Right,
+        targetX, targetY,
+        targetPosition: vertical ? Position.Top : Position.Left,
+      });
+      const position = storyEdgeLabelPosition(sourceX, targetX, labelX, labelY, vertical, edge.data?.labelSide ?? 1);
+      return [{
+        x: position.x - STORY_EDGE_LABEL_MAX_WIDTH / 2,
+        y: position.y - STORY_EDGE_LABEL_HEIGHT / 2,
+        width: STORY_EDGE_LABEL_MAX_WIDTH,
+        height: STORY_EDGE_LABEL_HEIGHT,
+      }];
+    });
+  };
 
   const visibleNodeKey = JSON.stringify([...visibleIds]);
   useEffect(() => {
@@ -239,18 +270,15 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
           flowFitCheckPending.current = true;
           return;
         }
-        const bounds = instance.getNodesBounds([...visibleIds]);
+        const nodeBounds = instance.getNodesBounds([...visibleIds]);
+        const bounds = storyViewportBounds(nodeBounds, edgeLabelBoundsFor(instance));
         const size = currentStage.getBoundingClientRect();
         if (!bounds.width || !bounds.height) return;
         if (!storyViewportNeedsRefit(bounds, instance.getViewport(), size.width, size.height, 28)) return;
 
         flowFitInProgress.current = true;
-        void instance.fitView({
-          nodes: [...visibleIds].map((id) => ({ id })),
-          padding: .08,
-          minZoom: .18,
-          maxZoom: 1.1,
-        }).then((fitted) => {
+        const fittedViewport = getViewportForBounds(bounds, size.width, size.height, .18, 1.1, .08);
+        void instance.setViewport(fittedViewport, { duration: 0 }).then((fitted) => {
           if (!fitted || generation !== flowFitGeneration.current || instance !== flowInstance.current
             || activeScene.current !== scene.id || mapView.current !== fullMap) return;
           const clean = cleanFlowViewport(instance.getViewport());
