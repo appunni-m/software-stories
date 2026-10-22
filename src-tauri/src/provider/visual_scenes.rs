@@ -4,21 +4,21 @@
 use crate::chapters::{self, ChapterRevision};
 use serde_json::{Value, json};
 
-pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v11";
+pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v12";
 
 /// One speech contract for file, overview and selected-section user prompts.
 /// Keep the full script and inspectable claim fields complete.
 pub(super) const SECTION_NARRATION_INSTRUCTIONS: &str = "Complete scene narration: when a presentation is supplied, spokenText joins every scene narration in claim order, including visible inference labels. It must preserve the full behavior, guards, alternatives, errors and uncertainty of all claims, not a summary or a chosen subset. Narration is a spoken guide to the visible scene, not a compressed list of code details: point to a short label or position, then explain what changes and why it matters. Use at most two short, natural sentences per scene. Explain every distinct outcome in plain words, but do not recite identifiers, signatures, format names or error labels unless the user asks for them or the name itself is the behavior. Keep exact names and conditions inspectable in claims, visual labels/details and source links. If several checks would become a spoken list, split them into ordered scenes without dropping any condition or outcome. With no presentation, write a complete natural spoken account of all claims with the same style, preserving every guard, alternative, error, inference label and uncertainty. Keep the complete transport script within 20–1,000 UTF-8 bytes and the declared section shape; organize focused claims without dropping behavior. The app retains exact claims separately and assembles speech from all scenes.";
 
-const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v4
+const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v5
 Author a causal illustrated answer. Keep exact implementation claims as inspectable source-grounded details; every declared identifier still appears literally in its claim. Write separate natural narration on each scene to explain that claim's meaning, not its spelling. Usually use 2–5 short claims/scenes per section. Speech follows the input, why a choice or guard matters, and the consequence, including all alternative/error conditions. Refer to the short visual labels, introduce useful invented inputs as examples, and connect scenes causally. Do not read declarations, helper names, type constructors, paths, call syntax or punctuation by default. A user explicitly asking about a name or syntax may need that name spoken. Do not change or omit a claim's conditions, exceptions, inference or uncertainty when paraphrasing. The app prefixes inference narration with its visible label. Exact source links remain available. Narration is AI-authored, not automatic code-name removal or proof of semantic equivalence.
 The app assembles full details from all validated claims and speech from all ordered scene narrations; it never selects a convenient subset. Keep each complete section's details and speech within 4,000 UTF-8 bytes or split it without dropping behavior. Separate prose/spokenText transport fields remain required under their documented bounds: prose copies complete claim sentences, spokenText copies the complete scene narration. With no visual presentation, prose still copies all complete claim sentences; spokenText is the complete natural account of those claims, with inference labels preserved."#;
 
-const BEHAVIOR_TEACHING: &str = r#"Teaching policy v11: For behavior, open with the problem and a useful input-to-result example. Explain work and consequences, not signatures or field lists. Narration guides the reader through the visible cue: name its short label or position, then explain what changes and why it matters. Use at most two short, natural sentences per scene. Speak for the ear, not as a compressed list of identifiers, signatures, format names, guards or error labels. Explain each distinct outcome in plain words; exact names and conditions remain inspectable in claims, visual labels/details and source links. Say an identifier aloud only when the user asks or the name itself is the behavior. If a scene would need a long spoken list, split the behavior into ordered, supported scenes without dropping any guard, alternative, error or uncertainty. For conditional claims, state the general decision rule first; an example alone cannot replace the rule. Explain actual selectors, including zero versus any nonzero value, and empty results retaining or resetting location. Teach prediction of unshown inputs; never invent a guard."#;
+const BEHAVIOR_TEACHING: &str = r#"Teaching policy v12: For behavior, open with the problem and a useful input-to-result example. Explain work and consequences, not signatures or field lists. Narration guides the reader through the visible cue: name its short label or position, then explain what changes and why it matters. Use at most two short, natural sentences per scene. Speak for the ear, not as a compressed list of identifiers, signatures, format names, guards or error labels. Explain each distinct outcome in plain words; exact names and conditions remain inspectable in claims, visual labels/details and source links. Say an identifier aloud only when the user asks or the name itself is the behavior. If a scene would need a long spoken list, split the behavior into ordered, supported scenes without dropping any guard, alternative, error or uncertainty. For conditional claims, state the general decision rule first; an example alone cannot replace the rule. Explain actual selectors, including zero versus any nonzero value, and empty results retaining or resetting location. Teach prediction of unshown inputs; never invent a guard."#;
 
 const EVIDENCE_MEANING: &str = r#"Trace every earlier guard and failure: lookup and byte-range extraction can fail before a parser runs. Parser fallback starts after those checks. Distinguish missing entries, inaccessible bytes, malformed contents and parsing in claims, visuals and narration. A comment or default constructor does not prove later consumer behavior. For downstream effects, cite that consumer's implementation plus producer and conditions; otherwise leave them unexplored. References and identifiers do not prove meaning."#;
 
-const REPRESENTATION_CHOICES: &str = r#"Choose each scene's form from its behavior and evidence; mix forms across a guide. Use decision rows/lanes for ordered guards and fallbacks, sequence/graph for calls, before/after for state, distinct input, step and result for transformations, comparison/table for facts, stacks for nesting, bytes/matrices for binary structure. Use spatial/3-D only when geometry is source behavior and the app supports it; never for spectacle or generated executable code. Avoid generic repeated two-card/arrow layouts. The visual must retain core relations with narration hidden. A text card alone is not a composition: show a supported relation or choose none. Single bytes, matrices, tables or metrics may stand alone. Source tokens alone are not transformations. Evidence-link every path step; arrows show reading order, never runtime calls. Never invent edges, omit guards or present illustrations as observed execution."#;
+const REPRESENTATION_CHOICES: &str = r#"Choose each claim's visual grammar from behavior; vary forms when concepts change, keep one only for coherent continuation. Map evidence to form: order/lifecycle → timeline or pipeline; guards → full decision path; transformation → distinct input, operation and output; loops/reductions → illustrative iteration table with derived values; parsing/binary → indexed bytes, matrix or fields; state → before/after; nesting/ownership → hierarchy/stack; calls/messages → sequence only if order is proved; alternatives → comparison; real relations → graph. Keep the key relation clear with narration hidden. Avoid default card rows or graphs, repeated values posing as change, decorative arrows, invented charts, or graphs for mere order. Link every step to evidence; examples are not observed runs. 3-D only for source-backed geometry via an app-owned renderer; never emit JavaScript/Three.js. If unsupported, use truthful 2-D and state the limit."#;
 
 const OUTCOME_TEACHING: &str = r#"Show decisions or consequences as values, quantities, changed state or alternatives; a copied expression is not its effect. Unless syntax is requested, use at most one code element in a scene. For alternatives, give each outcome its own accurately named node or table row and guard. Distinguish clipped offsets from empty returns. Narrate example assumptions; no unconditional conclusion from one input."#;
 
@@ -214,15 +214,19 @@ pub(crate) mod tests {
     fn shared_teaching_selects_layout_by_behavior_and_keeps_decision_outcomes_visible() {
         let shared = teaching_instructions();
         assert!(shared.contains(REPRESENTATION_CHOICES));
-        assert!(shared.contains("Choose each scene's form from its behavior and evidence"));
-        assert!(shared.contains("distinct input, step and result"));
-        assert!(shared.contains("Avoid generic repeated two-card/arrow layouts"));
-        assert!(shared.contains("retain core relations with narration hidden"));
-        assert!(shared.contains("arrows show reading order, never runtime calls"));
-        assert!(shared.contains("Source tokens alone are not transformations"));
-        assert!(shared.contains("comparison/table for facts"));
-        assert!(shared.contains("A text card alone is not a composition"));
-        assert!(shared.contains("Single bytes, matrices, tables or metrics may stand alone"));
+        assert!(shared.contains("Choose each claim's visual grammar from behavior"));
+        assert!(shared.contains("transformation → distinct input, operation and output"));
+        assert!(shared.contains("Avoid default card rows"));
+        assert!(shared.contains("Keep the key relation clear with narration hidden"));
+        assert!(shared.contains("Link every step to evidence"));
+        assert!(shared.contains("alternatives → comparison"));
+        assert!(
+            shared.contains("loops/reductions → illustrative iteration table with derived values")
+        );
+        assert!(shared.contains("vary forms when concepts change"));
+        assert!(shared.contains("Avoid default card rows or graphs"));
+        assert!(shared.contains("3-D only for source-backed geometry via an app-owned renderer"));
+        assert!(shared.contains("never emit JavaScript/Three.js"));
         assert!(shared.contains("Keep branches in the visual, not narration/details"));
         assert!(shared.contains("each nonmatch handoff and final fallback in source order"));
         assert!(shared.contains("split into ordered scenes"));

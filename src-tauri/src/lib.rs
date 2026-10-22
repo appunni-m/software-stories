@@ -2327,7 +2327,7 @@ mod chapter_pipeline_tests {
             assert!(
                 review
                     .system_instruction
-                    .contains("ai-html-compositions-v4")
+                    .contains("ai-html-compositions-v5")
             );
             assert_current_narration_prompt(&review);
             let mut proposal = provider::visual_scenes::tests::composed_proposal(3);
@@ -2527,7 +2527,7 @@ mod chapter_pipeline_tests {
                 .user_prompt
                 .contains("sentences copied verbatim from that section's anchored claims")
         );
-        assert!(review.system_instruction.contains("Teaching policy v11:"));
+        assert!(review.system_instruction.contains("Teaching policy v12:"));
         assert!(
             review
                 .system_instruction
