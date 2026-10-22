@@ -151,6 +151,12 @@ pub(crate) struct GuideSummary {
     captured_files: usize,
     starting_files: usize,
 }
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GuideList {
+    guides: Vec<GuideSummary>,
+    unavailable_count: usize,
+}
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct UnitSummary {
@@ -1493,14 +1499,18 @@ pub(crate) async fn list_repository_guides(
     manager: State<'_, codex_agent::CodexAgentManager>,
     project_id: String,
     snapshot_id: String,
-) -> Result<Vec<GuideSummary>, String> {
+) -> Result<GuideList, String> {
     let storage = app_data_directory(&app)?;
     let manager = manager.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        list_saved_guides(&storage, &project_id, &snapshot_id, &manager)
+        list_saved_guides_with_count(&storage, &project_id, &snapshot_id, &manager)
     })
     .await
     .map_err(|_| "Saved guides could not be read. Nothing was regenerated.".to_owned())?
+    .map(|(guides, unavailable_count)| GuideList {
+        guides,
+        unavailable_count,
+    })
 }
 
 fn list_saved_guides(
@@ -1509,10 +1519,21 @@ fn list_saved_guides(
     snapshot_id: &str,
     manager: &codex_agent::CodexAgentManager,
 ) -> Result<Vec<GuideSummary>, String> {
+    list_saved_guides_with_count(storage, project_id, snapshot_id, manager)
+        .map(|(guides, _)| guides)
+}
+
+fn list_saved_guides_with_count(
+    storage: &Path,
+    project_id: &str,
+    snapshot_id: &str,
+    manager: &codex_agent::CodexAgentManager,
+) -> Result<(Vec<GuideSummary>, usize), String> {
     let records = store::list(storage, project_id, snapshot_id)?;
-    records
-        .into_iter()
-        .map(|record| {
+    let mut guides = Vec::with_capacity(records.len());
+    let mut unavailable_count = 0;
+    for record in records {
+        let guide = (|| {
             let lease = store::lease(storage, &record.id)?;
             let record = if lease.is_some()
                 && matches!(record.status, Status::Planning | Status::Building)
@@ -1523,8 +1544,18 @@ fn list_saved_guides(
                 record
             };
             summary(storage, &record)
-        })
-        .collect()
+        })();
+        match guide {
+            Ok(guide) => guides.push(guide),
+            Err(error) => {
+                // A single old or damaged saved scene must not hide other
+                // independently recoverable guides in this repository.
+                eprintln!("A saved repository guide could not be reopened: {error}");
+                unavailable_count += 1;
+            }
+        }
+    }
+    Ok((guides, unavailable_count))
 }
 
 #[cfg(test)]

@@ -278,3 +278,25 @@ decision layouts, with plain-language narration tied to visible outcomes. The
 Guide is still building later slides. This is initial evidence only; keep visual
 quality, native rendering, source-link accuracy, Pocket listening and human
 comprehension open until the full run has been reviewed.
+
+## Fresh packaged v17 incremental Guide result — 23 October 2026
+
+The approved Guide `79461b1a-e33d-40d2-be00-0ad86abec96a` reached native
+`ready` with seven persisted slides: an opening and six separately generated
+WASM topics. The packaged reader advanced through them while displaying the
+next-slide progress indicator; the earlier slides remained available while
+later work continued. The native record preserved all six topic outcomes and
+their accepted sections. This confirms incremental publication and recovery
+for this run, not a general reliability or latency pass.
+
+The final bitmap-accessor topic failed twice after successful agent responses
+but native visual/section validation rejected the proposals. The second
+Guide-level attempt exhausted its correction limit; a third attempt published
+one complete section. Per-run elapsed times were 165.469 s, 116.027 s, and
+78.298 s. The opening and first planned unit each took over three minutes at
+the provider-operation level (223.537 s and 292.095 s); these measurements are
+not UI-visible first-useful-section latency. The completed plan still covers
+only one representative WASM glyph path, explicitly excluding native Rust and
+C ABI paths, so it does not satisfy broad repository coverage. Audio showed
+Ready to play but was not listened to. See task `j53m` for the scene, narration,
+source-link and scope review. Keep `3bz5` open.

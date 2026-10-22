@@ -106,6 +106,43 @@ fn exact_scene_audio_map_pane_and_flow_positions_round_trip_as_metadata() {
 }
 
 #[test]
+fn a_guide_waiting_between_playback_batches_can_be_saved() {
+    let f = Fixture::new();
+    let mut s = state();
+    let guide_id = "79461b1a-e33d-40d2-be00-0ad86abec96a";
+    s["explorations"][0]["turns"][0]["status"] = json!("waiting");
+    s["explorations"][0]["turns"][0]["guideId"] = json!(guide_id);
+    s["explorations"][0]["turns"][0]["guide"] = json!({
+        "revision": 15,
+        "id": guide_id,
+        "projectId": "/Users/example/fontdone",
+        "snapshotId": "snap-fontdone-main",
+        "question": "How does this project work?",
+        "title": "A representative code path",
+        "status": "waitingForPlayback",
+        "openingRunId": null,
+        "openingRunIds": ["96c38bee-29db-4147-8a42-0f240daa9292"],
+        "canContinue": true,
+        "continuationOperations": 2,
+        "units": [{
+            "key": "render-path",
+            "question": "How does rendering use a loaded slot?",
+            "prerequisites": [],
+            "status": "pending",
+            "runIds": []
+        }],
+        "omissions": [],
+        "capturedFiles": 12,
+        "startingFiles": 4
+    });
+
+    let record = save(&f.0, "project", "snapshot", None, s.clone()).unwrap();
+
+    assert_eq!(record.state, s);
+    assert_eq!(load(&f.0, "project", "snapshot").unwrap(), Some(record));
+}
+
+#[test]
 fn focused_story_layout_accepts_current_and_legacy_migration_versions() {
     let f = Fixture::new();
     let s = presentation_state();
@@ -113,8 +150,8 @@ fn focused_story_layout_accepts_current_and_legacy_migration_versions() {
     assert_eq!(record.state, s);
 
     let mut legacy = s.clone();
-    legacy["explorations"][0]["turns"][0]["presentation"]["stories"][0]
-        ["focusLayoutVersion"] = json!(3);
+    legacy["explorations"][0]["turns"][0]["presentation"]["stories"][0]["focusLayoutVersion"] =
+        json!(3);
     assert!(save(&f.0, "project", "snapshot", Some(record.revision), legacy).is_ok());
 
     let record = load(&f.0, "project", "snapshot").unwrap().unwrap();

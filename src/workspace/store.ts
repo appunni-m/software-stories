@@ -10,7 +10,7 @@ import { errorMessageOr } from '../lib/errorMessage';
 import { readVoiceConnection, readVoiceConnectionIssue } from '../lib/voiceConnectionStore';
 import { localNarrationPrewarmInputs } from './narrationPrewarm';
 import { createQuestionOutcomeSelector, recordQuestionOutcomes, type QuestionOutcome } from './outcomes';
-import { addTurn, cleanAnswerNotes, learningQuestion, mergePublishedSections, mergeRepositoryGuide, parseWorkspace, type RepositoryGuide, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
+import { addTurn, cleanAnswerNotes, learningQuestion, mergePublishedSections, mergeRepositoryGuide, parseWorkspace, type RepositoryGuide, type RepositoryGuideList, type AnswerSummary, type PublishedSection, type Context, type Turn, type View, type WorkspaceState } from './model';
 
 const indexLoads = new Map<string, Promise<SnapshotIndex>>();
 /** One local index build per snapshot, shared by reading and questions. No model call. */
@@ -373,13 +373,24 @@ async function reconcileGuide(project: string, snapshot: string, guide: Reposito
   window.dispatchEvent(new CustomEvent('code-atlas:chapters-changed',{detail:{projectId:project}}));
 }
 async function restoreChangedRepositoryGuide(project: string, snapshot: string, guideId: string) {
-  const guides = await invoke<RepositoryGuide[]>('list_repository_guides',{projectId:project,snapshotId:snapshot});
-  const guide = guides.find((candidate) => candidate.id === guideId);
+  const result = await invoke<RepositoryGuideList>('list_repository_guides',{projectId:project,snapshotId:snapshot});
+  const guide = result.guides.find((candidate) => candidate.id === guideId);
   if (guide) await reconcileGuide(project,snapshot,guide,true);
 }
 async function restoreRepositoryGuides(project: string, snapshot: string) {
-  const guides = await invoke<RepositoryGuide[]>('list_repository_guides',{projectId:project,snapshotId:snapshot});
-  for (const guide of guides) await reconcileGuide(project,snapshot,guide);
+  const result = await invoke<RepositoryGuideList>('list_repository_guides',{projectId:project,snapshotId:snapshot});
+  let unavailableCount = result.unavailableCount;
+  for (const guide of result.guides) {
+    // One revision with an old or damaged visual contract can fail during
+    // chapter adoption. Keep restoring the remaining independent guides.
+    try { await reconcileGuide(project,snapshot,guide); }
+    catch { unavailableCount += 1; }
+  }
+  if (unavailableCount > 0) window.dispatchEvent(new CustomEvent('code-atlas:workspace-notice',{detail:{
+    title:'Some saved guides need attention',
+    message:`${unavailableCount} saved guide item${unavailableCount===1?'':'s'} could not be fully reopened. Their saved work remains on this Mac.`,
+    projectId:project,snapshotId:snapshot,
+  }}));
 }
 /** Explicit start/continue only. The native worker survives webview navigation;
  * restored metadata never calls this function. */

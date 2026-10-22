@@ -248,3 +248,17 @@ and a real isolated 13.08-second synthetic worker sample pass. Installed cache,
 player/export, clean setup and human listening remain open; Mac lock prevents
 replacement. [Evidence and limits](acceptance/2026-10-17-pocket-whole-script.md).
 All **73 records remain present: 50 open, 23 closed**. No task is closed.
+
+## 23 October packaged incremental Guide checkpoint
+
+One approved Fontdone Guide reached `ready` with an opening and six separately
+generated, source-linked WASM sections. The updated visual authoring produced
+input/result, ordered-guard, status/error, copy-map, render-result, and bitmap
+fallback scenes. The final bitmap unit needed two validation-rejected attempts
+before a third published; previously saved sections remained available. Its
+scope still narrowed to one representative WASM glyph path and explicitly
+omitted native Rust/C ABI behavior, so whole-repository coverage did not pass.
+Pocket audio was ready to play but was not human-listened. Keep `j53m` and
+`3bz5` open. [Visual review](kata-tasks/37-generated-visuals.md#fresh-v17-visual-prompt-guide-review--23-october-2026) ·
+[Progressive-run review](kata-tasks/73-progressive-answer-sections.md#fresh-packaged-v17-incremental-guide-result--23-october-2026).
+The task inventory remains **73 records: 50 open, 23 closed**.

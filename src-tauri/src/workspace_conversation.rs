@@ -122,6 +122,129 @@ fn context(v: &Value) -> Result<(), String> {
     Ok(())
 }
 
+fn guide_unit(v: &Value) -> Result<(), String> {
+    let o = object(v, &["key", "question", "prerequisites", "status", "runIds"])?;
+    let key = string(o, "key")?;
+    let prerequisites = o
+        .get("prerequisites")
+        .and_then(Value::as_array)
+        .ok_or(UNAVAILABLE)?;
+    let runs = o
+        .get("runIds")
+        .and_then(Value::as_array)
+        .ok_or(UNAVAILABLE)?;
+    if key.is_empty()
+        || key.len() > 80
+        || !key
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        || !text(string(o, "question")?, 65536)
+        || prerequisites.len() > 6
+        || prerequisites.iter().any(|v| {
+            v.as_str().is_none_or(|key| {
+                key.is_empty()
+                    || key.len() > 80
+                    || !key
+                        .bytes()
+                        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+            })
+        })
+        || prerequisites.iter().collect::<HashSet<_>>().len() != prerequisites.len()
+        || ![
+            "pending",
+            "working",
+            "complete",
+            "partial",
+            "stopped",
+            "interrupted",
+            "failed",
+        ]
+        .contains(&string(o, "status")?)
+        || runs.len() > 3
+        || runs.iter().any(|v| !uuid(v))
+        || runs.iter().collect::<HashSet<_>>().len() != runs.len()
+    {
+        return Err(UNAVAILABLE.into());
+    }
+    Ok(())
+}
+
+fn guide_metadata(v: &Value, expected_id: &str) -> Result<(), String> {
+    let o = object(
+        v,
+        &[
+            "revision",
+            "id",
+            "projectId",
+            "snapshotId",
+            "question",
+            "title",
+            "status",
+            "openingRunId",
+            "openingRunIds",
+            "canContinue",
+            "continuationOperations",
+            "units",
+            "omissions",
+            "capturedFiles",
+            "startingFiles",
+        ],
+    )?;
+    let id = string(o, "id")?;
+    let opening_runs = o
+        .get("openingRunIds")
+        .and_then(Value::as_array)
+        .ok_or(UNAVAILABLE)?;
+    let units = o
+        .get("units")
+        .and_then(Value::as_array)
+        .ok_or(UNAVAILABLE)?;
+    let omissions = o
+        .get("omissions")
+        .and_then(Value::as_array)
+        .ok_or(UNAVAILABLE)?;
+    if !uuid(&Value::String(id.to_owned()))
+        || id != expected_id
+        || !integer(o.get("revision").ok_or(UNAVAILABLE)?, u64::MAX)
+        || !text(string(o, "projectId")?, 4096)
+        || !identifier(string(o, "snapshotId")?)
+        || !text(string(o, "question")?, 65536)
+        || !text(string(o, "title")?, 512)
+        || ![
+            "planning",
+            "building",
+            "waitingForPlayback",
+            "ready",
+            "partial",
+            "stopped",
+            "interrupted",
+            "failed",
+        ]
+        .contains(&string(o, "status")?)
+        || !optional(o, "openingRunId", uuid)
+        || opening_runs.len() > 3
+        || opening_runs.iter().any(|v| !uuid(v))
+        || opening_runs.iter().collect::<HashSet<_>>().len() != opening_runs.len()
+        || !o.get("canContinue").is_some_and(Value::is_boolean)
+        || !o
+            .get("continuationOperations")
+            .is_some_and(|v| integer(v, 7))
+        || units.len() > 6
+        || units.iter().any(|unit| guide_unit(unit).is_err())
+        || omissions.len() > 32
+        || omissions
+            .iter()
+            .any(|v| v.as_str().is_none_or(|s| !text(s, 4096)))
+        || !o
+            .get("capturedFiles")
+            .is_some_and(|v| integer(v, 1_000_000))
+        || !o.get("startingFiles").is_some_and(|v| integer(v, 1024))
+    {
+        return Err(UNAVAILABLE.into());
+    }
+    Ok(())
+}
+
 fn viewport(v: &Value) -> Result<(), String> {
     let o = object(v, &["x", "y", "zoom"])?;
     if ["x", "y"].iter().any(|key| {
@@ -299,6 +422,7 @@ fn turn(v: &Value) -> Result<&str, String> {
             "publishedSections",
             "notes",
             "guideId",
+            "guide",
             "reading",
             "presentation",
             "answerVersions",
@@ -313,6 +437,7 @@ fn turn(v: &Value) -> Result<&str, String> {
         || ![
             "queued",
             "working",
+            "waiting",
             "ready",
             "partial",
             "failed",
@@ -328,6 +453,9 @@ fn turn(v: &Value) -> Result<&str, String> {
         || !optional(o, "outcomeSequence", |v| integer(v, 9_007_199_254_740_991))
     {
         return Err(UNAVAILABLE.into());
+    }
+    if let Some(guide) = o.get("guide") {
+        guide_metadata(guide, string(o, "guideId")?)?;
     }
     let contexts = o
         .get("context")

@@ -480,3 +480,47 @@ status/handle consequences, and avoids reading code identifiers. Audio was
 available to play but was not listened to. This is a promising first section,
 not a full-repository or human-comprehension pass; review later slides, source
 links, rendering and audio before closing the task.
+
+## Fresh v17 visual-prompt Guide review — 23 October 2026
+
+The user-authorized packaged Guide `79461b1a-e33d-40d2-be00-0ad86abec96a`
+used Fontdone `main@5249b72371`, snapshot
+`snap-1792140879637485000-11155-0`, GPT-6 Luna/max. The final native Guide
+record reached `ready`; the reader showed seven slides and all six planned
+topics complete. The outline title is “A representative WASM glyph path.” It
+uses six independent WASM units plus an opening, rather than explaining the
+repository broadly. The plan explicitly says this is not the repository's full
+behavior, does not trace the native Rust API or C ABI, and cannot establish the
+outermost face-opening boundary because its evidence for that helper is only a
+contract test. This is a visual-prompt review, **not whole-repository
+acceptance**.
+
+The authored scene forms vary with the code: input/operation/result for the
+host-facing byte handoff; decision/outcome branches for face lookup and loader
+results; an ordered first-match selector for the advance lookup; a four-gate
+selector followed by a temporary-status check and explicit caller-output map
+for subglyph retrieval; decision scenes for render success/error; and a
+pointer/length decision plus a compact width/rows/pitch reading for bitmap
+accessors. Scene narration explains the behavior's consequence. For example,
+loader failures return unchanged without assigning the slot, subglyph output
+copies happen only after success, and missing bitmap lookups yield a null
+pointer/zero length or zero dimensions. The narration panels reported Pocket
+audio “Ready to play”; no human listened to it, and no human comprehension,
+keyboard, reflow, contrast, or motion review was performed.
+
+Source actions were opened for the real scenes, including
+`fontdone-wasm/src/implementation.rs:9732–9768` (character/glyph load),
+`9769–9799` (advance lookup), `9823–9895` (subglyph guards and copy),
+`9861–9923` (render result), and `9924–9981` (bitmap accessors). The face
+handoff scene also cited `fontdone-wasm/src/lib.rs:397–426` and the captured
+implementation ranges. These source links worked in the packaged reader.
+
+The bitmap-accessor slide required three Guide-level attempts. The first
+returned an incomplete manifest after native section-validation rejection
+(165.469 seconds); the automatic retry returned no section after
+`sceneAuthoringShape`, generic `sectionValidation`, and
+`proposalCorrectionLimit` findings (116.027 seconds). A final bounded attempt
+published the slide (78.298 seconds). Earlier slides stayed available while
+this topic retried. This is successful recovery with a concrete prompt/schema
+gap, not zero-retry reliability. Keep `j53m` open; whole-repository coverage,
+audio listening, comprehension, and accessibility remain unqualified.

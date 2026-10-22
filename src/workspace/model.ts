@@ -24,6 +24,7 @@ export interface RepositoryGuide {
   units: { key: string; question: string; prerequisites: string[]; status: string; runIds: string[] }[];
   answers: AnswerSummary[]; omissions: string[]; capturedFiles: number; startingFiles: number;
 }
+export interface RepositoryGuideList { guides: RepositoryGuide[]; unavailableCount: number }
 export interface Turn {
   id: string; question: string; context: Context[];
   status: 'queued' | 'working' | 'waiting' | 'ready' | 'partial' | 'failed' | 'stopped' | 'interrupted';
