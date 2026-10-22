@@ -682,3 +682,21 @@ Keep `j53m` open. Next gates are better distinct labels and sequence-form
 selection in model output, broader repository coverage, and human
 audio/comprehension/accessibility review. This single Guide is evaluation
 evidence, not acceptance.
+
+## v24 visual form-fit repair — 23 October 2026
+
+The v23 Guide exposed two cases where the existing directions were not
+specific enough: it repeated “String-type byte” for different PCF destinations,
+and represented an ordered open-then-setters path as branches. The source prompt
+is now `ai-html-compositions-v24`. It states that sequential calls remain a
+timeline/linked path even when calls can fail, with an error exit only at the
+source-backed early return; a branch requires mutually exclusive destinations
+from one evidenced guard. Branch conditions are labeled once and each
+destination names its behavior/result. The prompt version is included in the
+progressive operation contract, so the next fresh run will not replay v23.
+
+Prompt-contract assertions were added. No second account-backed Guide has been
+run: the single approved v23 evaluation is already consumed, so v24 generation
+quality remains unqualified. Keep `j53m` open for a v24 real run, complete
+repository entry-point/path coverage, real source-click and offline review,
+accessibility and human comprehension/audio evidence.
