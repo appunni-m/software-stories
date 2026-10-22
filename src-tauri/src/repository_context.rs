@@ -2122,6 +2122,14 @@ fn search_ranked(
     let query = query.trim();
     let words = terms(query);
     let identifier_key = identifier_query_key(query);
+    // Only multiword natural-language searches need this second relevance
+    // signal. Keep paths and identifier lookups on their established ranking,
+    // and cap query terms so coverage work stays bounded.
+    let natural_query_coverage = identifier_key.is_none()
+        && !query.contains('/')
+        && !query.contains('\\')
+        && query.split_whitespace().count() > 1
+        && (3..=12).contains(&words.len());
     let include_path_terms = query.split_whitespace().count() <= 2
         || query.contains('/')
         || query.contains('\\')
@@ -2225,6 +2233,7 @@ fn search_ranked(
     budget.check()?;
     let range_key = field(&prepared.index, "range_key")?;
     let mut candidates = HashMap::new();
+    let mut candidate_address_ids = HashMap::new();
     for (score, address) in found {
         let doc = searcher
             .doc::<TantivyDocument>(address)
@@ -2239,6 +2248,7 @@ fn search_ranked(
         }
         let exact = exact_docs.contains(&address);
         let declaration = declaration_docs.contains(&address);
+        candidate_address_ids.insert(address, id);
         candidates
             .entry(id)
             .and_modify(|s: &mut (bool, bool, f32)| {
@@ -2248,10 +2258,54 @@ fn search_ranked(
             })
             .or_insert((exact, declaration, score));
     }
-    let mut ranked = candidates.into_iter().collect::<Vec<_>>();
-    ranked.sort_by(|(a, (ae, ad, ascore)), (b, (be, bd, bscore))| {
+    let mut term_coverage = HashMap::new();
+    if natural_query_coverage {
+        let body_field = field(&prepared.index, "body")?;
+        let body_stem_field = field(&prepared.index, "body_stem")?;
+        let symbol_field = field(&prepared.index, "symbol")?;
+        for word in &words {
+            budget.check()?;
+            let mut clauses = vec![
+                (Occur::Should, term_query(body_field, word)),
+                (
+                    Occur::Should,
+                    Box::new(BoostQuery::new(term_query(symbol_field, word), 3.0))
+                        as Box<dyn Query>,
+                ),
+            ];
+            for stem in english_stems(&prepared.index, word)? {
+                if stem != *word {
+                    clauses.push((
+                        Occur::Should,
+                        Box::new(BoostQuery::new(term_query(body_stem_field, &stem), 0.5))
+                            as Box<dyn Query>,
+                    ));
+                }
+            }
+            let term = scoped(Box::new(BooleanQuery::new(clauses)), &prepared.index, path)?;
+            let (hits, _) = ranking::candidates_with_limit(&searcher, &term, ranking_limit)
+                .map_err(|_| "Code search failed. Try rebuilding its local index.".to_owned())?;
+            for (index, (_, address)) in hits.into_iter().enumerate() {
+                if index % 128 == 0 {
+                    budget.check()?;
+                }
+                if let Some(range_id) = candidate_address_ids.get(&address) {
+                    *term_coverage.entry(*range_id).or_insert(0usize) += 1;
+                }
+            }
+        }
+    }
+    let mut ranked = candidates
+        .into_iter()
+        .map(|(id, (exact, declaration, score))| {
+            let coverage = term_coverage.get(&id).copied().unwrap_or(0);
+            (id, (exact, declaration, coverage, score))
+        })
+        .collect::<Vec<_>>();
+    ranked.sort_by(|(a, (ae, ad, ac, ascore)), (b, (be, bd, bc, bscore))| {
         bd.cmp(ad)
             .then_with(|| be.cmp(ae))
+            .then_with(|| bc.cmp(ac))
             .then_with(|| bscore.total_cmp(ascore))
             .then_with(|| {
                 prepared.metadata.ranges[*a]
@@ -2281,9 +2335,10 @@ fn search_ranked(
         };
         let (declarations, remaining): (Vec<_>, Vec<_>) = ranked
             .into_iter()
-            .partition(|(_, (_, declaration, _))| *declaration);
-        let (exact, other): (Vec<_>, Vec<_>) =
-            remaining.into_iter().partition(|(_, (exact, _, _))| *exact);
+            .partition(|(_, (_, declaration, _, _))| *declaration);
+        let (exact, other): (Vec<_>, Vec<_>) = remaining
+            .into_iter()
+            .partition(|(_, (exact, _, _, _))| *exact);
         let path_for = |id: usize| prepared.metadata.ranges[id].path.clone();
         ranked = diversify_by_path_limited(declarations, &path_for, path_limit)
             .into_iter()
@@ -2305,7 +2360,7 @@ fn search_ranked(
         .map_err(|_| INVALID_LITERAL_SEARCH_QUERY.to_owned())?;
     let mut matches = vec![];
     let mut sources = HashMap::new();
-    for (id, (exact_identifier, declaration_match, score)) in ranked.into_iter().take(limit) {
+    for (id, (exact_identifier, declaration_match, _, score)) in ranked.into_iter().take(limit) {
         budget.check()?;
         let range = &prepared.metadata.ranges[id];
         if !sources.contains_key(&range.path) {
