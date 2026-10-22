@@ -24,6 +24,12 @@ const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v ===
 const exact = (v: Record<string, unknown>, keys: string[]) => Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v, k));
 const bytes = (s: string) => new TextEncoder().encode(s).length;
 const index = (v: unknown, bound: number): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 && v < bound;
+const requiresOrderedSelector = (claim: string, title: string, narration: string) => {
+  const text = `${claim} ${title} ${narration}`.toLowerCase().replace(/[-_]/gu, ' ');
+  return ['first match', 'first matching', 'first applicable', 'first successful', 'ordered probe',
+    'probe order', 'priority order', 'priority chain', 'precedence chain', 'fall through', 'fallthrough']
+    .some(signal => text.includes(signal));
+};
 
 /** Keep the visual cue's meaning available when the composition is explored
  * with a keyboard or screen reader, even while its prose stays collapsed.
@@ -89,11 +95,13 @@ export function validScenePresentation(raw: unknown, nodes: LinkedVisualNode[], 
     || raw.scenes.length !== claims.length || raw.scenes.length < 1 || raw.scenes.length > 20) return false;
   const valid = raw.scenes.every((scene, claimIndex) => {
     if (!record(scene) || !exact(scene, ['claimIndex', 'title', 'mode', 'elements', 'narration']) || scene.claimIndex !== claimIndex
-      || typeof scene.title !== 'string' || !scene.title.trim() || bytes(scene.title) > 120
+      || typeof scene.title !== 'string' || !scene.title.trim() || bytes(scene.title) > 120 || typeof scene.narration !== 'string'
       || !['composition', 'graph'].includes(String(scene.mode)) || !Array.isArray(scene.elements)) return false;
     if (scene.mode === 'graph') return scene.elements.length === 0;
     const elements = scene.elements;
     if (!elements.length || elements.length > 48) return false;
+    if (requiresOrderedSelector(claims[claimIndex].prose, scene.title, scene.narration)
+      && !(record(elements[0]) && elements[0].kind === 'selector')) return false;
     const depths: number[] = [];
     const counts = elements.map(() => 0);
     let leaves = 0;

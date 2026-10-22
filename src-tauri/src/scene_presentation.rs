@@ -47,6 +47,36 @@ pub struct PresentationScene {
     pub elements: Vec<SceneElement>,
 }
 
+/// A first-match decision must keep source order visible. In particular, the
+/// LIFO stack renderer reverses its children and must never stand in for an
+/// ordered selector. This is a narrow wording check, not semantic proof.
+pub(crate) fn requires_ordered_selector(claim: &str, title: &str, narration: &str) -> bool {
+    let text = format!("{claim} {title} {narration}")
+        .to_lowercase()
+        .replace(['-', '_'], " ");
+    [
+        "first match",
+        "first matching",
+        "first applicable",
+        "first successful",
+        "ordered probe",
+        "probe order",
+        "priority order",
+        "priority chain",
+        "precedence chain",
+        "fall through",
+        "fallthrough",
+    ]
+    .iter()
+    .any(|signal| text.contains(signal))
+}
+
+pub(crate) fn has_ordered_selector_root(elements: &[SceneElement]) -> bool {
+    elements
+        .first()
+        .is_some_and(|root| root.kind == ElementKind::Selector)
+}
+
 /// Authored speech stays separate from exact implementation claims. This checks
 /// coverage/identity and bounds, not whether a paraphrase preserves semantics.
 pub(crate) fn narration(
@@ -255,6 +285,11 @@ pub fn validate(
             }
             continue;
         }
+        if requires_ordered_selector(&claims[index].prose, &scene.title, &scene.narration)
+            && !has_ordered_selector_root(&scene.elements)
+        {
+            return Err("A first-match composition needs a root selector layout so each guard, outcome and fall-through stays visible; a LIFO stack reverses the priority.".into());
+        }
         if let Some(finding) = tree::findings(&scene.elements).first() {
             return Err(finding.message.into());
         }
@@ -462,6 +497,94 @@ mod tests {
             .unwrap()
             .remove("narration");
         assert!(serde_json::from_value::<ScenePresentation>(value).is_err());
+    }
+
+    #[test]
+    fn first_match_story_rejects_a_reversed_stack_and_accepts_selector_layout() {
+        let (nodes, mut claims, mut presentation) = fixture();
+        claims[0].prose =
+            "The first matching flag wins; later checks only run after a miss.".into();
+        let scene = &mut presentation.scenes[0];
+        scene.title = "The first matching flag wins".into();
+        scene.elements = vec![
+            SceneElement {
+                kind: ElementKind::Stack,
+                parent_index: None,
+                node_index: None,
+                tone: ElementTone::Neutral,
+                value: String::new(),
+                value_origin: ValueOrigin::None,
+            },
+            SceneElement {
+                kind: ElementKind::Text,
+                parent_index: Some(0),
+                node_index: Some(3),
+                tone: ElementTone::Accent,
+                value: "Default fallback".into(),
+                value_origin: ValueOrigin::Illustration,
+            },
+        ];
+        let error = validate(&presentation, &nodes, &claims).unwrap_err();
+        assert!(error.contains("LIFO stack reverses the priority"));
+
+        let leaf = |kind, parent, value: &str| SceneElement {
+            kind,
+            parent_index: Some(parent),
+            node_index: Some(3),
+            tone: ElementTone::Accent,
+            value: value.into(),
+            value_origin: ValueOrigin::Illustration,
+        };
+        presentation.scenes[0].elements = vec![
+            SceneElement {
+                kind: ElementKind::Selector,
+                parent_index: None,
+                node_index: None,
+                tone: ElementTone::Neutral,
+                value: String::new(),
+                value_origin: ValueOrigin::None,
+            },
+            SceneElement {
+                kind: ElementKind::Branch,
+                parent_index: Some(0),
+                node_index: None,
+                tone: ElementTone::Neutral,
+                value: String::new(),
+                value_origin: ValueOrigin::None,
+            },
+            leaf(ElementKind::Text, 1, "Flag A is set?"),
+            leaf(ElementKind::Token, 1, "Load by route A"),
+            SceneElement {
+                kind: ElementKind::Branch,
+                parent_index: Some(0),
+                node_index: None,
+                tone: ElementTone::Neutral,
+                value: String::new(),
+                value_origin: ValueOrigin::None,
+            },
+            leaf(ElementKind::Text, 4, "No earlier flag matched"),
+            leaf(ElementKind::Token, 4, "Use the default loader"),
+        ];
+        validate(&presentation, &nodes, &claims).unwrap();
+
+        let mut wrapped = presentation.scenes[0].elements.clone();
+        for element in &mut wrapped {
+            element.parent_index = Some(element.parent_index.map_or(0, |parent| parent + 1));
+        }
+        wrapped.insert(
+            0,
+            SceneElement {
+                kind: ElementKind::Stack,
+                parent_index: None,
+                node_index: None,
+                tone: ElementTone::Neutral,
+                value: String::new(),
+                value_origin: ValueOrigin::None,
+            },
+        );
+        presentation.scenes[0].elements = wrapped;
+        let error = validate(&presentation, &nodes, &claims).unwrap_err();
+        assert!(error.contains("root selector layout"));
     }
 
     fn fixture() -> (Vec<VisualNode>, Vec<ChapterClaim>, ScenePresentation) {

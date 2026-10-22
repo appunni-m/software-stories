@@ -10,7 +10,7 @@ pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v15";
 /// Keep the full script and inspectable claim fields complete.
 pub(super) const SECTION_NARRATION_INSTRUCTIONS: &str = "Complete scene narration: when a presentation is supplied, spokenText joins every scene narration in claim order, including visible inference labels. It must preserve the full behavior, guards, alternatives, errors and uncertainty of all claims, not a summary or a chosen subset. Narration is a spoken guide to the visible scene, not a compressed list of code details: point to a short label or position, then explain what changes and why it matters. Use at most two short, natural sentences per scene. Explain every distinct outcome in plain words, but do not recite identifiers, signatures, format names or error labels unless the user asks for them or the name itself is the behavior. Keep exact names and conditions inspectable in claims, visual labels/details and source links. If several checks would become a spoken list, split them into ordered scenes without dropping any condition or outcome. With no presentation, write a complete natural spoken account of all claims with the same style, preserving every guard, alternative, error, inference label and uncertainty. Keep the complete transport script within 20–1,000 UTF-8 bytes and the declared section shape; organize focused claims without dropping behavior. The app retains exact claims separately and assembles speech from all scenes.";
 
-const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v8
+const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v9
 Author a causal illustrated answer. Keep exact implementation claims as inspectable source-grounded details; every declared identifier still appears literally in its claim. Write separate natural narration on each scene to explain that claim's meaning, not its spelling. Usually use 2–5 short claims/scenes per section. Speech follows the input, why a choice or guard matters, and the consequence, including all alternative/error conditions. Refer to the short visual labels, introduce useful invented inputs as examples, and connect scenes causally. Do not read declarations, helper names, type constructors, paths, call syntax or punctuation by default. A user explicitly asking about a name or syntax may need that name spoken. Do not change or omit a claim's conditions, exceptions, inference or uncertainty when paraphrasing. The app prefixes inference narration with its visible label. Exact source links remain available. Narration is AI-authored, not automatic code-name removal or proof of semantic equivalence.
 The app assembles full details from all validated claims and speech from all ordered scene narrations; it never selects a convenient subset. Keep each complete section's details and speech within 4,000 UTF-8 bytes or split it without dropping behavior. Separate prose/spokenText transport fields remain required under their documented bounds: prose copies complete claim sentences, spokenText copies the complete scene narration. With no visual presentation, prose still copies all complete claim sentences; spokenText is the complete natural account of those claims, with inference labels preserved."#;
 
@@ -18,7 +18,7 @@ const BEHAVIOR_TEACHING: &str = r#"Teaching policy v15: For behavior, open with 
 
 const EVIDENCE_MEANING: &str = r#"Trace every earlier guard and failure: lookup and byte-range extraction can fail before a parser runs. Parser fallback starts after those checks. Distinguish missing entries, inaccessible bytes, malformed contents and parsing in claims, visuals and narration. A comment or default constructor does not prove later consumer behavior. For downstream effects, cite that consumer's implementation plus producer and conditions; otherwise leave them unexplored. References and identifiers do not prove meaning."#;
 
-const REPRESENTATION_CHOICES: &str = r#"Choose a visual independently for each claim from evidenced behavior: ordered work → timeline; first-match priority/fall-through → selector ladder; one guard with alternatives → branch; independent actors → parallel lanes; mutation → before/after; data change → input/operation/result; loops → iteration table; bytes/fields → strip/table; pixels → matrix; nesting → tree; LIFO/FIFO → stack/queue; counts/limits → metric; proven relationships → graph. A selector shows each source-ordered guard and outcome, every miss handoff, and the final fallback. Vary the form when claim behavior differs; avoid generic card piles and graphs without real links. Data shape and transitions carry meaning; cards are labels. Mark examples; don't invent outcomes, measures or order. Teach muted. Code cues only when richer forms mislead. App-owned accessible 2-D; no generated HTML/CSS/JS/URLs/handlers. 3-D only through a tested app-owned renderer when real spatial behavior gains materially from depth; no generated executable code."#;
+const REPRESENTATION_CHOICES: &str = r#"Choose a visual independently for each claim from evidenced behavior: ordered work → timeline; first-match priority/fall-through → selector ladder; one guard with alternatives → branch; independent actors → parallel lanes; mutation → before/after; data change → input/operation/result; loops → iteration table; bytes/fields → strip/table; pixels → matrix; nesting → tree; LIFO/FIFO → stack/queue; counts/limits → metric; proven relationships → graph. First-match, priority, ordered-probe or fall-through scenes must use selector, never stack: stack is LIFO and renders bottom-up, reversing precedence. Show source-ordered checks, every miss handoff and final fallback. Vary the form when claim behavior differs; avoid generic card piles and graphs without real links. Data shape and transitions carry meaning; cards are labels. Mark examples; don't invent outcomes, measures or order. Teach muted. Code cues only when richer forms mislead. App-owned accessible 2-D; no generated HTML/CSS/JS/URLs/handlers. 3-D only through a tested app-owned renderer when real spatial behavior gains materially from depth; no generated executable code."#;
 
 const OUTCOME_TEACHING: &str = r#"Show decisions or consequences as values, quantities, changed state or alternatives; a copied expression is not its effect. Unless syntax is requested, use at most one code element in a scene. For alternatives, give each outcome its own accurately named node or table row and guard. Distinguish clipped offsets from empty returns. Narrate example assumptions; no unconditional conclusion from one input."#;
 
@@ -169,7 +169,7 @@ pub(crate) mod tests {
 
     #[test]
     fn ordinary_prompt_binds_the_versioned_scene_narration_policy() {
-        assert!(super::instructions().contains("ai-html-compositions-v8"));
+        assert!(super::instructions().contains("ai-html-compositions-v9"));
         assert!(super::instructions().contains("Choose a visual independently for each claim"));
         assert!(super::instructions().contains(super::BEHAVIOR_TEACHING));
         assert!(super::instructions().contains(super::OUTCOME_TEACHING));
@@ -219,6 +219,7 @@ pub(crate) mod tests {
         assert!(shared.contains("mutation → before/after"));
         assert!(shared.contains("data change → input/operation/result"));
         assert!(shared.contains("LIFO/FIFO → stack/queue"));
+        assert!(shared.contains("stack is LIFO and renders bottom-up, reversing precedence"));
         assert!(shared.contains("first-match priority/fall-through → selector ladder"));
         assert!(shared.contains("Vary the form when claim behavior differs"));
         assert!(
@@ -229,7 +230,7 @@ pub(crate) mod tests {
         assert!(shared.contains("Code cues only when richer forms mislead"));
         assert!(shared.contains("no generated HTML/CSS/JS/URLs/handlers"));
         assert!(shared.contains("keep alternatives in the visual, not speech"));
-        assert!(shared.contains("every miss handoff, and the final fallback"));
+        assert!(shared.contains("every miss handoff and final fallback"));
         assert!(shared.contains("split crowded chains into ordered scenes"));
         assert!(shared.contains("Use concise source-backed labels"));
         assert!(!shared.contains("parentIndex"));

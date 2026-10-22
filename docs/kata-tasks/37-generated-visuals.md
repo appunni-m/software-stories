@@ -264,3 +264,31 @@ an app-owned future option for genuinely spatial behavior; the model cannot
 author executable 3-D code. Tests verify structure and markup only, not whether
 a generated scene teaches the real source. The installed Fontdone guide remains
 the open qualitative counterexample until it can be regenerated and reviewed.
+
+### Ordered-decision fidelity — 22 October 2026
+
+Live inspection found that the saved `Font::memory_face` first-match story was
+drawn as a bottom-up LIFO stack, which put the fallback before the first probe.
+Prompt `ai-html-compositions-v9` now says that first-match, priority,
+ordered-probe and fall-through scenes require a source-ordered selector ladder
+with each guard, outcome, miss and final fallback. The selector must be the
+composition root, so a surrounding stack or other layout cannot reverse or
+obscure precedence. Actual execution paths can still use a directed graph.
+
+The native publisher, correction diagnostics, progressive authoring contract,
+and browser-side validator share this requirement. An invalid draft receives a
+fixed `selectorRequired` correction without exposing private scene text. The
+prompt still chooses among behavior-specific forms per claim (for example
+before/after, input/operation/result, iteration table, byte strip, matrix,
+tree, queue, lanes or a graph where its edges are real). The model supplies
+typed scene data; the app owns the safe responsive HTML renderer. 3-D remains
+an app-owned future option for source-proved spatial behavior, not executable
+model-authored JavaScript.
+
+Verification on 22 October: 708 native tests passed (18 ignored), 611 frontend
+tests passed, quality helper and corpus checks passed, and the production
+frontend build passed. Prompt metadata remains under the existing 32 KB cap.
+One approved fresh whole-repository Fontdone Guide is pending packaged-app
+validation; the older saved Guide is preserved and does not qualify this
+prompt. Human review of its scene meaning, narration, source navigation,
+accessibility and comprehension remains open.

@@ -2327,7 +2327,7 @@ mod chapter_pipeline_tests {
             assert!(
                 review
                     .system_instruction
-                    .contains("ai-html-compositions-v8")
+                    .contains("ai-html-compositions-v9")
             );
             assert_current_narration_prompt(&review);
             let mut proposal = provider::visual_scenes::tests::composed_proposal(3);

@@ -31,6 +31,7 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
         if presentation.schema_version != 3 || presentation.scenes.len() > 20 {
             continue;
         }
+        let claims = section.get("claims").and_then(Value::as_array);
         for (scene, element) in crate::scene_presentation::foreign_claim_positions(section) {
             if issues.len() >= super::MAX_ISSUES {
                 return;
@@ -55,6 +56,22 @@ pub(super) fn append(response: &str, issues: &mut Vec<Value>) {
             }
             if scene.mode != SceneMode::Composition {
                 continue;
+            }
+            let claim = claims
+                .and_then(|items| items.get(scene.claim_index))
+                .and_then(|claim| claim.get("prose"))
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            if crate::scene_presentation::requires_ordered_selector(
+                claim,
+                &scene.title,
+                &scene.narration,
+            ) && !crate::scene_presentation::has_ordered_selector_root(&scene.elements)
+            {
+                if issues.len() >= super::MAX_ISSUES {
+                    return;
+                }
+                issues.push(json!({"location":format!("{prefix}/visual/presentation/scenes/{index}/elements"),"sceneProblem":"selectorRequired"}));
             }
             let base = format!("{prefix}/visual/presentation/scenes/{index}/elements");
             for finding in tree::findings(&scene.elements) {
@@ -210,5 +227,29 @@ mod tests {
             "Preserve all guards, branches, failures, outcomes, evidence and real graph edges"
         ));
         assert!(!prompt.contains("private-node-label"));
+    }
+
+    #[test]
+    fn first_match_composition_gets_a_selector_diagnostic_without_leaking_text() {
+        let mut proposal = composed_proposal(3);
+        let scene = &mut proposal["sections"][0]["visual"]["presentation"]["scenes"][0];
+        scene["title"] = json!("The first matching flag wins");
+        scene["elements"][0]["kind"] = json!("stack");
+        let findings = crate::claim_alignment::chapter_diagnostics(&proposal.to_string()).unwrap();
+        let required = findings
+            .iter()
+            .find(|finding| finding["sceneProblem"] == "selectorRequired")
+            .unwrap();
+        assert_eq!(
+            required["location"],
+            "/sections/0/visual/presentation/scenes/0/elements"
+        );
+        let serialized = serde_json::to_string(&findings).unwrap();
+        assert!(!serialized.contains("first matching flag"));
+        let prompt = crate::claim_alignment::prompt_for_issues(findings).unwrap();
+        assert!(prompt.contains("selectorRequired finding"));
+        assert!(prompt.contains("selector must be the root layout"));
+        assert!(prompt.contains("never wrap it in stack"));
+        assert!(!prompt.contains("first matching flag"));
     }
 }

@@ -569,7 +569,7 @@ mod tests {
             first["systemInstruction"]
                 .as_str()
                 .unwrap()
-                .contains("ai-html-compositions-v8")
+                .contains("ai-html-compositions-v9")
         );
         assert!(
             first["userPrompt"]

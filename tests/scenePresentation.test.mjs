@@ -112,6 +112,39 @@ describe('AI-authored HTML scene contract', () => {
       [selector[0], selector[1], selector[2], { ...selector[3], kind: 'arrow', nodeIndex: null, value: '', valueOrigin: 'none' }, ...selector.slice(4)],
     ]) assert.equal(validScenePresentation(presentation(malformed), nodes, claims), false);
   });
+  it('rejects a LIFO stack for first-match behavior and accepts its ordered selector', () => {
+    const firstMatchClaims = [{ ...claims[0], prose: 'The first matching flag wins; later checks run only after a miss.' }];
+    const stack = [
+      { ...element('stack'), nodeIndex: null },
+      element('token', 'fallback mode', 'illustration', 0),
+    ];
+    assert.equal(validScenePresentation(presentation(stack), nodes, firstMatchClaims), false);
+    const nestedSelector = [
+      { ...element('stack'), nodeIndex: null },
+      { ...element('selector', '', 'none', 0), nodeIndex: null, parentIndex: 0 },
+      { ...element('branch', '', 'none', 1), nodeIndex: null },
+      element('text', 'Flag A is set?', 'illustration', 2),
+      element('token', 'Return mode A', 'illustration', 2),
+      { ...element('branch', '', 'none', 1), nodeIndex: null },
+      element('text', 'No earlier flag matched', 'illustration', 5),
+      element('token', 'Use default mode', 'illustration', 5),
+    ];
+    assert.equal(validScenePresentation(presentation(nestedSelector), nodes, firstMatchClaims), false);
+
+    const selector = [
+      { ...element('selector'), nodeIndex: null },
+      { ...element('branch', '', 'none', 0), nodeIndex: null },
+      element('text', 'Flag A is set?', 'illustration', 1),
+      element('token', 'Return mode A', 'illustration', 1),
+      { ...element('branch', '', 'none', 0), nodeIndex: null },
+      element('text', 'No earlier flag matched', 'illustration', 4),
+      element('token', 'Use default mode', 'illustration', 4),
+    ];
+    assert.equal(validScenePresentation(presentation(selector), nodes, firstMatchClaims), true);
+    assert.equal(validScenePresentation({ schemaVersion: 3, scenes: [{
+      claimIndex: 0, title: 'The actual ordered call path', narration: 'First match wins; later work follows only after a miss.', mode: 'graph', elements: [],
+    }] }, nodes, firstMatchClaims), true);
+  });
   it('admits the supported representations without executing values as markup', () => {
     for (const [kind, value] of [['card', ''], ['metric', '3'], ['code', '<script>attack()</script>'], ['bytes', '01 02'], ['matrix', '010\n111\n010'], ['table', 'Input|Output\nAda|Hello, Ada'], ['token', 'name'], ['text', '']]) {
       assert.ok(validScenePresentation(presentation([element(kind, value, value ? 'illustration' : 'none')]), nodes, claims), kind);

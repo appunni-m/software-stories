@@ -594,16 +594,17 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     let input = input(&f);
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema).unwrap();
-    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v8");
+    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v9");
     assert_eq!(contract["teachingPolicy"], "meaning-first-v15");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(
         system_instructions()
-            .contains("selector contains at least two source-ordered branch checks")
+            .contains("selector=first-match/priority/ordered-probe/fall-through only")
     );
     assert!(system_instructions().contains(
         "selectorShape means an ordered selector needs at least two source-ordered branch checks"
     ));
+    assert!(system_instructions().contains("bottom-up LIFO reverses priority"));
     assert_eq!(
         fingerprint,
         context::digest(&serde_json::to_vec(&contract).unwrap())
