@@ -93,12 +93,17 @@ test('an old timed-out guide points to a fresh incremental guide without changin
   assert.equal(repositoryGuideTimeoutRecovery({question:'Explain this function',error:message}),null);
   assert.equal(repositoryGuideTimeoutRecovery({question:'How does this project work?',error:'Codex account access expired.'}),null);
 });
-test('empty root Guide me starts a repository guide while scoped actions stay contextual',()=>{
+test('root Guide me always starts the incremental repository guide while scoped actions stay contextual',()=>{
   const projectQuestion='How does this project work, from its entry points through its main behavior and failure paths?';
   assert.deepEqual(contextualGuideAction('   ',[],false),{kind:'repository-guide',intent:projectQuestion});
-  assert.deepEqual(contextualGuideAction('Explain bounds',[],false),{kind:'ask',intent:'Explain bounds'});
+  assert.deepEqual(contextualGuideAction('Guide me through the main project flow',[],false),{
+    kind:'repository-guide',intent:'Guide me through the main project flow',
+  });
   assert.deepEqual(contextualGuideAction('',[{path:'src/parser.rs',from:8,to:20}],false),{
     kind:'ask',intent:'Guide me through this selected code, its decisions and consequences.',
+  });
+  assert.deepEqual(contextualGuideAction('Explain bounds',[{path:'src/parser.rs',from:8,to:20}],false),{
+    kind:'ask',intent:'Explain bounds',
   });
   assert.deepEqual(contextualGuideAction('',[],true),{
     kind:'ask',intent:'Guide me through this topic, its decisions and consequences.',

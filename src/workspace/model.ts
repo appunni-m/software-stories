@@ -207,10 +207,11 @@ export type ContextualGuideAction =
 /** Guide me is an exploration action. At the root it starts the durable
  * incremental repository guide; scoped contexts remain topic-sized. */
 export function contextualGuideAction(query: string, context: readonly Context[], nested: boolean): ContextualGuideAction {
-  // The empty root Guide me action is a product command, not a natural-language
-  // guess. Route it directly to the persistent outline/slide worker so wording
-  // changes can never send a whole-repository guide through the one-shot path.
-  if (!query.trim() && context.length === 0 && !nested) {
+  // At the repository root, choosing Guide me is an explicit request for the
+  // durable outline-and-slides experience. Do not let the wording in the chat
+  // box accidentally send that request through the ordinary one-shot path.
+  // Selected code and nested explorations remain scoped to the current topic.
+  if (context.length === 0 && !nested) {
     return { kind: 'repository-guide', intent: contextualGuideIntent(query, context, nested) };
   }
   return { kind: 'ask', intent: contextualGuideIntent(query, context, nested) };
