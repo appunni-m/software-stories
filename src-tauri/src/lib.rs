@@ -2327,7 +2327,7 @@ mod chapter_pipeline_tests {
             assert!(
                 review
                     .system_instruction
-                    .contains("ai-html-compositions-v14")
+                    .contains("ai-html-compositions-v15")
             );
             assert_current_narration_prompt(&review);
             let mut proposal = provider::visual_scenes::tests::composed_proposal(3);
@@ -2527,11 +2527,11 @@ mod chapter_pipeline_tests {
                 .user_prompt
                 .contains("sentences copied verbatim from that section's anchored claims")
         );
-        assert!(review.system_instruction.contains("Teaching policy v21:"));
+        assert!(review.system_instruction.contains("Teaching policy v23:"));
         assert!(
             review
                 .system_instruction
-                .contains("an example alone cannot replace the rule")
+                .contains("State the decision rule before examples")
         );
     }
 

@@ -28,7 +28,7 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
       if (e.kind === 'selector') {
         return <div key={index} className={className} role="group" aria-label={label}>
           {childIndices.map((check, checkIndex) => <div className="html-scene-selector-step" key={check}>
-            <span className="html-scene-selector-label">Check {checkIndex + 1}</span>
+            <span className="html-scene-selector-label" role="img" aria-label={`Probe ${checkIndex + 1}`} title={`Probe ${checkIndex + 1}`}>{String(checkIndex + 1).padStart(2, '0')}</span>
             {draw(check)}
             {checkIndex < childIndices.length - 1 && <div className="html-scene-selector-handoff">
               <ArrowDown aria-hidden="true" size={18}/><span>No match · continue</span>

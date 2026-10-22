@@ -424,3 +424,35 @@ listened to. The PCF scene source link was verified at `src/font.rs` line 4058.
 This partial result does not establish whole-repository coverage, audible
 quality or human comprehension. Keep `j53m` open; do not count older Fontdone
 attempts as v13 evidence.
+
+## Fresh packaged v14 Guide review — 22 October 2026
+
+The approved run `9555ca72-9b65-4c22-9359-a3a85db06348` uses Fontdone
+`main@5249b72371` and the packaged v14/v22 build. Its outline has four follow-on
+units. The partial snapshot and outline explicitly leave the C ABI/WASM entry
+points and later parsing/rendering behavior outside the opening answer.
+
+The opening publishes two different source-linked forms: a timeline for the
+Rust byte-input boundary, and an ordered selector for the first parser probes.
+The selector's source action opened captured `src/font.rs` at line 4058. This
+confirms correct per-scene form selection and source navigation, but its current
+renderer still displays large pill/card-like source expressions. The two
+narrations begin with declarative implementation summaries rather than guiding
+attention through a story. Audio was Ready to play (13–15 seconds) but was not
+listened to.
+
+Timing is not a pass: outline generation took 61.368 seconds and the opening
+operation took 144.172 seconds, or about 205.5 seconds from guide start to its
+first persisted section. The first follow-on (`parse-font`) returned a final
+manifest without a proposal twice. The next follow-on returned without a
+section after 308.925 seconds and entered its automatic retry; the guide still
+showed “Building next slide…” at review time. No full-guide coverage or
+comprehension pass is claimed.
+
+The next source iteration is `ai-html-compositions-v15` / `meaning-first-v23`:
+compact rails and numbered selector gates replace card-like step styling;
+short behavior labels keep exact source in the adjacent pane; narration starts
+from the real input and follows the consequence. A guide-slide request now
+explicitly requires an accepted section before the final manifest can declare
+success. This source iteration has not yet been packaged or generated against;
+the v14 run above cannot qualify it. Keep `j53m` open.

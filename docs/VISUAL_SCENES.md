@@ -47,8 +47,8 @@ and edited chapter validation apply the same composition checks. There is no
 separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
-The current prompt is story policy `ai-html-compositions-v14` and teaching
-policy `meaning-first-v22`. Before selecting elements, it asks what the reader
+The current prompt is story policy `ai-html-compositions-v15` and teaching
+policy `meaning-first-v23`. Before selecting elements, it asks what the reader
 should see at a glance and gives each scene one focal subject whose supported
 route, choice, change, state, shape, parallel work or relationship becomes
 visible. It maps that need to a semantic renderer: timelines, branches,
@@ -66,6 +66,15 @@ renderer exists. The 12-node and 20-edge limits apply across the whole section,
 not once per scene; per-scene limits are ceilings, not targets. These
 instructions and structural checks do not prove that a fresh guide teaches
 well; rendered quality still needs human review.
+
+The reader renders execution paths as compact rails rather than bordered step
+cards, and ordered selectors as numbered gates with visible match destinations
+and a fall-through line. Their source-linked labels stay short; the complete
+condition or call remains in the adjacent source pane. Narration starts from
+the incoming value or situation and follows the visual through the consequence,
+instead of opening with a documentation-style method summary. These render
+changes target the first Fontdone qualification; they still require packaged
+visual review before acceptance.
 
 Repository-guide planning uses the same bounded section capacity. Long
 ordered dispatch chains must be split into consecutive learning units before
@@ -230,3 +239,8 @@ pronunciation, pacing, comprehension and native accessibility still require
 their acceptance evidence. A schema pass or a screenshot cannot close those
 gates. See [Kata task](kata-tasks/37-generated-visuals.md) and
 [narration run sheet](NARRATION_VALIDATION.md).
+
+The scene contract does not accept model-generated JavaScript or raw HTML. A
+3-D representation would need a tested, app-owned typed renderer for genuinely
+spatial source behavior; Fontdone’s parser path is sequential, so a 2-D path and
+ordered selector are the fitting forms.

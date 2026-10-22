@@ -556,9 +556,9 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v21:"));
+    assert!(instructions.contains("Teaching policy v23:"));
     assert!(instructions.contains("visible cue"));
-    assert!(instructions.contains("at most two short, natural sentences per scene"));
+    assert!(instructions.contains("at most two short, natural sentences"));
     assert!(instructions.starts_with(ANSWER_ROLE));
     assert!(instructions.contains("then investigate and publish deeper sections"));
     assert!(!instructions.contains("then focus on the remaining research outline"));
@@ -567,18 +567,17 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
             .contains("A comment or default constructor does not prove later consumer behavior")
     );
     assert!(instructions.contains("every earlier guard and failure"));
-    assert!(instructions.contains("Start with the problem and a useful supported example"));
+    assert!(instructions.contains("Start with the real input or situation"));
     assert!(instructions.contains("show code only when syntax is the lesson"));
-    assert!(instructions.contains("Choose a semantic form independently per scene"));
-    assert!(instructions.contains("Calls and fan-out/convergence from ordered guards alone"));
-    assert!(instructions.contains("Causal path/calls/loop → timeline"));
-    assert!(instructions.contains("fan-out/convergence from ordered guards alone"));
-    assert!(instructions.contains("whole section has at most 12 visual nodes and 20 edges"));
-    assert!(instructions.contains("The app owns safe HTML"));
+    assert!(instructions.contains("Choose independently per behavior"));
+    assert!(instructions.contains("execution order/hand-offs → linked path"));
+    assert!(instructions.contains("chains, fan-out and ordered guards do not qualify"));
+    assert!(instructions.contains("Across the section use 2–12 nodes and at most 20 edges"));
+    assert!(instructions.contains("The app's typed renderer owns safe HTML and source links"));
     assert!(instructions.contains("Pair every alternative with its actual guard"));
     assert!(instructions.contains("Narration follows a visible cue"));
-    assert!(instructions.contains("State the general decision rule before an example"));
-    assert!(instructions.contains("an example alone cannot replace the rule"));
+    assert!(instructions.contains("State the decision rule before examples"));
+    assert!(instructions.contains("explain every outcome"));
     assert!(!instructions.contains("The separate prose/spokenText fields remain required"));
     assert!(
         instructions.contains(
@@ -589,11 +588,9 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
         instructions.contains("preserving the claim, supported behavior and chosen representation")
     );
     assert!(instructions.contains(
-        "sceneSourceValue means a node source value must occur exactly once as an exact substring"
+        "sceneSourceValue must occur exactly once in that node's same-claim cited excerpt"
     ));
-    assert!(
-        instructions.contains("repeated or absent values need a more specific exact excerpt value")
-    );
+    assert!(instructions.contains("fix from delivered evidence, never borrow or relabel a copy"));
 }
 
 #[test]
@@ -602,22 +599,19 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     let input = input(&f);
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema).unwrap();
-    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v14");
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v22");
+    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v15");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v23");
     assert_eq!(contract["systemInstructions"], system_instructions());
+    assert!(system_instructions().contains("Selector is root for first-match/priority/fallback"));
     assert!(
-        system_instructions()
-            .contains("Selector is the root with 2+ source-ordered guard/result checks")
+        system_instructions().contains("selectorShape requires 2+ source-ordered guarded checks")
     );
-    assert!(system_instructions().contains(
-        "selectorShape means an ordered selector needs at least two source-ordered branch checks"
-    ));
-    assert!(system_instructions().contains("Visual design method:"));
-    assert!(system_instructions().contains("one focal subject"));
-    assert!(system_instructions().contains(
-        "the whole section has at most 12 visual nodes and 20 edges across all claim scenes"
-    ));
-    assert!(system_instructions().contains("LIFO reverses priority"));
+    assert!(system_instructions().contains("Visual design method v15:"));
+    assert!(system_instructions().contains("choose one subject and question per scene"));
+    assert!(
+        system_instructions().contains("Across the section use 2–12 nodes and at most 20 edges")
+    );
+    assert!(system_instructions().contains("never a LIFO stack"));
     assert_eq!(
         fingerprint,
         context::digest(&serde_json::to_vec(&contract).unwrap())
@@ -699,6 +693,13 @@ fn guide_progressive_contract_has_no_wall_clock_deadline() {
     assert!(instructions.contains("no wall-clock deadline"));
     assert!(instructions.contains("null budget.remaining.timeMs is intentional"));
     assert!(instructions.contains("This operation owns exactly one planned slide"));
+    assert!(instructions.contains("a final manifest cannot replace a slide"));
+    assert!(instructions.contains("Do not finish with an incomplete-topic notice"));
+    assert!(
+        contract["tools"]
+            .to_string()
+            .contains("Do not return a final manifest as a substitute for an unsubmitted slide")
+    );
     assert!(instructions.contains("make no further tool calls"));
     assert!(instructions.contains("the next slide is a separate operation"));
     assert!(!instructions.contains("ten-minute wall-clock deadline"));
@@ -717,9 +718,9 @@ fn every_workspace_code_investigation_uses_a_user_controlled_runtime() {
 #[test]
 fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Choose a semantic form independently per scene"));
-    assert!(instructions.contains("Value change → transform"));
-    assert!(instructions.contains("state change → beforeAfter"));
+    assert!(instructions.contains("Choose independently per behavior"));
+    assert!(instructions.contains("input/result change → transform"));
+    assert!(instructions.contains("changed state → before/after"));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
     assert!(
         instructions.contains(
@@ -744,8 +745,8 @@ fn narration_pacing_preserves_all_conditions_and_is_bound_to_the_request() {
     assert!(instructions.contains("at most eight nodes"));
     assert!(instructions.contains("preserving all guards, outcomes and edges"));
     assert!(instructions.contains("Never claim measured timings"));
-    assert!(instructions.contains("State the general decision rule before an example"));
-    assert!(instructions.contains("an example alone cannot replace the rule"));
+    assert!(instructions.contains("State the decision rule before examples"));
+    assert!(instructions.contains("explain every outcome"));
     assert_eq!(contract["systemInstructions"], instructions);
     assert_eq!(
         fingerprint,

@@ -237,3 +237,23 @@ finding appears. All 29 anchors and nine input metadata hashes match.
   is not a UI-visible useful-answer or human comprehension pass.
 
 No automatic retry occurred; previous failures remain preserved. Keep open.
+
+## Fresh incremental Guide evidence — 22 October 2026
+
+The packaged v14 Fontdone guide has an outline, but its first useful section
+arrived about 205.5 seconds after generation began (61.368 seconds for the
+outline, followed by a 144.172-second opening operation). The opening is
+independently saved and cited; it shows the borrowed-byte boundary and first
+parser probes. The first follow-on topic (`parse-font`) returned a final
+manifest without publishing a section twice. The next topic (`load-glyph`)
+did the same after 308.925 seconds and entered the built-in retry. At this
+checkpoint that retry is still building, while the UI retains the opening
+section. This demonstrates preservation and continued work, but fails the
+120-second first-section gate and does not establish useful incremental
+progress for follow-on topics.
+
+Source prompts now explicitly say that a guide slide's normal success requires
+one accepted section before its final manifest; an incomplete-topic manifest
+cannot substitute for the slide when delivered code supports a narrower
+answer. This prompt-only change needs packaged qualification. Keep the fresh
+run's later retry intact and retain all failed operation receipts.

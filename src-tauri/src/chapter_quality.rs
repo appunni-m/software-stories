@@ -563,13 +563,13 @@ mod tests {
             first["systemInstruction"]
                 .as_str()
                 .unwrap()
-                .contains("Teaching policy v22:")
+                .contains("Teaching policy v23:")
         );
         assert!(
             first["systemInstruction"]
                 .as_str()
                 .unwrap()
-                .contains("ai-html-compositions-v14")
+                .contains("ai-html-compositions-v15")
         );
         assert!(
             first["userPrompt"]
