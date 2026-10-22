@@ -106,6 +106,14 @@ export function GitChangesScreen({
     }
   }
 
+  function stopComparison() {
+    // Abort the request owned by this screen first. The controller also sends
+    // the native cancellation RPC, while the project-scoped fallback handles
+    // any request whose local screen reference has already been cleared.
+    activeRequest.current?.abort();
+    if (projectId) cancelLocalGitComparison(projectId);
+  }
+
   function swapRefs() {
     const nextBase = headRef;
     const nextHead = baseRef;
@@ -182,9 +190,9 @@ export function GitChangesScreen({
               aria-label="Ending Git version"
             />
           </label>
-          {busy ? <button type="button" className="secondary-button git-compare-button" onClick={() => cancelLocalGitComparison(projectId)}>
+          {busy ? <button key="stop" type="button" className="secondary-button git-compare-button" onClick={stopComparison}>
             <RefreshCw size={15} className="git-spin" /> Stop comparison
-          </button> : <button className="primary-button git-compare-button" type="submit" disabled={!canCompare}>
+          </button> : <button key="compare" className="primary-button git-compare-button" type="submit" disabled={!canCompare}>
             <RefreshCw size={15} /> Compare versions
           </button>}
         </form>

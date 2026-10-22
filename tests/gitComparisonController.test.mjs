@@ -127,6 +127,13 @@ describe('owned local Git comparison client', () => {
     assert.match(screen, /if \(busy\) event\.preventDefault\(\)/);
   });
 
+  it('binds Stop to the screen-owned abort signal and remounts it when busy changes', () => {
+    const screen = readFileSync(new URL('../src/GitChanges.tsx', import.meta.url), 'utf8');
+    assert.match(screen, /function stopComparison\(\) \{[\s\S]*activeRequest\.current\?\.abort\(\);[\s\S]*cancelLocalGitComparison\(projectId\);/);
+    assert.match(screen, /busy \? <button key="stop" type="button" className="secondary-button git-compare-button" onClick=\{stopComparison\}/);
+    assert.match(screen, /<button key="compare" className="primary-button git-compare-button" type="submit"/);
+  });
+
   it('shows an unchanged path once and preserves both sides for renames', () => {
     const screen = readFileSync(new URL('../src/GitChanges.tsx', import.meta.url), 'utf8');
     assert.match(screen, /change\.basePath === change\.headPath\s*\?\s*<span className="git-change-same-path"><code>\{path\}<\/code><\/span>/);
