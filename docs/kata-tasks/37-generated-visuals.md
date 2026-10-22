@@ -403,11 +403,21 @@ their local behavior. The narration is two short, consequence-focused passages
 match/fall-through in plain words. Clicking the PCF check opened captured
 `src/font.rs` at line 4058.
 
-The live Guide remains at “Your guide is coming together…” with only its first
-section published and the next slide still building. The two layouts are
-clearer than the earlier graph-heavy outputs, but still present large source
-expressions inside stacked cards, so the desired visual variety and reduced
-text prominence are not yet established. The audio controls report “Ready to
-play”; audible Pocket output has not been reviewed. This early result does not
-establish whole-repository coverage, audio quality or human comprehension.
-Keep `j53m` open; do not count older Fontdone attempts as v13 evidence.
+The live Guide has emitted a second draft slide, “From character code to glyph
+slot,” with four scenes. These choose different layouts for a direct request
+timeline, a Type 1 first-match selector, cmap-format cases and a glyph-index
+bound decision. The selector shows its guard, result and explicit fall-through;
+the final decision distinguishes index zero at/above the glyph-count bound from
+keeping an in-range index. This is stronger per-scene variety than the earlier
+graph-heavy outputs. However, visible values still include large source
+expressions inside the cards, so reduced text prominence is not established.
+
+The Guide remains at “Your guide is coming together…” with another slide
+building. Narration text was reviewed for both draft slides and explains the
+input, decision and consequence in concise language. Audio state was mixed:
+some scene players reported “Ready to play” with a 10–11 second duration, while
+another showed “Audio not prepared” on first visit. Pocket audio was not
+listened to. The PCF scene source link was verified at `src/font.rs` line 4058.
+This partial result does not establish whole-repository coverage, audible
+quality or human comprehension. Keep `j53m` open; do not count older Fontdone
+attempts as v13 evidence.
