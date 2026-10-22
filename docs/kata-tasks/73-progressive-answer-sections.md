@@ -104,6 +104,10 @@ The five-slide runway previously requested its next slide only after narration e
 - [ ] In the packaged app, confirm playback-start refill works at the five-slide boundary, duplicate start/completion/Next events admit at most one slide, and no more than five ready/active slides are maintained.
 - [ ] Re-qualify Guide generation, Pocket readiness, Stop, provider failure, account/grant changes and close/reopen on a large captured repository. Do not accept based on the source change or an existing partial guide.
 
+## Negated broad-scope prompt routing — 22 October 2026
+
+A focused one-section request that said it was not a repository overview was misclassified by the repository-guide keyword heuristic. The current app created a guide attempt but published no section. The frontend classifier now removes explicitly negated broad-scope phrases and keeps explicit single-section/file/function/branch requests on the focused path, while affirmative whole-repository guide requests still use the planner. Regression cases cover both classes. No follow-up account request was sent; large-repository routing and incremental delivery remain unqualified.
+
 ## Native storage checkpoint — 17 October
 
 Implemented the private bounded section/proposal store and immutable checkpoint replay using the existing citation, claim, diagram and chapter validators. Exact repeats retain generation identity; changed content requires an explicit immutable revision. Preparation and compare-and-swap commit are separate. The full native suite passes 318 tests (11 live probes ignored), including 14 new section-storage regressions. These cover preservation after a later rejection, limits, stale writes, Stop/permission/runtime/snapshot/deadline changes, source delivery uncertainty and stored-content tampering. [Implementation evidence and exact integration boundaries](../acceptance/2026-10-17-progressive-section-storage.md).

@@ -224,8 +224,20 @@ export function isRepositoryGuideIntent(question: string): boolean {
   const query = question.trim().toLowerCase();
   if (!query) return false;
   const repository = String.raw`(?:project|repo(?:sitory)?|code\s*base|codebase|application|app|software|system)`;
-  const hasRepository = new RegExp(String.raw`\b${repository}\b`, 'i').test(query);
+  // A scope word inside a negation is not evidence that the user asked for a
+  // repository-wide guide. This matters for focused prompts such as “one new
+  // Guide section, not a repository overview”: the old substring heuristic
+  // saw “repository” + “overview” and silently widened the request.
+  const negatedBroadScope = new RegExp(
+    String.raw`\b(?:not|no|without|rather\s+than|instead\s+of)\s+(?:(?:a|an|the|any)\s+)?(?:(?:whole|entire|full|complete|comprehensive)\s+)?${repository}(?:[\s-]?wide)?\s+(?:guide|tour|overview|walk(?:\s*through)?|architecture|big\s+picture)\b`,
+    'gi',
+  );
+  const affirmativeQuery = query.replace(negatedBroadScope, ' ');
+  const hasRepository = new RegExp(String.raw`\b${repository}\b`, 'i').test(affirmativeQuery);
   if (!hasRepository) return false;
+  const oneUnit = /\b(?:exactly\s+one|one|single|only|just)\s+(?:(?:new|fresh)\s+)?(?:guide\s+)?(?:section|slide|scene|file|function|method|branch|symbol)\b/i;
+  const completeScope = /\b(?:whole|entire|full|all|every|each|complete|comprehensive|end[ -]to[ -]end)\b/i;
+  if (oneUnit.test(query) && !completeScope.test(affirmativeQuery)) return false;
   // Treat completeness language as a guide request even when the user does not
   // say "guide". Otherwise natural prompts such as "generate it for the
   // Fontdone project entirely" fall through to the one-shot ten-minute path.
@@ -233,14 +245,14 @@ export function isRepositoryGuideIntent(question: string): boolean {
   // Explicitly asking for a project guide always uses the durable, incremental
   // guide pipeline, even from a nested exploration. Otherwise the same broad
   // request can fall back to a one-shot answer with a ten-minute deadline.
-  if (explicitGuide.test(query)) return true;
+  if (explicitGuide.test(affirmativeQuery)) return true;
   const directProjectAsk = new RegExp(String.raw`^(?:explain|describe|show|understand)\s+(?:(?:this|the)\s+)?${repository}\b`, 'i');
   const projectBehavior = /\bhow\s+(?:does|do)\s+(?:this\s+|the\s+)?(?:project|repo(?:sitory)?|code\s*base|application|system)\s+(?:work|fit\s+together)\b/i;
   const explainProjectBehavior = new RegExp(String.raw`\b(?:explain|describe|show(?:\s+me)?|help\s+me\s+understand)\s+(?:how\s+)?(?:this|the)\s+${repository}\s+(?:works?|fits?\s+together|is\s+(?:structured|organized|built|wired))\b`, 'i');
   const asksProjectPurpose = new RegExp(String.raw`\b(?:what|which)\s+(?:does|do)\s+(?:(?:this|the)\s+)?${repository}\s+(?:do|provide|offer|contain|include|cover)\b`, 'i');
   const explainsProjectPurpose = new RegExp(String.raw`\b(?:explain|describe|show(?:\s+me)?|tell(?:\s+me)?|help\s+me\s+understand)\s+what\s+(?:(?:this|the)\s+)?${repository}\s+(?:does|provides?|offers?|contains?|includes?|covers?)\b`, 'i');
-  if (directProjectAsk.test(query) || projectBehavior.test(query) || explainProjectBehavior.test(query)
-    || asksProjectPurpose.test(query) || explainsProjectPurpose.test(query)) return true;
+  if (directProjectAsk.test(affirmativeQuery) || projectBehavior.test(affirmativeQuery) || explainProjectBehavior.test(affirmativeQuery)
+    || asksProjectPurpose.test(affirmativeQuery) || explainsProjectPurpose.test(affirmativeQuery)) return true;
   return false;
 }
 
