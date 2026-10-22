@@ -260,7 +260,7 @@ run's later retry intact and retain all failed operation receipts.
 
 ## Fontdone whole-guide qualification and smaller slide budgets — 23 October 2026
 
-The user-authorized v15/v23 packaged run is `852ab40c-3fac-42c8-a191-05a63b67fb67` on Fontdone `main@5249b72371`, GPT-6 Luna/max. Its six-unit outline and opening were saved separately, and the opening remains available while later units run. The first planned unit failed twice after three proposals each. The `glyph-entry` unit published one four-scene section after two proposals. The `svg-bitmap` unit reached `sceneAuthoringLimit` and is on its bounded continuation. Later units are not yet complete. This is incremental preservation, not a complete-guide pass.
+The user-authorized v15/v23 packaged run is `852ab40c-3fac-42c8-a191-05a63b67fb67` on Fontdone `main@5249b72371`, GPT-6 Luna/max. Its six-unit outline and published sections remain saved. The first planned unit failed twice after three proposals each. The `glyph-entry` unit published one four-scene section. The `svg-bitmap` unit reached `sceneAuthoringLimit`. The user later approved a fresh run for the updated prompt; the v15/v23 run was stopped in the app, with saved sections and receipts retained.
 
 The accepted glyph scene uses row/branch/branch/row layouts, but every leaf
 still displays a raw source expression and the narration speaks method and
@@ -268,10 +268,13 @@ error identifiers. The rejected constructor and SVG proposals also show that
 one unit can contain too many claims or evidence nodes for the 12-node section
 budget; validator repairs then consume the per-key proposal budget.
 
-The next source prompt versions the visual contract as
-`ai-html-compositions-v17` / `meaning-first-v25`. It retains readable labels,
-literal-only values, complete input/outcome coverage and role-based speech from
-v16, and now requires selector roots to own their guarded branch groups as
-direct children. The active v15 run cannot qualify these changes. Keep visual
-quality, native rendering, Pocket listening and human comprehension open until
-a packaged v17 run is reviewed.
+The packaged v17/v25 app is now under whole-repository evaluation. It retains
+readable labels, literal-only values, complete input/outcome coverage and
+role-based speech from v16, and requires selector roots to own their guarded
+branch groups as direct children. Its first opening section follows the
+WebAssembly face-opening route in four scenes, including the error-slot and byte
+pointer guards and the loader result/handle. The scenes use ordered path and
+decision layouts, with plain-language narration tied to visible outcomes. The
+Guide is still building later slides. This is initial evidence only; keep visual
+quality, native rendering, source-link accuracy, Pocket listening and human
+comprehension open until the full run has been reviewed.

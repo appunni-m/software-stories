@@ -462,11 +462,21 @@ planned constructor sections have failed with `namedIdentifierEvidence`,
 `proposalCorrectionLimit`; the guide is continuing through independent units.
 Keep these as failure evidence, not as a full-guide pass.
 
-The next prompt iteration is `ai-html-compositions-v17` /
-`meaning-first-v25`: retain the v16 readable-label and value-coverage rules, and
-spell out the native selector tree shape after repeated proposals wrapped direct
-selector checks in rows. The selector must own its guarded branch groups as
-direct children; guard and outcomes go inside each branch. Source links remain
-clickable from evidence anchors without displaying code expressions. The active
-v15 guide cannot qualify later prompt versions. Review a fresh packaged run in
-the app before claiming quality.
+The packaged source iteration is now `ai-html-compositions-v17` /
+`meaning-first-v25`. It retains the v16 readable-label and value-coverage rules,
+and spells out the native selector tree shape after repeated proposals wrapped
+direct selector checks in rows. The selector must own its guarded branch groups
+as direct children; guard and outcomes go inside each branch. Source links stay
+clickable from evidence anchors without displaying code expressions.
+
+The earlier v15/v23 run was stopped from the app after the new run was approved;
+its published sections and receipts remain saved. The packaged v17 app was
+installed with the preceding app kept as a rollback. Its fresh Fontdone Guide is
+active. The first published section, “The direct-host face-opening entry,” has
+four scenes: the public host route, the error-slot guard, byte-pointer handling,
+and the loader result/handle. It uses an ordered path and decision layouts with
+plain-language labels. Narration follows the visible decisions, explains the
+status/handle consequences, and avoids reading code identifiers. Audio was
+available to play but was not listened to. This is a promising first section,
+not a full-repository or human-comprehension pass; review later slides, source
+links, rendering and audio before closing the task.
