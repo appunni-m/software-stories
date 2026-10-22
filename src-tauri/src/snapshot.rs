@@ -900,15 +900,10 @@ fn git_output(
     operation_deadline: Instant,
     input: Option<Vec<u8>>,
 ) -> Result<std::process::Output, CaptureError> {
-    let mut command = crate::project::git_command();
-    command
-        .arg("--no-optional-locks")
-        .args(args)
-        .current_dir(root)
-        .env("GIT_OPTIONAL_LOCKS", "0");
-    bounded_process::run(
-        &mut command,
-        input,
+    git_output_with_limits(
+        root,
+        args,
+        cancel,
         Limits {
             command_timeout: GIT_COMMAND_TIMEOUT,
             operation_deadline,
@@ -916,9 +911,24 @@ fn git_output(
             stderr_bytes: GIT_STDERR_LIMIT,
             stdin_bytes: GIT_STDIN_LIMIT,
         },
-        Some(cancel),
+        input,
     )
-    .map_err(|error| match error {
+}
+
+fn git_output_with_limits(
+    root: &Path,
+    args: &[&str],
+    cancel: &AtomicBool,
+    limits: Limits,
+    input: Option<Vec<u8>>,
+) -> Result<std::process::Output, CaptureError> {
+    let mut command = crate::project::git_command();
+    command
+        .arg("--no-optional-locks")
+        .args(args)
+        .current_dir(root)
+        .env("GIT_OPTIONAL_LOCKS", "0");
+    bounded_process::run(&mut command, input, limits, Some(cancel)).map_err(|error| match error {
         RunError::Cancelled => CaptureError::Cancelled,
         RunError::Start(start) if start.kind() == io::ErrorKind::NotFound => CaptureError::Failed(
             "Git was not found. Install Git or the Xcode Command Line Tools, then try again."
@@ -2273,6 +2283,16 @@ mod tests {
         capture_snapshot(storage, project, &AtomicBool::new(false), &mut |_| {}).unwrap()
     }
 
+    fn git_test_limits(command_timeout: Duration, stdout_bytes: usize) -> Limits {
+        Limits {
+            command_timeout,
+            operation_deadline: Instant::now() + Duration::from_secs(5),
+            stdout_bytes,
+            stderr_bytes: 4 * 1024,
+            stdin_bytes: 0,
+        }
+    }
+
     #[test]
     fn snapshot_catalog_limit_accepts_supported_history_and_preserves_count_overflow() {
         let temporary = TestDirectory::new("catalog-count-overflow");
@@ -3043,6 +3063,112 @@ mod tests {
             load_snapshot_manifest(&storage, &project.project_id, &previous.summary.snapshot_id)
                 .is_ok()
         );
+    }
+
+    #[test]
+    fn git_output_limit_maps_to_a_safe_capture_failure_without_changing_history() {
+        let temporary = TestDirectory::new("git-output-limit");
+        let repository = temporary.path().join("repository");
+        let marker = "PRIVATE_SYNTHETIC_GIT_OUTPUT_MARKER\n".repeat(128);
+        create_repository(&repository, &[("large.txt", marker.as_bytes())]);
+        let project = project(&repository);
+        let storage = temporary.path().join("app-data");
+        let previous = default_capture(&storage, &project);
+        let history_before = list_project_snapshots(&storage, &project.project_id).unwrap();
+        let index_before = fs::read(repository.join(".git/index")).unwrap();
+        let head_before = fs::read(repository.join(".git/HEAD")).unwrap();
+        let refs_before = git(&repository, &["show-ref"]).stdout;
+        let object = git(&repository, &["rev-parse", "HEAD:large.txt"]);
+        assert!(object.status.success());
+        let object = String::from_utf8(object.stdout).unwrap();
+
+        let error = git_output_with_limits(
+            &repository,
+            &["cat-file", "-p", object.trim()],
+            &AtomicBool::new(false),
+            git_test_limits(Duration::from_secs(3), 8),
+            None,
+        )
+        .unwrap_err();
+        assert_eq!(
+            error,
+            CaptureError::Failed(
+                "Git could not inspect repository state: Git output exceeded its size limit."
+                    .to_owned()
+            )
+        );
+        assert!(!format_capture_error(&error).contains("PRIVATE_SYNTHETIC_GIT_OUTPUT_MARKER"));
+        assert_eq!(
+            list_project_snapshots(&storage, &project.project_id).unwrap(),
+            history_before
+        );
+        assert_eq!(
+            load_snapshot_manifest(&storage, &project.project_id, &previous.summary.snapshot_id)
+                .unwrap(),
+            previous
+        );
+        assert_eq!(
+            fs::read(repository.join(".git/index")).unwrap(),
+            index_before
+        );
+        assert_eq!(fs::read(repository.join(".git/HEAD")).unwrap(), head_before);
+        assert_eq!(git(&repository, &["show-ref"]).stdout, refs_before);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn git_timeout_maps_to_a_safe_capture_failure_without_changing_history() {
+        use std::ffi::CString;
+        use std::os::unix::ffi::OsStrExt;
+
+        let temporary = TestDirectory::new("git-timeout");
+        let repository = temporary.path().join("repository");
+        create_repository(&repository, &[("source.rs", b"fn captured() {}\n")]);
+        let project = project(&repository);
+        let storage = temporary.path().join("app-data");
+        let previous = default_capture(&storage, &project);
+        let history_before = list_project_snapshots(&storage, &project.project_id).unwrap();
+        let index_before = fs::read(repository.join(".git/index")).unwrap();
+        let head_before = fs::read(repository.join(".git/HEAD")).unwrap();
+        let fifo = repository.join(".git/blocked-config");
+        let fifo_path = CString::new(fifo.as_os_str().as_bytes()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo_path.as_ptr(), 0o600) }, 0);
+        fs::write(
+            repository.join(".git/config"),
+            format!("[include]\n\tpath = {}\n", fifo.display()),
+        )
+        .unwrap();
+
+        let error = git_output_with_limits(
+            &repository,
+            &["rev-parse", "--is-inside-work-tree"],
+            &AtomicBool::new(false),
+            git_test_limits(Duration::from_millis(200), 4 * 1024),
+            None,
+        )
+        .unwrap_err();
+        assert_eq!(
+            error,
+            CaptureError::Failed(
+                "Git could not inspect repository state: Git operation reached its time limit."
+                    .to_owned()
+            )
+        );
+        assert!(!format_capture_error(&error).contains("blocked-config"));
+        assert_eq!(
+            list_project_snapshots(&storage, &project.project_id).unwrap(),
+            history_before
+        );
+        assert_eq!(
+            load_snapshot_manifest(&storage, &project.project_id, &previous.summary.snapshot_id)
+                .unwrap(),
+            previous
+        );
+        assert_eq!(
+            fs::read(repository.join(".git/index")).unwrap(),
+            index_before
+        );
+        assert_eq!(fs::read(repository.join(".git/HEAD")).unwrap(), head_before);
     }
 
     #[test]
