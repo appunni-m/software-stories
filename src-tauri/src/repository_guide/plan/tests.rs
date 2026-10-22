@@ -258,7 +258,10 @@ fn plan_instructions_keep_the_full_requested_scope() {
     );
     assert!(instructions.contains("unsupported stages as omissions"));
     assert!(instructions.contains("one answer section's visual budget"));
-    assert!(instructions.contains("at most 12 distinct evidence nodes and 20 edges"));
+    assert!(instructions.contains("Target at most eight distinct evidence nodes"));
+    assert!(instructions.contains("two to four claims/scenes per slide"));
+    assert!(instructions.contains("never exceed 12 nodes or 20 edges"));
+    assert!(instructions.contains("One unit explains one stage or decision"));
     assert!(instructions.contains("Split long ordered dispatches, branch chains"));
     assert!(
         instructions.contains("preserve source order, every outcome, continuation and fallback")

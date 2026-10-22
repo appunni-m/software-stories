@@ -331,6 +331,8 @@ mod tests {
         let ordinary = request(&f.storage, &input, &f.manifest, &[range], None).unwrap();
         assert_ne!(fingerprint, ordinary.2);
         assert!(instructions.contains("guideContext"));
+        assert!(instructions.contains("two to four focused claims/scenes"));
+        assert!(instructions.contains("at most eight distinct evidence nodes"));
         assert!(!prompt.contains(SIMPLE_SOURCE));
         for forbidden in ["referenceId", "code:1", "quote", "contents"] {
             assert!(!value["guideContext"].to_string().contains(forbidden));

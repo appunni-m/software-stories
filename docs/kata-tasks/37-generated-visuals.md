@@ -449,10 +449,24 @@ section after 308.925 seconds and entered its automatic retry; the guide still
 showed “Building next slide…” at review time. No full-guide coverage or
 comprehension pass is claimed.
 
-The next source iteration is `ai-html-compositions-v15` / `meaning-first-v23`:
-compact rails and numbered selector gates replace card-like step styling;
-short behavior labels keep exact source in the adjacent pane; narration starts
-from the real input and follows the consequence. A guide-slide request now
-explicitly requires an accepted section before the final manifest can declare
-success. This source iteration has not yet been packaged or generated against;
-the v14 run above cannot qualify it. Keep `j53m` open.
+The packaged source iteration `ai-html-compositions-v15` / `meaning-first-v23`
+uses compact rails, numbered selector gates and input-first narration. A
+separate whole-repository Guide now exercises that version. Its opening still
+uses source-code values in its cards and omits two meaningful constructor
+arguments from the visual, even though narration names them. The first accepted
+follow-on section uses row/branch layouts for the loader path, early exits,
+missing-bitmap substitution and an empty slot, but every visual leaf displays a
+raw code expression and spoken narration names methods and error variants. Two
+planned constructor sections have failed with `namedIdentifierEvidence`,
+`selectorShape`, `sceneSourceValue`, `sectionValidation` and
+`proposalCorrectionLimit`; the guide is continuing through independent units.
+Keep these as failure evidence, not as a full-guide pass.
+
+The next prompt iteration is `ai-html-compositions-v16` /
+`meaning-first-v24`: make readable behavior labels the default, show source
+values only when the literal itself matters, include every meaningful input
+and outcome named by a claim, and speak code identifiers by role. Source links
+remain clickable from the evidence anchor without displaying a code expression.
+The active v15 guide cannot qualify these changes; a new run requires separate
+authorization. Keep `j53m` open until the v16 scene and audio quality are
+reviewed in the packaged app.

@@ -35,7 +35,7 @@ At most six unique sections and eight proposals within 64 tool calls. Use remain
 
 const MANIFEST_INSTRUCTIONS: &str = r#"Answer the requested scope; missing unrequested callers or downstream systems is not an incomplete topic. Finish only with the supplied answerManifestV2 JSON schema: {manifestVersion:"answerManifestV2",incompleteTopics:[...]}. The app retains every latest published section automatically, in its native publication order. Do not copy sectionKey or generationId into the final response or select a subset of sections. incompleteTopics names concrete requested boundaries you could not investigate. Rejected work is not completed work. Do not put explanations, source quotations, paths or new content in the final response. A final manifest cannot publish, remove or replace a section. No Markdown fences or extra fields."#;
 
-const SCENE_PACING_INSTRUCTIONS: &str = "One consequential decision or transition per claim/scene. Split stacked guards and carry each result into the next scene. Focused graphs show at most eight nodes, one edge of context, or the full map when no node is linked; use them only for genuinely non-linear relationships. Split dense claims while preserving all guards, outcomes and edges.";
+const SCENE_PACING_INSTRUCTIONS: &str = "One consequential decision or transition per claim/scene. Keep each slide to two to four claims/scenes and target at most eight distinct evidence nodes; 12 nodes and 20 edges are hard section limits, not targets. Split stacked guards, broad stages and dense branch sets into consecutive slides at handoffs; carry the previous result into the next slide without repeating its explanation. Focused graphs show at most eight nodes, one edge of context, or the full map when no node is linked; use them only for genuinely non-linear relationships. Preserve all guards, outcomes and edges.";
 
 const PUBLICATION_ORDER_INSTRUCTIONS: &str = "Publication order is local to this investigation, including explicit guide continuations. Start its first new key at order:0 with previousGenerationId:null. Earlier saved-library headings are outside this ledger. Rejection publishes nothing and never advances order. Use the reply's nextNewSectionOrder; null permits only identifying or explicitly revising an existing key.";
 
@@ -113,7 +113,7 @@ fn generation_contract_for(
         "answerSchemaVersion":sections::NARRATION_ANSWER_VERSION,
         "citationPolicy":"native-short-references-v2","proposalVersion":sections::NARRATION_PROPOSAL_VERSION,
         "sceneAuthoringPolicy":sections::authoring::POLICY,"identifierCompilationPolicy":crate::native_citations::names::GROUNDED_POLICY,
-        "presentationPolicy":"complete-claims-and-authored-narration-v4","storyPolicy":"ai-html-compositions-v15","teachingPolicy":provider::visual_scenes::TEACHING_POLICY_VERSION,"checkpointVersion":sections::NARRATION_CHECKPOINT_VERSION
+        "presentationPolicy":"complete-claims-and-authored-narration-v4","storyPolicy":"ai-html-compositions-v16","teachingPolicy":provider::visual_scenes::TEACHING_POLICY_VERSION,"checkpointVersion":sections::NARRATION_CHECKPOINT_VERSION
     }))
 }
 

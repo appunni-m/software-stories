@@ -47,14 +47,18 @@ and edited chapter validation apply the same composition checks. There is no
 separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
-The current prompt is story policy `ai-html-compositions-v15` and teaching
-policy `meaning-first-v23`. Before selecting elements, it asks what the reader
+The current prompt is story policy `ai-html-compositions-v16` and teaching
+policy `meaning-first-v24`. Before selecting elements, it asks what the reader
 should see at a glance and gives each scene one focal subject whose supported
 route, choice, change, state, shape, parallel work or relationship becomes
 visible. It maps that need to a semantic renderer: timelines, branches,
 selectors, transforms, before/after states, tables, lanes, trees, stacks,
-queues, byte strips, matrices, metrics, or graphs. It discourages generic card
-grids, identifier-only networks and box-and-arrow rows, while allowing a
+queues, byte strips, matrices, metrics, or graphs. It rejects scenes made only
+of code cards, asks for plain-language labels and requires every meaningful
+input and outcome named in the claim to appear. Exact code remains available
+through source links; a displayed source value is reserved for cases where the
+literal itself matters. It discourages generic card grids, identifier-only
+networks and box-and-arrow rows, while allowing a
 narration with clickable source when a visual would add no value. Adjacent
 scenes may keep the same visual identity when that helps the reader track one
 object; form changes when the behavior changes. A graph is reserved for
@@ -78,14 +82,15 @@ visual review before acceptance.
 
 Repository-guide planning uses the same bounded section capacity. Long
 ordered dispatch chains must be split into consecutive learning units before
-their visuals exceed 12 source nodes or 20 edges; each unit preserves its
-ordered checks, outcomes and fallbacks.
+their visuals exceed 12 source nodes or 20 edges. The planner targets eight
+nodes and two to four claims/scenes per slide, with one behavior stage per
+unit; each unit preserves its ordered checks, outcomes and fallbacks.
 
 Spoken narration describes implementation tokens by role instead of reading
-them aloud, including abbreviations, format tags, field/table names and error
-labels. Exact tokens remain visible in the scene and source links; speech uses
-plain-language cues such as “the first font-format check” or “the glyph's
-stored width.”
+them aloud, including method/type names, abbreviations, format tags,
+field/table names and error labels. Exact tokens remain available through
+source links; speech uses cues such as “the face's glyph-loading call,” “the
+first font-format check,” or “the glyph's stored width.”
 
 This is a compositional HTML contract, not permission to run model-produced
 programs. React owns the tags, CSS, keyboard handlers and source actions. Model

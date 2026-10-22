@@ -495,11 +495,8 @@ fn each_unit_receives_the_exact_native_guide_intent_without_changing_its_questio
         assert_eq!(value["unitKey"], record.units[index].key);
         assert_eq!(value["unitNumber"], index + 2);
         assert_eq!(value["unitCount"], 3);
-        assert!(
-            continuation(&f.storage, &record, index)
-                .unwrap()
-                .starts_with(&record.plan.as_ref().unwrap().units[index].question)
-        );
+        let question = continuation(&f.storage, &record, index).unwrap();
+        assert!(question.starts_with(&record.plan.as_ref().unwrap().units[index].question));
     }
     assert!(unit_intent(&record, 2).is_err());
     record.plan = None;

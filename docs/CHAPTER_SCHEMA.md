@@ -109,8 +109,8 @@ historical identities.
 
 Ordinary and progressive requests share the current scene and teaching
 instructions. Progressive contracts fingerprint
-`storyPolicy: "ai-html-compositions-v15"`,
-`teachingPolicy: "meaning-first-v23"`, and the exact composed instructions
+`storyPolicy: "ai-html-compositions-v16"`,
+`teachingPolicy: "meaning-first-v24"`, and the exact composed instructions
 without changing stored checkpoint identities or replaying generation. A
 fingerprint change applies to future requests; it does not rewrite saved guides.
 These are generation instructions, not semantic acceptance.

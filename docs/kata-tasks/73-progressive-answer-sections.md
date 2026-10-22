@@ -257,3 +257,24 @@ one accepted section before its final manifest; an incomplete-topic manifest
 cannot substitute for the slide when delivered code supports a narrower
 answer. This prompt-only change needs packaged qualification. Keep the fresh
 run's later retry intact and retain all failed operation receipts.
+
+## Fontdone whole-guide qualification and smaller slide budgets — 23 October 2026
+
+The user-authorized v15/v23 packaged run is `852ab40c-3fac-42c8-a191-05a63b67fb67` on Fontdone `main@5249b72371`, GPT-6 Luna/max. Its six-unit outline and opening were saved separately, and the opening remains available while later units run. The first planned unit failed twice after three proposals each. The `glyph-entry` unit published one four-scene section after two proposals. The `svg-bitmap` unit reached `sceneAuthoringLimit` and is on its bounded continuation. Later units are not yet complete. This is incremental preservation, not a complete-guide pass.
+
+The accepted glyph scene uses row/branch/branch/row layouts, but every leaf
+still displays a raw source expression and the narration speaks method and
+error identifiers. The rejected constructor and SVG proposals also show that
+one unit can contain too many claims or evidence nodes for the 12-node section
+budget; validator repairs then consume the per-key proposal budget.
+
+Source prompts now version the visual contract as `ai-html-compositions-v16` /
+`meaning-first-v24`. Readable labels are the default; exact code values appear
+only when their literal spelling or bytes matter. Evidence keeps scene items
+clickable without showing the expression. Speech names code by role, and
+claims must include their meaningful inputs and outcomes. Guide planning
+targets eight evidence nodes and two to four claims/scenes per slide while
+retaining the native 12-node/20-edge hard limits. The active v15 run cannot
+qualify these changes. Keep visual quality, native rendering, Pocket listening
+and human comprehension open until a separately authorized v16 packaged run
+is reviewed.
