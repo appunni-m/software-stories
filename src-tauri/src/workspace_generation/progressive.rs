@@ -113,7 +113,7 @@ fn generation_contract_for(
         "answerSchemaVersion":sections::NARRATION_ANSWER_VERSION,
         "citationPolicy":"native-short-references-v2","proposalVersion":sections::NARRATION_PROPOSAL_VERSION,
         "sceneAuthoringPolicy":sections::authoring::POLICY,"identifierCompilationPolicy":crate::native_citations::names::GROUNDED_POLICY,
-        "presentationPolicy":"complete-claims-and-authored-narration-v4","storyPolicy":"ai-html-compositions-v13","teachingPolicy":provider::visual_scenes::TEACHING_POLICY_VERSION,"checkpointVersion":sections::NARRATION_CHECKPOINT_VERSION
+        "presentationPolicy":"complete-claims-and-authored-narration-v4","storyPolicy":"ai-html-compositions-v14","teachingPolicy":provider::visual_scenes::TEACHING_POLICY_VERSION,"checkpointVersion":sections::NARRATION_CHECKPOINT_VERSION
     }))
 }
 

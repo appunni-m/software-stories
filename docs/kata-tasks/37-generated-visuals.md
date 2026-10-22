@@ -372,11 +372,14 @@ graph-to-timeline distinction and the first-visit rendering defect.
 
 ## Per-scene representation and ordered-guard validation — 22 October 2026
 
-The fresh visual prompt is now `ai-html-compositions-v13` with teaching policy
-`meaning-first-v21`. It asks the model to select a semantic form for each scene
-from the behavior being explained, and gives concrete guidance for timelines,
-first-match selectors, mode tables, before/after comparisons, transforms, lanes,
-byte layouts and graphs. Graphs are reserved for relationships that genuinely
+The fresh visual prompt is now `ai-html-compositions-v14` with teaching policy
+`meaning-first-v22`. It asks the model to identify one focal subject per scene,
+then choose a form that makes the source-backed route, choice, change, state,
+data shape, parallel work or relationship visible. Concrete guidance covers
+timelines, first-match selectors, mode tables, before/after comparisons,
+transforms, lanes, byte layouts and graphs. It discourages card grids and
+identifier-only networks, and allows narration with clickable source where a
+visual adds no value. Graphs are reserved for relationships that genuinely
 need a network view. Source narration must explain what the visual means and
 what follows from its decisions rather than reading declarations aloud.
 

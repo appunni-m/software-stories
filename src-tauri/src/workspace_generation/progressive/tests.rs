@@ -602,8 +602,8 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     let input = input(&f);
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema).unwrap();
-    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v13");
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v21");
+    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v14");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v22");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(
         system_instructions()
@@ -612,6 +612,8 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert!(system_instructions().contains(
         "selectorShape means an ordered selector needs at least two source-ordered branch checks"
     ));
+    assert!(system_instructions().contains("Visual design method:"));
+    assert!(system_instructions().contains("one focal subject"));
     assert!(system_instructions().contains(
         "the whole section has at most 12 visual nodes and 20 edges across all claim scenes"
     ));
@@ -736,7 +738,9 @@ fn narration_pacing_preserves_all_conditions_and_is_bound_to_the_request() {
     let mut contract = generation_contract(&input, &prompt, &schema).unwrap();
     let instructions = system_instructions();
     assert!(instructions.contains("One consequential decision or transition per claim/scene"));
-    assert!(instructions.contains("Split stacked guards and carry each result into the next scene"));
+    assert!(
+        instructions.contains("Split stacked guards and carry each result into the next scene")
+    );
     assert!(instructions.contains("at most eight nodes"));
     assert!(instructions.contains("preserving all guards, outcomes and edges"));
     assert!(instructions.contains("Never claim measured timings"));

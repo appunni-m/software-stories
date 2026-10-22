@@ -47,16 +47,23 @@ and edited chapter validation apply the same composition checks. There is no
 separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
-The current prompt is story policy `ai-html-compositions-v12` and teaching
-policy `meaning-first-v20`. It first identifies whether a reader needs to see
-order, a decision, a changed value or state, ownership, spatial data, or a
-relationship network, then maps that need to a semantic renderer: timelines,
-branches, selectors, transforms, before/after states, tables, lanes, trees,
-stacks, queues, byte strips, matrices, metrics, or graphs. The prompt explicitly
-steers away from generic rows and card grids. A graph is reserved for genuinely
-non-linear relationships; source links or a sequence of real calls do not by
-themselves justify one. The 12-node and 20-edge limits apply across the whole
-section, not once per scene; per-scene limits are ceilings, not targets. These
+The current prompt is story policy `ai-html-compositions-v14` and teaching
+policy `meaning-first-v22`. Before selecting elements, it asks what the reader
+should see at a glance and gives each scene one focal subject whose supported
+route, choice, change, state, shape, parallel work or relationship becomes
+visible. It maps that need to a semantic renderer: timelines, branches,
+selectors, transforms, before/after states, tables, lanes, trees, stacks,
+queues, byte strips, matrices, metrics, or graphs. It discourages generic card
+grids, identifier-only networks and box-and-arrow rows, while allowing a
+narration with clickable source when a visual would add no value. Adjacent
+scenes may keep the same visual identity when that helps the reader track one
+object; form changes when the behavior changes. A graph is reserved for
+genuinely non-linear relationships; source links or a sequence of real calls
+do not by themselves justify one. Model output remains typed data rendered by
+the app; it cannot execute HTML, JavaScript, CSS or Three.js. A 3-D renderer is
+only appropriate for source-grounded spatial behavior when a tested app-owned
+renderer exists. The 12-node and 20-edge limits apply across the whole section,
+not once per scene; per-scene limits are ceilings, not targets. These
 instructions and structural checks do not prove that a fresh guide teaches
 well; rendered quality still needs human review.
 
