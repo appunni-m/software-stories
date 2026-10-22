@@ -15,7 +15,14 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
     const e = scene.elements[index];
     const children = scene.elements.flatMap((child, i) => child.parentIndex === index ? [draw(i)] : []);
     const className = `html-scene-element html-scene-${e.kind} html-tone-${e.tone}`;
-    if (containerKinds.has(e.kind)) return <div key={index} className={className}>{children}</div>;
+    if (containerKinds.has(e.kind)) {
+      const labels: Record<string, string> = {
+        timeline: 'Ordered timeline', lanes: 'Independent parallel lanes',
+        branch: 'Decision and outcomes', beforeAfter: 'Before and after states',
+      };
+      const label = labels[e.kind];
+      return <div key={index} className={className} role={label ? 'group' : undefined} aria-label={label}>{children}</div>;
+    }
     if (e.kind === 'arrow') return <span key={index} className={className} aria-hidden="true"><ArrowDown size={22}/></span>;
     if (e.kind === 'divider') return <hr key={index} className={className}/>;
     const node = visual.nodes[e.nodeIndex!];

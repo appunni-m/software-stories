@@ -113,7 +113,18 @@ mod tests {
 
     #[test]
     fn only_an_earlier_container_can_parent_content() {
-        for kind in ["row", "column", "grid", "panel", "compare", "stack"] {
+        for kind in [
+            "row",
+            "column",
+            "grid",
+            "panel",
+            "compare",
+            "stack",
+            "timeline",
+            "lanes",
+            "branch",
+            "beforeAfter",
+        ] {
             assert!(findings(&[element(kind, None), element("token", Some(0))]).is_empty());
         }
         for kind in [

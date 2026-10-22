@@ -1,6 +1,6 @@
 import type { ChapterClaim, LinkedVisualNode } from './commands';
 
-export type ElementKind = 'row' | 'column' | 'grid' | 'panel' | 'compare' | 'stack'
+export type ElementKind = 'row' | 'column' | 'grid' | 'panel' | 'compare' | 'stack' | 'timeline' | 'lanes' | 'branch' | 'beforeAfter'
   | 'card' | 'token' | 'code' | 'metric' | 'bytes' | 'matrix' | 'table' | 'text' | 'arrow' | 'divider';
 export interface SceneElement {
   kind: ElementKind;
@@ -18,7 +18,7 @@ export interface PresentationScene {
   elements: SceneElement[];
 }
 export interface ScenePresentation { schemaVersion: 3; scenes: PresentationScene[] }
-export const containerKinds = new Set<string>(['row', 'column', 'grid', 'panel', 'compare', 'stack']);
+export const containerKinds = new Set<string>(['row', 'column', 'grid', 'panel', 'compare', 'stack', 'timeline', 'lanes', 'branch', 'beforeAfter']);
 const kinds = new Set([...containerKinds, 'card', 'token', 'code', 'metric', 'bytes', 'matrix', 'table', 'text', 'arrow', 'divider']);
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const exact = (v: Record<string, unknown>, keys: string[]) => Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v, k));

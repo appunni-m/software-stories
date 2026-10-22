@@ -164,6 +164,10 @@ pub enum ElementKind {
     Panel,
     Compare,
     Stack,
+    Timeline,
+    Lanes,
+    Branch,
+    BeforeAfter,
     Card,
     Token,
     Code,
@@ -179,7 +183,16 @@ impl ElementKind {
     fn container(&self) -> bool {
         matches!(
             self,
-            Self::Row | Self::Column | Self::Grid | Self::Panel | Self::Compare | Self::Stack
+            Self::Row
+                | Self::Column
+                | Self::Grid
+                | Self::Panel
+                | Self::Compare
+                | Self::Stack
+                | Self::Timeline
+                | Self::Lanes
+                | Self::Branch
+                | Self::BeforeAfter
         )
     }
     fn decorative(&self) -> bool {
@@ -369,7 +382,7 @@ pub(crate) fn proposal_schema() -> Value {
                 "elements":{"type":"array","maxItems":48,"items":{
                     "type":"object","additionalProperties":false,
                     "required":["kind","parentIndex","nodeIndex","tone","value","valueOrigin"],"properties":{
-                        "kind":{"type":"string","enum":["row","column","grid","panel","compare","stack","card","token","code","metric","bytes","matrix","table","text","arrow","divider"]},
+                        "kind":{"type":"string","enum":["row","column","grid","panel","compare","stack","timeline","lanes","branch","beforeAfter","card","token","code","metric","bytes","matrix","table","text","arrow","divider"]},
                         "parentIndex":{"type":["integer","null"],"minimum":0,"maximum":47},
                         "nodeIndex":{"type":["integer","null"],"minimum":0,"maximum":11},
                         "tone":{"type":"string","enum":["neutral","accent","muted","positive","warning"]},
