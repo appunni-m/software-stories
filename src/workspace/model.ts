@@ -74,9 +74,9 @@ export function questionProgressText(turn: Pick<Turn, 'status' | 'guideId' | 'gu
   if (turn.status === 'queued') return 'Waiting for the current question to finish…';
   if (turn.status !== 'working') return null;
   if (turn.guideId) {
-    if (!turn.guide || turn.guide.status === 'planning') return 'Planning the guide slides…';
+    if (!turn.guide || turn.guide.status === 'planning') return 'Your guide is coming together…';
     const ready = turn.publishedSections?.length ?? 0;
-    return ready ? `Building the next slide · ${ready} ready` : 'Building the opening slide…';
+    return ready ? `${ready} slide${ready === 1 ? '' : 's'} ready · more on the way` : 'Your first slide is taking shape…';
   }
   return turn.publishedSections?.length ? 'Adding more detail…' : 'Building your explanation…';
 }
