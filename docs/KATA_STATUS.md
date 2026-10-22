@@ -1,6 +1,6 @@
 # Kata status — Code Atlas rebuild
 
-Snapshot: **21 October 2026**, read from live project `code-atlas-rebuild`. **77 records: 52 open, 25 closed.** Every live record maps to one checked-in task definition. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
+Snapshot: **22 October 2026**, read from live project `code-atlas-rebuild`. **78 records: 51 open, 27 closed.** Every live record now maps to one checked-in task definition; the packaged macOS quit lifecycle `cc7g` was missing from the prior table and is recorded below. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
 
 ## 17 October progressive-generation checkpoint (historical)
 
@@ -113,6 +113,7 @@ The definitions contain the detailed contract and required closure evidence. Thi
 | `a9v9` | open | 2 | [Generate focused, reviewed explanations for a local change set](kata-tasks/27-pr-guide.md) |
 | `qjm3` | open | 2 | [Define recoverable PR generation and decisions across navigation](kata-tasks/36-pr-navigation-lifecycle.md) |
 | `8gqw` | open | 2 | [Implement automatic Claude Agent generation across required operations](kata-tasks/41-claude-agent-backend.md) |
+| `cc7g` | closed | 2 | [Ensure macOS Quit exits the packaged app process](kata-tasks/78-macos-quit-lifecycle.md) |
 | `k9yd` | closed | 2 | [Bound remaining local metadata and existing-object reads](kata-tasks/33-bounded-metadata.md) |
 | `bwdx` | closed | 3 | [Add an optional repository orientation chapter](kata-tasks/15-optional-overview.md) |
 | `s0tj` | open | 4 | [Code Atlas — greenfield product contract](kata-tasks/00-contract.md) |

@@ -1,5 +1,7 @@
 # Kata backlog — Code Atlas rebuild
 
+> **Live snapshot — 22 October 2026:** Kata project `code-atlas-rebuild` has **78 records: 51 open, 27 closed**. The [current status table](KATA_STATUS.md) is reconciled with live Kata, including the completed packaged macOS quit lifecycle (`cc7g`). Dated implementation notes below are historical checkpoints and do not replace current issue status or acceptance evidence.
+
 > **October 16 update:** installed-account Codex file generation now has a native baseline: automatic discovery, source review/consent, validated chapter, draft/acceptance, verified citation and manual section advance. [Evidence and remaining gates](acceptance/2026-10-16-codex-validation.md). Full operation/reliability/quality acceptance remains open; Claude is deferred. Historical source-only and protocol-blocker entries below describe earlier checkpoints.
 
 Workspace project: **code-atlas-rebuild**. Product plan: [PRODUCT_BLUEPRINT.md](PRODUCT_BLUEPRINT.md).
