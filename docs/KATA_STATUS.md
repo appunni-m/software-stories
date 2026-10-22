@@ -314,3 +314,13 @@ ignored**. The Open Source documentation inventory reports **0 errors, 0 review
 items, 0 info items** after correcting the Git bounds and over-broad lexical
 wording findings; the inventory does not verify semantic accuracy or package
 contents.
+
+## 23 October packaged reader-position spot check
+
+The installed Code Atlas 0.1.0 app restored a selected section from a saved
+four-section Fontdone answer after Guide → Flow → Guide and after opening a
+saved child exploration and returning with Back. No model or narration request
+was started. This is same-process evidence; installed binary commit, restart,
+third-level navigation, exact scroll/Flow viewport, revision fallback, corrupt
+state through the app and accessibility remain unverified. Keep `erzc` open.
+[Exact procedure and limits](acceptance/2026-10-23-navigation-position.md).

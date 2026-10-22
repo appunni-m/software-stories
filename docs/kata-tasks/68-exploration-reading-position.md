@@ -90,3 +90,19 @@ Native conversation loading now drops malformed optional scroll and section-book
 The combined locked native library suite then passes **720 tests, 0 failed, 18 explicitly ignored**.
 
 **Still open:** the complete packaged navigation and accessibility matrix above, including malformed state through the installed app. This focused native regression does not close `erzc`.
+
+## Packaged saved-answer position spot check — 23 October 2026
+
+On the running Code Atlas 0.1.0 app with Fontdone `main@5249b72371`, opened a
+saved four-section answer and selected section two, “The probes look for
+different kinds of signatures.” Guide → Flow → Guide retained the section.
+Opening a saved child exploration and returning with Back also restored the
+parent with section two visible. A second saved child was likewise opened and
+returned from. These actions reused saved content; no model request or narration
+was started. The observation was captured from the app accessibility tree.
+
+[Procedure and limits](../acceptance/2026-10-23-navigation-position.md). This
+same-process spot check does not establish restart, exact scroll, third-level
+navigation, independent Flow viewport, revision fallback, corrupt state through
+the app or accessibility. The installed bundle's source revision was not
+verified. Keep `erzc` open.
