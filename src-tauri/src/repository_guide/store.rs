@@ -22,14 +22,39 @@ fn path(storage: &Path, id: &str) -> Result<std::path::PathBuf, String> {
 }
 pub(super) fn read(storage: &Path, id: &str) -> Result<Record, String> {
     let bytes = crate::repository_plan_store::read_bounded_file(&path(storage, id)?, MAX_RECORD)?;
-    let record: Record = crate::strict_json::from_slice(&bytes)
-        .and_then(serde_json::from_value)
+    let value = crate::strict_json::from_slice(&bytes)
+        .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
+    decode_record(id, value)
+}
+
+fn decode_record(id: &str, value: serde_json::Value) -> Result<Record, String> {
+    let record: Record = serde_json::from_value(value)
         .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
     validate(&record)?;
     if record.id != id {
         return Err("The saved guide identity changed.".into());
     }
     Ok(record)
+}
+
+/// Read only the ownership fields needed to scope a saved record. Unknown
+/// fields are allowed here so an unsupported record from another repository
+/// cannot prevent this repository from reopening; the complete current schema
+/// is still required before a matching record is returned or used.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RecordScope {
+    project_id: String,
+    snapshot_id: String,
+}
+
+/// Version metadata is used only for capacity accounting. Unsupported records
+/// remain opaque and are never returned as guides or rewritten.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RecordContract {
+    schema_version: u32,
+    contract: String,
 }
 pub(super) fn exists(storage: &Path, id: &str) -> Result<bool, String> {
     match fs::symlink_metadata(path(storage, id)?) {
@@ -120,9 +145,14 @@ pub(super) fn list(storage: &Path, project: &str, snapshot: &str) -> Result<Vec<
         let Some(id) = name.strip_suffix(".json") else {
             continue;
         };
-        let record = read(storage, id)?;
-        if record.project_id == project && record.snapshot_id == snapshot {
-            records.push(record);
+        let bytes =
+            crate::repository_plan_store::read_bounded_file(&path(storage, id)?, MAX_RECORD)?;
+        let value = crate::strict_json::from_slice(&bytes)
+            .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
+        let scope: RecordScope = serde_json::from_value(value.clone())
+            .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
+        if scope.project_id == project && scope.snapshot_id == snapshot {
+            records.push(decode_record(id, value)?);
         }
     }
     Ok(records)
@@ -135,13 +165,27 @@ pub(super) fn answer_reservations(storage: &Path) -> Result<Vec<AnswerReservatio
         Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {}
         _ => return Err("Guide storage could not be checked. Existing work was preserved.".into()),
     }
-    scan(&directory)?
-        .into_iter()
-        .filter_map(|(name, _)| {
-            name.strip_suffix(".json")
-                .map(|id| read(storage, id).map(|record| answer_reservation(&record)))
-        })
-        .collect()
+    let mut reservations = Vec::new();
+    for (name, _) in scan(&directory)? {
+        let Some(id) = name.strip_suffix(".json") else {
+            continue;
+        };
+        let bytes =
+            crate::repository_plan_store::read_bounded_file(&path(storage, id)?, MAX_RECORD)?;
+        let value = crate::strict_json::from_slice(&bytes)
+            .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
+        let contract: RecordContract = serde_json::from_value(value.clone())
+            .map_err(|_| "The saved guide is damaged or incompatible. It was preserved.")?;
+        if contract.schema_version != RECORD_SCHEMA_VERSION {
+            continue;
+        }
+        if contract.contract != CONTRACT {
+            return Err("The saved repository guide has an incompatible contract.".into());
+        }
+        let record = decode_record(id, value)?;
+        reservations.push(answer_reservation(&record));
+    }
+    Ok(reservations)
 }
 
 /// Native owner explicitly releases the lease on return or unwind.

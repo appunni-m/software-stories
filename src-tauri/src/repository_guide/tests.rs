@@ -566,6 +566,57 @@ fn saved_guide_listing_recovers_interruption_without_dispatch_or_replacing_the_p
     );
     assert!(!f.storage.join("evidence-ledgers").exists());
 }
+
+#[test]
+fn an_unsupported_guide_in_another_scope_does_not_block_selected_guide_listing() {
+    let f = Fixture::new();
+    let selected = record(&f);
+    store::create(&f.storage, &selected).unwrap();
+
+    let mut unrelated = record(&f);
+    unrelated.id = Uuid::new_v4().to_string();
+    unrelated.project_id = "/another/repository".into();
+    unrelated.snapshot_id = "another-snapshot".into();
+    unrelated.schema_version = 6;
+    unrelated.contract = "repository-guide-v6-bounded-opening-continuation".into();
+    let bytes = serde_json::to_vec(&unrelated).unwrap();
+    let location = f
+        .storage
+        .join("repository-guides")
+        .join(format!("{}.json", unrelated.id));
+    std::fs::write(&location, &bytes).unwrap();
+
+    let manager = codex_agent::CodexAgentManager::default();
+    let guides = list_saved_guides(
+        &f.storage,
+        &selected.project_id,
+        &selected.snapshot_id,
+        &manager,
+    )
+    .expect("an unrelated unsupported guide must not break this repository's restore");
+    assert_eq!(guides.len(), 1);
+    assert_eq!(guides[0].id, selected.id);
+    assert_eq!(std::fs::read(&location).unwrap(), bytes);
+
+    let reservations = answer_reservations(&f.storage)
+        .expect("an unrelated unsupported guide must not block new answer capacity checks");
+    assert_eq!(reservations.len(), 1);
+    assert_eq!(reservations[0].guide_id, selected.id);
+    assert_eq!(std::fs::read(&location).unwrap(), bytes);
+
+    assert!(
+        list_saved_guides(
+            &f.storage,
+            &unrelated.project_id,
+            &unrelated.snapshot_id,
+            &manager,
+        )
+        .is_err(),
+        "the selected old guide remains unsupported"
+    );
+    assert_eq!(std::fs::read(&location).unwrap(), bytes);
+}
+
 #[test]
 fn restart_recovers_only_metadata_and_explicit_continuation_uses_saved_progress() {
     let f = Fixture::new();
