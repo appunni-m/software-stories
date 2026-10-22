@@ -623,8 +623,26 @@ and destination to have a short distinct label. It preserves the final
 fallback and does not execute model-authored JavaScript or Three.js.
 
 Prompt assertions pass; no Guide has yet qualified v22. The approved v19
-Fontdone run has published the first three of five planned topics and is
-building topic four. Its outline explicitly excludes C ABI and WASM surfaces,
-so it cannot establish full-repository coverage. Keep `j53m` open for the
-source-grounded visual, whole-repository coverage, audio and comprehension
-gates.
+Fontdone run has now published all five planned topics, but its outline still
+selects only the Rust memory-face route. It explicitly excludes C ABI and WASM
+surfaces, the public glyph-loading path and final rendered output, so it cannot
+establish full-repository coverage. Keep `j53m` open for source-grounded visual,
+whole-repository coverage, audio and comprehension gates.
+
+## v23 visual direction follow-up — 23 October 2026
+
+The user asked for the Guide to generate richer, case-specific visual
+representations rather than defaulting to blocks or graphs, including 3-D only
+where it helps. The current policy is now `ai-html-compositions-v23` /
+`meaning-first-v26`. It asks the model to begin each scene from a plain-language
+visual idea, center one focal object/relationship/consequence, use different
+semantic forms when the behavior changes, and compose the available responsive
+HTML primitives around the real source behavior. It retains the typed,
+app-owned renderer and disallows executable model markup or 3-D code; 3-D stays
+limited to source-grounded spatial behavior with a tested native renderer.
+
+Prompt-contract assertions were updated. The completed Fontdone Guide used the
+old prompt and cannot qualify v23. A separate fresh Guide is now planning in
+the rebuilt app under v23; record its actual completion, rendered scene
+variety, and scope limits here. Do not claim Guide or human visual acceptance
+from the prompt change or build alone.

@@ -47,7 +47,7 @@ and edited chapter validation apply the same composition checks. There is no
 separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
-The current prompt is story policy `ai-html-compositions-v22` and teaching
+The current prompt is story policy `ai-html-compositions-v23` and teaching
 policy `meaning-first-v26`. It asks the model to identify the source-backed
 relationship first, then make the most specific available visual form the
 focal point. It rejects scenes that would tell the same story after swapping
@@ -69,6 +69,14 @@ relationships; source links or a sequence of real calls do not by themselves
 justify one. Model output remains typed data rendered by the app; it cannot
 execute HTML, JavaScript, CSS or Three.js. A 3-D renderer is only appropriate
 for source-grounded spatial behavior when a tested app-owned renderer exists.
+Each scene now starts from a short visual idea and a focal object, relationship
+and consequence. Across a story, the model should vary forms when the code's
+behavior changes (for example, bytes, a decision fork, changed state, a mapping
+table, or an ordered path), while reusing a form only when it helps track the
+same subject. It should compose the available semantic primitives into a
+behavior-specific responsive HTML scene rather than defaulting to a generic
+block diagram. This is a generation instruction, not evidence of quality; fresh
+rendered examples still need review.
 The 12-node and 20-edge limits apply across the whole section, not once per
 scene; per-scene limits are ceilings, not targets. These prompt instructions
 and structural checks do not prove that a fresh guide teaches well; rendered
