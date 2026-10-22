@@ -287,8 +287,14 @@ model-authored JavaScript.
 
 Verification on 22 October: 708 native tests passed (18 ignored), 611 frontend
 tests passed, quality helper and corpus checks passed, and the production
-frontend build passed. Prompt metadata remains under the existing 32 KB cap.
-One approved fresh whole-repository Fontdone Guide is pending packaged-app
-validation; the older saved Guide is preserved and does not qualify this
-prompt. Human review of its scene meaning, narration, source navigation,
-accessibility and comprehension remains open.
+frontend build and unsigned macOS app/DMG builds passed. Prompt metadata remains
+under the existing 32 KB cap. One approved fresh whole-repository Fontdone
+Guide is running in the packaged app. Its opening, “Opening a face from memory,”
+uses two scenes; the selected first-format-probe scene shows input bytes,
+PCF-signature match/miss paths, and the PFR0 handoff. Its 11-second narration
+explains that a miss continues probing instead of becoming an error. Clicking
+the PCF check opened captured `src/font.rs` at `Font::memory_face` (line 4058).
+The next slide is still building, so this early result does not qualify the
+whole guide, broader visual variety, audible quality, accessibility or
+comprehension. The prior partial Guide remains saved but was marked Interrupted
+when the app was restarted for the new build. Keep `j53m` open.
