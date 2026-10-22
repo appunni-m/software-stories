@@ -268,13 +268,10 @@ error identifiers. The rejected constructor and SVG proposals also show that
 one unit can contain too many claims or evidence nodes for the 12-node section
 budget; validator repairs then consume the per-key proposal budget.
 
-Source prompts now version the visual contract as `ai-html-compositions-v16` /
-`meaning-first-v24`. Readable labels are the default; exact code values appear
-only when their literal spelling or bytes matter. Evidence keeps scene items
-clickable without showing the expression. Speech names code by role, and
-claims must include their meaningful inputs and outcomes. Guide planning
-targets eight evidence nodes and two to four claims/scenes per slide while
-retaining the native 12-node/20-edge hard limits. The active v15 run cannot
-qualify these changes. Keep visual quality, native rendering, Pocket listening
-and human comprehension open until a separately authorized v16 packaged run
-is reviewed.
+The next source prompt versions the visual contract as
+`ai-html-compositions-v17` / `meaning-first-v25`. It retains readable labels,
+literal-only values, complete input/outcome coverage and role-based speech from
+v16, and now requires selector roots to own their guarded branch groups as
+direct children. The active v15 run cannot qualify these changes. Keep visual
+quality, native rendering, Pocket listening and human comprehension open until
+a packaged v17 run is reviewed.

@@ -462,11 +462,11 @@ planned constructor sections have failed with `namedIdentifierEvidence`,
 `proposalCorrectionLimit`; the guide is continuing through independent units.
 Keep these as failure evidence, not as a full-guide pass.
 
-The next prompt iteration is `ai-html-compositions-v16` /
-`meaning-first-v24`: make readable behavior labels the default, show source
-values only when the literal itself matters, include every meaningful input
-and outcome named by a claim, and speak code identifiers by role. Source links
-remain clickable from the evidence anchor without displaying a code expression.
-The active v15 guide cannot qualify these changes; a new run requires separate
-authorization. Keep `j53m` open until the v16 scene and audio quality are
-reviewed in the packaged app.
+The next prompt iteration is `ai-html-compositions-v17` /
+`meaning-first-v25`: retain the v16 readable-label and value-coverage rules, and
+spell out the native selector tree shape after repeated proposals wrapped direct
+selector checks in rows. The selector must own its guarded branch groups as
+direct children; guard and outcomes go inside each branch. Source links remain
+clickable from evidence anchors without displaying code expressions. The active
+v15 guide cannot qualify later prompt versions. Review a fresh packaged run in
+the app before claiming quality.

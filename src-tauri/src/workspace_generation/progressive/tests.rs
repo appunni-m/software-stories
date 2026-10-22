@@ -556,7 +556,7 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v24:"));
+    assert!(instructions.contains("Teaching policy v25:"));
     assert!(instructions.contains("visible cue"));
     assert!(instructions.contains("at most two short, natural sentences"));
     assert!(instructions.starts_with(ANSWER_ROLE));
@@ -599,14 +599,17 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     let input = input(&f);
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema).unwrap();
-    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v16");
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v24");
+    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v17");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v25");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(system_instructions().contains("Selector is root for first-match/priority/fallback"));
     assert!(
-        system_instructions().contains("selectorShape requires 2+ source-ordered guarded checks")
+        system_instructions().contains(
+            "selectorShape means 2+ source-ordered branch groups directly under selector"
+        )
     );
-    assert!(system_instructions().contains("Visual design method v16:"));
+    assert!(system_instructions().contains("no row/column wrapper"));
+    assert!(system_instructions().contains("Visual design method v17:"));
     assert!(system_instructions().contains("choose one subject and question per scene"));
     assert!(
         system_instructions().contains("Across the section use 2–12 nodes and at most 20 edges")
