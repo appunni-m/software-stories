@@ -603,14 +603,28 @@ coverage or v20 visual acceptance. Keep `j53m` open.
 
 ## v21 outcome-fork follow-up — 23 October 2026
 
-The current source prompt is `ai-html-compositions-v21` / `meaning-first-v26`.
-The v21 follow-up makes mutually exclusive success and failure results a
+The v21 prompt follow-up made mutually exclusive success and failure results a
 visible fork at the operation result, so they cannot be presented as
 consecutive events. This follows the observed v19 opening: its code-backed
 outcomes were present in the scene data, but the visible viewport showed the
 preceding vertical sequence before the two destinations. The app continues to
 render typed scene data with accessible, source-linked primitives; it does not
 execute model-authored JavaScript or Three.js. Prompt assertions pass, but no
-Guide has yet qualified v21. The active v19 Fontdone run is still investigating
-its second topic; its selected plan does not cover the other language/runtime
-surfaces, so it cannot establish full-repository coverage.
+Guide has yet qualified v21.
+
+## v22 selector readability follow-up — 23 October 2026
+
+The current source prompt is `ai-html-compositions-v22` / `meaning-first-v26`.
+The v19 Fontdone run's second scene places six source-ordered probes in one
+selector and repeats the same generic scene label on each guard and
+destination. v22 caps a selector at three checks per scene, continues longer
+chains in ordered scenes with an explicit miss handoff, and requires each guard
+and destination to have a short distinct label. It preserves the final
+fallback and does not execute model-authored JavaScript or Three.js.
+
+Prompt assertions pass; no Guide has yet qualified v22. The approved v19
+Fontdone run has published the first three of five planned topics and is
+building topic four. Its outline explicitly excludes C ABI and WASM surfaces,
+so it cannot establish full-repository coverage. Keep `j53m` open for the
+source-grounded visual, whole-repository coverage, audio and comprehension
+gates.

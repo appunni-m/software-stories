@@ -47,7 +47,7 @@ and edited chapter validation apply the same composition checks. There is no
 separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
-The current prompt is story policy `ai-html-compositions-v21` and teaching
+The current prompt is story policy `ai-html-compositions-v22` and teaching
 policy `meaning-first-v26`. It asks the model to identify the source-backed
 relationship first, then make the most specific available visual form the
 focal point. It rejects scenes that would tell the same story after swapping
@@ -58,7 +58,9 @@ tables, lanes, trees, stacks, queues, byte strips, matrices, metrics, and
 graphs. Mutually exclusive success and failure outcomes fork visibly from the
 operation result instead of appearing as consecutive steps. The prompt keeps
 plain-language labels, all meaningful inputs and
-outcomes, and clickable evidence; it shows exact source values only when their
+outcomes, and clickable evidence. Ordered selectors use at most three checks
+per scene and split longer chains into consecutive scenes; every guard and
+destination gets its own short label. Exact source values appear only when their
 literal spelling or bytes matter. If the code evidence cannot support a useful
 visual, narration and source links remain valid. Adjacent scenes may keep the
 same visual identity when that helps the reader track one object; form changes
