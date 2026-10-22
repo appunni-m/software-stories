@@ -61,6 +61,13 @@
 .walkthrough-narration-script summary, .story-details summary, .dw-flow-narration summary { cursor: pointer; color: var(--muted); font-size: 12px; padding: 6px 0; }
 .story-details { margin: 0 12px; padding: 0 0 8px; }
 .story-details p { font-size: 13px; line-height: 1.7; color: var(--muted); }
+.story-details-connections { margin: 8px 0; }
+.story-details-connections h3 { margin: 0 0 6px; color: var(--muted); font-size: 11px; font-weight: 600; }
+.story-details-connections ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.story-details-connections button { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1.4fr) auto minmax(0,1fr); gap: 4px 7px; align-items: center; width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface-raised); color: var(--text); font: 12px/1.45 -apple-system, BlinkMacSystemFont, sans-serif; text-align: left; overflow-wrap: anywhere; }
+.story-details-connections button:hover, .story-details-connections button[aria-pressed="true"] { border-color: var(--accent); }
+.story-details-connections button > span:nth-child(even) { color: var(--muted); text-align: center; }
+.story-details-connections button small { grid-column: 1 / -1; color: var(--muted); font: 10px var(--mono); }
 .story-sources { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0; }
 .story-sources button { background: var(--surface-raised); border: 1px solid var(--border); padding: 6px; border-radius: 4px; font: 11px var(--mono); overflow-wrap: anywhere; text-align: left; }
 @media (max-width: 680px) { .story-stage { height: clamp(260px, 42vh, 520px); } .story-playbar { grid-template-columns: 26px minmax(0,1fr) 26px; padding-inline: 2px; } .story-toolbar { gap: 4px; } }

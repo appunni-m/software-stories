@@ -218,11 +218,16 @@ describe('visual story scenes', () => {
     assert.match(component, /onOpenNode\(node\.nodeId, sourceValue\)/u);
   });
 
-  it('renders evidence-backed relationship labels as keyboard-operable source links', () => {
+  it('renders evidence-backed relationship labels and exposes semantic source controls', () => {
     const component = readFileSync(new URL('../src/VisualStory.tsx', import.meta.url), 'utf8');
     assert.match(component, /function EvidenceStoryEdge\(/u);
     assert.match(component, /<EdgeLabelRenderer>/u);
     assert.match(component, /aria-label=\{`\$\{label\}\. Open cited source code`\}/u);
+    assert.match(component, /const sourceLinkedEdges = visibleEdges\.flatMap\(/u);
+    assert.match(component, /<div className="story-details-connections">[\s\S]*?<ul>\{sourceLinkedEdges\.map/u);
+    assert.match(component, /data-focus-key=\{`reader-visual-edge:\$\{edge\.edgeId\}:\$\{source\.anchorId\}`\}/u);
+    assert.ok(component.includes('aria-label={`${from.label} — ${edge.label} — ${to.label}. Open ${source.path}, lines ${source.startLine} through ${source.endLine}.`}'));
+    assert.match(component, /onClick=\{\(\) => chooseEdge\(edge\.edgeId\)\}/u);
     assert.match(component, /onOpenAnchor\(sourceAnchorForVisualEdge\(source, edge, targetAnchor, sourceContextAnchor\), `reader-visual-edge:/u);
     assert.match(component, /sourceAnchorForVisualNode\(sourceContext, origin, origin\.sourceValue\)/u);
     assert.match(component, /edgeTypes=\{storyEdgeTypes\}/u);

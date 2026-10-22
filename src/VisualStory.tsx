@@ -193,6 +193,12 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
       className: `${activeIds.has(node.id) ? 'story-node-active' : 'story-node-context'}${focus?.nodeId === node.id ? ' story-node-focus' : ''}`, style: { width: STORY_NODE_WIDTH } };
   }) : [];
   const visibleEdges = visual?.edges.filter((edge) => visibleIds.has(edge.fromNodeId) && visibleIds.has(edge.toNodeId)) ?? [];
+  const sourceLinkedEdges = visibleEdges.flatMap((edge) => {
+    const source = sourceEvidenceAnchorForVisualEdge(anchors, edge);
+    const from = visual?.nodes.find((node) => node.nodeId === edge.fromNodeId);
+    const to = visual?.nodes.find((node) => node.nodeId === edge.toNodeId);
+    return source && from && to ? [{ edge, source, from, to }] : [];
+  });
   const edges: StoryEdge[] = visibleEdges.map((edge, edgeIndex) => ({
     id: edge.edgeId, type: 'storyEvidence', source: edge.fromNodeId, target: edge.toNodeId,
     data: { label: edge.label, focused: focusedEdge === edge.edgeId, vertical: graphLayout?.direction === 'vertical', labelSide: edgeIndex % 2 === 0 ? 1 : -1, onOpenSource: () => chooseEdge(edge.edgeId) },
@@ -380,6 +386,17 @@ export function VisualStory({ revision, section, onOpenAnchor, onFollowHotspot, 
     <details className="story-details"><summary>Scene details & source</summary>
       {focus?.detail && <p>{focus.detail}</p>}
       {hotspot && onFollowHotspot && hotspot.destination.kind !== 'codeLens' && <button data-focus-key={`reader-hotspot:${hotspot.hotspotId}`} onClick={() => onFollowHotspot(hotspot, `reader-hotspot:${hotspot.hotspotId}`)}>{hotspot.label}<ArrowRight size={13}/></button>}
+      {sourceLinkedEdges.length > 0 && <div className="story-details-connections">
+        <h3>Connections</h3>
+        <ul>{sourceLinkedEdges.map(({ edge, source, from, to }) => <li key={edge.edgeId}>
+          <button data-focus-key={`reader-visual-edge:${edge.edgeId}:${source.anchorId}`} aria-pressed={focusedEdge === edge.edgeId}
+            aria-label={`${from.label} — ${edge.label} — ${to.label}. Open ${source.path}, lines ${source.startLine} through ${source.endLine}.`}
+            onClick={() => chooseEdge(edge.edgeId)}>
+            <span>{from.label}</span><span aria-hidden="true">→</span><span>{edge.label}</span><span aria-hidden="true">→</span><span>{to.label}</span>
+            <small>{source.path}:{source.startLine}–{source.endLine}</small>
+          </button>
+        </li>)}</ul>
+      </div>}
       <div className="story-sources">{[...new Map(anchors.filter((item) => scene.anchorIds.includes(item.anchorId)).map((item) => [item.anchorId, item])).values()].map((item) => <button key={item.anchorId} data-focus-key={`reader-citation:${item.anchorId}`} onClick={() => onOpenAnchor(item, `reader-citation:${item.anchorId}`)}>{item.path}:{item.startLine}–{item.endLine}</button>)}</div>
     </details>
     {section.prose.trim() !== section.spokenText.trim() && <details className="story-details"><summary>Section notes</summary><p>{section.prose}</p></details>}
