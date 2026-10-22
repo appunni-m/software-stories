@@ -330,6 +330,42 @@ Focused Rust prompt/fingerprint/selector tests and the 14-test browser scene
 contract suite pass. A full `cargo fmt --check` still reports a formatting
 difference in the untouched `src-tauri/src/workspace_conversation/tests.rs`;
 all individually modified Rust files pass the scoped rustfmt check. The app
-has since been rebuilt and installed with the v10 prompt; it has not yet been
-exercised by another real Guide. Keep `j53m` open until a fresh v10 result is
-reviewed for visual fit, source navigation, narration and human comprehension.
+was rebuilt and installed with the v10 prompt. The fresh Guide review and the
+follow-up prompt change are recorded below.
+
+## Fresh visual-grammar evaluation — 22 October 2026
+
+One user-approved fresh Guide started on Fontdone `main@5249b72371` with the
+installed v10 build. Its outline, “Tracing face requests to glyph outcomes,”
+has five topics and explicitly omits C ABI/WASM entry points, the complete
+rasterizer result/error handling and direct runtime linkage outside the
+captured ranges. The saved guide is at `waitingForPlayback`: four of its five
+topics have attempts, with one published section each in the opening and first
+three topics; the interpreter-failures topic published one partial section,
+and render-dispatch has not started. The first topic required one automatic
+retry. Audio quality and source-click behavior have not been reviewed.
+
+The visible representation evidence is mixed. The opening contains three
+scenes: a direct three-node call chain authored as a graph, an early-return
+guard with visible error/continue outcomes authored as a graph, and a
+`NO_RECURSE` decision authored as a composition. The SVG/bitmap routing section
+uses graph mode in all three scenes, despite those claims being an ordered
+preflight, a first image probe and a bitmap eligibility/fallback decision. The
+outline-load-strategy section is stronger: two composition scenes use selector
+groups for the ordered load-flag branches. This confirms that v10 can produce a
+useful semantic composition, but the graph fallback still dominates linear
+calls and simple decisions. When first opened, the first graph scene was blank;
+selecting that scene again made the three-node call path render. Track this as a
+first-visit graph-rendering defect separately from prompt selection.
+
+The source prompt is now `ai-html-compositions-v11` / `meaning-first-v17`. It
+defaults to built-in semantic compositions, maps direct call chains to
+timelines and single guards to branches, and reserves graph mode for genuinely
+non-linear networks such as fan-out, convergence, cross-links or cycles. It
+explicitly says that source links or real caller/callee edges alone do not
+justify a graph, and prefers `kind:none` over an empty graph when no visual
+helps. The saved v10 Guide remains available for playback. The v11 build has
+been packaged and installed, but has not been evaluated in a fresh Guide.
+Keep `j53m` open until its remaining topics, source navigation, narration and
+human comprehension are reviewed. A future v11 Guide should check the
+graph-to-timeline distinction and the first-visit rendering defect.
