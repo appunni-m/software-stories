@@ -208,7 +208,11 @@ fn checked_manifest(storage: &Path, job: &Record) -> Result<snapshot::SnapshotMa
         );
     }
     if let Some(plan) = &job.plan {
-        for range in plan.units.iter().flat_map(|u| &u.starting_ranges) {
+        for range in plan
+            .opening_ranges
+            .iter()
+            .chain(plan.units.iter().flat_map(|u| &u.starting_ranges))
+        {
             let source = context::source(storage, &manifest, &range.path)?;
             if context::range_from_source(&source, range.start_byte, range.end_byte)?.range
                 != *range
@@ -515,9 +519,9 @@ fn summary(storage: &Path, record: &Record) -> Result<GuideSummary, String> {
             .filter(|f| context::exclusion(f).is_none())
             .count(),
         starting_files: plan.map_or(0, |p| {
-            p.units
+            p.opening_ranges
                 .iter()
-                .flat_map(|u| &u.starting_ranges)
+                .chain(p.units.iter().flat_map(|u| &u.starting_ranges))
                 .map(|r| &r.path)
                 .collect::<std::collections::HashSet<_>>()
                 .len()
@@ -713,8 +717,8 @@ fn run_initial_opening(
         .plan
         .as_ref()
         .ok_or("The guide has no saved outline.")?;
-    // Reuse the outline's first nearby code locations to avoid an opening-wide rescan;
-    // the progressive request rechecks them and presents them only as research hints.
+    // Use the separately cited opening lead to avoid an opening-wide rescan;
+    // the progressive request rechecks it and treats it only as a research hint.
     let starting_ranges = opening::starting_ranges(record)?.to_vec();
     let opening = record
         .opening

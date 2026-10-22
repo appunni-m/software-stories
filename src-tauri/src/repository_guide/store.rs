@@ -345,6 +345,7 @@ fn validate(record: &Record) -> Result<(), String> {
         if !(2..=MAX_UNITS).contains(&plan.units.len())
             || record.units.len() != plan.units.len()
             || !text(&plan.title, 8, 120)
+            || (!plan.opening_ranges.is_empty() && !(1..=4).contains(&plan.opening_ranges.len()))
             || plan.omissions.len() > 8
             || plan.omissions.iter().any(|s| !text(s, 1, 240))
         {

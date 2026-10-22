@@ -2,18 +2,40 @@ use super::*;
 use crate::chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE};
 
 fn proposal() -> Value {
-    json!({"citationVersion":"nativeEvidenceV2","planVersion":"repositoryGuidePlanV1","title":"Follow the greeting journey",
-    "sections":[{"key":"input","question":"How does the incoming name enter the greeting?","prerequisites":[],"claims":[{"evidence":[{"referenceId":"code:1"}]}]},
-    {"key":"output","question":"How does the greeting turn into the returned output?","prerequisites":["input"],"claims":[{"evidence":[{"referenceId":"code:1"}]}]}],"omissions":["Runtime execution was not observed."]})
+    let mut proposal = json!({"citationVersion":"nativeEvidenceV2","planVersion":"repositoryGuidePlanV1","title":"Follow the greeting journey",
+    "sections":[
+        {"key":"opening","question":"Opening question supplied by the app?","prerequisites":[],"claims":[{"evidence":[{"referenceId":"code:1"}]}]},
+        {"key":"input","question":"How does the incoming name enter the greeting?","prerequisites":[],"claims":[{"evidence":[{"referenceId":"code:2"}]}]},
+        {"key":"output","question":"How does the greeting turn into the returned output?","prerequisites":["input"],"claims":[{"evidence":[{"referenceId":"code:3"}]}]}
+    ],"omissions":["Runtime execution was not observed."]});
+    proposal["sections"][0]["question"] = json!(opening::LEARNING_QUESTION);
+    proposal
 }
 fn resolve(value: Value) -> native_citations::Resolved {
     let f = Fixture::new();
     let source = context::source(&f.storage, &f.manifest, SIMPLE_PATH).unwrap();
-    let range = context::range_from_source(&source, 0, SIMPLE_SOURCE.len())
-        .unwrap()
-        .range;
-    match native_citations::resolve(&value.to_string(), |_| {
-        Ok(native_citations::Citation::checked(&range, &source).unwrap())
+    let first_line_end = SIMPLE_SOURCE.find('\n').unwrap() + 1;
+    let second_line_end = first_line_end + SIMPLE_SOURCE[first_line_end..].find('\n').unwrap() + 1;
+    let third_line_end = second_line_end + SIMPLE_SOURCE[second_line_end..].find('\n').unwrap() + 1;
+    let ranges = [
+        context::range_from_source(&source, 0, first_line_end)
+            .unwrap()
+            .range,
+        context::range_from_source(&source, first_line_end, second_line_end)
+            .unwrap()
+            .range,
+        context::range_from_source(&source, second_line_end, third_line_end)
+            .unwrap()
+            .range,
+    ];
+    match native_citations::resolve(&value.to_string(), |id| {
+        let range = match id {
+            "code:1" => &ranges[0],
+            "code:2" => &ranges[1],
+            "code:3" => &ranges[2],
+            _ => return Err("referenceUnavailable"),
+        };
+        Ok(native_citations::Citation::checked(range, &source).unwrap())
     }) {
         native_citations::Resolution::Ready(r) => r,
         _ => panic!("fixture references must resolve"),
@@ -23,14 +45,34 @@ fn resolve(value: Value) -> native_citations::Resolved {
 fn outline_keeps_research_questions_and_native_ranges_not_unverified_explanations() {
     let result = canonicalize(&resolve(proposal())).unwrap();
     assert_eq!(result.units.len(), 2);
+    assert_eq!(result.opening_ranges[0].start_line, 1);
     assert_eq!(result.units[0].starting_ranges[0].path, SIMPLE_PATH);
+    assert_eq!(result.units[0].starting_ranges[0].start_line, 2);
+    assert_ne!(result.opening_ranges, result.units[0].starting_ranges);
     assert_eq!(result.units[1].prerequisites, vec!["input"]);
     let encoded = serde_json::to_string(&result).unwrap();
     assert!(!encoded.contains("quote"));
     assert!(!encoded.contains(SIMPLE_SOURCE));
     let schema = schema();
-    assert_eq!(schema["properties"]["sections"]["maxItems"], 6);
+    assert_eq!(schema["properties"]["sections"]["maxItems"], 7);
+    assert_eq!(schema["properties"]["sections"]["minItems"], 3);
+    assert!(
+        schema["properties"]["sections"]["description"]
+            .as_str()
+            .unwrap()
+            .contains("Item zero is the opening range lead")
+    );
     assert!(opening::LEARNING_QUESTION.contains("entry point"));
+}
+
+#[test]
+fn saved_outlines_from_before_the_opening_range_field_still_deserialize() {
+    let plan = canonicalize(&resolve(proposal())).unwrap();
+    let mut stored = serde_json::to_value(plan).unwrap();
+    stored.as_object_mut().unwrap().remove("openingRanges");
+    let restored: Plan = serde_json::from_value(stored).unwrap();
+    assert!(restored.opening_ranges.is_empty());
+    assert_eq!(restored.units.len(), 2);
 }
 #[test]
 fn outline_rejects_cycles_duplicate_questions_extra_prose_and_unknown_fields() {
@@ -46,24 +88,39 @@ fn outline_rejects_cycles_duplicate_questions_extra_prose_and_unknown_fields() {
     ] {
         let mut p = proposal();
         match kind {
-            "cycle" => p["sections"][0]["prerequisites"] = json!(["input"]),
-            "duplicateKey" => p["sections"][1]["key"] = json!("input"),
+            "cycle" => p["sections"][1]["prerequisites"] = json!(["output"]),
+            "duplicateKey" => p["sections"][2]["key"] = json!("input"),
             "duplicateQuestion" => {
-                p["sections"][1]["question"] = p["sections"][0]["question"].clone()
+                p["sections"][2]["question"] = p["sections"][1]["question"].clone()
             }
-            "extraProse" => p["sections"][0]["claims"][0]["prose"] = json!("An unsupported fact"),
-            "forward" => p["sections"][0]["prerequisites"] = json!(["output"]),
+            "extraProse" => p["sections"][1]["claims"][0]["prose"] = json!("An unsupported fact"),
+            "forward" => p["sections"][1]["prerequisites"] = json!(["output"]),
             "notQuestion" => {
-                p["sections"][0]["question"] = json!("This is not a research question.")
+                p["sections"][1]["question"] = json!("This is not a research question.")
             }
             "extraRoot" => p["accepted"] = json!(true),
             "extraClaim" => {
-                let c = p["sections"][0]["claims"][0].clone();
-                p["sections"][0]["claims"].as_array_mut().unwrap().push(c);
+                let c = p["sections"][1]["claims"][0].clone();
+                p["sections"][1]["claims"].as_array_mut().unwrap().push(c);
             }
             _ => unreachable!(),
         }
         assert!(canonicalize(&resolve(p)).is_err(), "{kind}");
+    }
+}
+
+#[test]
+fn opening_lead_must_match_app_intent_and_cannot_be_a_follow_on_dependency() {
+    let mutations: [fn(&mut Value); 4] = [
+        |p: &mut Value| p["sections"][0]["key"] = json!("first-slide"),
+        |p: &mut Value| p["sections"][0]["question"] = json!("How does another path start?"),
+        |p: &mut Value| p["sections"][0]["prerequisites"] = json!(["input"]),
+        |p: &mut Value| p["sections"][1]["prerequisites"] = json!(["opening"]),
+    ];
+    for mutate in mutations {
+        let mut invalid = proposal();
+        mutate(&mut invalid);
+        assert!(canonicalize(&resolve(invalid)).is_err());
     }
 }
 
@@ -96,17 +153,17 @@ fn outline_rejections_report_fixed_structural_findings() {
     for (kind, expected) in cases {
         let mut p = proposal();
         match kind {
-            "invalidKey" => p["sections"][0]["key"] = json!("bad_key"),
-            "duplicateKey" => p["sections"][1]["key"] = json!("input"),
+            "invalidKey" => p["sections"][1]["key"] = json!("bad_key"),
+            "duplicateKey" => p["sections"][2]["key"] = json!("input"),
             "notQuestion" => {
-                p["sections"][0]["question"] =
+                p["sections"][1]["question"] =
                     json!("How does the incoming name enter the greeting.")
             }
             "duplicateQuestion" => {
-                p["sections"][1]["question"] = p["sections"][0]["question"].clone()
+                p["sections"][2]["question"] = p["sections"][1]["question"].clone()
             }
-            "selfPrerequisite" => p["sections"][0]["prerequisites"] = json!(["input"]),
-            "unknownPrerequisite" => p["sections"][1]["prerequisites"] = json!(["missing"]),
+            "selfPrerequisite" => p["sections"][1]["prerequisites"] = json!(["input"]),
+            "unknownPrerequisite" => p["sections"][2]["prerequisites"] = json!(["missing"]),
             _ => unreachable!(),
         }
         assert_eq!(canonicalize(&resolve(p)).unwrap_err(), expected, "{kind}");
@@ -151,8 +208,9 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
     assert_eq!(intent["guideContext"]["guideId"], r.id);
     assert_eq!(output, schema());
     assert!(output["properties"].get("openingAnswer").is_none());
-    assert!(instructions.contains("slide outline only"));
-    assert!(instructions.contains("opening slide is generated separately"));
+    assert!(instructions.contains("cited research outline only"));
+    assert!(instructions.contains("First return one opening-range lead"));
+    assert!(instructions.contains("the app authors the opening separately"));
     assert!(instructions.contains("do not call propose_answer_section"));
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
     let contract = serde_json::to_value(context_mcp::research_tools()).unwrap();
@@ -186,18 +244,19 @@ fn plan_instructions_keep_the_full_requested_scope() {
     let (_, _, _, instructions) = request(&r).unwrap();
     assert!(instructions.contains("two to six focused follow-on behavior questions"));
     assert!(instructions.contains("together with the opening cover the exact original question"));
-    assert!(instructions.contains("sections array contains follow-on slides only"));
+    assert!(instructions.contains("First return one opening-range lead"));
+    assert!(instructions.contains("key:'opening'"));
+    assert!(instructions.contains("helper that already receives a constructed object"));
     assert!(instructions.contains("unique lowercase key made only of letters, digits and hyphens"));
     assert!(instructions.contains("distinct, trimmed research question ending in '?'"));
     assert!(instructions.contains(
-        "Prerequisites are optional and may name only unique keys from earlier sections"
+        "Follow-on prerequisites are optional and may name only unique keys from earlier follow-on sections"
     ));
     assert!(
-        instructions.contains(
-            "Never name the separate opening slide, the current section or a later section"
-        )
+        instructions
+            .contains("Never name the opening lead, the current section or a later section")
     );
-    assert!(instructions.contains("unsupported boundaries as omissions"));
+    assert!(instructions.contains("unsupported stages as omissions"));
     assert!(!instructions.contains("Publish one small, complete, illustrated section"));
     assert!(instructions.contains(RESEARCH_INSTRUCTIONS));
     assert!(
@@ -206,6 +265,14 @@ fn plan_instructions_keep_the_full_requested_scope() {
     );
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("at least two relevant source files")
+    );
+    assert!(
+        agent_context::RESEARCH_BASE_INSTRUCTIONS
+            .contains("do not treat a helper that already receives a parsed request")
+    );
+    assert!(
+        agent_context::RESEARCH_BASE_INSTRUCTIONS
+            .contains("caller-controlled boundary supported by this repository")
     );
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("name that boundary as an omission")

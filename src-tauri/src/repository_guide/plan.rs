@@ -6,12 +6,14 @@ use crate::{agent_context, context_mcp, native_citations};
 use serde_json::{Value, json};
 use std::time::Instant;
 
-const PLAN_INSTRUCTIONS: &str = "Create the guide's cited slide outline only. The opening slide is generated separately after this outline is saved, so the sections array contains follow-on slides only. Return two to six focused follow-on behavior questions that together with the opening cover the exact original question. The first follow-on starts immediately after the opening entry-point transition; continue in repository execution order through the main behavior and important alternate or failure paths. Every section needs a unique lowercase key made only of letters, digits and hyphens; one distinct, trimmed research question ending in '?'; and exactly one claim citing one to four delivered code references relevant to that question. Prerequisites are optional and may name only unique keys from earlier sections in this array. Never name the separate opening slide, the current section or a later section as a prerequisite. Keep units small enough for one independently bounded investigation each. Use delivered source references only as starting-range hints; do not write explanations, narration or slide content, and do not call propose_answer_section. Name unsupported boundaries as omissions. Return only the supplied plan schema.";
+const PLAN_INSTRUCTIONS: &str = "Create the guide's cited research outline only. First return one opening-range lead: key:'opening', question exactly equal to the app-provided openingQuestion, no prerequisites, and one claim citing one to four delivered code references for the real outermost input boundary of the selected behavior. This is a range lead, not a follow-on slide; the app authors the opening separately. Then return two to six focused follow-on behavior questions that together with the opening cover the exact original question. The first follow-on starts immediately after the opening entry-point transition; continue in repository execution order through the main behavior, output and important alternate or failure paths. For repository/project/whole/end-to-end questions, do not mistake an internal helper that already receives a constructed object or completed state for the repository entry point. Locate the actual public/exported API, command/main, server route, FFI/WASM boundary or other caller-controlled input as supported by this repository; trace one representative path from that input through the useful result and failures. Name other materially different entry points or unsupported stages as omissions instead of implying full coverage. Every item needs a unique lowercase key made only of letters, digits and hyphens; one distinct, trimmed research question ending in '?'; and exactly one claim citing one to four delivered code references relevant to that item. Follow-on prerequisites are optional and may name only unique keys from earlier follow-on sections. Never name the opening lead, the current section or a later section as a prerequisite. Keep units small enough for one independently bounded investigation each. Use delivered source references only as starting-range hints; do not write explanations, narration or slide content, and do not call propose_answer_section. Return only the supplied plan schema.";
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct Plan {
     pub title: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub opening_ranges: Vec<context::CodeRange>,
     pub units: Vec<UnitPlan>,
     pub omissions: Vec<String>,
 }
@@ -64,7 +66,7 @@ pub(super) fn schema() -> Value {
         "citationVersion":{"type":"string","enum":["nativeEvidenceV2"]},
         "planVersion":{"type":"string","enum":["repositoryGuidePlanV1"]},
         "title":{"type":"string","minLength":8,"maxLength":120},
-        "sections":{"type":"array","minItems":2,"maxItems":MAX_UNITS,"items":{
+      "sections":{"type":"array","minItems":3,"maxItems":MAX_UNITS + 1,"description":"Item zero is the opening range lead; the remaining two to six items are follow-on slides.","items":{
           "type":"object","additionalProperties":false,"required":["key","question","prerequisites","claims"],"properties":{
             "key":{"type":"string","maxLength":80},"question":{"type":"string","minLength":16,"maxLength":800},
             "prerequisites":{"type":"array","maxItems":5,"items":{"type":"string","maxLength":80}},
@@ -72,21 +74,74 @@ pub(super) fn schema() -> Value {
         "omissions":{"type":"array","maxItems":8,"items":{"type":"string","maxLength":240}}}})
 }
 
+fn starting_ranges(
+    resolved: &native_citations::Resolved,
+    section_index: usize,
+    claim: &StartingClaim,
+) -> Result<Vec<context::CodeRange>, String> {
+    if !(1..=4).contains(&claim.evidence.len()) {
+        return Err(
+            "Each guide outline item must cite one to four delivered code references.".into(),
+        );
+    }
+    let spans = resolved
+        .claim_spans(section_index, 0)
+        .ok_or("Guide starting evidence is missing.")?;
+    if spans.len() != claim.evidence.len() {
+        return Err("Guide evidence changed.".into());
+    }
+    let mut ranges = Vec::new();
+    for (span, evidence) in spans.iter().zip(&claim.evidence) {
+        if span.range().path != evidence.path || evidence.quote.is_empty() {
+            return Err("Guide evidence changed.".into());
+        }
+        if ranges.contains(span.range()) {
+            return Err("Guide outline evidence references must be distinct.".into());
+        }
+        ranges.push(span.range().clone());
+    }
+    Ok(ranges)
+}
+
 fn canonicalize(resolved: &native_citations::Resolved) -> Result<Plan, String> {
     let proposal: Proposal = serde_json::from_str(resolved.text())
         .map_err(|_| "The guide outline has an invalid structure.")?;
     if proposal.plan_version != "repositoryGuidePlanV1"
         || !text(&proposal.title, 8, 120)
-        || !(2..=MAX_UNITS).contains(&proposal.sections.len())
+        || !(3..=MAX_UNITS + 1).contains(&proposal.sections.len())
         || proposal.omissions.len() > 8
         || proposal.omissions.iter().any(|s| !text(s, 1, 240))
     {
         return Err("The guide outline exceeds its fixed limits.".into());
     }
+
+    let mut proposed_sections = proposal.sections.into_iter();
+    let opening = proposed_sections
+        .next()
+        .ok_or("The guide outline has no opening range lead.")?;
+    if opening.key != "opening"
+        || opening.question != opening::LEARNING_QUESTION
+        || !opening.prerequisites.is_empty()
+        || opening.claims.len() != 1
+    {
+        return Err(
+            "The first guide outline item must be the app-scoped opening range lead.".into(),
+        );
+    }
+    let opening_ranges = starting_ranges(resolved, 0, &opening.claims[0])?;
+    let follow_on_sections: Vec<_> = proposed_sections.collect();
+    if !(2..=MAX_UNITS).contains(&follow_on_sections.len()) {
+        return Err("The guide needs two to six follow-on sections after its opening lead.".into());
+    }
     let mut units = Vec::new();
     let mut keys = std::collections::HashSet::new();
-    let mut questions = std::collections::HashSet::new();
-    for (index, unit) in proposal.sections.into_iter().enumerate() {
+    let mut questions = std::collections::HashSet::from([opening.question.to_lowercase()]);
+    for (index, unit) in follow_on_sections.into_iter().enumerate() {
+        if unit.key == "opening" {
+            return Err(
+                "Follow-on guide section keys must be unique and may not use the reserved opening key.".into(),
+            );
+        }
         if !key(&unit.key) {
             return Err(
                 "Guide section keys must use only lowercase letters, digits, and hyphens.".into(),
@@ -125,27 +180,7 @@ fn canonicalize(resolved: &native_citations::Resolved) -> Result<Plan, String> {
         if unit.claims.len() != 1 {
             return Err("Each guide section must contain exactly one evidence claim.".into());
         }
-        if !(1..=4).contains(&unit.claims[0].evidence.len()) {
-            return Err(
-                "Each guide section must cite one to four delivered code references.".into(),
-            );
-        }
-        let spans = resolved
-            .claim_spans(index, 0)
-            .ok_or("Guide starting evidence is missing.")?;
-        if spans.len() != unit.claims[0].evidence.len() {
-            return Err("Guide evidence changed.".into());
-        }
-        let mut ranges = Vec::new();
-        for (span, evidence) in spans.iter().zip(&unit.claims[0].evidence) {
-            // Resolved JSON is native-only; still compare it with its trusted span.
-            if span.range().path != evidence.path || evidence.quote.is_empty() {
-                return Err("Guide evidence changed.".into());
-            }
-            if !ranges.contains(span.range()) {
-                ranges.push(span.range().clone());
-            }
-        }
+        let ranges = starting_ranges(resolved, index + 1, &unit.claims[0])?;
         keys.insert(unit.key.clone());
         units.push(UnitPlan {
             key: unit.key,
@@ -156,6 +191,7 @@ fn canonicalize(resolved: &native_citations::Resolved) -> Result<Plan, String> {
     }
     Ok(Plan {
         title: proposal.title,
+        opening_ranges,
         units,
         omissions: proposal.omissions,
     })

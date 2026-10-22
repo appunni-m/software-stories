@@ -99,7 +99,7 @@ An evidence item contains only a selected captured `path` and an exact `quote`. 
 A section can propose a bounded `visual` (`none`, `dataFlow`, `sequence`, or `hierarchy`). Current generation schemas require each node/edge's evidence to contain references such as `{"claimIndex":0,"evidenceIndex":0}`. Both indexes are zero-based within that same section's claims and their evidence arrays. The app validates the claims first, resolves existing references to exact anchors, then constructs diagram and source-link IDs. Missing or duplicate references, foreign fields, malformed indexes and invalid graph edges reject the proposal. A reference does not establish that a diagram's semantic interpretation is correct; content review remains necessary. Legacy visual proposals using exact `{path, quote}` items remain readable with their original strict claim-attachment checks. Stored visual schema and anchor destinations are unchanged.
 
 Fresh file chapters, repository overviews and single-section repairs request
-`presentation`, either `null` for no composition or a version-2
+`presentation`, either `null` for no composition or a version-3 narrated
 [visual scene composition](VISUAL_SCENES.md). The prompt identities are
 `structured-file-chapter-v5`, `structured-repository-overview-v5` and
 `structured-single-section-update-v3`. The shared context builder supplies this
@@ -109,8 +109,8 @@ historical identities.
 
 Ordinary and progressive requests share the current scene and teaching
 instructions. Progressive contracts fingerprint
-`storyPolicy: "ai-html-compositions-v11"`,
-`teachingPolicy: "meaning-first-v17"`, and the exact composed instructions
+`storyPolicy: "ai-html-compositions-v12"`,
+`teachingPolicy: "meaning-first-v18"`, and the exact composed instructions
 without changing stored checkpoint identities or replaying generation. A
 fingerprint change applies to future requests; it does not rewrite saved guides.
 These are generation instructions, not semantic acceptance.

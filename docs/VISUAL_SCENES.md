@@ -47,19 +47,18 @@ and edited chapter validation apply the same composition checks. There is no
 separate generated speech paraphrase that could lose an important condition.
 The reader independently checks the stored presentation before rendering.
 
-The current prompt is story policy `ai-html-compositions-v11` and teaching
-policy `meaning-first-v17`. It defaults to a semantic composition when one fits:
-direct calls and ordered execution use a timeline, one predicate uses a branch,
-sequential early-return guard chains use a source-ordered selector, and
-mode-to-handler dispatch uses a table. Graph mode is reserved for genuinely
-non-linear relationship networks; source links or a sequence of real calls do
-not by themselves justify a graph. The 12-node and 20-edge limits apply across
-the whole section, not once per scene; per-scene limits are ceilings, not
-targets. The app returns the same safe bounds in correction feedback. The
-prompt also asks for useful examples, natural meaning-first speech, and forms
-that change with the behavior. These instructions and structural checks do not
-prove that a fresh guide teaches well; rendered quality still needs human
-review.
+The current prompt is story policy `ai-html-compositions-v12` and teaching
+policy `meaning-first-v18`. It first identifies whether a reader needs to see
+order, a decision, a changed value or state, ownership, spatial data, or a
+relationship network, then maps that need to a semantic renderer: timelines,
+branches, selectors, transforms, before/after states, tables, lanes, trees,
+stacks, queues, byte strips, matrices, metrics, or graphs. The prompt explicitly
+steers away from generic rows and card grids. A graph is reserved for genuinely
+non-linear relationships; source links or a sequence of real calls do not by
+themselves justify one. The 12-node and 20-edge limits apply across the whole
+section, not once per scene; per-scene limits are ceilings, not targets. These
+instructions and structural checks do not prove that a fresh guide teaches
+well; rendered quality still needs human review.
 
 This is a compositional HTML contract, not permission to run model-produced
 programs. React owns the tags, CSS, keyboard handlers and source actions. Model
@@ -71,7 +70,9 @@ This mechanical check does not prove that an illustration accurately teaches
 the behavior; semantic and comprehension review remain necessary. Scenes use the
 app's bounded 2-D renderers; model-authored JavaScript or Three.js is not run.
 3-D remains a future app-owned renderer option only when depth explains a real
-spatial behavior more clearly than a 2-D form.
+spatial behavior more clearly than a 2-D form. The model cannot return executable
+JavaScript or Three.js; a useful 2-D cross-section is allowed only when it
+preserves the behavior being explained.
 
 ### Stored shape
 

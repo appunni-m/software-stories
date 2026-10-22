@@ -28,6 +28,7 @@ pub(super) fn record(f: &Fixture) -> Record {
         consumed_slide_revisions: vec![],
         plan: Some(Plan {
             title: "A grounded repository guide".into(),
+            opening_ranges: vec![range.clone()],
             units: vec![
                 plan::UnitPlan {
                     key: "input".into(),
@@ -529,6 +530,9 @@ fn guide_reopens_without_research_and_source_scope_is_revalidated() {
     assert!(checked_manifest(&f.storage, &changed).is_err());
     changed = record.clone();
     changed.plan.as_mut().unwrap().units[0].starting_ranges[0].start_byte += 1;
+    assert!(checked_manifest(&f.storage, &changed).is_err());
+    changed = record.clone();
+    changed.plan.as_mut().unwrap().opening_ranges[0].start_byte += 1;
     assert!(checked_manifest(&f.storage, &changed).is_err());
 }
 

@@ -556,7 +556,7 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v17:"));
+    assert!(instructions.contains("Teaching policy v18:"));
     assert!(instructions.contains("visible cue"));
     assert!(instructions.contains("at most two short, natural sentences per scene"));
     assert!(instructions.starts_with(ANSWER_ROLE));
@@ -570,11 +570,11 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.contains("open with the problem and a useful input-to-result example"));
     assert!(instructions.contains("use at most one code element in a scene"));
     assert!(instructions.contains("Choose by behavior; prefer mode:composition"));
-    assert!(instructions.contains("Never graph a simple sequence, guard or selector"));
-    assert!(instructions.contains("Ordered work and direct call chains→timeline"));
-    assert!(instructions.contains("Graph only for non-linear networks"));
+    assert!(instructions.contains("calls/source links alone do not justify one"));
+    assert!(instructions.contains("Order/calls/loops → timeline"));
+    assert!(instructions.contains("fan-out, convergence, cycles or cross-links"));
     assert!(instructions.contains("whole section has at most 12 visual nodes and 20 edges"));
-    assert!(instructions.contains("No generated HTML/CSS/JS/URLs/handlers"));
+    assert!(instructions.contains("Only fixed accessible app HTML is supported"));
     assert!(instructions.contains("give each outcome its own accurately named node or table row"));
     assert!(instructions.contains("Narration guides the reader through the visible cue"));
     assert!(instructions.contains("state the general decision rule"));
@@ -602,8 +602,8 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     let input = input(&f);
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema).unwrap();
-    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v11");
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v17");
+    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v12");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v18");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(
         system_instructions()
@@ -716,7 +716,8 @@ fn every_workspace_code_investigation_uses_a_user_controlled_runtime() {
 fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     let instructions = system_instructions();
     assert!(instructions.contains("Choose by behavior; prefer mode:composition"));
-    assert!(instructions.contains("data change→input/operation/result"));
+    assert!(instructions.contains("Changed value → transform"));
+    assert!(instructions.contains("changed state → beforeAfter"));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
     assert!(
         instructions.contains(

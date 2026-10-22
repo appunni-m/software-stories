@@ -1,5 +1,8 @@
 use super::*;
-use crate::{chapter_generation::tests::Fixture, repository_guide::tests::record};
+use crate::{
+    chapter_generation::tests::{Fixture, SIMPLE_PATH, SIMPLE_SOURCE},
+    repository_guide::tests::record,
+};
 use serde_json::Value;
 
 pub(in crate::repository_guide) fn pending(f: &Fixture) -> Record {
@@ -38,13 +41,32 @@ fn start_opening(r: &Record, f: &Fixture) -> Record {
 }
 
 #[test]
-fn opening_uses_the_first_planned_slide_ranges_as_research_hints() {
+fn opening_uses_its_own_entry_range_instead_of_the_follow_on_slide_ranges() {
     let f = Fixture::new();
-    let r = planned(&f);
-    let planned_ranges = r.plan.as_ref().unwrap().units[0].starting_ranges.as_slice();
+    let source = context::source(&f.storage, &f.manifest, SIMPLE_PATH).unwrap();
+    let first_line_end = SIMPLE_SOURCE.find('\n').unwrap() + 1;
+    let opening_range = context::range_from_source(&source, 0, first_line_end)
+        .unwrap()
+        .range;
+    let follow_on_range = context::range_from_source(&source, first_line_end, SIMPLE_SOURCE.len())
+        .unwrap()
+        .range;
+    let mut r = planned(&f);
+    r.plan.as_mut().unwrap().opening_ranges = vec![opening_range.clone()];
+    r.plan.as_mut().unwrap().units[0].starting_ranges = vec![follow_on_range.clone()];
     let opening_ranges = starting_ranges(&r).unwrap();
-    assert_eq!(opening_ranges, planned_ranges);
+    assert_eq!(opening_ranges, &[opening_range]);
+    assert_ne!(opening_ranges, &[follow_on_range]);
     assert!(starting_ranges(&pending(&f)).is_err());
+}
+
+#[test]
+fn an_existing_outline_without_opening_ranges_retains_its_previous_lead() {
+    let f = Fixture::new();
+    let mut r = planned(&f);
+    r.plan.as_mut().unwrap().opening_ranges.clear();
+    let prior_first_unit = r.plan.as_ref().unwrap().units[0].starting_ranges.clone();
+    assert_eq!(starting_ranges(&r).unwrap(), prior_first_unit);
 }
 
 #[test]
