@@ -84,7 +84,7 @@ Chapter and range/Git validation now run on the blocking pool. Cloned chapter-pr
 
 ## Done evidence and exclusions
 
-Attach exact commit/build fingerprint, native package/platform/toolchain/runtime versions, account/product permission, configuration/operation matrix, real outcomes, source/visual/narrative validation limits and user workflow review. No tests, builds, app launches, Node/SDK/CLI probes, logins or model requests ran for this source change. Automatic Claude cells remain Missing. Do not close this task from source alone, reimplement an agent loop, extract credentials or present a cost limit as guaranteed free usage.
+Attach exact commit/build fingerprint, native package/platform/toolchain/runtime versions, account/product permission, configuration/operation matrix, real outcomes, source/visual/narrative validation limits and user workflow review. No tests, builds, app launches, Node/SDK/CLI probes, logins or model requests ran for this source change. Automatic Claude cells remain Missing. Do not close this task from source alone, reimplement an agent loop, extract credentials or describe variable provider costs as zero or capped without a supporting vendor commitment.
 
 
 ## Exact recovery source checkpoint

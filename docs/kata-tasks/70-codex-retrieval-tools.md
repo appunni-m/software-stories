@@ -111,7 +111,7 @@ The complete native suite passed **286 tests** with eleven explicit probes ignor
 
 The first synthetic probe reached correction but failed independent section-content validation; its test prompt omitted the production prompt's prose/narration requirements. Its [separate failure](../acceptance/artifacts/2026-10-17-codex-owned-correction-incomplete-test-prompt.json) is preserved. The test now saves failures and candidates before temporary-fixture cleanup. No production source or validator was weakened to make the corrected synthetic case pass. The successful second probe had no concurrent build; these small synthetic timings are not a Fontdone speed benchmark.
 
-The broad Fontdone failure remains a failed historical run. It has not been replayed to obtain this correction evidence. Full broad narrative, attached-function, useful partial, semantic/speech, lifecycle and packaged-generation matrices stay open. The updated debug bundle was installed to qualify saved-reading navigation separately; it is not a signed release or proof of a complete production-ready guide.
+The broad Fontdone failure remains a failed historical run. It has not been replayed to obtain this correction evidence. Full broad narrative, attached-function, useful partial, semantic/speech, lifecycle and packaged-generation matrices stay open. The updated debug bundle was installed to qualify saved-reading navigation separately; it is not a signed release and does not qualify a complete project guide for general use.
 
 
 ## Exact-quote correction checkpoint — 17 October

@@ -80,3 +80,13 @@ Guide reader progress now stores the selected node and edge alongside the existi
 **Source verification:** `node --experimental-strip-types --test tests/visualStory.test.mjs tests/reader-progress.test.mjs` passes **56/56**; `npm run build` and `git diff --check` pass. The state regression covers workspace serialization and restoration of the focused node and edge, and malformed optional focus metadata does not discard saved narration position.
 
 **Still open:** packaged-app recheck of Guide → another activity → Guide and after restart, plus the broader navigation, viewport, revision-fallback, corrupt-state and accessibility matrix above. This source/build check does not close `erzc`.
+
+## Native malformed reader-position recovery — 23 October 2026
+
+Native conversation loading now drops malformed optional scroll and section-bookmark entries in memory while retaining valid entries. It applies to Guide/Flow bookmarks, per-view scroll offsets and per-answer-version bookmarks. It does not alter saved answer content or durable bytes; reopening the conversation does not rewrite the journal. Required conversation fields and ownership checks remain strict.
+
+**Source verification:** `cargo test --manifest-path src-tauri/Cargo.toml --lib workspace_conversation::tests` passes **21/21**. The new regression injects malformed Guide/Flow/history bookmarks and scroll offsets into an otherwise valid saved record, then verifies that valid reading positions and the answer survive while the on-disk bytes remain unchanged.
+
+The combined locked native library suite then passes **720 tests, 0 failed, 18 explicitly ignored**.
+
+**Still open:** the complete packaged navigation and accessibility matrix above, including malformed state through the installed app. This focused native regression does not close `erzc`.

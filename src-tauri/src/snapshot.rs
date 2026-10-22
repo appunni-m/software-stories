@@ -946,7 +946,24 @@ fn git_optional(
 ) -> Result<Option<String>, CaptureError> {
     let output = git_output(root, args, cancel, operation_deadline, None)?;
     if !output.status.success() {
-        return Ok(None);
+        if output.status.code() == Some(1) {
+            // Detached HEAD and an unborn repository are expected absences for
+            // the two metadata commands used by git_change_state.
+            return Ok(None);
+        }
+        let stderr = String::from_utf8_lossy(&output.stderr).to_lowercase();
+        if stderr.contains("permission denied") || stderr.contains("operation not permitted") {
+            return Err(CaptureError::Failed(
+                "macOS denied access to Git metadata for this folder.".to_owned(),
+            ));
+        }
+        return Err(CaptureError::Failed(format!(
+            "Git returned an unexpected exit status while reading repository metadata (code {}).",
+            output
+                .status
+                .code()
+                .map_or_else(|| "signal".to_owned(), |code| code.to_string())
+        )));
     }
     let value = String::from_utf8_lossy(&output.stdout).trim().to_owned();
     Ok((!value.is_empty()).then_some(value))
@@ -973,7 +990,7 @@ fn git_change_state(
     )?;
     let head = git_optional(
         root,
-        &["rev-parse", "--verify", "HEAD"],
+        &["rev-parse", "--verify", "--quiet", "HEAD"],
         cancel,
         operation_deadline,
     )?;
@@ -3113,6 +3130,89 @@ mod tests {
         );
         assert_eq!(fs::read(repository.join(".git/HEAD")).unwrap(), head_before);
         assert_eq!(git(&repository, &["show-ref"]).stdout, refs_before);
+    }
+
+    #[test]
+    fn detached_and_unborn_snapshot_metadata_are_legitimate_absences() {
+        let temporary = TestDirectory::new("optional-git-metadata");
+        let unborn = temporary.path().join("unborn");
+        fs::create_dir_all(&unborn).unwrap();
+        assert!(
+            git(&unborn, &["init", "--quiet", "--initial-branch=main"])
+                .status
+                .success()
+        );
+        let (branch, head, _, _) = git_change_state(
+            &unborn,
+            &AtomicBool::new(false),
+            Instant::now() + Duration::from_secs(5),
+        )
+        .unwrap();
+        assert_eq!(branch.as_deref(), Some("main"));
+        assert_eq!(head, None);
+
+        let detached = temporary.path().join("detached");
+        create_repository(&detached, &[("source.rs", b"fn captured() {}\n")]);
+        assert!(
+            git(&detached, &["checkout", "--detach", "--quiet", "HEAD"])
+                .status
+                .success()
+        );
+        let (branch, head, _, _) = git_change_state(
+            &detached,
+            &AtomicBool::new(false),
+            Instant::now() + Duration::from_secs(5),
+        )
+        .unwrap();
+        assert_eq!(branch, None);
+        assert!(head.is_some());
+    }
+
+    #[test]
+    fn unexpected_branch_metadata_exit_fails_capture_and_preserves_snapshot_history() {
+        let temporary = TestDirectory::new("unexpected-branch-status");
+        let repository = temporary.path().join("repository");
+        create_repository(&repository, &[("source.rs", b"fn captured() {}\n")]);
+        let project = project(&repository);
+        let storage = temporary.path().join("app-data");
+        let previous = default_capture(&storage, &project);
+        let history_before = list_project_snapshots(&storage, &project.project_id).unwrap();
+        let index_before = fs::read(repository.join(".git/index")).unwrap();
+        let branch_path = repository.join(".git/refs/heads/main");
+        assert!(
+            branch_path.is_file(),
+            "fixture branch should be a loose ref"
+        );
+        fs::write(&branch_path, "PRIVATE_BRANCH_METADATA_MARKER\n").unwrap();
+        let damaged_branch = fs::read(&branch_path).unwrap();
+
+        let error = capture_with_limits(
+            &storage,
+            &project,
+            CaptureLimits::default(),
+            &AtomicBool::new(false),
+        )
+        .unwrap_err();
+
+        assert!(matches!(
+            error,
+            CaptureError::Failed(ref message) if message.contains("unexpected exit status")
+        ));
+        assert!(!format_capture_error(&error).contains("PRIVATE_BRANCH_METADATA_MARKER"));
+        assert_eq!(
+            list_project_snapshots(&storage, &project.project_id).unwrap(),
+            history_before
+        );
+        assert_eq!(
+            load_snapshot_manifest(&storage, &project.project_id, &previous.summary.snapshot_id)
+                .unwrap(),
+            previous
+        );
+        assert_eq!(
+            fs::read(repository.join(".git/index")).unwrap(),
+            index_before
+        );
+        assert_eq!(fs::read(&branch_path).unwrap(), damaged_branch);
     }
 
     #[cfg(unix)]

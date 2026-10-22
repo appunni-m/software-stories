@@ -355,7 +355,7 @@ fn inspect_project_cancellable(
     )?;
     let head = git_optional(
         &canonical_root,
-        &["rev-parse", "--verify", "HEAD"],
+        &["rev-parse", "--verify", "--quiet", "HEAD"],
         operation_deadline,
         cancelled,
     )?;
@@ -488,7 +488,28 @@ fn git_optional(
 ) -> Result<Option<String>, InspectionError> {
     let output = git_output_with_cancel(path, args, operation_deadline, Some(cancelled))?;
     if !output.status.success() {
-        return Ok(None);
+        if output.status.code() == Some(1) {
+            // `symbolic-ref --quiet` uses 1 for detached HEAD, while
+            // `rev-parse --verify --quiet HEAD` uses it for an unborn repo.
+            return Ok(None);
+        }
+        let stderr = String::from_utf8_lossy(&output.stderr).to_lowercase();
+        if stderr.contains("permission denied") || stderr.contains("operation not permitted") {
+            return Err(InspectionError::PermissionDenied {
+                path: path.display().to_string(),
+                message: "macOS denied access to Git metadata for this folder.".to_owned(),
+            });
+        }
+        return Err(InspectionError::GitError {
+            path: path.display().to_string(),
+            message: format!(
+                "Git returned an unexpected exit status while reading repository metadata (code {}).",
+                output
+                    .status
+                    .code()
+                    .map_or_else(|| "signal".to_owned(), |code| code.to_string())
+            ),
+        });
     }
     let value = String::from_utf8_lossy(&output.stdout).trim().to_owned();
     Ok((!value.is_empty()).then_some(value))
@@ -1026,6 +1047,74 @@ mod tests {
             fs::read_to_string(source).unwrap(),
             "pub fn answer() -> u8 { 42 }\n"
         );
+    }
+
+    #[test]
+    fn detached_and_unborn_repository_metadata_are_legitimate_absences() {
+        let temporary = TestDirectory::new("optional-git-metadata");
+        let unborn = temporary.path().join("unborn");
+        fs::create_dir_all(&unborn).unwrap();
+        let init = git(&unborn, &["init", "--quiet", "--initial-branch=main"]);
+        assert!(
+            init.status.success(),
+            "git init should create an unborn repo"
+        );
+
+        let unborn_project = inspect_project(unborn.to_str().unwrap()).unwrap();
+        assert_eq!(unborn_project.branch.as_deref(), Some("main"));
+        assert_eq!(unborn_project.head, None);
+
+        let detached = temporary.path().join("detached");
+        create_repository(&detached);
+        let checkout = git(&detached, &["checkout", "--detach", "--quiet", "HEAD"]);
+        assert!(checkout.status.success(), "fixture should detach HEAD");
+
+        let detached_project = inspect_project(detached.to_str().unwrap()).unwrap();
+        assert_eq!(detached_project.branch, None);
+        assert!(detached_project.head.is_some());
+    }
+
+    #[test]
+    fn unexpected_branch_metadata_exit_does_not_open_project_or_change_recents() {
+        let temporary = TestDirectory::new("unexpected-branch-status");
+        let repository = temporary.path().join("repository");
+        let storage = temporary.path().join("app-data");
+        create_repository(&repository);
+        let opened = inspect_and_record_project(
+            &storage,
+            repository.to_str().expect("fixture path should be UTF-8"),
+        );
+        assert_eq!(opened.status, ProjectOpenStatus::Opened);
+        let recents_path = recent_projects_path(&storage);
+        let recents_before = fs::read(&recents_path).expect("recent projects are saved");
+
+        let branch_path = repository.join(".git/refs/heads/main");
+        assert!(
+            branch_path.is_file(),
+            "fixture branch should be a loose ref"
+        );
+        fs::write(&branch_path, "PRIVATE_BRANCH_METADATA_MARKER\n").unwrap();
+        let damaged_branch = fs::read(&branch_path).unwrap();
+        let result = inspect_and_record_project(
+            &storage,
+            repository.to_str().expect("fixture path should be UTF-8"),
+        );
+
+        assert_eq!(result.status, ProjectOpenStatus::GitError);
+        assert!(result.project.is_none());
+        assert!(
+            result
+                .message
+                .as_deref()
+                .is_some_and(|message| message.contains("unexpected exit status"))
+        );
+        assert!(
+            !serde_json::to_string(&result)
+                .unwrap()
+                .contains("PRIVATE_BRANCH_METADATA_MARKER")
+        );
+        assert_eq!(fs::read(&recents_path).unwrap(), recents_before);
+        assert_eq!(fs::read(&branch_path).unwrap(), damaged_branch);
     }
 
     #[test]

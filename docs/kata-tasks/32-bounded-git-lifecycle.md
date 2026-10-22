@@ -61,6 +61,16 @@ The current production Git call sites found by source search are routed through 
 
 The 16 October list above described what was still pending at that checkpoint; the inherited-pipe, blocked-stdin, output-cap, concurrent-stream, cancellation, and EOF/nonzero fixtures have since been added and pass. Local revision comparison now exposes **Stop comparison** and sends a request-scoped cancellation to the native runner; controller and native cancellation tests exist. Remaining acceptance is the packaged app-facing cancellation/status and snapshot/result-preservation matrix, plus timeout/cancellation with no orphan process or pipe. Keep this issue open until those boundaries are observed.
 
+## Optional repository metadata exit handling — 23 October 2026
+
+Project inspection and snapshot capture now accept exit code 1 only for the optional branch/HEAD probes, where it represents a detached HEAD or an unborn repository. Any other nonzero exit becomes a bounded Git error; it can no longer be mistaken for missing metadata and reported as an opened project or clean snapshot state. `rev-parse --verify --quiet HEAD` suppresses expected unborn-HEAD diagnostics. Permission failures receive a stable, non-sensitive message.
+
+**Source verification:** `cargo test --manifest-path src-tauri/Cargo.toml --lib project::tests` passes **14/14**; `cargo test --manifest-path src-tauri/Cargo.toml --lib snapshot::tests` passes **21/21**. The new caller-boundary regressions corrupt a disposable loose branch ref and verify that project opening returns an error without changing Recents, and that snapshot capture fails without changing saved history or rewriting the repository metadata. Separate regressions confirm detached and unborn states remain valid. `docs/SECURITY_VALIDATION.md` now includes the actual history-command bounds and current comparison Stop behavior.
+
+The combined locked native library suite then passes **720 tests, 0 failed, 18 explicitly ignored**.
+
+**Still open:** packaged cancellation/status and preservation matrix, including no-orphan behavior across all Git phases. These native source tests do not close `kghr`.
+
 ## Cancellation-path verification — 2026-10-21
 
 Reran the focused local-comparison cancellation boundaries on the current source:

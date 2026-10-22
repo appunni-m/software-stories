@@ -258,6 +258,59 @@ fn opening_stale_reader_positions_preserves_the_conversation_and_record_bytes() 
 }
 
 #[test]
+fn opening_malformed_bookmark_and_scroll_positions_preserves_the_answer_and_record_bytes() {
+    let f = Fixture::new();
+    let mut original = presentation_state();
+    original["explorations"][0]["turns"][0]["answerVersions"] = json!([
+        {"originalRevisionId":"revision-one","revisionId":"revision:accepted","selected":true,"reading":{"guide":"section:two","flow":"section:three"}}
+    ]);
+    save(&f.0, "project", "snapshot", None, original).unwrap();
+
+    let mut stored: Value = serde_json::from_slice(&fs::read(f.path()).unwrap()).unwrap();
+    let exploration = &mut stored["state"]["explorations"][0];
+    exploration["scrollPositions"] =
+        json!({"guide":"not-a-number","flow":240,"history":-1,"unknown":50});
+    let turn = &mut exploration["turns"][0];
+    turn["reading"] = json!({
+        "guide":{"revisionId":"revision-one","sectionId":"bad\nid"},
+        "flow":{"revisionId":"revision-one","sectionId":"section:two"},
+        "history":{"revisionId":"revision-one","sectionId":"section:two"}
+    });
+    turn["answerVersions"][0]["reading"] = json!({
+        "guide":"section:two",
+        "flow":{"unexpected":"shape"},
+        "history":"section:three"
+    });
+    fs::write(f.path(), serde_json::to_vec(&stored).unwrap()).unwrap();
+    let original_bytes = fs::read(f.path()).unwrap();
+
+    let restored = load(&f.0, "project", "snapshot")
+        .unwrap()
+        .expect("damaged reader progress must not hide the saved answer");
+    let restored_exploration = &restored.state["explorations"][0];
+    let restored_turn = &restored_exploration["turns"][0];
+
+    assert_eq!(restored_exploration["scrollPositions"], json!({"flow":240}));
+    assert_eq!(
+        restored_turn["reading"],
+        json!({"flow":{"revisionId":"revision-one","sectionId":"section:two"}})
+    );
+    assert_eq!(
+        restored_turn["answerVersions"][0]["reading"],
+        json!({"guide":"section:two"})
+    );
+    assert_eq!(
+        restored_turn["question"],
+        "What happens to the font bytes?\nShow the failure path."
+    );
+    assert_eq!(
+        fs::read(f.path()).unwrap(),
+        original_bytes,
+        "reader recovery must not rewrite the durable conversation"
+    );
+}
+
+#[test]
 fn selected_answer_versions_and_independent_reading_round_trip_without_rewriting_receipts() {
     let f = Fixture::new();
     let mut s = presentation_state();

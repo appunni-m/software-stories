@@ -1,6 +1,6 @@
 # Kata status — Code Atlas rebuild
 
-Snapshot: **22 October 2026**, read from live project `code-atlas-rebuild`. **78 records: 51 open, 27 closed.** Every live record now maps to one checked-in task definition; the packaged macOS quit lifecycle `cc7g` was missing from the prior table and is recorded below. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
+Snapshot: **23 October 2026**, read from live project `code-atlas-rebuild`. **78 records: 51 open, 27 closed.** Every live record now maps to one checked-in task definition; the packaged macOS quit lifecycle `cc7g` was missing from the prior table and is recorded below. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
 
 ## 17 October progressive-generation checkpoint (historical)
 
@@ -42,7 +42,7 @@ The latest checkout connects [progressive generation to the reader](acceptance/2
 
 ## All task records
 
-The definitions contain the detailed contract and required closure evidence. This table reflects the live statuses and priorities as of 21 October 2026; use Kata for changes after this snapshot. Priority 0 is highest; a recorded status is not transitive proof that its prerequisites passed the current acceptance matrix.
+The definitions contain the detailed contract and required closure evidence. This table reflects the live statuses and priorities as of 23 October 2026; use Kata for changes after this snapshot. Priority 0 is highest; a recorded status is not transitive proof that its prerequisites passed the current acceptance matrix.
 
 | Ref | Status | Priority | Definition |
 |---|---|---:|---|
@@ -261,7 +261,7 @@ omitted native Rust/C ABI behavior, so whole-repository coverage did not pass.
 Pocket audio was ready to play but was not human-listened. Keep `j53m` and
 `3bz5` open. [Visual review](kata-tasks/37-generated-visuals.md#fresh-v17-visual-prompt-guide-review--23-october-2026) ·
 [Progressive-run review](kata-tasks/73-progressive-answer-sections.md#fresh-packaged-v17-incremental-guide-result--23-october-2026).
-The task inventory remains **73 records: 50 open, 23 closed**.
+The task inventory is **78 records: 51 open, 27 closed**, matching the live Kata project on 23 October 2026.
 
 The rendered final bitmap slide showed three metric labels without the zero
 fallback value or the shared guard/result relation, although narration named
@@ -273,3 +273,27 @@ unsigned debug bundle was rebuilt. The reviewed Guide used v17; v18 has not yet
 been evaluated by another Guide. Whole-repository scope and human audio,
 comprehension and accessibility review remain open. Keep `j53m` open. [Prompt
 follow-up](kata-tasks/37-generated-visuals.md#v18-visual-fallback-follow-up--23-october-2026).
+
+## 23 October native reader recovery checkpoint
+
+The native conversation loader now discards malformed optional bookmark and
+scroll entries in memory while retaining valid reading positions and the saved
+answer; it leaves durable journal bytes unchanged. The focused conversation
+suite passes **21/21**. The packaged navigation and accessibility matrix is
+still outstanding, so `erzc` remains open. [Implementation and exact regression](kata-tasks/68-exploration-reading-position.md#native-malformed-reader-position-recovery--23-october-2026).
+
+## 23 October Git metadata error checkpoint
+
+Optional branch/HEAD probes now accept only their expected exit-code-1 absence
+case; unexpected statuses fail project opening or snapshot capture with a
+bounded error. Regression coverage confirms Recents and snapshot history remain
+unchanged, while detached and unborn repositories still work. Project tests
+pass **14/14** and snapshot tests **21/21**. Packaged cancellation/status and
+no-orphan acceptance remain open; keep `kghr` open. See [implementation and
+evidence](kata-tasks/32-bounded-git-lifecycle.md#optional-repository-metadata-exit-handling--23-october-2026).
+
+The combined Rust library suite then passed **720 tests, 0 failed, 18 explicitly
+ignored**. The Open Source documentation inventory reports **0 errors, 0 review
+items, 0 info items** after correcting the Git bounds and over-broad lexical
+wording findings; the inventory does not verify semantic accuracy or package
+contents.

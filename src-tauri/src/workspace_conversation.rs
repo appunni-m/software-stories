@@ -717,10 +717,24 @@ fn discard_stale_reader_positions(state: &mut Value) {
         return;
     };
     for exploration in explorations {
+        if let Some(scroll) = exploration.get_mut("scrollPositions") {
+            if let Some(positions) = scroll.as_object_mut() {
+                positions.retain(|view, value| {
+                    ["guide", "flow", "history"].contains(&view.as_str())
+                        && number(value, 10_000_000)
+                });
+            } else {
+                exploration
+                    .as_object_mut()
+                    .expect("exploration is an object after validation inputs are parsed")
+                    .remove("scrollPositions");
+            }
+        }
         let Some(turns) = exploration.get_mut("turns").and_then(Value::as_array_mut) else {
             continue;
         };
         for turn in turns {
+            discard_reading_positions(turn);
             let Some(presentation) = turn.get_mut("presentation") else {
                 continue;
             };
@@ -743,6 +757,62 @@ fn discard_stale_reader_positions(state: &mut Value) {
                     diagram.get("layoutVersion").and_then(Value::as_u64)
                         == Some(FLOW_DIAGRAM_LAYOUT_VERSION)
                 });
+            }
+        }
+    }
+}
+
+/// Saved reading locations are disposable UI state. Keep every valid entry
+/// while dropping malformed values so corrupt scroll/bookmark progress cannot
+/// make the answer journal unavailable. This is an in-memory recovery only;
+/// load never rewrites the user's durable record.
+fn discard_reading_positions(turn: &mut Value) {
+    let Some(object) = turn.as_object_mut() else {
+        return;
+    };
+    if let Some(reading) = object.get_mut("reading") {
+        let valid = if let Some(views) = reading.as_object_mut() {
+            views.retain(|view, location| {
+                if !["guide", "flow"].contains(&view.as_str()) {
+                    return false;
+                }
+                let Some(location) = location.as_object() else {
+                    return false;
+                };
+                location
+                    .keys()
+                    .all(|key| ["revisionId", "sectionId"].contains(&key.as_str()))
+                    && location.get("revisionId").is_some_and(id)
+                    && location.get("sectionId").is_some_and(id)
+            });
+            true
+        } else {
+            false
+        };
+        if !valid {
+            object.remove("reading");
+        }
+    }
+    if let Some(versions) = object
+        .get_mut("answerVersions")
+        .and_then(Value::as_array_mut)
+    {
+        for version in versions {
+            let Some(fields) = version.as_object_mut() else {
+                continue;
+            };
+            if let Some(reading) = fields.get_mut("reading") {
+                let valid = if let Some(views) = reading.as_object_mut() {
+                    views.retain(|view, section| {
+                        ["guide", "flow"].contains(&view.as_str()) && id(section)
+                    });
+                    true
+                } else {
+                    false
+                };
+                if !valid {
+                    fields.remove("reading");
+                }
             }
         }
     }

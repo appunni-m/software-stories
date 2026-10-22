@@ -27,22 +27,27 @@ and stderr in one loop, keeps the original deadline through child exit and both
 output EOFs, and stores no output beyond the command cap. It owns child cleanup
 and releases parent pipe handles on errors; there are no pipe worker threads.
 Non-Unix hosts fail before launch. Capture passes its cancellation flag into
-every Git phase. This replacement has source/formatting review only; historical
-passing tests do not qualify it, OS cleanup or descendant behavior. These limits
-fail the operation with a visible error; they do not silently truncate evidence.
+every Git phase. The runner's focused tests cover bounded streams, timeout,
+cancellation, inherited pipes and child cleanup; project, snapshot and
+comparison tests cover their callers and preservation behavior. These are local
+source/test checks, not packaged-app qualification or proof of behavior on every
+Git installation and filesystem. The limits fail the operation with a visible
+error; they do not silently truncate evidence.
 
 | Operation | Per-command / total deadline | stdout | stderr | stdin |
 | --- | --- | ---: | ---: | ---: |
 | Open repository and read branch/HEAD | 5 seconds / 20 seconds | 16 KiB | 16 KiB | none |
 | Capture status, ignore rules and tracked-path checks | 15 seconds / 5 minutes for the complete capture | 32 MiB | 64 KiB | 2 MiB |
+| Read local commit history | 8 seconds / 10 seconds for the complete history request | 512 KiB | 8 KiB | none |
 | Compare local revisions | Remaining time up to 30 seconds for the comparison | Caller-defined evidence cap (from 128 bytes to the bounded relationship-tree read) | 16 KiB | 1 MiB |
 
-The comparison workflow currently has a deadline but no user-facing cancel
-control. Snapshot capture is cancellable while its Git process is running.
-The runner's focused tests cover capped output/input, timeout, and cancellation;
-project, snapshot, and comparison fixture tests cover their callers and verify
-that capture/comparison do not mutate the repository. They do not prove
-behavior for every Git installation or filesystem.
+Project inspection and snapshot capture treat exit code 1 from their optional
+branch/HEAD probes as the expected detached-HEAD or unborn-repository case;
+other nonzero exits fail with a bounded error instead of silently erasing
+metadata. The comparison view exposes **Stop comparison** and sends a
+request-scoped cancellation to the native runner. Snapshot capture is also
+cancellable while Git is running. Packaged cancellation, status propagation,
+and no-orphan behavior remain unqualified.
 
 ## Persisted metadata and source objects
 
