@@ -556,7 +556,7 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v10:"));
+    assert!(instructions.contains("Teaching policy v11:"));
     assert!(instructions.contains("visible cue"));
     assert!(instructions.contains("at most two short, natural sentences per scene"));
     assert!(instructions.starts_with(ANSWER_ROLE));
@@ -590,7 +590,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     let input = input(&f);
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema).unwrap();
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v10");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v11");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert_eq!(
         fingerprint,
@@ -657,7 +657,8 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         fingerprint,
         context::digest(&serde_json::to_vec(&without_teaching_policy).unwrap())
     );
-    assert!(serde_json::to_vec(&contract).unwrap().len() < 32000);
+    let contract_bytes = serde_json::to_vec(&contract).unwrap().len();
+    assert!(contract_bytes < 32000, "contract is {contract_bytes} bytes");
 }
 
 #[test]
@@ -690,7 +691,7 @@ fn every_workspace_code_investigation_uses_a_user_controlled_runtime() {
 #[test]
 fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Choose: bytes, transformations, comparisons/tables"));
+    assert!(instructions.contains("Choose each scene's form from its behavior and evidence"));
     assert!(instructions.contains("Source tokens alone are not transformations"));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
     assert!(
@@ -698,11 +699,7 @@ fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
             "compare the claim with its narration, visible labels, node details and values"
         )
     );
-    assert!(
-        instructions.contains(
-            "Narration and collapsed details must not carry a missing branch by themselves"
-        )
-    );
+    assert!(instructions.contains("Every claimed outcome needs its own visible row/node"));
     assert!(!instructions.contains("spokenText copies the complete scene narration"));
 }
 
