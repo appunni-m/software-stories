@@ -11,7 +11,7 @@ labels: repository, reliability
 Opening or capturing a repository cannot hang indefinitely or leave Git processes running after cancellation.
 
 ## Current evidence
-The project, snapshot-capture and local-revision-comparison paths now use the shared `bounded_process` runner. On Unix it caps stdin/stdout/stderr, supervises all three nonblocking pipes on one loop, applies the same deadline through child exit and both output EOFs, polls cancellation and owns child cleanup. It has no pipe worker threads to join or detach. Non-Unix hosts fail before launch rather than use unbounded blocking IO. The earlier direct `ignored_paths` writer/readers are removed. Local revision comparison also has a user-facing Stop action, a request-scoped native cancellation token, and suppression of late results; packaged cancellation remains to be qualified.
+The project, snapshot-capture and local-revision-comparison paths use the shared `bounded_process` runner. On Unix it caps stdin/stdout/stderr, supervises all three nonblocking pipes on one loop, applies the same deadline through child exit and both output EOFs, polls cancellation and owns child cleanup. It has no pipe worker threads to join or detach. Non-Unix hosts fail before launch rather than use unbounded blocking IO. The earlier direct `ignored_paths` writer/readers are removed. Local revision comparison also has a user-facing Stop action, a request-scoped native cancellation token, and suppression of late results. Packaged cancellation and timeout behavior have now been observed; see the closure evidence below.
 
 ## Contract
 Use a shared bounded child-process runner for project metadata and capture Git phases. Declare per-operation deadlines, stdout/stderr/input caps and a total operation deadline. Check cancellation while waiting/writing/reading. Every success/error/timeout/cancel path owns child termination/reaping and releases all parent pipe handles without leaving workers; errors preserve prior snapshots. Keep existing read-only Git arguments and repository isolation.
@@ -27,7 +27,7 @@ Use a shared bounded child-process runner for project metadata and capture Git p
 Remote fetches, checkout, executing repository hooks/scripts, or changing user Git configuration.
 
 ## Done evidence
-Code path audit plus later timeout/output/cancel acceptance on a disposable fixture; no tests performed in this pass.
+Current production call-site audit, bounded-process and caller-boundary regression suites, and packaged disposable-repository Stop/timeout checks with fixture restoration and no-orphan verification.
 
 ## Implementation update — 2026-10-15
 
@@ -84,4 +84,26 @@ These runs confirm frontend/native source behavior, not packaged comparison UI b
 
 Added `project::tests::running_git_timeout_maps_to_a_bounded_app_result_and_preserves_saved_state`. It creates a disposable Git repository, replaces its config with an include of a named pipe with no writer, and runs a real Git inspection through the project-facing bounded runner with a 250 ms deadline. The result is the stable `GitError` timeout message, contains no fixture marker, and returns within three seconds. The test also verifies the saved recent-project record and repository index, HEAD, and fixture config bytes are unchanged. The existing output-limit boundary test asserts its stable app-facing message, hides fixture source text, and preserves recent-project metadata, index, refs, config, and worktree content.
 
-Verification on the current source: the focused timeout test passed (1 passed, 0 failed); `cargo test --locked --manifest-path src-tauri/Cargo.toml --lib project::tests:: -- --nocapture` passed (12 passed, 0 failed); targeted `rustfmt --edition 2024 --check src-tauri/src/project.rs` and `git diff --check` passed. Cargo emitted five existing dead-code warnings. This adds native source-boundary evidence; it does not qualify packaged app cancellation/status, snapshot/catalog preservation, or the full no-orphan comparison matrix. Keep `kghr` open for those gates.
+Verification on the current source: the focused timeout test passed (1 passed, 0 failed); `cargo test --locked --manifest-path src-tauri/Cargo.toml --lib project::tests:: -- --nocapture` passed (12 passed, 0 failed); targeted `rustfmt --edition 2024 --check src-tauri/src/project.rs` and `git diff --check` passed. Cargo emitted five existing dead-code warnings. At this checkpoint native source-boundary evidence was complete, while packaged cancellation/status and the no-orphan matrix remained open; the later packaged acceptance is recorded below.
+
+## Packaged acceptance and closure — 2026-10-23
+
+The packaged Code Atlas app was exercised with disposable repositories whose
+`.git/config` included a held FIFO. Stop during blocked project metadata
+inspection returned to the existing Fontdone workspace with its snapshot and
+source retained; a separate wait beyond the five-second Git command deadline
+returned the bounded “Could not inspect Git metadata” result. Both probes left
+no fixture-related Git process and preserved HEAD, index and worktree state.
+The fixture configuration was restored and the fixture removed. Earlier
+packaged observations covered Stop/no-orphan behavior during snapshot capture
+and Git-history loading.
+
+The current production audit found application Git launches only in project
+inspection, snapshot capture, local comparison and commit history, all through
+the shared bounded runner. Direct `Command::new("git")` calls outside that
+runner are test fixtures. Native regressions cover bounded pipes, blocked
+stdin, timeout and cancellation, caller error mapping, snapshot history
+preservation, and comparison/history cancellation. The Kata close event
+`71459` records the reviewed paths and eight test evidence items. This closes
+the bounded-Git lifecycle task; it does not establish unrelated product or
+release acceptance.

@@ -1,6 +1,6 @@
 # Kata status — Code Atlas rebuild
 
-Snapshot: **23 October 2026**, read from live project `code-atlas-rebuild`. **78 records: 51 open, 27 closed.** Every live record now maps to one checked-in task definition; the packaged macOS quit lifecycle `cc7g` was missing from the prior table and is recorded below. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
+Snapshot: **23 October 2026**, read from live project `code-atlas-rebuild`. **78 records: 50 open, 28 closed.** Every live record maps to one checked-in task definition. The dated checkpoints below preserve what was observed at the time; their test counts and runtime outcomes are not current-run evidence. Closed issue status does not establish unrelated runtime, semantic quality, native accessibility or release acceptance.
 
 ## 17 October progressive-generation checkpoint (historical)
 
@@ -73,7 +73,7 @@ The definitions contain the detailed contract and required closure evidence. Thi
 | `tbng` | open | 1 | [Build bounded read-only evidence for local Git base and head refs](kata-tasks/26-pr-diff-evidence.md) |
 | `c8nz` | open | 1 | [Add selectable direct model API providers](kata-tasks/28-model-api-providers.md) |
 | `xymb` | open | 1 | [Validate the October 15 static bug fixes when testing is authorized](kata-tasks/30-static-fix-acceptance.md) |
-| `kghr` | open | 1 | [Bound and cancel repository Git subprocesses](kata-tasks/32-bounded-git-lifecycle.md) |
+| `kghr` | closed | 1 | [Bound and cancel repository Git subprocesses](kata-tasks/32-bounded-git-lifecycle.md) |
 | `q6g3` | open | 1 | [Integrate one managed local Pocket TTS runtime](kata-tasks/34-pocket-runtime.md) |
 | `dbmd` | open | 1 | [Make Pocket TTS the default narration path with distinct cache identity](kata-tasks/35-pocket-player-cache.md) |
 | `7xx7` | open | 1 | [Define and qualify language support for code explanations](kata-tasks/39-language-capability-tiers.md) |
@@ -261,7 +261,7 @@ omitted native Rust/C ABI behavior, so whole-repository coverage did not pass.
 Pocket audio was ready to play but was not human-listened. Keep `j53m` and
 `3bz5` open. [Visual review](kata-tasks/37-generated-visuals.md#fresh-v17-visual-prompt-guide-review--23-october-2026) ·
 [Progressive-run review](kata-tasks/73-progressive-answer-sections.md#fresh-packaged-v17-incremental-guide-result--23-october-2026).
-The task inventory is **78 records: 51 open, 27 closed**, matching the live Kata project on 23 October 2026.
+The task inventory is **78 records: 50 open, 28 closed**, matching the live Kata project on 23 October 2026.
 
 The rendered final bitmap slide showed three metric labels without the zero
 fallback value or the shared guard/result relation, although narration named
@@ -305,9 +305,10 @@ Optional branch/HEAD probes now accept only their expected exit-code-1 absence
 case; unexpected statuses fail project opening or snapshot capture with a
 bounded error. Regression coverage confirms Recents and snapshot history remain
 unchanged, while detached and unborn repositories still work. Project tests
-pass **14/14** and snapshot tests **21/21**. Packaged cancellation/status and
-no-orphan acceptance remain open; keep `kghr` open. See [implementation and
-evidence](kata-tasks/32-bounded-git-lifecycle.md#optional-repository-metadata-exit-handling--23-october-2026).
+pass **14/14** and snapshot tests **21/21**. At this checkpoint, packaged
+cancellation/status and no-orphan acceptance were still open. The packaged
+checks later that day completed those gates and Kata closed `kghr`; see the
+[closure evidence](kata-tasks/32-bounded-git-lifecycle.md#packaged-acceptance-and-closure--2026-10-23) and close event `71459`.
 
 The combined Rust library suite then passed **720 tests, 0 failed, 18 explicitly
 ignored**. The Open Source documentation inventory reports **0 errors, 0 review
