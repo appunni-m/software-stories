@@ -5,7 +5,7 @@ import type {
   EvidenceLinkedVisualSpec,
   HotspotDestination,
 } from './commands';
-import { validScenePresentation } from './scenePresentation.ts';
+import { validStoredScenePresentation } from './scenePresentation.ts';
 
 const MAX_NODES = 500;
 const MAX_EDGES = 1_000;
@@ -100,7 +100,7 @@ export function inspectInteractiveVisual(
     }
   }
 
-  if (raw.presentation !== undefined && !validScenePresentation(raw.presentation, raw.nodes, section.claims)) {
+  if (raw.presentation !== undefined && !validStoredScenePresentation(raw.presentation, raw.nodes, section.claims)) {
     return { status: 'unavailable', reason: 'malformed' };
   }
   return { status: 'available', visual: raw, anchorsById, hotspotsById };

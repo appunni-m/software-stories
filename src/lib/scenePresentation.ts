@@ -93,7 +93,23 @@ function repeatsTransformation(elements: SceneElement[], nodes: LinkedVisualNode
 /** Reject the entire presentation on unknown fields, foreign evidence or an
  * oversized tree. Strings are always text; the renderer never interprets HTML.
  */
+/** Validate a newly authored scene against the current proposal-quality rules.
+ * This is intentionally stricter than stored-scene replay: quality-policy
+ * changes must not retroactively hide previously admitted user content.
+ */
 export function validScenePresentation(raw: unknown, nodes: LinkedVisualNode[], claims: ChapterClaim[]): raw is ScenePresentation {
+  return validateScenePresentation(raw, nodes, claims, true);
+}
+
+/** Validate the inert scene structure needed to safely replay an admitted
+ * scene. New semantic quality rules belong to validScenePresentation(), not
+ * here, because old saved scenes retain their original rendering contract.
+ */
+export function validStoredScenePresentation(raw: unknown, nodes: LinkedVisualNode[], claims: ChapterClaim[]): raw is ScenePresentation {
+  return validateScenePresentation(raw, nodes, claims, false);
+}
+
+function validateScenePresentation(raw: unknown, nodes: LinkedVisualNode[], claims: ChapterClaim[], enforceCurrentQuality: boolean): raw is ScenePresentation {
   if (!record(raw) || !exact(raw, ['schemaVersion', 'scenes']) || raw.schemaVersion !== 3 || !Array.isArray(raw.scenes)
     || raw.scenes.length !== claims.length || raw.scenes.length < 1 || raw.scenes.length > 20) return false;
   const valid = raw.scenes.every((scene, claimIndex) => {
@@ -103,7 +119,7 @@ export function validScenePresentation(raw: unknown, nodes: LinkedVisualNode[], 
     if (scene.mode === 'graph') return scene.elements.length === 0;
     const elements = scene.elements;
     if (!elements.length || elements.length > 48) return false;
-    if (requiresOrderedSelector(claims[claimIndex].prose, scene.title, scene.narration)
+    if (enforceCurrentQuality && requiresOrderedSelector(claims[claimIndex].prose, scene.title, scene.narration)
       && !(record(elements[0]) && elements[0].kind === 'selector')) return false;
     const depths: number[] = [];
     const counts = elements.map(() => 0);
@@ -153,7 +169,7 @@ export function validScenePresentation(raw: unknown, nodes: LinkedVisualNode[], 
       }
       return true;
     })
-      && !repeatsTransformation(elements as SceneElement[], nodes);
+      && (!enforceCurrentQuality || !repeatsTransformation(elements as SceneElement[], nodes));
   });
   return valid && sceneNarrations(raw as unknown as ScenePresentation, claims) !== null;
 }

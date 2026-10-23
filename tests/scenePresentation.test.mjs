@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { sceneNodeAccessibleLabel, validScenePresentation } from '../src/lib/scenePresentation.ts';
+import { sceneNodeAccessibleLabel, validScenePresentation, validStoredScenePresentation } from '../src/lib/scenePresentation.ts';
 import { inspectInteractiveVisual } from '../src/lib/visuals.ts';
+import { storyScenes } from '../src/lib/visualStory.ts';
 
 const claims = [{ claimId: 'claim:one', anchors: [{ anchorId: 'anchor:one', excerpt: 'return `Hello, ${name}`;' }] }];
 const nodes = [{ nodeId: 'node:one', label: 'Greeting', detail: null, hotspotId: null, evidenceAnchorIds: ['anchor:one'] }];
@@ -147,6 +148,38 @@ describe('AI-authored HTML scene contract', () => {
     assert.equal(validScenePresentation({ schemaVersion: 3, scenes: [{
       claimIndex: 0, title: 'The actual ordered call path', narration: 'First match wins; later work follows only after a miss.', mode: 'graph', elements: [],
     }] }, nodes, firstMatchClaims), true);
+  });
+  it('replays structurally safe saved scenes when newer proposal-quality rules reject their layout', () => {
+    const narration = 'The parser checks signatures in order. The first match selects a constructor; a miss continues to the next probe.';
+    const claim = {
+      claimId: 'claim:dispatch', category: { kind: 'codeBehavior' },
+      prose: 'The first matching signature chooses a constructor, and a miss continues to later probes.',
+      anchors: [{ anchorId: 'anchor:dispatch', excerpt: 'probe();' }],
+    };
+    const dispatchNodes = ['Binary probes', 'Text probes', 'Fallback and errors'].map((label, index) => ({
+      nodeId: `node:dispatch-${index}`, label, detail: null, hotspotId: null, evidenceAnchorIds: ['anchor:dispatch'],
+    }));
+    const oldComposition = presentation([
+      { ...element('column'), nodeIndex: null },
+      ...dispatchNodes.map((_node, index) => ({ ...element('card', '', 'none', 0), nodeIndex: index })),
+    ]);
+    oldComposition.scenes[0].title = 'First match, then fallback';
+    oldComposition.scenes[0].narration = narration;
+    const visual = {
+      schemaVersion: 2, kind: 'sequence', title: 'Ordered dispatch and fallback',
+      layoutHint: { direction: 'topToBottom' }, nodes: dispatchNodes, edges: [], presentation: oldComposition,
+    };
+    const section = { sectionId: 'section:dispatch', title: 'Choose a parser', claims: [claim], spokenText: narration, visual, hotspots: [] };
+    const revision = { sections: [section] };
+
+    assert.equal(validScenePresentation(oldComposition, dispatchNodes, [claim]), false);
+    assert.equal(validStoredScenePresentation(oldComposition, dispatchNodes, [claim]), true);
+    const inspection = inspectInteractiveVisual(revision, section);
+    assert.equal(inspection.status, 'available');
+    assert.deepEqual(storyScenes(section, inspection.visual), [{
+      id: claim.claimId, title: oldComposition.scenes[0].title, narration,
+      anchorIds: ['anchor:dispatch'], nodeIds: dispatchNodes.map((node) => node.nodeId),
+    }]);
   });
   it('recognizes plural early returns as an ordered selector requirement', () => {
     const earlyReturnClaims = [{ ...claims[0], prose: 'Several early returns are checked in source order; a miss continues to the next guard.' }];

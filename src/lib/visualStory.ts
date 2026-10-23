@@ -1,5 +1,5 @@
 import type { ChapterSection, ChapterSourceAnchor, EvidenceLinkedVisualSpec, LinkedVisualEdge, LinkedVisualNode } from './commands';
-import { sceneNarrations, validScenePresentation } from './scenePresentation.ts';
+import { sceneNarrations, validStoredScenePresentation } from './scenePresentation.ts';
 import { cleanStoryProgress, FOCUSED_STORY_LAYOUT_VERSION, sameSection, type FlowViewport, type SectionIdentity, type StoryProgress } from './readerProgress.ts';
 
 export interface StoryScene {
@@ -228,7 +228,7 @@ export function storyScenes(section: ChapterSection, visual?: EvidenceLinkedVisu
   const candidate = visual ?? (section.visual?.schemaVersion === 2 ? section.visual : undefined);
   const presentation = candidate?.presentation;
   if (presentation?.schemaVersion === 3 && Array.isArray(candidate?.nodes)
-    && validScenePresentation(presentation, candidate.nodes, section.claims)) {
+    && validStoredScenePresentation(presentation, candidate.nodes, section.claims)) {
     const scripts = sceneNarrations(presentation, section.claims)!;
     if (normalize(scripts.join(' ')) === normalize(savedScript ?? section.spokenText)) {
       return scripts.map((narration, i) => {
