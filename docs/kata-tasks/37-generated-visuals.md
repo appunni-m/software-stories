@@ -754,6 +754,10 @@ On the next check, render-result had reached three rejected proposals with
 section was published. The Guide coordinator remained active while these
 details were recorded, so there is still no terminal outcome. This is concrete
 validation/recovery evidence, not a reason to start a duplicate generation.
+The coordinator then retried render-result automatically in the same Guide. At
+the latest check it had delivered nine bounded tool calls totaling 16,622
+source bytes, but after 169 seconds it still had no proposal or published
+section. The two completed topics remain saved; overall progress remains 2/5.
 
 The completed face-opening section contains three source-grounded visual
 scenes: an ordered timeline with an error exit and successful face result, a

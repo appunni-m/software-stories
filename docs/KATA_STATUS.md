@@ -338,7 +338,9 @@ omits the separate `Font::truetype/getmask` route, C-ABI/WASM facades, parser
 internals and full rasterizer.
 The active render-result attempt then exhausted three proposals
 (`sceneAuthoringShape`, `sectionValidation`, `proposalCorrectionLimit`) without
-publishing its section; the Guide coordinator has not reached a terminal state.
+publishing its section. The coordinator automatically retried it with nine
+bounded tool calls (16,622 source bytes) but had produced no proposal after
+169 seconds; the two completed topics remain saved and the Guide is still active.
 The source-backed Rust `?` token appears with explicit error-exit labels and
 narration, rather than as an empty UI fallback. Pocket audio was available but
 not human-listened, and no 3-D visual was warranted. Keep `j53m` and progressive
