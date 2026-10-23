@@ -695,40 +695,45 @@ from one evidenced guard. Branch conditions are labeled once and each
 destination names its behavior/result. The prompt version is included in the
 progressive operation contract, so the next fresh run will not replay v23.
 
-Prompt-contract assertions were added. The user-approved v24 Guide is now
-running; its interim evidence and the next prompt repair are recorded below.
+Prompt-contract assertions were added. The user-approved v24 Guide completed
+partially; its final evidence and the next prompt repair are recorded below.
 Keep `j53m` open for complete repository entry-point/path coverage, real
 source-click and offline review, accessibility, and human comprehension/audio
 evidence.
 
-## v24 packaged Guide interim review and v25 prompt follow-up — 23 October 2026
+## v24 packaged Guide result and v25 prompt follow-up — 23 October 2026
 
 The user-approved v24 Guide operation `c2e33321-45b5-423d-b624-b57af220fbc2`
 uses `gpt-6-luna` / max on Fontdone `main@5249b72371`. Its six-unit outline
 selects the Rust memory-face to glyph-loading path and explicitly omits C-ABI
 and WASM entry points, the name-options variant, full `Font::memory_face`
-dispatch, an exact scaler handoff, and complete renderer outcomes. At the first
-checkpoint it had two slides ready and no topic was complete; the first unit
-was still building. That topic has since completed and the second is building;
-this remains an interim result, not coverage or quality acceptance.
+dispatch, an exact scaler handoff, and complete renderer outcomes. It completed
+partially: the opening and four of six follow-on topics were saved; two topics
+failed validation after three attempts each (scaler hint outcomes and slot-render
+handoff). This is a partial Rust-path guide, not whole-repository coverage.
 
 The first slide shows useful form-fit examples: an input-to-parser timeline, a
 PCF match/miss fork with one guard and distinct destinations, and the API's
 error/success result fork. Clicking the PCF guard opens the captured
 `src/font.rs:4058` implementation. Narration describes the behavior in natural
-language; Pocket audio was ready but not human-listened. A second slide's
-sequential handoff timeline repeats generic node names as visible values and
-puts the actual argument changes only in help text. Its flag-normalization
-scene stacks six oversized rules; the list is clipped at the normal reader
-viewport. These examples show that v24 improves branch and sequence selection,
-but visible-value specificity and compact composition still fail in places.
+language; Pocket audio was generated and played locally but not human-reviewed
+for pronunciation or comprehension. The sequential handoff timeline repeats
+generic node names as visible values and puts the actual argument changes only
+in help text. Its flag-normalization scene stacks six oversized rules; the list
+is clipped at the normal reader viewport. These examples show that v24 improves
+branch and sequence selection, but visible-value specificity and compact
+composition still fail in places. Playback buffering refilled the next Guide
+topic after local narration began, confirming that this run exercised
+progressive generation. It does not prove latency, resilience, or broad
+reliability.
 
 The source prompt is now `ai-html-compositions-v25`. It requires visible values
 to carry the source-backed input, condition, change, output or destination;
 help/meaning text stays supplementary. It rejects repeated generic label/value
 pairs and asks for a compact table or short scenes when four or more sequential
-state updates would become a tall card stack. The current packaged run remains
-on v24 and is not modified. v25 is not packaged or Guide-evaluated yet; do not
-claim it qualifies output. Keep `j53m` open for the v24 terminal result and a
+state updates would become a tall card stack. The v25 unsigned debug bundle is
+installed and open in Code Atlas; the v24 app remains available as a rollback
+copy. The saved Fontdone Guide data was preserved. v25 has not been
+Guide-evaluated, so do not claim it qualifies output. Keep `j53m` open for a
 separately authorized v25 run, full-repository coverage, accessibility, and
 human audio/comprehension review.
