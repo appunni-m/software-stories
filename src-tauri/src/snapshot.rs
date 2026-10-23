@@ -3271,6 +3271,112 @@ mod tests {
         assert_eq!(fs::read(repository.join(".git/HEAD")).unwrap(), head_before);
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn cancellation_terminates_blocked_capture_git_and_preserves_snapshot_history() {
+        use std::{
+            ffi::CString,
+            fs::OpenOptions,
+            os::unix::{ffi::OsStrExt, fs::OpenOptionsExt},
+            sync::{Arc, atomic::Ordering},
+            thread,
+        };
+
+        let temporary = TestDirectory::new("git-cancel");
+        let repository = temporary.path().join("repository");
+        create_repository(&repository, &[("source.rs", b"fn captured() {}\n")]);
+        let project = project(&repository);
+        let storage = temporary.path().join("app-data");
+        let previous = default_capture(&storage, &project);
+        let history_before = list_project_snapshots(&storage, &project.project_id).unwrap();
+        let index_before = fs::read(repository.join(".git/index")).unwrap();
+        let head_before = fs::read(repository.join(".git/HEAD")).unwrap();
+        let refs_before = git(&repository, &["show-ref"]).stdout;
+        let worktree_before = git(&repository, &["status", "--porcelain=v1", "-z"]).stdout;
+        let config_path = repository.join(".git/config");
+        let original_config = fs::read(&config_path).unwrap();
+        let fifo = repository.join(".git/blocked-capture-config");
+        let fifo_path = CString::new(fifo.as_os_str().as_bytes()).unwrap();
+        // SAFETY: `fifo_path` is NUL-terminated and `mkfifo` reads it synchronously.
+        assert_eq!(unsafe { libc::mkfifo(fifo_path.as_ptr(), 0o600) }, 0);
+        fs::write(
+            &config_path,
+            format!("[include]\n\tpath = {}\n", fifo.display()),
+        )
+        .unwrap();
+        let blocked_config = fs::read(&config_path).unwrap();
+        let cancelled = Arc::new(AtomicBool::new(false));
+
+        thread::scope(|scope| {
+            let worker_cancelled = Arc::clone(&cancelled);
+            let worker_storage = &storage;
+            let worker_project = &project;
+            let worker = scope.spawn(move || {
+                capture_with_limits(
+                    worker_storage,
+                    worker_project,
+                    CaptureLimits::default(),
+                    &worker_cancelled,
+                )
+            });
+            let observe_until = Instant::now() + Duration::from_secs(2);
+            let mut writer = None;
+            while Instant::now() < observe_until && !worker.is_finished() {
+                if let Ok(file) = OpenOptions::new()
+                    .write(true)
+                    .custom_flags(libc::O_NONBLOCK)
+                    .open(&fifo)
+                {
+                    writer = Some(file);
+                    break;
+                }
+                thread::sleep(Duration::from_millis(2));
+            }
+            if writer.is_some() {
+                let held_until = Instant::now() + Duration::from_millis(40);
+                while Instant::now() < held_until {
+                    assert!(
+                        !worker.is_finished(),
+                        "capture must remain blocked until caller cancellation"
+                    );
+                    thread::sleep(Duration::from_millis(2));
+                }
+            }
+            let stopped_at = Instant::now();
+            cancelled.store(true, Ordering::Release);
+            let result = worker.join().unwrap();
+            assert!(
+                writer.is_some(),
+                "capture Git must be observed waiting on its config stream"
+            );
+            assert_eq!(result.unwrap_err(), CaptureError::Cancelled);
+            assert!(stopped_at.elapsed() < Duration::from_secs(2));
+            drop(writer);
+        });
+
+        assert_eq!(fs::read(&config_path).unwrap(), blocked_config);
+        fs::write(&config_path, original_config).unwrap();
+        assert_eq!(
+            list_project_snapshots(&storage, &project.project_id).unwrap(),
+            history_before
+        );
+        assert_eq!(
+            load_snapshot_manifest(&storage, &project.project_id, &previous.summary.snapshot_id)
+                .unwrap(),
+            previous
+        );
+        assert_eq!(
+            fs::read(repository.join(".git/index")).unwrap(),
+            index_before
+        );
+        assert_eq!(fs::read(repository.join(".git/HEAD")).unwrap(), head_before);
+        assert_eq!(git(&repository, &["show-ref"]).stdout, refs_before);
+        assert_eq!(
+            git(&repository, &["status", "--porcelain=v1", "-z"]).stdout,
+            worktree_before
+        );
+    }
+
     #[test]
     fn change_during_chunked_read_is_rejected_without_a_manifest() {
         let temporary = TestDirectory::new("mid-read-change");
