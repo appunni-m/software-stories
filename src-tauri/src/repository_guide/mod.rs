@@ -487,20 +487,93 @@ fn summary(storage: &Path, record: &Record) -> Result<GuideSummary, String> {
             }
         }
     }
-    let plan = record.plan.as_ref();
-    let units = record
-        .units
+    Ok(guide_summary(record, &manifest, answers))
+}
+
+/// Guide-list restoration is a metadata read. The guide record already stores
+/// the summaries used by the reader, and its published chapters are checked
+/// against the chapter store below. Replaying every answer receipt here also
+/// reparses the repository's full relationship index once per receipt, which
+/// can monopolize startup on large repositories. Full receipt replay remains
+/// on explicit answer/recovery paths (`summary` and `reconcile`).
+fn summary_for_listing(storage: &Path, record: &Record) -> Result<GuideSummary, String> {
+    let manifest = checked_manifest(storage, record)?;
+    let attempts = record
+        .opening
         .iter()
-        .enumerate()
-        .map(|(i, u)| UnitSummary {
-            key: u.key.clone(),
-            question: plan.unwrap().units[i].question.clone(),
-            prerequisites: plan.unwrap().units[i].prerequisites.clone(),
-            status: unit_status(u).into(),
-            run_ids: u.attempts.iter().map(|a| a.run_id.clone()).collect(),
-        })
-        .collect();
-    Ok(GuideSummary {
+        .chain(&record.opening_continuations)
+        .chain(record.units.iter().flat_map(|unit| &unit.attempts));
+    let needs_chapter_check = attempts.clone().any(|attempt| {
+        attempt
+            .summary
+            .as_ref()
+            .is_some_and(|summary| !summary.sections.is_empty())
+    });
+    let chapters = if needs_chapter_check {
+        Some(crate::chapter_store::list_for_snapshot(
+            storage,
+            &record.project_id,
+            &record.snapshot_id,
+        )?)
+    } else {
+        None
+    };
+    let mut answers = Vec::new();
+    for attempt in attempts {
+        let Some(saved) = &attempt.summary else {
+            // A newly published answer is reconciled before listing when its
+            // guide worker has stopped. An active answer will be delivered by
+            // the normal progress event once its durable summary is recorded.
+            continue;
+        };
+        if saved.question != attempt.question {
+            return Err("A guide investigation question changed.".into());
+        }
+        if saved.sections.iter().any(|section| {
+            !chapters.as_ref().is_some_and(|chapters| {
+                chapters.iter().any(|revision| {
+                    revision.revision_id == section.revision_id
+                        && revision
+                            .generation_origin
+                            .as_ref()
+                            .is_some_and(|origin| origin.request_id == section.run_id)
+                })
+            })
+        }) {
+            return Err(
+                "A saved guide section is unavailable. Existing guide data was preserved.".into(),
+            );
+        }
+        answers.push(saved.clone());
+    }
+    Ok(guide_summary(record, &manifest, answers))
+}
+
+fn guide_summary(
+    record: &Record,
+    manifest: &snapshot::SnapshotManifest,
+    answers: Vec<reading::Summary>,
+) -> GuideSummary {
+    let plan = record.plan.as_ref();
+    let units = plan.map_or_else(Vec::new, |plan| {
+        record
+            .units
+            .iter()
+            .zip(&plan.units)
+            .map(|(unit, planned)| UnitSummary {
+                key: unit.key.clone(),
+                question: planned.question.clone(),
+                prerequisites: planned.prerequisites.clone(),
+                status: unit_status(unit).into(),
+                run_ids: unit
+                    .attempts
+                    .iter()
+                    .map(|attempt| attempt.run_id.clone())
+                    .collect(),
+            })
+            .collect()
+    });
+    GuideSummary {
         revision: record.revision,
         id: record.id.clone(),
         project_id: record.project_id.clone(),
@@ -533,7 +606,7 @@ fn summary(storage: &Path, record: &Record) -> Result<GuideSummary, String> {
                 .collect::<std::collections::HashSet<_>>()
                 .len()
         }),
-    })
+    }
 }
 fn continuation(storage: &Path, record: &Record, index: usize) -> Result<String, String> {
     let unit = &record
@@ -1536,15 +1609,27 @@ fn list_saved_guides_with_count(
     for record in records {
         let guide = (|| {
             let lease = store::lease(storage, &record.id)?;
+            let has_unsettled_attempt = record
+                .opening
+                .iter()
+                .chain(&record.opening_continuations)
+                .chain(record.units.iter().flat_map(|unit| &unit.attempts))
+                .any(|attempt| {
+                    attempt
+                        .summary
+                        .as_ref()
+                        .is_none_or(|summary| summary.outcome == Outcome::Working)
+                });
             let record = if lease.is_some()
-                && matches!(record.status, Status::Planning | Status::Building)
-                || lease.is_some() && record.active_run_id.is_some()
+                && (matches!(record.status, Status::Planning | Status::Building)
+                    || record.active_run_id.is_some()
+                    || has_unsettled_attempt)
             {
                 reconcile(storage, &record, manager)?
             } else {
                 record
             };
-            summary(storage, &record)
+            summary_for_listing(storage, &record)
         })();
         match guide {
             Ok(guide) => guides.push(guide),

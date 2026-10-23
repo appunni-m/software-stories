@@ -95,8 +95,7 @@ pub(crate) fn validate_fresh_semantic_layouts(
 ) -> Result<(), String> {
     for (scene, claim) in presentation.scenes.iter().zip(claims) {
         if requires_ordered_selector(&claim.prose, &scene.title, &scene.narration)
-            && (scene.mode != SceneMode::Composition
-                || !has_ordered_selector_root(&scene.elements))
+            && (scene.mode != SceneMode::Composition || !has_ordered_selector_root(&scene.elements))
         {
             return Err(
                 "Source-ordered guards need a selector composition at the root, not a graph or another layout."
@@ -628,9 +627,11 @@ mod tests {
         // Historical version-3 graphs remain replayable, but a fresh proposal
         // must use the source-ordered selector grammar for these guards.
         validate(&presentation, &nodes, &claims).unwrap();
-        assert!(validate_fresh_semantic_layouts(&presentation, &claims)
-            .unwrap_err()
-            .contains("selector composition at the root"));
+        assert!(
+            validate_fresh_semantic_layouts(&presentation, &claims)
+                .unwrap_err()
+                .contains("selector composition at the root")
+        );
 
         presentation.scenes[0].mode = SceneMode::Composition;
         presentation.scenes[0].elements = vec![SceneElement {

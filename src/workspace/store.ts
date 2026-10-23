@@ -236,6 +236,20 @@ async function reconcileAnswer(project: string, snapshot: string, turnId: string
     notes:cleanAnswerNotes(summary.incompleteTopics),error:undefined});
   return revision;
 }
+/** Startup summaries are already replay-validated by native code, and their
+ * drafts are adopted before the list command returns. Merge these identities
+ * directly so restoring a saved answer does not replay it a second time. */
+function reconcileListedAnswer(project: string, snapshot: string, turnId: string, summary: AnswerSummary) {
+  if (summary.projectId !== project || summary.snapshotId !== snapshot) throw new Error('The saved answer belongs to another snapshot.');
+  const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === turnId);
+  if (!turn?.runIds?.includes(summary.runId)) throw new Error('The saved answer belongs to another question.');
+  updateWorkspace(project,snapshot,(state) => ({...state,explorations:state.explorations.map((exploration) => ({...exploration,
+    turns:exploration.turns.map((candidate) => candidate.id === turnId ? mergePublishedSections(candidate,summary.sections) : candidate),
+  }))}));
+  const owner = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === turnId);
+  if (owner?.runIds?.at(-1) === summary.runId) patchTurn(project,snapshot,turnId,{status:summary.outcome === 'complete' ? 'ready' : summary.outcome,
+    notes:cleanAnswerNotes(summary.incompleteTopics),error:undefined});
+}
 interface Restoration { queue: RefreshQueue; check: () => void }
 const restorations = new Map<string, Restoration>();
 type RestorationAvailability = 'loading' | 'ready' | 'unavailable';
@@ -344,8 +358,7 @@ async function readSavedWorkspaceAnswers(project: string, snapshot: string): Pro
       updateWorkspace(project,snapshot,(state) => ({...state,explorations:state.explorations.map((e) => e.id === 'root' ? {...e,turns:[...e.turns,restored]} : e)}));
     }
     try {
-      const summary = await invoke<AnswerSummary>('load_workspace_answer',{projectId:project,snapshotId:snapshot,runId:entry.runId});
-      await reconcileAnswer(project,snapshot,turn.id,summary);
+      reconcileListedAnswer(project,snapshot,turn.id,entry);
     } catch (error) {
       // One damaged or concurrently removed receipt must not prevent later
       // independently saved answers from being restored. Keep the overall

@@ -455,7 +455,8 @@ describe('visual story scenes', () => {
     const scene = styles.match(/\.html-scene\s*\{([^}]+)\}/u)?.[1] ?? '';
     const body = styles.match(/\.html-scene-body\s*\{([^}]+)\}/u)?.[1] ?? '';
     const row = styles.match(/\.html-scene-row, \.html-scene-compare\s*\{([^}]+)\}/u)?.[1] ?? '';
-    const rowItems = styles.match(/\.html-scene-row > :not\(\.html-scene-arrow\), \.html-scene-compare > \*\s*\{([^}]+)\}/u)?.[1] ?? '';
+    const rowItems = styles.match(/\.html-scene-row\.has-arrows > :not\(\.html-scene-arrow\)\s*\{([^}]+)\}/u)?.[1] ?? '';
+    const plainRowItems = styles.match(/\.html-scene-row:not\(\.has-arrows\) > :not\(\.html-scene-arrow\), \.html-scene-compare > \*\s*\{([^}]+)\}/u)?.[1] ?? '';
     assert.match(scene, /box-sizing:\s*border-box/u);
     assert.match(scene, /width:\s*100%/u);
     assert.match(body, /grid-template-columns:\s*minmax\(0,\s*1fr\)/u);
@@ -466,6 +467,8 @@ describe('visual story scenes', () => {
     assert.match(rowItems, /flex:\s*1 1 0/u);
     assert.match(rowItems, /min-width:\s*min\(100%,\s*140px\)/u);
     assert.match(rowItems, /max-width:\s*min\(260px,\s*calc\(\(100% - 80px\) \/ 3\)\)/u);
+    assert.match(plainRowItems, /flex:\s*1 1 240px/u);
+    assert.match(plainRowItems, /min-width:\s*min\(100%,\s*220px\)/u);
     assert.match(styles, /@container \(max-width:\s*560px\)/u);
     const playerStyles = readFileSync(new URL('../src/visual-story.css', import.meta.url), 'utf8');
     assert.match(playerStyles, /\.story-html-stage\s*\{[^}]*height:\s*auto/u);

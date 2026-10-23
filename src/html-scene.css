@@ -7,9 +7,10 @@
 .html-tone-warning { --scene-color: var(--warning, var(--accent)); }
 .html-tone-muted { opacity: .72; }
 .html-scene-row, .html-scene-compare { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; }
-.html-scene-row > :not(.html-scene-arrow), .html-scene-compare > * { box-sizing: border-box; flex: 1 1 0; min-width: min(100%, 140px); max-width: min(260px, calc((100% - 80px) / 3)); }
+.html-scene-row:not(.has-arrows) > :not(.html-scene-arrow), .html-scene-compare > * { box-sizing: border-box; flex: 1 1 240px; min-width: min(100%, 220px); max-width: min(320px, 100%); }
+.html-scene-row.has-arrows > :not(.html-scene-arrow) { box-sizing: border-box; flex: 1 1 0; min-width: min(100%, 140px); max-width: min(260px, calc((100% - 80px) / 3)); }
 .html-scene-column { display: flex; flex-direction: column; gap: 16px; align-items: stretch; }
-.html-scene-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,140px),1fr)); gap: 12px; }
+.html-scene-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); gap: 12px; }
 .html-scene-panel { padding: 20px; border: 1px solid var(--scene-color); border-radius: 12px; background: var(--surface); display: flex; flex-direction: column; gap: 12px; }
 .html-scene-stack { display: flex; flex-direction: column-reverse; gap: 6px; padding: 12px; border-inline: 2px solid var(--scene-color); border-bottom: 2px solid var(--scene-color); border-radius: 0 0 12px 12px; }
 .html-scene-timeline { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); align-items: stretch; gap: 14px; padding-top: 30px; }
@@ -57,7 +58,7 @@
 .html-scene [role="button"]:hover, .html-scene [role="button"]:focus-visible, .html-scene .is-focused { outline: 2px solid var(--accent); outline-offset: 3px; }
 .html-scene-label { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--muted); }
 .html-scene-label svg { opacity: .5; flex-shrink: 0; }
-.html-scene-value { white-space: pre-wrap; overflow-wrap: break-word; font: 500 19px/1.45 var(--mono); }
+.html-scene-value { white-space: pre-wrap; overflow-wrap: break-word; font: 500 17px/1.45 var(--mono); font: 500 clamp(14px,2.5cqw,18px)/1.45 var(--mono); }
 .html-scene .html-scene-text { min-height: 0; border: 0; background: transparent; padding: 4px; }
 .html-scene-text .html-scene-label { color: var(--text); font-size: 17px; }
 .html-scene .html-scene-token { border-radius: 999px; text-align: center; align-items: center; padding: 12px 20px; min-height: 44px; }

@@ -1450,11 +1450,65 @@ fn read_record_bytes(storage: &Path, operation: &str) -> Result<Vec<u8>, String>
     read_bytes(&record_path(storage, operation)?)
 }
 
+pub(super) struct ReplayContext {
+    project_id: String,
+    snapshot_id: String,
+    manifest: snapshot::SnapshotManifest,
+    manifest_sha256: String,
+    syntax: Option<crate::index::SnapshotIndex>,
+}
+
+impl ReplayContext {
+    fn load(storage: &Path, project: &str, snapshot: &str) -> Result<Self, String> {
+        let manifest = snapshot::load_snapshot_manifest(storage, project, snapshot)?;
+        let manifest_sha256 = manifest_hash(&manifest)?;
+        // An absent or stale relationship index has historically been treated
+        // as unavailable during answer replay. Keep that behavior consistent.
+        let syntax = crate::index::load_snapshot_index(storage, project, snapshot).unwrap_or(None);
+        Ok(Self {
+            project_id: project.to_owned(),
+            snapshot_id: snapshot.to_owned(),
+            manifest,
+            manifest_sha256,
+            syntax,
+        })
+    }
+}
+
 fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer, String> {
-    let value: Answer = crate::strict_json::from_slice(bytes)
+    let answer = decode_answer(bytes)?;
+    let context = ReplayContext::load(
+        storage,
+        &answer.binding.project_id,
+        &answer.binding.snapshot_id,
+    )?;
+    replay_answer_value(storage, operation, answer, &context)
+}
+
+pub(super) fn replay_answer_with_context(
+    storage: &Path,
+    operation: &str,
+    bytes: &[u8],
+    shared_context: &ReplayContext,
+) -> Result<Answer, String> {
+    replay_answer_value(storage, operation, decode_answer(bytes)?, shared_context)
+}
+
+fn decode_answer(bytes: &[u8]) -> Result<Answer, String> {
+    crate::strict_json::from_slice(bytes)
         .map_err(|_| "Invalid saved answer".to_owned())
-        .and_then(|v| serde_json::from_value(v).map_err(|_| "Invalid saved answer".to_owned()))
-        .map_err(|_| "The saved answer is damaged; it was preserved.")?;
+        .and_then(|value| {
+            serde_json::from_value(value).map_err(|_| "Invalid saved answer".to_owned())
+        })
+        .map_err(|_| "The saved answer is damaged; it was preserved.".to_owned())
+}
+
+fn replay_answer_value(
+    storage: &Path,
+    operation: &str,
+    value: Answer,
+    shared_context: &ReplayContext,
+) -> Result<Answer, String> {
     if value.schema_version != NARRATION_ANSWER_VERSION
         || value.binding.operation_id != operation
         || !value.binding.runtime.valid_shape()
@@ -1527,20 +1581,16 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
             return Err("A saved section proposal is inconsistent.".into());
         }
     }
-    let manifest = snapshot::load_snapshot_manifest(
-        storage,
-        &value.binding.project_id,
-        &value.binding.snapshot_id,
-    )?;
-    if manifest_hash(&manifest)? != value.binding.manifest_sha256 {
+    if shared_context.project_id != value.binding.project_id
+        || shared_context.snapshot_id != value.binding.snapshot_id
+    {
         return Err("The saved answer belongs to another captured manifest.".into());
     }
-    let syntax = crate::index::load_snapshot_index(
-        storage,
-        &value.binding.project_id,
-        &value.binding.snapshot_id,
-    )
-    .unwrap_or(None);
+    let manifest = &shared_context.manifest;
+    if shared_context.manifest_sha256 != value.binding.manifest_sha256 {
+        return Err("The saved answer belongs to another captured manifest.".into());
+    }
+    let syntax = shared_context.syntax.as_ref();
     for (index, section) in value.sections.iter().enumerate() {
         let checkpoint = &section.checkpoint;
         validate_record(checkpoint, operation)?;
@@ -1561,7 +1611,7 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
                 .calls
                 .iter()
                 .any(|c| !matches!(c.state, CallState::Delivered | CallState::Rejected))
-            || manifest_hash(&manifest)? != checkpoint.binding.manifest_sha256
+            || shared_context.manifest_sha256 != checkpoint.binding.manifest_sha256
             || section.checkpoint_sha256 != context::digest(&encode(checkpoint)?)
             || !valid_key(&section.key)
             || section.order >= MAX_SECTIONS
@@ -1648,7 +1698,7 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
         let mut rebuilt = chapter_generation::canonicalize_narrated_answer_section(
             &value.binding.project_id,
             &manifest,
-            syntax.as_ref(),
+            syntax,
             &sources,
             &resolved,
         )?;
@@ -1666,7 +1716,7 @@ fn replay_answer(storage: &Path, operation: &str, bytes: &[u8]) -> Result<Answer
         let validation = chapters::validate_chapter_revision(
             storage,
             &manifest,
-            syntax.as_ref(),
+            syntax,
             &section.preview.revision,
         );
         if validation.status != chapters::ValidationReportStatus::Valid

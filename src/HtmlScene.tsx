@@ -15,7 +15,8 @@ export function HtmlScene({ scene, visual, onOpenNode, focusedNode }: {
     const e = scene.elements[index];
     const childIndices = scene.elements.flatMap((child, i) => child.parentIndex === index ? [i] : []);
     const children = childIndices.map(draw);
-    const className = `html-scene-element html-scene-${e.kind} html-tone-${e.tone}`;
+    const hasArrows = e.kind === 'row' && childIndices.some(childIndex => scene.elements[childIndex]?.kind === 'arrow');
+    const className = `html-scene-element html-scene-${e.kind} html-tone-${e.tone}${hasArrows ? ' has-arrows' : ''}`;
     if (containerKinds.has(e.kind)) {
       const labels: Record<string, string> = {
         timeline: 'Ordered timeline', lanes: 'Independent parallel lanes',

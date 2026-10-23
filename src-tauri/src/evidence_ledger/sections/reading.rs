@@ -79,6 +79,10 @@ pub(crate) struct Observation {
 }
 
 impl Observation {
+    pub(crate) fn run_id(&self) -> &str {
+        &self.answer.binding.operation_id
+    }
+
     pub(crate) fn question(&self) -> &str {
         &self.answer.question
     }
@@ -243,13 +247,91 @@ pub(crate) fn remove(
 }
 
 pub(crate) fn list(storage: &Path, project: &str, snapshot: &str) -> Result<Vec<Summary>, String> {
-    // One damaged or unsupported receipt must not hide other verified answers.
-    // Management uses this same bounded replay and preserves unavailable bytes.
-    Ok(list_for_management(storage)?
-        .records
+    Ok(list_observations(storage, project, snapshot)?
         .into_iter()
-        .filter(|s| s.project_id == project && s.snapshot_id == snapshot)
+        .map(|observation| observation.answer.summary())
         .collect())
+}
+
+/// Read and independently verify the records for one workspace using a single
+/// captured manifest and parser index. Startup must not deserialize the same
+/// large index once per saved answer.
+pub(crate) fn list_observations(
+    storage: &Path,
+    project: &str,
+    snapshot: &str,
+) -> Result<Vec<Observation>, String> {
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Envelope {
+        schema_version: u32,
+        binding: BindingScope,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct BindingScope {
+        operation_id: String,
+        project_id: String,
+        snapshot_id: String,
+    }
+
+    let paths = fs::read_dir(directory(storage)?)
+        .map_err(|_| "Saved answers could not be inspected.")?
+        .take(MAX_DIRECTORY_ENTRIES + 1)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| "Saved answers could not be inspected.")?;
+    if paths.len() > MAX_DIRECTORY_ENTRIES {
+        return Err("The saved answer directory exceeds its limit.".into());
+    }
+
+    // First use the small envelope to discard other snapshots before loading
+    // this workspace's manifest and index. Full validation still follows.
+    let mut candidates = Vec::new();
+    for entry in paths {
+        let path = entry.path();
+        if !path.extension().is_some_and(|value| value == "json") {
+            continue;
+        }
+        let Some(run) = path.file_stem().and_then(|value| value.to_str()) else {
+            continue;
+        };
+        if !canonical_uuid(run) {
+            continue;
+        }
+        let Ok(bytes) = read_record_bytes(storage, run) else {
+            continue;
+        };
+        let Ok(value) = crate::strict_json::from_slice(&bytes) else {
+            continue;
+        };
+        let Ok(envelope) = serde_json::from_value::<Envelope>(value) else {
+            continue;
+        };
+        if envelope.schema_version == NARRATION_ANSWER_VERSION
+            && envelope.binding.operation_id == run
+            && envelope.binding.project_id == project
+            && envelope.binding.snapshot_id == snapshot
+        {
+            candidates.push((run.to_owned(), bytes));
+        }
+    }
+
+    if candidates.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let context = ReplayContext::load(storage, project, snapshot)?;
+    let mut observations = Vec::with_capacity(candidates.len());
+    for (run, bytes) in candidates {
+        // A damaged receipt remains isolated; it must not hide another saved
+        // answer in this repository and snapshot.
+        if let Ok(answer) = replay_answer_with_context(storage, &run, &bytes, &context) {
+            observations.push(Observation { answer, bytes });
+        }
+    }
+    observations.sort_by(|left, right| left.run_id().cmp(right.run_id()));
+    Ok(observations)
 }
 
 /// List only independently verified records for the explicit storage manager.

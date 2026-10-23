@@ -260,8 +260,10 @@ mod tests {
         graph_scene["elements"] = json!([]);
         let graph_findings =
             crate::claim_alignment::chapter_diagnostics(&graph_proposal.to_string()).unwrap();
-        assert!(graph_findings
-            .iter()
-            .any(|finding| finding["sceneProblem"] == "selectorRequired"));
+        assert!(
+            graph_findings
+                .iter()
+                .any(|finding| finding["sceneProblem"] == "selectorRequired")
+        );
     }
 }

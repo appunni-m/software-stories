@@ -29,7 +29,6 @@ test('a section arriving during initial restoration is read before that restorat
   const listed = deferred(); const started = deferred(); let lists = 0;
   const h = workspaceStoreHarness(nativeReads(async (name) => {
     if (name === 'list_workspace_answers') { if (++lists === 1) { started.resolve(); return listed.promise; } return [answer]; }
-    if (name === 'load_workspace_answer') return answer;
     assert.fail(`Unexpected command ${name}`);
   }));
   const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot');
@@ -43,7 +42,8 @@ test('a section arriving during initial restoration is read before that restorat
   assert.equal(turns(h).length, 1);
   assert.equal(turns(h)[0].status, 'ready');
   assert.equal(turns(h)[0].publishedSections[0].revisionId, 'revision');
-  assert.equal(h.calls.filter((c) => c.name === 'save_workspace_answer_section').length, 1);
+  assert.equal(h.calls.filter((c) => c.name === 'load_workspace_answer').length, 0);
+  assert.equal(h.calls.filter((c) => c.name === 'save_workspace_answer_section').length, 0);
   stop(); assert.equal(h.listenerCount(), 0);
 });
 
@@ -55,7 +55,6 @@ test('a burst of scoped section events requires one fresh serial read', { timeou
       if (lists === 1) { started.resolve(); const result = await listed.promise; active--; return result; }
       active--; return [answer];
     }
-    if (name === 'load_workspace_answer') return answer;
     assert.fail(`Unexpected command ${name}`);
   }));
   const availability = [];
@@ -69,27 +68,23 @@ test('a burst of scoped section events requires one fresh serial read', { timeou
   assert.equal(turns(h)[0].publishedSections.length, 1); stop();
 });
 
-test('finished events during section adoption preserve both sections and the reader selection', { timeout: 2000 }, async () => {
-  const saving = deferred(); const started = deferred(); let saves = 0; let latest = false;
+test('finished events during restoration preserve both sections and the reader selection', { timeout: 2000 }, async () => {
+  const listed = deferred(); const started = deferred(); let lists = 0; let latest = false;
   const second = { ...section, key: 'next', order: 2, generationId: 'generation:33333333-3333-4333-8333-333333333333', revisionId: 'revision-two' };
   const partial = { ...answer, outcome: 'working' };
   const complete = { ...answer, sections: [section, second] };
   const h = workspaceStoreHarness(async (name, args) => {
     if (name === 'list_repository_guides') return { guides: [], unavailableCount: 0 };
-    if (name === 'list_workspace_answers') return [latest ? complete : partial];
-    if (name === 'load_workspace_answer') return latest ? complete : partial;
-    if (name === 'save_workspace_answer_section') {
-      if (++saves === 1) { started.resolve(); await saving.promise; }
-      return { projectId: args.projectId, snapshotId: args.snapshotId, revisionId: args.generationId === section.generationId ? 'revision' : 'revision-two' };
-    }
+    if (name === 'list_workspace_answers') { if (++lists === 1) { started.resolve(); return listed.promise; } return [latest ? complete : partial]; }
     assert.fail(`Unexpected command ${name}`);
   });
   h.store.updateWorkspace('project', 'snapshot', (s) => ({ ...s, file: 'src/main.rs', explorations: s.explorations.map((e) => ({ ...e, view: 'flow', turns: [{ id: 'question', question: answer.question, context: [], status: 'interrupted', runIds: [scope.runId], reading: { flow: { revisionId: 'revision', sectionId: 'second-scene' } } }] })) }));
   const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot');
   const initial = h.store.restoreWorkspaceAnswers('project', 'snapshot'); await started.promise;
-  latest = true; h.emit('workspace-answer-finished', scope); await flushLocalReads(); saving.resolve();
+  latest = true; h.emit('workspace-answer-finished', scope); await flushLocalReads(); listed.resolve([partial]);
   await initial; await flushLocalReads();
   const turn = turns(h)[0];
+  assert.equal(lists, 2);
   assert.equal(turn.status, 'ready'); assert.equal(turn.publishedSections.length, 2);
   assert.equal(turn.reading.flow.sectionId, 'second-scene');
   assert.equal(h.store.getWorkspace('project', 'snapshot').explorations[0].view, 'flow');
@@ -100,7 +95,6 @@ test('a native invalidation supersedes a failing initial read without replaying 
   const listed = deferred(); const started = deferred(); let lists = 0;
   const h = workspaceStoreHarness(nativeReads(async (name) => {
     if (name === 'list_workspace_answers') { if (++lists === 1) { started.resolve(); return listed.promise; } return [answer]; }
-    if (name === 'load_workspace_answer') return answer;
     assert.fail(`Unexpected command ${name}`);
   }));
   const availability = [];
@@ -116,7 +110,6 @@ test('a genuine restoration failure rejects without automatic retry and an expli
   let lists = 0;
   const h = workspaceStoreHarness(nativeReads(async (name) => {
     if (name === 'list_workspace_answers') { if (++lists === 1) throw new Error('local read failed'); return [answer]; }
-    if (name === 'load_workspace_answer') return answer;
     assert.fail(`Unexpected command ${name}`);
   }));
   await assert.rejects(h.store.restoreWorkspaceAnswers('project', 'snapshot'), /local read failed/);
@@ -125,30 +118,25 @@ test('a genuine restoration failure rejects without automatic retry and an expli
   assert.equal(lists, 2); assert.equal(turns(h)[0].status, 'ready');
 });
 
-test('one unreadable saved run does not block later valid answers from restoring', async () => {
+test('startup merges every native-verified answer without replaying individual receipts', async () => {
   const secondRun = '55555555-5555-4555-8555-555555555555';
   const secondSection = { ...section, runId: secondRun, generationId: 'generation:66666666-6666-4666-8666-666666666666', revisionId: 'revision-two' };
   const secondAnswer = { ...answer, runId: secondRun, question: 'What uses the result?', sections: [secondSection] };
-  let broken = true; const availability = [];
+  const availability = [];
   const h = workspaceStoreHarness(nativeReads(async (name, args) => {
     if (name === 'list_workspace_answers') return [answer, secondAnswer];
-    if (name === 'load_workspace_answer' && args.runId === scope.runId && broken) throw new Error('saved receipt is unavailable');
-    if (name === 'load_workspace_answer') return args.runId === secondRun ? secondAnswer : answer;
+    if (name === 'load_workspace_answer') throw new Error('startup must not replay individual receipts');
     assert.fail(`Unexpected command ${name}`);
   }));
   const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot', (state) => availability.push(state));
-  await assert.rejects(h.store.restoreWorkspaceAnswers('project', 'snapshot'), /saved receipt is unavailable/);
-  assert.deepEqual(availability, ['loading', 'unavailable']);
+  await h.store.restoreWorkspaceAnswers('project', 'snapshot');
+  assert.deepEqual(availability, ['loading', 'ready']);
   assert.equal(turns(h).length, 2);
-  assert.equal(turns(h)[0].publishedSections.length, 0);
+  assert.equal(turns(h)[0].status, 'ready');
+  assert.equal(turns(h)[0].publishedSections.length, 1);
   assert.equal(turns(h)[1].status, 'ready');
   assert.equal(turns(h)[1].publishedSections[0].revisionId, 'revision-two');
-
-  broken = false;
-  await h.store.restoreWorkspaceAnswers('project', 'snapshot');
-  assert.deepEqual(availability, ['loading', 'unavailable', 'loading', 'ready']);
-  assert.equal(turns(h)[0].status, 'ready');
-  assert.equal(turns(h)[1].publishedSections[0].revisionId, 'revision-two');
+  assert.equal(h.calls.filter((call) => call.name === 'load_workspace_answer').length, 0);
   stop();
 });
 
@@ -172,7 +160,6 @@ test('guide events invalidate the saved guide instead of publishing their older 
   const h = workspaceStoreHarness(async (name, args) => {
     if (name === 'list_repository_guides') { if (++lists === 1) { started.resolve(); return listed.promise; } return { guides: [guide], unavailableCount: 0 }; }
     if (name === 'list_workspace_answers') return [];
-    if (name === 'save_workspace_answer_section') return { projectId: args.projectId, snapshotId: args.snapshotId, revisionId: 'revision' };
     assert.fail(`Unexpected command ${name}`);
   });
   const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot');
@@ -193,7 +180,6 @@ test('different repository scopes restore independently and cannot share answers
       if (args.projectId === 'one') { started.resolve(); return listed.promise; }
       assert.equal(args.projectId, 'two'); return [];
     }
-    if (name === 'load_workspace_answer') { assert.equal(args.projectId, 'one'); return firstAnswer; }
     assert.fail(`Unexpected command ${name}`);
   }));
   const firstStatus = []; const secondStatus = [];
@@ -214,7 +200,6 @@ test('a background read failure is visible, preserves answers and clears only af
   let lists = 0; let fail = false; const availability = [];
   const h = workspaceStoreHarness(nativeReads(async (name) => {
     if (name === 'list_workspace_answers') { lists++; if (fail) throw new Error('private local diagnostic'); return [answer]; }
-    if (name === 'load_workspace_answer') return answer;
     assert.fail(`Unexpected command ${name}`);
   }));
   const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot', (state) => availability.push(state));

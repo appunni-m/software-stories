@@ -506,13 +506,64 @@ pub(crate) async fn save_workspace_answer_section(
 #[tauri::command(rename_all = "camelCase")]
 pub(crate) async fn list_workspace_answers(
     app: AppHandle,
+    manager: State<'_, codex_agent::CodexAgentManager>,
     project_id: String,
     snapshot_id: String,
 ) -> Result<Vec<Summary>, String> {
     let storage = app_data_directory(&app)?;
-    tauri::async_runtime::spawn_blocking(move || reading::list(&storage, &project_id, &snapshot_id))
-        .await
-        .map_err(|_| "Saved answers could not be listed. Nothing was regenerated.".to_owned())?
+    let manager = manager.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let observations = reading::list_observations(&storage, &project_id, &snapshot_id)?;
+        let mut summaries = Vec::with_capacity(observations.len());
+        for observation in observations {
+            let run_id = observation.run_id().to_owned();
+            let summary = manager.with_operation_state(&run_id, |active| {
+                reading::reconcile_observed(&storage, observation, active)
+            })?;
+            summaries.push(match summary {
+                Some(summary) => summary,
+                None => load_saved_answer(&storage, &run_id, &project_id, &snapshot_id, &manager)?,
+            });
+        }
+
+        // Reconcile the rare crash window between durable publication and
+        // library adoption here, so the webview can restore cards without
+        // loading every full receipt and index a second time.
+        if summaries.iter().any(|answer| !answer.sections.is_empty()) {
+            let write_lock = app.state::<crate::ChapterStoreLock>();
+            let _guard = write_lock
+                .0
+                .lock()
+                .map_err(|_| "The chapter library is unavailable.")?;
+            let saved =
+                crate::chapter_store::list_for_snapshot(&storage, &project_id, &snapshot_id)?;
+            let mut revision_ids = saved
+                .iter()
+                .map(|revision| revision.revision_id.clone())
+                .collect::<std::collections::HashSet<_>>();
+            for answer in &summaries {
+                for section in &answer.sections {
+                    if revision_ids.contains(&section.revision_id) {
+                        continue;
+                    }
+                    let revision = reading::adopt(
+                        &storage,
+                        &answer.run_id,
+                        &project_id,
+                        &snapshot_id,
+                        &section.generation_id,
+                    )?;
+                    if revision.revision_id != section.revision_id {
+                        return Err("The saved section identity changed during restoration.".into());
+                    }
+                    revision_ids.insert(revision.revision_id.clone());
+                }
+            }
+        }
+        Ok(summaries)
+    })
+    .await
+    .map_err(|_| "Saved answers could not be listed. Nothing was regenerated.".to_owned())?
 }
 
 #[derive(Serialize)]

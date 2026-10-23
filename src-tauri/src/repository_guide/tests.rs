@@ -694,6 +694,10 @@ fn cached_metadata_cannot_hide_a_damaged_existing_answer_receipt() {
     let path = directory.join(format!("{run}.json"));
     std::fs::write(&path, b"{}").unwrap();
     assert!(reading::exists(&f.storage, &run).unwrap());
+    // Listing a saved guide uses its already-published summary and must stay
+    // responsive; opening/reconciling the receipt still performs full replay.
+    let listed = summary_for_listing(&f.storage, &r).unwrap();
+    assert!(listed.answers.iter().any(|answer| answer.run_id == run));
     assert!(summary(&f.storage, &r).is_err());
     r.units[0].attempts[0].summary = None;
     assert!(reconcile(&f.storage, &r, &codex_agent::CodexAgentManager::default()).is_err());

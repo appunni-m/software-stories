@@ -5,28 +5,22 @@ use crate::chapters::{self, ChapterRevision};
 use serde_json::{Value, json};
 
 pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v26";
-pub(crate) const STORY_POLICY_VERSION: &str = "ai-html-compositions-v29";
+pub(crate) const STORY_POLICY_VERSION: &str = "ai-html-compositions-v32";
 
 /// One speech contract for file, overview and selected-section user prompts.
 /// Keep the full script and inspectable claim fields complete.
-pub(super) const SECTION_NARRATION_INSTRUCTIONS: &str = "Complete scene narration: when a presentation is supplied, spokenText joins every scene narration in claim order, including visible inference labels. It must preserve the full behavior, guards, alternatives, errors and uncertainty of all claims, not a summary or a chosen subset. Narration is a spoken guide to the visible scene, not a compressed list of code details: point to a short label or position, then explain what changes and why it matters. Use at most two short, natural sentences per scene. Explain every distinct outcome in plain words. Keep exact identifiers, signatures, abbreviations, file-format tags, field/table tokens and error labels visible in claims, visual details and source links; in speech describe each by its role (for example, say ‘the first font-format check’ rather than spelling its tag, and ‘the glyph's stored horizontal width’ rather than a table token). Speak an exact token only when the user explicitly asks about its spelling or meaning. If several checks would become a spoken list, split them into ordered scenes without dropping any condition or outcome. With no presentation, write a complete natural spoken account of all claims with the same style, preserving every guard, alternative, error, inference label and uncertainty. Keep the complete transport script within 20–1,000 UTF-8 bytes and the declared section shape; organize focused claims without dropping behavior. The app retains exact claims separately and assembles speech from all scenes.";
+pub(super) const SECTION_NARRATION_INSTRUCTIONS: &str = "Complete scene narration: when a presentation is supplied, spokenText joins every scene narration in claim order, including visible inference labels. It must preserve the full behavior, guards, alternatives, errors and uncertainty of all claims, not a summary or a chosen subset. Tell what the real subject does and why it matters; point to a short visual cue only to help the listener follow. Never narrate the artifact itself or open with meta commentary such as ‘these boxes show’, ‘this diagram explains’ or ‘the scene illustrates’. Start with the caller, input or decision, then tell what happens next and where each supported outcome goes. Use at most two short, natural sentences per scene. Explain every distinct outcome in plain words. Keep exact identifiers, signatures, abbreviations, file-format tags, field/table tokens and error labels visible in claims, visual details and source links; in speech describe each by its role (for example, say ‘the first font-format check’ rather than spelling its tag, and ‘the glyph's stored horizontal width’ rather than a table token). Speak an exact token only when the user explicitly asks about its spelling or meaning. If several checks would become a spoken list, split them into ordered scenes without dropping any condition or outcome. With no presentation, write a complete natural spoken account of all claims with the same story-first style, preserving every guard, alternative, error, inference label and uncertainty. Keep the complete transport script within 20–1,000 UTF-8 bytes and the declared section shape; organize focused claims without dropping behavior. The app retains exact claims separately and assembles speech from all scenes.";
 
-const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v29
-Build a visual explanation around real code behavior. Follow a real input through source-grounded changes and outcomes. Each scene makes one change, decision or result visible and explains why it matters. Start with the input; narration points to a visible cue in at most two short, natural sentences. Preserve guards, alternatives, failures and uncertainty. Label examples; never invent behavior. Use source links if no visual helps. Prefix inference narration with its visible label."#;
+const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v32
+Build a visual explanation around real code behavior. Follow a real input through source-grounded changes and outcomes. Each scene makes one change, decision or result visible and explains why it matters. Narration tells the subject's journey in direct speech; it never describes the artifact with phrases like ‘these boxes show’ or ‘this diagram illustrates’. Start with the real caller, input or decision, then follow what happens and where each supported outcome goes. Point to a visible cue only as a brief landmark. Preserve guards, alternatives, failures and uncertainty. Label examples; never invent behavior. Use source links if no visual helps. Prefix inference narration with its visible label."#;
 
 const BEHAVIOR_TEACHING: &str = r#"Teaching policy v26: Start with the real input or situation; each claim covers one code-backed transition and its consequence. State the decision rule before examples and explain every outcome, guard, alternative and error. Keep identifiers, guards and errors visible but speak their role unless the token itself is asked about. Preserve zero/nonzero and empty-result behavior; never invent intent or results."#;
 
 const EVIDENCE_MEANING: &str = r#"Trace every earlier guard and failure: lookup and byte-range extraction can fail before a parser runs; parser fallback starts after those checks. Distinguish missing entries, inaccessible bytes, malformed contents and parsing. A comment or default constructor does not prove later consumer behavior. For downstream effects, cite that consumer's implementation plus producer and conditions; otherwise leave it unexplored. References and identifiers do not prove meaning."#;
 
-const VISUAL_DESIGN_METHOD: &str = r#"Visual design method v29: Trace each claim as input → decision/operation → changed state/data → result. Let the mechanism pick one app-supported representation per scene; make its cue readable at a glance. Prefer domain-shaped evidence over generic rows, grids or card walls.
+const VISUAL_DESIGN_METHOD: &str = r#"Visual design method v31: Identify the real thing the reader should watch: input, decision, state/data change, or output. Let behavior choose one app-supported representation per scene, not language, file type or a favorite template. Use the shape that explains it: ordered checks → selector; single guard → branch; changed data → beforeAfter/transform; verified order → timeline; independent actors → lanes; FIFO/LIFO → queue/stack; actual nesting → tree; byte/field boundaries → bytes/table; pixels → matrix; quantities or value-to-route lookup → metric/table. For lookups show key, hit/miss and route; show parser/range boundaries only when source-backed. Use a graph only for relations those forms cannot show clearly. Give each scene one dominant visual action; split at evidenced handoffs. Keep guards, outcomes, errors, defaults and destinations visible. Carry state only when source evidence supports it; never imply execution, concurrency, success, values or internals that were not observed. Label illustrative examples. Prefer concise cues; put full nuance in narration and source details. If a visual would mislead, use narration and source links. No 3-D/WebGL or remote assets are supported."#;
 
-Match form to code: ordered probes/fallbacks → selector (source order, separate guard/outcome, visible miss); consequential guard → branch; changed state/data → beforeAfter or input–operation–result transform; verified execution order → timeline; truly independent actors → lanes; FIFO/LIFO → queue/stack; actual nesting → tree; bytes/field boundaries → byte strip/table; pixels → matrix; source-backed quantities → metric/table; value-to-route mapping → table. Show request inputs/handoffs/results and lookup keys/hit/miss. Parsers and ranges show only code-backed boundaries and output slices. Show algorithm steps only with code-backed or labeled illustrative values. Use a graph only when non-linear relations are clearer than these forms.
-
-Keep guards, outcomes, errors, defaults and destinations visible. Carry input/state only across evidenced scenes; never imply concurrency, execution order or success without code. Label illustrative examples in the visual cue and narration. Never invent runtime values, measurements, pixels, timings or internals. Cards are labels within a meaningful form, never the picture. If no visual helps, use narration and source links.
-
-The app renders bounded data into app-owned HTML; never emit markup, CSS, JavaScript, WebGL, remote assets or executable behavior. No 3-D renderer exists; reserve 3-D for tested app-owned support of inherently spatial behavior."#;
-
-const VISIBLE_VALUE_CONTRACT: &str = r#"Visible-value contract v27: Every content leaf needs a nonempty visible input, guard, change, output or destination; never leave a placeholder such as '?' or hide meaning in narration/help/links. Values are source-backed or labeled illustrative. Use source:null for readable labels by default; source values are exact unique substrings of cited excerpts. Target at most 8 nodes per section, 12 edges, 24 elements/8 leaves per scene and 6 children/group; validator maxima are ceilings. If no concise visual fits, use narration and links."#;
+const VISIBLE_VALUE_CONTRACT: &str = r#"Visible-value contract v28: Every content leaf needs a visible input, guard, change, output or destination; no placeholders or meaning hidden in help/narration. Use source:null for readable labels; source values must be exact, unique substrings of cited excerpts. Otherwise label examples illustrative. Keep labels short (2–8 words, under 45 visible characters per card); preserve longer exact tokens only when they matter. Put sentence-length nuance in narration; use a wide/vertical scene instead of several long cards in a row/grid. Limits are ceilings: 8 nodes/section, 12 edges, 24 elements/8 leaves/scene, 6 children/group. If no concise visual fits, use narration and links."#;
 
 const SPOKEN_ROLE_INSTRUCTIONS: &str = r#"Speech is for the listener, not a code reader. Do not speak function, method, type, field or error identifiers, backticks, syntax punctuation or compact format tags; say their roles. Speak exact tokens only when asked what they mean or how they are spelled. Keep exact names visible in clickable claims and source links."#;
 
@@ -38,7 +32,7 @@ const VISIBLE_DECISIONS: &str = r#"Show every supported outcome with its guard a
 
 const COMPOSITION_CONTRACT: &str = r#"Every visual has kind, title, direction, nodes, edges and presentation. The whole section has at most 12 nodes and 20 edges across all claim scenes, not per scene. Budget first: aim for one or two evidence nodes per claim and express relationships through layout/value fields, not a node for every label. Each node/edge cites 1–8 same-section zero-based {claimIndex,evidenceIndex} references; it cannot invent IDs or borrow another section's evidence. Every node also has source:null or source:{evidence:{claimIndex,evidenceIndex},value:"exact source substring"}. A non-null source must repeat one of that node's evidence references, and value must occur exactly once in that verified excerpt; native code resolves the cited anchor and checks the exact substring. Default source to null for readable behavior labels; node evidence remains clickable. Set a source value only when its exact spelling or bytes are part of what the reader must understand. Do not display a source expression just to make a visual clickable. An import is not a runtime call. A graph without presentation needs at least one evidenced edge. A composition may have no edges. If no useful visual is supported use kind:none, title:"", direction:auto, nodes:[], edges:[], presentation:null. A plain graph also uses presentation:null.
 
-For a narrated HTML composition use presentation:{schemaVersion:3,scenes:[{claimIndex:0,title:"short visual heading",narration:"Natural speech explaining this claim and visual, including guards and alternatives.",mode:"composition",elements:[...]}]}. Use one ordered scene per claim. A graph scene uses mode:graph,elements:[]; keep it to eight visible nodes (claim-linked nodes plus one edge of context), or show the full graph when no nodes are claim-linked. Use graphs only for genuinely non-linear relationships that a timeline, branch or selector cannot express clearly. Ordered guard chains, single decisions and causal paths use their matching semantic composition, even when outcomes later converge. Split broad claims when needed; preserve every outcome and the requested map. The app owns HTML, styling and interactions. Elements have exactly kind,parentIndex,nodeIndex,tone,value,valueOrigin in a flat preorder tree: root parentIndex:null, others name an earlier container. Groups are row,column,grid,panel,compare,stack,timeline,lanes,branch,beforeAfter,transform,tree,queue,selector and have null nodeIndex/value. timeline means evidenced execution order; lanes are independent actors without implied order; branch is guard first, then all supported outcomes; selector is the root and directly contains at least two source-ordered branch groups. Each branch has at least two separate direct content items: the guard first, then one or more supported outcomes. Never combine a guard and outcome in one card. The first matching guard wins and a miss visibly continues. Use one or two short labels per outcome. beforeAfter is exactly two labeled states; transform has three direct children in input, operation, result order; tree uses nesting to show source-backed hierarchy; queue shows FIFO order front to back. Use each group only when its meaning fits the source. Content is card,token,code,metric,bytes,matrix,table,text; each nodeIndex supplies its label and source links and cites this scene's claim. Tone is neutral,accent,muted,positive,warning. Arrow/divider are decorative only. Use cards only as concise labels/values inside a semantic visual, not as the visual itself. Per scene, 48 elements and 12 content leaves are hard limits, not targets; keep each scene concise and its relation legible. Choose forms independently by scene semantics; avoid one layout across unrelated behaviors, but do not vary for decoration. One node can suit a focused claim; a complex selector may need a few. Never add nodes to make a scene look busy.
+For a narrated HTML composition use presentation:{schemaVersion:3,scenes:[{claimIndex:0,title:"short visual heading",narration:"Natural speech following the real subject through this claim, with a brief cue to locate its guard, change, or outcome.",mode:"composition",elements:[...]}]}. Use one ordered scene per claim. A graph scene uses mode:graph,elements:[]; keep it to eight visible nodes (claim-linked nodes plus one edge of context), or show the full graph when no nodes are claim-linked. Use graphs only for genuinely non-linear relationships that a timeline, branch or selector cannot express clearly. Ordered guard chains, single decisions and causal paths use their matching semantic composition, even when outcomes later converge. Split broad claims when needed; preserve every outcome and the requested map. The app owns HTML, styling and interactions. Elements have exactly kind,parentIndex,nodeIndex,tone,value,valueOrigin in a flat preorder tree: root parentIndex:null, others name an earlier container. Groups are row,column,grid,panel,compare,stack,timeline,lanes,branch,beforeAfter,transform,tree,queue,selector and have null nodeIndex/value. timeline means evidenced execution order; lanes are independent actors without implied order; branch is guard first, then all supported outcomes; selector is the root and directly contains at least two source-ordered branch groups. Each branch has at least two separate direct content items: the guard first, then one or more supported outcomes. Never combine a guard and outcome in one card. The first matching guard wins and a miss visibly continues. Use one or two short labels per outcome. beforeAfter is exactly two labeled states; transform has three direct children in input, operation, result order; tree uses nesting to show source-backed hierarchy; queue shows FIFO order front to back. Use each group only when its meaning fits the source. Content is card,token,code,metric,bytes,matrix,table,text; each nodeIndex supplies its label and source links and cites this scene's claim. Tone is neutral,accent,muted,positive,warning. Arrow/divider are decorative only. Use cards only as concise labels/values inside a semantic visual, not as the visual itself. Per scene, 48 elements and 12 content leaves are hard limits, not targets; keep each scene concise and its relation legible. Choose forms independently by scene semantics; avoid one layout across unrelated behaviors, but do not vary for decoration. One node can suit a focused claim; a complex selector may need a few. Never add nodes to make a scene look busy.
 
 A nonempty value has valueOrigin:source only when it is an exact substring of that node's own same-claim cited excerpts. Do not relabel copied source as an illustration to evade the check. Invented examples use valueOrigin:illustration and receive a visible example badge. Empty values use valueOrigin:none. Values are at most 1,024 UTF-8 bytes. Bytes have 1–32 whitespace-separated cells; matrices have 1–16 equal rows of 1–24 zero/one/dot cells; tables have at most eight newline rows and six equal pipe-separated columns. A transform group has exactly three direct children in input, operation, result order; the app labels and renders those roles. A tree group represents actual nesting. A queue group is FIFO, with children ordered front to back. Repeated visible labels/values on both sides of an arrow do not show a transformation. Never supply HTML strings, CSS, URLs, JavaScript, event handlers or extra fields. A valid schema or source token does not prove an illustrative outcome; check the whole scene against its claim before returning."#;
 
@@ -178,58 +172,50 @@ pub(crate) mod tests {
     #[test]
     fn ordinary_prompt_binds_the_versioned_scene_narration_policy() {
         let instructions = super::instructions();
-        assert!(instructions.contains("ai-html-compositions-v29"));
+        assert!(instructions.contains("ai-html-compositions-v32"));
         assert!(
             instructions.contains(
                 "whole section has at most 12 nodes and 20 edges across all claim scenes"
             )
         );
         assert!(instructions.contains(
-            "Trace each claim as input → decision/operation → changed state/data → result"
+            "Identify the real thing the reader should watch: input, decision, state/data change, or output"
         ));
         assert!(instructions.contains("one app-supported representation per scene"));
-        assert!(instructions.contains("verified execution order → timeline"));
-        assert!(instructions.contains("ordered probes/fallbacks → selector"));
-        assert!(instructions.contains("separate guard/outcome, visible miss"));
-        assert!(instructions.contains("consequential guard → branch"));
-        assert!(instructions.contains("truly independent actors → lanes"));
+        assert!(instructions.contains("Identify the real thing the reader should watch"));
+        assert!(instructions.contains("not language, file type or a favorite template"));
+        assert!(instructions.contains("one dominant visual action"));
+        assert!(instructions.contains("under 45 visible characters per card"));
+        assert!(instructions.contains("instead of several long cards in a row/grid"));
+        assert!(instructions.contains("verified order → timeline"));
+        assert!(instructions.contains("ordered checks → selector"));
+        assert!(instructions.contains("Never combine a guard and outcome in one card"));
+        assert!(instructions.contains("a miss visibly continues"));
+        assert!(instructions.contains("single guard → branch"));
+        assert!(instructions.contains("independent actors → lanes"));
         assert!(instructions.contains("FIFO/LIFO → queue/stack"));
         assert!(instructions.contains("actual nesting → tree"));
-        assert!(instructions.contains("bytes/field boundaries → byte strip/table"));
+        assert!(instructions.contains("byte/field boundaries → bytes/table"));
         assert!(
-            instructions.contains(
-                "Use a graph only when non-linear relations are clearer than these forms"
-            )
+            instructions.contains("Use a graph only for relations those forms cannot show clearly")
         );
-        assert!(
-            instructions.contains("Show request inputs/handoffs/results and lookup keys/hit/miss")
-        );
-        assert!(instructions.contains("value-to-route mapping → table"));
-        assert!(instructions.contains("Label illustrative examples in the visual cue and narration"));
-        assert!(instructions.contains("Every content leaf needs a nonempty visible input"));
-        assert!(instructions.contains("never leave a placeholder such as '?'"));
-        assert!(
-            instructions
-                .contains("No 3-D renderer exists; reserve 3-D for tested app-owned support")
-        );
-        assert!(instructions.contains("The app renders bounded data into app-owned HTML"));
-        assert!(instructions.contains("Carry input/state only across evidenced scenes"));
-        assert!(instructions.contains("Target at most 8 nodes per section"));
-        assert!(instructions.contains("source:null for readable labels by default"));
-        assert!(
-            instructions
-                .contains("Prefer domain-shaped evidence over generic rows, grids or card walls")
-        );
-        assert!(
-            instructions
-                .contains("Parsers and ranges show only code-backed boundaries and output slices")
-        );
-        assert!(
-            instructions
-                .contains("never imply concurrency, execution order or success without code")
-        );
+        assert!(instructions.contains("For lookups show key, hit/miss and route"));
+        assert!(instructions.contains("value-to-route lookup → metric/table"));
+        assert!(instructions.contains("Otherwise label examples illustrative"));
+        assert!(instructions.contains("Every content leaf needs a visible input"));
+        assert!(instructions.contains("no placeholders"));
+        assert!(instructions.contains("No 3-D/WebGL or remote assets are supported"));
+        assert!(instructions.contains("The app owns HTML, styling and interactions"));
+        assert!(instructions.contains("Carry state only when source evidence supports it"));
+        assert!(instructions.contains("8 nodes/section"));
+        assert!(instructions.contains("Use source:null for readable labels"));
+        assert!(instructions.contains("not language, file type or a favorite template"));
+        assert!(instructions.contains("show parser/range boundaries only when source-backed"));
         assert!(instructions.contains(
-            "never emit markup, CSS, JavaScript, WebGL, remote assets or executable behavior"
+            "never imply execution, concurrency, success, values or internals that were not observed"
+        ));
+        assert!(instructions.contains(
+            "Never supply HTML strings, CSS, URLs, JavaScript, event handlers or extra fields"
         ));
         assert!(instructions.contains("Use cards only as concise labels/values inside a semantic visual, not as the visual itself"));
         assert!(instructions.contains(super::BEHAVIOR_TEACHING));
@@ -242,7 +228,19 @@ pub(crate) mod tests {
             SECTION_NARRATION_INSTRUCTIONS.contains("joins every scene narration in claim order")
         );
         assert!(SECTION_NARRATION_INSTRUCTIONS.contains("not a summary or a chosen subset"));
-        assert!(SECTION_NARRATION_INSTRUCTIONS.contains("spoken guide to the visible scene"));
+        assert!(
+            SECTION_NARRATION_INSTRUCTIONS
+                .contains("Tell what the real subject does and why it matters")
+        );
+        assert!(SECTION_NARRATION_INSTRUCTIONS.contains("Never narrate the artifact itself"));
+        assert!(
+            SECTION_NARRATION_INSTRUCTIONS.contains("Start with the caller, input or decision")
+        );
+        assert!(SECTION_NARRATION_INSTRUCTIONS.contains("same story-first style"));
+        assert!(
+            super::instructions()
+                .contains("Natural speech following the real subject through this claim")
+        );
         assert!(SECTION_NARRATION_INSTRUCTIONS.contains("file-format tags, field/table tokens"));
         assert!(SECTION_NARRATION_INSTRUCTIONS.contains("the first font-format check"));
         assert!(
@@ -281,35 +279,26 @@ pub(crate) mod tests {
     #[test]
     fn shared_teaching_selects_layout_by_behavior_and_keeps_decision_outcomes_visible() {
         let shared = teaching_instructions();
-        assert!(shared.contains("VISUAL STORY CONTRACT — ai-html-compositions-v29"));
+        assert!(shared.contains("VISUAL STORY CONTRACT — ai-html-compositions-v32"));
         assert!(
             shared.contains("Follow a real input through source-grounded changes and outcomes")
         );
-        assert!(shared.contains("verified execution order → timeline"));
-        assert!(shared.contains("ordered probes/fallbacks → selector"));
-        assert!(shared.contains("separate guard/outcome, visible miss"));
-        assert!(shared.contains("consequential guard → branch"));
-        assert!(shared.contains("value-to-route mapping → table"));
-        assert!(
-            shared.contains("changed state/data → beforeAfter or input–operation–result transform")
-        );
-        assert!(shared.contains("truly independent actors → lanes"));
-        assert!(shared.contains("bytes/field boundaries → byte strip/table"));
-        assert!(
-            shared.contains(
-                "Use a graph only when non-linear relations are clearer than these forms"
-            )
-        );
+        assert!(shared.contains("verified order → timeline"));
+        assert!(shared.contains("ordered checks → selector"));
+        assert!(shared.contains("single guard → branch"));
+        assert!(shared.contains("value-to-route lookup → metric/table"));
+        assert!(shared.contains("changed data → beforeAfter/transform"));
+        assert!(shared.contains("independent actors → lanes"));
+        assert!(shared.contains("byte/field boundaries → bytes/table"));
+        assert!(shared.contains("Use a graph only for relations those forms cannot show clearly"));
         assert!(super::instructions().contains(
             "selector is the root and directly contains at least two source-ordered branch groups"
         ));
-        assert!(
-            shared.contains("Prefer domain-shaped evidence over generic rows, grids or card walls")
-        );
+        assert!(shared.contains("not language, file type or a favorite template"));
         assert!(shared.contains("one app-supported representation per scene"));
         assert!(shared.contains("pixels → matrix"));
-        assert!(shared.contains("No 3-D renderer exists"));
-        assert!(super::instructions().contains("The app renders bounded data into app-owned HTML"));
+        assert!(shared.contains("No 3-D/WebGL or remote assets are supported"));
+        assert!(super::instructions().contains("The app owns HTML, styling and interactions"));
         assert!(shared.contains("Preserve guards, alternatives, failures and uncertainty"));
         assert!(shared.contains("Selector checks stay source ordered"));
         assert!(shared.contains("Split crowded chains"));
@@ -318,7 +307,8 @@ pub(crate) mod tests {
             "Use cards only as concise labels/values inside a semantic visual, not as the visual itself"
         ));
         assert!(shared.contains("Show every supported outcome with its guard and destination"));
-        assert!(shared.contains("If no visual helps, use narration and source links"));
+        assert!(shared.contains("If a visual would mislead, use narration and source links"));
+        assert!(shared.contains("never describes the artifact"));
         assert!(shared.contains("Do not speak function, method, type, field or error identifiers"));
         assert!(shared.contains("Selector checks stay source ordered"));
         assert!(shared.contains("visible miss/fallback"));
