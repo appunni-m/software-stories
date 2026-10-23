@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { addTurn, ancestors, chapterTarget, chooseFlowRevision, cleanAnswerNotes, cleanPublishedSections, decodeWorkspace, historyEntry, questionProgressText, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
+import { addTurn, ancestors, chapterTarget, chooseFlowRevision, cleanAnswerNotes, cleanPublishedSections, decodeWorkspace, focusAnswerSection, historyEntry, questionProgressText, mergePublishedSections, createWorkspace, learningQuestion, parseWorkspace, rankSourcePaths, rememberScroll, rememberSection, sectionPosition } from '../src/workspace/model.ts';
 const turn = (id,question='Explain the subtotal implementation') => ({id,question,context:[{path:'src/cart.ts',from:1,to:6}],status:'queued'});
 
 test('history never calls an empty or unavailable outcome a saved explanation',()=>{
@@ -182,6 +182,25 @@ test('reading positions belong to the exact exploration, turn, revision and view
   assert.deepEqual(root.turns[0].context,turn('parent').context);
   assert.equal(root.turns[0].revisionId,'rev-parent');assert.equal(root.turns.length,1);
   assert.deepEqual(ancestors(restored,'grandchild').map(e=>e.id),['root','child','grandchild']);
+});
+
+test('opening a compact answer stores its exact section across Guide and Flow switches',()=>{
+  let state=addTurn(createWorkspace('p','snap'),{...turn('answer'),status:'ready',revisionId:'revision:font'},'guide');
+  state=focusAnswerSection(state,'root','answer',{revisionId:'revision:font',sectionId:'section:probes'});
+  state=rememberSection(state,'root','answer','flow',{revisionId:'revision:font',sectionId:'section:dispatch'});
+  state={...state,explorations:state.explorations.map((exploration)=>exploration.id==='root'?{...exploration,view:'flow'}:exploration)};
+  state={...state,explorations:state.explorations.map((exploration)=>exploration.id==='root'?{...exploration,view:'guide'}:exploration)};
+  const reopened=parseWorkspace(JSON.stringify(state),'p','snap');
+  assert.equal(reopened.explorations[0].focusedTurnId,'answer');
+  assert.deepEqual(reopened.explorations[0].turns[0].reading,{
+    guide:{revisionId:'revision:font',sectionId:'section:probes'},
+    flow:{revisionId:'revision:font',sectionId:'section:dispatch'},
+  });
+  const source=readFileSync(new URL('../src/workspace/Workspace.tsx',import.meta.url),'utf8');
+  assert.match(source,/onClick=\{\(\)=>onFocus\(revision\.revisionId,section\.sectionId\)\}/,
+    'opening a compact answer must save the section represented by that card');
+  assert.match(source,/onFocus=\{\(revisionId,sectionId\)=>focusAnswer\(turn\.id,revisionId,sectionId\)\}/,
+    'the focused turn and its Guide reading position must be updated together');
 });
 
 test('stable section identity survives ordering and safely falls back for a changed answer',()=>{

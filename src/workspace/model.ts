@@ -337,6 +337,17 @@ export function rememberSection(state: WorkspaceState, explorationId: string, tu
   if (!clean || !turn || !ownsAnswerRevision(turn,clean.revisionId) || (turn.reading?.[view]?.revisionId === clean.revisionId && turn.reading[view]?.sectionId === clean.sectionId)) return state;
   return { ...state, explorations: state.explorations.map((e) => e.id !== explorationId ? e : { ...e, turns: e.turns.map((t) => t.id !== turnId ? t : { ...t, reading: { ...t.reading, [view]: clean }, ...(t.answerVersions?{answerVersions:t.answerVersions.map(v=>v.revisionId===clean.revisionId?{...v,reading:{...v.reading,[view]:clean.sectionId}}:v)}:{}) }) }) };
 }
+/** Opening a compact answer card must restore the exact section the reader chose,
+ * even when the same question has several published revisions. */
+export function focusAnswerSection(state: WorkspaceState, explorationId: string, turnId: string, position: ReadingPosition): WorkspaceState {
+  const clean = cleanReadingPosition(position);
+  const owner = state.explorations.find((e) => e.id === explorationId);
+  const turn = owner?.turns.find((t) => t.id === turnId);
+  if (!clean || !owner || !turn || !ownsAnswerRevision(turn, clean.revisionId)) return state;
+  const positioned = rememberSection(state, explorationId, turnId, 'guide', clean);
+  if (owner.focusedTurnId === turnId && positioned === state) return state;
+  return { ...positioned, explorations: positioned.explorations.map((e) => e.id !== explorationId ? e : { ...e, focusedTurnId: turnId }) };
+}
 export function rememberScroll(state: WorkspaceState, explorationId: string, view: View, top: number): WorkspaceState {
   if (!validScroll(top) || !['guide', 'flow', 'history'].includes(view)) return state;
   const owner = state.explorations.find((e) => e.id === explorationId);
