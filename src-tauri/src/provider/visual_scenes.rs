@@ -20,7 +20,7 @@ const EVIDENCE_MEANING: &str = r#"Trace the guards and failures that can prevent
 
 const VISUAL_DESIGN_METHOD: &str = r#"Visual design method v33: Identify the real thing the reader should watch: input, decision, state/data change, or output. Let behavior choose one app-supported representation per scene, not language, file type or a favorite template. Use the shape that explains it: ordered checks → selector; single guard → branch; changed data → beforeAfter/transform; verified order → timeline; independent actors → lanes; FIFO/LIFO → queue/stack; actual nesting → tree; byte/field boundaries → bytes/table; pixels → matrix; quantities or value-to-route lookup → metric/table. For lookups show key, hit/miss and route; show parser/range boundaries only when source-backed. Use a graph only for relations those forms cannot show clearly.
 
-Art direction: Before composing, name the behavior as a verb—enters, checks, branches, transforms, accumulates, or returns—and make the layout enact that action. Do not default to equal cards, grids, or one repeated flow template. Cards are labels inside a meaningful composition, never the composition by themselves. Give each scene one focal visual action. Keep a consistent visual grammar across one journey, then change the composition only at a real behavioral handoff; do not vary layouts for decoration. Use scale, spacing, direction and grouping to make a source-backed boundary or outcome easier to see, never to imply priority or runtime behavior that the code does not establish.
+Art direction: Before composing, name the behavior as a verb—enters, checks, branches, transforms, accumulates, or returns—and make the layout enact that action. Do not default to equal cards, grids, or one repeated flow template. Cards are labels inside a meaningful composition, never the composition by themselves. Give each scene one dominant visual action with a single focal point. Keep a consistent visual grammar across one journey, then change the composition only at a real behavioral handoff; do not vary layouts for decoration. Use scale, spacing, direction and grouping to make a source-backed boundary or outcome easier to see, never to imply priority or runtime behavior that the code does not establish.
 
 Keep guards, outcomes, errors, defaults and destinations visible. Carry state only when source evidence supports it; never imply execution, concurrency, success, values or internals that were not observed. Label illustrative examples. Prefer concise cues; put full nuance in narration and source details. If a visual would mislead, use narration and source links. If no visual helps the whole section, use kind:none and one narration-mode scene with empty nodes, edges and elements for every claim. Otherwise every claim must have a source-linked visual scene. Do not mix modes or leave a visual scene empty. This renderer supports only inert app-owned HTML/CSS primitives: never emit HTML, CSS, JavaScript, URLs or remote assets. Do not imply that 3-D/WebGL is available; use a 2-D semantic composition when it communicates the evidenced behavior."#;
 
@@ -208,7 +208,11 @@ pub(crate) mod tests {
         assert!(instructions.contains("Otherwise label examples illustrative"));
         assert!(instructions.contains("Every content leaf needs a visible input"));
         assert!(instructions.contains("no placeholders"));
-        assert!(instructions.contains("No 3-D/WebGL or remote assets are supported"));
+        assert!(
+            instructions
+                .contains("This renderer supports only inert app-owned HTML/CSS primitives")
+        );
+        assert!(instructions.contains("Do not imply that 3-D/WebGL is available"));
         assert!(instructions.contains("The app owns HTML, styling and interactions"));
         assert!(instructions.contains("Carry state only when source evidence supports it"));
         assert!(instructions.contains("8 nodes/section"));
@@ -299,7 +303,8 @@ pub(crate) mod tests {
         assert!(shared.contains("not language, file type or a favorite template"));
         assert!(shared.contains("one app-supported representation per scene"));
         assert!(shared.contains("pixels → matrix"));
-        assert!(shared.contains("No 3-D/WebGL or remote assets are supported"));
+        assert!(shared.contains("This renderer supports only inert app-owned HTML/CSS primitives"));
+        assert!(shared.contains("Do not imply that 3-D/WebGL is available"));
         assert!(super::instructions().contains("The app owns HTML, styling and interactions"));
         assert!(shared.contains("Preserve guards, alternatives, failures and uncertainty"));
         assert!(shared.contains("Selector checks stay source ordered"));
