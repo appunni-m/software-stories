@@ -556,17 +556,19 @@ fn fontdone_progressive_account_probe() {
 #[test]
 fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Teaching policy v26:"));
+    assert!(instructions.contains("Teaching policy v27:"));
     assert!(instructions.contains("visible cue"));
-    assert!(instructions.contains("at most two short, natural sentences"));
+    assert!(instructions.contains("Narration tells the subject's journey in direct speech"));
     assert!(instructions.starts_with(ANSWER_ROLE));
     assert!(instructions.contains("then investigate and publish deeper sections"));
     assert!(!instructions.contains("then focus on the remaining research outline"));
     assert!(
-        instructions
-            .contains("A comment or default constructor does not prove later consumer behavior")
+        instructions.contains(
+            "A comment, import, identifier or default constructor does not prove later consumer behavior"
+        )
     );
-    assert!(instructions.contains("every earlier guard and failure"));
+    assert!(instructions.contains("Trace the guards and failures"));
+    assert!(!instructions.contains("parser fallback starts after those checks"));
     assert!(instructions.contains("Start with the real input or situation"));
     assert!(instructions.contains("show code only when syntax is the lesson"));
     assert!(instructions.contains(
@@ -580,7 +582,7 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.contains("Across the section use 2–12 nodes and at most 20 edges"));
     assert!(instructions.contains("The app's typed renderer owns safe HTML and source links"));
     assert!(instructions.contains("Pair every alternative with its actual guard"));
-    assert!(instructions.contains("narration points to a visible cue"));
+    assert!(instructions.contains("Point to a visible cue only as a brief landmark"));
     assert!(instructions.contains("State the decision rule before examples"));
     assert!(instructions.contains("explain every outcome"));
     assert!(!instructions.contains("The separate prose/spokenText fields remain required"));
@@ -608,7 +610,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         contract["storyPolicy"],
         provider::visual_scenes::STORY_POLICY_VERSION
     );
-    assert_eq!(contract["teachingPolicy"], "meaning-first-v26");
+    assert_eq!(contract["teachingPolicy"], "meaning-first-v27");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(
         system_instructions().contains("Selector is the root for first-match/priority/fallback")
@@ -618,7 +620,13 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     ));
     assert!(system_instructions().contains("Never combine guard and outcome in one card"));
     assert!(system_instructions().contains("Visual design method v31:"));
-    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v31"));
+    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v33"));
+    assert!(system_instructions().contains("each branch's parentKey names the selector key"));
+    assert!(
+        system_instructions().contains("each guard/outcome leaf's parentKey names its branch key")
+    );
+    assert!(!system_instructions().contains("presentation:{schemaVersion:3"));
+    assert!(!system_instructions().contains("Elements have exactly kind,parentIndex,nodeIndex"));
     assert!(system_instructions().contains("under 45 visible characters per card"));
     assert!(system_instructions().contains("Identify the real thing the reader should watch"));
     assert!(

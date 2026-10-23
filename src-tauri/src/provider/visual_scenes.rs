@@ -4,19 +4,19 @@
 use crate::chapters::{self, ChapterRevision};
 use serde_json::{Value, json};
 
-pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v26";
-pub(crate) const STORY_POLICY_VERSION: &str = "ai-html-compositions-v32";
+pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v27";
+pub(crate) const STORY_POLICY_VERSION: &str = "ai-html-compositions-v33";
 
 /// One speech contract for file, overview and selected-section user prompts.
 /// Keep the full script and inspectable claim fields complete.
 pub(super) const SECTION_NARRATION_INSTRUCTIONS: &str = "Complete scene narration: when a presentation is supplied, spokenText joins every scene narration in claim order, including visible inference labels. It must preserve the full behavior, guards, alternatives, errors and uncertainty of all claims, not a summary or a chosen subset. Tell what the real subject does and why it matters; point to a short visual cue only to help the listener follow. Never narrate the artifact itself or open with meta commentary such as ‘these boxes show’, ‘this diagram explains’ or ‘the scene illustrates’. Start with the caller, input or decision, then tell what happens next and where each supported outcome goes. Use at most two short, natural sentences per scene. Explain every distinct outcome in plain words. Keep exact identifiers, signatures, abbreviations, file-format tags, field/table tokens and error labels visible in claims, visual details and source links; in speech describe each by its role (for example, say ‘the first font-format check’ rather than spelling its tag, and ‘the glyph's stored horizontal width’ rather than a table token). Speak an exact token only when the user explicitly asks about its spelling or meaning. If several checks would become a spoken list, split them into ordered scenes without dropping any condition or outcome. With no presentation, write a complete natural spoken account of all claims with the same story-first style, preserving every guard, alternative, error, inference label and uncertainty. Keep the complete transport script within 20–1,000 UTF-8 bytes and the declared section shape; organize focused claims without dropping behavior. The app retains exact claims separately and assembles speech from all scenes.";
 
-const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v32
+const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v33
 Build a visual explanation around real code behavior. Follow a real input through source-grounded changes and outcomes. Each scene makes one change, decision or result visible and explains why it matters. Narration tells the subject's journey in direct speech; it never describes the artifact with phrases like ‘these boxes show’ or ‘this diagram illustrates’. Start with the real caller, input or decision, then follow what happens and where each supported outcome goes. Point to a visible cue only as a brief landmark. Preserve guards, alternatives, failures and uncertainty. Label examples; never invent behavior. Use source links if no visual helps. Prefix inference narration with its visible label."#;
 
-const BEHAVIOR_TEACHING: &str = r#"Teaching policy v26: Start with the real input or situation; each claim covers one code-backed transition and its consequence. State the decision rule before examples and explain every outcome, guard, alternative and error. Keep identifiers, guards and errors visible but speak their role unless the token itself is asked about. Preserve zero/nonzero and empty-result behavior; never invent intent or results."#;
+const BEHAVIOR_TEACHING: &str = r#"Teaching policy v27: Start with the real input or situation; each claim covers one code-backed transition and its consequence. State the decision rule before examples and explain every outcome, guard, alternative and error. Keep identifiers, guards and errors visible but speak their role unless the token itself is asked about. Preserve zero/nonzero and empty-result behavior; never invent intent or results."#;
 
-const EVIDENCE_MEANING: &str = r#"Trace every earlier guard and failure: lookup and byte-range extraction can fail before a parser runs; parser fallback starts after those checks. Distinguish missing entries, inaccessible bytes, malformed contents and parsing. A comment or default constructor does not prove later consumer behavior. For downstream effects, cite that consumer's implementation plus producer and conditions; otherwise leave it unexplored. References and identifiers do not prove meaning."#;
+const EVIDENCE_MEANING: &str = r#"Trace the guards and failures that can prevent the behavior being explained. Distinguish rejected, missing, malformed and successfully handled inputs only when the cited implementation shows those cases. A comment, import, identifier or default constructor does not prove later consumer behavior. For downstream effects, cite the consumer plus the producing path and conditions; otherwise leave that effect unexplored. References and identifiers do not prove meaning."#;
 
 const VISUAL_DESIGN_METHOD: &str = r#"Visual design method v31: Identify the real thing the reader should watch: input, decision, state/data change, or output. Let behavior choose one app-supported representation per scene, not language, file type or a favorite template. Use the shape that explains it: ordered checks → selector; single guard → branch; changed data → beforeAfter/transform; verified order → timeline; independent actors → lanes; FIFO/LIFO → queue/stack; actual nesting → tree; byte/field boundaries → bytes/table; pixels → matrix; quantities or value-to-route lookup → metric/table. For lookups show key, hit/miss and route; show parser/range boundaries only when source-backed. Use a graph only for relations those forms cannot show clearly. Give each scene one dominant visual action; split at evidenced handoffs. Keep guards, outcomes, errors, defaults and destinations visible. Carry state only when source evidence supports it; never imply execution, concurrency, success, values or internals that were not observed. Label illustrative examples. Prefer concise cues; put full nuance in narration and source details. If a visual would mislead, use narration and source links. No 3-D/WebGL or remote assets are supported."#;
 
@@ -172,7 +172,7 @@ pub(crate) mod tests {
     #[test]
     fn ordinary_prompt_binds_the_versioned_scene_narration_policy() {
         let instructions = super::instructions();
-        assert!(instructions.contains("ai-html-compositions-v32"));
+        assert!(instructions.contains("ai-html-compositions-v33"));
         assert!(
             instructions.contains(
                 "whole section has at most 12 nodes and 20 edges across all claim scenes"
@@ -262,24 +262,22 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn all_generation_routes_distinguish_preconditions_parse_fallbacks_and_consumer_facts() {
+    fn generation_guidance_traces_guards_failures_and_cited_consumers() {
         for instructions in [super::instructions(), teaching_instructions()] {
             assert!(instructions.contains(
-                "A comment or default constructor does not prove later consumer behavior"
+                "A comment, import, identifier or default constructor does not prove later consumer behavior"
             ));
+            assert!(instructions.contains("Trace the guards and failures"));
             assert!(
-                instructions
-                    .contains("lookup and byte-range extraction can fail before a parser runs")
+                instructions.contains("cite the consumer plus the producing path and conditions")
             );
-            assert!(instructions.contains("cite that consumer's implementation"));
-            assert!(instructions.contains("every earlier guard and failure"));
         }
     }
 
     #[test]
     fn shared_teaching_selects_layout_by_behavior_and_keeps_decision_outcomes_visible() {
         let shared = teaching_instructions();
-        assert!(shared.contains("VISUAL STORY CONTRACT — ai-html-compositions-v32"));
+        assert!(shared.contains("VISUAL STORY CONTRACT — ai-html-compositions-v33"));
         assert!(
             shared.contains("Follow a real input through source-grounded changes and outcomes")
         );
