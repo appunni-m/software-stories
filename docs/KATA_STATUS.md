@@ -406,9 +406,14 @@ The packaged Fontdone notification center showed 21 unread attempts grouped
 under the same question but exposed only one-at-a-time dismissal. Source now
 adds **Dismiss all N attempts** for a repeated question group and acknowledges
 the matching outcomes in one workspace update without removing their turns or
-saved answers. The focused notification/outcome suites pass **42/42** and
-`npm run build` passes. The v30 app remains running, so packaged behavior and
+saved answers. It now also supports a single dismissal action for repeated
+durable notices, queued through the existing serialized history writer. The
+focused notification/history/outcome suites pass **64/64** and `npm run build`
+passes. The v30 app remains running, so packaged behavior and
 the broader notification acceptance matrix are still open. [Notification task](kata-tasks/62-notification-center.md#dismiss-repeated-attempts-together--23-october-2026).
+
+No notice was dismissed during implementation; native packaging and
+interaction acceptance remain open.
 
 ## 23 October source editor line fidelity
 

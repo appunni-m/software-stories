@@ -1483,17 +1483,22 @@ function App() {
     ...(noticeHistoryState.availability==='unavailable'?[{id:'notices-unavailable',title:noticeHistoryState.issue==='full'?'Saved updates are full':'Saved updates are unavailable',
       message:noticeHistoryState.issue==='full'?'Dismiss an older update to make room. The new update will save automatically.':'Existing explanations have not been discarded. Try again to load or save these updates.',tone:'warning' as const,bucket:'attention' as const,
       actions:noticeHistoryState.issue==='full'?[]:[{label:'Try again',run:()=>noticeHistory.retry()}]}]:[]),
-    ...noticeHistoryState.items.map((item):WorkspaceNotification=>({
-      id:`app-notice:${item.id}`,projectId:item.input.projectId??undefined,snapshotId:item.input.snapshotId??undefined,title:item.input.title,tone:item.input.tone,read:item.read,
-      groupKey:notificationGroupKey('saved-notice',item.input.projectId??'global',item.input.snapshotId??'',item.input.title,item.input.message,JSON.stringify(item.input.target??null)),
-      bucket:item.read?'updates':'attention',countLabel:'notices',
-      message:`${item.input.projectId?`${knownProjects[item.input.projectId]?.displayName??'Saved repository'} · `:''}${item.input.message}`,
-      actions:[...(item.input.target?[{label:item.input.target.kind==='openRepository'?'Choose a folder':['retryRecents','retryConversation'].includes(item.input.target.kind)?'Try again':'Open explanation',
-        movesFocus:item.input.target.kind==='openExploration',opensDialog:item.input.target.kind==='openRepository',
-        run:()=>{noticeHistory.read(item.id);openNoticeTarget(item);}}]:[]),
-        ...(!item.read?[{label:'Mark read',run:()=>noticeHistory.read(item.id)}]:[]),
-        {label:'Dismiss',run:()=>noticeHistory.dismiss(item.id)}],
-    })),
+    ...noticeHistoryState.items.map((item):WorkspaceNotification=>{
+      const groupKey=notificationGroupKey('saved-notice',item.input.projectId??'global',item.input.snapshotId??'',item.input.title,item.input.message,JSON.stringify(item.input.target??null));
+      const groupedNotices=noticeHistoryState.items.filter(candidate=>notificationGroupKey('saved-notice',candidate.input.projectId??'global',candidate.input.snapshotId??'',candidate.input.title,candidate.input.message,JSON.stringify(candidate.input.target??null))===groupKey);
+      return {
+        id:`app-notice:${item.id}`,projectId:item.input.projectId??undefined,snapshotId:item.input.snapshotId??undefined,title:item.input.title,tone:item.input.tone,read:item.read,
+        groupKey,
+        groupActions:groupedNotices.length>1?[{label:`Dismiss all ${groupedNotices.length} notices`,run:()=>groupedNotices.forEach(notice=>noticeHistory.dismiss(notice.id))}]:undefined,
+        bucket:item.read?'updates':'attention',countLabel:'notices',
+        message:`${item.input.projectId?`${knownProjects[item.input.projectId]?.displayName??'Saved repository'} · `:''}${item.input.message}`,
+        actions:[...(item.input.target?[{label:item.input.target.kind==='openRepository'?'Choose a folder':['retryRecents','retryConversation'].includes(item.input.target.kind)?'Try again':'Open explanation',
+          movesFocus:item.input.target.kind==='openExploration',opensDialog:item.input.target.kind==='openRepository',
+          run:()=>{noticeHistory.read(item.id);openNoticeTarget(item);}}]:[]),
+          ...(!item.read?[{label:'Mark read',run:()=>noticeHistory.read(item.id)}]:[]),
+          {label:'Dismiss',run:()=>noticeHistory.dismiss(item.id)}],
+      };
+    }),
     ...(interruptedOperationsUnavailable ? [{ id: 'recovery-unavailable', title: 'Recent work could not be loaded', message: 'Your saved explanations are still available.', tone: 'error' as const,
       bucket: 'attention' as const,
       actions: [{ label: 'Try again', run: () => { void refreshInterruptedOperations(); } }] }] : []),
