@@ -104,14 +104,14 @@ export function notificationAvailability(input: {
   return input.unavailable || input.answers === 'unavailable' || input.notices === 'unavailable' ? 'unavailable' : 'ready';
 }
 
-export function notificationSummary(items: readonly { read?: boolean }[], availability: NotificationAvailability) {
+export function notificationSummary(items: readonly { read?: boolean }[], availability: NotificationAvailability, issue?: 'full'|null) {
   if (availability === 'loading') return {
     label: 'Notifications, loading updates', badge: null, announcement: '', status: 'Loading updates…',
   };
   if (availability === 'unavailable') return {
-    label: 'Notifications, some updates unavailable', badge: null,
-    announcement: 'Some updates could not be loaded. Open Notifications to try again.',
-    status: 'Some updates could not be loaded. You can try again below.',
+    label: issue==='full'?'Notifications, saved updates full':'Notifications, some updates unavailable', badge: null,
+    announcement: issue==='full'?'Saved updates are full. Dismiss an older update to make room.':'Some updates could not be loaded. Open Notifications to try again.',
+    status: issue==='full'?'New updates are waiting to save. Dismiss an older update to make room.':'Some updates could not be loaded. You can try again below.',
   };
   const unread = items.filter((item) => !item.read).length;
   const count = `${unread} unread update${unread === 1 ? '' : 's'}`;

@@ -1470,9 +1470,9 @@ function App() {
     ...(runtimeError ? [{ id: 'runtime', title: 'Some app features are unavailable', message: 'Try connecting to the local app again.', tone: 'error' as const,
       bucket: 'attention' as const,
       actions: [{ label: 'Retry', run: loadRuntime }] }] : []),
-    ...(noticeHistoryState.availability==='unavailable'?[{id:'notices-unavailable',title:'Saved updates are unavailable',
-      message:'Existing explanations have not been discarded. Try again to load or save these updates.',tone:'warning' as const,bucket:'attention' as const,
-      actions:[{label:'Try again',run:()=>noticeHistory.retry()}]}]:[]),
+    ...(noticeHistoryState.availability==='unavailable'?[{id:'notices-unavailable',title:noticeHistoryState.issue==='full'?'Saved updates are full':'Saved updates are unavailable',
+      message:noticeHistoryState.issue==='full'?'Dismiss an older update to make room. The new update will save automatically.':'Existing explanations have not been discarded. Try again to load or save these updates.',tone:'warning' as const,bucket:'attention' as const,
+      actions:noticeHistoryState.issue==='full'?[]:[{label:'Try again',run:()=>noticeHistory.retry()}]}]:[]),
     ...noticeHistoryState.items.map((item):WorkspaceNotification=>({
       id:`app-notice:${item.id}`,projectId:item.input.projectId??undefined,snapshotId:item.input.snapshotId??undefined,title:item.input.title,tone:item.input.tone,read:item.read,
       groupKey:notificationGroupKey('saved-notice',item.input.projectId??'global',item.input.snapshotId??'',item.input.title,item.input.message,JSON.stringify(item.input.target??null)),
@@ -1631,6 +1631,7 @@ function App() {
           <NotificationCenter items={workspaceNotifications}
             currentProjectId={currentProject?.projectId}
             currentSnapshotId={selectedSnapshot?.snapshotId}
+            issue={noticeHistoryState.issue==='full'?'full':null}
             availability={notificationAvailability({ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready',
               answers: answerAvailability, notices:noticeHistoryState.availability,
               refreshing: interruptionRefreshing || previewRefreshing, unavailable: interruptedOperationsUnavailable || pendingChapterPreviewsUnavailable })}

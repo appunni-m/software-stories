@@ -29,6 +29,21 @@ function fixture({load,update}={}){
   }};
   return {api,calls,history:new NoticeHistory(api),saved:()=>structuredClone(data)};
 }
+async function fullHistoryFixture(){
+  let saved=emptyNoticeHistory();const calls=[];
+  for(let n=0;n<100;n++){
+    const value=normalizeNotice({...input,message:`Existing update ${n}`});
+    saved.items.push({id:await noticeKey(value),input:value,createdAtUnixMs:Date.now()+n,read:false});
+  }
+  const api={load:async()=>structuredClone(saved),update:async operation=>{
+    calls.push(operation);
+    if(operation.kind==='publish'&&saved.items.length>=100)throw 'Saved updates are full. Dismiss an older update before saving more.';
+    const item=operation.kind==='publish'?{id:await noticeKey(operation.input),input:operation.input,createdAtUnixMs:Date.now(),read:false}:undefined;
+    saved=projectNotices(saved,[{operation,...(item?{item}:{})}]);return structuredClone(saved);
+  }};
+  const history=new NoticeHistory(api);history.start();await settled(history);
+  return {history,calls,saved:()=>structuredClone(saved)};
+}
 
 test('close flush includes a publication still hashing and its held native write',async()=>{
   const gate=deferred();let updates=0;
@@ -115,6 +130,28 @@ test('a failed write retains the notice and retries only after the explicit loca
   await flush();await flush();assert.equal(attempts,1);assert.equal(JSON.stringify(f.history.getSnapshot()).includes('private diagnostic'),false);
   const id=f.history.getSnapshot().items[0].id;f.history.read(id);f.history.dismiss(id);await settled(f.history);assert.equal(attempts,1);
   fail=false;f.history.retry();await settled(f.history);assert.equal(f.history.getSnapshot().availability,'ready');assert.equal(f.history.getSnapshot().items.length,0);assert.deepEqual(saved.dismissed,[id]);assert.equal(attempts,4);
+});
+
+test('a full notice history accepts a dismissal before retrying the queued publication',async()=>{
+  const f=await fullHistoryFixture();const {history}=f;
+  await history.publish({...input,message:'Queued update'});await settled(history);
+  assert.equal(history.getSnapshot().availability,'unavailable');assert.equal(history.getSnapshot().issue,'full');
+  assert.equal(history.getSnapshot().items.length,101);
+  history.dismiss(f.saved().items[0].id);await settled(history);
+  assert.equal(history.getSnapshot().availability,'ready');assert.equal(history.getSnapshot().issue,null);
+  assert.equal(f.saved().items.length,100);assert.ok(f.saved().items.some(item=>item.input.message==='Queued update'));
+  assert.deepEqual(f.calls.map(operation=>operation.kind),['publish','dismiss','publish']);
+});
+
+test('dismissing an unsaved full-history notice cancels that pending publication',async()=>{
+  const f=await fullHistoryFixture();
+  await f.history.publish({...input,message:'Unsaved update'});await settled(f.history);
+  const queued=f.history.getSnapshot().items.find(item=>item.input.message==='Unsaved update');
+  assert.ok(queued);assert.equal(f.history.getSnapshot().issue,'full');
+  f.history.dismiss(queued.id);await settled(f.history);
+  assert.equal(f.history.getSnapshot().availability,'ready');assert.equal(f.history.getSnapshot().issue,null);
+  assert.equal(f.saved().items.length,100);assert.ok(!f.saved().items.some(item=>item.input.message==='Unsaved update'));
+  assert.deepEqual(f.calls.map(operation=>operation.kind),['publish']);
 });
 
 test('an unavailable initial history keeps incoming outcomes and cannot claim a complete unread count',async()=>{

@@ -164,6 +164,14 @@ describe('notification totals', () => {
     assert.equal(notificationSummary([{ read: true }], 'ready').badge, null);
   });
 
+  it('explains how to recover a full local notification history', () => {
+    assert.deepEqual(notificationSummary([], 'unavailable', 'full'), {
+      label: 'Notifications, saved updates full', badge: null,
+      announcement: 'Saved updates are full. Dismiss an older update to make room.',
+      status: 'New updates are waiting to save. Dismiss an older update to make room.',
+    });
+  });
+
   it('retains entry data and action ownership while count readiness changes', () => {
     const items = [{ read: false, title: 'Saved question', run: () => assert.fail('rendering never runs an action') }];
     const before = [...items];
@@ -200,7 +208,8 @@ describe('notification totals', () => {
   it('binds the real nonmodal bell to loading, partial, live and empty-state semantics', async () => {
     const component = await readFile(new URL('../src/NotificationCenter.tsx', import.meta.url), 'utf8');
     const app = await readFile(new URL('../src/App.tsx', import.meta.url), 'utf8');
-    assert.match(component, /notificationSummary\(items, availability\)/);
+    assert.match(component, /notificationSummary\(items, availability, issue\)/);
+    assert.match(app, /issue=\{noticeHistoryState\.issue==='full'\?'full':null\}/);
     assert.match(component, /aria-label=\{summary.label\} aria-busy=\{availability === 'loading'\}/);
     assert.match(component, /role="status" aria-live="polite" aria-atomic="true">\{summary.announcement\}/);
     assert.match(component, /groups.length === 0 \? availability === 'ready' &&/);

@@ -12,7 +12,8 @@ export interface AppNotice {id:string;input:SavedNoticeInput;createdAtUnixMs:num
 export interface NoticeHistoryData {schemaVersion:1;items:AppNotice[];dismissed:string[]}
 export type NoticeOperation = {kind:'publish';input:SavedNoticeInput} | {kind:'read'|'dismiss';id:string};
 type Pending = {kind:'load'} | {operation:NoticeOperation;item?:AppNotice};
-export interface NoticeHistorySnapshot {items:AppNotice[];availability:'loading'|'ready'|'unavailable'}
+export type NoticeHistoryIssue = 'full'|'unavailable';
+export interface NoticeHistorySnapshot {items:AppNotice[];availability:'loading'|'ready'|'unavailable';issue:NoticeHistoryIssue|null}
 export interface NoticeHistoryApi {load():Promise<NoticeHistoryData>;update(operation:NoticeOperation):Promise<NoticeHistoryData>}
 export const emptyNoticeHistory = ():NoticeHistoryData => ({schemaVersion:1,items:[],dismissed:[]});
 
@@ -45,6 +46,11 @@ export async function noticeKey(input:SavedNoticeInput):Promise<string> {
   return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
 }
 
+function historyIssue(error:unknown):NoticeHistoryIssue {
+  const message=typeof error==='string'?error:error instanceof Error?error.message:'';
+  return message.startsWith('Saved updates are full.')?'full':'unavailable';
+}
+
 export function projectNotices(base:NoticeHistoryData,pending:readonly Pending[]):NoticeHistoryData {
   let items=[...base.items];const dismissed=new Set(base.dismissed);
   for(const entry of pending) {
@@ -72,14 +78,15 @@ export class NoticeHistory {
   private listeners=new Set<()=>void>();
   private started=false;
   private running=false;
-  private blocked=false;
-  private snapshot:NoticeHistorySnapshot={items:[],availability:'loading'};
+  private blocked:NoticeHistoryIssue|null=null;
+  private capacityRecovery=false;
+  private snapshot:NoticeHistorySnapshot={items:[],availability:'loading',issue:null};
   private api:NoticeHistoryApi;
   constructor(api:NoticeHistoryApi) {this.api=api;}
   subscribe=(callback:()=>void) => {this.listeners.add(callback);return()=>{this.listeners.delete(callback);};};
   getSnapshot=() => this.snapshot;
   private emit() {
-    this.snapshot={items:projectNotices(this.base,this.pending).items.slice().reverse(),availability:this.blocked?'unavailable':this.running||this.pending.length?'loading':'ready'};
+    this.snapshot={items:projectNotices(this.base,this.pending).items.slice().reverse(),availability:this.blocked?'unavailable':this.running||this.pending.length?'loading':'ready',issue:this.blocked};
     for(const callback of this.listeners) callback();
   }
   start() {if(this.started)return;this.started=true;this.pending.unshift({kind:'load'});this.run();}
@@ -100,7 +107,7 @@ export class NoticeHistory {
       if(current.dismissed.includes(id)||current.items.some(item=>item.id===id))return;
       this.pending.push({operation:{kind:'publish',input:normalized},item:{id,input:normalized,createdAtUnixMs:Date.now(),read:false}});
       this.emit();this.run();
-    } catch {this.blocked=true;this.emit();}
+    } catch {this.blocked='unavailable';this.emit();}
     finally {if(preparing)this.preparing.delete(preparing);}
   }
   resolveOccurrence(projectId:string,snapshotId:string,occurrenceId:string) {
@@ -111,8 +118,19 @@ export class NoticeHistory {
     for(const item of projectNotices(this.base,this.pending).items)if(matches(item.input))this.enqueueNow({kind:'dismiss',id:item.id});
   }
   read(id:string) {this.enqueue({kind:'read',id});}
-  dismiss(id:string) {this.enqueue({kind:'dismiss',id});}
-  retry() {if(this.closing)return;this.blocked=false;if(!this.pending.length)this.pending.push({kind:'load'});this.run();}
+  dismiss(id:string) {
+    if(this.closing){this.deferred.push(()=>this.dismiss(id));return;}
+    if(this.blocked==='full') {
+      const index=this.pending.findIndex((entry)=>'operation' in entry&&entry.operation.kind==='publish'&&entry.item?.id===id);
+      if(index>=0) {
+        this.pending.splice(index,1);
+        if(!this.pending.some((entry)=>'operation' in entry&&entry.operation.kind==='publish')){this.blocked=null;this.capacityRecovery=false;}
+        this.emit();this.run();return;
+      }
+    }
+    this.enqueueNow({kind:'dismiss',id});
+  }
+  retry() {if(this.closing||this.blocked==='full')return;this.blocked=null;if(!this.pending.length)this.pending.push({kind:'load'});this.run();}
   beginClose():()=>void {
     if(this.closing)throw new Error('Closing is already in progress.');
     this.closing=true;let resumed=false;
@@ -140,7 +158,17 @@ export class NoticeHistory {
     this.enqueueNow(operation);
   }
   private enqueueNow(operation:NoticeOperation) {
-    this.start();this.pending.push({operation});this.emit();this.run();
+    this.start();
+    const entry:Pending={operation};
+    if(operation.kind==='dismiss'&&(this.blocked==='full'||this.capacityRecovery)) {
+      const firstQueued=this.running?1:0;
+      let index=this.pending.findIndex((item,position)=>position>=firstQueued&&'operation' in item&&item.operation.kind==='publish');
+      if(index<0)index=this.pending.length;
+      this.pending.splice(index,0,entry);
+      this.capacityRecovery=true;
+      this.blocked=null;
+    } else this.pending.push(entry);
+    this.emit();this.run();
   }
   private run() {
     if(this.running||this.blocked)return;
@@ -155,7 +183,14 @@ export class NoticeHistory {
         const value=await ('kind' in next?this.api.load():this.api.update(next.operation));
         this.base=value;this.pending.shift();this.emit();
       }
-    } catch {this.blocked=true;}
-    finally {this.running=false;this.emit();}
+      this.capacityRecovery=false;
+    } catch (failure) {
+      this.blocked=historyIssue(failure);
+      this.capacityRecovery=this.blocked==='full';
+      if(this.capacityRecovery&&this.pending.length>1) {
+        const [head,...tail]=this.pending;
+        this.pending=[head!,...tail.filter((entry)=>'operation' in entry&&entry.operation.kind==='dismiss'),...tail.filter((entry)=>!('operation' in entry&&entry.operation.kind==='dismiss'))];
+      }
+    } finally {this.running=false;this.emit();}
   }
 }

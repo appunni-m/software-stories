@@ -21,15 +21,15 @@ export interface WorkspaceNotification {
 }
 
 /** Background work never opens this panel or moves the reader's focus. */
-export function NotificationCenter({ items, availability = 'ready', currentProjectId, currentSnapshotId, open: controlledOpen, onOpenChange }: {
-  items: WorkspaceNotification[]; availability?: NotificationAvailability; currentProjectId?: string; currentSnapshotId?: string; open?: boolean; onOpenChange?: (open: boolean) => void;
+export function NotificationCenter({ items, availability = 'ready', issue, currentProjectId, currentSnapshotId, open: controlledOpen, onOpenChange }: {
+  items: WorkspaceNotification[]; availability?: NotificationAvailability; issue?: 'full'|null; currentProjectId?: string; currentSnapshotId?: string; open?: boolean; onOpenChange?: (open: boolean) => void;
 }) {
   const [localOpen, setLocalOpen] = useState(false);
   const open = controlledOpen ?? localOpen;
   const setOpen = onOpenChange ?? setLocalOpen;
   const actionOpened = useRef(false);
   const trigger = useRef<HTMLButtonElement>(null);
-  const summary = notificationSummary(items, availability);
+  const summary = notificationSummary(items, availability, issue);
   const groups = groupNotifications(items);
   const scopedGroups = partitionNotificationGroups(groups, currentProjectId, currentSnapshotId);
   const attentionGroups = scopedGroups.current.filter((group) => group.bucket === 'attention');
