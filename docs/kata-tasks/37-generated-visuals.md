@@ -749,6 +749,12 @@ the glyph-dispatch topic completed after two attempts, and render-result was
 still building; caller-outcome had not started. The run is not complete and
 cannot establish whole-repository coverage.
 
+On the next check, render-result had reached three rejected proposals with
+`sceneAuthoringShape`, `sectionValidation` and `proposalCorrectionLimit`, but no
+section was published. The Guide coordinator remained active while these
+details were recorded, so there is still no terminal outcome. This is concrete
+validation/recovery evidence, not a reason to start a duplicate generation.
+
 The completed face-opening section contains three source-grounded visual
 scenes: an ordered timeline with an error exit and successful face result, a
 PCF match/miss fork, and a parse-error/bitmap-face fork. The next saved scene

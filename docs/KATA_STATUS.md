@@ -336,6 +336,9 @@ complete; glyph-request failed after two attempts, glyph-dispatch completed
 after two attempts, and render-result is still building. Its scope explicitly
 omits the separate `Font::truetype/getmask` route, C-ABI/WASM facades, parser
 internals and full rasterizer.
+The active render-result attempt then exhausted three proposals
+(`sceneAuthoringShape`, `sectionValidation`, `proposalCorrectionLimit`) without
+publishing its section; the Guide coordinator has not reached a terminal state.
 The source-backed Rust `?` token appears with explicit error-exit labels and
 narration, rather than as an empty UI fallback. Pocket audio was available but
 not human-listened, and no 3-D visual was warranted. Keep `j53m` and progressive
