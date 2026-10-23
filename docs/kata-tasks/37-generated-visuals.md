@@ -813,6 +813,11 @@ separate active run with five retrieval calls and 11,978 source bytes at the
 latest measurement. Two proposals returned section-validation findings and no
 section is published yet.
 
+A later read-only app snapshot showed four topics failed, the parser topic
+building, and the last three topics pending, with 0 slides ready. The Rust
+example-input topic failed after its earlier active measurement. No retry or
+stop was initiated; the Guide remains in progress.
+
 This run shows that the v33 ordered-selector clarification did not prevent
 validation failures in the first three repository topics. The v34 fallback is
 not yet in a packaged build and cannot be credited with those outcomes. Do not

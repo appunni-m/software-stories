@@ -100,3 +100,9 @@ app, or add the application outcome to the separate Codex timing trace. The
 active Guide therefore still has its original `unknown` receipts. Timing
 diagnostics still need an explicit application-result event/correlation and the
 broader cold/warm benchmark acceptance. Keep `ps02` open.
+
+A later read-only snapshot of that same Guide showed four topics failed, the
+parser topic building, and the final three topics pending; the Guide still had
+zero slides. The Rust-example topic had failed since the prior measurement.
+No stop or retry was initiated. This is an in-progress UI observation, not a
+terminal timing sample.
