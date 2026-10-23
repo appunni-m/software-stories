@@ -81,3 +81,22 @@ The two-minute gate fails. Full stage tracing and first-section publication rema
 ## Fresh version-2 broad timings — 17 October
 
 The isolated committed-helper Fontdone run publishes at 76.328, 336.939 and 475.887 seconds; probe adoption observes 76.699, 337.700 and 477.074 seconds. Terminal result is Partial at 491.831 seconds, with eight proposals exhausted before rasterization and final bitmap publication. All 61 tool calls deliver. These are one native probe's observations, not installed UI timing, distribution/tail evidence or a first-useful-answer quality pass. [Exact artifact and qualification limits](../acceptance/2026-10-17-scene-v2.md). Keep this task open.
+
+## No-publication failure category — 23 October 2026
+
+The active v30 Fontdone Guide's failed topic receipts contain a valid
+`answerManifestV2` with an incomplete-topic entry, but no accepted answer
+section. The native manifest validator correctly rejects completion without a
+published section; because the error category previously combined this case
+with manifest-version mismatch, the saved operation `failureCode` was
+`unknown`. The native code now gives the empty-publication case its own fixed
+`NoPublishedSections` category and keeps final-manifest size, shape, version,
+and invalid unfinished-topic failures distinct as well. The focused
+section-ledger suite passes 22/22, including the empty-publication behavior and
+failure-category mapping regressions; format and diff checks pass.
+
+This source change does not rewrite existing receipts, update the running v30
+app, or add the application outcome to the separate Codex timing trace. The
+active Guide therefore still has its original `unknown` receipts. Timing
+diagnostics still need an explicit application-result event/correlation and the
+broader cold/warm benchmark acceptance. Keep `ps02` open.

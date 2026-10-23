@@ -87,6 +87,11 @@ pub(crate) enum FailureCode {
     ContextDelivery,
     RunTimeout,
     RuntimeIdentity,
+    FinalManifestTooLarge,
+    InvalidFinalManifest,
+    UnsupportedManifestVersion,
+    NoPublishedSections,
+    InvalidIncompleteTopics,
     Unknown,
 }
 
@@ -113,6 +118,15 @@ impl FailureCode {
                 Self::RunTimeout
             }
             error if error == crate::codex_identity::changed() => Self::RuntimeIdentity,
+            "The answer's final manifest exceeds its limit." => Self::FinalManifestTooLarge,
+            "The answer's final manifest is invalid. Published sections are preserved." => {
+                Self::InvalidFinalManifest
+            }
+            "The answer's final manifest version is unsupported." => {
+                Self::UnsupportedManifestVersion
+            }
+            "The answer did not publish any sections." => Self::NoPublishedSections,
+            "The answer's unfinished topics are invalid." => Self::InvalidIncompleteTopics,
             _ => Self::Unknown,
         }
     }
@@ -894,9 +908,11 @@ impl Answer {
     /// Final responses cannot select, omit or replace native publications.
     fn manifest_topics(&self, text: &str) -> Result<Vec<String>, String> {
         #[derive(Deserialize)]
-        #[serde(rename_all = "camelCase", deny_unknown_fields)]
+        #[serde(deny_unknown_fields)]
         struct AnswerManifest {
-            manifest_version: String,
+            #[serde(rename = "manifestVersion")]
+            _manifest_version: String,
+            #[serde(rename = "incompleteTopics")]
             incomplete_topics: Vec<String>,
         }
         if text.len() > 4096 {
@@ -905,13 +921,18 @@ impl Answer {
         let parsed = crate::strict_json::from_slice(text.as_bytes()).map_err(
             |_| "The answer's final manifest is invalid. Published sections are preserved.",
         )?;
+        if parsed
+            .get("manifestVersion")
+            .and_then(Value::as_str)
+            .is_some_and(|version| version != NATIVE_MANIFEST_VERSION)
+        {
+            return Err("The answer's final manifest version is unsupported.".into());
+        }
         let manifest: AnswerManifest = serde_json::from_value(parsed).map_err(
             |_| "The answer's final manifest is invalid. Published sections are preserved.",
         )?;
-        if manifest.manifest_version != NATIVE_MANIFEST_VERSION || self.sections.is_empty() {
-            return Err(
-                "The answer's final manifest does not match its published sections.".into(),
-            );
+        if self.sections.is_empty() {
+            return Err("The answer did not publish any sections.".into());
         }
         let topics = manifest.incomplete_topics;
         if topics.len() > 6

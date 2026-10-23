@@ -358,3 +358,13 @@ not human-listened, and no 3-D visual was warranted. Keep `j53m` and progressive
 Guide completeness open. The complete `npm run check` passes, including 720 Rust
 tests (18 ignored); this is implementation evidence, not Guide acceptance.
 See the [fresh visual review](kata-tasks/37-generated-visuals.md#v25-fontdone-visual-prompt-evaluation--23-october-2026).
+
+## 23 October no-publication failure category
+
+Progressive answer receipts with a valid final manifest but no admitted section
+now record `NoPublishedSections` instead of `unknown`. Final-manifest size,
+shape, version, empty-publication and incomplete-topic failures now have fixed,
+distinct categories. The focused section-ledger suite passes 22 tests. Existing
+Fontdone receipts and the active v30 app remain unchanged, and these categories
+are not yet joined to the separate runtime timing trace. Keep `ps02` open.
+[Details and limits](kata-tasks/71-generation-timing-traces.md#no-publication-failure-category--23-october-2026).

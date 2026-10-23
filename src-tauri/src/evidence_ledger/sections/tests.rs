@@ -423,14 +423,16 @@ fn only_answer_manifest_v2_can_complete_current_publications() {
         &cancel,
     );
 
-    assert!(
-        answer
-            .finish_manifest(
-                &json!({"manifestVersion":"answerManifestV1","sections":[],"incompleteTopics":[]})
-                    .to_string(),
-                false,
-            )
-            .is_err()
+    let version_error = answer
+        .finish_manifest(
+            &json!({"manifestVersion":"answerManifestV1","sections":[],"incompleteTopics":[]})
+                .to_string(),
+            false,
+        )
+        .unwrap_err();
+    assert_eq!(
+        FailureCode::from_error(&version_error),
+        FailureCode::UnsupportedManifestVersion
     );
     answer
         .finish_manifest(
@@ -443,6 +445,51 @@ fn only_answer_manifest_v2_can_complete_current_publications() {
             .unwrap()
             .outcome,
         Outcome::Complete
+    );
+}
+
+#[test]
+fn final_manifest_rejections_have_fixed_failure_categories() {
+    for (message, expected) in [
+        (
+            "The answer's final manifest exceeds its limit.",
+            FailureCode::FinalManifestTooLarge,
+        ),
+        (
+            "The answer's final manifest is invalid. Published sections are preserved.",
+            FailureCode::InvalidFinalManifest,
+        ),
+        (
+            "The answer's final manifest version is unsupported.",
+            FailureCode::UnsupportedManifestVersion,
+        ),
+        (
+            "The answer did not publish any sections.",
+            FailureCode::NoPublishedSections,
+        ),
+        (
+            "The answer's unfinished topics are invalid.",
+            FailureCode::InvalidIncompleteTopics,
+        ),
+    ] {
+        assert_eq!(FailureCode::from_error(message), expected);
+    }
+}
+
+#[test]
+fn a_manifest_without_a_published_section_has_a_specific_failure_class() {
+    let f = Fixture::new();
+    let (ledger, runtime, cancel) = setup(&f);
+    let mut answer = start(&ledger, &f, &runtime, &cancel);
+    let error = answer
+        .finish_manifest(
+            &json!({"manifestVersion":NATIVE_MANIFEST_VERSION,"incompleteTopics":["No supported section was published."]}).to_string(),
+            false,
+        )
+        .unwrap_err();
+    assert_eq!(
+        FailureCode::from_error(&error),
+        FailureCode::NoPublishedSections
     );
 }
 
