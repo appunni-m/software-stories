@@ -569,16 +569,21 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.contains("every earlier guard and failure"));
     assert!(instructions.contains("Start with the real input or situation"));
     assert!(instructions.contains("show code only when syntax is the lesson"));
-    assert!(instructions.contains("Choose the smallest semantic form"));
-    assert!(instructions.contains("ordered work or handoffs → timeline"));
-    assert!(instructions.contains(
-        "Use a graph only for source-backed relationships these semantic forms cannot express"
-    ));
-    assert!(instructions.contains("Choose forms independently for each behavior"));
+    assert!(
+        instructions.contains(
+            "Trace each claim as input → decision/operation → changed state/data → result"
+        )
+    );
+    assert!(instructions.contains("verified execution order → timeline"));
+    assert!(
+        instructions
+            .contains("Use a graph only when non-linear relations are clearer than these forms")
+    );
+    assert!(instructions.contains("one app-supported representation per scene"));
     assert!(instructions.contains("Across the section use 2–12 nodes and at most 20 edges"));
     assert!(instructions.contains("The app's typed renderer owns safe HTML and source links"));
     assert!(instructions.contains("Pair every alternative with its actual guard"));
-    assert!(instructions.contains("narrate a visible cue"));
+    assert!(instructions.contains("narration points to a visible cue"));
     assert!(instructions.contains("State the decision rule before examples"));
     assert!(instructions.contains("explain every outcome"));
     assert!(!instructions.contains("The separate prose/spokenText fields remain required"));
@@ -615,13 +620,17 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         "selectorShape means the root selector has 2+ source-ordered direct branch groups"
     ));
     assert!(system_instructions().contains("Never combine guard and outcome in one card"));
-    assert!(system_instructions().contains("Visual design method v28:"));
-    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v28"));
+    assert!(system_instructions().contains("Visual design method v29:"));
+    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v29"));
     assert!(
         system_instructions()
-            .contains("Follow one real input through source-grounded changes and outcomes")
+            .contains("Follow a real input through source-grounded changes and outcomes")
     );
-    assert!(system_instructions().contains("First identify what changes in the code"));
+    assert!(
+        system_instructions().contains(
+            "Trace each claim as input → decision/operation → changed state/data → result"
+        )
+    );
     assert!(
         system_instructions().contains("Across the section use 2–12 nodes and at most 20 edges")
     );
@@ -732,8 +741,19 @@ fn every_workspace_code_investigation_uses_a_user_controlled_runtime() {
 #[test]
 fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Choose the smallest semantic form"));
-    assert!(instructions.contains("changed data or state → transform or before/after"));
+    assert!(
+        instructions.contains(
+            "Trace each claim as input → decision/operation → changed state/data → result"
+        )
+    );
+    assert!(
+        instructions
+            .contains("changed state/data → beforeAfter or input–operation–result transform")
+    );
+    assert!(
+        instructions
+            .contains("Prefer domain-shaped evidence over generic rows, grids or card walls")
+    );
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
     assert!(instructions.contains("Cross-check claim, narration, labels and values"));
     assert!(instructions.contains("Show every supported outcome with its guard and destination"));
