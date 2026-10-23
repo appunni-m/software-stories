@@ -325,6 +325,17 @@ third-level navigation, exact scroll/Flow viewport, revision fallback, corrupt
 state through the app and accessibility remain unverified. Keep `erzc` open.
 [Exact procedure and limits](acceptance/2026-10-23-navigation-position.md).
 
+## 23 October v34 scene fallback contract
+
+The current progressive scene prompt now matches the authoring schema for a
+fully narration-only section and requires a source-linked node for each claim
+when the section chooses a visual. Focused prompt tests and formatting checks
+pass. The approved v30 Fontdone Guide remains active: its first three topics
+failed after their automatic retries, while the fourth is building. The source
+prompt v34 has not yet been packaged or evaluated, so it does not explain those
+failures. Keep `j53m` open and preserve the current Guide; see the [exact
+attempts and implementation boundary](kata-tasks/37-generated-visuals.md#v34-narration-only-authoring-contract-and-live-guide-failures--23-october-2026).
+
 ## 23 October v25 visual-prompt evaluation
 
 The user-authorized Fontdone Guide generated varied semantic scenes for the

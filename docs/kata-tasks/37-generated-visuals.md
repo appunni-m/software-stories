@@ -777,3 +777,46 @@ check, with the next topic building, so its terminal reliability and total
 runtime are still unknown. Keep `j53m` open for completion, broader language and
 entry-point coverage, audio/listening review, source navigation, accessibility,
 and comprehension acceptance.
+
+## v34 narration-only authoring contract and live Guide failures — 23 October 2026
+
+The current source prompt is now `ai-html-compositions-v34`. The prior wording
+said narration-only was valid, while the progressive tool schema and native
+compiler required a nonempty source-linked node for every visual claim. The
+shared story prompt and progressive prompt now specify the valid alternative:
+use `kind:none` for the whole section and one `mode:narration` scene with empty
+nodes, edges and elements for every claim. When a section chooses a visual kind,
+every claim must instead have a nonempty scene with a source-linked node. Mixed
+modes and empty visual scenes are explicitly invalid. The fixed correction
+feedback now gives the same choice, so a rejected scene can be corrected without
+discarding the claim or its evidence.
+
+The provider visual-prompt suite passes 10/10 and the progressive-generation
+suite passes 14 tests with two account probes explicitly ignored;
+`cargo fmt --check` and `git diff --check` pass. This is source and prompt
+evidence; the v34 packaged app has not been built or evaluated yet.
+
+The user-authorized v30 packaged Fontdone Guide is still running against
+`main@5249b72371`. At the latest read, it has 0 slides ready: the Rust face API,
+C ABI stream and WASM input topics failed after their automatic second attempts;
+the Rust example-input topic is building, and four topics remain pending. The
+first Rust topic spent 397.709 s and 435.460 s across its two runs, making 11 and
+10 retrieval calls respectively; neither published a section. The first run
+ended with scene-limit findings; its retry found scene-shape, selector and
+identifier-evidence findings. The C ABI topic spent 1,749.383 s and 277.071 s;
+its two runs made 8 and 5 retrieval calls and likewise published no section.
+Those attempts recorded selector/section-validation findings and exhausted
+their proposal corrections. The WASM topic also failed both runs. The first
+lasted 202.611 s with 12 retrieval calls; the automatic retry ended with
+identifier-evidence and section-validation findings. The fourth topic is a
+separate active run with five retrieval calls and 11,978 source bytes at the
+latest measurement. Two proposals returned section-validation findings and no
+section is published yet.
+
+This run shows that the v33 ordered-selector clarification did not prevent
+validation failures in the first three repository topics. The v34 fallback is
+not yet in a packaged build and cannot be credited with those outcomes. Do not
+start a duplicate Guide or reset attempts. Preserve this run and its receipts;
+qualify v34 only after this run reaches a terminal state. Whole-repository
+coverage, rendered explanation quality, source clicks, audio listening,
+accessibility and human comprehension remain open.

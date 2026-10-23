@@ -612,6 +612,13 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     );
     assert_eq!(contract["teachingPolicy"], "meaning-first-v27");
     assert_eq!(contract["systemInstructions"], system_instructions());
+    assert!(system_instructions().contains(
+        "If no visual helps the section, choose visual.kind:\"none\" and give every claim one mode:\"narration\" scene"
+    ));
+    assert!(system_instructions().contains(
+        "Otherwise give every claim a nonempty visual scene with at least one source-linked node"
+    ));
+    assert!(system_instructions().contains("Never mix narration-only and visual scenes"));
     assert!(
         system_instructions().contains("Selector is the root for first-match/priority/fallback")
     );
@@ -619,8 +626,8 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         "selectorShape means the root selector has 2+ source-ordered direct branch groups"
     ));
     assert!(system_instructions().contains("Never combine guard and outcome in one card"));
-    assert!(system_instructions().contains("Visual design method v31:"));
-    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v33"));
+    assert!(system_instructions().contains("Visual design method v32:"));
+    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v34"));
     assert!(system_instructions().contains("each branch's parentKey names the selector key"));
     assert!(
         system_instructions().contains("each guard/outcome leaf's parentKey names its branch key")
