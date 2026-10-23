@@ -743,10 +743,11 @@ The user-authorized Guide `2000ce69-a16b-417a-8d0b-6bbe7728d77d` used
 `gpt-6-luna` / max on Fontdone `main@5249b72371`. Its five-topic outline follows
 the safe Rust `Library::new_memory_face` route, and explicitly leaves out the
 separate `Font::truetype/getmask` path, C-ABI/WASM facades, parser internals and
-the full renderer/rasterizer implementation. At the latest observation, two
-slides were saved and one of five topics was complete; the second topic had
-failed attempts and another topic was still building. The run is not complete
-and cannot establish whole-repository coverage.
+the full renderer/rasterizer implementation. At the latest observation, two of
+five topics were complete. The glyph-request topic failed after two attempts,
+the glyph-dispatch topic completed after two attempts, and render-result was
+still building; caller-outcome had not started. The run is not complete and
+cannot establish whole-repository coverage.
 
 The completed face-opening section contains three source-grounded visual
 scenes: an ordered timeline with an error exit and successful face result, a

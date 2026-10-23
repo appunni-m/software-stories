@@ -331,9 +331,11 @@ The user-authorized Fontdone Guide generated varied semantic scenes for the
 safe Rust memory-face path: a timeline with error/success outcomes, a PCF
 match/miss fork, and a parse-error/bitmap-face fork. The follow-up scene combines
 an ordered open with the `sbix` rejection gate. It supports the updated
-case-specific visual direction, but remained active with one of five topics
-complete at the latest observation; the selected scope explicitly omits the
-separate Rust route, C-ABI/WASM facades, parser internals and full rasterizer.
+case-specific visual direction. It remains active: two of five topics are
+complete; glyph-request failed after two attempts, glyph-dispatch completed
+after two attempts, and render-result is still building. Its scope explicitly
+omits the separate `Font::truetype/getmask` route, C-ABI/WASM facades, parser
+internals and full rasterizer.
 The source-backed Rust `?` token appears with explicit error-exit labels and
 narration, rather than as an empty UI fallback. Pocket audio was available but
 not human-listened, and no 3-D visual was warranted. Keep `j53m` and progressive
