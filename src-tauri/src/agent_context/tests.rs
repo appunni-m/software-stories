@@ -144,11 +144,11 @@ fn repository_plans_and_slides_use_separate_scoped_sessions() {
         Arc::new(|_| {}),
     )
     .unwrap();
-    assert!(
-        slide
-            .base_instructions()
-            .contains("Use at most twelve code-tool calls")
-    );
+    let instructions = slide.base_instructions();
+    assert!(instructions.contains("Use at most twelve code-tool calls"));
+    assert!(instructions.contains("skip repository-wide discovery"));
+    assert!(instructions.contains("Batch up to eight known ranges in one read_code call"));
+    assert!(instructions.contains("Never repeat a successful query"));
 }
 
 #[test]
