@@ -1,15 +1,18 @@
-//! Reserve one bounded collection per guide, rather than one slot per child.
-//! Existing native guide records are the reservation; no content is migrated,
-//! evicted, reclassified as accepted, or granted inference authority here.
+//! Reserve answer attempts that already exist and capacity for work each guide
+//! can still perform. No content is migrated, evicted, reclassified as
+//! accepted, or granted inference authority here.
 
 use super::*;
 use crate::repository_guide::{AnswerReservation, MAX_GUIDE_ANSWER_RECORDS};
 use std::collections::HashMap;
 
-fn reserved_records(guide_count: usize, standalone_count: usize) -> Option<usize> {
-    guide_count
-        .checked_mul(MAX_GUIDE_ANSWER_RECORDS)?
-        .checked_add(standalone_count)
+fn reserved_records(
+    guide_slots: impl IntoIterator<Item = usize>,
+    standalone_count: usize,
+) -> Option<usize> {
+    guide_slots
+        .into_iter()
+        .try_fold(standalone_count, |total, slots| total.checked_add(slots))
 }
 
 #[cfg(unix)]
@@ -38,7 +41,8 @@ pub(super) fn lease(_storage: &Path) -> Result<crate::file_lease::Lease, String>
 }
 
 /// Guide creation holds this same capacity transaction through publication.
-/// Its full lifetime allowance stays reserved even before child IDs exist.
+/// A new guide reserves its full bounded allowance; saved guides reserve their
+/// persisted attempts and only the additional attempts they can still publish.
 pub(crate) fn with_guide_reservation<T>(
     storage: &Path,
     candidate: &AnswerReservation,
@@ -85,7 +89,10 @@ pub(super) fn check(
     }
     let mut owners = HashMap::new();
     for reservation in &reservations {
-        if reservation.run_ids.len() > MAX_GUIDE_ANSWER_RECORDS {
+        if reservation.run_ids.len() > MAX_GUIDE_ANSWER_RECORDS
+            || reservation.reserved_records < reservation.run_ids.len()
+            || reservation.reserved_records > MAX_GUIDE_ANSWER_RECORDS
+        {
             return Err(
                 "A guide exceeds its investigation allowance. Existing work was preserved.".into(),
             );
@@ -192,12 +199,16 @@ pub(super) fn check(
                 .ok_or("Saved answer capacity could not be counted.")?;
         }
     }
-    // One thousand record slots total. Every guide reserves its complete
-    // bounded lifetime allowance up front; standalone and historical receipts
-    // each consume one slot. The per-guide allowance derives from the maximum
-    // outline and attempt counts, so concurrent work remains globally capped.
-    let reserved = reserved_records(reservations.len(), standalone_records)
-        .ok_or("Saved answer capacity could not be counted.")?;
+    // One thousand record slots total. Saved guides account for their attempts
+    // and remaining bounded retries; standalone and historical receipts each
+    // consume one slot. New guides reserve their full allowance before planning.
+    let reserved = reserved_records(
+        reservations
+            .iter()
+            .map(|reservation| reservation.reserved_records),
+        standalone_records,
+    )
+    .ok_or("Saved answer capacity could not be counted.")?;
     if reserved > MAX_ANSWER_RECORDS {
         return Err("Saved explanations reached their storage limit of 1,000 answer records. Existing answers and guides were preserved; no new investigation was started.".into());
     }
@@ -211,15 +222,18 @@ mod tests {
     #[test]
     fn guide_lifetime_allowances_and_standalone_receipts_share_one_thousand_slots() {
         let remaining = MAX_ANSWER_RECORDS - 2 * MAX_GUIDE_ANSWER_RECORDS;
-        assert_eq!(reserved_records(2, remaining), Some(MAX_ANSWER_RECORDS));
         assert_eq!(
-            reserved_records(2, remaining + 1),
+            reserved_records([MAX_GUIDE_ANSWER_RECORDS; 2], remaining),
+            Some(MAX_ANSWER_RECORDS)
+        );
+        assert_eq!(
+            reserved_records([MAX_GUIDE_ANSWER_RECORDS; 2], remaining + 1),
             Some(MAX_ANSWER_RECORDS + 1)
         );
     }
 
     #[test]
     fn answer_capacity_arithmetic_rejects_overflow() {
-        assert_eq!(reserved_records(usize::MAX, 1), None);
+        assert_eq!(reserved_records([usize::MAX], 1), None);
     }
 }

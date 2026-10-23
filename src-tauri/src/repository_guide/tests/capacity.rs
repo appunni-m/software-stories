@@ -132,6 +132,94 @@ fn a_guide_reserves_its_full_investigation_allowance_without_evicting_other_answ
 }
 
 #[test]
+fn exhausted_guides_release_unused_slots_without_changing_saved_answers() {
+    let f = Fixture::new();
+    let (runtime, grant) = runtime(&f);
+    for _ in 0..25 {
+        retain(&f, &Uuid::new_v4().to_string(), &runtime, &grant).unwrap();
+    }
+    let prior = answer_bytes(&f);
+
+    for _ in 0..25 {
+        let mut guide = fresh_record(&f);
+        guide.grant_id = grant.clone();
+        guide.plan = None;
+        guide.units.clear();
+        guide.planning_retry_count = 2;
+        guide.status = Status::Failed;
+        let opening = guide.opening.as_mut().unwrap();
+        opening.summary = Some(Summary {
+            run_id: opening.run_id.clone(),
+            project_id: guide.project_id.clone(),
+            snapshot_id: guide.snapshot_id.clone(),
+            question: opening.question.clone(),
+            outcome: Outcome::Failed,
+            sections: vec![],
+            incomplete_topics: vec![],
+        });
+        store::create(&f.storage, &guide).unwrap();
+    }
+
+    let existing_slots = answer_reservations(&f.storage)
+        .unwrap()
+        .iter()
+        .map(|reservation| reservation.reserved_records)
+        .sum::<usize>();
+    assert_eq!(existing_slots, 25);
+
+    let mut next = fresh_record(&f);
+    next.grant_id = grant;
+    let plan = next.plan.as_mut().unwrap();
+    let starting_ranges = plan.units[0].starting_ranges.clone();
+    for index in next.units.len()..MAX_UNITS {
+        let key = format!("stage-{index}");
+        plan.units.push(plan::UnitPlan {
+            key: key.clone(),
+            question: format!("How does implementation stage {index} transform the input?"),
+            prerequisites: vec![],
+            starting_ranges: starting_ranges.clone(),
+        });
+        next.units.push(Unit {
+            key,
+            attempts: vec![],
+        });
+    }
+    let opening = next.opening.as_mut().unwrap();
+    opening.summary = Some(Summary {
+        run_id: opening.run_id.clone(),
+        project_id: next.project_id.clone(),
+        snapshot_id: next.snapshot_id.clone(),
+        question: opening.question.clone(),
+        outcome: Outcome::Partial,
+        sections: vec![],
+        incomplete_topics: vec!["The opening remains incomplete.".into()],
+    });
+    let retry_id = Uuid::new_v4().to_string();
+    let retry_question = opening::question(&next).unwrap().to_owned();
+    next.opening_continuations.push(Attempt {
+        run_id: retry_id.clone(),
+        question: retry_question.clone(),
+        automatic_retry: true,
+        summary: Some(Summary {
+            run_id: retry_id,
+            project_id: next.project_id.clone(),
+            snapshot_id: next.snapshot_id.clone(),
+            question: retry_question,
+            outcome: Outcome::Partial,
+            sections: vec![],
+            incomplete_topics: vec!["The opening retry remains incomplete.".into()],
+        }),
+    });
+    assert_eq!(
+        answer_reservation(&next).reserved_records,
+        MAX_GUIDE_ANSWER_RECORDS
+    );
+
+    store::create(&f.storage, &next).unwrap();
+    assert_eq!(answer_bytes(&f), prior);
+}
+
+#[test]
 fn guide_capacity_reservation_is_persisted_before_any_account_operation() {
     let f = Fixture::new();
     let (runtime, grant) = runtime(&f);

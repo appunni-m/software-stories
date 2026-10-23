@@ -63,6 +63,42 @@ pub(super) fn remaining_operations(record: &Record) -> usize {
         + record.units.iter().filter(|unit| pending(unit)).count()
 }
 
+/// Keep capacity for work this guide can still publish, plus its saved
+/// attempts. Completed or exhausted guides keep their receipts but release
+/// the slots they can no longer use.
+pub(super) fn remaining_answer_records(record: &Record) -> usize {
+    let Some(_plan) = &record.plan else {
+        let planning_can_continue = record.active_run_id.is_some()
+            || (record.status != Status::Stopped && record.planning_retry_count < 2);
+        let used = record.opening.is_some() as usize
+            + record.opening_continuations.len()
+            + record
+                .units
+                .iter()
+                .map(|unit| unit.attempts.len())
+                .sum::<usize>();
+        return if planning_can_continue {
+            MAX_GUIDE_ANSWER_RECORDS.saturating_sub(used)
+        } else {
+            0
+        };
+    };
+
+    let latest_opening = latest(record).and_then(|attempt| attempt.summary.as_ref());
+    let opening_slots = if latest_opening.is_none() {
+        MAX_OPENING_CONTINUATIONS.saturating_sub(record.opening_continuations.len())
+    } else {
+        usize::from(automatic_retry_eligible(record)) + usize::from(explicit_retry_eligible(record))
+    };
+    let unit_slots = record
+        .units
+        .iter()
+        .filter(|unit| !unit_complete(unit))
+        .map(|unit| MAX_ATTEMPTS.saturating_sub(unit.attempts.len()))
+        .sum::<usize>();
+    opening_slots + unit_slots
+}
+
 pub(super) fn eligible(record: &Record) -> bool {
     record.schema_version == RECORD_SCHEMA_VERSION
         && record.contract == CONTRACT

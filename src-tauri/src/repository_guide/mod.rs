@@ -55,21 +55,25 @@ pub(crate) struct AnswerReservation {
     pub(crate) snapshot_id: String,
     pub(crate) manifest_sha256: String,
     pub(crate) run_ids: Vec<String>,
+    /// Persisted attempts plus answer records that this guide can still create.
+    pub(crate) reserved_records: usize,
 }
 
 fn answer_reservation(record: &Record) -> AnswerReservation {
+    let run_ids = record
+        .opening
+        .iter()
+        .chain(&record.opening_continuations)
+        .chain(record.units.iter().flat_map(|unit| &unit.attempts))
+        .map(|attempt| attempt.run_id.clone())
+        .collect::<Vec<_>>();
     AnswerReservation {
         guide_id: record.id.clone(),
         project_id: record.project_id.clone(),
         snapshot_id: record.snapshot_id.clone(),
         manifest_sha256: record.manifest_sha256.clone(),
-        run_ids: record
-            .opening
-            .iter()
-            .chain(&record.opening_continuations)
-            .chain(record.units.iter().flat_map(|unit| &unit.attempts))
-            .map(|attempt| attempt.run_id.clone())
-            .collect(),
+        reserved_records: run_ids.len() + opening_continuation::remaining_answer_records(record),
+        run_ids,
     }
 }
 
