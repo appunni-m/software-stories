@@ -626,8 +626,8 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         "selectorShape means the root selector has 2+ source-ordered direct branch groups"
     ));
     assert!(system_instructions().contains("Never combine guard and outcome in one card"));
-    assert!(system_instructions().contains("Visual design method v32:"));
-    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v34"));
+    assert!(system_instructions().contains("Visual design method v33:"));
+    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v35"));
     assert!(system_instructions().contains("each branch's parentKey names the selector key"));
     assert!(
         system_instructions().contains("each guard/outcome leaf's parentKey names its branch key")
