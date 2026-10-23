@@ -733,7 +733,36 @@ help/meaning text stays supplementary. It rejects repeated generic label/value
 pairs and asks for a compact table or short scenes when four or more sequential
 state updates would become a tall card stack. The v25 unsigned debug bundle is
 installed and open in Code Atlas; the v24 app remains available as a rollback
-copy. The saved Fontdone Guide data was preserved. v25 has not been
-Guide-evaluated, so do not claim it qualifies output. Keep `j53m` open for a
-separately authorized v25 run, full-repository coverage, accessibility, and
-human audio/comprehension review.
+copy. The saved Fontdone Guide data was preserved. A fresh v25 Guide evaluation
+is recorded below; it remains incomplete and does not qualify whole-repository
+coverage, audio, or human comprehension.
+
+## v25 Fontdone visual-prompt evaluation — 23 October 2026
+
+The user-authorized Guide `2000ce69-a16b-417a-8d0b-6bbe7728d77d` used
+`gpt-6-luna` / max on Fontdone `main@5249b72371`. Its five-topic outline follows
+the safe Rust `Library::new_memory_face` route, and explicitly leaves out the
+separate `Font::truetype/getmask` path, C-ABI/WASM facades, parser internals and
+the full renderer/rasterizer implementation. At the latest observation, two
+slides were saved and one of five topics was complete; the second topic had
+failed attempts and another topic was still building. The run is not complete
+and cannot establish whole-repository coverage.
+
+The completed face-opening section contains three source-grounded visual
+scenes: an ordered timeline with an error exit and successful face result, a
+PCF match/miss fork, and a parse-error/bitmap-face fork. The next saved scene
+uses a short timeline followed by the parameter-specific `sbix` decision and
+distinct rejected/success results. This is positive evidence that v25 can
+choose different semantic forms for different behaviors instead of emitting
+only a graph or a collection of cards. The Rust `?` error-propagation token is
+shown as a source value, paired with visible “error exits” labels and narration
+that explains the propagation; it is not an empty renderer fallback. This token
+is still less immediately legible to a novice than a plain-language outcome.
+
+The app displayed the section narration and a ready-to-play local Pocket track,
+but no human listened to the audio in this review. No 3-D representation was
+warranted for this font-processing path. The Guide remained active at the last
+check, with the next topic building, so its terminal reliability and total
+runtime are still unknown. Keep `j53m` open for completion, broader language and
+entry-point coverage, audio/listening review, source navigation, accessibility,
+and comprehension acceptance.

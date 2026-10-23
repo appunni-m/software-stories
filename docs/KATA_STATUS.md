@@ -324,3 +324,19 @@ was started. This is same-process evidence; installed binary commit, restart,
 third-level navigation, exact scroll/Flow viewport, revision fallback, corrupt
 state through the app and accessibility remain unverified. Keep `erzc` open.
 [Exact procedure and limits](acceptance/2026-10-23-navigation-position.md).
+
+## 23 October v25 visual-prompt evaluation
+
+The user-authorized Fontdone Guide generated varied semantic scenes for the
+safe Rust memory-face path: a timeline with error/success outcomes, a PCF
+match/miss fork, and a parse-error/bitmap-face fork. The follow-up scene combines
+an ordered open with the `sbix` rejection gate. It supports the updated
+case-specific visual direction, but remained active with one of five topics
+complete at the latest observation; the selected scope explicitly omits the
+separate Rust route, C-ABI/WASM facades, parser internals and full rasterizer.
+The source-backed Rust `?` token appears with explicit error-exit labels and
+narration, rather than as an empty UI fallback. Pocket audio was available but
+not human-listened, and no 3-D visual was warranted. Keep `j53m` and progressive
+Guide completeness open. The complete `npm run check` passes, including 720 Rust
+tests (18 ignored); this is implementation evidence, not Guide acceptance.
+See the [fresh visual review](kata-tasks/37-generated-visuals.md#v25-fontdone-visual-prompt-evaluation--23-october-2026).

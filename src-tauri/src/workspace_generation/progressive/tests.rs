@@ -569,9 +569,9 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(instructions.contains("every earlier guard and failure"));
     assert!(instructions.contains("Start with the real input or situation"));
     assert!(instructions.contains("show code only when syntax is the lesson"));
-    assert!(instructions.contains("Choose independently per behavior"));
-    assert!(instructions.contains("execution order/hand-offs → linked path"));
-    assert!(instructions.contains("chains, fan-out and ordered guards do not qualify"));
+    assert!(instructions.contains("choose the smallest semantic form"));
+    assert!(instructions.contains("Use timelines for source order"));
+    assert!(instructions.contains("Graph only source-backed non-linear links"));
     assert!(instructions.contains("Across the section use 2–12 nodes and at most 20 edges"));
     assert!(instructions.contains("The app's typed renderer owns safe HTML and source links"));
     assert!(instructions.contains("Pair every alternative with its actual guard"));
@@ -599,7 +599,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     let input = input(&f);
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let contract = generation_contract(&input, &prompt, &schema).unwrap();
-    assert_eq!(contract["storyPolicy"], "ai-html-compositions-v19");
+    assert_eq!(contract["storyPolicy"], provider::visual_scenes::STORY_POLICY_VERSION);
     assert_eq!(contract["teachingPolicy"], "meaning-first-v26");
     assert_eq!(contract["systemInstructions"], system_instructions());
     assert!(system_instructions().contains("Selector is root for first-match/priority/fallback"));
@@ -609,8 +609,8 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         )
     );
     assert!(system_instructions().contains("no row/column wrapper"));
-    assert!(system_instructions().contains("Visual design method v19:"));
-    assert!(system_instructions().contains("choose one subject and question per scene"));
+    assert!(system_instructions().contains("Visual design method v25:"));
+    assert!(system_instructions().contains("For each scene, identify the observable input"));
     assert!(
         system_instructions().contains("Across the section use 2–12 nodes and at most 20 edges")
     );
@@ -721,9 +721,8 @@ fn every_workspace_code_investigation_uses_a_user_controlled_runtime() {
 #[test]
 fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     let instructions = system_instructions();
-    assert!(instructions.contains("Choose independently per behavior"));
-    assert!(instructions.contains("input/result change → transform"));
-    assert!(instructions.contains("changed state → before/after"));
+    assert!(instructions.contains("choose the smallest semantic form"));
+    assert!(instructions.contains("transforms or before/after for changed values"));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
     assert!(
         instructions.contains(

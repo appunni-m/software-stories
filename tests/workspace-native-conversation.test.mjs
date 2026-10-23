@@ -138,7 +138,7 @@ test('repository guide start, resume and refill carry renderer queue wait to nat
     if(name==='start_repository_guide'){startArgs=clone(args);throw new Error('controlled after capturing start timing');}
     if(name==='resume_repository_guide'){resumeArgs=clone(args);throw new Error('controlled after capturing resume timing');}
     if(name==='advance_repository_guide'){advanceArgs=clone(args);throw new Error('controlled after capturing refill timing');}
-    if(name==='list_repository_guides')return [];
+    if(name==='list_repository_guides')return {guides:[],unavailableCount:0};
     return b.invoke(name,args);
   },{native:true,performance:{now:()=>now},ensureCodexConnection:async()=>{},readCodexSelection:()=>({modelId:'gpt-6-luna',effort:'max'})});
   await h.store.prepareWorkspaceConversation('project','snapshot');

@@ -160,7 +160,7 @@ test('a guide update warms only new revisions already adopted by the native read
   const h = workspaceStoreHarness(async (name, args) => {
     if (name === 'load_workspace_conversation') return null;
     if (name === 'save_workspace_conversation') return { schemaVersion: 1, revision: (args.expectedRevision ?? 0) + 1, state: args.state };
-    if (name === 'list_repository_guides') return [{ ...updatedGuide, id: guideId }];
+    if (name === 'list_repository_guides') return { guides: [{ ...updatedGuide, id: guideId }], unavailableCount: 0 };
     if (name === 'list_workspace_answers') return [];
     assert.fail(`Unexpected native command: ${name}`);
   }, {

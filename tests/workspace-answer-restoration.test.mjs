@@ -7,7 +7,7 @@ const section = { runId: scope.runId, key: 'entry', order: 1, generationId: 'gen
 const answer = { ...scope, question: 'What happens to the input?', outcome: 'complete', sections: [section], incompleteTopics: [] };
 function nativeReads(handler) {
   return (name, args) => {
-    if (name === 'list_repository_guides') return Promise.resolve([]);
+    if (name === 'list_repository_guides') return Promise.resolve({ guides: [], unavailableCount: 0 });
     if (name === 'save_workspace_answer_section') return Promise.resolve({ projectId: args.projectId, snapshotId: args.snapshotId, revisionId: args.generationId === section.generationId ? 'revision' : 'revision-two' });
     return handler(name, args);
   };
@@ -64,7 +64,7 @@ test('finished events during section adoption preserve both sections and the rea
   const partial = { ...answer, outcome: 'working' };
   const complete = { ...answer, sections: [section, second] };
   const h = workspaceStoreHarness(async (name, args) => {
-    if (name === 'list_repository_guides') return [];
+    if (name === 'list_repository_guides') return { guides: [], unavailableCount: 0 };
     if (name === 'list_workspace_answers') return [latest ? complete : partial];
     if (name === 'load_workspace_answer') return latest ? complete : partial;
     if (name === 'save_workspace_answer_section') {
@@ -159,7 +159,7 @@ test('guide events invalidate the saved guide instead of publishing their older 
     openingRunIds: [scope.runId], canContinue: false, continuationOperations: 0,
     answers: [answer], omissions: [], capturedFiles: 1, startingFiles: 1 };
   const h = workspaceStoreHarness(async (name, args) => {
-    if (name === 'list_repository_guides') { if (++lists === 1) { started.resolve(); return listed.promise; } return [guide]; }
+    if (name === 'list_repository_guides') { if (++lists === 1) { started.resolve(); return listed.promise; } return { guides: [guide], unavailableCount: 0 }; }
     if (name === 'list_workspace_answers') return [];
     if (name === 'save_workspace_answer_section') return { projectId: args.projectId, snapshotId: args.snapshotId, revisionId: 'revision' };
     assert.fail(`Unexpected command ${name}`);
@@ -167,7 +167,7 @@ test('guide events invalidate the saved guide instead of publishing their older 
   const stop = await h.store.watchWorkspaceAnswers('project', 'snapshot');
   const initial = h.store.restoreWorkspaceAnswers('project', 'snapshot'); await started.promise;
   h.emit('repository-guide-changed', { ...guide, revision: 1, title: 'Old event payload', answers: [] });
-  await flushLocalReads(); listed.resolve([]); await initial; await flushLocalReads();
+  await flushLocalReads(); listed.resolve({ guides: [], unavailableCount: 0 }); await initial; await flushLocalReads();
   assert.equal(lists, 2);
   assert.equal(turns(h)[0].guide.title, 'Current saved guide');
   assert.equal(turns(h)[0].guide.revision, 2);

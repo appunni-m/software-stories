@@ -569,7 +569,7 @@ mod tests {
             first["systemInstruction"]
                 .as_str()
                 .unwrap()
-                .contains("ai-html-compositions-v19")
+                .contains(crate::provider::visual_scenes::STORY_POLICY_VERSION)
         );
         assert!(
             first["userPrompt"]
