@@ -36,7 +36,8 @@ const DEFAULT_MODEL_ID: &str = "gpt-6-luna";
 const DEFAULT_REASONING_EFFORT: &str = "max";
 const RESEARCH_POLICY: &str = "ordered-independent-research-v1";
 const RESEARCH_INSTRUCTIONS: &str = "Prerequisites describe reading order, not permission to investigate. Each outlined unit will research its own captured code in outline order even if an earlier explanation remains incomplete. Earlier questions and starting ranges supply leads, never implementation facts or inherited citations. Preserve requested alternatives and failures; independently verify every explanation. A partial unit stays partial and cannot establish a later unit's behavior.";
-const MAX_UNITS: usize = 6;
+const MAX_UNITS: usize = 12;
+pub(crate) const MAX_GUIDE_SLIDES: usize = MAX_UNITS + 1;
 const MAX_ATTEMPTS: usize = 3;
 const MAX_AUTOMATIC_RETRIES_PER_UNIT: u8 = 1;
 /// Initial builds and explicit resumes fill at most five slides; playback

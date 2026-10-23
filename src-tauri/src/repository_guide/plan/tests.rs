@@ -38,7 +38,9 @@ fn resolve(value: Value) -> native_citations::Resolved {
         Ok(native_citations::Citation::checked(range, &source).unwrap())
     }) {
         native_citations::Resolution::Ready(r) => r,
-        _ => panic!("fixture references must resolve"),
+        native_citations::Resolution::Invalid(issues) => {
+            panic!("fixture references must resolve: {issues:?}")
+        }
     }
 }
 #[test]
@@ -54,7 +56,10 @@ fn outline_keeps_research_questions_and_native_ranges_not_unverified_explanation
     assert!(!encoded.contains("quote"));
     assert!(!encoded.contains(SIMPLE_SOURCE));
     let schema = schema();
-    assert_eq!(schema["properties"]["sections"]["maxItems"], 7);
+    assert_eq!(
+        schema["properties"]["sections"]["maxItems"],
+        MAX_GUIDE_SLIDES
+    );
     assert_eq!(schema["properties"]["sections"]["minItems"], 3);
     assert!(
         schema["properties"]["sections"]["description"]
@@ -63,6 +68,37 @@ fn outline_keeps_research_questions_and_native_ranges_not_unverified_explanation
             .contains("Item zero is the opening range lead")
     );
     assert!(opening::LEARNING_QUESTION.contains("entry point"));
+}
+
+#[test]
+fn outline_accepts_every_supported_route_slot_and_rejects_beyond_limit() {
+    let mut full = proposal();
+    for index in 2..MAX_UNITS {
+        full["sections"].as_array_mut().unwrap().push(json!({
+            "key": format!("surface-{index}"),
+            "question": format!("How does caller surface {index} transform its input?"),
+            "prerequisites": [],
+            "claims": [{"evidence":[{"referenceId":"code:2"}]}]
+        }));
+    }
+    assert_eq!(full["sections"].as_array().unwrap().len(), MAX_GUIDE_SLIDES);
+    assert_eq!(
+        canonicalize(&resolve(full.clone())).unwrap().units.len(),
+        MAX_UNITS
+    );
+
+    full["sections"].as_array_mut().unwrap().push(json!({
+        "key": "surface-overflow",
+        "question": "How does the unsupported extra input surface behave?",
+        "prerequisites": [],
+        "claims": [{"evidence":[{"referenceId":"code:2"}]}]
+    }));
+    assert!(matches!(
+        native_citations::resolve(&full.to_string(), |_| {
+            panic!("section count is rejected before citation lookup")
+        }),
+        native_citations::Resolution::Invalid(_)
+    ));
 }
 
 #[test]
@@ -233,7 +269,7 @@ fn plan_only_request_binds_the_whole_question_and_excludes_answer_generation() {
         r.question
     );
     assert!(prompt.len() < 128 * 1024);
-    assert_eq!(MAX_UNITS + 1, 7);
+    assert_eq!(MAX_UNITS + 1, 13);
     assert_eq!(MAX_ATTEMPTS, 3);
 }
 
@@ -242,8 +278,8 @@ fn plan_instructions_keep_the_full_requested_scope() {
     let f = Fixture::new();
     let r = crate::repository_guide::tests::fresh_record(&f);
     let (_, _, _, instructions) = request(&r).unwrap();
-    assert!(instructions.contains("two to six focused follow-on behavior questions"));
-    assert!(instructions.contains("together with the opening cover the exact original question"));
+    assert!(instructions.contains("two to twelve focused follow-on behavior questions"));
+    assert!(instructions.contains("together with the opening cover the requested scope"));
     assert!(instructions.contains("First return one opening-range lead"));
     assert!(instructions.contains("key:'opening'"));
     assert!(instructions.contains("helper that already receives a constructed object"));
@@ -256,7 +292,11 @@ fn plan_instructions_keep_the_full_requested_scope() {
         instructions
             .contains("Never name the opening lead, the current section or a later section")
     );
-    assert!(instructions.contains("unsupported stages as omissions"));
+    assert!(instructions.contains("at least one unit for each distinct input surface"));
+    assert!(
+        instructions.contains("never present one representative path as whole-project coverage")
+    );
+    assert!(instructions.contains("If more than twelve units are needed"));
     assert!(instructions.contains("one answer section's visual budget"));
     assert!(instructions.contains("Target at most eight distinct evidence nodes"));
     assert!(instructions.contains("two to four claims/scenes per slide"));
@@ -273,18 +313,20 @@ fn plan_instructions_keep_the_full_requested_scope() {
             .contains("make one focused search_code call with resultKind:files")
     );
     assert!(
-        agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("at least two relevant source files")
+        agent_context::RESEARCH_BASE_INSTRUCTIONS
+            .contains("multiple relevant implementation files")
     );
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS
-            .contains("do not treat a helper that already receives a parsed request")
+            .contains("caller-controlled input surface supported by captured source")
     );
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS
-            .contains("caller-controlled boundary supported by this repository")
+            .contains("Do not present one representative path as whole-project coverage")
     );
     assert!(
-        agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("name that boundary as an omission")
+        agent_context::RESEARCH_BASE_INSTRUCTIONS
+            .contains("name remaining work as not yet covered")
     );
     assert!(
         agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("documentation is a discovery hint")
@@ -298,7 +340,7 @@ fn plan_instructions_keep_the_full_requested_scope() {
     assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("Use at most six code-tool calls"));
     assert!(agent_context::RESEARCH_BASE_INSTRUCTIONS.contains("At finishNow, return the outline"));
 
-    assert_eq!(MAX_UNITS + 1, 7);
+    assert_eq!(MAX_UNITS + 1, 13);
     assert_eq!(MAX_ATTEMPTS, 3);
 }
 
@@ -335,7 +377,7 @@ fn outline_plan_is_persistable_without_waiting_for_opening_content() {
     assert_eq!(request(&r).unwrap().2, fingerprint);
     assert_eq!(opening::context_sha256(&r).unwrap(), binding);
     assert_eq!(serde_json::to_vec(&r).unwrap(), before);
-    assert_eq!(MAX_UNITS + 1, 7);
+    assert_eq!(MAX_UNITS + 1, 13);
     assert_eq!(MAX_ATTEMPTS, 3);
 }
 

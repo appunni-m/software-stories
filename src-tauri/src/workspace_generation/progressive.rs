@@ -294,6 +294,15 @@ pub(crate) fn run_with_starting_ranges(
         )?
     }));
     preparation.finish_stage(crate::generation_timing::PreparationKind::RetrievalSession);
+    if let Err(error) = super::jobs::start(
+        storage,
+        &input.run_id,
+        &input.project_id,
+        &input.snapshot_id,
+    ) {
+        let _ = reading::interrupt(storage, &input.run_id, Outcome::Failed);
+        return Err(error);
+    }
     if let Err(error) = journal.record(
         storage,
         recovery::new_provider_operation(
@@ -304,9 +313,24 @@ pub(crate) fn run_with_starting_ranges(
         ),
     ) {
         let _ = reading::interrupt(storage, &input.run_id, Outcome::Failed);
+        let _ = super::jobs::finish(storage, &input.run_id, super::jobs::JobState::Failed);
         return Err(error);
     }
     preparation.finish_stage(crate::generation_timing::PreparationKind::OperationJournal);
+    let progress_storage = storage.to_path_buf();
+    let progress_job_id = input.run_id.clone();
+    let durable_progress = |event: codex_agent::CodexProgress| {
+        if let Err(error) = super::jobs::record_progress(
+            &progress_storage,
+            &progress_job_id,
+            event.thread_id.as_deref(),
+            event.turn_id.as_deref(),
+        ) {
+            eprintln!("Workspace generation job progress could not be saved: {error}");
+            let _ = manager.cancel(&progress_job_id);
+        }
+        progress(event);
+    };
     let outcome = manager.run_with_result_and_publish_and_preparation(
         storage,
         codex_agent::CodexRunInput {
@@ -327,7 +351,7 @@ pub(crate) fn run_with_starting_ranges(
         started_at,
         input.renderer_queue_wait_ms,
         preparation.into_stages(),
-        progress,
+        durable_progress,
         |response, access| -> Result<String, String> {
             access.check_review(&input.run_id, &fingerprint, &runtime.executable_path)?;
             let owned = session
@@ -349,14 +373,22 @@ pub(crate) fn run_with_starting_ranges(
     match outcome {
         Ok(Ok(())) => {
             // Cleanup cannot hide a durable result or provoke another inference.
+            let summary = sections::inspect(storage, &input.run_id)?.summary();
+            let _ = super::jobs::finish(storage, &input.run_id, super::jobs::JobState::Completed)
+                .map_err(|error| {
+                    eprintln!("Workspace generation job completion could not be saved: {error}")
+                });
             let _ = journal.discard(storage, &input.run_id);
-            Ok(sections::inspect(storage, &input.run_id)?.summary())
+            Ok(summary)
         }
         failure => {
-            let cancelled = session
+            let session_cancelled = session
                 .lock()
                 .map_err(|_| "The answer session is unavailable.")?
                 .answer_cancelled();
+            let stop_requested = super::jobs::get(storage, &input.run_id)
+                .is_ok_and(|job| job.state == super::jobs::JobState::StopRequested);
+            let cancelled = session_cancelled || stop_requested;
             let failure_code = if cancelled {
                 sections::FailureCode::Stopped
             } else {
@@ -375,6 +407,16 @@ pub(crate) fn run_with_starting_ranges(
                 },
                 Some(failure_code),
             )?;
+            let job_state = if cancelled {
+                super::jobs::JobState::Stopped
+            } else if saved.outcome == Outcome::Partial {
+                super::jobs::JobState::PartiallyCompleted
+            } else {
+                super::jobs::JobState::Failed
+            };
+            let _ = super::jobs::finish(storage, &input.run_id, job_state).map_err(|error| {
+                eprintln!("Workspace generation job completion could not be saved: {error}")
+            });
             // The durable answer record now owns partial and stopped recovery.
             let _ = journal.discard(storage, &input.run_id);
             if !saved.sections.is_empty() || cancelled {
@@ -630,6 +672,80 @@ pub(crate) fn list_workspace_answer_records(
         })
         .collect::<Result<Vec<_>, _>>()?;
     Ok(listing)
+}
+
+fn reconcile_workspace_generation_jobs(
+    storage: &Path,
+    manager: &codex_agent::CodexAgentManager,
+) -> Result<Vec<super::jobs::JobRecord>, String> {
+    let stored = super::jobs::list(storage)?;
+    let mut active_job_ids = std::collections::HashSet::new();
+    for job in &stored {
+        if manager.with_operation_state(&job.job_id, |active| Ok(active))? {
+            active_job_ids.insert(job.job_id.clone());
+        }
+    }
+    let mut answer_outcomes = std::collections::HashMap::new();
+    if let Ok(listing) = reading::list_for_management(storage) {
+        for answer in listing.records {
+            let (answer, active) = manager.with_operation_state(&answer.run_id, |active| {
+                if !active && answer.outcome == Outcome::Working {
+                    Ok((
+                        reading::interrupt(storage, &answer.run_id, Outcome::Interrupted)?,
+                        false,
+                    ))
+                } else {
+                    Ok((answer.clone(), active))
+                }
+            })?;
+            if active {
+                active_job_ids.insert(answer.run_id.clone());
+            }
+            answer_outcomes.insert(answer.run_id, answer.outcome);
+        }
+    }
+    super::jobs::reconcile(storage, &active_job_ids, &answer_outcomes)
+}
+
+/// Query durable workspace generation jobs by listing their stable job IDs.
+/// Inactive records are reconciled against saved answer outcomes before return.
+#[tauri::command]
+pub(crate) fn list_workspace_generation_jobs(
+    app: AppHandle,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+) -> Result<Vec<super::jobs::JobRecord>, String> {
+    let storage = app_data_directory(&app)?;
+    reconcile_workspace_generation_jobs(&storage, manager.inner())
+}
+
+/// Query one job by its stable run/job ID. This also performs lazy restart
+/// reconciliation for all persisted jobs.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) fn get_workspace_generation_job(
+    app: AppHandle,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    job_id: String,
+) -> Result<super::jobs::JobRecord, String> {
+    let storage = app_data_directory(&app)?;
+    let _ = reconcile_workspace_generation_jobs(&storage, manager.inner())?;
+    super::jobs::get(&storage, &job_id)
+}
+
+/// Durably record Stop before asking the run owner to cancel provider work.
+#[tauri::command(rename_all = "camelCase")]
+pub(crate) fn stop_workspace_generation_job(
+    app: AppHandle,
+    manager: State<'_, codex_agent::CodexAgentManager>,
+    job_id: String,
+    project_id: String,
+    snapshot_id: String,
+) -> Result<super::jobs::JobRecord, String> {
+    let storage = app_data_directory(&app)?;
+    super::jobs::request_stop_or_record(&storage, &job_id, &project_id, &snapshot_id)?;
+    if !manager.cancel(&job_id) {
+        return Err("Stop was saved, but cancellation could not reach the active workspace generation. Query its job state before trying again.".into());
+    }
+    super::jobs::get(&storage, &job_id)
 }
 
 #[tauri::command(rename_all = "camelCase")]

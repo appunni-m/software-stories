@@ -384,6 +384,18 @@ mod tests {
             assert_eq!(prompt["question"], input.question);
             assert_eq!(prompt["guideContext"]["question"], changed.question);
         }
+
+        let mut maximum_guide = original.clone();
+        maximum_guide.unit_count = crate::repository_guide::MAX_GUIDE_SLIDES;
+        maximum_guide.unit_number = maximum_guide.unit_count;
+        request(
+            &f.storage,
+            &input,
+            &f.manifest,
+            &ranges,
+            Some(&maximum_guide),
+        )
+        .expect("the maximum supported guide slide count should be accepted");
     }
 
     #[test]
@@ -410,7 +422,7 @@ mod tests {
                 "control" => changed.question.push('\n'),
                 "key" => changed.unit_key = "bad_key".into(),
                 "number" => changed.unit_number = 0,
-                "count" => changed.unit_count = 8,
+                "count" => changed.unit_count = crate::repository_guide::MAX_GUIDE_SLIDES + 1,
                 "boundaries" => changed.research_boundaries = vec!["boundary".into(); 9],
                 "boundary" => changed.research_boundaries = vec!["é".repeat(121)],
                 _ => unreachable!(),

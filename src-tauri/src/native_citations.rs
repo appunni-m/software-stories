@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 pub(crate) const SHORT_VERSION: &str = "nativeEvidenceV2";
 pub(crate) const MAX_REFERENCES: usize = 512;
 pub(crate) const MAX_SPAN: usize = 1_000;
+const MAX_CITATION_SECTIONS: usize = 13;
 const MAX_ISSUES: usize = 64;
 
 /// One-based ordinal in an immutable operation/checkpoint, never a source hash.
@@ -162,7 +163,7 @@ pub(crate) fn resolve(
     let Some(sections) = value.get_mut("sections").and_then(Value::as_array_mut) else {
         return invalid("/sections", "citationShape");
     };
-    if sections.is_empty() || sections.len() > 12 {
+    if sections.is_empty() || sections.len() > MAX_CITATION_SECTIONS {
         return invalid("/sections", "citationShape");
     }
     let mut spans = Vec::with_capacity(sections.len());

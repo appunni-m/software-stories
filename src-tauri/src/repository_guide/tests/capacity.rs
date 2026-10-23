@@ -53,7 +53,7 @@ fn answer_bytes(f: &Fixture) -> std::collections::BTreeMap<std::path::PathBuf, V
 }
 
 #[test]
-fn a_guide_reserves_all_twenty_one_owned_investigations_without_evicting_other_answers() {
+fn a_guide_reserves_its_full_investigation_allowance_without_evicting_other_answers() {
     let f = Fixture::new();
     let (runtime, grant) = runtime(&f);
     for _ in 0..7 {
@@ -117,12 +117,12 @@ fn a_guide_reserves_all_twenty_one_owned_investigations_without_evicting_other_a
         .chain(guide.units.iter().flat_map(|unit| &unit.attempts))
         .map(|attempt| attempt.run_id.as_str())
         .collect::<Vec<_>>();
-    assert_eq!(runs.len(), 21);
+    assert_eq!(runs.len(), MAX_GUIDE_ANSWER_RECORDS);
     for run in &runs {
         retain(&f, run, &runtime, &grant).unwrap();
     }
     let after = answer_bytes(&f);
-    assert_eq!(after.len(), 28);
+    assert_eq!(after.len(), 7 + MAX_GUIDE_ANSWER_RECORDS);
     for (path, bytes) in prior {
         assert_eq!(after.get(&path), Some(&bytes));
     }

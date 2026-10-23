@@ -294,7 +294,7 @@ fn independent_research_preserves_outline_order_attempt_limits_and_reading_edges
     assert!(!unit_research_eligible(&r, 1));
     r.status = Status::Stopped;
     assert!((0..r.units.len()).all(|i| !unit_research_eligible(&r, i)));
-    assert_eq!(MAX_UNITS + 1, 7);
+    assert_eq!(MAX_UNITS + 1, 13);
     assert_eq!(MAX_ATTEMPTS, 3);
 }
 
@@ -470,7 +470,7 @@ fn reading_prerequisites_do_not_block_research_and_completed_units_are_skipped()
     assert!(unit_complete(&record.units[0]));
     assert!(unit_research_eligible(&record, 1));
     assert!(!unit_research_eligible(&record, 0));
-    assert_eq!(MAX_UNITS, 6);
+    assert_eq!(MAX_UNITS, 12);
     assert_eq!(MAX_ATTEMPTS, 3);
 }
 

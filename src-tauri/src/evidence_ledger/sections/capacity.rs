@@ -140,7 +140,7 @@ pub(super) fn check(
                 if schema_version < NARRATION_ANSWER_VERSION as u64 {
                     // Historical receipts stay byte-for-byte on disk and
                     // count toward the same total. Guide-owned paths are
-                    // already covered by that guide's fourteen reserved slots.
+                    // already covered by that guide's reserved lifetime slots.
                     if !owners.contains_key(operation_id) {
                         standalone_records = standalone_records
                             .checked_add(1)
@@ -192,10 +192,10 @@ pub(super) fn check(
                 .ok_or("Saved answer capacity could not be counted.")?;
         }
     }
-    // One thousand record slots total. Every guide reserves all twenty-one
-    // possible 4 MiB receipts up front; standalone and historical receipts
-    // each consume one slot. This bounds retained answer payloads at 4,000 MiB
-    // (about 3.9 GiB) without preallocating it, regardless of concurrent work.
+    // One thousand record slots total. Every guide reserves its complete
+    // bounded lifetime allowance up front; standalone and historical receipts
+    // each consume one slot. The per-guide allowance derives from the maximum
+    // outline and attempt counts, so concurrent work remains globally capped.
     let reserved = reserved_records(reservations.len(), standalone_records)
         .ok_or("Saved answer capacity could not be counted.")?;
     if reserved > MAX_ANSWER_RECORDS {
@@ -210,8 +210,12 @@ mod tests {
 
     #[test]
     fn guide_lifetime_allowances_and_standalone_receipts_share_one_thousand_slots() {
-        assert_eq!(reserved_records(2, 958), Some(1_000));
-        assert_eq!(reserved_records(2, 959), Some(1_001));
+        let remaining = MAX_ANSWER_RECORDS - 2 * MAX_GUIDE_ANSWER_RECORDS;
+        assert_eq!(reserved_records(2, remaining), Some(MAX_ANSWER_RECORDS));
+        assert_eq!(
+            reserved_records(2, remaining + 1),
+            Some(MAX_ANSWER_RECORDS + 1)
+        );
     }
 
     #[test]

@@ -707,11 +707,10 @@ fn location(storage: &Path, project: &str, snapshot: &str) -> Result<PathBuf, St
         .join(format!("{digest:x}.json")))
 }
 
-/// Reader positions from unsupported story or diagram layouts are transient.
-/// Drop only those positions in memory so they cannot make the conversation
-/// unavailable. Keep story layout 3 as a supported migration input; the
-/// renderer upgrades its scene and narration positions to layout 4. The durable
-/// record is untouched.
+/// Reader positions from unsupported layouts or malformed optional fields are
+/// transient. Drop or repair only those positions in memory so they cannot make
+/// the conversation unavailable. Keep story layout 3 as a supported migration
+/// input; the renderer upgrades it to layout 4. The durable record is untouched.
 fn discard_stale_reader_positions(state: &mut Value) {
     let Some(explorations) = state.get_mut("explorations").and_then(Value::as_array_mut) else {
         return;
@@ -735,30 +734,140 @@ fn discard_stale_reader_positions(state: &mut Value) {
         };
         for turn in turns {
             discard_reading_positions(turn);
-            let Some(presentation) = turn.get_mut("presentation") else {
-                continue;
-            };
-            if let Some(stories) = presentation
-                .get_mut("stories")
-                .and_then(Value::as_array_mut)
-            {
-                stories.retain(|story| {
-                    matches!(
-                        story.get("focusLayoutVersion").and_then(Value::as_u64),
-                        Some(3) | Some(FOCUSED_STORY_LAYOUT_VERSION)
-                    )
-                });
-            }
-            if let Some(diagrams) = presentation
-                .get_mut("diagrams")
-                .and_then(Value::as_array_mut)
-            {
-                diagrams.retain(|diagram| {
-                    diagram.get("layoutVersion").and_then(Value::as_u64)
-                        == Some(FLOW_DIAGRAM_LAYOUT_VERSION)
-                });
+            discard_presentation_positions(turn);
+        }
+    }
+}
+
+/// Keep a saved Guide position only when its answer/section ownership fields
+/// are syntactically usable. Ownership itself remains checked by `validate`.
+/// Optional progress fields are disposable and are repaired independently so
+/// one malformed scene offset does not hide the saved conversation.
+fn sanitize_story_position(story: &mut Value) -> Option<(String, String, String)> {
+    let story = story.as_object_mut()?;
+    if !matches!(
+        story.get("focusLayoutVersion").and_then(Value::as_u64),
+        Some(3) | Some(FOCUSED_STORY_LAYOUT_VERSION)
+    ) {
+        return None;
+    }
+
+    let revision = story.get("revisionId").and_then(Value::as_str)?.to_owned();
+    let section = story.get("sectionId").and_then(Value::as_str)?.to_owned();
+    let section_revision = story
+        .get("sectionRevisionId")
+        .and_then(Value::as_str)?
+        .to_owned();
+    if !identifier(&revision) || !identifier(&section) || !identifier(&section_revision) {
+        return None;
+    }
+    if !story.get("sceneId").is_some_and(id) {
+        return None;
+    }
+
+    if !story.get("fullMap").is_some_and(Value::is_boolean) {
+        story.insert("fullMap".into(), Value::Bool(false));
+    }
+    match story.get_mut("positions") {
+        Some(Value::Object(positions)) => {
+            positions.retain(|claim, position| identifier(claim) && number(position, 3600));
+            if positions.len() > 128 {
+                positions.clear();
             }
         }
+        Some(positions) => *positions = Value::Object(Default::default()),
+        None => {
+            story.insert("positions".into(), Value::Object(Default::default()));
+        }
+    }
+    if story
+        .get("viewport")
+        .is_some_and(|viewport_value| viewport(viewport_value).is_err())
+    {
+        story.remove("viewport");
+    }
+    for key in ["focusedNodeId", "focusedEdgeId"] {
+        if story
+            .get(key)
+            .is_some_and(|value| !value.is_null() && !id(value))
+        {
+            story.remove(key);
+        }
+    }
+
+    Some((revision, section, section_revision))
+}
+
+/// Keep a saved Flow selection when its answer/section identity is usable,
+/// and reset only its malformed viewport. The later validator still enforces
+/// that the selected revision belongs to this answer.
+fn sanitize_diagram_position(diagram: &mut Value) -> Option<(String, String, String)> {
+    let diagram = diagram.as_object_mut()?;
+    if diagram.get("layoutVersion").and_then(Value::as_u64) != Some(FLOW_DIAGRAM_LAYOUT_VERSION) {
+        return None;
+    }
+
+    let revision = diagram
+        .get("revisionId")
+        .and_then(Value::as_str)?
+        .to_owned();
+    let section = diagram.get("sectionId").and_then(Value::as_str)?.to_owned();
+    let section_revision = diagram
+        .get("sectionRevisionId")
+        .and_then(Value::as_str)?
+        .to_owned();
+    if !identifier(&revision) || !identifier(&section) || !identifier(&section_revision) {
+        return None;
+    }
+    if diagram
+        .get("viewport")
+        .is_none_or(|viewport_value| viewport(viewport_value).is_err())
+    {
+        diagram.insert(
+            "viewport".into(),
+            serde_json::json!({"x": 0, "y": 0, "zoom": 1}),
+        );
+    }
+
+    Some((revision, section, section_revision))
+}
+
+/// These presentation values are reader preferences. Drop malformed optional
+/// collections and individual stale entries in memory while leaving valid
+/// locations and all answer data untouched. The durable record is not changed.
+fn discard_presentation_positions(turn: &mut Value) {
+    let Some(turn) = turn.as_object_mut() else {
+        return;
+    };
+    if turn
+        .get("presentation")
+        .is_some_and(|presentation| !presentation.is_object())
+    {
+        turn.remove("presentation");
+        return;
+    }
+    let Some(presentation) = turn.get_mut("presentation").and_then(Value::as_object_mut) else {
+        return;
+    };
+
+    let sanitizers: [(&str, fn(&mut Value) -> Option<(String, String, String)>); 2] = [
+        ("stories", sanitize_story_position),
+        ("diagrams", sanitize_diagram_position),
+    ];
+    for (key, sanitize) in sanitizers {
+        if presentation
+            .get(key)
+            .is_some_and(|entries| !entries.is_array())
+        {
+            presentation.remove(key);
+            continue;
+        }
+        let Some(entries) = presentation.get_mut(key).and_then(Value::as_array_mut) else {
+            continue;
+        };
+        entries.truncate(256);
+        let mut seen = HashSet::new();
+        entries.retain_mut(|entry| sanitize(entry).is_some_and(|identity| seen.insert(identity)));
     }
 }
 

@@ -40,6 +40,28 @@ export interface InterruptedOperation {
   } | null;
 }
 
+export type WorkspaceGenerationJobState =
+  | 'preparing'
+  | 'running'
+  | 'stopRequested'
+  | 'completed'
+  | 'partiallyCompleted'
+  | 'stopped'
+  | 'failed'
+  | 'interrupted';
+
+export interface WorkspaceGenerationJob {
+  jobId: string;
+  projectId: string;
+  snapshotId: string;
+  state: WorkspaceGenerationJobState;
+  workerRegistered: boolean;
+  providerThreadId: string | null;
+  providerTurnIds: string[];
+  createdAtUnixMs: number;
+  updatedAtUnixMs: number;
+}
+
 export interface InterruptedGitScope {
   baseRef: string;
   headRef: string;
@@ -1436,6 +1458,20 @@ export async function sendCodexChapterRequest(reviewId: string, fingerprint: str
 }
 export async function cancelCodexChapterRequest(runId: string): Promise<boolean> {
   return invoke('cancel_codex_chapter_request', { runId });
+}
+/** Query durable answer jobs; this also reconciles stale records after restart. */
+export function listWorkspaceGenerationJobs(): Promise<WorkspaceGenerationJob[]> {
+  return invoke<WorkspaceGenerationJob[]>('list_workspace_generation_jobs');
+}
+export function getWorkspaceGenerationJob(jobId: string): Promise<WorkspaceGenerationJob> {
+  return invoke<WorkspaceGenerationJob>('get_workspace_generation_job', { jobId });
+}
+export function stopWorkspaceGenerationJob(
+  jobId: string,
+  projectId: string,
+  snapshotId: string,
+): Promise<WorkspaceGenerationJob> {
+  return invoke<WorkspaceGenerationJob>('stop_workspace_generation_job', { jobId, projectId, snapshotId });
 }
 export async function buildCodexPrGuideReview(input: {
   projectId: string; baseRef: string; headRef: string; comparisonId: string;

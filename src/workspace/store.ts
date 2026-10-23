@@ -3,7 +3,7 @@ import { createRefreshQueue, type RefreshQueue } from './refreshQueue';
 import { useRef, useSyncExternalStore } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { cancelCodexChapterRequest, getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, loadSnapshotIndex, prewarmLocalNarration, startSnapshotIndexing, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
+import { getSnapshotIndexProgress, isNativeRuntime, listChapterRevisions, listWorkspaceGenerationJobs, loadSnapshotIndex, prewarmLocalNarration, startSnapshotIndexing, stopWorkspaceGenerationJob, type ChapterRevision, type SnapshotIndex } from '../lib/commands';
 import {ConversationPersistence,type ConversationRecord} from './conversationPersistence';
 import { ensureCodexConnection, readCodexSelection } from '../lib/connectionStore';
 import { errorMessageOr } from '../lib/errorMessage';
@@ -157,9 +157,9 @@ export async function revokeWorkspace(projectId: string, snapshotId: string) {
 }
 export function stopQuestion(project: string, snapshot: string, id: string) {
   const job = jobs.get(id);
-  if (job) job.cancelled = true;
   const turn = getWorkspace(project,snapshot).explorations.flatMap((e) => e.turns).find((t) => t.id === id);
   if (turn?.guideId) {
+    if (job) job.cancelled = true;
     if ((job && !job.runId) || (!turn.guide && !turn.runIds?.length && !job?.runId)) {
       patchTurn(project,snapshot,id,{status:'stopped',error:undefined});
       return;
@@ -170,7 +170,22 @@ export function stopQuestion(project: string, snapshot: string, id: string) {
     return;
   }
   const runId = job?.runId ?? turn?.runIds?.at(-1);
-  if (runId) void cancelCodexChapterRequest(runId).catch(() => {});
+  if (runId) {
+    void stopWorkspaceGenerationJob(runId,project,snapshot).then((saved) => {
+      if (job) job.cancelled = true;
+      const status = saved.state === 'completed' ? 'ready'
+        : saved.state === 'partiallyCompleted' ? 'partial'
+        : saved.state === 'failed' ? 'failed'
+        : saved.state === 'interrupted' ? 'interrupted'
+        : 'stopped';
+      patchTurn(project,snapshot,id,{status,error:undefined});
+      if (status === 'ready' || status === 'partial') void restoreWorkspaceAnswers(project,snapshot).catch(() => {});
+    }).catch((failure) => {
+      patchTurn(project,snapshot,id,{error:errorMessageOr(failure,'The question could not be stopped. Try Stop again.')});
+    });
+    return;
+  }
+  if (job) job.cancelled = true;
   patchTurn(project,snapshot,id,{ status:'stopped', error: undefined });
 }
 const enterQuestionQueue = createQuestionQueue();
@@ -315,6 +330,9 @@ export function restoreWorkspaceAnswers(project: string, snapshot: string): Prom
 async function readSavedWorkspaceAnswers(project: string, snapshot: string): Promise<void> {
   await prepareWorkspaceConversation(project,snapshot);
   await restoreRepositoryGuides(project,snapshot);
+  // Reconcile durable native job state before reading answer receipts. No
+  // provider connection or request is resumed during this local read.
+  await listWorkspaceGenerationJobs().catch(() => []);
   const saved = await invoke<AnswerSummary[]>('list_workspace_answers',{projectId:project,snapshotId:snapshot});
   let failed = false;
   let firstFailure: unknown;

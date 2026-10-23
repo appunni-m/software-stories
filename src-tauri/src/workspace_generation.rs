@@ -87,6 +87,7 @@ impl Drop for Owner {
     }
 }
 
+pub(crate) mod jobs;
 pub(crate) mod progressive;
 
 #[cfg(test)]

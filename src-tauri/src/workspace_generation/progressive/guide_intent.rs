@@ -1,5 +1,6 @@
 //! Native guide intent is context for an investigation, never source evidence.
 
+use crate::repository_guide::MAX_GUIDE_SLIDES;
 use serde::Serialize;
 
 pub(super) const POLICY: &str = "native-guide-intent-v1";
@@ -41,7 +42,7 @@ impl GuideIntent {
                 .unit_key
                 .bytes()
                 .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
-            || !(2..=7).contains(&self.unit_count)
+            || !(2..=MAX_GUIDE_SLIDES).contains(&self.unit_count)
             || match &self.opening_continuation {
                 None => !(1..=self.unit_count).contains(&self.unit_number),
                 Some(opening) => {

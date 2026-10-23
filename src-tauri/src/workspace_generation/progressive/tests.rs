@@ -701,7 +701,10 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         context::digest(&serde_json::to_vec(&without_teaching_policy).unwrap())
     );
     let contract_bytes = serde_json::to_vec(&contract).unwrap().len();
-    assert!(contract_bytes < 32000, "contract is {contract_bytes} bytes");
+    assert!(
+        contract_bytes <= INITIAL_REQUEST_LIMIT_BYTES,
+        "contract is {contract_bytes} bytes"
+    );
 }
 
 #[test]
@@ -801,7 +804,7 @@ fn progressive_teaching_rules_fit_the_existing_request_metadata_limit() {
     let contract = generation_contract(&input, &prompt, &schema()).unwrap();
     let bytes = serde_json::to_vec(&contract).unwrap();
     assert!(
-        bytes.len() <= 32000,
+        bytes.len() <= INITIAL_REQUEST_LIMIT_BYTES,
         "request metadata is {} bytes",
         bytes.len()
     );

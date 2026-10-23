@@ -311,6 +311,71 @@ fn opening_malformed_bookmark_and_scroll_positions_preserves_the_answer_and_reco
 }
 
 #[test]
+fn opening_malformed_visual_positions_preserves_the_answer_and_valid_progress() {
+    let f = Fixture::new();
+    let original = presentation_state();
+    save(&f.0, "project", "snapshot", None, original).unwrap();
+
+    let mut stored: Value = serde_json::from_slice(&fs::read(f.path()).unwrap()).unwrap();
+    let presentation = &mut stored["state"]["explorations"][0]["turns"][0]["presentation"];
+    let story = &mut presentation["stories"][0];
+    story["positions"]["claim:first"] = json!("not-a-position");
+    story["viewport"]["zoom"] = json!(10.0);
+    story["fullMap"] = json!("true");
+    story["focusedNodeId"] = json!("bad\nnode");
+    presentation["diagrams"][0]["viewport"]["x"] = json!(10_000_001);
+    fs::write(f.path(), serde_json::to_vec(&stored).unwrap()).unwrap();
+    let original_bytes = fs::read(f.path()).unwrap();
+
+    let restored = load(&f.0, "project", "snapshot")
+        .unwrap()
+        .expect("damaged visual progress must not hide the saved answer");
+    let turn = &restored.state["explorations"][0]["turns"][0];
+    let story = &turn["presentation"]["stories"][0];
+
+    assert_eq!(
+        story["positions"],
+        json!({"claim:second":3.2}),
+        "keep valid per-claim progress while dropping only the damaged entry"
+    );
+    assert!(
+        story.get("viewport").is_none(),
+        "invalid viewport is discarded"
+    );
+    assert_eq!(
+        story["fullMap"], false,
+        "invalid layout preference gets a safe default"
+    );
+    assert!(story.get("focusedNodeId").is_none());
+    assert_eq!(story["focusedEdgeId"], "edge:one");
+    assert_eq!(
+        turn["presentation"]["diagrams"][0]["viewport"],
+        json!({"x":0,"y":0,"zoom":1}),
+        "reset only the malformed Flow viewport"
+    );
+    assert_eq!(
+        turn["question"],
+        "What happens to the font bytes?\nShow the failure path."
+    );
+    assert_eq!(fs::read(f.path()).unwrap(), original_bytes);
+}
+
+#[test]
+fn opening_visual_position_with_unowned_revision_still_rejects_the_record() {
+    let f = Fixture::new();
+    save(&f.0, "project", "snapshot", None, presentation_state()).unwrap();
+
+    let mut stored: Value = serde_json::from_slice(&fs::read(f.path()).unwrap()).unwrap();
+    stored["state"]["explorations"][0]["turns"][0]["presentation"]["stories"][0]["revisionId"] =
+        json!("revision:foreign");
+    fs::write(f.path(), serde_json::to_vec(&stored).unwrap()).unwrap();
+    let original_bytes = fs::read(f.path()).unwrap();
+
+    assert!(load(&f.0, "project", "snapshot").is_err());
+    assert_eq!(fs::read(f.path()).unwrap(), original_bytes);
+}
+
+#[test]
 fn selected_answer_versions_and_independent_reading_round_trip_without_rewriting_receipts() {
     let f = Fixture::new();
     let mut s = presentation_state();

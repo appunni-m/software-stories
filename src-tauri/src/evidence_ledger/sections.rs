@@ -18,9 +18,9 @@ const MAX_ATTEMPTS: usize = 8;
 // replays still count as proposals, but do not consume a correction attempt.
 const MAX_CORRECTIONS: usize = MAX_ATTEMPTS - MAX_SECTIONS;
 const MAX_CORRECTIONS_PER_KEY: usize = 1;
-// A guide owns a fixed fourteen-answer lifetime allowance. Count those slots
-// and standalone receipts against one total so raising the limit never turns
-// each guide into an unbounded multiplier.
+// A guide reserves its full bounded lifetime allowance and standalone
+// receipts against one total, so adding slides never multiplies storage
+// without a global cap.
 const MAX_ANSWER_RECORDS: usize = 1_000;
 const MAX_RECORD_BYTES: usize = 4 * 1024 * 1024;
 const MAX_DIRECTORY_ENTRIES: usize = MAX_ANSWER_RECORDS + 32;
