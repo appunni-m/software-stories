@@ -137,8 +137,8 @@ test('long answer questions stay collapsed until the reader asks to see them', (
 test('a compact answer card opens its visual story inline from its title', () => {
   const workspace = readFileSync(new URL('../src/workspace/Workspace.tsx', import.meta.url), 'utf8');
   const styles = readFileSync(new URL('../src/workspace/workspace.css', import.meta.url), 'utf8');
-  assert.ok(workspace.includes('onFocus={()=>focusTurn(turn.id)}'));
-  assert.ok(workspace.includes('className="dw-answer-expand" aria-label={`Open ${section.title} in Guide`} onClick={onFocus}'));
+  assert.match(workspace, /<button type="button" className="dw-answer-expand" aria-label=\{`Open \$\{section\.title\} in Guide`\} onClick=\{\(\)=>onFocus\(revision\.revisionId,section\.sectionId\)\}>/);
+  assert.match(workspace, /onFocus=\{\(revisionId,sectionId\)=>focusAnswer\(turn\.id,revisionId,sectionId\)\}/);
   assert.match(styles, /\.dw-answer-expand \{display:flex;align-items:center;justify-content:space-between/);
   assert.match(styles, /\.dw-answer-expand:focus-visible \{outline:2px solid/);
 });
