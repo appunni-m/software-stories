@@ -219,6 +219,9 @@ describe('notification totals', () => {
     assert.match(component, /Earlier work in this repository/);
     assert.match(component, /Other repositories/);
     assert.match(component, /Show \{earlier.length\} earlier \{group.countLabel\}/);
+    assert.match(component, /latest\.groupActions/);
+    assert.match(app, /Dismiss all \$\{groupedOutcomes\.length\} attempts/);
+    assert.match(app, /markQuestionOutcomes\(s,groupedOutcomes\.map/);
     assert.match(component, /modal=\{false\}/);
     assert.match(app, /availability=\{notificationAvailability\(\{ startupComplete: startupNotificationsComplete, workspaceReady: readiness === 'ready'/);
     assert.match(app, /bucket: notificationBucketForOutcome\(outcome\.tone\)/);

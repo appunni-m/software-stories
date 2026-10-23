@@ -9,7 +9,7 @@ import { Theme } from '@radix-ui/themes';
 import { useAppAppearance } from './lib/useAppAppearance';
 import type { AppNoticeInput, AppNotice } from './lib/noticeHistory';
 import { getWorkspace, prepareWorkspaceConversation, restoreWorkspaceAnswers, retryWorkspaceConversation, updateWorkspace, useWorkspaceOutcomes } from './workspace/store';
-import { markQuestionOutcome, openWorkspaceQuestion, withSavedAnswerAvailability } from './workspace/outcomes';
+import { markQuestionOutcome, markQuestionOutcomes, openWorkspaceQuestion, withSavedAnswerAvailability } from './workspace/outcomes';
 import { WorkspaceFrame } from './workspace/Workspace';
 import { workspaceReadiness, type SnapshotHistoryLoad, type SnapshotManifestLoad } from './lib/workspaceReadiness';
 import { startupProjectToRestore } from './lib/startupProjectRestore';
@@ -1439,20 +1439,30 @@ function App() {
   };
 
   const workspaceNotifications: WorkspaceNotification[] = [
-    ...visibleQuestionUpdates.map((outcome): WorkspaceNotification => ({
-      id: `question:${outcome.turnId}`, projectId: currentProject?.projectId, snapshotId: selectedSnapshot?.snapshotId, title: outcome.title,
-      message: `${currentProject?.displayName ?? 'Repository'} · ${questionNotificationText(outcome.question, 140)}`,
-      groupKey: currentProject && selectedSnapshot ? notificationGroupKey('question', currentProject.projectId, selectedSnapshot.snapshotId, outcome.question) : undefined,
-      bucket: notificationBucketForOutcome(outcome.tone), groupBucket: notificationBucketForOutcome(outcome.tone), countLabel: 'attempts',
-      read: outcome.read, tone: outcome.tone,
-      actions: [{ label: 'Open question', movesFocus: true, run: () => {
-        if (!currentProject || !selectedSnapshot) return;
-        updateWorkspace(currentProject.projectId,selectedSnapshot.snapshotId,(s)=>openWorkspaceQuestion(s,outcome.explorationId,outcome.turnId));
-        setNavigation((s)=>navigateToRoute(s,{workspace:'guide-plan',projectId:currentProject.projectId,snapshotId:selectedSnapshot.snapshotId}));
-      } }, { label: 'Dismiss', run: () => {
-        if (currentProject && selectedSnapshot) updateWorkspace(currentProject.projectId,selectedSnapshot.snapshotId,(s)=>markQuestionOutcome(s,outcome.explorationId,outcome.turnId,outcome.key,'dismissed'));
-      } }],
-    })),
+    ...visibleQuestionUpdates.map((outcome): WorkspaceNotification => {
+      const projectId=currentProject?.projectId;
+      const snapshotId=selectedSnapshot?.snapshotId;
+      const groupKey=projectId&&snapshotId?notificationGroupKey('question',projectId,snapshotId,outcome.question):undefined;
+      const groupedOutcomes=groupKey?visibleQuestionUpdates.filter(candidate=>
+        notificationGroupKey('question',projectId!,snapshotId!,candidate.question)===groupKey):[];
+      return {
+        id: `question:${outcome.turnId}`, projectId, snapshotId, title: outcome.title,
+        message: `${currentProject?.displayName ?? 'Repository'} · ${questionNotificationText(outcome.question, 140)}`,
+        groupKey,
+        bucket: notificationBucketForOutcome(outcome.tone), groupBucket: notificationBucketForOutcome(outcome.tone), countLabel: 'attempts',
+        read: outcome.read, tone: outcome.tone,
+        groupActions: groupedOutcomes.length>1?[{label:`Dismiss all ${groupedOutcomes.length} attempts`,run:()=>{
+          if(projectId&&snapshotId)updateWorkspace(projectId,snapshotId,(s)=>markQuestionOutcomes(s,groupedOutcomes.map(({explorationId,turnId,key})=>({explorationId,turnId,key})),'dismissed'));
+        }}]:undefined,
+        actions: [{ label: 'Open question', movesFocus: true, run: () => {
+          if (!projectId || !snapshotId) return;
+          updateWorkspace(projectId,snapshotId,(s)=>openWorkspaceQuestion(s,outcome.explorationId,outcome.turnId));
+          setNavigation((s)=>navigateToRoute(s,{workspace:'guide-plan',projectId,snapshotId}));
+        } }, { label: 'Dismiss', run: () => {
+          if (projectId && snapshotId) updateWorkspace(projectId,snapshotId,(s)=>markQuestionOutcome(s,outcome.explorationId,outcome.turnId,outcome.key,'dismissed'));
+        } }],
+      };
+    }),
     ...(answerAvailability === 'unavailable' ? [{ id: 'answers-unavailable', projectId: currentProject?.projectId, snapshotId: selectedSnapshot?.snapshotId, title: 'Saved answers could not be loaded',
       message: 'Your saved explanations are still here. Try loading them again.', tone: 'error' as const, bucket: 'attention' as const,
       actions: [{ label: 'Try again', run: () => {

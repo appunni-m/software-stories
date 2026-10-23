@@ -399,3 +399,13 @@ packaging was deferred because only 962 MiB was free, below the previously
 established 5 GB safe-build threshold. The running app has not been replaced;
 packaged confirmation and the remaining design/accessibility matrix stay open.
 [Design task](kata-tasks/43-design-implementation-parity.md#edge-free-flow-presentation--23-october-2026).
+
+## 23 October grouped notification dismissal
+
+The packaged Fontdone notification center showed 21 unread attempts grouped
+under the same question but exposed only one-at-a-time dismissal. Source now
+adds **Dismiss all N attempts** for a repeated question group and acknowledges
+the matching outcomes in one workspace update without removing their turns or
+saved answers. The focused notification/outcome suites pass **42/42** and
+`npm run build` passes. The v30 app remains running, so packaged behavior and
+the broader notification acceptance matrix are still open. [Notification task](kata-tasks/62-notification-center.md#dismiss-repeated-attempts-together--23-october-2026).

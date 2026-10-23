@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { addTurn, createWorkspace, parseWorkspace } from '../src/workspace/model.ts';
-import { createQuestionOutcomeSelector, featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, questionSummaryText, lastAvailableAnswerItemIndex, markQuestionOutcome, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
+import { createQuestionOutcomeSelector, featuredGuideTurnId, groupUnavailablePublishedSections, guideSlideIndex, questionSummaryText, lastAvailableAnswerItemIndex, markQuestionOutcome, markQuestionOutcomes, openWorkspaceExploration, openWorkspaceQuestion, questionOutcomeKey, questionOutcomes, recordQuestionOutcomes, visibleConversationTurns, withSavedAnswerAvailability } from '../src/workspace/outcomes.ts';
 
 const turn = (id, status = 'failed', extra = {}) => ({ id, question: `Question ${id}`, context: [], status, ...extra });
 const stateWith = (...turns) => ({ ...createWorkspace('project', 'snapshot'), explorations: [{ ...createWorkspace('project', 'snapshot').explorations[0], turns }] });
@@ -206,6 +206,22 @@ test('repeated reconciliation and reading never resurrect a dismissed outcome', 
   assert.deepEqual(questionOutcomes(reconciled), []);
   assert.equal(reconciled.explorations[0].turns[0].outcomeAt, undefined);
   assert.equal(recordQuestionOutcomes(state, state, 1000), state);
+});
+
+test('dismissing a grouped set acknowledges every matching attempt in one update without deleting answers', () => {
+  const state = stateWith(
+    turn('first', 'failed', { question: 'Same question', revisionId: 'revision:first' }),
+    turn('second', 'stopped', { question: 'Same question', revisionId: 'revision:second' }),
+    turn('other', 'failed', { question: 'Different question', revisionId: 'revision:other' }),
+  );
+  const outcomes = questionOutcomes(state);
+  const sameQuestion = outcomes.filter((item) => item.question === 'Same question');
+  const dismissed = markQuestionOutcomes(state, sameQuestion.map(({ explorationId, turnId, key }) => ({ explorationId, turnId, key })), 'dismissed');
+
+  assert.deepEqual(questionOutcomes(dismissed).map(({ turnId }) => turnId), ['other']);
+  assert.deepEqual(dismissed.explorations[0].turns.map(({ revisionId }) => revisionId), ['revision:first', 'revision:second', 'revision:other']);
+  assert.deepEqual(dismissed.explorations[0].turns.map(({ status }) => status), ['failed', 'stopped', 'failed']);
+  assert.equal(markQuestionOutcomes(state, [{ explorationId: 'root', turnId: 'first', key: 'stale' }], 'dismissed'), state);
 });
 
 test('a new attempt is unread even when it fails before a native run can be allocated', () => {

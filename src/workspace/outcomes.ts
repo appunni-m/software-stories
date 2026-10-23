@@ -236,13 +236,28 @@ export function recordQuestionOutcomes(previous: WorkspaceState, next: Workspace
   return changed ? { ...next, explorations } : next;
 }
 
+export interface QuestionOutcomeAcknowledgement { explorationId: string; turnId: string; key: string }
+
+/** Acknowledge related notices in one workspace update without deleting their turns or answers. */
+export function markQuestionOutcomes(state: WorkspaceState, outcomes: readonly QuestionOutcomeAcknowledgement[], action: 'read' | 'dismissed'): WorkspaceState {
+  if (outcomes.length === 0) return state;
+  const keys = new Map(outcomes.map((outcome) => [`${outcome.explorationId}\u0000${outcome.turnId}`, outcome.key]));
+  let changed = false;
+  const explorations = state.explorations.map((exploration) => {
+    let ownerChanged = false;
+    const turns = exploration.turns.map((turn) => {
+      const key = keys.get(`${exploration.id}\u0000${turn.id}`);
+      if (!key || questionOutcomeKey(turn) !== key || turn.outcomeNotice?.[action] === key) return turn;
+      changed = ownerChanged = true;
+      return { ...turn, outcomeNotice: { ...turn.outcomeNotice, [action]: key } };
+    });
+    return ownerChanged ? { ...exploration, turns } : exploration;
+  });
+  return changed ? { ...state, explorations } : state;
+}
+
 export function markQuestionOutcome(state: WorkspaceState, explorationId: string, turnId: string, key: string, action: 'read' | 'dismissed'): WorkspaceState {
-  const owner = state.explorations.find((e) => e.id === explorationId);
-  const turn = owner?.turns.find((t) => t.id === turnId);
-  if (!turn || questionOutcomeKey(turn) !== key || turn.outcomeNotice?.[action] === key) return state;
-  return { ...state, explorations: state.explorations.map((e) => e !== owner ? e : {
-    ...e, turns: e.turns.map((t) => t !== turn ? t : { ...t, outcomeNotice: { ...t.outcomeNotice, [action]: key } }),
-  }) };
+  return markQuestionOutcomes(state, [{ explorationId, turnId, key }], action);
 }
 
 /** Reopen the exact existing question without retrying inference. The one-shot

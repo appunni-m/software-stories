@@ -18,6 +18,7 @@ export interface WorkspaceNotification {
   countLabel?: string;
   detail?: string;
   actions?: { label: string; run: () => void; disabled?: boolean; opensDialog?: boolean; movesFocus?: boolean }[];
+  groupActions?: { label: string; run: () => void; disabled?: boolean; opensDialog?: boolean; movesFocus?: boolean }[];
 }
 
 /** Background work never opens this panel or moves the reader's focus. */
@@ -38,7 +39,7 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
   const earlierUpdateGroups = scopedGroups.earlierSnapshots.filter((group) => group.bucket === 'updates');
   const otherAttentionGroups = scopedGroups.otherProjects.filter((group) => group.bucket === 'attention');
   const otherUpdateGroups = scopedGroups.otherProjects.filter((group) => group.bucket === 'updates');
-  const renderActions = (item: WorkspaceNotification) => item.actions?.length ? <div className="notification-item-actions">{item.actions.map((action) => <button type="button" key={action.label} disabled={action.disabled} onClick={() => {
+  const renderActions = (item: WorkspaceNotification, actions = item.actions) => actions?.length ? <div className="notification-item-actions">{actions.map((action) => <button type="button" key={action.label} disabled={action.disabled} onClick={() => {
     actionOpened.current = Boolean(action.opensDialog || action.movesFocus);
     setOpen(false);
     action.run();
@@ -52,6 +53,10 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
   const renderGroup = (group: typeof groups[number]) => {
     const [latest, ...earlier] = group.items;
     if (!latest) return null;
+    const groupedActions = group.items.length > 1 ? latest.groupActions ?? [] : [];
+    const actions = groupedActions.length
+      ? [...(latest.actions ?? []).filter((action) => action.label !== 'Dismiss'), ...groupedActions]
+      : latest.actions;
     return <li key={group.id} className={`notification-item tone-${latest.tone ?? 'info'}`}>
       <div className="notification-item-title">
         {latest.tone === 'error' || latest.tone === 'warning' ? <CircleAlert size={16} /> : <Info size={16} />}
@@ -62,7 +67,7 @@ export function NotificationCenter({ items, availability = 'ready', issue, curre
       </div>
       <p>{latest.message}</p>
       {latest.detail && <small className="notification-attempt-detail">{latest.detail}</small>}
-      {renderActions(latest)}
+      {renderActions(latest, actions)}
       {earlier.length > 0 && <details className="notification-earlier">
         <summary>Show {earlier.length} earlier {group.countLabel}</summary>
         <ul className="notification-attempt-list">{earlier.map(renderAttempt)}</ul>
