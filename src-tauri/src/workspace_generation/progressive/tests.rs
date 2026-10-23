@@ -595,11 +595,10 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(
         instructions.contains("preserving the claim, supported behavior and chosen representation")
     );
-    assert!(instructions.contains("sceneSourceValue must occur once in the same-claim excerpt"));
+    assert!(instructions.contains("On sceneSourceValue, default the affected node to source:null"));
     assert!(
-        instructions.contains(
-            "if the exact value is not essential, set source:null and keep node evidence"
-        )
+        instructions
+            .contains("default the affected node to source:null and keep its evidence clickable")
     );
 }
 
@@ -629,8 +628,8 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         "selectorShape means the root selector has 2+ source-ordered direct branch groups"
     ));
     assert!(system_instructions().contains("Never combine guard and outcome in one card"));
-    assert!(system_instructions().contains("Progressive visual design method v36:"));
-    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v36"));
+    assert!(system_instructions().contains("Progressive visual design method v37:"));
+    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v37"));
     assert!(system_instructions().contains("each branch's parentKey names the selector key"));
     assert!(
         system_instructions().contains("each guard/outcome leaf's parentKey names its branch key")
