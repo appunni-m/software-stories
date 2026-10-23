@@ -18,13 +18,7 @@ const BEHAVIOR_TEACHING: &str = r#"Teaching policy v27: Start with the real inpu
 
 const EVIDENCE_MEANING: &str = r#"Trace the guards and failures that can prevent the behavior being explained. Distinguish rejected, missing, malformed and successfully handled inputs only when the cited implementation shows those cases. A comment, import, identifier or default constructor does not prove later consumer behavior. For downstream effects, cite the consumer plus the producing path and conditions; otherwise leave that effect unexplored. References and identifiers do not prove meaning."#;
 
-const VISUAL_DESIGN_METHOD: &str = r#"Visual design method v33: Identify the real thing the reader should watch: input, decision, state/data change, or output. Let behavior choose one app-supported representation per scene, not language, file type or a favorite template. Use the shape that explains it: ordered checks → selector; single guard → branch; changed data → beforeAfter/transform; verified order → timeline; independent actors → lanes; FIFO/LIFO → queue/stack; actual nesting → tree; byte/field boundaries → bytes/table; pixels → matrix; quantities or value-to-route lookup → metric/table. For lookups show key, hit/miss and route; show parser/range boundaries only when source-backed. Use a graph only for relations those forms cannot show clearly.
-
-Art direction: Before composing, name the behavior as a verb—enters, checks, branches, transforms, accumulates, or returns—and make the layout enact that action. Do not default to equal cards, grids, or one repeated flow template. Cards are labels inside a meaningful composition, never the composition by themselves. Give each scene one dominant visual action with a single focal point. Keep a consistent visual grammar across one journey, then change the composition only at a real behavioral handoff; do not vary layouts for decoration. Use scale, spacing, direction and grouping to make a source-backed boundary or outcome easier to see, never to imply priority or runtime behavior that the code does not establish.
-
-Keep guards, outcomes, errors, defaults and destinations visible. Carry state only when source evidence supports it; never imply execution, concurrency, success, values or internals that were not observed. Label illustrative examples. Prefer concise cues; put full nuance in narration and source details. If a visual would mislead, use narration and source links. If no visual helps the whole section, use kind:none and one narration-mode scene with empty nodes, edges and elements for every claim. Otherwise every claim must have a source-linked visual scene. Do not mix modes or leave a visual scene empty. This renderer supports only inert app-owned HTML/CSS primitives: never emit HTML, CSS, JavaScript, URLs or remote assets. Do not imply that 3-D/WebGL is available; use a 2-D semantic composition when it communicates the evidenced behavior."#;
-
-const PROGRESSIVE_VISUAL_DESIGN_METHOD: &str = r#"Progressive visual design method v37: Let observed behavior choose one app-supported composition per scene, not file type or a favorite template: ordered checks → selector; one guard → branch; changed state/data → transform or beforeAfter; verified order → timeline; independent actors → lanes; FIFO/LIFO → queue/stack; actual nesting → tree; byte/field boundaries → bytes/table; pixels → matrix; lookup → key, hit/miss and route; quantities → metric. Use a graph only when those forms cannot show the relationship; focused graphs show at most eight nodes and one edge of context. Make layout enact the action with one focal point; avoid equal-card grids and decorative variation. Change layout at a real handoff. Preserve source-backed guards, misses, outcomes and failures; never imply unobserved execution or values. Default every authored node's source to null; use an exact source value only when that literal itself matters, and only when it occurs once in the node's cited excerpt. Node evidence keeps the code clickable. The app renders safe structured elements; never emit markup, scripts, URLs or handlers."#;
+const VISUAL_DESIGN_METHOD: &str = r#"Visual design method v37: Let observed behavior choose one app-supported composition per scene, not file type or a favorite template: ordered checks → selector; one guard → branch; changed state/data → transform or beforeAfter; verified order → timeline; independent actors → lanes; FIFO/LIFO → queue/stack; actual nesting → tree; byte/field boundaries → bytes/table; pixels → matrix; lookup → key, hit/miss and route; quantities → metric. Use a graph only when those forms cannot show the relationship; focused graphs show at most eight nodes and one edge of context. Name the behavior as a verb and make layout enact that action with one focal point. Avoid equal-card grids, a repeated flow template and decorative variation. Keep a consistent visual grammar across a journey and change composition only at a real behavioral handoff. Preserve source-backed guards, misses, outcomes, errors and uncertainty; never imply unobserved execution, priority or values. Default every authored node's source to null; use an exact source value only when that literal itself matters and occurs once in the node's cited excerpt. Node evidence keeps code clickable. The app renders safe structured elements; never emit markup, scripts, URLs or handlers. This renderer uses inert app-owned HTML/CSS primitives; do not imply 3-D/WebGL is available."#;
 
 const VISIBLE_VALUE_CONTRACT: &str = r#"Visible-value contract v29: Every content leaf needs a visible input, guard, change, output or destination; no placeholders or meaning hidden in help/narration. Default every visual node source to null. Use an exact source value only when that literal itself matters to understanding and occurs exactly once in its cited excerpt; never use source for identifiers, labels or code snippets. Node evidence keeps code clickable. Otherwise label examples illustrative. Keep labels short (2–8 words, under 45 visible characters per card); preserve longer exact tokens only when they matter. Put sentence-length nuance in narration; use a wide/vertical scene instead of several long cards in a row/grid. Limits are ceilings: 8 nodes/section, 12 edges, 24 elements/8 leaves/scene, 6 children/group. If no concise visual fits, use narration and links."#;
 
@@ -63,7 +57,7 @@ pub(crate) fn progressive_teaching_instructions() -> String {
         STORY_INTRO,
         BEHAVIOR_TEACHING,
         EVIDENCE_MEANING,
-        PROGRESSIVE_VISUAL_DESIGN_METHOD,
+        VISUAL_DESIGN_METHOD,
         VISIBLE_VALUE_CONTRACT,
         SPOKEN_ROLE_INSTRUCTIONS,
         OUTCOME_TEACHING,
@@ -199,45 +193,35 @@ pub(crate) mod tests {
             )
         );
         assert!(instructions.contains(
-            "Identify the real thing the reader should watch: input, decision, state/data change, or output"
+            "Each scene makes one change, decision or result visible and explains why it matters"
         ));
-        assert!(instructions.contains("one app-supported representation per scene"));
-        assert!(instructions.contains("Identify the real thing the reader should watch"));
-        assert!(instructions.contains("not language, file type or a favorite template"));
-        assert!(instructions.contains("one dominant visual action"));
+        assert!(instructions.contains("one app-supported composition per scene"));
+        assert!(instructions.contains("not file type or a favorite template"));
+        assert!(instructions.contains("one focal point"));
         assert!(instructions.contains("under 45 visible characters per card"));
         assert!(instructions.contains("instead of several long cards in a row/grid"));
         assert!(instructions.contains("verified order → timeline"));
         assert!(instructions.contains("ordered checks → selector"));
         assert!(instructions.contains("Never combine a guard and outcome in one card"));
         assert!(instructions.contains("a miss visibly continues"));
-        assert!(instructions.contains("single guard → branch"));
+        assert!(instructions.contains("one guard → branch"));
         assert!(instructions.contains("independent actors → lanes"));
         assert!(instructions.contains("FIFO/LIFO → queue/stack"));
         assert!(instructions.contains("actual nesting → tree"));
         assert!(instructions.contains("byte/field boundaries → bytes/table"));
         assert!(
-            instructions.contains("Use a graph only for relations those forms cannot show clearly")
+            instructions.contains("Use a graph only when those forms cannot show the relationship")
         );
-        assert!(instructions.contains("For lookups show key, hit/miss and route"));
-        assert!(instructions.contains("value-to-route lookup → metric/table"));
+        assert!(instructions.contains("lookup → key, hit/miss and route"));
         assert!(instructions.contains("Otherwise label examples illustrative"));
         assert!(instructions.contains("Every content leaf needs a visible input"));
         assert!(instructions.contains("no placeholders"));
-        assert!(
-            instructions
-                .contains("This renderer supports only inert app-owned HTML/CSS primitives")
-        );
-        assert!(instructions.contains("Do not imply that 3-D/WebGL is available"));
+        assert!(instructions.contains("This renderer uses inert app-owned HTML/CSS primitives"));
+        assert!(instructions.contains("do not imply 3-D/WebGL is available"));
         assert!(instructions.contains("The app owns HTML, styling and interactions"));
-        assert!(instructions.contains("Carry state only when source evidence supports it"));
         assert!(instructions.contains("8 nodes/section"));
         assert!(instructions.contains("Default every visual node source to null"));
-        assert!(instructions.contains("not language, file type or a favorite template"));
-        assert!(instructions.contains("show parser/range boundaries only when source-backed"));
-        assert!(instructions.contains(
-            "never imply execution, concurrency, success, values or internals that were not observed"
-        ));
+        assert!(instructions.contains("never imply unobserved execution, priority or values"));
         assert!(instructions.contains(
             "Never supply HTML strings, CSS, URLs, JavaScript, event handlers or extra fields"
         ));
@@ -301,26 +285,29 @@ pub(crate) mod tests {
     #[test]
     fn shared_teaching_selects_layout_by_behavior_and_keeps_decision_outcomes_visible() {
         let shared = teaching_instructions();
+        assert!(super::instructions().contains("Visual design method v37:"));
+        assert!(super::progressive_teaching_instructions().contains("Visual design method v37:"));
+        assert!(!super::instructions().contains("Visual design method v33:"));
         assert!(shared.contains("VISUAL STORY CONTRACT — ai-html-compositions-v37"));
         assert!(
             shared.contains("Follow a real input through source-grounded changes and outcomes")
         );
         assert!(shared.contains("verified order → timeline"));
         assert!(shared.contains("ordered checks → selector"));
-        assert!(shared.contains("single guard → branch"));
-        assert!(shared.contains("value-to-route lookup → metric/table"));
-        assert!(shared.contains("changed data → beforeAfter/transform"));
+        assert!(shared.contains("one guard → branch"));
+        assert!(shared.contains("lookup → key, hit/miss and route"));
+        assert!(shared.contains("changed state/data → transform or beforeAfter"));
         assert!(shared.contains("independent actors → lanes"));
         assert!(shared.contains("byte/field boundaries → bytes/table"));
-        assert!(shared.contains("Use a graph only for relations those forms cannot show clearly"));
+        assert!(shared.contains("Use a graph only when those forms cannot show the relationship"));
         assert!(super::instructions().contains(
             "selector is the root and directly contains at least two source-ordered branch groups"
         ));
-        assert!(shared.contains("not language, file type or a favorite template"));
-        assert!(shared.contains("one app-supported representation per scene"));
+        assert!(shared.contains("not file type or a favorite template"));
+        assert!(shared.contains("one app-supported composition per scene"));
         assert!(shared.contains("pixels → matrix"));
-        assert!(shared.contains("This renderer supports only inert app-owned HTML/CSS primitives"));
-        assert!(shared.contains("Do not imply that 3-D/WebGL is available"));
+        assert!(shared.contains("This renderer uses inert app-owned HTML/CSS primitives"));
+        assert!(shared.contains("do not imply 3-D/WebGL is available"));
         assert!(super::instructions().contains("The app owns HTML, styling and interactions"));
         assert!(shared.contains("Preserve guards, alternatives, failures and uncertainty"));
         assert!(shared.contains("Selector checks stay source ordered"));
@@ -330,13 +317,16 @@ pub(crate) mod tests {
             "Use cards only as concise labels/values inside a semantic visual, not as the visual itself"
         ));
         assert!(shared.contains("Show every supported outcome with its guard and destination"));
-        assert!(shared.contains("If a visual would mislead, use narration and source links"));
-        assert!(shared.contains("If no visual helps the whole section, use kind:none"));
+        assert!(shared.contains("If no visual helps the section, set kind:none"));
         assert!(shared.contains(
-            "one narration-mode scene with empty nodes, edges and elements for every claim"
+            "give every claim a narration scene with mode:narration and empty nodes, edges and elements"
         ));
-        assert!(shared.contains("Otherwise every claim must have a source-linked visual scene"));
-        assert!(shared.contains("Do not mix modes or leave a visual scene empty"));
+        assert!(
+            shared.contains(
+                "Otherwise every claim needs a scene with at least one source-linked node"
+            )
+        );
+        assert!(shared.contains("Never mix modes or leave a visual scene empty"));
         assert!(shared.contains("never describes the artifact"));
         assert!(shared.contains("Do not speak function, method, type, field or error identifiers"));
         assert!(shared.contains("Selector checks stay source ordered"));
