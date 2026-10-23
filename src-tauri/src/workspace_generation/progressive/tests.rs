@@ -571,14 +571,15 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(!instructions.contains("parser fallback starts after those checks"));
     assert!(instructions.contains("Start with the real input or situation"));
     assert!(instructions.contains("show code only when syntax is the lesson"));
-    assert!(instructions.contains(
-        "Identify the real thing the reader should watch: input, decision, state/data change, or output"
-    ));
+    assert!(
+        instructions
+            .contains("Let observed behavior choose one app-supported composition per scene")
+    );
     assert!(instructions.contains("verified order → timeline"));
     assert!(
-        instructions.contains("Use a graph only for relations those forms cannot show clearly")
+        instructions.contains("Use a graph only when those forms cannot show the relationship")
     );
-    assert!(instructions.contains("one app-supported representation per scene"));
+
     assert!(instructions.contains("Across the section use 2–12 nodes and at most 20 edges"));
     assert!(instructions.contains("The app's typed renderer owns safe HTML and source links"));
     assert!(instructions.contains("Pair every alternative with its actual guard"));
@@ -594,10 +595,12 @@ fn progressive_story_uses_behavior_examples_and_distinct_outcomes_before_syntax(
     assert!(
         instructions.contains("preserving the claim, supported behavior and chosen representation")
     );
-    assert!(instructions.contains(
-        "sceneSourceValue must occur exactly once in that node's same-claim cited excerpt"
-    ));
-    assert!(instructions.contains("fix from delivered evidence, never borrow or relabel a copy"));
+    assert!(instructions.contains("sceneSourceValue must occur once in the same-claim excerpt"));
+    assert!(
+        instructions.contains(
+            "if the exact value is not essential, set source:null and keep node evidence"
+        )
+    );
 }
 
 #[test]
@@ -626,8 +629,8 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         "selectorShape means the root selector has 2+ source-ordered direct branch groups"
     ));
     assert!(system_instructions().contains("Never combine guard and outcome in one card"));
-    assert!(system_instructions().contains("Visual design method v33:"));
-    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v35"));
+    assert!(system_instructions().contains("Progressive visual design method v36:"));
+    assert!(system_instructions().contains("VISUAL STORY CONTRACT — ai-html-compositions-v36"));
     assert!(system_instructions().contains("each branch's parentKey names the selector key"));
     assert!(
         system_instructions().contains("each guard/outcome leaf's parentKey names its branch key")
@@ -635,14 +638,18 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
     assert!(!system_instructions().contains("presentation:{schemaVersion:3"));
     assert!(!system_instructions().contains("Elements have exactly kind,parentIndex,nodeIndex"));
     assert!(system_instructions().contains("under 45 visible characters per card"));
-    assert!(system_instructions().contains("Identify the real thing the reader should watch"));
+    assert!(
+        system_instructions()
+            .contains("Let observed behavior choose one app-supported composition per scene")
+    );
     assert!(
         system_instructions()
             .contains("Follow a real input through source-grounded changes and outcomes")
     );
-    assert!(system_instructions().contains(
-        "Identify the real thing the reader should watch: input, decision, state/data change, or output"
-    ));
+    assert!(
+        system_instructions()
+            .contains("Let observed behavior choose one app-supported composition per scene")
+    );
     assert!(
         system_instructions().contains("Across the section use 2–12 nodes and at most 20 edges")
     );
@@ -678,7 +685,7 @@ fn teaching_policy_is_bound_to_the_new_request_without_changing_retrieval_limits
         contract["sceneAuthoringPolicy"],
         "claim-owned-scene-local-identities-v3"
     );
-    assert!(system_instructions().contains("at most eight nodes"));
+    assert!(system_instructions().contains("Target at most eight nodes"));
     assert!(system_instructions().contains("one edge of context"));
     assert_eq!(
         contract["identifierCompilationPolicy"],
@@ -756,14 +763,15 @@ fn every_workspace_code_investigation_uses_a_user_controlled_runtime() {
 #[test]
 fn progressive_story_rules_cover_representation_and_fallible_result_meaning() {
     let instructions = system_instructions();
-    assert!(instructions.contains(
-        "Identify the real thing the reader should watch: input, decision, state/data change, or output"
-    ));
-    assert!(instructions.contains("changed data → beforeAfter/transform"));
-    assert!(instructions.contains("not language, file type or a favorite template"));
+    assert!(
+        instructions
+            .contains("Let observed behavior choose one app-supported composition per scene")
+    );
+    assert!(instructions.contains("changed state/data → transform or beforeAfter"));
+    assert!(instructions.contains("not file type or a favorite template"));
     assert!(instructions.contains("Selecting a handler does not mean its work succeeds"));
     assert!(instructions.contains("Cross-check claim, narration, labels and values"));
-    assert!(instructions.contains("Show every supported outcome with its guard and destination"));
+    assert!(instructions.contains("Pair every alternative with its actual guard"));
     assert!(!instructions.contains("spokenText copies the complete scene narration"));
 }
 
@@ -774,14 +782,14 @@ fn narration_pacing_preserves_all_conditions_and_is_bound_to_the_request() {
     let (prompt, schema, fingerprint) = request(&input, &f.manifest).unwrap();
     let mut contract = generation_contract(&input, &prompt, &schema).unwrap();
     let instructions = system_instructions();
-    assert!(instructions.contains("One consequential decision or transition per claim/scene"));
-    assert!(
-        instructions
-            .contains("two to four claims/scenes and target at most eight distinct evidence nodes")
-    );
-    assert!(instructions.contains("at most eight nodes"));
-    assert!(instructions.contains("Split stacked guards, broad stages and dense branch sets into consecutive slides at handoffs"));
-    assert!(instructions.contains("Preserve all guards, outcomes and edges"));
+    assert!(instructions.contains("One transition per claim/scene"));
+    assert!(instructions.contains("Prefer 1–2 claims per slide"));
+    assert!(instructions.contains("at most two code names per claim"));
+    assert!(instructions.contains("target 100–500 bytes, 1–3 refs"));
+    assert!(instructions.contains("Prefer 1–2 claims per slide (max 4 tightly connected)"));
+    assert!(instructions.contains("Target at most eight nodes"));
+    assert!(instructions.contains("Split broader paths/branch sets"));
+    assert!(instructions.contains("preserve every guard and outcome"));
     assert!(instructions.contains("Never claim measured timings"));
     assert!(instructions.contains("State the decision rule before examples"));
     assert!(instructions.contains("explain every outcome"));

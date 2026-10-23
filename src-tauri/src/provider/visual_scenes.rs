@@ -5,13 +5,13 @@ use crate::chapters::{self, ChapterRevision};
 use serde_json::{Value, json};
 
 pub(crate) const TEACHING_POLICY_VERSION: &str = "meaning-first-v27";
-pub(crate) const STORY_POLICY_VERSION: &str = "ai-html-compositions-v35";
+pub(crate) const STORY_POLICY_VERSION: &str = "ai-html-compositions-v36";
 
 /// One speech contract for file, overview and selected-section user prompts.
 /// Keep the full script and inspectable claim fields complete.
 pub(super) const SECTION_NARRATION_INSTRUCTIONS: &str = "Complete scene narration: when a presentation is supplied, spokenText joins every scene narration in claim order, including visible inference labels. It must preserve the full behavior, guards, alternatives, errors and uncertainty of all claims, not a summary or a chosen subset. Tell what the real subject does and why it matters; point to a short visual cue only to help the listener follow. Never narrate the artifact itself or open with meta commentary such as ‘these boxes show’, ‘this diagram explains’ or ‘the scene illustrates’. Start with the caller, input or decision, then tell what happens next and where each supported outcome goes. Use at most two short, natural sentences per scene. Explain every distinct outcome in plain words. Keep exact identifiers, signatures, abbreviations, file-format tags, field/table tokens and error labels visible in claims, visual details and source links; in speech describe each by its role (for example, say ‘the first font-format check’ rather than spelling its tag, and ‘the glyph's stored horizontal width’ rather than a table token). Speak an exact token only when the user explicitly asks about its spelling or meaning. If several checks would become a spoken list, split them into ordered scenes without dropping any condition or outcome. With no presentation, write a complete natural spoken account of all claims with the same story-first style, preserving every guard, alternative, error, inference label and uncertainty. Keep the complete transport script within 20–1,000 UTF-8 bytes and the declared section shape; organize focused claims without dropping behavior. The app retains exact claims separately and assembles speech from all scenes.";
 
-const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v35
+const STORY_INTRO: &str = r#"VISUAL STORY CONTRACT — ai-html-compositions-v36
 Build a visual explanation around real code behavior. Follow a real input through source-grounded changes and outcomes. Each scene makes one change, decision or result visible and explains why it matters. Narration tells the subject's journey in direct speech; it never describes the artifact with phrases like ‘these boxes show’ or ‘this diagram illustrates’. Start with the real caller, input or decision, then follow what happens and where each supported outcome goes. Point to a visible cue only as a brief landmark. Preserve guards, alternatives, failures and uncertainty. Label examples; never invent behavior. Use one mode for a whole section. If no visual helps the section, set kind:none and give every claim a narration scene with mode:narration and empty nodes, edges and elements. Otherwise every claim needs a scene with at least one source-linked node. Never mix modes or leave a visual scene empty. Prefix inference narration with its visible label."#;
 
 const BEHAVIOR_TEACHING: &str = r#"Teaching policy v27: Start with the real input or situation; each claim covers one code-backed transition and its consequence. State the decision rule before examples and explain every outcome, guard, alternative and error. Keep identifiers, guards and errors visible but speak their role unless the token itself is asked about. Preserve zero/nonzero and empty-result behavior; never invent intent or results."#;
@@ -23,6 +23,8 @@ const VISUAL_DESIGN_METHOD: &str = r#"Visual design method v33: Identify the rea
 Art direction: Before composing, name the behavior as a verb—enters, checks, branches, transforms, accumulates, or returns—and make the layout enact that action. Do not default to equal cards, grids, or one repeated flow template. Cards are labels inside a meaningful composition, never the composition by themselves. Give each scene one dominant visual action with a single focal point. Keep a consistent visual grammar across one journey, then change the composition only at a real behavioral handoff; do not vary layouts for decoration. Use scale, spacing, direction and grouping to make a source-backed boundary or outcome easier to see, never to imply priority or runtime behavior that the code does not establish.
 
 Keep guards, outcomes, errors, defaults and destinations visible. Carry state only when source evidence supports it; never imply execution, concurrency, success, values or internals that were not observed. Label illustrative examples. Prefer concise cues; put full nuance in narration and source details. If a visual would mislead, use narration and source links. If no visual helps the whole section, use kind:none and one narration-mode scene with empty nodes, edges and elements for every claim. Otherwise every claim must have a source-linked visual scene. Do not mix modes or leave a visual scene empty. This renderer supports only inert app-owned HTML/CSS primitives: never emit HTML, CSS, JavaScript, URLs or remote assets. Do not imply that 3-D/WebGL is available; use a 2-D semantic composition when it communicates the evidenced behavior."#;
+
+const PROGRESSIVE_VISUAL_DESIGN_METHOD: &str = r#"Progressive visual design method v36: Let observed behavior choose one app-supported composition per scene, not file type or a favorite template: ordered checks → selector; one guard → branch; changed state/data → transform or beforeAfter; verified order → timeline; independent actors → lanes; FIFO/LIFO → queue/stack; actual nesting → tree; byte/field boundaries → bytes/table; pixels → matrix; lookup → key, hit/miss and route; quantities → metric. Use a graph only when those forms cannot show the relationship; focused graphs show at most eight nodes and one edge of context. Make layout enact the action with one focal point; avoid equal-card grids and decorative variation. Change layout at a real handoff. Preserve source-backed guards, misses, outcomes and failures; never imply unobserved execution or values. The app renders safe structured elements; never emit markup, scripts, URLs or handlers."#;
 
 const VISIBLE_VALUE_CONTRACT: &str = r#"Visible-value contract v28: Every content leaf needs a visible input, guard, change, output or destination; no placeholders or meaning hidden in help/narration. Use source:null for readable labels; source values must be exact, unique substrings of cited excerpts. Otherwise label examples illustrative. Keep labels short (2–8 words, under 45 visible characters per card); preserve longer exact tokens only when they matter. Put sentence-length nuance in narration; use a wide/vertical scene instead of several long cards in a row/grid. Limits are ceilings: 8 nodes/section, 12 edges, 24 elements/8 leaves/scene, 6 children/group. If no concise visual fits, use narration and links."#;
 
@@ -52,6 +54,20 @@ pub(crate) fn teaching_instructions() -> String {
         OUTCOME_TEACHING,
         FALLIBLE_TRANSITIONS,
         VISIBLE_DECISIONS,
+    ]
+    .join("\n\n")
+}
+
+pub(crate) fn progressive_teaching_instructions() -> String {
+    [
+        STORY_INTRO,
+        BEHAVIOR_TEACHING,
+        EVIDENCE_MEANING,
+        PROGRESSIVE_VISUAL_DESIGN_METHOD,
+        VISIBLE_VALUE_CONTRACT,
+        SPOKEN_ROLE_INSTRUCTIONS,
+        OUTCOME_TEACHING,
+        FALLIBLE_TRANSITIONS,
     ]
     .join("\n\n")
 }
@@ -176,7 +192,7 @@ pub(crate) mod tests {
     #[test]
     fn ordinary_prompt_binds_the_versioned_scene_narration_policy() {
         let instructions = super::instructions();
-        assert!(instructions.contains("ai-html-compositions-v35"));
+        assert!(instructions.contains("ai-html-compositions-v36"));
         assert!(
             instructions.contains(
                 "whole section has at most 12 nodes and 20 edges across all claim scenes"
@@ -285,7 +301,7 @@ pub(crate) mod tests {
     #[test]
     fn shared_teaching_selects_layout_by_behavior_and_keeps_decision_outcomes_visible() {
         let shared = teaching_instructions();
-        assert!(shared.contains("VISUAL STORY CONTRACT — ai-html-compositions-v35"));
+        assert!(shared.contains("VISUAL STORY CONTRACT — ai-html-compositions-v36"));
         assert!(
             shared.contains("Follow a real input through source-grounded changes and outcomes")
         );
