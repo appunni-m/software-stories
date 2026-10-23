@@ -785,7 +785,8 @@ fn narration_pacing_preserves_all_conditions_and_is_bound_to_the_request() {
     assert!(instructions.contains("One transition per claim/scene"));
     assert!(instructions.contains("Prefer 1–2 claims per slide"));
     assert!(instructions.contains("at most two code names per claim"));
-    assert!(instructions.contains("target 100–500 bytes, 1–3 refs"));
+    assert!(instructions.contains("target 100–500 bytes and 1–2 evidence refs per claim"));
+    assert!(instructions.contains("omit nearby context refs that do not"));
     assert!(instructions.contains("Prefer 1–2 claims per slide (max 4 tightly connected)"));
     assert!(instructions.contains("Target at most eight nodes"));
     assert!(instructions.contains("Split broader paths/branch sets"));
